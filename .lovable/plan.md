@@ -1,169 +1,571 @@
 
-# Review Implementation - Topic AI Improvements
+# P0: Strategy Validation Layer (Goal-Angle-Role)
 
-## Tóm tắt trạng thái
-
-✅ **All 4 Phases COMPLETE + P0-P2 Fixes Applied**
-
----
-
-## ✅ Các phần đã implement tốt
-
-### Phase 1: `suggest_audience` Action
-- Edge function handler `handleSuggestAudience` hoàn chỉnh (lines 979-1224)
-- Logic 3 scenarios: no personas → AI generate, semantic match strong → return directly, fallback → AI matching
-- Frontend hook `suggestAudience()` integrate đúng cách
-- Error handling với fallback to semantic match khi AI fails
-
-### Phase 2: Semantic Persona Matching
-- `semanticMatchPersona()` với embeddings sử dụng `gte-small` (384 dimensions)
-- `cosineSimilarity()` và `personaToText()` utilities
-- `keywordMatchPersona()` làm fallback khi embeddings fail
-- Threshold 70% để short-circuit AI call
-
-### Phase 3: Smart Parallel Calls
-- `shouldSkipWebSearch()` logic với 5 conditions
-- `WebSearchDecision` interface đầy đủ
-- Conditional parallel tasks trong `handleSuggest`
-- Debug logging và cost metrics trong response
-
-### Phase 4: Enhanced Cache & Error Consolidation
-- `hashContextData()` cho context-aware cache key (v8)
-- `createApiErrorHandler()` factory function
-- 4 module handlers sử dụng `useMemo()`
+## Mục tiêu
+Đảm bảo tính nhất quán của chiến lược nội dung từ lúc user chọn (frontend) đến khi AI generate (backend), với warning UI rõ ràng và scoring adjustment khi có conflict.
 
 ---
 
-## ⚠️ Các vấn đề cần sửa
+## 1. Kiến trúc tổng quan
 
-### Vấn đề 1: Missing `matchMethod` trong Frontend Type Mapping (CRITICAL)
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          STRATEGY FLOW                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  STEP 1 (Topic)         STEP 2 (Core)        STEP 3 (Role)              │
+│  ┌─────────────┐        ┌─────────────┐      ┌─────────────┐            │
+│  │ ContentGoal │───────▶│ContentAngle │─────▶│ ContentRole │            │
+│  │ (education) │        │(educational)│      │  (sprout)   │            │
+│  └─────────────┘        └─────────────┘      └─────────────┘            │
+│        │                       │                    │                    │
+│        ▼                       ▼                    ▼                    │
+│  ┌─────────────────────────────────────────────────────────┐            │
+│  │           STRATEGY VALIDATION LAYER (NEW)               │            │
+│  │  ┌────────────────────────────────────────────────┐     │            │
+│  │  │ validateStrategy(goal, angle, role) → Result   │     │            │
+│  │  │   - conflicts: [{type, severity, message}]     │     │            │
+│  │  │   - suggestedRole: ContentRole                 │     │            │
+│  │  │   - scorePenalty: number (0-15)               │     │            │
+│  │  │   - adjustedPromptInstructions: string        │     │            │
+│  │  └────────────────────────────────────────────────┘     │            │
+│  └─────────────────────────────────────────────────────────┘            │
+│        │                                                                 │
+│        ▼                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐            │
+│  │              GENERATE-MULTICHANNEL                       │            │
+│  │  - Apply scorePenalty to Self-Critique                  │            │
+│  │  - Inject adjustedPromptInstructions                    │            │
+│  │  - Log strategy conflicts for analytics                 │            │
+│  └─────────────────────────────────────────────────────────┘            │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
-**Vị trí:** `src/hooks/ai/useTopicAI.ts` lines 1142-1153
+---
 
-**Vấn đề:** Frontend không map field `matchMethod` từ API response:
+## 2. Tạo Strategy Validation Utility
+
+**File mới:** `supabase/functions/_shared/strategy-validator.ts`
+
+### 2.1 Types & Interfaces
 
 ```typescript
-// Hiện tại (thiếu matchMethod)
-const result: SuggestAudienceResult = {
-  success: true,
-  matchedPersonaId: data.matchedPersonaId || undefined,
-  matchedPersonaName: data.matchedPersonaName || undefined,
-  matchScore: data.matchScore || 0,
-  suggestedAudience: data.suggestedAudience || '',
-  reasoning: data.reasoning || '',
-  keyCharacteristics: data.keyCharacteristics || [],
-  alternativePersonaIds: data.alternativePersonaIds || [],
-  alternativePersonaNames: data.alternativePersonaNames || [],
-  // ❌ MISSING: matchMethod
+// Strategy types
+export type ContentGoal = 'education' | 'awareness' | 'engagement' | 'expertise' | 'conversion';
+export type ContentAngle = 'educational' | 'storytelling' | 'promotional' | 'social_proof' | 'behind_the_scenes' | 'qa_faq';
+export type ContentRole = 'seed' | 'sprout' | 'harvest';
+
+// Validation result
+export interface StrategyValidationResult {
+  isValid: boolean;
+  conflicts: StrategyConflict[];
+  suggestedRole: ContentRole | null;
+  scorePenalty: number;  // 0-15 points penalty to apply to Self-Critique
+  promptAdjustments: string;  // Additional instructions to inject into prompt
+  conflictLevel: 'none' | 'warning' | 'severe';
+}
+
+export interface StrategyConflict {
+  type: 'goal_role' | 'angle_role' | 'goal_angle';
+  severity: 'warning' | 'error';
+  field1: string;
+  field2: string;
+  message: string;
+  recommendation: string;
+}
+```
+
+### 2.2 Conflict Mappings (Complete Matrix)
+
+```typescript
+// GOAL + ROLE Conflicts
+const GOAL_ROLE_CONFLICTS: Record<string, StrategyConflict> = {
+  // HIGH-INTENT GOAL + LOW-INTENT ROLE
+  'conversion_seed': {
+    type: 'goal_role',
+    severity: 'error',
+    field1: 'conversion',
+    field2: 'seed',
+    message: 'Goal "Chuyển đổi" cần CTA mạnh, nhưng Seed không push conversion',
+    recommendation: 'Nên chọn Harvest để có CTA mạnh, hoặc đổi Goal sang Awareness',
+  },
+  'conversion_sprout': {
+    type: 'goal_role',
+    severity: 'warning',
+    field1: 'conversion',
+    field2: 'sprout',
+    message: 'Goal "Chuyển đổi" nên có CTA mạnh hơn Sprout',
+    recommendation: 'Sprout phù hợp để build trust, cân nhắc Harvest nếu cần conversion ngay',
+  },
+  
+  // LOW-INTENT GOAL + HIGH-INTENT ROLE
+  'awareness_harvest': {
+    type: 'goal_role',
+    severity: 'error',
+    field1: 'awareness',
+    field2: 'harvest',
+    message: 'Goal "Nhận diện" cần soft-sell, nhưng Harvest có CTA mạnh gây khó chịu',
+    recommendation: 'Nên chọn Seed cho awareness, hoặc đổi Goal sang Conversion',
+  },
+  'education_harvest': {
+    type: 'goal_role',
+    severity: 'warning',
+    field1: 'education',
+    field2: 'harvest',
+    message: 'Goal "Giáo dục" nên chia sẻ giá trị, Harvest quá pushy',
+    recommendation: 'Sprout phù hợp hơn cho education content',
+  },
+  'engagement_harvest': {
+    type: 'goal_role',
+    severity: 'warning',
+    field1: 'engagement',
+    field2: 'harvest',
+    message: 'Goal "Tương tác" cần discussion, Harvest quá tập trung conversion',
+    recommendation: 'Sprout hoặc Seed phù hợp hơn để encourage discussion',
+  },
+};
+
+// ANGLE + ROLE Conflicts
+const ANGLE_ROLE_CONFLICTS: Record<string, StrategyConflict> = {
+  // PROMOTIONAL ANGLE + LOW-INTENT ROLE
+  'promotional_seed': {
+    type: 'angle_role',
+    severity: 'error',
+    field1: 'promotional',
+    field2: 'seed',
+    message: 'Góc "Quảng cáo" cần CTA rõ, nhưng Seed không có selling intent',
+    recommendation: 'Harvest phù hợp nhất cho promotional content',
+  },
+  'promotional_sprout': {
+    type: 'angle_role',
+    severity: 'warning',
+    field1: 'promotional',
+    field2: 'sprout',
+    message: 'Góc "Quảng cáo" nên có CTA mạnh hơn Sprout',
+    recommendation: 'Cân nhắc Harvest để maximize conversion',
+  },
+  
+  // EDUCATIONAL ANGLE + HIGH-INTENT ROLE
+  'educational_harvest': {
+    type: 'angle_role',
+    severity: 'warning',
+    field1: 'educational',
+    field2: 'harvest',
+    message: 'Góc "Kiến thức" nên chia sẻ giá trị, Harvest quá pushy',
+    recommendation: 'Sprout phù hợp nhất cho educational content',
+  },
+  'storytelling_harvest': {
+    type: 'angle_role',
+    severity: 'warning',
+    field1: 'storytelling',
+    field2: 'harvest',
+    message: 'Góc "Kể chuyện" cần emotional flow, Harvest gián đoạn narrative',
+    recommendation: 'Seed hoặc Sprout giữ emotional connection tốt hơn',
+  },
+  'behind_the_scenes_harvest': {
+    type: 'angle_role',
+    severity: 'warning',
+    field1: 'behind_the_scenes',
+    field2: 'harvest',
+    message: 'Góc "Hậu trường" cần authenticity, Harvest có thể perceived as fake',
+    recommendation: 'Seed phù hợp nhất cho behind-the-scenes',
+  },
+};
+
+// GOAL + ANGLE Conflicts (Less common but possible)
+const GOAL_ANGLE_CONFLICTS: Record<string, StrategyConflict> = {
+  'conversion_educational': {
+    type: 'goal_angle',
+    severity: 'warning',
+    field1: 'conversion',
+    field2: 'educational',
+    message: 'Goal "Chuyển đổi" + Góc "Kiến thức" có thể conflict intent',
+    recommendation: 'Ensure educational content still leads to clear CTA',
+  },
+  'awareness_promotional': {
+    type: 'goal_angle',
+    severity: 'warning',
+    field1: 'awareness',
+    field2: 'promotional',
+    message: 'Goal "Nhận diện" + Góc "Quảng cáo" có thể quá aggressive cho cold audience',
+    recommendation: 'Consider softer approach or change goal to Conversion',
+  },
 };
 ```
 
-**Fix:** Thêm `matchMethod: data.matchMethod` vào object
-
----
-
-### Vấn đề 2: Potential Error - Null Reference trong `parseRefinedTopics`
-
-**Vị trí:** `supabase/functions/topic-ai/index.ts` lines 1390-1393
-
-**Vấn đề:** String comparison không xử lý null/undefined:
+### 2.3 Validation Logic
 
 ```typescript
-const matchedPersona = brandContext.personas.find((p: any) =>
-  p.name?.toLowerCase().includes(item.targetPersona.toLowerCase()) ||
-  item.targetPersona.toLowerCase().includes(p.name?.toLowerCase())
-);
-```
-
-Nếu `item.targetPersona` là `null` hoặc `undefined`, sẽ throw error.
-
-**Fix:** Thêm null check:
-```typescript
-if (item.targetPersona && brandContext?.personas?.length) {
-  const targetLower = item.targetPersona?.toLowerCase() || '';
-  if (targetLower) {
-    const matchedPersona = brandContext.personas.find((p: any) => {
-      const personaName = p.name?.toLowerCase() || '';
-      return personaName.includes(targetLower) || targetLower.includes(personaName);
-    });
-    // ...
+export function validateStrategy(
+  goal: ContentGoal | undefined,
+  angle: ContentAngle | undefined,
+  role: ContentRole | undefined
+): StrategyValidationResult {
+  const conflicts: StrategyConflict[] = [];
+  
+  // Check Goal + Role conflicts
+  if (goal && role) {
+    const goalRoleKey = `${goal}_${role}`;
+    if (GOAL_ROLE_CONFLICTS[goalRoleKey]) {
+      conflicts.push(GOAL_ROLE_CONFLICTS[goalRoleKey]);
+    }
   }
+  
+  // Check Angle + Role conflicts
+  if (angle && role) {
+    const angleRoleKey = `${angle}_${role}`;
+    if (ANGLE_ROLE_CONFLICTS[angleRoleKey]) {
+      conflicts.push(ANGLE_ROLE_CONFLICTS[angleRoleKey]);
+    }
+  }
+  
+  // Check Goal + Angle conflicts
+  if (goal && angle) {
+    const goalAngleKey = `${goal}_${angle}`;
+    if (GOAL_ANGLE_CONFLICTS[goalAngleKey]) {
+      conflicts.push(GOAL_ANGLE_CONFLICTS[goalAngleKey]);
+    }
+  }
+  
+  // Calculate penalty and conflict level
+  const hasError = conflicts.some(c => c.severity === 'error');
+  const hasWarning = conflicts.some(c => c.severity === 'warning');
+  
+  const scorePenalty = hasError ? 10 : hasWarning ? 5 : 0;
+  const conflictLevel = hasError ? 'severe' : hasWarning ? 'warning' : 'none';
+  
+  // Determine suggested role based on goal + angle
+  const suggestedRole = getSuggestedRole(goal, angle);
+  
+  // Build prompt adjustments to compensate for conflicts
+  const promptAdjustments = buildPromptAdjustments(conflicts);
+  
+  return {
+    isValid: conflicts.length === 0,
+    conflicts,
+    suggestedRole,
+    scorePenalty,
+    promptAdjustments,
+    conflictLevel,
+  };
+}
+
+function getSuggestedRole(goal?: ContentGoal, angle?: ContentAngle): ContentRole | null {
+  // Angle takes priority over Goal
+  if (angle) {
+    const angleRoleMap: Record<ContentAngle, ContentRole> = {
+      educational: 'sprout',
+      storytelling: 'seed',
+      promotional: 'harvest',
+      social_proof: 'sprout',
+      behind_the_scenes: 'seed',
+      qa_faq: 'sprout',
+    };
+    return angleRoleMap[angle] || null;
+  }
+  
+  if (goal) {
+    const goalRoleMap: Record<ContentGoal, ContentRole> = {
+      awareness: 'seed',
+      education: 'sprout',
+      expertise: 'sprout',
+      engagement: 'sprout',
+      conversion: 'harvest',
+    };
+    return goalRoleMap[goal] || null;
+  }
+  
+  return null;
+}
+
+function buildPromptAdjustments(conflicts: StrategyConflict[]): string {
+  if (conflicts.length === 0) return '';
+  
+  const adjustments: string[] = [
+    '\n## ⚠️ STRATEGY CONFLICT DETECTED - ADJUST GENERATION:',
+  ];
+  
+  for (const conflict of conflicts) {
+    adjustments.push(`- ${conflict.message}`);
+    
+    // Add specific compensation instructions
+    if (conflict.type === 'goal_role') {
+      if (conflict.field1 === 'conversion' && conflict.field2 === 'seed') {
+        adjustments.push('  → Ensure AT LEAST soft CTA despite Seed role');
+        adjustments.push('  → Include problem/benefit framing that leads to solution');
+      }
+      if (conflict.field1 === 'awareness' && conflict.field2 === 'harvest') {
+        adjustments.push('  → Soften CTA language - use "Tìm hiểu thêm" instead of "Mua ngay"');
+        adjustments.push('  → Add more storytelling/value before CTA');
+      }
+    }
+    if (conflict.type === 'angle_role') {
+      if (conflict.field1 === 'educational' && conflict.field2 === 'harvest') {
+        adjustments.push('  → Balance: 70% value, 30% CTA');
+        adjustments.push('  → Frame CTA as "next step in learning journey"');
+      }
+    }
+  }
+  
+  return adjustments.join('\n');
 }
 ```
 
 ---
 
-### Vấn đề 3: Inconsistent Error Handler Usage trong Audience Module
+## 3. Tích hợp vào Generate-Multichannel
 
-**Vị trí:** `src/hooks/ai/useTopicAI.ts` lines 1157, 1163
+**File:** `supabase/functions/generate-multichannel/index.ts`
 
-**Vấn đề:** Audience module sử dụng `handleIntelApiError` thay vì `handleAudienceApiError`:
-
-```typescript
-// Line 1157 - Sử dụng sai handler
-handleIntelApiError({ message: data.error, context: { body: JSON.stringify(data) } }, 'Không thể gợi ý audience');
-// Line 1163
-handleIntelApiError(err, 'Không thể gợi ý audience');
-```
-
-**Fix:** Thay bằng `handleAudienceApiError`
-
----
-
-### Vấn đề 4: Tiềm ẩn Performance Issue - Embedding Generation
-
-**Vị trí:** `supabase/functions/_shared/topic-utils.ts` lines 1100-1116
-
-**Vấn đề:** Loop qua từng persona và gọi `generateEmbedding()` sequentially:
+### 3.1 Import và gọi Validation
 
 ```typescript
-for (const persona of personas) {
-  const personaText = personaToText(persona);
-  const personaEmbedding = await generateEmbedding(personaText);
-  // ...
+// Add import
+import { validateStrategy, StrategyValidationResult } from '../_shared/strategy-validator.ts';
+
+// In main handler, after parsing formData:
+const strategyValidation = validateStrategy(
+  formData.contentGoal as ContentGoal,
+  formData.contentAngle as ContentAngle,
+  formData.contentRole as ContentRole
+);
+
+// Log for analytics
+if (strategyValidation.conflicts.length > 0) {
+  console.log(`[strategy-validation] Detected ${strategyValidation.conflicts.length} conflicts:`,
+    strategyValidation.conflicts.map(c => `${c.type}: ${c.field1}-${c.field2}`).join(', '));
 }
 ```
 
-Với 5 personas, sẽ gọi 6 lần embedding (1 topic + 5 personas). Mỗi call ~100-200ms → tổng ~600-1200ms.
+### 3.2 Inject Adjustments vào Prompt
 
-**Fix đề xuất (Future Optimization):**
-- Batch generate embeddings với `Promise.all()` (có thể)
-- Pre-compute và cache persona embeddings trong database
-- Limit số personas được match (hiện tại đã có limit 5)
+```typescript
+// When building system prompt, append adjustments:
+if (strategyValidation.promptAdjustments) {
+  systemPrompt += strategyValidation.promptAdjustments;
+}
+```
 
----
+### 3.3 Apply Penalty to Self-Critique
 
-### Vấn đề 5: Unused Import trong test file
-
-**Vị trí:** `src/hooks/ai/__tests__/useTopicAI.test.ts` lines 5-6
-
-**Vấn đề:** Import `mockGapAnalysis, mockClusterAnalysis` không được sử dụng đầy đủ trong test assertions
-
----
-
-## 📊 Đánh giá tổng thể
-
-| Aspect | Score | Note |
-|--------|-------|------|
-| **Functionality** | 9/10 | Core features work, minor bugs |
-| **Code Quality** | 8/10 | Good structure, some inconsistencies |
-| **Error Handling** | 8/10 | Good coverage, wrong handler in 1 place |
-| **Performance** | 7/10 | Sequential embedding calls |
-| **Test Coverage** | 7/10 | Basic tests, needs more edge cases |
+```typescript
+// After running Self-Critique, apply penalty:
+if (critiqueResult && strategyValidation.scorePenalty > 0) {
+  critiqueResult.overall_score = Math.max(0, critiqueResult.overall_score - strategyValidation.scorePenalty);
+  critiqueResult.issues.push({
+    category: 'structure',
+    severity: strategyValidation.conflictLevel === 'severe' ? 'error' : 'warning',
+    description: `Strategy conflict: ${strategyValidation.conflicts.map(c => c.message).join('; ')}`,
+  });
+  critiqueResult.passed = critiqueResult.overall_score >= CRITIQUE_CONFIG.PASS_THRESHOLD;
+}
+```
 
 ---
 
-## Recommended Fixes Priority
+## 4. Enhanced Frontend Validation
 
-| Priority | Fix | Impact |
-|----------|-----|--------|
-| **P0** | Add `matchMethod` to frontend mapping | UI không nhận biết match source |
-| **P1** | Fix `handleAudienceApiError` usage | Logging sai module name |
-| **P2** | Add null check in `parseRefinedTopics` | Potential runtime error |
-| **P3** | Consider parallel embedding generation | Performance optimization |
+**File:** `src/components/core-content/RoleSelectorCard.tsx`
+
+### 4.1 Move validation logic to shared hook
+
+**File mới:** `src/hooks/useStrategyValidation.ts`
+
+```typescript
+export function useStrategyValidation(
+  goal?: ContentGoal,
+  angle?: ContentAngle,
+  role?: ContentRole
+) {
+  return useMemo(() => {
+    const conflicts = [];
+    
+    // Same conflict detection logic as backend
+    // ... (reuse GOAL_ROLE_CONFLICTS, ANGLE_ROLE_CONFLICTS, GOAL_ANGLE_CONFLICTS)
+    
+    return {
+      isValid: conflicts.length === 0,
+      conflicts,
+      suggestedRole: getSuggestedRole(goal, angle),
+      hasErrors: conflicts.some(c => c.severity === 'error'),
+      hasWarnings: conflicts.some(c => c.severity === 'warning'),
+    };
+  }, [goal, angle, role]);
+}
+```
+
+### 4.2 Add Block/Confirm Dialog for Severe Conflicts
+
+Trong `MultiChannelFormWizard.tsx`:
+
+```typescript
+const strategyValidation = useStrategyValidation(
+  formData.contentGoal,
+  coreContentAngle === '__none__' ? undefined : coreContentAngle,
+  formData.contentRole
+);
+
+// Block proceeding with severe conflicts (optional - can be warning only)
+const handleSubmit = async () => {
+  if (strategyValidation.hasErrors) {
+    // Show confirmation dialog
+    setShowStrategyConflictDialog(true);
+    return;
+  }
+  // ... proceed with generation
+};
+```
 
 ---
 
-## Kết luận
+## 5. Strategy Conflict Dialog Component
 
-Implementation 4 phases đã **hoàn thành đúng về mặt logic**, chỉ cần **3 quick fixes** (P0-P2) để production-ready. Performance optimization (P3) có thể defer sang sprint sau.
+**File mới:** `src/components/multichannel/StrategyConflictDialog.tsx`
+
+```typescript
+export function StrategyConflictDialog({
+  open,
+  onOpenChange,
+  conflicts,
+  suggestedRole,
+  onConfirm,
+  onChangeRole,
+}: StrategyConflictDialogProps) {
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+            <AlertTriangle className="w-5 h-5" />
+            Chiến lược có thể không tối ưu
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            Phát hiện {conflicts.length} conflict trong chiến lược content:
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        
+        <ScrollArea className="max-h-[200px]">
+          {conflicts.map((conflict, i) => (
+            <div key={i} className="p-3 rounded-lg bg-amber-500/10 mb-2">
+              <p className="text-sm font-medium text-amber-600">{conflict.message}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                → {conflict.recommendation}
+              </p>
+            </div>
+          ))}
+        </ScrollArea>
+
+        {suggestedRole && (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/30">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-sm">
+              Gợi ý: Đổi sang role <strong>{suggestedRole}</strong>
+            </span>
+            <Button size="sm" variant="outline" onClick={() => onChangeRole(suggestedRole)}>
+              Áp dụng
+            </Button>
+          </div>
+        )}
+        
+        <AlertDialogFooter>
+          <AlertDialogCancel>Quay lại sửa</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={onConfirm}
+            className="bg-amber-500 hover:bg-amber-600"
+          >
+            Vẫn tiếp tục
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+```
+
+---
+
+## 6. Response Enhancement
+
+**File:** `supabase/functions/generate-multichannel/index.ts`
+
+### 6.1 Include Strategy Validation in Response
+
+```typescript
+// Add to response object:
+const response = {
+  id: newContent.id,
+  // ... existing fields
+  strategyValidation: {
+    conflicts: strategyValidation.conflicts.map(c => ({
+      type: c.type,
+      severity: c.severity,
+      message: c.message,
+    })),
+    scorePenalty: strategyValidation.scorePenalty,
+    wasAdjusted: strategyValidation.promptAdjustments.length > 0,
+  },
+  critique_score: critiqueResult?.overall_score,
+  critique_details: critiqueResult,
+};
+```
+
+---
+
+## 7. Chi tiết Implementation Steps
+
+### Phase A: Backend (1-2 ngày)
+1. Tạo file `strategy-validator.ts` với full conflict mappings
+2. Integrate vào `generate-multichannel/index.ts`:
+   - Import và gọi validation
+   - Inject prompt adjustments
+   - Apply score penalty
+3. Add to response schema
+4. Deploy và test
+
+### Phase B: Frontend (1 ngày)
+1. Tạo hook `useStrategyValidation.ts`
+2. Tạo component `StrategyConflictDialog.tsx`
+3. Update `MultiChannelFormWizard.tsx` để show dialog khi có severe conflicts
+4. Update `RoleSelectorCard.tsx` để sử dụng shared hook
+
+### Phase C: Testing (0.5 ngày)
+1. Test các combination conflict
+2. Verify score penalty applied correctly
+3. Test UI flows with conflicts
+
+---
+
+## 8. Conflict Matrix Summary
+
+| Goal | Angle | Seed | Sprout | Harvest |
+|------|-------|------|--------|---------|
+| **Awareness** | Any | ✅ Best | ⚠️ OK | ❌ Conflict |
+| **Education** | Educational | ✅ OK | ✅ Best | ⚠️ Conflict |
+| **Engagement** | Q&A | ✅ OK | ✅ Best | ⚠️ Conflict |
+| **Expertise** | Social Proof | ⚠️ OK | ✅ Best | ⚠️ OK |
+| **Conversion** | Promotional | ❌ Conflict | ⚠️ OK | ✅ Best |
+
+**Legend:**
+- ✅ Best: Optimal combination
+- ⚠️ OK/Conflict: Warning, but allowed
+- ❌ Conflict: Severe conflict, needs confirmation
+
+---
+
+## 9. Kết quả mong đợi
+
+1. **User Experience:**
+   - Clear warnings khi chọn strategy không phù hợp
+   - Gợi ý role phù hợp tự động
+   - Confirmation dialog cho severe conflicts
+
+2. **Content Quality:**
+   - AI nhận prompt adjustments để compensate conflicts
+   - Self-Critique score phản ánh đúng strategy alignment
+   - Generated content vẫn usable dù có conflict
+
+3. **Analytics:**
+   - Log conflicts cho analysis
+   - Track which combinations users override
+   - Identify common anti-patterns
