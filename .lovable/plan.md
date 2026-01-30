@@ -167,7 +167,21 @@ const createApiErrorHandler = (setError, setErrorCode, moduleName) => {
 | Phase 1 | Thêm `suggest_audience` action (cần cho AudienceSmartSelector) | Cao | ✅ Hoàn thành |
 | Phase 2 | Semantic persona matching với embeddings | Trung bình | ✅ Hoàn thành |
 | Phase 3 | Smart parallel calls & cost optimization | Trung bình | ✅ Hoàn thành |
-| Phase 4 | Cache key enhancement & error consolidation | Thấp | Chưa bắt đầu |
+| Phase 4 | Cache key enhancement & error consolidation | Thấp | ✅ Hoàn thành |
+
+---
+
+### Chi tiết Phase 4 Implementation
+
+**Enhanced Cache Key (v8):**
+- Cache key giờ bao gồm `contextHash` từ personas/products count
+- Tự động invalidate khi brand context thay đổi
+- Format: `topic-suggestions-v8:{org}:{industry}:{goal}:{brand}:{format}:{contextHash}:{hourBucket}`
+
+**Consolidated Error Handler:**
+- Factory function `createApiErrorHandler()` thay thế 4 handlers riêng lẻ
+- Giảm ~60 dòng code trùng lặp
+- Thống nhất error logging với module name
 
 ---
 

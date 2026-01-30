@@ -17,6 +17,41 @@ function getEmbeddingModel() {
   return embeddingModel;
 }
 
+// ========== UTILITY FUNCTIONS ==========
+
+/**
+ * Simple hash function for cache key generation
+ * Phase 4: Used to create context-aware cache keys
+ */
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(36).substring(0, 8);
+}
+
+/**
+ * Generate a hash from brand context data for cache invalidation
+ * Cache will be invalidated when personas, products, or mappings change
+ */
+export function hashContextData(brandContext: TopicBrandContext | null): string {
+  if (!brandContext) return 'no-context';
+  
+  const personasCount = brandContext.personas?.length || 0;
+  const productsCount = brandContext.products?.length || 0;
+  const pillarsCount = brandContext.contentPillars?.length || 0;
+  
+  // Include first persona and product names for more granular invalidation
+  const firstPersonaName = brandContext.personas?.[0]?.name || '';
+  const firstProductName = brandContext.products?.[0]?.name || '';
+  
+  const contextString = `${personasCount}-${productsCount}-${pillarsCount}-${firstPersonaName}-${firstProductName}`;
+  return simpleHash(contextString);
+}
+
 // ========== TYPES ==========
 
 export interface IndustryContext {

@@ -205,90 +205,82 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
   const [audienceError, setAudienceError] = useState<string | null>(null);
   const [audienceErrorCode, setAudienceErrorCode] = useState<AIErrorCode | null>(null);
 
-  // ============== SHARED ERROR HANDLER ==============
-  const handleIntelApiError = useCallback((err: any, fallbackMessage: string) => {
-    console.error(fallbackMessage, err);
-    
-    if (err?.context?.body) {
-      try {
-        const body = JSON.parse(err.context.body);
-        if (body.errorCode === 'CREDITS_EXHAUSTED') {
-          setIntelError(body.error || 'AI credits đã hết');
-          setIntelErrorCode('CREDITS_EXHAUSTED');
-          toast.error('AI credits đã hết. Vui lòng nạp thêm tại Settings → Usage.');
-          return;
+  // ============== CONSOLIDATED ERROR HANDLER (Phase 4) ==============
+  /**
+   * Factory function to create module-specific error handlers
+   * Eliminates duplicate code between Intel, Rec, Trending, and Audience modules
+   */
+  const createApiErrorHandler = useCallback((
+    setError: (error: string | null) => void,
+    setErrorCode: (code: AIErrorCode | null) => void,
+    moduleName: string
+  ) => {
+    return (err: any, fallbackMessage: string) => {
+      console.error(`[${moduleName}] ${fallbackMessage}`, err);
+      
+      // Try to extract structured error from response body
+      if (err?.context?.body) {
+        try {
+          const body = JSON.parse(err.context.body);
+          if (body.errorCode === 'CREDITS_EXHAUSTED') {
+            setError(body.error || 'AI credits đã hết');
+            setErrorCode('CREDITS_EXHAUSTED');
+            toast.error('AI credits đã hết. Vui lòng nạp thêm tại Settings → Usage.');
+            return;
+          }
+          if (body.errorCode === 'RATE_LIMIT') {
+            setError(body.error || 'Rate limit exceeded');
+            setErrorCode('RATE_LIMIT');
+            toast.error('Quá giới hạn request. Vui lòng thử lại sau.');
+            return;
+          }
+        } catch {
+          // Ignore parse errors
         }
-        if (body.errorCode === 'RATE_LIMIT') {
-          setIntelError(body.error || 'Rate limit exceeded');
-          setIntelErrorCode('RATE_LIMIT');
-          toast.error('Quá giới hạn request. Vui lòng thử lại sau.');
-          return;
-        }
-      } catch {
-        // Ignore parse errors
       }
-    }
-    
-    const errMessage = err?.message || '';
-    if (errMessage.includes('402') || errMessage.includes('credits')) {
-      setIntelError('AI credits đã hết');
-      setIntelErrorCode('CREDITS_EXHAUSTED');
-      toast.error('AI credits đã hết. Vui lòng nạp thêm tại Settings → Usage.');
-      return;
-    }
-    if (errMessage.includes('429') || errMessage.includes('rate')) {
-      setIntelError('Rate limit exceeded');
-      setIntelErrorCode('RATE_LIMIT');
-      toast.error('Quá giới hạn request. Vui lòng thử lại sau.');
-      return;
-    }
-    
-    setIntelError(errMessage || fallbackMessage);
-    setIntelErrorCode('UNKNOWN');
-    toast.error(fallbackMessage);
+      
+      // Fallback: check error message for known patterns
+      const errMessage = err?.message || '';
+      if (errMessage.includes('402') || errMessage.includes('credits')) {
+        setError('AI credits đã hết');
+        setErrorCode('CREDITS_EXHAUSTED');
+        toast.error('AI credits đã hết. Vui lòng nạp thêm tại Settings → Usage.');
+        return;
+      }
+      if (errMessage.includes('429') || errMessage.includes('rate')) {
+        setError('Rate limit exceeded');
+        setErrorCode('RATE_LIMIT');
+        toast.error('Quá giới hạn request. Vui lòng thử lại sau.');
+        return;
+      }
+      
+      // Default: unknown error
+      setError(errMessage || fallbackMessage);
+      setErrorCode('UNKNOWN');
+      toast.error(fallbackMessage);
+    };
   }, []);
 
-  const handleRecApiError = useCallback((err: any, fallbackMessage: string) => {
-    console.error(fallbackMessage, err);
-    
-    if (err?.context?.body) {
-      try {
-        const body = JSON.parse(err.context.body);
-        if (body.errorCode === 'CREDITS_EXHAUSTED') {
-          setRecError(body.error || 'AI credits đã hết');
-          setRecErrorCode('CREDITS_EXHAUSTED');
-          toast.error('AI credits đã hết. Vui lòng nạp thêm tại Settings → Usage.');
-          return;
-        }
-        if (body.errorCode === 'RATE_LIMIT') {
-          setRecError(body.error || 'Rate limit exceeded');
-          setRecErrorCode('RATE_LIMIT');
-          toast.error('Quá giới hạn request. Vui lòng thử lại sau.');
-          return;
-        }
-      } catch {
-        // Ignore parse errors
-      }
-    }
-    
-    const errMessage = err?.message || '';
-    if (errMessage.includes('402') || errMessage.includes('credits')) {
-      setRecError('AI credits đã hết');
-      setRecErrorCode('CREDITS_EXHAUSTED');
-      toast.error('AI credits đã hết. Vui lòng nạp thêm tại Settings → Usage.');
-      return;
-    }
-    if (errMessage.includes('429') || errMessage.includes('rate')) {
-      setRecError('Rate limit exceeded');
-      setRecErrorCode('RATE_LIMIT');
-      toast.error('Quá giới hạn request. Vui lòng thử lại sau.');
-      return;
-    }
-    
-    setRecError(errMessage || fallbackMessage);
-    setRecErrorCode('UNKNOWN');
-    toast.error(fallbackMessage);
-  }, []);
+  // Create module-specific error handlers using the factory
+  const handleIntelApiError = useMemo(
+    () => createApiErrorHandler(setIntelError, setIntelErrorCode, 'Intelligence'),
+    [createApiErrorHandler]
+  );
+
+  const handleRecApiError = useMemo(
+    () => createApiErrorHandler(setRecError, setRecErrorCode, 'Recommendations'),
+    [createApiErrorHandler]
+  );
+
+  const handleTrendingApiError = useMemo(
+    () => createApiErrorHandler(setTrendingError, setTrendingErrorCode, 'Trending'),
+    [createApiErrorHandler]
+  );
+
+  const handleAudienceApiError = useMemo(
+    () => createApiErrorHandler(setAudienceError, setAudienceErrorCode, 'Audience'),
+    [createApiErrorHandler]
+  );
 
   // ============== REFINEMENT METHODS ==============
   const fetchRefinements = useCallback(async (rawTopic: string, videoType?: string) => {
