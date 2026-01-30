@@ -34,9 +34,11 @@ import {
   inferMediaOwnership,
   inferJourneyStage,
   semanticMatchPersona,
+  shouldSkipWebSearch,
   type TopicBrandContext,
   type TopicHistoryItem,
   type SemanticMatchResult,
+  type WebSearchDecision,
 } from "../_shared/topic-utils.ts";
 import { 
   buildCoTSection, 
@@ -79,6 +81,8 @@ interface TopicAIRequest {
   industry?: string;
   format?: 'carousel' | 'script' | 'multichannel' | 'all';
   forceRefresh?: boolean;
+  // Phase 3: Cost optimization flag
+  skipWebSearch?: boolean;     // Explicitly skip Perplexity API calls
   // Action-specific params
   rawTopic?: string;           // for 'refine'
   videoType?: string;          // for 'refine'
@@ -165,17 +169,19 @@ async function handleSuggest(
   params: TopicAIRequest,
   startTime: number
 ): Promise<Response> {
-  const { contentGoal, format, organizationId, brandTemplateId, recentTopics, seasonality, forceRefresh } = params;
+  const { contentGoal, format, organizationId, brandTemplateId, recentTopics, seasonality, forceRefresh, skipWebSearch } = params;
 
   // OPTIMIZATION: Increased cache window from 4h to 8h to reduce AI costs
   const hourBucket = Math.floor(Date.now() / (1000 * 60 * 60 * 8)); // 8-hour buckets
   const cacheKey = `topic-suggestions-v7:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${hourBucket}`;
   
   // Check cache first
+  let cacheHitTimestamp: number | undefined;
   if (!forceRefresh) {
     const cached = await checkTopicCache(supabase, cacheKey);
     if (cached) {
       console.log('[topic-ai:suggest] Cache hit');
+      cacheHitTimestamp = Date.now(); // Mark cache hit time for future optimization
       return new Response(JSON.stringify({
         suggestions: cached,
         source: 'cache'
@@ -189,12 +195,49 @@ async function handleSuggest(
     learningContext = await fetchLearningContext(supabase, brandTemplateId, null);
   }
 
-  // Fetch industry data from Perplexity in parallel
+  // Phase 3: Smart parallel calls - determine if web search should be skipped
   const industryToSearch = brandContext?.industry?.[0] || params.industry || '';
-  const [industryInsight, audienceQA] = await Promise.all([
-    industryToSearch ? searchIndustryData(industryToSearch, brandContext?.brandName || '') : null,
-    industryToSearch ? searchAudienceQuestions(industryToSearch, brandContext?.industryContext?.targetAudience) : null,
-  ]);
+  const learningContextSize = learningContext?.totalTopicsUsed || 0;
+  
+  const webSearchDecision: WebSearchDecision = shouldSkipWebSearch({
+    skipWebSearch,
+    learningContextSize,
+    cacheHitTimestamp,
+    forceRefresh,
+    hasIndustry: !!industryToSearch,
+  });
+
+  console.log(`[topic-ai:suggest] Web search decision: ${webSearchDecision.reason}, skip industry: ${webSearchDecision.shouldSkipIndustrySearch}, skip QA: ${webSearchDecision.shouldSkipAudienceQA}`);
+
+  // Fetch industry data from Perplexity ONLY if needed (conditional parallel calls)
+  let industryInsight = null;
+  let audienceQA = null;
+
+  if (!webSearchDecision.shouldSkipIndustrySearch || !webSearchDecision.shouldSkipAudienceQA) {
+    const parallelTasks: Promise<any>[] = [];
+    const taskMapping: string[] = [];
+
+    if (!webSearchDecision.shouldSkipIndustrySearch) {
+      parallelTasks.push(searchIndustryData(industryToSearch, brandContext?.brandName || ''));
+      taskMapping.push('industry');
+    }
+    
+    if (!webSearchDecision.shouldSkipAudienceQA) {
+      parallelTasks.push(searchAudienceQuestions(industryToSearch, brandContext?.industryContext?.targetAudience));
+      taskMapping.push('audience');
+    }
+
+    if (parallelTasks.length > 0) {
+      const results = await Promise.all(parallelTasks);
+      taskMapping.forEach((task, index) => {
+        if (task === 'industry') industryInsight = results[index];
+        if (task === 'audience') audienceQA = results[index];
+      });
+      console.log(`[topic-ai:suggest] Executed ${parallelTasks.length} Perplexity API call(s)`);
+    }
+  } else {
+    console.log('[topic-ai:suggest] Skipped all Perplexity API calls - cost optimization');
+  }
 
   // Build prompts
   const { systemPrompt, userPrompt } = buildSuggestPrompts({
@@ -252,7 +295,13 @@ async function handleSuggest(
     suggestions,
     source: 'ai',
     brandContextUsed: !!brandContext,
-    perplexityUsed: !!industryInsight,
+    perplexityUsed: !!industryInsight || !!audienceQA,
+    webSearchDecision: webSearchDecision.reason,
+    costOptimization: {
+      skippedIndustrySearch: webSearchDecision.shouldSkipIndustrySearch,
+      skippedAudienceQA: webSearchDecision.shouldSkipAudienceQA,
+      learningContextSize,
+    },
   }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 

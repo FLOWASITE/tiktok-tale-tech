@@ -134,6 +134,100 @@ export interface PerplexityTrendResult {
 
 const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
 
+// Threshold for learning context richness - if above this, skip web search
+const LEARNING_CONTEXT_THRESHOLD = 20;
+// Cache window in hours - if cache was hit recently, skip web search
+const RECENT_CACHE_WINDOW_HOURS = 4;
+
+/**
+ * Determine if web search should be skipped based on:
+ * 1. Learning context richness (> 20 feedback points)
+ * 2. Recent cache hit (< 4 hours)
+ * 3. Explicit skipWebSearch flag
+ * 4. No Perplexity API key configured
+ */
+export interface WebSearchDecision {
+  shouldSkipIndustrySearch: boolean;
+  shouldSkipAudienceQA: boolean;
+  reason: string;
+}
+
+export function shouldSkipWebSearch(options: {
+  skipWebSearch?: boolean;
+  learningContextSize?: number;
+  cacheHitTimestamp?: number;
+  forceRefresh?: boolean;
+  hasIndustry?: boolean;
+}): WebSearchDecision {
+  const { skipWebSearch, learningContextSize = 0, cacheHitTimestamp, forceRefresh, hasIndustry } = options;
+  
+  // If no industry, always skip
+  if (!hasIndustry) {
+    return {
+      shouldSkipIndustrySearch: true,
+      shouldSkipAudienceQA: true,
+      reason: 'no_industry',
+    };
+  }
+
+  // If no Perplexity API key, skip
+  if (!PERPLEXITY_API_KEY) {
+    return {
+      shouldSkipIndustrySearch: true,
+      shouldSkipAudienceQA: true,
+      reason: 'no_api_key',
+    };
+  }
+
+  // Force refresh overrides all skip conditions
+  if (forceRefresh) {
+    return {
+      shouldSkipIndustrySearch: false,
+      shouldSkipAudienceQA: false,
+      reason: 'force_refresh',
+    };
+  }
+
+  // Explicit skip flag
+  if (skipWebSearch) {
+    return {
+      shouldSkipIndustrySearch: true,
+      shouldSkipAudienceQA: true,
+      reason: 'explicit_skip',
+    };
+  }
+
+  // Check learning context richness
+  if (learningContextSize >= LEARNING_CONTEXT_THRESHOLD) {
+    console.log(`[topic-utils] Rich learning context (${learningContextSize} points), skipping web search`);
+    return {
+      shouldSkipIndustrySearch: true,
+      shouldSkipAudienceQA: true,
+      reason: 'rich_learning_context',
+    };
+  }
+
+  // Check recent cache hit
+  if (cacheHitTimestamp) {
+    const hoursSinceCacheHit = (Date.now() - cacheHitTimestamp) / (1000 * 60 * 60);
+    if (hoursSinceCacheHit < RECENT_CACHE_WINDOW_HOURS) {
+      console.log(`[topic-utils] Recent cache hit (${hoursSinceCacheHit.toFixed(1)}h ago), skipping web search`);
+      return {
+        shouldSkipIndustrySearch: true,
+        shouldSkipAudienceQA: true,
+        reason: 'recent_cache',
+      };
+    }
+  }
+
+  // Default: perform web search
+  return {
+    shouldSkipIndustrySearch: false,
+    shouldSkipAudienceQA: false,
+    reason: 'default',
+  };
+}
+
 /**
  * Search for industry data using Perplexity API
  */
