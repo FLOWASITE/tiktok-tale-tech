@@ -129,6 +129,8 @@ export function AutoImageGenerator({
   const {
     isGenerating,
     progress,
+    progressTimes,
+    logoOverlayFailures,
     completedCount,
     totalCount,
     generatedImages,
@@ -331,24 +333,47 @@ export function AutoImageGenerator({
 
             {/* Aspect Ratio & Image Style Row */}
             <div className="grid grid-cols-2 gap-4">
-              {/* Aspect Ratio */}
+              {/* Aspect Ratio with Visual Preview */}
               <div className="space-y-2">
                 <Label>Tỉ lệ ảnh</Label>
-                <Select value={aspectRatio} onValueChange={(v) => setAspectRatio(v as AspectRatioOption)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ASPECT_RATIOS.map(ratio => (
-                      <SelectItem key={ratio.value} value={ratio.value}>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{ratio.label}</span>
-                          <span className="text-muted-foreground text-xs">- {ratio.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-3">
+                  <Select value={aspectRatio} onValueChange={(v) => setAspectRatio(v as AspectRatioOption)}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ASPECT_RATIOS.map(ratio => (
+                        <SelectItem key={ratio.value} value={ratio.value}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{ratio.label}</span>
+                            <span className="text-muted-foreground text-xs">- {ratio.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  
+                  {/* Visual Aspect Ratio Preview */}
+                  <div className="flex items-center justify-center">
+                    {aspectRatio === 'auto' ? (
+                      <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                        Auto
+                      </div>
+                    ) : (
+                      <div 
+                        className={cn(
+                          "border-2 border-primary/50 rounded bg-primary/10 flex items-center justify-center",
+                          aspectRatio === '16:9' && "w-10 h-6",
+                          aspectRatio === '1:1' && "w-7 h-7",
+                          aspectRatio === '4:5' && "w-6 h-7",
+                          aspectRatio === '9:16' && "w-5 h-9"
+                        )}
+                      >
+                        <Image className="w-3 h-3 text-primary/60" />
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Image Style Preset */}
@@ -447,6 +472,8 @@ export function AutoImageGenerator({
             <div className="py-2">
               <ImageStreamingGrid
                 progress={progress}
+                progressTimes={progressTimes}
+                logoOverlayFailures={logoOverlayFailures}
                 generatedImages={generatedImages}
                 onRetryChannel={handleRegenerateChannel}
                 onDownloadImage={handleDownloadImage}

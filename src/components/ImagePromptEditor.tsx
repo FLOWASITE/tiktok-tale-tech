@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ImagePlus, Loader2, Sparkles, Copy, Check, Download, RefreshCw, Wand2, Palette, ImageIcon } from 'lucide-react';
+import { ImagePlus, Loader2, Sparkles, Copy, Check, Download, RefreshCw, Wand2, Palette, ImageIcon, ChevronDown, ChevronUp, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -19,10 +19,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Channel } from '@/types/multichannel';
 import { useSocialImageGeneration, IMAGE_STYLE_PRESETS, ImageStylePreset } from '@/hooks/useSocialImageGeneration';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface ImagePromptEditorProps {
   open: boolean;
@@ -194,6 +200,7 @@ export function ImagePromptEditor({
   const [imageStyle, setImageStyle] = useState<ImageStylePreset | 'auto'>('auto');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [includeLogo, setIncludeLogo] = useState(false);
+  const [showPromptPreview, setShowPromptPreview] = useState(false);
   
   const { generating, generateImage } = useSocialImageGeneration();
   
@@ -377,18 +384,94 @@ export function ImagePromptEditor({
             </div>
           </div>
 
-          {/* Channel Config Info */}
+          {/* Channel Config Info with Visual Aspect Ratio */}
           <div className="p-3 rounded-lg border bg-card">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex-1">
                 <p className="text-xs text-muted-foreground mb-1">Đề xuất cho {channel}</p>
                 <p className="text-sm">{channelConfig.style}</p>
               </div>
-              <Badge variant="secondary" className="text-xs">
-                {channelConfig.aspectRatio}
-              </Badge>
+              <div className="flex items-center gap-2">
+                {/* Visual Aspect Ratio Box */}
+                <div 
+                  className={cn(
+                    "border-2 border-muted-foreground/30 rounded bg-muted/50 flex items-center justify-center",
+                    selectedAspectRatio === '16:9' && "w-10 h-6",
+                    selectedAspectRatio === '1:1' && "w-7 h-7",
+                    selectedAspectRatio === '4:5' && "w-6 h-7",
+                    selectedAspectRatio === '9:16' && "w-5 h-9"
+                  )}
+                >
+                  <ImageIcon className="w-3 h-3 text-muted-foreground/60" />
+                </div>
+                <Badge variant="secondary" className="text-xs">
+                  {selectedAspectRatio || channelConfig.aspectRatio}
+                </Badge>
+              </div>
             </div>
           </div>
+
+          {/* Prompt Preview Collapsible */}
+          <Collapsible open={showPromptPreview} onOpenChange={setShowPromptPreview}>
+            <CollapsibleTrigger asChild>
+              <button className="flex items-center justify-between w-full p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Xem trước prompt sẽ gửi</span>
+                </div>
+                {showPromptPreview ? (
+                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                )}
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2">
+              <div className="p-3 rounded-lg border bg-muted/30 space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground">Brand</p>
+                    <p className="font-medium">{brandName || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground">Màu chủ đạo</p>
+                    <div className="flex items-center gap-1.5">
+                      {primaryColor ? (
+                        <>
+                          <div 
+                            className="w-3 h-3 rounded-full border"
+                            style={{ backgroundColor: primaryColor }}
+                          />
+                          <span className="font-medium">{primaryColor}</span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">Không có</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground">Ngành</p>
+                    <p className="font-medium">{brandIndustry?.slice(0, 2).join(', ') || 'N/A'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground">Style preset</p>
+                    <p className="font-medium">
+                      {imageStyle === 'auto' 
+                        ? 'Tự động' 
+                        : IMAGE_STYLE_PRESETS[imageStyle]?.label || imageStyle
+                      }
+                    </p>
+                  </div>
+                </div>
+                {negativePrompt && (
+                  <div className="pt-2 border-t space-y-1">
+                    <p className="text-xs text-muted-foreground">Negative prompt</p>
+                    <p className="text-xs font-medium text-destructive/80">{negativePrompt}</p>
+                  </div>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* Prompt Editor */}
           <div className="space-y-2">

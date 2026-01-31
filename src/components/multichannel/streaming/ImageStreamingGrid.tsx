@@ -9,6 +9,8 @@ import { ImageGenerationStatus, GeneratedImage } from "@/hooks/useAutoImageGener
 
 interface ImageStreamingGridProps {
   progress: Record<Channel, ImageGenerationStatus>;
+  progressTimes?: Record<Channel, number>;
+  logoOverlayFailures?: Record<Channel, boolean>;
   generatedImages: Record<Channel, GeneratedImage>;
   onRetryChannel?: (channel: Channel) => void;
   onDownloadImage?: (channel: Channel) => void;
@@ -18,6 +20,8 @@ interface ImageStreamingGridProps {
 
 export function ImageStreamingGrid({
   progress,
+  progressTimes,
+  logoOverlayFailures,
   generatedImages,
   onRetryChannel,
   onDownloadImage,
@@ -143,6 +147,8 @@ export function ImageStreamingGrid({
                   onRetry={onRetryChannel ? () => onRetryChannel(channel) : undefined}
                   onDownload={onDownloadImage ? () => onDownloadImage(channel) : undefined}
                   isRetrying={retryingChannel === channel}
+                  logoOverlayFailed={logoOverlayFailures?.[channel] || image?.logoOverlayFailed}
+                  startTime={progressTimes?.[channel]}
                 />
               </motion.div>
             );

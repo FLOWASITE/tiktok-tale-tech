@@ -40,11 +40,19 @@ export interface GeneratedImage {
   prompt: string;
   generatedAt: string;
   aspectRatio: string;
+  logoOverlayFailed?: boolean; // Track if logo overlay failed
+}
+
+export interface ChannelProgress {
+  status: ImageGenerationStatus;
+  startTime?: number; // Timestamp when generation started
 }
 
 export function useAutoImageGeneration() {
   const [generatingChannels, setGeneratingChannels] = useState<Channel[]>([]);
   const [progress, setProgress] = useState<Record<Channel, ImageGenerationStatus>>({} as Record<Channel, ImageGenerationStatus>);
+  const [progressTimes, setProgressTimes] = useState<Record<Channel, number>>({} as Record<Channel, number>);
+  const [logoOverlayFailures, setLogoOverlayFailures] = useState<Record<Channel, boolean>>({} as Record<Channel, boolean>);
   const [generatedImages, setGeneratedImages] = useState<Record<Channel, GeneratedImage>>({} as Record<Channel, GeneratedImage>);
   const [error, setError] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
@@ -72,7 +80,10 @@ export function useAutoImageGeneration() {
           console.log(`[useAutoImageGeneration] Retry attempt ${attempt} for ${channel}`);
         }
         
+        // Set status and track start time
+        const startTime = Date.now();
         setProgress(prev => ({ ...prev, [channel]: 'generating' }));
+        setProgressTimes(prev => ({ ...prev, [channel]: startTime }));
         
         console.log(`[useAutoImageGeneration] Generating image for ${channel} with aspect ratio ${channelAspectRatio}, style: ${imageStylePreset || 'default'}`);
 
@@ -95,6 +106,7 @@ export function useAutoImageGeneration() {
         }
 
         let finalImageUrl = imageData.imageUrl;
+        let logoFailed = false;
 
         // Step 2: Overlay logo if requested (using canvas-based overlay for speed)
         if (includeLogo && logoUrl) {
@@ -115,7 +127,13 @@ export function useAutoImageGeneration() {
 
           if (overlayError || !overlayData?.success) {
             console.warn(`[useAutoImageGeneration] Logo overlay failed for ${channel}, using base image:`, overlayError?.message || overlayData?.error);
-            // Continue with base image if overlay fails
+            logoFailed = true;
+            setLogoOverlayFailures(prev => ({ ...prev, [channel]: true }));
+            // Show toast notification about logo failure
+            toast.warning(`${channel}: Không thể thêm logo, sử dụng ảnh gốc`, {
+              description: 'Bạn có thể thử tạo lại để thêm logo',
+              duration: 5000,
+            });
           } else {
             finalImageUrl = overlayData.imageUrl;
           }
@@ -127,6 +145,7 @@ export function useAutoImageGeneration() {
           prompt: imageData.prompt,
           generatedAt: new Date().toISOString(),
           aspectRatio: channelAspectRatio,
+          logoOverlayFailed: logoFailed,
         };
 
         setProgress(prev => ({ ...prev, [channel]: 'done' }));
@@ -169,6 +188,8 @@ export function useAutoImageGeneration() {
     setError(null);
     setGeneratedImages({} as Record<Channel, GeneratedImage>);
     setPreviewMode(!saveImmediately);
+    setLogoOverlayFailures({} as Record<Channel, boolean>);
+    setProgressTimes({} as Record<Channel, number>);
     
     // Initialize progress for all channels
     const initialProgress: Record<Channel, ImageGenerationStatus> = {} as Record<Channel, ImageGenerationStatus>;
@@ -289,6 +310,8 @@ export function useAutoImageGeneration() {
 
   const resetProgress = useCallback(() => {
     setProgress({} as Record<Channel, ImageGenerationStatus>);
+    setProgressTimes({} as Record<Channel, number>);
+    setLogoOverlayFailures({} as Record<Channel, boolean>);
     setGeneratedImages({} as Record<Channel, GeneratedImage>);
     setError(null);
     setGeneratingChannels([]);
@@ -307,6 +330,8 @@ export function useAutoImageGeneration() {
     isGenerating,
     generatingChannels,
     progress,
+    progressTimes,
+    logoOverlayFailures,
     generatedImages,
     error,
     completedCount,
