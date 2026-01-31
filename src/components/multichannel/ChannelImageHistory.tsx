@@ -29,6 +29,7 @@ interface ImageHistoryItem {
   aspect_ratio: string | null;
   is_selected: boolean;
   created_at: string;
+  version: number;
 }
 
 interface ChannelImageHistoryProps {
@@ -63,10 +64,10 @@ export function ChannelImageHistory({
     try {
       const { data, error } = await supabase
         .from('channel_image_history')
-        .select('id, image_url, prompt, aspect_ratio, is_selected, created_at')
+        .select('id, image_url, prompt, aspect_ratio, is_selected, created_at, version')
         .eq('content_id', contentId)
         .eq('channel', channel)
-        .order('created_at', { ascending: false });
+        .order('version', { ascending: false });
 
       if (error) throw error;
       setImages((data || []) as ImageHistoryItem[]);
@@ -188,13 +189,18 @@ export function ChannelImageHistory({
                       loading="lazy"
                     />
                     
-                    {/* Selected badge */}
-                    {image.is_selected && (
-                      <Badge className="absolute top-2 left-2 gap-1">
-                        <Check className="w-3 h-3" />
-                        Đang dùng
+                    {/* Version & Selected badges */}
+                    <div className="absolute top-2 left-2 flex flex-col gap-1">
+                      <Badge variant="secondary" className="text-xs">
+                        v{image.version}
                       </Badge>
-                    )}
+                      {image.is_selected && (
+                        <Badge className="gap-1">
+                          <Check className="w-3 h-3" />
+                          Đang dùng
+                        </Badge>
+                      )}
+                    </div>
 
                     {/* Hover overlay */}
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
