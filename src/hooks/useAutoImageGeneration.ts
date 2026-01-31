@@ -7,17 +7,11 @@ export type ImageGenerationStatus = 'pending' | 'generating' | 'overlaying' | 'd
 export type LogoPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 export type AspectRatioOption = '16:9' | '1:1' | '9:16' | '4:5' | 'auto';
 
-// Map channels to optimal aspect ratios
-export const CHANNEL_OPTIMAL_ASPECT_RATIO: Partial<Record<Channel, '16:9' | '1:1' | '9:16' | '4:5'>> = {
-  website: '16:9',
-  youtube: '16:9',
-  linkedin: '16:9',
-  twitter: '16:9',
-  facebook: '1:1',
-  instagram: '1:1',
-  threads: '1:1',
-  tiktok: '9:16',
-};
+// Import from shared config - single source of truth
+import { CHANNEL_OPTIMAL_ASPECT_RATIO } from '@/config/channelImageConfig';
+
+// Re-export for backward compatibility
+export { CHANNEL_OPTIMAL_ASPECT_RATIO };
 
 export type ImageStylePreset = 'photorealistic' | 'illustration' | 'minimalist' | '3d_render' | 'flat_design' | 'watercolor' | 'cinematic';
 
@@ -59,7 +53,12 @@ export function useAutoImageGeneration() {
 
   const getAspectRatioForChannel = useCallback((channel: Channel, aspectRatio: AspectRatioOption): '16:9' | '1:1' | '9:16' | '4:5' => {
     if (aspectRatio === 'auto') {
-      return CHANNEL_OPTIMAL_ASPECT_RATIO[channel] || '16:9';
+      const optimal = CHANNEL_OPTIMAL_ASPECT_RATIO[channel];
+      // Cast string to specific type with fallback
+      if (optimal === '16:9' || optimal === '1:1' || optimal === '9:16' || optimal === '4:5') {
+        return optimal;
+      }
+      return '16:9';
     }
     return aspectRatio;
   }, []);

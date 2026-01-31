@@ -13,7 +13,20 @@
 // TYPES
 // ============================================
 
-export type Channel = 'facebook' | 'instagram' | 'tiktok' | 'linkedin' | 'twitter' | 'website' | 'zalo' | 'threads';
+// All 12 channels supported by frontend - aligned with src/types/multichannel.ts
+export type Channel = 
+  | 'website'
+  | 'facebook'
+  | 'instagram'
+  | 'twitter'
+  | 'google_maps'
+  | 'linkedin'
+  | 'email'
+  | 'youtube'
+  | 'zalo_oa'
+  | 'telegram'
+  | 'tiktok'
+  | 'threads';
 
 export interface BrandColors {
   primary: string;
@@ -185,7 +198,61 @@ const CHANNEL_IMAGE_SPECS: Record<Channel, {
     ],
     avoidElements: ['busy patterns that interfere with text', 'too many focal points'],
   },
-  zalo: {
+  // New channels added to match frontend
+  youtube: {
+    aspectRatio: '16:9',
+    style: 'thumbnail style, face focus, expressive',
+    mood: 'exciting, clickable, curiosity-inducing',
+    composition: 'face in foreground, bold text space, high contrast',
+    visualDirections: [
+      'Thumbnail-optimized for small previews',
+      'Use expressive faces when relevant (3x more clicks)',
+      'High contrast colors that pop at small sizes',
+      'Leave space for title overlay on left/right',
+    ],
+    avoidElements: ['small details', 'low contrast', 'complex backgrounds', 'text that competes with YouTube title'],
+  },
+  email: {
+    aspectRatio: '16:9',
+    style: 'clean, lightweight, email-optimized',
+    mood: 'professional, clear, action-oriented',
+    composition: 'centered content, minimal decoration, CTA-friendly',
+    visualDirections: [
+      'Optimized for email clients (max width 600px)',
+      'Fast loading - keep file size small',
+      'Clear visual hierarchy for quick scanning',
+      'Works with or without images loading',
+    ],
+    avoidElements: ['heavy gradients', 'complex animations', 'too many colors', 'small text'],
+  },
+  google_maps: {
+    aspectRatio: '1:1',
+    style: 'local business, welcoming, authentic',
+    mood: 'welcoming, authentic, local',
+    composition: 'storefront or interior shot, real photos preferred',
+    visualDirections: [
+      'Authentic, real photography (not AI-generated looking)',
+      'Show the actual business, storefront, or products',
+      'Welcoming and inviting atmosphere',
+      'Good lighting that shows space clearly',
+    ],
+    avoidElements: ['obvious AI artifacts', 'generic stock imagery', 'misleading representations'],
+  },
+  telegram: {
+    aspectRatio: '1:1',
+    style: 'clean, informative, community-focused',
+    mood: 'informative, community, engaging',
+    composition: 'balanced layout, text-friendly, group-post optimized',
+    visualDirections: [
+      'Works well in group chats and channels',
+      'Clear enough at small preview sizes',
+      'Information-dense but not cluttered',
+      'Brand consistent for channel identity',
+    ],
+    avoidElements: ['low resolution', 'too much text', 'complex infographics'],
+  },
+  // Renamed from 'zalo' to 'zalo_oa' to match frontend
+  zalo_oa: {
     aspectRatio: '1:1',
     style: 'friendly, approachable, Vietnamese context',
     mood: 'familiar, trustworthy, local',
@@ -195,8 +262,9 @@ const CHANNEL_IMAGE_SPECS: Record<Channel, {
       'Culturally appropriate imagery',
       'Clear and simple messaging through visuals',
       'Family and community themes resonate well',
+      'Consider Vietnamese color preferences (red for luck, gold for prosperity)',
     ],
-    avoidElements: ['Western-centric imagery', 'overly complex compositions'],
+    avoidElements: ['Western-centric imagery', 'overly complex compositions', 'culturally insensitive elements'],
   },
   threads: {
     aspectRatio: '1:1',
