@@ -43,9 +43,10 @@ import {
   LogoPosition, 
   AspectRatioOption,
   ImageStylePreset,
-  CHANNEL_OPTIMAL_ASPECT_RATIO 
 } from '@/hooks/useAutoImageGeneration';
 import { useSocialImageGeneration, IMAGE_STYLE_PRESETS } from '@/hooks/useSocialImageGeneration';
+import { CHANNEL_OPTIMAL_ASPECT_RATIO, getChannelImageSpec } from '@/config/channelImageConfig';
+import { ImageErrorBoundary } from '@/components/image/ImageErrorBoundary';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ImageStreamingGrid } from './streaming/ImageStreamingGrid';

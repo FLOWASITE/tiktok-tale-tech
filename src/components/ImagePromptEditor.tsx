@@ -46,93 +46,13 @@ interface ImagePromptEditorProps {
   brandIndustry?: string[];
 }
 
-// Channel-specific image dimensions and styles
-const CHANNEL_IMAGE_CONFIG: Record<Channel, { 
-  size: string; 
-  aspectRatio: string;
-  style: string;
-  tips: string;
-}> = {
-  facebook: { 
-    size: '1200x630', 
-    aspectRatio: '16:9',
-    style: 'Eye-catching, vibrant colors, clear focal point',
-    tips: 'Use high contrast, minimal text, brand colors'
-  },
-  instagram: { 
-    size: '1080x1080', 
-    aspectRatio: '1:1',
-    style: 'Aesthetic, trendy, lifestyle-focused',
-    tips: 'Clean composition, cohesive filter, lifestyle feel'
-  },
-  linkedin: { 
-    size: '1200x627', 
-    aspectRatio: '16:9',
-    style: 'Professional, clean, business-appropriate',
-    tips: 'Corporate style, data visualization, professional imagery'
-  },
-  twitter: { 
-    size: '1600x900', 
-    aspectRatio: '16:9',
-    style: 'Bold, minimal text, high impact',
-    tips: 'Strong visuals, minimal clutter, attention-grabbing'
-  },
-  youtube: { 
-    size: '1280x720', 
-    aspectRatio: '16:9',
-    style: 'Thumbnail style, face focus, expressive',
-    tips: 'Big text, expressive faces, contrasting colors'
-  },
-  website: { 
-    size: '1200x630', 
-    aspectRatio: '16:9',
-    style: 'Hero banner, professional, brand-aligned',
-    tips: 'High-res, brand colors, compelling imagery'
-  },
-  email: { 
-    size: '600x300', 
-    aspectRatio: '16:9',
-    style: 'Clean, lightweight, email-optimized',
-    tips: 'Simple, fast-loading, clear message'
-  },
-  google_maps: { 
-    size: '720x720', 
-    aspectRatio: '1:1',
-    style: 'Local business, welcoming, authentic',
-    tips: 'Show storefront, products, or team'
-  },
-  zalo_oa: { 
-    size: '1080x1080', 
-    aspectRatio: '1:1',
-    style: 'Mobile-first, Vietnamese style, engaging',
-    tips: 'Mobile-optimized, local appeal, clear CTA'
-  },
-  telegram: { 
-    size: '1080x1080', 
-    aspectRatio: '1:1',
-    style: 'Clean, informative, community-focused',
-    tips: 'Clear information, brand consistency'
-  },
-  tiktok: { 
-    size: '1080x1920', 
-    aspectRatio: '9:16',
-    style: 'Vertical, dynamic, trend-focused',
-    tips: 'Vertical format, bold text, trending style'
-  },
-  threads: { 
-    size: '1080x1080', 
-    aspectRatio: '1:1',
-    style: 'Minimal, text-focused, conversational',
-    tips: 'Simple imagery, text overlay, casual feel'
-  },
-};
+import { 
+  CHANNEL_IMAGE_CONFIG, 
+  ASPECT_RATIO_OPTIONS,
+  getChannelImageSpec 
+} from '@/config/channelImageConfig';
 
-const ASPECT_RATIO_OPTIONS = [
-  { value: '1:1', label: '1:1 (Vuông)', description: 'Instagram, Facebook' },
-  { value: '16:9', label: '16:9 (Ngang)', description: 'YouTube, LinkedIn, Twitter' },
-  { value: '9:16', label: '9:16 (Dọc)', description: 'TikTok, Reels, Stories' },
-  { value: '4:5', label: '4:5 (Portrait)', description: 'Instagram Feed' },
-];
+// ASPECT_RATIO_OPTIONS imported from channelImageConfig
 
 function generateAutoPrompt(
   channel: Channel,
