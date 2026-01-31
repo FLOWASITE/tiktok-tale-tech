@@ -10,12 +10,57 @@ export interface GeneratedChannelImage {
   generatedAt: string;
 }
 
+// Re-export types from image-prompt-builder for frontend use
+export type ImageStylePreset = 'photorealistic' | 'illustration' | 'minimalist' | '3d_render' | 'flat_design' | 'watercolor' | 'cinematic';
+
+export const IMAGE_STYLE_PRESETS: Record<ImageStylePreset, {
+  label: string;
+  description: string;
+}> = {
+  photorealistic: {
+    label: 'Ảnh thực',
+    description: 'Chất lượng DSLR, ánh sáng tự nhiên',
+  },
+  illustration: {
+    label: 'Minh họa',
+    description: 'Digital illustration với màu sắc sống động',
+  },
+  minimalist: {
+    label: 'Tối giản',
+    description: 'Thiết kế sạch sẽ, đơn giản',
+  },
+  '3d_render': {
+    label: '3D Render',
+    description: 'Đồ họa 3D với chiều sâu',
+  },
+  flat_design: {
+    label: 'Flat Design',
+    description: 'Thiết kế phẳng với màu đơn sắc',
+  },
+  watercolor: {
+    label: 'Màu nước',
+    description: 'Phong cách tranh màu nước nghệ thuật',
+  },
+  cinematic: {
+    label: 'Điện ảnh',
+    description: 'Phong cách phim với ánh sáng dramatic',
+  },
+};
+
+export type LogoPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
 interface GenerateImageParams {
   prompt: string;
   contentId?: string;
   channel?: Channel;
   aspectRatio?: string;
   organizationId?: string;
+  // Enhanced params for generate-brand-image
+  brandTemplateId: string;
+  imageStylePreset?: ImageStylePreset;
+  negativePrompt?: string;
+  includeLogo?: boolean;
+  logoPosition?: LogoPosition;
 }
 
 export function useSocialImageGeneration() {
@@ -27,22 +72,27 @@ export function useSocialImageGeneration() {
     contentId,
     channel,
     aspectRatio = '1:1',
-    organizationId,
+    brandTemplateId,
+    imageStylePreset,
+    negativePrompt,
   }: GenerateImageParams): Promise<string | null> => {
     if (channel) {
       setGenerating(channel);
     }
 
     try {
-      console.log(`[useSocialImageGeneration] Generating for ${channel || 'generic'}`);
+      console.log(`[useSocialImageGeneration] Generating for ${channel || 'generic'} via generate-brand-image`);
 
-      const { data, error } = await supabase.functions.invoke('generate-social-image', {
+      // Call generate-brand-image instead of generate-social-image
+      const { data, error } = await supabase.functions.invoke('generate-brand-image', {
         body: {
-          prompt,
           contentId,
           channel,
+          contentSummary: prompt, // Prompt becomes contentSummary
+          brandTemplateId,
           aspectRatio,
-          organizationId,
+          imageStylePreset,
+          negativePrompt,
         },
       });
 
@@ -74,7 +124,7 @@ export function useSocialImageGeneration() {
           [channel]: {
             channel,
             imageUrl,
-            prompt,
+            prompt: data.prompt || prompt, // Use the enhanced prompt from response
             generatedAt: new Date().toISOString(),
           },
         }));
