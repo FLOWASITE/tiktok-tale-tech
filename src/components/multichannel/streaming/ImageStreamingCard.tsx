@@ -1,10 +1,12 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Check, AlertCircle, RefreshCw, Download, Image as ImageIcon } from "lucide-react";
+import { Loader2, Check, AlertCircle, RefreshCw, Download, Image as ImageIcon, Clock, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChannelIcon, getChannelLabel } from "./ChannelIcon";
 import { ImageGenerationStatus } from "@/hooks/useAutoImageGeneration";
+import { Progress } from "@/components/ui/progress";
 
 interface ImageStreamingCardProps {
   channel: string;
@@ -15,37 +17,55 @@ interface ImageStreamingCardProps {
   onRetry?: () => void;
   onDownload?: () => void;
   isRetrying?: boolean;
+  logoOverlayFailed?: boolean; // New prop to indicate logo overlay failure
+  startTime?: number; // Timestamp when generation started for this channel
 }
+
+// Average generation time in seconds (can be adjusted based on real data)
+const AVG_GENERATION_TIME_SEC = 15;
+const AVG_OVERLAY_TIME_SEC = 3;
 
 const STATUS_CONFIG: Record<ImageGenerationStatus, {
   label: string;
   color: string;
   bgColor: string;
+  step: number;
+  totalSteps: number;
 }> = {
   pending: {
     label: "Đang chờ...",
     color: "text-muted-foreground",
     bgColor: "bg-muted/50",
+    step: 0,
+    totalSteps: 3,
   },
   generating: {
     label: "Đang tạo ảnh...",
     color: "text-primary",
     bgColor: "bg-primary/10",
+    step: 1,
+    totalSteps: 3,
   },
   overlaying: {
     label: "Đang thêm logo...",
     color: "text-blue-500",
     bgColor: "bg-blue-500/10",
+    step: 2,
+    totalSteps: 3,
   },
   done: {
     label: "Hoàn thành",
     color: "text-green-600",
     bgColor: "bg-green-500/10",
+    step: 3,
+    totalSteps: 3,
   },
   error: {
     label: "Lỗi",
     color: "text-destructive",
     bgColor: "bg-destructive/10",
+    step: 0,
+    totalSteps: 3,
   },
 };
 
@@ -58,11 +78,45 @@ export function ImageStreamingCard({
   onRetry,
   onDownload,
   isRetrying,
+  logoOverlayFailed,
+  startTime,
 }: ImageStreamingCardProps) {
   const config = STATUS_CONFIG[status];
   const isActive = status === 'generating' || status === 'overlaying';
   const isDone = status === 'done';
   const isError = status === 'error';
+
+  // Elapsed time tracking for active generation
+  const [elapsedSec, setElapsedSec] = useState(0);
+
+  useEffect(() => {
+    if (!isActive || !startTime) {
+      setElapsedSec(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setElapsedSec(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isActive, startTime]);
+
+  // Calculate estimated remaining time
+  const getEstimatedTime = (): string => {
+    if (status === 'generating') {
+      const remaining = Math.max(0, AVG_GENERATION_TIME_SEC - elapsedSec);
+      return remaining > 0 ? `~${remaining}s còn lại` : 'Sắp xong...';
+    }
+    if (status === 'overlaying') {
+      const remaining = Math.max(0, AVG_OVERLAY_TIME_SEC - (elapsedSec - AVG_GENERATION_TIME_SEC));
+      return remaining > 0 ? `~${remaining}s còn lại` : 'Sắp xong...';
+    }
+    return '';
+  };
+
+  // Progress percentage based on step
+  const progressPercent = (config.step / config.totalSteps) * 100;
 
   return (
     <Card className={cn(
@@ -110,33 +164,34 @@ export function ImageStreamingCard({
                       <Loader2 className="w-7 h-7 animate-spin text-primary" />
                     </div>
                   </div>
-                  <div className="text-center">
+                  <div className="text-center space-y-2">
                     <p className={cn("text-sm font-medium", config.color)}>
                       {config.label}
                     </p>
-                    {status === 'generating' && (
-                      <motion.div
-                        className="flex gap-1 justify-center mt-2"
-                        initial="hidden"
-                        animate="visible"
-                      >
-                        {[0, 1, 2].map((i) => (
-                          <motion.div
-                            key={i}
-                            className="w-1.5 h-1.5 rounded-full bg-primary"
-                            animate={{
-                              y: [-2, 2, -2],
-                              opacity: [0.5, 1, 0.5],
-                            }}
-                            transition={{
-                              duration: 0.8,
-                              repeat: Infinity,
-                              delay: i * 0.15,
-                              ease: "easeInOut",
-                            }}
-                          />
-                        ))}
-                      </motion.div>
+                    
+                    {/* Step progress indicator */}
+                    <div className="flex items-center justify-center gap-1.5">
+                      {[1, 2, 3].map((step) => (
+                        <div
+                          key={step}
+                          className={cn(
+                            "w-2 h-2 rounded-full transition-colors",
+                            step <= config.step 
+                              ? "bg-primary" 
+                              : step === config.step + 1 
+                                ? "bg-primary/40" 
+                                : "bg-muted-foreground/20"
+                          )}
+                        />
+                      ))}
+                    </div>
+                    
+                    {/* Estimated time */}
+                    {startTime && (
+                      <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="w-3 h-3" />
+                        <span>{getEstimatedTime()}</span>
+                      </div>
                     )}
                   </div>
                 </>
@@ -204,6 +259,16 @@ export function ImageStreamingCard({
                   Tạo lại
                 </Button>
               )}
+            </div>
+          )}
+          
+          {/* Logo overlay failed warning badge */}
+          {isDone && logoOverlayFailed && (
+            <div className="absolute top-2 right-2">
+              <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/90 text-white text-xs font-medium">
+                <AlertTriangle className="w-3 h-3" />
+                Logo bị lỗi
+              </div>
             </div>
           )}
         </div>
