@@ -1,0 +1,154 @@
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { ImageStreamingCard } from "./ImageStreamingCard";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Sparkles, Image as ImageIcon, CheckCircle, Clock } from "lucide-react";
+import { Channel } from "@/types/multichannel";
+import { ImageGenerationStatus, GeneratedImage } from "@/hooks/useAutoImageGeneration";
+
+interface ImageStreamingGridProps {
+  progress: Record<Channel, ImageGenerationStatus>;
+  generatedImages: Record<Channel, GeneratedImage>;
+  onRetryChannel?: (channel: Channel) => void;
+  onDownloadImage?: (channel: Channel) => void;
+  retryingChannel?: Channel | null;
+  className?: string;
+}
+
+export function ImageStreamingGrid({
+  progress,
+  generatedImages,
+  onRetryChannel,
+  onDownloadImage,
+  retryingChannel,
+  className,
+}: ImageStreamingGridProps) {
+  const channels = Object.keys(progress) as Channel[];
+  
+  if (channels.length === 0) {
+    return null;
+  }
+
+  // Calculate stats
+  const completedCount = Object.values(progress).filter(
+    s => s === 'done'
+  ).length;
+  const errorCount = Object.values(progress).filter(
+    s => s === 'error'
+  ).length;
+  const inProgressCount = Object.values(progress).filter(
+    s => s === 'generating' || s === 'overlaying'
+  ).length;
+  const pendingCount = Object.values(progress).filter(
+    s => s === 'pending'
+  ).length;
+  const totalCount = channels.length;
+  const progressPercent = totalCount > 0 
+    ? ((completedCount + errorCount) / totalCount) * 100 
+    : 0;
+
+  // Sort channels: active first, then completed, then pending, then error
+  const sortedChannels = [...channels].sort((a, b) => {
+    const order: Record<ImageGenerationStatus, number> = {
+      generating: 0,
+      overlaying: 1,
+      done: 2,
+      pending: 3,
+      error: 4,
+    };
+    return order[progress[a]] - order[progress[b]];
+  });
+
+  return (
+    <div className={cn("space-y-4", className)}>
+      {/* Progress Header */}
+      <Card className="bg-card/50 backdrop-blur-sm border-primary/20">
+        <CardHeader className="pb-3 pt-4 px-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">
+                  Đang tạo ảnh AI
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {inProgressCount > 0 
+                    ? `Đang xử lý ${inProgressCount} kênh...`
+                    : completedCount === totalCount
+                      ? 'Hoàn thành tất cả!'
+                      : `${completedCount}/${totalCount} kênh hoàn thành`
+                  }
+                </p>
+              </div>
+            </div>
+
+            {/* Stats badges */}
+            <div className="flex items-center gap-2">
+              {completedCount > 0 && (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs">
+                  <CheckCircle className="w-3 h-3" />
+                  {completedCount}
+                </div>
+              )}
+              {pendingCount > 0 && (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted text-muted-foreground text-xs">
+                  <Clock className="w-3 h-3" />
+                  {pendingCount}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="mt-3 space-y-1.5">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Tiến độ</span>
+              <span className="tabular-nums font-medium">
+                {Math.round(progressPercent)}%
+              </span>
+            </div>
+            <Progress value={progressPercent} className="h-2" />
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Image Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <AnimatePresence mode="popLayout">
+          {sortedChannels.map((channel, index) => {
+            const status = progress[channel];
+            const image = generatedImages[channel];
+            
+            return (
+              <motion.div
+                key={channel}
+                layout
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ 
+                  duration: 0.3, 
+                  delay: index * 0.05,
+                  layout: { duration: 0.3 }
+                }}
+              >
+                <ImageStreamingCard
+                  channel={channel}
+                  status={status}
+                  imageUrl={image?.imageUrl}
+                  aspectRatio={image?.aspectRatio}
+                  onRetry={onRetryChannel ? () => onRetryChannel(channel) : undefined}
+                  onDownload={onDownloadImage ? () => onDownloadImage(channel) : undefined}
+                  isRetrying={retryingChannel === channel}
+                />
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
