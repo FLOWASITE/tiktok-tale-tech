@@ -7,3 +7,6 @@ export { RegenerateStreamingOverlay } from "./RegenerateStreamingOverlay";
 export { ImageStreamingCard } from "./ImageStreamingCard";
 export { ImageStreamingGrid } from "./ImageStreamingGrid";
 export type { ChannelStreamData, StreamingTextGridProps } from "./StreamingTextGrid";
+
+// Re-export UnifiedImageGenerator from parent for convenience
+export { UnifiedImageGenerator } from "../UnifiedImageGenerator";

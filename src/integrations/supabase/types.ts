@@ -2886,8 +2886,10 @@ export type Database = {
           id: string
           image_url: string
           is_selected: boolean | null
+          last_accessed_at: string | null
           organization_id: string | null
           prompt: string | null
+          version: number
         }
         Insert: {
           aspect_ratio?: string | null
@@ -2898,8 +2900,10 @@ export type Database = {
           id?: string
           image_url: string
           is_selected?: boolean | null
+          last_accessed_at?: string | null
           organization_id?: string | null
           prompt?: string | null
+          version?: number
         }
         Update: {
           aspect_ratio?: string | null
@@ -2910,8 +2914,10 @@ export type Database = {
           id?: string
           image_url?: string
           is_selected?: boolean | null
+          last_accessed_at?: string | null
           organization_id?: string | null
           prompt?: string | null
+          version?: number
         }
         Relationships: [
           {
