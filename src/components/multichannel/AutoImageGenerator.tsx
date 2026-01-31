@@ -1,11 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Sparkles, Image, Check, Loader2, X, AlertCircle, RefreshCw, Save, Eye, Download, Settings2 } from 'lucide-react';
+import { Sparkles, Image, Loader2, Save, Settings2, Check, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -21,11 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { Channel, MultiChannelContent, ChannelImage } from '@/types/multichannel';
 import { 
   useAutoImageGeneration, 
@@ -37,6 +30,7 @@ import {
 } from '@/hooks/useAutoImageGeneration';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ImageStreamingGrid } from './streaming/ImageStreamingGrid';
 
 interface AutoImageGeneratorProps {
   open: boolean;
@@ -106,11 +100,13 @@ const StatusIcon = ({ status }: { status: ImageGenerationStatus }) => {
     case 'done':
       return <Check className="w-4 h-4 text-green-500" />;
     case 'error':
-      return <AlertCircle className="w-4 h-4 text-destructive" />;
+      return <div className="w-4 h-4 rounded-full bg-destructive" />;
     default:
       return null;
   }
 };
+
+type ViewMode = 'setup' | 'streaming' | 'preview';
 
 export function AutoImageGenerator({
   open,
@@ -126,7 +122,7 @@ export function AutoImageGenerator({
   const [imageStyle, setImageStyle] = useState<ImageStylePreset | 'auto'>('auto');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(content?.selected_channels ?? []);
-  const [showPreview, setShowPreview] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('setup');
   const [regeneratingChannel, setRegeneratingChannel] = useState<Channel | null>(null);
   const [advancedMode, setAdvancedMode] = useState(false);
 
@@ -136,7 +132,6 @@ export function AutoImageGenerator({
     completedCount,
     totalCount,
     generatedImages,
-    previewMode,
     generateAllImages,
     regenerateForChannel,
     savePreviewImages,
@@ -176,10 +171,13 @@ export function AutoImageGenerator({
       return;
     }
 
+    // Switch to streaming view immediately
+    setViewMode('streaming');
+
     const result = await generateAllImages(options, onImageGenerated, false);
     
     if (result.successful.length > 0) {
-      setShowPreview(true);
+      setViewMode('preview');
     }
   };
 
@@ -187,7 +185,7 @@ export function AutoImageGenerator({
     if (onImageGenerated) {
       const channelsToSave = Object.keys(generatedImages) as Channel[];
       await savePreviewImages(channelsToSave, onImageGenerated);
-      setShowPreview(false);
+      setViewMode('setup');
       onOpenChange(false);
     }
   };
@@ -198,11 +196,29 @@ export function AutoImageGenerator({
     setRegeneratingChannel(null);
   };
 
+  const handleDownloadImage = (channel: Channel) => {
+    const image = generatedImages[channel];
+    if (!image) return;
+    
+    const link = document.createElement('a');
+    link.href = image.imageUrl;
+    link.download = `${content.title.replace(/[^a-zA-Z0-9]/g, '_')}-${channel}.png`;
+    link.target = '_blank';
+    link.click();
+  };
+
   const handleClose = () => {
     if (!isGenerating) {
       resetProgress();
-      setShowPreview(false);
+      setViewMode('setup');
       onOpenChange(false);
+    }
+  };
+
+  const handleBackToSetup = () => {
+    if (!isGenerating) {
+      resetProgress();
+      setViewMode('setup');
     }
   };
 
@@ -215,109 +231,31 @@ export function AutoImageGenerator({
     });
   };
 
-  const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
   const hasGeneratedImages = Object.keys(generatedImages).length > 0;
+  const allCompleted = completedCount === totalCount && totalCount > 0;
+
+  // Dialog size based on view mode
+  const dialogSize = viewMode === 'setup' ? 'sm:max-w-lg' : 'sm:max-w-4xl';
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className={cn("sm:max-w-lg", showPreview && "sm:max-w-3xl")}>
+      <DialogContent className={cn(dialogSize, "transition-all duration-300")}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            {showPreview ? 'Xem trước ảnh đã tạo' : 'Tạo ảnh tự động với AI'}
+            {viewMode === 'setup' && 'Tạo ảnh tự động với AI'}
+            {viewMode === 'streaming' && 'Đang tạo ảnh...'}
+            {viewMode === 'preview' && 'Xem trước ảnh đã tạo'}
           </DialogTitle>
           <DialogDescription>
-            {showPreview 
-              ? 'Kiểm tra ảnh và chọn Regenerate nếu muốn tạo lại, hoặc Lưu tất cả để hoàn tất'
-              : 'Sử dụng AI để tạo ảnh cho các kênh với tông màu và logo thương hiệu'}
+            {viewMode === 'setup' && 'Sử dụng AI để tạo ảnh cho các kênh với tông màu và logo thương hiệu'}
+            {viewMode === 'streaming' && 'AI đang tạo ảnh cho từng kênh, bạn có thể theo dõi tiến trình bên dưới'}
+            {viewMode === 'preview' && 'Kiểm tra ảnh và chọn Tạo lại nếu muốn, hoặc Lưu tất cả để hoàn tất'}
           </DialogDescription>
         </DialogHeader>
 
-        {showPreview ? (
-          // Preview Mode
-          <ScrollArea className="max-h-[60vh]">
-            <div className="grid grid-cols-2 gap-4 p-1">
-              {Object.entries(generatedImages).map(([channel, image]) => {
-                const isRegenerating = regeneratingChannel === channel;
-                const status = progress[channel as Channel];
-                
-                const handleDownload = () => {
-                  const link = document.createElement('a');
-                  link.href = image.imageUrl;
-                  link.download = `${content.title.replace(/[^a-zA-Z0-9]/g, '_')}-${channel}.png`;
-                  link.target = '_blank';
-                  link.click();
-                };
-                
-                return (
-                  <div key={channel} className="relative group rounded-lg overflow-hidden border">
-                    <div className="aspect-video relative bg-muted">
-                      {isRegenerating ? (
-                        <div className="absolute inset-0 flex items-center justify-center bg-background/80">
-                          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                        </div>
-                      ) : (
-                        <img
-                          src={image.imageUrl}
-                          alt={`${channel} preview`}
-                          className="w-full h-full object-cover"
-                        />
-                      )}
-                      
-                      {/* Overlay actions */}
-                      {!isRegenerating && (
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => handleRegenerateChannel(channel as Channel)}
-                                disabled={isGenerating}
-                              >
-                                <RefreshCw className="w-4 h-4 mr-1" />
-                                Tạo lại
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Tạo lại ảnh cho kênh này</TooltipContent>
-                          </Tooltip>
-                          
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                size="icon"
-                                variant="secondary"
-                                onClick={handleDownload}
-                                className="h-9 w-9"
-                              >
-                                <Download className="w-4 h-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Tải xuống</TooltipContent>
-                          </Tooltip>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Channel info */}
-                    <div className="p-2 bg-muted/50">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium capitalize">{channel}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {image.aspectRatio}
-                        </span>
-                      </div>
-                      {status === 'error' && (
-                        <span className="text-xs text-destructive">Lỗi khi tạo ảnh</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </ScrollArea>
-        ) : (
-          // Setup Mode
+        {/* Setup Mode */}
+        {viewMode === 'setup' && (
           <div className="space-y-6 py-4">
             {/* Brand Preview */}
             <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
@@ -355,7 +293,6 @@ export function AutoImageGenerator({
                 {(content?.selected_channels ?? []).map(channel => {
                   const hasImage = !!content.channel_images?.[channel]?.url;
                   const isSelected = selectedChannels.includes(channel);
-                  const status = progress[channel];
                   const optimalRatio = aspectRatio === 'auto' 
                     ? CHANNEL_OPTIMAL_ASPECT_RATIO[channel] || '16:9'
                     : aspectRatio;
@@ -363,28 +300,22 @@ export function AutoImageGenerator({
                   return (
                     <button
                       key={channel}
-                      onClick={() => !isGenerating && handleToggleChannel(channel)}
-                      disabled={isGenerating}
+                      onClick={() => handleToggleChannel(channel)}
                       className={cn(
                         'flex items-center gap-2 p-2.5 rounded-lg border text-left transition-colors',
                         isSelected
                           ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/50',
-                        isGenerating && 'opacity-70 cursor-not-allowed'
+                          : 'border-border hover:border-primary/50'
                       )}
                     >
-                      {status ? (
-                        <StatusIcon status={status} />
-                      ) : (
-                        <Checkbox checked={isSelected} className="pointer-events-none" />
-                      )}
+                      <Checkbox checked={isSelected} className="pointer-events-none" />
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium capitalize block">{channel.replace('_', ' ')}</span>
                         {aspectRatio === 'auto' && isSelected && (
                           <span className="text-xs text-muted-foreground">{optimalRatio}</span>
                         )}
                       </div>
-                      {hasImage && !status && (
+                      {hasImage && (
                         <span className="text-xs text-muted-foreground">Có ảnh</span>
                       )}
                     </button>
@@ -449,7 +380,6 @@ export function AutoImageGenerator({
                     id="include-logo"
                     checked={includeLogo}
                     onCheckedChange={(checked) => setIncludeLogo(!!checked)}
-                    disabled={isGenerating}
                   />
                   <Label htmlFor="include-logo" className="cursor-pointer">
                     Thêm logo vào ảnh
@@ -462,7 +392,6 @@ export function AutoImageGenerator({
                     <Select
                       value={logoPosition}
                       onValueChange={(v) => setLogoPosition(v as LogoPosition)}
-                      disabled={isGenerating}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue />
@@ -501,7 +430,6 @@ export function AutoImageGenerator({
                       placeholder="text, logo, watermark, blurry, distorted, low quality..."
                       rows={2}
                       className="text-sm"
-                      disabled={isGenerating}
                     />
                     <p className="text-xs text-muted-foreground">
                       Liệt kê các yếu tố bạn không muốn xuất hiện trong ảnh
@@ -510,53 +438,56 @@ export function AutoImageGenerator({
                 </div>
               )}
             </div>
-
-            {/* Progress */}
-            {isGenerating && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Đang tạo ảnh...</span>
-                  <span className="text-muted-foreground">
-                    {completedCount}/{totalCount}
-                  </span>
-                </div>
-                <Progress value={progressPercent} className="h-2" />
-              </div>
-            )}
           </div>
         )}
 
+        {/* Streaming Mode - Show real-time progress */}
+        {(viewMode === 'streaming' || viewMode === 'preview') && (
+          <ScrollArea className="max-h-[65vh]">
+            <div className="py-2">
+              <ImageStreamingGrid
+                progress={progress}
+                generatedImages={generatedImages}
+                onRetryChannel={handleRegenerateChannel}
+                onDownloadImage={handleDownloadImage}
+                retryingChannel={regeneratingChannel}
+              />
+            </div>
+          </ScrollArea>
+        )}
+
         <DialogFooter>
-          {showPreview ? (
+          {viewMode === 'setup' && (
             <>
-              <Button variant="outline" onClick={() => setShowPreview(false)} disabled={isGenerating}>
+              <Button variant="outline" onClick={handleClose}>
+                Đóng
+              </Button>
+              <Button
+                onClick={handleGenerate}
+                disabled={selectedChannels.length === 0 || !content.brand_template_id}
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Tạo {selectedChannels.length} ảnh
+              </Button>
+            </>
+          )}
+
+          {viewMode === 'streaming' && (
+            <Button variant="outline" disabled>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Đang xử lý...
+            </Button>
+          )}
+
+          {viewMode === 'preview' && (
+            <>
+              <Button variant="outline" onClick={handleBackToSetup} disabled={isGenerating}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
                 Quay lại
               </Button>
               <Button onClick={handleSaveAll} disabled={isGenerating || !hasGeneratedImages}>
                 <Save className="w-4 h-4 mr-2" />
                 Lưu tất cả ({Object.keys(generatedImages).length} ảnh)
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button variant="outline" onClick={handleClose} disabled={isGenerating}>
-                {isGenerating ? 'Đang xử lý...' : 'Đóng'}
-              </Button>
-              <Button
-                onClick={handleGenerate}
-                disabled={isGenerating || selectedChannels.length === 0 || !content.brand_template_id}
-              >
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Đang tạo...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Tạo {selectedChannels.length} ảnh
-                  </>
-                )}
               </Button>
             </>
           )}
