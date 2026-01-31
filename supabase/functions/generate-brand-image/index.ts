@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { 
-  buildImagePrompt, 
+  buildImagePrompt,
+  buildSimpleImagePrompt,
   getChannelAspectRatio,
   type Channel,
   type BrandImageContext,
@@ -26,6 +27,19 @@ interface GenerateImageRequest {
   negativePrompt?: string;
 }
 
+// Model fallback configuration (primary → fallback)
+const IMAGE_MODELS = {
+  primary: "google/gemini-3-pro-image-preview",
+  fallback: "google/gemini-2.5-flash-image",
+} as const;
+
+// Image quality validation thresholds
+const QUALITY_THRESHOLDS = {
+  minFileSizeBytes: 10000,    // 10KB minimum
+  minDimensionPixels: 256,    // Minimum dimension
+  maxRetries: 2,
+} as const;
+
 // Map content_goal to journey stage
 function mapContentGoalToJourneyStage(
   contentGoal?: string
@@ -41,6 +55,141 @@ function mapContentGoalToJourneyStage(
     'loyalty': 'retention',
   };
   return contentGoal ? mapping[contentGoal] : undefined;
+}
+
+// Validate image quality after generation
+function validateImageQuality(base64Data: string): { valid: boolean; reason?: string; fileSize: number } {
+  try {
+    const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+    const fileSize = imageBytes.length;
+    
+    if (fileSize < QUALITY_THRESHOLDS.minFileSizeBytes) {
+      return { 
+        valid: false, 
+        reason: `Image too small (${fileSize} bytes, min ${QUALITY_THRESHOLDS.minFileSizeBytes})`,
+        fileSize 
+      };
+    }
+    
+    // Basic check for blank/white images (high entropy = good, low = potentially blank)
+    // Simple variance check on a sample of bytes
+    const sampleSize = Math.min(1000, imageBytes.length);
+    let sum = 0;
+    let sumSq = 0;
+    for (let i = 0; i < sampleSize; i++) {
+      const idx = Math.floor(i * imageBytes.length / sampleSize);
+      sum += imageBytes[idx];
+      sumSq += imageBytes[idx] * imageBytes[idx];
+    }
+    const mean = sum / sampleSize;
+    const variance = (sumSq / sampleSize) - (mean * mean);
+    
+    // Very low variance might indicate blank/uniform image
+    if (variance < 100) {
+      return { 
+        valid: false, 
+        reason: `Image appears blank or uniform (variance: ${variance.toFixed(2)})`,
+        fileSize 
+      };
+    }
+    
+    return { valid: true, fileSize };
+  } catch (err) {
+    return { valid: false, reason: `Validation error: ${err}`, fileSize: 0 };
+  }
+}
+
+// Generate image with smart retry and model fallback
+async function generateImageWithRetry(
+  prompt: string,
+  apiKey: string,
+  maxRetries: number = QUALITY_THRESHOLDS.maxRetries
+): Promise<{ imageData: string; model: string; attempts: number }> {
+  let lastError: Error | null = null;
+  let attempts = 0;
+  
+  // Try with primary model first, then fallback
+  const modelsToTry = [IMAGE_MODELS.primary, IMAGE_MODELS.fallback];
+  
+  for (const model of modelsToTry) {
+    for (let retry = 0; retry <= maxRetries; retry++) {
+      attempts++;
+      
+      try {
+        console.log(`[generate-brand-image] Attempt ${attempts} with model: ${model}`);
+        
+        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: prompt }],
+            modalities: ["image", "text"],
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`[generate-brand-image] Model ${model} error:`, response.status, errorText);
+          
+          // Rate limit or payment errors - throw immediately, no retry
+          if (response.status === 429 || response.status === 402) {
+            throw new Error(`API_ERROR:${response.status}`);
+          }
+          
+          lastError = new Error(`Model ${model} failed: ${response.status}`);
+          continue;
+        }
+
+        const aiData = await response.json();
+        const imageData = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        
+        if (!imageData) {
+          lastError = new Error(`No image in response from ${model}`);
+          continue;
+        }
+
+        // Extract base64 and validate quality
+        const base64Data = imageData.replace(/^data:image\/[^;]+;base64,/, "");
+        const validation = validateImageQuality(base64Data);
+        
+        if (!validation.valid) {
+          console.warn(`[generate-brand-image] Quality check failed: ${validation.reason}`);
+          lastError = new Error(validation.reason || "Quality check failed");
+          
+          // If failed on primary, try fallback with simplified prompt
+          if (model === IMAGE_MODELS.primary && retry === maxRetries) {
+            console.log("[generate-brand-image] Primary model exhausted, trying fallback...");
+            break; // Move to fallback model
+          }
+          continue;
+        }
+
+        console.log(`[generate-brand-image] Success with ${model}, file size: ${validation.fileSize} bytes`);
+        return { imageData, model, attempts };
+        
+      } catch (err) {
+        // Check for API errors that should not be retried
+        if (err instanceof Error && err.message.startsWith('API_ERROR:')) {
+          throw err;
+        }
+        
+        lastError = err instanceof Error ? err : new Error(String(err));
+        console.error(`[generate-brand-image] Attempt ${attempts} failed:`, lastError.message);
+        
+        // Exponential backoff before retry
+        if (retry < maxRetries) {
+          const delay = 1000 * Math.pow(2, retry);
+          await new Promise(r => setTimeout(r, delay));
+        }
+      }
+    }
+  }
+  
+  throw lastError || new Error("All generation attempts failed");
 }
 
 serve(async (req) => {
@@ -164,64 +313,39 @@ serve(async (req) => {
       negativePrompt,
     });
 
-    console.log("[generate-brand-image] Calling Lovable AI Gateway with Gemini 3 Pro Image...");
+    console.log("[generate-brand-image] Starting image generation with smart retry...");
 
-    // Call Lovable AI Gateway with image generation model
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-pro-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: enhancedPrompt,
-          },
-        ],
-        modalities: ["image", "text"],
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[generate-brand-image] Lovable AI error:", response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+    // Generate with smart retry and model fallback
+    let imageData: string;
+    let modelUsed: string;
+    let totalAttempts: number;
+    
+    try {
+      const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY);
+      imageData = result.imageData;
+      modelUsed = result.model;
+      totalAttempts = result.attempts;
+    } catch (err) {
+      // Handle API errors
+      if (err instanceof Error && err.message.startsWith('API_ERROR:')) {
+        const statusCode = parseInt(err.message.split(':')[1]);
+        if (statusCode === 429) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Rate limit exceeded. Please try again later." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (statusCode === 402) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Payment required. Please add credits to your Lovable AI workspace." }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Payment required. Please add credits to your Lovable AI workspace." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      throw new Error(`AI Gateway error: ${response.status}`);
+      throw err;
     }
 
-    const aiData = await response.json();
-    
-    // Detailed logging for debugging
-    console.log("[generate-brand-image] AI response structure:", {
-      hasChoices: !!aiData.choices,
-      choicesLength: aiData.choices?.length,
-      hasMessage: !!aiData.choices?.[0]?.message,
-      hasImages: !!aiData.choices?.[0]?.message?.images,
-      imagesLength: aiData.choices?.[0]?.message?.images?.length,
-    });
-
-    // Extract image from response
-    const imageData = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    
-    if (!imageData) {
-      console.error("[generate-brand-image] No image in response:", JSON.stringify(aiData).slice(0, 500));
-      throw new Error("No image generated by AI");
-    }
+    console.log(`[generate-brand-image] Generated with ${modelUsed} after ${totalAttempts} attempt(s)`);
 
     // Detect actual content type from data URL
     const contentTypeMatch = imageData.match(/^data:image\/([^;]+);base64,/);
@@ -302,6 +426,8 @@ serve(async (req) => {
           primary: brandContext.brandColors?.primary,
           secondary: brandContext.brandColors?.secondary,
         },
+        modelUsed,
+        attempts: totalAttempts,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

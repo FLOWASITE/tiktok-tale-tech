@@ -95,7 +95,7 @@ export const IMAGE_STYLE_PRESETS: Record<ImageStylePreset, {
 };
 
 // ============================================
-// CHANNEL CONFIGURATIONS
+// CHANNEL CONFIGURATIONS (Enhanced with specific visual directions)
 // ============================================
 
 const CHANNEL_IMAGE_SPECS: Record<Channel, {
@@ -103,54 +103,113 @@ const CHANNEL_IMAGE_SPECS: Record<Channel, {
   style: string;
   mood: string;
   composition: string;
+  visualDirections: string[];  // Channel-specific visual instructions
+  avoidElements: string[];     // Elements to avoid for this channel
 }> = {
   facebook: {
     aspectRatio: '16:9',
     style: 'vibrant and engaging, social media friendly',
     mood: 'warm, inviting, community-focused',
     composition: 'centered focal point with breathing room, works well with text overlay',
+    visualDirections: [
+      'Optimize for news feed scrolling',
+      'Include human elements when relevant (faces increase engagement)',
+      'Use warm, inviting color tones',
+      'Leave space in corners for reaction buttons',
+    ],
+    avoidElements: ['small text', 'complex details that get lost at small sizes'],
   },
   instagram: {
     aspectRatio: '1:1',
     style: 'aesthetically pleasing, visually striking, Instagram-worthy',
     mood: 'modern, trendy, aspirational',
     composition: 'bold central subject, minimal clutter, grid-friendly',
+    visualDirections: [
+      'Highly visual and aesthetic-first design',
+      'Consider how it looks in a 3x3 grid feed',
+      'Use popular Instagram color palettes (warm tones, pastels, or bold contrasts)',
+      'Strong visual hierarchy with one clear focal point',
+    ],
+    avoidElements: ['busy backgrounds', 'multiple competing focal points', 'dark muddy colors'],
   },
   tiktok: {
     aspectRatio: '9:16',
     style: 'dynamic, eye-catching, vertical format optimized',
     mood: 'energetic, youthful, attention-grabbing',
     composition: 'vertical composition, subject in upper third, space for text at bottom',
+    visualDirections: [
+      'CRITICAL: Leave bottom 20% clear for captions and UI elements',
+      'Bold, high-contrast visuals that pop on mobile screens',
+      'Movement and energy in the composition',
+      'Trend-aware aesthetics (neon, gradients, duotone)',
+    ],
+    avoidElements: ['horizontal compositions', 'small details', 'muted colors', 'text in bottom area'],
   },
   linkedin: {
     aspectRatio: '16:9',
     style: 'professional, clean, business-appropriate',
     mood: 'trustworthy, competent, industry-focused',
     composition: 'clean background, professional lighting, corporate aesthetic',
+    visualDirections: [
+      'Corporate and professional aesthetic',
+      'Blue tones convey trust and professionalism',
+      'Clean, uncluttered backgrounds',
+      'Subtle, sophisticated color palette',
+      'Business context imagery (office, meeting, presentation)',
+    ],
+    avoidElements: ['casual imagery', 'overly playful elements', 'bright neon colors', 'memes'],
   },
   twitter: {
     aspectRatio: '16:9',
     style: 'bold, shareable, high contrast',
     mood: 'current, newsworthy, conversation-starting',
     composition: 'simple and direct, works at small size, readable thumbnails',
+    visualDirections: [
+      'Quick to understand at a glance',
+      'High contrast for timeline visibility',
+      'Works well as a small thumbnail',
+      'Conversation-starting visual hook',
+    ],
+    avoidElements: ['complex details', 'subtle gradients', 'low contrast elements'],
   },
   website: {
     aspectRatio: '16:9',
     style: 'high-quality, professional, brand-aligned',
     mood: 'trustworthy, premium, on-brand',
     composition: 'hero-style, versatile for cropping, works with overlaid text',
+    visualDirections: [
+      'Hero banner quality - premium and polished',
+      'Works with text overlays (consider contrast)',
+      'Versatile for different crop ratios',
+      'Loading speed conscious - not overly complex',
+    ],
+    avoidElements: ['busy patterns that interfere with text', 'too many focal points'],
   },
   zalo: {
     aspectRatio: '1:1',
     style: 'friendly, approachable, Vietnamese context',
     mood: 'familiar, trustworthy, local',
     composition: 'clear focal point, works on mobile screens',
+    visualDirections: [
+      'Mobile-first design for Vietnamese users',
+      'Culturally appropriate imagery',
+      'Clear and simple messaging through visuals',
+      'Family and community themes resonate well',
+    ],
+    avoidElements: ['Western-centric imagery', 'overly complex compositions'],
   },
   threads: {
     aspectRatio: '1:1',
     style: 'minimal, contemporary, discussion-friendly',
     mood: 'conversational, authentic, relatable',
     composition: 'simple composition, text-friendly space',
+    visualDirections: [
+      'Clean and minimal aesthetic',
+      'Authentic, less polished feel (not overly produced)',
+      'Conversation-starter visuals',
+      'Works well with follow-up replies in mind',
+    ],
+    avoidElements: ['overly commercial look', 'stock photo aesthetic'],
   },
 };
 
@@ -290,7 +349,13 @@ ${contentSummary}
 - Aspect Ratio: ${finalAspectRatio}
 - Platform Style: ${channelSpec.style}
 - Mood: ${channelSpec.mood}
-- Composition: ${channelSpec.composition}`;
+- Composition: ${channelSpec.composition}
+
+### Channel-Specific Visual Directions:
+${channelSpec.visualDirections.map(d => `- ${d}`).join('\n')}
+
+### Elements to AVOID for ${channel}:
+${channelSpec.avoidElements.map(e => `- ${e}`).join('\n')}`;
 
   // Add brand identity
   if (brand.imageStyle) {

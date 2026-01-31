@@ -177,6 +177,24 @@ export function useAutoImageGeneration() {
     return generateWithRetry(channel, options, 2);
   }, [generateWithRetry]);
 
+  // Dynamic batch size based on number of channels
+  const getBatchSize = useCallback((totalChannels: number): number => {
+    // 1-3 channels: sequential (batch of 1) for better reliability
+    if (totalChannels <= 3) return 1;
+    // 4-6 channels: batch of 2
+    if (totalChannels <= 6) return 2;
+    // 7+ channels: batch of 3 (more aggressive batching)
+    return 3;
+  }, []);
+
+  // Get delay between batches based on batch size
+  const getBatchDelay = useCallback((batchSize: number): number => {
+    // Larger batches need longer delays to avoid rate limits
+    if (batchSize === 1) return 500;
+    if (batchSize === 2) return 1000;
+    return 1500;
+  }, []);
+
   const generateAllImages = useCallback(async (
     options: AutoGenerateOptions,
     onImageGenerated?: (channel: Channel, image: ChannelImage) => Promise<void>,
@@ -201,8 +219,12 @@ export function useAutoImageGeneration() {
     const successful: Channel[] = [];
     const failed: Channel[] = [];
 
-    // Process in batches of 2 to avoid rate limits
-    const batchSize = 2;
+    // Dynamic batch size based on total channels
+    const batchSize = getBatchSize(channels.length);
+    const batchDelay = getBatchDelay(batchSize);
+    
+    console.log(`[useAutoImageGeneration] Processing ${channels.length} channels with batch size ${batchSize}`);
+    
     for (let i = 0; i < channels.length; i += batchSize) {
       const batch = channels.slice(i, i + batchSize);
       
@@ -235,9 +257,9 @@ export function useAutoImageGeneration() {
         }
       }
 
-      // Small delay between batches to avoid rate limits
+      // Dynamic delay between batches
       if (i + batchSize < channels.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, batchDelay));
       }
     }
 
