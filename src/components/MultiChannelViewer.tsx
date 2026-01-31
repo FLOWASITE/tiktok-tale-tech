@@ -1529,7 +1529,7 @@ export function MultiChannelViewer({
       </DialogContent>
       
       {/* Image Prompt Editor Modal */}
-      {imageEditorChannel && (
+      {imageEditorChannel && content.brand_template_id && (
         <ImagePromptEditor
           open={imageEditorOpen}
           onOpenChange={setImageEditorOpen}
@@ -1539,6 +1539,9 @@ export function MultiChannelViewer({
           brandName={content.brand_name}
           brandGuideline={content.brand_guideline || undefined}
           primaryColor={content.primary_color || undefined}
+          brandTemplateId={content.brand_template_id}
+          brandLogoUrl={brandLogoUrl || undefined}
+          brandIndustry={industryMemory?.code ? [industryMemory.code] : undefined}
           onImageGenerated={(imageUrl) => {
             setGeneratedImages(prev => ({
               ...prev,

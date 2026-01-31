@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { ImagePlus, Loader2, Sparkles, Copy, Check, Download, RefreshCw, Wand2 } from 'lucide-react';
+import { ImagePlus, Loader2, Sparkles, Copy, Check, Download, RefreshCw, Wand2, Palette, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -20,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Channel } from '@/types/multichannel';
-import { useSocialImageGeneration } from '@/hooks/useSocialImageGeneration';
+import { useSocialImageGeneration, IMAGE_STYLE_PRESETS, ImageStylePreset } from '@/hooks/useSocialImageGeneration';
 import { toast } from 'sonner';
 
 interface ImagePromptEditorProps {
@@ -33,6 +34,10 @@ interface ImagePromptEditorProps {
   brandGuideline?: string;
   primaryColor?: string;
   onImageGenerated?: (imageUrl: string) => void;
+  // New required props for brand integration
+  brandTemplateId: string;
+  brandLogoUrl?: string;
+  brandIndustry?: string[];
 }
 
 // Channel-specific image dimensions and styles
@@ -44,7 +49,7 @@ const CHANNEL_IMAGE_CONFIG: Record<Channel, {
 }> = {
   facebook: { 
     size: '1200x630', 
-    aspectRatio: '1.91:1',
+    aspectRatio: '16:9',
     style: 'Eye-catching, vibrant colors, clear focal point',
     tips: 'Use high contrast, minimal text, brand colors'
   },
@@ -56,7 +61,7 @@ const CHANNEL_IMAGE_CONFIG: Record<Channel, {
   },
   linkedin: { 
     size: '1200x627', 
-    aspectRatio: '1.91:1',
+    aspectRatio: '16:9',
     style: 'Professional, clean, business-appropriate',
     tips: 'Corporate style, data visualization, professional imagery'
   },
@@ -74,13 +79,13 @@ const CHANNEL_IMAGE_CONFIG: Record<Channel, {
   },
   website: { 
     size: '1200x630', 
-    aspectRatio: '1.91:1',
+    aspectRatio: '16:9',
     style: 'Hero banner, professional, brand-aligned',
     tips: 'High-res, brand colors, compelling imagery'
   },
   email: { 
     size: '600x300', 
-    aspectRatio: '2:1',
+    aspectRatio: '16:9',
     style: 'Clean, lightweight, email-optimized',
     tips: 'Simple, fast-loading, clear message'
   },
@@ -116,12 +121,20 @@ const CHANNEL_IMAGE_CONFIG: Record<Channel, {
   },
 };
 
+const ASPECT_RATIO_OPTIONS = [
+  { value: '1:1', label: '1:1 (Vuông)', description: 'Instagram, Facebook' },
+  { value: '16:9', label: '16:9 (Ngang)', description: 'YouTube, LinkedIn, Twitter' },
+  { value: '9:16', label: '9:16 (Dọc)', description: 'TikTok, Reels, Stories' },
+  { value: '4:5', label: '4:5 (Portrait)', description: 'Instagram Feed' },
+];
+
 function generateAutoPrompt(
   channel: Channel,
   contentSummary: string,
   brandName?: string,
   brandGuideline?: string,
   primaryColor?: string,
+  brandIndustry?: string[],
 ): string {
   const config = CHANNEL_IMAGE_CONFIG[channel];
   
@@ -141,6 +154,10 @@ function generateAutoPrompt(
   
   if (primaryColor) {
     prompt += `Use primary color ${primaryColor} as accent. `;
+  }
+
+  if (brandIndustry && brandIndustry.length > 0) {
+    prompt += `Industry: ${brandIndustry.join(', ')}. `;
   }
   
   if (brandGuideline) {
@@ -164,11 +181,19 @@ export function ImagePromptEditor({
   brandGuideline,
   primaryColor,
   onImageGenerated,
+  brandTemplateId,
+  brandLogoUrl,
+  brandIndustry,
 }: ImagePromptEditorProps) {
   const [prompt, setPrompt] = useState('');
-  const [selectedSize, setSelectedSize] = useState<string>('');
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>('');
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  
+  // New state for enhanced features
+  const [imageStyle, setImageStyle] = useState<ImageStylePreset | 'auto'>('auto');
+  const [negativePrompt, setNegativePrompt] = useState('');
+  const [includeLogo, setIncludeLogo] = useState(false);
   
   const { generating, generateImage } = useSocialImageGeneration();
   
@@ -184,12 +209,14 @@ export function ImagePromptEditor({
         brandName,
         brandGuideline,
         primaryColor,
+        brandIndustry,
       );
       setPrompt(autoPrompt);
-      setSelectedSize(channelConfig.size);
+      setSelectedAspectRatio(channelConfig.aspectRatio);
       setGeneratedImageUrl(null);
+      setIncludeLogo(!!brandLogoUrl);
     }
-  }, [open, channel, contentSummary, brandName, brandGuideline, primaryColor, channelConfig.size]);
+  }, [open, channel, contentSummary, brandName, brandGuideline, primaryColor, brandIndustry, channelConfig.aspectRatio, brandLogoUrl]);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -197,11 +224,19 @@ export function ImagePromptEditor({
       return;
     }
 
+    if (!brandTemplateId) {
+      toast.error('Không tìm thấy Brand Template');
+      return;
+    }
+
     const imageUrl = await generateImage({
       prompt,
       contentId,
       channel,
-      aspectRatio: channelConfig.aspectRatio,
+      aspectRatio: selectedAspectRatio || channelConfig.aspectRatio,
+      brandTemplateId,
+      imageStylePreset: imageStyle === 'auto' ? undefined : imageStyle,
+      negativePrompt: negativePrompt.trim() || undefined,
     });
 
     if (imageUrl) {
@@ -224,6 +259,7 @@ export function ImagePromptEditor({
       brandName,
       brandGuideline,
       primaryColor,
+      brandIndustry,
     );
     setPrompt(autoPrompt);
   };
@@ -257,61 +293,107 @@ export function ImagePromptEditor({
             Tạo ảnh cho {channel.charAt(0).toUpperCase() + channel.slice(1).replace('_', ' ')}
           </DialogTitle>
           <DialogDescription>
-            Tạo ảnh AI tự động dựa trên nội dung và brand guidelines
+            Tạo ảnh AI với brand context và style presets
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Provider Info - Simplified */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🪄</span>
+          {/* Brand Context Preview */}
+          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+            <div className="flex items-center gap-3">
+              {primaryColor && (
+                <div 
+                  className="w-8 h-8 rounded-full border-2 border-background shadow-sm"
+                  style={{ backgroundColor: primaryColor }}
+                />
+              )}
               <div>
-                <p className="text-sm font-medium">Lovable AI</p>
-                <p className="text-xs text-muted-foreground">Tạo ảnh tự động với AI</p>
+                <p className="text-sm font-medium">{brandName || 'Brand'}</p>
+                {brandIndustry && brandIndustry.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {brandIndustry.slice(0, 2).join(', ')}
+                  </p>
+                )}
               </div>
             </div>
             <Badge variant="outline" className="gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-              Sẵn sàng
+              <Palette className="w-3 h-3" />
+              Brand Context
             </Badge>
           </div>
 
-          {/* Channel Config */}
+          {/* Style Preset & Aspect Ratio Row */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-lg border bg-card">
-              <p className="text-xs text-muted-foreground mb-1">Kích thước đề xuất</p>
-              <p className="font-medium">{channelConfig.size}</p>
-              <p className="text-xs text-muted-foreground">{channelConfig.aspectRatio}</p>
+            {/* Style Preset */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5" />
+                Style Preset
+              </Label>
+              <Select 
+                value={imageStyle} 
+                onValueChange={(v) => setImageStyle(v as ImageStylePreset | 'auto')}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn style" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">
+                    <span className="flex flex-col">
+                      <span>Tự động</span>
+                      <span className="text-xs text-muted-foreground">Dựa trên brand style</span>
+                    </span>
+                  </SelectItem>
+                  {Object.entries(IMAGE_STYLE_PRESETS).map(([key, preset]) => (
+                    <SelectItem key={key} value={key}>
+                      <span className="flex flex-col">
+                        <span>{preset.label}</span>
+                        <span className="text-xs text-muted-foreground">{preset.description}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="p-3 rounded-lg border bg-card">
-              <p className="text-xs text-muted-foreground mb-1">Style</p>
-              <p className="text-sm">{channelConfig.style}</p>
+
+            {/* Aspect Ratio */}
+            <div className="space-y-2">
+              <Label>Tỷ lệ khung hình</Label>
+              <Select value={selectedAspectRatio} onValueChange={setSelectedAspectRatio}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn tỷ lệ" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ASPECT_RATIO_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      <span className="flex flex-col">
+                        <span>{option.label}</span>
+                        <span className="text-xs text-muted-foreground">{option.description}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {/* Size Selector */}
-          <div className="space-y-2">
-            <Label>Kích thước ảnh</Label>
-            <Select value={selectedSize} onValueChange={setSelectedSize}>
-              <SelectTrigger>
-                <SelectValue placeholder="Chọn kích thước" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={channelConfig.size}>
-                  {channelConfig.size} (Đề xuất cho {channel})
-                </SelectItem>
-                <SelectItem value="1024x1024">1024x1024 (Vuông)</SelectItem>
-                <SelectItem value="1536x1024">1536x1024 (Ngang)</SelectItem>
-                <SelectItem value="1024x1536">1024x1536 (Dọc)</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Channel Config Info */}
+          <div className="p-3 rounded-lg border bg-card">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Đề xuất cho {channel}</p>
+                <p className="text-sm">{channelConfig.style}</p>
+              </div>
+              <Badge variant="secondary" className="text-xs">
+                {channelConfig.aspectRatio}
+              </Badge>
+            </div>
           </div>
 
           {/* Prompt Editor */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Image Prompt</Label>
+              <Label>Image Prompt (có thể chỉnh sửa)</Label>
               <div className="flex items-center gap-1">
                 <TooltipProvider>
                   <Tooltip>
@@ -353,13 +435,43 @@ export function ImagePromptEditor({
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Mô tả ảnh bạn muốn tạo..."
-              rows={5}
+              rows={4}
               className="resize-none"
             />
-            <p className="text-xs text-muted-foreground">
-              Bạn có thể chỉnh sửa prompt hoặc copy để dùng với công cụ khác (Midjourney, DALL-E...)
-            </p>
           </div>
+
+          {/* Negative Prompt */}
+          <div className="space-y-2">
+            <Label className="text-muted-foreground">Negative Prompt (các yếu tố cần tránh)</Label>
+            <Textarea
+              value={negativePrompt}
+              onChange={(e) => setNegativePrompt(e.target.value)}
+              placeholder="text, watermark, blurry, low quality..."
+              rows={2}
+              className="resize-none text-sm"
+            />
+          </div>
+
+          {/* Logo Toggle - Only show if brand has logo */}
+          {brandLogoUrl && (
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+              <div className="flex items-center gap-3">
+                <img 
+                  src={brandLogoUrl} 
+                  alt="Logo" 
+                  className="w-8 h-8 object-contain rounded"
+                />
+                <div>
+                  <p className="text-sm font-medium">Thêm logo thương hiệu</p>
+                  <p className="text-xs text-muted-foreground">Logo sẽ được thêm vào ảnh sau khi tạo</p>
+                </div>
+              </div>
+              <Switch
+                checked={includeLogo}
+                onCheckedChange={setIncludeLogo}
+              />
+            </div>
+          )}
 
           {/* Generated Image Preview */}
           {generatedImageUrl && (
@@ -394,7 +506,7 @@ export function ImagePromptEditor({
             </Button>
             <Button
               onClick={handleGenerate}
-              disabled={isGenerating || !prompt.trim()}
+              disabled={isGenerating || !prompt.trim() || !brandTemplateId}
               className="gap-2"
             >
               {isGenerating ? (
