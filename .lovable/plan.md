@@ -53,7 +53,7 @@
 ## Còn lại (Optional/Future)
 
 ### UI Enhancements
-- [ ] Compare Mode - Side-by-side version comparison
+- [x] Compare Mode - Side-by-side version comparison ✅
 - [ ] Similar Images - Fetch historical examples for reference
 - [ ] Generation Queue Persistence - Resume if tab closed
 

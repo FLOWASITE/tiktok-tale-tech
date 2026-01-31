@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { History, Check, Trash2, ExternalLink, Loader2 } from 'lucide-react';
+import { History, Check, Trash2, ExternalLink, Loader2, ArrowLeftRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -21,6 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { ImageCompareMode } from './ImageCompareMode';
 
 interface ImageHistoryItem {
   id: string;
@@ -51,6 +52,7 @@ export function ChannelImageHistory({
   const [loading, setLoading] = useState(false);
   const [selecting, setSelecting] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [compareOpen, setCompareOpen] = useState(false);
 
   // Fetch image history
   useEffect(() => {
@@ -148,21 +150,37 @@ export function ChannelImageHistory({
     return labels[ch] || ch;
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <History className="w-5 h-5" />
-            Lịch sử ảnh - {getChannelLabel(channel)}
-          </DialogTitle>
-          <DialogDescription>
-            Xem và chọn các phiên bản ảnh đã tạo trước đó
-          </DialogDescription>
-        </DialogHeader>
+  const channelLabel = getChannelLabel(channel);
 
-        <ScrollArea className="h-[500px] pr-4">
-          {loading ? (
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <History className="w-5 h-5" />
+                Lịch sử ảnh - {channelLabel}
+              </DialogTitle>
+              {images.length >= 2 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCompareOpen(true)}
+                  className="gap-1"
+                >
+                  <ArrowLeftRight className="w-4 h-4" />
+                  So sánh
+                </Button>
+              )}
+            </div>
+            <DialogDescription>
+              Xem và chọn các phiên bản ảnh đã tạo trước đó
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="h-[500px] pr-4">
+            {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
@@ -280,9 +298,22 @@ export function ChannelImageHistory({
                 </div>
               ))}
             </div>
-          )}
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Compare Mode Dialog */}
+      <ImageCompareMode
+        open={compareOpen}
+        onOpenChange={setCompareOpen}
+        images={images}
+        channelLabel={channelLabel}
+        onSelectImage={(imageId, imageUrl) => {
+          handleSelectImage(imageId, imageUrl);
+          setCompareOpen(false);
+        }}
+      />
+    </>
   );
 }
