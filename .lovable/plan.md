@@ -1,182 +1,205 @@
 
-# Kế hoạch: Hợp nhất Hệ thống Tạo ảnh AI
+# Phân tích và Đề xuất Cải tiến Hệ thống Tạo ảnh AI
 
-## Mục tiêu
-Gộp hai nút "Tạo ảnh AI" (sử dụng `generate-brand-image`) và "Ảnh" (sử dụng `generate-social-image`) thành **một hệ thống duy nhất**, kế thừa các ưu điểm của cả hai:
+## Tổng quan Hệ thống Hiện tại
 
-| Tính năng | Hiện tại "Ảnh" | Hiện tại "Tạo ảnh AI" | Sau hợp nhất |
-|-----------|----------------|----------------------|--------------|
-| Brand Context (colors, persona, industry) | Không | Có | Có |
-| Style Presets (photorealistic, illustration...) | Không | Có | Có |
-| Chỉnh sửa prompt trực tiếp | Có | Không | Có |
-| Logo overlay | Không | Có | Có |
-| Batch generate nhiều channels | Không | Có | Có |
-| Xem lại prompt đã dùng | Có | Không | Có |
+### Kiến trúc Backend
+- **Edge Function chính**: `generate-brand-image` - sử dụng `google/gemini-3-pro-image-preview`
+- **Logo Overlay**: `overlay-logo-canvas` - sử dụng ImageScript (canvas-based, không AI)
+- **Prompt Builder**: `_shared/image-prompt-builder.ts` - xây dựng prompt với Brand Context
 
----
-
-## Phạm vi thay đổi
-
-### 1. Loại bỏ Edge Function thừa
-- **Xóa**: `supabase/functions/generate-social-image/`
-- **Giữ**: `supabase/functions/generate-brand-image/` (đã có đầy đủ tính năng)
-
-### 2. Nâng cấp ImagePromptEditor
-**File**: `src/components/ImagePromptEditor.tsx`
-
-Cập nhật component để:
-- Gọi `generate-brand-image` thay vì `generate-social-image`
-- Thêm selector **Style Presets** (photorealistic, illustration, minimalist...)
-- Thêm selector **Aspect Ratio** với channel-optimized defaults
-- Thêm input **Negative Prompt** (các yếu tố cần tránh)
-- Hiển thị **Brand Context Preview** (màu sắc, industry, persona)
-- Cho phép bật/tắt **Logo Overlay** nếu brand có logo
-
-### 3. Cập nhật Hook useSocialImageGeneration
-**File**: `src/hooks/useSocialImageGeneration.ts`
-
-- Thay đổi gọi từ `generate-social-image` sang `generate-brand-image`
-- Thêm params: `brandTemplateId`, `imageStylePreset`, `negativePrompt`, `includeLogo`
-- Trả về thêm `prompt` và `aspectRatio` trong response
-
-### 4. Cập nhật MultiChannelViewer
-**File**: `src/components/MultiChannelViewer.tsx`
-
-- Truyền `brandTemplateId` vào `ImagePromptEditor`
-- Truyền các brand context (logo, primary color, brand name)
-
-### 5. Tích hợp UI thống nhất
-**Luồng mới cho nút "Ảnh" trong content area**:
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│  Tạo ảnh cho [Channel]                                          │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌──────────────────┐  ┌──────────────────┐                     │
-│  │ Brand Preview    │  │ Style: [Dropdown]│                     │
-│  │ 🎨 #6366f1       │  │ □ photorealistic │                     │
-│  │ Industry: Tech   │  │ □ illustration   │                     │
-│  └──────────────────┘  │ □ minimalist ... │                     │
-│                        └──────────────────┘                     │
-│                                                                 │
-│  Aspect Ratio: [1:1 ▼] (optimal cho Instagram)                  │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │ AI Generated Prompt (có thể chỉnh sửa):                  │   │
-│  │ Create a professional image for BrandXYZ...              │   │
-│  │ ...                                                      │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  Negative Prompt: [                                       ]     │
-│                                                                 │
-│  ☑️ Thêm logo thương hiệu  [Góc dưới phải ▼]                    │
-│                                                                 │
-│  [Đóng]                                          [🪄 Tạo ảnh]   │
-└─────────────────────────────────────────────────────────────────┘
-```
+### UI Components
+| Component | Chức năng | Vị trí |
+|-----------|-----------|--------|
+| `AutoImageGenerator` | Batch generate cho nhiều channels | Dialog từ nút "Tạo ảnh AI" |
+| `ImagePromptEditor` | Generate đơn lẻ với chỉnh sửa prompt | Dialog từ nút "Ảnh" trong content |
+| `ImageStreamingGrid/Card` | Hiển thị tiến trình streaming | Bên trong AutoImageGenerator |
+| `ChannelImageHistory` | Lịch sử ảnh đã tạo | Dialog từ nút History |
 
 ---
 
-## Chi tiết kỹ thuật
+## Các vấn đề phát hiện
 
-### Backend Changes
+### 1. UI/UX Issues
 
-**Xóa file**: `supabase/functions/generate-social-image/index.ts`
+#### A. Trùng lặp chức năng giữa hai dialog
+**Vấn đề**: `AutoImageGenerator` và `ImagePromptEditor` có nhiều tính năng giống nhau nhưng UI khác nhau, gây confusion:
+- Cả hai đều có Style Presets, Aspect Ratio, Negative Prompt
+- `AutoImageGenerator`: Batch mode, có Logo options
+- `ImagePromptEditor`: Single mode, có chỉnh sửa Prompt
 
-Không cần sửa `generate-brand-image` vì đã có đầy đủ tính năng cần thiết.
+**Giải pháp đề xuất**:
+- Gộp thành một component thống nhất `UnifiedImageGenerator`
+- Có toggle giữa "Single Channel" và "Batch Mode"
+- Giữ khả năng chỉnh sửa prompt trong cả 2 mode
 
-### Frontend Changes
+#### B. Thiếu Preview trước khi Generate
+**Vấn đề**: User không biết ảnh sẽ như thế nào trước khi generate (tốn thời gian + credits)
 
-**1. src/hooks/useSocialImageGeneration.ts**
+**Giải pháp đề xuất**:
+- Thêm "Prompt Preview" collapsible section
+- Hiển thị tóm tắt các thông số: Brand Colors, Industry, Persona, Style
+- Thêm "Similar Images" từ lịch sử để user tham khảo
+
+#### C. Progress Feedback không đủ chi tiết
+**Vấn đề**: Khi generating, chỉ thấy spinner, không biết đang ở bước nào
+
+**Giải pháp đề xuất**:
+- Thêm step indicator: "Fetching Brand" → "Building Prompt" → "Generating" → "Uploading" → "Done"
+- Hiển thị estimated time dựa trên average generation time
+
+#### D. Aspect Ratio Visual Preview
+**Vấn đề**: User chọn aspect ratio nhưng không thấy preview khung hình
+
+**Giải pháp đề xuất**:
+- Thêm visual preview của aspect ratio (khung placeholder)
+- Hiển thị recommended aspect ratio cho từng channel rõ ràng hơn
+
+### 2. Logic Issues
+
+#### A. Retry Logic thiếu smart fallback
+**Vấn đề hiện tại**:
 ```typescript
-interface GenerateImageParams {
-  prompt: string;
-  contentId?: string;
-  channel?: Channel;
-  aspectRatio?: string;
-  organizationId?: string;
-  // NEW params
-  brandTemplateId: string;        // Required
-  imageStylePreset?: ImageStylePreset;
-  negativePrompt?: string;
-  includeLogo?: boolean;
-  logoPosition?: LogoPosition;
-  logoUrl?: string;
+// useAutoImageGeneration.ts - Line 69-72
+for (let attempt = 0; attempt <= maxRetries; attempt++) {
+  // Simple exponential backoff: 1s, 2s, 4s
+  const delay = 1000 * Math.pow(2, attempt);
 }
 ```
 
-Thay đổi function call:
+**Giải pháp đề xuất**:
+- Thêm model fallback: `gemini-3-pro-image-preview` → `gemini-2.5-flash-image`
+- Thêm prompt simplification khi retry (rút gọn prompt phức tạp)
+- Log chi tiết lý do fail để debug
+
+#### B. Batch Processing Rate Limit
+**Vấn đề hiện tại**:
 ```typescript
-// Before
-await supabase.functions.invoke('generate-social-image', {...})
-
-// After
-await supabase.functions.invoke('generate-brand-image', {
-  body: {
-    contentId,
-    channel,
-    contentSummary: prompt, // Prompt becomes contentSummary
-    brandTemplateId,
-    aspectRatio,
-    imageStylePreset,
-    negativePrompt,
-  }
-})
-```
-
-**2. src/components/ImagePromptEditor.tsx**
-
-Thêm props mới:
-```typescript
-interface ImagePromptEditorProps {
-  // ...existing
-  brandTemplateId: string;  // NEW - required
-  brandLogoUrl?: string;    // NEW
-  brandIndustry?: string[]; // NEW
+// Batch size = 2, delay = 1000ms
+const batchSize = 2;
+for (let i = 0; i < channels.length; i += batchSize) {
+  await new Promise(resolve => setTimeout(resolve, 1000));
 }
 ```
 
-Thêm state cho các tính năng mới:
+**Giải pháp đề xuất**:
+- Dynamic batch size dựa trên số channels (1-3: sequential, 4+: batch of 2)
+- Thêm queue system với priority (channels có nhiều text content → ưu tiên)
+- Persist generation state để resume nếu tab bị đóng
+
+#### C. Không có Image Quality Validation
+**Vấn đề**: Ảnh generate có thể bị blank/white/low-quality nhưng vẫn được save
+
+**Giải pháp đề xuất**:
+- Thêm post-generation validation check (file size, dimensions)
+- Thêm AI-based quality check (optional, dùng Gemini Flash để evaluate)
+- Auto-regenerate nếu image fails validation
+
+#### D. Logo Overlay Error Handling
+**Vấn đề hiện tại**:
 ```typescript
-const [imageStyle, setImageStyle] = useState<ImageStylePreset | 'auto'>('auto');
-const [negativePrompt, setNegativePrompt] = useState('');
-const [includeLogo, setIncludeLogo] = useState(!!brandLogoUrl);
-const [logoPosition, setLogoPosition] = useState<LogoPosition>('bottom-right');
+// useAutoImageGeneration.ts - Line 116-121
+if (overlayError || !overlayData?.success) {
+  console.warn(`Logo overlay failed, using base image`);
+  // Continues with base image - user not notified
+}
 ```
 
-Thêm UI elements:
-- Style preset dropdown (từ `IMAGE_STYLE_PRESETS`)
-- Negative prompt textarea
-- Logo toggle và position selector
+**Giải pháp đề xuất**:
+- Thông báo rõ cho user khi logo overlay fail
+- Cho phép retry overlay riêng
+- Thêm option "Try again with logo" trong preview
 
-**3. src/components/MultiChannelViewer.tsx**
+#### E. Channel-Specific Prompt Optimization
+**Vấn đề**: Cùng một prompt cho tất cả channels, chỉ khác aspect ratio
 
-Cập nhật nơi gọi `ImagePromptEditor`:
-```typescript
-<ImagePromptEditor
-  // ...existing props
-  brandTemplateId={content.brand_template_id}
-  brandLogoUrl={brandLogoUrl}
-  brandIndustry={brandTemplate?.industry}
-/>
+**Giải pháp đề xuất** (đã có phần nào trong `image-prompt-builder.ts`):
+- Tăng cường channel-specific visual direction
+- TikTok: Vertical, bold text-safe areas
+- Instagram: Grid-friendly composition
+- LinkedIn: Professional, minimal, corporate aesthetic
+
+### 3. Data/Storage Issues
+
+#### A. Image History không có cleanup
+**Vấn đề**: Database query cho thấy có images từ 20+ ngày trước vẫn tồn tại
+```sql
+SELECT AVG(EXTRACT(EPOCH FROM (NOW() - created_at))) 
+-- Result: 1757335 seconds ≈ 20 days for some images
 ```
+
+**Giải pháp đề xuất**:
+- Scheduled cleanup cho images không được select trong 30 ngày
+- Storage quota warning khi organization dùng quá nhiều
+- Compression cho images cũ
+
+#### B. Thiếu Image Versioning
+**Vấn đề**: Khi regenerate, ảnh cũ bị thay thế hoặc thêm mới nhưng không có version number
+
+**Giải pháp đề xuất**:
+- Thêm `version` column vào `channel_image_history`
+- UI hiển thị "Version 1", "Version 2" thay vì chỉ timestamp
+- Compare mode để so sánh 2 versions
 
 ---
 
-## Các bước thực hiện
+## Kế hoạch Thực hiện
 
-1. **Xóa** `supabase/functions/generate-social-image/` và cập nhật config.toml
-2. **Cập nhật** `useSocialImageGeneration.ts` để gọi `generate-brand-image`
-3. **Nâng cấp** `ImagePromptEditor.tsx` với các tính năng mới
-4. **Cập nhật** `MultiChannelViewer.tsx` để truyền brand context
-5. **Test** end-to-end để đảm bảo tương thích
+### Phase 1: Quick Wins (UI Improvements)
+
+| Tác vụ | File | Độ khó |
+|--------|------|--------|
+| Thêm Prompt Preview section | `ImagePromptEditor.tsx` | Thấp |
+| Thêm Aspect Ratio visual preview | `AutoImageGenerator.tsx` | Thấp |
+| Hiển thị estimated time | `ImageStreamingCard.tsx` | Thấp |
+| Thông báo khi logo overlay fail | `useAutoImageGeneration.ts` | Thấp |
+
+### Phase 2: Logic Enhancements
+
+| Tác vụ | File | Độ khó |
+|--------|------|--------|
+| Smart retry với model fallback | `generate-brand-image/index.ts` | Trung bình |
+| Image quality validation | `generate-brand-image/index.ts` | Trung bình |
+| Dynamic batch size | `useAutoImageGeneration.ts` | Trung bình |
+| Channel-specific prompts | `image-prompt-builder.ts` | Trung bình |
+
+### Phase 3: Advanced Features
+
+| Tác vụ | File | Độ khó |
+|--------|------|--------|
+| Unified Image Generator component | New component | Cao |
+| Image versioning system | DB migration + UI | Cao |
+| Generation queue with persistence | New hook | Cao |
+| Automatic image cleanup job | Edge function | Trung bình |
 
 ---
 
-## Kết quả mong đợi
+## Recommended Priority
 
-- **Một entry point duy nhất** cho tất cả tạo ảnh AI
-- **Chất lượng tốt hơn** vì luôn có brand context
-- **Linh hoạt hơn** với style presets và prompt editing
-- **Code gọn hơn** - loại bỏ edge function trùng lặp
-- **UX nhất quán** - người dùng không cần phân biệt hai nút
+**Bắt đầu với Phase 1** vì:
+1. Ít rủi ro, không thay đổi logic core
+2. Cải thiện UX ngay lập tức
+3. Dễ test và rollback
+
+**Phase 2** sau khi Phase 1 stable:
+1. Giảm failure rate
+2. Tăng chất lượng output
+3. Tối ưu performance
+
+**Phase 3** cho long-term:
+1. Scalability
+2. User experience nâng cao
+3. Cost optimization
+
+---
+
+## Technical Debt cần xử lý
+
+1. **Type Consistency**: `Channel` type có mismatch giữa frontend và `image-prompt-builder.ts`
+   - Frontend: 12 channels (bao gồm `email`, `google_maps`, `youtube`, `zalo_oa`, `telegram`)
+   - Backend builder: 8 channels
+
+2. **Duplicate Code**: `CHANNEL_IMAGE_CONFIG` trong `ImagePromptEditor.tsx` vs `CHANNEL_IMAGE_SPECS` trong `image-prompt-builder.ts`
+
+3. **Missing Error Boundaries**: Không có error boundary cho image components, crash sẽ ảnh hưởng toàn bộ viewer
+
