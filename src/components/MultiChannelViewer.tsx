@@ -39,7 +39,6 @@ import { MarkdownToolbar } from '@/components/MarkdownToolbar';
 import { ContentLengthIndicator } from '@/components/ContentLengthIndicator';
 import { ChannelRulesPanel } from '@/components/ChannelRulesPanel';
 import { SmartQuickActions } from '@/components/SmartQuickActions';
-import { ImagePromptEditor } from '@/components/ImagePromptEditor';
 import { useSocialImageGeneration } from '@/hooks/useSocialImageGeneration';
 import { ChannelImagesGallery } from '@/components/ChannelImagesGallery';
 import { SchedulePanel } from '@/components/SchedulePanel';
@@ -64,7 +63,7 @@ import { ActivityTimeline } from '@/components/viewer/ActivityTimeline';
 import { AIContentSummary } from '@/components/viewer/AIContentSummary';
 import { ContentQualityScore } from '@/components/ContentQualityScore';
 import { WebsiteSEOPreview } from '@/components/viewer/WebsiteSEOPreview';
-import { AutoImageGenerator } from '@/components/multichannel/AutoImageGenerator';
+import { UnifiedImageGenerator } from '@/components/multichannel/UnifiedImageGenerator';
 import { ExpandChannelsStreamingDialog } from '@/components/multichannel/ExpandChannelsStreamingDialog';
 import { RegenerateStreamingOverlay } from '@/components/multichannel/streaming/RegenerateStreamingOverlay';
 import { useStreamingRegenerate } from '@/hooks/useStreamingRegenerate';
@@ -254,8 +253,9 @@ export function MultiChannelViewer({
   const [previewContent, setPreviewContent] = useState<string | null>(null);
   const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
   const [showDraftRestorePrompt, setShowDraftRestorePrompt] = useState(false);
-  const [imageEditorOpen, setImageEditorOpen] = useState(false);
-  const [imageEditorChannel, setImageEditorChannel] = useState<Channel | null>(null);
+  // Unified image generator state (replaces imageEditorOpen + imageEditorChannel)
+  const [showImageGenerator, setShowImageGenerator] = useState(false);
+  const [activeImageChannel, setActiveImageChannel] = useState<Channel | null>(null);
   const [generatedImages, setGeneratedImages] = useState<Record<Channel, string>>({} as Record<Channel, string>);
   const [showGallery, setShowGallery] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
@@ -1267,7 +1267,7 @@ export function MultiChannelViewer({
                               </Button>
                             )}
                             
-                            <Button variant="outline" size="sm" onClick={() => { setImageEditorChannel(channel); setImageEditorOpen(true); }} disabled={isRegenerating || !!regeneratingChannel} className="h-8">
+                            <Button variant="outline" size="sm" onClick={() => { setActiveImageChannel(channel); setShowImageGenerator(true); }} disabled={isRegenerating || !!regeneratingChannel} className="h-8">
                               <ImagePlus className="w-4 h-4 mr-1" />
                               Ảnh
                             </Button>
@@ -1423,8 +1423,8 @@ export function MultiChannelViewer({
                                             variant="ghost" 
                                             className="h-8 w-8 text-white hover:bg-white/20"
                                             onClick={() => {
-                                              setImageEditorChannel(channel);
-                                              setImageEditorOpen(true);
+                                              setActiveImageChannel(channel);
+                                              setShowImageGenerator(true);
                                             }}
                                           >
                                             <RefreshCw className="w-4 h-4" />
@@ -1528,28 +1528,27 @@ export function MultiChannelViewer({
         )}
       </DialogContent>
       
-      {/* Image Prompt Editor Modal */}
-      {imageEditorChannel && content.brand_template_id && (
-        <ImagePromptEditor
-          open={imageEditorOpen}
-          onOpenChange={setImageEditorOpen}
-          channel={imageEditorChannel}
-          contentId={content.id}
-          contentSummary={content.topic}
-          brandName={content.brand_name}
-          brandGuideline={content.brand_guideline || undefined}
-          primaryColor={content.primary_color || undefined}
-          brandTemplateId={content.brand_template_id}
-          brandLogoUrl={brandLogoUrl || undefined}
-          brandIndustry={industryMemory?.code ? [industryMemory.code] : undefined}
-          onImageGenerated={(imageUrl) => {
-            setGeneratedImages(prev => ({
-              ...prev,
-              [imageEditorChannel]: imageUrl,
-            }));
-          }}
-        />
-      )}
+      {/* Unified Image Generator - replaces both ImagePromptEditor and AutoImageGenerator */}
+      <UnifiedImageGenerator
+        open={showImageGenerator || showAutoImageGenerator}
+        onOpenChange={(open) => {
+          setShowImageGenerator(open);
+          setShowAutoImageGenerator(open);
+          if (!open) setActiveImageChannel(null);
+        }}
+        content={content}
+        brandLogoUrl={brandLogoUrl}
+        brandPrimaryColor={content.primary_color}
+        brandIndustry={industryMemory?.code ? [industryMemory.code] : undefined}
+        initialChannel={activeImageChannel || undefined}
+        initialMode={activeImageChannel ? 'single' : 'batch'}
+        onImageGenerated={onSaveChannelImage ? async (channel, image) => {
+          // Update local state for immediate feedback
+          setGeneratedImages(prev => ({ ...prev, [channel]: image.url }));
+          // Save to database
+          await onSaveChannelImage(content.id, channel, image);
+        } : undefined}
+      />
 
       {/* Assignment Dialog */}
       <AssignmentDialog
@@ -1571,18 +1570,6 @@ export function MultiChannelViewer({
           onCancel={handleValidationCancel}
         />
       )}
-
-      {/* Auto Image Generator Dialog */}
-      <AutoImageGenerator
-        open={showAutoImageGenerator}
-        onOpenChange={setShowAutoImageGenerator}
-        content={content}
-        brandLogoUrl={brandLogoUrl}
-        brandPrimaryColor={content.primary_color}
-        onImageGenerated={onSaveChannelImage ? async (channel, image) => {
-          await onSaveChannelImage(content.id, channel, image);
-        } : undefined}
-      />
 
       {/* Channel Image History Dialog */}
       {historyChannel && (
