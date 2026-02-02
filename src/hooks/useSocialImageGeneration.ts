@@ -49,6 +49,18 @@ export const IMAGE_STYLE_PRESETS: Record<ImageStylePreset, {
 
 export type LogoPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
+// Content Role types (aligned with coreContent.ts)
+export type ContentRole = 'seed' | 'sprout' | 'harvest';
+
+// Content Angle types
+export type ContentAngle = 
+  | 'educational' 
+  | 'storytelling' 
+  | 'promotional' 
+  | 'social_proof' 
+  | 'behind_the_scenes' 
+  | 'qa_faq';
+
 interface GenerateImageParams {
   prompt: string;
   contentId?: string;
@@ -61,6 +73,11 @@ interface GenerateImageParams {
   negativePrompt?: string;
   includeLogo?: boolean;
   logoPosition?: LogoPosition;
+  // New: Strategic content params
+  contentRole?: ContentRole;
+  contentAngle?: ContentAngle;
+  hookMessage?: string;
+  hookType?: string;
 }
 
 export function useSocialImageGeneration() {
@@ -75,6 +92,10 @@ export function useSocialImageGeneration() {
     brandTemplateId,
     imageStylePreset,
     negativePrompt,
+    contentRole,
+    contentAngle,
+    hookMessage,
+    hookType,
   }: GenerateImageParams): Promise<string | null> => {
     if (channel) {
       setGenerating(channel);
@@ -83,7 +104,7 @@ export function useSocialImageGeneration() {
     try {
       console.log(`[useSocialImageGeneration] Generating for ${channel || 'generic'} via generate-brand-image`);
 
-      // Call generate-brand-image instead of generate-social-image
+      // Call generate-brand-image with enhanced params
       const { data, error } = await supabase.functions.invoke('generate-brand-image', {
         body: {
           contentId,
@@ -93,6 +114,11 @@ export function useSocialImageGeneration() {
           aspectRatio,
           imageStylePreset,
           negativePrompt,
+          // New: Strategic content params
+          contentRole,
+          contentAngle,
+          hookMessage,
+          hookType,
         },
       });
 

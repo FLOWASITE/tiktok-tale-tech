@@ -50,6 +50,18 @@ export interface PersonaContext {
   communicationStyle?: string;
 }
 
+// Content Role for Content Orchestration Flow
+export type ContentRole = 'seed' | 'sprout' | 'harvest';
+
+// Content Angle types
+export type ContentAngle = 
+  | 'educational' 
+  | 'storytelling' 
+  | 'promotional' 
+  | 'social_proof' 
+  | 'behind_the_scenes' 
+  | 'qa_faq';
+
 export interface ImagePromptParams {
   channel: Channel;
   contentSummary: string;
@@ -60,6 +72,12 @@ export interface ImagePromptParams {
   contentType?: 'promotional' | 'educational' | 'entertainment' | 'inspirational';
   imageStylePreset?: ImageStylePreset;
   negativePrompt?: string;
+  // New: Content Role and Angle for strategic visuals
+  contentRole?: ContentRole;
+  contentAngle?: ContentAngle;
+  // New: Hook integration
+  hookMessage?: string;
+  hookType?: string;
 }
 
 // Image Style Presets
@@ -379,9 +397,144 @@ function buildJourneyStageSection(stage?: string): string {
   return section;
 }
 
+// ============================================
+// CONTENT ROLE VISUAL MAPPINGS
+// ============================================
+
+const CONTENT_ROLE_VISUALS: Record<ContentRole, {
+  style: string;
+  elements: string[];
+  avoid: string[];
+}> = {
+  seed: {
+    style: 'attention-grabbing, curiosity-inducing, broad appeal',
+    elements: ['bold visuals', 'relatable scenarios', 'emotional hooks', 'question-raising imagery'],
+    avoid: ['hard selling', 'product close-ups', 'pricing elements', 'promotional badges'],
+  },
+  sprout: {
+    style: 'educational, trustworthy, informative',
+    elements: ['data visualization hints', 'step-by-step imagery', 'expert feel', 'credibility cues'],
+    avoid: ['overly promotional', 'urgency cues', 'sales-focused elements'],
+  },
+  harvest: {
+    style: 'action-oriented, product-focused, premium',
+    elements: ['product showcase', 'CTA space', 'social proof cues', 'urgency elements'],
+    avoid: ['vague abstract imagery', 'purely educational tone', 'no clear subject'],
+  },
+};
+
+// ============================================
+// CONTENT ANGLE VISUAL MAPPINGS
+// ============================================
+
+const CONTENT_ANGLE_VISUALS: Record<ContentAngle, {
+  approach: string;
+  feel: string;
+  elements: string[];
+}> = {
+  educational: {
+    approach: 'Infographic style, step-by-step, clean diagrams',
+    feel: 'Trustworthy, helpful, knowledge-sharing',
+    elements: ['info icons', 'numbered steps', 'comparison layouts'],
+  },
+  storytelling: {
+    approach: 'Narrative imagery, emotional scenes, journey feel',
+    feel: 'Authentic, relatable, emotionally engaging',
+    elements: ['real people scenarios', 'before/after hints', 'transformation moments'],
+  },
+  promotional: {
+    approach: 'Product hero shot, offer badges, CTA-ready',
+    feel: 'Premium, desirable, action-inducing',
+    elements: ['product focus', 'lifestyle context', 'value proposition visual'],
+  },
+  social_proof: {
+    approach: 'Testimonial style, real people, authentic',
+    feel: 'Trustworthy, community-focused, believable',
+    elements: ['diverse faces', 'customer scenarios', 'success imagery'],
+  },
+  behind_the_scenes: {
+    approach: 'Candid, authentic, workspace/process shots',
+    feel: 'Genuine, transparent, human',
+    elements: ['work environment', 'team moments', 'process glimpses'],
+  },
+  qa_faq: {
+    approach: 'Question bubbles, conversational, friendly',
+    feel: 'Helpful, approachable, interactive',
+    elements: ['speech bubbles', 'friendly faces', 'helpful gestures'],
+  },
+};
+
+// ============================================
+// HOOK TYPE VISUAL DIRECTIONS
+// ============================================
+
+const HOOK_TYPE_VISUALS: Record<string, string> = {
+  question: 'Use curious/thoughtful expression, visual question marks or mystery elements',
+  bold_statement: 'Bold, confident imagery, strong visual statement',
+  transformation: 'Before/after visual hints, change/progress imagery',
+  story: 'Narrative scene, storytelling moment, emotional connection',
+  number: 'Data visualization hints, numbered elements, statistics feel',
+  negative: 'Problem visualization, pain point imagery, warning cues',
+  social_proof: 'Community feel, testimonial hints, success imagery',
+  direct_address: 'Eye contact, pointing gesture, direct engagement',
+  shocking_fact: 'Surprising/unexpected visual, revelation moment',
+  challenge: 'Competition feel, achievement imagery, challenge visual',
+  local: 'Vietnamese cultural elements, local context, familiar scenes',
+};
+
 /**
- * Main function to build enhanced image prompt
+ * Build content role visual section
  */
+function buildContentRoleSection(role?: ContentRole): string {
+  if (!role || !CONTENT_ROLE_VISUALS[role]) return '';
+  
+  const roleGuide = CONTENT_ROLE_VISUALS[role];
+  const roleLabels: Record<ContentRole, string> = {
+    seed: 'SEED - Awareness Stage',
+    sprout: 'SPROUT - Trust Building Stage',
+    harvest: 'HARVEST - Conversion Stage',
+  };
+  
+  let section = `\n\n## CONTENT ROLE (${roleLabels[role]}):\n`;
+  section += `- Visual Style: ${roleGuide.style}\n`;
+  section += `- Include: ${roleGuide.elements.join(', ')}\n`;
+  section += `- AVOID: ${roleGuide.avoid.join(', ')}`;
+  
+  return section;
+}
+
+/**
+ * Build content angle visual section
+ */
+function buildContentAngleSection(angle?: ContentAngle): string {
+  if (!angle || !CONTENT_ANGLE_VISUALS[angle]) return '';
+  
+  const angleGuide = CONTENT_ANGLE_VISUALS[angle];
+  
+  let section = `\n\n## CONTENT ANGLE (${angle.toUpperCase().replace('_', ' ')}):\n`;
+  section += `- Visual Approach: ${angleGuide.approach}\n`;
+  section += `- Feel: ${angleGuide.feel}\n`;
+  section += `- Key Elements: ${angleGuide.elements.join(', ')}`;
+  
+  return section;
+}
+
+/**
+ * Build hook message visual section
+ */
+function buildHookSection(hookMessage?: string, hookType?: string): string {
+  if (!hookMessage) return '';
+  
+  let section = `\n\n## HOOK MESSAGE (CRITICAL - Image must visually convey this):\n`;
+  section += `"${hookMessage}"\n`;
+  
+  if (hookType && HOOK_TYPE_VISUALS[hookType]) {
+    section += `- Hook Type: ${hookType} - ${HOOK_TYPE_VISUALS[hookType]}`;
+  }
+  
+  return section;
+}
+
 /**
  * Build image style preset section
  */
@@ -402,7 +555,11 @@ function buildStylePresetSection(stylePreset?: ImageStylePreset): string {
  * Main function to build enhanced image prompt
  */
 export function buildImagePrompt(params: ImagePromptParams): string {
-  const { channel, contentSummary, brand, aspectRatio, persona, journeyStage, contentType, imageStylePreset, negativePrompt } = params;
+  const { 
+    channel, contentSummary, brand, aspectRatio, persona, journeyStage, 
+    contentType, imageStylePreset, negativePrompt,
+    contentRole, contentAngle, hookMessage, hookType 
+  } = params;
   
   const channelSpec = CHANNEL_IMAGE_SPECS[channel] || CHANNEL_IMAGE_SPECS.facebook;
   const finalAspectRatio = aspectRatio || channelSpec.aspectRatio;
@@ -439,6 +596,15 @@ ${channelSpec.avoidElements.map(e => `- ${e}`).join('\n')}`;
   
   // Add style preset section
   prompt += buildStylePresetSection(imageStylePreset);
+  
+  // NEW: Add hook section (CRITICAL - placed early for emphasis)
+  prompt += buildHookSection(hookMessage, hookType);
+  
+  // NEW: Add content role section
+  prompt += buildContentRoleSection(contentRole);
+  
+  // NEW: Add content angle section
+  prompt += buildContentAngleSection(contentAngle);
   
   // Add persona section
   prompt += buildPersonaVisualSection(persona);
