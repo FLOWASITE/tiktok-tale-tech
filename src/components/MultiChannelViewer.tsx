@@ -265,7 +265,6 @@ export function MultiChannelViewer({
   const [assignmentChannel, setAssignmentChannel] = useState<Channel | null>(null);
   const [showMockupView, setShowMockupView] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [showAutoImageGenerator, setShowAutoImageGenerator] = useState(false);
   const [showImageHistory, setShowImageHistory] = useState(false);
   const [historyChannel, setHistoryChannel] = useState<Channel | null>(null);
   const [showExpandDialog, setShowExpandDialog] = useState(false);
@@ -900,7 +899,7 @@ export function MultiChannelViewer({
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={() => setShowAutoImageGenerator(true)}
+                  onClick={() => { setActiveImageChannel(null); setShowImageGenerator(true); }}
                   className="h-8 gap-1.5 border-primary/30 hover:border-primary hover:bg-primary/5"
                 >
                   <Wand2 className="w-4 h-4" />
@@ -1528,12 +1527,11 @@ export function MultiChannelViewer({
         )}
       </DialogContent>
       
-      {/* Unified Image Generator - replaces both ImagePromptEditor and AutoImageGenerator */}
+      {/* Unified Image Generator */}
       <UnifiedImageGenerator
-        open={showImageGenerator || showAutoImageGenerator}
+        open={showImageGenerator}
         onOpenChange={(open) => {
           setShowImageGenerator(open);
-          setShowAutoImageGenerator(open);
           if (!open) setActiveImageChannel(null);
         }}
         content={content}
