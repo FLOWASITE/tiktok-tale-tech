@@ -2,7 +2,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { 
   Sparkles, Image, Loader2, Save, Settings2, Check, ArrowLeft, 
   Copy, Download, RefreshCw, Wand2, Palette, ChevronDown, ChevronUp, Eye,
-  Layers, ImageIcon
+  Layers, ImageIcon, Camera, Brush, Box, Droplets, Film, LayoutGrid,
+  Facebook, Instagram, Linkedin, Twitter, Globe, MapPin, Youtube, Mail, MessageCircle, Music2, AtSign
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -68,6 +69,24 @@ interface UnifiedImageGeneratorProps {
 type ViewMode = 'setup' | 'streaming' | 'preview';
 type GeneratorMode = 'single' | 'batch';
 
+// Channel icons and colors for visual selection
+const CHANNEL_CONFIG: Record<Channel, { icon: React.ReactNode; color: string; bgColor: string }> = {
+  facebook: { icon: <Facebook className="w-4 h-4" />, color: 'text-blue-600', bgColor: 'bg-blue-500/10' },
+  instagram: { icon: <Instagram className="w-4 h-4" />, color: 'text-pink-500', bgColor: 'bg-pink-500/10' },
+  linkedin: { icon: <Linkedin className="w-4 h-4" />, color: 'text-sky-600', bgColor: 'bg-sky-500/10' },
+  twitter: { icon: <Twitter className="w-4 h-4" />, color: 'text-slate-700', bgColor: 'bg-slate-500/10' },
+  website: { icon: <Globe className="w-4 h-4" />, color: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
+  google_maps: { icon: <MapPin className="w-4 h-4" />, color: 'text-green-600', bgColor: 'bg-green-500/10' },
+  youtube: { icon: <Youtube className="w-4 h-4" />, color: 'text-red-600', bgColor: 'bg-red-500/10' },
+  email: { icon: <Mail className="w-4 h-4" />, color: 'text-amber-600', bgColor: 'bg-amber-500/10' },
+  tiktok: { icon: <Music2 className="w-4 h-4" />, color: 'text-black dark:text-white', bgColor: 'bg-black/10 dark:bg-white/10' },
+  zalo_oa: { icon: <MessageCircle className="w-4 h-4" />, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
+  telegram: { icon: <Send className="w-4 h-4" />, color: 'text-sky-500', bgColor: 'bg-sky-500/10' },
+  threads: { icon: <AtSign className="w-4 h-4" />, color: 'text-slate-800 dark:text-slate-200', bgColor: 'bg-slate-500/10' },
+};
+
+import { Send } from 'lucide-react';
+
 const LOGO_POSITIONS: { value: LogoPosition; label: string }[] = [
   { value: 'bottom-right', label: 'Góc dưới phải' },
   { value: 'bottom-left', label: 'Góc dưới trái' },
@@ -83,15 +102,15 @@ const ASPECT_RATIOS: { value: AspectRatioOption; label: string; description: str
   { value: '9:16', label: '9:16', description: 'Stories, Reels, TikTok' },
 ];
 
-const IMAGE_STYLES: { value: ImageStylePreset | 'auto'; label: string; description: string }[] = [
-  { value: 'auto', label: 'Tự động', description: 'Theo brand style' },
-  { value: 'photorealistic', label: 'Chân thực', description: 'Ảnh chụp chuyên nghiệp' },
-  { value: 'illustration', label: 'Minh họa', description: 'Đồ họa vector' },
-  { value: 'minimalist', label: 'Tối giản', description: 'Đơn giản, thanh lịch' },
-  { value: '3d_render', label: '3D Render', description: 'Đồ họa 3D' },
-  { value: 'flat_design', label: 'Flat Design', description: 'Phẳng, màu đặc' },
-  { value: 'watercolor', label: 'Màu nước', description: 'Nghệ thuật mềm mại' },
-  { value: 'cinematic', label: 'Điện ảnh', description: 'Ánh sáng kịch tính' },
+const IMAGE_STYLES: { value: ImageStylePreset | 'auto'; label: string; description: string; icon: React.ReactNode }[] = [
+  { value: 'auto', label: 'Tự động', description: 'Theo brand style', icon: <Sparkles className="w-4 h-4" /> },
+  { value: 'photorealistic', label: 'Chân thực', description: 'Ảnh chụp', icon: <Camera className="w-4 h-4" /> },
+  { value: 'illustration', label: 'Minh họa', description: 'Vector', icon: <Brush className="w-4 h-4" /> },
+  { value: 'minimalist', label: 'Tối giản', description: 'Minimal', icon: <LayoutGrid className="w-4 h-4" /> },
+  { value: '3d_render', label: '3D', description: 'Render', icon: <Box className="w-4 h-4" /> },
+  { value: 'flat_design', label: 'Flat', description: 'Phẳng', icon: <Layers className="w-4 h-4" /> },
+  { value: 'watercolor', label: 'Màu nước', description: 'Nghệ thuật', icon: <Droplets className="w-4 h-4" /> },
+  { value: 'cinematic', label: 'Điện ảnh', description: 'Kịch tính', icon: <Film className="w-4 h-4" /> },
 ];
 
 function getContentSummary(content: MultiChannelContent, channel: Channel): string {
@@ -446,12 +465,12 @@ export function UnifiedImageGenerator({
             <div className="space-y-4 py-2">
               {/* Mode Toggle */}
               <Tabs value={mode} onValueChange={(v) => setMode(v as GeneratorMode)} className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="batch" className="gap-2">
+                <TabsList className="grid w-full grid-cols-2 h-11 p-1 bg-muted/60">
+                  <TabsTrigger value="batch" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
                     <Layers className="w-4 h-4" />
                     Tạo nhiều kênh
                   </TabsTrigger>
-                  <TabsTrigger value="single" className="gap-2">
+                  <TabsTrigger value="single" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
                     <ImageIcon className="w-4 h-4" />
                     Tạo từng kênh
                   </TabsTrigger>
@@ -459,51 +478,75 @@ export function UnifiedImageGenerator({
 
                 {/* Batch Mode Content */}
                 <TabsContent value="batch" className="space-y-4 mt-4">
-                  {/* Brand Preview */}
-                  <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
+                  {/* Brand Preview - Enhanced */}
+                  <div className="flex items-center gap-4 p-4 rounded-xl border border-border/50 bg-gradient-to-r from-muted/30 to-transparent">
                     {brandLogoUrl ? (
-                      <img src={brandLogoUrl} alt="Brand logo" className="w-10 h-10 object-contain rounded" />
+                      <div className="w-12 h-12 rounded-xl bg-background shadow-sm flex items-center justify-center overflow-hidden ring-1 ring-border/50">
+                        <img src={brandLogoUrl} alt="Brand logo" className="w-full h-full object-contain" />
+                      </div>
                     ) : (
-                      <div className="w-10 h-10 rounded bg-muted flex items-center justify-center">
-                        <Image className="w-5 h-5 text-muted-foreground" />
+                      <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+                        <Image className="w-6 h-6 text-muted-foreground" />
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate text-sm">{content.brand_name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {brandPrimaryColor && (
-                          <div className="w-3 h-3 rounded-full border" style={{ backgroundColor: brandPrimaryColor }} />
+                      <p className="font-semibold truncate">{content.brand_name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {brandPrimaryColor ? (
+                          <>
+                            <div className="w-4 h-4 rounded-full ring-2 ring-background shadow-sm" style={{ backgroundColor: brandPrimaryColor }} />
+                            <span className="text-sm text-muted-foreground font-medium">{brandPrimaryColor}</span>
+                          </>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">Không có màu chủ đạo</span>
                         )}
-                        <span className="text-xs text-muted-foreground">
-                          {brandPrimaryColor || 'Không có màu chủ đạo'}
-                        </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Channel Selection */}
                   <div className="space-y-2">
-                    <Label>Chọn kênh ({selectedChannels.length})</Label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <Label className="text-sm font-medium">Chọn kênh ({selectedChannels.length})</Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {(content?.selected_channels ?? []).map(channel => {
                         const isSelected = selectedChannels.includes(channel);
                         const optimalRatio = CHANNEL_OPTIMAL_ASPECT_RATIO[channel] || '16:9';
+                        const channelInfo = CHANNEL_CONFIG[channel];
 
                         return (
                           <button
                             key={channel}
                             onClick={() => handleToggleChannel(channel)}
                             className={cn(
-                              'flex items-center gap-2 p-2 rounded-lg border text-left transition-colors text-sm',
-                              isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                              'flex items-center gap-2.5 p-3 rounded-xl border-2 text-left transition-all duration-200',
+                              isSelected 
+                                ? 'border-primary bg-primary/5 shadow-sm' 
+                                : 'border-border/50 hover:border-primary/40 hover:bg-muted/30'
                             )}
                           >
-                            <Checkbox checked={isSelected} className="pointer-events-none" />
+                            <div className={cn(
+                              'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
+                              isSelected ? channelInfo?.bgColor : 'bg-muted'
+                            )}>
+                              <span className={cn(isSelected ? channelInfo?.color : 'text-muted-foreground')}>
+                                {channelInfo?.icon}
+                              </span>
+                            </div>
                             <div className="flex-1 min-w-0">
-                              <span className="font-medium capitalize block truncate">{channel.replace('_', ' ')}</span>
-                              {aspectRatio === 'auto' && isSelected && (
+                              <span className="font-medium capitalize block text-sm truncate">
+                                {channel === 'google_maps' ? 'Google Maps' : channel === 'zalo_oa' ? 'Zalo OA' : channel}
+                              </span>
+                              {aspectRatio === 'auto' && (
                                 <span className="text-xs text-muted-foreground">{optimalRatio}</span>
                               )}
+                            </div>
+                            <div className={cn(
+                              'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors',
+                              isSelected 
+                                ? 'border-primary bg-primary text-primary-foreground' 
+                                : 'border-muted-foreground/30'
+                            )}>
+                              {isSelected && <Check className="w-3 h-3" />}
                             </div>
                           </button>
                         );
@@ -587,54 +630,100 @@ export function UnifiedImageGenerator({
 
               {/* Shared Settings */}
               <div className="space-y-4 pt-4 border-t">
-                {/* Style & Aspect Ratio */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label className="text-sm">Phong cách</Label>
-                    <Select value={imageStyle} onValueChange={(v) => setImageStyle(v as ImageStylePreset | 'auto')}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {IMAGE_STYLES.map(style => (
-                          <SelectItem key={style.value} value={style.value}>
-                            <span>{style.label}</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm">Tỉ lệ khung hình</Label>
-                    <div className="flex items-center gap-2">
-                      <Select value={aspectRatio} onValueChange={(v) => setAspectRatio(v as AspectRatioOption)} >
-                        <SelectTrigger className="h-9 flex-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ASPECT_RATIOS.map(ratio => (
-                            <SelectItem key={ratio.value} value={ratio.value}>
-                              <span>{ratio.label}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <div className={cn(
-                        "border-2 border-primary/50 rounded bg-primary/10 flex items-center justify-center shrink-0",
-                        getAspectRatioClasses(effectiveAspectRatio)
-                      )}>
-                        <Image className="w-3 h-3 text-primary/60" />
-                      </div>
-                    </div>
+                {/* Style Selection - Visual Grid */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Phong cách ảnh</Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {IMAGE_STYLES.map(style => {
+                      const isSelected = imageStyle === style.value;
+                      return (
+                        <button
+                          key={style.value}
+                          onClick={() => setImageStyle(style.value as ImageStylePreset | 'auto')}
+                          className={cn(
+                            'flex flex-col items-center gap-1.5 p-2.5 rounded-xl border-2 transition-all duration-200',
+                            isSelected 
+                              ? 'border-primary bg-primary/5 shadow-sm' 
+                              : 'border-border/50 hover:border-primary/40 hover:bg-muted/30'
+                          )}
+                        >
+                          <div className={cn(
+                            'w-8 h-8 rounded-lg flex items-center justify-center',
+                            isSelected ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                          )}>
+                            {style.icon}
+                          </div>
+                          <span className={cn(
+                            'text-xs font-medium',
+                            isSelected ? 'text-primary' : 'text-foreground'
+                          )}>
+                            {style.label}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Logo Options */}
+                {/* Aspect Ratio - Visual Selection */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Tỉ lệ khung hình</Label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {ASPECT_RATIOS.map(ratio => {
+                      const isSelected = aspectRatio === ratio.value;
+                      return (
+                        <button
+                          key={ratio.value}
+                          onClick={() => setAspectRatio(ratio.value)}
+                          className={cn(
+                            'flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all duration-200',
+                            isSelected 
+                              ? 'border-primary bg-primary/5' 
+                              : 'border-border/50 hover:border-primary/40'
+                          )}
+                        >
+                          {/* Visual aspect ratio box */}
+                          <div className={cn(
+                            'border-2 rounded flex items-center justify-center shrink-0',
+                            isSelected ? 'border-primary bg-primary/20' : 'border-muted-foreground/30 bg-muted/50',
+                            ratio.value === '16:9' && 'w-8 h-[18px]',
+                            ratio.value === '1:1' && 'w-5 h-5',
+                            ratio.value === '4:5' && 'w-4 h-5',
+                            ratio.value === '9:16' && 'w-[18px] h-8',
+                            ratio.value === 'auto' && 'w-5 h-5',
+                          )}>
+                            {ratio.value === 'auto' && <Sparkles className="w-3 h-3 text-primary" />}
+                          </div>
+                          <div className="text-left">
+                            <span className={cn(
+                              'text-sm font-medium block',
+                              isSelected ? 'text-primary' : 'text-foreground'
+                            )}>
+                              {ratio.label}
+                            </span>
+                            {ratio.value !== 'auto' && (
+                              <span className="text-xs text-muted-foreground">{ratio.description}</span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Logo Options - Enhanced */}
                 {brandLogoUrl && (
-                  <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                  <div className={cn(
+                    "flex items-center justify-between p-3 rounded-xl border-2 transition-colors",
+                    includeLogo ? "border-primary/30 bg-primary/5" : "border-border/50 bg-card"
+                  )}>
                     <div className="flex items-center gap-3">
-                      <img src={brandLogoUrl} alt="Logo" className="w-8 h-8 object-contain rounded" />
+                      <div className={cn(
+                        "w-10 h-10 rounded-lg flex items-center justify-center overflow-hidden",
+                        includeLogo ? "ring-2 ring-primary/30" : "bg-muted"
+                      )}>
+                        <img src={brandLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+                      </div>
                       <div>
                         <p className="text-sm font-medium">Thêm logo</p>
                         <p className="text-xs text-muted-foreground">Tự động overlay sau khi tạo</p>
@@ -643,7 +732,7 @@ export function UnifiedImageGenerator({
                     <div className="flex items-center gap-2">
                       {includeLogo && (
                         <Select value={logoPosition} onValueChange={(v) => setLogoPosition(v as LogoPosition)}>
-                          <SelectTrigger className="h-8 w-32 text-xs">
+                          <SelectTrigger className="h-8 w-auto min-w-[120px] text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -655,7 +744,11 @@ export function UnifiedImageGenerator({
                           </SelectContent>
                         </Select>
                       )}
-                      <Switch checked={includeLogo} onCheckedChange={setIncludeLogo} />
+                      <Switch 
+                        checked={includeLogo} 
+                        onCheckedChange={setIncludeLogo} 
+                        className="data-[state=checked]:bg-primary"
+                      />
                     </div>
                   </div>
                 )}
