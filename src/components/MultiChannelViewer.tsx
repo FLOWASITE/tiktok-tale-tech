@@ -1414,7 +1414,7 @@ export function MultiChannelViewer({
                           showMockupView ? (
                             <div className="space-y-4">
                               <div className="relative group">
-                                <ContentMockupToggle
+                              <ContentMockupToggle
                                   channel={channel}
                                   content={channelContent || ''}
                                   brandName={content.brand_name}
@@ -1422,7 +1422,7 @@ export function MultiChannelViewer({
                                   primaryColor={content.primary_color || undefined}
                                   isLoading={isRegenerating}
                                   seoData={channel === 'website' ? (content as any).website_seo_data : undefined}
-                                  channelImage={content.channel_images?.[channel]?.url}
+                                  channelImage={generatedImages[channel] || content.channel_images?.[channel]?.url}
                                 />
                                 
                                 {/* Quick Image Actions - Floating */}
