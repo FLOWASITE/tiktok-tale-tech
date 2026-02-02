@@ -8,6 +8,8 @@ import {
   type BrandImageContext,
   type PersonaContext,
   type ImageStylePreset,
+  type ContentRole,
+  type ContentAngle,
 } from "../_shared/image-prompt-builder.ts";
 
 const corsHeaders = {
@@ -25,6 +27,12 @@ interface GenerateImageRequest {
   contentType?: 'promotional' | 'educational' | 'entertainment' | 'inspirational';
   imageStylePreset?: ImageStylePreset;
   negativePrompt?: string;
+  // New: Content Role and Angle for strategic visuals
+  contentRole?: ContentRole;
+  contentAngle?: ContentAngle;
+  // New: Hook integration
+  hookMessage?: string;
+  hookType?: string;
 }
 
 // Model fallback configuration (primary → fallback)
@@ -218,6 +226,11 @@ serve(async (req) => {
       contentType,
       imageStylePreset,
       negativePrompt,
+      // New params from request
+      contentRole: requestedContentRole,
+      contentAngle: requestedContentAngle,
+      hookMessage: requestedHookMessage,
+      hookType: requestedHookType,
     }: GenerateImageRequest = await req.json();
 
     console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}`);
@@ -234,18 +247,57 @@ serve(async (req) => {
       throw new Error("Brand template not found");
     }
 
-    // Fetch content goal if not provided journey stage
+    // Fetch content data for role, angle, and hooks
     let finalJourneyStage = journeyStage;
-    if (!finalJourneyStage && contentId) {
+    let finalContentRole: ContentRole | undefined = requestedContentRole;
+    let finalContentAngle: ContentAngle | undefined = requestedContentAngle;
+    let finalHookMessage: string | undefined = requestedHookMessage;
+    let finalHookType: string | undefined = requestedHookType;
+    
+    if (contentId) {
       const { data: contentData } = await supabase
         .from("multi_channel_contents")
-        .select("content_goal")
+        .select("content_goal, content_role, content_angle, selected_hooks, global_hook")
         .eq("id", contentId)
         .single();
       
-      if (contentData?.content_goal) {
-        finalJourneyStage = mapContentGoalToJourneyStage(contentData.content_goal);
-        console.log(`[generate-brand-image] Mapped content_goal "${contentData.content_goal}" to journeyStage "${finalJourneyStage}"`);
+      if (contentData) {
+        // Map content_goal to journeyStage if not provided
+        if (!finalJourneyStage && contentData.content_goal) {
+          finalJourneyStage = mapContentGoalToJourneyStage(contentData.content_goal);
+          console.log(`[generate-brand-image] Mapped content_goal "${contentData.content_goal}" to journeyStage "${finalJourneyStage}"`);
+        }
+        
+        // Use content_role if not provided in request
+        if (!finalContentRole && contentData.content_role) {
+          finalContentRole = contentData.content_role as ContentRole;
+          console.log(`[generate-brand-image] Using content_role: ${finalContentRole}`);
+        }
+        
+        // Use content_angle if not provided in request
+        if (!finalContentAngle && contentData.content_angle) {
+          finalContentAngle = contentData.content_angle as ContentAngle;
+          console.log(`[generate-brand-image] Using content_angle: ${finalContentAngle}`);
+        }
+        
+        // Extract hook for channel if not provided in request
+        if (!finalHookMessage) {
+          // Try to find channel-specific hook first
+          const selectedHooks = contentData.selected_hooks as any[] | null;
+          const channelHook = selectedHooks?.find((h: any) => h.channel === channel);
+          
+          if (channelHook?.opening_line) {
+            finalHookMessage = channelHook.opening_line;
+            finalHookType = channelHook.hook_type || channelHook.framework;
+            console.log(`[generate-brand-image] Using channel hook: ${finalHookMessage?.slice(0, 50)}...`);
+          } else if (contentData.global_hook) {
+            // Fallback to global hook
+            const globalHook = contentData.global_hook as any;
+            finalHookMessage = globalHook.opening_line;
+            finalHookType = globalHook.hook_type || globalHook.framework;
+            console.log(`[generate-brand-image] Using global hook: ${finalHookMessage?.slice(0, 50)}...`);
+          }
+        }
       }
     }
 
@@ -311,6 +363,11 @@ serve(async (req) => {
       persona: personaContext,
       imageStylePreset,
       negativePrompt,
+      // New: Pass content role, angle, and hook for strategic visuals
+      contentRole: finalContentRole,
+      contentAngle: finalContentAngle,
+      hookMessage: finalHookMessage,
+      hookType: finalHookType,
     });
 
     console.log("[generate-brand-image] Starting image generation with smart retry...");

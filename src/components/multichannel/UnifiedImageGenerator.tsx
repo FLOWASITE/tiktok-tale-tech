@@ -123,10 +123,16 @@ function generateAutoPrompt(
   brandName?: string,
   primaryColor?: string,
   brandIndustry?: string[],
+  hookMessage?: string,
 ): string {
   const optimalRatio = CHANNEL_OPTIMAL_ASPECT_RATIO[channel] || '16:9';
   
   let prompt = `Create a ${optimalRatio} aspect ratio image for ${channel}. `;
+  
+  // Add hook message first (most important for visual relevance)
+  if (hookMessage) {
+    prompt += `Main message (HOOK): "${hookMessage}". `;
+  }
   
   if (contentSummary) {
     const summary = contentSummary.slice(0, 200);
@@ -148,6 +154,35 @@ function generateAutoPrompt(
   prompt += 'High quality, professional, visually appealing. Ultra high resolution.';
   
   return prompt;
+}
+
+// Helper to extract hook for a specific channel
+// Note: selected_hooks and global_hook may be present in DB but not in MultiChannelContent type
+function getHookForChannel(content: MultiChannelContent, channel: Channel): { hookMessage?: string; hookType?: string } {
+  // Access potential fields that may exist in the content from DB
+  const contentAny = content as any;
+  
+  // Try to find channel-specific hook first
+  const selectedHooks = contentAny.selected_hooks as any[] | null;
+  const channelHook = selectedHooks?.find((h: any) => h.channel === channel);
+  
+  if (channelHook?.opening_line) {
+    return {
+      hookMessage: channelHook.opening_line,
+      hookType: channelHook.hook_type || channelHook.framework,
+    };
+  }
+  
+  // Fallback to global hook
+  const globalHook = contentAny.global_hook as any;
+  if (globalHook?.opening_line) {
+    return {
+      hookMessage: globalHook.opening_line,
+      hookType: globalHook.hook_type || globalHook.framework,
+    };
+  }
+  
+  return {};
 }
 
 export function UnifiedImageGenerator({
@@ -192,12 +227,14 @@ export function UnifiedImageGenerator({
   useEffect(() => {
     if (open && mode === 'single') {
       const contentSummary = getContentSummary(content, singleChannel);
+      const hookData = getHookForChannel(content, singleChannel);
       const autoPrompt = generateAutoPrompt(
         singleChannel,
         contentSummary,
         content.brand_name,
         brandPrimaryColor || undefined,
         brandIndustry,
+        hookData.hookMessage,
       );
       setCustomPrompt(autoPrompt);
       setSingleGeneratedUrl(null);
@@ -246,6 +283,10 @@ export function UnifiedImageGenerator({
       ? CHANNEL_OPTIMAL_ASPECT_RATIO[singleChannel] || '16:9'
       : aspectRatio;
 
+    // Extract hook and strategic context from content
+    const hookData = getHookForChannel(content, singleChannel);
+    const contentAny = content as any;
+
     const imageUrl = await singleGen.generateImage({
       prompt: customPrompt,
       contentId: content.id,
@@ -254,6 +295,11 @@ export function UnifiedImageGenerator({
       brandTemplateId: content.brand_template_id,
       imageStylePreset: imageStyle === 'auto' ? undefined : imageStyle,
       negativePrompt: negativePrompt.trim() || undefined,
+      // New: Pass strategic context for more relevant images
+      contentRole: contentAny.content_role,
+      contentAngle: contentAny.content_angle,
+      hookMessage: hookData.hookMessage,
+      hookType: hookData.hookType,
     });
 
     if (imageUrl) {
