@@ -1,187 +1,140 @@
 
-# Full Migration: Thay thế AutoImageGenerator và ImagePromptEditor bằng UnifiedImageGenerator
+# Tối Ưu Button Row trong MultiChannelViewer
 
-## Tổng quan
+## Phân Tích Hiện Trạng
 
-Migration này sẽ thay thế hoàn toàn 2 component cũ:
-- **AutoImageGenerator** (Batch mode - tạo ảnh cho nhiều kênh)
-- **ImagePromptEditor** (Single mode - tạo ảnh từng kênh)
+Button row hiện tại có 6 elements khi ở chế độ view:
 
-...bằng **UnifiedImageGenerator** đã được xây dựng với cả 2 mode trong một component duy nhất.
+| Element | Chức năng | Tần suất sử dụng |
+|---------|-----------|------------------|
+| Bản nháp (Dropdown) | Chọn trạng thái | Thấp |
+| Text/Mockup (Toggle) | Chuyển view | Cao |
+| Tạo lại | Regenerate content | Trung bình |
+| Sửa | Edit content | Cao |
+| Tạo ảnh/Tạo lại ảnh | Generate image | Thấp |
+| Copy (icon) | Copy content | Cao |
 
-## Phân tích hiện trạng
+**Vấn đề:**
+- Quá nhiều buttons chiếm không gian ngang
+- Các actions có tần suất sử dụng khác nhau nhưng chiếm cùng mức độ hiển thị
+- Không có nhóm logic rõ ràng giữa các actions
 
-### Files liên quan:
+## Giải Pháp
 
-| File | Vai trò |
-|------|---------|
-| `src/components/MultiChannelViewer.tsx` | Entry point chính - sử dụng cả 2 component cũ |
-| `src/components/multichannel/AutoImageGenerator.tsx` | Component batch cũ (525 dòng) |
-| `src/components/ImagePromptEditor.tsx` | Component single cũ (537 dòng) |
-| `src/components/multichannel/UnifiedImageGenerator.tsx` | Component mới hợp nhất (778 dòng) |
+### Option A: Gộp actions ít dùng vào "More" menu
+Giữ các actions chính (Text/Mockup, Sửa, Copy) và gộp các actions phụ (Tạo lại, Tạo ảnh, Bản nháp dropdown) vào một dropdown "Thêm" (MoreHorizontal icon).
 
-### Usage trong MultiChannelViewer:
-
-1. **AutoImageGenerator**: Được gọi qua button "Tạo ảnh AI" ở toolbar (line 903)
-   ```tsx
-   <AutoImageGenerator
-     open={showAutoImageGenerator}
-     onOpenChange={setShowAutoImageGenerator}
-     content={content}
-     brandLogoUrl={brandLogoUrl}
-     brandPrimaryColor={content.primary_color}
-     onImageGenerated={...}
-   />
-   ```
-
-2. **ImagePromptEditor**: Được gọi khi user click "Ảnh" button trên từng channel (lines 1270, 1426)
-   ```tsx
-   <ImagePromptEditor
-     open={imageEditorOpen}
-     onOpenChange={setImageEditorOpen}
-     channel={imageEditorChannel}
-     contentId={content.id}
-     contentSummary={content.topic}
-     brandName={content.brand_name}
-     brandGuideline={content.brand_guideline}
-     primaryColor={content.primary_color}
-     brandTemplateId={content.brand_template_id}
-     brandLogoUrl={brandLogoUrl}
-     brandIndustry={industryMemory?.code ? [industryMemory.code] : undefined}
-     onImageGenerated={(imageUrl) => {...}}
-   />
-   ```
-
-## Kế hoạch thực hiện
-
-### Task 1: Cập nhật UnifiedImageGenerator interface
-**File**: `src/components/multichannel/UnifiedImageGenerator.tsx`
-
-Cần bổ sung interface để handle callback khác nhau cho batch vs single:
-- Batch mode: `onImageGenerated?: (channel: Channel, image: ChannelImage) => Promise<void>`
-- Single mode: `onSingleImageGenerated?: (imageUrl: string) => void`
-
-Hoặc sử dụng cùng một callback nhưng xử lý khác trong component.
-
-### Task 2: Cập nhật MultiChannelViewer
-**File**: `src/components/MultiChannelViewer.tsx`
-
-**2.1 Thay đổi imports:**
-```tsx
-// Xóa
-import { AutoImageGenerator } from '@/components/multichannel/AutoImageGenerator';
-import { ImagePromptEditor } from '@/components/ImagePromptEditor';
-
-// Thêm
-import { UnifiedImageGenerator } from '@/components/multichannel/UnifiedImageGenerator';
+**Layout mới:**
+```
+[Text/Mockup] [Sửa] [Copy] [⋯ More]
+                            ├── Tạo lại nội dung
+                            ├── Tạo ảnh / Tạo lại ảnh  
+                            ├── ─────────────
+                            └── Trạng thái: Bản nháp ▸
 ```
 
-**2.2 Gộp state management:**
-- Giữ `showAutoImageGenerator` làm state chính để mở dialog
-- Sử dụng `imageEditorChannel` để xác định mode:
-  - `null` → Batch mode
-  - `Channel` → Single mode cho channel đó
+### Option B: Nhóm theo loại với separator
+Giữ nguyên các buttons nhưng thêm visual separator giữa các nhóm logic.
 
-**2.3 Thay thế cả 2 component:**
-```tsx
-<UnifiedImageGenerator
-  open={showAutoImageGenerator || imageEditorOpen}
-  onOpenChange={(open) => {
-    setShowAutoImageGenerator(open);
-    setImageEditorOpen(open);
-    if (!open) setImageEditorChannel(null);
-  }}
-  content={content}
-  brandLogoUrl={brandLogoUrl}
-  brandPrimaryColor={content.primary_color}
-  brandIndustry={industryMemory?.code ? [industryMemory.code] : undefined}
-  initialChannel={imageEditorChannel || undefined}
-  initialMode={imageEditorChannel ? 'single' : 'batch'}
-  onImageGenerated={onSaveChannelImage ? async (channel, image) => {
-    // Update local state for immediate feedback
-    setGeneratedImages(prev => ({ ...prev, [channel]: image.url }));
-    // Save to database
-    await onSaveChannelImage(content.id, channel, image);
-  } : undefined}
-/>
+**Layout mới:**
+```
+[Bản nháp ▾] | [Text/Mockup] | [Sửa] [Tạo lại] [Ảnh] [Copy]
+              │               │
+     Status   │   View Mode   │   Actions
 ```
 
-**2.4 Cập nhật button triggers:**
-- Batch button (toolbar): `setShowAutoImageGenerator(true)` - giữ nguyên
-- Single button (per channel): Đổi từ `setImageEditorOpen(true)` sang `setShowAutoImageGenerator(true)` + `setImageEditorChannel(channel)`
+### Option C: Compact mode với tooltips (Khuyến nghị)
+- Chuyển một số buttons sang icon-only với tooltips
+- Giữ labels cho actions chính
 
-### Task 3: Xóa files không còn sử dụng
-- `src/components/multichannel/AutoImageGenerator.tsx` (525 lines)
-- `src/components/ImagePromptEditor.tsx` (537 lines)
-
-## Chi tiết kỹ thuật
-
-### Mapping props giữa cũ và mới:
-
-| ImagePromptEditor (cũ) | UnifiedImageGenerator (mới) |
-|------------------------|------------------------------|
-| `channel` | `initialChannel` |
-| `contentId` | `content.id` (từ content object) |
-| `contentSummary` | Tự tính từ `content` |
-| `brandName` | `content.brand_name` |
-| `brandGuideline` | Không cần (đã có trong content) |
-| `primaryColor` | `brandPrimaryColor` |
-| `brandTemplateId` | `content.brand_template_id` |
-| `brandLogoUrl` | `brandLogoUrl` |
-| `brandIndustry` | `brandIndustry` |
-| `onImageGenerated(url)` | `onImageGenerated(channel, image)` |
-
-| AutoImageGenerator (cũ) | UnifiedImageGenerator (mới) |
-|-------------------------|------------------------------|
-| `content` | `content` ✓ |
-| `brandLogoUrl` | `brandLogoUrl` ✓ |
-| `brandPrimaryColor` | `brandPrimaryColor` ✓ |
-| `onImageGenerated` | `onImageGenerated` ✓ |
-| N/A | `brandIndustry` (mới) |
-| N/A | `initialChannel` (mới) |
-| N/A | `initialMode` (mới) |
-
-### State simplification trong MultiChannelViewer:
-
-```tsx
-// Trước migration - 2 bộ state riêng biệt
-const [showAutoImageGenerator, setShowAutoImageGenerator] = useState(false);
-const [imageEditorOpen, setImageEditorOpen] = useState(false);
-const [imageEditorChannel, setImageEditorChannel] = useState<Channel | null>(null);
-
-// Sau migration - gộp thành 2 state
-const [showImageGenerator, setShowImageGenerator] = useState(false);
-const [activeImageChannel, setActiveImageChannel] = useState<Channel | null>(null);
+**Layout mới:**
+```
+[Bản nháp ▾] [Text|Mockup] [✏️ Sửa] [🔄] [🖼️] [📋]
+                                     │    │    └── Copy (tooltip)
+                                     │    └── Tạo ảnh (tooltip)
+                                     └── Tạo lại (tooltip)
 ```
 
-### Button click handlers:
+## Đề Xuất Implementation (Option C)
 
+Chuyển các buttons ít dùng (Tạo lại, Tạo ảnh) sang dạng icon-only với tooltip, giữ Sửa có label vì đây là action chính.
+
+### Thay đổi code
+
+**File:** `src/components/MultiChannelViewer.tsx`
+
+1. **Button "Tạo lại"** - Chuyển sang icon-only:
 ```tsx
-// Batch mode trigger (toolbar)
-onClick={() => {
-  setActiveImageChannel(null);
-  setShowImageGenerator(true);
-}}
+// Từ:
+<Button variant="outline" size="sm" onClick={() => handleRegenerate(channel)} ...>
+  <RefreshCw className="..." />
+  Tạo lại
+</Button>
 
-// Single mode trigger (per channel)
-onClick={() => {
-  setActiveImageChannel(channel);
-  setShowImageGenerator(true);
-}}
+// Thành:
+<Tooltip>
+  <TooltipTrigger asChild>
+    <Button variant="outline" size="icon" onClick={() => handleRegenerate(channel)} ...>
+      <RefreshCw className="w-4 h-4" />
+    </Button>
+  </TooltipTrigger>
+  <TooltipContent>Tạo lại nội dung</TooltipContent>
+</Tooltip>
 ```
 
-## Kết quả đạt được
+2. **Button "Tạo ảnh"** - Chuyển sang icon-only:
+```tsx
+// Từ:
+<Button variant="outline" size="sm" onClick={...}>
+  <ImagePlus className="..." />
+  {hasImage ? 'Tạo lại ảnh' : 'Tạo ảnh'}
+</Button>
 
-1. **Giảm ~1000 dòng code** - Loại bỏ 2 files legacy
-2. **Single entry point** - Chỉ còn 1 component cho mọi image generation
-3. **Consistent UX** - Cùng controls (style presets, aspect ratio, logo overlay) cho cả batch và single
-4. **Shared configuration** - Sử dụng `CHANNEL_IMAGE_CONFIG` từ shared config
-5. **Better maintainability** - Chỉ cần update 1 nơi khi có thay đổi logic
+// Thành:
+<Tooltip>
+  <TooltipTrigger asChild>
+    <Button variant="outline" size="icon" onClick={...}>
+      <ImagePlus className="w-4 h-4" />
+    </Button>
+  </TooltipTrigger>
+  <TooltipContent>{hasImage ? 'Tạo lại ảnh' : 'Tạo ảnh'}</TooltipContent>
+</Tooltip>
+```
 
-## Rủi ro và xử lý
+3. **Button "Copy"** - Thêm tooltip (đã là icon-only):
+```tsx
+<Tooltip>
+  <TooltipTrigger asChild>
+    <Button variant="outline" size="icon" onClick={() => handleCopy(channel)} ...>
+      {copiedChannel === channel ? <Check className="..." /> : <Copy className="..." />}
+    </Button>
+  </TooltipTrigger>
+  <TooltipContent>Sao chép nội dung</TooltipContent>
+</Tooltip>
+```
 
-| Rủi ro | Giải pháp |
-|--------|-----------|
-| Single mode callback khác với ImagePromptEditor cũ | UnifiedImageGenerator đã có cùng signature `onImageGenerated(channel, image)` |
-| State cleanup khi đóng dialog | Thêm logic reset `activeImageChannel` về null khi `onOpenChange(false)` |
-| Breaking existing workflows | Test kỹ cả 2 flows: batch và single channel |
+4. **Wrap trong TooltipProvider** (nếu chưa có)
+
+### Kết quả
+
+**Trước:**
+```
+[● Bản nháp ▾] [Text|Mockup] [🔄 Tạo lại] [✏️ Sửa] [🖼️ Tạo lại ảnh] [📋]
+```
+
+**Sau:**
+```
+[● Bản nháp ▾] [Text|Mockup] [🔄] [✏️ Sửa] [🖼️] [📋]
+                             ↑            ↑    ↑
+                        (tooltip)    (tooltip) (tooltip)
+```
+
+## Technical Details
+
+- TooltipProvider đã có trong codebase (`src/components/ui/tooltip.tsx`)
+- Sử dụng `size="icon"` thay vì `size="sm"` cho buttons icon-only
+- Class `h-8 w-8` để giữ kích thước đồng nhất
+- Giữ nguyên logic `hasImage` cho dynamic tooltip content
+
+## Ước tính thời gian
+~5 phút
