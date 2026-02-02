@@ -1119,6 +1119,7 @@ export function MultiChannelViewer({
                 const charCount = countCharacters(displayContent);
                 const isRegenerating = regeneratingChannel === channel;
                 const contentAnalysis = analyzeContent(displayContent, channel);
+                const hasImage = !!(content.channel_images?.[channel]?.url);
 
                 return (
                   <>
@@ -1268,7 +1269,7 @@ export function MultiChannelViewer({
                             
                             <Button variant="outline" size="sm" onClick={() => { setActiveImageChannel(channel); setShowImageGenerator(true); }} disabled={isRegenerating || !!regeneratingChannel} className="h-8">
                               <ImagePlus className="w-4 h-4 mr-1" />
-                              Ảnh
+                              {hasImage ? 'Tạo lại ảnh' : 'Tạo ảnh'}
                             </Button>
                             
                             <Button variant="outline" size="sm" onClick={() => handleCopy(channel)} disabled={isRegenerating} className="h-8">
