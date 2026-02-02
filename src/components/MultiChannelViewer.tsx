@@ -1254,10 +1254,14 @@ export function MultiChannelViewer({
                             </ToggleGroup>
                             
                             {onRegenerate && (
-                              <Button variant="outline" size="sm" onClick={() => handleRegenerate(channel)} disabled={isRegenerating || !!regeneratingChannel} className="h-8">
-                                <RefreshCw className={`w-4 h-4 mr-1 ${isRegenerating ? 'animate-spin' : ''}`} />
-                                Tạo lại
-                              </Button>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="outline" size="icon" onClick={() => handleRegenerate(channel)} disabled={isRegenerating || !!regeneratingChannel} className="h-8 w-8">
+                                    <RefreshCw className={`w-4 h-4 ${isRegenerating ? 'animate-spin' : ''}`} />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Tạo lại nội dung</TooltipContent>
+                              </Tooltip>
                             )}
                             
                             {onUpdateContent && (
@@ -1267,14 +1271,23 @@ export function MultiChannelViewer({
                               </Button>
                             )}
                             
-                            <Button variant="outline" size="sm" onClick={() => { setActiveImageChannel(channel); setShowImageGenerator(true); }} disabled={isRegenerating || !!regeneratingChannel} className="h-8">
-                              <ImagePlus className="w-4 h-4 mr-1" />
-                              {hasImage ? 'Tạo lại ảnh' : 'Tạo ảnh'}
-                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon" onClick={() => { setActiveImageChannel(channel); setShowImageGenerator(true); }} disabled={isRegenerating || !!regeneratingChannel} className="h-8 w-8">
+                                  <ImagePlus className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>{hasImage ? 'Tạo lại ảnh' : 'Tạo ảnh'}</TooltipContent>
+                            </Tooltip>
                             
-                            <Button variant="outline" size="sm" onClick={() => handleCopy(channel)} disabled={isRegenerating} className="h-8">
-                              {copiedChannel === channel ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon" onClick={() => handleCopy(channel)} disabled={isRegenerating} className="h-8 w-8">
+                                  {copiedChannel === channel ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Sao chép nội dung</TooltipContent>
+                            </Tooltip>
                           </>
                         )}
                       </div>
