@@ -696,3 +696,127 @@ export function getChannelAspectRatio(channel: Channel): string {
 export function getChannelSpecs(channel: Channel) {
   return CHANNEL_IMAGE_SPECS[channel] || CHANNEL_IMAGE_SPECS.facebook;
 }
+
+// ============================================
+// BRAND-BASED STYLE SUGGESTION (Backend)
+// ============================================
+
+const INDUSTRY_STYLE_MAP: Record<string, ImageStylePreset[]> = {
+  beauty: ['minimalist', 'cinematic'],
+  skincare: ['minimalist', 'photorealistic'],
+  fashion: ['cinematic', 'photorealistic'],
+  cosmetics: ['minimalist', 'cinematic'],
+  technology: ['3d_render', 'flat_design'],
+  tech: ['3d_render', 'flat_design'],
+  saas: ['flat_design', 'minimalist'],
+  software: ['flat_design', '3d_render'],
+  food: ['photorealistic', 'watercolor'],
+  restaurant: ['photorealistic', 'cinematic'],
+  beverage: ['photorealistic', 'minimalist'],
+  finance: ['minimalist', 'photorealistic'],
+  healthcare: ['photorealistic', 'minimalist'],
+  education: ['illustration', 'flat_design'],
+  realestate: ['photorealistic', 'cinematic'],
+  ecommerce: ['photorealistic', '3d_render'],
+  art: ['watercolor', 'illustration'],
+  design: ['minimalist', 'illustration'],
+};
+
+const TONE_STYLE_AFFINITY: Record<string, ImageStylePreset[]> = {
+  expert: ['minimalist', 'photorealistic'],
+  professional: ['photorealistic', 'minimalist'],
+  friendly: ['illustration', 'flat_design'],
+  playful: ['illustration', 'flat_design'],
+  bold: ['cinematic', '3d_render'],
+  inspirational: ['cinematic', 'watercolor'],
+  trendy: ['3d_render', 'cinematic'],
+  elegant: ['minimalist', 'cinematic'],
+};
+
+/**
+ * Compute suggested image style from brand attributes (backend version)
+ */
+export function computeStyleFromBrand(
+  industry?: string[],
+  toneOfVoice?: string[],
+  explicitImageStyle?: string,
+  formalityLevel?: string
+): ImageStylePreset {
+  // If explicit style set, map it
+  if (explicitImageStyle) {
+    const styleMapping: Record<string, ImageStylePreset> = {
+      'modern_minimalist': 'minimalist',
+      'minimalist': 'minimalist',
+      'photorealistic': 'photorealistic',
+      'realistic': 'photorealistic',
+      'professional': 'photorealistic',
+      'illustration': 'illustration',
+      '3d': '3d_render',
+      'flat': 'flat_design',
+      'watercolor': 'watercolor',
+      'cinematic': 'cinematic',
+    };
+    const normalized = explicitImageStyle.toLowerCase().replace(/[\s-]/g, '_');
+    if (styleMapping[normalized]) {
+      return styleMapping[normalized];
+    }
+  }
+  
+  // Score styles based on industry and tone
+  const scores: Record<ImageStylePreset, number> = {
+    photorealistic: 0,
+    illustration: 0,
+    minimalist: 0,
+    '3d_render': 0,
+    flat_design: 0,
+    watercolor: 0,
+    cinematic: 0,
+  };
+  
+  // Industry matching
+  if (industry && industry.length > 0) {
+    for (const ind of industry) {
+      const normalized = ind.toLowerCase().replace(/[\s&-]+/g, '');
+      for (const [key, styles] of Object.entries(INDUSTRY_STYLE_MAP)) {
+        if (normalized.includes(key) || key.includes(normalized)) {
+          if (styles[0]) scores[styles[0]] += 3;
+          if (styles[1]) scores[styles[1]] += 1;
+        }
+      }
+    }
+  }
+  
+  // Tone affinity
+  if (toneOfVoice && toneOfVoice.length > 0) {
+    for (const tone of toneOfVoice) {
+      const normalized = tone.toLowerCase().replace(/[\s-]/g, '_');
+      const styles = TONE_STYLE_AFFINITY[normalized];
+      if (styles) {
+        if (styles[0]) scores[styles[0]] += 2;
+        if (styles[1]) scores[styles[1]] += 1;
+      }
+    }
+  }
+  
+  // Formality boost
+  if (formalityLevel === 'formal') {
+    scores.photorealistic += 1;
+    scores.minimalist += 1;
+  } else if (formalityLevel === 'casual' || formalityLevel === 'informal') {
+    scores.illustration += 1;
+    scores.flat_design += 1;
+  }
+  
+  // Find highest scoring style
+  let bestStyle: ImageStylePreset = 'photorealistic'; // default
+  let bestScore = 0;
+  
+  for (const [style, score] of Object.entries(scores)) {
+    if (score > bestScore) {
+      bestScore = score;
+      bestStyle = style as ImageStylePreset;
+    }
+  }
+  
+  return bestStyle;
+}
