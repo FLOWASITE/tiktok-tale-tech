@@ -1,243 +1,321 @@
 
-# Cải Thiện Tạo Ảnh AI Liên Quan Đến Social & Nội Dung
+# Đề Xuất Phong Cách Ảnh Dựa Trên Brand
 
-## Phân Tích Hiện Trạng
+## Tổng Quan
 
-### Điểm yếu của hệ thống hiện tại:
-
-| Vấn đề | Mô tả |
-|--------|-------|
-| **Content Summary quá ngắn** | Chỉ lấy 300 ký tự đầu từ bài viết, mất đi context quan trọng |
-| **Không sử dụng Hook** | `selectedHooks` và `globalHook` có trong content nhưng không được truyền vào prompt builder |
-| **Thiếu Content Goal** | `content_goal` đã được fetch nhưng chỉ dùng để map `journeyStage`, không tận dụng hết |
-| **Không có Content Angle** | Góc tiếp cận (educational, storytelling, promotional...) không được sử dụng trong prompt ảnh |
-| **Không có Content Role** | `content_role` (seed/sprout/harvest) không ảnh hưởng đến visual |
-| **Thiếu AI Summary** | Backend không tạo tóm tắt thông minh từ nội dung dài |
-
-### Dữ liệu có sẵn nhưng chưa tận dụng:
-- `content_goal`: education, awareness, engagement, expertise, conversion
-- `content_role`: seed (awareness), sprout (trust), harvest (conversion)
-- `selectedHooks` / `globalHook`: Hook đã được chọn cho từng kênh
-- `hook_evaluations`: Đánh giá chất lượng hook
-- Full channel content (facebook_content, instagram_content, ...)
+Thêm tính năng AI tự động đề xuất phong cách ảnh phù hợp nhất dựa trên thông tin Brand đã có sẵn, giúp người dùng không phải đoán và tạo ra ảnh nhất quán với identity thương hiệu.
 
 ---
 
-## Giải Pháp Đề Xuất
+## Dữ Liệu Brand Có Sẵn Để Đề Xuất
 
-### 1. Trích xuất thông minh từ nội dung (Content Intelligence)
-
-**Vấn đề:** `contentSummary` chỉ là 300 ký tự đầu của bài viết, không nắm bắt được ý chính.
-
-**Giải pháp:** Sử dụng AI để tóm tắt nội dung trước khi tạo ảnh.
-
-```
-flowchart LR
-    A[Channel Content] --> B[AI Summary]
-    B --> C[Key Message]
-    B --> D[Emotional Tone]
-    B --> E[Visual Keywords]
-    C & D & E --> F[Enhanced Image Prompt]
-```
-
-**Thay đổi backend:**
-- Thêm bước gọi AI summarize content trước khi tạo ảnh
-- Trích xuất: key message, emotional tone, visual keywords
+| Field | Ví dụ | Ảnh hưởng đến Visual Style |
+|-------|-------|---------------------------|
+| `industry` | ["Beauty", "Skincare"] | Beauty → Minimalist, Cinematic |
+| `tone_of_voice` | ["expert", "friendly"] | Expert → Clean, Professional |
+| `image_style` | "modern_minimalist" | Đã có preference → ưu tiên |
+| `formality_level` | "semi_formal" | Formal → Photorealistic |
+| `target_age_range` | "25-35" | Gen Z → Illustration, Flat |
 
 ---
 
-### 2. Tích hợp Hook vào Visual Prompt
+## Logic Đề Xuất Phong Cách
 
-**Vấn đề:** Hook là phần thu hút nhất của bài viết nhưng không được dùng để tạo ảnh.
+### 1. Industry → Style Mapping
 
-**Giải pháp:** Truyền hook vào prompt để ảnh phản ánh message của hook.
-
+```text
+┌─────────────────────┬────────────────────────────┐
+│ Industry            │ Suggested Styles           │
+├─────────────────────┼────────────────────────────┤
+│ Beauty, Fashion     │ minimalist, cinematic      │
+│ Tech, SaaS          │ 3d_render, flat_design     │
+│ Food & Beverage     │ photorealistic, watercolor │
+│ Education           │ illustration, flat_design  │
+│ Healthcare          │ photorealistic, minimalist │
+│ Real Estate         │ photorealistic, cinematic  │
+│ Art, Creative       │ watercolor, illustration   │
+│ Finance             │ minimalist, photorealistic │
+│ E-commerce          │ photorealistic, 3d_render  │
+└─────────────────────┴────────────────────────────┘
 ```
-contentSummary hiện tại:
-"Topic: Chăm sóc da mùa hè. Da khô là vấn đề phổ biến..."
 
-contentSummary mới:
-"HOOK: 80% người Việt không biết sai lầm này khi dưỡng da!
-Topic: Chăm sóc da mùa hè
-Key visual: Surprised face, skincare products, summer sun"
+### 2. Tone of Voice → Style Adjustment
+
+```text
+┌─────────────────────┬────────────────────────────┐
+│ Tone                │ Style Boost                │
+├─────────────────────┼────────────────────────────┤
+│ expert, calm        │ +minimalist, +photorealistic│
+│ friendly, playful   │ +illustration, +flat_design │
+│ inspirational       │ +cinematic, +watercolor    │
+│ professional        │ +photorealistic            │
+│ trendy, bold        │ +3d_render, +cinematic     │
+└─────────────────────┴────────────────────────────┘
 ```
 
-**Thay đổi:**
-- Frontend: Truyền `selectedHooks[channel].opening_line` hoặc `globalHook.opening_line` vào API
-- Backend: Thêm section HOOK vào prompt builder
+### 3. Scoring Algorithm
 
----
-
-### 3. Content Role → Visual Style Mapping
-
-**Vấn đề:** Content role (seed/sprout/harvest) quyết định mục đích bài viết nhưng không ảnh hưởng visual.
-
-**Giải pháp:** Map role sang visual style phù hợp.
-
-| Role | Mục đích | Visual Style |
-|------|----------|--------------|
-| **Seed** | Awareness | Eye-catching, curiosity-inducing, broad appeal |
-| **Sprout** | Trust building | Educational, informative, credible |
-| **Harvest** | Conversion | Product-focused, CTA-friendly, urgency |
-
-**Thay đổi backend:**
-```typescript
-const CONTENT_ROLE_VISUALS = {
-  seed: {
-    style: 'attention-grabbing, curiosity-inducing',
-    elements: ['bold visuals', 'relatable scenarios', 'emotional hooks'],
-    avoid: ['hard selling', 'product close-ups', 'pricing'],
-  },
-  sprout: {
-    style: 'educational, trustworthy, informative',
-    elements: ['data visualization', 'step-by-step imagery', 'expert feel'],
-    avoid: ['overly promotional', 'urgency cues'],
-  },
-  harvest: {
-    style: 'action-oriented, product-focused, premium',
-    elements: ['product showcase', 'CTA space', 'social proof'],
-    avoid: ['vague imagery', 'educational tone'],
-  },
-};
+```text
+For each style preset:
+  score = 0
+  
+  if brand.industry matches INDUSTRY_STYLE_MAP:
+    score += 3 (primary match)
+    score += 1 (secondary match)
+  
+  for each tone in brand.tone_of_voice:
+    if tone maps to this style:
+      score += 2
+  
+  if brand.image_style explicitly set:
+    score += 5 (user preference priority)
+  
+  if brand.formality_level === 'formal':
+    boost photorealistic, minimalist
+  
+Return top 2 styles sorted by score
 ```
 
 ---
 
-### 4. Content Angle → Visual Approach
+## UI Changes
 
-**Vấn đề:** Content angle (storytelling, educational, promotional...) không ảnh hưởng đến cách thể hiện visual.
+### Hiện tại:
+```
+[Phong cách ảnh]
+🔘 Tự động (Theo brand style)  ← Không rõ sẽ chọn gì
+🔘 Chân thực
+🔘 Minh họa
+...
+```
 
-**Giải pháp:** Map angle sang visual approach.
+### Sau khi cải thiện:
+```
+[Phong cách ảnh]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✨ Gợi ý cho Beauty brand với tone Expert, Friendly:
 
-| Angle | Visual Approach |
-|-------|-----------------|
-| `educational` | Infographic style, step-by-step, clean diagrams |
-| `storytelling` | Narrative imagery, emotional scenes, journey feel |
-| `promotional` | Product hero shot, offer badges, CTA-ready |
-| `social_proof` | Testimonial style, real people, before/after |
-| `behind_the_scenes` | Candid, authentic, workspace/process shots |
-| `qa_faq` | Question bubbles, conversational, friendly |
+🔘 ⭐ Tối giản     ← Match: Industry + Tone (Recommended)
+🔘 ⭐ Chân thực   ← Match: Industry (85%)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📷 Tất cả phong cách:
+🔘 Minh họa
+🔘 3D Render
+🔘 Flat Design
+...
+```
 
 ---
 
-### 5. Fetch thêm dữ liệu context cho ảnh
+## Implementation Details
 
-**Thay đổi backend `generate-brand-image`:**
-
-Hiện tại chỉ fetch:
-- `brandTemplate`: colors, logo, industry
-
-Cần thêm:
-- `content_role`: để map visual style
-- `selected_hooks` / `global_hook`: để lấy hook message
-- `hook_evaluations`: để biết hook type và psychology
-
----
-
-## Technical Implementation
-
-### Files cần thay đổi:
+### File Changes:
 
 | File | Thay đổi |
 |------|----------|
-| `supabase/functions/_shared/image-prompt-builder.ts` | Thêm sections cho Hook, ContentRole, ContentAngle |
-| `supabase/functions/generate-brand-image/index.ts` | Fetch thêm hooks, content_role từ DB; truyền vào builder |
-| `src/components/multichannel/UnifiedImageGenerator.tsx` | Truyền hooks, contentRole khi gọi API |
-| `src/hooks/useSocialImageGeneration.ts` | Thêm params mới vào interface |
+| `src/utils/imageStyleSuggestion.ts` | **NEW** - Logic đề xuất style |
+| `src/components/multichannel/UnifiedImageGenerator.tsx` | Hiển thị suggested styles |
+| `supabase/functions/_shared/image-prompt-builder.ts` | Backend auto-selection khi style='auto' |
 
-### Thay đổi chi tiết:
+---
 
-**1. image-prompt-builder.ts**
+### 1. New Utility: `imageStyleSuggestion.ts`
+
 ```typescript
-// Thêm types mới
-interface ImagePromptParams {
-  // ... existing
-  contentRole?: 'seed' | 'sprout' | 'harvest';
-  contentAngle?: ContentAngle;
-  hookMessage?: string;
-  hookType?: string;
+// Industry → Primary styles mapping
+const INDUSTRY_STYLE_MAP: Record<string, ImageStylePreset[]> = {
+  // Beauty & Fashion
+  beauty: ['minimalist', 'cinematic'],
+  skincare: ['minimalist', 'photorealistic'],
+  fashion: ['cinematic', 'photorealistic'],
+  cosmetics: ['minimalist', 'cinematic'],
+  
+  // Technology
+  technology: ['3d_render', 'flat_design'],
+  saas: ['flat_design', 'minimalist'],
+  software: ['flat_design', '3d_render'],
+  
+  // Food
+  food: ['photorealistic', 'watercolor'],
+  restaurant: ['photorealistic', 'cinematic'],
+  beverage: ['photorealistic', 'minimalist'],
+  
+  // Professional Services
+  finance: ['minimalist', 'photorealistic'],
+  healthcare: ['photorealistic', 'minimalist'],
+  education: ['illustration', 'flat_design'],
+  consulting: ['minimalist', 'photorealistic'],
+  
+  // Creative
+  art: ['watercolor', 'illustration'],
+  design: ['minimalist', 'illustration'],
+  photography: ['cinematic', 'photorealistic'],
+  
+  // Real Estate
+  realestate: ['photorealistic', 'cinematic'],
+  property: ['photorealistic', 'cinematic'],
+};
+
+// Tone → Style affinity
+const TONE_STYLE_AFFINITY: Record<string, ImageStylePreset[]> = {
+  expert: ['minimalist', 'photorealistic'],
+  professional: ['photorealistic', 'minimalist'],
+  calm: ['minimalist', 'watercolor'],
+  friendly: ['illustration', 'flat_design'],
+  playful: ['illustration', 'flat_design', '3d_render'],
+  bold: ['cinematic', '3d_render'],
+  inspirational: ['cinematic', 'watercolor'],
+  trendy: ['3d_render', 'cinematic'],
+  warm: ['watercolor', 'photorealistic'],
+  elegant: ['minimalist', 'cinematic'],
+};
+
+export interface StyleSuggestion {
+  style: ImageStylePreset;
+  score: number;
+  reasons: string[];
+  isRecommended: boolean;
 }
 
-// Thêm sections mới
-function buildContentRoleSection(role?: string): string { ... }
-function buildContentAngleSection(angle?: string): string { ... }
-function buildHookSection(hookMessage?: string, hookType?: string): string { ... }
+export function suggestImageStyles(
+  industry?: string[],
+  toneOfVoice?: string[],
+  explicitImageStyle?: string,
+  formalityLevel?: string
+): StyleSuggestion[] {
+  // Scoring algorithm implementation
+  // Returns sorted array of suggestions with reasons
+}
 ```
 
-**2. generate-brand-image/index.ts**
-```typescript
-// Fetch thêm data
-const { data: contentData } = await supabase
-  .from("multi_channel_contents")
-  .select("content_goal, content_role, selected_hooks, global_hook")
-  .eq("id", contentId)
-  .single();
+---
 
-// Extract hook for channel
-const channelHook = contentData.selected_hooks?.find(h => h.channel === channel);
-const hookMessage = channelHook?.opening_line || contentData.global_hook?.opening_line;
-const hookType = channelHook?.hook_type || contentData.global_hook?.hook_type;
+### 2. Frontend UI Update
 
-// Pass to builder
-const enhancedPrompt = buildImagePrompt({
-  ...existingParams,
-  contentRole: contentData.content_role,
-  hookMessage,
-  hookType,
-});
-```
+```tsx
+// In UnifiedImageGenerator.tsx
 
-**3. UnifiedImageGenerator.tsx**
-```typescript
-// Trong generateAutoPrompt, thêm hook context
-function generateAutoPrompt(..., hook?: string): string {
-  if (hook) {
-    prompt += `Main message (HOOK): "${hook}". `;
+// New state for suggestions
+const [styleSuggestions, setStyleSuggestions] = useState<StyleSuggestion[]>([]);
+
+// Compute suggestions when brand info available
+useEffect(() => {
+  if (brandIndustry || content.brand_template_id) {
+    const suggestions = suggestImageStyles(
+      brandIndustry,
+      brandTemplate?.tone_of_voice,
+      brandTemplate?.image_style,
+      brandTemplate?.formality_level
+    );
+    setStyleSuggestions(suggestions);
+    
+    // Auto-select recommended if current is 'auto'
+    if (imageStyle === 'auto' && suggestions[0]?.isRecommended) {
+      setImageStyle(suggestions[0].style);
+    }
   }
-  // ...
+}, [brandIndustry, brandTemplate]);
+
+// Render suggested styles section
+{styleSuggestions.length > 0 && (
+  <div className="mb-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
+    <div className="flex items-center gap-2 mb-2">
+      <Wand2 className="w-4 h-4 text-primary" />
+      <span className="text-sm font-medium">Gợi ý cho thương hiệu của bạn</span>
+    </div>
+    <div className="flex flex-wrap gap-2">
+      {styleSuggestions.slice(0, 2).map((suggestion) => (
+        <button
+          key={suggestion.style}
+          onClick={() => setImageStyle(suggestion.style)}
+          className={cn(
+            "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all",
+            imageStyle === suggestion.style 
+              ? "border-primary bg-primary/10 text-primary" 
+              : "border-border hover:border-primary/50"
+          )}
+        >
+          {IMAGE_STYLES.find(s => s.value === suggestion.style)?.icon}
+          <span className="text-sm font-medium">
+            {IMAGE_STYLES.find(s => s.value === suggestion.style)?.label}
+          </span>
+          {suggestion.isRecommended && (
+            <Badge variant="secondary" className="text-[10px]">
+              Best match
+            </Badge>
+          )}
+        </button>
+      ))}
+    </div>
+    <p className="text-xs text-muted-foreground mt-2">
+      {styleSuggestions[0]?.reasons.join(' • ')}
+    </p>
+  </div>
+)}
+```
+
+---
+
+### 3. Backend Enhancement
+
+Khi frontend gửi `imageStylePreset: undefined` (auto), backend sẽ tự chọn dựa trên brand data đã fetch:
+
+```typescript
+// In generate-brand-image/index.ts
+
+// If no explicit style, compute suggestion
+if (!imageStylePreset && brandTemplate) {
+  const suggestedStyle = computeStyleFromBrand(
+    brandTemplate.industry,
+    brandTemplate.tone_of_voice,
+    brandTemplate.image_style,
+    brandTemplate.formality_level
+  );
+  imageStylePreset = suggestedStyle;
+  console.log(`[generate-brand-image] Auto-selected style: ${suggestedStyle}`);
 }
 ```
 
 ---
 
-## Kết quả mong đợi
+## User Experience Flow
 
-**Trước:**
-```
-Prompt: "Create a 1:1 aspect ratio image for instagram. 
-Content theme: Topic: Chăm sóc da mùa hè. Da khô là vấn đề phổ biến trong mùa hè... 
-Brand: GlowSkin. High quality, professional."
-```
+```text
+1. User opens Image Generator
+   └─> System detects brand: "GlowSkin" 
+       Industry: ["Beauty", "Skincare"]
+       Tone: ["expert", "friendly"]
 
-**Sau:**
-```
-Prompt: "Create a professional, brand-aligned image for GlowSkin.
+2. AI analyzes and suggests:
+   ┌─────────────────────────────────────────┐
+   │ ✨ Gợi ý cho GlowSkin:                  │
+   │                                         │
+   │ ⭐ Tối giản   (Beauty + Expert match)   │
+   │ ⭐ Chân thực  (Skincare + Pro match)    │
+   │                                         │
+   │ Lý do: Industry Beauty thường dùng     │
+   │ style tối giản, tone Expert phù hợp    │
+   │ với hình ảnh chuyên nghiệp.            │
+   └─────────────────────────────────────────┘
 
-## HOOK MESSAGE (CRITICAL - Image must convey this):
-"80% người Việt không biết sai lầm này khi dưỡng da!"
-Hook Type: statistic - Use surprised/curious expression, bold visual
+3. User can:
+   - Click suggested style (recommended)
+   - Override with any other style
+   - Keep "Tự động" to let backend decide
 
-## CONTENT CONTEXT:
-Topic: Chăm sóc da mùa hè
-Key message: Tránh 5 sai lầm phổ biến khi dưỡng da mùa hè
-Visual keywords: skincare, summer, protection, glow
-
-## CONTENT ROLE (SEED - Awareness):
-- Visual Style: attention-grabbing, curiosity-inducing
-- Include: relatable scenarios, emotional hooks
-- Avoid: hard selling, product close-ups
-
-## CONTENT ANGLE (Educational):
-- Approach: Informative but engaging, step visual hints
-- Feel: Trustworthy, helpful, knowledge-sharing
-
-## CHANNEL: INSTAGRAM
-..."
+4. Generated image matches brand identity ✓
 ```
 
 ---
 
-## Ước tính thời gian
-- Backend changes: ~15 phút
-- Frontend changes: ~10 phút
-- Testing: ~5 phút
+## Ước Tính Thời Gian
+
+| Task | Thời gian |
+|------|-----------|
+| Create `imageStyleSuggestion.ts` utility | 10 phút |
+| Update `UnifiedImageGenerator.tsx` UI | 15 phút |
+| Backend auto-selection logic | 5 phút |
+| Testing & refinement | 5 phút |
+| **Total** | **~35 phút** |
+
