@@ -3,7 +3,7 @@ import {
   Sparkles, Image, Loader2, Save, Settings2, Check, ArrowLeft, 
   Copy, Download, RefreshCw, Wand2, Palette, ChevronDown, ChevronUp, Eye,
   Layers, ImageIcon, Camera, Brush, Box, Droplets, Film, LayoutGrid,
-  Facebook, Instagram, Linkedin, Twitter, Globe, MapPin, Youtube, Mail, MessageCircle, Music2, AtSign
+  Facebook, Instagram, Linkedin, Twitter, Globe, MapPin, Youtube, Mail, MessageCircle, Music2, AtSign, Star
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -52,6 +52,9 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ImageStreamingGrid } from './streaming/ImageStreamingGrid';
 import { toast } from 'sonner';
+import { suggestImageStyles, formatReasons, type StyleSuggestion } from '@/utils/imageStyleSuggestion';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UnifiedImageGeneratorProps {
   open: boolean;
@@ -237,10 +240,52 @@ export function UnifiedImageGenerator({
   const [customPrompt, setCustomPrompt] = useState('');
   const [singleGeneratedUrl, setSingleGeneratedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [styleSuggestions, setStyleSuggestions] = useState<StyleSuggestion[]>([]);
 
   // Hooks
   const batchGen = useAutoImageGeneration();
   const singleGen = useSocialImageGeneration();
+
+  // Fetch brand template for suggestions
+  const { data: brandTemplate } = useQuery({
+    queryKey: ['brand-template-for-suggestions', content?.brand_template_id],
+    queryFn: async () => {
+      if (!content?.brand_template_id) return null;
+      const { data, error } = await supabase
+        .from('brand_templates')
+        .select('industry, tone_of_voice, image_style, formality_level')
+        .eq('id', content.brand_template_id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!content?.brand_template_id,
+  });
+
+  // Compute style suggestions when brand data available
+  useEffect(() => {
+    const industry = brandTemplate?.industry || brandIndustry;
+    const toneOfVoice = brandTemplate?.tone_of_voice as string[] | undefined;
+    const explicitImageStyle = brandTemplate?.image_style as string | undefined;
+    const formalityLevel = brandTemplate?.formality_level as string | undefined;
+    
+    if (industry || toneOfVoice || explicitImageStyle) {
+      const suggestions = suggestImageStyles({
+        industry,
+        toneOfVoice,
+        explicitImageStyle,
+        formalityLevel,
+      });
+      setStyleSuggestions(suggestions);
+      
+      // Auto-select recommended style if currently on 'auto' and we have suggestions
+      if (imageStyle === 'auto' && suggestions.length > 0 && suggestions[0]?.isRecommended) {
+        setImageStyle(suggestions[0].style);
+      }
+    } else {
+      setStyleSuggestions([]);
+    }
+  }, [brandTemplate, brandIndustry]);
 
   // Auto-generate prompt for single mode
   useEffect(() => {
@@ -630,23 +675,95 @@ export function UnifiedImageGenerator({
 
               {/* Shared Settings */}
               <div className="space-y-4 pt-4 border-t">
+                {/* AI Style Suggestions */}
+                {styleSuggestions.length > 0 && (
+                  <div className="p-3 rounded-xl bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+                        <Wand2 className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                      <span className="text-sm font-medium text-foreground">
+                        Gợi ý cho thương hiệu của bạn
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {styleSuggestions.slice(0, 2).map((suggestion) => {
+                        const styleInfo = IMAGE_STYLES.find(s => s.value === suggestion.style);
+                        const isSelected = imageStyle === suggestion.style;
+                        
+                        return (
+                          <button
+                            key={suggestion.style}
+                            onClick={() => setImageStyle(suggestion.style)}
+                            className={cn(
+                              "flex items-center gap-2.5 px-3 py-2.5 rounded-lg border-2 transition-all duration-200",
+                              isSelected 
+                                ? "border-primary bg-primary/10 shadow-sm" 
+                                : "border-primary/30 bg-background hover:border-primary/50 hover:bg-primary/5"
+                            )}
+                          >
+                            <div className={cn(
+                              "w-7 h-7 rounded-md flex items-center justify-center",
+                              isSelected ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"
+                            )}>
+                              {styleInfo?.icon}
+                            </div>
+                            <div className="text-left">
+                              <div className="flex items-center gap-1.5">
+                                <span className={cn(
+                                  "text-sm font-medium",
+                                  isSelected ? "text-primary" : "text-foreground"
+                                )}>
+                                  {styleInfo?.label}
+                                </span>
+                                {suggestion.isRecommended && (
+                                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5 bg-primary/15 text-primary border-0">
+                                    <Star className="w-2.5 h-2.5 mr-0.5 fill-primary" />
+                                    Best
+                                  </Badge>
+                                )}
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                {suggestion.matchPercentage}% phù hợp
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {styleSuggestions[0]?.reasons.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-2.5 flex items-center gap-1.5">
+                        <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
+                        {formatReasons(styleSuggestions[0].reasons)}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Style Selection - Visual Grid */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Phong cách ảnh</Label>
+                  <Label className="text-sm font-medium">
+                    {styleSuggestions.length > 0 ? 'Tất cả phong cách' : 'Phong cách ảnh'}
+                  </Label>
                   <div className="grid grid-cols-4 gap-2">
                     {IMAGE_STYLES.map(style => {
                       const isSelected = imageStyle === style.value;
+                      const isSuggested = styleSuggestions.some(s => s.style === style.value);
+                      
                       return (
                         <button
                           key={style.value}
                           onClick={() => setImageStyle(style.value as ImageStylePreset | 'auto')}
                           className={cn(
-                            'flex flex-col items-center gap-1.5 p-2.5 rounded-xl border-2 transition-all duration-200',
+                            'flex flex-col items-center gap-1.5 p-2.5 rounded-xl border-2 transition-all duration-200 relative',
                             isSelected 
                               ? 'border-primary bg-primary/5 shadow-sm' 
                               : 'border-border/50 hover:border-primary/40 hover:bg-muted/30'
                           )}
                         >
+                          {isSuggested && !isSelected && (
+                            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-primary/60 ring-2 ring-background" />
+                          )}
                           <div className={cn(
                             'w-8 h-8 rounded-lg flex items-center justify-center',
                             isSelected ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'

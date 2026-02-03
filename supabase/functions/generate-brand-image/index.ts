@@ -4,6 +4,7 @@ import {
   buildImagePrompt,
   buildSimpleImagePrompt,
   getChannelAspectRatio,
+  computeStyleFromBrand,
   type Channel,
   type BrandImageContext,
   type PersonaContext,
@@ -238,13 +239,25 @@ serve(async (req) => {
     // Fetch brand template for colors and style
     const { data: brandTemplate, error: brandError } = await supabase
       .from("brand_templates")
-      .select("primary_color, secondary_colors, image_style, logo_url, brand_name, industry, organization_id")
+      .select("primary_color, secondary_colors, image_style, logo_url, brand_name, industry, organization_id, tone_of_voice, formality_level")
       .eq("id", brandTemplateId)
       .single();
 
     if (brandError || !brandTemplate) {
       console.error("[generate-brand-image] Brand template not found:", brandError);
       throw new Error("Brand template not found");
+    }
+
+    // Auto-select style if not provided
+    let finalImageStylePreset = imageStylePreset;
+    if (!finalImageStylePreset && brandTemplate) {
+      finalImageStylePreset = computeStyleFromBrand(
+        brandTemplate.industry as string[] | undefined,
+        brandTemplate.tone_of_voice as string[] | undefined,
+        brandTemplate.image_style as string | undefined,
+        brandTemplate.formality_level as string | undefined
+      );
+      console.log(`[generate-brand-image] Auto-selected style: ${finalImageStylePreset}`);
     }
 
     // Fetch content data for role, angle, and hooks
@@ -361,7 +374,7 @@ serve(async (req) => {
       journeyStage: finalJourneyStage,
       contentType,
       persona: personaContext,
-      imageStylePreset,
+      imageStylePreset: finalImageStylePreset,  // Use computed style
       negativePrompt,
       // New: Pass content role, angle, and hook for strategic visuals
       contentRole: finalContentRole,
