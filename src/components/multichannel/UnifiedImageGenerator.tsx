@@ -4,7 +4,7 @@ import {
   Copy, Download, RefreshCw, Wand2, Palette, ChevronDown, ChevronUp, Eye,
   Layers, ImageIcon, Camera, Brush, Box, Droplets, Film, LayoutGrid,
   Facebook, Instagram, Linkedin, Twitter, Globe, MapPin, Youtube, Mail, MessageCircle, Music2, AtSign, Star,
-  Type, AlignCenter, AlignLeft, AlignRight, Quote
+  Type, AlignCenter, AlignLeft, AlignRight, Quote, Send
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -73,7 +73,6 @@ interface UnifiedImageGeneratorProps {
   brandPrimaryColor?: string | null;
   brandIndustry?: string[];
   onImageGenerated?: (channel: Channel, image: ChannelImage) => Promise<void>;
-  // Single channel mode props
   initialChannel?: Channel;
   initialMode?: 'single' | 'batch';
 }
@@ -81,7 +80,6 @@ interface UnifiedImageGeneratorProps {
 type ViewMode = 'setup' | 'streaming' | 'preview';
 type GeneratorMode = 'single' | 'batch';
 
-// Channel icons and colors for visual selection
 const CHANNEL_CONFIG: Record<Channel, { icon: React.ReactNode; color: string; bgColor: string }> = {
   facebook: { icon: <Facebook className="w-4 h-4" />, color: 'text-blue-600', bgColor: 'bg-blue-500/10' },
   instagram: { icon: <Instagram className="w-4 h-4" />, color: 'text-pink-500', bgColor: 'bg-pink-500/10' },
@@ -97,8 +95,6 @@ const CHANNEL_CONFIG: Record<Channel, { icon: React.ReactNode; color: string; bg
   threads: { icon: <AtSign className="w-4 h-4" />, color: 'text-slate-800 dark:text-slate-200', bgColor: 'bg-slate-500/10' },
 };
 
-import { Send } from 'lucide-react';
-
 const LOGO_POSITIONS: { value: LogoPosition; label: string }[] = [
   { value: 'bottom-right', label: 'Góc dưới phải' },
   { value: 'bottom-left', label: 'Góc dưới trái' },
@@ -108,10 +104,10 @@ const LOGO_POSITIONS: { value: LogoPosition; label: string }[] = [
 
 const ASPECT_RATIOS: { value: AspectRatioOption; label: string; description: string }[] = [
   { value: 'auto', label: 'Tự động', description: 'Tỉ lệ tối ưu cho từng kênh' },
-  { value: '16:9', label: '16:9', description: 'Website, YouTube, LinkedIn' },
-  { value: '1:1', label: '1:1', description: 'Facebook, Instagram Feed' },
-  { value: '4:5', label: '4:5', description: 'Instagram Portrait' },
-  { value: '9:16', label: '9:16', description: 'Stories, Reels, TikTok' },
+  { value: '16:9', label: '16:9', description: 'Website, YouTube' },
+  { value: '1:1', label: '1:1', description: 'Facebook, IG Feed' },
+  { value: '4:5', label: '4:5', description: 'IG Portrait' },
+  { value: '9:16', label: '9:16', description: 'Stories, Reels' },
 ];
 
 const IMAGE_STYLES: { value: ImageStylePreset | 'auto'; label: string; description: string; icon: React.ReactNode }[] = [
@@ -160,7 +156,6 @@ function generateAutoPrompt(
   
   let prompt = `Create a ${optimalRatio} aspect ratio image for ${channel}. `;
   
-  // Add hook message first (most important for visual relevance)
   if (hookMessage) {
     prompt += `Main message (HOOK): "${hookMessage}". `;
   }
@@ -187,13 +182,8 @@ function generateAutoPrompt(
   return prompt;
 }
 
-// Helper to extract hook for a specific channel
-// Note: selected_hooks and global_hook may be present in DB but not in MultiChannelContent type
 function getHookForChannel(content: MultiChannelContent, channel: Channel): { hookMessage?: string; hookType?: string } {
-  // Access potential fields that may exist in the content from DB
   const contentAny = content as any;
-  
-  // Try to find channel-specific hook first
   const selectedHooks = contentAny.selected_hooks as any[] | null;
   const channelHook = selectedHooks?.find((h: any) => h.channel === channel);
   
@@ -204,7 +194,6 @@ function getHookForChannel(content: MultiChannelContent, channel: Channel): { ho
     };
   }
   
-  // Fallback to global hook
   const globalHook = contentAny.global_hook as any;
   if (globalHook?.opening_line) {
     return {
@@ -240,15 +229,15 @@ export function UnifiedImageGenerator({
   const [advancedMode, setAdvancedMode] = useState(false);
   const [showPromptPreview, setShowPromptPreview] = useState(false);
   
-  // NEW: Social Graphics (text-in-image) state
+  // Social Graphics state
   const [imageContentType, setImageContentType] = useState<ImageContentType>('background_only');
-  const [textToInclude, setTextToInclude] = useState<string>(''); // Shared text for all channels
-  const [textsPerChannel, setTextsPerChannel] = useState<Record<Channel, string>>({} as Record<Channel, string>); // Channel-specific texts
-  const [useSharedText, setUseSharedText] = useState<boolean>(true); // Toggle: shared vs per-channel
+  const [textToInclude, setTextToInclude] = useState<string>('');
+  const [textsPerChannel, setTextsPerChannel] = useState<Record<Channel, string>>({} as Record<Channel, string>);
+  const [useSharedText, setUseSharedText] = useState<boolean>(true);
   const [textPosition, setTextPosition] = useState<TextPosition>('center');
   const [typographyStyle, setTypographyStyle] = useState<TypographyStyle>('modern');
   const [isOptimizingText, setIsOptimizingText] = useState(false);
-  const [useCanvasFallback, setUseCanvasFallback] = useState(false); // Canvas overlay for 100% accurate text
+  const [useCanvasFallback, setUseCanvasFallback] = useState(false);
   
   // Batch mode state
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(content?.selected_channels ?? []);
@@ -265,7 +254,7 @@ export function UnifiedImageGenerator({
   const batchGen = useAutoImageGeneration();
   const singleGen = useSocialImageGeneration();
 
-  // Fetch brand template for suggestions
+  // Fetch brand template
   const { data: brandTemplate } = useQuery({
     queryKey: ['brand-template-for-suggestions', content?.brand_template_id],
     queryFn: async () => {
@@ -281,8 +270,7 @@ export function UnifiedImageGenerator({
     enabled: !!content?.brand_template_id,
   });
 
-  // Compute style suggestions when brand data available
-  // Note: We don't include imageStyle in deps to avoid infinite loop when auto-selecting
+  // Compute style suggestions
   useEffect(() => {
     const industry = brandTemplate?.industry || brandIndustry;
     const toneOfVoice = brandTemplate?.tone_of_voice as string[] | undefined;
@@ -298,8 +286,6 @@ export function UnifiedImageGenerator({
       });
       setStyleSuggestions(suggestions);
       
-      // Auto-select recommended style if currently on 'auto' and we have suggestions
-      // Use functional update to check current value without adding to deps
       setImageStyle(currentStyle => {
         if (currentStyle === 'auto' && suggestions.length > 0 && suggestions[0]?.isRecommended) {
           return suggestions[0].style;
@@ -309,7 +295,6 @@ export function UnifiedImageGenerator({
     } else {
       setStyleSuggestions([]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandTemplate, brandIndustry]);
 
   // Auto-generate prompt for single mode
@@ -328,7 +313,6 @@ export function UnifiedImageGenerator({
       setCustomPrompt(autoPrompt);
       setSingleGeneratedUrl(null);
       
-      // Auto-fill text from hook's text_overlay if available
       const contentAny = content as any;
       const selectedHooks = contentAny.selected_hooks as any[] | null;
       const channelHook = selectedHooks?.find((h: any) => h.channel === singleChannel);
@@ -337,7 +321,6 @@ export function UnifiedImageGenerator({
       } else if (contentAny.global_hook?.text_overlay) {
         setTextToInclude(contentAny.global_hook.text_overlay);
       } else if (hookData.hookMessage) {
-        // Use hook message as fallback for text
         setTextToInclude(hookData.hookMessage);
       }
     }
@@ -352,7 +335,7 @@ export function UnifiedImageGenerator({
     return summaries;
   }, [content, selectedChannels]);
 
-  // Hook messages for batch mode - extract for each channel
+  // Hook messages for batch mode
   const hookMessages = useMemo(() => {
     const hooks: Record<Channel, { hookMessage?: string; hookType?: string }> = {} as Record<Channel, { hookMessage?: string; hookType?: string }>;
     selectedChannels.forEach(ch => {
@@ -361,7 +344,7 @@ export function UnifiedImageGenerator({
     return hooks;
   }, [content, selectedChannels]);
 
-  // Extract strategic context from content
+  // Strategic context
   const contentAny = content as any;
   const contentRole = contentAny.content_role as 'seed' | 'sprout' | 'harvest' | undefined;
   const contentAngle = contentAny.content_angle as string | undefined;
@@ -377,17 +360,14 @@ export function UnifiedImageGenerator({
     aspectRatio,
     imageStylePreset: imageStyle === 'auto' ? undefined : imageStyle,
     negativePrompt: negativePrompt.trim() || undefined,
-    // Strategic context for content-aware image generation
     contentRole,
     contentAngle,
     hookMessages,
-    // Social Graphics (text-in-image) params for batch mode
     imageContentType,
     textToInclude: imageContentType === 'with_text' && useSharedText ? textToInclude : undefined,
     textsPerChannel: imageContentType === 'with_text' && !useSharedText ? textsPerChannel : undefined,
     textPosition: imageContentType === 'with_text' ? textPosition : undefined,
     typographyStyle: imageContentType === 'with_text' ? typographyStyle : undefined,
-    // Canvas fallback for 100% accurate text
     useCanvasFallback: imageContentType === 'with_text' ? useCanvasFallback : undefined,
   }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, includeLogo, brandLogoUrl, logoPosition, aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages, imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, useCanvasFallback]);
 
@@ -411,7 +391,6 @@ export function UnifiedImageGenerator({
       ? CHANNEL_OPTIMAL_ASPECT_RATIO[singleChannel] || '16:9'
       : aspectRatio;
 
-    // Extract hook and strategic context from content
     const hookData = getHookForChannel(content, singleChannel);
     const contentAny = content as any;
 
@@ -423,12 +402,10 @@ export function UnifiedImageGenerator({
       brandTemplateId: content.brand_template_id,
       imageStylePreset: imageStyle === 'auto' ? undefined : imageStyle,
       negativePrompt: negativePrompt.trim() || undefined,
-      // Pass strategic context for more relevant images
       contentRole: contentAny.content_role,
       contentAngle: contentAny.content_angle,
       hookMessage: hookData.hookMessage,
       hookType: hookData.hookType,
-      // NEW: Pass text-in-image params for Social Graphics
       imageContentType,
       textToInclude: imageContentType === 'with_text' ? textToInclude : undefined,
       textPosition: imageContentType === 'with_text' ? textPosition : undefined,
@@ -540,28 +517,15 @@ export function UnifiedImageGenerator({
 
   // Computed
   const hasGeneratedImages = Object.keys(batchGen.generatedImages).length > 0;
-  const dialogSize = viewMode === 'setup' ? 'sm:max-w-2xl' : 'sm:max-w-4xl';
   const isGenerating = batchGen.isGenerating || singleGen.generating === singleChannel;
-
-  // Visual aspect ratio preview helper
-  const getAspectRatioClasses = (ratio: string) => {
-    switch (ratio) {
-      case '16:9': return 'w-10 h-6';
-      case '1:1': return 'w-7 h-7';
-      case '4:5': return 'w-6 h-7';
-      case '9:16': return 'w-5 h-9';
-      default: return 'w-8 h-6';
-    }
-  };
-
-  const effectiveAspectRatio = aspectRatio === 'auto' 
-    ? CHANNEL_OPTIMAL_ASPECT_RATIO[mode === 'single' ? singleChannel : selectedChannels[0]] || '16:9'
-    : aspectRatio;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className={cn(dialogSize, "transition-all duration-300 max-h-[90vh] overflow-hidden flex flex-col")}>
-        <DialogHeader>
+      <DialogContent className={cn(
+        "transition-all duration-300 max-h-[90vh] overflow-hidden flex flex-col",
+        viewMode === 'setup' ? "sm:max-w-5xl" : "sm:max-w-4xl"
+      )}>
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
             {viewMode === 'setup' && 'Tạo ảnh AI'}
@@ -575,58 +539,55 @@ export function UnifiedImageGenerator({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto">
-          {/* Setup Mode */}
+        <div className="flex-1 overflow-hidden">
+          {/* Setup Mode - Split Panel Layout */}
           {viewMode === 'setup' && (
-            <div className="space-y-4 py-2">
-              {/* Mode Toggle */}
-              <Tabs value={mode} onValueChange={(v) => setMode(v as GeneratorMode)} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 h-11 p-1 bg-muted/60">
-                  <TabsTrigger value="batch" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
-                    <Layers className="w-4 h-4" />
-                    Tạo nhiều kênh
-                  </TabsTrigger>
-                  <TabsTrigger value="single" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
-                    <ImageIcon className="w-4 h-4" />
-                    Tạo từng kênh
-                  </TabsTrigger>
-                </TabsList>
+            <div className="flex h-full gap-0 -mx-6">
+              {/* ==================== LEFT PANEL - Form Controls ==================== */}
+              <div className="w-[380px] flex-shrink-0 border-r overflow-y-auto px-6 py-4 space-y-4">
+                {/* Mode Toggle */}
+                <Tabs value={mode} onValueChange={(v) => setMode(v as GeneratorMode)} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted/60">
+                    <TabsTrigger value="batch" className="gap-1.5 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
+                      <Layers className="w-3.5 h-3.5" />
+                      Nhiều kênh
+                    </TabsTrigger>
+                    <TabsTrigger value="single" className="gap-1.5 text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      Từng kênh
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
 
-                {/* Batch Mode Content */}
-                <TabsContent value="batch" className="space-y-4 mt-4">
-                  {/* Brand Preview - Enhanced */}
-                  <div className="flex items-center gap-4 p-4 rounded-xl border border-border/50 bg-gradient-to-r from-muted/30 to-transparent">
-                    {brandLogoUrl ? (
-                      <div className="w-12 h-12 rounded-xl bg-background shadow-sm flex items-center justify-center overflow-hidden ring-1 ring-border/50">
-                        <img src={brandLogoUrl} alt="Brand logo" className="w-full h-full object-contain" />
-                      </div>
-                    ) : (
-                      <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
-                        <Image className="w-6 h-6 text-muted-foreground" />
+                {/* Brand Preview - Compact */}
+                <div className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-muted/20">
+                  {brandLogoUrl ? (
+                    <div className="w-10 h-10 rounded-lg bg-background shadow-sm flex items-center justify-center overflow-hidden ring-1 ring-border/50">
+                      <img src={brandLogoUrl} alt="Brand logo" className="w-full h-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                      <Image className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{content.brand_name}</p>
+                    {brandPrimaryColor && (
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <div className="w-3 h-3 rounded-full ring-1 ring-background shadow-sm" style={{ backgroundColor: brandPrimaryColor }} />
+                        <span className="text-xs text-muted-foreground">{brandPrimaryColor}</span>
                       </div>
                     )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate">{content.brand_name}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {brandPrimaryColor ? (
-                          <>
-                            <div className="w-4 h-4 rounded-full ring-2 ring-background shadow-sm" style={{ backgroundColor: brandPrimaryColor }} />
-                            <span className="text-sm text-muted-foreground font-medium">{brandPrimaryColor}</span>
-                          </>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">Không có màu chủ đạo</span>
-                        )}
-                      </div>
-                    </div>
                   </div>
+                </div>
 
-                  {/* Channel Selection */}
+                {/* Channel Selection - Batch Mode */}
+                {mode === 'batch' && (
                   <div className="space-y-2">
                     <Label className="text-sm font-medium">Chọn kênh ({selectedChannels.length})</Label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       {(content?.selected_channels ?? []).map(channel => {
                         const isSelected = selectedChannels.includes(channel);
-                        const optimalRatio = CHANNEL_OPTIMAL_ASPECT_RATIO[channel] || '16:9';
                         const channelInfo = CHANNEL_CONFIG[channel];
 
                         return (
@@ -634,50 +595,44 @@ export function UnifiedImageGenerator({
                             key={channel}
                             onClick={() => handleToggleChannel(channel)}
                             className={cn(
-                              'flex items-center gap-2.5 p-3 rounded-xl border-2 text-left transition-all duration-200',
+                              'flex items-center gap-2 p-2.5 rounded-lg border-2 text-left transition-all duration-200',
                               isSelected 
                                 ? 'border-primary bg-primary/5 shadow-sm' 
                                 : 'border-border/50 hover:border-primary/40 hover:bg-muted/30'
                             )}
                           >
                             <div className={cn(
-                              'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
+                              'w-7 h-7 rounded-md flex items-center justify-center transition-colors',
                               isSelected ? channelInfo?.bgColor : 'bg-muted'
                             )}>
                               <span className={cn(isSelected ? channelInfo?.color : 'text-muted-foreground')}>
                                 {channelInfo?.icon}
                               </span>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <span className="font-medium capitalize block text-sm truncate">
-                                {channel === 'google_maps' ? 'Google Maps' : channel === 'zalo_oa' ? 'Zalo OA' : channel}
-                              </span>
-                              {aspectRatio === 'auto' && (
-                                <span className="text-xs text-muted-foreground">{optimalRatio}</span>
-                              )}
-                            </div>
+                            <span className="font-medium capitalize text-xs truncate flex-1">
+                              {channel === 'google_maps' ? 'Maps' : channel === 'zalo_oa' ? 'Zalo' : channel}
+                            </span>
                             <div className={cn(
-                              'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors',
+                              'w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors flex-shrink-0',
                               isSelected 
                                 ? 'border-primary bg-primary text-primary-foreground' 
                                 : 'border-muted-foreground/30'
                             )}>
-                              {isSelected && <Check className="w-3 h-3" />}
+                              {isSelected && <Check className="w-2.5 h-2.5" />}
                             </div>
                           </button>
                         );
                       })}
                     </div>
                   </div>
-                </TabsContent>
+                )}
 
-                {/* Single Mode Content */}
-                <TabsContent value="single" className="space-y-4 mt-4">
-                  {/* Channel Selection for Single */}
+                {/* Channel Selection - Single Mode */}
+                {mode === 'single' && (
                   <div className="space-y-2">
-                    <Label>Chọn kênh</Label>
+                    <Label className="text-sm">Chọn kênh</Label>
                     <Select value={singleChannel} onValueChange={(v) => setSingleChannel(v as Channel)}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-9">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -688,482 +643,365 @@ export function UnifiedImageGenerator({
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
 
-                  {/* Prompt Editor */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label>Image Prompt</Label>
-                      <div className="flex items-center gap-1">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleRegeneratePrompt}>
-                                <Wand2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Tạo lại prompt</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCopyPrompt}>
-                                {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Copy prompt</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                    </div>
-                    <Textarea
-                      value={customPrompt}
-                      onChange={(e) => setCustomPrompt(e.target.value)}
-                      placeholder="Mô tả ảnh bạn muốn tạo..."
-                      rows={3}
-                      className="resize-none text-sm"
-                    />
-                  </div>
-
-                  {/* Single Generated Preview */}
-                  {singleGeneratedUrl && (
-                    <div className="space-y-2">
+                    {/* Prompt Editor - Single Mode */}
+                    <div className="space-y-2 mt-3">
                       <div className="flex items-center justify-between">
-                        <Label>Ảnh đã tạo</Label>
-                        <Button variant="ghost" size="sm" onClick={handleDownloadSingle} className="h-7 gap-1">
-                          <Download className="w-3.5 h-3.5" />
-                          Tải xuống
-                        </Button>
+                        <Label className="text-sm">Image Prompt</Label>
+                        <div className="flex items-center gap-1">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleRegeneratePrompt}>
+                                  <Wand2 className="w-3 h-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Tạo lại prompt</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopyPrompt}>
+                                  {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Copy prompt</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                       </div>
-                      <div className="relative rounded-lg overflow-hidden border bg-muted/30">
-                        <img src={singleGeneratedUrl} alt="Generated" className="w-full h-auto max-h-64 object-contain" />
-                      </div>
+                      <Textarea
+                        value={customPrompt}
+                        onChange={(e) => setCustomPrompt(e.target.value)}
+                        placeholder="Mô tả ảnh bạn muốn tạo..."
+                        rows={3}
+                        className="resize-none text-xs"
+                      />
                     </div>
-                  )}
-                </TabsContent>
-              </Tabs>
 
-              {/* Shared Settings */}
-              <div className="space-y-4 pt-4 border-t">
-                {/* Strategic Context Preview - Enhanced Card */}
-                <StrategicContextPreview
-                  mode={mode}
-                  contentRole={contentRole}
-                  contentAngle={contentAngle}
-                  hookMessages={hookMessages}
-                  selectedChannels={selectedChannels}
-                  singleChannel={singleChannel}
-                  content={content}
-                  getHookForChannel={getHookForChannel}
-                  CHANNEL_CONFIG={CHANNEL_CONFIG}
-                  // NEW: Pass text-in-image params for preview
-                  imageContentType={imageContentType}
-                  textToInclude={textToInclude}
-                  textPosition={textPosition}
-                  typographyStyle={typographyStyle}
-                />
+                    {/* Single Generated Preview */}
+                    {singleGeneratedUrl && (
+                      <div className="space-y-2 mt-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm">Ảnh đã tạo</Label>
+                          <Button variant="ghost" size="sm" onClick={handleDownloadSingle} className="h-6 gap-1 text-xs">
+                            <Download className="w-3 h-3" />
+                            Tải
+                          </Button>
+                        </div>
+                        <div className="relative rounded-lg overflow-hidden border bg-muted/30">
+                          <img src={singleGeneratedUrl} alt="Generated" className="w-full h-auto max-h-40 object-contain" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                {/* NEW: Image Content Type Selection (Social Graphics) */}
-                <div className="space-y-3">
-                  <Label className="text-sm font-medium flex items-center gap-2">
-                    <Type className="w-4 h-4" />
+                {/* Image Type Toggle */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium flex items-center gap-1.5">
+                    <Type className="w-3.5 h-3.5" />
                     Loại ảnh
                   </Label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => setImageContentType('background_only')}
                       className={cn(
-                        "p-4 rounded-xl border-2 text-left transition-all duration-200",
+                        "p-3 rounded-lg border-2 text-left transition-all duration-200",
                         imageContentType === 'background_only' 
                           ? "border-primary bg-primary/5 shadow-sm" 
-                          : "border-border/50 hover:border-primary/40 hover:bg-muted/30"
+                          : "border-border/50 hover:border-primary/40"
                       )}
                     >
                       <div className={cn(
-                        "w-10 h-10 rounded-lg flex items-center justify-center mb-2",
+                        "w-8 h-8 rounded-md flex items-center justify-center mb-1.5",
                         imageContentType === 'background_only' ? "bg-primary/10" : "bg-muted"
                       )}>
                         <ImageIcon className={cn(
-                          "w-5 h-5",
+                          "w-4 h-4",
                           imageContentType === 'background_only' ? "text-primary" : "text-muted-foreground"
                         )} />
                       </div>
-                      <div className="font-medium text-sm">Ảnh nền</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Không có text, phù hợp để overlay sau
-                      </div>
+                      <div className="font-medium text-xs">Ảnh nền</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">Không có text</div>
                     </button>
                     
                     <button
                       onClick={() => setImageContentType('with_text')}
                       className={cn(
-                        "p-4 rounded-xl border-2 text-left transition-all duration-200",
+                        "p-3 rounded-lg border-2 text-left transition-all duration-200",
                         imageContentType === 'with_text' 
                           ? "border-primary bg-primary/5 shadow-sm" 
-                          : "border-border/50 hover:border-primary/40 hover:bg-muted/30"
+                          : "border-border/50 hover:border-primary/40"
                       )}
                     >
                       <div className={cn(
-                        "w-10 h-10 rounded-lg flex items-center justify-center mb-2",
-                        imageContentType === 'with_text' ? "bg-primary/10" : "bg-muted"
+                        "w-8 h-8 rounded-md flex items-center justify-center mb-1.5",
+                        imageContentType === 'with_text' ? "bg-orange-500/10" : "bg-muted"
                       )}>
                         <Type className={cn(
-                          "w-5 h-5",
-                          imageContentType === 'with_text' ? "text-primary" : "text-muted-foreground"
+                          "w-4 h-4",
+                          imageContentType === 'with_text' ? "text-orange-600" : "text-muted-foreground"
                         )} />
                       </div>
-                      <div className="font-medium text-sm">Social Graphic</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Có hook/quote hiển thị trên ảnh
-                      </div>
+                      <div className="font-medium text-xs">Có text</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">Social Graphic</div>
                     </button>
                   </div>
+                </div>
 
-                  {/* Text options when with_text selected */}
-                  {imageContentType === 'with_text' && (
-                    <div className="space-y-3 p-4 bg-gradient-to-r from-orange-500/5 to-transparent rounded-xl border border-orange-500/20">
-                      {/* Toggle: Shared vs Per-channel text (only in batch mode) */}
-                      {mode === 'batch' && selectedChannels.length > 1 && (
-                        <div className="flex items-center justify-between pb-3 border-b border-orange-500/20">
-                          <div className="flex items-center gap-2">
-                            <Quote className="w-4 h-4 text-orange-600" />
-                            <Label className="text-sm font-medium">Chế độ text</Label>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => setUseSharedText(true)}
-                              className={cn(
-                                "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                                useSharedText 
-                                  ? "bg-orange-500 text-white" 
-                                  : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                              )}
-                            >
-                              Text chung
-                            </button>
-                            <button
-                              onClick={() => {
-                                setUseSharedText(false);
-                                // Auto-fill per-channel texts from hooks if empty
-                                if (Object.keys(textsPerChannel).length === 0) {
-                                  const newTexts: Record<Channel, string> = {} as Record<Channel, string>;
-                                  selectedChannels.forEach(ch => {
-                                    const hookData = getHookForChannel(content, ch);
-                                    newTexts[ch] = hookData.hookMessage || textToInclude || '';
-                                  });
-                                  setTextsPerChannel(newTexts);
-                                }
-                              }}
-                              className={cn(
-                                "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
-                                !useSharedText 
-                                  ? "bg-orange-500 text-white" 
-                                  : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                              )}
-                            >
-                              Text riêng
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Shared text input */}
-                      {(useSharedText || mode === 'single') && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-sm flex items-center gap-2">
-                              <Quote className="w-3.5 h-3.5 text-orange-600" />
-                              Text hiển thị trên ảnh
-                            </Label>
-                            <span className="text-[10px] text-muted-foreground">
-                              {textToInclude.length} ký tự
-                            </span>
-                          </div>
-                          <Textarea
-                            value={textToInclude}
-                            onChange={(e) => setTextToInclude(e.target.value)}
-                            placeholder="Nhập text hoặc sử dụng hook message..."
-                            rows={2}
-                            className="resize-none text-sm"
+                {/* Text Input - When Social Graphics mode */}
+                {imageContentType === 'with_text' && (
+                  <div className="space-y-3 p-3 rounded-lg border border-orange-500/20 bg-gradient-to-br from-orange-500/5 to-transparent">
+                    {/* Shared/Per-channel toggle (Batch only) */}
+                    {mode === 'batch' && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Switch 
+                            id="use-shared-text"
+                            checked={useSharedText} 
+                            onCheckedChange={setUseSharedText}
+                            className="scale-90"
                           />
-                          <div className="flex flex-wrap gap-2">
-                            {getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0])?.hookMessage && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="text-xs gap-1.5 h-7 text-orange-600 hover:text-orange-700 hover:bg-orange-500/10"
-                                onClick={() => {
-                                  const hookData = getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0]);
-                                  if (hookData.hookMessage) {
-                                    setTextToInclude(hookData.hookMessage);
-                                  }
-                                }}
-                              >
-                                <Sparkles className="w-3 h-3" />
-                                Dùng Hook
-                              </Button>
-                            )}
-                            {textToInclude.length > 40 && (
+                          <Label htmlFor="use-shared-text" className="text-xs cursor-pointer">
+                            {useSharedText ? 'Text chung' : 'Text riêng'}
+                          </Label>
+                        </div>
+                        {!useSharedText && (
+                          <Badge variant="outline" className="text-[10px] h-5 border-orange-500/30 text-orange-600">
+                            {selectedChannels.length} kênh
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Shared text input */}
+                    {useSharedText && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs text-muted-foreground">Text hiển thị</Label>
+                          <span className={cn(
+                            "text-[10px]",
+                            textToInclude.length > 50 ? "text-orange-600" : "text-muted-foreground"
+                          )}>
+                            {textToInclude.length}/50
+                          </span>
+                        </div>
+                        <Textarea
+                          value={textToInclude}
+                          onChange={(e) => setTextToInclude(e.target.value)}
+                          placeholder="VD: Giảm 50% hôm nay!"
+                          rows={2}
+                          className="resize-none text-xs"
+                        />
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {(() => {
+                            const hookData = getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0]);
+                            return hookData.hookMessage && !textToInclude && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="text-xs gap-1.5 h-7 border-orange-500/30 text-orange-600 hover:text-orange-700 hover:bg-orange-500/10"
-                                disabled={isOptimizingText}
-                                onClick={async () => {
-                                  setIsOptimizingText(true);
-                                  try {
-                                    const { data, error } = await supabase.functions.invoke('optimize-social-text', {
-                                      body: { text: textToInclude, maxLength: 50, style: 'punchy' }
-                                    });
-                                    if (error) throw error;
-                                    if (data?.optimizedText) {
-                                      setTextToInclude(data.optimizedText);
-                                      if (data.wasOptimized) {
-                                        toast.success(`Đã rút gọn từ ${data.originalLength} → ${data.optimizedLength} ký tự`);
-                                      }
-                                    }
-                                  } catch (err) {
-                                    console.error('Text optimization failed:', err);
-                                    toast.error('Không thể tối ưu text');
-                                  } finally {
-                                    setIsOptimizingText(false);
-                                  }
-                                }}
+                                className="text-[10px] gap-1 h-6 border-orange-500/30 text-orange-600"
+                                onClick={() => setTextToInclude(hookData.hookMessage || '')}
                               >
-                                {isOptimizingText ? (
-                                  <Loader2 className="w-3 h-3 animate-spin" />
-                                ) : (
-                                  <Wand2 className="w-3 h-3" />
-                                )}
-                                Rút gọn AI
+                                <Sparkles className="w-2.5 h-2.5" />
+                                Dùng Hook
                               </Button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Per-channel text inputs (only in batch mode when useSharedText is false) */}
-                      {!useSharedText && mode === 'batch' && (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-sm flex items-center gap-2">
-                              <Layers className="w-3.5 h-3.5 text-orange-600" />
-                              Text cho từng kênh
-                            </Label>
+                            );
+                          })()}
+                          {textToInclude.length > 40 && (
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
-                              className="text-xs gap-1.5 h-6 text-orange-600 hover:text-orange-700"
-                              onClick={() => {
-                                // Auto-fill all channels from their hooks
-                                const newTexts: Record<Channel, string> = {} as Record<Channel, string>;
-                                selectedChannels.forEach(ch => {
-                                  const hookData = getHookForChannel(content, ch);
-                                  newTexts[ch] = hookData.hookMessage || '';
-                                });
-                                setTextsPerChannel(newTexts);
-                                toast.success('Đã điền hook cho tất cả kênh');
+                              className="text-[10px] gap-1 h-6 border-orange-500/30 text-orange-600"
+                              disabled={isOptimizingText}
+                              onClick={async () => {
+                                setIsOptimizingText(true);
+                                try {
+                                  const { data, error } = await supabase.functions.invoke('optimize-social-text', {
+                                    body: { text: textToInclude, maxLength: 50, style: 'punchy' }
+                                  });
+                                  if (error) throw error;
+                                  if (data?.optimizedText) {
+                                    setTextToInclude(data.optimizedText);
+                                    if (data.wasOptimized) {
+                                      toast.success(`Rút gọn: ${data.originalLength} → ${data.optimizedLength}`);
+                                    }
+                                  }
+                                } catch {
+                                  toast.error('Không thể tối ưu');
+                                } finally {
+                                  setIsOptimizingText(false);
+                                }
                               }}
                             >
-                              <Sparkles className="w-3 h-3" />
-                              Dùng Hook cho tất cả
+                              {isOptimizingText ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Wand2 className="w-2.5 h-2.5" />}
+                              Rút gọn
                             </Button>
-                          </div>
-                          <ScrollArea className="max-h-48">
-                            <div className="space-y-2 pr-3">
-                              {selectedChannels.map((ch) => {
-                                const config = CHANNEL_CONFIG[ch];
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Per-channel text inputs */}
+                    {!useSharedText && mode === 'batch' && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs flex items-center gap-1.5">
+                            <Layers className="w-3 h-3 text-orange-600" />
+                            Text từng kênh
+                          </Label>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-[10px] gap-1 h-5 text-orange-600"
+                            onClick={() => {
+                              const newTexts: Record<Channel, string> = {} as Record<Channel, string>;
+                              selectedChannels.forEach(ch => {
                                 const hookData = getHookForChannel(content, ch);
-                                const channelText = textsPerChannel[ch] || '';
-                                
-                                return (
-                                  <div key={ch} className="flex items-start gap-2">
-                                    <div className={cn(
-                                      "w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 mt-1",
-                                      config?.bgColor || 'bg-muted'
-                                    )}>
-                                      <div className={config?.color || 'text-muted-foreground'}>
-                                        {config?.icon}
-                                      </div>
-                                    </div>
-                                    <div className="flex-1 space-y-1">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs font-medium capitalize">{ch.replace('_', ' ')}</span>
-                                        {hookData.hookMessage && !channelText && (
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-[10px] gap-1 h-5 px-1.5 text-orange-600"
-                                            onClick={() => {
-                                              setTextsPerChannel(prev => ({
-                                                ...prev,
-                                                [ch]: hookData.hookMessage || ''
-                                              }));
-                                            }}
-                                          >
-                                            <Sparkles className="w-2.5 h-2.5" />
-                                            Hook
-                                          </Button>
-                                        )}
-                                      </div>
-                                      <Textarea
-                                        value={channelText}
-                                        onChange={(e) => {
-                                          setTextsPerChannel(prev => ({
-                                            ...prev,
-                                            [ch]: e.target.value
-                                          }));
-                                        }}
-                                        placeholder={hookData.hookMessage || `Text cho ${ch}...`}
-                                        rows={1}
-                                        className="resize-none text-xs min-h-[32px]"
-                                      />
+                                newTexts[ch] = hookData.hookMessage || '';
+                              });
+                              setTextsPerChannel(newTexts);
+                              toast.success('Đã điền hook');
+                            }}
+                          >
+                            <Sparkles className="w-2.5 h-2.5" />
+                            Dùng Hook
+                          </Button>
+                        </div>
+                        <ScrollArea className="max-h-32">
+                          <div className="space-y-1.5 pr-2">
+                            {selectedChannels.map((ch) => {
+                              const config = CHANNEL_CONFIG[ch];
+                              const channelText = textsPerChannel[ch] || '';
+                              
+                              return (
+                                <div key={ch} className="flex items-center gap-2">
+                                  <div className={cn(
+                                    "w-6 h-6 rounded flex items-center justify-center flex-shrink-0",
+                                    config?.bgColor || 'bg-muted'
+                                  )}>
+                                    <div className={cn("scale-75", config?.color || 'text-muted-foreground')}>
+                                      {config?.icon}
                                     </div>
                                   </div>
-                                );
-                              })}
-                            </div>
-                          </ScrollArea>
-                        </div>
-                      )}
-
-                      {/* Visual Mockup + Controls Row */}
-                      <div className="flex gap-4">
-                        {/* Left: Visual Mockup */}
-                        <div className="flex-shrink-0">
-                          <TextPositionMockup
-                            textPosition={textPosition}
-                            typographyStyle={typographyStyle}
-                            textPreview={textToInclude}
-                          />
-                        </div>
-
-                        {/* Right: Position & Typography Controls */}
-                        <div className="flex-1 space-y-3">
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">Vị trí text</Label>
-                            <div className="grid grid-cols-3 gap-1.5">
-                              {[
-                                { value: 'top', label: 'Trên', icon: '↑' },
-                                { value: 'center', label: 'Giữa', icon: '◉' },
-                                { value: 'bottom', label: 'Dưới', icon: '↓' },
-                              ].map((pos) => (
-                                <button
-                                  key={pos.value}
-                                  onClick={() => setTextPosition(pos.value as TextPosition)}
-                                  className={cn(
-                                    "flex flex-col items-center gap-0.5 p-2 rounded-lg border transition-all text-xs",
-                                    textPosition === pos.value
-                                      ? "border-primary bg-primary/10 text-primary"
-                                      : "border-border/50 hover:border-primary/40 text-muted-foreground hover:text-foreground"
-                                  )}
-                                >
-                                  <span className="text-base">{pos.icon}</span>
-                                  <span className="font-medium">{pos.label}</span>
-                                </button>
-                              ))}
-                            </div>
-                            <div className="flex gap-1.5">
-                              {[
-                                { value: 'top-left', label: 'Trên trái' },
-                                { value: 'bottom-right', label: 'Dưới phải' },
-                              ].map((pos) => (
-                                <button
-                                  key={pos.value}
-                                  onClick={() => setTextPosition(pos.value as TextPosition)}
-                                  className={cn(
-                                    "flex-1 px-2 py-1.5 rounded-md border text-xs transition-all",
-                                    textPosition === pos.value
-                                      ? "border-primary bg-primary/10 text-primary"
-                                      : "border-border/50 hover:border-primary/40 text-muted-foreground"
-                                  )}
-                                >
-                                  {pos.label}
-                                </button>
-                              ))}
-                            </div>
+                                  <input
+                                    type="text"
+                                    value={channelText}
+                                    onChange={(e) => {
+                                      setTextsPerChannel(prev => ({
+                                        ...prev,
+                                        [ch]: e.target.value
+                                      }));
+                                    }}
+                                    placeholder={`Text cho ${ch}...`}
+                                    className="flex-1 h-7 px-2 text-xs rounded border border-border/50 bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                                  />
+                                </div>
+                              );
+                            })}
                           </div>
+                        </ScrollArea>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">Typography</Label>
-                            <div className="grid grid-cols-2 gap-1.5">
-                              {[
-                                { value: 'modern', label: 'Modern', preview: 'Aa', fontClass: 'font-sans font-semibold' },
-                                { value: 'classic', label: 'Classic', preview: 'Aa', fontClass: 'font-serif' },
-                                { value: 'bold', label: 'Bold', preview: 'Aa', fontClass: 'font-sans font-black' },
-                                { value: 'minimal', label: 'Minimal', preview: 'Aa', fontClass: 'font-sans font-light' },
-                              ].map((typo) => (
-                                <button
-                                  key={typo.value}
-                                  onClick={() => setTypographyStyle(typo.value as TypographyStyle)}
-                                  className={cn(
-                                    "flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-all",
-                                    typographyStyle === typo.value
-                                      ? "border-primary bg-primary/10"
-                                      : "border-border/50 hover:border-primary/40"
-                                  )}
-                                >
-                                  <span className={cn("text-sm", typo.fontClass)}>{typo.preview}</span>
-                                  <span className="text-xs text-muted-foreground">{typo.label}</span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
+              {/* ==================== RIGHT PANEL - Visual Settings ==================== */}
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                {/* Text Position Mockup - When Social Graphics */}
+                {imageContentType === 'with_text' && (
+                  <div className="flex gap-4">
+                    {/* Visual Mockup */}
+                    <div className="flex-shrink-0">
+                      <TextPositionMockup
+                        textPosition={textPosition}
+                        typographyStyle={typographyStyle}
+                        textPreview={textToInclude}
+                        size="lg"
+                      />
+                    </div>
+
+                    {/* Position & Typography Controls */}
+                    <div className="flex-1 space-y-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Vị trí text</Label>
+                        <div className="grid grid-cols-3 gap-1">
+                          {[
+                            { value: 'top-left', icon: '↖' },
+                            { value: 'top', icon: '↑' },
+                            { value: 'center', icon: '◉' },
+                            { value: 'bottom', icon: '↓' },
+                            { value: 'bottom-right', icon: '↘' },
+                          ].map((pos) => (
+                            <button
+                              key={pos.value}
+                              onClick={() => setTextPosition(pos.value as TextPosition)}
+                              className={cn(
+                                "flex items-center justify-center gap-1 p-1.5 rounded border transition-all text-xs",
+                                textPosition === pos.value
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-border/50 hover:border-primary/40 text-muted-foreground"
+                              )}
+                            >
+                              <span>{pos.icon}</span>
+                            </button>
+                          ))}
                         </div>
                       </div>
 
-                      {/* Text Preview */}
-                      {textToInclude && (
-                        <div className="p-3 rounded-lg bg-background/50 border border-dashed border-orange-500/30">
-                          <p className="text-xs text-muted-foreground mb-1">Preview:</p>
-                          <p className="text-sm font-medium text-foreground leading-relaxed">
-                            "{textToInclude}"
-                          </p>
-                          <p className="text-[11px] text-muted-foreground mt-2">
-                            Vị trí: {textPosition} • Style: {typographyStyle}
-                          </p>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Typography</Label>
+                        <div className="grid grid-cols-2 gap-1">
+                          {[
+                            { value: 'modern', label: 'Modern', fontClass: 'font-sans font-semibold' },
+                            { value: 'classic', label: 'Classic', fontClass: 'font-serif' },
+                            { value: 'bold', label: 'Bold', fontClass: 'font-sans font-black' },
+                            { value: 'minimal', label: 'Minimal', fontClass: 'font-sans font-light' },
+                          ].map((typo) => (
+                            <button
+                              key={typo.value}
+                              onClick={() => setTypographyStyle(typo.value as TypographyStyle)}
+                              className={cn(
+                                "flex items-center gap-1.5 px-2 py-1 rounded border transition-all text-xs",
+                                typographyStyle === typo.value
+                                  ? "border-primary bg-primary/10"
+                                  : "border-border/50 hover:border-primary/40"
+                              )}
+                            >
+                              <span className={cn("text-sm", typo.fontClass)}>Aa</span>
+                              <span className="text-muted-foreground">{typo.label}</span>
+                            </button>
+                          ))}
                         </div>
-                      )}
+                      </div>
 
-                      {/* Canvas Fallback Toggle */}
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-blue-500/5 to-transparent border border-blue-500/20">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded bg-blue-500/10 flex items-center justify-center">
-                            <Layers className="w-3.5 h-3.5 text-blue-600" />
-                          </div>
-                          <div className="space-y-0.5">
-                            <Label htmlFor="canvas-fallback" className="text-xs font-medium cursor-pointer">
-                              Canvas Fallback
-                            </Label>
-                            <p className="text-[10px] text-muted-foreground leading-tight">
-                              Overlay text chính xác 100% bằng canvas (thay vì để AI render)
-                            </p>
-                          </div>
+                      {/* Canvas Fallback */}
+                      <div className="flex items-center justify-between p-2 rounded bg-blue-500/5 border border-blue-500/20">
+                        <div className="flex items-center gap-1.5">
+                          <Layers className="w-3 h-3 text-blue-600" />
+                          <span className="text-[10px] text-muted-foreground">Canvas Fallback</span>
                         </div>
                         <Switch
-                          id="canvas-fallback"
                           checked={useCanvasFallback}
                           onCheckedChange={setUseCanvasFallback}
-                          className="scale-90"
+                          className="scale-75"
                         />
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* AI Style Suggestions */}
                 {styleSuggestions.length > 0 && (
-                  <div className="p-3 rounded-xl bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
-                        <Wand2 className="w-3.5 h-3.5 text-primary" />
-                      </div>
-                      <span className="text-sm font-medium text-foreground">
-                        Gợi ý cho thương hiệu của bạn
-                      </span>
+                  <div className="p-3 rounded-lg bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Wand2 className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs font-medium">Gợi ý cho thương hiệu</span>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {styleSuggestions.slice(0, 2).map((suggestion) => {
                         const styleInfo = IMAGE_STYLES.find(s => s.value === suggestion.style);
                         const isSelected = imageStyle === suggestion.style;
@@ -1173,56 +1011,38 @@ export function UnifiedImageGenerator({
                             key={suggestion.style}
                             onClick={() => setImageStyle(suggestion.style)}
                             className={cn(
-                              "flex items-center gap-2.5 px-3 py-2.5 rounded-lg border-2 transition-all duration-200",
+                              "flex items-center gap-2 px-2.5 py-1.5 rounded-md border-2 transition-all duration-200",
                               isSelected 
                                 ? "border-primary bg-primary/10 shadow-sm" 
-                                : "border-primary/30 bg-background hover:border-primary/50 hover:bg-primary/5"
+                                : "border-primary/30 bg-background hover:border-primary/50"
                             )}
                           >
                             <div className={cn(
-                              "w-7 h-7 rounded-md flex items-center justify-center",
+                              "w-6 h-6 rounded flex items-center justify-center",
                               isSelected ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"
                             )}>
                               {styleInfo?.icon}
                             </div>
                             <div className="text-left">
-                              <div className="flex items-center gap-1.5">
-                                <span className={cn(
-                                  "text-sm font-medium",
-                                  isSelected ? "text-primary" : "text-foreground"
-                                )}>
-                                  {styleInfo?.label}
-                                </span>
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs font-medium">{styleInfo?.label}</span>
                                 {suggestion.isRecommended && (
-                                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5 bg-primary/15 text-primary border-0">
-                                    <Star className="w-2.5 h-2.5 mr-0.5 fill-primary" />
-                                    Best
-                                  </Badge>
+                                  <Star className="w-2.5 h-2.5 fill-primary text-primary" />
                                 )}
                               </div>
-                              <span className="text-xs text-muted-foreground">
-                                {suggestion.matchPercentage}% phù hợp
-                              </span>
+                              <span className="text-[10px] text-muted-foreground">{suggestion.matchPercentage}%</span>
                             </div>
                           </button>
                         );
                       })}
                     </div>
-                    {styleSuggestions[0]?.reasons.length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-2.5 flex items-center gap-1.5">
-                        <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
-                        {formatReasons(styleSuggestions[0].reasons)}
-                      </p>
-                    )}
                   </div>
                 )}
 
-                {/* Style Selection - Visual Grid */}
+                {/* Style Selection Grid */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">
-                    {styleSuggestions.length > 0 ? 'Tất cả phong cách' : 'Phong cách ảnh'}
-                  </Label>
-                  <div className="grid grid-cols-4 gap-2">
+                  <Label className="text-sm font-medium">Phong cách ảnh</Label>
+                  <div className="grid grid-cols-4 gap-1.5">
                     {IMAGE_STYLES.map(style => {
                       const isSelected = imageStyle === style.value;
                       const isSuggested = styleSuggestions.some(s => s.style === style.value);
@@ -1232,23 +1052,23 @@ export function UnifiedImageGenerator({
                           key={style.value}
                           onClick={() => setImageStyle(style.value as ImageStylePreset | 'auto')}
                           className={cn(
-                            'flex flex-col items-center gap-1.5 p-2.5 rounded-xl border-2 transition-all duration-200 relative',
+                            'flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all duration-200 relative',
                             isSelected 
                               ? 'border-primary bg-primary/5 shadow-sm' 
-                              : 'border-border/50 hover:border-primary/40 hover:bg-muted/30'
+                              : 'border-border/50 hover:border-primary/40'
                           )}
                         >
                           {isSuggested && !isSelected && (
-                            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-primary/60 ring-2 ring-background" />
+                            <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary/60 ring-2 ring-background" />
                           )}
                           <div className={cn(
-                            'w-8 h-8 rounded-lg flex items-center justify-center',
+                            'w-7 h-7 rounded-md flex items-center justify-center',
                             isSelected ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
                           )}>
                             {style.icon}
                           </div>
                           <span className={cn(
-                            'text-xs font-medium',
+                            'text-[10px] font-medium',
                             isSelected ? 'text-primary' : 'text-foreground'
                           )}>
                             {style.label}
@@ -1259,10 +1079,10 @@ export function UnifiedImageGenerator({
                   </div>
                 </div>
 
-                {/* Aspect Ratio - Visual Selection */}
+                {/* Aspect Ratio - Horizontal Chips */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Tỉ lệ khung hình</Label>
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex flex-wrap gap-1.5">
                     {ASPECT_RATIOS.map(ratio => {
                       const isSelected = aspectRatio === ratio.value;
                       return (
@@ -1270,63 +1090,57 @@ export function UnifiedImageGenerator({
                           key={ratio.value}
                           onClick={() => setAspectRatio(ratio.value)}
                           className={cn(
-                            'flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all duration-200',
+                            'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border-2 transition-all duration-200',
                             isSelected 
                               ? 'border-primary bg-primary/5' 
                               : 'border-border/50 hover:border-primary/40'
                           )}
                         >
-                          {/* Visual aspect ratio box */}
                           <div className={cn(
                             'border-2 rounded flex items-center justify-center shrink-0',
                             isSelected ? 'border-primary bg-primary/20' : 'border-muted-foreground/30 bg-muted/50',
-                            ratio.value === '16:9' && 'w-8 h-[18px]',
-                            ratio.value === '1:1' && 'w-5 h-5',
-                            ratio.value === '4:5' && 'w-4 h-5',
-                            ratio.value === '9:16' && 'w-[18px] h-8',
-                            ratio.value === 'auto' && 'w-5 h-5',
+                            ratio.value === '16:9' && 'w-6 h-[14px]',
+                            ratio.value === '1:1' && 'w-4 h-4',
+                            ratio.value === '4:5' && 'w-3 h-4',
+                            ratio.value === '9:16' && 'w-3 h-5',
+                            ratio.value === 'auto' && 'w-4 h-4',
                           )}>
-                            {ratio.value === 'auto' && <Sparkles className="w-3 h-3 text-primary" />}
+                            {ratio.value === 'auto' && <Sparkles className="w-2 h-2 text-primary" />}
                           </div>
-                          <div className="text-left">
-                            <span className={cn(
-                              'text-sm font-medium block',
-                              isSelected ? 'text-primary' : 'text-foreground'
-                            )}>
-                              {ratio.label}
-                            </span>
-                            {ratio.value !== 'auto' && (
-                              <span className="text-xs text-muted-foreground">{ratio.description}</span>
-                            )}
-                          </div>
+                          <span className={cn(
+                            'text-xs font-medium',
+                            isSelected ? 'text-primary' : 'text-foreground'
+                          )}>
+                            {ratio.label}
+                          </span>
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* Logo Options - Enhanced */}
+                {/* Logo Options */}
                 {brandLogoUrl && (
                   <div className={cn(
-                    "flex items-center justify-between p-3 rounded-xl border-2 transition-colors",
-                    includeLogo ? "border-primary/30 bg-primary/5" : "border-border/50 bg-card"
+                    "flex items-center justify-between p-3 rounded-lg border-2 transition-colors",
+                    includeLogo ? "border-primary/30 bg-primary/5" : "border-border/50"
                   )}>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <div className={cn(
-                        "w-10 h-10 rounded-lg flex items-center justify-center overflow-hidden",
+                        "w-8 h-8 rounded-md flex items-center justify-center overflow-hidden",
                         includeLogo ? "ring-2 ring-primary/30" : "bg-muted"
                       )}>
                         <img src={brandLogoUrl} alt="Logo" className="w-full h-full object-contain" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium">Thêm logo</p>
-                        <p className="text-xs text-muted-foreground">Tự động overlay sau khi tạo</p>
+                        <p className="text-xs font-medium">Thêm logo</p>
+                        <p className="text-[10px] text-muted-foreground">Overlay tự động</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {includeLogo && (
                         <Select value={logoPosition} onValueChange={(v) => setLogoPosition(v as LogoPosition)}>
-                          <SelectTrigger className="h-8 w-auto min-w-[120px] text-xs">
+                          <SelectTrigger className="h-7 w-auto min-w-[100px] text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1340,128 +1154,58 @@ export function UnifiedImageGenerator({
                       )}
                       <Switch 
                         checked={includeLogo} 
-                        onCheckedChange={setIncludeLogo} 
-                        className="data-[state=checked]:bg-primary"
+                        onCheckedChange={setIncludeLogo}
+                        className="scale-90"
                       />
                     </div>
                   </div>
                 )}
 
-                {/* Advanced Mode */}
+                {/* Advanced Options - Collapsible */}
                 <Collapsible open={advancedMode} onOpenChange={setAdvancedMode}>
                   <CollapsibleTrigger asChild>
-                    <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                      <Settings2 className="w-4 h-4" />
+                    <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                      <Settings2 className="w-3.5 h-3.5" />
                       <span>{advancedMode ? 'Ẩn nâng cao' : 'Tùy chọn nâng cao'}</span>
-                      {advancedMode ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      {advancedMode ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                     </button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-3 pt-3">
                     <div className="space-y-2">
-                      <Label className="text-sm">Negative Prompt</Label>
+                      <Label className="text-xs">Negative Prompt</Label>
                       <Textarea
                         value={negativePrompt}
                         onChange={(e) => setNegativePrompt(e.target.value)}
-                        placeholder="text, logo, watermark, blurry, distorted, low quality..."
+                        placeholder="text, logo, watermark, blurry..."
                         rows={2}
-                        className="text-sm"
+                        className="text-xs"
                       />
                     </div>
 
-                    {/* Prompt Preview */}
+                    {/* Context Preview */}
                     <Collapsible open={showPromptPreview} onOpenChange={setShowPromptPreview}>
                       <CollapsibleTrigger asChild>
-                        <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                          <Eye className="w-4 h-4" />
-                          <span>Xem context sẽ gửi</span>
+                        <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Xem context</span>
                         </button>
                       </CollapsibleTrigger>
                       <CollapsibleContent className="mt-2">
-                        <div className="p-3 rounded-lg border bg-muted/30 space-y-2 text-xs">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <p className="text-muted-foreground">Brand</p>
-                              <p className="font-medium">{content.brand_name}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">Màu chủ đạo</p>
-                              <div className="flex items-center gap-1.5">
-                                {brandPrimaryColor ? (
-                                  <>
-                                    <div className="w-3 h-3 rounded-full border" style={{ backgroundColor: brandPrimaryColor }} />
-                                    <span className="font-medium">{brandPrimaryColor}</span>
-                                  </>
-                                ) : (
-                                  <span className="text-muted-foreground">Không có</span>
-                                )}
-                              </div>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">Ngành</p>
-                              <p className="font-medium">{brandIndustry?.slice(0, 2).join(', ') || 'N/A'}</p>
-                            </div>
-                            <div>
-                              <p className="text-muted-foreground">Style</p>
-                              <p className="font-medium">
-                                {imageStyle === 'auto' ? 'Tự động' : IMAGE_STYLE_PRESETS[imageStyle]?.label || imageStyle}
-                              </p>
-                            </div>
-                            {/* Strategic Context: Role */}
-                            {contentRole && (
-                              <div>
-                                <p className="text-muted-foreground">Vai trò</p>
-                                <p className="font-medium capitalize">
-                                  {contentRole === 'seed' ? '🌱 Seed (Nhận diện)' : 
-                                   contentRole === 'sprout' ? '🌿 Sprout (Tin tưởng)' : 
-                                   '🌾 Harvest (Chuyển đổi)'}
-                                </p>
-                              </div>
-                            )}
-                            {/* Strategic Context: Angle */}
-                            {contentAngle && (
-                              <div>
-                                <p className="text-muted-foreground">Góc nhìn</p>
-                                <p className="font-medium capitalize">{contentAngle.replace('_', ' ')}</p>
-                              </div>
-                            )}
-                          </div>
-                          {/* Hook Message Preview */}
-                          {mode === 'batch' && Object.values(hookMessages).some(h => h.hookMessage) && (
-                            <div className="pt-2 border-t">
-                              <p className="text-muted-foreground mb-1">Hook messages</p>
-                              <div className="space-y-1">
-                                {selectedChannels.slice(0, 2).map(ch => {
-                                  const hook = hookMessages[ch];
-                                  if (!hook?.hookMessage) return null;
-                                  return (
-                                    <div key={ch} className="flex items-start gap-1.5">
-                                      <span className="text-muted-foreground capitalize">{ch}:</span>
-                                      <span className="font-medium line-clamp-1">{hook.hookMessage.slice(0, 60)}...</span>
-                                    </div>
-                                  );
-                                })}
-                                {selectedChannels.length > 2 && (
-                                  <span className="text-muted-foreground">+{selectedChannels.length - 2} kênh khác</span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          {mode === 'single' && (() => {
-                            const singleHook = getHookForChannel(content, singleChannel);
-                            return singleHook.hookMessage ? (
-                              <div className="pt-2 border-t">
-                                <p className="text-muted-foreground">Hook message</p>
-                                <p className="font-medium text-primary/90">"{singleHook.hookMessage.slice(0, 80)}{singleHook.hookMessage.length > 80 ? '...' : ''}"</p>
-                              </div>
-                            ) : null;
-                          })()}
-                          {negativePrompt && (
-                            <div className="pt-2 border-t">
-                              <p className="text-muted-foreground">Negative</p>
-                              <p className="font-medium text-destructive/80">{negativePrompt}</p>
-                            </div>
-                          )}
-                        </div>
+                        <StrategicContextPreview
+                          mode={mode}
+                          contentRole={contentRole}
+                          contentAngle={contentAngle}
+                          hookMessages={hookMessages}
+                          selectedChannels={selectedChannels}
+                          singleChannel={singleChannel}
+                          content={content}
+                          getHookForChannel={getHookForChannel}
+                          CHANNEL_CONFIG={CHANNEL_CONFIG}
+                          imageContentType={imageContentType}
+                          textToInclude={textToInclude}
+                          textPosition={textPosition}
+                          typographyStyle={typographyStyle}
+                        />
                       </CollapsibleContent>
                     </Collapsible>
                   </CollapsibleContent>
@@ -1488,7 +1232,7 @@ export function UnifiedImageGenerator({
           )}
         </div>
 
-        <DialogFooter className="border-t pt-4">
+        <DialogFooter className="border-t pt-4 flex-shrink-0">
           {viewMode === 'setup' && mode === 'batch' && (
             <>
               <Button variant="outline" onClick={handleClose}>
@@ -1548,7 +1292,7 @@ export function UnifiedImageGenerator({
               </Button>
               <Button onClick={handleSaveAll} disabled={batchGen.isGenerating || !hasGeneratedImages}>
                 <Save className="w-4 h-4 mr-2" />
-                Lưu tất cả ({Object.keys(batchGen.generatedImages).length})
+                Lưu tất cả
               </Button>
             </>
           )}
