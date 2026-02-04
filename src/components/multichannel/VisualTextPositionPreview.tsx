@@ -1,6 +1,10 @@
 import { cn } from '@/lib/utils';
 import { TextPosition, TypographyStyle } from '@/hooks/useSocialImageGeneration';
-import { Check } from 'lucide-react';
+import { 
+  AlignCenter, AlignLeft, AlignRight, 
+  ArrowUpLeft, ArrowUp, ArrowDown, ArrowDownRight,
+  Type, Feather, Bold, Minus
+} from 'lucide-react';
 
 interface VisualTextPositionPreviewProps {
   textPosition: TextPosition;
@@ -11,39 +15,96 @@ interface VisualTextPositionPreviewProps {
   className?: string;
 }
 
-const POSITION_MAP: Record<TextPosition, { row: number; col: number }> = {
-  'top-left': { row: 0, col: 0 },
-  'top': { row: 0, col: 1 },
-  'center': { row: 1, col: 1 },
-  'bottom': { row: 2, col: 1 },
-  'bottom-right': { row: 2, col: 2 },
+const POSITION_CONFIG: Record<TextPosition, { 
+  icon: React.ReactNode; 
+  label: string; 
+  labelShort: string;
+  alignClass: string;
+}> = {
+  'top-left': { 
+    icon: <ArrowUpLeft className="w-3.5 h-3.5" />, 
+    label: 'Trên trái', 
+    labelShort: 'TL',
+    alignClass: 'items-start justify-start pt-4 pl-4 text-left'
+  },
+  'top': { 
+    icon: <ArrowUp className="w-3.5 h-3.5" />, 
+    label: 'Trên giữa', 
+    labelShort: 'T',
+    alignClass: 'items-center justify-start pt-4 text-center'
+  },
+  'center': { 
+    icon: <AlignCenter className="w-3.5 h-3.5" />, 
+    label: 'Giữa', 
+    labelShort: 'C',
+    alignClass: 'items-center justify-center text-center'
+  },
+  'bottom': { 
+    icon: <ArrowDown className="w-3.5 h-3.5" />, 
+    label: 'Dưới giữa', 
+    labelShort: 'B',
+    alignClass: 'items-center justify-end pb-4 text-center'
+  },
+  'bottom-right': { 
+    icon: <ArrowDownRight className="w-3.5 h-3.5" />, 
+    label: 'Dưới phải', 
+    labelShort: 'BR',
+    alignClass: 'items-end justify-end pb-4 pr-4 text-right'
+  },
 };
 
 const GRID_POSITIONS: { position: TextPosition | null; row: number; col: number }[] = [
   { position: 'top-left', row: 0, col: 0 },
   { position: 'top', row: 0, col: 1 },
-  { position: null, row: 0, col: 2 }, // top-right (not available)
-  { position: null, row: 1, col: 0 }, // center-left (not available)
+  { position: null, row: 0, col: 2 },
+  { position: null, row: 1, col: 0 },
   { position: 'center', row: 1, col: 1 },
-  { position: null, row: 1, col: 2 }, // center-right (not available)
-  { position: null, row: 2, col: 0 }, // bottom-left (not available)
+  { position: null, row: 1, col: 2 },
+  { position: null, row: 2, col: 0 },
   { position: 'bottom', row: 2, col: 1 },
   { position: 'bottom-right', row: 2, col: 2 },
 ];
 
-const POSITION_STYLES: Record<TextPosition, string> = {
-  'center': 'items-center justify-center',
-  'top': 'items-center justify-start pt-4',
-  'bottom': 'items-center justify-end pb-4',
-  'top-left': 'items-start justify-start pt-4 pl-4',
-  'bottom-right': 'items-end justify-end pb-4 pr-4',
-};
-
-const TYPOGRAPHY_OPTIONS: { value: TypographyStyle; label: string; fontClass: string; example: string }[] = [
-  { value: 'modern', label: 'Modern', fontClass: 'font-sans font-semibold', example: 'Aa' },
-  { value: 'classic', label: 'Classic', fontClass: 'font-serif font-medium', example: 'Aa' },
-  { value: 'bold', label: 'Bold', fontClass: 'font-sans font-black', example: 'Aa' },
-  { value: 'minimal', label: 'Minimal', fontClass: 'font-sans font-light', example: 'Aa' },
+const TYPOGRAPHY_OPTIONS: { 
+  value: TypographyStyle; 
+  label: string; 
+  description: string;
+  fontClass: string; 
+  icon: React.ReactNode;
+  sampleText: string;
+}[] = [
+  { 
+    value: 'modern', 
+    label: 'Modern', 
+    description: 'Sans-serif, sạch sẽ',
+    fontClass: 'font-sans font-semibold tracking-tight', 
+    icon: <Type className="w-4 h-4" />,
+    sampleText: 'Thiết kế hiện đại'
+  },
+  { 
+    value: 'classic', 
+    label: 'Classic', 
+    description: 'Serif, trang trọng',
+    fontClass: 'font-serif font-medium', 
+    icon: <Feather className="w-4 h-4" />,
+    sampleText: 'Phong cách cổ điển'
+  },
+  { 
+    value: 'bold', 
+    label: 'Bold', 
+    description: 'Đậm, mạnh mẽ',
+    fontClass: 'font-sans font-black uppercase tracking-wide', 
+    icon: <Bold className="w-4 h-4" />,
+    sampleText: 'NỔI BẬT'
+  },
+  { 
+    value: 'minimal', 
+    label: 'Minimal', 
+    description: 'Nhẹ nhàng, tinh tế',
+    fontClass: 'font-sans font-light tracking-widest', 
+    icon: <Minus className="w-4 h-4" />,
+    sampleText: 'tối giản'
+  },
 ];
 
 export function VisualTextPositionPreview({
@@ -55,84 +116,73 @@ export function VisualTextPositionPreview({
   className,
 }: VisualTextPositionPreviewProps) {
   const typoConfig = TYPOGRAPHY_OPTIONS.find(t => t.value === typographyStyle) || TYPOGRAPHY_OPTIONS[0];
+  const posConfig = POSITION_CONFIG[textPosition];
   const displayText = textPreview 
-    ? textPreview.length > 60 ? textPreview.slice(0, 60) + '...' : textPreview
-    : 'Text sẽ hiển thị ở đây';
+    ? textPreview.length > 50 ? textPreview.slice(0, 50) + '...' : textPreview
+    : 'Nội dung mẫu';
 
   return (
     <div className={cn("space-y-4", className)}>
       {/* Main Preview Area */}
       <div className="flex gap-4">
         {/* Large Visual Mockup */}
-        <div className="relative">
+        <div className="relative flex-shrink-0">
           {/* Frame */}
-          <div className="w-[200px] aspect-[4/5] rounded-xl border-2 border-dashed border-primary/40 bg-gradient-to-br from-muted/60 via-muted/30 to-muted/60 overflow-hidden shadow-inner">
+          <div className="w-[180px] aspect-[4/5] rounded-xl border-2 border-dashed border-primary/40 bg-gradient-to-br from-muted/60 via-muted/30 to-muted/60 overflow-hidden shadow-inner">
             {/* Background decorative elements */}
             <div className="absolute inset-0 opacity-40">
               <div className="absolute top-1/4 left-1/4 w-1/2 h-1/3 rounded-full bg-primary/15 blur-2xl" />
               <div className="absolute bottom-1/3 right-1/4 w-1/3 h-1/4 rounded-full bg-secondary/25 blur-xl" />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-accent/10 blur-3xl" />
             </div>
             
             {/* Grid overlay for position reference */}
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="w-full h-full grid grid-cols-3 grid-rows-3 opacity-20">
+            <div className="absolute inset-0 pointer-events-none opacity-20">
+              <div className="w-full h-full grid grid-cols-3 grid-rows-3">
                 {[...Array(9)].map((_, i) => (
-                  <div key={i} className="border border-dashed border-muted-foreground/30" />
+                  <div key={i} className="border border-dashed border-muted-foreground/40" />
                 ))}
               </div>
             </div>
             
             {/* Text Preview at selected position */}
             <div className={cn(
-              "absolute inset-0 flex flex-col p-3",
-              POSITION_STYLES[textPosition]
+              "absolute inset-0 flex flex-col p-2",
+              posConfig.alignClass
             )}>
               <div className={cn(
-                "px-3 py-2 rounded-lg max-w-[90%] backdrop-blur-sm shadow-lg transition-all duration-300",
-                "bg-foreground/90 text-background",
-                textPosition === 'center' && "text-center",
-                textPosition === 'top-left' && "text-left",
-                textPosition === 'bottom-right' && "text-right"
+                "px-2.5 py-1.5 rounded-lg max-w-[95%] backdrop-blur-sm shadow-lg transition-all duration-300",
+                "bg-foreground/90 text-background"
               )}>
                 <p className={cn(
-                  "text-xs leading-tight break-words",
+                  "text-[10px] leading-snug break-words",
                   typoConfig.fontClass
                 )}>
                   {displayText}
                 </p>
               </div>
             </div>
-            
-            {/* Position indicator dot */}
-            <div className="absolute bottom-2 right-2">
-              <span className="text-[8px] px-1.5 py-0.5 rounded bg-background/90 text-muted-foreground font-mono shadow-sm">
-                {textPosition}
-              </span>
-            </div>
           </div>
           
-          {/* Typography badge */}
-          <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background border shadow-sm">
-            <span className={cn("text-sm", typoConfig.fontClass)}>
-              {typoConfig.example}
-            </span>
-            <span className="text-[10px] text-muted-foreground capitalize">
-              {typographyStyle}
-            </span>
+          {/* Current config badge */}
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-background border shadow-sm text-[9px]">
+            {posConfig.icon}
+            <span className="text-muted-foreground">+</span>
+            <span className={typoConfig.fontClass}>{typoConfig.label}</span>
           </div>
         </div>
 
-        {/* Interactive Position Grid */}
-        <div className="flex-1 space-y-3">
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">Chọn vị trí text</label>
+        {/* Controls */}
+        <div className="flex-1 space-y-3 min-w-0">
+          {/* Position Grid */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Vị trí</label>
             
-            {/* 3x3 Visual Grid */}
-            <div className="w-[120px] aspect-[4/5] rounded-lg border-2 border-border bg-muted/30 p-1 grid grid-cols-3 grid-rows-3 gap-0.5">
+            {/* 3x3 Visual Grid with Icons */}
+            <div className="w-[100px] aspect-square rounded-lg border border-border bg-muted/20 p-1 grid grid-cols-3 grid-rows-3 gap-0.5">
               {GRID_POSITIONS.map((pos, idx) => {
                 const isSelected = pos.position === textPosition;
                 const isAvailable = pos.position !== null;
+                const config = pos.position ? POSITION_CONFIG[pos.position] : null;
                 
                 return (
                   <button
@@ -140,50 +190,32 @@ export function VisualTextPositionPreview({
                     disabled={!isAvailable}
                     onClick={() => pos.position && onPositionChange(pos.position)}
                     className={cn(
-                      "rounded transition-all duration-200 flex items-center justify-center",
+                      "rounded flex items-center justify-center transition-all duration-200",
                       isAvailable 
                         ? isSelected
-                          ? "bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/30"
+                          ? "bg-primary text-primary-foreground shadow-sm"
                           : "bg-background hover:bg-primary/10 border border-border/50 hover:border-primary/50"
-                        : "bg-muted/50 cursor-not-allowed"
+                        : "bg-muted/30"
                     )}
-                    title={pos.position || 'Không khả dụng'}
+                    title={config?.label || 'Không khả dụng'}
                   >
-                    {isSelected && <Check className="w-3 h-3" />}
-                    {isAvailable && !isSelected && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
+                    {isAvailable && config && (
+                      <span className={cn(
+                        "transition-transform",
+                        isSelected && "scale-110"
+                      )}>
+                        {config.icon}
+                      </span>
                     )}
                   </button>
                 );
               })}
             </div>
-            
-            {/* Position labels */}
-            <div className="flex flex-wrap gap-1">
-              {(['top-left', 'top', 'center', 'bottom', 'bottom-right'] as TextPosition[]).map(pos => (
-                <button
-                  key={pos}
-                  onClick={() => onPositionChange(pos)}
-                  className={cn(
-                    "text-[10px] px-1.5 py-0.5 rounded transition-all",
-                    textPosition === pos
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                  )}
-                >
-                  {pos === 'top-left' && 'Trên-trái'}
-                  {pos === 'top' && 'Trên'}
-                  {pos === 'center' && 'Giữa'}
-                  {pos === 'bottom' && 'Dưới'}
-                  {pos === 'bottom-right' && 'Dưới-phải'}
-                </button>
-              ))}
-            </div>
           </div>
 
-          {/* Typography Selection */}
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">Kiểu chữ</label>
+          {/* Typography Grid with Font Preview */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Kiểu chữ</label>
             <div className="grid grid-cols-2 gap-1.5">
               {TYPOGRAPHY_OPTIONS.map(typo => {
                 const isSelected = typographyStyle === typo.value;
@@ -193,25 +225,41 @@ export function VisualTextPositionPreview({
                     key={typo.value}
                     onClick={() => onTypographyChange(typo.value)}
                     className={cn(
-                      "flex items-center gap-2 px-2 py-1.5 rounded-lg border-2 transition-all duration-200",
+                      "relative overflow-hidden rounded-lg border-2 transition-all duration-200 text-left",
                       isSelected 
                         ? "border-primary bg-primary/5 shadow-sm" 
-                        : "border-border/50 hover:border-primary/40"
+                        : "border-border/50 hover:border-primary/40 bg-background"
                     )}
                   >
-                    <span className={cn(
-                      "text-lg w-6 text-center",
+                    {/* Font Sample Preview */}
+                    <div className={cn(
+                      "px-2 pt-2 pb-1 text-sm leading-tight truncate",
                       typo.fontClass,
                       isSelected ? "text-primary" : "text-foreground"
                     )}>
-                      {typo.example}
-                    </span>
-                    <span className={cn(
-                      "text-xs",
-                      isSelected ? "text-primary font-medium" : "text-muted-foreground"
-                    )}>
-                      {typo.label}
-                    </span>
+                      {typo.sampleText}
+                    </div>
+                    
+                    {/* Label row */}
+                    <div className="px-2 pb-1.5 flex items-center gap-1">
+                      <span className={cn(
+                        "opacity-60",
+                        isSelected ? "text-primary" : "text-muted-foreground"
+                      )}>
+                        {typo.icon}
+                      </span>
+                      <span className={cn(
+                        "text-[10px]",
+                        isSelected ? "text-primary font-medium" : "text-muted-foreground"
+                      )}>
+                        {typo.label}
+                      </span>
+                    </div>
+                    
+                    {/* Selected indicator */}
+                    {isSelected && (
+                      <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-primary" />
+                    )}
                   </button>
                 );
               })}
