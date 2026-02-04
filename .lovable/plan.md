@@ -1,173 +1,120 @@
 
+# Kế hoạch: Sửa lỗi Text không hiển thị trên ảnh Social Graphics
 
-# Kế hoạch: Triển khai Canvas API Text Overlay - 100% Accuracy
+## Phân tích nguyên nhân
 
-## Tổng quan vấn đề
+Qua kiểm tra logs và code, tôi đã xác định được 2 vấn đề chính:
 
-### Hiện trạng
-- Edge function `overlay-text-canvas` đang dùng **ImageScript** nhưng thư viện này **KHÔNG có native text rendering**
-- Chỉ vẽ được background block, text không được render
-- Frontend đã có toggle `useCanvasFallback` và logic gọi function nhưng text không xuất hiện
+### Vấn đề 1: Chế độ Single Mode không hỗ trợ Canvas Fallback
+- **Hook `useSocialImageGeneration.ts`** (dùng cho Single mode) chỉ gọi `generate-brand-image` mà **không có** logic gọi `overlay-text-canvas` sau đó
+- Khi user chọn chế độ Single + "Có text", hệ thống hoàn toàn dựa vào AI để render text - điều này có thể không chính xác
 
-### Giải pháp
-Thay thế ImageScript bằng **`og_edge`** - thư viện được Supabase chính thức khuyến nghị cho việc render text/image. Hỗ trợ:
-- Custom fonts (Google Fonts)
-- Flexbox layout
-- Text styling (color, size, weight)
-- Background styling
+### Vấn đề 2: Canvas Fallback mặc định là TẮT
+- Toggle `useCanvasFallback` được khởi tạo là `false` 
+- Người dùng phải chủ động bật toggle này để đảm bảo text hiển thị chính xác
 
-## Kiến trúc mới
+## Giải pháp
 
-```text
-┌──────────────────────────────────────────────────────────────┐
-│                    Frontend Toggle                            │
-│         [✓] Canvas Fallback - 100% text accuracy             │
-└───────────────────────────┬──────────────────────────────────┘
-                            │
-                            ▼
-┌──────────────────────────────────────────────────────────────┐
-│              generate-brand-image (Bước 1)                   │
-│   Tạo ảnh nền (background_only) không có text                │
-└───────────────────────────┬──────────────────────────────────┘
-                            │
-                            ▼
-┌──────────────────────────────────────────────────────────────┐
-│              overlay-text-canvas (Bước 2) - UPGRADED         │
-│   1. Fetch ảnh nền từ URL                                    │
-│   2. Load Google Font (Be Vietnam Pro - font Việt Nam)       │
-│   3. Render text overlay dùng og_edge ImageResponse          │
-│   4. Return ảnh cuối cùng với text chính xác 100%            │
-└───────────────────────────────────────────────────────────────┘
+### Thay đổi 1: Bật Canvas Fallback mặc định
+Thay đổi giá trị mặc định của `useCanvasFallback` từ `false` → `true` khi chế độ "Có text" được chọn.
+
+**File:** `src/components/multichannel/UnifiedImageGenerator.tsx`
+```typescript
+// Thay đổi khởi tạo
+const [useCanvasFallback, setUseCanvasFallback] = useState(true); // Mặc định BẬT
 ```
+
+### Thay đổi 2: Thêm Canvas Fallback vào Single Mode
+Cập nhật hook `useSocialImageGeneration.ts` để hỗ trợ canvas text overlay:
+
+**File:** `src/hooks/useSocialImageGeneration.ts`
+
+Thêm logic sau khi tạo ảnh:
+1. Nếu `useCanvasFallback = true` và `imageContentType = 'with_text'`:
+2. Gọi `generate-brand-image` với `imageContentType: 'background_only'` (tạo ảnh nền không có text)
+3. Gọi `overlay-text-canvas` để thêm text chính xác 100%
+
+### Thay đổi 3: Truyền `useCanvasFallback` từ UI vào Single Mode
+Cập nhật `UnifiedImageGenerator.tsx` để truyền `useCanvasFallback` vào `handleSingleGenerate`:
+
+```typescript
+const imageUrl = await singleGen.generateImage({
+  // ...existing params
+  useCanvasFallback, // Thêm param mới
+});
+```
+
+### Thay đổi 4: Import channel config để lấy dimensions
+Thêm import `CHANNEL_IMAGE_CONFIG` vào `useSocialImageGeneration.ts` để lấy kích thước ảnh chính xác cho từng kênh.
 
 ## Chi tiết kỹ thuật
 
-### 1. Cập nhật Edge Function `overlay-text-canvas`
+### File 1: `src/hooks/useSocialImageGeneration.ts`
 
-Thay thế hoàn toàn implementation cũ bằng `og_edge`:
-
-**Thư viện mới:**
-- `og_edge@0.0.4` - Render text/image chính thức từ Supabase docs
-- React JSX để định nghĩa layout
-- Google Fonts loading cho tiếng Việt (Be Vietnam Pro)
-
-**Các tính năng:**
-- **Position**: center, top, bottom, top-left, bottom-right
-- **Typography**: modern, classic, bold, minimal → map sang font styles
-- **Text color**: Tự động contrast với background
-- **Background overlay**: Semi-transparent cho readability
-- **Word wrap**: Tự động wrap text dài
-
-### 2. File cần thay đổi
-
-| File | Thay đổi |
-|------|----------|
-| `supabase/functions/overlay-text-canvas/index.ts` | Viết lại hoàn toàn dùng og_edge |
-| `supabase/functions/overlay-text-canvas/handler.tsx` | Mới - React component cho ImageResponse |
-
-### 3. Logic xử lý chi tiết
-
-**Bước 1: Load Google Font**
 ```typescript
-async function loadGoogleFont(text: string): Promise<ArrayBuffer> {
-  const font = 'Be+Vietnam+Pro:wght@400;600;700';
-  const url = `https://fonts.googleapis.com/css2?family=${font}&text=${encodeURIComponent(text)}`;
-  const css = await (await fetch(url)).text();
-  const resource = css.match(/src: url\((.+)\) format\('(opentype|truetype)'\)/);
-  if (resource) {
-    const response = await fetch(resource[1]);
-    return await response.arrayBuffer();
+// Thêm import
+import { CHANNEL_IMAGE_CONFIG } from '@/config/channelImageConfig';
+
+// Thêm param vào interface
+interface GenerateImageParams {
+  // ...existing params
+  useCanvasFallback?: boolean; // NEW
+}
+
+// Trong generateImage function - sau khi có imageUrl từ generate-brand-image:
+if (useCanvasFallback && imageContentType === 'with_text' && textToInclude) {
+  // Get dimensions for channel
+  const channelConfig = channel ? CHANNEL_IMAGE_CONFIG[channel] : null;
+  const [widthStr, heightStr] = (channelConfig?.size || '1200x630').split('x');
+  const imageWidth = parseInt(widthStr, 10) || 1200;
+  const imageHeight = parseInt(heightStr, 10) || 630;
+
+  // Call canvas overlay
+  const { data: overlayData, error: overlayError } = await supabase.functions.invoke('overlay-text-canvas', {
+    body: {
+      baseImageUrl: imageUrl,
+      text: textToInclude,
+      position: textPosition || 'center',
+      typographyStyle: typographyStyle || 'modern',
+      textColor: '#FFFFFF',
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      contentId,
+      channel,
+      imageWidth,
+      imageHeight,
+    },
+  });
+
+  if (!overlayError && overlayData?.success) {
+    imageUrl = overlayData.imageUrl;
   }
-  throw new Error('Failed to load font');
 }
 ```
 
-**Bước 2: Position Mapping**
+### File 2: `src/components/multichannel/UnifiedImageGenerator.tsx`
+
 ```typescript
-const POSITION_STYLES: Record<TextPosition, React.CSSProperties> = {
-  'center': { alignItems: 'center', justifyContent: 'center' },
-  'top': { alignItems: 'center', justifyContent: 'flex-start', paddingTop: 60 },
-  'bottom': { alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 60 },
-  'top-left': { alignItems: 'flex-start', justifyContent: 'flex-start', padding: 60 },
-  'bottom-right': { alignItems: 'flex-end', justifyContent: 'flex-end', padding: 60 },
-};
-```
+// Line 241: Thay đổi giá trị mặc định
+const [useCanvasFallback, setUseCanvasFallback] = useState(true);
 
-**Bước 3: Typography Mapping**
-```typescript
-const TYPOGRAPHY_STYLES: Record<TypographyStyle, { fontWeight: number; letterSpacing: string; textTransform?: string }> = {
-  'modern': { fontWeight: 600, letterSpacing: '-0.02em' },
-  'classic': { fontWeight: 400, letterSpacing: '0.02em' },
-  'bold': { fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' },
-  'minimal': { fontWeight: 300, letterSpacing: '0.1em', textTransform: 'uppercase' },
-};
-```
-
-**Bước 4: Composite với background image**
-```typescript
-return new ImageResponse(
-  (
-    <div style={{ 
-      width: '100%', 
-      height: '100%', 
-      display: 'flex',
-      backgroundImage: `url(${baseImageUrl})`,
-      backgroundSize: 'cover',
-      ...POSITION_STYLES[position]
-    }}>
-      <div style={{
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        padding: '20px 40px',
-        borderRadius: 12,
-        ...TYPOGRAPHY_STYLES[typographyStyle],
-      }}>
-        <span style={{ color: textColor, fontSize }}>{text}</span>
-      </div>
-    </div>
-  ),
-  { width: imageWidth, height: imageHeight, fonts }
-);
-```
-
-### 4. Xử lý đặc biệt
-
-**Vietnamese Font Support:**
-- Sử dụng "Be Vietnam Pro" từ Google Fonts
-- Font hỗ trợ đầy đủ ký tự tiếng Việt với dấu
-
-**Auto Font Size:**
-- Tự động scale font size dựa trên độ dài text và kích thước ảnh
-- Text ngắn (<20 chars): 48-64px
-- Text trung bình (20-50 chars): 32-48px
-- Text dài (>50 chars): 24-32px
-
-**Background Overlay:**
-- Semi-transparent black/white tùy theo contrast
-- Rounded corners cho style hiện đại
-- Padding dynamic theo text length
-
-### 5. Cấu trúc file mới
-
-```text
-supabase/functions/overlay-text-canvas/
-├── index.ts        # Main handler, validate input
-├── handler.tsx     # React component for ImageResponse
-└── utils.ts        # Font loading, position helpers
+// Line 420-436: Thêm useCanvasFallback vào handleSingleGenerate
+const imageUrl = await singleGen.generateImage({
+  // ...existing params
+  useCanvasFallback, // NEW
+});
 ```
 
 ## Lợi ích
 
-1. **100% Text Accuracy** - Text được render chính xác từng ký tự
-2. **Vietnamese Support** - Font Be Vietnam Pro hỗ trợ đầy đủ tiếng Việt
-3. **Consistent Styling** - Typography styles giống preview trên UI
-4. **No AI Hallucination** - Không phụ thuộc AI để render text
-5. **Fast & Reliable** - Thời gian xử lý < 2 giây
+1. **100% Text Accuracy** - Text luôn hiển thị chính xác nhờ Satori render
+2. **Tự động kích hoạt** - Người dùng không cần bật toggle thủ công
+3. **Hỗ trợ cả Single và Batch mode** - Đồng nhất trải nghiệm
+4. **Tiếng Việt hoàn hảo** - Font Be Vietnam Pro hỗ trợ đầy đủ dấu
 
-## Testing Plan
+## Testing
 
-1. Test với text ngắn tiếng Việt: "Giảm 50%"
-2. Test với text dài: "Khám phá bí mật làm đẹp từ thiên nhiên"
-3. Test tất cả 5 positions
-4. Test tất cả 4 typography styles
-5. Verify ảnh output có text rõ ràng, đúng vị trí
-
+Sau khi triển khai, cần test:
+1. Tạo ảnh Single mode với "Có text" → Text phải hiển thị chính xác
+2. Tạo ảnh Batch mode với "Có text" → Text phải hiển thị chính xác
+3. Kiểm tra text tiếng Việt có dấu: "Giảm 50% hôm nay!"
+4. Kiểm tra tất cả 5 vị trí text (center, top, bottom, top-left, bottom-right)
