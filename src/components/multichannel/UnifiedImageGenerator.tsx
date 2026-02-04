@@ -375,6 +375,22 @@ export function UnifiedImageGenerator({
   // Handlers
   const handleBatchGenerate = async () => {
     if (!content.brand_template_id) return;
+    
+    // Validation: Require text when Social Graphics mode is enabled
+    if (imageContentType === 'with_text') {
+      if (useSharedText && !textToInclude.trim()) {
+        toast.error('Vui lòng nhập text để hiển thị trên ảnh');
+        return;
+      }
+      if (!useSharedText) {
+        const missingTextChannels = selectedChannels.filter(ch => !textsPerChannel[ch]?.trim());
+        if (missingTextChannels.length > 0) {
+          toast.error(`Vui lòng nhập text cho: ${missingTextChannels.join(', ')}`);
+          return;
+        }
+      }
+    }
+    
     setViewMode('streaming');
     const result = await batchGen.generateAllImages(batchOptions, onImageGenerated, false);
     if (result.successful.length > 0) {
@@ -385,6 +401,12 @@ export function UnifiedImageGenerator({
   const handleSingleGenerate = async () => {
     if (!customPrompt.trim() || !content.brand_template_id) {
       toast.error('Vui lòng nhập prompt và chọn brand');
+      return;
+    }
+    
+    // Validation: Require text when Social Graphics mode is enabled
+    if (imageContentType === 'with_text' && !textToInclude.trim()) {
+      toast.error('Vui lòng nhập text để hiển thị trên ảnh');
       return;
     }
 
@@ -729,7 +751,17 @@ export function UnifiedImageGenerator({
                     </button>
                     
                     <button
-                      onClick={() => setImageContentType('with_text')}
+                      onClick={() => {
+                        setImageContentType('with_text');
+                        // Auto-fill text from hook if empty
+                        if (!textToInclude.trim()) {
+                          const hookData = getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0]);
+                          if (hookData.hookMessage) {
+                            setTextToInclude(hookData.hookMessage);
+                            toast.info('Đã tự động điền text từ Hook. Bạn có thể chỉnh sửa.');
+                          }
+                        }
+                      }}
                       className={cn(
                         "p-3 rounded-lg border-2 text-left transition-all duration-200",
                         imageContentType === 'with_text' 
@@ -794,8 +826,15 @@ export function UnifiedImageGenerator({
                           onChange={(e) => setTextToInclude(e.target.value)}
                           placeholder="VD: Giảm 50% hôm nay!"
                           rows={2}
-                          className="resize-none text-xs"
+                          className={cn(
+                            "resize-none text-xs",
+                            imageContentType === 'with_text' && !textToInclude.trim() 
+                              && "border-orange-500 focus:border-orange-500"
+                          )}
                         />
+                        {imageContentType === 'with_text' && !textToInclude.trim() && (
+                          <p className="text-xs text-orange-600">⚠️ Vui lòng nhập text để hiển thị trên ảnh</p>
+                        )}
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {(() => {
                             const hookData = getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0]);
