@@ -376,7 +376,12 @@ export function UnifiedImageGenerator({
     contentRole,
     contentAngle,
     hookMessages,
-  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, includeLogo, brandLogoUrl, logoPosition, aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages]);
+    // Social Graphics (text-in-image) params for batch mode
+    imageContentType,
+    textToInclude: imageContentType === 'with_text' ? textToInclude : undefined,
+    textPosition: imageContentType === 'with_text' ? textPosition : undefined,
+    typographyStyle: imageContentType === 'with_text' ? typographyStyle : undefined,
+  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, includeLogo, brandLogoUrl, logoPosition, aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages, imageContentType, textToInclude, textPosition, typographyStyle]);
 
   // Handlers
   const handleBatchGenerate = async () => {

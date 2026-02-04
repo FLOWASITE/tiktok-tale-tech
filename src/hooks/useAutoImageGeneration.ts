@@ -30,6 +30,11 @@ export interface AutoGenerateOptions {
   contentRole?: 'seed' | 'sprout' | 'harvest';
   contentAngle?: string;
   hookMessages?: Record<Channel, { hookMessage?: string; hookType?: string }>;
+  // Social Graphics (text-in-image) params for batch mode
+  imageContentType?: 'background_only' | 'with_text';
+  textToInclude?: string;
+  textPosition?: 'center' | 'top' | 'bottom' | 'top-left' | 'bottom-right';
+  typographyStyle?: 'modern' | 'classic' | 'bold' | 'minimal';
 }
 
 export interface GeneratedImage {
@@ -78,6 +83,8 @@ export function useAutoImageGeneration() {
       aspectRatio = '16:9', imageStylePreset, negativePrompt,
       // Strategic context for more relevant images
       contentRole, contentAngle, hookMessages,
+      // Social Graphics (text-in-image) params
+      imageContentType, textToInclude, textPosition, typographyStyle,
     } = options;
     
     const channelAspectRatio = getAspectRatioForChannel(channel, aspectRatio);
@@ -113,6 +120,11 @@ export function useAutoImageGeneration() {
             contentAngle,
             hookMessage: channelHook?.hookMessage,
             hookType: channelHook?.hookType,
+            // Social Graphics (text-in-image) params
+            imageContentType,
+            textToInclude,
+            textPosition,
+            typographyStyle,
           },
         });
 
