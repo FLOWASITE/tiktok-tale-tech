@@ -8,7 +8,7 @@ export type LogoPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-ri
 export type AspectRatioOption = '16:9' | '1:1' | '9:16' | '4:5' | 'auto';
 
 // Import from shared config - single source of truth
-import { CHANNEL_OPTIMAL_ASPECT_RATIO } from '@/config/channelImageConfig';
+import { CHANNEL_OPTIMAL_ASPECT_RATIO, CHANNEL_IMAGE_CONFIG } from '@/config/channelImageConfig';
 
 // Re-export for backward compatibility
 export { CHANNEL_OPTIMAL_ASPECT_RATIO };
@@ -182,6 +182,12 @@ export function useAutoImageGeneration() {
         if (useCanvasFallback && imageContentType === 'with_text' && channelText) {
           console.log(`[useAutoImageGeneration] Applying canvas text overlay for ${channel}`);
           
+          // Parse dimensions from channel config
+          const channelConfig = CHANNEL_IMAGE_CONFIG[channel];
+          const [widthStr, heightStr] = channelConfig.size.split('x');
+          const imageWidth = parseInt(widthStr, 10) || 1200;
+          const imageHeight = parseInt(heightStr, 10) || 630;
+          
           const { data: textData, error: textError } = await supabase.functions.invoke('overlay-text-canvas', {
             body: {
               baseImageUrl: finalImageUrl,
@@ -189,11 +195,12 @@ export function useAutoImageGeneration() {
               position: textPosition || 'center',
               typographyStyle: typographyStyle || 'modern',
               textColor: '#FFFFFF',
-              backgroundColor: '#000000',
-              fontSize: 5,
+              backgroundColor: 'rgba(0, 0, 0, 0.6)',
               padding: 40,
               contentId,
               channel,
+              imageWidth,
+              imageHeight,
             },
           });
 
