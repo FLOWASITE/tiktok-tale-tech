@@ -242,7 +242,9 @@ export function UnifiedImageGenerator({
   
   // NEW: Social Graphics (text-in-image) state
   const [imageContentType, setImageContentType] = useState<ImageContentType>('background_only');
-  const [textToInclude, setTextToInclude] = useState<string>('');
+  const [textToInclude, setTextToInclude] = useState<string>(''); // Shared text for all channels
+  const [textsPerChannel, setTextsPerChannel] = useState<Record<Channel, string>>({} as Record<Channel, string>); // Channel-specific texts
+  const [useSharedText, setUseSharedText] = useState<boolean>(true); // Toggle: shared vs per-channel
   const [textPosition, setTextPosition] = useState<TextPosition>('center');
   const [typographyStyle, setTypographyStyle] = useState<TypographyStyle>('modern');
   const [isOptimizingText, setIsOptimizingText] = useState(false);
@@ -381,12 +383,13 @@ export function UnifiedImageGenerator({
     hookMessages,
     // Social Graphics (text-in-image) params for batch mode
     imageContentType,
-    textToInclude: imageContentType === 'with_text' ? textToInclude : undefined,
+    textToInclude: imageContentType === 'with_text' && useSharedText ? textToInclude : undefined,
+    textsPerChannel: imageContentType === 'with_text' && !useSharedText ? textsPerChannel : undefined,
     textPosition: imageContentType === 'with_text' ? textPosition : undefined,
     typographyStyle: imageContentType === 'with_text' ? typographyStyle : undefined,
     // Canvas fallback for 100% accurate text
     useCanvasFallback: imageContentType === 'with_text' ? useCanvasFallback : undefined,
-  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, includeLogo, brandLogoUrl, logoPosition, aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages, imageContentType, textToInclude, textPosition, typographyStyle, useCanvasFallback]);
+  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, includeLogo, brandLogoUrl, logoPosition, aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages, imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, useCanvasFallback]);
 
   // Handlers
   const handleBatchGenerate = async () => {
@@ -820,77 +823,210 @@ export function UnifiedImageGenerator({
                   {/* Text options when with_text selected */}
                   {imageContentType === 'with_text' && (
                     <div className="space-y-3 p-4 bg-gradient-to-r from-orange-500/5 to-transparent rounded-xl border border-orange-500/20">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-sm flex items-center gap-2">
-                            <Quote className="w-3.5 h-3.5 text-orange-600" />
-                            Text hiển thị trên ảnh
-                          </Label>
-                          <span className="text-[10px] text-muted-foreground">
-                            {textToInclude.length} ký tự
-                          </span>
+                      {/* Toggle: Shared vs Per-channel text (only in batch mode) */}
+                      {mode === 'batch' && selectedChannels.length > 1 && (
+                        <div className="flex items-center justify-between pb-3 border-b border-orange-500/20">
+                          <div className="flex items-center gap-2">
+                            <Quote className="w-4 h-4 text-orange-600" />
+                            <Label className="text-sm font-medium">Chế độ text</Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setUseSharedText(true)}
+                              className={cn(
+                                "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                                useSharedText 
+                                  ? "bg-orange-500 text-white" 
+                                  : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                              )}
+                            >
+                              Text chung
+                            </button>
+                            <button
+                              onClick={() => {
+                                setUseSharedText(false);
+                                // Auto-fill per-channel texts from hooks if empty
+                                if (Object.keys(textsPerChannel).length === 0) {
+                                  const newTexts: Record<Channel, string> = {} as Record<Channel, string>;
+                                  selectedChannels.forEach(ch => {
+                                    const hookData = getHookForChannel(content, ch);
+                                    newTexts[ch] = hookData.hookMessage || textToInclude || '';
+                                  });
+                                  setTextsPerChannel(newTexts);
+                                }
+                              }}
+                              className={cn(
+                                "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                                !useSharedText 
+                                  ? "bg-orange-500 text-white" 
+                                  : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                              )}
+                            >
+                              Text riêng
+                            </button>
+                          </div>
                         </div>
-                        <Textarea
-                          value={textToInclude}
-                          onChange={(e) => setTextToInclude(e.target.value)}
-                          placeholder="Nhập text hoặc sử dụng hook message..."
-                          rows={2}
-                          className="resize-none text-sm"
-                        />
-                        <div className="flex flex-wrap gap-2">
-                          {getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0])?.hookMessage && (
+                      )}
+
+                      {/* Shared text input */}
+                      {(useSharedText || mode === 'single') && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm flex items-center gap-2">
+                              <Quote className="w-3.5 h-3.5 text-orange-600" />
+                              Text hiển thị trên ảnh
+                            </Label>
+                            <span className="text-[10px] text-muted-foreground">
+                              {textToInclude.length} ký tự
+                            </span>
+                          </div>
+                          <Textarea
+                            value={textToInclude}
+                            onChange={(e) => setTextToInclude(e.target.value)}
+                            placeholder="Nhập text hoặc sử dụng hook message..."
+                            rows={2}
+                            className="resize-none text-sm"
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            {getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0])?.hookMessage && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs gap-1.5 h-7 text-orange-600 hover:text-orange-700 hover:bg-orange-500/10"
+                                onClick={() => {
+                                  const hookData = getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0]);
+                                  if (hookData.hookMessage) {
+                                    setTextToInclude(hookData.hookMessage);
+                                  }
+                                }}
+                              >
+                                <Sparkles className="w-3 h-3" />
+                                Dùng Hook
+                              </Button>
+                            )}
+                            {textToInclude.length > 40 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs gap-1.5 h-7 border-orange-500/30 text-orange-600 hover:text-orange-700 hover:bg-orange-500/10"
+                                disabled={isOptimizingText}
+                                onClick={async () => {
+                                  setIsOptimizingText(true);
+                                  try {
+                                    const { data, error } = await supabase.functions.invoke('optimize-social-text', {
+                                      body: { text: textToInclude, maxLength: 50, style: 'punchy' }
+                                    });
+                                    if (error) throw error;
+                                    if (data?.optimizedText) {
+                                      setTextToInclude(data.optimizedText);
+                                      if (data.wasOptimized) {
+                                        toast.success(`Đã rút gọn từ ${data.originalLength} → ${data.optimizedLength} ký tự`);
+                                      }
+                                    }
+                                  } catch (err) {
+                                    console.error('Text optimization failed:', err);
+                                    toast.error('Không thể tối ưu text');
+                                  } finally {
+                                    setIsOptimizingText(false);
+                                  }
+                                }}
+                              >
+                                {isOptimizingText ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Wand2 className="w-3 h-3" />
+                                )}
+                                Rút gọn AI
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Per-channel text inputs (only in batch mode when useSharedText is false) */}
+                      {!useSharedText && mode === 'batch' && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm flex items-center gap-2">
+                              <Layers className="w-3.5 h-3.5 text-orange-600" />
+                              Text cho từng kênh
+                            </Label>
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-xs gap-1.5 h-7 text-orange-600 hover:text-orange-700 hover:bg-orange-500/10"
+                              className="text-xs gap-1.5 h-6 text-orange-600 hover:text-orange-700"
                               onClick={() => {
-                                const hookData = getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0]);
-                                if (hookData.hookMessage) {
-                                  setTextToInclude(hookData.hookMessage);
-                                }
+                                // Auto-fill all channels from their hooks
+                                const newTexts: Record<Channel, string> = {} as Record<Channel, string>;
+                                selectedChannels.forEach(ch => {
+                                  const hookData = getHookForChannel(content, ch);
+                                  newTexts[ch] = hookData.hookMessage || '';
+                                });
+                                setTextsPerChannel(newTexts);
+                                toast.success('Đã điền hook cho tất cả kênh');
                               }}
                             >
                               <Sparkles className="w-3 h-3" />
-                              Dùng Hook
+                              Dùng Hook cho tất cả
                             </Button>
-                          )}
-                          {textToInclude.length > 40 && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs gap-1.5 h-7 border-orange-500/30 text-orange-600 hover:text-orange-700 hover:bg-orange-500/10"
-                              disabled={isOptimizingText}
-                              onClick={async () => {
-                                setIsOptimizingText(true);
-                                try {
-                                  const { data, error } = await supabase.functions.invoke('optimize-social-text', {
-                                    body: { text: textToInclude, maxLength: 50, style: 'punchy' }
-                                  });
-                                  if (error) throw error;
-                                  if (data?.optimizedText) {
-                                    setTextToInclude(data.optimizedText);
-                                    if (data.wasOptimized) {
-                                      toast.success(`Đã rút gọn từ ${data.originalLength} → ${data.optimizedLength} ký tự`);
-                                    }
-                                  }
-                                } catch (err) {
-                                  console.error('Text optimization failed:', err);
-                                  toast.error('Không thể tối ưu text');
-                                } finally {
-                                  setIsOptimizingText(false);
-                                }
-                              }}
-                            >
-                              {isOptimizingText ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <Wand2 className="w-3 h-3" />
-                              )}
-                              Rút gọn AI
-                            </Button>
-                          )}
+                          </div>
+                          <ScrollArea className="max-h-48">
+                            <div className="space-y-2 pr-3">
+                              {selectedChannels.map((ch) => {
+                                const config = CHANNEL_CONFIG[ch];
+                                const hookData = getHookForChannel(content, ch);
+                                const channelText = textsPerChannel[ch] || '';
+                                
+                                return (
+                                  <div key={ch} className="flex items-start gap-2">
+                                    <div className={cn(
+                                      "w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 mt-1",
+                                      config?.bgColor || 'bg-muted'
+                                    )}>
+                                      <div className={config?.color || 'text-muted-foreground'}>
+                                        {config?.icon}
+                                      </div>
+                                    </div>
+                                    <div className="flex-1 space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-medium capitalize">{ch.replace('_', ' ')}</span>
+                                        {hookData.hookMessage && !channelText && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-[10px] gap-1 h-5 px-1.5 text-orange-600"
+                                            onClick={() => {
+                                              setTextsPerChannel(prev => ({
+                                                ...prev,
+                                                [ch]: hookData.hookMessage || ''
+                                              }));
+                                            }}
+                                          >
+                                            <Sparkles className="w-2.5 h-2.5" />
+                                            Hook
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <Textarea
+                                        value={channelText}
+                                        onChange={(e) => {
+                                          setTextsPerChannel(prev => ({
+                                            ...prev,
+                                            [ch]: e.target.value
+                                          }));
+                                        }}
+                                        placeholder={hookData.hookMessage || `Text cho ${ch}...`}
+                                        rows={1}
+                                        className="resize-none text-xs min-h-[32px]"
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </ScrollArea>
                         </div>
-                      </div>
+                      )}
 
                       {/* Visual Mockup + Controls Row */}
                       <div className="flex gap-4">
