@@ -57,6 +57,9 @@ const transformContent = (data: any): MultiChannelContent => ({
   critique_details: data.critique_details ?? null,
   was_refined: data.was_refined ?? null,
   refinement_count: data.refinement_count ?? null,
+  // Map hook data for text overlay auto-fill
+  selected_hooks: Array.isArray(data.selected_hooks) ? data.selected_hooks : null,
+  global_hook: data.global_hook && typeof data.global_hook === 'object' ? data.global_hook : null,
   created_at: data.created_at,
   updated_at: data.updated_at,
 });
