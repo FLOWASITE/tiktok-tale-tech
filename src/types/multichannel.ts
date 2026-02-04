@@ -171,6 +171,9 @@ export interface MultiChannelContent {
   critique_details: CritiqueDetails | null;
   was_refined: boolean | null;
   refinement_count: number | null;
+  // Hook data for text overlay auto-fill
+  selected_hooks?: MultiChannelSelectedHook[] | null;
+  global_hook?: GlobalHook | null;
   created_at: string;
   updated_at: string;
 }

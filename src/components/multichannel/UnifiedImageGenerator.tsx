@@ -184,26 +184,106 @@ function generateAutoPrompt(
 }
 
 function getHookForChannel(content: MultiChannelContent, channel: Channel): { hookMessage?: string; hookType?: string } {
-  const contentAny = content as any;
-  const selectedHooks = contentAny.selected_hooks as any[] | null;
-  const channelHook = selectedHooks?.find((h: any) => h.channel === channel);
+  const selectedHooks = content.selected_hooks;
+  const channelHook = selectedHooks?.find((h) => h.channel === channel);
   
   if (channelHook?.opening_line) {
     return {
       hookMessage: channelHook.opening_line,
-      hookType: channelHook.hook_type || channelHook.framework,
+      hookType: channelHook.hook_type,
     };
   }
   
-  const globalHook = contentAny.global_hook as any;
+  const globalHook = content.global_hook;
   if (globalHook?.opening_line) {
     return {
       hookMessage: globalHook.opening_line,
-      hookType: globalHook.hook_type || globalHook.framework,
+      hookType: globalHook.hook_type,
     };
   }
   
   return {};
+}
+
+/**
+ * Helper to extract text content snippet from channel content
+ * Cleans markdown and truncates to ~100 chars for overlay
+ */
+function extractContentSnippet(text: string | null, maxLength: number = 100): string {
+  if (!text) return '';
+  
+  // Clean markdown: headers, bold, italic, links, emoji modifiers
+  const cleaned = text
+    .replace(/#{1,6}\s?/g, '')
+    .replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\n{2,}/g, ' ')
+    .replace(/\n/g, ' ')
+    .trim();
+  
+  // Get first sentence or truncate
+  const firstSentence = cleaned.match(/^[^.!?]+[.!?]/);
+  const snippet = firstSentence ? firstSentence[0] : cleaned.slice(0, maxLength);
+  
+  return snippet.length > maxLength ? snippet.slice(0, maxLength - 3) + '...' : snippet;
+}
+
+/**
+ * Get best overlay text for a channel with fallback chain:
+ * 1. selected_hooks[channel].text_overlay
+ * 2. global_hook.text_overlay
+ * 3. selected_hooks[channel].opening_line
+ * 4. global_hook.opening_line
+ * 5. First sentence/snippet of channel content
+ */
+function getBestOverlayText(content: MultiChannelContent, channel: Channel): string {
+  const selectedHooks = content.selected_hooks;
+  const globalHook = content.global_hook;
+  const channelHook = selectedHooks?.find((h) => h.channel === channel);
+  
+  // Priority 1: Channel-specific text_overlay
+  if (channelHook?.text_overlay) {
+    return channelHook.text_overlay;
+  }
+  
+  // Priority 2: Global text_overlay
+  if (globalHook?.text_overlay) {
+    return globalHook.text_overlay;
+  }
+  
+  // Priority 3: Channel-specific opening_line
+  if (channelHook?.opening_line) {
+    return channelHook.opening_line;
+  }
+  
+  // Priority 4: Global opening_line
+  if (globalHook?.opening_line) {
+    return globalHook.opening_line;
+  }
+  
+  // Priority 5: Extract from channel content
+  const channelContentMap: Partial<Record<Channel, string | null>> = {
+    facebook: content.facebook_content,
+    instagram: content.instagram_content,
+    twitter: content.twitter_content,
+    linkedin: content.linkedin_content,
+    youtube: content.youtube_content,
+    tiktok: content.tiktok_content,
+    threads: content.threads_content,
+    website: content.website_content,
+    zalo_oa: content.zalo_oa_content,
+    telegram: content.telegram_content,
+    email: content.email_content,
+    google_maps: content.google_maps_content,
+  };
+  
+  const channelContent = channelContentMap[channel];
+  if (channelContent) {
+    return extractContentSnippet(channelContent);
+  }
+  
+  // Final fallback: topic
+  return content.topic?.slice(0, 100) || '';
 }
 
 export function UnifiedImageGenerator({
@@ -298,7 +378,7 @@ export function UnifiedImageGenerator({
     }
   }, [brandTemplate, brandIndustry]);
 
-  // Auto-generate prompt for single mode
+  // Auto-generate prompt for single mode AND auto-fill text
   useEffect(() => {
     if (open && mode === 'single') {
       const contentSummary = getContentSummary(content, singleChannel);
@@ -314,58 +394,71 @@ export function UnifiedImageGenerator({
       setCustomPrompt(autoPrompt);
       setSingleGeneratedUrl(null);
       
-      const contentAny = content as any;
-      const selectedHooks = contentAny.selected_hooks as any[] | null;
-      const channelHook = selectedHooks?.find((h: any) => h.channel === singleChannel);
-      if (channelHook?.text_overlay) {
-        setTextToInclude(channelHook.text_overlay);
-      } else if (contentAny.global_hook?.text_overlay) {
-        setTextToInclude(contentAny.global_hook.text_overlay);
-      } else if (hookData.hookMessage) {
-        setTextToInclude(hookData.hookMessage);
+      // Auto-fill text using helper with full fallback chain
+      // Only fill if currently empty to avoid overwriting user input
+      if (!textToInclude) {
+        const bestText = getBestOverlayText(content, singleChannel);
+        if (bestText) {
+          setTextToInclude(bestText);
+          console.log('[UnifiedImageGenerator] Single mode autofill', { 
+            channel: singleChannel, 
+            textPreview: bestText.slice(0, 40),
+            hasSelectedHooks: !!content.selected_hooks?.length,
+            hasGlobalHook: !!content.global_hook,
+          });
+        }
       }
     }
   }, [open, mode, singleChannel, content, brandPrimaryColor, brandIndustry]);
 
-  // Auto-fill text from hooks for BATCH mode when dialog opens or mode changes
+  // Auto-fill text from hooks for BATCH mode
+  // Triggers: dialog opens, mode changes, imageContentType changes, useSharedText toggle
   useEffect(() => {
-    if (open && mode === 'batch' && selectedChannels.length > 0) {
-      const contentAny = content as any;
-      const selectedHooks = contentAny.selected_hooks as any[] | null;
-      const globalHook = contentAny.global_hook as any;
-      
-      // For shared text, use global hook or first channel's hook
-      if (useSharedText && !textToInclude) {
+    if (!open || mode !== 'batch' || selectedChannels.length === 0) return;
+    
+    console.log('[UnifiedImageGenerator] Batch mode hooks check', { 
+      hasSelectedHooks: !!content.selected_hooks?.length,
+      hasGlobalHook: !!content.global_hook,
+      imageContentType,
+      useSharedText,
+    });
+    
+    // For shared text mode
+    if (useSharedText) {
+      // Only fill if empty to preserve user input
+      if (!textToInclude) {
         const firstChannel = selectedChannels[0];
-        const channelHook = selectedHooks?.find((h: any) => h.channel === firstChannel);
-        
-        const text = channelHook?.text_overlay 
-          || globalHook?.text_overlay 
-          || channelHook?.opening_line 
-          || globalHook?.opening_line
-          || '';
-        
-        if (text) {
-          setTextToInclude(text);
+        const bestText = getBestOverlayText(content, firstChannel);
+        if (bestText) {
+          setTextToInclude(bestText);
+          console.log('[UnifiedImageGenerator] Batch shared text autofill', { 
+            textPreview: bestText.slice(0, 40) 
+          });
         }
       }
+    } else {
+      // For per-channel texts, fill each empty channel
+      const newTexts: Record<Channel, string> = { ...textsPerChannel };
+      let hasUpdates = false;
       
-      // For per-channel texts, fill each channel
-      if (!useSharedText) {
-        const newTexts: Record<Channel, string> = {} as Record<Channel, string>;
-        selectedChannels.forEach(ch => {
-          const channelHook = selectedHooks?.find((h: any) => h.channel === ch);
-          newTexts[ch] = textsPerChannel[ch] 
-            || channelHook?.text_overlay 
-            || globalHook?.text_overlay 
-            || channelHook?.opening_line 
-            || globalHook?.opening_line
-            || '';
+      selectedChannels.forEach(ch => {
+        if (!newTexts[ch]) {
+          const bestText = getBestOverlayText(content, ch);
+          if (bestText) {
+            newTexts[ch] = bestText;
+            hasUpdates = true;
+          }
+        }
+      });
+      
+      if (hasUpdates) {
+        setTextsPerChannel(newTexts);
+        console.log('[UnifiedImageGenerator] Batch per-channel text autofill', { 
+          channels: Object.keys(newTexts).length 
         });
-        setTextsPerChannel(prev => ({ ...prev, ...newTexts }));
       }
     }
-  }, [open, mode, selectedChannels, content, useSharedText]);
+  }, [open, mode, selectedChannels, content, useSharedText, imageContentType]);
 
   // Content summaries for batch mode
   const contentSummaries = useMemo(() => {
