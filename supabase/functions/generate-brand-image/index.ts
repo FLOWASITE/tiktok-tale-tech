@@ -11,6 +11,9 @@ import {
   type ImageStylePreset,
   type ContentRole,
   type ContentAngle,
+  type ImageContentType,
+  type TextPosition,
+  type TypographyStyle,
 } from "../_shared/image-prompt-builder.ts";
 
 const corsHeaders = {
@@ -28,12 +31,17 @@ interface GenerateImageRequest {
   contentType?: 'promotional' | 'educational' | 'entertainment' | 'inspirational';
   imageStylePreset?: ImageStylePreset;
   negativePrompt?: string;
-  // New: Content Role and Angle for strategic visuals
+  // Content Role and Angle for strategic visuals
   contentRole?: ContentRole;
   contentAngle?: ContentAngle;
-  // New: Hook integration
+  // Hook integration
   hookMessage?: string;
   hookType?: string;
+  // NEW: Text-in-image params for Social Graphics
+  imageContentType?: ImageContentType;
+  textToInclude?: string;
+  textPosition?: TextPosition;
+  typographyStyle?: TypographyStyle;
 }
 
 // Model fallback configuration (primary → fallback)
@@ -227,14 +235,23 @@ serve(async (req) => {
       contentType,
       imageStylePreset,
       negativePrompt,
-      // New params from request
+      // Params from request
       contentRole: requestedContentRole,
       contentAngle: requestedContentAngle,
       hookMessage: requestedHookMessage,
       hookType: requestedHookType,
+      // NEW: Text-in-image params for Social Graphics
+      imageContentType,
+      textToInclude,
+      textPosition,
+      typographyStyle,
     }: GenerateImageRequest = await req.json();
 
     console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}`);
+    console.log(`[generate-brand-image] Image content type: ${imageContentType || 'background_only'}`);
+    if (imageContentType === 'with_text' && textToInclude) {
+      console.log(`[generate-brand-image] Text to include: "${textToInclude.slice(0, 50)}..."`);
+    }
 
     // Fetch brand template for colors and style
     const { data: brandTemplate, error: brandError } = await supabase
@@ -376,11 +393,16 @@ serve(async (req) => {
       persona: personaContext,
       imageStylePreset: finalImageStylePreset,  // Use computed style
       negativePrompt,
-      // New: Pass content role, angle, and hook for strategic visuals
+      // Pass content role, angle, and hook for strategic visuals
       contentRole: finalContentRole,
       contentAngle: finalContentAngle,
       hookMessage: finalHookMessage,
       hookType: finalHookType,
+      // NEW: Pass text-in-image params for Social Graphics
+      imageContentType,
+      textToInclude,
+      textPosition,
+      typographyStyle,
     });
 
     console.log("[generate-brand-image] Starting image generation with smart retry...");
@@ -420,10 +442,10 @@ serve(async (req) => {
     // Detect actual content type from data URL
     const contentTypeMatch = imageData.match(/^data:image\/([^;]+);base64,/);
     const detectedFormat = contentTypeMatch ? contentTypeMatch[1] : 'png';
-    const imageContentType = `image/${detectedFormat}`;
+    const imageMimeType = `image/${detectedFormat}`;
     const fileExtension = detectedFormat === 'jpeg' ? 'jpg' : detectedFormat;
     
-    console.log(`[generate-brand-image] Detected image format: ${detectedFormat}, contentType: ${imageContentType}`);
+    console.log(`[generate-brand-image] Detected image format: ${detectedFormat}, contentType: ${imageMimeType}`);
 
     // The image is base64 encoded, upload to storage
     const base64Data = imageData.replace(/^data:image\/[^;]+;base64,/, "");
@@ -437,7 +459,7 @@ serve(async (req) => {
     const { error: uploadError } = await supabase.storage
       .from("carousel-images")
       .upload(fileName, imageBytes, {
-        contentType: imageContentType,
+        contentType: imageMimeType,
         upsert: true,
       });
 

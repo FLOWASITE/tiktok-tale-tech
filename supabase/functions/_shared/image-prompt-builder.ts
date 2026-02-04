@@ -62,6 +62,15 @@ export type ContentAngle =
   | 'behind_the_scenes' 
   | 'qa_faq';
 
+// NEW: Image Content Type for Social Graphics
+export type ImageContentType = 'background_only' | 'with_text';
+
+// NEW: Text positioning options
+export type TextPosition = 'center' | 'top' | 'bottom' | 'top-left' | 'bottom-right';
+
+// NEW: Typography style options
+export type TypographyStyle = 'modern' | 'classic' | 'bold' | 'minimal';
+
 export interface ImagePromptParams {
   channel: Channel;
   contentSummary: string;
@@ -72,12 +81,17 @@ export interface ImagePromptParams {
   contentType?: 'promotional' | 'educational' | 'entertainment' | 'inspirational';
   imageStylePreset?: ImageStylePreset;
   negativePrompt?: string;
-  // New: Content Role and Angle for strategic visuals
+  // Content Role and Angle for strategic visuals
   contentRole?: ContentRole;
   contentAngle?: ContentAngle;
-  // New: Hook integration
+  // Hook integration
   hookMessage?: string;
   hookType?: string;
+  // NEW: Text-in-image params for Social Graphics
+  imageContentType?: ImageContentType;
+  textToInclude?: string;
+  textPosition?: TextPosition;
+  typographyStyle?: TypographyStyle;
 }
 
 // Image Style Presets
@@ -536,6 +550,50 @@ function buildHookSection(hookMessage?: string, hookType?: string): string {
 }
 
 /**
+ * Build text-in-image section for Social Graphics
+ */
+function buildTextInImageSection(
+  textToInclude?: string,
+  textPosition?: TextPosition,
+  typographyStyle?: TypographyStyle
+): string {
+  if (!textToInclude) return '';
+  
+  const positionGuide: Record<TextPosition, string> = {
+    'center': 'Text prominently centered in the image, making it the focal point',
+    'top': 'Text positioned in the upper third, with visual elements below',
+    'bottom': 'Text positioned in the lower third, with visual elements above',
+    'top-left': 'Text in the upper left corner, quote-style placement',
+    'bottom-right': 'Text in the lower right corner, caption-style placement',
+  };
+  
+  const styleGuide: Record<TypographyStyle, string> = {
+    'modern': 'Clean sans-serif font, contemporary and professional',
+    'classic': 'Elegant serif font, timeless and sophisticated',
+    'bold': 'Heavy weight, impactful and attention-grabbing',
+    'minimal': 'Thin weight, subtle and refined',
+  };
+  
+  const pos = textPosition || 'center';
+  const style = typographyStyle || 'modern';
+  
+  return `
+
+## TEXT IN IMAGE (REQUIRED - Social Graphic Mode):
+INCLUDE this exact text prominently in the image:
+"${textToInclude}"
+
+Typography Guidelines:
+- Position: ${positionGuide[pos]}
+- Typography Style: ${styleGuide[style]}
+- Ensure HIGH CONTRAST between text and background for readability
+- Text should be the PRIMARY FOCAL ELEMENT of the image
+- Use brand colors for text if they provide good contrast
+- Text must be LARGE and CLEARLY READABLE at social media viewing sizes
+- Add subtle text shadow or backdrop if needed for legibility`;
+}
+
+/**
  * Build image style preset section
  */
 function buildStylePresetSection(stylePreset?: ImageStylePreset): string {
@@ -558,14 +616,19 @@ export function buildImagePrompt(params: ImagePromptParams): string {
   const { 
     channel, contentSummary, brand, aspectRatio, persona, journeyStage, 
     contentType, imageStylePreset, negativePrompt,
-    contentRole, contentAngle, hookMessage, hookType 
+    contentRole, contentAngle, hookMessage, hookType,
+    // NEW: Text-in-image params
+    imageContentType, textToInclude, textPosition, typographyStyle
   } = params;
   
   const channelSpec = CHANNEL_IMAGE_SPECS[channel] || CHANNEL_IMAGE_SPECS.facebook;
   const finalAspectRatio = aspectRatio || channelSpec.aspectRatio;
   
+  // Determine if this is a Social Graphic (with text) or background-only
+  const isWithText = imageContentType === 'with_text' && textToInclude;
+  
   // Build the comprehensive prompt
-  let prompt = `Create a professional, brand-aligned image for ${brand.brandName}.
+  let prompt = `Create a professional, brand-aligned ${isWithText ? 'SOCIAL GRAPHIC WITH TEXT' : 'image'} for ${brand.brandName}.
 
 ## CONTENT CONTEXT:
 ${contentSummary}
@@ -597,13 +660,18 @@ ${channelSpec.avoidElements.map(e => `- ${e}`).join('\n')}`;
   // Add style preset section
   prompt += buildStylePresetSection(imageStylePreset);
   
-  // NEW: Add hook section (CRITICAL - placed early for emphasis)
+  // NEW: Add text-in-image section if Social Graphic mode
+  if (isWithText) {
+    prompt += buildTextInImageSection(textToInclude, textPosition, typographyStyle);
+  }
+  
+  // Add hook section (CRITICAL - placed early for emphasis)
   prompt += buildHookSection(hookMessage, hookType);
   
-  // NEW: Add content role section
+  // Add content role section
   prompt += buildContentRoleSection(contentRole);
   
-  // NEW: Add content angle section
+  // Add content angle section
   prompt += buildContentAngleSection(contentAngle);
   
   // Add persona section
@@ -631,10 +699,25 @@ ${channelSpec.avoidElements.map(e => `- ${e}`).join('\n')}`;
     prompt += `\n\n## ELEMENTS TO AVOID:\n${negativePrompt}`;
   }
   
-  // Critical rules (always include)
-  prompt += `
+  // Critical rules - DIFFERENT for with_text vs background_only mode
+  if (isWithText) {
+    prompt += `
 
-## CRITICAL RULES (MUST FOLLOW):
+## CRITICAL RULES (SOCIAL GRAPHIC WITH TEXT MODE):
+1. INCLUDE the specified text prominently and legibly in the image
+2. Text must be CLEARLY READABLE with HIGH CONTRAST
+3. DO NOT include any logos or brand marks
+4. Background/visual should COMPLEMENT, not compete with text
+5. Main visual elements should support and frame the text
+6. Use professional typography that matches the brand style
+7. Maintain brand-appropriate color temperature
+8. NEVER create blank, white, or empty images
+9. Ensure text is the primary focal point
+10. Add visual effects (shadow, glow, backdrop) if needed for text legibility`;
+  } else {
+    prompt += `
+
+## CRITICAL RULES (BACKGROUND IMAGE MODE):
 1. DO NOT include any text, words, letters, or typography in the image
 2. DO NOT include any logos or brand marks
 3. Image must be photorealistic OR stylized illustration based on brand style
@@ -645,6 +728,7 @@ ${channelSpec.avoidElements.map(e => `- ${e}`).join('\n')}`;
 8. NEVER create blank, white, or empty images - always include clear visual content
 9. Background must have visible color, texture, or gradient - NEVER pure white (#FFFFFF)
 10. Image must have at least one clear focal point or subject`;
+  }
 
   return prompt;
 }

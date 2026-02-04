@@ -3,7 +3,8 @@ import {
   Sparkles, Image, Loader2, Save, Settings2, Check, ArrowLeft, 
   Copy, Download, RefreshCw, Wand2, Palette, ChevronDown, ChevronUp, Eye,
   Layers, ImageIcon, Camera, Brush, Box, Droplets, Film, LayoutGrid,
-  Facebook, Instagram, Linkedin, Twitter, Globe, MapPin, Youtube, Mail, MessageCircle, Music2, AtSign, Star
+  Facebook, Instagram, Linkedin, Twitter, Globe, MapPin, Youtube, Mail, MessageCircle, Music2, AtSign, Star,
+  Type, AlignCenter, AlignLeft, AlignRight, Quote
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -45,7 +46,13 @@ import {
   AspectRatioOption,
   ImageStylePreset,
 } from '@/hooks/useAutoImageGeneration';
-import { useSocialImageGeneration, IMAGE_STYLE_PRESETS } from '@/hooks/useSocialImageGeneration';
+import { 
+  useSocialImageGeneration, 
+  IMAGE_STYLE_PRESETS,
+  type ImageContentType,
+  type TextPosition,
+  type TypographyStyle,
+} from '@/hooks/useSocialImageGeneration';
 import { CHANNEL_OPTIMAL_ASPECT_RATIO, getChannelImageSpec } from '@/config/channelImageConfig';
 import { ImageErrorBoundary } from '@/components/image/ImageErrorBoundary';
 import { cn } from '@/lib/utils';
@@ -232,6 +239,12 @@ export function UnifiedImageGenerator({
   const [advancedMode, setAdvancedMode] = useState(false);
   const [showPromptPreview, setShowPromptPreview] = useState(false);
   
+  // NEW: Social Graphics (text-in-image) state
+  const [imageContentType, setImageContentType] = useState<ImageContentType>('background_only');
+  const [textToInclude, setTextToInclude] = useState<string>('');
+  const [textPosition, setTextPosition] = useState<TextPosition>('center');
+  const [typographyStyle, setTypographyStyle] = useState<TypographyStyle>('modern');
+  
   // Batch mode state
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(content?.selected_channels ?? []);
   const [regeneratingChannel, setRegeneratingChannel] = useState<Channel | null>(null);
@@ -309,6 +322,19 @@ export function UnifiedImageGenerator({
       );
       setCustomPrompt(autoPrompt);
       setSingleGeneratedUrl(null);
+      
+      // Auto-fill text from hook's text_overlay if available
+      const contentAny = content as any;
+      const selectedHooks = contentAny.selected_hooks as any[] | null;
+      const channelHook = selectedHooks?.find((h: any) => h.channel === singleChannel);
+      if (channelHook?.text_overlay) {
+        setTextToInclude(channelHook.text_overlay);
+      } else if (contentAny.global_hook?.text_overlay) {
+        setTextToInclude(contentAny.global_hook.text_overlay);
+      } else if (hookData.hookMessage) {
+        // Use hook message as fallback for text
+        setTextToInclude(hookData.hookMessage);
+      }
     }
   }, [open, mode, singleChannel, content, brandPrimaryColor, brandIndustry]);
 
@@ -384,11 +410,16 @@ export function UnifiedImageGenerator({
       brandTemplateId: content.brand_template_id,
       imageStylePreset: imageStyle === 'auto' ? undefined : imageStyle,
       negativePrompt: negativePrompt.trim() || undefined,
-      // New: Pass strategic context for more relevant images
+      // Pass strategic context for more relevant images
       contentRole: contentAny.content_role,
       contentAngle: contentAny.content_angle,
       hookMessage: hookData.hookMessage,
       hookType: hookData.hookType,
+      // NEW: Pass text-in-image params for Social Graphics
+      imageContentType,
+      textToInclude: imageContentType === 'with_text' ? textToInclude : undefined,
+      textPosition: imageContentType === 'with_text' ? textPosition : undefined,
+      typographyStyle: imageContentType === 'with_text' ? typographyStyle : undefined,
     });
 
     if (imageUrl) {
@@ -713,7 +744,171 @@ export function UnifiedImageGenerator({
                   content={content}
                   getHookForChannel={getHookForChannel}
                   CHANNEL_CONFIG={CHANNEL_CONFIG}
+                  // NEW: Pass text-in-image params for preview
+                  imageContentType={imageContentType}
+                  textToInclude={textToInclude}
+                  textPosition={textPosition}
+                  typographyStyle={typographyStyle}
                 />
+
+                {/* NEW: Image Content Type Selection (Social Graphics) */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium flex items-center gap-2">
+                    <Type className="w-4 h-4" />
+                    Loại ảnh
+                  </Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setImageContentType('background_only')}
+                      className={cn(
+                        "p-4 rounded-xl border-2 text-left transition-all duration-200",
+                        imageContentType === 'background_only' 
+                          ? "border-primary bg-primary/5 shadow-sm" 
+                          : "border-border/50 hover:border-primary/40 hover:bg-muted/30"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-10 h-10 rounded-lg flex items-center justify-center mb-2",
+                        imageContentType === 'background_only' ? "bg-primary/10" : "bg-muted"
+                      )}>
+                        <ImageIcon className={cn(
+                          "w-5 h-5",
+                          imageContentType === 'background_only' ? "text-primary" : "text-muted-foreground"
+                        )} />
+                      </div>
+                      <div className="font-medium text-sm">Ảnh nền</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Không có text, phù hợp để overlay sau
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={() => setImageContentType('with_text')}
+                      className={cn(
+                        "p-4 rounded-xl border-2 text-left transition-all duration-200",
+                        imageContentType === 'with_text' 
+                          ? "border-primary bg-primary/5 shadow-sm" 
+                          : "border-border/50 hover:border-primary/40 hover:bg-muted/30"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-10 h-10 rounded-lg flex items-center justify-center mb-2",
+                        imageContentType === 'with_text' ? "bg-primary/10" : "bg-muted"
+                      )}>
+                        <Type className={cn(
+                          "w-5 h-5",
+                          imageContentType === 'with_text' ? "text-primary" : "text-muted-foreground"
+                        )} />
+                      </div>
+                      <div className="font-medium text-sm">Social Graphic</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Có hook/quote hiển thị trên ảnh
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Text options when with_text selected */}
+                  {imageContentType === 'with_text' && (
+                    <div className="space-y-3 p-4 bg-gradient-to-r from-orange-500/5 to-transparent rounded-xl border border-orange-500/20">
+                      <div className="space-y-2">
+                        <Label className="text-sm flex items-center gap-2">
+                          <Quote className="w-3.5 h-3.5 text-orange-600" />
+                          Text hiển thị trên ảnh
+                        </Label>
+                        <Textarea
+                          value={textToInclude}
+                          onChange={(e) => setTextToInclude(e.target.value)}
+                          placeholder="Nhập text hoặc sử dụng hook message..."
+                          rows={2}
+                          className="resize-none text-sm"
+                        />
+                        {getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0])?.hookMessage && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs gap-1.5 h-7 text-orange-600 hover:text-orange-700 hover:bg-orange-500/10"
+                            onClick={() => {
+                              const hookData = getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0]);
+                              if (hookData.hookMessage) {
+                                setTextToInclude(hookData.hookMessage);
+                              }
+                            }}
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            Dùng Hook message
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Vị trí text</Label>
+                          <Select 
+                            value={textPosition} 
+                            onValueChange={(v) => setTextPosition(v as TextPosition)}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="center">
+                                <div className="flex items-center gap-2">
+                                  <AlignCenter className="w-3.5 h-3.5" />
+                                  Giữa ảnh
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="top">
+                                <div className="flex items-center gap-2">
+                                  <AlignLeft className="w-3.5 h-3.5" />
+                                  Phía trên
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="bottom">
+                                <div className="flex items-center gap-2">
+                                  <AlignRight className="w-3.5 h-3.5" />
+                                  Phía dưới
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="top-left">Góc trên trái</SelectItem>
+                              <SelectItem value="bottom-right">Góc dưới phải</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Typography</Label>
+                          <Select 
+                            value={typographyStyle} 
+                            onValueChange={(v) => setTypographyStyle(v as TypographyStyle)}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="modern">Modern (Sans)</SelectItem>
+                              <SelectItem value="classic">Classic (Serif)</SelectItem>
+                              <SelectItem value="bold">Bold (Impact)</SelectItem>
+                              <SelectItem value="minimal">Minimal (Thin)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Text Preview */}
+                      {textToInclude && (
+                        <div className="p-3 rounded-lg bg-background/50 border border-dashed border-orange-500/30">
+                          <p className="text-xs text-muted-foreground mb-1">Preview:</p>
+                          <p className="text-sm font-medium text-foreground leading-relaxed">
+                            "{textToInclude}"
+                          </p>
+                          <p className="text-[11px] text-muted-foreground mt-2">
+                            Vị trí: {textPosition} • Style: {typographyStyle}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 {/* AI Style Suggestions */}
                 {styleSuggestions.length > 0 && (

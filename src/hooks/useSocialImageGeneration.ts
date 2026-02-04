@@ -61,6 +61,15 @@ export type ContentAngle =
   | 'behind_the_scenes' 
   | 'qa_faq';
 
+// NEW: Image Content Type - background only vs with text
+export type ImageContentType = 'background_only' | 'with_text';
+
+// NEW: Text positioning options
+export type TextPosition = 'center' | 'top' | 'bottom' | 'top-left' | 'bottom-right';
+
+// NEW: Typography style options
+export type TypographyStyle = 'modern' | 'classic' | 'bold' | 'minimal';
+
 interface GenerateImageParams {
   prompt: string;
   contentId?: string;
@@ -78,6 +87,11 @@ interface GenerateImageParams {
   contentAngle?: ContentAngle;
   hookMessage?: string;
   hookType?: string;
+  // NEW: Text-in-image params for Social Graphics
+  imageContentType?: ImageContentType;
+  textToInclude?: string;
+  textPosition?: TextPosition;
+  typographyStyle?: TypographyStyle;
 }
 
 export function useSocialImageGeneration() {
@@ -96,6 +110,11 @@ export function useSocialImageGeneration() {
     contentAngle,
     hookMessage,
     hookType,
+    // NEW: Text-in-image params
+    imageContentType,
+    textToInclude,
+    textPosition,
+    typographyStyle,
   }: GenerateImageParams): Promise<string | null> => {
     if (channel) {
       setGenerating(channel);
@@ -103,6 +122,7 @@ export function useSocialImageGeneration() {
 
     try {
       console.log(`[useSocialImageGeneration] Generating for ${channel || 'generic'} via generate-brand-image`);
+      console.log(`[useSocialImageGeneration] Image content type: ${imageContentType || 'background_only'}`);
 
       // Call generate-brand-image with enhanced params
       const { data, error } = await supabase.functions.invoke('generate-brand-image', {
@@ -114,11 +134,16 @@ export function useSocialImageGeneration() {
           aspectRatio,
           imageStylePreset,
           negativePrompt,
-          // New: Strategic content params
+          // Strategic content params
           contentRole,
           contentAngle,
           hookMessage,
           hookType,
+          // NEW: Text-in-image params for Social Graphics
+          imageContentType,
+          textToInclude,
+          textPosition,
+          typographyStyle,
         },
       });
 
