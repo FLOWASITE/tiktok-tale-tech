@@ -1,102 +1,173 @@
 
-# Kế hoạch: Sửa lỗi Text không hiển thị trên ảnh Social Graphics
 
-## Phân tích vấn đề
+# Kế hoạch: Triển khai Canvas API Text Overlay - 100% Accuracy
 
-### Logs phát hiện
+## Tổng quan vấn đề
+
+### Hiện trạng
+- Edge function `overlay-text-canvas` đang dùng **ImageScript** nhưng thư viện này **KHÔNG có native text rendering**
+- Chỉ vẽ được background block, text không được render
+- Frontend đã có toggle `useCanvasFallback` và logic gọi function nhưng text không xuất hiện
+
+### Giải pháp
+Thay thế ImageScript bằng **`og_edge`** - thư viện được Supabase chính thức khuyến nghị cho việc render text/image. Hỗ trợ:
+- Custom fonts (Google Fonts)
+- Flexbox layout
+- Text styling (color, size, weight)
+- Background styling
+
+## Kiến trúc mới
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│                    Frontend Toggle                            │
+│         [✓] Canvas Fallback - 100% text accuracy             │
+└───────────────────────────┬──────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│              generate-brand-image (Bước 1)                   │
+│   Tạo ảnh nền (background_only) không có text                │
+└───────────────────────────┬──────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│              overlay-text-canvas (Bước 2) - UPGRADED         │
+│   1. Fetch ảnh nền từ URL                                    │
+│   2. Load Google Font (Be Vietnam Pro - font Việt Nam)       │
+│   3. Render text overlay dùng og_edge ImageResponse          │
+│   4. Return ảnh cuối cùng với text chính xác 100%            │
+└───────────────────────────────────────────────────────────────┘
 ```
-2026-02-04T08:29:44Z INFO [generate-brand-image] Image content type: with_text
-```
-**Nhưng KHÔNG có log:**
-```
-[generate-brand-image] Text to include: "..."
-```
 
-Điều này nghĩa là backend nhận được `imageContentType: 'with_text'` nhưng `textToInclude` là **undefined hoặc empty string**.
+## Chi tiết kỹ thuật
 
-### Nguyên nhân gốc
+### 1. Cập nhật Edge Function `overlay-text-canvas`
 
-Khi user chọn chế độ "Ảnh có text" (Social Graphics) nhưng **chưa nhập text vào ô textarea**, frontend vẫn gửi `imageContentType: 'with_text'` kèm `textToInclude: ''` (empty string).
+Thay thế hoàn toàn implementation cũ bằng `og_edge`:
 
-Backend xử lý:
+**Thư viện mới:**
+- `og_edge@0.0.4` - Render text/image chính thức từ Supabase docs
+- React JSX để định nghĩa layout
+- Google Fonts loading cho tiếng Việt (Be Vietnam Pro)
+
+**Các tính năng:**
+- **Position**: center, top, bottom, top-left, bottom-right
+- **Typography**: modern, classic, bold, minimal → map sang font styles
+- **Text color**: Tự động contrast với background
+- **Background overlay**: Semi-transparent cho readability
+- **Word wrap**: Tự động wrap text dài
+
+### 2. File cần thay đổi
+
+| File | Thay đổi |
+|------|----------|
+| `supabase/functions/overlay-text-canvas/index.ts` | Viết lại hoàn toàn dùng og_edge |
+| `supabase/functions/overlay-text-canvas/handler.tsx` | Mới - React component cho ImageResponse |
+
+### 3. Logic xử lý chi tiết
+
+**Bước 1: Load Google Font**
 ```typescript
-// Dòng 628 trong image-prompt-builder.ts
-const isWithText = imageContentType === 'with_text' && textToInclude;
-```
-
-Vì `textToInclude` là empty string (falsy), nên `isWithText = false` → prompt builder **không thêm section text vào prompt**.
-
-## Giải pháp
-
-### 1. Thêm validation trước khi generate
-
-Khi user chọn "Ảnh có text" nhưng chưa nhập text:
-- Hiển thị cảnh báo toast
-- Không cho phép generate
-- Hoặc auto-fill từ hook message
-
-### 2. Auto-fill text từ Hook khi bật chế độ Social Graphics
-
-Khi user chuyển từ "Ảnh nền" sang "Có text", tự động điền text từ hook message nếu có.
-
-### 3. Thêm visual indicator yêu cầu nhập text
-
-Khi textarea trống và đang ở chế độ "Có text":
-- Hiển thị border đỏ
-- Placeholder rõ ràng hơn
-
-## Chi tiết thay đổi
-
-### File: `src/components/multichannel/UnifiedImageGenerator.tsx`
-
-#### Thay đổi 1: Auto-fill text khi chuyển sang chế độ Social Graphics
-```typescript
-// Khi setImageContentType('with_text'), tự động điền hook nếu textToInclude rỗng
-const handleImageContentTypeChange = (type: ImageContentType) => {
-  setImageContentType(type);
-  if (type === 'with_text' && !textToInclude) {
-    // Auto-fill từ hook
-    const hookData = getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0]);
-    if (hookData.hookMessage) {
-      setTextToInclude(hookData.hookMessage);
-      toast.info('Đã tự động điền text từ Hook. Bạn có thể chỉnh sửa.');
-    }
+async function loadGoogleFont(text: string): Promise<ArrayBuffer> {
+  const font = 'Be+Vietnam+Pro:wght@400;600;700';
+  const url = `https://fonts.googleapis.com/css2?family=${font}&text=${encodeURIComponent(text)}`;
+  const css = await (await fetch(url)).text();
+  const resource = css.match(/src: url\((.+)\) format\('(opentype|truetype)'\)/);
+  if (resource) {
+    const response = await fetch(resource[1]);
+    return await response.arrayBuffer();
   }
-};
-```
-
-#### Thay đổi 2: Validation trước khi generate
-```typescript
-// Trong handleSingleGenerate và handleBatchGenerate
-if (imageContentType === 'with_text' && !textToInclude.trim()) {
-  toast.error('Vui lòng nhập text để hiển thị trên ảnh');
-  return;
+  throw new Error('Failed to load font');
 }
 ```
 
-#### Thay đổi 3: Visual indicator khi chưa nhập text
+**Bước 2: Position Mapping**
 ```typescript
-<Textarea
-  className={cn(
-    "resize-none text-xs",
-    imageContentType === 'with_text' && !textToInclude.trim() 
-      && "border-orange-500 focus:border-orange-500"
-  )}
-  // ...
-/>
-{imageContentType === 'with_text' && !textToInclude.trim() && (
-  <p className="text-xs text-orange-600">⚠️ Vui lòng nhập text để hiển thị trên ảnh</p>
-)}
+const POSITION_STYLES: Record<TextPosition, React.CSSProperties> = {
+  'center': { alignItems: 'center', justifyContent: 'center' },
+  'top': { alignItems: 'center', justifyContent: 'flex-start', paddingTop: 60 },
+  'bottom': { alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 60 },
+  'top-left': { alignItems: 'flex-start', justifyContent: 'flex-start', padding: 60 },
+  'bottom-right': { alignItems: 'flex-end', justifyContent: 'flex-end', padding: 60 },
+};
 ```
 
-## Kiểm tra bổ sung
+**Bước 3: Typography Mapping**
+```typescript
+const TYPOGRAPHY_STYLES: Record<TypographyStyle, { fontWeight: number; letterSpacing: string; textTransform?: string }> = {
+  'modern': { fontWeight: 600, letterSpacing: '-0.02em' },
+  'classic': { fontWeight: 400, letterSpacing: '0.02em' },
+  'bold': { fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' },
+  'minimal': { fontWeight: 300, letterSpacing: '0.1em', textTransform: 'uppercase' },
+};
+```
 
-Cũng cần kiểm tra:
-1. Batch mode với `useSharedText = false`: đảm bảo `textsPerChannel` không rỗng
-2. Gửi log chi tiết hơn từ frontend để debug
+**Bước 4: Composite với background image**
+```typescript
+return new ImageResponse(
+  (
+    <div style={{ 
+      width: '100%', 
+      height: '100%', 
+      display: 'flex',
+      backgroundImage: `url(${baseImageUrl})`,
+      backgroundSize: 'cover',
+      ...POSITION_STYLES[position]
+    }}>
+      <div style={{
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        padding: '20px 40px',
+        borderRadius: 12,
+        ...TYPOGRAPHY_STYLES[typographyStyle],
+      }}>
+        <span style={{ color: textColor, fontSize }}>{text}</span>
+      </div>
+    </div>
+  ),
+  { width: imageWidth, height: imageHeight, fonts }
+);
+```
+
+### 4. Xử lý đặc biệt
+
+**Vietnamese Font Support:**
+- Sử dụng "Be Vietnam Pro" từ Google Fonts
+- Font hỗ trợ đầy đủ ký tự tiếng Việt với dấu
+
+**Auto Font Size:**
+- Tự động scale font size dựa trên độ dài text và kích thước ảnh
+- Text ngắn (<20 chars): 48-64px
+- Text trung bình (20-50 chars): 32-48px
+- Text dài (>50 chars): 24-32px
+
+**Background Overlay:**
+- Semi-transparent black/white tùy theo contrast
+- Rounded corners cho style hiện đại
+- Padding dynamic theo text length
+
+### 5. Cấu trúc file mới
+
+```text
+supabase/functions/overlay-text-canvas/
+├── index.ts        # Main handler, validate input
+├── handler.tsx     # React component for ImageResponse
+└── utils.ts        # Font loading, position helpers
+```
 
 ## Lợi ích
 
-1. **Ngăn user tạo ảnh "Có text" mà không có text** - Hiển thị lỗi rõ ràng
-2. **UX tốt hơn** - Auto-fill từ hook giúp user không cần copy/paste
-3. **Visual feedback** - Người dùng biết cần nhập text
+1. **100% Text Accuracy** - Text được render chính xác từng ký tự
+2. **Vietnamese Support** - Font Be Vietnam Pro hỗ trợ đầy đủ tiếng Việt
+3. **Consistent Styling** - Typography styles giống preview trên UI
+4. **No AI Hallucination** - Không phụ thuộc AI để render text
+5. **Fast & Reliable** - Thời gian xử lý < 2 giây
+
+## Testing Plan
+
+1. Test với text ngắn tiếng Việt: "Giảm 50%"
+2. Test với text dài: "Khám phá bí mật làm đẹp từ thiên nhiên"
+3. Test tất cả 5 positions
+4. Test tất cả 4 typography styles
+5. Verify ảnh output có text rõ ràng, đúng vị trí
+
