@@ -1,6 +1,6 @@
+import satori from "https://esm.sh/satori@0.10.14";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,261 +15,123 @@ interface OverlayTextRequest {
   text: string;
   position?: TextPosition;
   typographyStyle?: TypographyStyle;
-  textColor?: string; // Hex color e.g. "#FFFFFF"
-  backgroundColor?: string; // Hex color for text background/shadow
-  fontSize?: number; // Font size as percentage of image height (default 5%)
-  padding?: number; // Padding from edges in pixels (default 40)
+  textColor?: string;
+  backgroundColor?: string;
+  fontSize?: number;
+  padding?: number;
   contentId?: string;
   channel?: string;
   organizationId?: string;
+  imageWidth?: number;
+  imageHeight?: number;
 }
 
-/**
- * Parse hex color to RGBA
- */
-function hexToRgba(hex: string, alpha = 255): number {
-  const cleanHex = hex.replace('#', '');
-  const r = parseInt(cleanHex.substring(0, 2), 16);
-  const g = parseInt(cleanHex.substring(2, 4), 16);
-  const b = parseInt(cleanHex.substring(4, 6), 16);
-  return Image.rgbaToColor(r, g, b, alpha);
-}
-
-/**
- * Fetch image as Uint8Array
- */
-async function fetchImageBytes(url: string): Promise<Uint8Array> {
-  if (url.startsWith('data:')) {
-    const base64Data = url.split(',')[1];
-    const binaryString = atob(base64Data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-  }
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch image: ${response.status}`);
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-  return new Uint8Array(arrayBuffer);
-}
-
-/**
- * Calculate text position
- */
-function calculateTextPosition(
-  imgWidth: number,
-  imgHeight: number,
-  textWidth: number,
-  textHeight: number,
-  position: TextPosition,
-  padding: number
-): { x: number; y: number } {
+// Position styles mapping (Flexbox)
+function getPositionStyles(position: TextPosition): Record<string, string | number> {
   switch (position) {
     case 'top':
-      return { 
-        x: Math.floor((imgWidth - textWidth) / 2), 
-        y: padding 
-      };
+      return { alignItems: 'center', justifyContent: 'flex-start', paddingTop: 60 };
     case 'bottom':
-      return { 
-        x: Math.floor((imgWidth - textWidth) / 2), 
-        y: imgHeight - textHeight - padding 
-      };
+      return { alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 60 };
     case 'top-left':
-      return { 
-        x: padding, 
-        y: padding 
-      };
+      return { alignItems: 'flex-start', justifyContent: 'flex-start', padding: 60 };
     case 'bottom-right':
-      return { 
-        x: imgWidth - textWidth - padding, 
-        y: imgHeight - textHeight - padding 
-      };
+      return { alignItems: 'flex-end', justifyContent: 'flex-end', padding: 60 };
     case 'center':
     default:
-      return { 
-        x: Math.floor((imgWidth - textWidth) / 2), 
-        y: Math.floor((imgHeight - textHeight) / 2) 
-      };
+      return { alignItems: 'center', justifyContent: 'center' };
   }
 }
 
-/**
- * Get typography config based on style
- */
-function getTypographyConfig(style: TypographyStyle): {
-  letterSpacing: number;
-  lineHeight: number;
-  fontWeight: 'normal' | 'bold';
-  textTransform: 'none' | 'uppercase';
+// Typography styles mapping
+function getTypographyStyles(style: TypographyStyle): {
+  fontWeight: number;
+  letterSpacing: string;
+  textTransform: string;
 } {
   switch (style) {
-    case 'bold':
-      return { letterSpacing: 2, lineHeight: 1.2, fontWeight: 'bold', textTransform: 'uppercase' };
     case 'classic':
-      return { letterSpacing: 1, lineHeight: 1.5, fontWeight: 'normal', textTransform: 'none' };
+      return { fontWeight: 400, letterSpacing: '0.02em', textTransform: 'none' };
+    case 'bold':
+      return { fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' };
     case 'minimal':
-      return { letterSpacing: 3, lineHeight: 1.4, fontWeight: 'normal', textTransform: 'uppercase' };
+      return { fontWeight: 400, letterSpacing: '0.1em', textTransform: 'uppercase' };
     case 'modern':
     default:
-      return { letterSpacing: 0, lineHeight: 1.3, fontWeight: 'bold', textTransform: 'none' };
+      return { fontWeight: 600, letterSpacing: '-0.02em', textTransform: 'none' };
   }
 }
 
 /**
- * Word wrap text to fit within maxWidth
+ * Load Google Font with Vietnamese support
  */
-function wrapText(text: string, maxCharsPerLine: number): string[] {
-  const words = text.split(' ');
-  const lines: string[] = [];
-  let currentLine = '';
-
-  for (const word of words) {
-    const testLine = currentLine ? `${currentLine} ${word}` : word;
-    if (testLine.length <= maxCharsPerLine) {
-      currentLine = testLine;
-    } else {
-      if (currentLine) lines.push(currentLine);
-      currentLine = word;
+async function loadGoogleFont(text: string, weight: number = 600): Promise<ArrayBuffer | null> {
+  try {
+    const fontFamily = 'Be+Vietnam+Pro';
+    const encodedText = encodeURIComponent(text);
+    const url = `https://fonts.googleapis.com/css2?family=${fontFamily}:wght@${weight}&text=${encodedText}`;
+    
+    console.log(`[overlay-text-canvas] Loading font...`);
+    
+    const cssResponse = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    if (!cssResponse.ok) {
+      console.error(`[overlay-text-canvas] Font CSS fetch failed: ${cssResponse.status}`);
+      return null;
     }
+    
+    const css = await cssResponse.text();
+    
+    // Extract font URL from CSS
+    const fontUrlMatch = css.match(/url\((https:\/\/fonts\.gstatic\.com[^)]+\.woff2[^)]*)\)/) ||
+                         css.match(/url\((https:\/\/fonts\.gstatic\.com[^)]+)\)/);
+    
+    if (!fontUrlMatch) {
+      console.error('[overlay-text-canvas] Could not extract font URL');
+      return null;
+    }
+    
+    const fontUrl = fontUrlMatch[1];
+    console.log(`[overlay-text-canvas] Fetching font...`);
+    
+    const fontResponse = await fetch(fontUrl);
+    if (!fontResponse.ok) {
+      console.error(`[overlay-text-canvas] Font fetch failed: ${fontResponse.status}`);
+      return null;
+    }
+    
+    const fontData = await fontResponse.arrayBuffer();
+    console.log(`[overlay-text-canvas] Font loaded: ${fontData.byteLength} bytes`);
+    return fontData;
+  } catch (error) {
+    console.error(`[overlay-text-canvas] Font loading error:`, error);
+    return null;
   }
-  if (currentLine) lines.push(currentLine);
-
-  return lines;
 }
 
 /**
- * Draw text overlay using pixel manipulation (ImageScript doesn't have native text)
- * This creates a simple block/badge overlay as fallback
+ * Calculate dynamic font size based on text length and image dimensions
  */
-async function overlayTextBlock(
-  baseImageBytes: Uint8Array,
-  text: string,
-  position: TextPosition,
-  typographyStyle: TypographyStyle,
-  textColorHex: string,
-  bgColorHex: string,
-  fontSizePercent: number,
-  padding: number
-): Promise<Uint8Array> {
-  console.log(`[overlay-text-canvas] Decoding base image...`);
-  const img = await Image.decode(baseImageBytes);
-  console.log(`[overlay-text-canvas] Image dimensions: ${img.width}x${img.height}`);
-
-  const config = getTypographyConfig(typographyStyle);
+function calculateFontSize(textLength: number, imageWidth: number, imageHeight: number): number {
+  const baseSize = Math.min(imageWidth, imageHeight) * 0.08;
   
-  // Transform text if needed
-  const displayText = config.textTransform === 'uppercase' ? text.toUpperCase() : text;
-  
-  // Calculate approximate text dimensions
-  // Using character-based estimation since ImageScript doesn't have font metrics
-  const charWidth = Math.floor(img.height * (fontSizePercent / 100) * 0.6);
-  const charHeight = Math.floor(img.height * (fontSizePercent / 100));
-  
-  // Wrap text to fit ~60% of image width
-  const maxCharsPerLine = Math.floor((img.width * 0.6) / charWidth);
-  const lines = wrapText(displayText, Math.max(maxCharsPerLine, 10));
-  
-  // Calculate block dimensions
-  const maxLineLength = Math.max(...lines.map(l => l.length));
-  const blockWidth = Math.floor(maxLineLength * charWidth) + padding * 2;
-  const blockHeight = Math.floor(lines.length * charHeight * config.lineHeight) + padding * 2;
-  
-  // Calculate position
-  const { x, y } = calculateTextPosition(
-    img.width,
-    img.height,
-    blockWidth,
-    blockHeight,
-    position,
-    padding
-  );
-  
-  console.log(`[overlay-text-canvas] Block: ${blockWidth}x${blockHeight} at (${x}, ${y})`);
-  console.log(`[overlay-text-canvas] Lines: ${lines.length}, Text: "${displayText.substring(0, 30)}..."`);
-
-  // Draw semi-transparent background block
-  const bgColor = hexToRgba(bgColorHex, 180); // 70% opacity
-  
-  // Draw rounded rectangle background
-  const cornerRadius = Math.min(20, Math.floor(blockHeight / 4));
-  
-  for (let py = 0; py < blockHeight; py++) {
-    for (let px = 0; px < blockWidth; px++) {
-      const imgX = x + px;
-      const imgY = y + py;
-      
-      // Skip if outside image bounds
-      if (imgX < 0 || imgX >= img.width || imgY < 0 || imgY >= img.height) continue;
-      
-      // Check if pixel is within rounded rectangle
-      let inRect = true;
-      
-      // Check corners
-      if (px < cornerRadius && py < cornerRadius) {
-        // Top-left corner
-        const dx = cornerRadius - px;
-        const dy = cornerRadius - py;
-        inRect = (dx * dx + dy * dy) <= cornerRadius * cornerRadius;
-      } else if (px >= blockWidth - cornerRadius && py < cornerRadius) {
-        // Top-right corner
-        const dx = px - (blockWidth - cornerRadius - 1);
-        const dy = cornerRadius - py;
-        inRect = (dx * dx + dy * dy) <= cornerRadius * cornerRadius;
-      } else if (px < cornerRadius && py >= blockHeight - cornerRadius) {
-        // Bottom-left corner
-        const dx = cornerRadius - px;
-        const dy = py - (blockHeight - cornerRadius - 1);
-        inRect = (dx * dx + dy * dy) <= cornerRadius * cornerRadius;
-      } else if (px >= blockWidth - cornerRadius && py >= blockHeight - cornerRadius) {
-        // Bottom-right corner
-        const dx = px - (blockWidth - cornerRadius - 1);
-        const dy = py - (blockHeight - cornerRadius - 1);
-        inRect = (dx * dx + dy * dy) <= cornerRadius * cornerRadius;
-      }
-      
-      if (inRect) {
-        // Blend background color with existing pixel
-        const existingColor = img.getPixelAt(imgX + 1, imgY + 1);
-        const existingR = (existingColor >> 24) & 0xFF;
-        const existingG = (existingColor >> 16) & 0xFF;
-        const existingB = (existingColor >> 8) & 0xFF;
-        
-        const bgR = (bgColor >> 24) & 0xFF;
-        const bgG = (bgColor >> 16) & 0xFF;
-        const bgB = (bgColor >> 8) & 0xFF;
-        const bgA = (bgColor & 0xFF) / 255;
-        
-        const blendedR = Math.floor(bgR * bgA + existingR * (1 - bgA));
-        const blendedG = Math.floor(bgG * bgA + existingG * (1 - bgA));
-        const blendedB = Math.floor(bgB * bgA + existingB * (1 - bgA));
-        
-        img.setPixelAt(imgX + 1, imgY + 1, Image.rgbaToColor(blendedR, blendedG, blendedB, 255));
-      }
-    }
+  if (textLength < 20) {
+    return Math.min(Math.round(baseSize * 1.2), 64);
+  } else if (textLength < 50) {
+    return Math.min(Math.round(baseSize), 48);
+  } else if (textLength < 100) {
+    return Math.min(Math.round(baseSize * 0.75), 36);
+  } else {
+    return Math.min(Math.round(baseSize * 0.6), 28);
   }
-
-  // Note: ImageScript doesn't have native text rendering
-  // The background block serves as a visual indicator
-  // For actual text, we'd need to use a font rasterization library
-  // or pre-rendered text sprites
-  
-  console.log(`[overlay-text-canvas] Background block drawn successfully`);
-  
-  // Encode result
-  const resultBytes = await img.encode();
-  console.log(`[overlay-text-canvas] Output size: ${resultBytes.length} bytes`);
-  
-  return resultBytes;
 }
 
 /**
- * Upload to storage
+ * Upload to Supabase storage
  */
 async function uploadToStorage(
   imageBytes: Uint8Array,
@@ -283,14 +145,14 @@ async function uploadToStorage(
 
   const timestamp = Date.now();
   const orgPath = organizationId ? `org-${organizationId}` : 'unassigned';
-  const fileName = `social/${orgPath}/${contentId}/${channel}-with-text-${timestamp}.png`;
+  const fileName = `social/${orgPath}/${contentId}/${channel}-with-text-${timestamp}.svg`;
 
   console.log(`[overlay-text-canvas] Uploading to storage: ${fileName}`);
 
   const { error: uploadError } = await supabase.storage
     .from("carousel-images")
     .upload(fileName, imageBytes, {
-      contentType: "image/png",
+      contentType: "image/svg+xml",
       upsert: true,
     });
 
@@ -303,6 +165,68 @@ async function uploadToStorage(
     .getPublicUrl(fileName);
 
   return urlData.publicUrl;
+}
+
+/**
+ * Build the Satori-compatible element tree (plain objects, not JSX)
+ */
+function buildElement(
+  baseImageUrl: string,
+  displayText: string,
+  positionStyles: Record<string, string | number>,
+  typographyConfig: { fontWeight: number; letterSpacing: string },
+  fontSize: number,
+  textColor: string,
+  backgroundColor: string,
+  padding: number,
+  hasCustomFont: boolean,
+  imageWidth: number,
+  imageHeight: number
+) {
+  return {
+    type: 'div',
+    props: {
+      style: {
+        width: imageWidth,
+        height: imageHeight,
+        display: 'flex',
+        backgroundImage: `url(${baseImageUrl})`,
+        backgroundSize: `${imageWidth}px ${imageHeight}px`,
+        backgroundPosition: 'center',
+        ...positionStyles,
+      },
+      children: {
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: backgroundColor,
+            padding: `${padding / 2}px ${padding}px`,
+            borderRadius: 16,
+            maxWidth: '80%',
+          },
+          children: {
+            type: 'span',
+            props: {
+              style: {
+                color: textColor,
+                fontSize: fontSize,
+                fontFamily: hasCustomFont ? 'Be Vietnam Pro' : 'sans-serif',
+                fontWeight: typographyConfig.fontWeight,
+                letterSpacing: typographyConfig.letterSpacing,
+                textAlign: 'center',
+                lineHeight: 1.3,
+              },
+              children: displayText,
+            },
+          },
+        },
+      },
+    },
+  };
 }
 
 serve(async (req) => {
@@ -318,17 +242,21 @@ serve(async (req) => {
       position = 'center',
       typographyStyle = 'modern',
       textColor = '#FFFFFF',
-      backgroundColor = '#000000',
-      fontSize = 5,
+      backgroundColor = 'rgba(0, 0, 0, 0.6)',
       padding = 40,
       contentId,
       channel,
       organizationId,
+      imageWidth = 1200,
+      imageHeight = 630,
     } = body;
 
-    console.log(`[overlay-text-canvas] Request - Text: "${text.substring(0, 30)}...", Position: ${position}, Style: ${typographyStyle}`);
+    console.log(`[overlay-text-canvas] === SATORI TEXT OVERLAY ===`);
+    console.log(`[overlay-text-canvas] Text: "${text.substring(0, 50)}..."`);
+    console.log(`[overlay-text-canvas] Position: ${position}, Style: ${typographyStyle}`);
+    console.log(`[overlay-text-canvas] Dimensions: ${imageWidth}x${imageHeight}`);
 
-    // Validate
+    // Validate inputs
     if (!baseImageUrl) {
       return new Response(
         JSON.stringify({ success: false, error: "Base image URL is required" }),
@@ -343,45 +271,109 @@ serve(async (req) => {
       );
     }
 
-    // Fetch base image
-    const baseImageBytes = await fetchImageBytes(baseImageUrl);
-    console.log(`[overlay-text-canvas] Base image: ${baseImageBytes.length} bytes`);
+    const cleanText = text.trim();
+    const typographyConfig = getTypographyStyles(typographyStyle);
+    const positionStyles = getPositionStyles(position);
+    
+    // Apply text transform
+    const displayText = typographyConfig.textTransform === 'uppercase' 
+      ? cleanText.toUpperCase() 
+      : cleanText;
+    
+    // Calculate font size
+    const fontSize = calculateFontSize(displayText.length, imageWidth, imageHeight);
+    console.log(`[overlay-text-canvas] Font size: ${fontSize}px, Text length: ${displayText.length}`);
+    
+    // Load font for the text
+    const fontData = await loadGoogleFont(displayText, typographyConfig.fontWeight);
+    
+    // Prepare fonts array for Satori
+    type Weight = 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
+    const fonts = fontData ? [{
+      name: 'Be Vietnam Pro',
+      data: fontData,
+      weight: typographyConfig.fontWeight as Weight,
+      style: 'normal' as const,
+    }] : [];
 
-    // Overlay text block
-    const resultBytes = await overlayTextBlock(
-      baseImageBytes,
-      text.trim(),
-      position,
-      typographyStyle,
+    console.log(`[overlay-text-canvas] Generating SVG with Satori...`);
+    
+    // Build the element tree
+    const element = buildElement(
+      baseImageUrl,
+      displayText,
+      positionStyles,
+      typographyConfig,
+      fontSize,
       textColor,
       backgroundColor,
-      fontSize,
-      padding
+      padding,
+      fonts.length > 0,
+      imageWidth,
+      imageHeight
     );
+
+    // Generate SVG using Satori
+    // Satori requires at least one valid font
+    if (fonts.length === 0) {
+      // If no custom font, load a basic fallback
+      console.log(`[overlay-text-canvas] Loading fallback font...`);
+      const fallbackFontData = await loadGoogleFont(displayText, 400);
+      if (fallbackFontData) {
+        fonts.push({
+          name: 'Be Vietnam Pro',
+          data: fallbackFontData,
+          weight: 400 as Weight,
+          style: 'normal' as const,
+        });
+      }
+    }
+    
+    if (fonts.length === 0) {
+      throw new Error('Could not load any fonts');
+    }
+    
+    const svg = await satori(element as any, {
+      width: imageWidth,
+      height: imageHeight,
+      fonts,
+    });
+
+    console.log(`[overlay-text-canvas] SVG generated: ${svg.length} chars`);
+
+    // Convert SVG string to Uint8Array
+    const encoder = new TextEncoder();
+    const svgBytes = encoder.encode(svg);
 
     let finalImageUrl: string;
 
     if (contentId && channel) {
       finalImageUrl = await uploadToStorage(
-        resultBytes,
+        svgBytes,
         contentId,
         channel,
         organizationId
       );
+      console.log(`[overlay-text-canvas] Uploaded to: ${finalImageUrl}`);
     } else {
-      const base64 = btoa(String.fromCharCode(...resultBytes));
-      finalImageUrl = `data:image/png;base64,${base64}`;
+      // Return as base64 data URL
+      const base64 = btoa(svg);
+      finalImageUrl = `data:image/svg+xml;base64,${base64}`;
+      console.log(`[overlay-text-canvas] Returning as base64 data URL`);
     }
 
-    console.log(`[overlay-text-canvas] Success`);
+    console.log(`[overlay-text-canvas] === SUCCESS ===`);
 
     return new Response(
       JSON.stringify({
         success: true,
         imageUrl: finalImageUrl,
-        textRendered: text.trim(),
+        textRendered: displayText,
         position,
         typographyStyle,
+        fontSize,
+        format: 'svg',
+        dimensions: { width: imageWidth, height: imageHeight },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
