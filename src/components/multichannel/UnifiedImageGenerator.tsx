@@ -263,6 +263,7 @@ export function UnifiedImageGenerator({
   });
 
   // Compute style suggestions when brand data available
+  // Note: We don't include imageStyle in deps to avoid infinite loop when auto-selecting
   useEffect(() => {
     const industry = brandTemplate?.industry || brandIndustry;
     const toneOfVoice = brandTemplate?.tone_of_voice as string[] | undefined;
@@ -279,12 +280,17 @@ export function UnifiedImageGenerator({
       setStyleSuggestions(suggestions);
       
       // Auto-select recommended style if currently on 'auto' and we have suggestions
-      if (imageStyle === 'auto' && suggestions.length > 0 && suggestions[0]?.isRecommended) {
-        setImageStyle(suggestions[0].style);
-      }
+      // Use functional update to check current value without adding to deps
+      setImageStyle(currentStyle => {
+        if (currentStyle === 'auto' && suggestions.length > 0 && suggestions[0]?.isRecommended) {
+          return suggestions[0].style;
+        }
+        return currentStyle;
+      });
     } else {
       setStyleSuggestions([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandTemplate, brandIndustry]);
 
   // Auto-generate prompt for single mode
@@ -314,6 +320,20 @@ export function UnifiedImageGenerator({
     return summaries;
   }, [content, selectedChannels]);
 
+  // Hook messages for batch mode - extract for each channel
+  const hookMessages = useMemo(() => {
+    const hooks: Record<Channel, { hookMessage?: string; hookType?: string }> = {} as Record<Channel, { hookMessage?: string; hookType?: string }>;
+    selectedChannels.forEach(ch => {
+      hooks[ch] = getHookForChannel(content, ch);
+    });
+    return hooks;
+  }, [content, selectedChannels]);
+
+  // Extract strategic context from content
+  const contentAny = content as any;
+  const contentRole = contentAny.content_role as 'seed' | 'sprout' | 'harvest' | undefined;
+  const contentAngle = contentAny.content_angle as string | undefined;
+
   const batchOptions = useMemo(() => ({
     contentId: content?.id ?? '',
     brandTemplateId: content?.brand_template_id || '',
@@ -325,7 +345,11 @@ export function UnifiedImageGenerator({
     aspectRatio,
     imageStylePreset: imageStyle === 'auto' ? undefined : imageStyle,
     negativePrompt: negativePrompt.trim() || undefined,
-  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, includeLogo, brandLogoUrl, logoPosition, aspectRatio, imageStyle, negativePrompt]);
+    // Strategic context for content-aware image generation
+    contentRole,
+    contentAngle,
+    hookMessages,
+  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, includeLogo, brandLogoUrl, logoPosition, aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages]);
 
   // Handlers
   const handleBatchGenerate = async () => {
@@ -432,12 +456,14 @@ export function UnifiedImageGenerator({
 
   const handleRegeneratePrompt = () => {
     const contentSummary = getContentSummary(content, singleChannel);
+    const hookData = getHookForChannel(content, singleChannel);
     const autoPrompt = generateAutoPrompt(
       singleChannel,
       contentSummary,
       content.brand_name,
       brandPrimaryColor || undefined,
       brandIndustry,
+      hookData.hookMessage,
     );
     setCustomPrompt(autoPrompt);
   };
@@ -929,7 +955,55 @@ export function UnifiedImageGenerator({
                                 {imageStyle === 'auto' ? 'Tự động' : IMAGE_STYLE_PRESETS[imageStyle]?.label || imageStyle}
                               </p>
                             </div>
+                            {/* Strategic Context: Role */}
+                            {contentRole && (
+                              <div>
+                                <p className="text-muted-foreground">Vai trò</p>
+                                <p className="font-medium capitalize">
+                                  {contentRole === 'seed' ? '🌱 Seed (Nhận diện)' : 
+                                   contentRole === 'sprout' ? '🌿 Sprout (Tin tưởng)' : 
+                                   '🌾 Harvest (Chuyển đổi)'}
+                                </p>
+                              </div>
+                            )}
+                            {/* Strategic Context: Angle */}
+                            {contentAngle && (
+                              <div>
+                                <p className="text-muted-foreground">Góc nhìn</p>
+                                <p className="font-medium capitalize">{contentAngle.replace('_', ' ')}</p>
+                              </div>
+                            )}
                           </div>
+                          {/* Hook Message Preview */}
+                          {mode === 'batch' && Object.values(hookMessages).some(h => h.hookMessage) && (
+                            <div className="pt-2 border-t">
+                              <p className="text-muted-foreground mb-1">Hook messages</p>
+                              <div className="space-y-1">
+                                {selectedChannels.slice(0, 2).map(ch => {
+                                  const hook = hookMessages[ch];
+                                  if (!hook?.hookMessage) return null;
+                                  return (
+                                    <div key={ch} className="flex items-start gap-1.5">
+                                      <span className="text-muted-foreground capitalize">{ch}:</span>
+                                      <span className="font-medium line-clamp-1">{hook.hookMessage.slice(0, 60)}...</span>
+                                    </div>
+                                  );
+                                })}
+                                {selectedChannels.length > 2 && (
+                                  <span className="text-muted-foreground">+{selectedChannels.length - 2} kênh khác</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {mode === 'single' && (() => {
+                            const singleHook = getHookForChannel(content, singleChannel);
+                            return singleHook.hookMessage ? (
+                              <div className="pt-2 border-t">
+                                <p className="text-muted-foreground">Hook message</p>
+                                <p className="font-medium text-primary/90">"{singleHook.hookMessage.slice(0, 80)}{singleHook.hookMessage.length > 80 ? '...' : ''}"</p>
+                              </div>
+                            ) : null;
+                          })()}
                           {negativePrompt && (
                             <div className="pt-2 border-t">
                               <p className="text-muted-foreground">Negative</p>

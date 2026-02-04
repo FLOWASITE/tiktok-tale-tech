@@ -26,6 +26,10 @@ export interface AutoGenerateOptions {
   aspectRatio?: AspectRatioOption;
   imageStylePreset?: ImageStylePreset;
   negativePrompt?: string;
+  // Strategic content context for more relevant images
+  contentRole?: 'seed' | 'sprout' | 'harvest';
+  contentAngle?: string;
+  hookMessages?: Record<Channel, { hookMessage?: string; hookType?: string }>;
 }
 
 export interface GeneratedImage {
@@ -69,9 +73,17 @@ export function useAutoImageGeneration() {
     options: AutoGenerateOptions,
     maxRetries = 2
   ): Promise<GeneratedImage | null> => {
-    const { contentId, brandTemplateId, contentSummaries, includeLogo, logoPosition, logoUrl, aspectRatio = '16:9', imageStylePreset, negativePrompt } = options;
+    const { 
+      contentId, brandTemplateId, contentSummaries, includeLogo, logoPosition, logoUrl, 
+      aspectRatio = '16:9', imageStylePreset, negativePrompt,
+      // Strategic context for more relevant images
+      contentRole, contentAngle, hookMessages,
+    } = options;
     
     const channelAspectRatio = getAspectRatioForChannel(channel, aspectRatio);
+    
+    // Get hook for this specific channel
+    const channelHook = hookMessages?.[channel];
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -84,9 +96,9 @@ export function useAutoImageGeneration() {
         setProgress(prev => ({ ...prev, [channel]: 'generating' }));
         setProgressTimes(prev => ({ ...prev, [channel]: startTime }));
         
-        console.log(`[useAutoImageGeneration] Generating image for ${channel} with aspect ratio ${channelAspectRatio}, style: ${imageStylePreset || 'default'}`);
+        console.log(`[useAutoImageGeneration] Generating image for ${channel} with aspect ratio ${channelAspectRatio}, style: ${imageStylePreset || 'default'}, role: ${contentRole || 'none'}`);
 
-        // Step 1: Generate base image with brand colors and optional style preset
+        // Step 1: Generate base image with brand colors, style preset, and strategic context
         const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-brand-image', {
           body: {
             contentId,
@@ -96,6 +108,11 @@ export function useAutoImageGeneration() {
             aspectRatio: channelAspectRatio,
             imageStylePreset,
             negativePrompt,
+            // Strategic context for content-aware generation
+            contentRole,
+            contentAngle,
+            hookMessage: channelHook?.hookMessage,
+            hookType: channelHook?.hookType,
           },
         });
 
