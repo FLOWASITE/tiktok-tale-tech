@@ -15,73 +15,93 @@ import { ImageStylePreset } from '@/hooks/useSocialImageGeneration';
 // ============================================
 
 const INDUSTRY_STYLE_MAP: Record<string, ImageStylePreset[]> = {
-  // Beauty & Fashion
-  beauty: ['minimalist', 'cinematic'],
-  skincare: ['minimalist', 'photorealistic'],
-  fashion: ['cinematic', 'photorealistic'],
-  cosmetics: ['minimalist', 'cinematic'],
-  makeup: ['minimalist', 'cinematic'],
-  haircare: ['photorealistic', 'minimalist'],
-  wellness: ['minimalist', 'watercolor', 'gradient'],
-  spa: ['minimalist', 'watercolor', 'gradient'],
+  // Beauty & Fashion - MORE DIVERSE OPTIONS
+  beauty: ['cinematic', 'watercolor', 'gradient', 'minimalist'],
+  skincare: ['watercolor', 'gradient', 'minimalist', 'photorealistic'],
+  fashion: ['cinematic', 'abstract', 'geometric', 'minimalist'],
+  cosmetics: ['gradient', 'cinematic', 'abstract', 'minimalist'],
+  makeup: ['cinematic', 'watercolor', 'gradient', 'abstract'],
+  haircare: ['watercolor', 'cinematic', 'gradient', 'photorealistic'],
+  wellness: ['watercolor', 'gradient', 'abstract', 'minimalist'],
+  spa: ['watercolor', 'gradient', 'minimalist', 'abstract'],
+  perfume: ['gradient', 'abstract', 'cinematic', 'minimalist'],
+  jewelry: ['cinematic', 'minimalist', 'gradient', 'product_only'],
   
-  // Technology - updated with isometric, geometric
-  technology: ['isometric', '3d_render', 'flat_design'],
-  tech: ['isometric', '3d_render', 'geometric'],
-  saas: ['isometric', 'flat_design', 'gradient'],
-  software: ['isometric', 'flat_design', 'geometric'],
-  ai: ['abstract', '3d_render', 'gradient'],
-  fintech: ['minimalist', 'flat_design', 'isometric'],
+  // Lifestyle & Home
+  lifestyle: ['cinematic', 'watercolor', 'gradient', 'photorealistic'],
+  interior: ['minimalist', 'photorealistic', 'cinematic', 'isometric'],
+  furniture: ['minimalist', 'product_only', 'isometric', 'photorealistic'],
+  decor: ['watercolor', 'minimalist', 'gradient', 'photorealistic'],
   
-  // Food & Beverage
-  food: ['photorealistic', 'watercolor'],
-  restaurant: ['photorealistic', 'cinematic'],
-  beverage: ['photorealistic', 'minimalist'],
-  cafe: ['photorealistic', 'watercolor'],
-  bakery: ['watercolor', 'photorealistic'],
-  fnb: ['photorealistic', 'cinematic'],
+  // Technology - diverse tech aesthetics
+  technology: ['isometric', 'geometric', '3d_render', 'gradient'],
+  tech: ['isometric', 'abstract', 'geometric', '3d_render'],
+  saas: ['isometric', 'gradient', 'flat_design', 'geometric'],
+  software: ['isometric', 'geometric', 'flat_design', 'abstract'],
+  ai: ['abstract', 'gradient', '3d_render', 'geometric'],
+  fintech: ['geometric', 'isometric', 'minimalist', 'gradient'],
+  startup: ['gradient', 'isometric', 'flat_design', 'abstract'],
+  app: ['flat_design', 'isometric', 'gradient', '3d_render'],
+  
+  // Food & Beverage - artistic options
+  food: ['photorealistic', 'watercolor', 'cinematic', 'product_only'],
+  restaurant: ['cinematic', 'photorealistic', 'watercolor'],
+  beverage: ['gradient', 'photorealistic', 'minimalist', 'product_only'],
+  cafe: ['watercolor', 'photorealistic', 'cinematic', 'illustration'],
+  bakery: ['watercolor', 'illustration', 'photorealistic', 'gradient'],
+  fnb: ['cinematic', 'photorealistic', 'watercolor'],
+  coffee: ['watercolor', 'cinematic', 'photorealistic', 'minimalist'],
   
   // Professional Services
-  finance: ['minimalist', 'photorealistic', 'geometric'],
-  banking: ['minimalist', 'photorealistic', 'geometric'],
-  healthcare: ['photorealistic', 'minimalist'],
-  medical: ['photorealistic', 'minimalist'],
-  education: ['illustration', 'flat_design', 'isometric'],
-  consulting: ['minimalist', 'photorealistic'],
-  legal: ['minimalist', 'photorealistic'],
-  insurance: ['minimalist', 'photorealistic'],
+  finance: ['geometric', 'minimalist', 'isometric', 'gradient'],
+  banking: ['geometric', 'minimalist', 'isometric', 'photorealistic'],
+  healthcare: ['gradient', 'minimalist', 'photorealistic', 'flat_design'],
+  medical: ['minimalist', 'flat_design', 'gradient', 'photorealistic'],
+  education: ['illustration', 'isometric', 'flat_design', 'gradient'],
+  consulting: ['geometric', 'minimalist', 'isometric', 'photorealistic'],
+  legal: ['minimalist', 'geometric', 'photorealistic'],
+  insurance: ['geometric', 'minimalist', 'gradient', 'flat_design'],
   
-  // Creative Industries - updated with abstract, gradient
-  art: ['abstract', 'watercolor', 'illustration'],
-  design: ['geometric', 'minimalist', 'abstract'],
-  photography: ['cinematic', 'photorealistic'],
-  creative: ['abstract', 'illustration', 'gradient'],
-  agency: ['minimalist', 'cinematic', 'geometric'],
+  // Creative Industries
+  art: ['abstract', 'watercolor', 'gradient', 'illustration'],
+  design: ['geometric', 'abstract', 'gradient', 'minimalist'],
+  photography: ['cinematic', 'photorealistic', 'abstract', 'gradient'],
+  creative: ['abstract', 'gradient', 'illustration', 'geometric'],
+  agency: ['geometric', 'abstract', 'gradient', 'minimalist'],
+  marketing: ['gradient', 'geometric', 'cinematic', 'flat_design'],
   
   // Real Estate & Property
-  realestate: ['photorealistic', 'cinematic'],
-  'real estate': ['photorealistic', 'cinematic'],
-  property: ['photorealistic', 'cinematic'],
-  construction: ['photorealistic', '3d_render', 'isometric'],
-  architecture: ['minimalist', '3d_render', 'isometric'],
+  realestate: ['cinematic', 'photorealistic', 'isometric', 'minimalist'],
+  'real estate': ['cinematic', 'photorealistic', 'isometric'],
+  property: ['photorealistic', 'cinematic', 'isometric'],
+  construction: ['isometric', '3d_render', 'photorealistic', 'geometric'],
+  architecture: ['isometric', 'minimalist', '3d_render', 'geometric'],
   
-  // E-commerce & Retail - updated with product_only
-  ecommerce: ['product_only', 'photorealistic', '3d_render'],
-  'e-commerce': ['product_only', 'photorealistic', '3d_render'],
-  retail: ['product_only', 'photorealistic', 'flat_design'],
-  luxury: ['product_only', 'minimalist', 'cinematic'],
+  // E-commerce & Retail
+  ecommerce: ['product_only', 'gradient', 'minimalist', 'photorealistic'],
+  'e-commerce': ['product_only', 'gradient', 'minimalist'],
+  retail: ['product_only', 'gradient', 'flat_design', 'photorealistic'],
+  luxury: ['cinematic', 'minimalist', 'gradient', 'product_only'],
+  boutique: ['watercolor', 'minimalist', 'cinematic', 'gradient'],
   
   // Entertainment & Media
-  entertainment: ['cinematic', 'illustration'],
-  media: ['cinematic', 'flat_design'],
-  gaming: ['3d_render', 'illustration', 'isometric'],
-  music: ['cinematic', 'illustration', 'abstract'],
+  entertainment: ['cinematic', 'abstract', 'illustration', '3d_render'],
+  media: ['cinematic', 'gradient', 'geometric', 'flat_design'],
+  gaming: ['3d_render', 'isometric', 'illustration', 'abstract'],
+  music: ['abstract', 'gradient', 'cinematic', 'geometric'],
+  podcast: ['gradient', 'illustration', 'geometric', 'flat_design'],
   
   // Travel & Hospitality
-  travel: ['photorealistic', 'cinematic'],
-  tourism: ['photorealistic', 'cinematic'],
-  hotel: ['photorealistic', 'minimalist'],
-  hospitality: ['photorealistic', 'cinematic'],
+  travel: ['cinematic', 'photorealistic', 'watercolor', 'gradient'],
+  tourism: ['cinematic', 'photorealistic', 'watercolor'],
+  hotel: ['cinematic', 'minimalist', 'photorealistic', 'gradient'],
+  hospitality: ['cinematic', 'watercolor', 'photorealistic'],
+  
+  // Sports & Fitness
+  fitness: ['cinematic', 'gradient', 'abstract', 'photorealistic'],
+  sports: ['cinematic', 'abstract', 'gradient', '3d_render'],
+  gym: ['cinematic', 'gradient', 'photorealistic', 'abstract'],
+  yoga: ['watercolor', 'gradient', 'minimalist', 'abstract'],
 };
 
 // ============================================
@@ -248,7 +268,7 @@ export function suggestImageStyles(params: SuggestImageStylesParams): StyleSugge
     styleScores[explicitStyle].reasons.push('Brand preference');
   }
   
-  // 2. Industry matching
+  // 2. Industry matching - MORE BALANCED SCORING
   if (industry && industry.length > 0) {
     industry.forEach((ind) => {
       const normalized = normalizeIndustry(ind);
@@ -258,18 +278,33 @@ export function suggestImageStyles(params: SuggestImageStylesParams): StyleSugge
         const normalizedKey = normalizeIndustry(key);
         
         if (normalizedKey === normalized || normalized.includes(normalizedKey) || normalizedKey.includes(normalized)) {
-          // Primary match (first style) gets higher score
+          // Distribute points more evenly across top styles
+          // Primary style: 2.5 points
           if (styles[0]) {
-            styleScores[styles[0]].score += 3;
+            styleScores[styles[0]].score += 2.5;
             if (!styleScores[styles[0]].reasons.includes(`Industry: ${ind}`)) {
               styleScores[styles[0]].reasons.push(`Industry: ${ind}`);
             }
           }
-          // Secondary match
+          // Secondary style: 2 points (closer to primary)
           if (styles[1]) {
-            styleScores[styles[1]].score += 1;
+            styleScores[styles[1]].score += 2;
             if (!styleScores[styles[1]].reasons.includes(`Industry: ${ind}`)) {
               styleScores[styles[1]].reasons.push(`Industry: ${ind}`);
+            }
+          }
+          // Tertiary style: 1.5 points
+          if (styles[2]) {
+            styleScores[styles[2]].score += 1.5;
+            if (!styleScores[styles[2]].reasons.includes(`Industry: ${ind}`)) {
+              styleScores[styles[2]].reasons.push(`Industry: ${ind}`);
+            }
+          }
+          // Quaternary style: 1 point
+          if (styles[3]) {
+            styleScores[styles[3]].score += 1;
+            if (!styleScores[styles[3]].reasons.includes(`Industry: ${ind}`)) {
+              styleScores[styles[3]].reasons.push(`Industry: ${ind}`);
             }
           }
         }
