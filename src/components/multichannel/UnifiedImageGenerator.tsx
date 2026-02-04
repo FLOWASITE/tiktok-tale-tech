@@ -245,6 +245,7 @@ export function UnifiedImageGenerator({
   const [textToInclude, setTextToInclude] = useState<string>('');
   const [textPosition, setTextPosition] = useState<TextPosition>('center');
   const [typographyStyle, setTypographyStyle] = useState<TypographyStyle>('modern');
+  const [isOptimizingText, setIsOptimizingText] = useState(false);
   
   // Batch mode state
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(content?.selected_channels ?? []);
@@ -817,10 +818,15 @@ export function UnifiedImageGenerator({
                   {imageContentType === 'with_text' && (
                     <div className="space-y-3 p-4 bg-gradient-to-r from-orange-500/5 to-transparent rounded-xl border border-orange-500/20">
                       <div className="space-y-2">
-                        <Label className="text-sm flex items-center gap-2">
-                          <Quote className="w-3.5 h-3.5 text-orange-600" />
-                          Text hiển thị trên ảnh
-                        </Label>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm flex items-center gap-2">
+                            <Quote className="w-3.5 h-3.5 text-orange-600" />
+                            Text hiển thị trên ảnh
+                          </Label>
+                          <span className="text-[10px] text-muted-foreground">
+                            {textToInclude.length} ký tự
+                          </span>
+                        </div>
                         <Textarea
                           value={textToInclude}
                           onChange={(e) => setTextToInclude(e.target.value)}
@@ -828,22 +834,59 @@ export function UnifiedImageGenerator({
                           rows={2}
                           className="resize-none text-sm"
                         />
-                        {getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0])?.hookMessage && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs gap-1.5 h-7 text-orange-600 hover:text-orange-700 hover:bg-orange-500/10"
-                            onClick={() => {
-                              const hookData = getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0]);
-                              if (hookData.hookMessage) {
-                                setTextToInclude(hookData.hookMessage);
-                              }
-                            }}
-                          >
-                            <Sparkles className="w-3 h-3" />
-                            Dùng Hook message
-                          </Button>
-                        )}
+                        <div className="flex flex-wrap gap-2">
+                          {getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0])?.hookMessage && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs gap-1.5 h-7 text-orange-600 hover:text-orange-700 hover:bg-orange-500/10"
+                              onClick={() => {
+                                const hookData = getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0]);
+                                if (hookData.hookMessage) {
+                                  setTextToInclude(hookData.hookMessage);
+                                }
+                              }}
+                            >
+                              <Sparkles className="w-3 h-3" />
+                              Dùng Hook
+                            </Button>
+                          )}
+                          {textToInclude.length > 40 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs gap-1.5 h-7 border-orange-500/30 text-orange-600 hover:text-orange-700 hover:bg-orange-500/10"
+                              disabled={isOptimizingText}
+                              onClick={async () => {
+                                setIsOptimizingText(true);
+                                try {
+                                  const { data, error } = await supabase.functions.invoke('optimize-social-text', {
+                                    body: { text: textToInclude, maxLength: 50, style: 'punchy' }
+                                  });
+                                  if (error) throw error;
+                                  if (data?.optimizedText) {
+                                    setTextToInclude(data.optimizedText);
+                                    if (data.wasOptimized) {
+                                      toast.success(`Đã rút gọn từ ${data.originalLength} → ${data.optimizedLength} ký tự`);
+                                    }
+                                  }
+                                } catch (err) {
+                                  console.error('Text optimization failed:', err);
+                                  toast.error('Không thể tối ưu text');
+                                } finally {
+                                  setIsOptimizingText(false);
+                                }
+                              }}
+                            >
+                              {isOptimizingText ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Wand2 className="w-3 h-3" />
+                              )}
+                              Rút gọn AI
+                            </Button>
+                          )}
+                        </div>
                       </div>
 
                       {/* Visual Mockup + Controls Row */}
