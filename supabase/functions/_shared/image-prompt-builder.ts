@@ -95,7 +95,7 @@ export interface ImagePromptParams {
 }
 
 // Image Style Presets
-export type ImageStylePreset = 'photorealistic' | 'illustration' | 'minimalist' | '3d_render' | 'flat_design' | 'watercolor' | 'cinematic';
+export type ImageStylePreset = 'photorealistic' | 'illustration' | 'minimalist' | '3d_render' | 'flat_design' | 'watercolor' | 'cinematic' | 'abstract' | 'geometric' | 'isometric' | 'gradient' | 'product_only';
 
 export const IMAGE_STYLE_PRESETS: Record<ImageStylePreset, {
   description: string;
@@ -136,6 +136,32 @@ export const IMAGE_STYLE_PRESETS: Record<ImageStylePreset, {
     description: 'Movie-like visuals with dramatic lighting and composition',
     keywords: ['cinematic', 'dramatic lighting', 'movie still', 'film grain', 'widescreen composition', 'atmospheric'],
     negativeKeywords: ['flat lighting', 'amateur', 'snapshot', 'casual'],
+  },
+  // New styles - all designed to avoid people
+  abstract: {
+    description: 'Abstract art with organic shapes and creative compositions',
+    keywords: ['abstract art', 'organic shapes', 'fluid forms', 'artistic expression', 'creative composition', 'color harmony', 'non-representational'],
+    negativeKeywords: ['realistic', 'photographic', 'literal', 'human faces', 'portraits', 'people', 'models'],
+  },
+  geometric: {
+    description: 'Clean geometric patterns with modern shapes',
+    keywords: ['geometric patterns', 'clean shapes', 'modern design', 'symmetry', 'polygons', 'lines and angles', 'mathematical precision'],
+    negativeKeywords: ['organic', 'realistic', 'photographs', 'human faces', 'portraits', 'people', 'models'],
+  },
+  isometric: {
+    description: 'Isometric 3D perspective with tech-inspired aesthetics',
+    keywords: ['isometric view', '3D perspective', 'tech aesthetic', 'clean lines', 'isometric illustration', 'data visualization style', 'axonometric'],
+    negativeKeywords: ['photorealistic', 'organic', 'messy', 'human faces', 'portraits', 'people', 'models'],
+  },
+  gradient: {
+    description: 'Smooth gradient backgrounds with color transitions',
+    keywords: ['gradient background', 'smooth color transitions', 'mesh gradients', 'soft colors', 'ambient lighting', 'ethereal feel', 'color flow'],
+    negativeKeywords: ['harsh edges', 'busy patterns', 'cluttered', 'human faces', 'portraits', 'people', 'models', 'noisy textures'],
+  },
+  product_only: {
+    description: 'Clean product-focused imagery without people',
+    keywords: ['product photography', 'clean background', 'studio lighting', 'product focus', 'commercial quality', 'no people', 'object only', 'item showcase'],
+    negativeKeywords: ['people', 'human faces', 'portraits', 'hands', 'models', 'lifestyle with people', 'crowds', 'persons'],
   },
 };
 
@@ -855,6 +881,12 @@ export function computeStyleFromBrand(
     flat_design: 0,
     watercolor: 0,
     cinematic: 0,
+    // New styles
+    abstract: 0,
+    geometric: 0,
+    isometric: 0,
+    gradient: 0,
+    product_only: 0,
   };
   
   // Industry matching

@@ -13,7 +13,7 @@ import { CHANNEL_OPTIMAL_ASPECT_RATIO, CHANNEL_IMAGE_CONFIG } from '@/config/cha
 // Re-export for backward compatibility
 export { CHANNEL_OPTIMAL_ASPECT_RATIO };
 
-export type ImageStylePreset = 'photorealistic' | 'illustration' | 'minimalist' | '3d_render' | 'flat_design' | 'watercolor' | 'cinematic';
+export type ImageStylePreset = 'photorealistic' | 'illustration' | 'minimalist' | '3d_render' | 'flat_design' | 'watercolor' | 'cinematic' | 'abstract' | 'geometric' | 'isometric' | 'gradient' | 'product_only';
 
 export interface AutoGenerateOptions {
   contentId: string;

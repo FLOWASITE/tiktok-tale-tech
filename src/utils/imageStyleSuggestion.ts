@@ -22,16 +22,16 @@ const INDUSTRY_STYLE_MAP: Record<string, ImageStylePreset[]> = {
   cosmetics: ['minimalist', 'cinematic'],
   makeup: ['minimalist', 'cinematic'],
   haircare: ['photorealistic', 'minimalist'],
-  wellness: ['minimalist', 'watercolor'],
-  spa: ['minimalist', 'watercolor'],
+  wellness: ['minimalist', 'watercolor', 'gradient'],
+  spa: ['minimalist', 'watercolor', 'gradient'],
   
-  // Technology
-  technology: ['3d_render', 'flat_design'],
-  tech: ['3d_render', 'flat_design'],
-  saas: ['flat_design', 'minimalist'],
-  software: ['flat_design', '3d_render'],
-  ai: ['3d_render', 'minimalist'],
-  fintech: ['minimalist', 'flat_design'],
+  // Technology - updated with isometric, geometric
+  technology: ['isometric', '3d_render', 'flat_design'],
+  tech: ['isometric', '3d_render', 'geometric'],
+  saas: ['isometric', 'flat_design', 'gradient'],
+  software: ['isometric', 'flat_design', 'geometric'],
+  ai: ['abstract', '3d_render', 'gradient'],
+  fintech: ['minimalist', 'flat_design', 'isometric'],
   
   // Food & Beverage
   food: ['photorealistic', 'watercolor'],
@@ -42,40 +42,40 @@ const INDUSTRY_STYLE_MAP: Record<string, ImageStylePreset[]> = {
   fnb: ['photorealistic', 'cinematic'],
   
   // Professional Services
-  finance: ['minimalist', 'photorealistic'],
-  banking: ['minimalist', 'photorealistic'],
+  finance: ['minimalist', 'photorealistic', 'geometric'],
+  banking: ['minimalist', 'photorealistic', 'geometric'],
   healthcare: ['photorealistic', 'minimalist'],
   medical: ['photorealistic', 'minimalist'],
-  education: ['illustration', 'flat_design'],
+  education: ['illustration', 'flat_design', 'isometric'],
   consulting: ['minimalist', 'photorealistic'],
   legal: ['minimalist', 'photorealistic'],
   insurance: ['minimalist', 'photorealistic'],
   
-  // Creative Industries
-  art: ['watercolor', 'illustration'],
-  design: ['minimalist', 'illustration'],
+  // Creative Industries - updated with abstract, gradient
+  art: ['abstract', 'watercolor', 'illustration'],
+  design: ['geometric', 'minimalist', 'abstract'],
   photography: ['cinematic', 'photorealistic'],
-  creative: ['illustration', 'watercolor'],
-  agency: ['minimalist', 'cinematic'],
+  creative: ['abstract', 'illustration', 'gradient'],
+  agency: ['minimalist', 'cinematic', 'geometric'],
   
   // Real Estate & Property
   realestate: ['photorealistic', 'cinematic'],
   'real estate': ['photorealistic', 'cinematic'],
   property: ['photorealistic', 'cinematic'],
-  construction: ['photorealistic', '3d_render'],
-  architecture: ['minimalist', '3d_render'],
+  construction: ['photorealistic', '3d_render', 'isometric'],
+  architecture: ['minimalist', '3d_render', 'isometric'],
   
-  // E-commerce & Retail
-  ecommerce: ['photorealistic', '3d_render'],
-  'e-commerce': ['photorealistic', '3d_render'],
-  retail: ['photorealistic', 'flat_design'],
-  luxury: ['minimalist', 'cinematic'],
+  // E-commerce & Retail - updated with product_only
+  ecommerce: ['product_only', 'photorealistic', '3d_render'],
+  'e-commerce': ['product_only', 'photorealistic', '3d_render'],
+  retail: ['product_only', 'photorealistic', 'flat_design'],
+  luxury: ['product_only', 'minimalist', 'cinematic'],
   
   // Entertainment & Media
   entertainment: ['cinematic', 'illustration'],
   media: ['cinematic', 'flat_design'],
-  gaming: ['3d_render', 'illustration'],
-  music: ['cinematic', 'illustration'],
+  gaming: ['3d_render', 'illustration', 'isometric'],
+  music: ['cinematic', 'illustration', 'abstract'],
   
   // Travel & Hospitality
   travel: ['photorealistic', 'cinematic'],
@@ -95,11 +95,11 @@ const TONE_STYLE_AFFINITY: Record<string, ImageStylePreset[]> = {
   authoritative: ['minimalist', 'photorealistic'],
   formal: ['photorealistic', 'minimalist'],
   
-  // Calm/Soft tones
-  calm: ['minimalist', 'watercolor'],
-  gentle: ['watercolor', 'minimalist'],
-  soothing: ['watercolor', 'minimalist'],
-  peaceful: ['watercolor', 'minimalist'],
+  // Calm/Soft tones - add gradient
+  calm: ['minimalist', 'watercolor', 'gradient'],
+  gentle: ['watercolor', 'minimalist', 'gradient'],
+  soothing: ['watercolor', 'minimalist', 'gradient'],
+  peaceful: ['watercolor', 'minimalist', 'gradient'],
   
   // Friendly/Approachable tones
   friendly: ['illustration', 'flat_design'],
@@ -115,28 +115,28 @@ const TONE_STYLE_AFFINITY: Record<string, ImageStylePreset[]> = {
   humorous: ['illustration', 'flat_design'],
   
   // Bold/Energetic tones
-  bold: ['cinematic', '3d_render'],
+  bold: ['cinematic', '3d_render', 'geometric'],
   energetic: ['3d_render', 'cinematic'],
-  dynamic: ['cinematic', '3d_render'],
+  dynamic: ['cinematic', '3d_render', 'abstract'],
   powerful: ['cinematic', 'photorealistic'],
   
   // Inspiring tones
-  inspirational: ['cinematic', 'watercolor'],
+  inspirational: ['cinematic', 'watercolor', 'abstract'],
   motivational: ['cinematic', 'photorealistic'],
   empowering: ['cinematic', 'photorealistic'],
   
-  // Trendy/Modern tones
-  trendy: ['3d_render', 'cinematic'],
-  modern: ['minimalist', '3d_render'],
-  innovative: ['3d_render', 'minimalist'],
-  cutting_edge: ['3d_render', 'minimalist'],
-  'cutting-edge': ['3d_render', 'minimalist'],
+  // Trendy/Modern tones - add geometric, isometric, gradient
+  trendy: ['gradient', '3d_render', 'cinematic'],
+  modern: ['geometric', 'minimalist', 'isometric'],
+  innovative: ['abstract', '3d_render', 'isometric'],
+  cutting_edge: ['abstract', 'geometric', 'gradient'],
+  'cutting-edge': ['abstract', 'geometric', 'gradient'],
   
   // Elegant tones
   elegant: ['minimalist', 'cinematic'],
   sophisticated: ['minimalist', 'cinematic'],
   refined: ['minimalist', 'photorealistic'],
-  luxurious: ['cinematic', 'minimalist'],
+  luxurious: ['cinematic', 'minimalist', 'product_only'],
 };
 
 // ============================================
@@ -196,6 +196,13 @@ function mapExplicitStyle(imageStyle?: string): ImageStylePreset | null {
     'artistic': 'watercolor',
     'cinematic': 'cinematic',
     'dramatic': 'cinematic',
+    // New styles
+    'abstract': 'abstract',
+    'geometric': 'geometric',
+    'isometric': 'isometric',
+    'gradient': 'gradient',
+    'product': 'product_only',
+    'product_only': 'product_only',
   };
   
   const normalized = imageStyle.toLowerCase().replace(/[\s-]/g, '_');
@@ -226,6 +233,12 @@ export function suggestImageStyles(params: SuggestImageStylesParams): StyleSugge
     flat_design: { score: 0, reasons: [] },
     watercolor: { score: 0, reasons: [] },
     cinematic: { score: 0, reasons: [] },
+    // New styles
+    abstract: { score: 0, reasons: [] },
+    geometric: { score: 0, reasons: [] },
+    isometric: { score: 0, reasons: [] },
+    gradient: { score: 0, reasons: [] },
+    product_only: { score: 0, reasons: [] },
   };
   
   // 1. Explicit brand preference (highest priority)
@@ -335,6 +348,12 @@ export function getStyleLabel(style: ImageStylePreset): string {
     flat_design: 'Flat Design',
     watercolor: 'Màu nước',
     cinematic: 'Điện ảnh',
+    // New styles
+    abstract: 'Trừu tượng',
+    geometric: 'Hình học',
+    isometric: 'Isometric',
+    gradient: 'Gradient',
+    product_only: 'Sản phẩm',
   };
   return labels[style] || style;
 }

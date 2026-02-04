@@ -12,7 +12,7 @@ export interface GeneratedChannelImage {
 }
 
 // Re-export types from image-prompt-builder for frontend use
-export type ImageStylePreset = 'photorealistic' | 'illustration' | 'minimalist' | '3d_render' | 'flat_design' | 'watercolor' | 'cinematic';
+export type ImageStylePreset = 'photorealistic' | 'illustration' | 'minimalist' | '3d_render' | 'flat_design' | 'watercolor' | 'cinematic' | 'abstract' | 'geometric' | 'isometric' | 'gradient' | 'product_only';
 
 export const IMAGE_STYLE_PRESETS: Record<ImageStylePreset, {
   label: string;
@@ -45,6 +45,26 @@ export const IMAGE_STYLE_PRESETS: Record<ImageStylePreset, {
   cinematic: {
     label: 'Điện ảnh',
     description: 'Phong cách phim với ánh sáng dramatic',
+  },
+  abstract: {
+    label: 'Trừu tượng',
+    description: 'Nghệ thuật trừu tượng, hình khối sáng tạo',
+  },
+  geometric: {
+    label: 'Hình học',
+    description: 'Đồ họa hình học, shapes hiện đại',
+  },
+  isometric: {
+    label: 'Isometric',
+    description: 'Góc nhìn 3D isometric, phong cách tech',
+  },
+  gradient: {
+    label: 'Gradient',
+    description: 'Dải màu gradient mềm mại',
+  },
+  product_only: {
+    label: 'Sản phẩm',
+    description: 'Focus sản phẩm, không có người',
   },
 };
 
