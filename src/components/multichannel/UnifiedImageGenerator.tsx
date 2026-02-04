@@ -64,6 +64,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { StrategicContextPreview } from './StrategicContextPreview';
 import { TextPositionMockup } from './TextPositionMockup';
+import { VisualTextPositionPreview } from './VisualTextPositionPreview';
 
 interface UnifiedImageGeneratorProps {
   open: boolean;
@@ -911,85 +912,30 @@ export function UnifiedImageGenerator({
 
               {/* ==================== RIGHT PANEL - Visual Settings ==================== */}
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-                {/* Text Position Mockup - When Social Graphics */}
+                {/* Visual Text Position Preview - When Social Graphics */}
                 {imageContentType === 'with_text' && (
-                  <div className="flex gap-4">
-                    {/* Visual Mockup */}
-                    <div className="flex-shrink-0">
-                      <TextPositionMockup
-                        textPosition={textPosition}
-                        typographyStyle={typographyStyle}
-                        textPreview={textToInclude}
-                        size="lg"
+                  <div className="space-y-3">
+                    <VisualTextPositionPreview
+                      textPosition={textPosition}
+                      typographyStyle={typographyStyle}
+                      textPreview={textToInclude}
+                      onPositionChange={setTextPosition}
+                      onTypographyChange={setTypographyStyle}
+                    />
+                    
+                    {/* Canvas Fallback */}
+                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/20">
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-blue-600" />
+                        <div>
+                          <span className="text-xs font-medium">Canvas Fallback</span>
+                          <p className="text-[10px] text-muted-foreground">Đảm bảo text hiển thị chính xác 100%</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={useCanvasFallback}
+                        onCheckedChange={setUseCanvasFallback}
                       />
-                    </div>
-
-                    {/* Position & Typography Controls */}
-                    <div className="flex-1 space-y-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Vị trí text</Label>
-                        <div className="grid grid-cols-3 gap-1">
-                          {[
-                            { value: 'top-left', icon: '↖' },
-                            { value: 'top', icon: '↑' },
-                            { value: 'center', icon: '◉' },
-                            { value: 'bottom', icon: '↓' },
-                            { value: 'bottom-right', icon: '↘' },
-                          ].map((pos) => (
-                            <button
-                              key={pos.value}
-                              onClick={() => setTextPosition(pos.value as TextPosition)}
-                              className={cn(
-                                "flex items-center justify-center gap-1 p-1.5 rounded border transition-all text-xs",
-                                textPosition === pos.value
-                                  ? "border-primary bg-primary/10 text-primary"
-                                  : "border-border/50 hover:border-primary/40 text-muted-foreground"
-                              )}
-                            >
-                              <span>{pos.icon}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Typography</Label>
-                        <div className="grid grid-cols-2 gap-1">
-                          {[
-                            { value: 'modern', label: 'Modern', fontClass: 'font-sans font-semibold' },
-                            { value: 'classic', label: 'Classic', fontClass: 'font-serif' },
-                            { value: 'bold', label: 'Bold', fontClass: 'font-sans font-black' },
-                            { value: 'minimal', label: 'Minimal', fontClass: 'font-sans font-light' },
-                          ].map((typo) => (
-                            <button
-                              key={typo.value}
-                              onClick={() => setTypographyStyle(typo.value as TypographyStyle)}
-                              className={cn(
-                                "flex items-center gap-1.5 px-2 py-1 rounded border transition-all text-xs",
-                                typographyStyle === typo.value
-                                  ? "border-primary bg-primary/10"
-                                  : "border-border/50 hover:border-primary/40"
-                              )}
-                            >
-                              <span className={cn("text-sm", typo.fontClass)}>Aa</span>
-                              <span className="text-muted-foreground">{typo.label}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Canvas Fallback */}
-                      <div className="flex items-center justify-between p-2 rounded bg-blue-500/5 border border-blue-500/20">
-                        <div className="flex items-center gap-1.5">
-                          <Layers className="w-3 h-3 text-blue-600" />
-                          <span className="text-[10px] text-muted-foreground">Canvas Fallback</span>
-                        </div>
-                        <Switch
-                          checked={useCanvasFallback}
-                          onCheckedChange={setUseCanvasFallback}
-                          className="scale-75"
-                        />
-                      </div>
                     </div>
                   </div>
                 )}
