@@ -42,10 +42,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Channel, MultiChannelContent, ChannelImage } from '@/types/multichannel';
 import { 
   useAutoImageGeneration, 
-  LogoPosition, 
   AspectRatioOption,
   ImageStylePreset,
 } from '@/hooks/useAutoImageGeneration';
+import { 
+  LogoOptionsPanel, 
+  type LogoPosition, 
+  type LogoStyle,
+} from '@/components/multichannel/LogoOptionsPanel';
 import { 
   useSocialImageGeneration, 
   IMAGE_STYLE_PRESETS,
@@ -96,12 +100,7 @@ const CHANNEL_CONFIG: Record<Channel, { icon: React.ReactNode; color: string; bg
   threads: { icon: <AtSign className="w-4 h-4" />, color: 'text-slate-800 dark:text-slate-200', bgColor: 'bg-slate-500/10' },
 };
 
-const LOGO_POSITIONS: { value: LogoPosition; label: string }[] = [
-  { value: 'bottom-right', label: 'Góc dưới phải' },
-  { value: 'bottom-left', label: 'Góc dưới trái' },
-  { value: 'top-right', label: 'Góc trên phải' },
-  { value: 'top-left', label: 'Góc trên trái' },
-];
+// LOGO_POSITIONS removed - now using LogoOptionsPanel with 9-position grid
 
 const ASPECT_RATIOS: { value: AspectRatioOption; label: string; description: string }[] = [
   { value: 'auto', label: 'Tự động', description: 'Tỉ lệ tối ưu cho từng kênh' },
@@ -304,6 +303,9 @@ export function UnifiedImageGenerator({
   // Shared settings
   const [includeLogo, setIncludeLogo] = useState(!!brandLogoUrl);
   const [logoPosition, setLogoPosition] = useState<LogoPosition>('bottom-right');
+  const [logoStyle, setLogoStyle] = useState<LogoStyle>('clean');
+  const [logoSize, setLogoSize] = useState(15); // 5-30%
+  const [logoOpacity, setLogoOpacity] = useState(100); // 30-100%
   const [aspectRatio, setAspectRatio] = useState<AspectRatioOption>('auto');
   const [imageStyle, setImageStyle] = useState<ImageStylePreset | 'auto'>('auto');
   const [negativePrompt, setNegativePrompt] = useState('');
@@ -491,6 +493,9 @@ export function UnifiedImageGenerator({
     includeLogo: includeLogo && !!brandLogoUrl,
     logoPosition,
     logoUrl: brandLogoUrl || undefined,
+    logoStyle,
+    logoSizePercent: logoSize,
+    logoOpacity,
     aspectRatio,
     imageStylePreset: imageStyle === 'auto' ? undefined : imageStyle,
     negativePrompt: negativePrompt.trim() || undefined,
@@ -503,7 +508,7 @@ export function UnifiedImageGenerator({
     textPosition: imageContentType === 'with_text' ? textPosition : undefined,
     typographyStyle: imageContentType === 'with_text' ? typographyStyle : undefined,
     useCanvasFallback: imageContentType === 'with_text' ? useCanvasFallback : undefined,
-  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, includeLogo, brandLogoUrl, logoPosition, aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages, imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, useCanvasFallback]);
+  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, includeLogo, brandLogoUrl, logoPosition, logoStyle, logoSize, logoOpacity, aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages, imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, useCanvasFallback]);
 
   // Handlers
   const handleBatchGenerate = async () => {
@@ -1272,42 +1277,44 @@ export function UnifiedImageGenerator({
                 {/* Logo Options */}
                 {brandLogoUrl && (
                   <div className={cn(
-                    "flex items-center justify-between p-3 rounded-lg border-2 transition-colors",
+                    "space-y-3 p-3 rounded-lg border-2 transition-colors",
                     includeLogo ? "border-primary/30 bg-primary/5" : "border-border/50"
                   )}>
-                    <div className="flex items-center gap-2">
-                      <div className={cn(
-                        "w-8 h-8 rounded-md flex items-center justify-center overflow-hidden",
-                        includeLogo ? "ring-2 ring-primary/30" : "bg-muted"
-                      )}>
-                        <img src={brandLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+                    {/* Header with toggle */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "w-8 h-8 rounded-md flex items-center justify-center overflow-hidden",
+                          includeLogo ? "ring-2 ring-primary/30" : "bg-muted"
+                        )}>
+                          <img src={brandLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium">Thêm logo</p>
+                          <p className="text-[10px] text-muted-foreground">Overlay tự động</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs font-medium">Thêm logo</p>
-                        <p className="text-[10px] text-muted-foreground">Overlay tự động</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {includeLogo && (
-                        <Select value={logoPosition} onValueChange={(v) => setLogoPosition(v as LogoPosition)}>
-                          <SelectTrigger className="h-7 w-auto min-w-[100px] text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {LOGO_POSITIONS.map(pos => (
-                              <SelectItem key={pos.value} value={pos.value}>
-                                {pos.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
                       <Switch 
                         checked={includeLogo} 
                         onCheckedChange={setIncludeLogo}
                         className="scale-90"
                       />
                     </div>
+                    
+                    {/* Expanded Logo Options Panel */}
+                    {includeLogo && (
+                      <LogoOptionsPanel
+                        position={logoPosition}
+                        onPositionChange={setLogoPosition}
+                        style={logoStyle}
+                        onStyleChange={setLogoStyle}
+                        size={logoSize}
+                        onSizeChange={setLogoSize}
+                        opacity={logoOpacity}
+                        onOpacityChange={setLogoOpacity}
+                        logoPreviewUrl={brandLogoUrl}
+                      />
+                    )}
                   </div>
                 )}
 

@@ -68,7 +68,10 @@ export const IMAGE_STYLE_PRESETS: Record<ImageStylePreset, {
   },
 };
 
-export type LogoPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+export type LogoPosition = 
+  | 'top-left' | 'top-center' | 'top-right'
+  | 'center-left' | 'center' | 'center-right'
+  | 'bottom-left' | 'bottom-center' | 'bottom-right';
 
 // Content Role types (aligned with coreContent.ts)
 export type ContentRole = 'seed' | 'sprout' | 'harvest';
