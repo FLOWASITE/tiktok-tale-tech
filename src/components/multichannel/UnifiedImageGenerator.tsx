@@ -238,7 +238,7 @@ export function UnifiedImageGenerator({
   const [textPosition, setTextPosition] = useState<TextPosition>('center');
   const [typographyStyle, setTypographyStyle] = useState<TypographyStyle>('modern');
   const [isOptimizingText, setIsOptimizingText] = useState(false);
-  const [useCanvasFallback, setUseCanvasFallback] = useState(false);
+  const [useCanvasFallback, setUseCanvasFallback] = useState(true); // Default ON for 100% text accuracy
   
   // Batch mode state
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(content?.selected_channels ?? []);
@@ -433,6 +433,7 @@ export function UnifiedImageGenerator({
       textToInclude: imageContentType === 'with_text' ? textToInclude : undefined,
       textPosition: imageContentType === 'with_text' ? textPosition : undefined,
       typographyStyle: imageContentType === 'with_text' ? typographyStyle : undefined,
+      useCanvasFallback: imageContentType === 'with_text' ? useCanvasFallback : undefined,
     });
 
     if (imageUrl) {

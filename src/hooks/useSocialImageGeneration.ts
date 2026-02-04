@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Channel } from '@/types/multichannel';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { CHANNEL_IMAGE_CONFIG } from '@/config/channelImageConfig';
 
 export interface GeneratedChannelImage {
   channel: Channel;
@@ -92,6 +93,8 @@ interface GenerateImageParams {
   textToInclude?: string;
   textPosition?: TextPosition;
   typographyStyle?: TypographyStyle;
+  // Canvas fallback for 100% text accuracy
+  useCanvasFallback?: boolean;
 }
 
 export function useSocialImageGeneration() {
@@ -115,6 +118,7 @@ export function useSocialImageGeneration() {
     textToInclude,
     textPosition,
     typographyStyle,
+    useCanvasFallback,
   }: GenerateImageParams): Promise<string | null> => {
     if (channel) {
       setGenerating(channel);
@@ -123,6 +127,13 @@ export function useSocialImageGeneration() {
     try {
       console.log(`[useSocialImageGeneration] Generating for ${channel || 'generic'} via generate-brand-image`);
       console.log(`[useSocialImageGeneration] Image content type: ${imageContentType || 'background_only'}`);
+      console.log(`[useSocialImageGeneration] Canvas fallback: ${useCanvasFallback}`);
+
+      // Determine the effective image content type for AI generation
+      // If useCanvasFallback is enabled with text, we generate background_only first
+      const effectiveImageContentType = (useCanvasFallback && imageContentType === 'with_text') 
+        ? 'background_only' 
+        : imageContentType;
 
       // Call generate-brand-image with enhanced params
       const { data, error } = await supabase.functions.invoke('generate-brand-image', {
@@ -139,11 +150,11 @@ export function useSocialImageGeneration() {
           contentAngle,
           hookMessage,
           hookType,
-          // NEW: Text-in-image params for Social Graphics
-          imageContentType,
-          textToInclude,
-          textPosition,
-          typographyStyle,
+          // Text-in-image params - use effective type (background_only if canvas fallback)
+          imageContentType: effectiveImageContentType,
+          textToInclude: effectiveImageContentType === 'with_text' ? textToInclude : undefined,
+          textPosition: effectiveImageContentType === 'with_text' ? textPosition : undefined,
+          typographyStyle: effectiveImageContentType === 'with_text' ? typographyStyle : undefined,
         },
       });
 
@@ -166,7 +177,42 @@ export function useSocialImageGeneration() {
         return null;
       }
 
-      const imageUrl = data.imageUrl;
+      let imageUrl = data.imageUrl;
+
+      // Step 2: Apply Canvas text overlay if enabled
+      if (useCanvasFallback && imageContentType === 'with_text' && textToInclude) {
+        console.log('[useSocialImageGeneration] Applying Canvas text overlay...');
+        
+        // Get dimensions from channel config
+        const channelConfig = channel ? CHANNEL_IMAGE_CONFIG[channel] : null;
+        const [widthStr, heightStr] = (channelConfig?.size || '1200x630').split('x');
+        const imageWidth = parseInt(widthStr, 10) || 1200;
+        const imageHeight = parseInt(heightStr, 10) || 630;
+
+        const { data: overlayData, error: overlayError } = await supabase.functions.invoke('overlay-text-canvas', {
+          body: {
+            baseImageUrl: imageUrl,
+            text: textToInclude,
+            position: textPosition || 'center',
+            typographyStyle: typographyStyle || 'modern',
+            textColor: '#FFFFFF',
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            contentId,
+            channel,
+            imageWidth,
+            imageHeight,
+          },
+        });
+
+        if (overlayError) {
+          console.error('[useSocialImageGeneration] Canvas overlay error:', overlayError);
+          // Continue with base image if overlay fails
+          toast.warning('Text overlay failed, using base image');
+        } else if (overlayData?.success && overlayData?.imageUrl) {
+          console.log('[useSocialImageGeneration] Canvas overlay success!');
+          imageUrl = overlayData.imageUrl;
+        }
+      }
       
       // Store generated image info
       if (channel) {
