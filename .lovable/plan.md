@@ -1,155 +1,102 @@
 
+# Kế hoạch: Sửa lỗi Text không hiển thị trên ảnh Social Graphics
 
-# Kế hoạch: Refactor UI Form Tạo Ảnh
+## Phân tích vấn đề
 
-## Vấn đề hiện tại
-
-Form `UnifiedImageGenerator` hiện tại có các vấn đề về layout:
-
-1. **Dialog quá nhỏ** - Sử dụng `sm:max-w-2xl` (672px), không đủ không gian cho nhiều settings
-2. **Các section dồn theo chiều dọc** - Tất cả options nằm trong một cột dài, phải cuộn nhiều
-3. **Social Graphics settings phức tạp** - Phần "Ảnh có text" với TextPositionMockup, text inputs, và typography controls chiếm quá nhiều không gian dọc
-4. **Không tận dụng không gian ngang** - Có thể chia 2 cột cho các controls
-
-## Giải pháp đề xuất
-
-### Layout mới: Split-Panel Design
-
-```text
-+----------------------------------------------------------+
-|  [Header] Tạo ảnh AI                                      |
-+----------------------------------------------------------+
-|                           |                               |
-|  LEFT PANEL (400px)       |  RIGHT PANEL (flex-1)        |
-|  ═══════════════════      |  ═══════════════════         |
-|                           |                               |
-|  • Mode Toggle (Batch/    |  • Visual Preview Area       |
-|    Single)                |    - TextPositionMockup      |
-|                           |    - Style Suggestions       |
-|  • Brand Preview          |    - Current Config Summary  |
-|                           |                               |
-|  • Channel Selection      |  • Aspect Ratio (visual)     |
-|                           |                               |
-|  • Image Type (Ảnh nền/   |  • Logo Position Preview     |
-|    Social Graphic)        |                               |
-|                           |                               |
-|  • Text Input (if         |                               |
-|    Social Graphic)        |                               |
-|                           |                               |
-+---------------------------+-------------------------------+
-|  [Footer] Đóng  |  Tạo X ảnh                              |
-+----------------------------------------------------------+
+### Logs phát hiện
+```
+2026-02-04T08:29:44Z INFO [generate-brand-image] Image content type: with_text
+```
+**Nhưng KHÔNG có log:**
+```
+[generate-brand-image] Text to include: "..."
 ```
 
-### Chi tiết thay đổi
+Điều này nghĩa là backend nhận được `imageContentType: 'with_text'` nhưng `textToInclude` là **undefined hoặc empty string**.
 
-#### 1. Mở rộng Dialog Size
-- Thay `sm:max-w-2xl` thành `sm:max-w-5xl` hoặc `max-w-[900px]`
-- Cho phép hiển thị 2 cột bên trong
+### Nguyên nhân gốc
 
-#### 2. Left Panel - Form Controls
-- **Brand Preview** (compact)
-- **Mode Tabs** (Batch/Single)
-- **Channel Selection** (grid 2 cols thay vì 3)
-- **Image Type Toggle** (Ảnh nền / Social Graphic)
-- **Text Input Area** (khi chọn Social Graphic)
-  - Shared/Per-channel toggle
-  - Text textarea với character count
-  - AI Optimize button inline
+Khi user chọn chế độ "Ảnh có text" (Social Graphics) nhưng **chưa nhập text vào ô textarea**, frontend vẫn gửi `imageContentType: 'with_text'` kèm `textToInclude: ''` (empty string).
 
-#### 3. Right Panel - Visual Settings
-- **TextPositionMockup** (scale lớn hơn, 200px width)
-- **Position & Typography Controls** (grid layout compact)
-- **Style Grid** (2x4 hoặc compact chips)
-- **Aspect Ratio** (horizontal chips)
-- **Logo Options** (inline)
-- **Canvas Fallback Toggle**
-
-#### 4. Style Suggestions
-- Hiển thị như floating badges trên Right Panel
-- Không chiếm không gian riêng
-
-#### 5. Advanced Options
-- Thu gọn vào Collapsible ở cuối Right Panel
-- Negative prompt + Context preview
-
-### Cải tiến UX bổ sung
-
-1. **Responsive breakpoint**: Trên mobile/tablet, fallback về single column
-2. **Sticky footer**: Buttons luôn visible
-3. **Smooth transitions**: Khi toggle Social Graphics mode
-4. **Better visual hierarchy**: Sử dụng sections với subtle borders
-
-## Các file cần thay đổi
-
-| File | Thay đổi |
-|------|----------|
-| `src/components/multichannel/UnifiedImageGenerator.tsx` | Refactor layout thành 2 panels, tổ chức lại sections |
-| `src/components/multichannel/TextPositionMockup.tsx` | Tăng kích thước mặc định, thêm props cho size variants |
-
-## Phần kỹ thuật
-
-### Component Structure mới
-
+Backend xử lý:
 ```typescript
-// Main layout
-<DialogContent className="sm:max-w-5xl max-h-[90vh]">
-  <DialogHeader>...</DialogHeader>
-  
-  <div className="flex-1 overflow-hidden flex">
-    {/* Left Panel - Form Controls */}
-    <div className="w-[380px] flex-shrink-0 overflow-y-auto border-r pr-4">
-      <Tabs>...</Tabs>
-      <ImageTypeToggle />
-      <TextInputSection />
-    </div>
-    
-    {/* Right Panel - Visual Settings */}
-    <div className="flex-1 overflow-y-auto pl-4">
-      <TextPositionMockup size="lg" />
-      <PositionTypographyGrid />
-      <StyleGrid compact />
-      <AspectRatioChips />
-      <LogoOptions />
-      <AdvancedCollapsible />
-    </div>
-  </div>
-  
-  <DialogFooter>...</DialogFooter>
-</DialogContent>
+// Dòng 628 trong image-prompt-builder.ts
+const isWithText = imageContentType === 'with_text' && textToInclude;
 ```
 
-### TextPositionMockup với size prop
+Vì `textToInclude` là empty string (falsy), nên `isWithText = false` → prompt builder **không thêm section text vào prompt**.
 
+## Giải pháp
+
+### 1. Thêm validation trước khi generate
+
+Khi user chọn "Ảnh có text" nhưng chưa nhập text:
+- Hiển thị cảnh báo toast
+- Không cho phép generate
+- Hoặc auto-fill từ hook message
+
+### 2. Auto-fill text từ Hook khi bật chế độ Social Graphics
+
+Khi user chuyển từ "Ảnh nền" sang "Có text", tự động điền text từ hook message nếu có.
+
+### 3. Thêm visual indicator yêu cầu nhập text
+
+Khi textarea trống và đang ở chế độ "Có text":
+- Hiển thị border đỏ
+- Placeholder rõ ràng hơn
+
+## Chi tiết thay đổi
+
+### File: `src/components/multichannel/UnifiedImageGenerator.tsx`
+
+#### Thay đổi 1: Auto-fill text khi chuyển sang chế độ Social Graphics
 ```typescript
-interface TextPositionMockupProps {
-  // ... existing
-  size?: 'sm' | 'md' | 'lg';  // NEW: sm=160px, md=200px, lg=240px
-}
-
-const SIZE_CLASSES = {
-  sm: 'max-w-[160px]',
-  md: 'max-w-[200px]', 
-  lg: 'max-w-[240px]',
+// Khi setImageContentType('with_text'), tự động điền hook nếu textToInclude rỗng
+const handleImageContentTypeChange = (type: ImageContentType) => {
+  setImageContentType(type);
+  if (type === 'with_text' && !textToInclude) {
+    // Auto-fill từ hook
+    const hookData = getHookForChannel(content, mode === 'single' ? singleChannel : selectedChannels[0]);
+    if (hookData.hookMessage) {
+      setTextToInclude(hookData.hookMessage);
+      toast.info('Đã tự động điền text từ Hook. Bạn có thể chỉnh sửa.');
+    }
+  }
 };
 ```
 
-### Grid layout cho Position buttons
-
+#### Thay đổi 2: Validation trước khi generate
 ```typescript
-// 3x2 grid thay vì 3+2 rows hiện tại
-<div className="grid grid-cols-3 gap-2">
-  {['top-left', 'top', 'top-right', 'center-left', 'center', 'center-right', 'bottom-left', 'bottom', 'bottom-right']
-    // Hiển thị visual grid
-  }
-</div>
+// Trong handleSingleGenerate và handleBatchGenerate
+if (imageContentType === 'with_text' && !textToInclude.trim()) {
+  toast.error('Vui lòng nhập text để hiển thị trên ảnh');
+  return;
+}
 ```
+
+#### Thay đổi 3: Visual indicator khi chưa nhập text
+```typescript
+<Textarea
+  className={cn(
+    "resize-none text-xs",
+    imageContentType === 'with_text' && !textToInclude.trim() 
+      && "border-orange-500 focus:border-orange-500"
+  )}
+  // ...
+/>
+{imageContentType === 'with_text' && !textToInclude.trim() && (
+  <p className="text-xs text-orange-600">⚠️ Vui lòng nhập text để hiển thị trên ảnh</p>
+)}
+```
+
+## Kiểm tra bổ sung
+
+Cũng cần kiểm tra:
+1. Batch mode với `useSharedText = false`: đảm bảo `textsPerChannel` không rỗng
+2. Gửi log chi tiết hơn từ frontend để debug
 
 ## Lợi ích
 
-1. **Không gian rộng hơn** - Tận dụng màn hình desktop
-2. **Ít cuộn hơn** - Các controls song song thay vì dọc
-3. **Preview trực quan** - Mockup lớn hơn, dễ nhìn
-4. **Tổ chức logic** - Form controls trái, Visual settings phải
-5. **Responsive** - Fallback tốt trên mobile
-
+1. **Ngăn user tạo ảnh "Có text" mà không có text** - Hiển thị lỗi rõ ràng
+2. **UX tốt hơn** - Auto-fill từ hook giúp user không cần copy/paste
+3. **Visual feedback** - Người dùng biết cần nhập text
