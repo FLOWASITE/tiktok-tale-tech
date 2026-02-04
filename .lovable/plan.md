@@ -1,183 +1,262 @@
 
-# Kế hoạch: Thêm 5 phong cách ảnh mới (không có người)
+
+# Kế hoạch: Cải thiện thẩm mỹ Logo Overlay
 
 ## Mục tiêu
-Thêm 5 phong cách ảnh mới để người dùng có nhiều lựa chọn hơn, đặc biệt là các phong cách ít/không có người:
-- **Abstract** - Hình ảnh trừu tượng nghệ thuật
-- **Geometric** - Hình học, shapes đồ họa  
-- **Isometric** - Góc nhìn isometric 3D
-- **Gradient** - Gradient màu sắc
-- **Product Only** - Chỉ sản phẩm, không có người
+Nâng cấp tính năng overlay logo để tạo ra kết quả đẹp mắt, chuyên nghiệp hơn với nhiều tùy chọn thẩm mỹ.
+
+## Các cải tiến đề xuất
+
+### 1. Thêm Logo Style Presets (Phong cách logo)
+| Style | Mô tả | Kỹ thuật |
+|-------|-------|----------|
+| **Clean** | Logo gốc, không hiệu ứng | Giữ nguyên |
+| **Shadow** | Drop shadow mềm | Thêm shadow dưới logo |
+| **Glassmorphism** | Nền kính mờ | Background blur + opacity |
+| **Pill Badge** | Nền bo tròn | Rounded rectangle background |
+| **Outline** | Viền mỏng quanh logo | Stroke effect |
+| **Subtle** | Mờ nhẹ, không lấn át | Opacity 40-60% |
+
+### 2. Thêm tùy chọn kích thước logo
+- **Nhỏ**: 8-10% width (watermark style)
+- **Vừa**: 12-15% width (cân đối)  
+- **Lớn**: 18-22% width (nổi bật)
+- **Slider tùy chỉnh**: 5-30%
+
+### 3. Mở rộng vị trí đặt logo
+Từ 4 góc → 9 vị trí (lưới 3x3):
+```text
+┌─────────────────────────────────┐
+│  top-left    top-center    top-right   │
+│                                         │
+│  center-left    center    center-right │
+│                                         │
+│  bottom-left  bottom-center  bottom-right│
+└─────────────────────────────────┘
+```
+
+### 4. Thêm Opacity control
+- Slider từ 30% - 100%
+- Cho phép logo mờ nhẹ như watermark
+
+### 5. Thêm Background options cho logo
+- **Transparent**: Không nền
+- **White circle/pill**: Nền trắng
+- **Dark circle/pill**: Nền tối
+- **Blur backdrop**: Nền mờ (glassmorphism)
+- **Brand color**: Dùng màu thương hiệu
+
+---
 
 ## Chi tiết kỹ thuật
 
-### File 1: `src/hooks/useSocialImageGeneration.ts`
+### File 1: `src/components/multichannel/UnifiedImageGenerator.tsx`
 
-Cập nhật type và thêm labels cho 5 phong cách mới:
+**Thêm các constants và UI:**
 
 ```typescript
-// Line 15: Mở rộng type
-export type ImageStylePreset = 
-  | 'photorealistic' | 'illustration' | 'minimalist' 
-  | '3d_render' | 'flat_design' | 'watercolor' | 'cinematic'
-  | 'abstract' | 'geometric' | 'isometric' | 'gradient' | 'product_only';
+// Mở rộng LogoPosition
+type LogoPosition = 
+  | 'top-left' | 'top-center' | 'top-right'
+  | 'center-left' | 'center' | 'center-right'  
+  | 'bottom-left' | 'bottom-center' | 'bottom-right';
 
-// Line 17-49: Thêm vào IMAGE_STYLE_PRESETS
-abstract: {
-  label: 'Trừu tượng',
-  description: 'Nghệ thuật trừu tượng, hình khối sáng tạo',
-},
-geometric: {
-  label: 'Hình học',
-  description: 'Đồ họa hình học, shapes hiện đại',
-},
-isometric: {
-  label: 'Isometric',
-  description: 'Góc nhìn 3D isometric, phong cách tech',
-},
-gradient: {
-  label: 'Gradient',
-  description: 'Dải màu gradient mềm mại',
-},
-product_only: {
-  label: 'Sản phẩm',
-  description: 'Focus sản phẩm, không có người',
-},
+// Thêm LogoStyle type
+type LogoStyle = 'clean' | 'shadow' | 'glass' | 'pill' | 'outline' | 'subtle';
+
+// Thêm LogoSize type
+type LogoSize = 'small' | 'medium' | 'large' | 'custom';
+
+// Thêm state mới
+const [logoStyle, setLogoStyle] = useState<LogoStyle>('shadow');
+const [logoSize, setLogoSize] = useState<LogoSize>('medium');
+const [logoOpacity, setLogoOpacity] = useState(100);
+const [logoCustomSize, setLogoCustomSize] = useState(15);
 ```
 
-### File 2: `src/utils/imageStyleSuggestion.ts`
+**Thêm UI component LogoOptionsPanel:**
+- Grid 3x3 cho position picker (visual)
+- Style preset buttons với preview
+- Size selector với slider tùy chỉnh
+- Opacity slider
 
-Cập nhật tất cả các mapping và scoring:
+### File 2: `src/hooks/useAutoImageGeneration.ts`
 
-**1. Thêm vào styleScores initialization (line 221-229):**
+**Mở rộng params:**
 ```typescript
-const styleScores: Record<ImageStylePreset, { score: number; reasons: string[] }> = {
-  // ...existing styles...
-  abstract: { score: 0, reasons: [] },
-  geometric: { score: 0, reasons: [] },
-  isometric: { score: 0, reasons: [] },
-  gradient: { score: 0, reasons: [] },
-  product_only: { score: 0, reasons: [] },
-};
+interface GenerateParams {
+  // ...existing
+  logoStyle?: LogoStyle;
+  logoSizePercent?: number;
+  logoOpacity?: number;
+}
 ```
 
-**2. Cập nhật INDUSTRY_STYLE_MAP (thêm các phong cách mới cho phù hợp):**
+**Cập nhật gọi overlay-logo-canvas:**
 ```typescript
-// Technology - thêm isometric, geometric
-technology: ['isometric', '3d_render', 'flat_design'],
-tech: ['isometric', '3d_render', 'geometric'],
-saas: ['isometric', 'flat_design', 'gradient'],
-software: ['isometric', 'flat_design', 'geometric'],
-ai: ['abstract', '3d_render', 'gradient'],
-
-// Creative - thêm abstract, gradient
-art: ['abstract', 'watercolor', 'illustration'],
-design: ['geometric', 'minimalist', 'abstract'],
-creative: ['abstract', 'illustration', 'gradient'],
-
-// E-commerce - thêm product_only
-ecommerce: ['product_only', 'photorealistic', '3d_render'],
-retail: ['product_only', 'photorealistic', 'flat_design'],
-luxury: ['product_only', 'minimalist', 'cinematic'],
+const { data: overlayData, error: overlayError } = await supabase.functions.invoke('overlay-logo-canvas', {
+  body: {
+    baseImageUrl: finalImageUrl,
+    logoUrl,
+    position: logoPosition || 'bottom-right',
+    logoSizePercent: logoSizePercent || 15,
+    logoStyle: logoStyle || 'shadow',
+    logoOpacity: logoOpacity || 100,
+    // ...
+  }
+});
 ```
 
-**3. Cập nhật TONE_STYLE_AFFINITY:**
+### File 3: `supabase/functions/overlay-logo-canvas/index.ts`
+
+**Thêm xử lý style effects:**
+
 ```typescript
-// Modern/Innovative - map to abstract, geometric
-modern: ['geometric', 'minimalist', 'isometric'],
-innovative: ['abstract', '3d_render', 'isometric'],
-cutting_edge: ['abstract', 'geometric', 'gradient'],
+interface OverlayRequest {
+  // ...existing
+  logoStyle?: 'clean' | 'shadow' | 'glass' | 'pill' | 'outline' | 'subtle';
+  logoOpacity?: number; // 30-100
+}
 
-// Trendy - add gradient
-trendy: ['gradient', '3d_render', 'cinematic'],
+// Thêm function applyLogoStyle
+async function applyLogoStyle(
+  logoImg: Image,
+  style: string,
+  opacity: number,
+  primaryColor?: string
+): Promise<Image> {
+  // Apply opacity
+  if (opacity < 100) {
+    logoImg.opacity(opacity / 100);
+  }
+  
+  switch (style) {
+    case 'shadow':
+      // Tạo shadow layer phía dưới logo
+      return addDropShadow(logoImg, 4, 0.3);
+      
+    case 'glass':
+      // Tạo background blur rounded
+      return addGlassBackground(logoImg);
+      
+    case 'pill':
+      // Thêm pill-shaped background
+      return addPillBackground(logoImg, primaryColor || '#ffffff');
+      
+    case 'outline':
+      // Thêm stroke
+      return addOutline(logoImg, 2, '#ffffff');
+      
+    case 'subtle':
+      // Giảm opacity mặc định
+      logoImg.opacity(0.5);
+      return logoImg;
+      
+    default:
+      return logoImg;
+  }
+}
+
+// Mở rộng calculatePosition cho 9 vị trí
+function calculatePosition(
+  baseWidth: number,
+  baseHeight: number,
+  logoWidth: number,
+  logoHeight: number,
+  position: LogoPosition,
+  padding: number
+): { x: number; y: number } {
+  const positions = {
+    'top-left': { x: padding, y: padding },
+    'top-center': { x: (baseWidth - logoWidth) / 2, y: padding },
+    'top-right': { x: baseWidth - logoWidth - padding, y: padding },
+    'center-left': { x: padding, y: (baseHeight - logoHeight) / 2 },
+    'center': { x: (baseWidth - logoWidth) / 2, y: (baseHeight - logoHeight) / 2 },
+    'center-right': { x: baseWidth - logoWidth - padding, y: (baseHeight - logoHeight) / 2 },
+    'bottom-left': { x: padding, y: baseHeight - logoHeight - padding },
+    'bottom-center': { x: (baseWidth - logoWidth) / 2, y: baseHeight - logoHeight - padding },
+    'bottom-right': { x: baseWidth - logoWidth - padding, y: baseHeight - logoHeight - padding },
+  };
+  return positions[position] || positions['bottom-right'];
+}
 ```
 
-**4. Cập nhật mapExplicitStyle (line 180-203):**
+### File 4: `src/components/multichannel/LogoOptionsPanel.tsx` (Mới)
+
+**Component UI chọn logo options:**
+
 ```typescript
-'abstract': 'abstract',
-'geometric': 'geometric', 
-'isometric': 'isometric',
-'gradient': 'gradient',
-'product': 'product_only',
-'product_only': 'product_only',
+// Visual 3x3 grid picker cho vị trí
+// Style preset cards với icon preview
+// Size buttons + custom slider
+// Opacity slider
+// Live preview thumbnail
 ```
 
-**5. Cập nhật getStyleLabel (line 329-339):**
-```typescript
-abstract: 'Trừu tượng',
-geometric: 'Hình học',
-isometric: 'Isometric',
-gradient: 'Gradient',
-product_only: 'Sản phẩm',
+---
+
+## Giao diện người dùng mới
+
+**Logo Options Panel trong UnifiedImageGenerator:**
+
+```text
+┌─────────────────────────────────────────┐
+│ 🎨 Logo Options                          │
+├─────────────────────────────────────────┤
+│ Vị trí:                                  │
+│ ┌───┬───┬───┐                           │
+│ │ ◯ │ ◯ │ ◯ │  ← Visual position grid  │
+│ ├───┼───┼───┤                           │
+│ │ ◯ │ ◯ │ ◯ │                           │
+│ ├───┼───┼───┤                           │
+│ │ ◯ │ ◯ │ ● │  ● = selected            │
+│ └───┴───┴───┘                           │
+├─────────────────────────────────────────┤
+│ Phong cách:                              │
+│ [Clean] [Shadow✓] [Glass] [Pill] [Subtle]│
+├─────────────────────────────────────────┤
+│ Kích thước:                              │
+│ [Nhỏ] [Vừa✓] [Lớn] [Tùy chỉnh: ━━●━━ 15%]│
+├─────────────────────────────────────────┤
+│ Độ trong suốt:                           │
+│ ━━━━━━━━━━━━━━━━━━●━━ 100%              │
+└─────────────────────────────────────────┘
 ```
 
-### File 3: `supabase/functions/_shared/image-prompt-builder.ts`
+---
 
-Cập nhật backend prompt builder:
+## Files cần chỉnh sửa
 
-**1. Mở rộng type (line 98):**
-```typescript
-export type ImageStylePreset = 
-  | 'photorealistic' | 'illustration' | 'minimalist' 
-  | '3d_render' | 'flat_design' | 'watercolor' | 'cinematic'
-  | 'abstract' | 'geometric' | 'isometric' | 'gradient' | 'product_only';
-```
+| File | Thay đổi |
+|------|----------|
+| `src/hooks/useAutoImageGeneration.ts` | Thêm params logoStyle, logoSize, logoOpacity |
+| `src/components/multichannel/UnifiedImageGenerator.tsx` | Thêm UI controls, state mới, cập nhật IMAGE_STYLES |
+| `supabase/functions/overlay-logo-canvas/index.ts` | Thêm logic xử lý style, mở rộng position 9 điểm |
+| `src/components/multichannel/LogoOptionsPanel.tsx` | **MỚI** - Component visual picker |
+| `src/hooks/useSocialImageGeneration.ts` | Cập nhật types |
 
-**2. Thêm vào IMAGE_STYLE_PRESETS (line 100-140):**
-```typescript
-abstract: {
-  description: 'Abstract art with organic shapes and creative compositions',
-  keywords: ['abstract art', 'organic shapes', 'fluid forms', 'artistic expression', 'creative composition', 'color harmony'],
-  negativeKeywords: ['realistic', 'photographic', 'literal', 'human faces', 'portraits', 'people'],
-},
-geometric: {
-  description: 'Clean geometric patterns with modern shapes',
-  keywords: ['geometric patterns', 'clean shapes', 'modern design', 'symmetry', 'polygons', 'lines and angles'],
-  negativeKeywords: ['organic', 'realistic', 'photographs', 'human faces', 'portraits', 'people'],
-},
-isometric: {
-  description: 'Isometric 3D perspective with tech-inspired aesthetics',
-  keywords: ['isometric view', '3D perspective', 'tech aesthetic', 'clean lines', 'isometric illustration', 'data visualization style'],
-  negativeKeywords: ['photorealistic', 'organic', 'messy', 'human faces', 'portraits', 'people'],
-},
-gradient: {
-  description: 'Smooth gradient backgrounds with color transitions',
-  keywords: ['gradient background', 'smooth color transitions', 'mesh gradients', 'soft colors', 'ambient lighting', 'ethereal feel'],
-  negativeKeywords: ['harsh edges', 'busy patterns', 'cluttered', 'human faces', 'portraits', 'people', 'noisy textures'],
-},
-product_only: {
-  description: 'Clean product-focused imagery without people',
-  keywords: ['product photography', 'clean background', 'studio lighting', 'product focus', 'commercial quality', 'no people', 'object only'],
-  negativeKeywords: ['people', 'human faces', 'portraits', 'hands', 'models', 'lifestyle with people', 'crowds'],
-},
-```
+---
 
-## Mapping chiến lược cho phong cách mới
+## Độ ưu tiên triển khai
 
-| Phong cách | Ngành phù hợp | Tone phù hợp | Đặc điểm |
-|------------|---------------|--------------|----------|
-| abstract | Art, AI, Creative | Innovative, Artistic | Không có người, nghệ thuật |
-| geometric | Tech, Design, Saas | Modern, Professional | Không có người, đồ họa |
-| isometric | Tech, Software, Fintech | Trendy, Innovative | Không có người, 3D cách điệu |
-| gradient | AI, Creative, Wellness | Calm, Trendy | Không có người, màu gradient |
-| product_only | E-commerce, Retail, Luxury | Any | Chỉ sản phẩm, không người |
+1. **Phase 1** (Quan trọng nhất):
+   - Mở rộng 9 vị trí
+   - Thêm tùy chọn kích thước (slider)
+   - Thêm opacity control
 
-## Lợi ích
+2. **Phase 2** (Nâng cao):
+   - Style presets (shadow, glass, pill...)
+   - Visual position picker component
+   - Live preview
 
-1. **Đa dạng hóa** - 5 phong cách mới giúp ảnh không đơn điệu
-2. **Không có người** - Tất cả 5 phong cách mới đều tự nhiên không có người (negative keywords)
-3. **Phù hợp ngành nghề** - Mỗi phong cách được map với các ngành phù hợp
-4. **Tự động gợi ý** - Hệ thống sẽ tự gợi ý phong cách phù hợp dựa trên brand
+---
 
-## Files sẽ chỉnh sửa
+## Lợi ích sau khi hoàn thành
 
-1. `src/hooks/useSocialImageGeneration.ts` - Type + Labels
-2. `src/utils/imageStyleSuggestion.ts` - Suggestion logic + Mappings
-3. `supabase/functions/_shared/image-prompt-builder.ts` - Prompt keywords
+1. ✅ Logo hòa hợp với ảnh hơn (shadow, glass effects)
+2. ✅ Nhiều vị trí linh hoạt (9 điểm thay vì 4)
+3. ✅ Kích thước tùy chỉnh (5%-30%)
+4. ✅ Watermark mode (opacity thấp)
+5. ✅ Giao diện visual dễ dùng (grid picker)
+6. ✅ Professional output quality
 
-## Testing
-
-1. Mở generator ảnh → kiểm tra dropdown có 12 phong cách (7 cũ + 5 mới)
-2. Tạo ảnh với phong cách "Trừu tượng" → không có người
-3. Tạo ảnh với phong cách "Sản phẩm" → chỉ có sản phẩm
-4. Kiểm tra Auto-suggestion với brand ngành Tech → nên gợi ý Isometric/Geometric
