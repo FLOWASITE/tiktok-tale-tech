@@ -1,255 +1,285 @@
 
-# Đề Xuất Phong Cách Ảnh Dựa Trên Brand
+# Thêm Phong Cách Ảnh Có Text (Social Graphics)
 
-## Tổng Quan
+## Tổng Quan Vấn Đề
 
-Thêm tính năng AI tự động đề xuất phong cách ảnh phù hợp nhất dựa trên thông tin Brand đã có sẵn, giúp người dùng không phải đoán và tạo ra ảnh nhất quán với identity thương hiệu.
+Hiện tại hệ thống tạo ảnh **KHÔNG bao gồm text** trong ảnh (rule cứng: "DO NOT include any text, words, letters, or typography"). Điều này tốt cho ảnh nền, nhưng thiếu tùy chọn cho:
 
----
+- **Social Graphics** với quote/hook message
+- **Ảnh carousel** với text overlay
+- **Story/Reel covers** với tiêu đề
 
-## Dữ Liệu Brand Có Sẵn Để Đề Xuất
-
-| Field | Ví dụ | Ảnh hưởng đến Visual Style |
-|-------|-------|---------------------------|
-| `industry` | ["Beauty", "Skincare"] | Beauty → Minimalist, Cinematic |
-| `tone_of_voice` | ["expert", "friendly"] | Expert → Clean, Professional |
-| `image_style` | "modern_minimalist" | Đã có preference → ưu tiên |
-| `formality_level` | "semi_formal" | Formal → Photorealistic |
-| `target_age_range` | "25-35" | Gen Z → Illustration, Flat |
+Trong khi đó, data `text_overlay` từ Hook đã có sẵn nhưng chưa được sử dụng.
 
 ---
 
-## Logic Đề Xuất Phong Cách
+## Giải Pháp Đề Xuất
 
-### 1. Industry → Style Mapping
+### 1. Thêm "Content Type" mới: `with_text` vs `background_only`
 
-```text
-┌─────────────────────┬────────────────────────────┐
-│ Industry            │ Suggested Styles           │
-├─────────────────────┼────────────────────────────┤
-│ Beauty, Fashion     │ minimalist, cinematic      │
-│ Tech, SaaS          │ 3d_render, flat_design     │
-│ Food & Beverage     │ photorealistic, watercolor │
-│ Education           │ illustration, flat_design  │
-│ Healthcare          │ photorealistic, minimalist │
-│ Real Estate         │ photorealistic, cinematic  │
-│ Art, Creative       │ watercolor, illustration   │
-│ Finance             │ minimalist, photorealistic │
-│ E-commerce          │ photorealistic, 3d_render  │
-└─────────────────────┴────────────────────────────┘
+| Mode | Mô tả | Khi nào dùng |
+|------|-------|--------------|
+| `background_only` | Ảnh nền không có text (mặc định hiện tại) | Khi muốn overlay text bằng tool khác |
+| `with_text` | Social graphic có text từ Hook | Quote cards, carousel slides, story covers |
+
+### 2. UI Flow Mới
+
 ```
+┌──────────────────────────────────────────────────┐
+│ Loại ảnh                                         │
+├──────────────────────────────────────────────────┤
+│ 🖼️ Ảnh nền          │  📝 Ảnh có Text           │
+│ (Background)        │  (Social Graphic)         │
+│                     │                            │
+│ Không có chữ,       │  Có hook/quote hiển thị   │
+│ phù hợp overlay     │  Typography tích hợp      │
+│ bằng tool khác      │  Sẵn sàng đăng bài        │
+└──────────────────────────────────────────────────┘
 
-### 2. Tone of Voice → Style Adjustment
+[Nếu chọn "Ảnh có Text"]
 
-```text
-┌─────────────────────┬────────────────────────────┐
-│ Tone                │ Style Boost                │
-├─────────────────────┼────────────────────────────┤
-│ expert, calm        │ +minimalist, +photorealistic│
-│ friendly, playful   │ +illustration, +flat_design │
-│ inspirational       │ +cinematic, +watercolor    │
-│ professional        │ +photorealistic            │
-│ trendy, bold        │ +3d_render, +cinematic     │
-└─────────────────────┴────────────────────────────┘
-```
-
-### 3. Scoring Algorithm
-
-```text
-For each style preset:
-  score = 0
-  
-  if brand.industry matches INDUSTRY_STYLE_MAP:
-    score += 3 (primary match)
-    score += 1 (secondary match)
-  
-  for each tone in brand.tone_of_voice:
-    if tone maps to this style:
-      score += 2
-  
-  if brand.image_style explicitly set:
-    score += 5 (user preference priority)
-  
-  if brand.formality_level === 'formal':
-    boost photorealistic, minimalist
-  
-Return top 2 styles sorted by score
+┌──────────────────────────────────────────────────┐
+│ Text hiển thị trên ảnh:                          │
+│ ┌──────────────────────────────────────────────┐ │
+│ │ "3 sai lầm skincare khiến da bạn tệ hơn"    │ │
+│ └──────────────────────────────────────────────┘ │
+│ [Lấy từ Hook] [Tự nhập]                          │
+│                                                  │
+│ Vị trí text: [Center] [Top] [Bottom]             │
+│ Typography style: [Modern] [Classic] [Bold]     │
+└──────────────────────────────────────────────────┘
 ```
 
 ---
 
-## UI Changes
+## Chi Tiết Kỹ Thuật
 
-### Hiện tại:
-```
-[Phong cách ảnh]
-🔘 Tự động (Theo brand style)  ← Không rõ sẽ chọn gì
-🔘 Chân thực
-🔘 Minh họa
-...
-```
-
-### Sau khi cải thiện:
-```
-[Phong cách ảnh]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✨ Gợi ý cho Beauty brand với tone Expert, Friendly:
-
-🔘 ⭐ Tối giản     ← Match: Industry + Tone (Recommended)
-🔘 ⭐ Chân thực   ← Match: Industry (85%)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📷 Tất cả phong cách:
-🔘 Minh họa
-🔘 3D Render
-🔘 Flat Design
-...
-```
-
----
-
-## Implementation Details
-
-### File Changes:
+### File Changes
 
 | File | Thay đổi |
 |------|----------|
-| `src/utils/imageStyleSuggestion.ts` | **NEW** - Logic đề xuất style |
-| `src/components/multichannel/UnifiedImageGenerator.tsx` | Hiển thị suggested styles |
-| `supabase/functions/_shared/image-prompt-builder.ts` | Backend auto-selection khi style='auto' |
+| `src/hooks/useSocialImageGeneration.ts` | Thêm type `ImageContentType`, param `textToInclude`, `textPosition` |
+| `src/components/multichannel/UnifiedImageGenerator.tsx` | UI cho Content Type selection, text input |
+| `src/components/multichannel/StrategicContextPreview.tsx` | Hiển thị text sẽ được thêm vào ảnh |
+| `supabase/functions/_shared/image-prompt-builder.ts` | Logic điều kiện: bỏ rule "no text" khi mode = `with_text` |
+| `supabase/functions/generate-brand-image/index.ts` | Nhận param mới và pass xuống builder |
 
 ---
 
-### 1. New Utility: `imageStyleSuggestion.ts`
+### 1. Type Updates (`useSocialImageGeneration.ts`)
 
 ```typescript
-// Industry → Primary styles mapping
-const INDUSTRY_STYLE_MAP: Record<string, ImageStylePreset[]> = {
-  // Beauty & Fashion
-  beauty: ['minimalist', 'cinematic'],
-  skincare: ['minimalist', 'photorealistic'],
-  fashion: ['cinematic', 'photorealistic'],
-  cosmetics: ['minimalist', 'cinematic'],
-  
-  // Technology
-  technology: ['3d_render', 'flat_design'],
-  saas: ['flat_design', 'minimalist'],
-  software: ['flat_design', '3d_render'],
-  
-  // Food
-  food: ['photorealistic', 'watercolor'],
-  restaurant: ['photorealistic', 'cinematic'],
-  beverage: ['photorealistic', 'minimalist'],
-  
-  // Professional Services
-  finance: ['minimalist', 'photorealistic'],
-  healthcare: ['photorealistic', 'minimalist'],
-  education: ['illustration', 'flat_design'],
-  consulting: ['minimalist', 'photorealistic'],
-  
-  // Creative
-  art: ['watercolor', 'illustration'],
-  design: ['minimalist', 'illustration'],
-  photography: ['cinematic', 'photorealistic'],
-  
-  // Real Estate
-  realestate: ['photorealistic', 'cinematic'],
-  property: ['photorealistic', 'cinematic'],
-};
+export type ImageContentType = 'background_only' | 'with_text';
 
-// Tone → Style affinity
-const TONE_STYLE_AFFINITY: Record<string, ImageStylePreset[]> = {
-  expert: ['minimalist', 'photorealistic'],
-  professional: ['photorealistic', 'minimalist'],
-  calm: ['minimalist', 'watercolor'],
-  friendly: ['illustration', 'flat_design'],
-  playful: ['illustration', 'flat_design', '3d_render'],
-  bold: ['cinematic', '3d_render'],
-  inspirational: ['cinematic', 'watercolor'],
-  trendy: ['3d_render', 'cinematic'],
-  warm: ['watercolor', 'photorealistic'],
-  elegant: ['minimalist', 'cinematic'],
-};
+export type TextPosition = 'center' | 'top' | 'bottom' | 'top-left' | 'bottom-right';
 
-export interface StyleSuggestion {
-  style: ImageStylePreset;
-  score: number;
-  reasons: string[];
-  isRecommended: boolean;
-}
+export type TypographyStyle = 'modern' | 'classic' | 'bold' | 'minimal';
 
-export function suggestImageStyles(
-  industry?: string[],
-  toneOfVoice?: string[],
-  explicitImageStyle?: string,
-  formalityLevel?: string
-): StyleSuggestion[] {
-  // Scoring algorithm implementation
-  // Returns sorted array of suggestions with reasons
+interface GenerateImageParams {
+  // ... existing params
+  
+  // NEW: Text-in-image params
+  imageContentType?: ImageContentType;
+  textToInclude?: string;        // From hook.text_overlay or custom
+  textPosition?: TextPosition;
+  typographyStyle?: TypographyStyle;
 }
 ```
 
 ---
 
-### 2. Frontend UI Update
+### 2. Prompt Builder Logic
+
+```typescript
+// In image-prompt-builder.ts
+
+function buildTextInImageSection(
+  textToInclude?: string,
+  textPosition?: TextPosition,
+  typographyStyle?: TypographyStyle
+): string {
+  if (!textToInclude) return '';
+  
+  const positionGuide: Record<TextPosition, string> = {
+    'center': 'Text nằm giữa ảnh, làm focal point',
+    'top': 'Text ở 1/3 trên, visual ở dưới',
+    'bottom': 'Text ở 1/3 dưới, visual ở trên',
+    'top-left': 'Text góc trên trái, style quote',
+    'bottom-right': 'Text góc dưới phải, style caption',
+  };
+  
+  const styleGuide: Record<TypographyStyle, string> = {
+    'modern': 'Sans-serif font, clean, contemporary',
+    'classic': 'Serif font, elegant, timeless',
+    'bold': 'Heavy weight, impactful, attention-grabbing',
+    'minimal': 'Thin weight, subtle, refined',
+  };
+  
+  return `
+## TEXT IN IMAGE (REQUIRED):
+Include this exact text in the image:
+"${textToInclude}"
+
+Typography Guidelines:
+- Position: ${positionGuide[textPosition || 'center']}
+- Style: ${styleGuide[typographyStyle || 'modern']}
+- Ensure high contrast and readability
+- Text should be the primary focal element
+- Use brand colors for text if appropriate`;
+}
+
+// Modify buildImagePrompt to conditionally apply text rules
+export function buildImagePrompt(params: ImagePromptParams): string {
+  // ...existing code...
+  
+  // Conditional text rules
+  if (params.imageContentType === 'with_text' && params.textToInclude) {
+    prompt += buildTextInImageSection(
+      params.textToInclude,
+      params.textPosition,
+      params.typographyStyle
+    );
+    
+    // Modified rules for with_text mode
+    prompt += `
+    
+## CRITICAL RULES (WITH TEXT MODE):
+1. INCLUDE the specified text prominently in the image
+2. Text must be clearly readable and high contrast
+3. DO NOT include any logos or brand marks
+4. Background/visual should complement, not compete with text
+5. Maintain brand-appropriate color temperature`;
+  } else {
+    // Original no-text rules
+    prompt += `
+    
+## CRITICAL RULES (MUST FOLLOW):
+1. DO NOT include any text, words, letters, or typography in the image
+2. DO NOT include any logos or brand marks
+...`;
+  }
+}
+```
+
+---
+
+### 3. UI Component Update
 
 ```tsx
 // In UnifiedImageGenerator.tsx
 
-// New state for suggestions
-const [styleSuggestions, setStyleSuggestions] = useState<StyleSuggestion[]>([]);
+// New state
+const [imageContentType, setImageContentType] = useState<'background_only' | 'with_text'>('background_only');
+const [textToInclude, setTextToInclude] = useState<string>('');
+const [textPosition, setTextPosition] = useState<TextPosition>('center');
 
-// Compute suggestions when brand info available
+// Auto-fill from hook text_overlay
 useEffect(() => {
-  if (brandIndustry || content.brand_template_id) {
-    const suggestions = suggestImageStyles(
-      brandIndustry,
-      brandTemplate?.tone_of_voice,
-      brandTemplate?.image_style,
-      brandTemplate?.formality_level
-    );
-    setStyleSuggestions(suggestions);
-    
-    // Auto-select recommended if current is 'auto'
-    if (imageStyle === 'auto' && suggestions[0]?.isRecommended) {
-      setImageStyle(suggestions[0].style);
+  if (mode === 'single' && selectedChannel) {
+    const hook = content.channel_content?.[selectedChannel]?.selected_hooks?.[0];
+    if (hook?.text_overlay) {
+      setTextToInclude(hook.text_overlay);
     }
   }
-}, [brandIndustry, brandTemplate]);
+}, [mode, selectedChannel, content]);
 
-// Render suggested styles section
-{styleSuggestions.length > 0 && (
-  <div className="mb-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
+// UI
+<div className="space-y-4">
+  <Label>Loại ảnh</Label>
+  <div className="grid grid-cols-2 gap-3">
+    <button
+      onClick={() => setImageContentType('background_only')}
+      className={cn(
+        "p-4 rounded-lg border text-left transition-all",
+        imageContentType === 'background_only' 
+          ? "border-primary bg-primary/5" 
+          : "border-border hover:border-primary/50"
+      )}
+    >
+      <ImageIcon className="w-5 h-5 mb-2" />
+      <div className="font-medium">Ảnh nền</div>
+      <div className="text-xs text-muted-foreground">
+        Không có text, phù hợp overlay
+      </div>
+    </button>
+    
+    <button
+      onClick={() => setImageContentType('with_text')}
+      className={cn(
+        "p-4 rounded-lg border text-left transition-all",
+        imageContentType === 'with_text' 
+          ? "border-primary bg-primary/5" 
+          : "border-border hover:border-primary/50"
+      )}
+    >
+      <Type className="w-5 h-5 mb-2" />
+      <div className="font-medium">Social Graphic</div>
+      <div className="text-xs text-muted-foreground">
+        Có hook/quote trên ảnh
+      </div>
+    </button>
+  </div>
+  
+  {/* Text options when with_text selected */}
+  {imageContentType === 'with_text' && (
+    <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
+      <div>
+        <Label>Text hiển thị</Label>
+        <Textarea
+          value={textToInclude}
+          onChange={(e) => setTextToInclude(e.target.value)}
+          placeholder="Nhập text hoặc dùng hook message..."
+          className="mt-1.5"
+        />
+        {hookTextOverlay && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2 text-xs"
+            onClick={() => setTextToInclude(hookTextOverlay)}
+          >
+            <Sparkles className="w-3 h-3 mr-1" />
+            Dùng text từ Hook
+          </Button>
+        )}
+      </div>
+      
+      <div>
+        <Label>Vị trí text</Label>
+        <Select value={textPosition} onValueChange={setTextPosition}>
+          <SelectTrigger className="mt-1.5">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="center">Giữa ảnh</SelectItem>
+            <SelectItem value="top">Phía trên</SelectItem>
+            <SelectItem value="bottom">Phía dưới</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  )}
+</div>
+```
+
+---
+
+### 4. StrategicContextPreview Update
+
+Thêm preview của text sẽ được thêm vào ảnh:
+
+```tsx
+{imageContentType === 'with_text' && textToInclude && (
+  <div className="mt-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
     <div className="flex items-center gap-2 mb-2">
-      <Wand2 className="w-4 h-4 text-primary" />
-      <span className="text-sm font-medium">Gợi ý cho thương hiệu của bạn</span>
+      <Type className="w-4 h-4 text-primary" />
+      <span className="text-sm font-medium">Text trong ảnh</span>
     </div>
-    <div className="flex flex-wrap gap-2">
-      {styleSuggestions.slice(0, 2).map((suggestion) => (
-        <button
-          key={suggestion.style}
-          onClick={() => setImageStyle(suggestion.style)}
-          className={cn(
-            "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all",
-            imageStyle === suggestion.style 
-              ? "border-primary bg-primary/10 text-primary" 
-              : "border-border hover:border-primary/50"
-          )}
-        >
-          {IMAGE_STYLES.find(s => s.value === suggestion.style)?.icon}
-          <span className="text-sm font-medium">
-            {IMAGE_STYLES.find(s => s.value === suggestion.style)?.label}
-          </span>
-          {suggestion.isRecommended && (
-            <Badge variant="secondary" className="text-[10px]">
-              Best match
-            </Badge>
-          )}
-        </button>
-      ))}
-    </div>
-    <p className="text-xs text-muted-foreground mt-2">
-      {styleSuggestions[0]?.reasons.join(' • ')}
+    <p className="text-sm text-foreground font-medium">
+      "{textToInclude}"
+    </p>
+    <p className="text-xs text-muted-foreground mt-1">
+      Vị trí: {textPosition} • Style: {typographyStyle}
     </p>
   </div>
 )}
@@ -257,65 +287,28 @@ useEffect(() => {
 
 ---
 
-### 3. Backend Enhancement
+## Lưu Ý Quan Trọng
 
-Khi frontend gửi `imageStylePreset: undefined` (auto), backend sẽ tự chọn dựa trên brand data đã fetch:
+1. **AI Limitation**: Gemini/DALL-E không phải lúc nào cũng render text chính xác. Có thể cần nhiều lần thử hoặc sử dụng post-processing overlay thay vì AI generate text.
 
-```typescript
-// In generate-brand-image/index.ts
+2. **Alternative Approach**: Thay vì yêu cầu AI tạo text trong ảnh, có thể:
+   - Tạo ảnh nền trước
+   - Dùng Canvas API hoặc library để overlay text lên ảnh
+   - Điều này cho kết quả text chính xác hơn
 
-// If no explicit style, compute suggestion
-if (!imageStylePreset && brandTemplate) {
-  const suggestedStyle = computeStyleFromBrand(
-    brandTemplate.industry,
-    brandTemplate.tone_of_voice,
-    brandTemplate.image_style,
-    brandTemplate.formality_level
-  );
-  imageStylePreset = suggestedStyle;
-  console.log(`[generate-brand-image] Auto-selected style: ${suggestedStyle}`);
-}
-```
+3. **Khuyến nghị**: Bắt đầu với AI-generated text, nhưng có fallback plan cho canvas-based overlay nếu kết quả không tốt.
 
 ---
 
-## User Experience Flow
-
-```text
-1. User opens Image Generator
-   └─> System detects brand: "GlowSkin" 
-       Industry: ["Beauty", "Skincare"]
-       Tone: ["expert", "friendly"]
-
-2. AI analyzes and suggests:
-   ┌─────────────────────────────────────────┐
-   │ ✨ Gợi ý cho GlowSkin:                  │
-   │                                         │
-   │ ⭐ Tối giản   (Beauty + Expert match)   │
-   │ ⭐ Chân thực  (Skincare + Pro match)    │
-   │                                         │
-   │ Lý do: Industry Beauty thường dùng     │
-   │ style tối giản, tone Expert phù hợp    │
-   │ với hình ảnh chuyên nghiệp.            │
-   └─────────────────────────────────────────┘
-
-3. User can:
-   - Click suggested style (recommended)
-   - Override with any other style
-   - Keep "Tự động" to let backend decide
-
-4. Generated image matches brand identity ✓
-```
-
----
-
-## Ước Tính Thời Gian
+## Thời Gian Ước Tính
 
 | Task | Thời gian |
 |------|-----------|
-| Create `imageStyleSuggestion.ts` utility | 10 phút |
-| Update `UnifiedImageGenerator.tsx` UI | 15 phút |
-| Backend auto-selection logic | 5 phút |
-| Testing & refinement | 5 phút |
-| **Total** | **~35 phút** |
+| Update types & interfaces | 5 phút |
+| UI cho Content Type selection | 15 phút |
+| Prompt builder logic | 10 phút |
+| Backend param handling | 5 phút |
+| StrategicContextPreview update | 5 phút |
+| Testing | 10 phút |
+| **Total** | **~50 phút** |
 
