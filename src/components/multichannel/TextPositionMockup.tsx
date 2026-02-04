@@ -6,6 +6,7 @@ interface TextPositionMockupProps {
   typographyStyle: TypographyStyle;
   textPreview?: string;
   className?: string;
+  size?: 'sm' | 'md' | 'lg';
 }
 
 const POSITION_STYLES: Record<TextPosition, string> = {
@@ -23,24 +24,43 @@ const TYPOGRAPHY_STYLES: Record<TypographyStyle, { font: string; weight: string;
   'minimal': { font: 'font-sans', weight: 'font-light', label: 'Aa' },
 };
 
+const SIZE_CLASSES = {
+  sm: 'max-w-[140px]',
+  md: 'max-w-[180px]',
+  lg: 'max-w-[220px]',
+};
+
+const TEXT_SIZE_CLASSES = {
+  sm: 'text-[9px]',
+  md: 'text-[11px]',
+  lg: 'text-[13px]',
+};
+
 export function TextPositionMockup({ 
   textPosition, 
   typographyStyle, 
   textPreview,
-  className 
+  className,
+  size = 'md',
 }: TextPositionMockupProps) {
   const positionClass = POSITION_STYLES[textPosition];
   const typoStyle = TYPOGRAPHY_STYLES[typographyStyle];
+  const sizeClass = SIZE_CLASSES[size];
+  const textSizeClass = TEXT_SIZE_CLASSES[size];
   
   // Truncate text for preview
+  const maxLength = size === 'lg' ? 50 : size === 'md' ? 35 : 25;
   const displayText = textPreview 
-    ? textPreview.length > 30 ? textPreview.slice(0, 30) + '...' : textPreview
+    ? textPreview.length > maxLength ? textPreview.slice(0, maxLength) + '...' : textPreview
     : 'Your text here';
 
   return (
     <div className={cn("relative", className)}>
       {/* Mockup Frame */}
-      <div className="aspect-[4/5] w-full max-w-[160px] rounded-lg border-2 border-dashed border-primary/30 bg-gradient-to-br from-muted/50 to-muted overflow-hidden">
+      <div className={cn(
+        "aspect-[4/5] w-full rounded-lg border-2 border-dashed border-primary/30 bg-gradient-to-br from-muted/50 to-muted overflow-hidden",
+        sizeClass
+      )}>
         {/* Decorative background elements */}
         <div className="absolute inset-0 opacity-30">
           <div className="absolute top-1/4 left-1/4 w-1/2 h-1/3 rounded-full bg-primary/20 blur-xl" />
@@ -60,7 +80,8 @@ export function TextPositionMockup({
             textPosition === 'bottom-right' && "text-right"
           )}>
             <p className={cn(
-              "text-[10px] leading-tight text-background break-words",
+              "leading-tight text-background break-words",
+              textSizeClass,
               typoStyle.font,
               typoStyle.weight
             )}>
