@@ -79,6 +79,11 @@ interface StrategicContextPreviewProps {
   content: MultiChannelContent;
   getHookForChannel: (content: MultiChannelContent, channel: Channel) => { hookMessage?: string; hookType?: string };
   CHANNEL_CONFIG: Record<Channel, { icon: React.ReactNode; color: string; bgColor: string }>;
+  // NEW: Text-in-image props
+  imageContentType?: 'background_only' | 'with_text';
+  textToInclude?: string;
+  textPosition?: string;
+  typographyStyle?: string;
 }
 
 export function StrategicContextPreview({
@@ -91,6 +96,11 @@ export function StrategicContextPreview({
   content,
   getHookForChannel,
   CHANNEL_CONFIG,
+  // NEW: Text-in-image props
+  imageContentType,
+  textToInclude,
+  textPosition,
+  typographyStyle,
 }: StrategicContextPreviewProps) {
   // Check if there's any context to show
   const hasHookMessages = mode === 'batch' 
@@ -321,6 +331,30 @@ export function StrategicContextPreview({
                 {roleConfig && <span>{roleConfig.visualHint}</span>}
                 {roleConfig && angleConfig && <span> • </span>}
                 {angleConfig && <span>{angleConfig.visualHint}</span>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* NEW: Text-in-image Preview */}
+        {imageContentType === 'with_text' && textToInclude && (
+          <div className="pt-2 border-t border-orange-500/20">
+            <div className="p-3 rounded-lg bg-gradient-to-r from-orange-500/10 to-transparent border border-orange-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-5 h-5 rounded-md bg-orange-500/10 flex items-center justify-center">
+                  <Zap className="w-3 h-3 text-orange-600" />
+                </div>
+                <span className="text-xs font-medium text-orange-600">
+                  Social Graphic - Text trong ảnh
+                </span>
+              </div>
+              <p className="text-sm text-foreground font-medium leading-relaxed mb-2">
+                "{textToInclude}"
+              </p>
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <span>Vị trí: <span className="font-medium text-foreground/70">{textPosition}</span></span>
+                <span>•</span>
+                <span>Typography: <span className="font-medium text-foreground/70">{typographyStyle}</span></span>
               </div>
             </div>
           </div>
