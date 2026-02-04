@@ -1,86 +1,183 @@
 
+# Kế hoạch: Thêm 5 phong cách ảnh mới (không có người)
+
 ## Mục tiêu
-Khi mở nội dung đã tạo trước đây → nhấn “Xem” → “Tạo ảnh”, hệ thống phải **tự lấy được text overlay từ bài viết/hook đã lưu**, không hiện lỗi “Vui lòng nhập text”.
+Thêm 5 phong cách ảnh mới để người dùng có nhiều lựa chọn hơn, đặc biệt là các phong cách ít/không có người:
+- **Abstract** - Hình ảnh trừu tượng nghệ thuật
+- **Geometric** - Hình học, shapes đồ họa  
+- **Isometric** - Góc nhìn isometric 3D
+- **Gradient** - Gradient màu sắc
+- **Product Only** - Chỉ sản phẩm, không có người
 
-## Chẩn đoán (dựa trên code hiện tại)
-- `UnifiedImageGenerator` đang cố đọc:
-  - `content.selected_hooks` và `content.global_hook` (snake_case) để auto-fill text.
-- Nhưng hook `useMultiChannelContents` có `transformContent()` **không map 2 field này** từ database vào `MultiChannelContent`.
-  - Dù query đang `.select('*')`, dữ liệu có về nhưng bị “rơi” trong bước transform.
-- Kết quả: khi xem lại nội dung cũ, `contentAny.selected_hooks/global_hook` = `undefined` → auto-fill không có gì → validation chặn và hiện “Vui lòng nhập text…”.
+## Chi tiết kỹ thuật
 
-## Hướng sửa (ưu tiên chắc chắn, ít thay đổi nhất)
-### A) Fix dữ liệu content: đưa selected_hooks/global_hook vào object `content` (root fix)
-1) **Cập nhật type `MultiChannelContent`** để có các field hook:
-   - `selected_hooks?: MultiChannelSelectedHook[] | null`
-   - `global_hook?: GlobalHook | null`
-   (giữ snake_case để khớp code hiện tại trong `UnifiedImageGenerator` và `getHookForChannel`)
+### File 1: `src/hooks/useSocialImageGeneration.ts`
 
-2) **Cập nhật `transformContent()` trong `useMultiChannelContents.ts`**:
-   - Map trực tiếp từ row:
-     - `selected_hooks: (Array.isArray(data.selected_hooks) ? data.selected_hooks : null)`
-     - `global_hook: (data.global_hook && typeof data.global_hook === 'object' ? data.global_hook : null)`
-   - Nếu cần, “sanitize” shape tối thiểu (đảm bảo có `channel`, `opening_line`, `text_overlay`).
+Cập nhật type và thêm labels cho 5 phong cách mới:
 
-> Sau bước này, khi user mở lại nội dung cũ, dialog tạo ảnh sẽ có đủ dữ liệu hook để auto-fill.
+```typescript
+// Line 15: Mở rộng type
+export type ImageStylePreset = 
+  | 'photorealistic' | 'illustration' | 'minimalist' 
+  | '3d_render' | 'flat_design' | 'watercolor' | 'cinematic'
+  | 'abstract' | 'geometric' | 'isometric' | 'gradient' | 'product_only';
 
-### B) Bổ sung fallback lấy text từ chính “bài viết” (để nội dung cũ không có hooks vẫn chạy)
-Ngay cả khi một số nội dung cũ chưa lưu `selected_hooks/global_hook` (NULL), ta vẫn nên auto-fill từ content text:
-- Tạo helper trong `UnifiedImageGenerator`:
-  - `getBestOverlayText(channel): string`
-  - Priority:
-    1. `selected_hooks[channel].text_overlay`
-    2. `global_hook.text_overlay`
-    3. `selected_hooks[channel].opening_line`
-    4. `global_hook.opening_line`
-    5. “Câu đầu/đoạn đầu” của nội dung kênh (facebook_content/instagram_content/...) đã được clean markdown và cắt gọn (ví dụ 80–120 ký tự)
+// Line 17-49: Thêm vào IMAGE_STYLE_PRESETS
+abstract: {
+  label: 'Trừu tượng',
+  description: 'Nghệ thuật trừu tượng, hình khối sáng tạo',
+},
+geometric: {
+  label: 'Hình học',
+  description: 'Đồ họa hình học, shapes hiện đại',
+},
+isometric: {
+  label: 'Isometric',
+  description: 'Góc nhìn 3D isometric, phong cách tech',
+},
+gradient: {
+  label: 'Gradient',
+  description: 'Dải màu gradient mềm mại',
+},
+product_only: {
+  label: 'Sản phẩm',
+  description: 'Focus sản phẩm, không có người',
+},
+```
 
-Áp dụng helper này cho:
-- Single mode auto-fill (`setTextToInclude(...)`)
-- Batch mode auto-fill (shared text hoặc per-channel text)
+### File 2: `src/utils/imageStyleSuggestion.ts`
 
-### C) Làm cho auto-fill chạy đúng thời điểm (tránh race giữa state)
-Hiện `useEffect` batch mode có dependency nhưng có thể không chạy khi:
-- `useSharedText` toggle đổi sau khi dialog mở
-- `imageContentType` chuyển sang `with_text` sau đó
+Cập nhật tất cả các mapping và scoring:
 
-Cải thiện:
-- Trigger auto-fill khi:
-  - `open === true`
-  - `imageContentType === 'with_text'`
-  - `mode` / `singleChannel` / `selectedChannels` thay đổi
-  - `useSharedText` thay đổi
-- Chỉ auto-fill nếu field đang rỗng để không overwrite user input.
+**1. Thêm vào styleScores initialization (line 221-229):**
+```typescript
+const styleScores: Record<ImageStylePreset, { score: number; reasons: string[] }> = {
+  // ...existing styles...
+  abstract: { score: 0, reasons: [] },
+  geometric: { score: 0, reasons: [] },
+  isometric: { score: 0, reasons: [] },
+  gradient: { score: 0, reasons: [] },
+  product_only: { score: 0, reasons: [] },
+};
+```
 
-### D) Debug UX (để confirm ngay trong UI)
-Thêm log nhẹ (console) khi dialog mở:
-- `console.log('[UnifiedImageGenerator] hooks available', { hasSelectedHooks: !!contentAny.selected_hooks?.length, hasGlobalHook: !!contentAny.global_hook })`
-- `console.log('[UnifiedImageGenerator] autofill result', { mode, channel, textPreview: text.slice(0, 40) })`
+**2. Cập nhật INDUSTRY_STYLE_MAP (thêm các phong cách mới cho phù hợp):**
+```typescript
+// Technology - thêm isometric, geometric
+technology: ['isometric', '3d_render', 'flat_design'],
+tech: ['isometric', '3d_render', 'geometric'],
+saas: ['isometric', 'flat_design', 'gradient'],
+software: ['isometric', 'flat_design', 'geometric'],
+ai: ['abstract', '3d_render', 'gradient'],
 
-## File sẽ chỉnh
-1) `src/hooks/useMultiChannelContents.ts`
-- Bổ sung map `selected_hooks` + `global_hook` trong `transformContent`.
+// Creative - thêm abstract, gradient
+art: ['abstract', 'watercolor', 'illustration'],
+design: ['geometric', 'minimalist', 'abstract'],
+creative: ['abstract', 'illustration', 'gradient'],
 
-2) `src/types/multichannel.ts`
-- Mở rộng `MultiChannelContent` với `selected_hooks` + `global_hook` (snake_case).
-  - (Không đụng file auto-generated integrations.)
+// E-commerce - thêm product_only
+ecommerce: ['product_only', 'photorealistic', '3d_render'],
+retail: ['product_only', 'photorealistic', 'flat_design'],
+luxury: ['product_only', 'minimalist', 'cinematic'],
+```
 
-3) `src/components/multichannel/UnifiedImageGenerator.tsx`
-- Thay logic auto-fill hiện tại bằng helper `getBestOverlayText()`.
-- Mở rộng điều kiện chạy auto-fill theo `imageContentType === 'with_text'`.
-- Bổ sung fallback lấy từ nội dung bài viết nếu hooks không có.
+**3. Cập nhật TONE_STYLE_AFFINITY:**
+```typescript
+// Modern/Innovative - map to abstract, geometric
+modern: ['geometric', 'minimalist', 'isometric'],
+innovative: ['abstract', '3d_render', 'isometric'],
+cutting_edge: ['abstract', 'geometric', 'gradient'],
 
-## Tiêu chí kiểm tra sau khi làm
-1) Mở một nội dung cũ (đã tạo trước đây) → “Xem” → “Tạo ảnh”
-   - Chọn “Ảnh có text” → ô text **tự có nội dung** (không còn lỗi “Vui lòng nhập text”).
-2) Test cả:
-   - Single mode (1 kênh)
-   - Batch mode (shared text ON)
-   - Batch mode (shared text OFF, per-channel)
-3) Nếu hooks null:
-   - Text fallback lấy từ câu đầu của bài viết và vẫn generate được (Canvas overlay hiển thị chuẩn).
+// Trendy - add gradient
+trendy: ['gradient', '3d_render', 'cinematic'],
+```
 
-## Rủi ro & xử lý
-- Một số bản ghi có `selected_hooks` không đúng shape (Json lẫn loại): sẽ guard bằng `Array.isArray` + fallback.
-- Nội dung có markdown/emoji: fallback sẽ “clean nhẹ” và truncate để overlay đẹp.
+**4. Cập nhật mapExplicitStyle (line 180-203):**
+```typescript
+'abstract': 'abstract',
+'geometric': 'geometric', 
+'isometric': 'isometric',
+'gradient': 'gradient',
+'product': 'product_only',
+'product_only': 'product_only',
+```
 
+**5. Cập nhật getStyleLabel (line 329-339):**
+```typescript
+abstract: 'Trừu tượng',
+geometric: 'Hình học',
+isometric: 'Isometric',
+gradient: 'Gradient',
+product_only: 'Sản phẩm',
+```
+
+### File 3: `supabase/functions/_shared/image-prompt-builder.ts`
+
+Cập nhật backend prompt builder:
+
+**1. Mở rộng type (line 98):**
+```typescript
+export type ImageStylePreset = 
+  | 'photorealistic' | 'illustration' | 'minimalist' 
+  | '3d_render' | 'flat_design' | 'watercolor' | 'cinematic'
+  | 'abstract' | 'geometric' | 'isometric' | 'gradient' | 'product_only';
+```
+
+**2. Thêm vào IMAGE_STYLE_PRESETS (line 100-140):**
+```typescript
+abstract: {
+  description: 'Abstract art with organic shapes and creative compositions',
+  keywords: ['abstract art', 'organic shapes', 'fluid forms', 'artistic expression', 'creative composition', 'color harmony'],
+  negativeKeywords: ['realistic', 'photographic', 'literal', 'human faces', 'portraits', 'people'],
+},
+geometric: {
+  description: 'Clean geometric patterns with modern shapes',
+  keywords: ['geometric patterns', 'clean shapes', 'modern design', 'symmetry', 'polygons', 'lines and angles'],
+  negativeKeywords: ['organic', 'realistic', 'photographs', 'human faces', 'portraits', 'people'],
+},
+isometric: {
+  description: 'Isometric 3D perspective with tech-inspired aesthetics',
+  keywords: ['isometric view', '3D perspective', 'tech aesthetic', 'clean lines', 'isometric illustration', 'data visualization style'],
+  negativeKeywords: ['photorealistic', 'organic', 'messy', 'human faces', 'portraits', 'people'],
+},
+gradient: {
+  description: 'Smooth gradient backgrounds with color transitions',
+  keywords: ['gradient background', 'smooth color transitions', 'mesh gradients', 'soft colors', 'ambient lighting', 'ethereal feel'],
+  negativeKeywords: ['harsh edges', 'busy patterns', 'cluttered', 'human faces', 'portraits', 'people', 'noisy textures'],
+},
+product_only: {
+  description: 'Clean product-focused imagery without people',
+  keywords: ['product photography', 'clean background', 'studio lighting', 'product focus', 'commercial quality', 'no people', 'object only'],
+  negativeKeywords: ['people', 'human faces', 'portraits', 'hands', 'models', 'lifestyle with people', 'crowds'],
+},
+```
+
+## Mapping chiến lược cho phong cách mới
+
+| Phong cách | Ngành phù hợp | Tone phù hợp | Đặc điểm |
+|------------|---------------|--------------|----------|
+| abstract | Art, AI, Creative | Innovative, Artistic | Không có người, nghệ thuật |
+| geometric | Tech, Design, Saas | Modern, Professional | Không có người, đồ họa |
+| isometric | Tech, Software, Fintech | Trendy, Innovative | Không có người, 3D cách điệu |
+| gradient | AI, Creative, Wellness | Calm, Trendy | Không có người, màu gradient |
+| product_only | E-commerce, Retail, Luxury | Any | Chỉ sản phẩm, không người |
+
+## Lợi ích
+
+1. **Đa dạng hóa** - 5 phong cách mới giúp ảnh không đơn điệu
+2. **Không có người** - Tất cả 5 phong cách mới đều tự nhiên không có người (negative keywords)
+3. **Phù hợp ngành nghề** - Mỗi phong cách được map với các ngành phù hợp
+4. **Tự động gợi ý** - Hệ thống sẽ tự gợi ý phong cách phù hợp dựa trên brand
+
+## Files sẽ chỉnh sửa
+
+1. `src/hooks/useSocialImageGeneration.ts` - Type + Labels
+2. `src/utils/imageStyleSuggestion.ts` - Suggestion logic + Mappings
+3. `supabase/functions/_shared/image-prompt-builder.ts` - Prompt keywords
+
+## Testing
+
+1. Mở generator ảnh → kiểm tra dropdown có 12 phong cách (7 cũ + 5 mới)
+2. Tạo ảnh với phong cách "Trừu tượng" → không có người
+3. Tạo ảnh với phong cách "Sản phẩm" → chỉ có sản phẩm
+4. Kiểm tra Auto-suggestion với brand ngành Tech → nên gợi ý Isometric/Geometric
