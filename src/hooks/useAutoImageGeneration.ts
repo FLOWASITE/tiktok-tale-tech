@@ -32,7 +32,8 @@ export interface AutoGenerateOptions {
   hookMessages?: Record<Channel, { hookMessage?: string; hookType?: string }>;
   // Social Graphics (text-in-image) params for batch mode
   imageContentType?: 'background_only' | 'with_text';
-  textToInclude?: string;
+  textToInclude?: string; // Shared text for all channels
+  textsPerChannel?: Record<Channel, string>; // NEW: Channel-specific texts
   textPosition?: 'center' | 'top' | 'bottom' | 'top-left' | 'bottom-right';
   typographyStyle?: 'modern' | 'classic' | 'bold' | 'minimal';
   // Canvas fallback: overlay text programmatically for 100% accuracy
@@ -86,7 +87,7 @@ export function useAutoImageGeneration() {
       // Strategic context for more relevant images
       contentRole, contentAngle, hookMessages,
       // Social Graphics (text-in-image) params
-      imageContentType, textToInclude, textPosition, typographyStyle,
+      imageContentType, textToInclude, textsPerChannel, textPosition, typographyStyle,
       // Canvas fallback for 100% accurate text
       useCanvasFallback,
     } = options;
@@ -95,6 +96,9 @@ export function useAutoImageGeneration() {
     
     // Get hook for this specific channel
     const channelHook = hookMessages?.[channel];
+    
+    // Get text for this specific channel: prioritize channel-specific, fallback to shared
+    const channelText = textsPerChannel?.[channel] || textToInclude;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -127,9 +131,9 @@ export function useAutoImageGeneration() {
             contentAngle,
             hookMessage: channelHook?.hookMessage,
             hookType: channelHook?.hookType,
-            // Social Graphics (text-in-image) params - use effective type
+            // Social Graphics (text-in-image) params - use effective type and channel-specific text
             imageContentType: effectiveContentType,
-            textToInclude: effectiveContentType === 'with_text' ? textToInclude : undefined,
+            textToInclude: effectiveContentType === 'with_text' ? channelText : undefined,
             textPosition: effectiveContentType === 'with_text' ? textPosition : undefined,
             typographyStyle: effectiveContentType === 'with_text' ? typographyStyle : undefined,
           },
@@ -175,13 +179,13 @@ export function useAutoImageGeneration() {
         }
 
         // Step 3: Overlay text using canvas if useCanvasFallback is enabled
-        if (useCanvasFallback && imageContentType === 'with_text' && textToInclude) {
+        if (useCanvasFallback && imageContentType === 'with_text' && channelText) {
           console.log(`[useAutoImageGeneration] Applying canvas text overlay for ${channel}`);
           
           const { data: textData, error: textError } = await supabase.functions.invoke('overlay-text-canvas', {
             body: {
               baseImageUrl: finalImageUrl,
-              text: textToInclude,
+              text: channelText, // Use channel-specific text
               position: textPosition || 'center',
               typographyStyle: typographyStyle || 'modern',
               textColor: '#FFFFFF',
