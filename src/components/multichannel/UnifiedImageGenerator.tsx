@@ -55,6 +55,7 @@ import { toast } from 'sonner';
 import { suggestImageStyles, formatReasons, type StyleSuggestion } from '@/utils/imageStyleSuggestion';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { StrategicContextPreview } from './StrategicContextPreview';
 
 interface UnifiedImageGeneratorProps {
   open: boolean;
@@ -701,100 +702,18 @@ export function UnifiedImageGenerator({
 
               {/* Shared Settings */}
               <div className="space-y-4 pt-4 border-t">
-                {/* Strategic Context Preview - Always visible */}
-                {(contentRole || contentAngle || (mode === 'batch' && Object.values(hookMessages).some(h => h.hookMessage)) || (mode === 'single' && getHookForChannel(content, singleChannel).hookMessage)) && (
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500/5 via-orange-500/5 to-rose-500/5 border border-amber-500/20">
-                    <div className="flex items-center gap-2 mb-2.5">
-                      <div className="w-6 h-6 rounded-md bg-amber-500/10 flex items-center justify-center">
-                        <Eye className="w-3.5 h-3.5 text-amber-600" />
-                      </div>
-                      <span className="text-sm font-medium text-foreground">
-                        AI sẽ sử dụng thông tin này
-                      </span>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      {/* Content Role & Angle */}
-                      {(contentRole || contentAngle) && (
-                        <div className="flex flex-wrap gap-2">
-                          {contentRole && (
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-background/80 border border-border/50">
-                              <span className="text-base">
-                                {contentRole === 'seed' ? '🌱' : contentRole === 'sprout' ? '🌿' : '🌾'}
-                              </span>
-                              <div className="text-xs">
-                                <span className="text-muted-foreground">Vai trò: </span>
-                                <span className="font-medium">
-                                  {contentRole === 'seed' ? 'Nhận diện' : contentRole === 'sprout' ? 'Tin tưởng' : 'Chuyển đổi'}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                          {contentAngle && (
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-background/80 border border-border/50">
-                              <span className="text-base">🎯</span>
-                              <div className="text-xs">
-                                <span className="text-muted-foreground">Góc nhìn: </span>
-                                <span className="font-medium capitalize">{contentAngle.replace('_', ' ')}</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      
-                      {/* Hook Message - Batch Mode */}
-                      {mode === 'batch' && Object.values(hookMessages).some(h => h.hookMessage) && (
-                        <div className="space-y-1.5">
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <MessageCircle className="w-3 h-3" />
-                            Hook messages sẽ định hướng hình ảnh:
-                          </p>
-                          <div className="space-y-1">
-                            {selectedChannels.slice(0, 3).map(ch => {
-                              const hook = hookMessages[ch];
-                              if (!hook?.hookMessage) return null;
-                              const channelConfig = CHANNEL_CONFIG[ch];
-                              return (
-                                <div key={ch} className="flex items-start gap-2 text-xs p-2 rounded-lg bg-background/60 border border-border/30">
-                                  <div className={cn("shrink-0 mt-0.5", channelConfig?.color)}>
-                                    {channelConfig?.icon}
-                                  </div>
-                                  <p className="font-medium text-foreground/90 line-clamp-2">"{hook.hookMessage}"</p>
-                                </div>
-                              );
-                            })}
-                            {selectedChannels.filter(ch => hookMessages[ch]?.hookMessage).length > 3 && (
-                              <p className="text-xs text-muted-foreground pl-6">
-                                +{selectedChannels.filter(ch => hookMessages[ch]?.hookMessage).length - 3} kênh khác
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Hook Message - Single Mode */}
-                      {mode === 'single' && (() => {
-                        const singleHook = getHookForChannel(content, singleChannel);
-                        if (!singleHook.hookMessage) return null;
-                        const channelConfig = CHANNEL_CONFIG[singleChannel];
-                        return (
-                          <div className="space-y-1.5">
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                              <MessageCircle className="w-3 h-3" />
-                              Hook message sẽ định hướng hình ảnh:
-                            </p>
-                            <div className="flex items-start gap-2 text-xs p-2 rounded-lg bg-background/60 border border-border/30">
-                              <div className={cn("shrink-0 mt-0.5", channelConfig?.color)}>
-                                {channelConfig?.icon}
-                              </div>
-                              <p className="font-medium text-foreground/90">"{singleHook.hookMessage}"</p>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                )}
+                {/* Strategic Context Preview - Enhanced Card */}
+                <StrategicContextPreview
+                  mode={mode}
+                  contentRole={contentRole}
+                  contentAngle={contentAngle}
+                  hookMessages={hookMessages}
+                  selectedChannels={selectedChannels}
+                  singleChannel={singleChannel}
+                  content={content}
+                  getHookForChannel={getHookForChannel}
+                  CHANNEL_CONFIG={CHANNEL_CONFIG}
+                />
 
                 {/* AI Style Suggestions */}
                 {styleSuggestions.length > 0 && (
