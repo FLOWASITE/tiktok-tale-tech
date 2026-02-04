@@ -327,6 +327,46 @@ export function UnifiedImageGenerator({
     }
   }, [open, mode, singleChannel, content, brandPrimaryColor, brandIndustry]);
 
+  // Auto-fill text from hooks for BATCH mode when dialog opens or mode changes
+  useEffect(() => {
+    if (open && mode === 'batch' && selectedChannels.length > 0) {
+      const contentAny = content as any;
+      const selectedHooks = contentAny.selected_hooks as any[] | null;
+      const globalHook = contentAny.global_hook as any;
+      
+      // For shared text, use global hook or first channel's hook
+      if (useSharedText && !textToInclude) {
+        const firstChannel = selectedChannels[0];
+        const channelHook = selectedHooks?.find((h: any) => h.channel === firstChannel);
+        
+        const text = channelHook?.text_overlay 
+          || globalHook?.text_overlay 
+          || channelHook?.opening_line 
+          || globalHook?.opening_line
+          || '';
+        
+        if (text) {
+          setTextToInclude(text);
+        }
+      }
+      
+      // For per-channel texts, fill each channel
+      if (!useSharedText) {
+        const newTexts: Record<Channel, string> = {} as Record<Channel, string>;
+        selectedChannels.forEach(ch => {
+          const channelHook = selectedHooks?.find((h: any) => h.channel === ch);
+          newTexts[ch] = textsPerChannel[ch] 
+            || channelHook?.text_overlay 
+            || globalHook?.text_overlay 
+            || channelHook?.opening_line 
+            || globalHook?.opening_line
+            || '';
+        });
+        setTextsPerChannel(prev => ({ ...prev, ...newTexts }));
+      }
+    }
+  }, [open, mode, selectedChannels, content, useSharedText]);
+
   // Content summaries for batch mode
   const contentSummaries = useMemo(() => {
     const summaries: Record<Channel, string> = {} as Record<Channel, string>;
