@@ -35,6 +35,8 @@ export interface AutoGenerateOptions {
   textToInclude?: string;
   textPosition?: 'center' | 'top' | 'bottom' | 'top-left' | 'bottom-right';
   typographyStyle?: 'modern' | 'classic' | 'bold' | 'minimal';
+  // Canvas fallback: overlay text programmatically for 100% accuracy
+  useCanvasFallback?: boolean;
 }
 
 export interface GeneratedImage {
@@ -85,6 +87,8 @@ export function useAutoImageGeneration() {
       contentRole, contentAngle, hookMessages,
       // Social Graphics (text-in-image) params
       imageContentType, textToInclude, textPosition, typographyStyle,
+      // Canvas fallback for 100% accurate text
+      useCanvasFallback,
     } = options;
     
     const channelAspectRatio = getAspectRatioForChannel(channel, aspectRatio);
@@ -106,6 +110,9 @@ export function useAutoImageGeneration() {
         console.log(`[useAutoImageGeneration] Generating image for ${channel} with aspect ratio ${channelAspectRatio}, style: ${imageStylePreset || 'default'}, role: ${contentRole || 'none'}`);
 
         // Step 1: Generate base image with brand colors, style preset, and strategic context
+        // If using canvas fallback, always generate background_only and add text later
+        const effectiveContentType = useCanvasFallback ? 'background_only' : imageContentType;
+        
         const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-brand-image', {
           body: {
             contentId,
@@ -120,11 +127,11 @@ export function useAutoImageGeneration() {
             contentAngle,
             hookMessage: channelHook?.hookMessage,
             hookType: channelHook?.hookType,
-            // Social Graphics (text-in-image) params
-            imageContentType,
-            textToInclude,
-            textPosition,
-            typographyStyle,
+            // Social Graphics (text-in-image) params - use effective type
+            imageContentType: effectiveContentType,
+            textToInclude: effectiveContentType === 'with_text' ? textToInclude : undefined,
+            textPosition: effectiveContentType === 'with_text' ? textPosition : undefined,
+            typographyStyle: effectiveContentType === 'with_text' ? typographyStyle : undefined,
           },
         });
 
@@ -164,6 +171,37 @@ export function useAutoImageGeneration() {
             });
           } else {
             finalImageUrl = overlayData.imageUrl;
+          }
+        }
+
+        // Step 3: Overlay text using canvas if useCanvasFallback is enabled
+        if (useCanvasFallback && imageContentType === 'with_text' && textToInclude) {
+          console.log(`[useAutoImageGeneration] Applying canvas text overlay for ${channel}`);
+          
+          const { data: textData, error: textError } = await supabase.functions.invoke('overlay-text-canvas', {
+            body: {
+              baseImageUrl: finalImageUrl,
+              text: textToInclude,
+              position: textPosition || 'center',
+              typographyStyle: typographyStyle || 'modern',
+              textColor: '#FFFFFF',
+              backgroundColor: '#000000',
+              fontSize: 5,
+              padding: 40,
+              contentId,
+              channel,
+            },
+          });
+
+          if (textError || !textData?.success) {
+            console.warn(`[useAutoImageGeneration] Canvas text overlay failed for ${channel}:`, textError?.message || textData?.error);
+            toast.warning(`${channel}: Text overlay thất bại, sử dụng ảnh gốc`, {
+              description: 'AI không thể render text chính xác',
+              duration: 5000,
+            });
+          } else {
+            finalImageUrl = textData.imageUrl;
+            console.log(`[useAutoImageGeneration] Canvas text overlay success for ${channel}`);
           }
         }
 

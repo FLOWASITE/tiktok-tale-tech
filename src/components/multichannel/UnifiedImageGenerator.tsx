@@ -246,6 +246,7 @@ export function UnifiedImageGenerator({
   const [textPosition, setTextPosition] = useState<TextPosition>('center');
   const [typographyStyle, setTypographyStyle] = useState<TypographyStyle>('modern');
   const [isOptimizingText, setIsOptimizingText] = useState(false);
+  const [useCanvasFallback, setUseCanvasFallback] = useState(false); // Canvas overlay for 100% accurate text
   
   // Batch mode state
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(content?.selected_channels ?? []);
@@ -383,7 +384,9 @@ export function UnifiedImageGenerator({
     textToInclude: imageContentType === 'with_text' ? textToInclude : undefined,
     textPosition: imageContentType === 'with_text' ? textPosition : undefined,
     typographyStyle: imageContentType === 'with_text' ? typographyStyle : undefined,
-  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, includeLogo, brandLogoUrl, logoPosition, aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages, imageContentType, textToInclude, textPosition, typographyStyle]);
+    // Canvas fallback for 100% accurate text
+    useCanvasFallback: imageContentType === 'with_text' ? useCanvasFallback : undefined,
+  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, includeLogo, brandLogoUrl, logoPosition, aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages, imageContentType, textToInclude, textPosition, typographyStyle, useCanvasFallback]);
 
   // Handlers
   const handleBatchGenerate = async () => {
@@ -986,6 +989,29 @@ export function UnifiedImageGenerator({
                           </p>
                         </div>
                       )}
+
+                      {/* Canvas Fallback Toggle */}
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-blue-500/5 to-transparent border border-blue-500/20">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded bg-blue-500/10 flex items-center justify-center">
+                            <Layers className="w-3.5 h-3.5 text-blue-600" />
+                          </div>
+                          <div className="space-y-0.5">
+                            <Label htmlFor="canvas-fallback" className="text-xs font-medium cursor-pointer">
+                              Canvas Fallback
+                            </Label>
+                            <p className="text-[10px] text-muted-foreground leading-tight">
+                              Overlay text chính xác 100% bằng canvas (thay vì để AI render)
+                            </p>
+                          </div>
+                        </div>
+                        <Switch
+                          id="canvas-fallback"
+                          checked={useCanvasFallback}
+                          onCheckedChange={setUseCanvasFallback}
+                          className="scale-90"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
