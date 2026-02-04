@@ -811,35 +811,66 @@ export function UnifiedImageGenerator({
                               </Button>
                             );
                           })()}
-                          {textToInclude.length > 40 && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-[10px] gap-1 h-6 border-orange-500/30 text-orange-600"
-                              disabled={isOptimizingText}
-                              onClick={async () => {
-                                setIsOptimizingText(true);
-                                try {
-                                  const { data, error } = await supabase.functions.invoke('optimize-social-text', {
-                                    body: { text: textToInclude, maxLength: 50, style: 'punchy' }
-                                  });
-                                  if (error) throw error;
-                                  if (data?.optimizedText) {
-                                    setTextToInclude(data.optimizedText);
-                                    if (data.wasOptimized) {
-                                      toast.success(`Rút gọn: ${data.originalLength} → ${data.optimizedLength}`);
-                                    }
-                                  }
-                                } catch {
-                                  toast.error('Không thể tối ưu');
-                                } finally {
-                                  setIsOptimizingText(false);
-                                }
-                              }}
-                            >
-                              {isOptimizingText ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Wand2 className="w-2.5 h-2.5" />}
-                              Rút gọn
-                            </Button>
+                          {/* AI Optimize Button - Always visible when there's text */}
+                          {textToInclude.length > 0 && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className={cn(
+                                      "text-[10px] gap-1 h-6",
+                                      textToInclude.length > 50 
+                                        ? "border-orange-500 bg-orange-500/10 text-orange-600 hover:bg-orange-500/20" 
+                                        : "border-primary/30 text-primary hover:bg-primary/10"
+                                    )}
+                                    disabled={isOptimizingText}
+                                    onClick={async () => {
+                                      setIsOptimizingText(true);
+                                      try {
+                                        const { data, error } = await supabase.functions.invoke('optimize-social-text', {
+                                          body: { 
+                                            text: textToInclude, 
+                                            maxLength: 50, 
+                                            style: 'punchy' 
+                                          }
+                                        });
+                                        if (error) throw error;
+                                        if (data?.optimizedText) {
+                                          setTextToInclude(data.optimizedText);
+                                          if (data.wasOptimized) {
+                                            toast.success(`AI tối ưu: ${data.originalLength} → ${data.optimizedLength} ký tự`);
+                                          } else {
+                                            toast.info('Text đã đủ ngắn gọn!');
+                                          }
+                                        }
+                                      } catch (err) {
+                                        console.error('[AI Optimize] Error:', err);
+                                        toast.error('Không thể tối ưu text');
+                                      } finally {
+                                        setIsOptimizingText(false);
+                                      }
+                                    }}
+                                  >
+                                    {isOptimizingText ? (
+                                      <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                                    ) : (
+                                      <Wand2 className="w-2.5 h-2.5" />
+                                    )}
+                                    AI Tối ưu
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-[200px] text-xs">
+                                  <p>Dùng AI rút gọn text thành câu ngắn, ấn tượng hơn phù hợp cho ảnh Social Graphics</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          {textToInclude.length > 50 && (
+                            <span className="text-[10px] text-orange-600 flex items-center gap-1">
+                              ⚠️ Quá dài
+                            </span>
                           )}
                         </div>
                       </div>
