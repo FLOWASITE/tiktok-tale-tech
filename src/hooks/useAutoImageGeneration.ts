@@ -4,8 +4,12 @@ import { Channel, ChannelImage } from '@/types/multichannel';
 import { toast } from 'sonner';
 
 export type ImageGenerationStatus = 'pending' | 'generating' | 'overlaying' | 'done' | 'error';
-export type LogoPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+export type LogoPosition = 
+  | 'top-left' | 'top-center' | 'top-right'
+  | 'center-left' | 'center' | 'center-right'
+  | 'bottom-left' | 'bottom-center' | 'bottom-right';
 export type AspectRatioOption = '16:9' | '1:1' | '9:16' | '4:5' | 'auto';
+export type LogoStyle = 'clean' | 'shadow' | 'glass' | 'pill' | 'outline' | 'subtle';
 
 // Import from shared config - single source of truth
 import { CHANNEL_OPTIMAL_ASPECT_RATIO, CHANNEL_IMAGE_CONFIG } from '@/config/channelImageConfig';
@@ -23,6 +27,9 @@ export interface AutoGenerateOptions {
   includeLogo?: boolean;
   logoPosition?: LogoPosition;
   logoUrl?: string;
+  logoStyle?: LogoStyle;
+  logoSizePercent?: number; // 5-30%
+  logoOpacity?: number; // 30-100%
   aspectRatio?: AspectRatioOption;
   imageStylePreset?: ImageStylePreset;
   negativePrompt?: string;
@@ -82,7 +89,8 @@ export function useAutoImageGeneration() {
     maxRetries = 2
   ): Promise<GeneratedImage | null> => {
     const { 
-      contentId, brandTemplateId, contentSummaries, includeLogo, logoPosition, logoUrl, 
+      contentId, brandTemplateId, contentSummaries, includeLogo, logoPosition, logoUrl,
+      logoStyle = 'shadow', logoSizePercent = 15, logoOpacity = 100,
       aspectRatio = '16:9', imageStylePreset, negativePrompt,
       // Strategic context for more relevant images
       contentRole, contentAngle, hookMessages,
@@ -156,8 +164,9 @@ export function useAutoImageGeneration() {
               baseImageUrl: finalImageUrl,
               logoUrl,
               position: logoPosition || 'bottom-right',
-              // Make logo more visible by default
-              logoSizePercent: 18,
+              logoStyle: logoStyle || 'shadow',
+              logoSizePercent: logoSizePercent || 15,
+              logoOpacity: logoOpacity || 100,
               padding: 20,
               contentId,
               channel,

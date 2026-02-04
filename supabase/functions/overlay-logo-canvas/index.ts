@@ -7,13 +7,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type LogoPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+type LogoPosition = 
+  | 'top-left' | 'top-center' | 'top-right'
+  | 'center-left' | 'center' | 'center-right'
+  | 'bottom-left' | 'bottom-center' | 'bottom-right';
+
+type LogoStyle = 'clean' | 'shadow' | 'glass' | 'pill' | 'outline' | 'subtle';
 
 interface OverlayRequest {
   baseImageUrl: string;
   logoUrl: string;
   position: LogoPosition;
-  logoSizePercent?: number; // Logo size as percentage of image width (default 12%)
+  logoStyle?: LogoStyle;
+  logoSizePercent?: number; // Logo size as percentage of image width (default 15%)
+  logoOpacity?: number; // Logo opacity 30-100% (default 100)
   padding?: number; // Padding from edges in pixels (default 20)
   contentId?: string;
   channel?: string;
@@ -45,7 +52,7 @@ async function fetchImageBytes(url: string): Promise<Uint8Array> {
 }
 
 /**
- * Calculate logo position based on position type
+ * Calculate logo position based on position type (supports 9 positions)
  */
 function calculatePosition(
   baseWidth: number,
@@ -55,17 +62,53 @@ function calculatePosition(
   position: LogoPosition,
   padding: number
 ): { x: number; y: number } {
-  switch (position) {
-    case 'top-left':
-      return { x: padding, y: padding };
-    case 'top-right':
-      return { x: baseWidth - logoWidth - padding, y: padding };
-    case 'bottom-left':
-      return { x: padding, y: baseHeight - logoHeight - padding };
-    case 'bottom-right':
-    default:
-      return { x: baseWidth - logoWidth - padding, y: baseHeight - logoHeight - padding };
+  const positions: Record<LogoPosition, { x: number; y: number }> = {
+    'top-left': { x: padding, y: padding },
+    'top-center': { x: Math.floor((baseWidth - logoWidth) / 2), y: padding },
+    'top-right': { x: baseWidth - logoWidth - padding, y: padding },
+    'center-left': { x: padding, y: Math.floor((baseHeight - logoHeight) / 2) },
+    'center': { x: Math.floor((baseWidth - logoWidth) / 2), y: Math.floor((baseHeight - logoHeight) / 2) },
+    'center-right': { x: baseWidth - logoWidth - padding, y: Math.floor((baseHeight - logoHeight) / 2) },
+    'bottom-left': { x: padding, y: baseHeight - logoHeight - padding },
+    'bottom-center': { x: Math.floor((baseWidth - logoWidth) / 2), y: baseHeight - logoHeight - padding },
+    'bottom-right': { x: baseWidth - logoWidth - padding, y: baseHeight - logoHeight - padding },
+  };
+  return positions[position] || positions['bottom-right'];
+}
+
+/**
+ * Apply logo style effects using ImageScript's opacity method
+ */
+async function applyLogoStyle(
+  logoImg: Image,
+  style: LogoStyle,
+  opacity: number,
+): Promise<Image> {
+  // Apply opacity first (30-100%) using ImageScript's built-in opacity method
+  if (opacity < 100) {
+    const opacityFactor = opacity / 100;
+    logoImg.opacity(opacityFactor, false); // false = don't premultiply alpha
   }
+  
+  // Apply style-specific effects
+  switch (style) {
+    case 'subtle':
+      // Additional opacity reduction for watermark effect
+      logoImg.opacity(0.5, false);
+      break;
+    // Other styles (shadow, glass, pill) would need more complex rendering
+    // For now, they default to clean
+    case 'shadow':
+    case 'glass':
+    case 'pill':
+    case 'outline':
+    case 'clean':
+    default:
+      // No additional processing needed
+      break;
+  }
+  
+  return logoImg;
 }
 
 /**
@@ -75,7 +118,9 @@ async function compositeImages(
   baseImageBytes: Uint8Array,
   logoBytes: Uint8Array,
   position: LogoPosition,
+  logoStyle: LogoStyle,
   logoSizePercent: number,
+  logoOpacity: number,
   padding: number
 ): Promise<Uint8Array> {
   console.log(`[overlay-logo-canvas] Decoding base image (${baseImageBytes.length} bytes)...`);
@@ -88,7 +133,7 @@ async function compositeImages(
   }
   
   console.log(`[overlay-logo-canvas] Decoding logo (${logoBytes.length} bytes)...`);
-  const logoImg = await Image.decode(logoBytes);
+  let logoImg = await Image.decode(logoBytes);
   console.log(`[overlay-logo-canvas] Logo dimensions: ${logoImg.width}x${logoImg.height}`);
   
   // Validate logo
@@ -105,6 +150,10 @@ async function compositeImages(
   
   // Resize logo
   logoImg.resize(targetLogoWidth, targetLogoHeight);
+  
+  // Apply style effects (opacity, watermark, etc.)
+  console.log(`[overlay-logo-canvas] Applying style: ${logoStyle}, opacity: ${logoOpacity}%`);
+  logoImg = await applyLogoStyle(logoImg, logoStyle, logoOpacity);
   
   // Calculate position
   const { x, y } = calculatePosition(
@@ -176,14 +225,16 @@ serve(async (req) => {
       baseImageUrl,
       logoUrl,
       position = 'bottom-right',
-      logoSizePercent = 12,
+      logoStyle = 'clean',
+      logoSizePercent = 15,
+      logoOpacity = 100,
       padding = 20,
       contentId,
       channel,
       organizationId,
     } = body;
 
-    console.log(`[overlay-logo-canvas] Request - Position: ${position}, Size: ${logoSizePercent}%`);
+    console.log(`[overlay-logo-canvas] Request - Position: ${position}, Style: ${logoStyle}, Size: ${logoSizePercent}%, Opacity: ${logoOpacity}%`);
 
     // Validate required fields
     if (!baseImageUrl) {
@@ -214,7 +265,9 @@ serve(async (req) => {
       baseImageBytes,
       logoBytes,
       position,
+      logoStyle,
       logoSizePercent,
+      logoOpacity,
       padding
     );
 
