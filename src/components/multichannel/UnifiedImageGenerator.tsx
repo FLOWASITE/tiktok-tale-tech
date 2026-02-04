@@ -63,6 +63,7 @@ import { suggestImageStyles, formatReasons, type StyleSuggestion } from '@/utils
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { StrategicContextPreview } from './StrategicContextPreview';
+import { TextPositionMockup } from './TextPositionMockup';
 
 interface UnifiedImageGeneratorProps {
   open: boolean;
@@ -845,57 +846,88 @@ export function UnifiedImageGenerator({
                         )}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Vị trí text</Label>
-                          <Select 
-                            value={textPosition} 
-                            onValueChange={(v) => setTextPosition(v as TextPosition)}
-                          >
-                            <SelectTrigger className="h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="center">
-                                <div className="flex items-center gap-2">
-                                  <AlignCenter className="w-3.5 h-3.5" />
-                                  Giữa ảnh
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="top">
-                                <div className="flex items-center gap-2">
-                                  <AlignLeft className="w-3.5 h-3.5" />
-                                  Phía trên
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="bottom">
-                                <div className="flex items-center gap-2">
-                                  <AlignRight className="w-3.5 h-3.5" />
-                                  Phía dưới
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="top-left">Góc trên trái</SelectItem>
-                              <SelectItem value="bottom-right">Góc dưới phải</SelectItem>
-                            </SelectContent>
-                          </Select>
+                      {/* Visual Mockup + Controls Row */}
+                      <div className="flex gap-4">
+                        {/* Left: Visual Mockup */}
+                        <div className="flex-shrink-0">
+                          <TextPositionMockup
+                            textPosition={textPosition}
+                            typographyStyle={typographyStyle}
+                            textPreview={textToInclude}
+                          />
                         </div>
 
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Typography</Label>
-                          <Select 
-                            value={typographyStyle} 
-                            onValueChange={(v) => setTypographyStyle(v as TypographyStyle)}
-                          >
-                            <SelectTrigger className="h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="modern">Modern (Sans)</SelectItem>
-                              <SelectItem value="classic">Classic (Serif)</SelectItem>
-                              <SelectItem value="bold">Bold (Impact)</SelectItem>
-                              <SelectItem value="minimal">Minimal (Thin)</SelectItem>
-                            </SelectContent>
-                          </Select>
+                        {/* Right: Position & Typography Controls */}
+                        <div className="flex-1 space-y-3">
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Vị trí text</Label>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              {[
+                                { value: 'top', label: 'Trên', icon: '↑' },
+                                { value: 'center', label: 'Giữa', icon: '◉' },
+                                { value: 'bottom', label: 'Dưới', icon: '↓' },
+                              ].map((pos) => (
+                                <button
+                                  key={pos.value}
+                                  onClick={() => setTextPosition(pos.value as TextPosition)}
+                                  className={cn(
+                                    "flex flex-col items-center gap-0.5 p-2 rounded-lg border transition-all text-xs",
+                                    textPosition === pos.value
+                                      ? "border-primary bg-primary/10 text-primary"
+                                      : "border-border/50 hover:border-primary/40 text-muted-foreground hover:text-foreground"
+                                  )}
+                                >
+                                  <span className="text-base">{pos.icon}</span>
+                                  <span className="font-medium">{pos.label}</span>
+                                </button>
+                              ))}
+                            </div>
+                            <div className="flex gap-1.5">
+                              {[
+                                { value: 'top-left', label: 'Trên trái' },
+                                { value: 'bottom-right', label: 'Dưới phải' },
+                              ].map((pos) => (
+                                <button
+                                  key={pos.value}
+                                  onClick={() => setTextPosition(pos.value as TextPosition)}
+                                  className={cn(
+                                    "flex-1 px-2 py-1.5 rounded-md border text-xs transition-all",
+                                    textPosition === pos.value
+                                      ? "border-primary bg-primary/10 text-primary"
+                                      : "border-border/50 hover:border-primary/40 text-muted-foreground"
+                                  )}
+                                >
+                                  {pos.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Typography</Label>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {[
+                                { value: 'modern', label: 'Modern', preview: 'Aa', fontClass: 'font-sans font-semibold' },
+                                { value: 'classic', label: 'Classic', preview: 'Aa', fontClass: 'font-serif' },
+                                { value: 'bold', label: 'Bold', preview: 'Aa', fontClass: 'font-sans font-black' },
+                                { value: 'minimal', label: 'Minimal', preview: 'Aa', fontClass: 'font-sans font-light' },
+                              ].map((typo) => (
+                                <button
+                                  key={typo.value}
+                                  onClick={() => setTypographyStyle(typo.value as TypographyStyle)}
+                                  className={cn(
+                                    "flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-all",
+                                    typographyStyle === typo.value
+                                      ? "border-primary bg-primary/10"
+                                      : "border-border/50 hover:border-primary/40"
+                                  )}
+                                >
+                                  <span className={cn("text-sm", typo.fontClass)}>{typo.preview}</span>
+                                  <span className="text-xs text-muted-foreground">{typo.label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       </div>
 
