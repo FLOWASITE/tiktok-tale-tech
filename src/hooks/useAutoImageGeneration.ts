@@ -426,6 +426,23 @@ export function useAutoImageGeneration() {
     setPreviewMode(false);
   }, []);
 
+  // Update a single generated image (e.g., after background editing)
+  const updateGeneratedImage = useCallback((
+    channel: Channel, 
+    updates: Partial<GeneratedImage>
+  ) => {
+    setGeneratedImages(prev => {
+      if (!prev[channel]) return prev;
+      return {
+        ...prev,
+        [channel]: {
+          ...prev[channel],
+          ...updates,
+        }
+      };
+    });
+  }, []);
+
   const isGenerating = generatingChannels.length > 0;
 
   const completedCount = Object.values(progress).filter(
@@ -449,6 +466,7 @@ export function useAutoImageGeneration() {
     regenerateForChannel,
     savePreviewImages,
     resetProgress,
+    updateGeneratedImage,
     getAspectRatioForChannel,
   };
 }

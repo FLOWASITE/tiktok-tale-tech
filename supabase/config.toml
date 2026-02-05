@@ -291,3 +291,6 @@ verify_jwt = false
 
 [functions.reparse-regulations]
 verify_jwt = false
+
+[functions.edit-image-background]
+verify_jwt = false

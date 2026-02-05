@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Check, AlertCircle, RefreshCw, Download, Image as ImageIcon, Clock, AlertTriangle } from "lucide-react";
+import { Loader2, Check, AlertCircle, RefreshCw, Download, Image as ImageIcon, Clock, AlertTriangle, Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChannelIcon, getChannelLabel } from "./ChannelIcon";
 import { ImageGenerationStatus } from "@/hooks/useAutoImageGeneration";
@@ -16,6 +16,7 @@ interface ImageStreamingCardProps {
   errorMessage?: string;
   onRetry?: () => void;
   onDownload?: () => void;
+  onEditBackground?: () => void;
   isRetrying?: boolean;
   logoOverlayFailed?: boolean; // New prop to indicate logo overlay failure
   startTime?: number; // Timestamp when generation started for this channel
@@ -77,6 +78,7 @@ export function ImageStreamingCard({
   errorMessage,
   onRetry,
   onDownload,
+  onEditBackground,
   isRetrying,
   logoOverlayFailed,
   startTime,
@@ -233,17 +235,29 @@ export function ImageStreamingCard({
             </div>
           )}
 
-          {/* Download button overlay for completed images */}
-          {isDone && imageUrl && onDownload && (
+          {/* Action buttons overlay for completed images */}
+          {isDone && imageUrl && (
             <div className="absolute inset-0 bg-black/60 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={onDownload}
-              >
-                <Download className="w-4 h-4 mr-1.5" />
-                Tải xuống
-              </Button>
+              {onDownload && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={onDownload}
+                >
+                  <Download className="w-4 h-4 mr-1.5" />
+                  Tải xuống
+                </Button>
+              )}
+              {onEditBackground && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={onEditBackground}
+                >
+                  <Palette className="w-4 h-4 mr-1.5" />
+                  Sửa nền
+                </Button>
+              )}
               {onRetry && (
                 <Button
                   size="sm"
