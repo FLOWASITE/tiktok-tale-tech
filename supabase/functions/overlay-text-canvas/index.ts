@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 type TextPosition = 'center' | 'top' | 'bottom' | 'top-left' | 'bottom-right';
-type TypographyStyle = 'modern' | 'classic' | 'bold' | 'minimal';
+type TypographyStyle = 'modern' | 'classic' | 'bold' | 'minimal' | 'clean' | 'outline' | 'glow';
 
 interface OverlayTextRequest {
   baseImageUrl: string;
@@ -43,13 +43,21 @@ function getPositionStyles(position: TextPosition): Record<string, string | numb
   }
 }
 
+// Check if style needs background box
+function hasBackground(style: TypographyStyle): boolean {
+  const noBackgroundStyles = ['clean', 'outline', 'glow'];
+  return !noBackgroundStyles.includes(style);
+}
+
 // Typography styles mapping
 function getTypographyStyles(style: TypographyStyle): {
   fontWeight: number;
   letterSpacing: string;
   textTransform: string;
+  textShadow?: string;
 } {
   switch (style) {
+    // --- Styles with background box ---
     case 'classic':
       return { fontWeight: 400, letterSpacing: '0.02em', textTransform: 'none' };
     case 'bold':
@@ -57,6 +65,31 @@ function getTypographyStyles(style: TypographyStyle): {
     case 'minimal':
       return { fontWeight: 400, letterSpacing: '0.1em', textTransform: 'uppercase' };
     case 'modern':
+      return { fontWeight: 600, letterSpacing: '-0.02em', textTransform: 'none' };
+    
+    // --- Styles WITHOUT background (text-shadow for contrast) ---
+    case 'clean':
+      return { 
+        fontWeight: 600, 
+        letterSpacing: '-0.01em', 
+        textTransform: 'none',
+        textShadow: '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.5)'
+      };
+    case 'outline':
+      return { 
+        fontWeight: 700, 
+        letterSpacing: '0.02em', 
+        textTransform: 'none',
+        textShadow: '-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 3px 3px 6px rgba(0,0,0,0.5)'
+      };
+    case 'glow':
+      return { 
+        fontWeight: 600, 
+        letterSpacing: '0.01em', 
+        textTransform: 'none',
+        textShadow: '0 0 10px rgba(255,255,255,0.9), 0 0 20px rgba(255,255,255,0.7), 0 0 30px rgba(255,255,255,0.5), 2px 2px 8px rgba(0,0,0,0.9)'
+      };
+      
     default:
       return { fontWeight: 600, letterSpacing: '-0.02em', textTransform: 'none' };
   }
@@ -174,15 +207,18 @@ function buildElement(
   baseImageUrl: string,
   displayText: string,
   positionStyles: Record<string, string | number>,
-  typographyConfig: { fontWeight: number; letterSpacing: string },
+  typographyConfig: { fontWeight: number; letterSpacing: string; textShadow?: string },
   fontSize: number,
   textColor: string,
   backgroundColor: string,
   padding: number,
   hasCustomFont: boolean,
   imageWidth: number,
-  imageHeight: number
+  imageHeight: number,
+  typographyStyle: TypographyStyle
 ) {
+  const showBackground = hasBackground(typographyStyle);
+  
   return {
     type: 'div',
     props: {
@@ -203,10 +239,11 @@ function buildElement(
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: backgroundColor,
-            padding: `${padding / 2}px ${padding}px`,
-            borderRadius: 16,
-            maxWidth: '80%',
+            // Only apply background if style needs it
+            backgroundColor: showBackground ? backgroundColor : 'transparent',
+            padding: showBackground ? `${padding / 2}px ${padding}px` : `${padding / 4}px`,
+            borderRadius: showBackground ? 16 : 0,
+            maxWidth: '85%',
           },
           children: {
             type: 'span',
@@ -219,6 +256,8 @@ function buildElement(
                 letterSpacing: typographyConfig.letterSpacing,
                 textAlign: 'center',
                 lineHeight: 1.3,
+                // Apply text-shadow for no-background styles
+                textShadow: typographyConfig.textShadow || 'none',
               },
               children: displayText,
             },
@@ -297,6 +336,7 @@ serve(async (req) => {
     }] : [];
 
     console.log(`[overlay-text-canvas] Generating SVG with Satori...`);
+    console.log(`[overlay-text-canvas] Has background: ${hasBackground(typographyStyle)}`);
     
     // Build the element tree
     const element = buildElement(
@@ -310,7 +350,8 @@ serve(async (req) => {
       padding,
       fonts.length > 0,
       imageWidth,
-      imageHeight
+      imageHeight,
+      typographyStyle
     );
 
     // Generate SVG using Satori

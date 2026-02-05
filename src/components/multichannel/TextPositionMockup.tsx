@@ -17,11 +17,15 @@ const POSITION_STYLES: Record<TextPosition, string> = {
   'bottom-right': 'items-end justify-end pb-3 pr-3',
 };
 
-const TYPOGRAPHY_STYLES: Record<TypographyStyle, { font: string; weight: string; label: string }> = {
-  'modern': { font: 'font-sans', weight: 'font-semibold', label: 'Aa' },
-  'classic': { font: 'font-serif', weight: 'font-medium', label: 'Aa' },
-  'bold': { font: 'font-sans', weight: 'font-black', label: 'Aa' },
-  'minimal': { font: 'font-sans', weight: 'font-light', label: 'Aa' },
+const TYPOGRAPHY_STYLES: Record<TypographyStyle, { font: string; weight: string; label: string; hasBackground: boolean; shadowClass?: string }> = {
+  'modern': { font: 'font-sans', weight: 'font-semibold', label: 'Aa', hasBackground: true },
+  'classic': { font: 'font-serif', weight: 'font-medium', label: 'Aa', hasBackground: true },
+  'bold': { font: 'font-sans', weight: 'font-black', label: 'Aa', hasBackground: true },
+  'minimal': { font: 'font-sans', weight: 'font-light', label: 'Aa', hasBackground: true },
+  // No-background styles
+  'clean': { font: 'font-sans', weight: 'font-semibold', label: 'Aa', hasBackground: false, shadowClass: '[text-shadow:1px_1px_3px_rgba(0,0,0,0.8)]' },
+  'outline': { font: 'font-sans', weight: 'font-bold', label: 'Aa', hasBackground: false, shadowClass: '[text-shadow:-1px_-1px_0_#000,1px_-1px_0_#000,-1px_1px_0_#000,1px_1px_0_#000]' },
+  'glow': { font: 'font-sans', weight: 'font-semibold', label: '✨', hasBackground: false, shadowClass: '[text-shadow:0_0_8px_rgba(255,255,255,0.8),0_0_16px_rgba(255,255,255,0.5)]' },
 };
 
 const SIZE_CLASSES = {
@@ -74,16 +78,21 @@ export function TextPositionMockup({
         )}>
           {/* Text Block */}
           <div className={cn(
-            "px-2 py-1.5 rounded-md bg-foreground/90 max-w-[90%] backdrop-blur-sm shadow-lg",
+            "max-w-[90%]",
+            typoStyle.hasBackground 
+              ? "px-2 py-1.5 rounded-md bg-foreground/90 backdrop-blur-sm shadow-lg"
+              : "px-1 py-0.5",
             textPosition === 'center' && "text-center",
             textPosition === 'top-left' && "text-left",
             textPosition === 'bottom-right' && "text-right"
           )}>
             <p className={cn(
-              "leading-tight text-background break-words",
+              "leading-tight break-words",
+              typoStyle.hasBackground ? "text-background" : "text-white",
               textSizeClass,
               typoStyle.font,
-              typoStyle.weight
+              typoStyle.weight,
+              typoStyle.shadowClass
             )}>
               {displayText}
             </p>

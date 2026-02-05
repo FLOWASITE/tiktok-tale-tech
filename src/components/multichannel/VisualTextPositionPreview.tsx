@@ -1,9 +1,10 @@
 import { cn } from '@/lib/utils';
 import { TextPosition, TypographyStyle } from '@/hooks/useSocialImageGeneration';
 import { 
-  AlignCenter, AlignLeft, AlignRight, 
+  AlignCenter, 
   ArrowUpLeft, ArrowUp, ArrowDown, ArrowDownRight,
-  Type, Feather, Bold, Minus
+  Type, Feather, Bold, Minus,
+  Sparkles, Square, CircleDot
 } from 'lucide-react';
 
 interface VisualTextPositionPreviewProps {
@@ -72,14 +73,17 @@ const TYPOGRAPHY_OPTIONS: {
   fontClass: string; 
   icon: React.ReactNode;
   sampleText: string;
+  hasBackground: boolean;
 }[] = [
+  // --- Styles WITH background box ---
   { 
     value: 'modern', 
     label: 'Modern', 
     description: 'Sans-serif, sạch sẽ',
     fontClass: 'font-sans font-semibold tracking-tight', 
     icon: <Type className="w-4 h-4" />,
-    sampleText: 'Thiết kế hiện đại'
+    sampleText: 'Thiết kế hiện đại',
+    hasBackground: true,
   },
   { 
     value: 'classic', 
@@ -87,7 +91,8 @@ const TYPOGRAPHY_OPTIONS: {
     description: 'Serif, trang trọng',
     fontClass: 'font-serif font-medium', 
     icon: <Feather className="w-4 h-4" />,
-    sampleText: 'Phong cách cổ điển'
+    sampleText: 'Phong cách cổ điển',
+    hasBackground: true,
   },
   { 
     value: 'bold', 
@@ -95,7 +100,8 @@ const TYPOGRAPHY_OPTIONS: {
     description: 'Đậm, mạnh mẽ',
     fontClass: 'font-sans font-black uppercase tracking-wide', 
     icon: <Bold className="w-4 h-4" />,
-    sampleText: 'NỔI BẬT'
+    sampleText: 'NỔI BẬT',
+    hasBackground: true,
   },
   { 
     value: 'minimal', 
@@ -103,9 +109,43 @@ const TYPOGRAPHY_OPTIONS: {
     description: 'Nhẹ nhàng, tinh tế',
     fontClass: 'font-sans font-light tracking-widest', 
     icon: <Minus className="w-4 h-4" />,
-    sampleText: 'tối giản'
+    sampleText: 'tối giản',
+    hasBackground: true,
+  },
+  // --- Styles WITHOUT background (no border/box) ---
+  { 
+    value: 'clean', 
+    label: 'Clean', 
+    description: 'Không khung, đổ bóng',
+    fontClass: 'font-sans font-semibold drop-shadow-lg', 
+    icon: <CircleDot className="w-4 h-4" />,
+    sampleText: 'Chữ trần',
+    hasBackground: false,
+  },
+  { 
+    value: 'outline', 
+    label: 'Outline', 
+    description: 'Viền chữ nổi bật',
+    fontClass: 'font-sans font-bold', 
+    icon: <Square className="w-4 h-4" />,
+    sampleText: 'Viền chữ',
+    hasBackground: false,
+  },
+  { 
+    value: 'glow', 
+    label: 'Glow', 
+    description: 'Chữ phát sáng',
+    fontClass: 'font-sans font-semibold', 
+    icon: <Sparkles className="w-4 h-4" />,
+    sampleText: '✨ Phát sáng',
+    hasBackground: false,
   },
 ];
+
+// Helper to check if style has background
+function hasBackgroundStyle(style: TypographyStyle): boolean {
+  return TYPOGRAPHY_OPTIONS.find(t => t.value === style)?.hasBackground ?? true;
+}
 
 export function VisualTextPositionPreview({
   textPosition,
@@ -150,12 +190,18 @@ export function VisualTextPositionPreview({
               posConfig.alignClass
             )}>
               <div className={cn(
-                "px-2.5 py-1.5 rounded-lg max-w-[95%] backdrop-blur-sm shadow-lg transition-all duration-300",
-                "bg-foreground/90 text-background"
+                "max-w-[95%] transition-all duration-300",
+                typoConfig.hasBackground 
+                  ? "px-2.5 py-1.5 rounded-lg backdrop-blur-sm shadow-lg bg-foreground/90 text-background"
+                  : "px-1 py-0.5 text-white"
               )}>
                 <p className={cn(
                   "text-[10px] leading-snug break-words",
-                  typoConfig.fontClass
+                  typoConfig.fontClass,
+                  // Apply text-shadow styles for no-background variants
+                  !typoConfig.hasBackground && typoConfig.value === 'clean' && "[text-shadow:1px_1px_3px_rgba(0,0,0,0.8)]",
+                  !typoConfig.hasBackground && typoConfig.value === 'outline' && "[text-shadow:-1px_-1px_0_#000,1px_-1px_0_#000,-1px_1px_0_#000,1px_1px_0_#000]",
+                  !typoConfig.hasBackground && typoConfig.value === 'glow' && "[text-shadow:0_0_8px_rgba(255,255,255,0.8),0_0_16px_rgba(255,255,255,0.5)]"
                 )}>
                   {displayText}
                 </p>
