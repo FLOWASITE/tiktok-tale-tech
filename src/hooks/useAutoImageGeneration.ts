@@ -42,7 +42,7 @@ export interface AutoGenerateOptions {
   textToInclude?: string; // Shared text for all channels
   textsPerChannel?: Record<Channel, string>; // NEW: Channel-specific texts
   textPosition?: 'center' | 'top' | 'bottom' | 'top-left' | 'bottom-right';
-  typographyStyle?: 'modern' | 'classic' | 'bold' | 'minimal';
+  typographyStyle?: 'modern' | 'classic' | 'bold' | 'minimal' | 'clean' | 'outline' | 'glow';
   // Canvas fallback: overlay text programmatically for 100% accuracy
   useCanvasFallback?: boolean;
 }

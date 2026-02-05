@@ -69,7 +69,9 @@ export type ImageContentType = 'background_only' | 'with_text';
 export type TextPosition = 'center' | 'top' | 'bottom' | 'top-left' | 'bottom-right';
 
 // NEW: Typography style options
-export type TypographyStyle = 'modern' | 'classic' | 'bold' | 'minimal';
+// With background: modern, classic, bold, minimal
+// Without background (text-shadow only): clean, outline, glow
+export type TypographyStyle = 'modern' | 'classic' | 'bold' | 'minimal' | 'clean' | 'outline' | 'glow';
 
 export interface ImagePromptParams {
   channel: Channel;
@@ -594,10 +596,15 @@ function buildTextInImageSection(
   };
   
   const styleGuide: Record<TypographyStyle, string> = {
+    // Styles with background box
     'modern': 'Clean sans-serif font, contemporary and professional',
     'classic': 'Elegant serif font, timeless and sophisticated',
     'bold': 'Heavy weight, impactful and attention-grabbing',
     'minimal': 'Thin weight, subtle and refined',
+    // Styles without background (text shadow/glow for contrast)
+    'clean': 'Clean text with subtle shadow, no background box',
+    'outline': 'Text with outline stroke for high contrast, no background box',
+    'glow': 'Glowing text effect, no background box',
   };
   
   const pos = textPosition || 'center';
