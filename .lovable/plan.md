@@ -1,262 +1,338 @@
 
-
-# Kế hoạch: Cải thiện thẩm mỹ Logo Overlay
+# Kế hoạch: Thêm tính năng Background Editing (Xóa/Thay đổi nền)
 
 ## Mục tiêu
-Nâng cấp tính năng overlay logo để tạo ra kết quả đẹp mắt, chuyên nghiệp hơn với nhiều tùy chọn thẩm mỹ.
+Cho phép người dùng chỉnh sửa background của ảnh đã tạo:
+- **Xóa nền** - Tạo ảnh transparent (PNG) để dùng trong thiết kế
+- **Thay đổi nền** - Thay background bằng màu đơn, gradient, hoặc mô tả cảnh mới
 
-## Các cải tiến đề xuất
+## Phân tích kỹ thuật
 
-### 1. Thêm Logo Style Presets (Phong cách logo)
-| Style | Mô tả | Kỹ thuật |
-|-------|-------|----------|
-| **Clean** | Logo gốc, không hiệu ứng | Giữ nguyên |
-| **Shadow** | Drop shadow mềm | Thêm shadow dưới logo |
-| **Glassmorphism** | Nền kính mờ | Background blur + opacity |
-| **Pill Badge** | Nền bo tròn | Rounded rectangle background |
-| **Outline** | Viền mỏng quanh logo | Stroke effect |
-| **Subtle** | Mờ nhẹ, không lấn át | Opacity 40-60% |
+### Phương pháp triển khai
+Sử dụng **Gemini 2.5 Flash Image** (đã có sẵn trong Lovable AI Gateway) với prompt editing:
+- Model có khả năng native image editing
+- Gửi ảnh gốc + instruction → nhận ảnh đã chỉnh sửa
+- Không cần mask thủ công, AI tự detect subject
 
-### 2. Thêm tùy chọn kích thước logo
-- **Nhỏ**: 8-10% width (watermark style)
-- **Vừa**: 12-15% width (cân đối)  
-- **Lớn**: 18-22% width (nổi bật)
-- **Slider tùy chỉnh**: 5-30%
+### Workflow đề xuất
 
-### 3. Mở rộng vị trí đặt logo
-Từ 4 góc → 9 vị trí (lưới 3x3):
 ```text
-┌─────────────────────────────────┐
-│  top-left    top-center    top-right   │
-│                                         │
-│  center-left    center    center-right │
-│                                         │
-│  bottom-left  bottom-center  bottom-right│
-└─────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                    Background Editor Flow                         │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  1. Chọn ảnh đã tạo → 2. Mở Background Editor                    │
+│                            ↓                                      │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │ [Xóa nền] [Thay màu đơn] [Gradient] [Mô tả cảnh mới]        │ │
+│  │                                                              │ │
+│  │ Ảnh gốc         →        Ảnh đã chỉnh sửa                   │ │
+│  │ [Preview]                [Preview]                           │ │
+│  │                                                              │ │
+│  │ [Áp dụng]  [Thử lại]  [Hủy]                                 │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                            ↓                                      │
+│  3. Lưu ảnh mới thay thế hoặc làm phiên bản mới                  │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
 ```
-
-### 4. Thêm Opacity control
-- Slider từ 30% - 100%
-- Cho phép logo mờ nhẹ như watermark
-
-### 5. Thêm Background options cho logo
-- **Transparent**: Không nền
-- **White circle/pill**: Nền trắng
-- **Dark circle/pill**: Nền tối
-- **Blur backdrop**: Nền mờ (glassmorphism)
-- **Brand color**: Dùng màu thương hiệu
 
 ---
 
 ## Chi tiết kỹ thuật
 
-### File 1: `src/components/multichannel/UnifiedImageGenerator.tsx`
+### File 1: `supabase/functions/edit-image-background/index.ts` (MỚI)
 
-**Thêm các constants và UI:**
+Edge function xử lý background editing với Gemini:
 
 ```typescript
-// Mở rộng LogoPosition
-type LogoPosition = 
-  | 'top-left' | 'top-center' | 'top-right'
-  | 'center-left' | 'center' | 'center-right'  
-  | 'bottom-left' | 'bottom-center' | 'bottom-right';
-
-// Thêm LogoStyle type
-type LogoStyle = 'clean' | 'shadow' | 'glass' | 'pill' | 'outline' | 'subtle';
-
-// Thêm LogoSize type
-type LogoSize = 'small' | 'medium' | 'large' | 'custom';
-
-// Thêm state mới
-const [logoStyle, setLogoStyle] = useState<LogoStyle>('shadow');
-const [logoSize, setLogoSize] = useState<LogoSize>('medium');
-const [logoOpacity, setLogoOpacity] = useState(100);
-const [logoCustomSize, setLogoCustomSize] = useState(15);
-```
-
-**Thêm UI component LogoOptionsPanel:**
-- Grid 3x3 cho position picker (visual)
-- Style preset buttons với preview
-- Size selector với slider tùy chỉnh
-- Opacity slider
-
-### File 2: `src/hooks/useAutoImageGeneration.ts`
-
-**Mở rộng params:**
-```typescript
-interface GenerateParams {
-  // ...existing
-  logoStyle?: LogoStyle;
-  logoSizePercent?: number;
-  logoOpacity?: number;
+interface EditBackgroundRequest {
+  imageUrl: string;           // Ảnh gốc cần chỉnh sửa
+  editType: 'remove' | 'solid_color' | 'gradient' | 'custom_scene';
+  // Options based on editType
+  solidColor?: string;        // e.g. "#ffffff"
+  gradientFrom?: string;      // e.g. "#6366f1"
+  gradientTo?: string;        // e.g. "#ec4899"
+  gradientDirection?: 'vertical' | 'horizontal' | 'diagonal';
+  customScenePrompt?: string; // e.g. "beach sunset", "modern office"
+  // Context
+  contentId?: string;
+  channel?: string;
+  organizationId?: string;
 }
+
+// Prompt templates cho từng loại edit
+const EDIT_PROMPTS = {
+  remove: `
+    Remove the background completely and make it transparent.
+    Keep only the main subject with clean edges.
+    Output should have alpha transparency for the background.
+  `,
+  solid_color: (color: string) => `
+    Replace the entire background with a solid ${color} color.
+    Keep the main subject intact with natural edges.
+    Maintain the lighting and shadows to look realistic.
+  `,
+  gradient: (from: string, to: string, direction: string) => `
+    Replace the background with a smooth gradient from ${from} to ${to}.
+    Direction: ${direction === 'vertical' ? 'top to bottom' : 
+                  direction === 'horizontal' ? 'left to right' : 'top-left to bottom-right'}.
+    Keep the main subject intact with natural integration.
+  `,
+  custom_scene: (prompt: string) => `
+    Replace the background with: ${prompt}.
+    Keep the main subject as is, only change the background.
+    Make the integration look natural with appropriate lighting.
+  `,
+};
 ```
 
-**Cập nhật gọi overlay-logo-canvas:**
+**Xử lý chính:**
 ```typescript
-const { data: overlayData, error: overlayError } = await supabase.functions.invoke('overlay-logo-canvas', {
-  body: {
-    baseImageUrl: finalImageUrl,
-    logoUrl,
-    position: logoPosition || 'bottom-right',
-    logoSizePercent: logoSizePercent || 15,
-    logoStyle: logoStyle || 'shadow',
-    logoOpacity: logoOpacity || 100,
-    // ...
-  }
+// Gọi Gemini với image + editing instruction
+const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${LOVABLE_API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    model: "google/gemini-2.5-flash-image",
+    messages: [{
+      role: "user",
+      content: [
+        { type: "text", text: editPrompt },
+        { type: "image_url", image_url: { url: imageUrl } }
+      ]
+    }],
+    modalities: ["image", "text"],
+  }),
 });
+
+// Extract edited image
+const data = await response.json();
+const editedImageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 ```
 
-### File 3: `supabase/functions/overlay-logo-canvas/index.ts`
+### File 2: `src/components/multichannel/BackgroundEditor.tsx` (MỚI)
 
-**Thêm xử lý style effects:**
+UI component cho chỉnh sửa background:
 
+**Props:**
 ```typescript
-interface OverlayRequest {
-  // ...existing
-  logoStyle?: 'clean' | 'shadow' | 'glass' | 'pill' | 'outline' | 'subtle';
-  logoOpacity?: number; // 30-100
-}
-
-// Thêm function applyLogoStyle
-async function applyLogoStyle(
-  logoImg: Image,
-  style: string,
-  opacity: number,
-  primaryColor?: string
-): Promise<Image> {
-  // Apply opacity
-  if (opacity < 100) {
-    logoImg.opacity(opacity / 100);
-  }
-  
-  switch (style) {
-    case 'shadow':
-      // Tạo shadow layer phía dưới logo
-      return addDropShadow(logoImg, 4, 0.3);
-      
-    case 'glass':
-      // Tạo background blur rounded
-      return addGlassBackground(logoImg);
-      
-    case 'pill':
-      // Thêm pill-shaped background
-      return addPillBackground(logoImg, primaryColor || '#ffffff');
-      
-    case 'outline':
-      // Thêm stroke
-      return addOutline(logoImg, 2, '#ffffff');
-      
-    case 'subtle':
-      // Giảm opacity mặc định
-      logoImg.opacity(0.5);
-      return logoImg;
-      
-    default:
-      return logoImg;
-  }
-}
-
-// Mở rộng calculatePosition cho 9 vị trí
-function calculatePosition(
-  baseWidth: number,
-  baseHeight: number,
-  logoWidth: number,
-  logoHeight: number,
-  position: LogoPosition,
-  padding: number
-): { x: number; y: number } {
-  const positions = {
-    'top-left': { x: padding, y: padding },
-    'top-center': { x: (baseWidth - logoWidth) / 2, y: padding },
-    'top-right': { x: baseWidth - logoWidth - padding, y: padding },
-    'center-left': { x: padding, y: (baseHeight - logoHeight) / 2 },
-    'center': { x: (baseWidth - logoWidth) / 2, y: (baseHeight - logoHeight) / 2 },
-    'center-right': { x: baseWidth - logoWidth - padding, y: (baseHeight - logoHeight) / 2 },
-    'bottom-left': { x: padding, y: baseHeight - logoHeight - padding },
-    'bottom-center': { x: (baseWidth - logoWidth) / 2, y: baseHeight - logoHeight - padding },
-    'bottom-right': { x: baseWidth - logoWidth - padding, y: baseHeight - logoHeight - padding },
-  };
-  return positions[position] || positions['bottom-right'];
+interface BackgroundEditorProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  imageUrl: string;
+  channel: Channel;
+  contentId: string;
+  onImageEdited?: (newImageUrl: string) => Promise<void>;
 }
 ```
 
-### File 4: `src/components/multichannel/LogoOptionsPanel.tsx` (Mới)
-
-**Component UI chọn logo options:**
-
+**State:**
 ```typescript
-// Visual 3x3 grid picker cho vị trí
-// Style preset cards với icon preview
-// Size buttons + custom slider
-// Opacity slider
-// Live preview thumbnail
+const [editType, setEditType] = useState<'remove' | 'solid_color' | 'gradient' | 'custom_scene'>('remove');
+const [solidColor, setSolidColor] = useState('#ffffff');
+const [gradientFrom, setGradientFrom] = useState('#6366f1');
+const [gradientTo, setGradientTo] = useState('#ec4899');
+const [gradientDirection, setGradientDirection] = useState<'vertical' | 'horizontal' | 'diagonal'>('vertical');
+const [customPrompt, setCustomPrompt] = useState('');
+const [isProcessing, setIsProcessing] = useState(false);
+const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 ```
 
----
-
-## Giao diện người dùng mới
-
-**Logo Options Panel trong UnifiedImageGenerator:**
-
+**UI Layout:**
 ```text
-┌─────────────────────────────────────────┐
-│ 🎨 Logo Options                          │
-├─────────────────────────────────────────┤
-│ Vị trí:                                  │
-│ ┌───┬───┬───┐                           │
-│ │ ◯ │ ◯ │ ◯ │  ← Visual position grid  │
-│ ├───┼───┼───┤                           │
-│ │ ◯ │ ◯ │ ◯ │                           │
-│ ├───┼───┼───┤                           │
-│ │ ◯ │ ◯ │ ● │  ● = selected            │
-│ └───┴───┴───┘                           │
-├─────────────────────────────────────────┤
-│ Phong cách:                              │
-│ [Clean] [Shadow✓] [Glass] [Pill] [Subtle]│
-├─────────────────────────────────────────┤
-│ Kích thước:                              │
-│ [Nhỏ] [Vừa✓] [Lớn] [Tùy chỉnh: ━━●━━ 15%]│
-├─────────────────────────────────────────┤
-│ Độ trong suốt:                           │
-│ ━━━━━━━━━━━━━━━━━━●━━ 100%              │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│ 🎨 Chỉnh sửa Background                                    [X] │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────────────┐  ┌──────────────────────┐             │
+│  │                      │  │                      │             │
+│  │     Ảnh gốc          │  │   Ảnh đã chỉnh sửa  │             │
+│  │     [Preview]        │  │     [Preview]        │             │
+│  │                      │  │                      │             │
+│  └──────────────────────┘  └──────────────────────┘             │
+│                                                                  │
+├─────────────────────────────────────────────────────────────────┤
+│  Kiểu chỉnh sửa:                                                 │
+│  ┌─────────┐ ┌───────────┐ ┌──────────┐ ┌─────────────┐        │
+│  │ 🗑️ Xóa  │ │ 🎨 Màu    │ │ 🌈 Grad- │ │ 🖼️ Cảnh    │        │
+│  │   nền   │ │   đơn     │ │   ient   │ │    mới     │         │
+│  └─────────┘ └───────────┘ └──────────┘ └─────────────┘        │
+│                                                                  │
+│  [Tùy chọn động dựa trên kiểu được chọn]                        │
+│                                                                  │
+│  • Xóa nền: Không có tùy chọn thêm                              │
+│  • Màu đơn: Color picker                                         │
+│  • Gradient: 2 color pickers + direction selector               │
+│  • Cảnh mới: Textarea mô tả + Quick presets                     │
+│                                                                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│     [Xem trước]          [Áp dụng & Lưu]          [Hủy]        │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Quick Scene Presets:**
+```typescript
+const SCENE_PRESETS = [
+  { label: 'Văn phòng', prompt: 'modern minimalist office with white walls' },
+  { label: 'Thiên nhiên', prompt: 'outdoor nature scene with soft green foliage' },
+  { label: 'Studio', prompt: 'professional photography studio with soft lighting' },
+  { label: 'Gradient', prompt: 'smooth abstract gradient background' },
+  { label: 'Bokeh', prompt: 'blurred city lights bokeh background' },
+  { label: 'Marble', prompt: 'elegant white marble texture background' },
+];
+```
+
+### File 3: `src/hooks/useBackgroundEditor.ts` (MỚI)
+
+Hook quản lý logic editing:
+
+```typescript
+export function useBackgroundEditor() {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const editBackground = async (params: EditBackgroundParams): Promise<string | null> => {
+    setIsProcessing(true);
+    setError(null);
+    
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('edit-image-background', {
+        body: params,
+      });
+      
+      if (fnError || !data?.success) {
+        throw new Error(data?.error || fnError?.message || 'Failed to edit background');
+      }
+      
+      return data.imageUrl;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      return null;
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  return {
+    editBackground,
+    isProcessing,
+    error,
+  };
+}
+```
+
+### File 4: Tích hợp vào `UnifiedImageGenerator.tsx`
+
+Thêm nút "Chỉnh sửa nền" vào phần preview ảnh:
+
+```typescript
+// Thêm state
+const [backgroundEditorOpen, setBackgroundEditorOpen] = useState(false);
+const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
+
+// Thêm nút trong preview card
+<Button
+  size="sm"
+  variant="outline"
+  onClick={() => {
+    setEditingChannel(channel);
+    setBackgroundEditorOpen(true);
+  }}
+>
+  <Wand2 className="w-4 h-4 mr-2" />
+  Chỉnh sửa nền
+</Button>
+
+// Thêm component
+{backgroundEditorOpen && editingChannel && (
+  <BackgroundEditor
+    open={backgroundEditorOpen}
+    onOpenChange={setBackgroundEditorOpen}
+    imageUrl={generatedImages[editingChannel]?.imageUrl || ''}
+    channel={editingChannel}
+    contentId={content.id}
+    onImageEdited={async (newUrl) => {
+      // Update image in state
+      setGeneratedImages(prev => ({
+        ...prev,
+        [editingChannel]: {
+          ...prev[editingChannel],
+          imageUrl: newUrl,
+        }
+      }));
+    }}
+  />
+)}
 ```
 
 ---
 
-## Files cần chỉnh sửa
+## Các tính năng chi tiết
 
-| File | Thay đổi |
-|------|----------|
-| `src/hooks/useAutoImageGeneration.ts` | Thêm params logoStyle, logoSize, logoOpacity |
-| `src/components/multichannel/UnifiedImageGenerator.tsx` | Thêm UI controls, state mới, cập nhật IMAGE_STYLES |
-| `supabase/functions/overlay-logo-canvas/index.ts` | Thêm logic xử lý style, mở rộng position 9 điểm |
-| `src/components/multichannel/LogoOptionsPanel.tsx` | **MỚI** - Component visual picker |
-| `src/hooks/useSocialImageGeneration.ts` | Cập nhật types |
+### 1. Xóa nền (Remove Background)
+- Output: PNG với transparent background
+- Use case: Dùng để ghép vào thiết kế khác
+- Prompt: AI tự detect subject và remove background
 
----
+### 2. Thay màu đơn (Solid Color)
+- Color picker với các preset phổ biến (trắng, đen, brand colors)
+- Output: Ảnh với background màu đồng nhất
+- Use case: Product shots, professional headshots
 
-## Độ ưu tiên triển khai
+### 3. Thay gradient
+- 2 màu + hướng (vertical/horizontal/diagonal)
+- Preset gradients phổ biến
+- Use case: Social media posts, marketing materials
 
-1. **Phase 1** (Quan trọng nhất):
-   - Mở rộng 9 vị trí
-   - Thêm tùy chọn kích thước (slider)
-   - Thêm opacity control
-
-2. **Phase 2** (Nâng cao):
-   - Style presets (shadow, glass, pill...)
-   - Visual position picker component
-   - Live preview
+### 4. Thay cảnh mới (Custom Scene)
+- Text input mô tả cảnh mong muốn
+- Quick presets: Văn phòng, Thiên nhiên, Studio, Bokeh...
+- Use case: Thay đổi context cho sản phẩm/người
 
 ---
 
-## Lợi ích sau khi hoàn thành
+## Files cần tạo/chỉnh sửa
 
-1. ✅ Logo hòa hợp với ảnh hơn (shadow, glass effects)
-2. ✅ Nhiều vị trí linh hoạt (9 điểm thay vì 4)
-3. ✅ Kích thước tùy chỉnh (5%-30%)
-4. ✅ Watermark mode (opacity thấp)
-5. ✅ Giao diện visual dễ dùng (grid picker)
-6. ✅ Professional output quality
+| File | Loại | Mô tả |
+|------|------|-------|
+| `supabase/functions/edit-image-background/index.ts` | **MỚI** | Edge function xử lý edit với Gemini |
+| `src/components/multichannel/BackgroundEditor.tsx` | **MỚI** | UI dialog chỉnh sửa background |
+| `src/hooks/useBackgroundEditor.ts` | **MỚI** | Hook quản lý logic |
+| `src/components/multichannel/UnifiedImageGenerator.tsx` | Chỉnh sửa | Tích hợp nút và component |
+| `supabase/config.toml` | Chỉnh sửa | Đăng ký function mới |
 
+---
+
+## Xử lý lỗi & Edge cases
+
+1. **Image format**: Validate input là image URL hợp lệ
+2. **Rate limit (429)**: Hiển thị toast và đề nghị thử lại sau
+3. **Generation failed**: Cho phép thử lại với cùng settings
+4. **Transparent output**: Đảm bảo PNG output cho remove background
+5. **Preview before save**: Cho xem trước trước khi commit changes
+
+---
+
+## Lợi ích
+
+1. ✅ **Linh hoạt hơn** - Không cần tạo lại ảnh từ đầu khi chỉ muốn đổi nền
+2. ✅ **Tiết kiệm thời gian** - Chỉnh sửa nhanh thay vì regenerate
+3. ✅ **Đa dạng output** - Transparent, solid, gradient, custom scene
+4. ✅ **Professional results** - AI tự detect subject và blend tự nhiên
+5. ✅ **Tái sử dụng ảnh** - Xuất transparent để dùng trong nhiều context
+
+---
+
+## Testing
+
+1. Tạo ảnh → Mở Background Editor → Chọn "Xóa nền" → Verify transparent output
+2. Thử "Màu đơn" với brand color → Verify màu đúng
+3. Thử "Gradient" → Verify hướng và màu đúng
+4. Thử "Cảnh mới" với preset "Văn phòng" → Verify cảnh hợp lý
+5. Test error handling với rate limit scenario
