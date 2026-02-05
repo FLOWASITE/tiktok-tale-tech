@@ -69,6 +69,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { StrategicContextPreview } from './StrategicContextPreview';
 import { TextPositionMockup } from './TextPositionMockup';
 import { VisualTextPositionPreview } from './VisualTextPositionPreview';
+import { BackgroundEditor } from './BackgroundEditor';
 
 interface UnifiedImageGeneratorProps {
   open: boolean;
@@ -325,6 +326,10 @@ export function UnifiedImageGenerator({
   // Batch mode state
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(content?.selected_channels ?? []);
   const [regeneratingChannel, setRegeneratingChannel] = useState<Channel | null>(null);
+  
+  // Background Editor state
+  const [backgroundEditorOpen, setBackgroundEditorOpen] = useState(false);
+  const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   
   // Single mode state
   const [singleChannel, setSingleChannel] = useState<Channel>(initialChannel || content?.selected_channels?.[0] || 'facebook');
@@ -610,6 +615,24 @@ export function UnifiedImageGenerator({
     link.download = `${content.title.replace(/[^a-zA-Z0-9]/g, '_')}-${channel}.png`;
     link.target = '_blank';
     link.click();
+  };
+
+  const handleEditBackground = (channel: Channel) => {
+    const image = batchGen.generatedImages[channel];
+    if (!image?.imageUrl) {
+      toast.error('Không có ảnh để chỉnh sửa');
+      return;
+    }
+    setEditingChannel(channel);
+    setBackgroundEditorOpen(true);
+  };
+
+  const handleBackgroundEdited = async (newImageUrl: string) => {
+    if (!editingChannel) return;
+    
+    // Update the generated images with the new URL
+    batchGen.updateGeneratedImage(editingChannel, { imageUrl: newImageUrl });
+    toast.success('Đã cập nhật ảnh');
   };
 
   const handleDownloadSingle = async () => {
@@ -1382,10 +1405,23 @@ export function UnifiedImageGenerator({
                   generatedImages={batchGen.generatedImages}
                   onRetryChannel={handleRegenerateChannel}
                   onDownloadImage={handleDownloadImage}
+                  onEditBackground={handleEditBackground}
                   retryingChannel={regeneratingChannel}
                 />
               </div>
             </ScrollArea>
+          )}
+
+          {/* Background Editor Dialog */}
+          {backgroundEditorOpen && editingChannel && batchGen.generatedImages[editingChannel] && (
+            <BackgroundEditor
+              open={backgroundEditorOpen}
+              onOpenChange={setBackgroundEditorOpen}
+              imageUrl={batchGen.generatedImages[editingChannel].imageUrl}
+              channel={editingChannel}
+              contentId={content.id}
+              onImageEdited={handleBackgroundEdited}
+            />
           )}
         </div>
 

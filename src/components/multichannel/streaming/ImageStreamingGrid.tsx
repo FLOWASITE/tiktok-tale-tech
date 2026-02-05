@@ -14,6 +14,7 @@ interface ImageStreamingGridProps {
   generatedImages: Record<Channel, GeneratedImage>;
   onRetryChannel?: (channel: Channel) => void;
   onDownloadImage?: (channel: Channel) => void;
+  onEditBackground?: (channel: Channel) => void;
   retryingChannel?: Channel | null;
   className?: string;
 }
@@ -25,6 +26,7 @@ export function ImageStreamingGrid({
   generatedImages,
   onRetryChannel,
   onDownloadImage,
+  onEditBackground,
   retryingChannel,
   className,
 }: ImageStreamingGridProps) {
@@ -146,6 +148,7 @@ export function ImageStreamingGrid({
                   aspectRatio={image?.aspectRatio}
                   onRetry={onRetryChannel ? () => onRetryChannel(channel) : undefined}
                   onDownload={onDownloadImage ? () => onDownloadImage(channel) : undefined}
+                  onEditBackground={onEditBackground ? () => onEditBackground(channel) : undefined}
                   isRetrying={retryingChannel === channel}
                   logoOverlayFailed={logoOverlayFailures?.[channel] || image?.logoOverlayFailed}
                   startTime={progressTimes?.[channel]}
