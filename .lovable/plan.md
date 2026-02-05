@@ -1,338 +1,261 @@
 
-# Kế hoạch: Thêm tính năng Background Editing (Xóa/Thay đổi nền)
+
+# Kế hoạch: Thêm phong cách chữ không khung (No Border/Background)
 
 ## Mục tiêu
-Cho phép người dùng chỉnh sửa background của ảnh đã tạo:
-- **Xóa nền** - Tạo ảnh transparent (PNG) để dùng trong thiết kế
-- **Thay đổi nền** - Thay background bằng màu đơn, gradient, hoặc mô tả cảnh mới
+Thêm các phong cách typography mới cho ảnh Social Graphics mà **không có nền/khung bao quanh chữ** - chữ sẽ hiển thị trực tiếp trên ảnh.
 
-## Phân tích kỹ thuật
+## Phân tích hiện tại
 
-### Phương pháp triển khai
-Sử dụng **Gemini 2.5 Flash Image** (đã có sẵn trong Lovable AI Gateway) với prompt editing:
-- Model có khả năng native image editing
-- Gửi ảnh gốc + instruction → nhận ảnh đã chỉnh sửa
-- Không cần mask thủ công, AI tự detect subject
+Hiện tại có 4 phong cách chữ, **tất cả đều có nền đen mờ** (`rgba(0, 0, 0, 0.6)`) và `borderRadius`:
 
-### Workflow đề xuất
+| Style | Mô tả | Có nền |
+|-------|-------|--------|
+| `modern` | Sans-serif, semibold | ✅ Có |
+| `classic` | Serif, medium | ✅ Có |
+| `bold` | Sans, uppercase, black | ✅ Có |
+| `minimal` | Sans, light, spaced | ✅ Có |
 
-```text
-┌──────────────────────────────────────────────────────────────────┐
-│                    Background Editor Flow                         │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  1. Chọn ảnh đã tạo → 2. Mở Background Editor                    │
-│                            ↓                                      │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │ [Xóa nền] [Thay màu đơn] [Gradient] [Mô tả cảnh mới]        │ │
-│  │                                                              │ │
-│  │ Ảnh gốc         →        Ảnh đã chỉnh sửa                   │ │
-│  │ [Preview]                [Preview]                           │ │
-│  │                                                              │ │
-│  │ [Áp dụng]  [Thử lại]  [Hủy]                                 │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-│                            ↓                                      │
-│  3. Lưu ảnh mới thay thế hoặc làm phiên bản mới                  │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
-```
+## Giải pháp đề xuất
 
----
+Thêm **3 phong cách mới không có khung/nền**, sử dụng **text-shadow** để chữ vẫn đọc được trên mọi background:
+
+| Style mới | Mô tả | Hiệu ứng |
+|-----------|-------|----------|
+| `clean` | Chữ trần không nền | Text-shadow nhẹ để tạo độ tương phản |
+| `outline` | Viền chữ (stroke) | Viền trắng/đen quanh chữ, không có nền |
+| `glow` | Chữ phát sáng | Text-shadow glow effect, không nền |
 
 ## Chi tiết kỹ thuật
 
-### File 1: `supabase/functions/edit-image-background/index.ts` (MỚI)
+### File 1: `src/hooks/useSocialImageGeneration.ts`
 
-Edge function xử lý background editing với Gemini:
+Mở rộng TypographyStyle type:
 
 ```typescript
-interface EditBackgroundRequest {
-  imageUrl: string;           // Ảnh gốc cần chỉnh sửa
-  editType: 'remove' | 'solid_color' | 'gradient' | 'custom_scene';
-  // Options based on editType
-  solidColor?: string;        // e.g. "#ffffff"
-  gradientFrom?: string;      // e.g. "#6366f1"
-  gradientTo?: string;        // e.g. "#ec4899"
-  gradientDirection?: 'vertical' | 'horizontal' | 'diagonal';
-  customScenePrompt?: string; // e.g. "beach sunset", "modern office"
-  // Context
-  contentId?: string;
-  channel?: string;
-  organizationId?: string;
-}
+// Cũ: 4 styles có khung
+export type TypographyStyle = 'modern' | 'classic' | 'bold' | 'minimal';
 
-// Prompt templates cho từng loại edit
-const EDIT_PROMPTS = {
-  remove: `
-    Remove the background completely and make it transparent.
-    Keep only the main subject with clean edges.
-    Output should have alpha transparency for the background.
-  `,
-  solid_color: (color: string) => `
-    Replace the entire background with a solid ${color} color.
-    Keep the main subject intact with natural edges.
-    Maintain the lighting and shadows to look realistic.
-  `,
-  gradient: (from: string, to: string, direction: string) => `
-    Replace the background with a smooth gradient from ${from} to ${to}.
-    Direction: ${direction === 'vertical' ? 'top to bottom' : 
-                  direction === 'horizontal' ? 'left to right' : 'top-left to bottom-right'}.
-    Keep the main subject intact with natural integration.
-  `,
-  custom_scene: (prompt: string) => `
-    Replace the background with: ${prompt}.
-    Keep the main subject as is, only change the background.
-    Make the integration look natural with appropriate lighting.
-  `,
-};
+// Mới: Thêm 3 styles không khung
+export type TypographyStyle = 
+  | 'modern' | 'classic' | 'bold' | 'minimal'  // Có khung
+  | 'clean' | 'outline' | 'glow';               // Không khung
 ```
 
-**Xử lý chính:**
+### File 2: `supabase/functions/overlay-text-canvas/index.ts`
+
+Thêm logic xử lý styles không có nền:
+
 ```typescript
-// Gọi Gemini với image + editing instruction
-const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${LOVABLE_API_KEY}`,
-    "Content-Type": "application/json",
+// Thêm hàm kiểm tra style có nền hay không
+function hasBackground(style: TypographyStyle): boolean {
+  const noBackgroundStyles = ['clean', 'outline', 'glow'];
+  return !noBackgroundStyles.includes(style);
+}
+
+// Typography styles mapping - mở rộng
+function getTypographyStyles(style: TypographyStyle): {
+  fontWeight: number;
+  letterSpacing: string;
+  textTransform: string;
+  textShadow?: string;  // NEW: text-shadow cho styles không nền
+} {
+  switch (style) {
+    // --- Styles có khung (giữ nguyên) ---
+    case 'modern':
+      return { fontWeight: 600, letterSpacing: '-0.02em', textTransform: 'none' };
+    case 'classic':
+      return { fontWeight: 400, letterSpacing: '0.02em', textTransform: 'none' };
+    case 'bold':
+      return { fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' };
+    case 'minimal':
+      return { fontWeight: 400, letterSpacing: '0.1em', textTransform: 'uppercase' };
+      
+    // --- Styles KHÔNG khung (mới) ---
+    case 'clean':
+      return { 
+        fontWeight: 600, 
+        letterSpacing: '-0.01em', 
+        textTransform: 'none',
+        textShadow: '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.5)'
+      };
+    case 'outline':
+      return { 
+        fontWeight: 700, 
+        letterSpacing: '0.02em', 
+        textTransform: 'none',
+        textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 2px 2px 4px rgba(0,0,0,0.5)'
+      };
+    case 'glow':
+      return { 
+        fontWeight: 600, 
+        letterSpacing: '0.01em', 
+        textTransform: 'none',
+        textShadow: '0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(255,255,255,0.6), 0 0 30px rgba(255,255,255,0.4), 2px 2px 8px rgba(0,0,0,0.8)'
+      };
+      
+    default:
+      return { fontWeight: 600, letterSpacing: '-0.02em', textTransform: 'none' };
+  }
+}
+
+// Cập nhật buildElement để hỗ trợ không có nền
+function buildElement(...) {
+  const showBackground = hasBackground(typographyStyle);
+  
+  return {
+    // ...
+    children: {
+      type: 'div',
+      props: {
+        style: {
+          // Chỉ áp dụng background nếu style có nền
+          backgroundColor: showBackground ? backgroundColor : 'transparent',
+          padding: showBackground ? `${padding / 2}px ${padding}px` : 0,
+          borderRadius: showBackground ? 16 : 0,
+          // ...
+        },
+        children: {
+          type: 'span',
+          props: {
+            style: {
+              // Thêm textShadow cho styles không nền
+              textShadow: typographyConfig.textShadow || 'none',
+              // ...
+            }
+          }
+        }
+      }
+    }
+  };
+}
+```
+
+### File 3: `src/components/multichannel/VisualTextPositionPreview.tsx`
+
+Thêm các options mới vào UI:
+
+```typescript
+const TYPOGRAPHY_OPTIONS: { 
+  value: TypographyStyle; 
+  label: string; 
+  description: string;
+  fontClass: string; 
+  icon: React.ReactNode;
+  sampleText: string;
+  hasBackground: boolean;  // NEW: đánh dấu có nền hay không
+}[] = [
+  // Styles có khung - giữ nguyên
+  { value: 'modern', label: 'Modern', ... hasBackground: true },
+  { value: 'classic', label: 'Classic', ... hasBackground: true },
+  { value: 'bold', label: 'Bold', ... hasBackground: true },
+  { value: 'minimal', label: 'Minimal', ... hasBackground: true },
+  
+  // Styles KHÔNG khung - MỚI
+  { 
+    value: 'clean', 
+    label: 'Clean', 
+    description: 'Chữ trần, đổ bóng',
+    fontClass: 'font-sans font-semibold drop-shadow-lg', 
+    icon: <Type className="w-4 h-4" />,
+    sampleText: 'Không khung',
+    hasBackground: false,
   },
-  body: JSON.stringify({
-    model: "google/gemini-2.5-flash-image",
-    messages: [{
-      role: "user",
-      content: [
-        { type: "text", text: editPrompt },
-        { type: "image_url", image_url: { url: imageUrl } }
-      ]
-    }],
-    modalities: ["image", "text"],
-  }),
-});
-
-// Extract edited image
-const data = await response.json();
-const editedImageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-```
-
-### File 2: `src/components/multichannel/BackgroundEditor.tsx` (MỚI)
-
-UI component cho chỉnh sửa background:
-
-**Props:**
-```typescript
-interface BackgroundEditorProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  imageUrl: string;
-  channel: Channel;
-  contentId: string;
-  onImageEdited?: (newImageUrl: string) => Promise<void>;
-}
-```
-
-**State:**
-```typescript
-const [editType, setEditType] = useState<'remove' | 'solid_color' | 'gradient' | 'custom_scene'>('remove');
-const [solidColor, setSolidColor] = useState('#ffffff');
-const [gradientFrom, setGradientFrom] = useState('#6366f1');
-const [gradientTo, setGradientTo] = useState('#ec4899');
-const [gradientDirection, setGradientDirection] = useState<'vertical' | 'horizontal' | 'diagonal'>('vertical');
-const [customPrompt, setCustomPrompt] = useState('');
-const [isProcessing, setIsProcessing] = useState(false);
-const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-```
-
-**UI Layout:**
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│ 🎨 Chỉnh sửa Background                                    [X] │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────────────────┐  ┌──────────────────────┐             │
-│  │                      │  │                      │             │
-│  │     Ảnh gốc          │  │   Ảnh đã chỉnh sửa  │             │
-│  │     [Preview]        │  │     [Preview]        │             │
-│  │                      │  │                      │             │
-│  └──────────────────────┘  └──────────────────────┘             │
-│                                                                  │
-├─────────────────────────────────────────────────────────────────┤
-│  Kiểu chỉnh sửa:                                                 │
-│  ┌─────────┐ ┌───────────┐ ┌──────────┐ ┌─────────────┐        │
-│  │ 🗑️ Xóa  │ │ 🎨 Màu    │ │ 🌈 Grad- │ │ 🖼️ Cảnh    │        │
-│  │   nền   │ │   đơn     │ │   ient   │ │    mới     │         │
-│  └─────────┘ └───────────┘ └──────────┘ └─────────────┘        │
-│                                                                  │
-│  [Tùy chọn động dựa trên kiểu được chọn]                        │
-│                                                                  │
-│  • Xóa nền: Không có tùy chọn thêm                              │
-│  • Màu đơn: Color picker                                         │
-│  • Gradient: 2 color pickers + direction selector               │
-│  • Cảnh mới: Textarea mô tả + Quick presets                     │
-│                                                                  │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│     [Xem trước]          [Áp dụng & Lưu]          [Hủy]        │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Quick Scene Presets:**
-```typescript
-const SCENE_PRESETS = [
-  { label: 'Văn phòng', prompt: 'modern minimalist office with white walls' },
-  { label: 'Thiên nhiên', prompt: 'outdoor nature scene with soft green foliage' },
-  { label: 'Studio', prompt: 'professional photography studio with soft lighting' },
-  { label: 'Gradient', prompt: 'smooth abstract gradient background' },
-  { label: 'Bokeh', prompt: 'blurred city lights bokeh background' },
-  { label: 'Marble', prompt: 'elegant white marble texture background' },
+  { 
+    value: 'outline', 
+    label: 'Outline', 
+    description: 'Viền chữ nổi bật',
+    fontClass: 'font-sans font-bold', 
+    icon: <Square className="w-4 h-4" />,
+    sampleText: 'Viền chữ',
+    hasBackground: false,
+  },
+  { 
+    value: 'glow', 
+    label: 'Glow', 
+    description: 'Chữ phát sáng',
+    fontClass: 'font-sans font-semibold', 
+    icon: <Sparkles className="w-4 h-4" />,
+    sampleText: '✨ Phát sáng',
+    hasBackground: false,
+  },
 ];
 ```
 
-### File 3: `src/hooks/useBackgroundEditor.ts` (MỚI)
+### File 4: `src/components/multichannel/TextPositionMockup.tsx`
 
-Hook quản lý logic editing:
+Cập nhật để preview đúng các styles không khung.
 
-```typescript
-export function useBackgroundEditor() {
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  const editBackground = async (params: EditBackgroundParams): Promise<string | null> => {
-    setIsProcessing(true);
-    setError(null);
-    
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('edit-image-background', {
-        body: params,
-      });
-      
-      if (fnError || !data?.success) {
-        throw new Error(data?.error || fnError?.message || 'Failed to edit background');
-      }
-      
-      return data.imageUrl;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return null;
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-  
-  return {
-    editBackground,
-    isProcessing,
-    error,
-  };
-}
-```
+---
 
-### File 4: Tích hợp vào `UnifiedImageGenerator.tsx`
+## Giao diện người dùng mới
 
-Thêm nút "Chỉnh sửa nền" vào phần preview ảnh:
-
-```typescript
-// Thêm state
-const [backgroundEditorOpen, setBackgroundEditorOpen] = useState(false);
-const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
-
-// Thêm nút trong preview card
-<Button
-  size="sm"
-  variant="outline"
-  onClick={() => {
-    setEditingChannel(channel);
-    setBackgroundEditorOpen(true);
-  }}
->
-  <Wand2 className="w-4 h-4 mr-2" />
-  Chỉnh sửa nền
-</Button>
-
-// Thêm component
-{backgroundEditorOpen && editingChannel && (
-  <BackgroundEditor
-    open={backgroundEditorOpen}
-    onOpenChange={setBackgroundEditorOpen}
-    imageUrl={generatedImages[editingChannel]?.imageUrl || ''}
-    channel={editingChannel}
-    contentId={content.id}
-    onImageEdited={async (newUrl) => {
-      // Update image in state
-      setGeneratedImages(prev => ({
-        ...prev,
-        [editingChannel]: {
-          ...prev[editingChannel],
-          imageUrl: newUrl,
-        }
-      }));
-    }}
-  />
-)}
+```text
+┌────────────────────────────────────────────────┐
+│ Kiểu chữ                                       │
+├────────────────────────────────────────────────┤
+│ ┌─────────────────┐  ┌─────────────────┐       │
+│ │ 📝 Modern       │  │ 📝 Classic      │  ← Có nền
+│ │ Thiết kế hiện   │  │ Phong cách      │       │
+│ │ đại             │  │ cổ điển         │       │
+│ └─────────────────┘  └─────────────────┘       │
+│                                                │
+│ ┌─────────────────┐  ┌─────────────────┐       │
+│ │ 📝 Bold         │  │ 📝 Minimal      │  ← Có nền
+│ │ NỔI BẬT         │  │ TỐI GIẢN        │       │
+│ └─────────────────┘  └─────────────────┘       │
+├────────────────────────────────────────────────┤
+│ 🚫 Không khung (mới)                           │
+│ ┌─────────────────┐  ┌─────────────────┐       │
+│ │ ✨ Clean        │  │ 🔲 Outline      │       │
+│ │ Không khung     │  │ Viền chữ        │  ← Không nền
+│ └─────────────────┘  └─────────────────┘       │
+│                                                │
+│ ┌─────────────────┐                            │
+│ │ 💫 Glow         │                            │
+│ │ ✨ Phát sáng    │                       ← Không nền
+│ └─────────────────┘                            │
+└────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Các tính năng chi tiết
+## Files cần chỉnh sửa
 
-### 1. Xóa nền (Remove Background)
-- Output: PNG với transparent background
-- Use case: Dùng để ghép vào thiết kế khác
-- Prompt: AI tự detect subject và remove background
-
-### 2. Thay màu đơn (Solid Color)
-- Color picker với các preset phổ biến (trắng, đen, brand colors)
-- Output: Ảnh với background màu đồng nhất
-- Use case: Product shots, professional headshots
-
-### 3. Thay gradient
-- 2 màu + hướng (vertical/horizontal/diagonal)
-- Preset gradients phổ biến
-- Use case: Social media posts, marketing materials
-
-### 4. Thay cảnh mới (Custom Scene)
-- Text input mô tả cảnh mong muốn
-- Quick presets: Văn phòng, Thiên nhiên, Studio, Bokeh...
-- Use case: Thay đổi context cho sản phẩm/người
+| File | Thay đổi |
+|------|----------|
+| `src/hooks/useSocialImageGeneration.ts` | Mở rộng TypographyStyle type |
+| `src/hooks/useAutoImageGeneration.ts` | Cập nhật type nếu cần |
+| `supabase/functions/overlay-text-canvas/index.ts` | Thêm logic không nền + text-shadow |
+| `src/components/multichannel/VisualTextPositionPreview.tsx` | Thêm UI options mới |
+| `src/components/multichannel/TextPositionMockup.tsx` | Cập nhật preview mockup |
 
 ---
 
-## Files cần tạo/chỉnh sửa
+## Kỹ thuật text-shadow
 
-| File | Loại | Mô tả |
-|------|------|-------|
-| `supabase/functions/edit-image-background/index.ts` | **MỚI** | Edge function xử lý edit với Gemini |
-| `src/components/multichannel/BackgroundEditor.tsx` | **MỚI** | UI dialog chỉnh sửa background |
-| `src/hooks/useBackgroundEditor.ts` | **MỚI** | Hook quản lý logic |
-| `src/components/multichannel/UnifiedImageGenerator.tsx` | Chỉnh sửa | Tích hợp nút và component |
-| `supabase/config.toml` | Chỉnh sửa | Đăng ký function mới |
+Để chữ đọc được trên mọi nền mà không cần background box:
 
----
+```css
+/* Clean - Shadow đơn giản */
+text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
 
-## Xử lý lỗi & Edge cases
+/* Outline - Viền 4 hướng */
+text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, 
+             -1px 1px 0 #000, 1px 1px 0 #000;
 
-1. **Image format**: Validate input là image URL hợp lệ
-2. **Rate limit (429)**: Hiển thị toast và đề nghị thử lại sau
-3. **Generation failed**: Cho phép thử lại với cùng settings
-4. **Transparent output**: Đảm bảo PNG output cho remove background
-5. **Preview before save**: Cho xem trước trước khi commit changes
+/* Glow - Phát sáng */
+text-shadow: 0 0 10px rgba(255,255,255,0.8),
+             0 0 20px rgba(255,255,255,0.6);
+```
 
 ---
 
 ## Lợi ích
 
-1. ✅ **Linh hoạt hơn** - Không cần tạo lại ảnh từ đầu khi chỉ muốn đổi nền
-2. ✅ **Tiết kiệm thời gian** - Chỉnh sửa nhanh thay vì regenerate
-3. ✅ **Đa dạng output** - Transparent, solid, gradient, custom scene
-4. ✅ **Professional results** - AI tự detect subject và blend tự nhiên
-5. ✅ **Tái sử dụng ảnh** - Xuất transparent để dùng trong nhiều context
+1. ✅ **Thẩm mỹ đa dạng** - Có thêm lựa chọn không khung nền
+2. ✅ **Phù hợp với ảnh đẹp** - Không che mất background ảnh
+3. ✅ **Vẫn đọc được** - Text-shadow đảm bảo contrast
+4. ✅ **Phong cách hiện đại** - Glow/Outline rất phổ biến trên social media
+5. ✅ **Tương thích ngược** - Các style cũ vẫn hoạt động bình thường
 
----
-
-## Testing
-
-1. Tạo ảnh → Mở Background Editor → Chọn "Xóa nền" → Verify transparent output
-2. Thử "Màu đơn" với brand color → Verify màu đúng
-3. Thử "Gradient" → Verify hướng và màu đúng
-4. Thử "Cảnh mới" với preset "Văn phòng" → Verify cảnh hợp lý
-5. Test error handling với rate limit scenario
