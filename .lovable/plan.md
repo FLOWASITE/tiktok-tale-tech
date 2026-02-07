@@ -1,132 +1,106 @@
 
-# Kế hoạch Fix: Lỗi Tạo Nội Dung Đa Kênh Không Hoàn Thành
 
-## Nguyên nhân
+# Kế hoạch Fix: Nội dung Đa kênh Hiển thị Năm Cũ (2025 thay vì 2026)
 
-Tôi đã tìm ra **2 lỗi chính** từ logs:
+## Nguyên nhân gốc rễ
 
-### Lỗi 1: `lengthValidation` undefined trong Streaming Mode (CRITICAL)
-```
-ReferenceError: Cannot access 'lengthValidation' before initialization
-at Object.start (file:///...generate-multichannel/index.ts:2663:35)
-```
+Tôi đã phân tích code và phát hiện:
 
-**Phân tích:**
-- Biến `lengthValidation` được khai báo ở **dòng 4208** (trong Normal mode block)
-- Nhưng được sử dụng ở **dòng 3104** (trong Streaming mode block)
-- Streaming mode hoàn toàn thiếu length validation logic
+**`generate-multichannel/index.ts` KHÔNG có thông tin ngày tháng hiện tại trong System Prompt!**
 
-### Lỗi 2: Embedding Model không được hỗ trợ
-```
-invalid model: text-embedding-3-small
-allowed models: [openai/gpt-5-mini openai/gpt-5 ...]
+Trong khi `system-prompt-builder.ts` (dùng cho chat-topics) có đầy đủ:
+```typescript
+const currentYear = vnTime.getUTCFullYear(); // 2026
+// ...
+- **Ngày hiện tại:** ${dayOfWeek}, ngày ${currentDay} ${currentMonth} năm ${currentYear}
 ```
 
-**Phân tích:**
-- `semantic-dedup.ts` và `cross-channel-dedup.ts` sử dụng `text-embedding-3-small`
-- Model này không có trong danh sách Lovable AI Gateway
-- Gây lỗi 400 khi kiểm tra trùng lặp nội dung
-
----
+Nhưng hàm `getSystemPrompt()` trong `generate-multichannel` hoàn toàn thiếu thông tin này, khiến AI sử dụng dữ liệu training data cũ (năm 2025).
 
 ## Giải pháp
 
-### Fix 1: Thêm `lengthValidation` vào Streaming Mode
+Thêm **Date Context Section** vào đầu System Prompt trong `getSystemPrompt()`.
 
-**File:** `supabase/functions/generate-multichannel/index.ts`
+### File: `supabase/functions/generate-multichannel/index.ts`
 
-Thêm khai báo biến và logic length validation vào streaming mode block (trước dòng 2770):
-
+**Thêm helper function (sau dòng ~1065):**
 ```typescript
-// Streaming mode - Khai báo lengthValidation ở đầu block
-let lengthValidation: MultiChannelLengthValidation | null = null;
-let expansionCount = 0;
-```
-
-Và thêm logic validation sau khi có `channelResults` (sau dòng 2760):
-
-```typescript
-// ============================================
-// LENGTH VALIDATION - P1 (Streaming Mode)
-// ============================================
-try {
-  const channelContentsForValidation: Record<string, string> = {};
-  for (const [ch, content] of Object.entries(channelResults)) {
-    if (content && typeof content === 'string') {
-      channelContentsForValidation[ch] = content;
-    }
-  }
+/**
+ * Build current date context section for system prompt
+ * Ensures AI knows the current date/year
+ */
+function buildDateContextSection(): string {
+  const now = new Date();
+  const vnTimeOffset = 7 * 60 * 60 * 1000; // UTC+7
+  const vnTime = new Date(now.getTime() + vnTimeOffset);
   
-  if (Object.keys(channelContentsForValidation).length > 0) {
-    lengthValidation = validateAllChannels(channelContentsForValidation, channelOverrides);
-    console.log(`[streaming-mode][length-validation] compliance=${lengthValidation.overallCompliance}, score=${lengthValidation.complianceScore}/100`);
-  }
-} catch (lengthErr) {
-  console.warn('[streaming-mode][length-validation] Failed:', lengthErr);
+  const dayOfWeekNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
+  const monthNames = ['tháng 1', 'tháng 2', 'tháng 3', 'tháng 4', 'tháng 5', 'tháng 6', 'tháng 7', 'tháng 8', 'tháng 9', 'tháng 10', 'tháng 11', 'tháng 12'];
+  
+  const dayOfWeek = dayOfWeekNames[vnTime.getUTCDay()];
+  const currentMonth = monthNames[vnTime.getUTCMonth()];
+  const currentYear = vnTime.getUTCFullYear();
+  const currentDay = vnTime.getUTCDate();
+  const currentDateISO = vnTime.toISOString().split('T')[0];
+  
+  return `## 📅 THÔNG TIN THỜI GIAN HIỆN TẠI
+- **Ngày hiện tại:** ${dayOfWeek}, ngày ${currentDay} ${currentMonth} năm ${currentYear} (${currentDateISO})
+- **Múi giờ:** Vietnam (UTC+7)
+
+⚠️ QUAN TRỌNG: Sử dụng năm ${currentYear} trong tất cả nội dung. KHÔNG sử dụng năm cũ (${currentYear - 1} hoặc trước đó).
+`;
 }
 ```
 
-### Fix 2: Sửa Embedding Model
+**Inject vào System Prompt (trong hàm `getSystemPrompt`, dòng ~1176):**
 
-Lovable AI Gateway không hỗ trợ embedding models - chỉ hỗ trợ LLM. Cần thay đổi cách xử lý:
-
-**Option A: Disable embedding-based dedup (Recommended - nhanh nhất)**
-
-**File:** `supabase/functions/_shared/semantic-dedup.ts`
+Thay đổi từ:
 ```typescript
-// Line 52-55
-async function generateEmbedding(text: string): Promise<number[]> {
-  // Lovable AI Gateway does not support embedding models
-  // Return early to skip embedding-based dedup
-  throw new Error('Embedding not supported - skipping dedup check');
-}
+return `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - tạo NỘI DUNG ĐA KÊNH cho ${audienceDescription}.
+
+${brandVoiceSection}
+...
 ```
 
-**File:** `supabase/functions/_shared/cross-channel-dedup.ts`
+Thành:
 ```typescript
-// Line 48-52
-async function generateEmbedding(text: string): Promise<number[]> {
-  // Lovable AI Gateway does not support embedding models
-  throw new Error('Embedding not supported - skipping cross-channel dedup');
-}
+const dateContextSection = buildDateContextSection();
+
+return `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - tạo NỘI DUNG ĐA KÊNH cho ${audienceDescription}.
+
+${dateContextSection}
+${brandVoiceSection}
+...
 ```
 
-Lưu ý: Cả 2 functions đã có error handling `fail open` nên khi embedding fail, hệ thống sẽ tiếp tục hoạt động bình thường:
-```typescript
-// semantic-dedup.ts dòng 207-210
-} catch (error) {
-  console.error('Semantic duplicate check error:', error);
-  // Fail open - allow content creation if check fails
-  return { isDuplicate: false, isWarning: false };
-}
+## Kết quả mong đợi
+
+**Trước:**
+```
+System Prompt: "Bạn là SOCIAL CHANNEL SETTINGS ENGINE - tạo NỘI DUNG..."
+→ AI sử dụng năm từ training data (2025)
 ```
 
-**Option B: Sử dụng LLM-based similarity check (phức tạp hơn)**
-- Thay thế embedding bằng LLM để check similarity
-- Chi phí cao hơn, không khuyến khích
-
----
+**Sau:**
+```
+System Prompt: "Bạn là SOCIAL CHANNEL SETTINGS ENGINE...
+## 📅 THÔNG TIN THỜI GIAN HIỆN TẠI
+- **Ngày hiện tại:** Thứ sáu, ngày 7 tháng 2 năm 2026 (2026-02-07)
+- **Múi giờ:** Vietnam (UTC+7)
+⚠️ QUAN TRỌNG: Sử dụng năm 2026..."
+→ AI biết năm hiện tại và sử dụng đúng
+```
 
 ## Files cần chỉnh sửa
 
 | File | Thay đổi |
 |------|----------|
-| `supabase/functions/generate-multichannel/index.ts` | Thêm `lengthValidation` declaration và logic vào streaming mode |
-| `supabase/functions/_shared/semantic-dedup.ts` | Disable embedding để gracefully skip |
-| `supabase/functions/_shared/cross-channel-dedup.ts` | Disable embedding để gracefully skip |
+| `supabase/functions/generate-multichannel/index.ts` | Thêm `buildDateContextSection()` helper và inject vào system prompt |
 
----
+## Chi tiết kỹ thuật
 
-## Kết quả mong đợi
+- Helper function `buildDateContextSection()` tính toán thời gian theo múi giờ Vietnam (UTC+7)
+- Section được inject ở **đầu** system prompt (sau câu giới thiệu) để đảm bảo AI "ghi nhớ"
+- Thêm cảnh báo rõ ràng "KHÔNG sử dụng năm cũ" để tránh AI fallback về training data
+- Cùng format với `system-prompt-builder.ts` để đồng bộ codebase
 
-1. **Generation hoàn thành** - Không còn lỗi `ReferenceError`
-2. **Embedding errors được xử lý gracefully** - Skip dedup check thay vì crash
-3. **Logs sạch hơn** - Không còn error 400 từ embedding API
-
----
-
-## Lưu ý bảo mật
-
-- Semantic dedup và cross-channel dedup sẽ tạm thời bị disable
-- Điều này không ảnh hưởng đến chất lượng nội dung
-- Để enable lại, cần có external embedding API key (OpenAI/Anthropic) hoặc chờ Lovable support embedding models
