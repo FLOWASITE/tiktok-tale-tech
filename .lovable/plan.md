@@ -1,261 +1,144 @@
 
 
-# Kế hoạch: Thêm phong cách chữ không khung (No Border/Background)
+# Kế hoạch: Cải thiện UI cho Hook Suggestion - Nổi bật & Mở sẵn
 
 ## Mục tiêu
-Thêm các phong cách typography mới cho ảnh Social Graphics mà **không có nền/khung bao quanh chữ** - chữ sẽ hiển thị trực tiếp trên ảnh.
+- **Mở mặc định** (không cần click để xem)
+- **UI nổi bật hơn** - Thay vì Button đơn giản, chuyển thành Card với visual attention
+- Giữ nguyên toàn bộ logic và tính năng hiện có
 
 ## Phân tích hiện tại
 
-Hiện tại có 4 phong cách chữ, **tất cả đều có nền đen mờ** (`rgba(0, 0, 0, 0.6)`) và `borderRadius`:
+Hiện tại trong `MultiChannelHookGenerator.tsx`:
+```typescript
+const [isOpen, setIsOpen] = useState(false); // ← Mặc định đóng
+```
 
-| Style | Mô tả | Có nền |
-|-------|-------|--------|
-| `modern` | Sans-serif, semibold | ✅ Có |
-| `classic` | Serif, medium | ✅ Có |
-| `bold` | Sans, uppercase, black | ✅ Có |
-| `minimal` | Sans, light, spaced | ✅ Có |
+UI trigger là một button outline với border dashed nhỏ, dễ bị bỏ qua.
 
-## Giải pháp đề xuất
+## Thay đổi đề xuất
 
-Thêm **3 phong cách mới không có khung/nền**, sử dụng **text-shadow** để chữ vẫn đọc được trên mọi background:
+### 1. Mặc định mở (defaultOpen = true)
+```typescript
+const [isOpen, setIsOpen] = useState(true); // Mở sẵn
+```
 
-| Style mới | Mô tả | Hiệu ứng |
-|-----------|-------|----------|
-| `clean` | Chữ trần không nền | Text-shadow nhẹ để tạo độ tương phản |
-| `outline` | Viền chữ (stroke) | Viền trắng/đen quanh chữ, không có nền |
-| `glow` | Chữ phát sáng | Text-shadow glow effect, không nền |
+### 2. Chuyển trigger thành Card nổi bật
+
+Thay vì:
+```text
+┌─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┐
+│ 💡 Gợi ý Opening Hook    [3 hook] ▼│
+└─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
+```
+
+Đổi thành Card với gradient và icon animated:
+```text
+┌───────────────────────────────────────────────────────┐
+│ ✨ 💡 GỢI Ý HOOK THU HÚT                        [▲]  │
+│ ──────────────────────────────────────────────────── │
+│ AI đề xuất câu mở đầu hấp dẫn cho từng kênh         │
+│ [3 hook sẵn sàng]                                    │
+└───────────────────────────────────────────────────────┘
+```
+
+### 3. Visual improvements
+
+- **Background gradient**: `bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50` (light) / tương đương dark
+- **Icon animated**: Lightbulb với pulse effect
+- **Badge nổi bật**: Hiển thị số hook với màu amber/gold
+- **Border highlighted**: `border-amber-300/50` thay vì dashed mờ
 
 ## Chi tiết kỹ thuật
 
-### File 1: `src/hooks/useSocialImageGeneration.ts`
+### File: `src/components/multichannel/MultiChannelHookGenerator.tsx`
 
-Mở rộng TypographyStyle type:
+**Thay đổi 1 - Mở mặc định:**
+```typescript
+// Dòng 161
+const [isOpen, setIsOpen] = useState(true); // Thay false → true
+```
+
+**Thay đổi 2 - Redesign trigger thành Card:**
 
 ```typescript
-// Cũ: 4 styles có khung
-export type TypographyStyle = 'modern' | 'classic' | 'bold' | 'minimal';
-
-// Mới: Thêm 3 styles không khung
-export type TypographyStyle = 
-  | 'modern' | 'classic' | 'bold' | 'minimal'  // Có khung
-  | 'clean' | 'outline' | 'glow';               // Không khung
+<Collapsible open={isOpen} onOpenChange={setIsOpen} className={className}>
+  {/* NEW: Card-based trigger thay vì Button */}
+  <Card className={cn(
+    "overflow-hidden transition-all duration-300",
+    "border-2",
+    isOpen 
+      ? "border-amber-400/50 shadow-md shadow-amber-100/50 dark:shadow-amber-900/20" 
+      : "border-amber-300/30 hover:border-amber-400/50",
+    "bg-gradient-to-r from-amber-50/80 via-yellow-50/50 to-orange-50/80",
+    "dark:from-amber-950/30 dark:via-yellow-950/20 dark:to-orange-950/30"
+  )}>
+    <CollapsibleTrigger asChild>
+      <div className="p-4 cursor-pointer group">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Animated icon */}
+            <div className="relative">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-200/50 dark:shadow-amber-900/30">
+                <Lightbulb className="w-5 h-5 text-white" />
+              </div>
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white dark:border-gray-900 animate-pulse" />
+            </div>
+            
+            <div>
+              <h3 className="font-semibold text-foreground flex items-center gap-2">
+                Gợi ý Opening Hook
+                {hooks.length > 0 && (
+                  <Badge className="bg-amber-500 text-white border-0 text-xs">
+                    {hooks.length} hook
+                  </Badge>
+                )}
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                AI đề xuất câu mở đầu thu hút cho từng kênh
+              </p>
+            </div>
+          </div>
+          
+          {/* Toggle icon */}
+          <motion.div
+            animate={{ rotate: isOpen ? 180 : 0 }}
+            transition={{ duration: 0.2 }}
+            className="text-amber-600 dark:text-amber-400"
+          >
+            <ChevronDown className="w-5 h-5" />
+          </motion.div>
+        </div>
+      </div>
+    </CollapsibleTrigger>
+    
+    <CollapsibleContent>
+      {/* Nội dung hiện tại giữ nguyên */}
+    </CollapsibleContent>
+  </Card>
+</Collapsible>
 ```
 
-### File 2: `supabase/functions/overlay-text-canvas/index.ts`
+## Kết quả mong đợi
 
-Thêm logic xử lý styles không có nền:
-
-```typescript
-// Thêm hàm kiểm tra style có nền hay không
-function hasBackground(style: TypographyStyle): boolean {
-  const noBackgroundStyles = ['clean', 'outline', 'glow'];
-  return !noBackgroundStyles.includes(style);
-}
-
-// Typography styles mapping - mở rộng
-function getTypographyStyles(style: TypographyStyle): {
-  fontWeight: number;
-  letterSpacing: string;
-  textTransform: string;
-  textShadow?: string;  // NEW: text-shadow cho styles không nền
-} {
-  switch (style) {
-    // --- Styles có khung (giữ nguyên) ---
-    case 'modern':
-      return { fontWeight: 600, letterSpacing: '-0.02em', textTransform: 'none' };
-    case 'classic':
-      return { fontWeight: 400, letterSpacing: '0.02em', textTransform: 'none' };
-    case 'bold':
-      return { fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' };
-    case 'minimal':
-      return { fontWeight: 400, letterSpacing: '0.1em', textTransform: 'uppercase' };
-      
-    // --- Styles KHÔNG khung (mới) ---
-    case 'clean':
-      return { 
-        fontWeight: 600, 
-        letterSpacing: '-0.01em', 
-        textTransform: 'none',
-        textShadow: '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.5)'
-      };
-    case 'outline':
-      return { 
-        fontWeight: 700, 
-        letterSpacing: '0.02em', 
-        textTransform: 'none',
-        textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 2px 2px 4px rgba(0,0,0,0.5)'
-      };
-    case 'glow':
-      return { 
-        fontWeight: 600, 
-        letterSpacing: '0.01em', 
-        textTransform: 'none',
-        textShadow: '0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(255,255,255,0.6), 0 0 30px rgba(255,255,255,0.4), 2px 2px 8px rgba(0,0,0,0.8)'
-      };
-      
-    default:
-      return { fontWeight: 600, letterSpacing: '-0.02em', textTransform: 'none' };
-  }
-}
-
-// Cập nhật buildElement để hỗ trợ không có nền
-function buildElement(...) {
-  const showBackground = hasBackground(typographyStyle);
-  
-  return {
-    // ...
-    children: {
-      type: 'div',
-      props: {
-        style: {
-          // Chỉ áp dụng background nếu style có nền
-          backgroundColor: showBackground ? backgroundColor : 'transparent',
-          padding: showBackground ? `${padding / 2}px ${padding}px` : 0,
-          borderRadius: showBackground ? 16 : 0,
-          // ...
-        },
-        children: {
-          type: 'span',
-          props: {
-            style: {
-              // Thêm textShadow cho styles không nền
-              textShadow: typographyConfig.textShadow || 'none',
-              // ...
-            }
-          }
-        }
-      }
-    }
-  };
-}
-```
-
-### File 3: `src/components/multichannel/VisualTextPositionPreview.tsx`
-
-Thêm các options mới vào UI:
-
-```typescript
-const TYPOGRAPHY_OPTIONS: { 
-  value: TypographyStyle; 
-  label: string; 
-  description: string;
-  fontClass: string; 
-  icon: React.ReactNode;
-  sampleText: string;
-  hasBackground: boolean;  // NEW: đánh dấu có nền hay không
-}[] = [
-  // Styles có khung - giữ nguyên
-  { value: 'modern', label: 'Modern', ... hasBackground: true },
-  { value: 'classic', label: 'Classic', ... hasBackground: true },
-  { value: 'bold', label: 'Bold', ... hasBackground: true },
-  { value: 'minimal', label: 'Minimal', ... hasBackground: true },
-  
-  // Styles KHÔNG khung - MỚI
-  { 
-    value: 'clean', 
-    label: 'Clean', 
-    description: 'Chữ trần, đổ bóng',
-    fontClass: 'font-sans font-semibold drop-shadow-lg', 
-    icon: <Type className="w-4 h-4" />,
-    sampleText: 'Không khung',
-    hasBackground: false,
-  },
-  { 
-    value: 'outline', 
-    label: 'Outline', 
-    description: 'Viền chữ nổi bật',
-    fontClass: 'font-sans font-bold', 
-    icon: <Square className="w-4 h-4" />,
-    sampleText: 'Viền chữ',
-    hasBackground: false,
-  },
-  { 
-    value: 'glow', 
-    label: 'Glow', 
-    description: 'Chữ phát sáng',
-    fontClass: 'font-sans font-semibold', 
-    icon: <Sparkles className="w-4 h-4" />,
-    sampleText: '✨ Phát sáng',
-    hasBackground: false,
-  },
-];
-```
-
-### File 4: `src/components/multichannel/TextPositionMockup.tsx`
-
-Cập nhật để preview đúng các styles không khung.
-
----
-
-## Giao diện người dùng mới
-
-```text
-┌────────────────────────────────────────────────┐
-│ Kiểu chữ                                       │
-├────────────────────────────────────────────────┤
-│ ┌─────────────────┐  ┌─────────────────┐       │
-│ │ 📝 Modern       │  │ 📝 Classic      │  ← Có nền
-│ │ Thiết kế hiện   │  │ Phong cách      │       │
-│ │ đại             │  │ cổ điển         │       │
-│ └─────────────────┘  └─────────────────┘       │
-│                                                │
-│ ┌─────────────────┐  ┌─────────────────┐       │
-│ │ 📝 Bold         │  │ 📝 Minimal      │  ← Có nền
-│ │ NỔI BẬT         │  │ TỐI GIẢN        │       │
-│ └─────────────────┘  └─────────────────┘       │
-├────────────────────────────────────────────────┤
-│ 🚫 Không khung (mới)                           │
-│ ┌─────────────────┐  ┌─────────────────┐       │
-│ │ ✨ Clean        │  │ 🔲 Outline      │       │
-│ │ Không khung     │  │ Viền chữ        │  ← Không nền
-│ └─────────────────┘  └─────────────────┘       │
-│                                                │
-│ ┌─────────────────┐                            │
-│ │ 💫 Glow         │                            │
-│ │ ✨ Phát sáng    │                       ← Không nền
-│ └─────────────────┘                            │
-└────────────────────────────────────────────────┘
-```
-
----
+| Trước | Sau |
+|-------|-----|
+| Button nhỏ, dashed border | Card lớn, gradient background |
+| Mặc định đóng | Mặc định mở |
+| Icon tĩnh | Icon animated với pulse |
+| Không có mô tả | Có subtitle giải thích |
+| Dễ bị bỏ qua | Nổi bật, thu hút chú ý |
 
 ## Files cần chỉnh sửa
 
 | File | Thay đổi |
 |------|----------|
-| `src/hooks/useSocialImageGeneration.ts` | Mở rộng TypographyStyle type |
-| `src/hooks/useAutoImageGeneration.ts` | Cập nhật type nếu cần |
-| `supabase/functions/overlay-text-canvas/index.ts` | Thêm logic không nền + text-shadow |
-| `src/components/multichannel/VisualTextPositionPreview.tsx` | Thêm UI options mới |
-| `src/components/multichannel/TextPositionMockup.tsx` | Cập nhật preview mockup |
-
----
-
-## Kỹ thuật text-shadow
-
-Để chữ đọc được trên mọi nền mà không cần background box:
-
-```css
-/* Clean - Shadow đơn giản */
-text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-
-/* Outline - Viền 4 hướng */
-text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, 
-             -1px 1px 0 #000, 1px 1px 0 #000;
-
-/* Glow - Phát sáng */
-text-shadow: 0 0 10px rgba(255,255,255,0.8),
-             0 0 20px rgba(255,255,255,0.6);
-```
-
----
+| `src/components/multichannel/MultiChannelHookGenerator.tsx` | Thay `isOpen` default, redesign trigger |
 
 ## Lợi ích
 
-1. ✅ **Thẩm mỹ đa dạng** - Có thêm lựa chọn không khung nền
-2. ✅ **Phù hợp với ảnh đẹp** - Không che mất background ảnh
-3. ✅ **Vẫn đọc được** - Text-shadow đảm bảo contrast
-4. ✅ **Phong cách hiện đại** - Glow/Outline rất phổ biến trên social media
-5. ✅ **Tương thích ngược** - Các style cũ vẫn hoạt động bình thường
+1. **Visibility cao hơn** - Người dùng thấy ngay tính năng hay
+2. **Onboarding tốt hơn** - Mở sẵn giúp người dùng khám phá
+3. **Professional look** - Card với gradient trông premium hơn
+4. **Consistent với design system** - Phong cách tương tự các Card khác trong wizard
 
