@@ -1065,6 +1065,31 @@ async function detectTargetAudience(
   if (b2cCount > b2bCount && b2cCount > bothCount) return 'B2C';
   return 'both';
 }
+/**
+ * Build current date context section for system prompt
+ * Ensures AI knows the current date/year (Vietnam timezone)
+ */
+function buildDateContextSection(): string {
+  const now = new Date();
+  const vnTimeOffset = 7 * 60 * 60 * 1000; // UTC+7
+  const vnTime = new Date(now.getTime() + vnTimeOffset);
+  
+  const dayOfWeekNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
+  const monthNames = ['tháng 1', 'tháng 2', 'tháng 3', 'tháng 4', 'tháng 5', 'tháng 6', 'tháng 7', 'tháng 8', 'tháng 9', 'tháng 10', 'tháng 11', 'tháng 12'];
+  
+  const dayOfWeek = dayOfWeekNames[vnTime.getUTCDay()];
+  const currentMonth = monthNames[vnTime.getUTCMonth()];
+  const currentYear = vnTime.getUTCFullYear();
+  const currentDay = vnTime.getUTCDate();
+  const currentDateISO = vnTime.toISOString().split('T')[0];
+  
+  return `## 📅 THÔNG TIN THỜI GIAN HIỆN TẠI
+- **Ngày hiện tại:** ${dayOfWeek}, ngày ${currentDay} ${currentMonth} năm ${currentYear} (${currentDateISO})
+- **Múi giờ:** Vietnam (UTC+7)
+
+⚠️ QUAN TRỌNG: Sử dụng năm ${currentYear} trong tất cả nội dung. KHÔNG sử dụng năm cũ (${currentYear - 1} hoặc trước đó).
+`;
+}
 
 const getSystemPrompt = (
   brandName: string, 
@@ -1173,8 +1198,12 @@ ${angleDescriptions[contentAngle] || contentAngle}
   // NEW: Build Content Role section for orchestration flow
   const contentRoleSection = getContentRoleTemplate(contentRole);
 
+  // Build date context section to ensure AI uses current year
+  const dateContextSection = buildDateContextSection();
+
   return `Bạn là SOCIAL CHANNEL SETTINGS ENGINE - tạo NỘI DUNG ĐA KÊNH cho ${audienceDescription}.
 
+${dateContextSection}
 ${brandVoiceSection}
 ${extendedBrandSection}
 ${productTargetingSection}
