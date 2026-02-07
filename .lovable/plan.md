@@ -1,144 +1,71 @@
 
 
-# Kế hoạch: Cải thiện UI cho Hook Suggestion - Nổi bật & Mở sẵn
+# Kế hoạch: Xóa bỏ "Chế độ chất lượng" khỏi bước Đa kênh
 
-## Mục tiêu
-- **Mở mặc định** (không cần click để xem)
-- **UI nổi bật hơn** - Thay vì Button đơn giản, chuyển thành Card với visual attention
-- Giữ nguyên toàn bộ logic và tính năng hiện có
+## Lý do
 
-## Phân tích hiện tại
+Tính năng "Chế độ chất lượng" (Quality Mode Selector) trong bước Đa kênh không cần thiết vì:
 
-Hiện tại trong `MultiChannelHookGenerator.tsx`:
-```typescript
-const [isOpen, setIsOpen] = useState(false); // ← Mặc định đóng
-```
+1. **Admin Panel đã cấu hình sẵn**: Trong `/admin/ai` > tab Channels, admin đã thiết lập:
+   - Model mặc định cho từng channel
+   - Quality Mode mặc định (Fast/Balanced/Quality) cho từng channel
+   - Temperature, Hook Intensity, Prompt Style...
 
-UI trigger là một button outline với border dashed nhỏ, dễ bị bỏ qua.
+2. **Brand-level có thể override**: Mỗi Brand Template có thể override Quality Mode cho từng channel cụ thể
 
-## Thay đổi đề xuất
+3. **Backend tự động điều chỉnh**: Hàm `getAutoBalancedQualityMode()` trong backend sẽ:
+   - Tính điểm "Context Richness" dựa trên Brand/Persona/Research có sẵn
+   - Tự động chọn mode phù hợp (ví dụ: nếu context giàu → dùng Fast, nếu context nghèo → dùng Balanced/Quality)
+   - Điều chỉnh ngay cả khi user chọn mode không phù hợp
 
-### 1. Mặc định mở (defaultOpen = true)
-```typescript
-const [isOpen, setIsOpen] = useState(true); // Mở sẵn
-```
+## Thay đổi cần thực hiện
 
-### 2. Chuyển trigger thành Card nổi bật
+### File: `src/components/multichannel/MultiChannelFormWizard.tsx`
 
-Thay vì:
+**Xóa bỏ:**
+1. Import `QualityModeQuickSelector` (dòng 83)
+2. Component `<QualityModeQuickSelector>` trong Step 4 (dòng 1494-1502)
+
+**Giữ nguyên:**
+- `qualityMode` vẫn tồn tại trong `formData` nhưng sẽ dùng giá trị mặc định `'balanced'`
+- Backend sẽ tự động điều chỉnh dựa trên context
+
+### Không cần xóa file:
+- `src/components/multichannel/QualityModeQuickSelector.tsx` - **Giữ lại** vì có thể dùng ở nơi khác (Brand Editor, Admin Panel)
+
+## Kết quả
+
+**Trước:**
 ```text
-┌─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┐
-│ 💡 Gợi ý Opening Hook    [3 hook] ▼│
-└─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─┘
+┌─────────────────────────────────────────┐
+│ [Chọn kênh: Facebook, Instagram, ...]  │
+├─────────────────────────────────────────┤
+│ 🎚️ Chế độ chất lượng                    │  ← XÓA BỎ
+│ ⚡ Nhanh  |  ⚖️ Cân bằng  |  ✨ Chất lượng│
+├─────────────────────────────────────────┤
+│ 💡 Gợi ý Opening Hook                   │
+└─────────────────────────────────────────┘
 ```
 
-Đổi thành Card với gradient và icon animated:
+**Sau:**
 ```text
-┌───────────────────────────────────────────────────────┐
-│ ✨ 💡 GỢI Ý HOOK THU HÚT                        [▲]  │
-│ ──────────────────────────────────────────────────── │
-│ AI đề xuất câu mở đầu hấp dẫn cho từng kênh         │
-│ [3 hook sẵn sàng]                                    │
-└───────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│ [Chọn kênh: Facebook, Instagram, ...]  │
+├─────────────────────────────────────────┤
+│ 💡 Gợi ý Opening Hook                   │  ← Nổi bật hơn
+└─────────────────────────────────────────┘
 ```
-
-### 3. Visual improvements
-
-- **Background gradient**: `bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50` (light) / tương đương dark
-- **Icon animated**: Lightbulb với pulse effect
-- **Badge nổi bật**: Hiển thị số hook với màu amber/gold
-- **Border highlighted**: `border-amber-300/50` thay vì dashed mờ
-
-## Chi tiết kỹ thuật
-
-### File: `src/components/multichannel/MultiChannelHookGenerator.tsx`
-
-**Thay đổi 1 - Mở mặc định:**
-```typescript
-// Dòng 161
-const [isOpen, setIsOpen] = useState(true); // Thay false → true
-```
-
-**Thay đổi 2 - Redesign trigger thành Card:**
-
-```typescript
-<Collapsible open={isOpen} onOpenChange={setIsOpen} className={className}>
-  {/* NEW: Card-based trigger thay vì Button */}
-  <Card className={cn(
-    "overflow-hidden transition-all duration-300",
-    "border-2",
-    isOpen 
-      ? "border-amber-400/50 shadow-md shadow-amber-100/50 dark:shadow-amber-900/20" 
-      : "border-amber-300/30 hover:border-amber-400/50",
-    "bg-gradient-to-r from-amber-50/80 via-yellow-50/50 to-orange-50/80",
-    "dark:from-amber-950/30 dark:via-yellow-950/20 dark:to-orange-950/30"
-  )}>
-    <CollapsibleTrigger asChild>
-      <div className="p-4 cursor-pointer group">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Animated icon */}
-            <div className="relative">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-200/50 dark:shadow-amber-900/30">
-                <Lightbulb className="w-5 h-5 text-white" />
-              </div>
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white dark:border-gray-900 animate-pulse" />
-            </div>
-            
-            <div>
-              <h3 className="font-semibold text-foreground flex items-center gap-2">
-                Gợi ý Opening Hook
-                {hooks.length > 0 && (
-                  <Badge className="bg-amber-500 text-white border-0 text-xs">
-                    {hooks.length} hook
-                  </Badge>
-                )}
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                AI đề xuất câu mở đầu thu hút cho từng kênh
-              </p>
-            </div>
-          </div>
-          
-          {/* Toggle icon */}
-          <motion.div
-            animate={{ rotate: isOpen ? 180 : 0 }}
-            transition={{ duration: 0.2 }}
-            className="text-amber-600 dark:text-amber-400"
-          >
-            <ChevronDown className="w-5 h-5" />
-          </motion.div>
-        </div>
-      </div>
-    </CollapsibleTrigger>
-    
-    <CollapsibleContent>
-      {/* Nội dung hiện tại giữ nguyên */}
-    </CollapsibleContent>
-  </Card>
-</Collapsible>
-```
-
-## Kết quả mong đợi
-
-| Trước | Sau |
-|-------|-----|
-| Button nhỏ, dashed border | Card lớn, gradient background |
-| Mặc định đóng | Mặc định mở |
-| Icon tĩnh | Icon animated với pulse |
-| Không có mô tả | Có subtitle giải thích |
-| Dễ bị bỏ qua | Nổi bật, thu hút chú ý |
-
-## Files cần chỉnh sửa
-
-| File | Thay đổi |
-|------|----------|
-| `src/components/multichannel/MultiChannelHookGenerator.tsx` | Thay `isOpen` default, redesign trigger |
 
 ## Lợi ích
 
-1. **Visibility cao hơn** - Người dùng thấy ngay tính năng hay
-2. **Onboarding tốt hơn** - Mở sẵn giúp người dùng khám phá
-3. **Professional look** - Card với gradient trông premium hơn
-4. **Consistent với design system** - Phong cách tương tự các Card khác trong wizard
+1. **UI gọn hơn** - Bớt 1 component, người dùng tập trung vào việc chọn kênh và hook
+2. **Ít quyết định hơn** - Người dùng không cần hiểu về Quality Mode
+3. **Tự động tối ưu** - Backend thông minh tự chọn mode phù hợp với context
+4. **Quản trị tập trung** - Admin kiểm soát hoàn toàn qua AI Management
+
+## File cần chỉnh sửa
+
+| File | Thay đổi |
+|------|----------|
+| `src/components/multichannel/MultiChannelFormWizard.tsx` | Xóa import và component QualityModeQuickSelector |
 
