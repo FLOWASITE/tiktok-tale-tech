@@ -158,7 +158,7 @@ export function MultiChannelHookGenerator({
   organizationId,
   brandTemplateId,
 }: MultiChannelHookGeneratorProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'channel' | 'score'>('channel');
   const [previewHook, setPreviewHook] = useState<MultiChannelHook | null>(null);
@@ -249,60 +249,56 @@ export function MultiChannelHookGenerator({
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className={className}>
-      <CollapsibleTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className={cn(
-            "w-full justify-between border-dashed border-2",
-            "border-primary/30 bg-gradient-to-r from-primary/5 via-transparent to-secondary/5",
-            "hover:from-primary/10 hover:to-secondary/10 hover:border-primary/50",
-            "transition-all duration-300 group",
-            isOpen && "border-primary/50 from-primary/10 to-secondary/10"
-          )}
-          disabled={disabled}
-        >
-          <span className="flex items-center gap-2">
-            <span className="relative">
-              <Lightbulb className={cn(
-                "w-4 h-4 text-amber-500 transition-transform duration-300",
-                "group-hover:scale-110"
-              )} />
-              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
-            </span>
-            <span className="font-medium text-foreground">Gợi ý Opening Hook</span>
-            {hooks.length > 0 && (
-              <Badge 
-                variant="secondary" 
-                className="text-[10px] px-1.5 bg-primary/10 text-primary border-primary/20"
+      <Card className={cn(
+        "overflow-hidden transition-all duration-300",
+        "border-2",
+        isOpen 
+          ? "border-amber-400/50 shadow-md shadow-amber-100/50 dark:shadow-amber-900/20" 
+          : "border-amber-300/30 hover:border-amber-400/50",
+        "bg-gradient-to-r from-amber-50/80 via-yellow-50/50 to-orange-50/80",
+        "dark:from-amber-950/30 dark:via-yellow-950/20 dark:to-orange-950/30",
+        disabled && "opacity-50"
+      )}>
+        <CollapsibleTrigger asChild disabled={disabled}>
+          <div className="p-4 cursor-pointer group">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {/* Animated icon */}
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-200/50 dark:shadow-amber-900/30 group-hover:scale-105 transition-transform duration-200">
+                    <Lightbulb className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white dark:border-gray-900 animate-pulse" />
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold text-foreground flex items-center gap-2">
+                    Gợi ý Opening Hook
+                    {hooks.length > 0 && (
+                      <Badge className="bg-amber-500 hover:bg-amber-500 text-white border-0 text-xs">
+                        {hooks.length} hook
+                      </Badge>
+                    )}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    AI đề xuất câu mở đầu thu hút cho từng kênh
+                  </p>
+                </div>
+              </div>
+              
+              {/* Toggle icon */}
+              <motion.div
+                animate={{ rotate: isOpen ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+                className="text-amber-600 dark:text-amber-400"
               >
-                {hooks.length} hook
-              </Badge>
-            )}
-          </span>
-          <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Info className="w-3.5 h-3.5 text-muted-foreground" />
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[200px]">
-                <p className="text-xs">
-                  Hook là câu mở đầu thu hút, giúp tăng tỷ lệ đọc tiếp nội dung
-                </p>
-              </TooltipContent>
-            </Tooltip>
-            <motion.div
-              animate={{ rotate: isOpen ? 180 : 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <ChevronDown className="w-4 h-4" />
-            </motion.div>
+                <ChevronDown className="w-5 h-5" />
+              </motion.div>
+            </div>
           </div>
-        </Button>
-      </CollapsibleTrigger>
+        </CollapsibleTrigger>
 
-      <CollapsibleContent className="mt-3 space-y-3">
+      <CollapsibleContent className="px-4 pb-4 space-y-3">
         <AnimatePresence mode="wait">
           {isLoading ? (
             <motion.div
@@ -725,7 +721,7 @@ export function MultiChannelHookGenerator({
           )}
         </AnimatePresence>
       </CollapsibleContent>
-
+      </Card>
       {/* Hook Preview Dialog */}
       <Dialog open={!!previewHook} onOpenChange={(open) => !open && setPreviewHook(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
