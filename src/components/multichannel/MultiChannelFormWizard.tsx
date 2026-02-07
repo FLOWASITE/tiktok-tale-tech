@@ -80,7 +80,7 @@ import { StepIndicator, Step } from '@/components/script/StepIndicator';
 import { ContentAngleSelector } from '@/components/multichannel/ContentAngleSelector';
 import { MultiChannelHookGenerator } from '@/components/multichannel/MultiChannelHookGenerator';
 import { SelectedHooksSummary } from '@/components/multichannel/SelectedHooksSummary';
-import { QualityModeQuickSelector } from '@/components/multichannel/QualityModeQuickSelector';
+
 import { ProductSelector } from '@/components/topic/ProductSelector';
 import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
 import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
@@ -1490,16 +1490,6 @@ export function MultiChannelFormWizard({
                   </div>
                 ))}
               </div>
-
-              {/* Quality Mode Selector */}
-              <QualityModeQuickSelector
-                value={formData.qualityMode || 'balanced'}
-                onChange={(mode) => setFormData(prev => ({ ...prev, qualityMode: mode }))}
-                disabled={isGenerating}
-                brandTemplateId={brandTemplateId}
-                selectedChannels={formData.channels}
-                showBrandHints={true}
-              />
 
               {/* Hook Generator */}
               {formData.topic.trim().length >= 10 && formData.channels.length > 0 && (
