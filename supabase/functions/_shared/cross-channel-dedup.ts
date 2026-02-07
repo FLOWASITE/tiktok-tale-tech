@@ -44,71 +44,30 @@ export interface ChannelEmbedding {
 
 /**
  * Generate embedding for text using Lovable AI Gateway
+ * 
+ * NOTE: Lovable AI Gateway currently does not support embedding models.
+ * This function throws an error to gracefully skip cross-channel dedup.
+ * The caller (checkCrossChannelDuplicate) has fail-open logic that will
+ * return a default result when this fails.
  */
-async function generateEmbedding(text: string): Promise<number[]> {
-  if (!LOVABLE_API_KEY) {
-    console.warn('LOVABLE_API_KEY not configured - skipping cross-channel dedup');
-    throw new Error('LOVABLE_API_KEY not configured');
-  }
-
-  const truncatedText = text.length > 4000 ? text.substring(0, 4000) : text;
-
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: EMBEDDING_MODEL,
-      input: [truncatedText],
-      dimensions: EMBEDDING_DIMENSIONS,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Embedding API error:', response.status, errorText);
-    throw new Error(`Embedding API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.data[0].embedding;
+async function generateEmbedding(_text: string): Promise<number[]> {
+  // Lovable AI Gateway only supports LLM models, not embedding models.
+  // text-embedding-3-small is not in the allowed models list.
+  // Skip embedding-based cross-channel dedup until embedding support is added.
+  console.log('[cross-channel-dedup] Embedding not supported by Lovable AI Gateway - skipping check');
+  throw new Error('Embedding not supported - skipping cross-channel dedup check');
 }
 
 /**
  * Generate embeddings for multiple texts in a single batch request
+ * 
+ * NOTE: Lovable AI Gateway currently does not support embedding models.
+ * This function throws an error to gracefully skip cross-channel dedup.
  */
-async function generateBatchEmbeddings(texts: string[]): Promise<number[][]> {
-  if (!LOVABLE_API_KEY) {
-    throw new Error('LOVABLE_API_KEY not configured');
-  }
-
-  const truncatedTexts = texts.map(t => 
-    t.length > 4000 ? t.substring(0, 4000) : t
-  );
-
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: EMBEDDING_MODEL,
-      input: truncatedTexts,
-      dimensions: EMBEDDING_DIMENSIONS,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Batch embedding API error:', response.status, errorText);
-    throw new Error(`Embedding API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.data.map((d: any) => d.embedding);
+async function generateBatchEmbeddings(_texts: string[]): Promise<number[][]> {
+  // Lovable AI Gateway only supports LLM models, not embedding models.
+  console.log('[cross-channel-dedup] Batch embedding not supported by Lovable AI Gateway - skipping check');
+  throw new Error('Embedding not supported - skipping cross-channel dedup check');
 }
 
 /**

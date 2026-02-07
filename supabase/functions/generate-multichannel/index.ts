@@ -2887,6 +2887,29 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               }
             }
             
+            // ============================================
+            // LENGTH VALIDATION - P1 (Streaming Mode)
+            // Ensures content meets channel-specific word count requirements
+            // ============================================
+            let lengthValidation: MultiChannelLengthValidation | null = null;
+            let expansionCount = 0;
+            
+            try {
+              const channelContentsForValidation: Record<string, string> = {};
+              for (const [ch, content] of Object.entries(channelResults)) {
+                if (content && typeof content === 'string') {
+                  channelContentsForValidation[ch] = content;
+                }
+              }
+              
+              if (Object.keys(channelContentsForValidation).length > 0) {
+                lengthValidation = validateAllChannels(channelContentsForValidation, undefined);
+                console.log(`[streaming-mode][length-validation] compliance=${lengthValidation.overallCompliance}, score=${lengthValidation.complianceScore}/100`);
+              }
+            } catch (lengthErr) {
+              console.warn('[streaming-mode][length-validation] Failed:', lengthErr);
+            }
+            
             emit({ type: 'progress', step: 'finalize', progress: 88, message: 'Đang lưu kết quả...' });
             
             // Check organization's approval settings
