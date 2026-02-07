@@ -48,37 +48,18 @@ export interface SimilarContent {
 
 /**
  * Generate embedding for text using Lovable AI Gateway
+ * 
+ * NOTE: Lovable AI Gateway currently does not support embedding models.
+ * This function throws an error to gracefully skip dedup checks.
+ * The caller (checkSemanticDuplicate) has fail-open logic that will
+ * allow content creation when this fails.
  */
-async function generateEmbedding(text: string): Promise<number[]> {
-  if (!LOVABLE_API_KEY) {
-    console.warn('LOVABLE_API_KEY not configured - skipping dedup check');
-    throw new Error('LOVABLE_API_KEY not configured');
-  }
-
-  // Truncate text if too long (embedding models have limits)
-  const truncatedText = text.length > 4000 ? text.substring(0, 4000) : text;
-
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: EMBEDDING_MODEL,
-      input: [truncatedText],
-      dimensions: EMBEDDING_DIMENSIONS,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Embedding API error:', response.status, errorText);
-    throw new Error(`Embedding API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.data[0].embedding;
+async function generateEmbedding(_text: string): Promise<number[]> {
+  // Lovable AI Gateway only supports LLM models, not embedding models.
+  // text-embedding-3-small is not in the allowed models list.
+  // Skip embedding-based dedup until embedding support is added.
+  console.log('[semantic-dedup] Embedding not supported by Lovable AI Gateway - skipping check');
+  throw new Error('Embedding not supported - skipping semantic dedup check');
 }
 
 /**
