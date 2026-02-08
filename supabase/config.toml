@@ -81,6 +81,9 @@ verify_jwt = false
 [functions.suggest-prompt-rewrite]
 verify_jwt = false
 
+[functions.generate-music]
+verify_jwt = false
+
 [functions.learn-from-feedback]
 verify_jwt = false
 
