@@ -6975,10 +6975,122 @@ export type Database = {
           },
         ]
       }
+      script_approvals: {
+        Row: {
+          id: string
+          notes: string | null
+          organization_id: string | null
+          requested_at: string
+          requested_by: string
+          reviewed_at: string | null
+          reviewer_id: string | null
+          script_id: string
+          status: Database["public"]["Enums"]["script_status"] | null
+          version_at_request: number
+        }
+        Insert: {
+          id?: string
+          notes?: string | null
+          organization_id?: string | null
+          requested_at?: string
+          requested_by: string
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          script_id: string
+          status?: Database["public"]["Enums"]["script_status"] | null
+          version_at_request: number
+        }
+        Update: {
+          id?: string
+          notes?: string | null
+          organization_id?: string | null
+          requested_at?: string
+          requested_by?: string
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          script_id?: string
+          status?: Database["public"]["Enums"]["script_status"] | null
+          version_at_request?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "script_approvals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "script_approvals_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      script_versions: {
+        Row: {
+          analysis_cache: Json | null
+          change_summary: string | null
+          character_type: string | null
+          content: string
+          created_at: string
+          created_by: string
+          duration: number | null
+          id: string
+          script_id: string
+          storyboard: Json | null
+          topic: string | null
+          version: number
+          video_type: string | null
+        }
+        Insert: {
+          analysis_cache?: Json | null
+          change_summary?: string | null
+          character_type?: string | null
+          content: string
+          created_at?: string
+          created_by: string
+          duration?: number | null
+          id?: string
+          script_id: string
+          storyboard?: Json | null
+          topic?: string | null
+          version: number
+          video_type?: string | null
+        }
+        Update: {
+          analysis_cache?: Json | null
+          change_summary?: string | null
+          character_type?: string | null
+          content?: string
+          created_at?: string
+          created_by?: string
+          duration?: number | null
+          id?: string
+          script_id?: string
+          storyboard?: Json | null
+          topic?: string | null
+          version?: number
+          video_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "script_versions_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scripts: {
         Row: {
           analysis_cache: Json | null
           analyzed_at: string | null
+          approved_at: string | null
+          approved_by: string | null
           brand_template_id: string | null
           brand_voice_variant_id: string | null
           campaign_id: string | null
@@ -6995,12 +7107,15 @@ export type Database = {
           needs_manual_review: boolean | null
           organization_id: string | null
           refinement_count: number | null
+          rejection_reason: string | null
           script_purpose: string
+          shared_with_org: boolean | null
           status: string | null
           title: string
           topic: string
           updated_at: string
           user_id: string | null
+          version: number | null
           video_type: string
           voice_region: string | null
           was_refined: boolean | null
@@ -7008,6 +7123,8 @@ export type Database = {
         Insert: {
           analysis_cache?: Json | null
           analyzed_at?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           brand_template_id?: string | null
           brand_voice_variant_id?: string | null
           campaign_id?: string | null
@@ -7024,12 +7141,15 @@ export type Database = {
           needs_manual_review?: boolean | null
           organization_id?: string | null
           refinement_count?: number | null
+          rejection_reason?: string | null
           script_purpose?: string
+          shared_with_org?: boolean | null
           status?: string | null
           title: string
           topic: string
           updated_at?: string
           user_id?: string | null
+          version?: number | null
           video_type?: string
           voice_region?: string | null
           was_refined?: boolean | null
@@ -7037,6 +7157,8 @@ export type Database = {
         Update: {
           analysis_cache?: Json | null
           analyzed_at?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           brand_template_id?: string | null
           brand_voice_variant_id?: string | null
           campaign_id?: string | null
@@ -7053,12 +7175,15 @@ export type Database = {
           needs_manual_review?: boolean | null
           organization_id?: string | null
           refinement_count?: number | null
+          rejection_reason?: string | null
           script_purpose?: string
+          shared_with_org?: boolean | null
           status?: string | null
           title?: string
           topic?: string
           updated_at?: string
           user_id?: string | null
+          version?: number | null
           video_type?: string
           voice_region?: string | null
           was_refined?: boolean | null
@@ -8092,14 +8217,19 @@ export type Database = {
           total_hits: number
         }[]
       }
-      has_org_role: {
-        Args: {
-          _org_id: string
-          _role: Database["public"]["Enums"]["org_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      has_org_role:
+        | {
+            Args: {
+              _org_id: string
+              _role: Database["public"]["Enums"]["org_role"]
+              _user_id: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: { _org_id: string; _role: string; _user_id: string }
+            Returns: boolean
+          }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -8275,6 +8405,7 @@ export type Database = {
       industry_pack_status: "draft" | "stable" | "deprecated"
       org_role: "owner" | "admin" | "member" | "viewer"
       plan_type: "free" | "starter" | "pro" | "enterprise"
+      script_status: "draft" | "pending_approval" | "approved" | "rejected"
       subscription_status:
         | "active"
         | "cancelled"
@@ -8454,6 +8585,7 @@ export const Constants = {
       industry_pack_status: ["draft", "stable", "deprecated"],
       org_role: ["owner", "admin", "member", "viewer"],
       plan_type: ["free", "starter", "pro", "enterprise"],
+      script_status: ["draft", "pending_approval", "approved", "rejected"],
       subscription_status: [
         "active",
         "cancelled",

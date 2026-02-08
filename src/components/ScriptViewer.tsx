@@ -39,6 +39,7 @@ import { ScriptAnalyzer } from '@/components/script/ScriptAnalyzer';
 import { TeleprompterMode } from '@/components/script/TeleprompterMode';
 import { StoryboardGenerator } from '@/components/script/StoryboardGenerator';
 import { ScriptExportMenu } from '@/components/script/ScriptExportMenu';
+import { ScriptCollaborationPanel } from '@/components/script/ScriptCollaborationPanel';
 import { cn } from '@/lib/utils';
 
 interface ScriptViewerProps {
@@ -426,7 +427,7 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
 
             {/* Analytics Sidebar */}
             {showAnalytics && (
-              <div className="w-full sm:w-72 md:w-80 flex-shrink-0 border-l border-border pl-4 min-h-0">
+              <div className="w-full sm:w-72 md:w-80 flex-shrink-0 border-l border-border pl-4 min-h-0 overflow-y-auto">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold">AI Script Analyzer</h3>
                   <Button
@@ -438,7 +439,13 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                     <X className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-                <ScriptAnalyzer script={script} className="h-[calc(100%-2rem)]" />
+                <ScriptAnalyzer script={script} className="mb-4" />
+                
+                {/* Collaboration Panel */}
+                <ScriptCollaborationPanel 
+                  script={script} 
+                  onScriptUpdate={() => onScriptUpdate?.(script)}
+                />
               </div>
             )}
           </div>
