@@ -132,6 +132,7 @@ export function StoryboardGenerator({ script, brandName, className }: Storyboard
                   <StoryboardSceneCard
                     key={scene.sceneNumber}
                     scene={scene}
+                    storyboardId={storyboard.id}
                     onUpdate={(updates) => updateScene(scene.sceneNumber, updates)}
                     editable
                   />

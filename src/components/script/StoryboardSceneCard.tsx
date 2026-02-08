@@ -16,23 +16,27 @@ import {
   Check,
   X,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Video
 } from 'lucide-react';
 import { useState } from 'react';
 import { SceneImagePreview } from './SceneImagePreview';
 import { BRollKeywords } from './BRollKeywords';
+import { VideoGeneratorPanel } from './VideoGeneratorPanel';
 
 interface StoryboardSceneCardProps {
   scene: StoryboardScene;
+  storyboardId?: string;
   onUpdate?: (updates: Partial<StoryboardScene>) => void;
   editable?: boolean;
 }
 
-export function StoryboardSceneCard({ scene, onUpdate, editable = false }: StoryboardSceneCardProps) {
+export function StoryboardSceneCard({ scene, storyboardId, onUpdate, editable = false }: StoryboardSceneCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedScene, setEditedScene] = useState(scene);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showVisuals, setShowVisuals] = useState(false);
+  const [showVideoGen, setShowVideoGen] = useState(false);
 
   const handleSave = () => {
     onUpdate?.(editedScene);
@@ -73,24 +77,35 @@ export function StoryboardSceneCard({ scene, onUpdate, editable = false }: Story
             {scene.emotionalTone}
           </Badge>
           {editable && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => setShowVisuals(!showVisuals)}
-              className="h-8 px-2 text-xs"
-            >
-              {showVisuals ? (
-                <>
-                  <ChevronUp className="h-3 w-3 mr-1" />
-                  Ẩn visual
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="h-3 w-3 mr-1" />
-                  Xem visual
-                </>
-              )}
-            </Button>
+            <>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setShowVisuals(!showVisuals)}
+                className="h-8 px-2 text-xs"
+              >
+                {showVisuals ? (
+                  <>
+                    <ChevronUp className="h-3 w-3 mr-1" />
+                    Ẩn visual
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-3 w-3 mr-1" />
+                    Xem visual
+                  </>
+                )}
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setShowVideoGen(!showVideoGen)}
+                className="h-8 px-2 text-xs"
+              >
+                <Video className="h-3 w-3 mr-1" />
+                Video AI
+              </Button>
+            </>
           )}
           {editable && !isEditing && (
             <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)} className="h-8 w-8">
@@ -270,6 +285,19 @@ export function StoryboardSceneCard({ scene, onUpdate, editable = false }: Story
               <BRollKeywords scene={scene} />
             </div>
           </>
+        )}
+
+        {/* Video Generator Panel */}
+        {showVideoGen && editable && (
+          <div className="pt-3 border-t">
+            <VideoGeneratorPanel
+              scene={scene}
+              storyboardId={storyboardId}
+              onVideoGenerated={(url) => {
+                console.log('Video generated:', url);
+              }}
+            />
+          </div>
         )}
       </CardContent>
     </Card>
