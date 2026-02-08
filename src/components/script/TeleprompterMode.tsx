@@ -22,6 +22,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { TTSPreview } from './TTSPreview';
+import { MusicMoodSuggestion } from './MusicMoodSuggestion';
+import { useScriptAnalysis } from '@/hooks/useScriptAnalysis';
 
 interface TeleprompterModeProps {
   script: Script;
@@ -37,11 +40,14 @@ export function TeleprompterMode({ script, open, onClose }: TeleprompterModeProp
   const [scrollPosition, setScrollPosition] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mirrorMode, setMirrorMode] = useState(false);
+  const [showAudioTools, setShowAudioTools] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(0);
+
+  const { analysis } = useScriptAnalysis();
 
   const parsedPrompts = parseScriptContent(script.content);
 
@@ -207,7 +213,7 @@ export function TeleprompterMode({ script, open, onClose }: TeleprompterModeProp
                   <Settings className="w-5 h-5" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-64" align="end">
+              <PopoverContent className="w-80" align="end">
                 <div className="space-y-4">
                   <div>
                     <label className="text-xs font-medium mb-2 block">
@@ -242,6 +248,16 @@ export function TeleprompterMode({ script, open, onClose }: TeleprompterModeProp
                     >
                       <Eye className="w-4 h-4" />
                     </Button>
+                  </div>
+
+                  {/* Phase 3: Audio Tools */}
+                  <div className="border-t pt-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium">Audio Tools</span>
+                      <Badge variant="secondary" className="text-[10px]">Phase 3</Badge>
+                    </div>
+                    <TTSPreview script={script} />
+                    <MusicMoodSuggestion scriptDuration={script.duration} />
                   </div>
                 </div>
               </PopoverContent>
