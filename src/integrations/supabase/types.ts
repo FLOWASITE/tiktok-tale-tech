@@ -7923,6 +7923,99 @@ export type Database = {
           },
         ]
       }
+      video_generations: {
+        Row: {
+          aspect_ratio: string | null
+          completed_at: string | null
+          cost_estimate: number | null
+          created_at: string
+          duration_seconds: number | null
+          error_message: string | null
+          generation_time_ms: number | null
+          id: string
+          model_used: string | null
+          organization_id: string | null
+          progress: number | null
+          prompt: string
+          provider: Database["public"]["Enums"]["video_provider"]
+          resolution: string | null
+          scene_number: number | null
+          script_id: string | null
+          starting_frame_url: string | null
+          status: Database["public"]["Enums"]["video_generation_status"] | null
+          storyboard_id: string | null
+          thumbnail_url: string | null
+          updated_at: string
+          user_id: string
+          video_url: string | null
+        }
+        Insert: {
+          aspect_ratio?: string | null
+          completed_at?: string | null
+          cost_estimate?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          error_message?: string | null
+          generation_time_ms?: number | null
+          id?: string
+          model_used?: string | null
+          organization_id?: string | null
+          progress?: number | null
+          prompt: string
+          provider?: Database["public"]["Enums"]["video_provider"]
+          resolution?: string | null
+          scene_number?: number | null
+          script_id?: string | null
+          starting_frame_url?: string | null
+          status?: Database["public"]["Enums"]["video_generation_status"] | null
+          storyboard_id?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          user_id: string
+          video_url?: string | null
+        }
+        Update: {
+          aspect_ratio?: string | null
+          completed_at?: string | null
+          cost_estimate?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          error_message?: string | null
+          generation_time_ms?: number | null
+          id?: string
+          model_used?: string | null
+          organization_id?: string | null
+          progress?: number | null
+          prompt?: string
+          provider?: Database["public"]["Enums"]["video_provider"]
+          resolution?: string | null
+          scene_number?: number | null
+          script_id?: string | null
+          starting_frame_url?: string | null
+          status?: Database["public"]["Enums"]["video_generation_status"] | null
+          storyboard_id?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string
+          user_id?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_generations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_generations_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       web_search_analytics: {
         Row: {
           cache_hit: boolean | null
@@ -8418,6 +8511,8 @@ export type Database = {
         | "multichannel"
         | "image_generation"
         | "ai_edit"
+      video_generation_status: "pending" | "processing" | "completed" | "failed"
+      video_provider: "lovable" | "minimax" | "runway"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -8600,6 +8695,8 @@ export const Constants = {
         "image_generation",
         "ai_edit",
       ],
+      video_generation_status: ["pending", "processing", "completed", "failed"],
+      video_provider: ["lovable", "minimax", "runway"],
     },
   },
 } as const
