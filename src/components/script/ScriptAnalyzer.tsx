@@ -19,6 +19,7 @@ import {
 import { Script } from '@/types/script';
 import { useScriptAnalysis, ScriptAnalysis } from '@/hooks/useScriptAnalysis';
 import { cn } from '@/lib/utils';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface ScriptAnalyzerProps {
   script: Script;
@@ -52,6 +53,54 @@ const ScoreCircle = ({ score, label, icon: Icon, color }: {
       <span className="text-xs text-muted-foreground text-center leading-tight">
         {label}
       </span>
+    </div>
+  );
+};
+
+const EmotionalArcChart = ({ items }: { 
+  items: { prompt: number; emotion: string; intensity: number }[] 
+}) => {
+  const chartData = items.map(item => ({
+    prompt: `P${item.prompt}`,
+    intensity: item.intensity,
+    emotion: item.emotion,
+  }));
+
+  return (
+    <div className="w-full h-48">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <XAxis 
+            dataKey="prompt" 
+            stroke="hsl(var(--muted-foreground))"
+            style={{ fontSize: '11px' }}
+          />
+          <YAxis 
+            domain={[0, 100]} 
+            stroke="hsl(var(--muted-foreground))"
+            style={{ fontSize: '11px' }}
+          />
+          <Tooltip 
+            contentStyle={{ 
+              backgroundColor: 'hsl(var(--background))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: '8px'
+            }}
+            formatter={(value: number) => [`${value}%`, 'Intensity']}
+            labelFormatter={(label) => `Prompt ${label.replace('P', '')}`}
+          />
+          <Line 
+            type="monotone" 
+            dataKey="intensity" 
+            stroke="hsl(var(--primary))" 
+            strokeWidth={2}
+            dot={{ fill: 'hsl(var(--primary))', r: 4 }}
+            activeDot={{ r: 6 }}
+            isAnimationActive={true}
+          />
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   );
 };
@@ -370,6 +419,13 @@ export function ScriptAnalyzer({ script, className }: ScriptAnalyzerProps) {
             <TrendingUp className="w-4 h-4 text-primary" />
             <span className="text-xs font-medium">Biểu đồ cảm xúc</span>
           </div>
+          
+          {/* Visual Chart */}
+          <div className="mb-3 bg-muted/30 rounded-lg p-2">
+            <EmotionalArcChart items={analysis.emotionalArc} />
+          </div>
+
+          {/* Detail List */}
           <div className="space-y-2">
             {analysis.emotionalArc.map((item, i) => (
               <EmotionalArcItem key={i} item={item} />

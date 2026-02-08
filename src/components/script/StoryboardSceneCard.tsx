@@ -14,9 +14,13 @@ import {
   Activity,
   Pencil,
   Check,
-  X
+  X,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { useState } from 'react';
+import { SceneImagePreview } from './SceneImagePreview';
+import { BRollKeywords } from './BRollKeywords';
 
 interface StoryboardSceneCardProps {
   scene: StoryboardScene;
@@ -27,6 +31,8 @@ interface StoryboardSceneCardProps {
 export function StoryboardSceneCard({ scene, onUpdate, editable = false }: StoryboardSceneCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedScene, setEditedScene] = useState(scene);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showVisuals, setShowVisuals] = useState(false);
 
   const handleSave = () => {
     onUpdate?.(editedScene);
@@ -57,31 +63,51 @@ export function StoryboardSceneCard({ scene, onUpdate, editable = false }: Story
               {scene.sceneNumber}
             </div>
             <CardTitle className="text-base">Scene {scene.sceneNumber}</CardTitle>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {scene.duration}s
-            </Badge>
-            <Badge className={emotionColors[scene.emotionalTone] || emotionColors['Neutral']}>
-              {scene.emotionalTone}
-            </Badge>
-            {editable && !isEditing && (
-              <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)}>
-                <Pencil className="h-4 w-4" />
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="outline" className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {scene.duration}s
+          </Badge>
+          <Badge className={emotionColors[scene.emotionalTone] || emotionColors['Neutral']}>
+            {scene.emotionalTone}
+          </Badge>
+          {editable && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setShowVisuals(!showVisuals)}
+              className="h-8 px-2 text-xs"
+            >
+              {showVisuals ? (
+                <>
+                  <ChevronUp className="h-3 w-3 mr-1" />
+                  Ẩn visual
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-3 w-3 mr-1" />
+                  Xem visual
+                </>
+              )}
+            </Button>
+          )}
+          {editable && !isEditing && (
+            <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)} className="h-8 w-8">
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
+          {isEditing && (
+            <>
+              <Button variant="ghost" size="icon" onClick={handleSave} className="h-8 w-8">
+                <Check className="h-4 w-4 text-green-500" />
               </Button>
-            )}
-            {isEditing && (
-              <>
-                <Button variant="ghost" size="icon" onClick={handleSave}>
-                  <Check className="h-4 w-4 text-green-500" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={handleCancel}>
-                  <X className="h-4 w-4 text-red-500" />
-                </Button>
-              </>
-            )}
-          </div>
+              <Button variant="ghost" size="icon" onClick={handleCancel} className="h-8 w-8">
+                <X className="h-4 w-4 text-red-500" />
+              </Button>
+            </>
+          )}
+        </div>
         </div>
       </CardHeader>
 
@@ -222,6 +248,28 @@ export function StoryboardSceneCard({ scene, onUpdate, editable = false }: Story
           <div className="text-xs text-muted-foreground italic bg-yellow-500/10 p-2 rounded">
             💡 {scene.notes}
           </div>
+        )}
+
+        {/* Phase 2: Visual Enhancements */}
+        {showVisuals && editable && (
+          <>
+            <div className="pt-3 border-t space-y-3">
+              {/* AI Scene Image Preview */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">🖼️ AI Scene Preview</p>
+                <SceneImagePreview 
+                  scene={scene}
+                  onImageGenerated={(url) => {
+                    // Optional: Save image reference to scene.notes
+                    console.log('Scene image generated:', url);
+                  }}
+                />
+              </div>
+
+              {/* B-Roll Keywords */}
+              <BRollKeywords scene={scene} />
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

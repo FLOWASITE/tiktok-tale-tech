@@ -72,6 +72,15 @@ verify_jwt = false
 [functions.generate-storyboard]
 verify_jwt = false
 
+[functions.generate-scene-thumbnail]
+verify_jwt = false
+
+[functions.extract-broll-keywords]
+verify_jwt = false
+
+[functions.suggest-prompt-rewrite]
+verify_jwt = false
+
 [functions.learn-from-feedback]
 verify_jwt = false
 
