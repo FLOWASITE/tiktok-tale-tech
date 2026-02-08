@@ -17,17 +17,23 @@ import {
   FileText,
   Type,
   Pause,
-  Lightbulb,
   Gauge,
-  Heart
+  Heart,
+  Lightbulb
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { PromptSuggestionPopover } from './PromptSuggestionPopover';
 
 interface PurposeAwarePromptCardProps {
   prompt: ParsedPrompt;
   purpose?: ScriptPurpose;
+  totalPrompts?: number;
+  videoType?: string;
+  characterType?: string;
+  fullScriptContext?: string;
+  onApplySuggestion?: (promptNumber: number, newContent: string) => void;
 }
 
 // Section component for consistent styling
@@ -160,7 +166,15 @@ function FallbackCard({ prompt }: { prompt: ParsedPrompt }) {
   );
 }
 
-export function PurposeAwarePromptCard({ prompt, purpose = 'ai_video_veo3' }: PurposeAwarePromptCardProps) {
+export function PurposeAwarePromptCard({ 
+  prompt, 
+  purpose = 'ai_video_veo3',
+  totalPrompts = 8,
+  videoType,
+  characterType,
+  fullScriptContext,
+  onApplySuggestion
+}: PurposeAwarePromptCardProps) {
   const [copied, setCopied] = useState(false);
   const blockLabel = getBlockLabel(purpose);
 
@@ -169,6 +183,12 @@ export function PurposeAwarePromptCard({ prompt, purpose = 'ai_video_veo3' }: Pu
     setCopied(true);
     toast.success(`Đã sao chép ${blockLabel} ${prompt.promptNumber}!`);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleApplySuggestion = (suggestion: string) => {
+    if (onApplySuggestion) {
+      onApplySuggestion(prompt.promptNumber, suggestion);
+    }
   };
 
   // Check if we have meaningful parsed content
@@ -225,6 +245,16 @@ export function PurposeAwarePromptCard({ prompt, purpose = 'ai_video_veo3' }: Pu
               [{prompt.timestamp}]
             </span>
           )}
+          <PromptSuggestionPopover
+            promptContent={prompt.rawContent}
+            promptNumber={prompt.promptNumber}
+            totalPrompts={totalPrompts}
+            videoType={videoType}
+            characterType={characterType}
+            scriptPurpose={purpose}
+            fullScriptContext={fullScriptContext}
+            onApplySuggestion={onApplySuggestion ? handleApplySuggestion : undefined}
+          />
           <Button
             variant="ghost"
             size="sm"

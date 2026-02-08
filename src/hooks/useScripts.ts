@@ -71,6 +71,10 @@ export function useScripts() {
       const newScript = data as Script;
       setScripts((prev) => [newScript, ...prev]);
       toast.success('Đã tạo kịch bản thành công!');
+
+      // Auto-analyze script in background (non-blocking)
+      analyzeScriptInBackground(newScript);
+
       return newScript;
     } catch (error) {
       console.error('Error generating script:', error);
@@ -78,6 +82,53 @@ export function useScripts() {
       return null;
     } finally {
       setGenerating(false);
+    }
+  };
+
+  // Auto-analyze script and cache results (non-blocking)
+  const analyzeScriptInBackground = async (script: Script) => {
+    try {
+      console.log('[useScripts] Auto-analyzing script:', script.id);
+      const { data: analysisData, error: analysisError } = await supabase.functions.invoke('analyze-script', {
+        body: {
+          scriptContent: script.content,
+          topic: script.topic,
+          duration: script.duration,
+          videoType: script.video_type,
+          characterType: script.character_type,
+        },
+      });
+
+      if (analysisError || analysisData?.error) {
+        console.warn('[useScripts] Auto-analysis failed:', analysisError || analysisData?.error);
+        return;
+      }
+
+      // Save analysis cache to database
+      const { error: updateError } = await supabase
+        .from('scripts')
+        .update({ 
+          analysis_cache: analysisData,
+          analyzed_at: new Date().toISOString()
+        })
+        .eq('id', script.id);
+
+      if (updateError) {
+        console.warn('[useScripts] Failed to cache analysis:', updateError);
+        return;
+      }
+
+      // Update local state with analysis
+      setScripts((prev) => 
+        prev.map((s) => s.id === script.id 
+          ? { ...s, analysis_cache: analysisData, analyzed_at: new Date().toISOString() } 
+          : s
+        )
+      );
+
+      console.log('[useScripts] Script auto-analyzed and cached:', script.id);
+    } catch (err) {
+      console.warn('[useScripts] Auto-analysis error:', err);
     }
   };
 

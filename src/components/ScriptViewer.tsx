@@ -390,6 +390,10 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                                 key={prompt.promptNumber} 
                                 prompt={prompt} 
                                 purpose={scriptPurpose}
+                                totalPrompts={parsedPrompts.length}
+                                videoType={script.video_type}
+                                characterType={script.character_type}
+                                fullScriptContext={script.content}
                               />
                             ))}
                           </div>
