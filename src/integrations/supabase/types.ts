@@ -6977,6 +6977,8 @@ export type Database = {
       }
       scripts: {
         Row: {
+          analysis_cache: Json | null
+          analyzed_at: string | null
           brand_template_id: string | null
           brand_voice_variant_id: string | null
           campaign_id: string | null
@@ -7004,6 +7006,8 @@ export type Database = {
           was_refined: boolean | null
         }
         Insert: {
+          analysis_cache?: Json | null
+          analyzed_at?: string | null
           brand_template_id?: string | null
           brand_voice_variant_id?: string | null
           campaign_id?: string | null
@@ -7031,6 +7035,8 @@ export type Database = {
           was_refined?: boolean | null
         }
         Update: {
+          analysis_cache?: Json | null
+          analyzed_at?: string | null
           brand_template_id?: string | null
           brand_voice_variant_id?: string | null
           campaign_id?: string | null

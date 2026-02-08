@@ -101,6 +101,24 @@ export type Duration = 60 | 90 | 120 | 180;
 
 export type ContentStatus = 'draft' | 'review' | 'approved' | 'published';
 
+export interface ScriptAnalysisCache {
+  hookScore: number;
+  clarityScore: number;
+  viralPotential: number;
+  pacingScore: number;
+  ctaEffectiveness: number;
+  overallScore: number;
+  emotionalArc?: { prompt: number; emotion: string; intensity: number }[];
+  suggestions?: {
+    type: 'hook' | 'clarity' | 'pacing' | 'cta' | 'engagement';
+    priority: 'high' | 'medium' | 'low';
+    message: string;
+    promptNumber?: number;
+  }[];
+  strengths?: string[];
+  weaknesses?: string[];
+}
+
 export interface Script {
   id: string;
   title: string;
@@ -119,6 +137,9 @@ export interface Script {
   industry_template_id?: string | null;
   industry_template_version?: string | null;
   campaign_id?: string | null;
+  // Analysis cache - using unknown for JSON compatibility
+  analysis_cache?: unknown;
+  analyzed_at?: string | null;
   created_at: string;
   updated_at: string;
 }
