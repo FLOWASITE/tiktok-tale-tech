@@ -950,7 +950,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
 
   const filteredSuggestions = format
     ? sortedSuggestions.filter((s) =>
-        s.formats.some((f) => {
+        (s.formats || []).some((f) => {
           const normalizedF = f.toLowerCase();
           const normalizedFormat = format.toLowerCase();
           return normalizedF.includes(normalizedFormat) || normalizedFormat.includes(normalizedF);
