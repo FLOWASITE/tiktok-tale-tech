@@ -100,6 +100,9 @@ export function ScriptTopicDiscoveryPanel({
 
   // Convert bank topics to EnhancedTopicSuggestion format - preserve original format
   const bankSuggestions = useMemo((): (EnhancedTopicSuggestion & { _historyId?: string; _usageStatus?: string; _originalFormat?: string; _source: 'bank' })[] => {
+    // Defensive check: ensure bankTopics is an array
+    if (!Array.isArray(bankTopics)) return [];
+    
     return bankTopics.map(item => ({
       topic: item.topic,
       category: item.category,
@@ -122,8 +125,11 @@ export function ScriptTopicDiscoveryPanel({
     const merged: (EnhancedTopicSuggestion & { _historyId?: string; _usageStatus?: string; _originalFormat?: string; _source: 'ai' | 'bank' })[] = [];
     const seenTopics = new Set<string>();
 
+    // Defensive check: ensure aiSuggestions is an array
+    const safeAiSuggestions = Array.isArray(aiSuggestions) ? aiSuggestions : [];
+    
     // Add AI suggestions first (marked as AI source)
-    aiSuggestions.forEach(s => {
+    safeAiSuggestions.forEach(s => {
       const key = s.topic.toLowerCase().trim();
       if (!seenTopics.has(key)) {
         seenTopics.add(key);
@@ -131,8 +137,11 @@ export function ScriptTopicDiscoveryPanel({
       }
     });
 
+    // Defensive check: ensure bankSuggestions is an array
+    const safeBankSuggestions = Array.isArray(bankSuggestions) ? bankSuggestions : [];
+    
     // Add bank suggestions (marked as bank source)
-    bankSuggestions.forEach(s => {
+    safeBankSuggestions.forEach(s => {
       const key = s.topic.toLowerCase().trim();
       if (!seenTopics.has(key)) {
         seenTopics.add(key);
