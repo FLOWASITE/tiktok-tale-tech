@@ -77,7 +77,7 @@ serve(async (req) => {
   const requestStartTime = performance.now();
 
   try {
-    const { messages, brandTemplateId, contentGoal, organizationId, userId, enableTools, enableAgenticLoop, maxAgentTurns }: ChatRequest = await req.json();
+    const { messages, brandTemplateId, contentGoal, organizationId, userId, enableTools, enableAgenticLoop, maxAgentTurns, forceWebSearch }: ChatRequest = await req.json();
 
     // Extend logger context
     if (userId) logger.info('Request received', { userId, organizationId, brandTemplateId });
@@ -421,15 +421,25 @@ serve(async (req) => {
       const lastUserMessage = messages.filter(m => m.role === 'user').pop();
       if (lastUserMessage) {
         const content = lastUserMessage.content.toLowerCase();
+        // Expanded keywords: Trending + Brainstorm/discovery intent
         const trendingKeywords = [
+          // Trending/viral intent (existing)
           'xu hướng', 'trending', 'đang hot', 'viral', 'trend', 
           'tin tức mới nhất', 'tin mới', 'hot topic', 'xu huong',
-          'đang được quan tâm', 'nổi bật', 'phổ biến', 'gần đây'
+          'đang được quan tâm', 'nổi bật', 'phổ biến', 'gần đây',
+          // NEW: Brainstorm/discovery intent (ensures web search for topic suggestions)
+          'ý tưởng', 'chủ đề', 'topic', 'brainstorm', 'gợi ý',
+          'content gì', 'nội dung gì', 'viết gì', 'làm gì',
+          'tìm kiếm', 'discover', 'khám phá', 'mới', 'fresh',
+          'đề xuất', 'suggest', 'ideas', 'sáng tạo', 'creative'
         ];
         
         const hasTrendingIntent = trendingKeywords.some(kw => content.includes(kw));
         
-        if (hasTrendingIntent) {
+        // Force prefetch if forceWebSearch flag is set OR trending intent detected
+        const shouldPrefetch = forceWebSearch || hasTrendingIntent;
+        
+        if (shouldPrefetch) {
           logger.info('Detected trending intent, prefetching web search', { 
             keywords: trendingKeywords.filter(kw => content.includes(kw))
           });

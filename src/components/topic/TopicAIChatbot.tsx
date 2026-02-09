@@ -87,12 +87,13 @@ export function TopicAIChatbot({
   // Auto-save learnings
   const { autoExtractOnIdle } = useAutoSaveLearnings();
   
-  // Streaming hook
+  // Streaming hook - force web search in embedded mode for real-time brainstorming
   const streamingHook = useChatStreaming({
     brandTemplateId,
     contentGoal,
     organizationId: currentOrganization?.id,
     userId: user?.id,
+    forceWebSearch: isEmbedded, // Always use web search for brainstorm context
     onMessageCreate: (msg) => messagesHook.setMessages(prev => [...prev, msg]),
     onMessageUpdate: messagesHook.updateMessage,
     onComplete: () => playReceive(),
