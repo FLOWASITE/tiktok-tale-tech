@@ -1,10 +1,12 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { 
   Sparkles, 
   Loader2, 
@@ -20,7 +22,8 @@ import {
   X,
   Target,
   Book,
-  Megaphone
+  Megaphone,
+  MessageSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -31,7 +34,12 @@ import { ScriptTopicDiscoveryPanel } from '@/components/script/ScriptTopicDiscov
 import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementSuggestions';
 import { TopicAngleSelector } from '@/components/script/TopicAngleSelector';
 import { TopicAnglePreview } from '@/components/script/TopicAnglePreview';
+import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
+import { InlineTopicSuggestions } from '@/components/multichannel/InlineTopicSuggestions';
+import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
+import { useCompliancePrecheck, PreCheckResult } from '@/hooks/useCompliancePrecheck';
 import { EnhancedTopicSuggestion } from '@/types/topicDiscovery';
+import { ContentGoal } from '@/types/multichannel';
 import { DurationSelector } from '@/components/script/DurationSelector';
 import { VideoTypeSelector } from '@/components/script/VideoTypeSelector';
 import { VideoTypeRecommendations } from '@/components/script/VideoTypeRecommendations';
@@ -80,6 +88,7 @@ const LOADING_PHASES = [
 ];
 
 const MAX_TOPIC_LENGTH = 300;
+const TOPIC_MIN_LENGTH_FOR_REFINEMENT = 10;
 
 export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHistoryId }: ScriptFormStepperProps) {
   const { templates, loading: templatesLoading } = useBrandTemplates();
@@ -91,6 +100,9 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   const [brandTouched, setBrandTouched] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState(0);
+  const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
+  const [complianceCheckResult, setComplianceCheckResult] = useState<PreCheckResult | null>(null);
+  const [isSuggestingCompliant, setIsSuggestingCompliant] = useState(false);
 
   const [formData, setFormData] = useState<ScriptFormData>({
     topic: initialTopic || '',
@@ -146,8 +158,60 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     rawTopic: formData.topic,
     videoType: formData.video_type,
     brandTemplateId: formData.brandTemplateId,
-    enabled: currentStep === 2 && formData.topic.trim().length >= 10,
+    enabled: currentStep === 2 && formData.topic.trim().length >= TOPIC_MIN_LENGTH_FOR_REFINEMENT,
   });
+
+  // Map script purpose to content goal for AI suggestions
+  const scriptContentGoal: ContentGoal = useMemo(() => {
+    switch (formData.script_purpose) {
+      case 'ai_video_veo3':
+      case 'ai_video_minimax':
+        return 'engagement';
+      case 'teleprompter':
+      case 'voiceover':
+        return 'education';
+      case 'production':
+        return 'expertise';
+      default:
+        return 'education';
+    }
+  }, [formData.script_purpose]);
+
+  // Compliance pre-check hook
+  const complianceOptions = useMemo(() => ({
+    industryForbiddenTerms: [],
+    brandForbiddenWords: [],
+  }), []);
+
+  const { fullCheck, suggestCompliantTopic, isChecking: isCheckingCompliance } = useCompliancePrecheck(complianceOptions);
+
+  // Run compliance check when topic changes
+  useEffect(() => {
+    if (formData.topic.trim().length >= TOPIC_MIN_LENGTH_FOR_REFINEMENT) {
+      const result = fullCheck(formData.topic);
+      setComplianceCheckResult(result);
+    } else {
+      setComplianceCheckResult(null);
+    }
+  }, [formData.topic, fullCheck]);
+
+  // Handle suggest compliant topic
+  const handleSuggestCompliant = useCallback(async () => {
+    if (!complianceCheckResult?.issues?.length) return;
+    setIsSuggestingCompliant(true);
+    try {
+      const suggested = await suggestCompliantTopic(formData.topic, complianceCheckResult.issues);
+      if (suggested) {
+        setFormData(prev => ({ ...prev, topic: suggested }));
+        toast.success('Đã thay thế bằng topic an toàn');
+      }
+    } finally {
+      setIsSuggestingCompliant(false);
+    }
+  }, [formData.topic, complianceCheckResult, suggestCompliantTopic]);
+
+  // Check if topic is substantial enough
+  const isTopicSubstantial = formData.topic.trim().length >= TOPIC_MIN_LENGTH_FOR_REFINEMENT;
 
   // Loading phases
   useEffect(() => {
@@ -370,52 +434,69 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
 
             {/* Topic Input - Second */}
             <div className="space-y-3">
+              {/* Topic Label with Brainstorm Button */}
               <div className="flex items-center justify-between">
-                <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
-                  Chủ đề video
-                  <span className="text-primary">*</span>
-                </Label>
-                {selectedTemplate?.industry_template_id && (
-                  <GlossaryQuickLookup
-                    industryTemplateId={selectedTemplate.industry_template_id}
-                    onInsertTerm={(term) => {
-                      const textarea = topicTextareaRef.current;
-                      if (textarea) {
-                        const cursorPos = textarea.selectionStart;
-                        const currentTopic = formData.topic;
-                        const before = currentTopic.slice(0, cursorPos);
-                        const after = currentTopic.slice(cursorPos);
-                        setFormData((prev) => ({ 
-                          ...prev, 
-                          topic: (before + term + after).slice(0, MAX_TOPIC_LENGTH) 
-                        }));
-                        setTimeout(() => {
-                          textarea.focus();
-                          const newPos = cursorPos + term.length;
-                          textarea.setSelectionRange(newPos, newPos);
-                        }, 0);
-                      } else {
-                        setFormData((prev) => ({ 
-                          ...prev, 
-                          topic: (prev.topic + ' ' + term).slice(0, MAX_TOPIC_LENGTH) 
-                        }));
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
+                    Chủ đề video
+                    <span className="text-primary">*</span>
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowBrainstormSheet(true)}
+                    className="h-6 gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                    Brainstorm AI
+                  </Button>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  {selectedTemplate?.industry_template_id && (
+                    <GlossaryQuickLookup
+                      industryTemplateId={selectedTemplate.industry_template_id}
+                      onInsertTerm={(term) => {
+                        const textarea = topicTextareaRef.current;
+                        if (textarea) {
+                          const cursorPos = textarea.selectionStart;
+                          const currentTopic = formData.topic;
+                          const before = currentTopic.slice(0, cursorPos);
+                          const after = currentTopic.slice(cursorPos);
+                          setFormData((prev) => ({ 
+                            ...prev, 
+                            topic: (before + term + after).slice(0, MAX_TOPIC_LENGTH) 
+                          }));
+                          setTimeout(() => {
+                            textarea.focus();
+                            const newPos = cursorPos + term.length;
+                            textarea.setSelectionRange(newPos, newPos);
+                          }, 0);
+                        } else {
+                          setFormData((prev) => ({ 
+                            ...prev, 
+                            topic: (prev.topic + ' ' + term).slice(0, MAX_TOPIC_LENGTH) 
+                          }));
+                        }
+                      }}
+                      trigger={
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 gap-1 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          <Book className="h-3 w-3" />
+                          Từ điển
+                        </Button>
                       }
-                    }}
-                    trigger={
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 gap-1 text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        <Book className="h-3 w-3" />
-                        Từ điển
-                      </Button>
-                    }
-                  />
-                )}
+                    />
+                  )}
+                </div>
               </div>
               
+              {/* Topic Textarea */}
               <div className="relative group">
                 <Textarea
                   ref={topicTextareaRef}
@@ -442,39 +523,120 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 </div>
               </div>
 
-              {/* Topic Refinement Suggestions */}
-              {formData.topic.trim().length >= 10 && (
-                <TopicRefinementSuggestions
-                  refinedTopics={refinedTopics}
-                  isLoading={isLoadingRefinement}
-                  elapsedMs={refinementElapsedMs}
-                  onSelect={(topic) => {
-                    setFormData((prev) => ({ ...prev, topic }));
-                    toast.success('Đã chọn chủ đề cải thiện');
-                  }}
-                  onRefresh={refreshRefinement}
-                  disabled={isLoading}
-                />
-              )}
+              {/* Dynamic Zone with AnimatePresence */}
+              <AnimatePresence mode="wait">
+                {!isTopicSubstantial ? (
+                  /* Empty/Short Topic State - Show Hero Card + Quick Suggestions */
+                  <motion.div
+                    key="empty-state"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-4"
+                  >
+                    {/* Hero Brainstorm Card */}
+                    <Card 
+                      className="border-dashed border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 cursor-pointer transition-all duration-200"
+                      onClick={() => setShowBrainstormSheet(true)}
+                    >
+                      <CardContent className="p-4 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+                          <MessageSquare className="w-6 h-6 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-sm text-foreground">Brainstorm với AI</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Trò chuyện với AI để khám phá ý tưởng chủ đề hay, phù hợp với thương hiệu và mục tiêu của bạn
+                          </p>
+                        </div>
+                        <ArrowRight className="w-5 h-5 text-primary shrink-0" />
+                      </CardContent>
+                    </Card>
 
-              {/* Topic Angle Selector */}
-              {formData.topic.trim().length >= 20 && (
-                <div>
-                  <TopicAngleSelector
-                    value={formData.angle}
-                    onChange={(angle) => setFormData((prev) => ({ ...prev, angle }))}
-                    disabled={isLoading}
-                  />
-                  {formData.angle && (
-                    <TopicAnglePreview 
-                      angle={formData.angle} 
-                      topic={formData.topic}
+                    {/* Separator */}
+                    <div className="flex items-center gap-3">
+                      <Separator className="flex-1" />
+                      <span className="text-xs text-muted-foreground shrink-0">Hoặc chọn gợi ý nhanh</span>
+                      <Separator className="flex-1" />
+                    </div>
+
+                    {/* Inline Topic Suggestions - Compact */}
+                    <InlineTopicSuggestions
+                      brandTemplateId={formData.brandTemplateId}
+                      contentGoal={scriptContentGoal}
+                      onSelectTopic={(topic) => setFormData(prev => ({ ...prev, topic }))}
+                      disabled={isLoading}
+                      compact
                     />
-                  )}
-                </div>
-              )}
+                  </motion.div>
+                ) : (
+                  /* Substantial Topic State - Show Refinement + Compliance */
+                  <motion.div
+                    key="substantial-state"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-4"
+                  >
+                    {/* Compliance Warning Badge */}
+                    {complianceCheckResult && complianceCheckResult.issues.length > 0 && (
+                      <ComplianceWarningBadge
+                        result={complianceCheckResult}
+                        onSuggestCompliant={handleSuggestCompliant}
+                        isSuggesting={isSuggestingCompliant}
+                      />
+                    )}
 
-              {/* Topic Discovery Panel - reads from Kho Ý tưởng */}
+                    {/* Topic Refinement Suggestions */}
+                    <TopicRefinementSuggestions
+                      refinedTopics={refinedTopics}
+                      isLoading={isLoadingRefinement}
+                      elapsedMs={refinementElapsedMs}
+                      onSelect={(topic) => {
+                        setFormData((prev) => ({ ...prev, topic }));
+                        toast.success('Đã chọn chủ đề cải thiện');
+                      }}
+                      onRefresh={refreshRefinement}
+                      disabled={isLoading}
+                    />
+
+                    {/* Topic Angle Selector */}
+                    {formData.topic.trim().length >= 20 && (
+                      <div>
+                        <TopicAngleSelector
+                          value={formData.angle}
+                          onChange={(angle) => setFormData((prev) => ({ ...prev, angle }))}
+                          disabled={isLoading}
+                        />
+                        {formData.angle && (
+                          <TopicAnglePreview 
+                            angle={formData.angle} 
+                            topic={formData.topic}
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    {/* Secondary Brainstorm Button */}
+                    <div className="flex justify-center pt-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowBrainstormSheet(true)}
+                        className="gap-2 text-muted-foreground hover:text-primary"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        Cần thêm ý tưởng? Brainstorm với AI
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Topic Discovery Panel - Always visible at bottom */}
               <ScriptTopicDiscoveryPanel
                 onSelect={(topic: EnhancedTopicSuggestion) => {
                   setFormData((prev) => ({ ...prev, topic: topic.topic }));
@@ -484,6 +646,18 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 brandTemplateId={formData.brandTemplateId}
               />
             </div>
+
+            {/* Topic Brainstorm Sheet */}
+            <TopicBrainstormSheet
+              open={showBrainstormSheet}
+              onOpenChange={setShowBrainstormSheet}
+              brandTemplateId={formData.brandTemplateId}
+              contentGoal={scriptContentGoal}
+              onSelectTopic={(topic) => {
+                setFormData((prev) => ({ ...prev, topic }));
+                toast.success('Đã chọn chủ đề từ AI Brainstorm');
+              }}
+            />
           </div>
         )}
 
