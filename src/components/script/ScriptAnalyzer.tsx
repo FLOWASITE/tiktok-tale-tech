@@ -60,7 +60,9 @@ const ScoreCircle = ({ score, label, icon: Icon, color }: {
 const EmotionalArcChart = ({ items }: { 
   items: { prompt: number; emotion: string; intensity: number }[] 
 }) => {
-  const chartData = items.map(item => ({
+  const safeItems = Array.isArray(items) ? items : [];
+
+  const chartData = safeItems.map((item) => ({
     prompt: `P${item.prompt}`,
     intensity: item.intensity,
     emotion: item.emotion,
@@ -88,7 +90,7 @@ const EmotionalArcChart = ({ items }: {
               borderRadius: '8px'
             }}
             formatter={(value: number) => [`${value}%`, 'Intensity']}
-            labelFormatter={(label) => `Prompt ${label.replace('P', '')}`}
+            labelFormatter={(label) => `Prompt ${String(label).replace('P', '')}`}
           />
           <Line 
             type="monotone" 
@@ -318,7 +320,15 @@ export function ScriptAnalyzer({ script, className }: ScriptAnalyzerProps) {
 
   if (!analysis) return null;
 
-  const overallLabel = getOverallScoreLabel(analysis.overallScore);
+  const a: ScriptAnalysis = {
+    ...analysis,
+    strengths: Array.isArray(analysis.strengths) ? analysis.strengths : [],
+    weaknesses: Array.isArray(analysis.weaknesses) ? analysis.weaknesses : [],
+    emotionalArc: Array.isArray(analysis.emotionalArc) ? analysis.emotionalArc : [],
+    suggestions: Array.isArray(analysis.suggestions) ? analysis.suggestions : [],
+  };
+
+  const overallLabel = getOverallScoreLabel(a.overallScore);
 
   return (
     <ScrollArea className={cn("h-full", className)}>
@@ -326,7 +336,7 @@ export function ScriptAnalyzer({ script, className }: ScriptAnalyzerProps) {
         {/* Overall Score */}
         <div className="text-center p-4 rounded-xl bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 border border-border">
           <div className="text-4xl font-bold text-gradient mb-1">
-            {analysis.overallScore}
+            {a.overallScore}
           </div>
           <div className={cn("text-sm font-medium", overallLabel.color)}>
             {overallLabel.label}
@@ -345,31 +355,31 @@ export function ScriptAnalyzer({ script, className }: ScriptAnalyzerProps) {
         {/* Score Grid */}
         <div className="grid grid-cols-3 gap-2">
           <ScoreCircle 
-            score={analysis.hookScore} 
+            score={a.hookScore} 
             label="Hook" 
             icon={Eye}
             color="text-purple-500"
           />
           <ScoreCircle 
-            score={analysis.clarityScore} 
+            score={a.clarityScore} 
             label="Rõ ràng" 
             icon={Target}
             color="text-blue-500"
           />
           <ScoreCircle 
-            score={analysis.viralPotential} 
+            score={a.viralPotential} 
             label="Viral" 
             icon={TrendingUp}
             color="text-pink-500"
           />
           <ScoreCircle 
-            score={analysis.pacingScore} 
+            score={a.pacingScore} 
             label="Nhịp điệu" 
             icon={Zap}
             color="text-yellow-500"
           />
           <ScoreCircle 
-            score={analysis.ctaEffectiveness} 
+            score={a.ctaEffectiveness} 
             label="CTA" 
             icon={BarChart3}
             color="text-green-500"
@@ -386,7 +396,7 @@ export function ScriptAnalyzer({ script, className }: ScriptAnalyzerProps) {
               <span className="text-xs font-medium">Điểm mạnh</span>
             </div>
             <div className="space-y-1.5">
-              {analysis.strengths.map((strength, i) => (
+              {a.strengths.map((strength, i) => (
                 <div key={i} className="text-xs text-muted-foreground pl-6 flex items-start gap-2">
                   <span className="text-green-500 mt-0.5">•</span>
                   {strength}
@@ -401,7 +411,7 @@ export function ScriptAnalyzer({ script, className }: ScriptAnalyzerProps) {
               <span className="text-xs font-medium">Cần cải thiện</span>
             </div>
             <div className="space-y-1.5">
-              {analysis.weaknesses.map((weakness, i) => (
+              {a.weaknesses.map((weakness, i) => (
                 <div key={i} className="text-xs text-muted-foreground pl-6 flex items-start gap-2">
                   <span className="text-orange-500 mt-0.5">•</span>
                   {weakness}
@@ -422,12 +432,12 @@ export function ScriptAnalyzer({ script, className }: ScriptAnalyzerProps) {
           
           {/* Visual Chart */}
           <div className="mb-3 bg-muted/30 rounded-lg p-2">
-            <EmotionalArcChart items={analysis.emotionalArc} />
+            <EmotionalArcChart items={a.emotionalArc} />
           </div>
 
           {/* Detail List */}
           <div className="space-y-2">
-            {analysis.emotionalArc.map((item, i) => (
+            {a.emotionalArc.map((item, i) => (
               <EmotionalArcItem key={i} item={item} />
             ))}
           </div>
@@ -442,7 +452,7 @@ export function ScriptAnalyzer({ script, className }: ScriptAnalyzerProps) {
             <span className="text-xs font-medium">Gợi ý cải thiện</span>
           </div>
           <div className="space-y-2">
-            {analysis.suggestions.map((suggestion, i) => (
+            {a.suggestions.map((suggestion, i) => (
               <SuggestionItem key={i} suggestion={suggestion} />
             ))}
           </div>
