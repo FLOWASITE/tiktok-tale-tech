@@ -38,6 +38,7 @@ interface UseChatStreamingOptions {
   contentGoal?: ContentGoal;
   organizationId?: string;
   userId?: string;
+  forceWebSearch?: boolean; // Force web search for real-time data
   onMessageCreate: (message: ChatMessage) => void;
   onMessageUpdate: (id: string, updates: Partial<ChatMessage>) => void;
   onComplete?: () => void;
@@ -55,6 +56,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
     contentGoal,
     organizationId,
     userId,
+    forceWebSearch,
     onMessageCreate,
     onMessageUpdate,
     onComplete,
@@ -145,6 +147,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
           organizationId,
           userId,
           enableTools: true,
+          forceWebSearch, // Pass through to backend for real-time web search
         }),
         signal: abortControllerRef.current.signal,
       });

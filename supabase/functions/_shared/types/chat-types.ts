@@ -16,6 +16,7 @@ export interface ChatRequest {
   enableTools?: boolean;
   enableAgenticLoop?: boolean;
   maxAgentTurns?: number;
+  forceWebSearch?: boolean; // Force web search even without trending keywords
 }
 
 export interface RAGResult {
