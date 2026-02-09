@@ -1,163 +1,202 @@
 
-# Kế hoạch: Căn chỉnh UX nhập Chủ đề trong Kịch bản Video theo mô hình Nội dung Đa kênh
+# Kế hoạch: Cải thiện Web Search Integration cho Topic Brainstorm AI
 
-## Tổng quan
+## Phân tích vấn đề
 
-Hiện tại, luồng nhập **Chủ đề** trong wizard "Tạo Kịch bản Video" (`ScriptFormStepper`) có UX đơn giản hơn so với "Nội dung Đa kênh" (`MultiChannelFormWizard`). Kế hoạch này sẽ đồng bộ hóa trải nghiệm người dùng bằng cách áp dụng mô hình **Progressive Smart Input** từ Đa kênh sang Kịch bản.
+Hệ thống hiện tại **đã có** chức năng web search nhưng không được sử dụng triệt để:
+
+### Luồng hiện tại
+```
+User message → chat-topics edge function
+                    ↓
+              Kiểm tra "trending intent" (xu hướng, trending, viral...)
+                    ↓
+        [Có keywords] → Prefetch web search tự động
+        [Không có]    → Chỉ dựa vào context có sẵn
+                    ↓
+              AI nhận system prompt
+                    ↓
+        AI có thể gọi tool web_search (nhưng thường không chủ động)
+```
+
+### Vấn đề cụ thể
+1. **Prefetch chỉ kích hoạt khi có keywords trending** - Nếu user hỏi "cho tôi ý tưởng về chủ đề AI" mà không có từ "xu hướng", prefetch sẽ không chạy
+2. **AI không được yêu cầu LUÔN tìm kiếm web** - System prompt chỉ "gợi ý" dùng web_search khi cần, không bắt buộc
+3. **Fallback về thông tin cũ** - Khi không có web search, AI dùng brand context/industry memory có thể đã outdate
 
 ---
 
-## So sánh hiện tại
+## Giải pháp đề xuất
 
-| Tính năng | Kịch bản Video (ScriptFormStepper) | Nội dung Đa kênh (MultiChannelFormWizard) |
-|-----------|-----------------------------------|-------------------------------------------|
-| Dynamic Zone | Không | Có (empty vs substantial state) |
-| Brainstorm AI Sheet | Không | Có (TopicBrainstormSheet) |
-| Inline Quick Suggestions | Không | Có (InlineTopicSuggestions) |
-| Hero Brainstorm Card | Không | Có (khi chưa nhập topic) |
-| Compliance Warning | Không | Có (ComplianceWarningBadge) |
-| Topic Refinement | Có | Có |
-| Content Goal selector | Không (có ở Step 1: Purpose) | Có (ở cùng step) |
+### 1. Mở rộng Prefetch Trigger Keywords
 
----
+**File:** `supabase/functions/chat-topics/index.ts`
 
-## Các thay đổi cần thực hiện
+Thêm nhiều keywords để kích hoạt prefetch web search:
+- Keywords hiện tại: "xu hướng", "trending", "viral", "hot topic"...
+- Thêm: "ý tưởng mới", "chủ đề hay", "gợi ý topic", "content gì", "brainstorm"
 
-### 1. Thêm Dynamic Zone vào Step 2 (Chủ đề)
+```typescript
+const trendingKeywords = [
+  // Existing
+  'xu hướng', 'trending', 'đang hot', 'viral', 'trend',
+  'tin tức mới nhất', 'tin mới', 'hot topic', 'xu huong',
+  'đang được quan tâm', 'nổi bật', 'phổ biến', 'gần đây',
+  // NEW: Brainstorm & discovery intent
+  'ý tưởng', 'chủ đề', 'topic', 'brainstorm', 'gợi ý',
+  'content gì', 'nội dung gì', 'viết gì', 'làm gì',
+  'tìm kiếm', 'discover', 'khám phá', 'mới', 'fresh'
+];
+```
 
-Áp dụng mô hình Progressive Smart Input:
+### 2. Thêm flag `forceWebSearch` trong request
 
-- **Khi topic rỗng/ngắn** (< 10 ký tự):
-  - Hiển thị Hero Brainstorm Card với CTA mở Sheet
-  - Hiển thị InlineTopicSuggestions dạng compact chips
-  - Di chuyển ScriptTopicDiscoveryPanel xuống dưới
+**Files:**
+- `src/hooks/useChatStreaming.ts`
+- `supabase/functions/chat-topics/index.ts`
 
-- **Khi topic đủ dài** (≥ 10 ký tự):
-  - Hiển thị TopicRefinementSuggestions (đã có)
-  - Thêm ComplianceWarningBadge
-  - Hiển thị TopicAngleSelector (đã có)
-  - Ẩn Hero Card và InlineTopicSuggestions
+Cho phép frontend yêu cầu bắt buộc web search:
 
-### 2. Tích hợp TopicBrainstormSheet
+```typescript
+// Frontend - khi gọi từ TopicBrainstormSheet
+body: JSON.stringify({
+  messages: apiMessages,
+  brandTemplateId,
+  contentGoal,
+  forceWebSearch: true, // NEW: Always search web for brainstorm
+})
+```
 
-- Thêm state `showBrainstormSheet`
-- Thêm button "Brainstorm AI" bên cạnh label Topic
-- Import và render `TopicBrainstormSheet` component
-- Truyền `brandTemplateId` và `contentGoal` (có thể map từ `script_purpose`)
+### 3. Cập nhật System Prompt để AI chủ động hơn
 
-### 3. Thêm InlineTopicSuggestions
+**File:** `supabase/functions/_shared/system-prompt-builder.ts`
 
-- Import component từ `@/components/multichannel/InlineTopicSuggestions`
-- Render dạng compact khi topic ngắn
-- Map `contentGoal` từ context (có thể dùng 'education' làm default cho Script)
+Thêm hướng dẫn rõ ràng hơn:
 
-### 4. Thêm ComplianceWarningBadge
+```
+## 🔍 Web Search - CHỦ ĐỘNG SỬ DỤNG
 
-- Import `useCompliancePrecheck` hook
-- Import `ComplianceWarningBadge` component
-- Hiển thị khi topic ≥ 10 ký tự và có violations
+⚡ LUÔN gọi tool web_search TRƯỚC khi đưa ra gợi ý topic nếu:
+1. User hỏi về ý tưởng/topic mới
+2. Chưa có dữ liệu web search trong context
+3. Brand context không đủ fresh (không có [🌐 Web Search] context)
 
-### 5. Cập nhật Layout Topic Input
+Lý do: Thông tin ngành thay đổi liên tục. Web search đảm bảo gợi ý luôn relevant và up-to-date.
+```
 
-- Thêm Brainstorm AI button bên cạnh character count
-- Bọc dynamic content trong `AnimatePresence` + `motion.div` cho transition mượt
+### 4. Thêm Context Indicator cho User
+
+**File:** `src/components/topic/chatbot/SimpleMessageList.tsx` (hoặc tương tự)
+
+Hiển thị badge khi AI đang sử dụng web search vs cached data:
+- `🌐 Real-time data` - Đang dùng web search
+- `📚 Cached data` - Dùng dữ liệu có sẵn
 
 ---
 
 ## Chi tiết kỹ thuật
 
-### Files cần chỉnh sửa
-
-```text
-src/components/script/ScriptFormStepper.tsx
-```
-
-### Imports cần thêm
+### Thay đổi 1: Mở rộng prefetch triggers
 
 ```typescript
-import { AnimatePresence, motion } from 'framer-motion';
-import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
-import { InlineTopicSuggestions } from '@/components/multichannel/InlineTopicSuggestions';
-import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
-import { useCompliancePrecheck } from '@/hooks/useCompliancePrecheck';
-import { Separator } from '@/components/ui/separator';
-import { Card, CardContent } from '@/components/ui/card';
-import { MessageSquare } from 'lucide-react';
+// supabase/functions/chat-topics/index.ts - Lines ~420-430
+
+const trendingKeywords = [
+  // Trending/viral intent
+  'xu hướng', 'trending', 'đang hot', 'viral', 'trend',
+  'tin tức mới nhất', 'tin mới', 'hot topic', 'xu huong',
+  'đang được quan tâm', 'nổi bật', 'phổ biến', 'gần đây',
+  // NEW: Brainstorm/discovery intent (ensures web search for topic suggestions)
+  'ý tưởng', 'chủ đề', 'topic', 'brainstorm', 'gợi ý',
+  'content gì', 'nội dung gì', 'viết gì', 'làm gì',
+  'tìm kiếm', 'discover', 'khám phá',
+];
 ```
 
-### State mới
+### Thay đổi 2: Thêm forceWebSearch option
 
 ```typescript
-const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
-const TOPIC_MIN_LENGTH_FOR_REFINEMENT = 10;
+// supabase/functions/chat-topics/index.ts - Request interface
 
-// Compliance check
-const complianceOptions = useMemo(() => ({
-  industryForbiddenTerms: [],
-  brandForbiddenWords: [],
-}), []);
+interface ChatRequest {
+  messages: ChatMessage[];
+  brandTemplateId?: string;
+  contentGoal?: string;
+  organizationId?: string;
+  userId?: string;
+  enableTools?: boolean;
+  enableAgenticLoop?: boolean;
+  maxAgentTurns?: number;
+  forceWebSearch?: boolean; // NEW
+}
 
-const { fullCheck, suggestCompliantTopic, isChecking: isCheckingCompliance } = useCompliancePrecheck(complianceOptions);
-const [complianceCheckResult, setComplianceCheckResult] = useState<ReturnType<typeof fullCheck> | null>(null);
+// Logic change - always prefetch when forceWebSearch is true
+const shouldPrefetch = hasTrendingIntent || forceWebSearch;
 ```
 
-### Content Goal mapping cho Script
+### Thay đổi 3: Frontend gửi forceWebSearch từ Brainstorm
 
 ```typescript
-// Map script purpose to content goal for AI suggestions
-const scriptContentGoal = useMemo(() => {
-  switch (formData.script_purpose) {
-    case 'ai_video_veo3':
-    case 'ai_video_minimax':
-      return 'engagement'; // Video AI thường hướng engagement
-    case 'teleprompter':
-    case 'voiceover':
-      return 'education'; // Educational content
-    case 'production':
-      return 'expertise'; // Professional production
-    default:
-      return 'education';
-  }
-}, [formData.script_purpose]);
+// src/hooks/useChatStreaming.ts - Lines ~140-148
+
+body: JSON.stringify({
+  messages: apiMessages,
+  brandTemplateId,
+  contentGoal,
+  organizationId,
+  userId,
+  enableTools: true,
+  forceWebSearch: true, // Always use web search for brainstorm context
+}),
 ```
 
-### Cấu trúc UI mới cho Step 2
+### Thay đổi 4: Cập nhật system prompt
 
-```text
-Step 2: Chủ đề
-├── Brand Template Selector (giữ nguyên)
-├── Topic Input Area
-│   ├── Label + Brainstorm AI Button + Character Count
-│   └── Textarea
-├── Dynamic Zone (AnimatePresence)
-│   ├── [Khi topic ngắn]
-│   │   ├── Hero Brainstorm Card
-│   │   ├── Separator "Hoặc chọn gợi ý nhanh"
-│   │   └── InlineTopicSuggestions (compact)
-│   └── [Khi topic dài]
-│       ├── ComplianceWarningBadge (nếu có violations)
-│       ├── TopicRefinementSuggestions
-│       ├── TopicAngleSelector
-│       ├── TopicAnglePreview (nếu đã chọn angle)
-│       └── Secondary Brainstorm Button
-├── ScriptTopicDiscoveryPanel (luôn hiển thị ở cuối)
-└── TopicBrainstormSheet (Sheet component)
+```typescript
+// supabase/functions/_shared/system-prompt-builder.ts - After line ~162
+
+prompt += `
+## 🔍 Web Search - CHỦ ĐỘNG SỬ DỤNG
+
+⚡ QUAN TRỌNG: LUÔN gọi tool \`web_search\` khi:
+1. User yêu cầu ý tưởng/topic/brainstorm
+2. Không có [🌐 Web Trends Context] trong prompt này
+3. Dữ liệu industry/brand đã > 1 tuần
+
+Lý do: Thông tin thị trường thay đổi liên tục. Web search đảm bảo gợi ý luôn fresh và relevant.
+
+**Flow đề xuất:**
+1. Nhận yêu cầu brainstorm → gọi web_search(search_type: "trending")
+2. Kết hợp kết quả với brand context
+3. Gợi ý topics dựa trên real-time data
+`;
 ```
+
+---
+
+## Files cần thay đổi
+
+| File | Thay đổi |
+|------|----------|
+| `supabase/functions/chat-topics/index.ts` | Mở rộng trending keywords, thêm forceWebSearch logic |
+| `src/hooks/useChatStreaming.ts` | Thêm forceWebSearch parameter |
+| `supabase/functions/_shared/system-prompt-builder.ts` | Cập nhật hướng dẫn web search chủ động |
+| `src/components/multichannel/TopicBrainstormSheet.tsx` | (Optional) Hiển thị indicator web search status |
 
 ---
 
 ## Lợi ích
 
-1. **Nhất quán UX**: Người dùng có trải nghiệm tương tự khi tạo Kịch bản và Nội dung Đa kênh
-2. **Khám phá dễ hơn**: Hero Card và Quick Suggestions giúp người dùng mới dễ bắt đầu
-3. **AI-first experience**: Tích hợp sâu hơn với AI Brainstorm
-4. **Compliance check**: Cảnh báo sớm về nội dung có vấn đề
-5. **Transition mượt**: AnimatePresence tạo trải nghiệm chuyển đổi state tốt hơn
+1. **Real-time data**: Brainstorm AI luôn có thông tin mới nhất từ web
+2. **Không phụ thuộc AI decision**: Force prefetch đảm bảo web search luôn chạy
+3. **Trải nghiệm nhất quán**: User không cần biết dùng từ khóa đặc biệt
+4. **Backward compatible**: Không ảnh hưởng luồng chat thông thường
 
 ---
 
 ## Ước tính
 
-- **Độ phức tạp**: Trung bình
-- **Files thay đổi**: 1 file chính
-- **Components tái sử dụng**: 4 components từ multichannel
+- **Độ phức tạp**: Thấp-Trung bình
+- **Files thay đổi**: 3-4 files
+- **Thời gian**: 15-20 phút
+- **Risk**: Thấp - chỉ mở rộng logic có sẵn
