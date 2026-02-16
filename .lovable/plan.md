@@ -1,12 +1,13 @@
-
 # Kế hoạch: Đơn giản hóa UI/UX Tạo ảnh AI
 
 ## Phân tích vấn đề hiện tại
 
 ### UnifiedImageGenerator hiện tại (1,496 dòng code)
+
 File hiện tại chứa quá nhiều tính năng hiển thị cùng lúc trong một Dialog split-panel:
 
 **Panel trái (Form Controls) - Quá tải:**
+
 1. Mode toggle (Batch / Single)
 2. Brand preview card
 3. Channel selection grid (12 kênh, mỗi kênh là 1 button)
@@ -17,6 +18,7 @@ File hiện tại chứa quá nhiều tính năng hiển thị cùng lúc trong 
 8. "Dùng Hook" button
 
 **Panel phải (Visual Settings) - Quá tải:**
+
 1. VisualTextPositionPreview (3x3 grid + 7 kiểu chữ)
 2. Canvas Fallback toggle
 3. AI Style Suggestions
@@ -28,6 +30,7 @@ File hiện tại chứa quá nhiều tính năng hiển thị cùng lúc trong 
 **Tổng cộng: ~20+ điều khiển hiển thị đồng thời**
 
 ### Vấn đề UX cốt lõi
+
 - Người dùng phải đưa ra quá nhiều quyết định trước khi tạo ảnh
 - Nhiều tùy chọn chỉ hữu ích cho power users nhưng lại hiển thị cho tất cả
 - Không có "happy path" rõ ràng -- user không biết bắt đầu từ đâu
@@ -38,6 +41,7 @@ File hiện tại chứa quá nhiều tính năng hiển thị cùng lúc trong 
 ## Giải pháp: "One-Click First, Customize Later"
 
 ### Triết lý thiết kế
+
 - **80% users**: Chỉ cần nhấn 1 nút "Tạo ảnh" -- AI tự quyết định mọi thứ
 - **20% power users**: Có thể tùy chỉnh thêm nếu muốn
 - Mọi tùy chọn nâng cao ẩn trong Collapsible, không hiển thị mặc định
@@ -67,13 +71,15 @@ File hiện tại chứa quá nhiều tính năng hiển thị cùng lúc trong 
 
 ### 1. Tach component thanh cac file nho
 
-| File moi | Noi dung | Dong code (uoc tinh) |
-|----------|----------|---------------------|
-| `SimpleImageGenerator.tsx` | Component chinh, layout don gian | ~300 |
-| `ImageChannelPicker.tsx` | Chon kenh bang chip toggles | ~80 |
-| `ImageStyleCollapsible.tsx` | Phong cach + ti le + logo (collapsible) | ~200 |
-| `ImageTextOptions.tsx` | Text input, position, typography | ~150 |
-| `ImagePreviewGrid.tsx` | Hien thi ket qua (reuse ImageStreamingGrid) | ~50 |
+
+| File moi                    | Noi dung                                    | Dong code (uoc tinh) |
+| --------------------------- | ------------------------------------------- | -------------------- |
+| `SimpleImageGenerator.tsx`  | Component chinh, layout don gian            | ~300                 |
+| `ImageChannelPicker.tsx`    | Chon kenh bang chip toggles                 | ~80                  |
+| `ImageStyleCollapsible.tsx` | Phong cach + ti le + logo (collapsible)     | ~200                 |
+| `ImageTextOptions.tsx`      | Text input, position, typography            | ~150                 |
+| `ImagePreviewGrid.tsx`      | Hien thi ket qua (reuse ImageStreamingGrid) | ~50                  |
+
 
 **Tong: ~780 dong** (giam 48% so voi 1,496 dong hien tai)
 
@@ -107,6 +113,7 @@ Dialog (max-w-lg, nho gon hon)
 ### 3. Smart Defaults - AI tu quyet dinh
 
 Thay vi bat user chon:
+
 - **Phong cach**: Tu dong theo brand industry (da co `suggestImageStyles`)
 - **Ti le khung hinh**: Tu dong `auto` (da co `CHANNEL_OPTIMAL_ASPECT_RATIO`)
 - **Logo**: Tu dong bat neu co `brandLogoUrl`, vi tri `bottom-right`
@@ -116,6 +123,7 @@ Thay vi bat user chon:
 ### 4. Loai bo che do Single
 
 Hien tai co 2 mode: Batch va Single. Che do Single khong can thiet vi:
+
 - Batch voi 1 kenh = Single
 - Giam complexity dang ke (loai bo prompt editor, mode toggle)
 - User van co the chon chi 1 kenh trong batch mode
@@ -123,6 +131,7 @@ Hien tai co 2 mode: Batch va Single. Che do Single khong can thiet vi:
 ### 5. Cac thay doi cu the
 
 **File: `src/components/multichannel/SimpleImageGenerator.tsx` (MOI)**
+
 - Component chinh thay the UnifiedImageGenerator
 - Single-column layout, max-w-lg
 - Channel picker bang compact chips (khong phai grid 2 col)
@@ -132,11 +141,13 @@ Hien tai co 2 mode: Batch va Single. Che do Single khong can thiet vi:
 - Collapsible "Tuy chinh nang cao" chua tat ca options con lai
 
 **File: `src/components/multichannel/ImageChannelPicker.tsx` (MOI)**
+
 - Compact chip-style channel toggles
 - Select all / deselect all
 - Hien thi icon + ten ngan (FB, IG, LI...)
 
 **File: `src/components/multichannel/ImageAdvancedOptions.tsx` (MOI)**
+
 - Collapsible wrapper chua:
   - Style grid (giu nguyen 8 styles)
   - Aspect ratio chips (giu nguyen)
@@ -145,10 +156,12 @@ Hien tai co 2 mode: Batch va Single. Che do Single khong can thiet vi:
   - Negative prompt
 
 **File: `src/components/MultiChannelViewer.tsx` (SUA)**
+
 - Thay import `UnifiedImageGenerator` bang `SimpleImageGenerator`
 - Giu nguyen props interface
 
 **File: `src/components/multichannel/UnifiedImageGenerator.tsx` (GIU LAI)**
+
 - Khong xoa, giu lam backup/reference
 - Sau nay co the xoa khi da on dinh
 
@@ -156,24 +169,28 @@ Hien tai co 2 mode: Batch va Single. Che do Single khong can thiet vi:
 
 ## So sanh truoc/sau
 
-| Tieu chi | Hien tai | Sau khi doi |
-|----------|----------|-------------|
-| So dong code | 1,496 | ~780 (nhieu files) |
-| So buoc de tao anh | 5-8 buoc | 1-2 buoc |
-| So tuy chon hien thi | ~20+ | 3-4 (co the mo rong) |
-| Dialog size | max-w-5xl (split panel) | max-w-lg (single column) |
-| Mode | Batch + Single | Chi Batch (1 kenh = single) |
-| Smart defaults | Co nhung user van phai chon | AI tu chon, user override |
+
+| Tieu chi             | Hien tai                    | Sau khi doi                 |
+| -------------------- | --------------------------- | --------------------------- |
+| So dong code         | 1,496                       | ~780 (nhieu files)          |
+| So buoc de tao anh   | 5-8 buoc                    | 1-2 buoc                    |
+| So tuy chon hien thi | ~20+                        | 3-4 (co the mo rong)        |
+| Dialog size          | max-w-5xl (split panel)     | max-w-lg (single column)    |
+| Mode                 | Batch + Single              | Chi Batch (1 kenh = single) |
+| Smart defaults       | Co nhung user van phai chon | AI tu chon, user override   |
+
 
 ---
 
 ## Rui ro va giai phap
 
-| Rui ro | Giai phap |
-|--------|-----------|
-| Power users mat tinh nang | Tat ca tinh nang van o trong Collapsible |
-| UnifiedImageGenerator cu bi break | Giu nguyen file cu, tao file moi |
-| Logic hooks phuc tap | Reuse tat ca hooks hien tai (useAutoImageGeneration, useSocialImageGeneration) |
+
+| Rui ro                            | Giai phap                                                                      |
+| --------------------------------- | ------------------------------------------------------------------------------ |
+| Power users mat tinh nang         | Tat ca tinh nang van o trong Collapsible                                       |
+| UnifiedImageGenerator cu bi break | Giu nguyen file cu, tao file moi                                               |
+| Logic hooks phuc tap              | Reuse tat ca hooks hien tai (useAutoImageGeneration, useSocialImageGeneration) |
+
 
 ---
 
