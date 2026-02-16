@@ -1,202 +1,186 @@
 
-# Kế hoạch: Cải thiện Web Search Integration cho Topic Brainstorm AI
+# Kế hoạch: Đơn giản hóa UI/UX Tạo ảnh AI
 
-## Phân tích vấn đề
+## Phân tích vấn đề hiện tại
 
-Hệ thống hiện tại **đã có** chức năng web search nhưng không được sử dụng triệt để:
+### UnifiedImageGenerator hiện tại (1,496 dòng code)
+File hiện tại chứa quá nhiều tính năng hiển thị cùng lúc trong một Dialog split-panel:
 
-### Luồng hiện tại
-```
-User message → chat-topics edge function
-                    ↓
-              Kiểm tra "trending intent" (xu hướng, trending, viral...)
-                    ↓
-        [Có keywords] → Prefetch web search tự động
-        [Không có]    → Chỉ dựa vào context có sẵn
-                    ↓
-              AI nhận system prompt
-                    ↓
-        AI có thể gọi tool web_search (nhưng thường không chủ động)
-```
+**Panel trái (Form Controls) - Quá tải:**
+1. Mode toggle (Batch / Single)
+2. Brand preview card
+3. Channel selection grid (12 kênh, mỗi kênh là 1 button)
+4. Prompt editor (chỉ single mode)
+5. Image type toggle (Ảnh nền / Có text)
+6. Text input + shared/per-channel toggle
+7. AI Optimize button
+8. "Dùng Hook" button
 
-### Vấn đề cụ thể
-1. **Prefetch chỉ kích hoạt khi có keywords trending** - Nếu user hỏi "cho tôi ý tưởng về chủ đề AI" mà không có từ "xu hướng", prefetch sẽ không chạy
-2. **AI không được yêu cầu LUÔN tìm kiếm web** - System prompt chỉ "gợi ý" dùng web_search khi cần, không bắt buộc
-3. **Fallback về thông tin cũ** - Khi không có web search, AI dùng brand context/industry memory có thể đã outdate
+**Panel phải (Visual Settings) - Quá tải:**
+1. VisualTextPositionPreview (3x3 grid + 7 kiểu chữ)
+2. Canvas Fallback toggle
+3. AI Style Suggestions
+4. Style selection grid (8 phong cách)
+5. Aspect ratio chips (5 tỉ lệ)
+6. Logo options panel (9 vị trí, 5 styles, 2 sliders)
+7. Advanced options (negative prompt, context preview)
 
----
+**Tổng cộng: ~20+ điều khiển hiển thị đồng thời**
 
-## Giải pháp đề xuất
-
-### 1. Mở rộng Prefetch Trigger Keywords
-
-**File:** `supabase/functions/chat-topics/index.ts`
-
-Thêm nhiều keywords để kích hoạt prefetch web search:
-- Keywords hiện tại: "xu hướng", "trending", "viral", "hot topic"...
-- Thêm: "ý tưởng mới", "chủ đề hay", "gợi ý topic", "content gì", "brainstorm"
-
-```typescript
-const trendingKeywords = [
-  // Existing
-  'xu hướng', 'trending', 'đang hot', 'viral', 'trend',
-  'tin tức mới nhất', 'tin mới', 'hot topic', 'xu huong',
-  'đang được quan tâm', 'nổi bật', 'phổ biến', 'gần đây',
-  // NEW: Brainstorm & discovery intent
-  'ý tưởng', 'chủ đề', 'topic', 'brainstorm', 'gợi ý',
-  'content gì', 'nội dung gì', 'viết gì', 'làm gì',
-  'tìm kiếm', 'discover', 'khám phá', 'mới', 'fresh'
-];
-```
-
-### 2. Thêm flag `forceWebSearch` trong request
-
-**Files:**
-- `src/hooks/useChatStreaming.ts`
-- `supabase/functions/chat-topics/index.ts`
-
-Cho phép frontend yêu cầu bắt buộc web search:
-
-```typescript
-// Frontend - khi gọi từ TopicBrainstormSheet
-body: JSON.stringify({
-  messages: apiMessages,
-  brandTemplateId,
-  contentGoal,
-  forceWebSearch: true, // NEW: Always search web for brainstorm
-})
-```
-
-### 3. Cập nhật System Prompt để AI chủ động hơn
-
-**File:** `supabase/functions/_shared/system-prompt-builder.ts`
-
-Thêm hướng dẫn rõ ràng hơn:
-
-```
-## 🔍 Web Search - CHỦ ĐỘNG SỬ DỤNG
-
-⚡ LUÔN gọi tool web_search TRƯỚC khi đưa ra gợi ý topic nếu:
-1. User hỏi về ý tưởng/topic mới
-2. Chưa có dữ liệu web search trong context
-3. Brand context không đủ fresh (không có [🌐 Web Search] context)
-
-Lý do: Thông tin ngành thay đổi liên tục. Web search đảm bảo gợi ý luôn relevant và up-to-date.
-```
-
-### 4. Thêm Context Indicator cho User
-
-**File:** `src/components/topic/chatbot/SimpleMessageList.tsx` (hoặc tương tự)
-
-Hiển thị badge khi AI đang sử dụng web search vs cached data:
-- `🌐 Real-time data` - Đang dùng web search
-- `📚 Cached data` - Dùng dữ liệu có sẵn
+### Vấn đề UX cốt lõi
+- Người dùng phải đưa ra quá nhiều quyết định trước khi tạo ảnh
+- Nhiều tùy chọn chỉ hữu ích cho power users nhưng lại hiển thị cho tất cả
+- Không có "happy path" rõ ràng -- user không biết bắt đầu từ đâu
+- Dialog quá lớn (max-w-5xl) với split-panel layout phức tạp
 
 ---
 
-## Chi tiết kỹ thuật
+## Giải pháp: "One-Click First, Customize Later"
 
-### Thay đổi 1: Mở rộng prefetch triggers
+### Triết lý thiết kế
+- **80% users**: Chỉ cần nhấn 1 nút "Tạo ảnh" -- AI tự quyết định mọi thứ
+- **20% power users**: Có thể tùy chỉnh thêm nếu muốn
+- Mọi tùy chọn nâng cao ẩn trong Collapsible, không hiển thị mặc định
 
-```typescript
-// supabase/functions/chat-topics/index.ts - Lines ~420-430
+### Luồng mới (3 bước đơn giản)
 
-const trendingKeywords = [
-  // Trending/viral intent
-  'xu hướng', 'trending', 'đang hot', 'viral', 'trend',
-  'tin tức mới nhất', 'tin mới', 'hot topic', 'xu huong',
-  'đang được quan tâm', 'nổi bật', 'phổ biến', 'gần đây',
-  // NEW: Brainstorm/discovery intent (ensures web search for topic suggestions)
-  'ý tưởng', 'chủ đề', 'topic', 'brainstorm', 'gợi ý',
-  'content gì', 'nội dung gì', 'viết gì', 'làm gì',
-  'tìm kiếm', 'discover', 'khám phá',
-];
-```
-
-### Thay đổi 2: Thêm forceWebSearch option
-
-```typescript
-// supabase/functions/chat-topics/index.ts - Request interface
-
-interface ChatRequest {
-  messages: ChatMessage[];
-  brandTemplateId?: string;
-  contentGoal?: string;
-  organizationId?: string;
-  userId?: string;
-  enableTools?: boolean;
-  enableAgenticLoop?: boolean;
-  maxAgentTurns?: number;
-  forceWebSearch?: boolean; // NEW
-}
-
-// Logic change - always prefetch when forceWebSearch is true
-const shouldPrefetch = hasTrendingIntent || forceWebSearch;
-```
-
-### Thay đổi 3: Frontend gửi forceWebSearch từ Brainstorm
-
-```typescript
-// src/hooks/useChatStreaming.ts - Lines ~140-148
-
-body: JSON.stringify({
-  messages: apiMessages,
-  brandTemplateId,
-  contentGoal,
-  organizationId,
-  userId,
-  enableTools: true,
-  forceWebSearch: true, // Always use web search for brainstorm context
-}),
-```
-
-### Thay đổi 4: Cập nhật system prompt
-
-```typescript
-// supabase/functions/_shared/system-prompt-builder.ts - After line ~162
-
-prompt += `
-## 🔍 Web Search - CHỦ ĐỘNG SỬ DỤNG
-
-⚡ QUAN TRỌNG: LUÔN gọi tool \`web_search\` khi:
-1. User yêu cầu ý tưởng/topic/brainstorm
-2. Không có [🌐 Web Trends Context] trong prompt này
-3. Dữ liệu industry/brand đã > 1 tuần
-
-Lý do: Thông tin thị trường thay đổi liên tục. Web search đảm bảo gợi ý luôn fresh và relevant.
-
-**Flow đề xuất:**
-1. Nhận yêu cầu brainstorm → gọi web_search(search_type: "trending")
-2. Kết hợp kết quả với brand context
-3. Gợi ý topics dựa trên real-time data
-`;
+```text
++------------------------------------------+
+| Buoc 1: CHON KENH (mac dinh: tat ca)     |
+| [FB] [IG] [LI] [TW] ...  (chip toggles) |
+|                                           |
+| Buoc 2: CHON KIEU ANH                    |
+| [Anh nen]  [Social Graphic (co text)]    |
+|                                           |
+| Text: [________________] (neu co text)   |
+|                                           |
+|        [ ✨ Tao X anh ]                  |
+|                                           |
+| v Tuy chinh nang cao                     |
+|   - Phong cach, Ti le, Logo, Prompt...   |
++------------------------------------------+
 ```
 
 ---
 
-## Files cần thay đổi
+## Chi tiet ky thuat
 
-| File | Thay đổi |
-|------|----------|
-| `supabase/functions/chat-topics/index.ts` | Mở rộng trending keywords, thêm forceWebSearch logic |
-| `src/hooks/useChatStreaming.ts` | Thêm forceWebSearch parameter |
-| `supabase/functions/_shared/system-prompt-builder.ts` | Cập nhật hướng dẫn web search chủ động |
-| `src/components/multichannel/TopicBrainstormSheet.tsx` | (Optional) Hiển thị indicator web search status |
+### 1. Tach component thanh cac file nho
+
+| File moi | Noi dung | Dong code (uoc tinh) |
+|----------|----------|---------------------|
+| `SimpleImageGenerator.tsx` | Component chinh, layout don gian | ~300 |
+| `ImageChannelPicker.tsx` | Chon kenh bang chip toggles | ~80 |
+| `ImageStyleCollapsible.tsx` | Phong cach + ti le + logo (collapsible) | ~200 |
+| `ImageTextOptions.tsx` | Text input, position, typography | ~150 |
+| `ImagePreviewGrid.tsx` | Hien thi ket qua (reuse ImageStreamingGrid) | ~50 |
+
+**Tong: ~780 dong** (giam 48% so voi 1,496 dong hien tai)
+
+### 2. SimpleImageGenerator - Layout moi
+
+Thay vi split-panel 2 cot, dung single-column scrollable:
+
+```text
+Dialog (max-w-lg, nho gon hon)
+|
+|-- Header: "Tao anh AI" + brand info (1 dong)
+|
+|-- Channel chips (1-2 dong, mac dinh chon tat ca)
+|
+|-- Image type toggle (Anh nen / Social Graphic)
+|
+|-- [Neu Social Graphic] Text input + AI Optimize
+|
+|-- CTA Button: "Tao X anh"
+|
+|-- [Collapsible] Tuy chinh nang cao
+|    |-- Phong cach anh (grid 4 col)
+|    |-- Ti le khung hinh (chips)
+|    |-- Logo options (toggle + panel)
+|    |-- Text position + typography (neu co text)
+|    |-- Negative prompt
+|
+|-- [Streaming/Preview] Ket qua
+```
+
+### 3. Smart Defaults - AI tu quyet dinh
+
+Thay vi bat user chon:
+- **Phong cach**: Tu dong theo brand industry (da co `suggestImageStyles`)
+- **Ti le khung hinh**: Tu dong `auto` (da co `CHANNEL_OPTIMAL_ASPECT_RATIO`)
+- **Logo**: Tu dong bat neu co `brandLogoUrl`, vi tri `bottom-right`
+- **Text**: Tu dong dien tu Hook neu chon "Social Graphic"
+- **Canvas Fallback**: Mac dinh bat, an khoi user
+
+### 4. Loai bo che do Single
+
+Hien tai co 2 mode: Batch va Single. Che do Single khong can thiet vi:
+- Batch voi 1 kenh = Single
+- Giam complexity dang ke (loai bo prompt editor, mode toggle)
+- User van co the chon chi 1 kenh trong batch mode
+
+### 5. Cac thay doi cu the
+
+**File: `src/components/multichannel/SimpleImageGenerator.tsx` (MOI)**
+- Component chinh thay the UnifiedImageGenerator
+- Single-column layout, max-w-lg
+- Channel picker bang compact chips (khong phai grid 2 col)
+- Image type toggle (2 buttons)
+- Text input (chi hien khi chon "Social Graphic")
+- 1 nut CTA lon
+- Collapsible "Tuy chinh nang cao" chua tat ca options con lai
+
+**File: `src/components/multichannel/ImageChannelPicker.tsx` (MOI)**
+- Compact chip-style channel toggles
+- Select all / deselect all
+- Hien thi icon + ten ngan (FB, IG, LI...)
+
+**File: `src/components/multichannel/ImageAdvancedOptions.tsx` (MOI)**
+- Collapsible wrapper chua:
+  - Style grid (giu nguyen 8 styles)
+  - Aspect ratio chips (giu nguyen)
+  - Logo toggle + LogoOptionsPanel (giu nguyen)
+  - VisualTextPositionPreview (chi hien khi co text)
+  - Negative prompt
+
+**File: `src/components/MultiChannelViewer.tsx` (SUA)**
+- Thay import `UnifiedImageGenerator` bang `SimpleImageGenerator`
+- Giu nguyen props interface
+
+**File: `src/components/multichannel/UnifiedImageGenerator.tsx` (GIU LAI)**
+- Khong xoa, giu lam backup/reference
+- Sau nay co the xoa khi da on dinh
 
 ---
 
-## Lợi ích
+## So sanh truoc/sau
 
-1. **Real-time data**: Brainstorm AI luôn có thông tin mới nhất từ web
-2. **Không phụ thuộc AI decision**: Force prefetch đảm bảo web search luôn chạy
-3. **Trải nghiệm nhất quán**: User không cần biết dùng từ khóa đặc biệt
-4. **Backward compatible**: Không ảnh hưởng luồng chat thông thường
+| Tieu chi | Hien tai | Sau khi doi |
+|----------|----------|-------------|
+| So dong code | 1,496 | ~780 (nhieu files) |
+| So buoc de tao anh | 5-8 buoc | 1-2 buoc |
+| So tuy chon hien thi | ~20+ | 3-4 (co the mo rong) |
+| Dialog size | max-w-5xl (split panel) | max-w-lg (single column) |
+| Mode | Batch + Single | Chi Batch (1 kenh = single) |
+| Smart defaults | Co nhung user van phai chon | AI tu chon, user override |
 
 ---
 
-## Ước tính
+## Rui ro va giai phap
 
-- **Độ phức tạp**: Thấp-Trung bình
-- **Files thay đổi**: 3-4 files
-- **Thời gian**: 15-20 phút
-- **Risk**: Thấp - chỉ mở rộng logic có sẵn
+| Rui ro | Giai phap |
+|--------|-----------|
+| Power users mat tinh nang | Tat ca tinh nang van o trong Collapsible |
+| UnifiedImageGenerator cu bi break | Giu nguyen file cu, tao file moi |
+| Logic hooks phuc tap | Reuse tat ca hooks hien tai (useAutoImageGeneration, useSocialImageGeneration) |
+
+---
+
+## Thu tu thuc hien
+
+1. Tao `ImageChannelPicker.tsx`
+2. Tao `ImageAdvancedOptions.tsx`
+3. Tao `SimpleImageGenerator.tsx` (component chinh)
+4. Cap nhat `MultiChannelViewer.tsx` de dung component moi
+5. Test end-to-end
