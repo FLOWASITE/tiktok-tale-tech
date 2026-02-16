@@ -63,7 +63,7 @@ import { ActivityTimeline } from '@/components/viewer/ActivityTimeline';
 import { AIContentSummary } from '@/components/viewer/AIContentSummary';
 import { ContentQualityScore } from '@/components/ContentQualityScore';
 import { WebsiteSEOPreview } from '@/components/viewer/WebsiteSEOPreview';
-import { UnifiedImageGenerator } from '@/components/multichannel/UnifiedImageGenerator';
+import { SimpleImageGenerator } from '@/components/multichannel/SimpleImageGenerator';
 import { ExpandChannelsStreamingDialog } from '@/components/multichannel/ExpandChannelsStreamingDialog';
 import { RegenerateStreamingOverlay } from '@/components/multichannel/streaming/RegenerateStreamingOverlay';
 import { useStreamingRegenerate } from '@/hooks/useStreamingRegenerate';
@@ -1542,7 +1542,7 @@ export function MultiChannelViewer({
       </DialogContent>
       
       {/* Unified Image Generator */}
-      <UnifiedImageGenerator
+      <SimpleImageGenerator
         open={showImageGenerator}
         onOpenChange={(open) => {
           setShowImageGenerator(open);
