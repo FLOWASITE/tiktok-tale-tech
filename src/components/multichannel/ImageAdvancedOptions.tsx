@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, Settings2, Camera, Brush, LayoutGrid, Box, Layers, Droplets, Film, Sparkles } from 'lucide-react';
+import { ChevronDown, Settings2, Camera, Brush, LayoutGrid, Box, Layers, Droplets, Film, Sparkles, Leaf, TrendingUp, Wheat } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -14,6 +14,14 @@ import { VisualTextPositionPreview } from './VisualTextPositionPreview';
 import type { AspectRatioOption, ImageStylePreset } from '@/hooks/useAutoImageGeneration';
 import type { TextPosition, TypographyStyle } from '@/hooks/useSocialImageGeneration';
 import type { StyleSuggestion } from '@/utils/imageStyleSuggestion';
+import type { Channel } from '@/types/multichannel';
+
+
+const ROLE_CONFIG = {
+  seed: { label: 'Seed 🌱', icon: Leaf, className: 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20' },
+  sprout: { label: 'Sprout 🌿', icon: TrendingUp, className: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20' },
+  harvest: { label: 'Harvest 🌾', icon: Wheat, className: 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20' },
+} as const;
 
 interface ImageAdvancedOptionsProps {
   // Style
@@ -50,6 +58,12 @@ interface ImageAdvancedOptionsProps {
   negativePrompt: string;
   onNegativePromptChange: (prompt: string) => void;
 
+  // Strategic context
+  contentRole?: 'seed' | 'sprout' | 'harvest';
+  contentAngle?: string;
+  selectedChannels?: Channel[];
+  hookMessages?: Record<Channel, { hookMessage?: string; hookType?: string }>;
+
   className?: string;
 }
 
@@ -84,6 +98,7 @@ export function ImageAdvancedOptions({
   hasText, textPosition, onTextPositionChange,
   typographyStyle, onTypographyStyleChange, textPreview,
   negativePrompt, onNegativePromptChange,
+  contentRole, contentAngle, selectedChannels, hookMessages,
   className,
 }: ImageAdvancedOptionsProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -199,6 +214,37 @@ export function ImageAdvancedOptions({
             className="h-16 text-xs resize-none"
           />
         </div>
+
+        {/* Strategic Context */}
+        {(contentRole || contentAngle || (selectedChannels && hookMessages && selectedChannels.some(ch => hookMessages[ch]?.hookMessage))) && (
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Ngữ cảnh chiến lược</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {contentRole && (() => {
+                const cfg = ROLE_CONFIG[contentRole];
+                return (
+                  <span className={cn("inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border", cfg.className)}>
+                    {cfg.label}
+                  </span>
+                );
+              })()}
+              {contentAngle && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border bg-muted/40 text-muted-foreground">
+                  📐 {contentAngle}
+                </span>
+              )}
+              {selectedChannels && hookMessages && selectedChannels.slice(0, 3).map(ch => {
+                const h = hookMessages[ch];
+                if (!h?.hookMessage) return null;
+                return (
+                  <span key={ch} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border bg-primary/5 text-primary/70 border-primary/20 max-w-[180px] truncate">
+                    {ch}: {h.hookMessage.slice(0, 40)}{h.hookMessage.length > 40 ? '...' : ''}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </CollapsibleContent>
     </Collapsible>
   );

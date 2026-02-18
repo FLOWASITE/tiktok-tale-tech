@@ -319,9 +319,12 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
     checkActiveTasks();
   }, [checkActiveTasks]);
 
-  // Set up Realtime subscription
+  // Set up Realtime subscription with error suppression
   useEffect(() => {
     if (!user?.id) return;
+
+    let errorCount = 0;
+    const MAX_LOGGED_ERRORS = 2;
 
     const channel = supabase
       .channel(`generation_tasks:${user.id}`)
@@ -338,8 +341,18 @@ export function useBackgroundGeneration(options: UseBackgroundGenerationOptions 
         }
       )
       .subscribe((status) => {
-        setIsConnected(status === 'SUBSCRIBED');
-        console.log('[useBackgroundGeneration] Realtime status:', status);
+        if (status === 'SUBSCRIBED') {
+          setIsConnected(true);
+          errorCount = 0;
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setIsConnected(false);
+          if (errorCount < MAX_LOGGED_ERRORS) {
+            console.warn('[useBackgroundGeneration] Realtime unavailable, using polling fallback');
+            errorCount++;
+          }
+        } else if (status === 'CLOSED') {
+          setIsConnected(false);
+        }
       });
 
     return () => {
