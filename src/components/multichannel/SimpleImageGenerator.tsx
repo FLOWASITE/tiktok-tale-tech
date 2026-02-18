@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
-import { Sparkles, Image, Loader2, Wand2, ArrowLeft, Save } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { Sparkles, Image, Loader2, Wand2, ArrowLeft, Save, Hash, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -24,7 +24,10 @@ import { cn } from '@/lib/utils';
 import { ImageStreamingGrid } from './streaming/ImageStreamingGrid';
 import { ImageChannelPicker } from './ImageChannelPicker';
 import { ImageAdvancedOptions } from './ImageAdvancedOptions';
+import { ImageSettingsSummary } from './ImageSettingsSummary';
 import { BackgroundEditor } from './BackgroundEditor';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { suggestImageStyles, type StyleSuggestion } from '@/utils/imageStyleSuggestion';
 import { useQuery } from '@tanstack/react-query';
@@ -106,6 +109,8 @@ export function SimpleImageGenerator({
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(content?.selected_channels ?? []);
   const [imageContentType, setImageContentType] = useState<ImageContentType>('background_only');
   const [textToInclude, setTextToInclude] = useState('');
+  const [useSharedText, setUseSharedText] = useState(true);
+  const [textsPerChannel, setTextsPerChannel] = useState<Record<Channel, string>>({} as Record<Channel, string>);
   const [isOptimizingText, setIsOptimizingText] = useState(false);
 
   // Advanced (with smart defaults)
@@ -162,14 +167,35 @@ export function SimpleImageGenerator({
     }
   }, [brandTemplate, brandIndustry]);
 
-  // Auto-fill text from hooks
+  // Fill hook text for a specific channel
+  const fillHookText = useCallback((channel: Channel) => {
+    const best = getBestOverlayText(content, channel);
+    if (best) return best;
+    return '';
+  }, [content]);
+
+  // Auto-fill text from hooks when opening
   useEffect(() => {
     if (!open || selectedChannels.length === 0) return;
     if (!textToInclude) {
-      const best = getBestOverlayText(content, selectedChannels[0]);
+      const best = fillHookText(selectedChannels[0]);
       if (best) setTextToInclude(best);
     }
-  }, [open, selectedChannels, content]);
+    // Also fill per-channel texts that are empty
+    if (!useSharedText) {
+      setTextsPerChannel(prev => {
+        const updated = { ...prev };
+        let changed = false;
+        selectedChannels.forEach(ch => {
+          if (!updated[ch]) {
+            const t = fillHookText(ch);
+            if (t) { updated[ch] = t; changed = true; }
+          }
+        });
+        return changed ? updated : prev;
+      });
+    }
+  }, [open, selectedChannels, content, useSharedText]);
 
   // Reset when dialog closes
   useEffect(() => {
@@ -219,14 +245,15 @@ export function SimpleImageGenerator({
     negativePrompt: negativePrompt.trim() || undefined,
     contentRole, contentAngle, hookMessages,
     imageContentType,
-    textToInclude: imageContentType === 'with_text' ? textToInclude : undefined,
+    textToInclude: imageContentType === 'with_text' && useSharedText ? textToInclude : undefined,
+    textsPerChannel: imageContentType === 'with_text' && !useSharedText ? textsPerChannel : undefined,
     textPosition: imageContentType === 'with_text' ? textPosition : undefined,
     typographyStyle: imageContentType === 'with_text' ? typographyStyle : undefined,
     useCanvasFallback: imageContentType === 'with_text' ? true : undefined,
   }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries,
     includeLogo, brandLogoUrl, logoPosition, logoStyle, logoSize, logoOpacity,
     aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages,
-    imageContentType, textToInclude, textPosition, typographyStyle]);
+    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle]);
 
   // ─── Handlers ─────────────────────
   const handleGenerate = async () => {
@@ -238,9 +265,18 @@ export function SimpleImageGenerator({
       toast.error('Vui lòng chọn ít nhất 1 kênh');
       return;
     }
-    if (imageContentType === 'with_text' && !textToInclude.trim()) {
-      toast.error('Vui lòng nhập text để hiển thị trên ảnh');
-      return;
+    if (imageContentType === 'with_text') {
+      if (useSharedText && !textToInclude.trim()) {
+        toast.error('Vui lòng nhập text để hiển thị trên ảnh');
+        return;
+      }
+      if (!useSharedText) {
+        const missing = selectedChannels.filter(ch => !textsPerChannel[ch]?.trim());
+        if (missing.length > 0) {
+          toast.error(`Vui lòng nhập text cho: ${missing.join(', ')}`);
+          return;
+        }
+      }
     }
 
     setViewMode('streaming');
@@ -358,6 +394,16 @@ export function SimpleImageGenerator({
           {viewMode === 'setup' && (
             <ScrollArea className="h-full max-h-[60vh] pr-3">
               <div className="space-y-5 pb-4">
+                {/* Brand template warning */}
+                {!content.brand_template_id && (
+                  <Alert className="border-yellow-500/30 bg-yellow-500/5">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                    <AlertDescription className="text-xs text-yellow-800 dark:text-yellow-300">
+                      Chưa chọn brand template. AI sẽ tạo ảnh nhưng không áp dụng màu sắc thương hiệu.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 {/* Step 1: Channel Picker */}
                 <ImageChannelPicker
                   availableChannels={content.selected_channels || []}
@@ -398,41 +444,142 @@ export function SimpleImageGenerator({
 
                 {/* Text input (only when with_text) */}
                 {imageContentType === 'with_text' && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs text-muted-foreground">Text trên ảnh</Label>
-                      <Button
-                        variant="ghost" size="sm"
-                        className="h-6 text-xs gap-1 text-primary"
-                        onClick={handleOptimizeText}
-                        disabled={isOptimizingText || !textToInclude.trim()}
+                  <div className="space-y-3">
+                    {/* Shared / Per-channel toggle */}
+                    <div className="flex items-center gap-1 p-0.5 bg-muted/50 rounded-lg w-fit">
+                      <button
+                        onClick={() => setUseSharedText(true)}
+                        className={cn(
+                          "px-3 py-1 text-xs rounded-md transition-all font-medium",
+                          useSharedText ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                        )}
                       >
-                        {isOptimizingText ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
-                        AI Tối ưu
-                      </Button>
+                        Chung
+                      </button>
+                      <button
+                        onClick={() => {
+                          setUseSharedText(false);
+                          // Auto-fill per-channel texts
+                          setTextsPerChannel(prev => {
+                            const updated = { ...prev };
+                            let changed = false;
+                            selectedChannels.forEach(ch => {
+                              if (!updated[ch]) {
+                                const t = fillHookText(ch);
+                                if (t) { updated[ch] = t; changed = true; }
+                              }
+                            });
+                            return changed ? updated : prev;
+                          });
+                        }}
+                        className={cn(
+                          "px-3 py-1 text-xs rounded-md transition-all font-medium",
+                          !useSharedText ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Theo kênh
+                      </button>
                     </div>
-                    <Textarea
-                      value={textToInclude}
-                      onChange={e => setTextToInclude(e.target.value)}
-                      placeholder="Nhập text hiển thị trên ảnh..."
-                      className="h-20 text-sm resize-none"
-                    />
+
+                    {useSharedText ? (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs text-muted-foreground">Text trên ảnh</Label>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost" size="sm"
+                              className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                const best = fillHookText(selectedChannels[0] || 'facebook');
+                                if (best) { setTextToInclude(best); toast.success('Đã điền hook'); }
+                                else toast.error('Không tìm thấy hook');
+                              }}
+                            >
+                              <Hash className="w-3 h-3" />
+                              Dùng Hook
+                            </Button>
+                            <Button
+                              variant="ghost" size="sm"
+                              className="h-6 text-xs gap-1 text-primary"
+                              onClick={handleOptimizeText}
+                              disabled={isOptimizingText || !textToInclude.trim()}
+                            >
+                              {isOptimizingText ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                              AI Tối ưu
+                            </Button>
+                          </div>
+                        </div>
+                        <Textarea
+                          value={textToInclude}
+                          onChange={e => setTextToInclude(e.target.value)}
+                          placeholder="Nhập text hiển thị trên ảnh..."
+                          className="h-20 text-sm resize-none"
+                        />
+                      </div>
+                    ) : (
+                      <Tabs defaultValue={selectedChannels[0]} className="w-full">
+                        <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
+                          {selectedChannels.map(ch => (
+                            <TabsTrigger key={ch} value={ch} className="text-xs px-2 py-1 h-auto">
+                              {ch}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+                        {selectedChannels.map(ch => (
+                          <TabsContent key={ch} value={ch} className="mt-2 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs text-muted-foreground">Text – {ch}</Label>
+                              <Button
+                                variant="ghost" size="sm"
+                                className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                                onClick={() => {
+                                  const best = fillHookText(ch);
+                                  if (best) {
+                                    setTextsPerChannel(prev => ({ ...prev, [ch]: best }));
+                                    toast.success('Đã điền hook');
+                                  } else toast.error('Không tìm thấy hook');
+                                }}
+                              >
+                                <Hash className="w-3 h-3" />
+                                Dùng Hook
+                              </Button>
+                            </div>
+                            <Textarea
+                              value={textsPerChannel[ch] || ''}
+                              onChange={e => setTextsPerChannel(prev => ({ ...prev, [ch]: e.target.value }))}
+                              placeholder={`Text cho ${ch}...`}
+                              className="h-16 text-sm resize-none"
+                            />
+                          </TabsContent>
+                        ))}
+                      </Tabs>
+                    )}
                   </div>
                 )}
 
-                {/* CTA Button */}
-                <Button
-                  onClick={handleGenerate}
-                  disabled={batchGen.isGenerating || selectedChannels.length === 0}
-                  className="w-full h-11 gap-2 text-base"
-                  size="lg"
-                >
-                  {batchGen.isGenerating ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Đang tạo...</>
-                  ) : (
-                    <><Sparkles className="w-4 h-4" /> Tạo {selectedChannels.length} ảnh</>
-                  )}
-                </Button>
+                {/* Settings Summary + CTA */}
+                <div className="space-y-2">
+                  <ImageSettingsSummary
+                    imageStyle={imageStyle}
+                    aspectRatio={aspectRatio}
+                    includeLogo={includeLogo}
+                    logoPosition={logoPosition}
+                    hasBrandLogo={!!brandLogoUrl}
+                    imageContentType={imageContentType}
+                  />
+                  <Button
+                    onClick={handleGenerate}
+                    disabled={batchGen.isGenerating || selectedChannels.length === 0}
+                    className="w-full h-11 gap-2 text-base"
+                    size="lg"
+                  >
+                    {batchGen.isGenerating ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Đang tạo...</>
+                    ) : (
+                      <><Sparkles className="w-4 h-4" /> Tạo {selectedChannels.length} ảnh</>
+                    )}
+                  </Button>
+                </div>
 
                 {/* Advanced Options */}
                 <ImageAdvancedOptions
@@ -460,6 +607,10 @@ export function SimpleImageGenerator({
                   textPreview={textToInclude}
                   negativePrompt={negativePrompt}
                   onNegativePromptChange={setNegativePrompt}
+                  contentRole={contentRole}
+                  contentAngle={contentAngle}
+                  selectedChannels={selectedChannels}
+                  hookMessages={hookMessages}
                 />
               </div>
             </ScrollArea>
