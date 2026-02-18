@@ -1,203 +1,114 @@
-# Kế hoạch: Đơn giản hóa UI/UX Tạo ảnh AI
 
-## Phân tích vấn đề hiện tại
 
-### UnifiedImageGenerator hiện tại (1,496 dòng code)
+# Danh gia & Hoan thien he thong tao anh AI (SimpleImageGenerator)
 
-File hiện tại chứa quá nhiều tính năng hiển thị cùng lúc trong một Dialog split-panel:
+## Trang thai hien tai
 
-**Panel trái (Form Controls) - Quá tải:**
-
-1. Mode toggle (Batch / Single)
-2. Brand preview card
-3. Channel selection grid (12 kênh, mỗi kênh là 1 button)
-4. Prompt editor (chỉ single mode)
-5. Image type toggle (Ảnh nền / Có text)
-6. Text input + shared/per-channel toggle
-7. AI Optimize button
-8. "Dùng Hook" button
-
-**Panel phải (Visual Settings) - Quá tải:**
-
-1. VisualTextPositionPreview (3x3 grid + 7 kiểu chữ)
-2. Canvas Fallback toggle
-3. AI Style Suggestions
-4. Style selection grid (8 phong cách)
-5. Aspect ratio chips (5 tỉ lệ)
-6. Logo options panel (9 vị trí, 5 styles, 2 sliders)
-7. Advanced options (negative prompt, context preview)
-
-**Tổng cộng: ~20+ điều khiển hiển thị đồng thời**
-
-### Vấn đề UX cốt lõi
-
-- Người dùng phải đưa ra quá nhiều quyết định trước khi tạo ảnh
-- Nhiều tùy chọn chỉ hữu ích cho power users nhưng lại hiển thị cho tất cả
-- Không có "happy path" rõ ràng -- user không biết bắt đầu từ đâu
-- Dialog quá lớn (max-w-5xl) với split-panel layout phức tạp
+SimpleImageGenerator da duoc xay dung voi triet ly "One-Click First, Customize Later" va hoat dong co ban. Sau khi review toan dien code va UI, toi phat hien cac van de can hoan thien:
 
 ---
 
-## Giải pháp: "One-Click First, Customize Later"
+## 1. Cac van de can sua
 
-### Triết lý thiết kế
+### 1.1. Thieu xu ly loi `useBackgroundGeneration` (CRITICAL)
+Console logs cho thay loi lien tuc:
+- `useBackgroundGeneration Error fetching tasks: Failed to fetch`
+- `Realtime status: CHANNEL_ERROR` (lap lai 7 lan)
 
-- **80% users**: Chỉ cần nhấn 1 nút "Tạo ảnh" -- AI tự quyết định mọi thứ
-- **20% power users**: Có thể tùy chỉnh thêm nếu muốn
-- Mọi tùy chọn nâng cao ẩn trong Collapsible, không hiển thị mặc định
+Can fix realtime subscription de khong spam console va khong anh huong UX.
 
-### Luồng mới (3 bước đơn giản)
+### 1.2. Khong co loading state khi dialog mo
+Khi mo dialog, khong co skeleton/placeholder cho channel picker. Neu `content.selected_channels` load cham, UI se trong.
 
-```text
-+------------------------------------------+
-| Buoc 1: CHON KENH (mac dinh: tat ca)     |
-| [FB] [IG] [LI] [TW] ...  (chip toggles) |
-|                                           |
-| Buoc 2: CHON KIEU ANH                    |
-| [Anh nen]  [Social Graphic (co text)]    |
-|                                           |
-| Text: [________________] (neu co text)   |
-|                                           |
-|        [ ✨ Tao X anh ]                  |
-|                                           |
-| v Tuy chinh nang cao                     |
-|   - Phong cach, Ti le, Logo, Prompt...   |
-+------------------------------------------+
-```
+### 1.3. Thieu validation UX cho brand template
+Hien tai chi hien toast error "Vui long chon brand template truoc" khi nhan nut. Can hien thi warning noi bat ngay trong dialog de user biet truoc khi nhan nut.
+
+### 1.4. Text auto-fill chi chay 1 lan
+`useEffect` auto-fill text chỉ chạy khi `textToInclude` rỗng. Nếu user xóa text rồi chuyển channel, text không tự fill lại. Can them nut "Dung Hook" de user chu dong fill lai.
+
+### 1.5. Thieu per-channel text (da co trong hook nhung chua dung)
+`useAutoImageGeneration` ho tro `textsPerChannel` nhung `SimpleImageGenerator` chi gui `textToInclude` (shared text). Can them option cho phep user chon "Chung cho tat ca" hoac "Tuy chinh theo kenh".
+
+### 1.6. Khong co preview truoc khi tao
+User khong biet anh se trong nhu the nao truoc khi nhan "Tao". Can them 1 dong tom tat: "Phong cach: Minimalist | Ti le: Auto | Logo: Co" de user biet AI se dung gi.
+
+### 1.7. Dialog khong responsive tren mobile
+Dialog `sm:max-w-lg` chuyen sang `sm:max-w-3xl` khi streaming. Tren mobile nho, ScrollArea co the bi cat.
+
+---
+
+## 2. Tinh nang thieu so voi UnifiedImageGenerator (legacy)
+
+| Tinh nang | UnifiedImageGenerator | SimpleImageGenerator | Trang thai |
+|-----------|----------------------|---------------------|-----------|
+| Batch mode | Co | Co | OK |
+| Single mode (prompt tu nhap) | Co | Khong (by design) | OK - da loai bo |
+| Per-channel text | Co (textsPerChannel) | Khong | **Can them** |
+| "Dung Hook" button | Co | Khong | **Can them** |
+| StrategicContextPreview | Co | Khong | **Can them** (trong Advanced) |
+| AI Style Suggestions badge | Co | Co (trong Advanced) | OK |
+| Canvas Fallback toggle | Co (hien thi) | Co (an, mac dinh bat) | OK |
+| Background editor | Co | Co | OK |
+
+---
+
+## 3. Ke hoach hoan thien
+
+### Buoc 1: Them nut "Dung Hook" va smart refill
+- Them Button "Dung Hook" ben canh "AI Toi uu" trong phan text input
+- Khi nhan: auto-fill text tu `getBestOverlayText` cho channel dang chon
+
+### Buoc 2: Them Settings Summary (1 dong tom tat)
+- Hien thi ngay tren nut CTA: "Minimalist | 16:9 | Logo bottom-right"
+- Giup user biet AI se dung gi ma khong can mo Advanced Options
+
+### Buoc 3: Them per-channel text option
+- Them toggle "Chung / Tuy chinh" trong phan text
+- Neu chon "Tuy chinh": hien tabs theo kenh da chon, moi tab 1 textarea
+- Map sang `textsPerChannel` trong batchOptions
+
+### Buoc 4: Them StrategicContextPreview vao Advanced Options
+- Di chuyen StrategicContextPreview vao ben trong Collapsible
+- Hien thi content_role, content_angle, hook nhu badges mau sac
+
+### Buoc 5: Fix brand template warning
+- Neu `content.brand_template_id` khong co, hien Alert component trong dialog thay vi chi toast khi nhan nut
+
+### Buoc 6: Fix useBackgroundGeneration realtime errors
+- Them error handling/retry logic cho realtime subscription
+- Giam tan suat log spam
+
+### Buoc 7: Mobile responsive
+- Dam bao dialog hoat dong tot tren viewport 375px
+- Test ScrollArea tren mobile
 
 ---
 
 ## Chi tiet ky thuat
 
-### 1. Tach component thanh cac file nho
+### File can sua:
 
+**`src/components/multichannel/SimpleImageGenerator.tsx`**
+- Them "Dung Hook" button (line ~400-420)
+- Them Settings Summary component truoc CTA button (line ~423)
+- Them per-channel text toggle + tabs (line ~400)
+- Them brand template warning Alert (line ~360)
 
-| File moi                    | Noi dung                                    | Dong code (uoc tinh) |
-| --------------------------- | ------------------------------------------- | -------------------- |
-| `SimpleImageGenerator.tsx`  | Component chinh, layout don gian            | ~300                 |
-| `ImageChannelPicker.tsx`    | Chon kenh bang chip toggles                 | ~80                  |
-| `ImageStyleCollapsible.tsx` | Phong cach + ti le + logo (collapsible)     | ~200                 |
-| `ImageTextOptions.tsx`      | Text input, position, typography            | ~150                 |
-| `ImagePreviewGrid.tsx`      | Hien thi ket qua (reuse ImageStreamingGrid) | ~50                  |
+**`src/components/multichannel/ImageAdvancedOptions.tsx`**
+- Import va them `StrategicContextPreview` vao cuoi CollapsibleContent
 
+**`src/hooks/useBackgroundGeneration.ts`** (neu co)
+- Fix realtime subscription error handling
 
-**Tong: ~780 dong** (giam 48% so voi 1,496 dong hien tai)
-
-### 2. SimpleImageGenerator - Layout moi
-
-Thay vi split-panel 2 cot, dung single-column scrollable:
-
-```text
-Dialog (max-w-lg, nho gon hon)
-|
-|-- Header: "Tao anh AI" + brand info (1 dong)
-|
-|-- Channel chips (1-2 dong, mac dinh chon tat ca)
-|
-|-- Image type toggle (Anh nen / Social Graphic)
-|
-|-- [Neu Social Graphic] Text input + AI Optimize
-|
-|-- CTA Button: "Tao X anh"
-|
-|-- [Collapsible] Tuy chinh nang cao
-|    |-- Phong cach anh (grid 4 col)
-|    |-- Ti le khung hinh (chips)
-|    |-- Logo options (toggle + panel)
-|    |-- Text position + typography (neu co text)
-|    |-- Negative prompt
-|
-|-- [Streaming/Preview] Ket qua
-```
-
-### 3. Smart Defaults - AI tu quyet dinh
-
-Thay vi bat user chon:
-
-- **Phong cach**: Tu dong theo brand industry (da co `suggestImageStyles`)
-- **Ti le khung hinh**: Tu dong `auto` (da co `CHANNEL_OPTIMAL_ASPECT_RATIO`)
-- **Logo**: Tu dong bat neu co `brandLogoUrl`, vi tri `bottom-right`
-- **Text**: Tu dong dien tu Hook neu chon "Social Graphic"
-- **Canvas Fallback**: Mac dinh bat, an khoi user
-
-### 4. Loai bo che do Single
-
-Hien tai co 2 mode: Batch va Single. Che do Single khong can thiet vi:
-
-- Batch voi 1 kenh = Single
-- Giam complexity dang ke (loai bo prompt editor, mode toggle)
-- User van co the chon chi 1 kenh trong batch mode
-
-### 5. Cac thay doi cu the
-
-**File: `src/components/multichannel/SimpleImageGenerator.tsx` (MOI)**
-
-- Component chinh thay the UnifiedImageGenerator
-- Single-column layout, max-w-lg
-- Channel picker bang compact chips (khong phai grid 2 col)
-- Image type toggle (2 buttons)
-- Text input (chi hien khi chon "Social Graphic")
-- 1 nut CTA lon
-- Collapsible "Tuy chinh nang cao" chua tat ca options con lai
-
-**File: `src/components/multichannel/ImageChannelPicker.tsx` (MOI)**
-
-- Compact chip-style channel toggles
-- Select all / deselect all
-- Hien thi icon + ten ngan (FB, IG, LI...)
-
-**File: `src/components/multichannel/ImageAdvancedOptions.tsx` (MOI)**
-
-- Collapsible wrapper chua:
-  - Style grid (giu nguyen 8 styles)
-  - Aspect ratio chips (giu nguyen)
-  - Logo toggle + LogoOptionsPanel (giu nguyen)
-  - VisualTextPositionPreview (chi hien khi co text)
-  - Negative prompt
-
-**File: `src/components/MultiChannelViewer.tsx` (SUA)**
-
-- Thay import `UnifiedImageGenerator` bang `SimpleImageGenerator`
-- Giu nguyen props interface
-
-**File: `src/components/multichannel/UnifiedImageGenerator.tsx` (GIU LAI)**
-
-- Khong xoa, giu lam backup/reference
-- Sau nay co the xoa khi da on dinh
+### File moi:
+- **`src/components/multichannel/ImageSettingsSummary.tsx`**: Component 1 dong hien thi settings hien tai (style, ratio, logo, text)
 
 ---
 
-## So sanh truoc/sau
+## Uu tien thuc hien
 
+1. **Cao**: Buoc 1 (Hook button) + Buoc 2 (Settings Summary) - UX quan trong nhat
+2. **Cao**: Buoc 5 (Brand template warning) - tranh confuse user
+3. **Trung binh**: Buoc 3 (Per-channel text) - power user feature
+4. **Thap**: Buoc 4 (Strategic preview) + Buoc 6 (Realtime fix) + Buoc 7 (Mobile)
 
-| Tieu chi             | Hien tai                    | Sau khi doi                 |
-| -------------------- | --------------------------- | --------------------------- |
-| So dong code         | 1,496                       | ~780 (nhieu files)          |
-| So buoc de tao anh   | 5-8 buoc                    | 1-2 buoc                    |
-| So tuy chon hien thi | ~20+                        | 3-4 (co the mo rong)        |
-| Dialog size          | max-w-5xl (split panel)     | max-w-lg (single column)    |
-| Mode                 | Batch + Single              | Chi Batch (1 kenh = single) |
-| Smart defaults       | Co nhung user van phai chon | AI tu chon, user override   |
-
-
----
-
-## Rui ro va giai phap
-
-
-| Rui ro                            | Giai phap                                                                      |
-| --------------------------------- | ------------------------------------------------------------------------------ |
-| Power users mat tinh nang         | Tat ca tinh nang van o trong Collapsible                                       |
-| UnifiedImageGenerator cu bi break | Giu nguyen file cu, tao file moi                                               |
-| Logic hooks phuc tap              | Reuse tat ca hooks hien tai (useAutoImageGeneration, useSocialImageGeneration) |
-
-
----
-
-## Thu tu thuc hien
-
-1. Tao `ImageChannelPicker.tsx`
-2. Tao `ImageAdvancedOptions.tsx`
-3. Tao `SimpleImageGenerator.tsx` (component chinh)
-4. Cap nhat `MultiChannelViewer.tsx` de dung component moi
-5. Test end-to-end
