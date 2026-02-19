@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -105,6 +106,11 @@ serve(async (req) => {
     const editPrompt = buildEditPrompt(request);
     console.log(`[edit-image-background] Prompt: ${editPrompt.slice(0, 100)}...`);
 
+    // Read model config from Admin Panel (DB) — falls back to default if not configured
+    const aiConfig = await getAIConfig('edit-image-background');
+    const modelToUse = aiConfig.model;
+    console.log(`[edit-image-background] Using model from config: ${modelToUse}`);
+
     // Call Gemini with image editing
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -113,7 +119,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image",
+        model: modelToUse,
         messages: [{
           role: "user",
           content: [
