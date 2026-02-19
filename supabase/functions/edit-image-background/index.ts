@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared/kie-image-generator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -111,64 +112,107 @@ serve(async (req) => {
     const modelToUse = aiConfig.model;
     console.log(`[edit-image-background] Using model from config: ${modelToUse}`);
 
-    // Call Gemini with image editing
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: modelToUse,
-        messages: [{
-          role: "user",
-          content: [
-            { type: "text", text: editPrompt },
-            { type: "image_url", image_url: { url: request.imageUrl } }
-          ]
-        }],
-        modalities: ["image", "text"],
-      }),
-    });
+    let editedImageUrl: string | null = null;
+    let assistantMessage: string | undefined;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[edit-image-background] AI gateway error: ${response.status}`, errorText);
-      
-      if (response.status === 429) {
+    // Route to KIE.ai if model is a KIE model
+    if (isKieModel(modelToUse)) {
+      const KIE_API_KEY = Deno.env.get('KIE_API_KEY');
+      if (!KIE_API_KEY) {
         return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: "Đã vượt giới hạn request. Vui lòng thử lại sau ít phút.",
-            errorCode: "RATE_LIMIT"
-          }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: "Cần nạp thêm credits để sử dụng tính năng này.",
-            errorCode: "PAYMENT_REQUIRED"
-          }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ success: false, error: 'KIE_API_KEY not configured. Please add it in project secrets.' }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      return new Response(
-        JSON.stringify({ success: false, error: "AI processing failed" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.log(`[edit-image-background] Routing to KIE.ai: ${modelToUse}`);
+      try {
+        editedImageUrl = await generateImageViaKie({
+          prompt: editPrompt,
+          model: modelToUse,
+          inputImage: request.imageUrl,
+          outputFormat: request.editType === 'remove' ? 'png' : 'jpeg',
+          aspectRatio: '1:1',
+        }, KIE_API_KEY);
+      } catch (kieErr) {
+        const kieErrMsg = kieErr instanceof Error ? kieErr.message : String(kieErr);
+        console.error(`[edit-image-background] KIE.ai failed: ${kieErrMsg}`);
+
+        if (kieErrMsg.includes('KIE_AUTH_ERROR') || kieErrMsg.includes('KIE_CREDITS_EXHAUSTED')) {
+          return new Response(
+            JSON.stringify({ success: false, error: kieErrMsg }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        if (kieErrMsg.includes('KIE_RATE_LIMIT')) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Đã vượt giới hạn request kie.ai. Vui lòng thử lại sau.' }),
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        // Don't fall back for image editing — KIE and Lovable formats differ too much
+        throw kieErr;
+      }
+    } else {
+      // Lovable AI flow (existing Gemini)
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: modelToUse,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: editPrompt },
+              { type: "image_url", image_url: { url: request.imageUrl } }
+            ]
+          }],
+          modalities: ["image", "text"],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[edit-image-background] AI gateway error: ${response.status}`, errorText);
+        
+        if (response.status === 429) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: "Đã vượt giới hạn request. Vui lòng thử lại sau ít phút.",
+              errorCode: "RATE_LIMIT"
+            }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        if (response.status === 402) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: "Cần nạp thêm credits để sử dụng tính năng này.",
+              errorCode: "PAYMENT_REQUIRED"
+            }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ success: false, error: "AI processing failed" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const data = await response.json();
+      editedImageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      assistantMessage = data.choices?.[0]?.message?.content;
     }
 
-    const data = await response.json();
-    const editedImageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    const assistantMessage = data.choices?.[0]?.message?.content;
-
     if (!editedImageUrl) {
-      console.error("[edit-image-background] No image in response", JSON.stringify(data).slice(0, 500));
+      console.error("[edit-image-background] No image in response");
       return new Response(
         JSON.stringify({ 
           success: false, 
