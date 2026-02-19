@@ -398,6 +398,14 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
   },
 };
 
+// KIE.ai model prefixes - models served through kie.ai gateway
+export const KIE_MODEL_PREFIXES = ['flux-kontext', 'gpt-image', 'grok-imagine'];
+
+// Check if a model is a KIE.ai model
+export const isKieModel = (modelId: string): boolean => {
+  return KIE_MODEL_PREFIXES.some(prefix => modelId.startsWith(prefix));
+};
+
 // Lovable AI model prefixes - models that are served through Lovable AI gateway
 export const LOVABLE_MODEL_PREFIXES = [
   'google/gemini-2.5',
@@ -436,6 +444,19 @@ export const getModelInfo = (modelId: string): ModelInfo => {
     return MODEL_INFO[modelId];
   }
   
+  // Check KIE.ai models first (they don't follow Lovable prefix pattern)
+  if (isKieModel(modelId)) {
+    return {
+      shortName: extractShortName(modelId),
+      description: 'KIE.ai image model',
+      speed: 'medium' as ModelSpeed,
+      quality: 'high' as ModelQuality,
+      cost: 'low' as ModelCost,
+      bestFor: ['Image generation'],
+      provider: 'kie',
+    };
+  }
+
   // Determine provider: Lovable AI models vs OpenRouter
   const isLovableModel = isLovableAIModel(modelId);
     

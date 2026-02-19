@@ -7,11 +7,12 @@ import {
   MODELS_BY_TYPE, 
   MODELS_BY_PROVIDER, 
   getModelInfo,
+  isKieModel,
   AIFunctionType,
   ModelInfo 
 } from '@/hooks/useAIConfig';
 import { useOpenRouterModels, openRouterModelToModelInfo, groupModelsByProvider } from '@/hooks/useOpenRouterModels';
-import { Search, Sparkles, ExternalLink, Zap, Star, DollarSign, Loader2, RefreshCw, Brain, Code, Image } from 'lucide-react';
+import { Search, Sparkles, ExternalLink, Zap, Star, DollarSign, Loader2, RefreshCw, Brain, Code, Image, Key } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -51,10 +52,10 @@ export function ModelSelector({
 
   // Get available models based on function type
   const availableModels = useMemo(() => {
-    const lovableModels = MODELS_BY_TYPE[functionType] || MODELS_BY_TYPE.text;
+    const allLovableModels = MODELS_BY_TYPE[functionType] || MODELS_BY_TYPE.text;
     
     return {
-      lovable: lovableModels,
+      lovable: allLovableModels,
       openrouter: openRouterModels,
     };
   }, [functionType, openRouterModels]);
@@ -63,6 +64,17 @@ export function ModelSelector({
   const groupedOpenRouterModels = useMemo(() => {
     return groupModelsByProvider(openRouterModels);
   }, [openRouterModels]);
+
+  // Split Lovable/KIE models (only for image function type)
+  const { kieModels: availableKieModels, lovableOnlyModels: availableLovableOnlyModels } = useMemo(() => {
+    if (functionType !== 'image') {
+      return { kieModels: [] as string[], lovableOnlyModels: availableModels.lovable };
+    }
+    return {
+      kieModels: availableModels.lovable.filter(id => isKieModel(id)),
+      lovableOnlyModels: availableModels.lovable.filter(id => !isKieModel(id)),
+    };
+  }, [availableModels.lovable, functionType]);
 
   // Filter models based on search, filter, and provider
   const filteredModels = useMemo(() => {
@@ -138,11 +150,16 @@ export function ModelSelector({
       lovableFiltered = [];
     }
 
+    // For image functions, split into KIE vs pure Lovable
+    const kieFiltered = functionType === 'image' ? lovableFiltered.filter(id => isKieModel(id)) : [];
+    const lovableOnlyFiltered = functionType === 'image' ? lovableFiltered.filter(id => !isKieModel(id)) : lovableFiltered;
+
     return {
-      lovable: lovableFiltered,
+      lovable: lovableOnlyFiltered,
+      kie: kieFiltered,
       openrouter: openrouterFiltered,
     };
-  }, [availableModels, searchQuery, activeFilter, providerFilter]);
+  }, [availableModels, searchQuery, activeFilter, providerFilter, functionType]);
 
   // Group filtered OpenRouter models
   const filteredGroupedOpenRouter = useMemo(() => {
@@ -154,7 +171,7 @@ export function ModelSelector({
     onOpenChange(false);
   };
 
-  const totalModels = filteredModels.lovable.length + filteredModels.openrouter.length;
+  const totalModels = filteredModels.lovable.length + filteredModels.kie.length + filteredModels.openrouter.length;
   const hasOpenRouter = hasOpenRouterApiKey && functionType === 'text';
 
   return (
@@ -336,7 +353,43 @@ export function ModelSelector({
               </div>
             )}
 
-            {/* OpenRouter Models - Grouped by Provider */}
+            {/* KIE.ai Models (only for image functions) */}
+            {filteredModels.kie.length > 0 && (
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-violet-500/5 border border-violet-500/20 sticky top-0 z-10">
+                  <div className="w-2 h-2 rounded-full bg-violet-500" />
+                  <Key className="h-4 w-4 text-violet-500" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-xs sm:text-sm text-violet-700 dark:text-violet-400">KIE.ai</h3>
+                    <p className="text-[10px] sm:text-xs text-violet-600/70 dark:text-violet-400/70 truncate">
+                      Flux Kontext, GPT-Image — giá tốt, chất lượng cao
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-[9px] sm:text-[10px] bg-violet-500/10 text-violet-600 border-violet-500/30">
+                    {filteredModels.kie.length}
+                  </Badge>
+                </div>
+                <div className="p-2 rounded-lg bg-violet-500/5 border border-violet-500/10 flex items-center gap-2">
+                  <Key className="h-3.5 w-3.5 text-violet-500 flex-shrink-0" />
+                  <p className="text-[10px] sm:text-xs text-violet-600/80 dark:text-violet-400/80">
+                    Yêu cầu <code className="font-mono font-medium">KIE_API_KEY</code> trong Secrets
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
+                  {filteredModels.kie.map((modelId) => (
+                    <ModelCard
+                      key={modelId}
+                      modelId={modelId}
+                      info={getModelInfo(modelId)}
+                      isSelected={selectedModel === modelId}
+                      onClick={() => handleSelectModel(modelId)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+
             {hasOpenRouter && (
               <>
                 {isLoadingModels ? (

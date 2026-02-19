@@ -18,7 +18,7 @@ import { FunctionCategoryGroup } from './FunctionCategoryGroup';
 import { CategoryManager } from './CategoryManager';
 import { AIFunction } from './FunctionCard';
 import { countByTag } from './FunctionTagBadges';
-import { Settings, Search, Zap, MessageSquare, Lightbulb, Image, Wand2, Type, Globe, ChevronRight, Sparkles, Star, LayoutGrid, List, FolderOpen, Network } from 'lucide-react';
+import { Settings, Search, Zap, MessageSquare, Lightbulb, Image, Wand2, Type, Globe, ChevronRight, Sparkles, Star, LayoutGrid, List, FolderOpen, Network, DollarSign } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -40,6 +40,12 @@ const QUICK_PRESETS = {
   default: { label: 'Mặc định', description: 'Model được khuyến nghị cho function này', icon: <Sparkles className="h-5 w-5" /> },
   fast: { label: 'Nhanh nhất', description: 'Gemini 2.5 Flash Lite - Phản hồi cực nhanh', icon: <Zap className="h-5 w-5" />, model: 'google/gemini-2.5-flash-lite' },
   quality: { label: 'Chất lượng cao', description: 'Gemini 3 Pro - Kết quả tốt nhất', icon: <Star className="h-5 w-5" />, model: 'google/gemini-3-pro-preview' },
+};
+
+const IMAGE_QUICK_PRESETS = {
+  gemini_flash: { label: 'Gemini Flash Image', description: 'Lovable AI - Nhanh & tiết kiệm', icon: <Zap className="h-5 w-5" />, model: 'google/gemini-2.5-flash-image' },
+  flux_kontext: { label: 'Flux Kontext Pro ⭐', description: 'KIE.ai - Chất lượng cao, giá rẻ', icon: <DollarSign className="h-5 w-5" />, model: 'flux-kontext-pro' },
+  gemini_pro: { label: 'Gemini 3 Image', description: 'Lovable AI - Chất lượng cao nhất', icon: <Star className="h-5 w-5" />, model: 'google/gemini-3-pro-image-preview' },
 };
 
 export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigProps) {
@@ -218,10 +224,13 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
     setIsDialogOpen(true);
   };
 
-  const getCurrentQuickPreset = (): 'default' | 'fast' | 'quality' | 'custom' => {
+  const getCurrentQuickPreset = (): 'default' | 'fast' | 'quality' | 'image_gemini_flash' | 'image_flux' | 'image_gemini_pro' | 'custom' => {
     if (!editingFunction?.modelOverride) return 'default';
     if (editingFunction.modelOverride === QUICK_PRESETS.fast.model) return 'fast';
     if (editingFunction.modelOverride === QUICK_PRESETS.quality.model) return 'quality';
+    if (editingFunction.modelOverride === IMAGE_QUICK_PRESETS.gemini_flash.model) return 'image_gemini_flash';
+    if (editingFunction.modelOverride === IMAGE_QUICK_PRESETS.flux_kontext.model) return 'image_flux';
+    if (editingFunction.modelOverride === IMAGE_QUICK_PRESETS.gemini_pro.model) return 'image_gemini_pro';
     return 'custom';
   };
 
@@ -446,6 +455,32 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                           icon={QUICK_PRESETS.quality.icon}
                           isSelected={getCurrentQuickPreset() === 'quality'}
                           onClick={() => setEditingFunction({ ...editingFunction, modelOverride: QUICK_PRESETS.quality.model })}
+                        />
+                      </>
+                    )}
+
+                    {(currentFunctionMeta?.type === 'image' || currentFunctionMeta?.type === 'image-direct') && (
+                      <>
+                        <QuickSelectButton
+                          label={IMAGE_QUICK_PRESETS.gemini_flash.label}
+                          description={IMAGE_QUICK_PRESETS.gemini_flash.description}
+                          icon={IMAGE_QUICK_PRESETS.gemini_flash.icon}
+                          isSelected={getCurrentQuickPreset() === 'image_gemini_flash'}
+                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: IMAGE_QUICK_PRESETS.gemini_flash.model })}
+                        />
+                        <QuickSelectButton
+                          label={IMAGE_QUICK_PRESETS.flux_kontext.label}
+                          description={IMAGE_QUICK_PRESETS.flux_kontext.description}
+                          icon={IMAGE_QUICK_PRESETS.flux_kontext.icon}
+                          isSelected={getCurrentQuickPreset() === 'image_flux'}
+                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: IMAGE_QUICK_PRESETS.flux_kontext.model })}
+                        />
+                        <QuickSelectButton
+                          label={IMAGE_QUICK_PRESETS.gemini_pro.label}
+                          description={IMAGE_QUICK_PRESETS.gemini_pro.description}
+                          icon={IMAGE_QUICK_PRESETS.gemini_pro.icon}
+                          isSelected={getCurrentQuickPreset() === 'image_gemini_pro'}
+                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: IMAGE_QUICK_PRESETS.gemini_pro.model })}
                         />
                       </>
                     )}
