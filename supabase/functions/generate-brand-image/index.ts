@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getAIConfig } from "../_shared/ai-config.ts";
 import { 
   buildImagePrompt,
   buildSimpleImagePrompt,
@@ -44,8 +45,8 @@ interface GenerateImageRequest {
   typographyStyle?: TypographyStyle;
 }
 
-// Model fallback configuration (primary → fallback)
-const IMAGE_MODELS = {
+// Default model fallback (used when config not available)
+const DEFAULT_IMAGE_MODELS = {
   primary: "google/gemini-3-pro-image-preview",
   fallback: "google/gemini-2.5-flash-image",
 } as const;
@@ -120,13 +121,14 @@ function validateImageQuality(base64Data: string): { valid: boolean; reason?: st
 async function generateImageWithRetry(
   prompt: string,
   apiKey: string,
+  models: { primary: string; fallback: string } = DEFAULT_IMAGE_MODELS,
   maxRetries: number = QUALITY_THRESHOLDS.maxRetries
 ): Promise<{ imageData: string; model: string; attempts: number }> {
   let lastError: Error | null = null;
   let attempts = 0;
   
   // Try with primary model first, then fallback
-  const modelsToTry = [IMAGE_MODELS.primary, IMAGE_MODELS.fallback];
+  const modelsToTry = [models.primary, models.fallback];
   
   for (const model of modelsToTry) {
     for (let retry = 0; retry <= maxRetries; retry++) {
@@ -178,7 +180,7 @@ async function generateImageWithRetry(
           lastError = new Error(validation.reason || "Quality check failed");
           
           // If failed on primary, try fallback with simplified prompt
-          if (model === IMAGE_MODELS.primary && retry === maxRetries) {
+          if (model === models.primary && retry === maxRetries) {
             console.log("[generate-brand-image] Primary model exhausted, trying fallback...");
             break; // Move to fallback model
           }
@@ -407,13 +409,23 @@ serve(async (req) => {
 
     console.log("[generate-brand-image] Starting image generation with smart retry...");
 
+    // Read model config from Admin Panel (DB) — falls back to default if not configured
+    const aiConfig = await getAIConfig('generate-brand-image', brandTemplate.organization_id);
+    const primaryModel = aiConfig.model;
+    // Auto-determine fallback: if using pro → flash fallback, if using flash → pro fallback
+    const fallbackModel = primaryModel === 'google/gemini-3-pro-image-preview'
+      ? 'google/gemini-2.5-flash-image'
+      : 'google/gemini-3-pro-image-preview';
+    
+    console.log(`[generate-brand-image] Using model from config: ${primaryModel}, fallback: ${fallbackModel}`);
+
     // Generate with smart retry and model fallback
     let imageData: string;
     let modelUsed: string;
     let totalAttempts: number;
     
     try {
-      const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY);
+      const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, { primary: primaryModel, fallback: fallbackModel });
       imageData = result.imageData;
       modelUsed = result.model;
       totalAttempts = result.attempts;
