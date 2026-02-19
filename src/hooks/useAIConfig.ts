@@ -91,6 +91,7 @@ export const AI_FUNCTIONS = [
   // Image Generation Functions  
   { name: 'generate-brand-image', description: 'Tạo hình ảnh thương hiệu', category: 'image', type: 'image' as AIFunctionType, currentModel: 'google/gemini-3-pro-image-preview' },
   { name: 'generate-social-image', description: 'Tạo hình ảnh social', category: 'image', type: 'image' as AIFunctionType, currentModel: 'google/gemini-3-pro-image-preview' },
+  { name: 'edit-image-background', description: 'Chỉnh sửa nền ảnh', category: 'image', type: 'image' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-image' },
   { name: 'overlay-brand-logo', description: 'Overlay logo', category: 'image', type: 'image' as AIFunctionType, currentModel: 'google/gemini-3-pro-image-preview' },
   { name: 'generate-carousel-image', description: 'Tạo hình carousel', category: 'image', type: 'image-direct' as AIFunctionType, currentModel: 'gemini-2.0-flash-exp-image-generation' },
   
@@ -127,7 +128,14 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
     'openai/gpt-5-nano',
   ],
   image: [
+    // Lovable AI models
     'google/gemini-3-pro-image-preview',
+    'google/gemini-2.5-flash-image',
+    // KIE.ai models (Flux Kontext, GPT-Image)
+    'flux-kontext-pro',
+    'flux-kontext-max',
+    'gpt-image-1',
+    'gpt-image-1.5',
   ],
   'image-direct': [
     'gemini-2.0-flash-exp-image-generation',
@@ -150,7 +158,7 @@ export interface ModelInfo {
   quality: ModelQuality;
   cost: ModelCost;
   bestFor: string[];
-  provider: 'lovable' | 'openrouter';
+  provider: 'lovable' | 'openrouter' | 'kie';
   isRecommended?: boolean;
 }
 
@@ -249,7 +257,7 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
     bestFor: ['Quick search', 'Topic ideas'],
     provider: 'lovable',
   },
-  // Image generation
+  // Image generation - Lovable AI
   'gemini-2.0-flash-exp-image-generation': {
     shortName: 'Gemini 2.0 Image',
     description: 'Tạo hình ảnh trực tiếp',
@@ -258,6 +266,53 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
     cost: 'low',
     bestFor: ['Carousel images', 'Quick visuals'],
     provider: 'lovable',
+  },
+  'google/gemini-2.5-flash-image': {
+    shortName: 'Gemini Flash Image',
+    description: 'Tạo & chỉnh sửa ảnh nhanh (Nano Banana)',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Background editing', 'Quick generation'],
+    provider: 'lovable',
+  },
+  // KIE.ai Image Models
+  'flux-kontext-pro': {
+    shortName: 'Flux Kontext Pro',
+    description: 'Text-to-image + editing chất lượng cao, giá rẻ',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Brand images', 'Social media', 'Image editing'],
+    provider: 'kie',
+    isRecommended: true,
+  },
+  'flux-kontext-max': {
+    shortName: 'Flux Kontext Max',
+    description: 'Flux chất lượng cao nhất, cảnh phức tạp',
+    speed: 'slow',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Complex scenes', 'High detail'],
+    provider: 'kie',
+  },
+  'gpt-image-1': {
+    shortName: 'GPT-Image-1',
+    description: 'OpenAI, render text & instruction tốt nhất',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Text in image', 'Brand logos', 'Precise editing'],
+    provider: 'kie',
+  },
+  'gpt-image-1.5': {
+    shortName: 'GPT-Image-1.5',
+    description: 'Flagship mới nhất OpenAI, chất lượng đỉnh',
+    speed: 'slow',
+    quality: 'premium',
+    cost: 'high',
+    bestFor: ['Premium brand', 'Highest quality'],
+    provider: 'kie',
   },
   // OpenRouter Models
   'anthropic/claude-sonnet-4-20250514': {

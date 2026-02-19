@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared/kie-image-generator.ts";
 import { 
   buildImagePrompt,
   buildSimpleImagePrompt,
@@ -407,86 +408,136 @@ serve(async (req) => {
       typographyStyle,
     });
 
-    console.log("[generate-brand-image] Starting image generation with smart retry...");
+    console.log("[generate-brand-image] Starting image generation...");
 
     // Read model config from Admin Panel (DB) — falls back to default if not configured
     const aiConfig = await getAIConfig('generate-brand-image', brandTemplate.organization_id);
     const primaryModel = aiConfig.model;
-    // Auto-determine fallback: if using pro → flash fallback, if using flash → pro fallback
-    const fallbackModel = primaryModel === 'google/gemini-3-pro-image-preview'
-      ? 'google/gemini-2.5-flash-image'
-      : 'google/gemini-3-pro-image-preview';
-    
-    console.log(`[generate-brand-image] Using model from config: ${primaryModel}, fallback: ${fallbackModel}`);
+    console.log(`[generate-brand-image] Using model from config: ${primaryModel}`);
 
-    // Generate with smart retry and model fallback
-    let imageData: string;
-    let modelUsed: string;
-    let totalAttempts: number;
-    
-    try {
-      const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, { primary: primaryModel, fallback: fallbackModel });
-      imageData = result.imageData;
-      modelUsed = result.model;
-      totalAttempts = result.attempts;
-    } catch (err) {
-      // Handle API errors
-      if (err instanceof Error && err.message.startsWith('API_ERROR:')) {
-        const statusCode = parseInt(err.message.split(':')[1]);
-        if (statusCode === 429) {
-          return new Response(
-            JSON.stringify({ success: false, error: "Rate limit exceeded. Please try again later." }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        if (statusCode === 402) {
-          return new Response(
-            JSON.stringify({ success: false, error: "Payment required. Please add credits to your Lovable AI workspace." }),
-            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
+    // Variables for result
+    let imageData: string = '';
+    let imageUrlFromKie: string | null = null;
+    let modelUsed: string = primaryModel;
+    let totalAttempts: number = 1;
+
+    // Route to KIE.ai if model is a KIE model, otherwise use Lovable AI
+    if (isKieModel(primaryModel)) {
+      const KIE_API_KEY = Deno.env.get('KIE_API_KEY');
+      if (!KIE_API_KEY) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'KIE_API_KEY not configured. Please add it in project secrets.' }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
-      throw err;
+
+      console.log(`[generate-brand-image] Routing to KIE.ai: ${primaryModel}`);
+      try {
+        imageUrlFromKie = await generateImageViaKie({
+          prompt: enhancedPrompt,
+          model: primaryModel,
+          aspectRatio: mapAspectRatioToKie(finalAspectRatio),
+          outputFormat: 'jpeg',
+        }, KIE_API_KEY);
+        modelUsed = primaryModel;
+      } catch (kieErr) {
+        const kieErrMsg = kieErr instanceof Error ? kieErr.message : String(kieErr);
+        console.error(`[generate-brand-image] KIE.ai failed: ${kieErrMsg}`);
+
+        // Handle specific KIE errors
+        if (kieErrMsg.includes('KIE_AUTH_ERROR') || kieErrMsg.includes('KIE_CREDITS_EXHAUSTED') || kieErrMsg.includes('KIE_RATE_LIMIT')) {
+          return new Response(
+            JSON.stringify({ success: false, error: kieErrMsg }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Fallback to Lovable AI Gemini Flash on timeout or other errors
+        console.log('[generate-brand-image] KIE failed, falling back to Lovable AI...');
+        const fallbackModel = 'google/gemini-2.5-flash-image';
+        const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, {
+          primary: fallbackModel,
+          fallback: 'google/gemini-3-pro-image-preview',
+        });
+        imageData = result.imageData;
+        modelUsed = `${result.model} (fallback from ${primaryModel})`;
+        totalAttempts = result.attempts;
+      }
+    } else {
+      // Lovable AI flow (existing)
+      const fallbackModel = primaryModel === 'google/gemini-3-pro-image-preview'
+        ? 'google/gemini-2.5-flash-image'
+        : 'google/gemini-3-pro-image-preview';
+
+      try {
+        const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, { primary: primaryModel, fallback: fallbackModel });
+        imageData = result.imageData;
+        modelUsed = result.model;
+        totalAttempts = result.attempts;
+      } catch (err) {
+        // Handle API errors
+        if (err instanceof Error && err.message.startsWith('API_ERROR:')) {
+          const statusCode = parseInt(err.message.split(':')[1]);
+          if (statusCode === 429) {
+            return new Response(
+              JSON.stringify({ success: false, error: "Rate limit exceeded. Please try again later." }),
+              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          if (statusCode === 402) {
+            return new Response(
+              JSON.stringify({ success: false, error: "Payment required. Please add credits to your Lovable AI workspace." }),
+              { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+        throw err;
+      }
     }
 
     console.log(`[generate-brand-image] Generated with ${modelUsed} after ${totalAttempts} attempt(s)`);
 
-    // Detect actual content type from data URL
-    const contentTypeMatch = imageData.match(/^data:image\/([^;]+);base64,/);
-    const detectedFormat = contentTypeMatch ? contentTypeMatch[1] : 'png';
-    const imageMimeType = `image/${detectedFormat}`;
-    const fileExtension = detectedFormat === 'jpeg' ? 'jpg' : detectedFormat;
-    
-    console.log(`[generate-brand-image] Detected image format: ${detectedFormat}, contentType: ${imageMimeType}`);
+    // Handle KIE URL (already a public URL) vs Lovable AI (base64)
+    let imageUrl: string;
 
-    // The image is base64 encoded, upload to storage
-    const base64Data = imageData.replace(/^data:image\/[^;]+;base64,/, "");
-    console.log(`[generate-brand-image] Base64 data length: ${base64Data.length}`);
-    
-    const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
-    console.log(`[generate-brand-image] Image bytes length: ${imageBytes.length}`);
+    if (imageUrlFromKie) {
+      // KIE.ai returns a direct URL — use it as-is (or optionally proxy/download)
+      imageUrl = imageUrlFromKie;
+      console.log(`[generate-brand-image] Using KIE image URL: ${imageUrl.slice(0, 80)}...`);
+    } else {
+      // Lovable AI returns base64 — detect format and upload to storage
+      const contentTypeMatch = imageData.match(/^data:image\/([^;]+);base64,/);
+      const detectedFormat = contentTypeMatch ? contentTypeMatch[1] : 'png';
+      const imageMimeType = `image/${detectedFormat}`;
+      const fileExtension = detectedFormat === 'jpeg' ? 'jpg' : detectedFormat;
+      
+      console.log(`[generate-brand-image] Detected image format: ${detectedFormat}`);
 
-    const fileName = `${contentId}/${channel}-${Date.now()}.${fileExtension}`;
-    
-    const { error: uploadError } = await supabase.storage
-      .from("carousel-images")
-      .upload(fileName, imageBytes, {
-        contentType: imageMimeType,
-        upsert: true,
-      });
+      const base64Data = imageData.replace(/^data:image\/[^;]+;base64,/, "");
+      const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+      console.log(`[generate-brand-image] Image bytes: ${imageBytes.length}`);
 
-    if (uploadError) {
-      console.error("[generate-brand-image] Upload error:", uploadError);
-      throw new Error(`Failed to upload image: ${uploadError.message}`);
+      const fileName = `${contentId}/${channel}-${Date.now()}.${fileExtension}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from("carousel-images")
+        .upload(fileName, imageBytes, {
+          contentType: imageMimeType,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error("[generate-brand-image] Upload error:", uploadError);
+        throw new Error(`Failed to upload image: ${uploadError.message}`);
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("carousel-images")
+        .getPublicUrl(fileName);
+
+      imageUrl = publicUrlData.publicUrl;
+      console.log("[generate-brand-image] Image uploaded:", imageUrl);
     }
-
-    // Get public URL
-    const { data: publicUrlData } = supabase.storage
-      .from("carousel-images")
-      .getPublicUrl(fileName);
-
-    const imageUrl = publicUrlData.publicUrl;
-    console.log("[generate-brand-image] Image uploaded:", imageUrl);
 
     // Save to channel_image_history
     try {

@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { ModelInfo, ModelSpeed, ModelQuality, ModelCost } from '@/hooks/useAIConfig';
-import { Zap, Clock, Turtle, Sparkles, DollarSign, Check, ExternalLink } from 'lucide-react';
+import { Zap, Clock, Turtle, Sparkles, DollarSign, Check, ExternalLink, Image } from 'lucide-react';
 
 interface ModelCardProps {
   modelId: string;
@@ -45,6 +45,12 @@ const PROVIDER_STYLES = {
     badge: 'bg-orange-500/10 text-orange-600 border-orange-500/30',
     icon: <ExternalLink className="h-3 w-3" />,
     label: 'OpenRouter',
+  },
+  kie: {
+    border: 'border-l-violet-500',
+    badge: 'bg-violet-500/10 text-violet-600 border-violet-500/30',
+    icon: <Image className="h-3 w-3" />,
+    label: 'KIE.ai',
   },
 };
 
@@ -251,9 +257,15 @@ export function QuickSelectButton({ label, description, icon, isSelected, onClic
 
 // Provider indicator for table view
 interface ProviderIndicatorProps {
-  provider: 'lovable' | 'openrouter';
+  provider: 'lovable' | 'openrouter' | 'kie';
   className?: string;
 }
+
+const PROVIDER_DOT_COLORS: Record<'lovable' | 'openrouter' | 'kie', string> = {
+  lovable: 'bg-blue-500',
+  openrouter: 'bg-orange-500',
+  kie: 'bg-violet-500',
+};
 
 export function ProviderIndicator({ provider, className }: ProviderIndicatorProps) {
   const style = PROVIDER_STYLES[provider];
@@ -261,7 +273,7 @@ export function ProviderIndicator({ provider, className }: ProviderIndicatorProp
     <span className={cn("inline-flex items-center gap-1", className)}>
       <span className={cn(
         "w-2 h-2 rounded-full",
-        provider === 'lovable' ? 'bg-blue-500' : 'bg-orange-500'
+        PROVIDER_DOT_COLORS[provider] ?? 'bg-muted'
       )} />
     </span>
   );
