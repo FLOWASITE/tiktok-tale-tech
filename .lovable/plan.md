@@ -1,114 +1,184 @@
 
+# Phương án A: Admin-Controlled Model cho Tạo ảnh
 
-# Danh gia & Hoan thien he thong tao anh AI (SimpleImageGenerator)
+## Phân tích hiện trạng
 
-## Trang thai hien tai
+### Vấn đề cốt lõi
+Trong `generate-brand-image/index.ts` (line 48-51), model bị hardcode hoàn toàn:
 
-SimpleImageGenerator da duoc xay dung voi triet ly "One-Click First, Customize Later" va hoat dong co ban. Sau khi review toan dien code va UI, toi phat hien cac van de can hoan thien:
+```typescript
+const IMAGE_MODELS = {
+  primary: "google/gemini-3-pro-image-preview",
+  fallback: "google/gemini-2.5-flash-image",
+}
+```
 
----
+Hệ quả:
+- Admin có thể cấu hình `generate-brand-image` trong Admin Panel → lưu vào `ai_function_configs`
+- Nhưng Edge Function **không bao giờ đọc** config đó — luôn dùng constant hardcode
+- `edit-image-background` cũng hardcode `gemini-2.5-flash-image` ở line 116
 
-## 1. Cac van de can sua
+### Kiến trúc `_shared/ai-config.ts` đã có sẵn
+File này đã có function `getAIConfig(functionName)` hoàn chỉnh:
+- Đọc từ `ai_function_configs` table
+- In-memory cache 5 phút
+- Fallback về default nếu DB không có record
+- Default cho `generate-brand-image` = `google/gemini-3-pro-image-preview` (đã đúng)
+- Default cho `generate-social-image` = `google/gemini-3-pro-image-preview`
 
-### 1.1. Thieu xu ly loi `useBackgroundGeneration` (CRITICAL)
-Console logs cho thay loi lien tuc:
-- `useBackgroundGeneration Error fetching tasks: Failed to fetch`
-- `Realtime status: CHANNEL_ERROR` (lap lai 7 lan)
-
-Can fix realtime subscription de khong spam console va khong anh huong UX.
-
-### 1.2. Khong co loading state khi dialog mo
-Khi mo dialog, khong co skeleton/placeholder cho channel picker. Neu `content.selected_channels` load cham, UI se trong.
-
-### 1.3. Thieu validation UX cho brand template
-Hien tai chi hien toast error "Vui long chon brand template truoc" khi nhan nut. Can hien thi warning noi bat ngay trong dialog de user biet truoc khi nhan nut.
-
-### 1.4. Text auto-fill chi chay 1 lan
-`useEffect` auto-fill text chỉ chạy khi `textToInclude` rỗng. Nếu user xóa text rồi chuyển channel, text không tự fill lại. Can them nut "Dung Hook" de user chu dong fill lai.
-
-### 1.5. Thieu per-channel text (da co trong hook nhung chua dung)
-`useAutoImageGeneration` ho tro `textsPerChannel` nhung `SimpleImageGenerator` chi gui `textToInclude` (shared text). Can them option cho phep user chon "Chung cho tat ca" hoac "Tuy chinh theo kenh".
-
-### 1.6. Khong co preview truoc khi tao
-User khong biet anh se trong nhu the nao truoc khi nhan "Tao". Can them 1 dong tom tat: "Phong cach: Minimalist | Ti le: Auto | Logo: Co" de user biet AI se dung gi.
-
-### 1.7. Dialog khong responsive tren mobile
-Dialog `sm:max-w-lg` chuyen sang `sm:max-w-3xl` khi streaming. Tren mobile nho, ScrollArea co the bi cat.
+### Admin Panel đã có UI
+`AIFunctionConfigComponent` + `useAIConfig` hook đã hỗ trợ update `generate-brand-image` trong Admin Panel → đường dẫn `/admin/ai` tab Functions.
 
 ---
 
-## 2. Tinh nang thieu so voi UnifiedImageGenerator (legacy)
+## Phạm vi thay đổi (Phương án A)
 
-| Tinh nang | UnifiedImageGenerator | SimpleImageGenerator | Trang thai |
-|-----------|----------------------|---------------------|-----------|
-| Batch mode | Co | Co | OK |
-| Single mode (prompt tu nhap) | Co | Khong (by design) | OK - da loai bo |
-| Per-channel text | Co (textsPerChannel) | Khong | **Can them** |
-| "Dung Hook" button | Co | Khong | **Can them** |
-| StrategicContextPreview | Co | Khong | **Can them** (trong Advanced) |
-| AI Style Suggestions badge | Co | Co (trong Advanced) | OK |
-| Canvas Fallback toggle | Co (hien thi) | Co (an, mac dinh bat) | OK |
-| Background editor | Co | Co | OK |
+Chỉ cần sửa **2 Edge Functions** để đọc config từ DB thay vì hardcode. Không thay đổi:
+- Database schema
+- Admin Panel UI
+- Frontend hooks (`useAutoImageGeneration`, `useSocialImageGeneration`)
+- `_shared/ai-config.ts` (đã hoàn chỉnh)
 
 ---
 
-## 3. Ke hoach hoan thien
+## Chi tiết thực hiện
 
-### Buoc 1: Them nut "Dung Hook" va smart refill
-- Them Button "Dung Hook" ben canh "AI Toi uu" trong phan text input
-- Khi nhan: auto-fill text tu `getBestOverlayText` cho channel dang chon
+### File 1: `supabase/functions/generate-brand-image/index.ts`
 
-### Buoc 2: Them Settings Summary (1 dong tom tat)
-- Hien thi ngay tren nut CTA: "Minimalist | 16:9 | Logo bottom-right"
-- Giup user biet AI se dung gi ma khong can mo Advanced Options
+**Thay đổi:**
 
-### Buoc 3: Them per-channel text option
-- Them toggle "Chung / Tuy chinh" trong phan text
-- Neu chon "Tuy chinh": hien tabs theo kenh da chon, moi tab 1 textarea
-- Map sang `textsPerChannel` trong batchOptions
+1. Import `getAIConfig` từ `_shared/ai-config.ts`
 
-### Buoc 4: Them StrategicContextPreview vao Advanced Options
-- Di chuyen StrategicContextPreview vao ben trong Collapsible
-- Hien thi content_role, content_angle, hook nhu badges mau sac
+2. Xóa constant hardcode `IMAGE_MODELS`:
+```typescript
+// XÓA:
+const IMAGE_MODELS = {
+  primary: "google/gemini-3-pro-image-preview",
+  fallback: "google/gemini-2.5-flash-image",
+}
+```
 
-### Buoc 5: Fix brand template warning
-- Neu `content.brand_template_id` khong co, hien Alert component trong dialog thay vi chi toast khi nhan nut
+3. Trong hàm `generateImageWithRetry`, thay vì dùng `[IMAGE_MODELS.primary, IMAGE_MODELS.fallback]`, nhận models như param:
+```typescript
+async function generateImageWithRetry(
+  prompt: string,
+  apiKey: string,
+  models: { primary: string; fallback: string },  // thêm param này
+  maxRetries: number = QUALITY_THRESHOLDS.maxRetries
+)
+```
 
-### Buoc 6: Fix useBackgroundGeneration realtime errors
-- Them error handling/retry logic cho realtime subscription
-- Giam tan suat log spam
+4. Trước khi gọi `generateImageWithRetry`, gọi `getAIConfig` để lấy model:
+```typescript
+// Đọc config từ Admin Panel (DB)
+const aiConfig = await getAIConfig('generate-brand-image', brandTemplate.organization_id);
 
-### Buoc 7: Mobile responsive
-- Dam bao dialog hoat dong tot tren viewport 375px
-- Test ScrollArea tren mobile
+// Xác định model dùng: Admin config → default hierarchy
+const primaryModel = aiConfig.model;  // từ DB hoặc default
+const fallbackModel = primaryModel === 'google/gemini-3-pro-image-preview'
+  ? 'google/gemini-2.5-flash-image'   // fallback khi dùng pro
+  : 'google/gemini-3-pro-image-preview'; // fallback khi dùng flash
+
+const result = await generateImageWithRetry(
+  enhancedPrompt,
+  LOVABLE_API_KEY,
+  { primary: primaryModel, fallback: fallbackModel }
+);
+```
+
+5. Log model đang dùng để dễ debug:
+```typescript
+console.log(`[generate-brand-image] Using model from config: ${primaryModel} (source: ${aiConfig.function_name})`);
+```
 
 ---
 
-## Chi tiet ky thuat
+### File 2: `supabase/functions/edit-image-background/index.ts`
 
-### File can sua:
+**Thay đổi:**
 
-**`src/components/multichannel/SimpleImageGenerator.tsx`**
-- Them "Dung Hook" button (line ~400-420)
-- Them Settings Summary component truoc CTA button (line ~423)
-- Them per-channel text toggle + tabs (line ~400)
-- Them brand template warning Alert (line ~360)
+1. Import `getAIConfig`
 
-**`src/components/multichannel/ImageAdvancedOptions.tsx`**
-- Import va them `StrategicContextPreview` vao cuoi CollapsibleContent
+2. Thay hardcode `"google/gemini-2.5-flash-image"` (line 116) bằng model từ config:
+```typescript
+const aiConfig = await getAIConfig('edit-image-background');
+const modelToUse = aiConfig.model;
+```
 
-**`src/hooks/useBackgroundGeneration.ts`** (neu co)
-- Fix realtime subscription error handling
-
-### File moi:
-- **`src/components/multichannel/ImageSettingsSummary.tsx`**: Component 1 dong hien thi settings hien tai (style, ratio, logo, text)
+3. Thêm default config trong `_shared/ai-config.ts` cho `edit-image-background`:
+```typescript
+'edit-image-background': {
+  model: 'google/gemini-2.5-flash-image',  // model hiện tại là default
+  temperature: 0.7,
+  max_tokens: 1024,
+  cache_ttl_seconds: 0,
+  is_enabled: true,
+  priority_level: 'normal',
+},
+```
 
 ---
 
-## Uu tien thuc hien
+### File 3: `supabase/functions/_shared/ai-config.ts`
 
-1. **Cao**: Buoc 1 (Hook button) + Buoc 2 (Settings Summary) - UX quan trong nhat
-2. **Cao**: Buoc 5 (Brand template warning) - tranh confuse user
-3. **Trung binh**: Buoc 3 (Per-channel text) - power user feature
-4. **Thap**: Buoc 4 (Strategic preview) + Buoc 6 (Realtime fix) + Buoc 7 (Mobile)
+Thêm 2 default config còn thiếu:
+- `edit-image-background` với default `gemini-2.5-flash-image`
+- `generate-carousel-image` nếu có (kiểm tra)
+
+---
+
+### File 4: `src/hooks/useAIConfig.ts`
+
+Thêm `edit-image-background` vào `AI_FUNCTIONS` array để Admin Panel có thể cấu hình nó:
+```typescript
+{ name: 'edit-image-background', description: 'Chỉnh sửa nền ảnh', category: 'image', type: 'image' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-image' },
+```
+
+---
+
+## Luồng hoạt động sau khi triển khai
+
+```text
+Admin Panel (/admin/ai → Functions tab)
+  → Chọn "generate-brand-image"
+  → Đổi model thành "gemini-2.5-flash-image" (tiết kiệm)
+  → Lưu → ghi vào ai_function_configs table
+
+generate-brand-image Edge Function
+  → Gọi getAIConfig('generate-brand-image', orgId)
+  → Đọc từ DB: model = "gemini-2.5-flash-image"
+  → Cache 5 phút (không gọi DB liên tục)
+  → Dùng flash làm primary, pro làm fallback
+```
+
+---
+
+## Thứ tự thực hiện
+
+1. Sửa `_shared/ai-config.ts` — thêm defaults cho `edit-image-background`
+2. Sửa `generate-brand-image/index.ts` — thay hardcode bằng `getAIConfig`
+3. Sửa `edit-image-background/index.ts` — thay hardcode bằng `getAIConfig`
+4. Sửa `src/hooks/useAIConfig.ts` — thêm `edit-image-background` vào UI list
+5. Deploy và kiểm tra
+
+---
+
+## Rủi ro & Giải pháp
+
+| Rủi ro | Giải pháp |
+|--------|-----------|
+| `getAIConfig` bị lỗi (DB không trả về) | `ai-config.ts` đã có fallback về default — an toàn |
+| Admin chọn model không hỗ trợ image generation | Log warning, fallback về `gemini-3-pro-image-preview` |
+| Cache 5 phút gây delay khi Admin đổi model | Chấp nhận được — Admin đổi model không phải real-time critical |
+
+---
+
+## Kết quả kỳ vọng
+
+Sau khi triển khai, Admin có thể:
+- Vào `/admin/ai` → tab Functions
+- Tìm `generate-brand-image`
+- Đổi model sang `gemini-2.5-flash-image` (nhanh/rẻ hơn) hoặc giữ `gemini-3-pro-image-preview` (chất lượng cao)
+- Lưu → có hiệu lực trong tối đa 5 phút (sau khi cache hết hạn)
+- Tương tự với `edit-image-background`
 
