@@ -26,6 +26,7 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   anthropic: <Wand2 className="h-5 w-5 text-purple-500" />,
   gemini: <Sparkles className="h-5 w-5 text-yellow-500" />,
   replicate: <Wand2 className="h-5 w-5 text-cyan-500" />,
+  kie: <Wand2 className="h-5 w-5 text-violet-500" />,
   custom: <Settings className="h-5 w-5 text-muted-foreground" />,
 };
 
@@ -35,6 +36,7 @@ const PROVIDER_KEY_URLS: Record<string, string> = {
   anthropic: 'https://console.anthropic.com/settings/keys',
   gemini: 'https://aistudio.google.com/app/apikey',
   replicate: 'https://replicate.com/account/api-tokens',
+  kie: 'https://kie.ai',
 };
 
 interface TestResult {

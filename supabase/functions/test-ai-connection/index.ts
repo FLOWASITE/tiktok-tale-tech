@@ -39,6 +39,9 @@ serve(async (req) => {
       case 'openrouter':
         testResult = await testOpenRouter(apiKey);
         break;
+      case 'kie':
+        testResult = await testKie(apiKey);
+        break;
       default:
         return new Response(
           JSON.stringify({ success: false, error: `Unknown provider: ${provider}` }),
@@ -209,6 +212,26 @@ async function testOpenRouter(apiKey: string) {
       success: true, 
       message: `Kết nối thành công! Có ${modelCount} models khả dụng.` 
     };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    return { success: false, error: `Lỗi kết nối: ${errorMessage}` };
+  }
+}
+
+async function testKie(apiKey: string) {
+  try {
+    const response = await fetch('https://api.kie.ai/api/v1/record-info?taskId=test', {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      return { success: false, error: 'API key không hợp lệ' };
+    }
+
+    // Any other response (200, 404, etc.) means auth passed
+    return { success: true, message: 'Kết nối thành công với KIE.ai!' };
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     return { success: false, error: `Lỗi kết nối: ${errorMessage}` };

@@ -1,4 +1,4 @@
-export type AIProviderType = 'gemini' | 'openai' | 'replicate' | 'custom' | 'openrouter';
+export type AIProviderType = 'gemini' | 'openai' | 'replicate' | 'custom' | 'openrouter' | 'kie';
 
 export interface AIProviderConfig {
   apiKey: string;
@@ -63,6 +63,14 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     getKeyUrl: 'https://replicate.com/account/api-tokens',
     models: ['black-forest-labs/flux-schnell', 'stability-ai/sdxl'],
     icon: '🎨',
+  },
+  {
+    id: 'kie',
+    name: 'KIE.ai',
+    description: 'Flux Kontext, GPT-Image (gateway)',
+    getKeyUrl: 'https://kie.ai',
+    models: ['flux-kontext-pro', 'flux-kontext-max', 'gpt-image-1', 'gpt-image-1.5'],
+    icon: '🔮',
   },
   {
     id: 'custom',
