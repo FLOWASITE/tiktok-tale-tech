@@ -481,6 +481,7 @@ export const AI_PROVIDERS = [
   { type: 'anthropic', name: 'Anthropic', description: 'Claude models', hasKey: true },
   { type: 'gemini', name: 'Google Gemini', description: 'Gemini Pro, Flash', hasKey: true },
   { type: 'replicate', name: 'Replicate', description: 'Flux, SDXL', hasKey: true },
+  { type: 'kie', name: 'KIE.ai', description: 'Flux Kontext, GPT-Image (gateway)', hasKey: true, secretName: 'KIE_API_KEY' },
   { type: 'custom', name: 'Custom API', description: 'OpenAI-compatible endpoints', hasKey: true },
 ] as const;
 
@@ -512,6 +513,7 @@ export const MODELS_BY_PROVIDER: Record<string, string[]> = {
   gemini: ['gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-1.5-flash'],
   replicate: ['black-forest-labs/flux-schnell', 'stability-ai/sdxl'],
   perplexity: ['sonar-pro', 'sonar'],
+  kie: ['flux-kontext-pro', 'flux-kontext-max', 'gpt-image-1', 'gpt-image-1.5'],
   custom: [],
 };
 
