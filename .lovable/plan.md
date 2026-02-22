@@ -1,103 +1,57 @@
-# Cai thien toan dien he thong tao anh AI
 
-## Phan tich hien trang
+# Hoan thien he thong tao anh AI - Sua loi va cai thien con thieu
 
-&nbsp;
+## Van de phat hien
 
-### 2. Van de ve do lien quan noi dung anh voi bai viet
+### 1. Bug: Nut "Xem prompt" khong hoat dong
+- `ImageStreamingCard` da co prop `prompt` va UI "Xem prompt"
+- Nhung `ImageStreamingGrid` **KHONG truyen** prop `prompt` xuong `ImageStreamingCard`
+- Ket qua: Nut "Xem prompt" khong bao gio hien thi du anh da tao xong
+- Day la bug tu lan cai thien truoc, can fix ngay
 
-- `contentSummary` gui len backend chi la `Topic: {topic}. {300 ky tu dau}` - qua ngan va khong capture duoc y chinh
-- Backend `buildImagePrompt` nhan `contentSummary` nhu mot chuoi raw, khong co xu ly thong minh de rut trich keyword/concept chinh
-- Khong co buoc "content analysis" truoc khi tao prompt - AI phai tu hieu noi dung tu text tho
+### 2. Content keyword extraction chua hieu qua
+- Ham `extractContentKeywords` chi bat cac cum tu viet hoa (Capitalized phrases)
+- Voi noi dung tieng Viet (thuong khong viet hoa), se tra ve mang rong → preview keywords khong hien thi
+- Can bo sung regex cho tieng Viet de bat keyword tot hon
 
-### 3. Van de ve kieu anh (style)
+## Cac thay doi
 
-- V3 Suggestion Engine chi dung scoring cung (config-based), khong phan tich noi dung thuc te
-- Style duoc chon dua tren industry + role + goal, nhung KHONG xem xet noi dung cu the cua bai viet
-- Vi du: Bai ve "top 5 cong nghe AI" va "cau chuyen khach hang" cung industry se cho cung style goi y
+### File 1: `src/components/multichannel/streaming/ImageStreamingGrid.tsx`
 
-### 4. Van de UI/UX
+**Fix bug: Truyen prop `prompt` tu `generatedImages` xuong `ImageStreamingCard`**
 
-- Form tao anh khong hien thi preview noi dung se duoc dung lam co so tao anh
-- Khong co "content relevance hint" cho nguoi dung biet AI se tao anh lien quan gi
-- Streaming grid khong hien thi prompt da dung, nguoi dung khong biet AI da hieu noi dung nhu the nao
-- Khong co tinh nang "refine prompt" sau khi xem anh
+Tai dong 144-155, them `prompt={image?.prompt}` vao ImageStreamingCard:
 
-## Giai phap
+```
+<ImageStreamingCard
+  channel={channel}
+  status={status}
+  imageUrl={image?.imageUrl}
+  aspectRatio={image?.aspectRatio}
+  prompt={image?.prompt}          // <-- THEM DONG NAY
+  ...
+/>
+```
 
-### Thay doi 1: Nang cap Content Summary - trich xuat thong minh hon (Frontend)
+### File 2: `src/components/multichannel/SimpleImageGenerator.tsx`
 
-**File: `src/components/multichannel/SimpleImageGenerator.tsx**`
+**Cai thien `extractContentKeywords` de ho tro tieng Viet tot hon**
 
-Thay doi ham `getContentSummary` de trich xuat thong tin tot hon:
-
-- Lay topic, content_goal, content_role, content_angle
-- Trich keyword chinh tu noi dung (dung regex don gian lay cac cum tu quan trong)
-- Lay hook message lam "core message"
-- Ket hop thanh summary co cau truc ro rang hon, dai hon (len 500 ky tu)
-
-### Thay doi 2: Cai thien Prompt Builder - them Content Analysis section (Backend)
-
-**File: `supabase/functions/_shared/image-prompt-builder.ts**`
-
-Them section moi trong `buildImagePrompt`:
-
-- `## CORE MESSAGE & KEYWORDS`: Trich xuat tu contentSummary cac keyword/concept chinh
-- Di chuyen `contentSummary` vao section `## ARTICLE CONTENT CONTEXT` voi huong dan AI phai tao anh TRUC TIEP lien quan den noi dung, khong chi dung style chung chung
-- Them chi dan cu the: "The image MUST visually represent the specific topic/concept mentioned in the content, not just a generic industry image"
-- Tang trong so cua content relevance trong prompt (dat len truoc channel specs)
-
-### Thay doi 3: Style Suggestion co xem xet noi dung (Frontend)
-
-**File: `src/lib/imageSuggestionEngine.ts**`
-
-Bo sung logic phan tich text trong `suggestImageStylesV3`:
-
-- Them tham so `contentSummary` vao `SuggestionInputV3`
-- Them keyword-based boost: Neu noi dung chua keywords ve "data/so lieu/top/chart" → boost flat_design/geometric
-- Neu noi dung chua "cau chuyen/story/hanh trinh" → boost cinematic/photorealistic
-- Neu noi dung chua "san pham/product/review" → boost product_only/photorealistic
-- Neu noi dung chua "huong dan/how to/cach" → boost illustration/flat_design
-- Them keyword detection cho ~10 nhom noi dung pho bien
-
-### Thay doi 4: Hien thi Content Context Preview trong UI (Frontend)
-
-**File: `src/components/multichannel/SimpleImageGenerator.tsx**`
-
-Them component nho hien thi truoc khi tao anh:
-
-- "AI se tao anh ve: {extracted_topic_keywords}"
-- Hien thi 2-3 keyword chinh duoc rut ra tu noi dung
-- Giup nguoi dung biet AI da "hieu" noi dung cua ho nhu the nao
-- Dat ngay tren nut "Tao anh"
-
-### Thay doi 5: Hien thi Prompt va Refine trong Streaming Card (Frontend)
-
-**File: `src/components/multichannel/streaming/ImageStreamingCard.tsx**`
-
-Khi anh da tao xong (status = 'done'):
-
-- Them nut nho "Xem prompt" hien thi prompt da dung (collapsible)
-- Giup nguoi dung hieu tai sao anh duoc tao nhu vay
-- Ho co the copy prompt de chinh sua va tao lai
-  &nbsp;
+Ham hien tai chi bat capitalized phrases (regex uppercase). Voi noi dung tieng Viet thuong khong viet hoa, can them:
+- Bat cac cum tu co dau ngoac kep
+- Bat cac so lieu/con so kem context (vd: "5 cach", "top 10")
+- Bat cac cum tu sau cac keyword chi dan (vd: sau "ve", "cho", "cua")
+- Fallback: neu khong tim thay gi, lay 3-5 tu dau tien cua topic lam keyword
 
 ## Chi tiet ky thuat
 
-
-| Thay doi                     | File                                           | Mo ta                                                 |
-| ---------------------------- | ---------------------------------------------- | ----------------------------------------------------- |
-| Content Summary thong minh   | SimpleImageGenerator.tsx (dong 66-77)          | Nang cap getContentSummary voi keyword extraction     |
-| Prompt Builder               | image-prompt-builder.ts (dong 648-767)         | Them Content Analysis section, tang content relevance |
-| V3 Engine + content keywords | imageSuggestionEngine.ts (dong 30-37, 116-153) | Them contentSummary param, keyword-based style boost  |
-| Content Context Preview      | SimpleImageGenerator.tsx (dong 429-440)        | Them UI hien thi "AI se tao anh ve..."                |
-| Prompt viewer                | ImageStreamingCard.tsx (dong 239-277)          | Them nut "Xem prompt" khi done                        |
-| Model fallback               | generate-brand-image, generate-social-image    | Confirm model tot nhat lam default                    |
-
+| Thay doi | File | Dong | Mo ta |
+|----------|------|------|-------|
+| Fix prompt prop | ImageStreamingGrid.tsx | 144-155 | Them `prompt={image?.prompt}` |
+| Keyword extraction VN | SimpleImageGenerator.tsx | 67-78 | Cai thien regex cho tieng Viet |
 
 ## Khong thay doi
-
-- Database schema
-- Auth / RLS
-- Cac component khac ngoai he thong tao anh
-- Logic batch generation, retry, PoYo/KIE routing
+- Backend edge functions
+- Database / RLS
+- Cac component khac
+- Logic tao anh, batch generation
