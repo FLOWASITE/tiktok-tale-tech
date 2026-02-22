@@ -1,57 +1,68 @@
 
-# Fix: Form tạo ảnh AI không tương tác được trên mobile
 
-## Vấn đề
+# Fix: Form tao anh AI van khong tuong tac duoc tren mobile
 
-Dialog "Tạo ảnh AI" sử dụng Radix UI Dialog với `fixed` positioning + CSS transform. Trên mobile, touch events bị chặn bởi Dialog overlay hoặc bị xử lý sai, khiến các button/input bên trong không phản hồi khi chạm.
+## Van de goc
 
-## Giải pháp
+Sau 2 lan fix, form van khong tuong tac duoc. Phan tich ky hon cho thay co nhieu nguyen nhan cung luc:
 
-Áp dụng 2 thay đổi:
+1. **`useIsMobile()` khoi tao la `false`**: Hook bat dau voi `undefined`, va `!!undefined = false`. Lan render dau tien luon render Dialog (desktop) thay vi Drawer. Khi effect chay va chuyen sang `true`, component remount nhung Dialog da "bat" touch events roi.
 
-### 1. Chặn sự kiện đóng Dialog ngoài ý muốn trên mobile
+2. **`touch-pan-y` han che touch**: CSS `touch-pan-y` chi cho phep vuot doc, co the gay conflict voi tap/click tren mot so trinh duyet mobile.
 
-Thêm `onPointerDownOutside` và `onInteractOutside` vào `DialogContent` trong `SimpleImageGenerator.tsx` để ngăn dialog đóng khi touch vào vùng nội dung (mobile đôi khi hiểu nhầm touch bên trong là "outside"):
+3. **`onPointerDownOutside`/`onInteractOutside` khong hop le tren vaul Drawer**: Vaul DrawerContent truyen tat ca props xuong, nhung nhung event handler nay co the khong hoat dong dung hoac gay side effects.
 
-```tsx
-<DialogContent
-  className={cn(...)}
-  onPointerDownOutside={(e) => e.preventDefault()}
-  onInteractOutside={(e) => e.preventDefault()}
->
+4. **DrawerOverlay chiem z-index ngang DrawerContent (ca 2 la z-50)**: Overlay co the chan touch events truoc khi chung den content.
+
+## Giai phap
+
+### 1. Fix `useIsMobile` de tra ve `true` ngay tu dau tren mobile (SSR-safe)
+
+Thay `useState<boolean | undefined>(undefined)` bang check dong bo ngay:
+
+```typescript
+const [isMobile, setIsMobile] = useState<boolean | undefined>(
+  typeof window !== 'undefined' ? window.innerWidth < MOBILE_BREAKPOINT : undefined
+);
 ```
 
-### 2. Chuyển sang Drawer trên mobile (pattern đã có trong project)
+Nhu vay lan render dau tien tren mobile da dung Drawer.
 
-Project đã có pattern dùng `Drawer` cho mobile (xem `MobileGenerationSheet.tsx`). Áp dụng tương tự: trên mobile (`useIsMobile()`), render nội dung form trong `Drawer` thay vì `Dialog`. Trên desktop giữ nguyên `Dialog`.
+### 2. Bo `touch-pan-y`, dung `touch-action: manipulation`
 
-Cụ thể trong `SimpleImageGenerator.tsx`:
-- Import `useIsMobile` hook
-- Import `Drawer`, `DrawerContent`, `DrawerHeader`, `DrawerTitle` từ `@/components/ui/drawer`
-- Khi `isMobile = true`: wrap nội dung trong `Drawer` + `DrawerContent` (max-h-[90vh], overflow-y-auto)
-- Khi `isMobile = false`: giữ nguyên `Dialog` + `DialogContent` hiện tại
-- Tách phần nội dung form ra thành biến `formContent` dùng chung cho cả 2 wrapper
+Thay `touch-pan-y` bang `touch-action: manipulation` de:
+- Cho phep moi loai touch (tap, scroll, swipe)
+- Loai bo 300ms tap delay tren mobile
 
-## Chi tiết kỹ thuật
+### 3. Bo `onPointerDownOutside`/`onInteractOutside` khoi DrawerContent
+
+Chi giu tren DialogContent (desktop). DrawerContent cua vaul xu ly dong/mo qua swipe, khong can nhung handler nay.
+
+### 4. Them `overscroll-contain` va dam bao scroll hoat dong
+
+Them `overscroll-behavior: contain` cho vung scroll de ngan scroll "leak" ra ngoai Drawer.
+
+## Files thay doi
+
+| File | Thay doi |
+|------|----------|
+| `src/hooks/use-mobile.tsx` | Khoi tao state dong bo thay vi `undefined` |
+| `src/components/multichannel/SimpleImageGenerator.tsx` | Bo `onPointerDownOutside`/`onInteractOutside` khoi DrawerContent, thay `touch-pan-y` bang `touch-action: manipulation`, them `overscroll-contain` |
+
+## Chi tiet ky thuat
 
 ```text
-SimpleImageGenerator
-  |-- isMobile?
-  |     YES --> Drawer + DrawerContent (touch-friendly, slide-up)
-  |     NO  --> Dialog + DialogContent (centered modal)
-  |
-  |-- formContent (shared)
-        |-- DialogHeader / DrawerHeader
-        |-- ScrollArea with form fields
-        |-- V3StylePreview
-        |-- CTA Button
-        |-- ImageAdvancedOptions
+use-mobile.tsx:
+  BEFORE: useState(undefined) -> first render isMobile=false -> Dialog
+  AFTER:  useState(window.innerWidth < 768) -> first render isMobile=true -> Drawer
+
+SimpleImageGenerator.tsx (mobile Drawer):
+  DrawerContent:
+    - BO: onPointerDownOutside, onInteractOutside
+    - GIU: max-h-[90vh] overflow-hidden flex flex-col
+  
+  Scroll div (line 721):
+    - BO: touch-pan-y
+    - THEM: style={{ touchAction: 'manipulation', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}
 ```
 
-### Files thay đổi
-
-| File | Thay đổi |
-|------|----------|
-| `src/components/multichannel/SimpleImageGenerator.tsx` | Thêm `useIsMobile`, conditional render Drawer vs Dialog, thêm `onPointerDownOutside`/`onInteractOutside` cho Dialog |
-
-Không cần tạo file mới. Chỉ sửa 1 file.
