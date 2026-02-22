@@ -1,35 +1,37 @@
 
 
-# Di chuyển "Kiểu ảnh: Có text" vào phần tùy chọn nâng cao
+# Fix: Anh da tao nhung chua hien tren mockup
 
-## Thay đổi
+## Nguyen nhan
 
-Hiện tại, "Kiểu ảnh" (Ảnh nền / Có text) chiếm một bước riêng (Step 2) ngay trên form chính. Thay đổi này sẽ:
+Khi tao anh, he thong dang o che do "Preview truoc, luu sau":
+- Anh duoc tao xong va hien trong luoi preview ben trong dialog
+- Nhung anh CHUA duoc luu vao database hoac cap nhat len mockup
+- Nguoi dung phai bam nut "Luu tat ca" de luu anh
+- Neu dong dialog ma khong bam "Luu tat ca", tat ca anh bi mat
 
-1. **Bỏ Step 2 "Kiểu ảnh" khỏi form chính** - Xóa block grid 2 nút "Ảnh nền" / "Có text" (dòng 426-455)
-2. **Mặc định là `background_only`** - Giữ nguyên default hiện tại
-3. **Chuyển tùy chọn "Có text" vào `ImageAdvancedOptions`** - Thêm một toggle/switch "Thêm text lên ảnh" trong phần Advanced Options
-4. **Khi bật "Có text" trong Advanced**: Hiển thị các trường text input (shared/per-channel), text position, typography style ngay bên dưới toggle đó trong Advanced Options
+## Giai phap
 
-## File thay đổi
+Chuyen sang che do tu dong luu: anh duoc luu ngay khi tao xong, khong can bam them nut nao.
 
-| File | Thay đổi |
+### File thay doi
+
+| File | Thay doi |
 |------|----------|
-| `src/components/multichannel/SimpleImageGenerator.tsx` | Xóa Step 2 "Kiểu ảnh" khỏi form chính, di chuyển text input section vào trước khi truyền xuống `ImageAdvancedOptions` |
-| `src/components/multichannel/ImageAdvancedOptions.tsx` | Thêm toggle "Thêm text lên ảnh" + hiển thị text input fields khi bật |
+| `src/components/multichannel/SimpleImageGenerator.tsx` | Doi `saveImmediately` tu `false` sang `true`, bo nut "Luu tat ca" |
 
-## Chi tiết kỹ thuật
+### Chi tiet
 
-**SimpleImageGenerator.tsx:**
-- Xóa dòng 426-455 (block "Kiểu ảnh")
-- Xóa dòng 457-554 (text input block) khỏi form chính
-- Truyền thêm props vào `ImageAdvancedOptions`: `imageContentType`, `onImageContentTypeChange`, `useSharedText`, `onUseSharedTextChange`, `textToInclude`, `onTextToIncludeChange`, `textsPerChannel`, `onTextsPerChannelChange`, `selectedChannels` (đã có), `hookMessages` (đã có)
+1. **Dong 311**: Doi `generateAllImages(batchOptions, onImageGenerated, false)` thanh `generateAllImages(batchOptions, onImageGenerated, true)`
+   - Moi anh se duoc luu vao database ngay khi tao xong
+   - Mockup se cap nhat ngay lap tuc nho `setGeneratedImages` trong callback `onImageGenerated`
 
-**ImageAdvancedOptions.tsx:**
-- Thêm section mới: Switch/Toggle "Thêm text lên ảnh"
-- Khi bật: hiển thị các text input controls (shared/per-channel toggle, textarea, "Use Hook" button, "AI Optimize" button)
-- Đặt section này sau Logo options, trước Negative Prompt
+2. **Bo nut "Luu tat ca"** (dong 517-527): Khong can nut luu nua vi anh da duoc luu tu dong. Giu lai nut "Tao lai" de nguoi dung co the tao lai neu khong hai long.
 
-## Kết quả
+3. **Bo ham `handleSaveAll`** (dong 315-321): Khong con can thiet.
 
-Form chính sẽ gọn hơn: chỉ còn Channel picker -> V3 Style Preview -> CTA Button. Tùy chọn text overlay nằm trong Advanced Options cho người dùng muốn tùy chỉnh sâu.
+### Ket qua
+
+- Nguoi dung bam "Tao anh" -> anh duoc tao va tu dong luu -> mockup cap nhat ngay
+- Dong dialog bat ky luc nao ma khong mat anh
+
