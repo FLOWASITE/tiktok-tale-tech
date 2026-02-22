@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Channel, ChannelImage } from '@/types/multichannel';
+import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { toast } from 'sonner';
 
 export type ImageGenerationStatus = 'pending' | 'generating' | 'overlaying' | 'done' | 'error';
@@ -125,7 +125,7 @@ export function useAutoImageGeneration() {
         // If using canvas fallback, always generate background_only and add text later
         const effectiveContentType = useCanvasFallback ? 'background_only' : imageContentType;
         
-        const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-brand-image', {
+        const { data: imageData, error: imageError } = await invokeWithTimeout<any>('generate-brand-image', {
           body: {
             contentId,
             channel,
@@ -134,17 +134,16 @@ export function useAutoImageGeneration() {
             aspectRatio: channelAspectRatio,
             imageStylePreset,
             negativePrompt,
-            // Strategic context for content-aware generation
             contentRole,
             contentAngle,
             hookMessage: channelHook?.hookMessage,
             hookType: channelHook?.hookType,
-            // Social Graphics (text-in-image) params - use effective type and channel-specific text
             imageContentType: effectiveContentType,
             textToInclude: effectiveContentType === 'with_text' ? channelText : undefined,
             textPosition: effectiveContentType === 'with_text' ? textPosition : undefined,
             typographyStyle: effectiveContentType === 'with_text' ? typographyStyle : undefined,
           },
+          timeoutMs: 120_000,
         });
 
         if (imageError || !imageData?.success) {
@@ -159,7 +158,7 @@ export function useAutoImageGeneration() {
         if (includeLogo && logoUrl) {
           setProgress(prev => ({ ...prev, [channel]: 'overlaying' }));
           
-          const { data: overlayData, error: overlayError } = await supabase.functions.invoke('overlay-logo-canvas', {
+          const { data: overlayData, error: overlayError } = await invokeWithTimeout<any>('overlay-logo-canvas', {
             body: {
               baseImageUrl: finalImageUrl,
               logoUrl,
@@ -171,6 +170,7 @@ export function useAutoImageGeneration() {
               contentId,
               channel,
             },
+            timeoutMs: 30_000,
           });
 
           if (overlayError || !overlayData?.success) {
@@ -197,10 +197,10 @@ export function useAutoImageGeneration() {
           const imageWidth = parseInt(widthStr, 10) || 1200;
           const imageHeight = parseInt(heightStr, 10) || 630;
           
-          const { data: textData, error: textError } = await supabase.functions.invoke('overlay-text-canvas', {
+          const { data: textData, error: textError } = await invokeWithTimeout<any>('overlay-text-canvas', {
             body: {
               baseImageUrl: finalImageUrl,
-              text: channelText, // Use channel-specific text
+              text: channelText,
               position: textPosition || 'center',
               typographyStyle: typographyStyle || 'modern',
               textColor: '#FFFFFF',
@@ -211,6 +211,7 @@ export function useAutoImageGeneration() {
               imageWidth,
               imageHeight,
             },
+            timeoutMs: 30_000,
           });
 
           if (textError || !textData?.success) {

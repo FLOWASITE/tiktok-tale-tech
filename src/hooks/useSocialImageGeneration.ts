@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Channel } from '@/types/multichannel';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { toast } from 'sonner';
 import { CHANNEL_IMAGE_CONFIG } from '@/config/channelImageConfig';
 
@@ -161,26 +161,25 @@ export function useSocialImageGeneration() {
         : imageContentType;
 
       // Call generate-brand-image with enhanced params
-      const { data, error } = await supabase.functions.invoke('generate-brand-image', {
+      const { data, error } = await invokeWithTimeout<any>('generate-brand-image', {
         body: {
           contentId,
           channel,
-          contentSummary: prompt, // Prompt becomes contentSummary
+          contentSummary: prompt,
           brandTemplateId,
           aspectRatio,
           imageStylePreset,
           negativePrompt,
-          // Strategic content params
           contentRole,
           contentAngle,
           hookMessage,
           hookType,
-          // Text-in-image params - use effective type (background_only if canvas fallback)
           imageContentType: effectiveImageContentType,
           textToInclude: effectiveImageContentType === 'with_text' ? textToInclude : undefined,
           textPosition: effectiveImageContentType === 'with_text' ? textPosition : undefined,
           typographyStyle: effectiveImageContentType === 'with_text' ? typographyStyle : undefined,
         },
+        timeoutMs: 120_000,
       });
 
       if (error) {
@@ -214,7 +213,7 @@ export function useSocialImageGeneration() {
         const imageWidth = parseInt(widthStr, 10) || 1200;
         const imageHeight = parseInt(heightStr, 10) || 630;
 
-        const { data: overlayData, error: overlayError } = await supabase.functions.invoke('overlay-text-canvas', {
+        const { data: overlayData, error: overlayError } = await invokeWithTimeout<any>('overlay-text-canvas', {
           body: {
             baseImageUrl: imageUrl,
             text: textToInclude,
@@ -227,6 +226,7 @@ export function useSocialImageGeneration() {
             imageWidth,
             imageHeight,
           },
+          timeoutMs: 30_000,
         });
 
         if (overlayError) {
