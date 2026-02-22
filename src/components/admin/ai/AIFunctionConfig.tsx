@@ -38,6 +38,8 @@ const CATEGORY_ORDER = ['content', 'ideation', 'chat', 'brand', 'image', 'analys
 
 const QUICK_PRESETS = {
   default: { label: 'Mặc định', description: 'Model được khuyến nghị cho function này', icon: <Sparkles className="h-5 w-5" /> },
+  or_deepseek: { label: '🔥 DeepSeek V3.2', description: 'OpenRouter - Giá rẻ, hiệu suất cao', icon: <Zap className="h-5 w-5" />, model: 'deepseek/deepseek-v3.2' },
+  or_minimax: { label: '🏆 MiniMax M2.5', description: 'OpenRouter - #1 weekly ranking', icon: <Star className="h-5 w-5" />, model: 'minimax/minimax-m2.5' },
   fast: { label: 'Nhanh nhất', description: 'Gemini 2.5 Flash Lite - Phản hồi cực nhanh', icon: <Zap className="h-5 w-5" />, model: 'google/gemini-2.5-flash-lite' },
   quality: { label: 'Chất lượng cao', description: 'Gemini 3 Pro - Kết quả tốt nhất', icon: <Star className="h-5 w-5" />, model: 'google/gemini-3-pro-preview' },
 };
@@ -225,8 +227,10 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
     setIsDialogOpen(true);
   };
 
-  const getCurrentQuickPreset = (): 'default' | 'fast' | 'quality' | 'image_poyo_nano' | 'image_gemini_flash' | 'image_flux' | 'image_gemini_pro' | 'custom' => {
+  const getCurrentQuickPreset = (): 'default' | 'or_deepseek' | 'or_minimax' | 'fast' | 'quality' | 'image_poyo_nano' | 'image_gemini_flash' | 'image_flux' | 'image_gemini_pro' | 'custom' => {
     if (!editingFunction?.modelOverride) return 'default';
+    if (editingFunction.modelOverride === QUICK_PRESETS.or_deepseek.model) return 'or_deepseek';
+    if (editingFunction.modelOverride === QUICK_PRESETS.or_minimax.model) return 'or_minimax';
     if (editingFunction.modelOverride === QUICK_PRESETS.fast.model) return 'fast';
     if (editingFunction.modelOverride === QUICK_PRESETS.quality.model) return 'quality';
     if (editingFunction.modelOverride === IMAGE_QUICK_PRESETS.poyo_nano.model) return 'image_poyo_nano';
@@ -445,6 +449,20 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                     {currentFunctionMeta?.type === 'text' && (
                       <>
                         <QuickSelectButton
+                          label={QUICK_PRESETS.or_deepseek.label}
+                          description={QUICK_PRESETS.or_deepseek.description}
+                          icon={QUICK_PRESETS.or_deepseek.icon}
+                          isSelected={getCurrentQuickPreset() === 'or_deepseek'}
+                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: QUICK_PRESETS.or_deepseek.model })}
+                        />
+                        <QuickSelectButton
+                          label={QUICK_PRESETS.or_minimax.label}
+                          description={QUICK_PRESETS.or_minimax.description}
+                          icon={QUICK_PRESETS.or_minimax.icon}
+                          isSelected={getCurrentQuickPreset() === 'or_minimax'}
+                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: QUICK_PRESETS.or_minimax.model })}
+                        />
+                        <QuickSelectButton
                           label={QUICK_PRESETS.fast.label}
                           description={QUICK_PRESETS.fast.description}
                           icon={QUICK_PRESETS.fast.icon}
@@ -523,7 +541,7 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                             <p className="font-medium text-sm">Chọn model khác...</p>
                             <p className="text-xs text-muted-foreground truncate">
                               {hasOpenRouterApiKey && currentFunctionMeta?.type === 'text'
-                                ? 'Lovable AI + OpenRouter models'
+                                ? 'OpenRouter + Lovable AI models'
                                 : 'Xem tất cả models khả dụng'
                               }
                             </p>
