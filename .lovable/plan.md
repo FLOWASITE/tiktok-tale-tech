@@ -1,93 +1,75 @@
 
 
-# Fix Core Content Generation Failure
+# Fix: Transform Core Content sang Multi-channel khong hoat dong
 
-## Root Cause Analysis
+## Nguyen nhan goc
 
-### Issue 1: Database Column Errors (Critical)
-File `supabase/functions/generate-core-content/index.ts` line 489 queries columns that DO NOT EXIST in the `customer_personas` table:
-- `short_description` - does not exist
-- `is_active` - does not exist  
-- `psychological_triggers` - does not exist
+Co **2 loi** khien tinh nang "Transform -> Multi-channel" tu Core Content Library khong hoat dong:
 
-This causes a Postgres error (`column customer_personas.short_description does not exist` visible in DB logs), which makes the persona data query fail silently (no error thrown, just null data).
+### Loi 1: `coreContentId` bi mat khi chuyen trang
+- `CoreContentLibrary.handleTransform()` dieu huong den `/multichannel/new?coreContentId=xxx` (truyen qua **URL query param**)
+- Nhung `MultiChannelCreate` chi doc du lieu tu `location.state` (React Router state), **khong doc URL search params**
+- Ket qua: `coreContentId` bi mat hoan toan, wizard khoi dong nhu tao moi
 
-### Issue 2: Streaming Returns Empty Content (Critical)
-Edge function logs show:
-```
-[callAIStreaming] Success via openrouter, content length: 0
-```
+### Loi 2: Khong co logic tai Core Content da ton tai
+- Ngay ca khi `coreContentId` duoc truyen dung vao wizard, **khong co useEffect nao** de fetch Core Content tu database va nap vao `coreContentData`
+- Vi `coreContentData` luon la `null`, wizard hien form "Tao Core Content" thay vi nhay thang den buoc chon Role (buoc 3)
 
-The model `qwen/qwen3.5-397b-a17b` is a reasoning/thinking model. OpenRouter returns reasoning tokens in `delta.reasoning` field, but the streaming parser in `callAIStreaming` (line 300) only reads `delta.content`:
-```javascript
-const delta = parsed.choices?.[0]?.delta?.content || '';
-```
+## Giai phap
 
-When a thinking model outputs its response, reasoning tokens go to `delta.reasoning` and the actual answer goes to `delta.content`. If the model puts everything in reasoning mode, `content` stays empty = 0 length content = generation fails with "Generated content too short".
+### Fix 1: Doc `coreContentId` tu URL search params trong `MultiChannelCreate`
 
-## Fixes
+File: `src/pages/MultiChannelCreate.tsx`
 
-### Fix 1: `supabase/functions/generate-core-content/index.ts` - Fix persona query (lines 487-502)
+- Them `useSearchParams` tu react-router-dom
+- Doc `coreContentId` tu URL: `searchParams.get('coreContentId')`
+- Truyen vao `formData.coreContentId` de wizard nhan duoc
 
-Replace the select query to only use columns that actually exist in the table:
-- Change `short_description` to `occupation` (closest existing descriptive field)
-- Remove `is_active` filter (column doesn't exist)
-- Change `psychological_triggers` to `buying_triggers` (closest existing column)
+### Fix 2: Them logic fetch Core Content khi co `coreContentId` san
 
-Before:
-```sql
-.select('name, short_description, pain_points, psychological_triggers, communication_style')
-.eq('is_active', true)
-```
+File: `src/components/multichannel/MultiChannelFormWizard.tsx`
 
-After:
-```sql
-.select('name, occupation, pain_points, buying_triggers, communication_style')
-```
+- Them `useEffect` theo doi `formData.coreContentId`
+- Khi co `coreContentId` va chua co `coreContentData`: fetch Core Content tu database bang supabase client
+- Nap du lieu vao `coreContentData` (title, content, wordCount, qualityScore, keyMessages, contentGoal)
+- Tu dong nhay den buoc 3 (chon Content Role) vi Core Content da san sang
+- Tu dong set `contentRole` dua tren `contentGoal` cua Core Content (dung `GOAL_TO_ROLE_MAP`)
 
-And update the mapping:
-```typescript
-description: p.occupation || undefined,
-triggers: p.buying_triggers || undefined,
-```
+### Fix 3: Tu dong dien topic tu Core Content
 
-### Fix 2: `supabase/functions/generate-core-content/index.ts` - Fix streaming parser for reasoning models (lines 293-307)
+- Khi fetch Core Content thanh cong, tu dong dien `formData.topic` = core content title/topic
+- Dam bao `formData.contentGoal` duoc dong bo tu Core Content
 
-Update the streaming chunk parser to also capture `delta.reasoning` content from thinking models. When the model uses reasoning mode, we should still capture the final content output:
+## Ket qua mong doi
 
-```javascript
-const delta = parsed.choices?.[0]?.delta?.content || '';
-const reasoning = parsed.choices?.[0]?.delta?.reasoning || '';
-if (delta) {
-  fullText += delta;
-  onChunk?.(delta);
-}
-// For reasoning models: if no content but has reasoning, 
-// accumulate it separately (don't stream to user)
-```
+Khi nguoi dung nhan "Transform -> Multi-channel" tu Core Content Library:
+1. Chuyen den trang tao moi voi `coreContentId` duoc giu nguyen
+2. Core Content duoc tai tu dong va hien thi
+3. Wizard nhay thang den buoc 3 (chon Role) - bo qua buoc nhap topic va tao Core Content
+4. Nguoi dung chi can chon Role, chon kenh, va bam tao
 
-Additionally, add a check: if after streaming, `fullText` is empty but there was a non-streaming response structure in the final chunk (some providers send the complete message in the last chunk), extract it.
+## Chi tiet ky thuat
 
-### Fix 3: Add non-streaming fallback for empty streaming results
+### `src/pages/MultiChannelCreate.tsx`
+- Them import `useSearchParams`
+- Trong component: `const [searchParams] = useSearchParams()`
+- Doc `coreContentId`: `const coreContentIdFromUrl = searchParams.get('coreContentId')`
+- Cap nhat `formData` initial state: them `coreContentId: coreContentIdFromUrl || undefined`
 
-In `callAIStreaming`, after the streaming loop, if `fullText` is empty, attempt a non-streaming call as fallback to ensure the user always gets content:
+### `src/components/multichannel/MultiChannelFormWizard.tsx`
+- Them `useEffect` moi (khoang dong 370-410):
 
-```typescript
-if (!fullText) {
-  console.warn('[callAIStreaming] Streaming returned empty, retrying non-streaming...');
-  return callAI(model, systemPrompt, userPrompt, maxTokens, temperature);
-}
+```text
+useEffect: khi initialData.coreContentId thay doi
+  -> Neu co coreContentId va chua co coreContentData
+  -> Fetch tu supabase: core_contents table, select *, eq id
+  -> Set coreContentData voi du lieu fetch duoc
+  -> Set formData.topic = data.topic
+  -> Set formData.contentGoal = data.content_goal
+  -> Set formData.contentRole = GOAL_TO_ROLE_MAP[data.content_goal]
+  -> Set currentStep = 3 (nhay den chon Role)
+  -> Mark steps 1, 2 da hoan thanh
 ```
 
-## Technical Details
-
-### Files to modify:
-1. `supabase/functions/generate-core-content/index.ts`
-   - Lines 487-501: Fix persona query columns
-   - Lines 293-314: Fix streaming parser + add fallback
-
-### Expected outcome:
-- Persona data loads correctly without DB errors
-- Reasoning/thinking models (Qwen3.5, DeepSeek R1, etc.) produce content correctly
-- If streaming fails, automatic non-streaming retry ensures content generation completes
+- Them state `isLoadingExistingCoreContent` de hien thi loading UI khi dang fetch
 
