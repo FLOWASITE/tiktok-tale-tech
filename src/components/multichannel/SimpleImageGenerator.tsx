@@ -704,8 +704,6 @@ export function SimpleImageGenerator({
       }}>
         <DrawerContent 
           className="max-h-[90vh] overflow-hidden flex flex-col"
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
         >
           <DrawerHeader className="flex-shrink-0 border-b border-border/50 pb-3">
             <DrawerTitle>{headerContent}</DrawerTitle>
@@ -718,7 +716,7 @@ export function SimpleImageGenerator({
               </p>
             )}
           </DrawerHeader>
-          <div className="overflow-y-auto flex-1 px-4 pb-4 touch-pan-y" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <div className="overflow-y-auto flex-1 px-4 pb-4" style={{ touchAction: 'manipulation', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
             {mobileBodyContent}
           </div>
           {bgEditor}
