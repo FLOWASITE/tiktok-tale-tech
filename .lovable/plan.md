@@ -1,59 +1,24 @@
 
-# Dat OpenRouter lam Provider Mac dinh cho Text/Content Functions
+# Fix Dropdown Model Selection bi tran man hinh tren mobile
 
-## Muc tieu
-Tuong tu nhu da lam voi PoYo.ai cho image functions, thay doi UI de OpenRouter luon duoc hien thi noi bat nhat cho cac text/content functions, thay vi Lovable AI.
+## Van de
+Dropdown chon model trong FunctionCard.tsx co qua nhieu items (OpenRouter 6 models + Lovable AI 3 presets + Extra presets 2 + Custom + Cau hinh chi tiet = 12+ items). Tren mobile, dropdown bi tran ra ngoai viewport, phan tren bi cat mat (khong thay duoc header "OpenRouter" va cac model dau tien nhu DeepSeek, MiniMax, Kimi).
 
-## Cac thay doi cu the
+## Giai phap
+Them `className` voi `max-height` va `overflow-y: auto` cho `DropdownMenuContent` de dropdown co the scroll duoc khi noi dung vuot qua chieu cao man hinh.
 
-### 1. `src/components/admin/ai/FunctionCard.tsx`
+## Chi tiet ky thuat
 
-**a) Them OPENROUTER_MODELS array** cho text functions (tuong tu POYO_MODELS cho image):
-- `deepseek/deepseek-v3.2` - DeepSeek V3.2 (gia re, chat luong cao)
-- `minimax/minimax-m2.5` - MiniMax M2.5 (#1 weekly)
-- `moonshotai/kimi-k2.5` - Kimi K2.5
-- `anthropic/claude-sonnet-4.6` - Claude Sonnet 4.6
-- `openai/gpt-5.2` - GPT-5.2
-- `x-ai/grok-4.1-fast` - Grok 4.1 Fast
+### File: `src/components/admin/ai/FunctionCard.tsx`
 
-**b) Cap nhat text function dropdown** - them section OpenRouter voi mau orange TRUOC section Lovable AI:
-- Thu tu hien thi: OpenRouter models (mau orange) -> Lovable AI presets (mac dinh, nhanh, chat luong) -> Extra presets -> Cau hinh chi tiet
+**1. Compact view dropdown (line 302):**
+- Them `max-h-[70vh] overflow-y-auto` vao className cua `DropdownMenuContent`
+- Tu: `className="w-56"`
+- Thanh: `className="w-56 max-h-[70vh] overflow-y-auto"`
 
-**c) Thay doi QUICK_PRESETS** - doi label "Mac dinh" useCase tu "Phu hop cho hau het tac vu" thanh "OpenRouter / Lovable AI"
+**2. Expanded view "More" dropdown (line 563):**
+- Tuong tu, them `max-h-[70vh] overflow-y-auto`
+- Tu: `className="w-56"`
+- Thanh: `className="w-56 max-h-[70vh] overflow-y-auto"`
 
-### 2. `src/components/admin/ai/ModelSelector.tsx`
-
-**a) Hien thi OpenRouter tab cho text functions** - Hien tai OpenRouter tab chi hien khi `hasOpenRouter && functionType === 'text'`, nhung no dung SAU Lovable AI. Can doi thu tu:
-- Tabs: Tat ca | OpenRouter | Lovable AI (thay vi Tat ca | Lovable AI | OpenRouter)
-
-**b) Di chuyen OpenRouter models section len TRUOC Lovable AI section** trong danh sach model:
-- Thu tu render: Default -> OpenRouter models (grouped by provider) -> Lovable AI models
-- (Hien tai: Default -> Lovable AI -> OpenRouter)
-
-### 3. `src/components/admin/ai/AIFunctionConfig.tsx`
-
-**a) Them OPENROUTER_QUICK_PRESETS** cho text functions:
-- `or_deepseek`: DeepSeek V3.2 - "Gia re, hieu suat cao"
-- `or_minimax`: MiniMax M2.5 - "#1 weekly ranking"
-
-**b) Cap nhat QuickSelectButton render order** cho text functions:
-1. Mac dinh (giu nguyen)
-2. DeepSeek V3.2 (OpenRouter) - moi
-3. MiniMax M2.5 (OpenRouter) - moi
-4. Nhanh nhat (Lovable AI - Gemini Flash Lite)
-5. Chat luong cao (Lovable AI - Gemini 3 Pro)
-
-**c) Cap nhat getCurrentQuickPreset()** de nhan dien cac preset OpenRouter moi
-
-**d) Cap nhat "Chon model khac..." description** tu "Lovable AI + OpenRouter models" thanh "OpenRouter + Lovable AI models"
-
-### 4. `src/types/aiProvider.ts`
-
-- `DEFAULT_AI_CONFIG.selectedProvider` da la `'poyo'` (khong can doi)
-- Kiem tra xem co can thay doi gi khong (co the khong can)
-
-### Ket qua
-- Text function dropdown hien thi OpenRouter models truoc Lovable AI
-- ModelSelector dialog hien thi tab va section OpenRouter truoc Lovable AI
-- Quick select trong edit dialog co them DeepSeek V3.2 va MiniMax M2.5
-- Toan bo UI nhat quan: OpenRouter la provider chinh cho text, PoYo la provider chinh cho image
+Voi thay doi nay, dropdown se co thanh cuon (scrollbar) khi noi dung vuot qua 70% chieu cao viewport, dam bao tat ca items deu co the truy cap duoc tren moi kich thuoc man hinh.
