@@ -299,7 +299,7 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
                   <ChevronDown className="h-3 w-3 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56 max-h-[70vh] overflow-y-auto">
+              <DropdownMenuContent align="start" side="bottom" collisionPadding={16} className="w-56 max-h-[60vh] overflow-y-auto">
                 {/* OpenRouter models for text functions - BEFORE Lovable AI */}
                 {!isImageFunction && (
                   <>
@@ -560,7 +560,7 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
                     <ChevronDown className="h-3.5 w-3.5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 max-h-[70vh] overflow-y-auto">
+                <DropdownMenuContent align="end" side="bottom" collisionPadding={16} className="w-56 max-h-[60vh] overflow-y-auto">
                   {!isImageFunction && (
                     <>
                       <DropdownMenuLabel className="text-[10px] text-orange-500 py-1">🔀 OpenRouter</DropdownMenuLabel>
