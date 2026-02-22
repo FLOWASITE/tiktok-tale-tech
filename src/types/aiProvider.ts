@@ -1,4 +1,4 @@
-export type AIProviderType = 'gemini' | 'openai' | 'replicate' | 'custom' | 'openrouter' | 'kie';
+export type AIProviderType = 'gemini' | 'openai' | 'replicate' | 'custom' | 'openrouter' | 'kie' | 'poyo';
 
 export interface AIProviderConfig {
   apiKey: string;
@@ -71,6 +71,14 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     getKeyUrl: 'https://kie.ai',
     models: ['flux-kontext-pro', 'flux-kontext-max', 'gpt-image-1', 'gpt-image-1.5'],
     icon: '🔮',
+  },
+  {
+    id: 'poyo',
+    name: 'PoYo.ai',
+    description: 'GPT-4o Image, Z-Image, Flux 2, Seedream, Grok',
+    getKeyUrl: 'https://poyo.ai/dashboard/api-key',
+    models: ['poyo/gpt-4o-image', 'poyo/gpt-image-1.5', 'poyo/z-image', 'poyo/flux-2-pro', 'poyo/seedream-4.5', 'poyo/grok-imagine'],
+    icon: '🐱',
   },
   {
     id: 'custom',

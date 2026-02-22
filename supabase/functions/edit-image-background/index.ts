@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared/kie-image-generator.ts";
+import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_shared/poyo-image-generator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -115,8 +116,43 @@ serve(async (req) => {
     let editedImageUrl: string | null = null;
     let assistantMessage: string | undefined;
 
-    // Route to KIE.ai if model is a KIE model
-    if (isKieModel(modelToUse)) {
+    // Route to PoYo.ai, KIE.ai, or Lovable AI
+    if (isPoyoModel(modelToUse)) {
+      const POYO_API_KEY = Deno.env.get('POYO_API_KEY');
+      if (!POYO_API_KEY) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'POYO_API_KEY not configured. Please add it in project secrets.' }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`[edit-image-background] Routing to PoYo.ai: ${modelToUse}`);
+      try {
+        editedImageUrl = await generateImageViaPoyo({
+          prompt: editPrompt,
+          model: modelToUse,
+          inputImage: request.imageUrl,
+          aspectRatio: '1:1',
+        }, POYO_API_KEY);
+      } catch (poyoErr) {
+        const poyoErrMsg = poyoErr instanceof Error ? poyoErr.message : String(poyoErr);
+        console.error(`[edit-image-background] PoYo.ai failed: ${poyoErrMsg}`);
+
+        if (poyoErrMsg.includes('POYO_AUTH_ERROR') || poyoErrMsg.includes('POYO_CREDITS_EXHAUSTED')) {
+          return new Response(
+            JSON.stringify({ success: false, error: poyoErrMsg }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        if (poyoErrMsg.includes('POYO_RATE_LIMIT')) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Đã vượt giới hạn request PoYo.ai. Vui lòng thử lại sau.' }),
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        throw poyoErr;
+      }
+    } else if (isKieModel(modelToUse)) {
       const KIE_API_KEY = Deno.env.get('KIE_API_KEY');
       if (!KIE_API_KEY) {
         return new Response(
@@ -150,7 +186,6 @@ serve(async (req) => {
             { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        // Don't fall back for image editing — KIE and Lovable formats differ too much
         throw kieErr;
       }
     } else {

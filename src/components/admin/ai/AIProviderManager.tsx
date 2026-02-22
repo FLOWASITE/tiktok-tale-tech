@@ -27,6 +27,7 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   gemini: <Sparkles className="h-5 w-5 text-yellow-500" />,
   replicate: <Wand2 className="h-5 w-5 text-cyan-500" />,
   kie: <Wand2 className="h-5 w-5 text-violet-500" />,
+  poyo: <Wand2 className="h-5 w-5 text-teal-500" />,
   custom: <Settings className="h-5 w-5 text-muted-foreground" />,
 };
 
@@ -37,6 +38,7 @@ const PROVIDER_KEY_URLS: Record<string, string> = {
   gemini: 'https://aistudio.google.com/app/apikey',
   replicate: 'https://replicate.com/account/api-tokens',
   kie: 'https://kie.ai',
+  poyo: 'https://poyo.ai/dashboard/api-key',
 };
 
 interface TestResult {
