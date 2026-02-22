@@ -817,9 +817,9 @@ export function MultiChannelViewer({
               </div>
 
               {/* Right: Grouped Actions */}
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
                 {/* Secondary Actions Group */}
-                <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-background/50 border border-border/30">
+                <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-background/50 border border-border/30 flex-shrink-0">
                   {/* Channel Comparison */}
                   <ChannelComparison content={content} channelConfig={channelConfig} />
                   
@@ -893,14 +893,14 @@ export function MultiChannelViewer({
                 </div>
 
                 {/* Separator */}
-                <div className="h-6 w-px bg-border/30 mx-1" />
+                <div className="h-6 w-px bg-border/30 mx-1 flex-shrink-0" />
 
                 {/* AI Actions */}
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => { setActiveImageChannel(null); setShowImageGenerator(true); }}
-                  className="h-8 gap-1.5 border-primary/30 hover:border-primary hover:bg-primary/5"
+                  className="h-8 gap-1.5 border-primary/30 hover:border-primary hover:bg-primary/5 flex-shrink-0"
                 >
                   <Wand2 className="w-4 h-4" />
                   <span className="hidden lg:inline">Tạo ảnh AI</span>
