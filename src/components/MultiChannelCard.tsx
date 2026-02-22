@@ -122,12 +122,6 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
     locale: vi,
   });
 
-  const isUpdated = content.updated_at !== content.created_at;
-  const updateTimeAgo = isUpdated ? formatDistanceToNow(new Date(content.updated_at), {
-    addSuffix: true,
-    locale: vi,
-  }) : null;
-
   const safeChannels = content?.selected_channels ?? [];
 
   const filledChannelsCount = safeChannels.filter(ch => {
@@ -135,7 +129,7 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
     return content[contentKey] && (content[contentKey] as string).length > 0;
   }).length;
 
-  // Get first thumbnail from channel_images
+  // Get first thumbnail from channel_images - improved
   const firstThumbnail = useMemo(() => {
     if (!content.channel_images) return null;
     for (const channel of safeChannels) {
@@ -167,7 +161,7 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
       const contentKey = `${channel}_content` as keyof MultiChannelContent;
       const channelContent = content[contentKey] as string | null;
       if (channelContent && channelContent.length > 0) {
-        return channelContent.replace(/[#*_`~\[\]]/g, '').trim();
+        return channelContent.replace(/[#*_`~\\\\[\\\\]]/g, '').trim();
       }
     }
     return null;
@@ -189,7 +183,8 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
       className={cn(
         "relative rounded-xl border border-border/50 transition-all duration-300 ease-out group overflow-hidden",
         "bg-background/80 backdrop-blur-sm",
-        "hover:-translate-y-1 hover:shadow-xl",
+        // #7: Subtler hover - reduced translate and shadow
+        "hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/5",
         statusStyle.glow
       )}
     >
@@ -219,6 +214,7 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
         
         {/* Top Row - Status, Priority & Thumbnail */}
         <div className="relative flex items-start justify-between mb-1.5 xs:mb-2">
+          {/* Row 1: Status + Priority */}
           <div className="flex items-center gap-1 flex-wrap">
             <Badge 
               variant="outline" 
@@ -243,52 +239,53 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
             )}
           </div>
           
-          {/* Thumbnail */}
+          {/* #1: Larger thumbnail (w-14 h-14) with shadow */}
           {firstThumbnail && (
-            <div className="w-10 h-10 xs:w-12 xs:h-12 rounded-lg overflow-hidden border border-border/50 flex-shrink-0 ml-2">
+            <div className="relative w-14 h-14 rounded-lg overflow-hidden border border-border/50 flex-shrink-0 ml-2 shadow-sm">
               <img 
                 src={firstThumbnail} 
                 alt="" 
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
+              {/* Subtle gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent" />
             </div>
           )}
         </div>
 
-        {/* Header - Title & Topic */}
+        {/* Header - Title with tooltip for content preview */}
         <div className="relative mb-1.5 xs:mb-2">
-          <h3 className="font-semibold text-sm xs:text-base text-foreground line-clamp-2 group-hover:text-primary transition-colors duration-200">
-            {content.title}
-          </h3>
+          {/* #2: Content preview only in tooltip, not inline. #7: underline on hover */}
+          {firstChannelContent ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <h3 className="font-semibold text-sm xs:text-base text-foreground line-clamp-2 hover:underline decoration-primary/40 underline-offset-2 transition-all duration-200 cursor-default">
+                    {content.title}
+                  </h3>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs text-xs">
+                  <p className="italic text-muted-foreground">"{firstChannelContent.slice(0, 300)}{firstChannelContent.length > 300 ? '...' : ''}"</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <h3 className="font-semibold text-sm xs:text-base text-foreground line-clamp-2 hover:underline decoration-primary/40 underline-offset-2 transition-all duration-200">
+              {content.title}
+            </h3>
+          )}
           <p className="text-[10px] xs:text-xs text-muted-foreground line-clamp-1 mt-0.5">
             {content.topic}
           </p>
         </div>
 
-        {/* Content Preview - moved to tooltip on hover for cleaner look */}
-        {firstChannelContent && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <p className="relative hidden xs:block text-[10px] text-muted-foreground line-clamp-1 mb-2 opacity-60 italic border-l-2 border-primary/30 pl-2 cursor-default">
-                  "{firstChannelContent.slice(0, 80)}…"
-                </p>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-xs text-xs">
-                <p className="italic">"{firstChannelContent.slice(0, 300)}{firstChannelContent.length > 300 ? '...' : ''}"</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-
-        {/* Meta Badges Row - Goal, Deadline, Critique, Image count */}
+        {/* #3: Row 2 badges - Goal + Deadline + Critique score */}
         <div className="relative flex flex-wrap items-center gap-1 xs:gap-1.5 mb-1.5 xs:mb-2">
           <Badge variant="outline" className={cn("text-[8px] xs:text-[10px] px-1 xs:px-1.5 py-0 h-3.5 xs:h-4", goalColors[content.content_goal])}>
             {goalLabel}
           </Badge>
           
-          {/* Deadline badge */}
           {deadlineInfo && (
             <Badge 
               variant="outline" 
@@ -305,7 +302,6 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
             </Badge>
           )}
 
-          {/* Critique score */}
           {content.critique_score != null && (
             <TooltipProvider>
               <Tooltip>
@@ -329,81 +325,93 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
               </Tooltip>
             </TooltipProvider>
           )}
-
-          {imageCount > 0 && (
-            <Badge variant="outline" className="text-[8px] xs:text-[10px] px-1 py-0 h-3.5 xs:h-4 bg-violet-500/20 text-violet-400 border-violet-500/30">
-              <Image className="w-2 h-2 xs:w-2.5 xs:h-2.5 mr-0.5" />
-              {imageCount}
-            </Badge>
-          )}
-          <Badge variant="outline" className="text-[8px] xs:text-[10px] px-1 py-0 h-3.5 xs:h-4 bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
-            <FileText className="w-2 h-2 xs:w-2.5 xs:h-2.5 mr-0.5" />
-            {filledChannelsCount}/{safeChannels.length}
-          </Badge>
         </div>
 
-        {/* Channel Progress Bar */}
-        <div className="relative h-1 rounded-full bg-muted/50 mb-2 overflow-hidden">
-          <motion.div 
-            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary to-secondary"
-            initial={{ width: 0 }}
-            animate={{ width: `${safeChannels.length > 0 ? (filledChannelsCount / safeChannels.length) * 100 : 0}%` }}
-            transition={{ duration: 0.5, delay: index * 0.05 + 0.2 }}
-          />
+        {/* #6: Improved progress bar - h-1.5 with label */}
+        <div className="relative flex items-center gap-2 mb-2">
+          <div className="flex-1 h-1.5 rounded-full bg-muted/50 overflow-hidden">
+            <motion.div 
+              className="h-full rounded-full bg-gradient-to-r from-primary to-secondary"
+              initial={{ width: 0 }}
+              animate={{ width: `${safeChannels.length > 0 ? (filledChannelsCount / safeChannels.length) * 100 : 0}%` }}
+              transition={{ duration: 0.5, delay: index * 0.05 + 0.2 }}
+            />
+          </div>
+          <span className="text-[8px] xs:text-[9px] text-muted-foreground whitespace-nowrap">
+            {filledChannelsCount}/{safeChannels.length} kênh
+          </span>
         </div>
 
-        {/* Channels with status indicators - expanded to 6 */}
+        {/* #4: Channel section with header and image/file counts */}
         <TooltipProvider>
-          <div className="relative flex flex-wrap gap-1 xs:gap-1.5 mb-1.5 xs:mb-2">
-            {safeChannels.slice(0, 6).map((channel) => {
-              const channelStatus = content.channel_statuses?.[channel] || 'draft';
-              const channelStatusLabel = CONTENT_STATUSES.find(s => s.value === channelStatus)?.label || channelStatus;
-              return (
-                <Tooltip key={channel}>
-                  <TooltipTrigger asChild>
-                    <div
-                      className={cn(
-                        "relative flex items-center p-1 xs:p-1.5 rounded-md border transition-transform duration-200",
-                        channelColors[channel],
-                        isHovered && "scale-110"
-                      )}
-                    >
-                      {channelIcons[channel]}
-                      <span 
+          <div className="relative mb-1.5 xs:mb-2">
+            {/* Channel header with counts */}
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="text-[8px] xs:text-[9px] text-muted-foreground font-medium uppercase tracking-wider">Kênh</span>
+              {imageCount > 0 && (
+                <span className="flex items-center gap-0.5 text-[8px] text-violet-400">
+                  <Image className="w-2 h-2" />
+                  {imageCount}
+                </span>
+              )}
+              <span className="flex items-center gap-0.5 text-[8px] text-emerald-500">
+                <FileText className="w-2 h-2" />
+                {filledChannelsCount}
+              </span>
+            </div>
+            {/* Channel icons - no scale on hover, use brightness instead */}
+            <div className="flex flex-wrap gap-1 xs:gap-1.5">
+              {safeChannels.slice(0, 6).map((channel) => {
+                const channelStatus = content.channel_statuses?.[channel] || 'draft';
+                const channelStatusLabel = CONTENT_STATUSES.find(s => s.value === channelStatus)?.label || channelStatus;
+                return (
+                  <Tooltip key={channel}>
+                    <TooltipTrigger asChild>
+                      <div
                         className={cn(
-                          "absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ring-1 ring-background",
-                          statusDotColors[channelStatus]
+                          "relative flex items-center p-1.5 xs:p-2 rounded-md border transition-all duration-200",
+                          channelColors[channel],
+                          // #4: brightness instead of scale to avoid layout shift
+                          "hover:brightness-125 hover:shadow-sm"
                         )}
-                      />
-                      {content.channel_images?.[channel] && (
+                      >
+                        {channelIcons[channel]}
                         <span 
-                          className="absolute -bottom-0.5 -left-0.5 w-2 h-2 rounded-full bg-violet-400 ring-1 ring-background"
+                          className={cn(
+                            "absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ring-1 ring-background",
+                            statusDotColors[channelStatus]
+                          )}
                         />
-                      )}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
-                    <p className="font-medium">{channel}</p>
-                    <p className="text-muted-foreground">{channelStatusLabel}</p>
-                    <p className={cn(
-                      "text-[10px]",
-                      content.channel_images?.[channel] ? "text-violet-400" : "text-muted-foreground/60"
-                    )}>
-                      {content.channel_images?.[channel] ? "📷 Có ảnh" : "Chưa có ảnh"}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              );
-            })}
-            {safeChannels.length > 6 && (
-              <div className="flex items-center px-1.5 py-1 rounded-md border border-border text-[9px] xs:text-[10px] text-muted-foreground">
-                +{safeChannels.length - 6}
-              </div>
-            )}
+                        {content.channel_images?.[channel] && (
+                          <span 
+                            className="absolute -bottom-0.5 -left-0.5 w-2 h-2 rounded-full bg-violet-400 ring-1 ring-background"
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      <p className="font-medium">{channel}</p>
+                      <p className="text-muted-foreground">{channelStatusLabel}</p>
+                      <p className={cn(
+                        "text-[10px]",
+                        content.channel_images?.[channel] ? "text-violet-400" : "text-muted-foreground/60"
+                      )}>
+                        {content.channel_images?.[channel] ? "📷 Có ảnh" : "Chưa có ảnh"}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+              {safeChannels.length > 6 && (
+                <div className="flex items-center px-1.5 py-1 rounded-md border border-border text-[9px] xs:text-[10px] text-muted-foreground">
+                  +{safeChannels.length - 6}
+                </div>
+              )}
+            </div>
           </div>
         </TooltipProvider>
 
-        {/* Tags */}
+        {/* Tags - increased max-width for readability */}
         {content.tags && content.tags.length > 0 && (
           <div className="relative hidden xs:flex items-center gap-1 mb-2">
             <Tag className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
@@ -411,7 +419,7 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
               {content.tags.slice(0, 3).map((tag, tagIndex) => (
                 <span 
                   key={tagIndex} 
-                  className="text-[9px] px-1.5 py-0.5 bg-muted/50 rounded text-muted-foreground truncate max-w-[60px]"
+                  className="text-[9px] px-1.5 py-0.5 bg-muted/50 rounded text-muted-foreground truncate max-w-[80px]"
                 >
                   {tag}
                 </span>
@@ -423,34 +431,21 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
           </div>
         )}
 
-        {/* Creator */}
-        <div className="relative flex items-center gap-1 xs:gap-1.5 mb-1.5 xs:mb-2 text-[9px] xs:text-[10px]">
-          <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
-        </div>
-
-        {/* Brand & Time Footer */}
+        {/* #5: Simplified footer - Creator + brand + time in one row */}
         <div className="relative flex items-center justify-between text-[9px] xs:text-[10px] text-muted-foreground mb-1.5 xs:mb-2">
-          <div className="flex items-center gap-1 min-w-0 flex-1">
-            {content.primary_color && (
-              <div
-                className="w-2 h-2 xs:w-2.5 xs:h-2.5 rounded-full border border-border flex-shrink-0"
-                style={{ backgroundColor: content.primary_color }}
-              />
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
+            {content.brand_name && (
+              <>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="truncate text-[8px] xs:text-[10px]">{content.brand_name}</span>
+              </>
             )}
-            <span className="truncate text-[8px] xs:text-[10px]">{content.brand_name}</span>
           </div>
-          <div className="flex items-center gap-1 xs:gap-2 flex-shrink-0">
-            {isUpdated && updateTimeAgo && (
-              <span className="hidden xs:flex items-center gap-0.5 text-[8px] xs:text-[9px] opacity-60">
-                <RefreshCw className="w-2 h-2" />
-                {updateTimeAgo}
-              </span>
-            )}
-            <span className="opacity-70 text-[8px] xs:text-[10px]">{timeAgo}</span>
-          </div>
+          <span className="opacity-70 text-[8px] xs:text-[10px] flex-shrink-0">{timeAgo}</span>
         </div>
 
-        {/* Actions - Show "Xem" always compact, schedule & delete on hover */}
+        {/* #7: Actions - smooth reveal from right */}
         <div className="relative flex gap-1 xs:gap-1.5">
           <Button
             variant="outline"
@@ -463,8 +458,8 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
           </Button>
 
           <div className={cn(
-            "flex gap-1 transition-all duration-300 overflow-hidden",
-            isHovered ? "opacity-100 max-w-24" : "opacity-0 max-w-0"
+            "flex gap-1 transition-all duration-300 ease-out overflow-hidden",
+            isHovered ? "opacity-100 max-w-24 translate-x-0" : "opacity-0 max-w-0 translate-x-2"
           )}>
             <TooltipProvider>
               <Tooltip>
