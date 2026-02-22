@@ -13,27 +13,49 @@ const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 // Popular/flagship models to prioritize
 const POPULAR_MODELS = new Set([
+  // Anthropic
   'anthropic/claude-sonnet-4-20250514',
-  'anthropic/claude-3.5-sonnet',
-  'anthropic/claude-3-opus',
-  'anthropic/claude-3-haiku',
-  'openai/gpt-4o',
-  'openai/gpt-4-turbo',
-  'openai/o1',
-  'openai/o1-mini',
+  'anthropic/claude-sonnet-4.6',
+  'anthropic/claude-sonnet-4.5',
+  'anthropic/claude-opus-4.6',
+  'anthropic/claude-opus-4.5',
+  'anthropic/claude-haiku-4.5',
+  // OpenAI
+  'openai/gpt-5.2',
+  'openai/gpt-5.2-codex',
+  'openai/gpt-5-mini',
+  'openai/gpt-5-nano',
+  'openai/gpt-oss-120b',
+  // Google
+  'google/gemini-3.1-pro-preview',
+  'google/gemini-3-flash-preview',
+  'google/gemini-2.5-flash',
+  'google/gemini-2.5-flash-lite',
+  // Meta
   'meta-llama/llama-3.3-70b-instruct',
-  'meta-llama/llama-3.1-405b-instruct',
-  'google/gemini-pro-1.5',
-  'google/gemini-flash-1.5',
+  // Mistral
   'mistralai/mistral-large',
-  'mistralai/mixtral-8x22b-instruct',
-  'deepseek/deepseek-chat',
-  'deepseek/deepseek-reasoner',
+  // DeepSeek
+  'deepseek/deepseek-v3.2',
+  'deepseek/deepseek-chat-v3.1',
+  'deepseek/deepseek-r1',
+  // MoonshotAI
+  'moonshotai/kimi-k2.5',
+  // MiniMax
+  'minimax/minimax-m2.5',
+  // xAI
+  'x-ai/grok-4.1-fast',
+  'x-ai/grok-code-fast-1',
+  // Z.ai
+  'z-ai/glm-5',
+  // Qwen
+  'qwen/qwen3-235b-a22b-2507',
+  'qwen/qwen3-coder-next',
   'qwen/qwen-2.5-72b-instruct',
-  'qwen/qwen-2.5-coder-32b-instruct',
-  'cohere/command-r-plus',
+  // Xiaomi
+  'xiaomi/mimo-v2-flash',
+  // Perplexity
   'perplexity/sonar-pro',
-  'x-ai/grok-2',
 ]);
 
 // Determine model category
@@ -47,7 +69,7 @@ function categorizeModel(model: any): string {
   }
   
   // Coding models
-  if (id.includes('coder') || id.includes('codestral') || id.includes('starcoder')) {
+  if (id.includes('coder') || id.includes('codestral') || id.includes('starcoder') || id.includes('codex') || id.includes('mimo')) {
     return 'coding';
   }
   
@@ -69,7 +91,8 @@ function categorizeModel(model: any): string {
   
   // Flagship
   if (id.includes('opus') || id.includes('large') || id.includes('pro') || id.includes('turbo') || 
-      id.includes('405b') || id.includes('70b') || promptCost > 5) {
+      id.includes('405b') || id.includes('70b') || id.includes('v3.2') || id.includes('v3.1') ||
+      id.includes('glm-5') || id.includes('kimi-k2.5') || id.includes('m2.5') || promptCost > 5) {
     return 'flagship';
   }
   
@@ -92,6 +115,13 @@ function getProviderName(modelId: string): string {
     'microsoft': 'Microsoft',
     'nvidia': 'NVIDIA',
     'databricks': 'Databricks',
+    'moonshotai': 'MoonshotAI',
+    'minimax': 'MiniMax',
+    'z-ai': 'Z.ai',
+    'xiaomi': 'Xiaomi',
+    'stepfun': 'StepFun',
+    'arcee-ai': 'Arcee AI',
+    'writer': 'Writer',
   };
   
   const prefix = modelId.split('/')[0];

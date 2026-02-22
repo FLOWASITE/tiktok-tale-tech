@@ -44,6 +44,24 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   'qwen/qwen-turbo': { input: 0.05, output: 0.20 },
   'qwen/qwen-plus': { input: 0.10, output: 0.40 },
   'qwen/qwen-max': { input: 0.40, output: 1.60 },
+  'qwen/qwen3-coder-next': { input: 0.12, output: 0.75 },
+  
+  // New flagship models (Feb 2026)
+  'anthropic/claude-sonnet-4.6': { input: 3.0, output: 15.0 },
+  'anthropic/claude-sonnet-4.5': { input: 3.0, output: 15.0 },
+  'anthropic/claude-opus-4.6': { input: 5.0, output: 25.0 },
+  'anthropic/claude-opus-4.5': { input: 5.0, output: 25.0 },
+  'anthropic/claude-haiku-4.5': { input: 1.0, output: 5.0 },
+  'openai/gpt-5.2-codex': { input: 1.75, output: 14.0 },
+  'openai/gpt-oss-120b': { input: 0.039, output: 0.19 },
+  'google/gemini-3.1-pro-preview': { input: 2.0, output: 12.0 },
+  'deepseek/deepseek-v3.2': { input: 0.26, output: 0.38 },
+  'deepseek/deepseek-chat-v3.1': { input: 0.15, output: 0.75 },
+  'moonshotai/kimi-k2.5': { input: 0.23, output: 3.0 },
+  'minimax/minimax-m2.5': { input: 0.30, output: 1.10 },
+  'x-ai/grok-4.1-fast': { input: 0.20, output: 0.50 },
+  'z-ai/glm-5': { input: 0.30, output: 2.55 },
+  'xiaomi/mimo-v2-flash': { input: 0.09, output: 0.29 },
 };
 
 // Default pricing for unknown models
