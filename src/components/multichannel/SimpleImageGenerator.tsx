@@ -29,10 +29,17 @@ import { BackgroundEditor } from './BackgroundEditor';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { suggestImageStyles, type StyleSuggestion } from '@/utils/imageStyleSuggestion';
+import { suggestImageStylesV3, type SuggestionV3, type SuggestionInputV3 } from '@/lib/imageSuggestionEngine';
+import type { ChannelKey, ContentGoal, ContentAngle, ContentRole, Industry } from '@/config/visualScoringConfig';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { LogoPosition, LogoStyle } from './LogoOptionsPanel';
+
+// Map frontend Channel to V3 ChannelKey
+function toChannelKey(ch: Channel): ChannelKey {
+  if (ch === 'instagram') return 'instagram_feed';
+  return ch as ChannelKey;
+}
 
 // ─── Props ────────────────────────────────────────────────────────
 interface SimpleImageGeneratorProps {
@@ -124,7 +131,7 @@ export function SimpleImageGenerator({
   const [textPosition, setTextPosition] = useState<TextPosition>('center');
   const [typographyStyle, setTypographyStyle] = useState<TypographyStyle>('modern');
   const [negativePrompt, setNegativePrompt] = useState('');
-  const [styleSuggestions, setStyleSuggestions] = useState<StyleSuggestion[]>([]);
+  const [v3Suggestions, setV3Suggestions] = useState<SuggestionV3[]>([]);
 
   // Background editor
   const [bgEditorOpen, setBgEditorOpen] = useState(false);
@@ -149,23 +156,40 @@ export function SimpleImageGenerator({
     enabled: !!content?.brand_template_id,
   });
 
-  // Auto-set style from brand
+  // Extract content context
+  const contentAny = content as any;
+  const contentGoal = contentAny.content_goal as ContentGoal | undefined;
+  const contentRole = contentAny.content_role as ContentRole | undefined;
+  const contentAngle = contentAny.content_angle as ContentAngle | undefined;
+
   useEffect(() => {
-    const industry = brandTemplate?.industry || brandIndustry;
-    const toneOfVoice = brandTemplate?.tone_of_voice as string[] | undefined;
-    const explicitImageStyle = brandTemplate?.image_style as string | undefined;
-    const formalityLevel = brandTemplate?.formality_level as string | undefined;
-    if (industry || toneOfVoice || explicitImageStyle) {
-      const suggestions = suggestImageStyles({ industry, toneOfVoice, explicitImageStyle, formalityLevel });
-      setStyleSuggestions(suggestions);
-      setImageStyle(cur => {
-        if (cur === 'auto' && suggestions.length > 0 && suggestions[0]?.isRecommended) {
-          return suggestions[0].style;
-        }
-        return cur;
-      });
-    }
-  }, [brandTemplate, brandIndustry]);
+    // Determine industry from brand template or props
+    const rawIndustry = brandTemplate?.industry || brandIndustry;
+    const industry: Industry = (Array.isArray(rawIndustry) ? rawIndustry[0] : rawIndustry) as Industry || 'service';
+
+    // Build V3 input from content context
+    const input: SuggestionInputV3 = {
+      contentGoal: contentGoal || 'education',
+      contentAngle: (contentAngle as ContentAngle) || 'educational',
+      contentRole: (contentRole as ContentRole) || 'sprout',
+      channel: toChannelKey(selectedChannels[0] || 'instagram'),
+      industry,
+    };
+
+    const suggestions = suggestImageStylesV3(input);
+    setV3Suggestions(suggestions);
+
+    // Auto-apply top suggestion when style is 'auto'
+    setImageStyle(cur => {
+      if (cur === 'auto' && suggestions.length > 0) {
+        const topStyle = suggestions[0].style as ImageStylePreset;
+        // Only apply if it's one of the supported presets in the UI
+        const uiStyles: ImageStylePreset[] = ['photorealistic', 'illustration', 'minimalist', '3d_render', 'flat_design', 'watercolor', 'cinematic'];
+        if (uiStyles.includes(topStyle)) return topStyle;
+      }
+      return cur;
+    });
+  }, [brandTemplate, brandIndustry, contentGoal, contentAngle, contentRole, selectedChannels]);
 
   // Fill hook text for a specific channel
   const fillHookText = useCallback((channel: Channel) => {
@@ -227,9 +251,6 @@ export function SimpleImageGenerator({
     return h;
   }, [content, selectedChannels]);
 
-  const contentAny = content as any;
-  const contentRole = contentAny.content_role as 'seed' | 'sprout' | 'harvest' | undefined;
-  const contentAngle = contentAny.content_angle as string | undefined;
 
   const batchOptions = useMemo(() => ({
     contentId: content?.id ?? '',
@@ -566,6 +587,7 @@ export function SimpleImageGenerator({
                     logoPosition={logoPosition}
                     hasBrandLogo={!!brandLogoUrl}
                     imageContentType={imageContentType}
+                    v3TopSuggestion={v3Suggestions.find(s => s.style === imageStyle)}
                   />
                   <Button
                     onClick={handleGenerate}
@@ -585,7 +607,7 @@ export function SimpleImageGenerator({
                 <ImageAdvancedOptions
                   imageStyle={imageStyle}
                   onImageStyleChange={setImageStyle}
-                  styleSuggestions={styleSuggestions}
+                  v3Suggestions={v3Suggestions}
                   aspectRatio={aspectRatio}
                   onAspectRatioChange={setAspectRatio}
                   includeLogo={includeLogo}
