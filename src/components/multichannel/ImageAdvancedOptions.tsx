@@ -13,7 +13,7 @@ import { LogoOptionsPanel, type LogoPosition, type LogoStyle } from './LogoOptio
 import { VisualTextPositionPreview } from './VisualTextPositionPreview';
 import type { AspectRatioOption, ImageStylePreset } from '@/hooks/useAutoImageGeneration';
 import type { TextPosition, TypographyStyle } from '@/hooks/useSocialImageGeneration';
-import type { StyleSuggestion } from '@/utils/imageStyleSuggestion';
+import type { SuggestionV3 } from '@/lib/imageSuggestionEngine';
 import type { Channel } from '@/types/multichannel';
 
 
@@ -27,7 +27,7 @@ interface ImageAdvancedOptionsProps {
   // Style
   imageStyle: ImageStylePreset | 'auto';
   onImageStyleChange: (style: ImageStylePreset | 'auto') => void;
-  styleSuggestions?: StyleSuggestion[];
+  v3Suggestions?: SuggestionV3[];
 
   // Aspect ratio
   aspectRatio: AspectRatioOption;
@@ -87,7 +87,7 @@ const ASPECT_RATIOS: { value: AspectRatioOption; label: string; desc: string }[]
 ];
 
 export function ImageAdvancedOptions({
-  imageStyle, onImageStyleChange, styleSuggestions,
+  imageStyle, onImageStyleChange, v3Suggestions,
   aspectRatio, onAspectRatioChange,
   includeLogo, onIncludeLogoChange,
   logoPosition, onLogoPositionChange,
@@ -103,8 +103,12 @@ export function ImageAdvancedOptions({
 }: ImageAdvancedOptionsProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Find recommended style
-  const recommended = styleSuggestions?.find(s => s.isRecommended);
+  // Find V3 suggestion for a style (to show score badge)
+  const getV3Score = (style: string): SuggestionV3 | undefined =>
+    v3Suggestions?.find(s => s.style === style);
+
+  // Top V3 suggestion
+  const topSuggestion = v3Suggestions?.[0];
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className={className}>
@@ -120,19 +124,25 @@ export function ImageAdvancedOptions({
       </CollapsibleTrigger>
 
       <CollapsibleContent className="mt-3 space-y-5 px-1">
-        {/* Style Grid */}
+        {/* Style Grid with V3 scores */}
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Phong cách ảnh</Label>
+          {topSuggestion && (
+            <p className="text-[10px] text-muted-foreground/70 -mt-1">
+              V3 gợi ý: <span className="font-medium text-primary">{topSuggestion.style}</span> ({topSuggestion.matchPercentage}%)
+            </p>
+          )}
           <div className="grid grid-cols-4 gap-1.5">
             {IMAGE_STYLES.map(s => {
               const isSelected = imageStyle === s.value;
-              const isRec = recommended?.style === s.value;
+              const v3 = s.value !== 'auto' ? getV3Score(s.value) : undefined;
+              const isTop = topSuggestion?.style === s.value;
               return (
                 <button
                   key={s.value}
                   onClick={() => onImageStyleChange(s.value)}
                   className={cn(
-                    "flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all text-xs",
+                    "flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all text-xs relative",
                     isSelected
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border/50 hover:border-primary/30 text-muted-foreground"
@@ -140,14 +150,40 @@ export function ImageAdvancedOptions({
                 >
                   {s.icon}
                   <span className="font-medium leading-tight">{s.label}</span>
-                  {isRec && !isSelected && (
-                    <span className="text-[9px] text-primary">★ Gợi ý</span>
+                  {v3 && (
+                    <span className={cn(
+                      "text-[9px]",
+                      isTop ? "text-primary font-semibold" : "text-muted-foreground/60"
+                    )}>
+                      {isTop ? `★ ${v3.matchPercentage}%` : `${v3.matchPercentage}%`}
+                    </span>
                   )}
                 </button>
               );
             })}
           </div>
         </div>
+
+        {/* V3 Top 3 Reasons */}
+        {v3Suggestions && v3Suggestions.length > 0 && (
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Lý do gợi ý (V3)</Label>
+            <div className="space-y-1">
+              {v3Suggestions.slice(0, 3).map((s, i) => (
+                <div key={s.id} className={cn(
+                  "text-[10px] px-2.5 py-1.5 rounded-md border",
+                  i === 0 ? "bg-primary/5 border-primary/20 text-foreground" : "bg-muted/30 border-border/30 text-muted-foreground"
+                )}>
+                  <span className="font-medium">{i + 1}. {s.style}</span>
+                  <span className="mx-1">·</span>
+                  <span>{s.matchPercentage}%</span>
+                  <span className="mx-1">·</span>
+                  <span className="italic">{s.reason.split(' | ')[0]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Aspect Ratio */}
         <div className="space-y-2">

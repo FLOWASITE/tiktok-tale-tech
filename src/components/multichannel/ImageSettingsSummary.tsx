@@ -1,6 +1,7 @@
 import { Sparkles, Ratio, Image, AlignCenter } from 'lucide-react';
 import type { AspectRatioOption, ImageStylePreset } from '@/hooks/useAutoImageGeneration';
 import type { LogoPosition } from './LogoOptionsPanel';
+import type { SuggestionV3 } from '@/lib/imageSuggestionEngine';
 
 interface ImageSettingsSummaryProps {
   imageStyle: ImageStylePreset | 'auto';
@@ -9,6 +10,7 @@ interface ImageSettingsSummaryProps {
   logoPosition: LogoPosition;
   hasBrandLogo: boolean;
   imageContentType: 'background_only' | 'with_text';
+  v3TopSuggestion?: SuggestionV3;
 }
 
 const STYLE_LABELS: Record<string, string> = {
@@ -29,12 +31,18 @@ const LOGO_POS_LABELS: Record<string, string> = {
 };
 
 export function ImageSettingsSummary({
-  imageStyle, aspectRatio, includeLogo, logoPosition, hasBrandLogo, imageContentType,
+  imageStyle, aspectRatio, includeLogo, logoPosition, hasBrandLogo, imageContentType, v3TopSuggestion,
 }: ImageSettingsSummaryProps) {
+  // Show resolved style name + V3 score when available
+  const styleLabel = STYLE_LABELS[imageStyle] ?? imageStyle;
+  const v3Info = v3TopSuggestion && imageStyle !== 'auto'
+    ? `${styleLabel} (${v3TopSuggestion.matchPercentage}%)`
+    : styleLabel;
+
   const parts: { icon: React.ReactNode; label: string }[] = [
     {
       icon: <Sparkles className="w-3 h-3" />,
-      label: STYLE_LABELS[imageStyle] ?? imageStyle,
+      label: v3Info,
     },
     {
       icon: <Ratio className="w-3 h-3" />,
