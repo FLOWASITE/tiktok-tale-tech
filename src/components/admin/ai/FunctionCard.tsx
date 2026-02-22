@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { AIFunctionType, AIFunctionTag, AIFunctionConfig, getModelInfo, ModelInfo } from '@/hooks/useAIConfig';
+import { AIFunctionType, AIFunctionTag, AIFunctionConfig, getModelInfo, ModelInfo, isKieModel, isPoyoModel, MODELS_BY_TYPE } from '@/hooks/useAIConfig';
 import { ProviderIndicator } from './ModelCard';
 import { FunctionTagBadges } from './FunctionTagBadges';
 import { Settings, Check, X, Zap, Star, Sparkles, Clock, ChevronDown, Coins, Scale, LucideIcon } from 'lucide-react';
@@ -11,6 +11,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
@@ -64,59 +65,69 @@ interface QuickPreset {
 
 const QUICK_PRESETS: QuickPreset[] = [
   { 
-    id: 'default', 
-    label: 'Mặc định', 
-    model: null, 
-    icon: Sparkles,
-    description: 'Cấu hình mặc định hệ thống',
-    speed: 'fast',
-    cost: 'low',
-    useCase: 'Phù hợp cho hầu hết tác vụ',
-    color: 'blue',
+    id: 'default', label: 'Mặc định', model: null, icon: Sparkles,
+    description: 'Cấu hình mặc định hệ thống', speed: 'fast', cost: 'low',
+    useCase: 'Phù hợp cho hầu hết tác vụ', color: 'blue',
   },
   { 
-    id: 'economy', 
-    label: 'Tiết kiệm', 
-    model: 'google/gemini-2.5-flash-lite', 
-    icon: Coins,
-    description: 'Chi phí thấp nhất, tốc độ nhanh',
-    speed: 'fast',
-    cost: 'low',
-    useCase: 'Tác vụ đơn giản, khối lượng lớn',
-    color: 'green',
+    id: 'fast', label: 'Nhanh', model: 'google/gemini-2.5-flash', icon: Zap,
+    description: 'Cân bằng tốc độ và chất lượng', speed: 'fast', cost: 'low',
+    useCase: 'Phản hồi realtime, chat', color: 'yellow',
   },
   { 
-    id: 'fast', 
-    label: 'Nhanh', 
-    model: 'google/gemini-2.5-flash', 
-    icon: Zap,
-    description: 'Cân bằng tốc độ và chất lượng',
-    speed: 'fast',
-    cost: 'low',
-    useCase: 'Phản hồi realtime, chat',
-    color: 'yellow',
+    id: 'quality', label: 'Chất lượng', model: 'google/gemini-3-pro-preview', icon: Star,
+    description: 'Model mạnh nhất', speed: 'medium', cost: 'high',
+    useCase: 'Nội dung quan trọng', color: 'purple',
+  },
+];
+
+const EXTRA_PRESETS: QuickPreset[] = [
+  { 
+    id: 'economy', label: 'Tiết kiệm', model: 'google/gemini-2.5-flash-lite', icon: Coins,
+    description: 'Chi phí thấp nhất', speed: 'fast', cost: 'low',
+    useCase: 'Tác vụ đơn giản, khối lượng lớn', color: 'green',
   },
   { 
-    id: 'balanced', 
-    label: 'Cân bằng', 
-    model: 'openai/gpt-5-mini', 
-    icon: Scale,
-    description: 'Chất lượng tốt, chi phí hợp lý',
-    speed: 'medium',
-    cost: 'medium',
-    useCase: 'Nội dung marketing, blog',
-    color: 'cyan',
+    id: 'balanced', label: 'Cân bằng', model: 'openai/gpt-5-mini', icon: Scale,
+    description: 'Chất lượng tốt, chi phí hợp lý', speed: 'medium', cost: 'medium',
+    useCase: 'Nội dung marketing, blog', color: 'cyan',
+  },
+];
+
+const ALL_PRESETS = [...QUICK_PRESETS, ...EXTRA_PRESETS];
+
+interface ProviderModel {
+  id: string;
+  label: string;
+  modelId: string;
+}
+
+const KIE_MODELS: ProviderModel[] = [
+  { id: 'kie-kontext-pro', label: 'Kontext Pro', modelId: 'flux-kontext-pro' },
+  { id: 'kie-kontext-max', label: 'Kontext Max', modelId: 'flux-kontext-max' },
+  { id: 'kie-gpt-img', label: 'GPT Image 1', modelId: 'gpt-image-1' },
+  { id: 'kie-gpt-img15', label: 'GPT Image 1.5', modelId: 'gpt-image-1.5' },
+];
+
+const POYO_MODELS: ProviderModel[] = [
+  { id: 'poyo-gpt4o', label: 'GPT-4o Image', modelId: 'poyo/gpt-4o-image' },
+  { id: 'poyo-gpt15', label: 'GPT Image 1.5', modelId: 'poyo/gpt-image-1.5' },
+  { id: 'poyo-z', label: 'Z-Image', modelId: 'poyo/z-image' },
+  { id: 'poyo-flux2', label: 'Flux 2 Pro', modelId: 'poyo/flux-2-pro' },
+  { id: 'poyo-seedream', label: 'Seedream 4.5', modelId: 'poyo/seedream-4.5' },
+  { id: 'poyo-grok', label: 'Grok Imagine', modelId: 'poyo/grok-imagine' },
+];
+
+const IMAGE_PRESETS: QuickPreset[] = [
+  { 
+    id: 'default', label: 'Mặc định', model: null, icon: Sparkles,
+    description: 'Cấu hình mặc định hệ thống', speed: 'fast', cost: 'low',
+    useCase: 'Gemini Flash Image', color: 'blue',
   },
   { 
-    id: 'quality', 
-    label: 'Chất lượng', 
-    model: 'google/gemini-3-pro-preview', 
-    icon: Star,
-    description: 'Model mạnh nhất, tính năng mới',
-    speed: 'medium',
-    cost: 'high',
-    useCase: 'Nội dung quan trọng, sáng tạo',
-    color: 'purple',
+    id: 'img-quality', label: 'Gemini 3 Image', model: 'google/gemini-3-pro-image-preview', icon: Star,
+    description: 'Model ảnh mới nhất', speed: 'medium', cost: 'medium',
+    useCase: 'Chất lượng cao', color: 'purple',
   },
 ];
 
@@ -172,14 +183,17 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
   const temperature = config?.temperature ?? 0.7;
   const cacheHours = config?.cacheTtlHours ?? 24;
 
+  const isImageFunction = fn.type === 'image' || fn.type === 'image-direct';
+  const activePresets = isImageFunction ? IMAGE_PRESETS : QUICK_PRESETS;
+
   const getCurrentPreset = () => {
     if (!config?.modelOverride) return 'default';
-    const preset = QUICK_PRESETS.find(p => p.model === config.modelOverride);
+    const preset = [...activePresets, ...EXTRA_PRESETS].find(p => p.model === config.modelOverride);
     return preset?.id || 'custom';
   };
 
   const currentPresetId = getCurrentPreset();
-  const currentPreset = QUICK_PRESETS.find(p => p.id === currentPresetId);
+  const currentPreset = [...activePresets, ...EXTRA_PRESETS].find(p => p.id === currentPresetId);
   const isCustom = currentPresetId === 'custom';
 
   if (compact) {
@@ -246,7 +260,7 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
         </div>
 
         {/* Quick Model Dropdown for Text functions */}
-        {fn.type === 'text' && onQuickModelChange && (
+        {(fn.type === 'text' || isImageFunction) && onQuickModelChange && (
           <div className="mt-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -267,49 +281,118 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
                   <ChevronDown className="h-3 w-3 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
-                {QUICK_PRESETS.map((preset) => {
-                  const speed = getSpeedLabel(preset.speed);
-                  const cost = getCostLabel(preset.cost);
+              <DropdownMenuContent align="start" className="w-56">
+                {/* Presets */}
+                <DropdownMenuLabel className="text-[10px] text-muted-foreground py-1">
+                  {isImageFunction ? '🖼️ Lovable AI' : '✨ Lovable AI'}
+                </DropdownMenuLabel>
+                {activePresets.map((preset) => {
                   const isSelected = currentPresetId === preset.id;
-                  
                   return (
                     <DropdownMenuItem
                       key={preset.id}
                       onClick={() => onQuickModelChange(preset.model)}
-                      className="flex flex-col items-start py-2 cursor-pointer"
+                      className="flex items-center justify-between py-1.5 cursor-pointer text-xs"
                     >
-                      <div className="flex items-center justify-between w-full">
-                        <span className="flex items-center gap-2 font-medium">
-                          <preset.icon className="h-3.5 w-3.5" />
-                          {preset.label}
-                        </span>
-                        {isSelected && <Check className="h-3.5 w-3.5 text-primary" />}
-                      </div>
-                      {preset.model && (
-                        <span className="text-[10px] text-muted-foreground ml-5.5 mt-0.5">
-                          {shortenModelName(preset.model)} • {speed.icon} {speed.text} • {cost.icon}
-                        </span>
-                      )}
-                      <span className="text-[10px] text-muted-foreground/70 ml-5.5">
-                        {preset.useCase}
+                      <span className="flex items-center gap-1.5">
+                        <preset.icon className="h-3 w-3" />
+                        <span>{preset.label}</span>
+                        {preset.model && (
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {shortenModelName(preset.model)}
+                          </span>
+                        )}
                       </span>
+                      {isSelected && <Check className="h-3 w-3 text-primary" />}
                     </DropdownMenuItem>
                   );
                 })}
-                
+
+                {/* Extra presets for text functions */}
+                {!isImageFunction && EXTRA_PRESETS.map((preset) => {
+                  const isSelected = currentPresetId === preset.id;
+                  return (
+                    <DropdownMenuItem
+                      key={preset.id}
+                      onClick={() => onQuickModelChange(preset.model)}
+                      className="flex items-center justify-between py-1.5 cursor-pointer text-xs"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <preset.icon className="h-3 w-3" />
+                        <span>{preset.label}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {shortenModelName(preset.model!)}
+                        </span>
+                      </span>
+                      {isSelected && <Check className="h-3 w-3 text-primary" />}
+                    </DropdownMenuItem>
+                  );
+                })}
+
+                {/* KIE.ai models for image functions */}
+                {isImageFunction && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-[10px] text-violet-500 py-1">
+                      🔮 KIE.ai
+                    </DropdownMenuLabel>
+                    {KIE_MODELS.map((m) => {
+                      const isSelected = config?.modelOverride === m.modelId;
+                      return (
+                        <DropdownMenuItem
+                          key={m.id}
+                          onClick={() => onQuickModelChange(m.modelId)}
+                          className="flex items-center justify-between py-1.5 cursor-pointer text-xs"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-[10px]">🔮</span>
+                            <span>{m.label}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">{m.modelId}</span>
+                          </span>
+                          {isSelected && <Check className="h-3 w-3 text-violet-500" />}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </>
+                )}
+
+                {/* PoYo.ai models for image functions */}
+                {isImageFunction && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-[10px] text-teal-500 py-1">
+                      🐱 PoYo.ai
+                    </DropdownMenuLabel>
+                    {POYO_MODELS.map((m) => {
+                      const isSelected = config?.modelOverride === m.modelId;
+                      return (
+                        <DropdownMenuItem
+                          key={m.id}
+                          onClick={() => onQuickModelChange(m.modelId)}
+                          className="flex items-center justify-between py-1.5 cursor-pointer text-xs"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-[10px]">🐱</span>
+                            <span>{m.label}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">{m.modelId}</span>
+                          </span>
+                          {isSelected && <Check className="h-3 w-3 text-teal-500" />}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </>
+                )}
+
+                {/* Custom indicator */}
                 {isCustom && (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem className="flex flex-col items-start py-2 bg-muted/50" disabled>
-                      <span className="flex items-center gap-2 font-medium">
-                        <Settings className="h-3.5 w-3.5" />
+                    <DropdownMenuItem className="flex items-center justify-between py-1.5 bg-muted/50 text-xs" disabled>
+                      <span className="flex items-center gap-1.5">
+                        <Settings className="h-3 w-3" />
                         Custom
-                        <Check className="h-3.5 w-3.5 text-primary ml-auto" />
                       </span>
-                      <span className="text-[10px] text-muted-foreground ml-5.5 mt-0.5">
-                        {shortenModelName(config?.modelOverride || '')}
-                      </span>
+                      <Check className="h-3 w-3 text-primary" />
                     </DropdownMenuItem>
                   </>
                 )}
@@ -386,9 +469,9 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
             </div>
           </div>
           
-          {fn.type === 'text' && onQuickModelChange && (
+          {onQuickModelChange && (
             <div className="flex items-center gap-1">
-              {QUICK_PRESETS.map((preset) => {
+              {activePresets.map((preset) => {
                 const isSelected = currentPresetId === preset.id;
                 const speed = getSpeedLabel(preset.speed);
                 const cost = getCostLabel(preset.cost);
@@ -426,6 +509,76 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
                   </TooltipProvider>
                 );
               })}
+              {/* More dropdown for extra presets & providers */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-7 w-7">
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {!isImageFunction && (
+                    <>
+                      <DropdownMenuLabel className="text-[10px] text-muted-foreground py-1">Thêm preset</DropdownMenuLabel>
+                      {EXTRA_PRESETS.map((preset) => {
+                        const isSelected = currentPresetId === preset.id;
+                        return (
+                          <DropdownMenuItem
+                            key={preset.id}
+                            onClick={() => onQuickModelChange(preset.model)}
+                            className="flex items-center justify-between py-1.5 cursor-pointer text-xs"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <preset.icon className="h-3 w-3" />
+                              {preset.label}
+                              <span className="text-[10px] text-muted-foreground font-mono">{shortenModelName(preset.model!)}</span>
+                            </span>
+                            {isSelected && <Check className="h-3 w-3 text-primary" />}
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </>
+                  )}
+                  {isImageFunction && (
+                    <>
+                      <DropdownMenuLabel className="text-[10px] text-violet-500 py-1">🔮 KIE.ai</DropdownMenuLabel>
+                      {KIE_MODELS.map((m) => (
+                        <DropdownMenuItem
+                          key={m.id}
+                          onClick={() => onQuickModelChange(m.modelId)}
+                          className="flex items-center justify-between py-1.5 cursor-pointer text-xs"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-[10px]">🔮</span>
+                            {m.label}
+                          </span>
+                          {config?.modelOverride === m.modelId && <Check className="h-3 w-3 text-violet-500" />}
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel className="text-[10px] text-teal-500 py-1">🐱 PoYo.ai</DropdownMenuLabel>
+                      {POYO_MODELS.map((m) => (
+                        <DropdownMenuItem
+                          key={m.id}
+                          onClick={() => onQuickModelChange(m.modelId)}
+                          className="flex items-center justify-between py-1.5 cursor-pointer text-xs"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-[10px]">🐱</span>
+                            {m.label}
+                          </span>
+                          {config?.modelOverride === m.modelId && <Check className="h-3 w-3 text-teal-500" />}
+                        </DropdownMenuItem>
+                      ))}
+                    </>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={onEdit} className="text-xs">
+                    <Settings className="h-3.5 w-3.5 mr-2" />
+                    Cấu hình chi tiết...
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
         </div>
