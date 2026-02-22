@@ -225,15 +225,6 @@ export function ModelSelector({
                 KIE.ai
               </ProviderTab>
             )}
-            <ProviderTab
-              active={providerFilter === 'lovable'}
-              onClick={() => setProviderFilter('lovable')}
-              provider="lovable"
-              count={availableLovableOnlyModels.length}
-            >
-              <span className="hidden sm:inline">Lovable AI</span>
-              <span className="sm:hidden">Lovable</span>
-            </ProviderTab>
             {hasOpenRouter && (
               <ProviderTab
                 active={providerFilter === 'openrouter'}
@@ -246,6 +237,15 @@ export function ModelSelector({
                 <span className="sm:hidden">OR</span>
               </ProviderTab>
             )}
+            <ProviderTab
+              active={providerFilter === 'lovable'}
+              onClick={() => setProviderFilter('lovable')}
+              provider="lovable"
+              count={availableLovableOnlyModels.length}
+            >
+              <span className="hidden sm:inline">Lovable AI</span>
+              <span className="sm:hidden">Lovable</span>
+            </ProviderTab>
           </div>
         )}
 
@@ -428,36 +428,7 @@ export function ModelSelector({
               </div>
             )}
 
-            {/* Lovable AI Models */}
-            {filteredModels.lovable.length > 0 && (
-              <div className="space-y-2 sm:space-y-3">
-                <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/20 sticky top-0 z-10">
-                  <div className="w-2 h-2 rounded-full bg-blue-500" />
-                  <Sparkles className="h-4 w-4 text-blue-500" />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-xs sm:text-sm text-blue-700 dark:text-blue-400">Lovable AI</h3>
-                    <p className="text-[10px] sm:text-xs text-blue-600/70 dark:text-blue-400/70 truncate">
-                      Tích hợp sẵn, không cần API key
-                    </p>
-                  </div>
-                  <Badge variant="secondary" className="text-[9px] sm:text-[10px] bg-blue-500/10 text-blue-600 border-blue-500/30">
-                    {filteredModels.lovable.length}
-                  </Badge>
-                </div>
-                <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
-                  {filteredModels.lovable.map((modelId) => (
-                    <ModelCard
-                      key={modelId}
-                      modelId={modelId}
-                      info={getModelInfo(modelId)}
-                      isSelected={selectedModel === modelId}
-                      onClick={() => handleSelectModel(modelId)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
+            {/* OpenRouter Models (BEFORE Lovable AI for text functions) */}
             {hasOpenRouter && (
               <>
                 {isLoadingModels ? (
@@ -515,6 +486,36 @@ export function ModelSelector({
                   </div>
                 ) : null}
               </>
+            )}
+
+            {/* Lovable AI Models */}
+            {filteredModels.lovable.length > 0 && (
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-blue-500/5 border border-blue-500/20 sticky top-0 z-10">
+                  <div className="w-2 h-2 rounded-full bg-blue-500" />
+                  <Sparkles className="h-4 w-4 text-blue-500" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-xs sm:text-sm text-blue-700 dark:text-blue-400">Lovable AI</h3>
+                    <p className="text-[10px] sm:text-xs text-blue-600/70 dark:text-blue-400/70 truncate">
+                      Tích hợp sẵn, không cần API key
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-[9px] sm:text-[10px] bg-blue-500/10 text-blue-600 border-blue-500/30">
+                    {filteredModels.lovable.length}
+                  </Badge>
+                </div>
+                <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
+                  {filteredModels.lovable.map((modelId) => (
+                    <ModelCard
+                      key={modelId}
+                      modelId={modelId}
+                      info={getModelInfo(modelId)}
+                      isSelected={selectedModel === modelId}
+                      onClick={() => handleSelectModel(modelId)}
+                    />
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* No results */}

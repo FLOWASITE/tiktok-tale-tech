@@ -67,7 +67,7 @@ const QUICK_PRESETS: QuickPreset[] = [
   { 
     id: 'default', label: 'Mặc định', model: null, icon: Sparkles,
     description: 'Cấu hình mặc định hệ thống', speed: 'fast', cost: 'low',
-    useCase: 'Phù hợp cho hầu hết tác vụ', color: 'blue',
+    useCase: 'OpenRouter / Lovable AI', color: 'blue',
   },
   { 
     id: 'fast', label: 'Nhanh', model: 'google/gemini-2.5-flash', icon: Zap,
@@ -107,6 +107,15 @@ const KIE_MODELS: ProviderModel[] = [
   { id: 'kie-kontext-max', label: 'Kontext Max', modelId: 'flux-kontext-max' },
   { id: 'kie-gpt-img', label: 'GPT Image 1', modelId: 'gpt-image-1' },
   { id: 'kie-gpt-img15', label: 'GPT Image 1.5', modelId: 'gpt-image-1.5' },
+];
+
+const OPENROUTER_TEXT_MODELS: ProviderModel[] = [
+  { id: 'or-deepseek', label: '🔥 DeepSeek V3.2', modelId: 'deepseek/deepseek-v3.2' },
+  { id: 'or-minimax', label: '🏆 MiniMax M2.5', modelId: 'minimax/minimax-m2.5' },
+  { id: 'or-kimi', label: 'Kimi K2.5', modelId: 'moonshotai/kimi-k2.5' },
+  { id: 'or-claude', label: 'Claude Sonnet 4.6', modelId: 'anthropic/claude-sonnet-4.6' },
+  { id: 'or-gpt', label: 'GPT-5.2', modelId: 'openai/gpt-5.2' },
+  { id: 'or-grok', label: 'Grok 4.1 Fast', modelId: 'x-ai/grok-4.1-fast' },
 ];
 
 const POYO_MODELS: ProviderModel[] = [
@@ -291,7 +300,33 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
-                {/* Presets */}
+                {/* OpenRouter models for text functions - BEFORE Lovable AI */}
+                {!isImageFunction && (
+                  <>
+                    <DropdownMenuLabel className="text-[10px] text-orange-500 py-1">
+                      🔀 OpenRouter
+                    </DropdownMenuLabel>
+                    {OPENROUTER_TEXT_MODELS.map((m) => {
+                      const isSelected = config?.modelOverride === m.modelId;
+                      return (
+                        <DropdownMenuItem
+                          key={m.id}
+                          onClick={() => onQuickModelChange(m.modelId)}
+                          className="flex items-center justify-between py-1.5 cursor-pointer text-xs"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-[10px]">🔀</span>
+                            <span>{m.label}</span>
+                          </span>
+                          {isSelected && <Check className="h-3 w-3 text-orange-500" />}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+
+                {/* Lovable AI Presets */}
                 <DropdownMenuLabel className="text-[10px] text-muted-foreground py-1">
                   {isImageFunction ? '🖼️ Lovable AI' : '✨ Lovable AI'}
                 </DropdownMenuLabel>
@@ -528,6 +563,21 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
                 <DropdownMenuContent align="end" className="w-56">
                   {!isImageFunction && (
                     <>
+                      <DropdownMenuLabel className="text-[10px] text-orange-500 py-1">🔀 OpenRouter</DropdownMenuLabel>
+                      {OPENROUTER_TEXT_MODELS.map((m) => (
+                        <DropdownMenuItem
+                          key={m.id}
+                          onClick={() => onQuickModelChange(m.modelId)}
+                          className="flex items-center justify-between py-1.5 cursor-pointer text-xs"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-[10px]">🔀</span>
+                            {m.label}
+                          </span>
+                          {config?.modelOverride === m.modelId && <Check className="h-3 w-3 text-orange-500" />}
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator />
                       <DropdownMenuLabel className="text-[10px] text-muted-foreground py-1">Thêm preset</DropdownMenuLabel>
                       {EXTRA_PRESETS.map((preset) => {
                         const isSelected = currentPresetId === preset.id;
