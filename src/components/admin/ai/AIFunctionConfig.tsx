@@ -43,8 +43,9 @@ const QUICK_PRESETS = {
 };
 
 const IMAGE_QUICK_PRESETS = {
+  poyo_nano: { label: '🐱 Nano Banana Pro ⭐', description: 'PoYo.ai - 4K, text rendering, giá rẻ', icon: <Star className="h-5 w-5" />, model: 'poyo/nano-banana-2' },
   gemini_flash: { label: 'Gemini Flash Image', description: 'Lovable AI - Nhanh & tiết kiệm', icon: <Zap className="h-5 w-5" />, model: 'google/gemini-2.5-flash-image' },
-  flux_kontext: { label: 'Flux Kontext Pro ⭐', description: 'KIE.ai - Chất lượng cao, giá rẻ', icon: <DollarSign className="h-5 w-5" />, model: 'flux-kontext-pro' },
+  flux_kontext: { label: 'Flux Kontext Pro', description: 'KIE.ai - Chất lượng cao, giá rẻ', icon: <DollarSign className="h-5 w-5" />, model: 'flux-kontext-pro' },
   gemini_pro: { label: 'Gemini 3 Image', description: 'Lovable AI - Chất lượng cao nhất', icon: <Star className="h-5 w-5" />, model: 'google/gemini-3-pro-image-preview' },
 };
 
@@ -224,10 +225,11 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
     setIsDialogOpen(true);
   };
 
-  const getCurrentQuickPreset = (): 'default' | 'fast' | 'quality' | 'image_gemini_flash' | 'image_flux' | 'image_gemini_pro' | 'custom' => {
+  const getCurrentQuickPreset = (): 'default' | 'fast' | 'quality' | 'image_poyo_nano' | 'image_gemini_flash' | 'image_flux' | 'image_gemini_pro' | 'custom' => {
     if (!editingFunction?.modelOverride) return 'default';
     if (editingFunction.modelOverride === QUICK_PRESETS.fast.model) return 'fast';
     if (editingFunction.modelOverride === QUICK_PRESETS.quality.model) return 'quality';
+    if (editingFunction.modelOverride === IMAGE_QUICK_PRESETS.poyo_nano.model) return 'image_poyo_nano';
     if (editingFunction.modelOverride === IMAGE_QUICK_PRESETS.gemini_flash.model) return 'image_gemini_flash';
     if (editingFunction.modelOverride === IMAGE_QUICK_PRESETS.flux_kontext.model) return 'image_flux';
     if (editingFunction.modelOverride === IMAGE_QUICK_PRESETS.gemini_pro.model) return 'image_gemini_pro';
@@ -461,6 +463,13 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
 
                     {(currentFunctionMeta?.type === 'image' || currentFunctionMeta?.type === 'image-direct') && (
                       <>
+                        <QuickSelectButton
+                          label={IMAGE_QUICK_PRESETS.poyo_nano.label}
+                          description={IMAGE_QUICK_PRESETS.poyo_nano.description}
+                          icon={IMAGE_QUICK_PRESETS.poyo_nano.icon}
+                          isSelected={getCurrentQuickPreset() === 'image_poyo_nano'}
+                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: IMAGE_QUICK_PRESETS.poyo_nano.model })}
+                        />
                         <QuickSelectButton
                           label={IMAGE_QUICK_PRESETS.gemini_flash.label}
                           description={IMAGE_QUICK_PRESETS.gemini_flash.description}

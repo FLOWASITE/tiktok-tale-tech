@@ -126,7 +126,12 @@ const IMAGE_PRESETS: QuickPreset[] = [
   { 
     id: 'default', label: 'Mặc định', model: null, icon: Sparkles,
     description: 'Cấu hình mặc định hệ thống', speed: 'fast', cost: 'low',
-    useCase: 'Gemini Flash Image', color: 'blue',
+    useCase: 'PoYo Nano Banana Pro', color: 'teal',
+  },
+  { 
+    id: 'img-poyo-nano', label: '🐱 Nano Banana Pro', model: 'poyo/nano-banana-2', icon: Star,
+    description: 'PoYo.ai - 4K, text rendering', speed: 'medium', cost: 'low',
+    useCase: 'Chất lượng cao, giá rẻ', color: 'teal',
   },
   { 
     id: 'img-quality', label: 'Gemini 3 Image', model: 'google/gemini-3-pro-image-preview', icon: Star,
@@ -333,33 +338,6 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
                   );
                 })}
 
-                {/* KIE.ai models for image functions */}
-                {isImageFunction && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel className="text-[10px] text-violet-500 py-1">
-                      🔮 KIE.ai
-                    </DropdownMenuLabel>
-                    {KIE_MODELS.map((m) => {
-                      const isSelected = config?.modelOverride === m.modelId;
-                      return (
-                        <DropdownMenuItem
-                          key={m.id}
-                          onClick={() => onQuickModelChange(m.modelId)}
-                          className="flex items-center justify-between py-1.5 cursor-pointer text-xs"
-                        >
-                          <span className="flex items-center gap-1.5">
-                            <span className="text-[10px]">🔮</span>
-                            <span>{m.label}</span>
-                            <span className="text-[10px] text-muted-foreground font-mono">{m.modelId}</span>
-                          </span>
-                          {isSelected && <Check className="h-3 w-3 text-violet-500" />}
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </>
-                )}
-
                 {/* PoYo.ai models for image functions */}
                 {isImageFunction && (
                   <>
@@ -381,6 +359,33 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
                             <span className="text-[10px] text-muted-foreground font-mono">{m.modelId}</span>
                           </span>
                           {isSelected && <Check className="h-3 w-3 text-teal-500" />}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </>
+                )}
+
+                {/* KIE.ai models for image functions */}
+                {isImageFunction && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-[10px] text-violet-500 py-1">
+                      🔮 KIE.ai
+                    </DropdownMenuLabel>
+                    {KIE_MODELS.map((m) => {
+                      const isSelected = config?.modelOverride === m.modelId;
+                      return (
+                        <DropdownMenuItem
+                          key={m.id}
+                          onClick={() => onQuickModelChange(m.modelId)}
+                          className="flex items-center justify-between py-1.5 cursor-pointer text-xs"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-[10px]">🔮</span>
+                            <span>{m.label}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">{m.modelId}</span>
+                          </span>
+                          {isSelected && <Check className="h-3 w-3 text-violet-500" />}
                         </DropdownMenuItem>
                       );
                     })}
@@ -545,21 +550,6 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
                   )}
                   {isImageFunction && (
                     <>
-                      <DropdownMenuLabel className="text-[10px] text-violet-500 py-1">🔮 KIE.ai</DropdownMenuLabel>
-                      {KIE_MODELS.map((m) => (
-                        <DropdownMenuItem
-                          key={m.id}
-                          onClick={() => onQuickModelChange(m.modelId)}
-                          className="flex items-center justify-between py-1.5 cursor-pointer text-xs"
-                        >
-                          <span className="flex items-center gap-1.5">
-                            <span className="text-[10px]">🔮</span>
-                            {m.label}
-                          </span>
-                          {config?.modelOverride === m.modelId && <Check className="h-3 w-3 text-violet-500" />}
-                        </DropdownMenuItem>
-                      ))}
-                      <DropdownMenuSeparator />
                       <DropdownMenuLabel className="text-[10px] text-teal-500 py-1">🐱 PoYo.ai</DropdownMenuLabel>
                       {POYO_MODELS.map((m) => (
                         <DropdownMenuItem
@@ -572,6 +562,21 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
                             {m.label}
                           </span>
                           {config?.modelOverride === m.modelId && <Check className="h-3 w-3 text-teal-500" />}
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel className="text-[10px] text-violet-500 py-1">🔮 KIE.ai</DropdownMenuLabel>
+                      {KIE_MODELS.map((m) => (
+                        <DropdownMenuItem
+                          key={m.id}
+                          onClick={() => onQuickModelChange(m.modelId)}
+                          className="flex items-center justify-between py-1.5 cursor-pointer text-xs"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-[10px]">🔮</span>
+                            {m.label}
+                          </span>
+                          {config?.modelOverride === m.modelId && <Check className="h-3 w-3 text-violet-500" />}
                         </DropdownMenuItem>
                       ))}
                     </>
