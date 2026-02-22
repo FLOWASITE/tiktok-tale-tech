@@ -298,9 +298,15 @@ async function callAIStreaming(
         try {
           const parsed = JSON.parse(jsonStr);
           const delta = parsed.choices?.[0]?.delta?.content || '';
+          const reasoning = parsed.choices?.[0]?.delta?.reasoning || '';
           if (delta) {
             fullText += delta;
             onChunk?.(delta);
+          }
+          // For reasoning/thinking models: if final chunk has full message content, capture it
+          const finishReason = parsed.choices?.[0]?.finish_reason;
+          if (finishReason && !fullText && parsed.choices?.[0]?.message?.content) {
+            fullText = parsed.choices[0].message.content;
           }
         } catch {
           // Ignore parse errors
@@ -310,6 +316,13 @@ async function callAIStreaming(
   }
   
   console.log(`[callAIStreaming] Success via ${result.provider}, content length: ${fullText.length}`);
+  
+  // Fallback: if streaming returned empty (e.g. reasoning model), retry non-streaming
+  if (!fullText) {
+    console.warn('[callAIStreaming] Streaming returned empty, retrying non-streaming...');
+    return callAI(model, systemPrompt, userPrompt, maxTokens, temperature);
+  }
+  
   return fullText;
 }
 
@@ -486,17 +499,16 @@ serve(async (req: Request) => {
     if (brandTemplateId) {
       const { data: personaData } = await supabase
         .from('customer_personas')
-        .select('name, short_description, pain_points, psychological_triggers, communication_style')
+        .select('name, occupation, pain_points, buying_triggers, communication_style')
         .eq('brand_template_id', brandTemplateId)
-        .eq('is_active', true)
         .limit(3);
       
       if (personaData) {
         personas = personaData.map(p => ({
           name: p.name,
-          description: p.short_description || undefined,
+          description: p.occupation || undefined,
           pain_points: p.pain_points || undefined,
-          triggers: p.psychological_triggers || undefined,
+          triggers: p.buying_triggers || undefined,
           communication_style: p.communication_style || undefined,
         }));
       }
