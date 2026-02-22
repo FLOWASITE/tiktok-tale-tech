@@ -92,6 +92,6 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
 ];
 
 export const DEFAULT_AI_CONFIG: AIProvidersConfig = {
-  selectedProvider: 'gemini',
+  selectedProvider: 'poyo',
   providers: {},
 };
