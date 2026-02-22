@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Sparkles, Loader2, ArrowLeft, Save, AlertTriangle } from 'lucide-react';
+import { Sparkles, Loader2, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -308,17 +308,11 @@ export function SimpleImageGenerator({
     }
 
     setViewMode('streaming');
-    const result = await batchGen.generateAllImages(batchOptions, onImageGenerated, false);
+    const result = await batchGen.generateAllImages(batchOptions, onImageGenerated, true);
     if (result.successful.length > 0) setViewMode('preview');
   };
 
-  const handleSaveAll = async () => {
-    if (onImageGenerated) {
-      const channels = Object.keys(batchGen.generatedImages) as Channel[];
-      await batchGen.savePreviewImages(channels, onImageGenerated);
-      handleClose();
-    }
-  };
+
 
   const handleRegenerateChannel = async (channel: Channel) => {
     setRegeneratingChannel(channel);
@@ -518,10 +512,6 @@ export function SimpleImageGenerator({
         <div className="flex justify-end gap-2 mt-4 pb-2">
           <Button variant="outline" onClick={handleBackToSetup}>
             Tạo lại
-          </Button>
-          <Button onClick={handleSaveAll} className="gap-2">
-            <Save className="w-4 h-4" />
-            Lưu tất cả
           </Button>
         </div>
       )}
