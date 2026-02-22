@@ -1,77 +1,103 @@
-
-
-# Cai thien dang List cho Quan ly noi dung da kenh
+# Cai thien toan dien he thong tao anh AI
 
 ## Phan tich hien trang
 
-File `src/components/MultiChannelListView.tsx` (666 dong) hien tai la mot table co cac cot:
-- Checkbox, Noi dung (title + topic + brand + tags), Uu tien, Kenh phan phoi, Tien do, Nguoi tao, Thoi gian, Thao tac
+&nbsp;
 
-**Van de hien tai:**
+### 2. Van de ve do lien quan noi dung anh voi bai viet
 
-1. **Cot "Noi dung" qua chat**: Goal icon + title + topic + brand badge + tags deu nen trong 1 cell, kho doc
-2. **Channel badges qua nho** (text-[10px]) va kho phan biet trang thai
-3. **Thieu thumbnail anh**: Khong hien anh nhu card view da co
-4. **Thieu critique score va deadline badge noi bat**: Deadline nam o cot "Thoi gian" de bi bo qua
-5. **Empty state don gian**: Chi co icon + text, chua co CTA ro rang
-6. **Row hover chua noi bat**: Chi doi mau nen nhe, chua co visual feedback tot
-7. **Thieu ky hieu anh/khong anh** theo tung channel nhu da lam cho card view
+- `contentSummary` gui len backend chi la `Topic: {topic}. {300 ky tu dau}` - qua ngan va khong capture duoc y chinh
+- Backend `buildImagePrompt` nhan `contentSummary` nhu mot chuoi raw, khong co xu ly thong minh de rut trich keyword/concept chinh
+- Khong co buoc "content analysis" truoc khi tao prompt - AI phai tu hieu noi dung tu text tho
 
-## Cac thay doi
+### 3. Van de ve kieu anh (style)
 
-### File: `src/components/MultiChannelListView.tsx`
+- V3 Suggestion Engine chi dung scoring cung (config-based), khong phan tich noi dung thuc te
+- Style duoc chon dua tren industry + role + goal, nhung KHONG xem xet noi dung cu the cua bai viet
+- Vi du: Bai ve "top 5 cong nghe AI" va "cau chuyen khach hang" cung industry se cho cung style goi y
 
-#### 1. Them thumbnail anh vao cot "Noi dung"
-- Neu content co `channel_images`, hien anh thu nho 32x32px thay cho Goal icon (hien dang 36x36 w-9 h-9)
-- Neu khong co anh, giu Goal icon nhu cu
-- Tao visual giong card view
+### 4. Van de UI/UX
 
-#### 2. Them ky hieu anh/khong anh cho tung channel badge
-- Tuong tu card view: them dot nho mau violet ben canh channel badge neu kenh do co anh trong `channel_images`
-- Cap nhat tooltip hien thi trang thai anh
+- Form tao anh khong hien thi preview noi dung se duoc dung lam co so tao anh
+- Khong co "content relevance hint" cho nguoi dung biet AI se tao anh lien quan gi
+- Streaming grid khong hien thi prompt da dung, nguoi dung khong biet AI da hieu noi dung nhu the nao
+- Khong co tinh nang "refine prompt" sau khi xem anh
 
-#### 3. Cai thien cot "Noi dung" - visual hierarchy
-- Title tang len `text-sm font-semibold` (hien la `font-medium text-sm`)
-- Them underline khi hover giong card view
-- Topic hien thi gon hon voi max-width
-- Brand badge va tags: tang kich thuoc text tu `text-[10px]` len `text-xs`
+## Giai phap
 
-#### 4. Them cot critique score (hoac gom vao cot tien do)
-- Neu co `critique_score`: hien badge diem nho ben canh progress bar
-- Mau sac theo muc: xanh (>=80), vang (>=60), do (<60)
+### Thay doi 1: Nang cap Content Summary - trich xuat thong minh hon (Frontend)
 
-#### 5. Cai thien deadline - to mau noi bat hon
-- Deadline qua han: them badge do nho "Tre han" ben canh
-- Deadline gan (trong 2 ngay): them badge vang "Sap den han"
+**File: `src/components/multichannel/SimpleImageGenerator.tsx**`
 
-#### 6. Cai thien row hover va selection
-- Row hover: them left border indicator mau (giong card view co indicator line)
-- Selected row: them left border primary va background primary/10
+Thay doi ham `getContentSummary` de trich xuat thong tin tot hon:
 
-#### 7. Cai thien empty state
-- Them animation fade-in
-- Them nut CTA "Tao noi dung moi" trong empty state
-- Icon lon hon va dep hon
+- Lay topic, content_goal, content_role, content_angle
+- Trich keyword chinh tu noi dung (dung regex don gian lay cac cum tu quan trong)
+- Lay hook message lam "core message"
+- Ket hop thanh summary co cau truc ro rang hon, dai hon (len 500 ky tu)
 
-#### 8. Them stripe pattern cho rows
-- Alternate row colors (even/odd) de de doc hon khi nhieu dong
+### Thay doi 2: Cai thien Prompt Builder - them Content Analysis section (Backend)
 
-### Chi tiet ky thuat
+**File: `supabase/functions/_shared/image-prompt-builder.ts**`
 
-| Thay doi | Dong | Mo ta |
-|----------|------|-------|
-| Thumbnail anh | 389-434 | Them img 32x32 thay goal icon khi co anh |
-| Channel image dots | 451-473 | Them dot violet cho kenh co anh |
-| Title styling | 410-415 | Tang font-semibold, them hover:underline |
-| Critique score | 476-507 | Them badge diem ben canh progress |
-| Deadline badges | 573-592 | Them badge "Tre han" / "Sap den han" |
-| Row hover indicator | 376-379 | Them border-l-2 khi hover/selected |
-| Empty state | 647-658 | Them animation, CTA button, icon lon hon |
-| Stripe rows | 376-379 | Them even:bg-muted/20 |
+Them section moi trong `buildImagePrompt`:
 
-### Khong thay doi
-- Logic sort, filter, data
-- Database, backend
-- Cac component khac
-- Card view (MultiChannelCard.tsx)
+- `## CORE MESSAGE & KEYWORDS`: Trich xuat tu contentSummary cac keyword/concept chinh
+- Di chuyen `contentSummary` vao section `## ARTICLE CONTENT CONTEXT` voi huong dan AI phai tao anh TRUC TIEP lien quan den noi dung, khong chi dung style chung chung
+- Them chi dan cu the: "The image MUST visually represent the specific topic/concept mentioned in the content, not just a generic industry image"
+- Tang trong so cua content relevance trong prompt (dat len truoc channel specs)
 
+### Thay doi 3: Style Suggestion co xem xet noi dung (Frontend)
+
+**File: `src/lib/imageSuggestionEngine.ts**`
+
+Bo sung logic phan tich text trong `suggestImageStylesV3`:
+
+- Them tham so `contentSummary` vao `SuggestionInputV3`
+- Them keyword-based boost: Neu noi dung chua keywords ve "data/so lieu/top/chart" → boost flat_design/geometric
+- Neu noi dung chua "cau chuyen/story/hanh trinh" → boost cinematic/photorealistic
+- Neu noi dung chua "san pham/product/review" → boost product_only/photorealistic
+- Neu noi dung chua "huong dan/how to/cach" → boost illustration/flat_design
+- Them keyword detection cho ~10 nhom noi dung pho bien
+
+### Thay doi 4: Hien thi Content Context Preview trong UI (Frontend)
+
+**File: `src/components/multichannel/SimpleImageGenerator.tsx**`
+
+Them component nho hien thi truoc khi tao anh:
+
+- "AI se tao anh ve: {extracted_topic_keywords}"
+- Hien thi 2-3 keyword chinh duoc rut ra tu noi dung
+- Giup nguoi dung biet AI da "hieu" noi dung cua ho nhu the nao
+- Dat ngay tren nut "Tao anh"
+
+### Thay doi 5: Hien thi Prompt va Refine trong Streaming Card (Frontend)
+
+**File: `src/components/multichannel/streaming/ImageStreamingCard.tsx**`
+
+Khi anh da tao xong (status = 'done'):
+
+- Them nut nho "Xem prompt" hien thi prompt da dung (collapsible)
+- Giup nguoi dung hieu tai sao anh duoc tao nhu vay
+- Ho co the copy prompt de chinh sua va tao lai
+  &nbsp;
+
+## Chi tiet ky thuat
+
+
+| Thay doi                     | File                                           | Mo ta                                                 |
+| ---------------------------- | ---------------------------------------------- | ----------------------------------------------------- |
+| Content Summary thong minh   | SimpleImageGenerator.tsx (dong 66-77)          | Nang cap getContentSummary voi keyword extraction     |
+| Prompt Builder               | image-prompt-builder.ts (dong 648-767)         | Them Content Analysis section, tang content relevance |
+| V3 Engine + content keywords | imageSuggestionEngine.ts (dong 30-37, 116-153) | Them contentSummary param, keyword-based style boost  |
+| Content Context Preview      | SimpleImageGenerator.tsx (dong 429-440)        | Them UI hien thi "AI se tao anh ve..."                |
+| Prompt viewer                | ImageStreamingCard.tsx (dong 239-277)          | Them nut "Xem prompt" khi done                        |
+| Model fallback               | generate-brand-image, generate-social-image    | Confirm model tot nhat lam default                    |
+
+
+## Khong thay doi
+
+- Database schema
+- Auth / RLS
+- Cac component khac ngoai he thong tao anh
+- Logic batch generation, retry, PoYo/KIE routing
