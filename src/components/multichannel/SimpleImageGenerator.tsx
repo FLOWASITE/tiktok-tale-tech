@@ -26,6 +26,7 @@ import { ImageChannelPicker } from './ImageChannelPicker';
 import { ImageAdvancedOptions } from './ImageAdvancedOptions';
 import { ImageSettingsSummary } from './ImageSettingsSummary';
 import { BackgroundEditor } from './BackgroundEditor';
+import { V3StylePreview } from './V3StylePreview';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
@@ -576,6 +577,15 @@ export function SimpleImageGenerator({
                       </Tabs>
                     )}
                   </div>
+                )}
+
+                {/* V3 Style Suggestions Preview */}
+                {v3Suggestions.length > 0 && (
+                  <V3StylePreview
+                    suggestions={v3Suggestions}
+                    selectedStyle={imageStyle}
+                    onStyleSelect={(style) => setImageStyle(style)}
+                  />
                 )}
 
                 {/* Settings Summary + CTA */}
