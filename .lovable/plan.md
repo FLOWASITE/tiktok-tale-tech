@@ -1,75 +1,36 @@
 
 
-# Fix: Transform Core Content sang Multi-channel khong hoat dong
+# Fix: Nut "Tao anh AI" bi an tren man hinh nho
 
-## Nguyen nhan goc
-
-Co **2 loi** khien tinh nang "Transform -> Multi-channel" tu Core Content Library khong hoat dong:
-
-### Loi 1: `coreContentId` bi mat khi chuyen trang
-- `CoreContentLibrary.handleTransform()` dieu huong den `/multichannel/new?coreContentId=xxx` (truyen qua **URL query param**)
-- Nhung `MultiChannelCreate` chi doc du lieu tu `location.state` (React Router state), **khong doc URL search params**
-- Ket qua: `coreContentId` bi mat hoan toan, wizard khoi dong nhu tao moi
-
-### Loi 2: Khong co logic tai Core Content da ton tai
-- Ngay ca khi `coreContentId` duoc truyen dung vao wizard, **khong co useEffect nao** de fetch Core Content tu database va nap vao `coreContentData`
-- Vi `coreContentData` luon la `null`, wizard hien form "Tao Core Content" thay vi nhay thang den buoc chon Role (buoc 3)
+## Van de
+Nut "Tao anh AI" nam trong thanh cong cu (toolbar Row 2) cua MultiChannelViewer. Tren man hinh rong (1920px), nut hien thi binh thuong. Nhung tren man hinh hep (mobile, tablet), thanh cong cu bi tran (overflow hidden) va nut "Tao anh AI" bi day ra ngoai man hinh, nguoi dung khong the nhan thay hoac bam vao.
 
 ## Giai phap
 
-### Fix 1: Doc `coreContentId` tu URL search params trong `MultiChannelCreate`
+### 1. Them thanh cuon ngang cho toolbar Row 2
+File: `src/components/MultiChannelViewer.tsx` (dong 804)
 
-File: `src/pages/MultiChannelCreate.tsx`
+Thanh cong cu hien tai dung `flex items-center justify-between` nhung khong co `overflow-x-auto`. Se them kha nang cuon ngang de cac nut khong bi cat:
+- Them `overflow-x-auto` cho container cua grouped actions (phan ben phai)
+- Them `flex-shrink-0` cho nut "Tao anh AI" de dam bao no khong bi thu nho
 
-- Them `useSearchParams` tu react-router-dom
-- Doc `coreContentId` tu URL: `searchParams.get('coreContentId')`
-- Truyen vao `formData.coreContentId` de wizard nhan duoc
+### 2. Them nut "Tao anh" vao menu 3 cham tren mobile
+De dam bao tinh truy cap tot nhat, se kiem tra xem co dropdown menu nao cho cac hanh dong tren mobile khong. Neu khong, se them nut "Tao anh AI" o vi tri de nhin hon tren man hinh nho - cu the la di chuyen no vao ben trong nhom nut (grouped actions) thay vi de ngoai.
 
-### Fix 2: Them logic fetch Core Content khi co `coreContentId` san
-
-File: `src/components/multichannel/MultiChannelFormWizard.tsx`
-
-- Them `useEffect` theo doi `formData.coreContentId`
-- Khi co `coreContentId` va chua co `coreContentData`: fetch Core Content tu database bang supabase client
-- Nap du lieu vao `coreContentData` (title, content, wordCount, qualityScore, keyMessages, contentGoal)
-- Tu dong nhay den buoc 3 (chon Content Role) vi Core Content da san sang
-- Tu dong set `contentRole` dua tren `contentGoal` cua Core Content (dung `GOAL_TO_ROLE_MAP`)
-
-### Fix 3: Tu dong dien topic tu Core Content
-
-- Khi fetch Core Content thanh cong, tu dong dien `formData.topic` = core content title/topic
-- Dam bao `formData.contentGoal` duoc dong bo tu Core Content
-
-## Ket qua mong doi
-
-Khi nguoi dung nhan "Transform -> Multi-channel" tu Core Content Library:
-1. Chuyen den trang tao moi voi `coreContentId` duoc giu nguyen
-2. Core Content duoc tai tu dong va hien thi
-3. Wizard nhay thang den buoc 3 (chon Role) - bo qua buoc nhap topic va tao Core Content
-4. Nguoi dung chi can chon Role, chon kenh, va bam tao
+### 3. Dam bao nut ImagePlus trong noi dung kenh cung hien thi tren mobile
+Kiem tra va dam bao nut tao anh per-channel (ImagePlus icon, dong 1276) khong bi an tren mobile.
 
 ## Chi tiet ky thuat
 
-### `src/pages/MultiChannelCreate.tsx`
-- Them import `useSearchParams`
-- Trong component: `const [searchParams] = useSearchParams()`
-- Doc `coreContentId`: `const coreContentIdFromUrl = searchParams.get('coreContentId')`
-- Cap nhat `formData` initial state: them `coreContentId: coreContentIdFromUrl || undefined`
+### File chinh: `src/components/MultiChannelViewer.tsx`
 
-### `src/components/multichannel/MultiChannelFormWizard.tsx`
-- Them `useEffect` moi (khoang dong 370-410):
+**Thay doi 1 - Dong 804:** Them `overflow-x-auto` va `scrollbar-hide` cho phan Right actions trong toolbar Row 2 de thanh cong cu co the cuon ngang tren man hinh nho.
 
-```text
-useEffect: khi initialData.coreContentId thay doi
-  -> Neu co coreContentId va chua co coreContentData
-  -> Fetch tu supabase: core_contents table, select *, eq id
-  -> Set coreContentData voi du lieu fetch duoc
-  -> Set formData.topic = data.topic
-  -> Set formData.contentGoal = data.content_goal
-  -> Set formData.contentRole = GOAL_TO_ROLE_MAP[data.content_goal]
-  -> Set currentStep = 3 (nhay den chon Role)
-  -> Mark steps 1, 2 da hoan thanh
-```
+**Thay doi 2 - Dong 898-907:** Di chuyen nut "Tao anh AI" vao ben trong nhom nut `bg-background/50 border border-border/30` (dong 822) de no khong bi tach rieng va de bi cat. Dong thoi them `flex-shrink-0` cho nut nay.
 
-- Them state `isLoadingExistingCoreContent` de hien thi loading UI khi dang fetch
+**Thay doi 3:** Them CSS utility `scrollbar-hide` (neu chua co) de an thanh cuon ngang nhung van cho phep cuon bang tay tren mobile.
+
+## Ket qua mong doi
+- Tren desktop: khong thay doi gi, nut "Tao anh AI" hien thi nhu binh thuong
+- Tren mobile/tablet: thanh cong cu co the cuon ngang, nut "Tao anh AI" co the truy cap duoc bang cach vuot sang phai, hoac nam trong nhom nut de nhin thay hon
 
