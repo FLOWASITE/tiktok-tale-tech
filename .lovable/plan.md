@@ -1,24 +1,93 @@
 
-# Fix Dropdown Model Selection bi tran man hinh tren mobile
 
-## Van de
-Dropdown chon model trong FunctionCard.tsx co qua nhieu items (OpenRouter 6 models + Lovable AI 3 presets + Extra presets 2 + Custom + Cau hinh chi tiet = 12+ items). Tren mobile, dropdown bi tran ra ngoai viewport, phan tren bi cat mat (khong thay duoc header "OpenRouter" va cac model dau tien nhu DeepSeek, MiniMax, Kimi).
+# Fix Core Content Generation Failure
 
-## Giai phap
-Them `className` voi `max-height` va `overflow-y: auto` cho `DropdownMenuContent` de dropdown co the scroll duoc khi noi dung vuot qua chieu cao man hinh.
+## Root Cause Analysis
 
-## Chi tiet ky thuat
+### Issue 1: Database Column Errors (Critical)
+File `supabase/functions/generate-core-content/index.ts` line 489 queries columns that DO NOT EXIST in the `customer_personas` table:
+- `short_description` - does not exist
+- `is_active` - does not exist  
+- `psychological_triggers` - does not exist
 
-### File: `src/components/admin/ai/FunctionCard.tsx`
+This causes a Postgres error (`column customer_personas.short_description does not exist` visible in DB logs), which makes the persona data query fail silently (no error thrown, just null data).
 
-**1. Compact view dropdown (line 302):**
-- Them `max-h-[70vh] overflow-y-auto` vao className cua `DropdownMenuContent`
-- Tu: `className="w-56"`
-- Thanh: `className="w-56 max-h-[70vh] overflow-y-auto"`
+### Issue 2: Streaming Returns Empty Content (Critical)
+Edge function logs show:
+```
+[callAIStreaming] Success via openrouter, content length: 0
+```
 
-**2. Expanded view "More" dropdown (line 563):**
-- Tuong tu, them `max-h-[70vh] overflow-y-auto`
-- Tu: `className="w-56"`
-- Thanh: `className="w-56 max-h-[70vh] overflow-y-auto"`
+The model `qwen/qwen3.5-397b-a17b` is a reasoning/thinking model. OpenRouter returns reasoning tokens in `delta.reasoning` field, but the streaming parser in `callAIStreaming` (line 300) only reads `delta.content`:
+```javascript
+const delta = parsed.choices?.[0]?.delta?.content || '';
+```
 
-Voi thay doi nay, dropdown se co thanh cuon (scrollbar) khi noi dung vuot qua 70% chieu cao viewport, dam bao tat ca items deu co the truy cap duoc tren moi kich thuoc man hinh.
+When a thinking model outputs its response, reasoning tokens go to `delta.reasoning` and the actual answer goes to `delta.content`. If the model puts everything in reasoning mode, `content` stays empty = 0 length content = generation fails with "Generated content too short".
+
+## Fixes
+
+### Fix 1: `supabase/functions/generate-core-content/index.ts` - Fix persona query (lines 487-502)
+
+Replace the select query to only use columns that actually exist in the table:
+- Change `short_description` to `occupation` (closest existing descriptive field)
+- Remove `is_active` filter (column doesn't exist)
+- Change `psychological_triggers` to `buying_triggers` (closest existing column)
+
+Before:
+```sql
+.select('name, short_description, pain_points, psychological_triggers, communication_style')
+.eq('is_active', true)
+```
+
+After:
+```sql
+.select('name, occupation, pain_points, buying_triggers, communication_style')
+```
+
+And update the mapping:
+```typescript
+description: p.occupation || undefined,
+triggers: p.buying_triggers || undefined,
+```
+
+### Fix 2: `supabase/functions/generate-core-content/index.ts` - Fix streaming parser for reasoning models (lines 293-307)
+
+Update the streaming chunk parser to also capture `delta.reasoning` content from thinking models. When the model uses reasoning mode, we should still capture the final content output:
+
+```javascript
+const delta = parsed.choices?.[0]?.delta?.content || '';
+const reasoning = parsed.choices?.[0]?.delta?.reasoning || '';
+if (delta) {
+  fullText += delta;
+  onChunk?.(delta);
+}
+// For reasoning models: if no content but has reasoning, 
+// accumulate it separately (don't stream to user)
+```
+
+Additionally, add a check: if after streaming, `fullText` is empty but there was a non-streaming response structure in the final chunk (some providers send the complete message in the last chunk), extract it.
+
+### Fix 3: Add non-streaming fallback for empty streaming results
+
+In `callAIStreaming`, after the streaming loop, if `fullText` is empty, attempt a non-streaming call as fallback to ensure the user always gets content:
+
+```typescript
+if (!fullText) {
+  console.warn('[callAIStreaming] Streaming returned empty, retrying non-streaming...');
+  return callAI(model, systemPrompt, userPrompt, maxTokens, temperature);
+}
+```
+
+## Technical Details
+
+### Files to modify:
+1. `supabase/functions/generate-core-content/index.ts`
+   - Lines 487-501: Fix persona query columns
+   - Lines 293-314: Fix streaming parser + add fallback
+
+### Expected outcome:
+- Persona data loads correctly without DB errors
+- Reasoning/thinking models (Qwen3.5, DeepSeek R1, etc.) produce content correctly
+- If streaming fails, automatic non-streaming retry ensures content generation completes
+
