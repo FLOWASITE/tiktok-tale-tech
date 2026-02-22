@@ -28,7 +28,7 @@ interface ModelSelectorProps {
 }
 
 type FilterType = 'all' | 'fast' | 'quality' | 'cheap' | 'reasoning' | 'coding' | 'multimodal';
-type ProviderFilter = 'all' | 'lovable' | 'openrouter';
+type ProviderFilter = 'all' | 'lovable' | 'kie' | 'poyo' | 'openrouter';
 
 export function ModelSelector({
   open,
@@ -148,6 +148,13 @@ export function ModelSelector({
     // Apply provider filter
     if (providerFilter === 'lovable') {
       openrouterFiltered = [];
+      lovableFiltered = lovableFiltered.filter(id => !isKieModel(id) && !isPoyoModel(id));
+    } else if (providerFilter === 'kie') {
+      openrouterFiltered = [];
+      lovableFiltered = lovableFiltered.filter(id => isKieModel(id));
+    } else if (providerFilter === 'poyo') {
+      openrouterFiltered = [];
+      lovableFiltered = lovableFiltered.filter(id => isPoyoModel(id));
     } else if (providerFilter === 'openrouter') {
       lovableFiltered = [];
     }
@@ -189,7 +196,7 @@ export function ModelSelector({
         </DialogHeader>
 
         {/* Provider Tabs */}
-        {hasOpenRouter && (
+        {(hasOpenRouter || functionType === 'image') && (
           <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
             <ProviderTab
               active={providerFilter === 'all'}
@@ -202,21 +209,43 @@ export function ModelSelector({
               active={providerFilter === 'lovable'}
               onClick={() => setProviderFilter('lovable')}
               provider="lovable"
-              count={availableModels.lovable.length}
+              count={availableLovableOnlyModels.length}
             >
               <span className="hidden sm:inline">Lovable AI</span>
               <span className="sm:hidden">Lovable</span>
             </ProviderTab>
-            <ProviderTab
-              active={providerFilter === 'openrouter'}
-              onClick={() => setProviderFilter('openrouter')}
-              provider="openrouter"
-              count={availableModels.openrouter.length}
-              isLoading={isLoadingModels}
-            >
-              <span className="hidden sm:inline">OpenRouter</span>
-              <span className="sm:hidden">OR</span>
-            </ProviderTab>
+            {functionType === 'image' && availableKieModels.length > 0 && (
+              <ProviderTab
+                active={providerFilter === 'kie'}
+                onClick={() => setProviderFilter('kie')}
+                provider="kie"
+                count={availableKieModels.length}
+              >
+                KIE.ai
+              </ProviderTab>
+            )}
+            {functionType === 'image' && availablePoyoModels.length > 0 && (
+              <ProviderTab
+                active={providerFilter === 'poyo'}
+                onClick={() => setProviderFilter('poyo')}
+                provider="poyo"
+                count={availablePoyoModels.length}
+              >
+                PoYo.ai
+              </ProviderTab>
+            )}
+            {hasOpenRouter && (
+              <ProviderTab
+                active={providerFilter === 'openrouter'}
+                onClick={() => setProviderFilter('openrouter')}
+                provider="openrouter"
+                count={availableModels.openrouter.length}
+                isLoading={isLoadingModels}
+              >
+                <span className="hidden sm:inline">OpenRouter</span>
+                <span className="sm:hidden">OR</span>
+              </ProviderTab>
+            )}
           </div>
         )}
 
@@ -507,15 +536,24 @@ interface ProviderTabProps {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
-  provider?: 'lovable' | 'openrouter';
+  provider?: 'lovable' | 'kie' | 'poyo' | 'openrouter';
   count?: number;
   isLoading?: boolean;
 }
 
 function ProviderTab({ active, onClick, children, provider, count, isLoading }: ProviderTabProps) {
-  const providerColors = {
+  const providerColors: Record<string, string> = {
     lovable: 'text-blue-600 bg-blue-500/10',
+    kie: 'text-violet-600 bg-violet-500/10',
+    poyo: 'text-teal-600 bg-teal-500/10',
     openrouter: 'text-orange-600 bg-orange-500/10',
+  };
+
+  const dotColors: Record<string, string> = {
+    lovable: 'bg-blue-500',
+    kie: 'bg-violet-500',
+    poyo: 'bg-teal-500',
+    openrouter: 'bg-orange-500',
   };
 
   return (
@@ -529,10 +567,7 @@ function ProviderTab({ active, onClick, children, provider, count, isLoading }: 
       )}
     >
       {provider && (
-        <span className={cn(
-          "w-2 h-2 rounded-full",
-          provider === 'lovable' ? 'bg-blue-500' : 'bg-orange-500'
-        )} />
+        <span className={cn("w-2 h-2 rounded-full", dotColors[provider])} />
       )}
       {children}
       {isLoading ? (
