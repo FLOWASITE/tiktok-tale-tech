@@ -101,9 +101,26 @@ async function submitKieTask(params: KieGenerateParams, apiKey: string): Promise
   const { generate } = getKieEndpoints(params.model);
   const modelName = getKieModelName(params.model);
 
+  // KIE.ai has a 3000 character limit for prompts — truncate intelligently
+  let truncatedPrompt = params.prompt;
+  const KIE_MAX_PROMPT_LENGTH = 2800; // Leave margin for safety
+  if (truncatedPrompt.length > KIE_MAX_PROMPT_LENGTH) {
+    console.warn(`[kie-generator] Prompt too long (${truncatedPrompt.length} chars), truncating to ${KIE_MAX_PROMPT_LENGTH}`);
+    // Keep the first portion (most important: content context + channel specs)
+    // and the critical rules at the end
+    const criticalRulesMatch = truncatedPrompt.match(/## CRITICAL RULES[\s\S]*$/);
+    const criticalRules = criticalRulesMatch ? criticalRulesMatch[0] : '';
+    const mainContentBudget = KIE_MAX_PROMPT_LENGTH - criticalRules.length - 10;
+    if (mainContentBudget > 500 && criticalRules) {
+      truncatedPrompt = truncatedPrompt.slice(0, mainContentBudget) + '\n\n' + criticalRules;
+    } else {
+      truncatedPrompt = truncatedPrompt.slice(0, KIE_MAX_PROMPT_LENGTH);
+    }
+  }
+
   // Build request body for KIE.ai
   const body: Record<string, any> = {
-    prompt: params.prompt,
+    prompt: truncatedPrompt,
     model: modelName,
     aspectRatio: params.aspectRatio || '1:1',
     outputFormat: params.outputFormat || 'jpeg',
