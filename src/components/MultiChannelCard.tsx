@@ -254,11 +254,22 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
                         statusDotColors[channelStatus]
                       )}
                     />
+                    {content.channel_images?.[channel] && (
+                      <span 
+                        className="absolute -bottom-0.5 -left-0.5 w-1.5 h-1.5 xs:w-2 xs:h-2 rounded-full bg-violet-400 ring-1 ring-background"
+                      />
+                    )}
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
                   <p className="font-medium">{channel}</p>
                   <p className="text-muted-foreground">{channelStatusLabel}</p>
+                  <p className={cn(
+                    "text-[10px]",
+                    content.channel_images?.[channel] ? "text-violet-400" : "text-muted-foreground/60"
+                  )}>
+                    {content.channel_images?.[channel] ? "📷 Có ảnh" : "Chưa có ảnh"}
+                  </p>
                 </TooltipContent>
               </Tooltip>
             );
