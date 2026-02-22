@@ -11,6 +11,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Channel, MultiChannelContent, ChannelImage } from '@/types/multichannel';
 import {
@@ -111,6 +118,7 @@ export function SimpleImageGenerator({
   brandLogoUrl, brandPrimaryColor, brandIndustry,
   onImageGenerated, initialChannel, initialMode = 'batch',
 }: SimpleImageGeneratorProps) {
+  const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<ViewMode>('setup');
 
   // Core settings
@@ -378,25 +386,339 @@ export function SimpleImageGenerator({
 
   const hasImages = Object.keys(batchGen.generatedImages).length > 0;
 
-  // ─── Render ───────────────────────
+  // ─── Shared content ───────────────────────
+  const headerContent = (
+    <>
+      <div className="flex items-center gap-2">
+        {viewMode !== 'setup' && (
+          <Button variant="ghost" size="icon" className="h-7 w-7 -ml-1" onClick={handleBackToSetup} disabled={batchGen.isGenerating}>
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+        )}
+        <Sparkles className="w-5 h-5 text-primary" />
+        {viewMode === 'setup' && 'Tạo ảnh AI'}
+        {viewMode === 'streaming' && 'Đang tạo ảnh...'}
+        {viewMode === 'preview' && 'Xem trước ảnh'}
+      </div>
+    </>
+  );
+
+  const bodyContent = (
+    <div className="flex-1 overflow-hidden">
+      {/* ── SETUP MODE ───────────── */}
+      {viewMode === 'setup' && (
+        <ScrollArea className="h-full max-h-[60vh] pr-3">
+          <div className="space-y-5 pb-4">
+            {/* Brand template warning */}
+            {!content.brand_template_id && (
+              <Alert className="border-yellow-500/30 bg-yellow-500/5">
+                <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                <AlertDescription className="text-xs text-yellow-800 dark:text-yellow-300">
+                  Chưa chọn brand template. AI sẽ tạo ảnh nhưng không áp dụng màu sắc thương hiệu.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Step 1: Channel Picker */}
+            <ImageChannelPicker
+              availableChannels={content.selected_channels || []}
+              selectedChannels={selectedChannels}
+              onSelectedChange={setSelectedChannels}
+            />
+
+            {/* Step 2: Image Type */}
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Kiểu ảnh</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setImageContentType('background_only')}
+                  className={cn(
+                    "flex items-center gap-2 p-3 rounded-lg border-2 transition-all text-sm",
+                    imageContentType === 'background_only'
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border/50 hover:border-primary/30 text-muted-foreground"
+                  )}
+                >
+                  <Image className="w-4 h-4" />
+                  <span className="font-medium">Ảnh nền</span>
+                </button>
+                <button
+                  onClick={() => setImageContentType('with_text')}
+                  className={cn(
+                    "flex items-center gap-2 p-3 rounded-lg border-2 transition-all text-sm",
+                    imageContentType === 'with_text'
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border/50 hover:border-primary/30 text-muted-foreground"
+                  )}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span className="font-medium">Có text</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Text input (only when with_text) */}
+            {imageContentType === 'with_text' && (
+              <div className="space-y-3">
+                {/* Shared / Per-channel toggle */}
+                <div className="flex items-center gap-1 p-0.5 bg-muted/50 rounded-lg w-fit">
+                  <button
+                    onClick={() => setUseSharedText(true)}
+                    className={cn(
+                      "px-3 py-1 text-xs rounded-md transition-all font-medium",
+                      useSharedText ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Chung
+                  </button>
+                  <button
+                    onClick={() => {
+                      setUseSharedText(false);
+                      setTextsPerChannel(prev => {
+                        const updated = { ...prev };
+                        let changed = false;
+                        selectedChannels.forEach(ch => {
+                          if (!updated[ch]) {
+                            const t = fillHookText(ch);
+                            if (t) { updated[ch] = t; changed = true; }
+                          }
+                        });
+                        return changed ? updated : prev;
+                      });
+                    }}
+                    className={cn(
+                      "px-3 py-1 text-xs rounded-md transition-all font-medium",
+                      !useSharedText ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Theo kênh
+                  </button>
+                </div>
+
+                {useSharedText ? (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">Text trên ảnh</Label>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost" size="sm"
+                          className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            const best = fillHookText(selectedChannels[0] || 'facebook');
+                            if (best) { setTextToInclude(best); toast.success('Đã điền hook'); }
+                            else toast.error('Không tìm thấy hook');
+                          }}
+                        >
+                          <Hash className="w-3 h-3" />
+                          Dùng Hook
+                        </Button>
+                        <Button
+                          variant="ghost" size="sm"
+                          className="h-6 text-xs gap-1 text-primary"
+                          onClick={handleOptimizeText}
+                          disabled={isOptimizingText || !textToInclude.trim()}
+                        >
+                          {isOptimizingText ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                          AI Tối ưu
+                        </Button>
+                      </div>
+                    </div>
+                    <Textarea
+                      value={textToInclude}
+                      onChange={e => setTextToInclude(e.target.value)}
+                      placeholder="Nhập text hiển thị trên ảnh..."
+                      className="h-20 text-sm resize-none"
+                    />
+                  </div>
+                ) : (
+                  <Tabs defaultValue={selectedChannels[0]} className="w-full">
+                    <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
+                      {selectedChannels.map(ch => (
+                        <TabsTrigger key={ch} value={ch} className="text-xs px-2 py-1 h-auto">
+                          {ch}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                    {selectedChannels.map(ch => (
+                      <TabsContent key={ch} value={ch} className="mt-2 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs text-muted-foreground">Text – {ch}</Label>
+                          <Button
+                            variant="ghost" size="sm"
+                            className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              const best = fillHookText(ch);
+                              if (best) {
+                                setTextsPerChannel(prev => ({ ...prev, [ch]: best }));
+                                toast.success('Đã điền hook');
+                              } else toast.error('Không tìm thấy hook');
+                            }}
+                          >
+                            <Hash className="w-3 h-3" />
+                            Dùng Hook
+                          </Button>
+                        </div>
+                        <Textarea
+                          value={textsPerChannel[ch] || ''}
+                          onChange={e => setTextsPerChannel(prev => ({ ...prev, [ch]: e.target.value }))}
+                          placeholder={`Text cho ${ch}...`}
+                          className="h-16 text-sm resize-none"
+                        />
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                )}
+              </div>
+            )}
+
+            {/* V3 Style Suggestions Preview */}
+            {v3Suggestions.length > 0 && (
+              <V3StylePreview
+                suggestions={v3Suggestions}
+                selectedStyle={imageStyle}
+                onStyleSelect={(style) => setImageStyle(style)}
+              />
+            )}
+
+            {/* Settings Summary + CTA */}
+            <div className="space-y-2">
+              <ImageSettingsSummary
+                imageStyle={imageStyle}
+                aspectRatio={aspectRatio}
+                includeLogo={includeLogo}
+                logoPosition={logoPosition}
+                hasBrandLogo={!!brandLogoUrl}
+                imageContentType={imageContentType}
+                v3TopSuggestion={v3Suggestions.find(s => s.style === imageStyle)}
+              />
+              <Button
+                onClick={handleGenerate}
+                disabled={batchGen.isGenerating || selectedChannels.length === 0}
+                className="w-full h-11 gap-2 text-base"
+                size="lg"
+              >
+                {batchGen.isGenerating ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Đang tạo...</>
+                ) : (
+                  <><Sparkles className="w-4 h-4" /> Tạo {selectedChannels.length} ảnh</>
+                )}
+              </Button>
+            </div>
+
+            {/* Advanced Options */}
+            <ImageAdvancedOptions
+              imageStyle={imageStyle}
+              onImageStyleChange={setImageStyle}
+              v3Suggestions={v3Suggestions}
+              aspectRatio={aspectRatio}
+              onAspectRatioChange={setAspectRatio}
+              includeLogo={includeLogo}
+              onIncludeLogoChange={setIncludeLogo}
+              logoPosition={logoPosition}
+              onLogoPositionChange={setLogoPosition}
+              logoStyle={logoStyle}
+              onLogoStyleChange={setLogoStyle}
+              logoSize={logoSize}
+              onLogoSizeChange={setLogoSize}
+              logoOpacity={logoOpacity}
+              onLogoOpacityChange={setLogoOpacity}
+              brandLogoUrl={brandLogoUrl}
+              hasText={imageContentType === 'with_text'}
+              textPosition={textPosition}
+              onTextPositionChange={setTextPosition}
+              typographyStyle={typographyStyle}
+              onTypographyStyleChange={setTypographyStyle}
+              textPreview={textToInclude}
+              negativePrompt={negativePrompt}
+              onNegativePromptChange={setNegativePrompt}
+              contentRole={contentRole}
+              contentAngle={contentAngle}
+              selectedChannels={selectedChannels}
+              hookMessages={hookMessages}
+            />
+          </div>
+        </ScrollArea>
+      )}
+
+      {/* ── STREAMING / PREVIEW MODE ───────────── */}
+      {(viewMode === 'streaming' || viewMode === 'preview') && (
+        <ScrollArea className="h-full max-h-[65vh]">
+          <ImageStreamingGrid
+            progress={batchGen.progress}
+            progressTimes={batchGen.progressTimes}
+            logoOverlayFailures={batchGen.logoOverlayFailures}
+            generatedImages={batchGen.generatedImages}
+            onRetryChannel={handleRegenerateChannel}
+            onDownloadImage={handleDownloadImage}
+            onEditBackground={handleEditBackground}
+            retryingChannel={regeneratingChannel}
+          />
+
+          {/* Save All button */}
+          {viewMode === 'preview' && hasImages && (
+            <div className="flex justify-end gap-2 mt-4 pb-2">
+              <Button variant="outline" onClick={handleBackToSetup}>
+                Tạo lại
+              </Button>
+              <Button onClick={handleSaveAll} className="gap-2">
+                <Save className="w-4 h-4" />
+                Lưu tất cả
+              </Button>
+            </div>
+          )}
+        </ScrollArea>
+      )}
+    </div>
+  );
+
+  const bgEditor = editingChannel ? (
+    <BackgroundEditor
+      open={bgEditorOpen}
+      onOpenChange={setBgEditorOpen}
+      imageUrl={batchGen.generatedImages[editingChannel]?.imageUrl || ''}
+      channel={editingChannel}
+      contentId={content.id}
+      onImageEdited={handleBackgroundEdited}
+    />
+  ) : null;
+
+  // ─── Render: Drawer on mobile, Dialog on desktop ───────────────────────
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={handleClose}>
+        <DrawerContent className="max-h-[90vh] overflow-hidden flex flex-col">
+          <DrawerHeader className="flex-shrink-0 border-b border-border/50 pb-3">
+            <DrawerTitle>{headerContent}</DrawerTitle>
+            {viewMode === 'setup' && (
+              <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+                {brandLogoUrl && (
+                  <img src={brandLogoUrl} alt="" className="w-5 h-5 rounded object-contain" />
+                )}
+                {content.brand_name || 'Chọn kênh và nhấn Tạo ảnh'}
+              </p>
+            )}
+          </DrawerHeader>
+          <div className="overflow-y-auto flex-1 px-4 pb-4">
+            {bodyContent}
+          </div>
+          {bgEditor}
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className={cn(
-        "transition-all duration-300 max-h-[90vh] overflow-hidden flex flex-col",
-        viewMode === 'setup' ? "sm:max-w-lg" : "sm:max-w-3xl"
-      )}>
+      <DialogContent
+        className={cn(
+          "transition-all duration-300 max-h-[90vh] overflow-hidden flex flex-col",
+          viewMode === 'setup' ? "sm:max-w-lg" : "sm:max-w-3xl"
+        )}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            {viewMode !== 'setup' && (
-              <Button variant="ghost" size="icon" className="h-7 w-7 -ml-1" onClick={handleBackToSetup} disabled={batchGen.isGenerating}>
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-            )}
-            <Sparkles className="w-5 h-5 text-primary" />
-            {viewMode === 'setup' && 'Tạo ảnh AI'}
-            {viewMode === 'streaming' && 'Đang tạo ảnh...'}
-            {viewMode === 'preview' && 'Xem trước ảnh'}
-          </DialogTitle>
+          <DialogTitle>{headerContent}</DialogTitle>
           <DialogDescription>
             {viewMode === 'setup' && (
               <span className="flex items-center gap-2">
@@ -410,285 +732,8 @@ export function SimpleImageGenerator({
             {viewMode === 'preview' && 'Kiểm tra và lưu ảnh'}
           </DialogDescription>
         </DialogHeader>
-
-        <div className="flex-1 overflow-hidden">
-          {/* ── SETUP MODE ───────────── */}
-          {viewMode === 'setup' && (
-            <ScrollArea className="h-full max-h-[60vh] pr-3">
-              <div className="space-y-5 pb-4">
-                {/* Brand template warning */}
-                {!content.brand_template_id && (
-                  <Alert className="border-yellow-500/30 bg-yellow-500/5">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                    <AlertDescription className="text-xs text-yellow-800 dark:text-yellow-300">
-                      Chưa chọn brand template. AI sẽ tạo ảnh nhưng không áp dụng màu sắc thương hiệu.
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {/* Step 1: Channel Picker */}
-                <ImageChannelPicker
-                  availableChannels={content.selected_channels || []}
-                  selectedChannels={selectedChannels}
-                  onSelectedChange={setSelectedChannels}
-                />
-
-                {/* Step 2: Image Type */}
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Kiểu ảnh</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setImageContentType('background_only')}
-                      className={cn(
-                        "flex items-center gap-2 p-3 rounded-lg border-2 transition-all text-sm",
-                        imageContentType === 'background_only'
-                          ? "border-primary bg-primary/5 text-primary"
-                          : "border-border/50 hover:border-primary/30 text-muted-foreground"
-                      )}
-                    >
-                      <Image className="w-4 h-4" />
-                      <span className="font-medium">Ảnh nền</span>
-                    </button>
-                    <button
-                      onClick={() => setImageContentType('with_text')}
-                      className={cn(
-                        "flex items-center gap-2 p-3 rounded-lg border-2 transition-all text-sm",
-                        imageContentType === 'with_text'
-                          ? "border-primary bg-primary/5 text-primary"
-                          : "border-border/50 hover:border-primary/30 text-muted-foreground"
-                      )}
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      <span className="font-medium">Có text</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Text input (only when with_text) */}
-                {imageContentType === 'with_text' && (
-                  <div className="space-y-3">
-                    {/* Shared / Per-channel toggle */}
-                    <div className="flex items-center gap-1 p-0.5 bg-muted/50 rounded-lg w-fit">
-                      <button
-                        onClick={() => setUseSharedText(true)}
-                        className={cn(
-                          "px-3 py-1 text-xs rounded-md transition-all font-medium",
-                          useSharedText ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        Chung
-                      </button>
-                      <button
-                        onClick={() => {
-                          setUseSharedText(false);
-                          // Auto-fill per-channel texts
-                          setTextsPerChannel(prev => {
-                            const updated = { ...prev };
-                            let changed = false;
-                            selectedChannels.forEach(ch => {
-                              if (!updated[ch]) {
-                                const t = fillHookText(ch);
-                                if (t) { updated[ch] = t; changed = true; }
-                              }
-                            });
-                            return changed ? updated : prev;
-                          });
-                        }}
-                        className={cn(
-                          "px-3 py-1 text-xs rounded-md transition-all font-medium",
-                          !useSharedText ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        Theo kênh
-                      </button>
-                    </div>
-
-                    {useSharedText ? (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs text-muted-foreground">Text trên ảnh</Label>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost" size="sm"
-                              className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                              onClick={() => {
-                                const best = fillHookText(selectedChannels[0] || 'facebook');
-                                if (best) { setTextToInclude(best); toast.success('Đã điền hook'); }
-                                else toast.error('Không tìm thấy hook');
-                              }}
-                            >
-                              <Hash className="w-3 h-3" />
-                              Dùng Hook
-                            </Button>
-                            <Button
-                              variant="ghost" size="sm"
-                              className="h-6 text-xs gap-1 text-primary"
-                              onClick={handleOptimizeText}
-                              disabled={isOptimizingText || !textToInclude.trim()}
-                            >
-                              {isOptimizingText ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
-                              AI Tối ưu
-                            </Button>
-                          </div>
-                        </div>
-                        <Textarea
-                          value={textToInclude}
-                          onChange={e => setTextToInclude(e.target.value)}
-                          placeholder="Nhập text hiển thị trên ảnh..."
-                          className="h-20 text-sm resize-none"
-                        />
-                      </div>
-                    ) : (
-                      <Tabs defaultValue={selectedChannels[0]} className="w-full">
-                        <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
-                          {selectedChannels.map(ch => (
-                            <TabsTrigger key={ch} value={ch} className="text-xs px-2 py-1 h-auto">
-                              {ch}
-                            </TabsTrigger>
-                          ))}
-                        </TabsList>
-                        {selectedChannels.map(ch => (
-                          <TabsContent key={ch} value={ch} className="mt-2 space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-xs text-muted-foreground">Text – {ch}</Label>
-                              <Button
-                                variant="ghost" size="sm"
-                                className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                                onClick={() => {
-                                  const best = fillHookText(ch);
-                                  if (best) {
-                                    setTextsPerChannel(prev => ({ ...prev, [ch]: best }));
-                                    toast.success('Đã điền hook');
-                                  } else toast.error('Không tìm thấy hook');
-                                }}
-                              >
-                                <Hash className="w-3 h-3" />
-                                Dùng Hook
-                              </Button>
-                            </div>
-                            <Textarea
-                              value={textsPerChannel[ch] || ''}
-                              onChange={e => setTextsPerChannel(prev => ({ ...prev, [ch]: e.target.value }))}
-                              placeholder={`Text cho ${ch}...`}
-                              className="h-16 text-sm resize-none"
-                            />
-                          </TabsContent>
-                        ))}
-                      </Tabs>
-                    )}
-                  </div>
-                )}
-
-                {/* V3 Style Suggestions Preview */}
-                {v3Suggestions.length > 0 && (
-                  <V3StylePreview
-                    suggestions={v3Suggestions}
-                    selectedStyle={imageStyle}
-                    onStyleSelect={(style) => setImageStyle(style)}
-                  />
-                )}
-
-                {/* Settings Summary + CTA */}
-                <div className="space-y-2">
-                  <ImageSettingsSummary
-                    imageStyle={imageStyle}
-                    aspectRatio={aspectRatio}
-                    includeLogo={includeLogo}
-                    logoPosition={logoPosition}
-                    hasBrandLogo={!!brandLogoUrl}
-                    imageContentType={imageContentType}
-                    v3TopSuggestion={v3Suggestions.find(s => s.style === imageStyle)}
-                  />
-                  <Button
-                    onClick={handleGenerate}
-                    disabled={batchGen.isGenerating || selectedChannels.length === 0}
-                    className="w-full h-11 gap-2 text-base"
-                    size="lg"
-                  >
-                    {batchGen.isGenerating ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Đang tạo...</>
-                    ) : (
-                      <><Sparkles className="w-4 h-4" /> Tạo {selectedChannels.length} ảnh</>
-                    )}
-                  </Button>
-                </div>
-
-                {/* Advanced Options */}
-                <ImageAdvancedOptions
-                  imageStyle={imageStyle}
-                  onImageStyleChange={setImageStyle}
-                  v3Suggestions={v3Suggestions}
-                  aspectRatio={aspectRatio}
-                  onAspectRatioChange={setAspectRatio}
-                  includeLogo={includeLogo}
-                  onIncludeLogoChange={setIncludeLogo}
-                  logoPosition={logoPosition}
-                  onLogoPositionChange={setLogoPosition}
-                  logoStyle={logoStyle}
-                  onLogoStyleChange={setLogoStyle}
-                  logoSize={logoSize}
-                  onLogoSizeChange={setLogoSize}
-                  logoOpacity={logoOpacity}
-                  onLogoOpacityChange={setLogoOpacity}
-                  brandLogoUrl={brandLogoUrl}
-                  hasText={imageContentType === 'with_text'}
-                  textPosition={textPosition}
-                  onTextPositionChange={setTextPosition}
-                  typographyStyle={typographyStyle}
-                  onTypographyStyleChange={setTypographyStyle}
-                  textPreview={textToInclude}
-                  negativePrompt={negativePrompt}
-                  onNegativePromptChange={setNegativePrompt}
-                  contentRole={contentRole}
-                  contentAngle={contentAngle}
-                  selectedChannels={selectedChannels}
-                  hookMessages={hookMessages}
-                />
-              </div>
-            </ScrollArea>
-          )}
-
-          {/* ── STREAMING / PREVIEW MODE ───────────── */}
-          {(viewMode === 'streaming' || viewMode === 'preview') && (
-            <ScrollArea className="h-full max-h-[65vh]">
-              <ImageStreamingGrid
-                progress={batchGen.progress}
-                progressTimes={batchGen.progressTimes}
-                logoOverlayFailures={batchGen.logoOverlayFailures}
-                generatedImages={batchGen.generatedImages}
-                onRetryChannel={handleRegenerateChannel}
-                onDownloadImage={handleDownloadImage}
-                onEditBackground={handleEditBackground}
-                retryingChannel={regeneratingChannel}
-              />
-
-              {/* Save All button */}
-              {viewMode === 'preview' && hasImages && (
-                <div className="flex justify-end gap-2 mt-4 pb-2">
-                  <Button variant="outline" onClick={handleBackToSetup}>
-                    Tạo lại
-                  </Button>
-                  <Button onClick={handleSaveAll} className="gap-2">
-                    <Save className="w-4 h-4" />
-                    Lưu tất cả
-                  </Button>
-                </div>
-              )}
-            </ScrollArea>
-          )}
-        </div>
-
-        {/* Background Editor */}
-        {editingChannel && (
-          <BackgroundEditor
-            open={bgEditorOpen}
-            onOpenChange={setBgEditorOpen}
-            imageUrl={batchGen.generatedImages[editingChannel]?.imageUrl || ''}
-            channel={editingChannel}
-            contentId={content.id}
-            onImageEdited={handleBackgroundEdited}
-          />
-        )}
+        {bodyContent}
+        {bgEditor}
       </DialogContent>
     </Dialog>
   );
