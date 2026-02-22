@@ -157,6 +157,33 @@ export const ROLE_BOOST: Record<ContentRole, (style: ImageStyle) => number> = {
 };
 
 // ---------------------------------------------------------------------------
+// GOAL → DEFAULT IMAGE STYLE MAPPING
+// ---------------------------------------------------------------------------
+
+/**
+ * Default image style per content goal.
+ * When a goal is selected, its mapped style receives a scoring bonus (+10)
+ * to push it toward the top of suggestions.
+ *
+ * Rationale:
+ *  - education → flat_design: infographic layouts are the #1 format for educational IG content (Hootsuite 2026)
+ *  - awareness → cinematic: cinematic visuals increase dwell time +31% (ScienceDirect 2025)
+ *  - engagement → illustration: illustrated content has +22% save rate on IG (Hootsuite 2026)
+ *  - expertise → photorealistic: real imagery builds authority & trust (Sprout Social 2026)
+ *  - conversion → product_only: direct product showcase drives highest purchase intent (Sprout Social 2026)
+ */
+export const GOAL_DEFAULT_STYLE: Record<ContentGoal, ImageStyle> = {
+  education: 'flat_design',
+  awareness: 'cinematic',
+  engagement: 'illustration',
+  expertise: 'photorealistic',
+  conversion: 'product_only',
+};
+
+/** Bonus score added to the goal's default style */
+export const GOAL_DEFAULT_BONUS = 10;
+
+// ---------------------------------------------------------------------------
 // GOAL BOOST
 // ---------------------------------------------------------------------------
 

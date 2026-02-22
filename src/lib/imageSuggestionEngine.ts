@@ -19,6 +19,8 @@ import {
   ROLE_BOOST,
   GOAL_BOOST,
   ANGLE_BOOST,
+  GOAL_DEFAULT_STYLE,
+  GOAL_DEFAULT_BONUS,
 } from '@/config/visualScoringConfig';
 
 // ---------------------------------------------------------------------------
@@ -129,8 +131,9 @@ export function suggestImageStylesV3(input: SuggestionInputV3): SuggestionV3[] {
     const roleDelta = base * (roleMultiplier - 1);
     const goalBoost = GOAL_BOOST[contentGoal]?.[style] ?? 0;
     const angleBoost = ANGLE_BOOST[contentAngle]?.[style] ?? 0;
+    const defaultStyleBonus = GOAL_DEFAULT_STYLE[contentGoal] === style ? GOAL_DEFAULT_BONUS : 0;
 
-    const rawScore = base + indBoost + chBoost + roleDelta + goalBoost + angleBoost;
+    const rawScore = base + indBoost + chBoost + roleDelta + goalBoost + angleBoost + defaultStyleBonus;
     // Clamp to 0-100
     const score = Math.round(Math.max(0, Math.min(100, rawScore)) * 100) / 100;
 
