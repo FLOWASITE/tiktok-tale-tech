@@ -359,6 +359,67 @@ export function MultiChannelFormWizard({
 
   // Removed: useCoreContents - now using useStreamingCoreContent
 
+  // NEW: Auto-load existing Core Content when coreContentId is provided (e.g. from Transform)
+  const [isLoadingExistingCoreContent, setIsLoadingExistingCoreContent] = useState(false);
+  
+  useEffect(() => {
+    const coreContentId = initialData?.coreContentId;
+    if (!coreContentId || coreContentData) return;
+    
+    const loadExistingCoreContent = async () => {
+      setIsLoadingExistingCoreContent(true);
+      try {
+        const { supabase } = await import('@/integrations/supabase/client');
+        const { data, error } = await supabase
+          .from('core_contents')
+          .select('*')
+          .eq('id', coreContentId)
+          .single();
+        
+        if (error || !data) {
+          console.error('Failed to load core content:', error);
+          toast.error('Không thể tải Core Content');
+          return;
+        }
+        
+        // Set core content data
+        setCoreContentData({
+          id: data.id,
+          title: data.title,
+          content: data.content,
+          wordCount: data.word_count || 0,
+          qualityScore: data.quality_score || 0,
+          keyMessages: Array.isArray(data.key_messages) ? data.key_messages as string[] : [],
+          contentGoal: data.content_goal as ContentGoal | undefined,
+        });
+        
+        // Auto-fill form data
+        const contentGoal = data.content_goal as ContentGoal;
+        const contentRole = GOAL_TO_ROLE_MAP[contentGoal] || 'sprout';
+        
+        setFormData(prev => ({
+          ...prev,
+          topic: data.topic || data.title,
+          contentGoal,
+          coreContentId: data.id,
+          contentRole,
+        }));
+        
+        // Jump to step 3 (Role selection) - skip topic and core content steps
+        setCurrentStep(3);
+        setCompletedSteps([1, 2]);
+        
+        toast.success('Đã tải Core Content, chọn vai trò để tiếp tục');
+      } catch (err) {
+        console.error('Error loading core content:', err);
+      } finally {
+        setIsLoadingExistingCoreContent(false);
+      }
+    };
+    
+    loadExistingCoreContent();
+  }, [initialData?.coreContentId]);
+
   // Sync brand template
   useEffect(() => {
     if (brandTemplateId) {

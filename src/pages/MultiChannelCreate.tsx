@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Wand2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MultiChannelFormWizard } from '@/components/multichannel/MultiChannelFormWizard';
@@ -29,7 +29,9 @@ type GenerationState = 'idle' | 'generating' | 'complete' | 'error';
 export default function MultiChannelCreate() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const prefillData = location.state as LocationState | null;
+  const coreContentIdFromUrl = searchParams.get('coreContentId');
   
   const { templates, loading: templatesLoading } = useBrandTemplates();
   const { refetch } = useMultiChannelContents();
@@ -47,6 +49,7 @@ export default function MultiChannelCreate() {
     personaId: prefillData?.personaId,
     contentPurpose: prefillData?.contentPurpose,
     marketingFramework: prefillData?.marketingFramework,
+    coreContentId: coreContentIdFromUrl || undefined,
   });
   const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>(prefillData?.topicHistoryId);
 
