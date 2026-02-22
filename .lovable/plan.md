@@ -1,37 +1,37 @@
 
 
-# Fix: Anh da tao nhung chua hien tren mockup
+# Thêm ký hiệu ảnh/không ảnh theo từng kênh trên card nội dung
 
-## Nguyen nhan
+## Mô tả
 
-Khi tao anh, he thong dang o che do "Preview truoc, luu sau":
-- Anh duoc tao xong va hien trong luoi preview ben trong dialog
-- Nhung anh CHUA duoc luu vao database hoac cap nhat len mockup
-- Nguoi dung phai bam nut "Luu tat ca" de luu anh
-- Neu dong dialog ma khong bam "Luu tat ca", tat ca anh bi mat
+Hiện tại, card nội dung chỉ hiển thị tổng số ảnh chung (ví dụ: "3" với icon Image). Thay đổi này sẽ hiển thị trực tiếp trên mỗi channel icon xem kênh đó đã có ảnh hay chưa.
 
-## Giai phap
+## Thay đổi
 
-Chuyen sang che do tu dong luu: anh duoc luu ngay khi tao xong, khong can bam them nut nao.
+### File: `src/components/MultiChannelCard.tsx`
 
-### File thay doi
+1. **Cập nhật phần Channel icons (dòng 237-271)**: Thêm ký hiệu nhỏ cho mỗi channel icon:
+   - Nếu channel có ảnh trong `channel_images`: hiển thị icon Image nhỏ (hoặc dot xanh lá) ở góc dưới bên trái của channel icon
+   - Nếu channel không có ảnh: không hiển thị gì thêm (giữ nguyên)
 
-| File | Thay doi |
-|------|----------|
-| `src/components/multichannel/SimpleImageGenerator.tsx` | Doi `saveImmediately` tu `false` sang `true`, bo nut "Luu tat ca" |
+2. **Cập nhật Tooltip**: Thêm dòng "Có ảnh" / "Chưa có ảnh" vào tooltip của mỗi channel
 
-### Chi tiet
+3. **Giữ nguyên badge tổng số ảnh** ở Meta Badges Row (dòng 212-216) nhưng không bắt buộc - có thể bỏ vì thông tin đã hiển thị trên từng channel icon
 
-1. **Dong 311**: Doi `generateAllImages(batchOptions, onImageGenerated, false)` thanh `generateAllImages(batchOptions, onImageGenerated, true)`
-   - Moi anh se duoc luu vao database ngay khi tao xong
-   - Mockup se cap nhat ngay lap tuc nho `setGeneratedImages` trong callback `onImageGenerated`
+## Chi tiết kỹ thuật
 
-2. **Bo nut "Luu tat ca"** (dong 517-527): Khong can nut luu nua vi anh da duoc luu tu dong. Giu lai nut "Tao lai" de nguoi dung co the tao lai neu khong hai long.
+Trong phần render channel icons, kiểm tra `content.channel_images?.[channel]` để xác định channel đó có ảnh hay không:
 
-3. **Bo ham `handleSaveAll`** (dong 315-321): Khong con can thiet.
+```text
++-- Channel icon container --------+
+|  [Facebook icon]                 |
+|  [status dot: top-right]         |
+|  [image dot: bottom-left]        |  <-- Thêm mới: dot nhỏ màu violet nếu có ảnh
++----------------------------------+
+```
 
-### Ket qua
+- Dot ảnh: `w-1.5 h-1.5 rounded-full bg-violet-400` đặt ở vị trí `absolute -bottom-0.5 -left-0.5`
+- Tooltip cập nhật thêm dòng trạng thái ảnh
 
-- Nguoi dung bam "Tao anh" -> anh duoc tao va tu dong luu -> mockup cap nhat ngay
-- Dong dialog bat ky luc nao ma khong mat anh
+Không cần thay đổi database hay logic backend - chỉ thay đổi hiển thị UI.
 
