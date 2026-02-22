@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { 
   Eye, 
@@ -19,7 +19,9 @@ import {
   MoreHorizontal,
   CalendarClock,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  ImageIcon,
+  Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -68,6 +70,8 @@ import {
 } from '@/types/multichannel';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { CreatorCell } from '@/components/CreatorCell';
+import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 
 type SortField = 'title' | 'created_at' | 'completed_channels' | 'priority';
 type SortDirection = 'asc' | 'desc';
@@ -212,6 +216,32 @@ const SortableHeader = ({
       )}
     </button>
   );
+};
+
+// Helper: get first thumbnail from channel_images
+const getFirstThumbnail = (content: MultiChannelContent): string | null => {
+  const channelImages = content.channel_images as Record<string, string[]> | null | undefined;
+  if (!channelImages) return null;
+  for (const channel of Object.keys(channelImages)) {
+    const images = channelImages[channel];
+    if (images && images.length > 0) return images[0];
+  }
+  return null;
+};
+
+// Helper: check if channel has image
+const channelHasImage = (content: MultiChannelContent, channel: string): boolean => {
+  const channelImages = content.channel_images as Record<string, string[]> | null | undefined;
+  if (!channelImages) return false;
+  const images = channelImages[channel];
+  return !!(images && images.length > 0);
+};
+
+// Helper: get critique score color
+const getCritiqueColor = (score: number) => {
+  if (score >= 80) return 'bg-green-500/20 text-green-700 dark:text-green-400';
+  if (score >= 60) return 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400';
+  return 'bg-red-500/20 text-red-700 dark:text-red-400';
 };
 
 export function MultiChannelListView({
@@ -359,7 +389,7 @@ export function MultiChannelListView({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedContents.map((content) => {
+            {sortedContents.map((content, index) => {
               const statusSummary = getStatusSummary(content);
               const channelStatuses = content.channel_statuses || {};
               const completedCount = getCompletedCount(content);
@@ -371,35 +401,54 @@ export function MultiChannelListView({
               const goalInfo = CONTENT_GOALS.find(g => g.value === content.content_goal);
               const GoalIcon = goalInfo ? goalIcons[content.content_goal] : Target;
               const isOverdue = content.deadline && new Date(content.deadline) < new Date() && completedCount < totalChannels;
+              const isNearDeadline = content.deadline && !isOverdue && differenceInHours(new Date(content.deadline), new Date()) <= 48 && completedCount < totalChannels;
+              const thumbnail = getFirstThumbnail(content);
+              const critiqueScore = (content as any).critique_score as number | undefined;
+              const isSelected = selectedIds.has(content.id);
               
               return (
                 <TableRow 
                   key={content.id} 
-                  className={`group hover:bg-muted/50 transition-colors ${selectedIds.has(content.id) ? 'bg-primary/5' : ''}`}
+                  className={`group transition-all border-l-2 ${
+                    isSelected 
+                      ? 'border-l-primary bg-primary/5' 
+                      : 'border-l-transparent hover:border-l-primary/50 hover:bg-muted/50'
+                  } ${index % 2 === 1 ? 'bg-muted/20' : ''}`}
                 >
                   <TableCell className="py-3">
                     <Checkbox
-                      checked={selectedIds.has(content.id)}
+                      checked={isSelected}
                       onCheckedChange={() => onToggleSelection(content.id)}
                       className="h-4 w-4"
                     />
                   </TableCell>
                   
-                  {/* Content Info */}
+                  {/* Content Info with Thumbnail */}
                   <TableCell className="py-3">
                     <div className="flex items-start gap-3">
-                      {/* Goal Icon */}
+                      {/* Thumbnail or Goal Icon */}
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div 
-                            className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center"
-                            style={{ backgroundColor: content.primary_color ? `${content.primary_color}20` : 'hsl(var(--muted))' }}
-                          >
-                            <GoalIcon 
-                              className="w-4 h-4" 
-                              style={{ color: content.primary_color || 'hsl(var(--muted-foreground))' }}
-                            />
-                          </div>
+                          {thumbnail ? (
+                            <div className="flex-shrink-0 w-8 h-8 rounded-md overflow-hidden shadow-sm border border-border/50">
+                              <img 
+                                src={thumbnail} 
+                                alt="" 
+                                className="w-full h-full object-cover"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                              />
+                            </div>
+                          ) : (
+                            <div 
+                              className="flex-shrink-0 w-8 h-8 rounded-md flex items-center justify-center"
+                              style={{ backgroundColor: content.primary_color ? `${content.primary_color}20` : 'hsl(var(--muted))' }}
+                            >
+                              <GoalIcon 
+                                className="w-4 h-4" 
+                                style={{ color: content.primary_color || 'hsl(var(--muted-foreground))' }}
+                              />
+                            </div>
+                          )}
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>{goalInfo?.label || 'Mục tiêu'}: {goalInfo?.description}</p>
@@ -407,21 +456,30 @@ export function MultiChannelListView({
                       </Tooltip>
                       
                       <div className="flex-1 min-w-0 space-y-1">
-                        <button
-                          onClick={() => onView(content)}
-                          className="font-medium text-left hover:text-primary transition-colors line-clamp-1 text-sm"
-                        >
-                          {content.title}
-                        </button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => onView(content)}
+                              className="font-semibold text-left hover:underline transition-colors line-clamp-1 text-sm"
+                            >
+                              {content.title}
+                            </button>
+                          </TooltipTrigger>
+                          {content.topic && (
+                            <TooltipContent side="bottom" className="max-w-xs">
+                              <p className="text-xs">{content.topic}</p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span className="line-clamp-1 flex-1">{content.topic}</span>
+                          <span className="line-clamp-1 max-w-[200px]">{content.topic}</span>
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
+                          <Badge variant="outline" className="text-xs px-1.5 py-0 font-normal">
                             {content.brand_name}
                           </Badge>
                           {content.tags && content.tags.slice(0, 2).map((tag, i) => (
-                            <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
+                            <Badge key={i} variant="secondary" className="text-xs px-1.5 py-0 font-normal">
                               <Tag className="w-2.5 h-2.5 mr-0.5" />
                               {tag}
                             </Badge>
@@ -447,25 +505,30 @@ export function MultiChannelListView({
                     </Tooltip>
                   </TableCell>
                   
-                  {/* Channels */}
+                  {/* Channels with image dots */}
                   <TableCell className="py-3">
                     <div className="flex flex-wrap gap-1">
                       {content.selected_channels.map((channel) => {
                         const status = channelStatuses[channel] || 'draft';
                         const isPublished = status === 'published';
+                        const hasImage = channelHasImage(content, channel);
                         return (
                           <Tooltip key={channel}>
                             <TooltipTrigger asChild>
                               <Badge 
                                 variant="outline" 
-                                className={`text-[10px] px-1.5 py-0.5 gap-1 ${channelColors[channel]} ${isPublished ? 'ring-1 ring-green-500/50' : ''}`}
+                                className={`text-xs px-1.5 py-0.5 gap-1 ${channelColors[channel]} ${isPublished ? 'ring-1 ring-green-500/50' : ''}`}
                               >
                                 {isPublished && <CheckCircle2 className="w-2.5 h-2.5" />}
                                 {channelLabels[channel]}
+                                {hasImage && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-violet-500 inline-block" />
+                                )}
                               </Badge>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>{channel}: {CONTENT_STATUSES.find(s => s.value === status)?.label || 'Nháp'}</p>
+                              <p>{channel}: {CONTENT_STATUSES.find(s => s.value === status)?.label || 'Nháp'}
+                              {hasImage ? ' • Có ảnh' : ' • Chưa có ảnh'}</p>
                             </TooltipContent>
                           </Tooltip>
                         );
@@ -473,7 +536,7 @@ export function MultiChannelListView({
                     </div>
                   </TableCell>
                   
-                  {/* Progress */}
+                  {/* Progress with critique score */}
                   <TableCell className="py-3">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -486,8 +549,13 @@ export function MultiChannelListView({
                                 <Zap className="w-4 h-4 text-muted-foreground" />
                               )}
                               <span className={`text-sm font-medium ${completedCount === totalChannels ? 'text-green-600 dark:text-green-400' : ''}`}>
-                                {completedCount}/{totalChannels}
+                                {completedCount}/{totalChannels} kênh
                               </span>
+                              {critiqueScore !== undefined && critiqueScore !== null && (
+                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ml-1 ${getCritiqueColor(critiqueScore)}`}>
+                                  {critiqueScore}đ
+                                </Badge>
+                              )}
                             </div>
                             <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
                           </div>
@@ -521,7 +589,7 @@ export function MultiChannelListView({
                               <DropdownMenuTrigger asChild>
                                 <div className="flex items-center justify-between px-2 py-2 hover:bg-accent rounded-sm cursor-pointer">
                                   <div className="flex items-center gap-2">
-                                    <Badge variant="outline" className={`${channelColors[channel]} text-[10px]`}>
+                                    <Badge variant="outline" className={`${channelColors[channel]} text-xs`}>
                                       {channelLabels[channel]}
                                     </Badge>
                                   </div>
@@ -569,7 +637,7 @@ export function MultiChannelListView({
                     />
                   </TableCell>
                   
-                  {/* Date & Deadline */}
+                  {/* Date & Deadline with badges */}
                   <TableCell className="py-3">
                     <div className="space-y-1">
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -579,9 +647,21 @@ export function MultiChannelListView({
                       {content.deadline && (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <div className={`flex items-center gap-1.5 text-xs ${isOverdue ? 'text-red-500' : 'text-muted-foreground'}`}>
-                              <CalendarClock className="w-3.5 h-3.5" />
-                              <span>{formatDistanceToNow(new Date(content.deadline), { addSuffix: true, locale: vi })}</span>
+                            <div className="flex items-center gap-1.5">
+                              <div className={`flex items-center gap-1 text-xs ${isOverdue ? 'text-red-500' : isNearDeadline ? 'text-yellow-600 dark:text-yellow-400' : 'text-muted-foreground'}`}>
+                                <CalendarClock className="w-3.5 h-3.5" />
+                                <span>{formatDistanceToNow(new Date(content.deadline), { addSuffix: true, locale: vi })}</span>
+                              </div>
+                              {isOverdue && (
+                                <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
+                                  Trễ hạn
+                                </Badge>
+                              )}
+                              {isNearDeadline && (
+                                <Badge className="text-[10px] px-1.5 py-0 h-4 bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-700">
+                                  Sắp đến hạn
+                                </Badge>
+                              )}
                             </div>
                           </TooltipTrigger>
                           <TooltipContent>
@@ -599,7 +679,7 @@ export function MultiChannelListView({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-all duration-200"
                         >
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
@@ -646,14 +726,32 @@ export function MultiChannelListView({
             })}
             {contents.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                      <Zap className="w-6 h-6" />
-                    </div>
-                    <p className="font-medium">Chưa có nội dung nào</p>
-                    <p className="text-sm">Tạo nội dung mới để bắt đầu</p>
-                  </div>
+                <TableCell colSpan={8} className="text-center py-16 text-muted-foreground">
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="flex flex-col items-center gap-3"
+                  >
+                    <motion.div
+                      animate={{ y: [0, -6, 0] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                      className="relative"
+                    >
+                      <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl scale-150" />
+                      <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 border border-border/50 flex items-center justify-center">
+                        <Zap className="w-8 h-8 text-primary" />
+                      </div>
+                    </motion.div>
+                    <p className="font-semibold text-foreground">Chưa có nội dung nào</p>
+                    <p className="text-sm max-w-[250px]">Tạo nội dung đa kênh mới để bắt đầu quản lý</p>
+                    <Button asChild className="gap-2 mt-1">
+                      <Link to="/multichannel/create">
+                        <Plus className="w-4 h-4" />
+                        Tạo nội dung mới
+                      </Link>
+                    </Button>
+                  </motion.div>
                 </TableCell>
               </TableRow>
             )}
