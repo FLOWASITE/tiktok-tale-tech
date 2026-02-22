@@ -1,9 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Sparkles, Image, Loader2, Wand2, ArrowLeft, Save, Hash, AlertTriangle } from 'lucide-react';
+import { Sparkles, Loader2, ArrowLeft, Save, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -35,7 +33,7 @@ import { ImageSettingsSummary } from './ImageSettingsSummary';
 import { BackgroundEditor } from './BackgroundEditor';
 import { V3StylePreview } from './V3StylePreview';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { toast } from 'sonner';
 import { suggestImageStylesV3, type SuggestionV3, type SuggestionInputV3 } from '@/lib/imageSuggestionEngine';
 import type { ChannelKey, ContentGoal, ContentAngle, ContentRole, Industry } from '@/config/visualScoringConfig';
@@ -423,150 +421,7 @@ export function SimpleImageGenerator({
         onSelectedChange={setSelectedChannels}
       />
 
-      {/* Step 2: Image Type */}
-      <div className="space-y-2">
-        <Label className="text-xs text-muted-foreground">Kiểu ảnh</Label>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => setImageContentType('background_only')}
-            className={cn(
-              "flex items-center gap-2 p-3 rounded-lg border-2 transition-all text-sm",
-              imageContentType === 'background_only'
-                ? "border-primary bg-primary/5 text-primary"
-                : "border-border/50 hover:border-primary/30 text-muted-foreground"
-            )}
-          >
-            <Image className="w-4 h-4" />
-            <span className="font-medium">Ảnh nền</span>
-          </button>
-          <button
-            onClick={() => setImageContentType('with_text')}
-            className={cn(
-              "flex items-center gap-2 p-3 rounded-lg border-2 transition-all text-sm",
-              imageContentType === 'with_text'
-                ? "border-primary bg-primary/5 text-primary"
-                : "border-border/50 hover:border-primary/30 text-muted-foreground"
-            )}
-          >
-            <Sparkles className="w-4 h-4" />
-            <span className="font-medium">Có text</span>
-          </button>
-        </div>
-      </div>
 
-      {/* Text input (only when with_text) */}
-      {imageContentType === 'with_text' && (
-        <div className="space-y-3">
-          {/* Shared / Per-channel toggle */}
-          <div className="flex items-center gap-1 p-0.5 bg-muted/50 rounded-lg w-fit">
-            <button
-              onClick={() => setUseSharedText(true)}
-              className={cn(
-                "px-3 py-1 text-xs rounded-md transition-all font-medium",
-                useSharedText ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Chung
-            </button>
-            <button
-              onClick={() => {
-                setUseSharedText(false);
-                setTextsPerChannel(prev => {
-                  const updated = { ...prev };
-                  let changed = false;
-                  selectedChannels.forEach(ch => {
-                    if (!updated[ch]) {
-                      const t = fillHookText(ch);
-                      if (t) { updated[ch] = t; changed = true; }
-                    }
-                  });
-                  return changed ? updated : prev;
-                });
-              }}
-              className={cn(
-                "px-3 py-1 text-xs rounded-md transition-all font-medium",
-                !useSharedText ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Theo kênh
-            </button>
-          </div>
-
-          {useSharedText ? (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">Text trên ảnh</Label>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost" size="sm"
-                    className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                    onClick={() => {
-                      const best = fillHookText(selectedChannels[0] || 'facebook');
-                      if (best) { setTextToInclude(best); toast.success('Đã điền hook'); }
-                      else toast.error('Không tìm thấy hook');
-                    }}
-                  >
-                    <Hash className="w-3 h-3" />
-                    Dùng Hook
-                  </Button>
-                  <Button
-                    variant="ghost" size="sm"
-                    className="h-6 text-xs gap-1 text-primary"
-                    onClick={handleOptimizeText}
-                    disabled={isOptimizingText || !textToInclude.trim()}
-                  >
-                    {isOptimizingText ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
-                    AI Tối ưu
-                  </Button>
-                </div>
-              </div>
-              <Textarea
-                value={textToInclude}
-                onChange={e => setTextToInclude(e.target.value)}
-                placeholder="Nhập text hiển thị trên ảnh..."
-                className="h-20 text-sm resize-none"
-              />
-            </div>
-          ) : (
-            <Tabs defaultValue={selectedChannels[0]} className="w-full">
-              <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
-                {selectedChannels.map(ch => (
-                  <TabsTrigger key={ch} value={ch} className="text-xs px-2 py-1 h-auto">
-                    {ch}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              {selectedChannels.map(ch => (
-                <TabsContent key={ch} value={ch} className="mt-2 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs text-muted-foreground">Text – {ch}</Label>
-                    <Button
-                      variant="ghost" size="sm"
-                      className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                      onClick={() => {
-                        const best = fillHookText(ch);
-                        if (best) {
-                          setTextsPerChannel(prev => ({ ...prev, [ch]: best }));
-                          toast.success('Đã điền hook');
-                        } else toast.error('Không tìm thấy hook');
-                      }}
-                    >
-                      <Hash className="w-3 h-3" />
-                      Dùng Hook
-                    </Button>
-                  </div>
-                  <Textarea
-                    value={textsPerChannel[ch] || ''}
-                    onChange={e => setTextsPerChannel(prev => ({ ...prev, [ch]: e.target.value }))}
-                    placeholder={`Text cho ${ch}...`}
-                    className="h-16 text-sm resize-none"
-                  />
-                </TabsContent>
-              ))}
-            </Tabs>
-          )}
-        </div>
-      )}
 
       {/* V3 Style Suggestions Preview */}
       {v3Suggestions.length > 0 && (
@@ -632,6 +487,17 @@ export function SimpleImageGenerator({
         contentAngle={contentAngle}
         selectedChannels={selectedChannels}
         hookMessages={hookMessages}
+        imageContentType={imageContentType}
+        onImageContentTypeChange={setImageContentType}
+        useSharedText={useSharedText}
+        onUseSharedTextChange={setUseSharedText}
+        textToInclude={textToInclude}
+        onTextToIncludeChange={setTextToInclude}
+        textsPerChannel={textsPerChannel}
+        onTextsPerChannelChange={setTextsPerChannel}
+        fillHookText={fillHookText}
+        isOptimizingText={isOptimizingText}
+        onOptimizeText={handleOptimizeText}
       />
     </div>
   );
