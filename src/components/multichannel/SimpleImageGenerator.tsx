@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Sparkles, Loader2, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { Sparkles, Loader2, ArrowLeft, AlertTriangle, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -63,17 +63,47 @@ interface SimpleImageGeneratorProps {
 type ViewMode = 'setup' | 'streaming' | 'preview';
 
 // ─── Helpers (reused from UnifiedImageGenerator) ──────────────────
+/** Extract keywords from text for content-aware image generation */
+function extractContentKeywords(text: string): string[] {
+  if (!text) return [];
+  const cleaned = text
+    .replace(/#{1,6}\s?/g, '').replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[^\w\sàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/gi, ' ');
+  // Extract capitalized phrases, quoted phrases, and repeated nouns
+  const phrases: string[] = [];
+  // Vietnamese & English significant phrases (2-4 words)
+  const matches = cleaned.match(/(?:[A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ][a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+(?:\s+[A-Za-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+){0,3})/g);
+  if (matches) phrases.push(...matches.slice(0, 5));
+  // Deduplicate
+  return [...new Set(phrases)].slice(0, 5);
+}
+
 function getContentSummary(content: MultiChannelContent, channel: Channel): string {
   const fieldMap: Partial<Record<Channel, string | null>> = {
     website: content.website_content, facebook: content.facebook_content,
     instagram: content.instagram_content, twitter: content.twitter_content,
     linkedin: content.linkedin_content, youtube: content.youtube_content,
     tiktok: content.tiktok_content, threads: content.threads_content,
+    zalo_oa: (content as any).zalo_oa_content, telegram: (content as any).telegram_content,
   };
-  const text = (fieldMap[channel] ?? content.topic ?? '')
+  const rawText = (fieldMap[channel] ?? content.topic ?? '')
     .replace(/#{1,6}\s?/g, '').replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').slice(0, 300);
-  return `Topic: ${content.topic}. ${text}`;
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+
+  const keywords = extractContentKeywords(rawText);
+  const hookInfo = getHookForChannel(content, channel);
+  const goal = (content as any).content_goal || '';
+  const role = (content as any).content_role || '';
+  const angle = (content as any).content_angle || '';
+
+  let summary = `Topic: ${content.topic}.`;
+  if (goal) summary += ` Goal: ${goal}.`;
+  if (role) summary += ` Role: ${role}.`;
+  if (angle) summary += ` Angle: ${angle}.`;
+  if (hookInfo.hookMessage) summary += ` Core message: ${hookInfo.hookMessage}.`;
+  if (keywords.length > 0) summary += ` Key concepts: ${keywords.join(', ')}.`;
+  summary += ` Content: ${rawText.slice(0, 400)}`;
+  return summary.slice(0, 600);
 }
 
 function getHookForChannel(content: MultiChannelContent, channel: Channel) {
@@ -169,6 +199,25 @@ export function SimpleImageGenerator({
   const contentRole = contentAny.content_role as ContentRole | undefined;
   const contentAngle = contentAny.content_angle as ContentAngle | undefined;
 
+  // Build content summary for V3 engine
+  const currentChannelSummary = useMemo(() => {
+    const ch = selectedChannels[0] || 'instagram';
+    return getContentSummary(content, ch as Channel);
+  }, [content, selectedChannels]);
+
+  // Extract keywords for preview
+  const previewKeywords = useMemo(() => {
+    const fieldMap: Partial<Record<Channel, string | null>> = {
+      website: content.website_content, facebook: content.facebook_content,
+      instagram: content.instagram_content, twitter: content.twitter_content,
+      linkedin: content.linkedin_content, youtube: content.youtube_content,
+      tiktok: content.tiktok_content, threads: content.threads_content,
+    };
+    const ch = selectedChannels[0] || 'instagram';
+    const rawText = (fieldMap[ch as Channel] ?? content.topic ?? '');
+    return extractContentKeywords(rawText);
+  }, [content, selectedChannels]);
+
   useEffect(() => {
     // Determine industry from brand template or props
     const rawIndustry = brandTemplate?.industry || brandIndustry;
@@ -181,6 +230,7 @@ export function SimpleImageGenerator({
       contentRole: (contentRole as ContentRole) || 'sprout',
       channel: toChannelKey(selectedChannels[0] || 'instagram'),
       industry,
+      contentSummary: currentChannelSummary,
     };
 
     const suggestions = suggestImageStylesV3(input);
@@ -196,7 +246,7 @@ export function SimpleImageGenerator({
       }
       return cur;
     });
-  }, [brandTemplate, brandIndustry, contentGoal, contentAngle, contentRole, selectedChannels]);
+  }, [brandTemplate, brandIndustry, contentGoal, contentAngle, contentRole, selectedChannels, currentChannelSummary]);
 
   // Fill hook text for a specific channel
   const fillHookText = useCallback((channel: Channel) => {
@@ -424,6 +474,28 @@ export function SimpleImageGenerator({
           selectedStyle={imageStyle}
           onStyleSelect={(style) => setImageStyle(style)}
         />
+      )}
+
+      {/* Content Context Preview */}
+      {previewKeywords.length > 0 && (
+        <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+            <ImageIcon className="w-3.5 h-3.5" />
+            AI sẽ tạo ảnh liên quan đến:
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {previewKeywords.map((kw, i) => (
+              <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                {kw}
+              </span>
+            ))}
+          </div>
+          {content.topic && (
+            <p className="text-xs text-muted-foreground/80 truncate">
+              Chủ đề: {content.topic}
+            </p>
+          )}
+        </div>
       )}
 
       {/* Settings Summary + CTA */}

@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Check, AlertCircle, RefreshCw, Download, Image as ImageIcon, Clock, AlertTriangle, Palette } from "lucide-react";
+import { Loader2, Check, AlertCircle, RefreshCw, Download, Image as ImageIcon, Clock, AlertTriangle, Palette, Eye, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChannelIcon, getChannelLabel } from "./ChannelIcon";
 import { ImageGenerationStatus } from "@/hooks/useAutoImageGeneration";
 import { Progress } from "@/components/ui/progress";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface ImageStreamingCardProps {
   channel: string;
@@ -18,8 +19,9 @@ interface ImageStreamingCardProps {
   onDownload?: () => void;
   onEditBackground?: () => void;
   isRetrying?: boolean;
-  logoOverlayFailed?: boolean; // New prop to indicate logo overlay failure
-  startTime?: number; // Timestamp when generation started for this channel
+  logoOverlayFailed?: boolean;
+  startTime?: number;
+  prompt?: string; // The prompt used to generate the image
 }
 
 // Average generation time in seconds (can be adjusted based on real data)
@@ -82,11 +84,14 @@ export function ImageStreamingCard({
   isRetrying,
   logoOverlayFailed,
   startTime,
+  prompt,
 }: ImageStreamingCardProps) {
   const config = STATUS_CONFIG[status];
   const isActive = status === 'generating' || status === 'overlaying';
   const isDone = status === 'done';
   const isError = status === 'error';
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
 
   // Elapsed time tracking for active generation
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -288,31 +293,63 @@ export function ImageStreamingCard({
         </div>
 
         {/* Footer */}
-        <div className="p-3 flex items-center justify-between border-t">
-          <div className="flex items-center gap-2">
-            <ChannelIcon channel={channel} size="sm" />
-            <span className="font-medium text-sm">
-              {getChannelLabel(channel)}
-            </span>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {aspectRatio && isDone && (
-              <span className="text-xs text-muted-foreground">
-                {aspectRatio}
+        <div className="p-3 border-t space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ChannelIcon channel={channel} size="sm" />
+              <span className="font-medium text-sm">
+                {getChannelLabel(channel)}
               </span>
-            )}
+            </div>
             
-            {isDone && (
-              <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-                <Check className="w-3 h-3 text-white" />
-              </div>
-            )}
-            
-            {isActive && (
-              <Loader2 className="w-4 h-4 animate-spin text-primary" />
-            )}
+            <div className="flex items-center gap-2">
+              {aspectRatio && isDone && (
+                <span className="text-xs text-muted-foreground">
+                  {aspectRatio}
+                </span>
+              )}
+              
+              {isDone && prompt && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => setShowPrompt(!showPrompt)}
+                >
+                  <Eye className="w-3 h-3 mr-1" />
+                  Prompt
+                </Button>
+              )}
+              
+              {isDone && (
+                <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                  <Check className="w-3 h-3 text-white" />
+                </div>
+              )}
+              
+              {isActive && (
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              )}
+            </div>
           </div>
+
+          {/* Collapsible prompt viewer */}
+          {isDone && prompt && showPrompt && (
+            <div className="relative bg-muted/50 rounded-md p-2 text-xs text-muted-foreground max-h-32 overflow-y-auto">
+              <button
+                className="absolute top-1 right-1 p-1 rounded hover:bg-background/80 transition-colors"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(prompt);
+                  setCopiedPrompt(true);
+                  setTimeout(() => setCopiedPrompt(false), 2000);
+                }}
+                title="Sao chép prompt"
+              >
+                {copiedPrompt ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+              </button>
+              <pre className="whitespace-pre-wrap pr-6 font-sans leading-relaxed">{prompt}</pre>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

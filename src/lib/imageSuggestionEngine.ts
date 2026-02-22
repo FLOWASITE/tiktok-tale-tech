@@ -34,6 +34,7 @@ export interface SuggestionInputV3 {
   channel: ChannelKey;
   industry: Industry;
   hookMessage?: string;
+  contentSummary?: string;
 }
 
 export interface SuggestionV3 {
@@ -113,9 +114,67 @@ function buildReason(style: ImageStyle, role: ContentRole, industry: Industry, g
  *         + goalBoost
  *         + angleBoost
  */
+// ---------------------------------------------------------------------------
+// Content keyword → style boost mapping
+// ---------------------------------------------------------------------------
+
+type ContentKeywordGroup = {
+  keywords: RegExp;
+  boosts: Partial<Record<ImageStyle, number>>;
+};
+
+const CONTENT_KEYWORD_GROUPS: ContentKeywordGroup[] = [
+  { keywords: /\b(data|số liệu|thống kê|top\s?\d|chart|biểu đồ|infographic|so sánh)\b/i,
+    boosts: { flat_design: 8, geometric: 6, isometric: 5 } },
+  { keywords: /\b(câu chuyện|story|hành trình|journey|trải nghiệm|experience|behind the scene)/i,
+    boosts: { cinematic: 8, photorealistic: 6 } },
+  { keywords: /\b(sản phẩm|product|review|đánh giá|unbox|mở hộp)\b/i,
+    boosts: { product_only: 10, photorealistic: 5 } },
+  { keywords: /\b(hướng dẫn|how to|cách|tutorial|bước|step|quy trình|process)\b/i,
+    boosts: { illustration: 8, flat_design: 6, isometric: 4 } },
+  { keywords: /\b(trend|xu hướng|mới nhất|latest|2025|2026|update)\b/i,
+    boosts: { '3d_render': 6, gradient: 5 } },
+  { keywords: /\b(quote|trích dẫn|cảm hứng|inspiration|motivation|động lực)\b/i,
+    boosts: { minimalist: 8, abstract: 5, gradient: 4 } },
+  { keywords: /\b(sale|khuyến mãi|giảm giá|discount|ưu đãi|deal|promotion)\b/i,
+    boosts: { flat_design: 6, gradient: 5, '3d_render': 4 } },
+  { keywords: /\b(AI|artificial intelligence|trí tuệ nhân tạo|machine learning|công nghệ|technology)\b/i,
+    boosts: { '3d_render': 8, isometric: 6, geometric: 5 } },
+  { keywords: /\b(recipe|công thức|nấu ăn|food|ẩm thực|món ăn|thực đơn)\b/i,
+    boosts: { photorealistic: 8, product_only: 5 } },
+  { keywords: /\b(event|sự kiện|workshop|webinar|hội thảo|live)\b/i,
+    boosts: { flat_design: 5, minimalist: 5, gradient: 4 } },
+];
+
+function getContentKeywordBoosts(summary: string | undefined): Partial<Record<ImageStyle, number>> {
+  if (!summary) return {};
+  const boosts: Partial<Record<ImageStyle, number>> = {};
+  for (const group of CONTENT_KEYWORD_GROUPS) {
+    if (group.keywords.test(summary)) {
+      for (const [style, val] of Object.entries(group.boosts)) {
+        boosts[style as ImageStyle] = (boosts[style as ImageStyle] ?? 0) + (val as number);
+      }
+    }
+  }
+  return boosts;
+}
+
+/**
+ * Suggest top 5 image styles scored for the given content context.
+ *
+ * Scoring formula per style:
+ *   score = adjustedBase
+ *         + industryBoost
+ *         + channelBoost
+ *         + adjustedBase * (roleMultiplier - 1)
+ *         + goalBoost
+ *         + angleBoost
+ *         + contentKeywordBoost
+ */
 export function suggestImageStylesV3(input: SuggestionInputV3): SuggestionV3[] {
-  const { contentGoal, contentAngle, contentRole, channel, industry } = input;
+  const { contentGoal, contentAngle, contentRole, channel, industry, contentSummary } = input;
   const baseScores = getAdjustedBaseScores();
+  const contentBoosts = getContentKeywordBoosts(contentSummary);
 
   const seen = new Set<ImageStyle>();
   const scored: SuggestionV3[] = [];
@@ -132,8 +191,9 @@ export function suggestImageStylesV3(input: SuggestionInputV3): SuggestionV3[] {
     const goalBoost = GOAL_BOOST[contentGoal]?.[style] ?? 0;
     const angleBoost = ANGLE_BOOST[contentAngle]?.[style] ?? 0;
     const defaultStyleBonus = GOAL_DEFAULT_STYLE[contentGoal] === style ? GOAL_DEFAULT_BONUS : 0;
+    const contentBoost = contentBoosts[style] ?? 0;
 
-    const rawScore = base + indBoost + chBoost + roleDelta + goalBoost + angleBoost + defaultStyleBonus;
+    const rawScore = base + indBoost + chBoost + roleDelta + goalBoost + angleBoost + defaultStyleBonus + contentBoost;
     // Clamp to 0-100
     const score = Math.round(Math.max(0, Math.min(100, rawScore)) * 100) / 100;
 

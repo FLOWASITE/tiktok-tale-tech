@@ -663,8 +663,10 @@ export function buildImagePrompt(params: ImagePromptParams): string {
   // Build the comprehensive prompt
   let prompt = `Create a professional, brand-aligned ${isWithText ? 'SOCIAL GRAPHIC WITH TEXT' : 'image'} for ${brand.brandName}.
 
-## CONTENT CONTEXT:
+## ARTICLE CONTENT CONTEXT (HIGHEST PRIORITY):
 ${contentSummary}
+
+CRITICAL: The image MUST visually represent the specific topic/concept mentioned above, not just a generic industry image. Analyze the content summary to identify the core subject and create imagery that directly illustrates it.
 
 ## CHANNEL: ${channel.toUpperCase()}
 - Aspect Ratio: ${finalAspectRatio}
