@@ -66,16 +66,37 @@ type ViewMode = 'setup' | 'streaming' | 'preview';
 /** Extract keywords from text for content-aware image generation */
 function extractContentKeywords(text: string): string[] {
   if (!text) return [];
+  const original = text;
   const cleaned = text
     .replace(/#{1,6}\s?/g, '').replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[^\w\sàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/gi, ' ');
-  // Extract capitalized phrases, quoted phrases, and repeated nouns
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[^\w\sàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ"]/gi, ' ');
   const phrases: string[] = [];
-  // Vietnamese & English significant phrases (2-4 words)
-  const matches = cleaned.match(/(?:[A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ][a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+(?:\s+[A-Za-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+){0,3})/g);
-  if (matches) phrases.push(...matches.slice(0, 5));
-  // Deduplicate
-  return [...new Set(phrases)].slice(0, 5);
+
+  // 1. Quoted phrases (Vietnamese often uses quotes for key terms)
+  const quoted = original.match(/[""]([^""]+)[""]|"([^"]+)"/g);
+  if (quoted) {
+    phrases.push(...quoted.map(q => q.replace(/["""]/g, '').trim()).filter(q => q.length > 1 && q.length < 50).slice(0, 3));
+  }
+
+  // 2. Number + context patterns (e.g., "5 cách", "top 10", "3 bước")
+  const numPatterns = cleaned.match(/(?:top\s+)?\d+\s+[a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+(?:\s+[a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+){0,2}/gi);
+  if (numPatterns) phrases.push(...numPatterns.slice(0, 2));
+
+  // 3. Capitalized phrases (English/proper nouns)
+  const capMatches = cleaned.match(/[A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴĐ][a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+(?:\s+[A-Za-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+){0,3}/g);
+  if (capMatches) phrases.push(...capMatches.slice(0, 3));
+
+  // 4. Vietnamese keyword phrases after indicator words
+  const vnIndicators = cleaned.match(/(?:về|cho|của|với|trong|cách|bí quyết|hướng dẫn|mẹo|lợi ích|tại sao|làm sao)\s+([a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+(?:\s+[a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+){0,3})/gi);
+  if (vnIndicators) phrases.push(...vnIndicators.map(m => m.trim()).slice(0, 3));
+
+  // 5. Fallback: first 3-5 meaningful words from topic/text
+  if (phrases.length === 0) {
+    const words = cleaned.split(/\s+/).filter(w => w.length > 2).slice(0, 5);
+    if (words.length > 0) phrases.push(words.join(' '));
+  }
+
+  return [...new Set(phrases.map(p => p.trim()).filter(p => p.length > 1))].slice(0, 5);
 }
 
 function getContentSummary(content: MultiChannelContent, channel: Channel): string {
