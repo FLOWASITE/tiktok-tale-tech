@@ -1,59 +1,69 @@
 
 
-# Cai thien card noi dung da kenh
+# Cai thien card noi dung da kenh - dat muc hoan hao
 
-## Hien trang
+## Phan tich hien trang (tu screenshot)
 
-Card hien tai da co nhieu thong tin nhung can cai thien ve:
-- **Visual hierarchy**: Cac badge va thong tin qua nho, kho doc
-- **Thumbnail anh**: Chi hien dot nho cho kenh co anh, khong hien anh thu nho
-- **Thieu thong tin quan trong**: Khong hien deadline, priority, diem danh gia (critique_score)
-- **Channel icons bi cat**: Chi hien 4 kenh, phan con lai bi an "+N"
-- **Action buttons**: Luon hien, gay roi mat
+Sau cac lan cai thien truoc, card da kha tot nhung con mot so van de:
+
+1. **Content preview van hien truc tiep** tren card (dong italic), gay clutter - du da co tooltip
+2. **Thumbnail nho** (40-48px) o goc tren phai, chua tao duoc visual impact
+3. **Qua nhieu badge nho** xep sat nhau, kho doc - goal, deadline, critique, image count, file count
+4. **Footer qua dong**: Creator, brand color, brand name, time, update time chen chuc
+5. **Tags section** kho doc voi max-width 60px bi truncate
+6. **Channel icons scale 110% khi hover** lam layout bi giat
+7. **Progress bar qua mong** (h-1), kho nhin
 
 ## Cac thay doi
 
 ### File: `src/components/MultiChannelCard.tsx`
 
-#### 1. Them thumbnail anh dai dien
-- Neu noi dung co `channel_images`, hien anh thu nho (48x48px) cua kenh dau tien co anh o goc tren ben phai card
-- Tao visual appeal tot hon thay vi chi dung dot mau
+#### 1. Cai thien thumbnail - hien lon hon khi co anh
+- Khi co thumbnail: hien anh lon hon (w-14 h-14, ~56px) voi rounded-lg va subtle shadow
+- Them gradient overlay nhe de anh khong lam roi text
 
-#### 2. Hien thi deadline va priority
-- Neu co `content.deadline`: hien badge nho voi icon CalendarClock va ngay deadline
-- Neu deadline da qua: to mau do canh bao
-- Neu co `content.priority`: hien badge priority (cao/trung binh/thap) ben canh status
+#### 2. Bo content preview khoi card body
+- Hien tai dong 270-283 van hien text italic truc tiep tren card
+- Xoa hien thi truc tiep, chi giu tooltip khi hover vao title
+- Giam clutter dang ke
 
-#### 3. Hien thi diem danh gia (critique score)
-- Neu co `content.critique_score`: hien thanh tien trinh nho hoac badge diem (vd: "85/100")
-- Mau sac theo muc: xanh (>=80), vang (>=60), do (<60)
+#### 3. Gom badge thanh 2 hang ro rang
+- Hang 1 (tren): Status + Priority (da co)
+- Hang 2 (duoi): Goal + Deadline + Critique score
+- Tach image count va file count sang phan channel header
 
-#### 4. Mo rong hien thi channel icons
-- Tang gioi han tu 4 len 6 kenh hien thi truoc khi cat
-- Hien thi channel icons lon hon mot chut de de nhin
+#### 4. Cai thien channel section
+- Them header nho "Kenh" voi image/file count badge ngay ben canh
+- Bo hieu ung scale-110 khi hover (gay layout shift), thay bang opacity/brightness change
+- Tang padding channel icons mot chut cho de bam tren mobile
 
-#### 5. Cai thien visual hierarchy
-- Status badge chuyen sang goc tren trai voi indicator line mau doc theo canh trai card (giong Kanban)
-- Title tang kich thuoc font len mot bac
-- Bo phan content preview italic vao tooltip thay vi hien truc tiep (giam clutter)
+#### 5. Don dep footer
+- Gom Creator + brand name + time thanh 1 hang gon
+- Bo hien thi `primary_color` dot (it gia tri tren card)
+- Bo `updateTimeAgo` (it gia tri, chi giu created time)
 
-#### 6. Hover actions gon gang hon
-- Chi hien nut "Xem" va icon actions khi hover
-- Mac dinh chi hien nut "Xem" nho gon
+#### 6. Cai thien progress bar
+- Tang tu h-1 len h-1.5 de de nhin hon
+- Them label text nho ben canh (vd: "3/5 kenh")
+
+#### 7. Micro-interactions tinh te hon
+- Title: underline khi hover thay vi doi mau
+- Action buttons: smooth reveal tu phai sang trai
+- Card shadow: subtle hon, khong nhay dot ngot
 
 ### Chi tiet ky thuat
 
-| Thay doi | Vi tri trong file | Mo ta |
-|----------|-------------------|-------|
-| Thumbnail anh | Dong 138-155 | Them `<img>` tu `channel_images` kenh dau tien |
-| Deadline badge | Dong 207-222 | Them badge deadline voi logic qua han |
-| Priority badge | Dong 173-188 | Them badge priority ben canh status |
-| Critique score | Dong 207-222 | Them mini progress bar hoac badge diem |
-| Channel limit | Dong 237 | Doi `slice(0, 4)` thanh `slice(0, 6)` |
-| Status indicator line | Dong 149-155 | Them div mau doc canh trai card |
+| Thay doi | Dong | Mo ta |
+|----------|------|-------|
+| Bo content preview inline | 269-283 | Xoa block hien text, chuyen tooltip len title |
+| Thumbnail lon hon | 248-256 | Tang w-14 h-14, them shadow-sm |
+| Gom badges | 286-343 | Sap xep lai 2 hang, tach counts |
+| Channel hover | 365-370 | Bo scale-110, them brightness transition |
+| Footer don gian | 426-451 | Gom 1 hang, bo primary_color dot, bo updateTime |
+| Progress bar | 346-353 | Tang h-1.5, them label |
+| Card hover | 189-194 | Giam translate-y tu -1 thanh -0.5, shadow nhe hon |
 
 ### Khong thay doi
 - Logic data, database, backend
 - Cac component khac
-- Layout tong the trang multichannel
-
+- Chuc nang actions (xem, xoa, len lich)
