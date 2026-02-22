@@ -110,10 +110,14 @@ const KIE_MODELS: ProviderModel[] = [
 ];
 
 const POYO_MODELS: ProviderModel[] = [
+  { id: 'poyo-nano', label: '🔥 Nano Banana Pro', modelId: 'poyo/nano-banana-2' },
+  { id: 'poyo-nano-edit', label: 'Nano Banana Edit', modelId: 'poyo/nano-banana-2-edit' },
   { id: 'poyo-gpt4o', label: 'GPT-4o Image', modelId: 'poyo/gpt-4o-image' },
+  { id: 'poyo-gpt4o-edit', label: 'GPT-4o Edit', modelId: 'poyo/gpt-4o-image-edit' },
   { id: 'poyo-gpt15', label: 'GPT Image 1.5', modelId: 'poyo/gpt-image-1.5' },
   { id: 'poyo-z', label: 'Z-Image', modelId: 'poyo/z-image' },
   { id: 'poyo-flux2', label: 'Flux 2 Pro', modelId: 'poyo/flux-2-pro' },
+  { id: 'poyo-flux2-flex', label: 'Flux 2 Flex', modelId: 'poyo/flux-2-flex' },
   { id: 'poyo-seedream', label: 'Seedream 4.5', modelId: 'poyo/seedream-4.5' },
   { id: 'poyo-grok', label: 'Grok Imagine', modelId: 'poyo/grok-imagine' },
 ];

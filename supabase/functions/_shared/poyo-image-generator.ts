@@ -1,8 +1,8 @@
 // ============================================
 // PoYo.ai Image Generation Helper
 // Unified async API: submit task → poll for result
-// Supports: GPT-4o Image, GPT Image 1.5, Z-Image,
-//           Flux 2 Pro, Seedream 4.5, Grok Imagine
+// Supports: Nano Banana Pro, GPT-4o Image, GPT Image 1.5, Z-Image,
+//           Flux 2 Pro/Flex, Seedream 4.5, Grok Imagine + Edit variants
 // ============================================
 
 const POYO_BASE_URL = 'https://api.poyo.ai';
