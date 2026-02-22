@@ -136,6 +136,13 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
     'flux-kontext-max',
     'gpt-image-1',
     'gpt-image-1.5',
+    // PoYo.ai models
+    'poyo/gpt-4o-image',
+    'poyo/gpt-image-1.5',
+    'poyo/z-image',
+    'poyo/flux-2-pro',
+    'poyo/seedream-4.5',
+    'poyo/grok-imagine',
   ],
   'image-direct': [
     'gemini-2.0-flash-exp-image-generation',
@@ -158,7 +165,7 @@ export interface ModelInfo {
   quality: ModelQuality;
   cost: ModelCost;
   bestFor: string[];
-  provider: 'lovable' | 'openrouter' | 'kie';
+  provider: 'lovable' | 'openrouter' | 'kie' | 'poyo';
   isRecommended?: boolean;
 }
 
@@ -314,6 +321,62 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
     bestFor: ['Premium brand', 'Highest quality'],
     provider: 'kie',
   },
+  // PoYo.ai Image Models
+  'poyo/gpt-4o-image': {
+    shortName: 'GPT-4o Image',
+    description: 'OpenAI image gen qua PoYo gateway',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Brand images', 'Social media'],
+    provider: 'poyo',
+  },
+  'poyo/gpt-image-1.5': {
+    shortName: 'GPT Image 1.5',
+    description: 'Mới nhất, nhanh 4x so với 1.0',
+    speed: 'fast',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Premium brand', 'Fastest quality'],
+    provider: 'poyo',
+  },
+  'poyo/z-image': {
+    shortName: 'Z-Image',
+    description: 'Alibaba, sub-second generation',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Quick drafts', 'High volume'],
+    provider: 'poyo',
+    isRecommended: true,
+  },
+  'poyo/flux-2-pro': {
+    shortName: 'Flux 2 Pro',
+    description: 'Black Forest Labs, photorealistic',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Photorealistic', 'Complex scenes'],
+    provider: 'poyo',
+  },
+  'poyo/seedream-4.5': {
+    shortName: 'Seedream 4.5',
+    description: 'ByteDance, hỗ trợ 4K',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['4K images', 'High resolution'],
+    provider: 'poyo',
+  },
+  'poyo/grok-imagine': {
+    shortName: 'Grok Imagine',
+    description: 'xAI Aurora, creative styles',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'medium',
+    bestFor: ['Creative', 'Artistic styles'],
+    provider: 'poyo',
+  },
   // OpenRouter Models
   'anthropic/claude-sonnet-4-20250514': {
     shortName: 'Claude Sonnet 4',
@@ -406,6 +469,14 @@ export const isKieModel = (modelId: string): boolean => {
   return KIE_MODEL_PREFIXES.some(prefix => modelId.startsWith(prefix));
 };
 
+// PoYo.ai model prefix
+export const POYO_MODEL_PREFIXES = ['poyo/'];
+
+// Check if a model is a PoYo.ai model
+export const isPoyoModel = (modelId: string): boolean => {
+  return modelId.startsWith('poyo/');
+};
+
 // Lovable AI model prefixes - models that are served through Lovable AI gateway
 export const LOVABLE_MODEL_PREFIXES = [
   'google/gemini-2.5',
@@ -457,6 +528,19 @@ export const getModelInfo = (modelId: string): ModelInfo => {
     };
   }
 
+  // Check PoYo.ai models
+  if (isPoyoModel(modelId)) {
+    return {
+      shortName: extractShortName(modelId),
+      description: 'PoYo.ai image model',
+      speed: 'medium' as ModelSpeed,
+      quality: 'high' as ModelQuality,
+      cost: 'medium' as ModelCost,
+      bestFor: ['Image generation'],
+      provider: 'poyo',
+    };
+  }
+
   // Determine provider: Lovable AI models vs OpenRouter
   const isLovableModel = isLovableAIModel(modelId);
     
@@ -482,6 +566,7 @@ export const AI_PROVIDERS = [
   { type: 'gemini', name: 'Google Gemini', description: 'Gemini Pro, Flash', hasKey: true },
   { type: 'replicate', name: 'Replicate', description: 'Flux, SDXL', hasKey: true },
   { type: 'kie', name: 'KIE.ai', description: 'Flux Kontext, GPT-Image (gateway)', hasKey: true, secretName: 'KIE_API_KEY' },
+  { type: 'poyo', name: 'PoYo.ai', description: 'GPT-4o Image, Z-Image, Flux 2, Seedream, Grok', hasKey: true, secretName: 'POYO_API_KEY' },
   { type: 'custom', name: 'Custom API', description: 'OpenAI-compatible endpoints', hasKey: true },
 ] as const;
 
@@ -514,6 +599,7 @@ export const MODELS_BY_PROVIDER: Record<string, string[]> = {
   replicate: ['black-forest-labs/flux-schnell', 'stability-ai/sdxl'],
   perplexity: ['sonar-pro', 'sonar'],
   kie: ['flux-kontext-pro', 'flux-kontext-max', 'gpt-image-1', 'gpt-image-1.5'],
+  poyo: ['poyo/gpt-4o-image', 'poyo/gpt-image-1.5', 'poyo/z-image', 'poyo/flux-2-pro', 'poyo/seedream-4.5', 'poyo/grok-imagine'],
   custom: [],
 };
 

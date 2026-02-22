@@ -8,6 +8,7 @@ import {
   MODELS_BY_PROVIDER, 
   getModelInfo,
   isKieModel,
+  isPoyoModel,
   AIFunctionType,
   ModelInfo 
 } from '@/hooks/useAIConfig';
@@ -65,14 +66,15 @@ export function ModelSelector({
     return groupModelsByProvider(openRouterModels);
   }, [openRouterModels]);
 
-  // Split Lovable/KIE models (only for image function type)
-  const { kieModels: availableKieModels, lovableOnlyModels: availableLovableOnlyModels } = useMemo(() => {
+  // Split Lovable/KIE/PoYo models (only for image function type)
+  const { kieModels: availableKieModels, poyoModels: availablePoyoModels, lovableOnlyModels: availableLovableOnlyModels } = useMemo(() => {
     if (functionType !== 'image') {
-      return { kieModels: [] as string[], lovableOnlyModels: availableModels.lovable };
+      return { kieModels: [] as string[], poyoModels: [] as string[], lovableOnlyModels: availableModels.lovable };
     }
     return {
       kieModels: availableModels.lovable.filter(id => isKieModel(id)),
-      lovableOnlyModels: availableModels.lovable.filter(id => !isKieModel(id)),
+      poyoModels: availableModels.lovable.filter(id => isPoyoModel(id)),
+      lovableOnlyModels: availableModels.lovable.filter(id => !isKieModel(id) && !isPoyoModel(id)),
     };
   }, [availableModels.lovable, functionType]);
 
@@ -150,13 +152,15 @@ export function ModelSelector({
       lovableFiltered = [];
     }
 
-    // For image functions, split into KIE vs pure Lovable
+    // For image functions, split into KIE vs PoYo vs pure Lovable
     const kieFiltered = functionType === 'image' ? lovableFiltered.filter(id => isKieModel(id)) : [];
-    const lovableOnlyFiltered = functionType === 'image' ? lovableFiltered.filter(id => !isKieModel(id)) : lovableFiltered;
+    const poyoFiltered = functionType === 'image' ? lovableFiltered.filter(id => isPoyoModel(id)) : [];
+    const lovableOnlyFiltered = functionType === 'image' ? lovableFiltered.filter(id => !isKieModel(id) && !isPoyoModel(id)) : lovableFiltered;
 
     return {
       lovable: lovableOnlyFiltered,
       kie: kieFiltered,
+      poyo: poyoFiltered,
       openrouter: openrouterFiltered,
     };
   }, [availableModels, searchQuery, activeFilter, providerFilter, functionType]);
@@ -171,7 +175,7 @@ export function ModelSelector({
     onOpenChange(false);
   };
 
-  const totalModels = filteredModels.lovable.length + filteredModels.kie.length + filteredModels.openrouter.length;
+  const totalModels = filteredModels.lovable.length + filteredModels.kie.length + filteredModels.poyo.length + filteredModels.openrouter.length;
   const hasOpenRouter = hasOpenRouterApiKey && functionType === 'text';
 
   return (
@@ -389,6 +393,41 @@ export function ModelSelector({
               </div>
             )}
 
+            {/* PoYo.ai Models (only for image functions) */}
+            {filteredModels.poyo.length > 0 && (
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-teal-500/5 border border-teal-500/20 sticky top-0 z-10">
+                  <div className="w-2 h-2 rounded-full bg-teal-500" />
+                  <Key className="h-4 w-4 text-teal-500" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-xs sm:text-sm text-teal-700 dark:text-teal-400">PoYo.ai</h3>
+                    <p className="text-[10px] sm:text-xs text-teal-600/70 dark:text-teal-400/70 truncate">
+                      GPT-4o Image, Z-Image, Flux 2, Seedream, Grok
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-[9px] sm:text-[10px] bg-teal-500/10 text-teal-600 border-teal-500/30">
+                    {filteredModels.poyo.length}
+                  </Badge>
+                </div>
+                <div className="p-2 rounded-lg bg-teal-500/5 border border-teal-500/10 flex items-center gap-2">
+                  <Key className="h-3.5 w-3.5 text-teal-500 flex-shrink-0" />
+                  <p className="text-[10px] sm:text-xs text-teal-600/80 dark:text-teal-400/80">
+                    Yêu cầu <code className="font-mono font-medium">POYO_API_KEY</code> trong Secrets
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
+                  {filteredModels.poyo.map((modelId) => (
+                    <ModelCard
+                      key={modelId}
+                      modelId={modelId}
+                      info={getModelInfo(modelId)}
+                      isSelected={selectedModel === modelId}
+                      onClick={() => handleSelectModel(modelId)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {hasOpenRouter && (
               <>

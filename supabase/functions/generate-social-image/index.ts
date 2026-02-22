@@ -8,6 +8,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared/kie-image-generator.ts";
+import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_shared/poyo-image-generator.ts";
 import {
   buildImagePrompt,
   getChannelAspectRatio,
@@ -372,11 +373,50 @@ serve(async (req) => {
     // Variables for result
     let imageData: string = "";
     let imageUrlFromKie: string | null = null;
+    let imageUrlFromPoyo: string | null = null;
     let modelUsed: string = primaryModel;
     let totalAttempts: number = 1;
 
-    // ─── Route to KIE.ai or Lovable AI based on model prefix ─────────────────
-    if (isKieModel(primaryModel)) {
+    // ─── Route to PoYo.ai, KIE.ai, or Lovable AI based on model prefix ──────
+    if (isPoyoModel(primaryModel)) {
+      const POYO_API_KEY = Deno.env.get("POYO_API_KEY");
+      if (!POYO_API_KEY) {
+        return new Response(
+          JSON.stringify({ success: false, error: "POYO_API_KEY not configured. Please add it in project secrets." }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log(`[generate-social-image] Routing to PoYo.ai: ${primaryModel}`);
+      try {
+        imageUrlFromPoyo = await generateImageViaPoyo({
+          prompt: enhancedPrompt,
+          model: primaryModel,
+          aspectRatio: mapAspectRatioToPoyo(finalAspectRatio),
+        }, POYO_API_KEY);
+        modelUsed = primaryModel;
+      } catch (poyoErr) {
+        const poyoErrMsg = poyoErr instanceof Error ? poyoErr.message : String(poyoErr);
+        console.error(`[generate-social-image] PoYo.ai failed: ${poyoErrMsg}`);
+
+        if (poyoErrMsg.includes("POYO_AUTH_ERROR") || poyoErrMsg.includes("POYO_CREDITS_EXHAUSTED") || poyoErrMsg.includes("POYO_RATE_LIMIT")) {
+          return new Response(
+            JSON.stringify({ success: false, error: poyoErrMsg }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        console.log("[generate-social-image] PoYo failed, falling back to Lovable AI...");
+        const fallbackModel = "google/gemini-2.5-flash-image";
+        const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, {
+          primary: fallbackModel,
+          fallback: "google/gemini-3-pro-image-preview",
+        });
+        imageData = result.imageData;
+        modelUsed = `${result.model} (fallback from ${primaryModel})`;
+        totalAttempts = result.attempts;
+      }
+    } else if (isKieModel(primaryModel)) {
       const KIE_API_KEY = Deno.env.get("KIE_API_KEY");
       if (!KIE_API_KEY) {
         return new Response(
@@ -404,7 +444,6 @@ serve(async (req) => {
         const kieErrMsg = kieErr instanceof Error ? kieErr.message : String(kieErr);
         console.error(`[generate-social-image] KIE.ai failed: ${kieErrMsg}`);
 
-        // Surface critical KIE errors immediately
         if (
           kieErrMsg.includes("KIE_AUTH_ERROR") ||
           kieErrMsg.includes("KIE_CREDITS_EXHAUSTED") ||
@@ -416,7 +455,6 @@ serve(async (req) => {
           );
         }
 
-        // Fallback to Lovable AI Gemini Flash on timeout or transient errors
         console.log("[generate-social-image] KIE failed, falling back to Lovable AI...");
         const fallbackModel = "google/gemini-2.5-flash-image";
         const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, {
@@ -467,11 +505,13 @@ serve(async (req) => {
 
     console.log(`[generate-social-image] Generated with ${modelUsed} after ${totalAttempts} attempt(s)`);
 
-    // ─── Handle KIE URL vs Lovable AI base64 ─────────────────────────────────
+    // ─── Handle PoYo/KIE URL vs Lovable AI base64 ───────────────────────────
     let imageUrl: string;
 
-    if (imageUrlFromKie) {
-      // KIE.ai returns a direct CDN URL
+    if (imageUrlFromPoyo) {
+      imageUrl = imageUrlFromPoyo;
+      console.log(`[generate-social-image] Using PoYo image URL: ${imageUrl.slice(0, 80)}...`);
+    } else if (imageUrlFromKie) {
       imageUrl = imageUrlFromKie;
       console.log(`[generate-social-image] Using KIE image URL: ${imageUrl.slice(0, 80)}...`);
     } else {

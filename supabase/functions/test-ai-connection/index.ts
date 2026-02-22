@@ -42,6 +42,9 @@ serve(async (req) => {
       case 'kie':
         testResult = await testKie(apiKey);
         break;
+      case 'poyo':
+        testResult = await testPoyo(apiKey);
+        break;
       default:
         return new Response(
           JSON.stringify({ success: false, error: `Unknown provider: ${provider}` }),
@@ -230,8 +233,27 @@ async function testKie(apiKey: string) {
       return { success: false, error: 'API key không hợp lệ' };
     }
 
-    // Any other response (200, 404, etc.) means auth passed
     return { success: true, message: 'Kết nối thành công với KIE.ai!' };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    return { success: false, error: `Lỗi kết nối: ${errorMessage}` };
+  }
+}
+
+async function testPoyo(apiKey: string) {
+  try {
+    const response = await fetch('https://api.poyo.ai/api/generate/status/test', {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      return { success: false, error: 'API key không hợp lệ' };
+    }
+
+    // Any other response (200, 404, etc.) means auth passed
+    return { success: true, message: 'Kết nối thành công với PoYo.ai!' };
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     return { success: false, error: `Lỗi kết nối: ${errorMessage}` };

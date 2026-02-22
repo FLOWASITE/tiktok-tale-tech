@@ -33,7 +33,12 @@ const COST_CONFIG: Record<ModelCost, { icon: React.ReactNode; label: string; cla
 };
 
 // Provider-based styling
-const PROVIDER_STYLES = {
+const PROVIDER_STYLES: Record<string, {
+  border: string;
+  badge: string;
+  icon: React.ReactNode;
+  label: string;
+}> = {
   lovable: {
     border: 'border-l-blue-500',
     badge: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
@@ -51,6 +56,12 @@ const PROVIDER_STYLES = {
     badge: 'bg-violet-500/10 text-violet-600 border-violet-500/30',
     icon: <Image className="h-3 w-3" />,
     label: 'KIE.ai',
+  },
+  poyo: {
+    border: 'border-l-teal-500',
+    badge: 'bg-teal-500/10 text-teal-600 border-teal-500/30',
+    icon: <Image className="h-3 w-3" />,
+    label: 'PoYo.ai',
   },
 };
 
@@ -257,18 +268,19 @@ export function QuickSelectButton({ label, description, icon, isSelected, onClic
 
 // Provider indicator for table view
 interface ProviderIndicatorProps {
-  provider: 'lovable' | 'openrouter' | 'kie';
+  provider: string;
   className?: string;
 }
 
-const PROVIDER_DOT_COLORS: Record<'lovable' | 'openrouter' | 'kie', string> = {
+const PROVIDER_DOT_COLORS: Record<string, string> = {
   lovable: 'bg-blue-500',
   openrouter: 'bg-orange-500',
   kie: 'bg-violet-500',
+  poyo: 'bg-teal-500',
 };
 
 export function ProviderIndicator({ provider, className }: ProviderIndicatorProps) {
-  const style = PROVIDER_STYLES[provider];
+  const style = PROVIDER_STYLES[provider] || PROVIDER_STYLES.lovable;
   return (
     <span className={cn("inline-flex items-center gap-1", className)}>
       <span className={cn(
