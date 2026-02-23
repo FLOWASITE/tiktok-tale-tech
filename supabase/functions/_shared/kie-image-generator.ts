@@ -246,8 +246,19 @@ async function pollLegacyTask(taskId: string, model: string, apiKey: string): Pr
 // Unified Jobs Flow: Submit + Poll
 // ============================================
 
+/** Map short model names to KIE API model names */
+function getUnifiedModelName(model: string): string {
+  const MODEL_MAP: Record<string, string> = {
+    'nano-banana': 'google/nano-banana-edit',
+    'nano-banana-edit': 'google/nano-banana-edit',
+    'nano-banana-pro': 'nano-banana-pro',
+  };
+  return MODEL_MAP[model] || model;
+}
+
 async function submitUnifiedTask(params: KieGenerateParams, apiKey: string): Promise<string> {
   const truncatedPrompt = truncatePrompt(params.prompt);
+  const apiModelName = getUnifiedModelName(params.model);
 
   const input: Record<string, any> = {
     prompt: truncatedPrompt,
@@ -265,11 +276,11 @@ async function submitUnifiedTask(params: KieGenerateParams, apiKey: string): Pro
   }
 
   const body: Record<string, any> = {
-    model: params.model,
+    model: apiModelName,
     input,
   };
 
-  console.log(`[kie-generator] Unified submit: model=${params.model}`);
+  console.log(`[kie-generator] Unified submit: model=${params.model} → API model=${apiModelName}`);
 
   const response = await fetch(`${KIE_BASE_URL}${UNIFIED_GENERATE_URL}`, {
     method: 'POST',
