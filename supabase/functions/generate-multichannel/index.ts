@@ -1,4 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+// Multi-country support
+import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext, getLocalizedGoalDescriptions, getLocalizedAngleDescriptions, getLocalizedPromptLabels } from "../_shared/country-language-map.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
@@ -1070,25 +1072,9 @@ async function detectTargetAudience(
  * Ensures AI knows the current date/year (Vietnam timezone)
  */
 function buildDateContextSection(): string {
-  const now = new Date();
-  const vnTimeOffset = 7 * 60 * 60 * 1000; // UTC+7
-  const vnTime = new Date(now.getTime() + vnTimeOffset);
-  
-  const dayOfWeekNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
-  const monthNames = ['tháng 1', 'tháng 2', 'tháng 3', 'tháng 4', 'tháng 5', 'tháng 6', 'tháng 7', 'tháng 8', 'tháng 9', 'tháng 10', 'tháng 11', 'tháng 12'];
-  
-  const dayOfWeek = dayOfWeekNames[vnTime.getUTCDay()];
-  const currentMonth = monthNames[vnTime.getUTCMonth()];
-  const currentYear = vnTime.getUTCFullYear();
-  const currentDay = vnTime.getUTCDate();
-  const currentDateISO = vnTime.toISOString().split('T')[0];
-  
-  return `## 📅 THÔNG TIN THỜI GIAN HIỆN TẠI
-- **Ngày hiện tại:** ${dayOfWeek}, ngày ${currentDay} ${currentMonth} năm ${currentYear} (${currentDateISO})
-- **Múi giờ:** Vietnam (UTC+7)
-
-⚠️ QUAN TRỌNG: Sử dụng năm ${currentYear} trong tất cả nội dung. KHÔNG sử dụng năm cũ (${currentYear - 1} hoặc trước đó).
-`;
+function buildDateContextSection(lang?: string): string {
+  return buildLocalizedDateContext(lang || 'vi');
+}
 }
 
 const getSystemPrompt = (
@@ -1632,7 +1618,8 @@ Mục tiêu nội dung: ${goalLabel}`;
     // ============================================
     
     // Initialize default values
-    let brandName = "Thương hiệu";
+    let brandName = "Brand";
+    let outputLanguage = 'vi'; // Default, will be overridden by brand's country_code
     let brandGuideline: string | null = null;
     let primaryColor: string | null = null;
     let industry: string | null = formData.industry || null;
@@ -1669,6 +1656,8 @@ Mục tiêu nội dung: ${goalLabel}`;
         brandGuideline = template.brand_guideline;
         primaryColor = template.primary_color;
         industryTemplateId = (template as any).industry_template_id || null;
+        // Extract output language from brand's country_code
+        outputLanguage = getOutputLanguage((template as any).country_code);
         
         // Use industry from template if not provided in form
         if (!industry && template.industry && Array.isArray(template.industry) && template.industry.length > 0) {

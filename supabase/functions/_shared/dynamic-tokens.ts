@@ -146,10 +146,10 @@ export function calculateChannelMaxTokens(
     let baseTokens: number;
     
     if (options.lengthUnit === 'chars') {
-      // ~4 chars per token (for Vietnamese)
+      // ~3 chars per token (average across scripts: Vietnamese ~2, Thai ~1.5, English ~4)
       baseTokens = Math.ceil(options.channelMaxLength / 3);
     } else {
-      // ~1.5 tokens per word (for Vietnamese with diacritics)
+      // ~1.5 tokens per word (average: Vietnamese/Thai diacritics need more tokens)
       baseTokens = Math.ceil(options.channelMaxLength * 1.5);
     }
     
