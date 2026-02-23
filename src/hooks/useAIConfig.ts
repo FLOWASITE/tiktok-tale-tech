@@ -131,11 +131,20 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
     // Lovable AI models
     'google/gemini-3-pro-image-preview',
     'google/gemini-2.5-flash-image',
-    // KIE.ai models (Flux Kontext, GPT-Image)
+    // KIE.ai models
     'flux-kontext-pro',
     'flux-kontext-max',
     'gpt-image-1',
     'gpt-image-1.5',
+    'flux-2/pro-text-to-image',
+    'flux-2/flex-text-to-image',
+    'flux-2/pro-image-to-image',
+    'flux-2/flex-image-to-image',
+    'nano-banana',
+    'nano-banana-edit',
+    'nano-banana-pro',
+    'grok-imagine/text-to-image',
+    'grok-imagine/image-to-image',
     // PoYo.ai models
     'poyo/nano-banana-2',
     'poyo/nano-banana-2-edit',
@@ -326,6 +335,88 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
     quality: 'premium',
     cost: 'high',
     bestFor: ['Premium brand', 'Highest quality'],
+    provider: 'kie',
+  },
+  'flux-2/pro-text-to-image': {
+    shortName: 'Flux 2 Pro',
+    description: 'Flux 2 Pro text-to-image, chất lượng cao',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['High quality', 'Complex scenes'],
+    provider: 'kie',
+  },
+  'flux-2/flex-text-to-image': {
+    shortName: 'Flux 2 Flex',
+    description: 'Flux 2 Flex text-to-image, nhanh & linh hoạt',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Fast generation', 'Social media'],
+    provider: 'kie',
+  },
+  'flux-2/pro-image-to-image': {
+    shortName: 'Flux 2 Pro Edit',
+    description: 'Flux 2 Pro image-to-image editing',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Image editing', 'Style transfer'],
+    provider: 'kie',
+  },
+  'flux-2/flex-image-to-image': {
+    shortName: 'Flux 2 Flex Edit',
+    description: 'Flux 2 Flex image-to-image editing',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Quick edits', 'Batch processing'],
+    provider: 'kie',
+  },
+  'nano-banana': {
+    shortName: 'Nano Banana 2K',
+    description: 'Gemini 3 image, 2K resolution',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['2K images', 'Fast generation'],
+    provider: 'kie',
+  },
+  'nano-banana-edit': {
+    shortName: 'Nano Banana Edit',
+    description: 'Nano Banana image editing variant',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Image editing', 'Quick refinement'],
+    provider: 'kie',
+  },
+  'nano-banana-pro': {
+    shortName: 'Nano Banana 4K',
+    description: 'Gemini 3 Pro image, 4K ultra resolution',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['4K images', 'Print quality'],
+    provider: 'kie',
+    isRecommended: true,
+  },
+  'grok-imagine/text-to-image': {
+    shortName: 'Grok Imagine',
+    description: 'xAI Grok text-to-image generation',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'medium',
+    bestFor: ['Creative images', 'Artistic style'],
+    provider: 'kie',
+  },
+  'grok-imagine/image-to-image': {
+    shortName: 'Grok Imagine Edit',
+    description: 'xAI Grok image-to-image editing',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'medium',
+    bestFor: ['Image editing', 'Style transfer'],
     provider: 'kie',
   },
   // PoYo.ai Image Models
@@ -626,7 +717,7 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
 };
 
 // KIE.ai model prefixes - models served through kie.ai gateway
-export const KIE_MODEL_PREFIXES = ['flux-kontext', 'gpt-image', 'grok-imagine'];
+export const KIE_MODEL_PREFIXES = ['flux-kontext', 'gpt-image', 'flux-2/', 'nano-banana', 'grok-imagine'];
 
 // Check if a model is a KIE.ai model
 export const isKieModel = (modelId: string): boolean => {
