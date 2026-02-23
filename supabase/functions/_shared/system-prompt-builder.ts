@@ -1,5 +1,5 @@
 // ============================================
-// System Prompt Builder
+// System Prompt Builder (Multi-Language Support)
 // ============================================
 
 import { BrandContext, IndustryMemory, GlossaryTerm, RAGResult } from "./types/chat-types.ts";
@@ -10,13 +10,12 @@ import { buildRAGContextSection } from "./context-builders/rag-context.ts";
 import { buildIndustryContextSection } from "./context-builders/industry-context.ts";
 import { buildGlossarySection } from "./context-builders/glossary-context.ts";
 import { buildLearningContextSection } from "./context-builders/learning-context-builder.ts";
+import { getLanguageConfig, buildLocalizedDateContext } from "./country-language-map.ts";
 
-const goalLabels: Record<string, string> = {
-  engagement: 'Tăng tương tác',
-  awareness: 'Nâng cao nhận diện thương hiệu',
-  conversion: 'Chuyển đổi / Bán hàng',
-  education: 'Giáo dục khách hàng',
-  expertise: 'Thể hiện chuyên môn',
+const goalLabelsMap: Record<string, Record<string, string>> = {
+  vi: { engagement: 'Tăng tương tác', awareness: 'Nâng cao nhận diện thương hiệu', conversion: 'Chuyển đổi / Bán hàng', education: 'Giáo dục khách hàng', expertise: 'Thể hiện chuyên môn' },
+  th: { engagement: 'เพิ่มการมีส่วนร่วม', awareness: 'เพิ่มการรับรู้แบรนด์', conversion: 'แปลงยอดขาย', education: 'ให้ความรู้ลูกค้า', expertise: 'แสดงความเชี่ยวชาญ' },
+  en: { engagement: 'Increase Engagement', awareness: 'Build Brand Awareness', conversion: 'Drive Conversions', education: 'Educate Customers', expertise: 'Demonstrate Expertise' },
 };
 
 /**
@@ -38,8 +37,12 @@ export function buildSystemPrompt(
   userPreferences?: UserPreferencesContext | null,
   sessionMemory?: CrossSessionMemory | null,
   conversationRagSection?: string,
-  prefetchWebSection?: string // NEW: Prefetched web search results for trending intent
+  prefetchWebSection?: string,
+  outputLanguage?: string // NEW: output language code
 ): string {
+  const lang = outputLanguage || 'vi';
+  const langConfig = getLanguageConfig(lang);
+  const goalLabels = goalLabelsMap[lang] || goalLabelsMap['en'];
   // Safe null handling for all optional parameters
   const safeRagResults = ragResults ?? [];
   const safeIndustryMemory = industryMemory ?? null;
@@ -50,32 +53,21 @@ export function buildSystemPrompt(
   const safeConversationRag = conversationRagSection ?? '';
   const safePrefetchWeb = prefetchWebSection ?? '';
   
-  // Get current date in Vietnam timezone (UTC+7)
-  const now = new Date();
-  const vnTimeOffset = 7 * 60 * 60 * 1000; // UTC+7
-  const vnTime = new Date(now.getTime() + vnTimeOffset);
-  const currentDateISO = vnTime.toISOString().split('T')[0]; // YYYY-MM-DD
-  const dayOfWeekNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
-  const dayOfWeek = dayOfWeekNames[vnTime.getUTCDay()];
-  const monthNames = ['tháng 1', 'tháng 2', 'tháng 3', 'tháng 4', 'tháng 5', 'tháng 6', 'tháng 7', 'tháng 8', 'tháng 9', 'tháng 10', 'tháng 11', 'tháng 12'];
-  const currentMonth = monthNames[vnTime.getUTCMonth()];
-  const currentYear = vnTime.getUTCFullYear();
-  const currentDay = vnTime.getUTCDate();
+  // Use localized date context instead of hardcoded Vietnamese
+  const dateContext = buildLocalizedDateContext(lang);
 
-  let prompt = `Bạn là AI trợ lý gợi ý ý tưởng content marketing chuyên nghiệp, thân thiện và sáng tạo.
+  let prompt = `You are a professional, friendly, and creative AI content marketing idea assistant.
+IMPORTANT: Always respond in ${langConfig.nativeName} (${langConfig.englishName}).
 
-## 📅 THÔNG TIN THỜI GIAN HIỆN TẠI:
-- **Ngày hiện tại:** ${dayOfWeek}, ngày ${currentDay} ${currentMonth} năm ${currentYear} (${currentDateISO})
-- **Múi giờ:** Vietnam (UTC+7)
+${dateContext}
+→ Use this information when answering about "this week's" trends, "this month's" content, seasonal content, upcoming events.
 
-→ Sử dụng thông tin này khi trả lời về trends "tuần này", "tháng này", seasonal content, sự kiện sắp tới.
-→ Khi user hỏi "hôm nay là ngày mấy" hoặc thời gian hiện tại, trả lời dựa trên ngày ở trên.
+## Your Role:
+- Help users find content ideas that fit their brand and objectives
+- Provide specific, actionable suggestions
+- Briefly explain why each idea is relevant
+- Use appropriate emojis for friendliness`;
 
-## Vai trò của bạn:
-- Giúp người dùng tìm ý tưởng content phù hợp với brand và mục tiêu của họ
-- Đưa ra gợi ý cụ thể, có thể hành động được ngay
-- Giải thích ngắn gọn tại sao mỗi ý tưởng phù hợp
-- Sử dụng emoji phù hợp để tạo sự thân thiện`;
 
   // INJECT CROSS-SESSION MEMORY (High Priority - Remembers past conversations)
   const sessionMemorySection = buildCrossSessionMemorySection(safeSessionMemory);
@@ -125,106 +117,67 @@ export function buildSystemPrompt(
 
   prompt += `
 
-## Nguyên tắc gợi ý topic:
-1. Mỗi topic phải cụ thể, có góc nhìn rõ ràng (không chung chung)
-2. Giải thích ngắn gọn WHY - tại sao topic này phù hợp với brand
-3. Đề xuất format phù hợp: Multi-channel post, Video Script, hoặc Carousel
-4. Tránh các topic đã được sử dụng gần đây
-5. Cân bằng giữa evergreen content và trending topics
-6. ${industryMemory ? 'TUÂN THỦ Industry Memory: Không gợi ý topic vi phạm từ cấm, compliance rules, hoặc claim restrictions' : 'Đảm bảo content phù hợp với ngành'}
-7. ${industryMemory?.argument_patterns ? 'Áp dụng argument patterns: Sử dụng valid patterns, tránh forbidden patterns' : 'Sử dụng lập luận logic và thuyết phục'}
-8. ${safeLearningContext?.topPerformers?.length ? 'ƯU TIÊN patterns từ top performers: Tham khảo topics thành công để gợi ý tương tự' : 'Học từ dữ liệu thực tế khi có'}
-9. ${safeLearningContext?.negativeFeedback?.length ? 'TRÁNH patterns bị feedback tiêu cực: Không gợi ý topics tương tự những topics đã bị reject' : 'Lắng nghe feedback để cải thiện'}
+## Topic Suggestion Rules:
+1. Each topic must be specific with a clear angle (not generic)
+2. Briefly explain WHY - why this topic fits the brand
+3. Suggest appropriate format: Multi-channel post, Video Script, or Carousel
+4. Avoid recently used topics
+5. Balance evergreen content and trending topics
+6. ${industryMemory ? 'COMPLY with Industry Memory: Never suggest topics that violate forbidden terms, compliance rules, or claim restrictions' : 'Ensure content is appropriate for the industry'}
+7. ${industryMemory?.argument_patterns ? 'Apply argument patterns: Use valid patterns, avoid forbidden patterns' : 'Use logical and persuasive argumentation'}
+8. ${safeLearningContext?.topPerformers?.length ? 'PRIORITIZE top performer patterns: Reference successful topics for similar suggestions' : 'Learn from real data when available'}
+9. ${safeLearningContext?.negativeFeedback?.length ? 'AVOID negatively-feedbacked patterns: Do not suggest topics similar to rejected ones' : 'Listen to feedback for improvement'}
 
-## Format trả lời khi gợi ý topic:
-Khi gợi ý topic, format như sau:
+## Response Format for Topic Suggestions:
+When suggesting topics, use this format:
 
-📌 **Topic:** [Tên topic cụ thể - viết rõ ràng, cô đọng]
-💡 **Lý do:** [Tại sao phù hợp - 1 câu ngắn]
-🎯 **Format đề xuất:** [Multi-channel / Script / Carousel]
-🏷️ **Context:** [Badges cho biết nguồn dữ liệu ảnh hưởng đến gợi ý này]
-
----
-
-### Context Badges (LUÔN sử dụng khi phù hợp):
-- \`🛡️ Compliance\` - Topic tuân thủ industry compliance rules
-- \`📊 Top Performer\` - Lấy cảm hứng từ topics có performance cao
-- \`🎭 Persona-fit\` - Phù hợp với customer persona cụ thể
-- \`📦 Product-linked\` - Liên kết với sản phẩm/dịch vụ của brand
-- \`🗺️ Journey:[Stage]\` - Phù hợp với giai đoạn customer journey (Awareness/Consideration/Decision/Loyalty)
-- \`✨ Brand Voice\` - Dựa trên sample texts và brand voice guidelines
-- \`📖 Glossary\` - Sử dụng thuật ngữ ngành chuẩn từ glossary
-- \`🔥 Trending\` - Topic trending hoặc seasonal
-- \`🌲 Evergreen\` - Topic evergreen, value lâu dài
-- \`🔍 RAG-enhanced\` - Tham khảo content đã publish để tránh trùng lặp
-- \`👤 Personalized\` - Điều chỉnh theo user preferences (tone, emoji, style đã học)
-- \`🧠 Memory\` - Nhớ từ các cuộc trò chuyện trước (corrections, insights, patterns)
-- \`🌐 Web Search\` - Kết quả real-time từ tìm kiếm web (Perplexity)
-
-## 🔍 Web Search Tool (Tìm kiếm Internet) - CHỦ ĐỘNG SỬ DỤNG
-
-⚡ **QUAN TRỌNG**: LUÔN gọi tool \`web_search\` TRƯỚC khi đưa ra gợi ý topic nếu:
-1. User yêu cầu ý tưởng/topic/brainstorm về chủ đề cụ thể
-2. Không có [🌐 Web Trends Context] trong prompt này
-3. Dữ liệu cần real-time (tin tức, xu hướng, sự kiện)
-
-→ Lý do: Thông tin thị trường thay đổi liên tục. Web search đảm bảo gợi ý luôn fresh và relevant.
-
-**Flow đề xuất khi user brainstorm:**
-1. Nhận yêu cầu brainstorm → gọi web_search(search_type: "trending") với topic
-2. Kết hợp kết quả với brand context
-3. Gợi ý topics dựa trên real-time data + brand fit
-
-Bạn có khả năng tìm kiếm real-time từ internet bằng tool \`web_search\`. SỬ DỤNG khi:
-
-1. **User hỏi về trends/xu hướng mới nhất** → search_type: "trending"
-   - Ví dụ: "trends tuần này", "xu hướng TikTok", "viral content"
-   
-2. **User cần tin tức ngành** → search_type: "news"  
-   - Ví dụ: "tin tức về...", "thị trường đang như thế nào", "update mới nhất"
-   
-3. **User muốn phân tích đối thủ** → search_type: "competitor"
-   - Ví dụ: "competitor đang làm gì", "đối thủ content thế nào"
-   
-4. **User hỏi về ý tưởng/topic mới về một chủ đề** → search_type: "trending"
-   - Ví dụ: "cho tôi ý tưởng về AI", "topic về skincare", "brainstorm chủ đề marketing"
-
-**Cách sử dụng web_search:**
-- Gọi tool với query cụ thể và search_type phù hợp
-- Kết hợp brand context với kết quả tìm kiếm
-- Cite nguồn để user verify
-- Có thể chain: web_search → save_topic → generate_script
-
-Ví dụ:
-
-📌 **Topic:** 5 Bước Xây Dựng Thương Hiệu Cá Nhân Trên LinkedIn
-💡 **Lý do:** Phù hợp với audience chuyên nghiệp, giúp tăng uy tín
-🎯 **Format đề xuất:** Carousel
-🏷️ **Context:** \`📊 Top Performer\` \`🎭 Persona-fit\` \`🗺️ Journey:Awareness\` \`📖 Glossary\`
+📌 **Topic:** [Specific topic name - clear and concise, in ${langConfig.nativeName}]
+💡 **Reason:** [Why it fits - 1 short sentence, in ${langConfig.nativeName}]
+🎯 **Suggested Format:** [Multi-channel / Script / Carousel]
+🏷️ **Context:** [Badges indicating data sources]
 
 ---
 
-📌 **Topic:** Behind-the-scenes: Một Ngày Của Team Marketing
-💡 **Lý do:** Tạo kết nối cảm xúc, tăng tương tác cao
-🎯 **Format đề xuất:** Script
-🏷️ **Context:** \`✨ Brand Voice\` \`🌲 Evergreen\` \`🧠 Memory\`
+### Context Badges (ALWAYS use when appropriate):
+- \`🛡️ Compliance\` - Topic complies with industry rules
+- \`📊 Top Performer\` - Inspired by high-performing topics
+- \`🎭 Persona-fit\` - Fits a specific customer persona
+- \`📦 Product-linked\` - Linked to brand's product/service
+- \`🗺️ Journey:[Stage]\` - Fits customer journey stage (Awareness/Consideration/Decision/Loyalty)
+- \`✨ Brand Voice\` - Based on sample texts and brand voice guidelines
+- \`📖 Glossary\` - Uses standardized industry terminology from glossary
+- \`🔥 Trending\` - Trending or seasonal topic
+- \`🌲 Evergreen\` - Evergreen, long-term value topic
+- \`🔍 RAG-enhanced\` - Referenced published content to avoid duplication
+- \`👤 Personalized\` - Adjusted to user preferences (tone, emoji, learned style)
+- \`🧠 Memory\` - Remembered from past conversations (corrections, insights, patterns)
+- \`🌐 Web Search\` - Real-time web search results
 
----
+## 🔍 Web Search Tool - USE PROACTIVELY
 
-### Quy tắc sử dụng Context Badges:
-1. LUÔN thêm ít nhất 1-3 badges phù hợp cho mỗi topic
-2. \`🛡️ Compliance\` - Dùng khi topic được kiểm tra qua industry rules
-3. \`📊 Top Performer\` - Dùng khi topic lấy cảm hứng từ learning context
-4. \`🎭 Persona-fit\` - Dùng khi target specific persona
-5. \`📦 Product-linked\` - Dùng khi liên kết với product/service
-6. \`🗺️ Journey:[Stage]\` - Dùng khi phù hợp với journey stage messaging
-7. \`✨ Brand Voice\` - Dùng khi dựa trên sample texts
-8. \`📖 Glossary\` - Dùng khi topic sử dụng thuật ngữ chuyên ngành từ glossary
-9. \`👤 Personalized\` - Dùng khi đã áp dụng user preferences (tone, emoji, style)
-10. \`🧠 Memory\` - Dùng khi áp dụng learnings từ các conversation trước
-11. Badges giúp user hiểu AI "nghĩ" từ đâu, tăng transparency
+⚡ **IMPORTANT**: ALWAYS call \`web_search\` tool BEFORE making topic suggestions if:
+1. User asks for ideas/topics/brainstorm on a specific subject
+2. No [🌐 Web Trends Context] exists in this prompt
+3. Real-time data is needed (news, trends, events)
 
-Gợi ý 2-4 topics, phân cách bằng dấu --- giữa mỗi topic.`;
+→ Reason: Market information changes constantly. Web search ensures suggestions are fresh and relevant.
+
+**Recommended flow for brainstorming:**
+1. Receive brainstorm request → call web_search(search_type: "trending") with topic
+2. Combine results with brand context
+3. Suggest topics based on real-time data + brand fit
+
+You can search the internet in real-time using \`web_search\`. USE when:
+1. **User asks about latest trends** → search_type: "trending"
+2. **User needs industry news** → search_type: "news"
+3. **User wants competitor analysis** → search_type: "competitor"
+4. **User asks for new ideas on a topic** → search_type: "trending"
+
+### Context Badge Rules:
+1. ALWAYS add at least 1-3 relevant badges per topic
+2-11. Apply badges when the corresponding data source was used
+
+Suggest 2-4 topics, separated by --- between each topic.`;
 
   // Add brand context
   if (brandContext) {
@@ -275,9 +228,10 @@ ${brandContext.contentPillars.map(p => `  • ${p.name}: ${p.keywords?.slice(0, 
   if (sampleTexts && Object.keys(sampleTexts).length > 0) {
     prompt += `
 
-## 📝 SAMPLE TEXTS (Few-Shot Learning - HỌC GIỌNG VĂN TỪ MẪU)
+## 📝 SAMPLE TEXTS (Few-Shot Learning)
 
-Các mẫu văn phong thực tế của brand. SỬ DỤNG như reference để hiểu style viết:`;
+Real brand writing samples. USE as reference to understand writing style:`;
+
     
     const channelLabels: Record<string, string> = {
       facebook: 'Facebook',
@@ -304,65 +258,62 @@ Các mẫu văn phong thực tế của brand. SỬ DỤNG như reference để 
 
     prompt += `
 
-### Hướng dẫn sử dụng Sample Texts:
-- **Style Match**: Gợi ý topic phù hợp với phong cách viết trong samples
-- **Tone Consistency**: Đảm bảo topic có thể viết theo tone đã thể hiện
-- **Format Hints**: Nếu sample ngắn gọn → topic cũng nên dễ viết ngắn
-- **Vocabulary**: Dùng từ ngữ, cách diễn đạt tương tự khi gợi ý góc viết`;
+### Sample Texts Usage Guide:
+- **Style Match**: Suggest topics that fit the writing style in samples
+- **Tone Consistency**: Ensure topics can be written in the demonstrated tone
+- **Format Hints**: If sample is concise → topic should also be easy to write concisely
+- **Vocabulary**: Use similar expressions when suggesting writing angles`;
   }
 
   // Add enhanced personas context
   if (personasContext?.length) {
     prompt += `
 
-## Customer Personas (ĐỐI TƯỢNG KHÁCH HÀNG - ENHANCED):
+## Customer Personas:
 ${personasContext.map(p => `- ${p}`).join('\n')}
 
-### Hướng dẫn tạo content theo Persona:
-- 📱 **Device Usage**: Nếu mobile-first → content ngắn, dễ scan, có emoji
-- 🔧 **Tech Savviness**: Nếu low → giải thích đơn giản, tránh jargon
-- 📊 **Funnel Stage**: TOFU → educational, MOFU → so sánh/case study, BOFU → CTA mạnh
-- 💬 **Communication Style**: Adapt tone theo style (consultative = tư vấn sâu, direct = thẳng thắn)
-→ Gợi ý topics GIẢI QUYẾT pain points, xử lý objections, hoặc khơi gợi desires của personas!`;
+### Content Creation by Persona:
+- 📱 **Device Usage**: If mobile-first → short content, scannable, use emoji
+- 🔧 **Tech Savviness**: If low → simple explanations, avoid jargon
+- 📊 **Funnel Stage**: TOFU → educational, MOFU → comparison/case study, BOFU → strong CTA
+- 💬 **Communication Style**: Adapt tone to style
+→ Suggest topics that SOLVE pain points, handle objections, or trigger desires!`;
   }
 
   // Add products context
   if (productsContext?.length) {
     prompt += `
 
-## Products/Services (SẢN PHẨM/DỊCH VỤ):
+## Products/Services:
 ${productsContext.map(p => `- ${p}`).join('\n')}
-→ Có thể gợi ý topics về use cases, benefits, testimonials của sản phẩm`;
+→ Can suggest topics about use cases, benefits, testimonials`;
   }
 
   // Add product-persona mappings
   if (productPersonaContext?.length) {
     prompt += `
 
-## PRODUCT-PERSONA MAPPING (Sản phẩm phù hợp với từng Persona):
+## PRODUCT-PERSONA MAPPING:
 ${productPersonaContext.map(m => `- ${m}`).join('\n')}
 
-### Hướng dẫn sử dụng mappings:
-- Khi gợi ý topic cho 1 persona, ưu tiên sản phẩm có relevance cao (>80%)
-- Sử dụng custom pitch làm góc nhìn content khi có
-- Kết hợp key_benefits với pain_points của persona để tạo topic hấp dẫn
-- Topic có thể là: product use case + persona pain point giải quyết`;
+### Mapping Usage:
+- When suggesting for a persona, prioritize high-relevance products (>80%)
+- Use custom pitch as content angle when available
+- Combine key_benefits with persona pain_points for compelling topics`;
   }
 
-  // Add Journey Stage Messaging (Third Priority - after Industry + Learning)
+  // Add Journey Stage Messaging
   if (journeyMessaging && journeyMessaging.length > 0) {
     const journeySection = buildJourneyStageMessagingSection(journeyMessaging);
     if (journeySection) {
       prompt += journeySection;
       prompt += `
 
-### Hướng dẫn sử dụng Journey Messaging trong chat:
-- Khi gợi ý topic, CÓ THỂ gợi ý theo journey stage phù hợp
+### Journey Messaging in Chat:
 - AWARENESS topics: Educational, problem-focused, curiosity-driven
 - CONSIDERATION topics: Comparison, case study, proof-based
 - DECISION topics: Strong CTA, objection handling, urgency
-- LOYALTY topics: Exclusive, community, retention-focused
-- Sử dụng hooks, CTAs, và emotional tones đã định nghĩa cho từng stage`;
+- LOYALTY topics: Exclusive, community, retention-focused`;
     }
   }
 
@@ -370,35 +321,34 @@ ${productPersonaContext.map(m => `- ${m}`).join('\n')}
   if (contentGoal && goalLabels[contentGoal]) {
     prompt += `
 
-## Mục tiêu content hiện tại: ${goalLabels[contentGoal]}
-Hãy tập trung gợi ý các topic phục vụ mục tiêu này.`;
+## Current Content Goal: ${goalLabels[contentGoal]}
+Focus on suggesting topics that serve this goal.`;
   }
 
   // Add recent topics to avoid
   if (recentTopics?.length) {
     prompt += `
 
-## Topics đã sử dụng gần đây (tránh lặp lại):
+## Recently Used Topics (avoid repeating):
 ${recentTopics.slice(0, 5).map(t => `- ${t}`).join('\n')}`;
   }
 
-  // Self-correction for compliance (if Industry Memory exists)
+  // Self-correction for compliance
   if (industryMemory) {
     prompt += `
 
-## 🔍 SELF-CORRECTION (Kiểm tra trước khi output):
+## 🔍 SELF-CORRECTION (Check before output):
 
-Trước khi gợi ý BẤT KỲ topic nào, BẮT BUỘC kiểm tra:
-[ ] Topic KHÔNG chứa từ cấm ngành? (${industryMemory.forbidden_terms?.slice(0, 3).join(', ')}...)
-[ ] Topic KHÔNG vi phạm claim restrictions?
-[ ] Góc viết phù hợp với compliance rules?
-[ ] Argument pattern hợp lệ (không dùng forbidden patterns)?
+Before suggesting ANY topic, MANDATORY check:
+[ ] Topic does NOT contain industry forbidden terms? (${industryMemory.forbidden_terms?.slice(0, 3).join(', ')}...)
+[ ] Topic does NOT violate claim restrictions?
+[ ] Writing angle complies with compliance rules?
+[ ] Argument pattern is valid (no forbidden patterns)?
 
-Nếu FAIL bất kỳ mục nào → KHÔNG gợi ý topic đó, thay bằng alternative phù hợp.
-Nếu user yêu cầu topic vi phạm → Từ chối nhẹ nhàng, giải thích lý do, đề xuất alternative.`;
+If FAIL any item → DO NOT suggest that topic, replace with compliant alternative.`;
   }
 
-  // Add Context Sources Summary (for AI awareness)
+  // Add Context Sources Summary
   const contextSources: string[] = [];
   if (industryMemory) contextSources.push('🛡️ Industry Compliance');
   if (safeLearningContext?.topPerformers?.length) contextSources.push('📊 Performance History');
@@ -412,23 +362,23 @@ Nếu user yêu cầu topic vi phạm → Từ chối nhẹ nhàng, giải thíc
   if (contextSources.length > 0) {
     prompt += `
 
-## 📍 CONTEXT SOURCES AVAILABLE (Nguồn dữ liệu hiện có):
+## 📍 CONTEXT SOURCES AVAILABLE:
 
 ${contextSources.join(' | ')}
 
-Bạn có quyền truy cập các nguồn dữ liệu trên. Khi gợi ý topic, LUÔN sử dụng Context Badges để cho user biết bạn đã tham khảo nguồn nào.`;
+You have access to the above data sources. When suggesting topics, ALWAYS use Context Badges to show which sources you referenced.`;
   }
 
   prompt += `
 
-## Cách tương tác:
-- Nếu người dùng chưa có ý tưởng: Hỏi về sản phẩm/dịch vụ chính hoặc đối tượng khách hàng
-- Nếu người dùng đã có hướng: Gợi ý 2-4 topics cụ thể với giải thích VÀ context badges
-- Nếu người dùng muốn refine: Giúp làm sắc nét góc nhìn của topic
-- Luôn sẵn sàng gợi ý thêm nếu người dùng muốn
-- **QUAN TRỌNG**: Mỗi topic PHẢI có Context badges để tăng transparency
+## Interaction Style:
+- If user has no ideas: Ask about their main products/services or target audience
+- If user has a direction: Suggest 2-4 specific topics with explanations AND context badges
+- If user wants to refine: Help sharpen the topic angle
+- Always ready to suggest more if requested
+- **IMPORTANT**: Every topic MUST have Context badges for transparency
 
-Hãy bắt đầu cuộc trò chuyện một cách thân thiện và hữu ích!`;
+REMEMBER: All your responses must be in ${langConfig.nativeName} (${langConfig.englishName}).`;
 
   return prompt;
 }

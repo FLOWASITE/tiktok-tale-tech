@@ -12,6 +12,7 @@ import { estimateCost } from "../_shared/cost-estimator.ts";
 import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { createPromptManager, buildPrompt } from "../_shared/prompt-integration.ts";
+import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext, type LanguageConfig } from "../_shared/country-language-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,37 +44,41 @@ interface CarouselSlide {
   fullPrompt: string;
 }
 
-// Brand Voice label mappings
-const brandPositioningLabels: Record<string, string> = {
-  business: "Doanh nghiệp",
-  expert: "Chuyên gia",
-  agency: "Agency",
-  consultant: "Tư vấn",
+// Brand Voice label mappings (multi-language)
+const brandPositioningLabelsMap: Record<string, Record<string, string>> = {
+  vi: { business: "Doanh nghiệp", expert: "Chuyên gia", agency: "Agency", consultant: "Tư vấn" },
+  th: { business: "ธุรกิจ", expert: "ผู้เชี่ยวชาญ", agency: "เอเจนซี่", consultant: "ที่ปรึกษา" },
+  en: { business: "Business", expert: "Expert", agency: "Agency", consultant: "Consultant" },
 };
 
-const toneOfVoiceLabels: Record<string, string> = {
-  expert: "Chuyên gia",
-  calm: "Điềm tĩnh",
-  confident: "Tự tin",
-  friendly: "Thân thiện",
-  analytical: "Phân tích",
-  serious: "Nghiêm túc",
-  inspirational: "Truyền cảm hứng",
+const toneOfVoiceLabelsMap: Record<string, Record<string, string>> = {
+  vi: { expert: "Chuyên gia", calm: "Điềm tĩnh", confident: "Tự tin", friendly: "Thân thiện", analytical: "Phân tích", serious: "Nghiêm túc", inspirational: "Truyền cảm hứng" },
+  th: { expert: "เชี่ยวชาญ", calm: "สงบ", confident: "มั่นใจ", friendly: "เป็นมิตร", analytical: "วิเคราะห์", serious: "จริงจัง", inspirational: "สร้างแรงบันดาลใจ" },
+  en: { expert: "Expert", calm: "Calm", confident: "Confident", friendly: "Friendly", analytical: "Analytical", serious: "Serious", inspirational: "Inspirational" },
 };
 
-const formalityLevelLabels: Record<string, string> = {
-  very_formal: "Rất trang trọng",
-  professional: "Chuyên nghiệp",
-  neutral: "Trung lập",
-  casual: "Gần gũi",
+const formalityLevelLabelsMap: Record<string, Record<string, string>> = {
+  vi: { very_formal: "Rất trang trọng", professional: "Chuyên nghiệp", neutral: "Trung lập", casual: "Gần gũi" },
+  th: { very_formal: "ทางการมาก", professional: "มืออาชีพ", neutral: "กลางๆ", casual: "เป็นกันเอง" },
+  en: { very_formal: "Very Formal", professional: "Professional", neutral: "Neutral", casual: "Casual" },
 };
 
-const languageStyleLabels: Record<string, string> = {
-  clear_direct: "Rõ ràng, trực tiếp",
-  structured: "Có cấu trúc",
-  no_exaggeration: "Không khoa trương",
-  no_over_emotion: "Không cảm tính quá mức",
+const languageStyleLabelsMap: Record<string, Record<string, string>> = {
+  vi: { clear_direct: "Rõ ràng, trực tiếp", structured: "Có cấu trúc", no_exaggeration: "Không khoa trương", no_over_emotion: "Không cảm tính quá mức" },
+  th: { clear_direct: "ชัดเจน ตรงประเด็น", structured: "มีโครงสร้าง", no_exaggeration: "ไม่เกินจริง", no_over_emotion: "ไม่อารมณ์มากเกินไป" },
+  en: { clear_direct: "Clear and Direct", structured: "Structured", no_exaggeration: "No Exaggeration", no_over_emotion: "No Over-emotion" },
 };
+
+// Helper to get labels for a language
+function getLabels(lang: string) {
+  const l = lang || 'vi';
+  return {
+    brandPositioning: brandPositioningLabelsMap[l] || brandPositioningLabelsMap['en'],
+    toneOfVoice: toneOfVoiceLabelsMap[l] || toneOfVoiceLabelsMap['en'],
+    formalityLevel: formalityLevelLabelsMap[l] || formalityLevelLabelsMap['en'],
+    languageStyle: languageStyleLabelsMap[l] || languageStyleLabelsMap['en'],
+  };
+}
 
 interface BrandVoice {
   brand_positioning: string | null;
@@ -220,7 +225,8 @@ function buildMergedRules(
   };
 }
 
-const getBrandVoicePrompt = (voice: BrandVoice, mergedRules?: MergedRules): string => {
+const getBrandVoicePrompt = (voice: BrandVoice, mergedRules?: MergedRules, outputLang: string = 'vi'): string => {
+  const labels = getLabels(outputLang);
   const parts: string[] = [];
   
   if (mergedRules && mergedRules.forbidden_terms.length > 0) {
@@ -257,25 +263,25 @@ const getBrandVoicePrompt = (voice: BrandVoice, mergedRules?: MergedRules): stri
   parts.push(`Brand Voice là LUẬT CAO NHẤT. Mọi nội dung chữ trên slide PHẢI tuân theo Brand Voice.`);
   
   if (voice.brand_positioning) {
-    const label = brandPositioningLabels[voice.brand_positioning] || voice.brand_positioning;
+    const label = labels.brandPositioning[voice.brand_positioning] || voice.brand_positioning;
     parts.push(`\n### Định vị thương hiệu: ${label}`);
   }
   
   const tones = mergedRules?.tone_of_voice || voice.tone_of_voice || [];
   if (tones.length > 0) {
-    const toneLabels = tones.map(t => toneOfVoiceLabels[t] || t).join(", ");
+    const toneLabels = tones.map(t => labels.toneOfVoice[t] || t).join(", ");
     parts.push(`\n### Tone of Voice: ${toneLabels}`);
   }
   
   const formality = mergedRules?.formality_level || voice.formality_level;
   if (formality) {
-    const label = formalityLevelLabels[formality] || formality;
+    const label = labels.formalityLevel[formality] || formality;
     parts.push(`\n### Mức trang trọng: ${label}`);
   }
   
   const styles = mergedRules?.language_style || voice.language_style || [];
   if (styles.length > 0) {
-    const styleLabels = styles.map(s => languageStyleLabels[s] || s).join(", ");
+    const styleLabels = styles.map(s => labels.languageStyle[s] || s).join(", ");
     parts.push(`\n### Phong cách ngôn ngữ: ${styleLabels}`);
   }
   
@@ -306,17 +312,24 @@ const getBrandVoicePrompt = (voice: BrandVoice, mergedRules?: MergedRules): stri
   return parts.join("\n");
 };
 
-const getSlideObjective = (slideNumber: number, totalSlides: number): string => {
-  if (slideNumber === 1) return "Hook - Gây sốc, tò mò, thu hút người xem dừng lại";
-  if (slideNumber === 2) return "Nêu vấn đề - Khơi gợi pain point của người đọc";
-  if (slideNumber === 3) return "Giải thích - Phân tích sâu hơn về vấn đề";
-  if (slideNumber === 4) return "Giải thích tiếp - Bổ sung thông tin quan trọng";
-  if (slideNumber === totalSlides - 1) return "Giải pháp / Lời khuyên chuyên gia";
-  if (slideNumber === totalSlides) return "CTA - Kêu gọi hành động, tạo tương tác";
-  return "Hậu quả / Lợi ích - Nhấn mạnh tầm quan trọng";
+const getSlideObjective = (slideNumber: number, totalSlides: number, lang: string = 'vi'): string => {
+  const objectives: Record<string, Record<string, string>> = {
+    vi: { hook: "Hook - Gây sốc, tò mò, thu hút người xem dừng lại", problem: "Nêu vấn đề - Khơi gợi pain point của người đọc", explain: "Giải thích - Phân tích sâu hơn về vấn đề", explain2: "Giải thích tiếp - Bổ sung thông tin quan trọng", solution: "Giải pháp / Lời khuyên chuyên gia", cta: "CTA - Kêu gọi hành động, tạo tương tác", impact: "Hậu quả / Lợi ích - Nhấn mạnh tầm quan trọng" },
+    th: { hook: "Hook - สร้างความตกใจ อยากรู้ ดึงดูดให้หยุดเลื่อน", problem: "ปัญหา - กระตุ้น Pain Point ของผู้อ่าน", explain: "อธิบาย - วิเคราะห์ปัญหาเชิงลึก", explain2: "อธิบายต่อ - เพิ่มข้อมูลสำคัญ", solution: "ทางออก / คำแนะนำจากผู้เชี่ยวชาญ", cta: "CTA - เรียกร้องให้ดำเนินการ สร้างการมีส่วนร่วม", impact: "ผลกระทบ / ประโยชน์ - เน้นย้ำความสำคัญ" },
+    en: { hook: "Hook - Shock, curiosity, stop the scroll", problem: "Problem - Trigger reader's pain point", explain: "Explain - Deeper analysis of the problem", explain2: "Explain further - Add important information", solution: "Solution / Expert advice", cta: "CTA - Call to action, drive engagement", impact: "Impact / Benefits - Emphasize importance" },
+  };
+  const o = objectives[lang] || objectives['en'];
+  if (slideNumber === 1) return o.hook;
+  if (slideNumber === 2) return o.problem;
+  if (slideNumber === 3) return o.explain;
+  if (slideNumber === 4) return o.explain2;
+  if (slideNumber === totalSlides - 1) return o.solution;
+  if (slideNumber === totalSlides) return o.cta;
+  return o.impact;
 };
 
-const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, mergedRules?: MergedRules): string => {
+const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, mergedRules?: MergedRules, outputLang: string = 'vi'): string => {
+  const langConfig = getLanguageConfig(outputLang);
   const aiToolPromptGuide = {
     ideogram: `Tối ưu cho Ideogram - ưu tiên text clarity:
 - Sử dụng cấu trúc prompt rõ ràng
@@ -337,10 +350,11 @@ const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, me
 - Chọn model phù hợp với infographic`,
   };
 
-  // Build Brand Voice section if available
-  const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules) : "";
+  const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules, outputLang) : "";
+  const langName = langConfig.nativeName;
 
-  return `Bạn là một Content Strategist chuyên nghiệp cho mạng xã hội, chuyên tạo carousel cho ${formData.platform === "facebook" ? "Facebook" : "TikTok"}.
+  return `You are a professional Content Strategist for social media, specialized in creating carousels for ${formData.platform === "facebook" ? "Facebook" : "TikTok"}.
+Output ALL content in ${langName} (${langConfig.englishName}).
 
 ${brandVoiceSection}
 
@@ -464,15 +478,20 @@ serve(async (req) => {
     let brandVoice: BrandVoice | undefined;
     let industryMemory: IndustryMemory | null = null;
     let mergedRules: MergedRules | undefined;
+    let outputLang = 'vi'; // Default to Vietnamese for backward compatibility
     
     if (formData.brandTemplateId) {
       const { data: template } = await supabase
         .from("brand_templates")
-        .select("brand_positioning, tone_of_voice, formality_level, language_style, preferred_words, forbidden_words, allow_emoji, compliance_rules, industry_template_id")
+        .select("brand_positioning, tone_of_voice, formality_level, language_style, preferred_words, forbidden_words, allow_emoji, compliance_rules, industry_template_id, country_code")
         .eq("id", formData.brandTemplateId)
         .single();
 
       if (template) {
+        // Extract output language from brand's country_code
+        outputLang = getOutputLanguage(template.country_code);
+        console.log("Output language:", outputLang, "from country_code:", template.country_code);
+        
         brandVoice = {
           brand_positioning: template.brand_positioning,
           tone_of_voice: template.tone_of_voice,
@@ -487,7 +506,7 @@ serve(async (req) => {
         
         // Load Industry Memory if brand has industry_template_id
         if (template.industry_template_id) {
-          industryMemory = await fetchIndustryMemory(supabase, template.industry_template_id);
+          industryMemory = await fetchIndustryMemory(supabase, template.industry_template_id, outputLang);
           if (industryMemory) {
             mergedRules = buildMergedRules(industryMemory, brandVoice);
             console.log("Industry Memory loaded:", industryMemory.name, "version:", industryMemory.version);
@@ -496,23 +515,26 @@ serve(async (req) => {
       }
     }
 
+    const langConfig = getLanguageConfig(outputLang);
+
     // Initialize PromptManager and fetch prompts from registry
-    let systemPrompt = getSystemPrompt(formData, brandVoice, mergedRules); // Fallback to hardcoded
-    let userPrompt = `Tạo ${formData.slideCount} slide carousel cho chủ đề:
+    let systemPrompt = getSystemPrompt(formData, brandVoice, mergedRules, outputLang); // Fallback to hardcoded
+    let userPrompt = `Create ${formData.slideCount} carousel slides for the topic:
 "${formData.topic}"
 
-Nền tảng: ${formData.platform === "facebook" ? "Facebook" : "TikTok"}
-Công cụ tạo ảnh: ${formData.aiTool}
+Platform: ${formData.platform === "facebook" ? "Facebook" : "TikTok"}
+AI Image Tool: ${formData.aiTool}
 Brand: ${formData.brandName}
+Output Language: ${langConfig.nativeName} (${langConfig.englishName})
 
-Hãy tạo đầy đủ ${formData.slideCount} slides với format JSON theo tool definition.
-Mỗi slide phải có nội dung tiếng Việt hấp dẫn, phù hợp với mục tiêu của slide đó.
-Đảm bảo logic nội dung: Hook → Vấn đề → Giải thích → Giải pháp → CTA`;
+Generate all ${formData.slideCount} slides in JSON format as defined by the tool.
+Each slide must have compelling text content in ${langConfig.nativeName}.
+Follow content logic: Hook → Problem → Explanation → Solution → CTA`;
 
     // Try to fetch prompts from registry
     try {
       const pm = createPromptManager(supabase, 'generate-carousel', organizationId || undefined, formData.brandTemplateId);
-      const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules) : '';
+      const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules, outputLang) : '';
       
       systemPrompt = await pm.get('system', {
         platform: formData.platform === "facebook" ? "Facebook" : "TikTok",
@@ -610,10 +632,10 @@ Mỗi slide phải có nội dung tiếng Việt hấp dẫn, phù hợp với m
         console.error("AI Provider error:", result.error);
         
         if (result.error?.includes('Rate limit') || result.error?.includes('429')) {
-          throw { status: 429, message: "Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau." };
+          throw { status: 429, message: "Rate limit exceeded. Please try again later." };
         }
         if (result.error?.includes('Payment') || result.error?.includes('402')) {
-          throw { status: 402, message: "Cần nạp thêm credits để tiếp tục sử dụng." };
+          throw { status: 402, message: "Insufficient credits. Please add more to continue." };
         }
         throw new Error(`AI Provider error: ${result.error}`);
       }
