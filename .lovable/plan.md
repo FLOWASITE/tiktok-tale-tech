@@ -1,22 +1,68 @@
+# Hien thi thong tin Model AI da su dung va canh bao Fallback
+
+## Van de hien tai
+
+1. Backend **da track** model nao duoc su dung (`modelUsed`) va tra ve trong response, nhung **frontend khong hien thi** thong tin nay cho nguoi dung
+2. Khi PoYo.ai/KIE.ai that bai, he thong **tu dong fallback** sang Lovable AI ma **khong thong bao** cho admin biet
+3. Khong co cach nao de admin biet model da cau hinh co dang duoc su dung dung hay khong
+
+## Giai phap
+
+&nbsp;
+
+### 1. Toast canh bao khi Fallback xay ra
+
+Khi model da cau hinh bi loi va he thong phai dung model khac (fallback), hien thi toast warning cho nguoi dung biet:
+
+- Trong `useSocialImageGeneration.ts` va `useAutoImageGeneration.ts`: Kiem tra response `modelUsed` co chua "(fallback from ...)" khong
+- Neu co fallback: hien thi toast warning voi noi dung cu the, vi du: "Model poyo/nano-banana-2 bi loi, da dung google/gemini-2.5-flash-image thay the"
+
+### 2. Tao component ModelUsedBadge
+
+Component nho hien thi thong tin model da su dung:
+
+- Mau xanh la (green) khi model dung nhu cau hinh
+- Mau vang (yellow) khi da dung fallback
+- Hien thi icon provider (PoYo, KIE, Lovable)
+
+## Chi tiet ky thuat
+
+### Files thay doi
 
 
-# Giam Cache TTL cua ai-config tu 5 phut xuong 1 phut
+| File                                                       | Mo ta                                                              |
+| ---------------------------------------------------------- | ------------------------------------------------------------------ |
+| `src/components/ui/ModelUsedBadge.tsx`                     | **Moi** - Component badge hien thi model/provider                  |
+| `src/hooks/useSocialImageGeneration.ts`                    | Them logic doc `modelUsed` tu response, toast warning khi fallback |
+| `src/hooks/useAutoImageGeneration.ts`                      | Tuong tu - doc `modelUsed`, toast warning                          |
+| `src/components/image-generation/SimpleImageGenerator.tsx` | Hien thi `ModelUsedBadge` sau khi tao anh xong                     |
 
-## Thay doi
 
-Sua 1 dong duy nhat trong file `supabase/functions/_shared/ai-config.ts`:
+### Logic phat hien Fallback
 
-- Dong 141: Doi `CACHE_TTL_MS` tu `300000` (5 phut) xuong `60000` (1 phut)
-- Khi admin doi model trong Admin Panel, thay doi se co hieu luc trong vong toi da 1 phut thay vi 5 phut
+```text
+Response tu backend:
+- modelUsed = "poyo/nano-banana-2"          -> OK, dung model cau hinh
+- modelUsed = "google/gemini-2.5-flash-image (fallback from poyo/nano-banana-2)" -> FALLBACK!
 
-## Anh huong
+Frontend kiem tra:
+  if (modelUsed.includes('(fallback from')) {
+    -> Hien thi toast.warning(...)
+    -> Badge mau vang
+  } else {
+    -> Badge mau xanh la
+  }
+```
 
-- Tang so luong query toi database (tu 1 lan/5 phut len 1 lan/1 phut cho moi function)
-- Anh huong khong dang ke vi chi la query nho (select 1 row) va chi chay khi function duoc goi
+### ModelUsedBadge component
 
-## File thay doi
+- Props: `modelUsed: string`, `className?: string`
+- Parse ten model va trang thai fallback
+- Hien thi icon provider tuong ung (PoYo = Teal, KIE = Violet, Lovable = Blue)
+- Size nho, hien thi ngay duoi anh da tao
 
-| File | Dong | Mo ta |
-|------|------|-------|
-| supabase/functions/_shared/ai-config.ts | 141 | CACHE_TTL_MS: 300000 -> 60000 |
+### Thay doi toi thieu, khong anh huong backend
 
+- Khong can sua backend - backend da tra ve `modelUsed` trong response
+- Chi can frontend doc va hien thi thong tin nay
+- Toast warning giup admin phat hien ngay khi model khong hoat dong dung
