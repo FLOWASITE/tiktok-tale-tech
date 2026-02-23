@@ -1,68 +1,158 @@
-# Hien thi thong tin Model AI da su dung va canh bao Fallback
-
-## Van de hien tai
-
-1. Backend **da track** model nao duoc su dung (`modelUsed`) va tra ve trong response, nhung **frontend khong hien thi** thong tin nay cho nguoi dung
-2. Khi PoYo.ai/KIE.ai that bai, he thong **tu dong fallback** sang Lovable AI ma **khong thong bao** cho admin biet
-3. Khong co cach nao de admin biet model da cau hinh co dang duoc su dung dung hay khong
-
-## Giai phap
-
-&nbsp;
-
-### 1. Toast canh bao khi Fallback xay ra
-
-Khi model da cau hinh bi loi va he thong phai dung model khac (fallback), hien thi toast warning cho nguoi dung biet:
-
-- Trong `useSocialImageGeneration.ts` va `useAutoImageGeneration.ts`: Kiem tra response `modelUsed` co chua "(fallback from ...)" khong
-- Neu co fallback: hien thi toast warning voi noi dung cu the, vi du: "Model poyo/nano-banana-2 bi loi, da dung google/gemini-2.5-flash-image thay the"
-
-### 2. Tao component ModelUsedBadge
-
-Component nho hien thi thong tin model da su dung:
-
-- Mau xanh la (green) khi model dung nhu cau hinh
-- Mau vang (yellow) khi da dung fallback
-- Hien thi icon provider (PoYo, KIE, Lovable)
-
-## Chi tiet ky thuat
-
-### Files thay doi
 
 
-| File                                                       | Mo ta                                                              |
-| ---------------------------------------------------------- | ------------------------------------------------------------------ |
-| `src/components/ui/ModelUsedBadge.tsx`                     | **Moi** - Component badge hien thi model/provider                  |
-| `src/hooks/useSocialImageGeneration.ts`                    | Them logic doc `modelUsed` tu response, toast warning khi fallback |
-| `src/hooks/useAutoImageGeneration.ts`                      | Tuong tu - doc `modelUsed`, toast warning                          |
-| `src/components/image-generation/SimpleImageGenerator.tsx` | Hien thi `ModelUsedBadge` sau khi tao anh xong                     |
+# Nghien cuu giai phap toi uu trai nghiem tao noi dung Multichannel - Giam cam giac cho doi
 
+## 1. Phan tich hien trang (Current Pipeline)
 
-### Logic phat hien Fallback
+### Quy trinh hien tai - Tuan tu (Sequential)
 
 ```text
-Response tu backend:
-- modelUsed = "poyo/nano-banana-2"          -> OK, dung model cau hinh
-- modelUsed = "google/gemini-2.5-flash-image (fallback from poyo/nano-banana-2)" -> FALLBACK!
-
-Frontend kiem tra:
-  if (modelUsed.includes('(fallback from')) {
-    -> Hien thi toast.warning(...)
-    -> Badge mau vang
-  } else {
-    -> Badge mau xanh la
-  }
+[User]
+  |
+  v
+Step 1: Nhap Topic + Chon Brand (manual)
+  |
+  v
+Step 2: Tao Core Content (streaming, ~20-40s)
+  |  - User PHAI DOI xong moi tiep
+  v
+Step 3: Chon Role (manual)
+  |
+  v
+Step 4: Chon Channels + Generate Multichannel (streaming SSE, ~40-90s tuy so kenh)
+  |  - User thay streaming text tung kenh
+  |  - PHAI DOI xong tat ca kenh
+  v
+Step 5: Xem ket qua → Mo SimpleImageGenerator → Tao anh (120s/kenh, tuan tu batch)
+  |  - User PHAI CHU DONG mo dialog tao anh
+  |  - Moi kenh mat 60-120s (KIE polling 30 vong x 4s)
+  v
+[XONG]
 ```
 
-### ModelUsedBadge component
+### Thoi gian thuc te cho user doi:
+- Core Content: **20-40s** (co streaming)
+- Multichannel: **40-90s** (co streaming, tot)
+- Anh: **60-120s/kenh x N kenh** (CHUA CO streaming, user phai tu bat)
 
-- Props: `modelUsed: string`, `className?: string`
-- Parse ten model va trang thai fallback
-- Hien thi icon provider tuong ung (PoYo = Teal, KIE = Violet, Lovable = Blue)
-- Size nho, hien thi ngay duoi anh da tao
+**Tong: 3-10 phut** cho 1 bo noi dung day du (text + anh)
 
-### Thay doi toi thieu, khong anh huong backend
+### Diem gay uc che chinh:
 
-- Khong can sua backend - backend da tra ve `modelUsed` trong response
-- Chi can frontend doc va hien thi thong tin nay
-- Toast warning giup admin phat hien ngay khi model khong hoat dong dung
+1. **Anh khong tu dong tao** - User phai tu mo dialog, chon kenh, bam nut → them 3-5 buoc manual
+2. **Anh tao tuan tu** - 5 kenh = 5-10 phut doi them
+3. **Khong co feedback khi tao anh** - Chi co spinner, khong biet AI dang lam gi
+4. **Buoc Core Content chan buoc Multichannel** - Phai doi xong moi di tiep
+5. **Sau khi tao xong multichannel, trang chuyen sang view content** - Mat context, phai navigate lai de tao anh
+
+---
+
+## 2. Giai phap de xuat
+
+### Giai phap A: Auto Image Generation Pipeline (Khuyen nghi - ROI cao nhat)
+
+Sau khi multichannel content duoc tao xong, **tu dong bat dau tao anh cho tat ca kenh** ma khong can user lam gi.
+
+```text
+[Multichannel hoan thanh]
+  |
+  v  (tu dong, khong can click)
+[Auto-trigger image generation cho tat ca kenh]
+  |
+  ├── Facebook: generating... ✓ done (60s)
+  ├── Instagram: generating... ✓ done (65s)  ← chay song song
+  ├── LinkedIn: generating... ✓ done (58s)   ← chay song song
+  └── ...
+  |
+  v
+[User thay anh hien len tung kenh trong real-time]
+```
+
+**Loi ich:**
+- User khong can lam them bat ky buoc nao
+- Anh bat dau tao ngay khi co noi dung
+- Song song hoa: 3-4 kenh cung luc → tong thoi gian giam 3-4x
+
+### Giai phap B: Streaming Visual Feedback cho Image Generation
+
+Hien tai `SimpleImageGenerator` chi hien spinner. Can them:
+- Hien prompt dang duoc su dung
+- Hien trang thai polling (vong 5/30...)
+- Hien anh ngay khi co (progressive rendering)
+- Hien thoi gian da troi va uoc tinh con lai
+
+### Giai phap C: Background Generation voi Toast Notification
+
+Cho phep user tiep tuc lam viec khac (tao content moi, xem content cu) trong khi anh dang duoc tao. Hien toast khi moi anh hoan thanh.
+
+### Giai phap D: Prefetch/Warm-up API
+
+Khi user dang o buoc chon channel (Step 4), bat dau "warm up" KIE/PoYo API de giam latency khi thuc su tao anh.
+
+---
+
+## 3. Ke hoach ky thuat chi tiet
+
+### Phase 1: Auto Image Generation sau Multichannel (Giai phap A)
+
+**1.1 Tao hook `useAutoImagePipeline`**
+- Sau khi `generate-multichannel` tra ve ket qua, tu dong goi `useAutoImageGeneration.generateAllImages()`
+- Su dung V3 Suggestion Engine de tu dong chon style tot nhat (khong can user chon)
+- Batch size = 3 (song song 3 kenh)
+
+**1.2 Cap nhat `MultiChannelCreate.tsx`**
+- Sau `handleGenerate` thanh cong → tu dong trigger image pipeline
+- Chuyen sang trang view content voi image progress overlay
+
+**1.3 Cap nhat `CreatePreviewPanel.tsx`**
+- Them phase "Dang tao anh..." sau khi text hoan thanh
+- Hien `ImageStreamingGrid` truc tiep trong preview panel
+
+### Phase 2: Visual Feedback tot hon (Giai phap B)
+
+**2.1 Cap nhat `ImageStreamingCard.tsx`**
+- Hien elapsed time (da chay 45s...)
+- Hien trang thai cu the (Dang gui request → Cho AI xu ly → Dang tai anh)
+- Animation skeleton co gradient shimmer
+
+**2.2 Them progress notification**
+- Toast moi khi 1 kenh hoan thanh: "Facebook ✓ - Da tao anh"
+- Summary toast khi tat ca xong: "5/5 kenh da co anh"
+
+### Phase 3: Background Mode (Giai phap C)
+
+**3.1 Tich hop vao `useBackgroundGeneration`**
+- Them task_type: 'image_generation'
+- Realtime subscription de cap nhat UI
+- User co the navigate di noi khac va quay lai
+
+**3.2 Floating Progress Indicator**
+- Nut nho o goc man hinh hien so anh dang tao
+- Click vao de xem chi tiet
+
+---
+
+## 4. Thu tu uu tien
+
+| STT | Giai phap | Do kho | Tac dong UX | Thoi gian |
+|-----|-----------|--------|-------------|-----------|
+| 1 | A: Auto Image Generation | Trung binh | Rat cao | 2-3 gio |
+| 2 | B: Visual Feedback | Thap | Cao | 1-2 gio |
+| 3 | C: Background Mode | Cao | Trung binh | 3-4 gio |
+| 4 | D: Warm-up API | Thap | Thap | 30 phut |
+
+**Khuyen nghi:** Bat dau voi **Phase 1 (Auto Image)** + **Phase 2 (Visual Feedback)** vi chung mang lai tac dong lon nhat voi do phuc tap hop ly.
+
+---
+
+## 5. Ket qua ky vong
+
+### Truoc:
+- User phai: Tao text (90s) → Mo dialog anh → Chon kenh → Bam tao → Doi 120s/kenh
+- Tong: **5-10 phut** + 5 buoc manual
+
+### Sau:
+- User chi can: Tao text (90s) → Anh tu dong tao song song
+- Tong: **2-3 phut** + 0 buoc manual cho anh
+- Giam **60-70% thoi gian** va **100% thao tac manual** cho phan tao anh
+
