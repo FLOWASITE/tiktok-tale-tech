@@ -298,13 +298,23 @@ export function CreatePreviewPanel({
             </motion.div>
           </div>
 
-          {/* Auto Image Generation Section */}
+          {/* Transition text + Auto Image Generation Section */}
           {isImageGenerating && imageProgress && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
+              className="space-y-3"
             >
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="flex items-center justify-center gap-2 text-sm text-muted-foreground"
+              >
+                <ImageIcon className="w-4 h-4 text-primary animate-pulse" />
+                <span>Đang tự động tạo ảnh cho các kênh...</span>
+              </motion.div>
               <ImageStreamingGrid
                 progress={imageProgress}
                 progressTimes={imageProgressTimes}
