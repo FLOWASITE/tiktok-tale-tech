@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { CheckCircle2, ArrowRight, Plus, Loader2, AlertCircle, X } from 'lucide-react';
+import { CheckCircle2, ArrowRight, Plus, Loader2, AlertCircle, X, ImageIcon, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -10,8 +10,11 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { AIGenerationProgress } from './AIGenerationProgress';
+import { ImageStreamingGrid } from './streaming/ImageStreamingGrid';
 import { ProgressEvent } from '@/hooks/useStreamingGeneration';
-import { CHANNELS } from '@/types/multichannel';
+import { ImageGenerationStatus, GeneratedImage } from '@/hooks/useAutoImageGeneration';
+import { PipelinePhase } from '@/hooks/useAutoImagePipeline';
+import { CHANNELS, Channel } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -29,6 +32,14 @@ interface MobileGenerationSheetProps {
   onViewContent: () => void;
   onCreateAnother: () => void;
   onClose?: () => void;
+  // Auto Image Pipeline props
+  imagePhase?: PipelinePhase;
+  imageProgress?: Record<Channel, ImageGenerationStatus>;
+  imageProgressTimes?: Record<Channel, number>;
+  generatedImages?: Record<Channel, GeneratedImage>;
+  imageCompletedCount?: number;
+  imageTotalCount?: number;
+  logoOverlayFailures?: Record<Channel, boolean>;
 }
 
 export function MobileGenerationSheet({
@@ -43,6 +54,13 @@ export function MobileGenerationSheet({
   onViewContent,
   onCreateAnother,
   onClose,
+  imagePhase,
+  imageProgress,
+  imageProgressTimes,
+  generatedImages,
+  imageCompletedCount,
+  imageTotalCount,
+  logoOverlayFailures,
 }: MobileGenerationSheetProps) {
   const isMobile = useIsMobile();
   const progressPercent = sseProgress?.progress ?? 0;
@@ -50,19 +68,33 @@ export function MobileGenerationSheet({
   const isComplete = generationState === 'complete';
   const isError = generationState === 'error';
 
+  const isImageGenerating = imagePhase === 'generating_images' || imagePhase === 'preparing';
+  const isImageComplete = imagePhase === 'complete' || imagePhase === 'error';
+  const isFullyComplete = isComplete && !isImageGenerating;
+
   const getChannelLabel = (ch: string) => {
     return CHANNELS.find(c => c.value === ch)?.label || ch;
   };
 
-  // Only show on mobile/tablet (below lg breakpoint)
+  // Prevent closing while generating text or images
+  const canClose = !isGenerating && !isImageGenerating;
+
+  // Determine title
+  const getTitle = () => {
+    if (isGenerating) return 'AI đang tạo nội dung...';
+    if (isComplete && isImageGenerating) return 'Đang tạo ảnh AI... 🎨';
+    if (isComplete && isFullyComplete) return 'Tạo thành công! 🎉';
+    if (isError) return 'Có lỗi xảy ra';
+    return '';
+  };
+
   if (!isMobile) return null;
 
   return (
     <Drawer 
       open={open} 
       onOpenChange={(isOpen) => {
-        // Prevent closing while generating
-        if (!isOpen && isGenerating) return;
+        if (!isOpen && !canClose) return;
         if (!isOpen && onClose) onClose();
       }}
     >
@@ -70,11 +102,9 @@ export function MobileGenerationSheet({
         <DrawerHeader className="border-b border-border/50 pb-3">
           <div className="flex items-center justify-between">
             <DrawerTitle className="text-base font-semibold">
-              {isGenerating && 'AI đang tạo nội dung...'}
-              {isComplete && 'Tạo thành công! 🎉'}
-              {isError && 'Có lỗi xảy ra'}
+              {getTitle()}
             </DrawerTitle>
-            {!isGenerating && (
+            {canClose && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -86,7 +116,7 @@ export function MobileGenerationSheet({
             )}
           </div>
 
-          {/* Progress bar for generating state */}
+          {/* Progress bar for text generating state */}
           {isGenerating && (
             <div className="mt-3 space-y-2">
               <div className="flex items-center justify-between text-sm">
@@ -100,13 +130,31 @@ export function MobileGenerationSheet({
               <Progress value={progressPercent} className="h-2" />
             </div>
           )}
+
+          {/* Progress bar for image generating state */}
+          {isComplete && isImageGenerating && imageTotalCount != null && imageTotalCount > 0 && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 animate-pulse text-primary" />
+                  {imageCompletedCount ?? 0}/{imageTotalCount} kênh ảnh
+                </span>
+                <span className="font-medium text-primary">
+                  {Math.round(((imageCompletedCount ?? 0) / imageTotalCount) * 100)}%
+                </span>
+              </div>
+              <Progress 
+                value={((imageCompletedCount ?? 0) / imageTotalCount) * 100} 
+                className="h-2" 
+              />
+            </div>
+          )}
         </DrawerHeader>
 
         <div className="overflow-y-auto flex-1 p-4">
-          {/* Generating State */}
+          {/* Generating Text State */}
           {isGenerating && (
             <div className="space-y-4">
-              {/* Channel badges */}
               <div className="flex flex-wrap gap-1.5">
                 {channels.map((ch) => {
                   const isCompleted = completedChannels.includes(ch);
@@ -130,7 +178,6 @@ export function MobileGenerationSheet({
                 })}
               </div>
 
-              {/* Streaming progress component */}
               <AIGenerationProgress
                 isLoading={true}
                 channelCount={channels.length}
@@ -146,8 +193,34 @@ export function MobileGenerationSheet({
             </div>
           )}
 
-          {/* Complete State */}
-          {isComplete && (
+          {/* Complete + Image Generating State */}
+          {isComplete && isImageGenerating && imageProgress && (
+            <motion.div
+              className="space-y-4"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              {/* Mini text success */}
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                <span className="text-xs text-green-700 dark:text-green-400">
+                  Nội dung {channels.length} kênh đã tạo xong ({Math.round(elapsedMs / 1000)}s)
+                </span>
+              </div>
+
+              {/* Image streaming grid - mobile optimized */}
+              <ImageStreamingGrid
+                progress={imageProgress}
+                progressTimes={imageProgressTimes}
+                logoOverlayFailures={logoOverlayFailures}
+                generatedImages={generatedImages || {} as Record<Channel, GeneratedImage>}
+                className="[&_.grid]:!grid-cols-1"
+              />
+            </motion.div>
+          )}
+
+          {/* Fully Complete State */}
+          {isFullyComplete && (
             <motion.div
               className="flex flex-col items-center text-center py-6 space-y-6"
               initial={{ opacity: 0, scale: 0.9 }}
@@ -167,6 +240,12 @@ export function MobileGenerationSheet({
                 <p className="text-sm text-muted-foreground">
                   Đã tạo nội dung cho {channels.length} kênh trong {Math.round(elapsedMs / 1000)}s
                 </p>
+                {isImageComplete && imageCompletedCount != null && imageTotalCount != null && imageTotalCount > 0 && (
+                  <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    + {imageCompletedCount}/{imageTotalCount} ảnh AI
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col gap-3 w-full max-w-xs">

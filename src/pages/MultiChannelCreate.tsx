@@ -314,6 +314,7 @@ export default function MultiChannelCreate() {
               generatedImages={imagePipeline.generatedImages}
               imageCompletedCount={imagePipeline.imageCompletedCount}
               imageTotalCount={imagePipeline.imageTotalCount}
+              logoOverlayFailures={imagePipeline.logoOverlayFailures}
             />
           </div>
         </div>
@@ -332,6 +333,14 @@ export default function MultiChannelCreate() {
         onViewContent={handleViewContent}
         onCreateAnother={handleCreateAnother}
         onClose={() => setGenerationState('idle')}
+        // Auto Image Pipeline props
+        imagePhase={imagePipeline.phase}
+        imageProgress={imagePipeline.imageProgress}
+        imageProgressTimes={imagePipeline.imageProgressTimes}
+        generatedImages={imagePipeline.generatedImages}
+        imageCompletedCount={imagePipeline.imageCompletedCount}
+        imageTotalCount={imagePipeline.imageTotalCount}
+        logoOverlayFailures={imagePipeline.logoOverlayFailures}
       />
     </div>
   );
