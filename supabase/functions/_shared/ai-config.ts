@@ -168,7 +168,7 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
 
 // In-memory cache with TTL to reduce DB calls
 const configCache: Map<string, { config: AIFunctionConfig; fetchedAt: number }> = new Map();
-const CACHE_TTL_MS = 300000; // 5 minute cache (increased from 2 min for performance)
+const CACHE_TTL_MS = 60000; // 1 minute cache for faster config updates from Admin Panel
 
 // Pre-initialized Supabase client for config fetches
 let _configSupabase: ReturnType<typeof createClient> | null = null;
