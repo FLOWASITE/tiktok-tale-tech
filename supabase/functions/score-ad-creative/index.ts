@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
+import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext, getLocalizedPromptLabels } from "../_shared/country-language-map.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
@@ -17,6 +18,93 @@ interface ScoreRequest {
   ctaButton?: string;
   platform?: string;
   objective?: string;
+  countryCode?: string;
+  outputLanguage?: string;
+}
+
+// Localized scoring prompts per language
+function buildScoringPrompt(lang: string) {
+  const prompts: Record<string, { system: string; userTemplate: (parts: string[], platform: string, objective: string) => string }> = {
+    vi: {
+      system: `Bạn là chuyên gia đánh giá chất lượng quảng cáo digital.
+
+Hãy đánh giá theo các tiêu chí sau (mỗi tiêu chí 0-100 điểm):
+1. **Headline Score** (nếu có): Đánh giá sức thu hút, độ rõ ràng, power words
+2. **Primary Text Score** (nếu có): Đánh giá storytelling, benefit focus, emotional appeal
+3. **CTA Score** (nếu có): Đánh giá action-oriented, urgency, clarity
+4. **Emotional Appeal Score**: Mức độ kết nối cảm xúc với người đọc
+5. **Clarity Score**: Độ rõ ràng, dễ hiểu của thông điệp
+6. **Urgency Score**: Tính cấp bách, FOMO
+7. **Relevance Score**: Độ phù hợp với platform và objective
+
+Grade mapping:
+- A+: 95-100, A: 85-94, B: 70-84, C: 55-69, D: 40-54, F: 0-39`,
+      userTemplate: (parts, platform, objective) => `Hãy phân tích và chấm điểm nội dung ad copy sau:
+
+${parts.join('\n')}
+
+Platform: ${platform}
+Objective: ${objective}
+
+Cũng xác định:
+- **Strengths**: 2-4 điểm mạnh chính (tiếng Việt)
+- **Weaknesses**: 2-4 điểm yếu cần cải thiện (tiếng Việt)
+- **Optimization Priority**: Thành phần cần ưu tiên tối ưu nhất`,
+    },
+    th: {
+      system: `คุณเป็นผู้เชี่ยวชาญด้านการประเมินคุณภาพโฆษณาดิจิทัล
+
+ประเมินตามเกณฑ์ต่อไปนี้ (แต่ละเกณฑ์ 0-100 คะแนน):
+1. **Headline Score** (ถ้ามี): ประเมินความดึงดูด ความชัดเจน power words
+2. **Primary Text Score** (ถ้ามี): ประเมิน storytelling, benefit focus, emotional appeal
+3. **CTA Score** (ถ้ามี): ประเมิน action-oriented, urgency, clarity
+4. **Emotional Appeal Score**: ระดับการเชื่อมต่อทางอารมณ์กับผู้อ่าน
+5. **Clarity Score**: ความชัดเจน เข้าใจง่ายของข้อความ
+6. **Urgency Score**: ความเร่งด่วน FOMO
+7. **Relevance Score**: ความเหมาะสมกับ platform และ objective
+
+Grade mapping:
+- A+: 95-100, A: 85-94, B: 70-84, C: 55-69, D: 40-54, F: 0-39`,
+      userTemplate: (parts, platform, objective) => `วิเคราะห์และให้คะแนนเนื้อหาโฆษณาต่อไปนี้:
+
+${parts.join('\n')}
+
+Platform: ${platform}
+Objective: ${objective}
+
+ระบุด้วย:
+- **Strengths**: 2-4 จุดแข็งหลัก (ภาษาไทย)
+- **Weaknesses**: 2-4 จุดอ่อนที่ต้องปรับปรุง (ภาษาไทย)
+- **Optimization Priority**: องค์ประกอบที่ต้องเพิ่มประสิทธิภาพก่อน`,
+    },
+    en: {
+      system: `You are an expert in evaluating digital advertising quality.
+
+Evaluate based on these criteria (each 0-100 points):
+1. **Headline Score** (if applicable): Attractiveness, clarity, power words
+2. **Primary Text Score** (if applicable): Storytelling, benefit focus, emotional appeal
+3. **CTA Score** (if applicable): Action-oriented, urgency, clarity
+4. **Emotional Appeal Score**: Emotional connection with the reader
+5. **Clarity Score**: Message clarity and comprehension
+6. **Urgency Score**: Urgency, FOMO
+7. **Relevance Score**: Relevance to platform and objective
+
+Grade mapping:
+- A+: 95-100, A: 85-94, B: 70-84, C: 55-69, D: 40-54, F: 0-39`,
+      userTemplate: (parts, platform, objective) => `Analyze and score the following ad copy:
+
+${parts.join('\n')}
+
+Platform: ${platform}
+Objective: ${objective}
+
+Also identify:
+- **Strengths**: 2-4 key strengths
+- **Weaknesses**: 2-4 areas for improvement
+- **Optimization Priority**: Component to prioritize for optimization`,
+    },
+  };
+  return prompts[lang] || prompts['en'];
 }
 
 serve(async (req) => {
@@ -26,7 +114,10 @@ serve(async (req) => {
 
   try {
     const request: ScoreRequest = await req.json();
-    const { headline, primaryText, description, ctaButton, platform, objective } = request;
+    const { headline, primaryText, description, ctaButton, platform, objective, countryCode, outputLanguage } = request;
+
+    // Determine output language
+    const lang = outputLanguage || getOutputLanguage(countryCode);
 
     // Build the content to analyze
     const contentParts = [];
@@ -42,21 +133,10 @@ serve(async (req) => {
       );
     }
 
+    // Get localized scoring prompt
+    const scoringPrompt = buildScoringPrompt(lang);
+
     // Try to fetch system prompt from registry with fallback
-    const FALLBACK_SYSTEM = `Bạn là chuyên gia đánh giá chất lượng quảng cáo digital.
-
-Hãy đánh giá theo các tiêu chí sau (mỗi tiêu chí 0-100 điểm):
-1. **Headline Score** (nếu có): Đánh giá sức thu hút, độ rõ ràng, power words
-2. **Primary Text Score** (nếu có): Đánh giá storytelling, benefit focus, emotional appeal
-3. **CTA Score** (nếu có): Đánh giá action-oriented, urgency, clarity
-4. **Emotional Appeal Score**: Mức độ kết nối cảm xúc với người đọc
-5. **Clarity Score**: Độ rõ ràng, dễ hiểu của thông điệp
-6. **Urgency Score**: Tính cấp bách, FOMO
-7. **Relevance Score**: Độ phù hợp với platform và objective
-
-Grade mapping:
-- A+: 95-100, A: 85-94, B: 70-84, C: 55-69, D: 40-54, F: 0-39`;
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -72,21 +152,17 @@ Grade mapping:
     } catch (err) {
       console.warn('[score-ad-creative] Failed to fetch prompt from registry, using hardcoded fallback');
     }
-    const finalSystemPrompt = systemPrompt || FALLBACK_SYSTEM;
+    const finalSystemPrompt = systemPrompt || scoringPrompt.system;
 
-    const prompt = `Hãy phân tích và chấm điểm nội dung ad copy sau:
+    const jsonFormatInstruction = lang === 'vi' 
+      ? 'Chỉ trả về JSON, không có text khác.'
+      : lang === 'th'
+      ? 'ส่งกลับเฉพาะ JSON เท่านั้น ไม่มีข้อความอื่น'
+      : 'Return JSON only, no other text.';
 
-${contentParts.join('\n')}
+    const prompt = `${scoringPrompt.userTemplate(contentParts, platform || 'Facebook', objective || 'conversions')}
 
-Platform: ${platform || 'Facebook'}
-Objective: ${objective || 'conversions'}
-
-Cũng xác định:
-- **Strengths**: 2-4 điểm mạnh chính (tiếng Việt)
-- **Weaknesses**: 2-4 điểm yếu cần cải thiện (tiếng Việt)
-- **Optimization Priority**: Thành phần cần ưu tiên tối ưu nhất
-
-Trả về JSON theo format:
+Return JSON in this format:
 {
   "overall_score": number (0-100),
   "grade": "A+" | "A" | "B" | "C" | "D" | "F",
@@ -103,7 +179,7 @@ Trả về JSON theo format:
   "optimization_priority": "string"
 }
 
-Chỉ trả về JSON, không có text khác.`;
+${jsonFormatInstruction}`;
 
     // Use Lovable AI Gateway
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

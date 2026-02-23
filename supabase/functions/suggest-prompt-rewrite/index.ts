@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext } from "../_shared/country-language-map.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,37 +23,13 @@ interface SuggestPromptRewriteRequest {
   characterType?: string;
   scriptPurpose?: string;
   fullScriptContext?: string;
+  countryCode?: string;
+  outputLanguage?: string;
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  try {
-    const { 
-      promptContent, 
-      promptNumber, 
-      totalPrompts,
-      videoType,
-      characterType,
-      scriptPurpose,
-      fullScriptContext
-    }: SuggestPromptRewriteRequest = await req.json();
-
-    if (!promptContent) {
-      return new Response(
-        JSON.stringify({ error: 'Prompt content is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Get Vietnam time for date context
-    const now = new Date();
-    const vnTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-    const currentYear = vnTime.getUTCFullYear();
-
-    const systemPrompt = `Bạn là chuyên gia viết kịch bản video ngắn với hơn 10 năm kinh nghiệm.
+function getLocalizedSystemPrompt(lang: string, currentYear: number): string {
+  const prompts: Record<string, string> = {
+    vi: `Bạn là chuyên gia viết kịch bản video ngắn với hơn 10 năm kinh nghiệm.
 Nhiệm vụ: Phân tích đoạn kịch bản và đưa ra 3-5 gợi ý cải thiện cụ thể.
 
 ## THÔNG TIN THỜI GIAN
@@ -67,9 +44,46 @@ Nhiệm vụ: Phân tích đoạn kịch bản và đưa ra 3-5 gợi ý cải t
    - Tăng urgency nếu là prompt đầu/cuối
    - Thêm emotional hook nếu đoạn khô khan
    - Đơn giản hóa nếu quá phức tạp
-   - Cải thiện flow chuyển đoạn
+   - Cải thiện flow chuyển đoạn`,
+    th: `คุณเป็นผู้เชี่ยวชาญด้านการเขียนสคริปต์วิดีโอสั้นที่มีประสบการณ์มากกว่า 10 ปี
+ภารกิจ: วิเคราะห์สคริปต์และให้ 3-5 คำแนะนำการปรับปรุงที่เฉพาะเจาะจง
 
-## OUTPUT FORMAT (JSON)
+## ข้อมูลเวลา
+- ปีปัจจุบัน: ${currentYear}
+- ใช้ปี ${currentYear} เสมอสำหรับข้อมูลและแนวโน้ม
+
+## หลักการแนะนำ
+1. แต่ละคำแนะนำต้องเฉพาะเจาะจง - เขียนประโยคทดแทนที่สมบูรณ์
+2. รักษาสไตล์ของตัวละครและประเภทวิดีโอ
+3. ให้ความสำคัญกับการปรับปรุงที่มีผลกระทบสูง:
+   - เพิ่มข้อมูลเฉพาะเพื่อเพิ่มความน่าเชื่อถือ
+   - เพิ่ม urgency ถ้าเป็น prompt แรก/สุดท้าย
+   - เพิ่ม emotional hook ถ้าเนื้อหาแห้งแล้ง
+   - ทำให้ง่ายขึ้นถ้าซับซ้อนเกินไป
+   - ปรับปรุง flow การเชื่อมต่อ`,
+    en: `You are an expert short-form video scriptwriter with over 10 years of experience.
+Task: Analyze the script segment and provide 3-5 specific improvement suggestions.
+
+## TIME CONTEXT
+- Current year: ${currentYear}
+- Always use year ${currentYear} for data, trends
+
+## SUGGESTION PRINCIPLES
+1. Each suggestion must be SPECIFIC - write complete replacement sentences
+2. Maintain character style and video type
+3. Prioritize high-impact improvements:
+   - Add specific data to increase credibility
+   - Add urgency for first/last prompts
+   - Add emotional hook if content is dry
+   - Simplify if too complex
+   - Improve transition flow`,
+  };
+  return prompts[lang] || prompts['en'];
+}
+
+function getLocalizedOutputInstruction(lang: string): string {
+  const instructions: Record<string, string> = {
+    vi: `## OUTPUT FORMAT (JSON)
 Trả về JSON array với 3-5 suggestions, mỗi suggestion có:
 {
   "type": "add_data" | "add_urgency" | "add_emotion" | "simplify" | "strengthen_cta" | "improve_flow",
@@ -78,25 +92,90 @@ Trả về JSON array với 3-5 suggestions, mỗi suggestion có:
   "reason": "Lý do tại sao cải thiện này hiệu quả (1 câu)"
 }
 
-CHỈ TRẢ VỀ JSON ARRAY, KHÔNG CÓ TEXT KHÁC.`;
+CHỈ TRẢ VỀ JSON ARRAY, KHÔNG CÓ TEXT KHÁC.`,
+    th: `## OUTPUT FORMAT (JSON)
+ส่งกลับ JSON array ที่มี 3-5 suggestions แต่ละ suggestion มี:
+{
+  "type": "add_data" | "add_urgency" | "add_emotion" | "simplify" | "strengthen_cta" | "improve_flow",
+  "label": "ชื่อสั้นๆ ของคำแนะนำ (2-4 คำ)",
+  "suggestion": "ประโยคที่เขียนใหม่สมบูรณ์พร้อมใช้แทน",
+  "reason": "เหตุผลว่าทำไมการปรับปรุงนี้จึงมีประสิทธิภาพ (1 ประโยค)"
+}
+
+ส่งกลับเฉพาะ JSON ARRAY เท่านั้น ไม่มีข้อความอื่น`,
+    en: `## OUTPUT FORMAT (JSON)
+Return a JSON array with 3-5 suggestions, each having:
+{
+  "type": "add_data" | "add_urgency" | "add_emotion" | "simplify" | "strengthen_cta" | "improve_flow",
+  "label": "Short suggestion name (2-4 words)",
+  "suggestion": "Complete rewritten sentence ready to replace",
+  "reason": "Why this improvement is effective (1 sentence)"
+}
+
+RETURN JSON ARRAY ONLY, NO OTHER TEXT.`,
+  };
+  return instructions[lang] || instructions['en'];
+}
+
+function getLocalizedPositionLabel(lang: string, promptNumber: number, totalPrompts: number): string {
+  if (lang === 'vi') {
+    return promptNumber === 1 ? 'HOOK (mở đầu)' : promptNumber === totalPrompts ? 'CTA (kết thúc)' : 'BODY (thân bài)';
+  } else if (lang === 'th') {
+    return promptNumber === 1 ? 'HOOK (เปิดเรื่อง)' : promptNumber === totalPrompts ? 'CTA (ปิดท้าย)' : 'BODY (เนื้อหา)';
+  }
+  return promptNumber === 1 ? 'HOOK (opening)' : promptNumber === totalPrompts ? 'CTA (closing)' : 'BODY (main content)';
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { 
+      promptContent, promptNumber, totalPrompts,
+      videoType, characterType, scriptPurpose, fullScriptContext,
+      countryCode, outputLanguage
+    }: SuggestPromptRewriteRequest = await req.json();
+
+    if (!promptContent) {
+      return new Response(
+        JSON.stringify({ error: 'Prompt content is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const lang = outputLanguage || getOutputLanguage(countryCode);
+    const langConfig = getLanguageConfig(lang);
+
+    // Get local time for date context
+    const now = new Date();
+    const localTime = new Date(now.getTime() + langConfig.timezoneOffsetHours * 60 * 60 * 1000);
+    const currentYear = localTime.getUTCFullYear();
+
+    const systemPrompt = getLocalizedSystemPrompt(lang, currentYear) + '\n\n' + getLocalizedOutputInstruction(lang);
+
+    const positionLabel = getLocalizedPositionLabel(lang, promptNumber, totalPrompts);
+    const contextLabel = lang === 'vi' ? 'NỘI DUNG CẦN CẢI THIỆN' : lang === 'th' ? 'เนื้อหาที่ต้องปรับปรุง' : 'CONTENT TO IMPROVE';
+    const fullContextLabel = lang === 'vi' ? 'CONTEXT TOÀN BỘ KỊCH BẢN' : lang === 'th' ? 'บริบทสคริปต์ทั้งหมด' : 'FULL SCRIPT CONTEXT';
+    const suggestLabel = lang === 'vi' ? 'Hãy đưa ra 3-5 gợi ý cải thiện cụ thể cho đoạn này.' : lang === 'th' ? 'ให้ 3-5 คำแนะนำการปรับปรุงเฉพาะเจาะจงสำหรับส่วนนี้' : 'Provide 3-5 specific improvement suggestions for this segment.';
 
     const userPrompt = `## CONTEXT
-- Prompt số: ${promptNumber}/${totalPrompts}
-- Vị trí: ${promptNumber === 1 ? 'HOOK (mở đầu)' : promptNumber === totalPrompts ? 'CTA (kết thúc)' : 'BODY (thân bài)'}
-${videoType ? `- Thể loại video: ${videoType}` : ''}
-${characterType ? `- Nhân vật: ${characterType}` : ''}
-${scriptPurpose ? `- Mục đích: ${scriptPurpose}` : ''}
+- Prompt: ${promptNumber}/${totalPrompts}
+- Position: ${positionLabel}
+${videoType ? `- Video type: ${videoType}` : ''}
+${characterType ? `- Character: ${characterType}` : ''}
+${scriptPurpose ? `- Purpose: ${scriptPurpose}` : ''}
 
-## NỘI DUNG CẦN CẢI THIỆN
+## ${contextLabel}
 ${promptContent}
 
-${fullScriptContext ? `## CONTEXT TOÀN BỘ KỊCH BẢN (để hiểu flow)\n${fullScriptContext.substring(0, 1000)}...` : ''}
+${fullScriptContext ? `## ${fullContextLabel}\n${fullScriptContext.substring(0, 1000)}...` : ''}
 
-Hãy đưa ra 3-5 gợi ý cải thiện cụ thể cho đoạn này.`;
+${suggestLabel}`;
 
-    console.log('[suggest-prompt-rewrite] Generating suggestions for prompt', promptNumber);
+    console.log('[suggest-prompt-rewrite] Generating suggestions for prompt', promptNumber, 'lang:', lang);
 
-    // Get AI config
     const aiConfig = await getAIConfig('suggest-prompt-rewrite');
     const model = aiConfig?.model || 'google/gemini-2.5-flash';
 
@@ -117,7 +196,6 @@ Hãy đưa ra 3-5 gợi ý cải thiện cụ thể cho đoạn này.`;
 
     const content = aiResult.data?.choices?.[0]?.message?.content || '';
 
-    // Parse JSON from response
     let suggestions: PromptRewriteSuggestion[];
     try {
       const jsonMatch = content.match(/\[[\s\S]*\]/);
@@ -128,19 +206,18 @@ Hãy đưa ra 3-5 gợi ý cải thiện cụ thể cho đoạn này.`;
       }
     } catch (parseError) {
       console.error('[suggest-prompt-rewrite] Parse error:', parseError);
-      // Return default suggestions if parsing fails
       suggestions = [
         {
           type: 'add_data',
-          label: 'Thêm số liệu',
+          label: lang === 'vi' ? 'Thêm số liệu' : lang === 'th' ? 'เพิ่มข้อมูล' : 'Add data',
           suggestion: promptContent.replace(/nhiều người/g, '73% người'),
-          reason: 'Số liệu cụ thể tăng độ tin cậy'
+          reason: lang === 'vi' ? 'Số liệu cụ thể tăng độ tin cậy' : lang === 'th' ? 'ข้อมูลเฉพาะเพิ่มความน่าเชื่อถือ' : 'Specific data increases credibility'
         },
         {
           type: 'add_urgency',
-          label: 'Tăng urgency',
-          suggestion: `${promptContent} - Đừng bỏ lỡ!`,
-          reason: 'Tạo cảm giác cấp bách thúc đẩy hành động'
+          label: lang === 'vi' ? 'Tăng urgency' : lang === 'th' ? 'เพิ่ม urgency' : 'Add urgency',
+          suggestion: `${promptContent} - ${lang === 'vi' ? 'Đừng bỏ lỡ!' : lang === 'th' ? 'อย่าพลาด!' : "Don't miss out!"}`,
+          reason: lang === 'vi' ? 'Tạo cảm giác cấp bách thúc đẩy hành động' : lang === 'th' ? 'สร้างความเร่งด่วนกระตุ้นการดำเนินการ' : 'Creates urgency that drives action'
         }
       ];
     }
