@@ -249,7 +249,7 @@ async function pollLegacyTask(taskId: string, model: string, apiKey: string): Pr
 /** Map short model names to KIE API model names */
 function getUnifiedModelName(model: string): string {
   const MODEL_MAP: Record<string, string> = {
-    'nano-banana': 'nano-banana',
+    'nano-banana': 'nano-banana-pro',          // No standalone 'nano-banana' in KIE API, use pro
     'nano-banana-edit': 'google/nano-banana-edit',
     'nano-banana-pro': 'nano-banana-pro',
   };
