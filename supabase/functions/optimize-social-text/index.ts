@@ -91,6 +91,8 @@ Examples:
     const cleanedText = optimizedText
       .replace(/^["']|["']$/g, '') // Remove surrounding quotes
       .replace(/^Optimized:?\s*/i, '') // Remove "Optimized:" prefix
+      .replace(/\\n/g, '\n') // Convert literal \n to real newlines
+      .replace(/\/n/g, '\n') // Convert /n typo to real newlines
       .trim();
 
     console.log('[optimize-social-text] Original:', text.length, 'chars → Optimized:', cleanedText.length, 'chars');
