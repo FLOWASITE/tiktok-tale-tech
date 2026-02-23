@@ -107,6 +107,15 @@ const KIE_MODELS: ProviderModel[] = [
   { id: 'kie-kontext-max', label: 'Kontext Max', modelId: 'flux-kontext-max' },
   { id: 'kie-gpt-img', label: 'GPT Image 1', modelId: 'gpt-image-1' },
   { id: 'kie-gpt-img15', label: 'GPT Image 1.5', modelId: 'gpt-image-1.5' },
+  { id: 'kie-flux2-pro', label: 'Flux 2 Pro', modelId: 'flux-2/pro-text-to-image' },
+  { id: 'kie-flux2-flex', label: 'Flux 2 Flex', modelId: 'flux-2/flex-text-to-image' },
+  { id: 'kie-flux2-pro-i2i', label: 'Flux 2 Pro Edit', modelId: 'flux-2/pro-image-to-image' },
+  { id: 'kie-flux2-flex-i2i', label: 'Flux 2 Flex Edit', modelId: 'flux-2/flex-image-to-image' },
+  { id: 'kie-nano-banana', label: 'Nano Banana 2K', modelId: 'nano-banana' },
+  { id: 'kie-nano-banana-edit', label: 'Nano Banana Edit', modelId: 'nano-banana-edit' },
+  { id: 'kie-nano-banana-pro', label: '⭐ Nano Banana 4K', modelId: 'nano-banana-pro' },
+  { id: 'kie-grok-t2i', label: 'Grok Imagine', modelId: 'grok-imagine/text-to-image' },
+  { id: 'kie-grok-i2i', label: 'Grok Imagine Edit', modelId: 'grok-imagine/image-to-image' },
 ];
 
 const OPENROUTER_TEXT_MODELS: ProviderModel[] = [
