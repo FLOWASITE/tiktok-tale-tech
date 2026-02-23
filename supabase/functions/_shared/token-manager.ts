@@ -93,31 +93,38 @@ export interface ConversationMessage {
 
 /**
  * Estimate token count from text
- * Uses a more accurate estimation for Vietnamese/English mixed content
+ * Multi-language support: Vietnamese, Thai, CJK, Korean, English
  */
 export function estimateTokenCount(text: string): number {
   if (!text) return 0;
   
-  // Count Vietnamese characters (tend to use more tokens per char)
+  // Detect different script patterns for accurate estimation
   const vietnamesePattern = /[\u00C0-\u024F\u1E00-\u1EFF]/g;
+  const thaiPattern = /[\u0E00-\u0E7F]/g;
+  const cjkPattern = /[\u3000-\u9FFF\uF900-\uFAFF]/g;
+  const koreanPattern = /[\uAC00-\uD7AF\u1100-\u11FF]/g;
+  
   const vietnameseChars = (text.match(vietnamesePattern) || []).length;
+  const thaiChars = (text.match(thaiPattern) || []).length;
+  const cjkChars = (text.match(cjkPattern) || []).length;
+  const koreanChars = (text.match(koreanPattern) || []).length;
   
   // Count code blocks (more predictable token ratio)
   const codeBlocks = text.match(/```[\s\S]*?```/g) || [];
   const codeLength = codeBlocks.reduce((sum, block) => sum + block.length, 0);
   
-  // Non-code, non-Vietnamese text
-  const normalLength = text.length - vietnameseChars - codeLength;
+  // Remaining text (English/Latin)
+  const specialChars = vietnameseChars + thaiChars + cjkChars + koreanChars;
+  const normalLength = text.length - specialChars - codeLength;
   
-  // Token estimation ratios
-  const vietnameseRatio = 2.0; // ~2 chars per token for Vietnamese
-  const codeRatio = 3.5; // ~3.5 chars per token for code
-  const normalRatio = 4.0; // ~4 chars per token for English
-  
+  // Token estimation ratios per script type
   const tokens = Math.ceil(
-    (vietnameseChars / vietnameseRatio) +
-    (codeLength / codeRatio) +
-    (normalLength / normalRatio)
+    (vietnameseChars / 2.0) +   // Vietnamese: ~2 chars per token
+    (thaiChars / 1.5) +         // Thai: ~1.5 chars per token (no word spaces)
+    (cjkChars / 1.5) +          // CJK: ~1.5 chars per token
+    (koreanChars / 1.8) +       // Korean: ~1.8 chars per token
+    (codeLength / 3.5) +        // Code: ~3.5 chars per token
+    (normalLength / 4.0)        // English/Latin: ~4 chars per token
   );
   
   return Math.max(1, tokens);
@@ -167,7 +174,7 @@ export function truncateToTokenBudget(
     case 'middle':
       // Keep start and end, remove middle (useful for long documents)
       const halfChars = Math.floor(targetChars / 2);
-      truncatedText = text.slice(0, halfChars) + '\n...[nội dung được lược bỏ]...\n' + text.slice(-halfChars);
+      truncatedText = text.slice(0, halfChars) + '\n...[content truncated]...\n' + text.slice(-halfChars);
       break;
       
     case 'tail':
@@ -208,7 +215,7 @@ export function summarizeConversationHistory(
     .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content.slice(0, 200)}`)
     .join('\n');
   
-  const summary = `[Tóm tắt cuộc trò chuyện trước đó - ${oldMessages.length} tin nhắn]\nCác điểm chính đã thảo luận:\n${truncateToTokenBudget(oldContent, Math.floor(maxTokens * 0.2), 'tail').text}`;
+  const summary = `[Previous conversation summary - ${oldMessages.length} messages]\nKey points discussed:\n${truncateToTokenBudget(oldContent, Math.floor(maxTokens * 0.2), 'tail').text}`;
   
   // Create summarized message
   const summaryMessage: ConversationMessage = {
