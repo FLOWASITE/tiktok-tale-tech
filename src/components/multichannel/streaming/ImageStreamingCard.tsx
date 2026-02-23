@@ -26,9 +26,9 @@ interface ImageStreamingCardProps {
   modelUsed?: string;
 }
 
-// Average generation time in seconds (can be adjusted based on real data)
-const AVG_GENERATION_TIME_SEC = 15;
-const AVG_OVERLAY_TIME_SEC = 3;
+// Realistic average generation times based on actual KIE/PoYo polling data
+const AVG_GENERATION_TIME_SEC = 60;
+const AVG_OVERLAY_TIME_SEC = 10;
 
 const STATUS_CONFIG: Record<ImageGenerationStatus, {
   label: string;
@@ -115,14 +115,23 @@ export function ImageStreamingCard({
   // Calculate estimated remaining time
   const getEstimatedTime = (): string => {
     if (status === 'generating') {
-      const remaining = Math.max(0, AVG_GENERATION_TIME_SEC - elapsedSec);
-      return remaining > 0 ? `~${remaining}s còn lại` : 'Sắp xong...';
+      if (elapsedSec < 5) return 'Đang khởi tạo...';
+      if (elapsedSec < 15) return 'AI đang phân tích nội dung...';
+      if (elapsedSec < 30) return 'Đang tạo hình ảnh...';
+      if (elapsedSec < 60) return `~${Math.max(0, AVG_GENERATION_TIME_SEC - elapsedSec)}s còn lại`;
+      return 'Sắp xong...';
     }
     if (status === 'overlaying') {
-      const remaining = Math.max(0, AVG_OVERLAY_TIME_SEC - (elapsedSec - AVG_GENERATION_TIME_SEC));
-      return remaining > 0 ? `~${remaining}s còn lại` : 'Sắp xong...';
+      return 'Đang ghép logo...';
     }
     return '';
+  };
+
+  // Format elapsed time as mm:ss
+  const formatElapsed = (sec: number): string => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `${s}s`;
   };
 
   // Progress percentage based on step
@@ -196,10 +205,12 @@ export function ImageStreamingCard({
                       ))}
                     </div>
                     
-                    {/* Estimated time */}
+                    {/* Elapsed + estimated time */}
                     {startTime && (
-                      <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+                      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                         <Clock className="w-3 h-3" />
+                        <span className="tabular-nums font-medium">{formatElapsed(elapsedSec)}</span>
+                        <span className="text-muted-foreground/60">·</span>
                         <span>{getEstimatedTime()}</span>
                       </div>
                     )}

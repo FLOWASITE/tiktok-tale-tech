@@ -11,6 +11,7 @@ import { useStreamingGeneration, ProgressEvent } from '@/hooks/useStreamingGener
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { useAutoImagePipeline } from '@/hooks/useAutoImagePipeline';
 import { MultiChannelFormData, ContentGoal, Channel } from '@/types/multichannel';
 import { ContentPurpose, MarketingFramework } from '@/types/topicDiscovery';
 import { toast } from 'sonner';
@@ -59,6 +60,17 @@ export default function MultiChannelCreate() {
   const [sseProgress, setSseProgress] = useState<ProgressEvent | null>(null);
   const [generatedContentId, setGeneratedContentId] = useState<string | null>(null);
   const generationStartRef = useRef<number | null>(null);
+
+  // Selected brand template
+  const selectedTemplate = templates.find((t) => t.id === selectedBrandId);
+
+  // Auto Image Pipeline
+  const imagePipeline = useAutoImagePipeline({
+    brandTemplateId: selectedBrandId,
+    brandLogoUrl: selectedTemplate?.logo_url,
+    brandIndustry: selectedTemplate?.industry_template_id ? [selectedTemplate.industry_template_id] : undefined,
+    autoSave: true,
+  });
 
   // Streaming generation hook
   const { 
@@ -143,6 +155,31 @@ export default function MultiChannelCreate() {
           console.error('Failed to create topic-content link:', error);
         }
       }
+
+      // AUTO-TRIGGER IMAGE PIPELINE
+      // Collect the final streaming texts for each channel
+      const channels = data.channels || [];
+      if (channels.length > 0 && selectedBrandId) {
+        // Use a short delay to ensure streamingTexts state is finalized
+        setTimeout(() => {
+          const channelTexts: Record<string, string> = {};
+          channels.forEach(ch => {
+            channelTexts[ch] = streamingTexts[ch] || '';
+          });
+
+          imagePipeline.startPipeline(
+            result.id,
+            channels,
+            channelTexts,
+            {
+              contentGoal: data.contentGoal,
+              contentRole: data.contentRole,
+              contentAngle: data.contentAngle,
+              topic: data.topic,
+            }
+          );
+        }, 500);
+      }
     }
   };
 
@@ -151,6 +188,7 @@ export default function MultiChannelCreate() {
     setGenerationState('idle');
     setSseProgress(null);
     setGeneratedContentId(null);
+    imagePipeline.resetPipeline();
     setFormData(prev => ({
       ...prev,
       topic: '',
@@ -166,7 +204,6 @@ export default function MultiChannelCreate() {
     }
   };
 
-  const selectedTemplate = templates.find((t) => t.id === selectedBrandId);
   const estimatedTime = useMemo(() => {
     const baseTime = 10;
     const perChannelTime = 5;
@@ -270,6 +307,13 @@ export default function MultiChannelCreate() {
               currentChannel={sseProgress?.currentChannel}
               onViewContent={handleViewContent}
               onCreateAnother={handleCreateAnother}
+              // Auto Image Pipeline props
+              imagePhase={imagePipeline.phase}
+              imageProgress={imagePipeline.imageProgress}
+              imageProgressTimes={imagePipeline.imageProgressTimes}
+              generatedImages={imagePipeline.generatedImages}
+              imageCompletedCount={imagePipeline.imageCompletedCount}
+              imageTotalCount={imagePipeline.imageTotalCount}
             />
           </div>
         </div>
