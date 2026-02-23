@@ -1,140 +1,188 @@
 
-# Tao anh nhan vat phu thuoc quoc gia user
 
-## Hien trang
+# Phat trien Flowa da quoc gia - Phan tich toan dien
 
-- `brand_templates` da co truong `country_code` va `jurisdiction_code` (hien tai tat ca deu la `VN`)
-- `buildImagePrompt()` trong `image-prompt-builder.ts` **khong co** bat ky chi dan nao ve ngoai hinh nhan vat, sac toc, van hoa dia phuong
-- `buildPersonaVisualSection()` chi co age, occupation, interests - **khong co ethnicity/nationality**
-- Edge function `generate-brand-image` da fetch `brand_templates` nhung **khong lay** `country_code`
+## Boi canh
 
-## Giai phap
+Hien tai Flowa duoc xay dung **gan nhu hoan toan cho thi truong Viet Nam**. Du da co i18n (vi/en/th) cho landing page, phan core cua app - dac biet la **AI content generation** - dang hardcode tieng Viet o moi noi.
 
-Them 1 section moi trong prompt builder de chi dan AI tao nhan vat nguoi phu hop voi quoc gia cua brand, dua tren `country_code` tu `brand_templates`.
+Duoi day la tat ca cac van de can xu ly neu muon phat trien o thi truong Thai Lan (hoac bat ky quoc gia nao khac).
 
-## Chi tiet ky thuat
+---
 
-### 1. Cap nhat Edge Function `generate-brand-image/index.ts`
+## 1. AI CONTENT GENERATION - Van de LON NHAT
 
-- Them `country_code` vao SELECT query cua `brand_templates` (dong 263)
-- Truyen `countryCode` vao `buildImagePrompt()` params
+**Muc do**: CRITICAL
 
-```text
-// Hien tai:
-.select("primary_color, secondary_colors, image_style, logo_url, brand_name, industry, organization_id, tone_of_voice, formality_level")
+Tat ca cac Edge Function tao noi dung deu hardcode tieng Viet trong system prompt va user prompt:
 
-// Sau:
-.select("primary_color, secondary_colors, image_style, logo_url, brand_name, industry, organization_id, tone_of_voice, formality_level, country_code")
-```
+| Edge Function | Van de |
+|---|---|
+| `generate-multichannel` | System prompt: "Ban la chuyen gia content marketing tai Viet Nam" |
+| `generate-core-content` | Registry prompt: "Ban la chuyen gia viet content marketing hang dau Viet Nam" |
+| `generate-carousel` | Prompt: "Viet noi dung tieng Viet hap dan" + text overlay tieng Viet |
+| `chat-topics` | Search query: "xu huong noi dung ... Viet Nam tuan nay" |
+| `topic-ai` | "Content Strategist ... content marketing tai Viet Nam" |
+| `optimize-ad-copy` | System prompt hardcode tieng Viet |
+| `generate-storyboard` | "Ban la chuyen gia dao dien video..." |
+| `analyze-dashboard-insights` | "Phan tich du lieu ... bang tieng Viet" |
+| `kpi-ai` | "Reasoning phai ... bang tieng Viet" |
+| `score-ad-creative` | "Strengths/Weaknesses bang tieng Viet" |
 
-### 2. Cap nhat `_shared/image-prompt-builder.ts`
+**Can xu ly**: Tat ca system prompt phai nhan biet `output_language` tu brand/user va dieu chinh ngon ngu output tuong ung.
 
-**2a. Them `countryCode` vao `ImagePromptParams` interface:**
+---
 
-```typescript
-export interface ImagePromptParams {
-  // ... existing fields
-  countryCode?: string; // NEW: ISO country code from brand_templates
-}
-```
+## 2. SALES CHATBOT va HELP CHATBOT
 
-**2b. Tao mapping quoc gia -> chi dan ngoai hinh nhan vat:**
+**Muc do**: HIGH
 
-```typescript
-const COUNTRY_CHARACTER_DIRECTIVES: Record<string, {
-  ethnicity: string;
-  culturalContext: string;
-  settingHints: string;
-}> = {
-  VN: {
-    ethnicity: 'Vietnamese people with Vietnamese facial features, black hair, warm skin tone',
-    culturalContext: 'Vietnamese cultural context, local fashion style, Vietnamese urban/rural settings',
-    settingHints: 'Vietnamese street scenes, tropical greenery, modern Vietnamese city aesthetics',
-  },
-  US: {
-    ethnicity: 'Diverse American people reflecting multicultural society',
-    culturalContext: 'American cultural context, Western fashion, diverse backgrounds',
-    settingHints: 'Modern American urban/suburban settings',
-  },
-  TH: {
-    ethnicity: 'Thai people with Thai facial features, black hair, warm complexion',
-    culturalContext: 'Thai cultural context, local fashion, Thai aesthetics',
-    settingHints: 'Thai urban settings, tropical environment',
-  },
-  SG: {
-    ethnicity: 'Diverse Singaporean people (Chinese, Malay, Indian descent)',
-    culturalContext: 'Singaporean multicultural context, modern Asian fashion',
-    settingHints: 'Modern Singapore urban settings, clean city aesthetics',
-  },
-  MY: {
-    ethnicity: 'Malaysian people (Malay, Chinese, Indian descent)',
-    culturalContext: 'Malaysian multicultural context, local fashion mix',
-    settingHints: 'Malaysian urban and tropical settings',
-  },
-  ID: {
-    ethnicity: 'Indonesian people with Indonesian facial features',
-    culturalContext: 'Indonesian cultural context, local fashion',
-    settingHints: 'Indonesian tropical urban settings',
-  },
-  PH: {
-    ethnicity: 'Filipino people with Filipino facial features',
-    culturalContext: 'Filipino cultural context, local fashion style',
-    settingHints: 'Philippine tropical urban settings',
-  },
-  JP: {
-    ethnicity: 'Japanese people with Japanese facial features',
-    culturalContext: 'Japanese cultural context, Japanese fashion aesthetics',
-    settingHints: 'Japanese urban/modern settings',
-  },
-  KR: {
-    ethnicity: 'Korean people with Korean facial features',
-    culturalContext: 'Korean cultural context, Korean fashion trends',
-    settingHints: 'Korean modern urban settings',
-  },
-};
-```
+- `sales-chatbot`: Persona la "Thuy Linh - Tu van vien cua Flowa, nen tang Content Marketing #1 Viet Nam" - hoan toan VN-centric
+- `help-chatbot`: Toan bo knowledge base va huong dan bang tieng Viet
+- `FLOWA_KNOWLEDGE_BASE`: "Flowa duoc xay dung tai Viet Nam, toi uu cho tieng Viet"
 
-**2c. Tao function `buildCountryCharacterSection()`:**
+**Can xu ly**: Tao cac phien ban persona + knowledge base theo ngon ngu/quoc gia cua user.
 
-```typescript
-function buildCountryCharacterSection(countryCode?: string): string {
-  if (!countryCode) return '';
-  
-  const directive = COUNTRY_CHARACTER_DIRECTIVES[countryCode];
-  if (!directive) return '';
-  
-  return `\n\n## HUMAN CHARACTER APPEARANCE (CRITICAL):
-When featuring people/humans in the image:
-- Ethnicity: ${directive.ethnicity}
-- Cultural Context: ${directive.culturalContext}
-- Setting: ${directive.settingHints}
-- IMPORTANT: Characters must look authentic and natural for ${countryCode} market`;
-}
-```
+---
 
-**2d. Goi function trong `buildImagePrompt()`** - dat ngay sau persona section (dong ~713):
+## 3. UI DASHBOARD - i18n chua hoan tat
 
-```typescript
-// Add country-specific character section
-prompt += buildCountryCharacterSection(countryCode);
-```
+**Muc do**: HIGH
 
-### 3. Cap nhat frontend `imagePromptGenerator.ts`
+- Landing page (`/`): Da co i18n (vi/en/th) - OK
+- **Toan bo dashboard** (sau khi login): Hardcode tieng Viet
+  - Toast messages: "Da doi lich", "Nhiem vu moi"
+  - Labels, buttons, tooltips
+  - Date formatting: `locale: vi` hardcode o 150+ files
+  - Sort: `localeCompare('vi')`
 
-Them `countryCode` vao `PromptContext` interface va them directive tuong tu vao `generateImagePrompt()` de dong bo logic giua frontend va edge function.
+**Can xu ly**: Mo rong i18n tu landing page ra toan bo dashboard. Them translation keys cho tat ca cac string hien thi.
 
-## Tac dong
+---
 
-- Khi brand co `country_code = 'VN'` → AI se tao nhan vat nguoi Viet voi net mat, lan da, kieu toc phu hop
-- Khi brand co `country_code = 'US'` → AI se tao nhan vat da dang sac toc
-- Khi brand co `country_code = 'JP'` → AI se tao nhan vat nguoi Nhat
-- Neu khong co `country_code` → Khong them directive (giu nhu cu)
-- Khong anh huong den cac anh khong co nguoi (product, abstract, minimalist...)
+## 4. TOKEN ESTIMATION va TEXT PROCESSING
 
-## File can thay doi
+**Muc do**: MEDIUM
 
-| File | Thay doi |
-|------|----------|
-| `supabase/functions/generate-brand-image/index.ts` | Them `country_code` vao SELECT + truyen vao `buildImagePrompt` |
-| `supabase/functions/_shared/image-prompt-builder.ts` | Them interface, mapping, function `buildCountryCharacterSection` |
-| `src/lib/imagePromptGenerator.ts` | Them `countryCode` vao `PromptContext` + directive tuong tu |
+- `token-manager.ts`: Su dung `vietnamesePattern` va `vietnameseRatio = 2.0` de uoc luong token - **khong dung cho Thai/Trung/Nhat**
+- `dynamic-tokens.ts`: Comment "for Vietnamese" khi tinh token
+- `normalizeVietnamese()` trong risk-scoring: Chi xu ly dau tieng Viet, khong xu ly ky tu Thai/Nhat/Han
+
+**Can xu ly**: Tao multi-language token estimator va text normalizer (Thai co ky tu dac biet rieng, khong co khoang trang giua cac tu).
+
+---
+
+## 5. COMPLIANCE & RISK SCORING
+
+**Muc do**: HIGH
+
+- `compliance-precheck.ts`: Pattern nhu "so 1", "giam can", "lam giau" - chi phat hien tu cam tieng Viet
+- `cross-channel-dedup.ts`: "Local Vietnamese context" hardcode
+- `role-channel-adapter.ts`: CTA patterns hardcode tieng Viet: "Ban nghi sao?", "Tag nguoi can biet"
+
+**Can xu ly**: CTA patterns, forbidden term patterns can duoc cau hinh theo quoc gia trong Industry Pack + Jurisdiction Profile (he thong da co san co so ha tang nay).
+
+---
+
+## 6. REGULATION CRAWLING SYSTEM
+
+**Muc do**: MEDIUM (chi can khi mo rong compliance)
+
+- `auto-crawl-regulations`: Sources la cac trang VBPL Viet Nam (vanban.chinhphu.vn, thuvienphapluat.vn)
+- `CRITICAL_KEYWORDS_VN`: Chi co tu khoa tieng Viet ("xu phat", "cam", "bat buoc")
+- `extract-regulation-content`: `isVietnamese = jurisdiction === 'VN'` - co logic chia nhanh nhung chua co Thai
+
+**Can xu ly**: Them sources cho Thai (thai.gov), keywords Thai, va extraction prompt cho Thai.
+
+---
+
+## 7. INDUSTRY MEMORY DATA
+
+**Muc do**: HIGH
+
+- 463+ industry packs hien tai co translations chu yeu la tieng Viet
+- `industry_pack_translations`: Can tao ban dich Thai cho tat ca cac pack
+- `industry_jurisdiction_profiles`: Can tao profile cho `TH` voi resolved_rules rieng (luat Thai Lan)
+- `migrate-industry-templates.ts`: Hardcode 20+ nganh voi ten/mo ta tieng Viet
+
+**Can xu ly**: Tao jurisdiction profiles TH cho cac industry packs, them translations Thai.
+
+---
+
+## 8. FONT & TEXT OVERLAY
+
+**Muc do**: MEDIUM
+
+- `overlay-text-canvas`: Load Google Font "with Vietnamese support" - can ho tro Thai fonts (co dau thanh rieng)
+- Carousel text: "No distorted Vietnamese characters" - can tuong tu cho Thai
+
+**Can xu ly**: Detect ngon ngu va load font phu hop (Sarabun cho Thai, Noto Sans cho da ngon ngu).
+
+---
+
+## 9. PRICING & CURRENCY
+
+**Muc do**: LOW-MEDIUM
+
+- `th.json` da co pricing bang Baht (990 Baht/thang) - OK
+- He thong subscription (`plan_limits`, `subscriptions`) chua co truong currency
+- Payment gateway: Chua thay tich hop (Stripe? PromptPay cho Thai?)
+
+---
+
+## 10. CHANNEL & SOCIAL PLATFORM DIFFERENCES
+
+**Muc do**: MEDIUM
+
+- Thai co LINE Official thay vi Zalo
+- Instagram/TikTok/Facebook la chung - OK
+- Twitter/X usage khac nhau giua cac nuoc
+- Channel mapping (`SUPPORTED_CHANNELS`) can bo sung LINE
+
+---
+
+## ROADMAP DE XUAT (Thu tu uu tien)
+
+### Phase 1 - Core Infrastructure (Nen tang)
+1. Them truong `output_language` vao `brand_templates` (hoac lay tu `country_code`)
+2. Tao mapping `country_code -> language_code` (TH -> th, VN -> vi, US -> en)
+3. Cap nhat tat ca Edge Functions de nhan `outputLanguage` va dieu chinh prompt
+
+### Phase 2 - AI Generation (Quan trong nhat)
+4. Refactor system prompts: tham so hoa ngon ngu thay vi hardcode
+5. Cap nhat CTA patterns, forbidden terms theo ngon ngu
+6. Cap nhat token estimation cho multi-language
+
+### Phase 3 - Industry Data
+7. Tao jurisdiction profiles TH cho cac industry packs pho bien
+8. Them translations Thai cho industry packs
+9. Them regulation sources Thai (neu can compliance)
+
+### Phase 4 - UI Dashboard i18n
+10. Mo rong translation keys ra toan bo dashboard
+11. Cap nhat date formatting theo user locale
+12. Cap nhat chatbot personas theo ngon ngu
+
+### Phase 5 - Polish
+13. Font support cho Thai
+14. Them LINE channel
+15. Pricing/currency theo quoc gia
+
+---
+
+## Tong ket
+
+| Lop | So luong van de | Muc do |
+|---|---|---|
+| AI Prompts (Edge Functions) | 10+ functions | CRITICAL |
+| UI Dashboard i18n | 150+ files | HIGH |
+| Industry Data (translations + profiles) | 463+ packs | HIGH |
+| Compliance & Risk Scoring | 3-4 modules | HIGH |
+| Token/Text Processing | 2-3 modules | MEDIUM |
+| Regulations Crawling | 2 functions | MEDIUM |
+| Font & Overlay | 1-2 modules | MEDIUM |
+| Channels (LINE) | Config + UI | MEDIUM |
+| Pricing/Currency | DB + UI | LOW |
+
+Uoc tinh: **Phase 1+2 (Core + AI)** la quan trong nhat va nen lam truoc. Co the hoan thanh trong **2-3 sprint**. Phase 3-5 co the lam song song hoac sau.
+
