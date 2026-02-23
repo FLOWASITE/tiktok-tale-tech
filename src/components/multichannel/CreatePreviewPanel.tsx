@@ -45,6 +45,7 @@ interface CreatePreviewPanelProps {
   generatedImages?: Record<Channel, GeneratedImage>;
   imageCompletedCount?: number;
   imageTotalCount?: number;
+  logoOverlayFailures?: Record<Channel, boolean>;
 }
 
 export function CreatePreviewPanel({
@@ -67,6 +68,7 @@ export function CreatePreviewPanel({
   generatedImages,
   imageCompletedCount,
   imageTotalCount,
+  logoOverlayFailures,
 }: CreatePreviewPanelProps) {
   const hasTopic = (formData.topic?.trim().length || 0) >= 10;
   const hasChannels = (formData.channels?.length || 0) > 0;
@@ -306,6 +308,7 @@ export function CreatePreviewPanel({
               <ImageStreamingGrid
                 progress={imageProgress}
                 progressTimes={imageProgressTimes}
+                logoOverlayFailures={logoOverlayFailures}
                 generatedImages={generatedImages || {} as Record<Channel, GeneratedImage>}
               />
             </motion.div>
