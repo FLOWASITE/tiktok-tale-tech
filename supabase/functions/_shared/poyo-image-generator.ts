@@ -25,15 +25,19 @@ function stripPoyoPrefix(model: string): string {
  * Map aspect ratio to PoYo size format
  */
 function mapAspectRatioToSize(aspectRatio?: string): string {
-  const sizeMap: Record<string, string> = {
-    '1:1': '1024x1024',
-    '16:9': '1792x1024',
-    '9:16': '1024x1792',
-    '4:3': '1365x1024',
-    '3:4': '1024x1365',
-    '4:5': '1024x1280',
+  // PoYo API expects ratio format (e.g. '16:9'), NOT pixel dimensions
+  const validRatios = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'];
+  const ratio = aspectRatio || '1:1';
+  if (validRatios.includes(ratio)) {
+    return ratio;
+  }
+  // Map common aliases
+  const aliasMap: Record<string, string> = {
+    'square': '1:1',
+    'landscape': '16:9',
+    'portrait': '9:16',
   };
-  return sizeMap[aspectRatio || '1:1'] || '1024x1024';
+  return aliasMap[ratio] || '1:1';
 }
 
 /**
