@@ -9,6 +9,7 @@ export interface GeneratedChannelImage {
   imageUrl: string;
   prompt: string;
   generatedAt: string;
+  modelUsed?: string;
 }
 
 // Re-export types from image-prompt-builder for frontend use
@@ -202,6 +203,18 @@ export function useSocialImageGeneration() {
       }
 
       let imageUrl = data.imageUrl;
+      const modelUsed: string = data.modelUsed || '';
+
+      // Detect fallback and show warning toast
+      if (modelUsed.includes('(fallback from')) {
+        const fallbackMatch = modelUsed.match(/^(.+?)\s*\(fallback from (.+?)\)$/);
+        if (fallbackMatch) {
+          toast.warning(`Model "${fallbackMatch[2]}" thất bại`, {
+            description: `Đã dùng "${fallbackMatch[1]}" thay thế`,
+            duration: 8000,
+          });
+        }
+      }
 
       // Step 2: Apply Canvas text overlay if enabled
       if (useCanvasFallback && imageContentType === 'with_text' && textToInclude) {
@@ -246,8 +259,9 @@ export function useSocialImageGeneration() {
           [channel]: {
             channel,
             imageUrl,
-            prompt: data.prompt || prompt, // Use the enhanced prompt from response
+            prompt: data.prompt || prompt,
             generatedAt: new Date().toISOString(),
+            modelUsed,
           },
         }));
       }
