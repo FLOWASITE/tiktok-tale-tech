@@ -68,9 +68,16 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
   {
     id: 'kie',
     name: 'KIE.ai',
-    description: 'Flux Kontext, GPT-Image (gateway)',
+    description: 'Flux Kontext, Flux 2, Nano Banana, GPT-Image, Grok Imagine',
     getKeyUrl: 'https://kie.ai',
-    models: ['flux-kontext-pro', 'flux-kontext-max', 'gpt-image-1', 'gpt-image-1.5'],
+    models: [
+      'flux-kontext-pro', 'flux-kontext-max',
+      'gpt-image-1', 'gpt-image-1.5',
+      'flux-2/pro-text-to-image', 'flux-2/flex-text-to-image',
+      'flux-2/pro-image-to-image', 'flux-2/flex-image-to-image',
+      'nano-banana', 'nano-banana-edit', 'nano-banana-pro',
+      'grok-imagine/text-to-image', 'grok-imagine/image-to-image',
+    ],
     icon: '🔮',
   },
   {
