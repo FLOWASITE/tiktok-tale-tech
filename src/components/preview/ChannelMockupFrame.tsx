@@ -39,7 +39,7 @@ const mockupMarkdownComponents = {
   br: () => <br className="block" />,
 };
 
-type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'general';
+type ChannelType = 'facebook' | 'linkedin' | 'instagram' | 'tiktok' | 'email' | 'twitter' | 'threads' | 'general';
 
 interface ChannelMockupFrameProps {
   channel: ChannelType;
@@ -707,6 +707,103 @@ function TwitterMockup({ content, brandName, logoUrl, isGenerating, channelImage
   );
 }
 
+// Threads Post Mockup - Match official Threads design
+function ThreadsMockup({ content, brandName, logoUrl, isGenerating, channelImage }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+  const username = brandName.toLowerCase().replace(/\s+/g, '');
+  const [liked, setLiked] = useState(false);
+
+  return (
+    <div className="bg-white dark:bg-[#101010] rounded-xl overflow-hidden font-['system-ui','-apple-system',sans-serif] border border-[#e0e0e0] dark:border-[#2e2e2e]">
+      {/* Post header */}
+      <div className="px-4 pt-4 pb-2 flex items-start gap-3">
+        <Avatar className="h-9 w-9 shrink-0">
+          {logoUrl ? <AvatarImage src={logoUrl} alt={brandName} /> : null}
+          <AvatarFallback className="bg-gradient-to-br from-[#000] to-[#333] text-white font-bold text-xs">
+            {brandName.charAt(0).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-sm text-[#000] dark:text-white">{username}</span>
+              <Check className="w-3.5 h-3.5 text-[#0095f6]" />
+            </div>
+            <div className="flex items-center gap-2 text-[#999]">
+              <span className="text-xs">2 giờ</span>
+              <MoreHorizontal className="w-5 h-5 cursor-pointer" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content text */}
+      <div className="px-4 pb-3">
+        {isGenerating ? (
+          <div className="space-y-2 animate-pulse">
+            <div className="h-3.5 bg-[#f0f0f0] dark:bg-[#2a2a2a] rounded w-full" />
+            <div className="h-3.5 bg-[#f0f0f0] dark:bg-[#2a2a2a] rounded w-5/6" />
+            <div className="h-3.5 bg-[#f0f0f0] dark:bg-[#2a2a2a] rounded w-3/4" />
+          </div>
+        ) : (
+          <div className="text-[15px] text-[#000] dark:text-[#f5f5f5] leading-[1.4] whitespace-pre-wrap">
+            <ReactMarkdown components={mockupMarkdownComponents}>{content}</ReactMarkdown>
+          </div>
+        )}
+      </div>
+
+      {/* Image - show if available */}
+      {channelImage && (
+        <div className="mx-4 mb-3 rounded-lg overflow-hidden border border-[#e0e0e0] dark:border-[#2e2e2e]">
+          <img 
+            src={channelImage} 
+            alt="Post image" 
+            className="w-full aspect-square object-cover"
+          />
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="px-4 pb-3 flex items-center gap-5">
+        <button 
+          onClick={() => setLiked(!liked)}
+          className="transition-all duration-200 hover:scale-110 active:scale-90"
+        >
+          <Heart className={cn(
+            "w-5 h-5 transition-all duration-300",
+            liked ? "text-[#ff3040] fill-[#ff3040]" : "text-[#000] dark:text-[#f5f5f5]"
+          )} />
+        </button>
+        <button className="transition-all duration-200 hover:scale-110 active:scale-90">
+          <MessageCircle className="w-5 h-5 text-[#000] dark:text-[#f5f5f5]" />
+        </button>
+        <button className="transition-all duration-200 hover:scale-110 active:scale-90">
+          <Repeat2 className="w-5 h-5 text-[#000] dark:text-[#f5f5f5]" />
+        </button>
+        <button className="transition-all duration-200 hover:scale-110 active:scale-90">
+          <Send className="w-5 h-5 text-[#000] dark:text-[#f5f5f5]" />
+        </button>
+      </div>
+
+      {/* Engagement stats */}
+      <div className="px-4 pb-3 flex items-center gap-2">
+        <div className="flex -space-x-1.5">
+          <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#833ab4] to-[#fd1d1d] border border-white dark:border-[#101010]" />
+          <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#0095f6] to-[#00d4ff] border border-white dark:border-[#101010]" />
+        </div>
+        <span className="text-xs text-[#999]">42 lượt thích · 8 trả lời</span>
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-[#e0e0e0] dark:border-[#2e2e2e] mx-4" />
+
+      {/* Reply prompt */}
+      <div className="px-4 py-3">
+        <p className="text-sm text-[#999]">Trả lời {username}...</p>
+      </div>
+    </div>
+  );
+}
+
 // Email Mockup - Modern email client design
 function EmailMockup({ content, brandName, logoUrl, isGenerating }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const [starred, setStarred] = useState(false);
@@ -1181,6 +1278,8 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
       return <TikTokMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'twitter':
       return <TwitterMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
+    case 'threads':
+      return <ThreadsMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'email':
       return <EmailMockup {...rest} brandName={safeBrandName} />;
     case 'general':
