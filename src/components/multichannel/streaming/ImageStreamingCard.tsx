@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { ModelUsedBadge } from "@/components/ui/ModelUsedBadge";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,8 @@ interface ImageStreamingCardProps {
   isRetrying?: boolean;
   logoOverlayFailed?: boolean;
   startTime?: number;
-  prompt?: string; // The prompt used to generate the image
+  prompt?: string;
+  modelUsed?: string;
 }
 
 // Average generation time in seconds (can be adjusted based on real data)
@@ -85,6 +87,7 @@ export function ImageStreamingCard({
   logoOverlayFailed,
   startTime,
   prompt,
+  modelUsed,
 }: ImageStreamingCardProps) {
   const config = STATUS_CONFIG[status];
   const isActive = status === 'generating' || status === 'overlaying';
@@ -300,6 +303,9 @@ export function ImageStreamingCard({
               <span className="font-medium text-sm">
                 {getChannelLabel(channel)}
               </span>
+              {isDone && modelUsed && (
+                <ModelUsedBadge modelUsed={modelUsed} />
+              )}
             </div>
             
             <div className="flex items-center gap-2">

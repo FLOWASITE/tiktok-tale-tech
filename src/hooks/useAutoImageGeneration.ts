@@ -53,7 +53,8 @@ export interface GeneratedImage {
   prompt: string;
   generatedAt: string;
   aspectRatio: string;
-  logoOverlayFailed?: boolean; // Track if logo overlay failed
+  logoOverlayFailed?: boolean;
+  modelUsed?: string;
 }
 
 export interface ChannelProgress {
@@ -153,8 +154,18 @@ export function useAutoImageGeneration() {
 
         let finalImageUrl = imageData.imageUrl;
         let logoFailed = false;
+        const modelUsed: string = imageData.modelUsed || '';
 
-        // Step 2: Overlay logo if requested (using canvas-based overlay for speed)
+        // Detect fallback and show warning toast
+        if (modelUsed.includes('(fallback from')) {
+          const fallbackMatch = modelUsed.match(/^(.+?)\s*\(fallback from (.+?)\)$/);
+          if (fallbackMatch) {
+            toast.warning(`${channel}: Model "${fallbackMatch[2]}" thất bại`, {
+              description: `Đã dùng "${fallbackMatch[1]}" thay thế`,
+              duration: 8000,
+            });
+          }
+        }
         if (includeLogo && logoUrl) {
           setProgress(prev => ({ ...prev, [channel]: 'overlaying' }));
           
@@ -233,6 +244,7 @@ export function useAutoImageGeneration() {
           generatedAt: new Date().toISOString(),
           aspectRatio: channelAspectRatio,
           logoOverlayFailed: logoFailed,
+          modelUsed,
         };
 
         setProgress(prev => ({ ...prev, [channel]: 'done' }));

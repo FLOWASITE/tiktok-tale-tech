@@ -147,6 +147,7 @@ export function ImageStreamingGrid({
                   imageUrl={image?.imageUrl}
                   aspectRatio={image?.aspectRatio}
                   prompt={image?.prompt}
+                  modelUsed={image?.modelUsed}
                   onRetry={onRetryChannel ? () => onRetryChannel(channel) : undefined}
                   onDownload={onDownloadImage ? () => onDownloadImage(channel) : undefined}
                   onEditBackground={onEditBackground ? () => onEditBackground(channel) : undefined}
