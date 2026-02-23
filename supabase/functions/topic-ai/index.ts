@@ -326,10 +326,8 @@ async function handleRefine(
     learningContext = await fetchLearningContext(supabase, brandTemplateId, null);
   }
 
-  const videoTypeLabel = videoType === 'expert_share' ? 'chia sẻ chuyên gia' :
-                        videoType === 'analyze_explain' ? 'phân tích giải thích' :
-                        videoType === 'warning_mistake' ? 'cảnh báo sai lầm' :
-                        videoType === 'quick_qa' ? 'hỏi đáp nhanh' : 'video marketing';
+  // Language-neutral video type labels (used as metadata, AI interprets them)
+  const videoTypeLabel = videoType || 'video marketing';
 
   // Try to fetch system prompt from registry, fallback to hardcoded
   let systemPrompt = '';
@@ -342,27 +340,29 @@ async function handleRefine(
 
   // Build prompt
   const promptParts: string[] = [];
-  const basePrompt = systemPrompt || `Bạn là Content Strategist chuyên nghiệp. Cải thiện chủ đề thô thành 3 phiên bản hay hơn, cụ thể hơn, hấp dẫn hơn.
+  const basePrompt = systemPrompt || `You are a professional Content Strategist. Improve a raw topic into 3 better, more specific, more engaging versions.
 
-## NGUYÊN TẮC CẢI THIỆN:
-1. Cụ thể hóa: Thêm số liệu, thời gian, đối tượng cụ thể
-2. Tạo góc nhìn mới: Practical, Controversial, Educational, Storytelling
-3. Hook-friendly: Tiêu đề có thể chuyển thành hook video ngay
-4. Phù hợp thương hiệu: Không vi phạm tone và guideline`;
+## IMPROVEMENT PRINCIPLES:
+1. Be specific: Add data points, timeframes, specific audiences
+2. Fresh angles: Practical, Controversial, Educational, Storytelling
+3. Hook-friendly: Title can be immediately turned into a video hook
+4. Brand-aligned: Do not violate brand tone and guidelines
+
+Respond in the same language as the raw topic provided.`;
 
   promptParts.push(`${basePrompt}
 
-## CHỦ ĐỀ THÔ
+## RAW TOPIC
 "${rawTopic}"
-Thể loại: ${videoTypeLabel}`);
+Video type: ${videoTypeLabel}`);
 
   if (brandContext) {
     promptParts.push(buildBrandContextString(brandContext));
     
     if (brandContext.industryContext) {
-      promptParts.push(`\n## 🔒 INDUSTRY MEMORY (KHÔNG ĐƯỢC VI PHẠM)
+      promptParts.push(`\n## 🔒 INDUSTRY MEMORY (MUST NOT VIOLATE)
 ${brandContext.industryContext.targetAudience ? `Target Audience: ${brandContext.industryContext.targetAudience}` : ''}
-${brandContext.industryContext.forbiddenTerms?.length ? `TỪ CẤM: ${brandContext.industryContext.forbiddenTerms.slice(0, 10).join(', ')}` : ''}`);
+${brandContext.industryContext.forbiddenTerms?.length ? `Forbidden Terms: ${brandContext.industryContext.forbiddenTerms.slice(0, 10).join(', ')}` : ''}`);
     }
   }
 
@@ -373,17 +373,17 @@ ${brandContext.industryContext.forbiddenTerms?.length ? `TỪ CẤM: ${brandCont
 
   promptParts.push(`
 ## OUTPUT FORMAT
-Trả về CHÍNH XÁC JSON array với 3 items:
+Return EXACTLY a JSON array with 3 items (respond in the same language as the raw topic):
 [
   {
-    "topic": "Tiêu đề chủ đề cải thiện (15-50 từ)",
-    "angle": "Góc tiếp cận (practical, controversial, educational, storytelling, solution, data)",
-    "hook": "1 câu gợi ý hook mở đầu cho video"${brandContext?.personas?.length ? `,
-    "targetPersona": "Tên persona phù hợp nhất (nếu rõ ràng)"` : ''}${brandContext?.products?.length ? `,
-    "productFit": "Tên sản phẩm liên quan (nếu có)"` : ''}
+    "topic": "Improved topic title (15-50 words)",
+    "angle": "Approach angle (practical, controversial, educational, storytelling, solution, data)",
+    "hook": "1 suggested opening hook for video"${brandContext?.personas?.length ? `,
+    "targetPersona": "Best matching persona name (if clear)"` : ''}${brandContext?.products?.length ? `,
+    "productFit": "Related product name (if any)"` : ''}
   }
 ]
-CHỈ TRẢ VỀ JSON, KHÔNG GIẢI THÍCH THÊM.`);
+RETURN JSON ONLY, NO ADDITIONAL EXPLANATION.`);
 
   const finalPrompt = promptParts.join('\n\n');
 
@@ -659,37 +659,39 @@ async function handleTrending(
   const currentHour = new Date().getHours();
   const dayOfWeek = new Date().toLocaleDateString('vi-VN', { weekday: 'long' });
 
-  // Call AI for analysis with randomization
-  const systemPrompt = `Bạn là chuyên gia phân tích xu hướng content social media tại Việt Nam.
-Phân tích DỮ LIỆU THỰC TẾ và tạo danh sách 10-12 trending topics.
+  // Call AI for analysis with randomization - language-neutral instructions
+  const systemPrompt = `You are an expert social media content trend analyst.
+Analyze REAL DATA and generate a list of 10-12 trending topics relevant to the brand's market.
 
 🎲 Variation Seed: ${randomSeed}
-📅 Thời điểm: ${dayOfWeek}, ${currentHour}h
+📅 Current time: ${dayOfWeek}, ${currentHour}h
 
-QUAN TRỌNG - TRÁNH LẶP LẠI:
-- Mỗi lần generate, tạo MIX MỚI từ các nguồn dữ liệu
-- Ưu tiên góc độ/angle MỚI cho các xu hướng đang hot
-- Kết hợp sáng tạo giữa các nguồn khác nhau
-- KHÔNG sử dụng lại chính xác các topics đã có
+IMPORTANT - AVOID REPETITION:
+- Each generation must create a FRESH MIX from available data sources
+- Prioritize NEW angles for hot trends
+- Creatively combine different sources
+- DO NOT reuse exact topics already generated
 
-Trả về JSON array với format:
+Respond in the same language as the brand context provided.
+
+Return JSON array with format:
 [{
-  "topic": "Tên xu hướng/chủ đề ngắn gọn",
+  "topic": "Short trending topic name",
   "category": "seasonal" | "news" | "social_trend" | "industry_trend" | "viral",
   "velocity_score": 0-100,
   "peak_status": "rising" | "peaking" | "declining",
-  "peak_prediction": "thời gian dự đoán peak (VD: '3-5 ngày tới')",
+  "peak_prediction": "predicted peak time (e.g. '3-5 days')",
   "related_keywords": ["keyword1", "keyword2", "keyword3"],
   "engagement_potential": 0-100,
   "competition_level": "low" | "medium" | "high",
-  "suggested_angles": ["góc 1", "góc 2", "góc 3"],
+  "suggested_angles": ["angle 1", "angle 2", "angle 3"],
   "source": "curated_event" | "curated_news" | "web_search" | "ai"
 }]`;
 
   // Build exclusion context if there are recent topics
   let exclusionContext = '';
   if (avoidTopics.length > 0) {
-    exclusionContext = `\n⚠️ TRÁNH LẶP LẠI (đã generate gần đây, TẠO TOPICS MỚI HOÀN TOÀN):\n${avoidTopics.slice(0, 15).join(', ')}\n`;
+    exclusionContext = `\n⚠️ AVOID REPEATING (recently generated, CREATE ENTIRELY NEW TOPICS):\n${avoidTopics.slice(0, 15).join(', ')}\n`;
   }
 
   const userPrompt = `${brandContextStr}
@@ -697,7 +699,7 @@ ${curatedContext}
 ${webSearchContext}
 ${exclusionContext}
 
-Phân tích và tạo danh sách trending topics MỚI. Respond in Vietnamese.`;
+Analyze and generate a list of NEW trending topics.`;
 
   const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
@@ -798,7 +800,7 @@ async function handleAnalysis(
   const contentPillars = brandContext?.contentPillars || [];
 
   // Build prompts based on analysis type
-  let systemPrompt = `Bạn là chuyên gia phân tích content marketing. Phân tích dữ liệu và trả về JSON hợp lệ.`;
+  let systemPrompt = `You are a content marketing analysis expert. Analyze data and return valid JSON. Respond in the same language as the brand/topic context provided.`;
   let userPrompt = '';
 
   if (action === 'gap_analysis') {

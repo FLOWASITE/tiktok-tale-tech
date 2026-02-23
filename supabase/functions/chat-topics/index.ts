@@ -423,15 +423,20 @@ serve(async (req) => {
         const content = lastUserMessage.content.toLowerCase();
         // Expanded keywords: Trending + Brainstorm/discovery intent
         const trendingKeywords = [
-          // Trending/viral intent (existing)
+          // Vietnamese trending/viral intent
           'xu hướng', 'trending', 'đang hot', 'viral', 'trend', 
           'tin tức mới nhất', 'tin mới', 'hot topic', 'xu huong',
           'đang được quan tâm', 'nổi bật', 'phổ biến', 'gần đây',
-          // NEW: Brainstorm/discovery intent (ensures web search for topic suggestions)
+          // Vietnamese brainstorm/discovery intent
           'ý tưởng', 'chủ đề', 'topic', 'brainstorm', 'gợi ý',
           'content gì', 'nội dung gì', 'viết gì', 'làm gì',
           'tìm kiếm', 'discover', 'khám phá', 'mới', 'fresh',
-          'đề xuất', 'suggest', 'ideas', 'sáng tạo', 'creative'
+          'đề xuất', 'suggest', 'ideas', 'sáng tạo', 'creative',
+          // Thai trending/discovery intent
+          'เทรนด์', 'กำลังฮิต', 'ไวรัล', 'ข่าวล่าสุด', 'ยอดนิยม',
+          'ไอเดีย', 'หัวข้อ', 'แนะนำ', 'คอนเทนต์', 'สร้างสรรค์',
+          // English fallback
+          'what to write', 'content ideas', 'latest trends', 'popular'
         ];
         
         const hasTrendingIntent = trendingKeywords.some(kw => content.includes(kw));
@@ -446,7 +451,11 @@ serve(async (req) => {
           
           // Build industry-specific search query
           const industryName = industryMemory?.name || brandContext?.industry?.[0] || 'business';
-          const searchQuery = `xu hướng nội dung ${industryName} Việt Nam tuần này trending topics content marketing`;
+          // Build search query based on detected language context
+          const hasThaiContent = content.match(/[\u0E00-\u0E7F]/);
+          const searchQuery = hasThaiContent
+            ? `เทรนด์คอนเทนต์ ${industryName} สัปดาห์นี้ trending topics content marketing`
+            : `xu hướng nội dung ${industryName} tuần này trending topics content marketing`;
           
           try {
             prefetchedTrends = await withTimeout(

@@ -39,10 +39,10 @@ serve(async (req) => {
 
     // Build the content to optimize
     const contentParts = [];
-    if (headline) contentParts.push(`Headline hiện tại: "${headline}"`);
-    if (primaryText) contentParts.push(`Primary Text hiện tại: "${primaryText}"`);
-    if (description) contentParts.push(`Description hiện tại: "${description}"`);
-    if (ctaButton) contentParts.push(`CTA hiện tại: "${ctaButton}"`);
+    if (headline) contentParts.push(`Current Headline: "${headline}"`);
+    if (primaryText) contentParts.push(`Current Primary Text: "${primaryText}"`);
+    if (description) contentParts.push(`Current Description: "${description}"`);
+    if (ctaButton) contentParts.push(`Current CTA: "${ctaButton}"`);
 
     if (contentParts.length === 0) {
       return new Response(
@@ -52,17 +52,19 @@ serve(async (req) => {
     }
 
     // Try to fetch system prompt from registry with fallback
-    const FALLBACK_SYSTEM = `Bạn là chuyên gia tối ưu hóa quảng cáo digital với 10+ năm kinh nghiệm.
+    const FALLBACK_SYSTEM = `You are a digital ad optimization expert with 10+ years of experience.
 
-**Các nguyên tắc tối ưu:**
-- Power Words: Sử dụng từ ngữ mạnh (Miễn phí, Độc quyền, Bí mật, Khám phá...)
-- Urgency: Tạo cảm giác cấp bách (Chỉ còn 24h, Số lượng có hạn...)
-- Social Proof: Bằng chứng xã hội (10.000+ khách hàng, Được tin dùng...)
-- Benefit Focus: Tập trung lợi ích cho khách hàng, không feature
-- Question Hook: Đặt câu hỏi kích thích tò mò
-- Number Specificity: Số liệu cụ thể tạo tin tưởng
-- Emotional Trigger: Kích hoạt cảm xúc
-- Scarcity: Tạo sự khan hiếm`;
+**Optimization Principles:**
+- Power Words: Use impactful words (Free, Exclusive, Secret, Discover...)
+- Urgency: Create time pressure (Only 24h left, Limited quantity...)
+- Social Proof: Evidence (10,000+ customers, Trusted by...)
+- Benefit Focus: Focus on customer benefits, not features
+- Question Hook: Ask curiosity-provoking questions
+- Number Specificity: Specific data builds trust
+- Emotional Trigger: Activate emotions
+- Scarcity: Create scarcity
+
+Respond in the same language as the ad copy provided.`;
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -82,42 +84,42 @@ serve(async (req) => {
     }
     const finalSystemPrompt = systemPrompt || FALLBACK_SYSTEM;
 
-    const prompt = `Hãy phân tích và đề xuất cải tiến cho ad copy sau:
+    const prompt = `Analyze and suggest improvements for the following ad copy:
 
 ${contentParts.join('\n')}
 
 **Context:**
 - Platform: ${platform}
 - Objective: ${objective}
-- Mục tiêu tối ưu: ${optimizationGoal === 'ctr' ? 'Tăng CTR' : optimizationGoal === 'conversion' ? 'Tăng Conversion Rate' : 'Tăng Engagement'}
+- Optimization goal: ${optimizationGoal === 'ctr' ? 'Increase CTR' : optimizationGoal === 'conversion' ? 'Increase Conversion Rate' : 'Increase Engagement'}
 
-**Yêu cầu:**
-Đề xuất 2-4 cải tiến cụ thể, mỗi cải tiến cần:
-1. Chỉ rõ field cần cải tiến (headline, primary_text, description, cta)
-2. Nội dung đề xuất mới
-3. Dự đoán % cải thiện (realistic: 5-25%)
-4. Metric sẽ được cải thiện (ctr, conversion_rate, engagement)
-5. Độ tin cậy (low/medium/high)
-6. Lý do tại sao cải tiến này hiệu quả
-7. Technique sử dụng: power_words, urgency, social_proof, benefit_focus, question_hook, number_specificity, emotional_trigger, scarcity
+**Requirements:**
+Suggest 2-4 specific improvements, each must include:
+1. Field to improve (headline, primary_text, description, cta)
+2. New suggested content (in the SAME LANGUAGE as the original ad copy)
+3. Predicted improvement % (realistic: 5-25%)
+4. Metric that will improve (ctr, conversion_rate, engagement)
+5. Confidence level (low/medium/high)
+6. Why this improvement works (in the same language as the ad copy)
+7. Technique used: power_words, urgency, social_proof, benefit_focus, question_hook, number_specificity, emotional_trigger, scarcity
 
-Trả về JSON theo format:
+Return JSON in this format:
 {
   "suggestions": [
     {
       "field": "headline" | "primary_text" | "description" | "cta",
-      "original": "nội dung hiện tại",
-      "suggested": "nội dung đề xuất mới",
+      "original": "current content",
+      "suggested": "new suggested content",
       "predicted_improvement": number (5-25),
       "improvement_metric": "ctr" | "conversion_rate" | "engagement",
       "confidence": "low" | "medium" | "high",
-      "reason": "Lý do cải tiến bằng tiếng Việt, 1-2 câu",
+      "reason": "Brief explanation, 1-2 sentences",
       "technique": "string"
     }
   ]
 }
 
-Chỉ trả về JSON, không có text khác.`;
+Return JSON only, no other text.`;
 
     // Get AI config from Admin Panel
     const aiConfig = await getAIConfig('optimize-ad-copy');
