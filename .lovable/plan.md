@@ -1,88 +1,140 @@
 
+# Tao anh nhan vat phu thuoc quoc gia user
 
-# Hoan thien UI/UX Tao noi dung da kenh - Tich hop Auto Image Pipeline
+## Hien trang
 
-## Van de hien tai
+- `brand_templates` da co truong `country_code` va `jurisdiction_code` (hien tai tat ca deu la `VN`)
+- `buildImagePrompt()` trong `image-prompt-builder.ts` **khong co** bat ky chi dan nao ve ngoai hinh nhan vat, sac toc, van hoa dia phuong
+- `buildPersonaVisualSection()` chi co age, occupation, interests - **khong co ethnicity/nationality**
+- Edge function `generate-brand-image` da fetch `brand_templates` nhung **khong lay** `country_code`
 
-Sau khi trien khai Auto Image Pipeline (Phase 1 + 2), con ton tai **3 lo hong UI/UX**:
+## Giai phap
 
-1. **MobileGenerationSheet khong hien thi tien do tao anh** - Tren mobile, sau khi text hoan thanh, user chi thay "Tao thanh cong!" nhung khong biet anh dang duoc tu dong tao
-2. **CreatePreviewPanel chuyen trang thai dot ngot** - Text xong → nhay ngay sang "Hoan thanh" mà khong co giai doan chuyen tiep "Dang tao anh..."
-3. **Khong co cach retry/download anh tu trang Create** - ImageStreamingGrid hien tai khong truyen callback retry/download tu page chinh
-
-## Pham vi thay doi
-
-### 1. MobileGenerationSheet - Them Image Pipeline (Uu tien cao)
-
-Them props image pipeline vao `MobileGenerationSheet.tsx` de mobile users cung thay duoc tien do tao anh:
-
-- Them props: `imagePhase`, `imageProgress`, `imageProgressTimes`, `generatedImages`, `imageCompletedCount`, `imageTotalCount`
-- Khi `generationState === 'complete'` va `imagePhase === 'generating_images'`:
-  - Hien thi `ImageStreamingGrid` compact (1 cot tren mobile)
-  - Thay title thanh "Dang tao anh AI..." thay vi "Tao thanh cong!"
-  - Them progress bar cho anh
-- Khi ca text va anh deu xong: hien "Hoan thanh!" voi summary
-
-### 2. CreatePreviewPanel - Cai thien transition (Uu tien cao)
-
-Cap nhat `CreatePreviewPanel.tsx`:
-
-- Khi `state === 'complete'` va `imagePhase === 'generating_images'`: Hien thi 2 phan:
-  - Mini success header (nho gon) cho text
-  - ImageStreamingGrid lam phan chinh (chiem nhieu khong gian hon)
-- Khi tat ca xong: Hien thi summary tong hop (text + anh) voi action buttons
-
-### 3. MultiChannelCreate - Truyen du props (Uu tien cao)
-
-Cap nhat `MultiChannelCreate.tsx`:
-
-- Truyen image pipeline props xuong `MobileGenerationSheet`
-- Them `logoOverlayFailures` vao CreatePreviewPanel props
+Them 1 section moi trong prompt builder de chi dan AI tao nhan vat nguoi phu hop voi quoc gia cua brand, dua tren `country_code` tu `brand_templates`.
 
 ## Chi tiet ky thuat
 
-### File 1: `src/components/multichannel/MobileGenerationSheet.tsx`
+### 1. Cap nhat Edge Function `generate-brand-image/index.ts`
 
-- Import `ImageStreamingGrid`, `ImageGenerationStatus`, `GeneratedImage`, `PipelinePhase`
-- Them 6 props moi cho image pipeline
-- Them trang thai "generating_images" trong phan complete:
-  - Title: "Dang tao anh AI..."
-  - ImageStreamingGrid voi grid 1 cot (mobile-optimized)
-  - Progress: `imageCompletedCount/imageTotalCount kenh`
-- Khong cho dong drawer khi dang tao anh
+- Them `country_code` vao SELECT query cua `brand_templates` (dong 263)
+- Truyen `countryCode` vao `buildImagePrompt()` params
 
-### File 2: `src/components/multichannel/CreatePreviewPanel.tsx`
+```text
+// Hien tai:
+.select("primary_color, secondary_colors, image_style, logo_url, brand_name, industry, organization_id, tone_of_voice, formality_level")
 
-- Them prop `logoOverlayFailures` (optional)
-- Khi complete + dang tao anh:
-  - Thu nho text success header (icon + text 1 dong thay vi card lon)
-  - ImageStreamingGrid chiem phan lon khong gian
-  - Action buttons van hien nhung co badge "Dang tao anh..." de user biet co the xem truoc
-- Khi complete + anh xong:
-  - Summary: "X kenh noi dung + Y kenh anh"
-  - Action buttons nhu cu
+// Sau:
+.select("primary_color, secondary_colors, image_style, logo_url, brand_name, industry, organization_id, tone_of_voice, formality_level, country_code")
+```
 
-### File 3: `src/pages/MultiChannelCreate.tsx`
+### 2. Cap nhat `_shared/image-prompt-builder.ts`
 
-- Truyen them image pipeline props xuong MobileGenerationSheet:
-  - `imagePhase={imagePipeline.phase}`
-  - `imageProgress={imagePipeline.imageProgress}`
-  - `imageProgressTimes={imagePipeline.imageProgressTimes}`
-  - `generatedImages={imagePipeline.generatedImages}`
-  - `imageCompletedCount={imagePipeline.imageCompletedCount}`
-  - `imageTotalCount={imagePipeline.imageTotalCount}`
-  - `logoOverlayFailures={imagePipeline.logoOverlayFailures}`
-- Truyen `logoOverlayFailures` xuong CreatePreviewPanel
+**2a. Them `countryCode` vao `ImagePromptParams` interface:**
 
-### Khong thay doi:
-- `ImageStreamingCard.tsx` - Da tot, khong can sua
-- `ImageStreamingGrid.tsx` - Da tot, khong can sua
-- `useAutoImagePipeline.ts` - Khong can thay doi logic
-- `useAutoImageGeneration.ts` - Khong can thay doi logic
+```typescript
+export interface ImagePromptParams {
+  // ... existing fields
+  countryCode?: string; // NEW: ISO country code from brand_templates
+}
+```
 
-## Ket qua mong doi
+**2b. Tao mapping quoc gia -> chi dan ngoai hinh nhan vat:**
 
-- Mobile users thay tien do tao anh real-time trong drawer
-- Desktop users thay chuyen tiep muot tu text → anh trong preview panel
-- Trai nghiem lien tuc, khong bi gian doan giua 2 giai doan
+```typescript
+const COUNTRY_CHARACTER_DIRECTIVES: Record<string, {
+  ethnicity: string;
+  culturalContext: string;
+  settingHints: string;
+}> = {
+  VN: {
+    ethnicity: 'Vietnamese people with Vietnamese facial features, black hair, warm skin tone',
+    culturalContext: 'Vietnamese cultural context, local fashion style, Vietnamese urban/rural settings',
+    settingHints: 'Vietnamese street scenes, tropical greenery, modern Vietnamese city aesthetics',
+  },
+  US: {
+    ethnicity: 'Diverse American people reflecting multicultural society',
+    culturalContext: 'American cultural context, Western fashion, diverse backgrounds',
+    settingHints: 'Modern American urban/suburban settings',
+  },
+  TH: {
+    ethnicity: 'Thai people with Thai facial features, black hair, warm complexion',
+    culturalContext: 'Thai cultural context, local fashion, Thai aesthetics',
+    settingHints: 'Thai urban settings, tropical environment',
+  },
+  SG: {
+    ethnicity: 'Diverse Singaporean people (Chinese, Malay, Indian descent)',
+    culturalContext: 'Singaporean multicultural context, modern Asian fashion',
+    settingHints: 'Modern Singapore urban settings, clean city aesthetics',
+  },
+  MY: {
+    ethnicity: 'Malaysian people (Malay, Chinese, Indian descent)',
+    culturalContext: 'Malaysian multicultural context, local fashion mix',
+    settingHints: 'Malaysian urban and tropical settings',
+  },
+  ID: {
+    ethnicity: 'Indonesian people with Indonesian facial features',
+    culturalContext: 'Indonesian cultural context, local fashion',
+    settingHints: 'Indonesian tropical urban settings',
+  },
+  PH: {
+    ethnicity: 'Filipino people with Filipino facial features',
+    culturalContext: 'Filipino cultural context, local fashion style',
+    settingHints: 'Philippine tropical urban settings',
+  },
+  JP: {
+    ethnicity: 'Japanese people with Japanese facial features',
+    culturalContext: 'Japanese cultural context, Japanese fashion aesthetics',
+    settingHints: 'Japanese urban/modern settings',
+  },
+  KR: {
+    ethnicity: 'Korean people with Korean facial features',
+    culturalContext: 'Korean cultural context, Korean fashion trends',
+    settingHints: 'Korean modern urban settings',
+  },
+};
+```
 
+**2c. Tao function `buildCountryCharacterSection()`:**
+
+```typescript
+function buildCountryCharacterSection(countryCode?: string): string {
+  if (!countryCode) return '';
+  
+  const directive = COUNTRY_CHARACTER_DIRECTIVES[countryCode];
+  if (!directive) return '';
+  
+  return `\n\n## HUMAN CHARACTER APPEARANCE (CRITICAL):
+When featuring people/humans in the image:
+- Ethnicity: ${directive.ethnicity}
+- Cultural Context: ${directive.culturalContext}
+- Setting: ${directive.settingHints}
+- IMPORTANT: Characters must look authentic and natural for ${countryCode} market`;
+}
+```
+
+**2d. Goi function trong `buildImagePrompt()`** - dat ngay sau persona section (dong ~713):
+
+```typescript
+// Add country-specific character section
+prompt += buildCountryCharacterSection(countryCode);
+```
+
+### 3. Cap nhat frontend `imagePromptGenerator.ts`
+
+Them `countryCode` vao `PromptContext` interface va them directive tuong tu vao `generateImagePrompt()` de dong bo logic giua frontend va edge function.
+
+## Tac dong
+
+- Khi brand co `country_code = 'VN'` → AI se tao nhan vat nguoi Viet voi net mat, lan da, kieu toc phu hop
+- Khi brand co `country_code = 'US'` → AI se tao nhan vat da dang sac toc
+- Khi brand co `country_code = 'JP'` → AI se tao nhan vat nguoi Nhat
+- Neu khong co `country_code` → Khong them directive (giu nhu cu)
+- Khong anh huong den cac anh khong co nguoi (product, abstract, minimalist...)
+
+## File can thay doi
+
+| File | Thay doi |
+|------|----------|
+| `supabase/functions/generate-brand-image/index.ts` | Them `country_code` vao SELECT + truyen vao `buildImagePrompt` |
+| `supabase/functions/_shared/image-prompt-builder.ts` | Them interface, mapping, function `buildCountryCharacterSection` |
+| `src/lib/imagePromptGenerator.ts` | Them `countryCode` vao `PromptContext` + directive tuong tu |
