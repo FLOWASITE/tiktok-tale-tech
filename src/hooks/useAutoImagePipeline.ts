@@ -1,0 +1,202 @@
+/**
+ * useAutoImagePipeline
+ * 
+ * Orchestrates automatic image generation for all channels
+ * immediately after multichannel content is created.
+ * 
+ * Uses V3 Suggestion Engine to auto-select optimal styles
+ * and triggers parallel batch generation via useAutoImageGeneration.
+ */
+
+import { useState, useCallback, useRef } from 'react';
+import { Channel, MultiChannelContent, ChannelImage } from '@/types/multichannel';
+import { useAutoImageGeneration, AutoGenerateOptions, GeneratedImage } from './useAutoImageGeneration';
+import { suggestImageStylesV3 } from '@/lib/imageSuggestionEngine';
+import type { ChannelKey, ContentGoal, ContentAngle, ContentRole, Industry } from '@/config/visualScoringConfig';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+export type PipelinePhase = 'idle' | 'preparing' | 'generating_images' | 'complete' | 'error';
+
+interface AutoImagePipelineOptions {
+  /** Brand template ID for brand-aware generation */
+  brandTemplateId?: string;
+  /** Brand logo URL for overlay */
+  brandLogoUrl?: string | null;
+  /** Brand industry for V3 scoring */
+  brandIndustry?: string[];
+  /** Whether to auto-save images to DB immediately */
+  autoSave?: boolean;
+}
+
+// Map frontend Channel to V3 ChannelKey
+function toChannelKey(ch: Channel): ChannelKey {
+  if (ch === 'instagram') return 'instagram_feed';
+  return ch as ChannelKey;
+}
+
+// Extract first meaningful sentence for image context
+function extractContentSummary(channelContent: string): string {
+  if (!channelContent) return '';
+  // Remove markdown formatting
+  const cleaned = channelContent
+    .replace(/#{1,6}\s?/g, '')
+    .replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  // Get first 2-3 sentences
+  const sentences = cleaned.split(/[.!?]\s+/).filter(s => s.trim().length > 10);
+  return sentences.slice(0, 3).join('. ').substring(0, 500);
+}
+
+export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
+  const { brandTemplateId, brandLogoUrl, brandIndustry, autoSave = true } = options;
+  
+  const [phase, setPhase] = useState<PipelinePhase>('idle');
+  const [imageResults, setImageResults] = useState<{ successful: Channel[]; failed: Channel[] } | null>(null);
+  const abortRef = useRef(false);
+
+  const autoImageGen = useAutoImageGeneration();
+
+  /**
+   * Start the auto image pipeline after multichannel content is generated.
+   * 
+   * @param contentId - The ID of the newly created multichannel content
+   * @param channels - List of channels to generate images for
+   * @param channelTexts - Map of channel -> generated text content
+   * @param contentMeta - Metadata about the content (goal, role, angle)
+   */
+  const startPipeline = useCallback(async (
+    contentId: string,
+    channels: Channel[],
+    channelTexts: Record<string, string>,
+    contentMeta: {
+      contentGoal?: string;
+      contentRole?: string;
+      contentAngle?: string;
+      topic?: string;
+    }
+  ) => {
+    if (!brandTemplateId || channels.length === 0) {
+      console.warn('[AutoImagePipeline] Missing brandTemplateId or channels');
+      return;
+    }
+
+    abortRef.current = false;
+    setPhase('preparing');
+    setImageResults(null);
+
+    try {
+      // Step 1: Use V3 Suggestion Engine to pick best style for the first channel
+      // (Use same style for all channels for visual consistency)
+      const firstChannel = channels[0];
+      const industry = (brandIndustry?.[0] || 'general') as Industry;
+      
+      const suggestions = suggestImageStylesV3({
+        contentGoal: (contentMeta.contentGoal || 'engagement') as ContentGoal,
+        contentAngle: (contentMeta.contentAngle || 'educational') as ContentAngle,
+        contentRole: (contentMeta.contentRole || 'seed') as ContentRole,
+        channel: toChannelKey(firstChannel),
+        industry,
+        contentSummary: channelTexts[firstChannel] || contentMeta.topic,
+      });
+
+      const topSuggestion = suggestions[0];
+      const imageStylePreset = topSuggestion?.style || 'photorealistic';
+
+      console.log(`[AutoImagePipeline] V3 selected style: ${imageStylePreset} (score: ${topSuggestion?.score || 0})`);
+
+      // Step 2: Build content summaries per channel
+      const contentSummaries: Record<Channel, string> = {} as Record<Channel, string>;
+      channels.forEach(ch => {
+        contentSummaries[ch] = extractContentSummary(channelTexts[ch] || contentMeta.topic || '');
+      });
+
+      if (abortRef.current) return;
+
+      // Step 3: Start parallel image generation
+      setPhase('generating_images');
+
+      const genOptions: AutoGenerateOptions = {
+        contentId,
+        brandTemplateId,
+        channels,
+        contentSummaries,
+        aspectRatio: 'auto', // Let each channel use optimal ratio
+        imageStylePreset: imageStylePreset as any,
+        contentRole: (contentMeta.contentRole || 'seed') as any,
+        contentAngle: contentMeta.contentAngle,
+      };
+
+      // Save callback - persists image to multi_channel_contents.channel_images
+      const onImageGenerated = autoSave ? async (channel: Channel, image: ChannelImage) => {
+        try {
+          // Read current channel_images from DB
+          const { data: content } = await supabase
+            .from('multi_channel_contents')
+            .select('channel_images')
+            .eq('id', contentId)
+            .single();
+
+          const currentImages = (content?.channel_images as Record<string, any>) || {};
+          currentImages[channel] = image;
+
+          await supabase
+            .from('multi_channel_contents')
+            .update({ channel_images: JSON.parse(JSON.stringify(currentImages)) })
+            .eq('id', contentId);
+        } catch (err) {
+          console.error(`[AutoImagePipeline] Failed to save image for ${channel}:`, err);
+        }
+      } : undefined;
+
+      const result = await autoImageGen.generateAllImages(genOptions, onImageGenerated, autoSave);
+      
+      setImageResults(result);
+      setPhase(result.failed.length === channels.length ? 'error' : 'complete');
+
+      // Summary toast
+      if (result.successful.length > 0 && result.failed.length > 0) {
+        toast.info(
+          `Ảnh: ${result.successful.length}/${channels.length} kênh thành công`,
+          { description: `${result.failed.length} kênh cần thử lại` }
+        );
+      }
+    } catch (err) {
+      console.error('[AutoImagePipeline] Pipeline error:', err);
+      setPhase('error');
+      toast.error('Lỗi tự động tạo ảnh');
+    }
+  }, [brandTemplateId, brandIndustry, autoSave, autoImageGen]);
+
+  const cancelPipeline = useCallback(() => {
+    abortRef.current = true;
+    setPhase('idle');
+  }, []);
+
+  const resetPipeline = useCallback(() => {
+    abortRef.current = true;
+    setPhase('idle');
+    setImageResults(null);
+    autoImageGen.resetProgress();
+  }, [autoImageGen]);
+
+  return {
+    // Pipeline state
+    phase,
+    imageResults,
+    
+    // Image generation state (forwarded from useAutoImageGeneration)
+    imageProgress: autoImageGen.progress,
+    imageProgressTimes: autoImageGen.progressTimes,
+    logoOverlayFailures: autoImageGen.logoOverlayFailures,
+    generatedImages: autoImageGen.generatedImages,
+    imageCompletedCount: autoImageGen.completedCount,
+    imageTotalCount: autoImageGen.totalCount,
+    
+    // Actions
+    startPipeline,
+    cancelPipeline,
+    resetPipeline,
+    regenerateForChannel: autoImageGen.regenerateForChannel,
+  };
+}

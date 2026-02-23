@@ -10,13 +10,17 @@ import {
   ArrowRight,
   Plus,
   Bot,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AIGenerationProgress } from './AIGenerationProgress';
-import { CHANNELS, CONTENT_GOALS, MultiChannelFormData } from '@/types/multichannel';
+import { ImageStreamingGrid } from './streaming/ImageStreamingGrid';
+import { CHANNELS, CONTENT_GOALS, MultiChannelFormData, Channel } from '@/types/multichannel';
 import { ProgressEvent } from '@/hooks/useStreamingGeneration';
+import { ImageGenerationStatus, GeneratedImage } from '@/hooks/useAutoImageGeneration';
+import { PipelinePhase } from '@/hooks/useAutoImagePipeline';
 import { cn } from '@/lib/utils';
 
 type GenerationState = 'idle' | 'generating' | 'complete' | 'error';
@@ -34,6 +38,13 @@ interface CreatePreviewPanelProps {
   currentChannel?: string;
   onViewContent: () => void;
   onCreateAnother: () => void;
+  // Auto Image Pipeline props
+  imagePhase?: PipelinePhase;
+  imageProgress?: Record<Channel, ImageGenerationStatus>;
+  imageProgressTimes?: Record<Channel, number>;
+  generatedImages?: Record<Channel, GeneratedImage>;
+  imageCompletedCount?: number;
+  imageTotalCount?: number;
 }
 
 export function CreatePreviewPanel({
@@ -49,6 +60,13 @@ export function CreatePreviewPanel({
   currentChannel,
   onViewContent,
   onCreateAnother,
+  // Auto Image Pipeline
+  imagePhase,
+  imageProgress,
+  imageProgressTimes,
+  generatedImages,
+  imageCompletedCount,
+  imageTotalCount,
 }: CreatePreviewPanelProps) {
   const hasTopic = (formData.topic?.trim().length || 0) >= 10;
   const hasChannels = (formData.channels?.length || 0) > 0;
@@ -64,6 +82,9 @@ export function CreatePreviewPanel({
     const goal = CONTENT_GOALS.find(g => g.value === formData.contentGoal);
     return goal?.label || 'Chưa chọn';
   }, [formData.contentGoal]);
+
+  const isImageGenerating = imagePhase === 'generating_images' || imagePhase === 'preparing';
+  const isImageComplete = imagePhase === 'complete' || imagePhase === 'error';
 
   // State 1: Empty/Onboarding
   if (state === 'idle' && !hasTopic) {
@@ -223,7 +244,7 @@ export function CreatePreviewPanel({
     );
   }
 
-  // State 3: Generating
+  // State 3: Generating Text
   if (state === 'generating') {
     return (
       <div className="h-full flex flex-col">
@@ -243,37 +264,69 @@ export function CreatePreviewPanel({
     );
   }
 
-  // State 4: Complete
+  // State 4: Complete (text done, possibly generating images)
   if (state === 'complete') {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-center px-6">
+      <div className="h-full flex flex-col">
         <motion.div 
-          className="space-y-6 max-w-sm"
-          initial={{ opacity: 0, scale: 0.9 }}
+          className="space-y-6 w-full"
+          initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: 'spring', stiffness: 300, damping: 25 }}
         >
-          {/* Success Icon */}
-          <motion.div 
-            className="w-20 h-20 mx-auto rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center"
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 20, delay: 0.1 }}
-          >
-            <CheckCircle2 className="w-10 h-10 text-green-600 dark:text-green-400" />
-          </motion.div>
-
-          <div className="space-y-2">
-            <h3 className="text-xl font-bold text-foreground">
-              Tạo thành công! 🎉
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              Đã tạo nội dung cho {formData.channels?.length || 0} kênh trong {Math.round(elapsedMs / 1000)}s
-            </p>
+          {/* Text Success Header */}
+          <div className="flex items-center justify-center">
+            <motion.div 
+              className="flex items-center gap-3"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1 }}
+            >
+              <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">
+                  Nội dung đã tạo xong! 🎉
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {formData.channels?.length || 0} kênh trong {Math.round(elapsedMs / 1000)}s
+                </p>
+              </div>
+            </motion.div>
           </div>
 
+          {/* Auto Image Generation Section */}
+          {isImageGenerating && imageProgress && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <ImageStreamingGrid
+                progress={imageProgress}
+                progressTimes={imageProgressTimes}
+                generatedImages={generatedImages || {} as Record<Channel, GeneratedImage>}
+              />
+            </motion.div>
+          )}
+
+          {/* Image Complete Summary */}
+          {isImageComplete && imageCompletedCount != null && imageTotalCount != null && imageTotalCount > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center justify-center gap-2 text-sm"
+            >
+              <ImageIcon className="w-4 h-4 text-green-600" />
+              <span className="text-muted-foreground">
+                Đã tạo ảnh cho {imageCompletedCount}/{imageTotalCount} kênh
+              </span>
+            </motion.div>
+          )}
+
           {/* Actions */}
-          <div className="flex flex-col gap-3 w-full">
+          <div className="flex flex-col gap-3 max-w-sm mx-auto w-full">
             <Button 
               onClick={onViewContent}
               className="w-full gap-2"
