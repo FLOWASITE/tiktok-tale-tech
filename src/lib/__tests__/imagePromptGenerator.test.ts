@@ -91,4 +91,22 @@ describe('generateImagePrompt', () => {
     const result = generateImagePrompt(mockSuggestion, harvestContext);
     expect(result.toLowerCase()).toContain('conversion');
   });
+
+  it('includes country character directive when countryCode is provided', () => {
+    const vnContext = { ...mockContext, countryCode: 'VN' };
+    const result = generateImagePrompt(mockSuggestion, vnContext);
+    expect(result).toContain('Vietnamese');
+    expect(result).toContain('VN market');
+  });
+
+  it('does not include country directive when countryCode is missing', () => {
+    const result = generateImagePrompt(mockSuggestion, mockContext);
+    expect(result).not.toContain('Characters must look authentic');
+  });
+
+  it('handles unknown country code gracefully', () => {
+    const unknownContext = { ...mockContext, countryCode: 'XX' };
+    const result = generateImagePrompt(mockSuggestion, unknownContext);
+    expect(result).not.toContain('Characters must look authentic');
+  });
 });
