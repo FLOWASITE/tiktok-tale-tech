@@ -21,6 +21,7 @@ export interface PromptContext {
   contentRole: ContentRole;
   hookMessage?: string;
   industry?: string;
+  countryCode?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -46,13 +47,76 @@ function getStyleDirective(style: string): string {
     cinematic: 'Cinematic style. Dramatic lighting, wide aspect feel, film-grade color grading.',
     '3d_render': '3D rendered style. Smooth materials, soft shadows, modern isometric or perspective view.',
     watercolor: 'Watercolor painting style. Soft edges, organic color blending, artistic feel.',
-    abstract: 'Abstract art style. Shapes and colors convey emotion rather than literal subjects.',
+  abstract: 'Abstract art style. Shapes and colors convey emotion rather than literal subjects.',
     geometric: 'Geometric pattern style. Structured shapes, data-visualization aesthetic.',
     isometric: 'Isometric illustration style. 3D-like flat perspective, process/system diagrams.',
     gradient: 'Gradient-based design. Smooth color transitions, modern decorative feel.',
     product_only: 'Product photography style. Clean background, focused subject, commercial quality.',
   };
   return map[style] ?? 'High-quality visual style.';
+}
+
+// ---------------------------------------------------------------------------
+// Country character directives
+// ---------------------------------------------------------------------------
+
+const COUNTRY_CHARACTER_DIRECTIVES: Record<string, {
+  ethnicity: string;
+  culturalContext: string;
+  settingHints: string;
+}> = {
+  VN: {
+    ethnicity: 'Vietnamese people with Vietnamese facial features, black hair, warm skin tone',
+    culturalContext: 'Vietnamese cultural context, local fashion style',
+    settingHints: 'Vietnamese street scenes, tropical greenery, modern Vietnamese city aesthetics',
+  },
+  US: {
+    ethnicity: 'Diverse American people reflecting multicultural society',
+    culturalContext: 'American cultural context, Western fashion',
+    settingHints: 'Modern American urban/suburban settings',
+  },
+  TH: {
+    ethnicity: 'Thai people with Thai facial features, black hair, warm complexion',
+    culturalContext: 'Thai cultural context, local fashion',
+    settingHints: 'Thai urban settings, tropical environment',
+  },
+  SG: {
+    ethnicity: 'Diverse Singaporean people (Chinese, Malay, Indian descent)',
+    culturalContext: 'Singaporean multicultural context, modern Asian fashion',
+    settingHints: 'Modern Singapore urban settings',
+  },
+  MY: {
+    ethnicity: 'Malaysian people (Malay, Chinese, Indian descent)',
+    culturalContext: 'Malaysian multicultural context, local fashion mix',
+    settingHints: 'Malaysian urban and tropical settings',
+  },
+  ID: {
+    ethnicity: 'Indonesian people with Indonesian facial features',
+    culturalContext: 'Indonesian cultural context, local fashion',
+    settingHints: 'Indonesian tropical urban settings',
+  },
+  PH: {
+    ethnicity: 'Filipino people with Filipino facial features',
+    culturalContext: 'Filipino cultural context, local fashion style',
+    settingHints: 'Philippine tropical urban settings',
+  },
+  JP: {
+    ethnicity: 'Japanese people with Japanese facial features',
+    culturalContext: 'Japanese cultural context, Japanese fashion aesthetics',
+    settingHints: 'Japanese urban/modern settings',
+  },
+  KR: {
+    ethnicity: 'Korean people with Korean facial features',
+    culturalContext: 'Korean cultural context, Korean fashion trends',
+    settingHints: 'Korean modern urban settings',
+  },
+};
+
+function getCountryCharacterDirective(countryCode?: string): string {
+  if (!countryCode) return '';
+  const directive = COUNTRY_CHARACTER_DIRECTIVES[countryCode];
+  if (!directive) return '';
+  return `When featuring people: ${directive.ethnicity}. ${directive.culturalContext}. ${directive.settingHints}. Characters must look authentic for ${countryCode} market.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -64,7 +128,7 @@ function getStyleDirective(style: string): string {
  */
 export function generateImagePrompt(suggestion: SuggestionV3, context: PromptContext): string {
   const { style, suggestedType, typography } = suggestion;
-  const { topic, brandTone, channel, contentRole, hookMessage, industry } = context;
+  const { topic, brandTone, channel, contentRole, hookMessage, industry, countryCode } = context;
 
   // Channel spec
   const channelSpec = CHANNEL_IMAGE_CONFIG[channel] ?? CHANNEL_IMAGE_CONFIG.instagram;
@@ -113,6 +177,12 @@ export function generateImagePrompt(suggestion: SuggestionV3, context: PromptCon
   // 10. Avoid
   if (channelSpec.avoidElements.length > 0) {
     parts.push(`Avoid: ${channelSpec.avoidElements.join(', ')}.`);
+  }
+
+  // 11. Country-specific character appearance
+  const countryDirective = getCountryCharacterDirective(countryCode);
+  if (countryDirective) {
+    parts.push(countryDirective);
   }
 
   return parts.join('\n');
