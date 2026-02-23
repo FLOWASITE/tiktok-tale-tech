@@ -346,7 +346,7 @@ async function generateSinglePass(
 }> {
   console.log(`[generateSinglePass] Starting with model: ${model}, maxTokens: ${maxTokens}`);
   
-  onProgress?.('generating', 10, 'Đang tạo nội dung...');
+  onProgress?.('generating', 10, 'Generating content...');
   
   const prompt = buildSinglePassPrompt(config);
   
@@ -355,7 +355,7 @@ async function generateSinglePass(
     content = await callAIStreaming(
       model,
       prompt,
-      `Viết Core Content chất lượng cao về: ${config.topic}`,
+      `Write high-quality Core Content about: ${config.topic}`,
       maxTokens,
       0.7,
       onChunk
@@ -364,13 +364,13 @@ async function generateSinglePass(
     content = await callAI(
       model,
       prompt,
-      `Viết Core Content chất lượng cao về: ${config.topic}`,
+      `Write high-quality Core Content about: ${config.topic}`,
       maxTokens,
       0.7
     );
   }
   
-  onProgress?.('complete', 95, 'Đang hoàn thiện...');
+  onProgress?.('complete', 95, 'Finalizing...');
   
   return {
     content,

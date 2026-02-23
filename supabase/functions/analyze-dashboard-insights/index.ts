@@ -53,13 +53,13 @@ const insightsTool = {
             type: "object",
             properties: {
               type: { type: "string", enum: ["trend", "tip", "reminder", "achievement"] },
-              title: { type: "string", description: "Short title in Vietnamese" },
-              description: { type: "string", description: "Detailed description in Vietnamese, max 100 chars" },
+              title: { type: "string", description: "Short title matching user's language" },
+              description: { type: "string", description: "Detailed description matching user's language, max 100 chars" },
               priority: { type: "string", enum: ["high", "medium", "low"] },
               action: {
                 type: "object",
                 properties: {
-                  label: { type: "string", description: "Button label in Vietnamese" },
+                  label: { type: "string", description: "Button label matching user's language" },
                   href: { type: "string", description: "Navigation path" }
                 },
                 required: ["label", "href"]
@@ -309,7 +309,7 @@ function buildPrompt(stats: ContentStats): string {
   const carouselsChange = stats.comparison.carousels.thisWeek - stats.comparison.carousels.lastWeek;
   const multiChange = stats.comparison.multiChannel.thisWeek - stats.comparison.multiChannel.lastWeek;
   
-  return `Bạn là AI Content Strategist. Phân tích dữ liệu hoạt động của user và đưa ra 3-5 insights cá nhân hóa bằng tiếng Việt.
+  return `You are an AI Content Strategist. Analyze user activity data and provide 3-5 personalized insights. Respond in the same language as the user's brand context (default: Vietnamese).
 
 ## Dữ liệu user:
 

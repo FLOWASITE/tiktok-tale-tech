@@ -111,7 +111,7 @@ const INDUSTRY_BENCHMARKS: Record<string, { avgCPM: number; avgCPC: number; enga
 };
 
 const KPI_METRICS: Record<string, { label: string; unit?: string }> = {
-  reach: { label: 'Reach', unit: 'người' },
+  reach: { label: 'Reach' },
   impressions: { label: 'Impressions' },
   brand_mentions: { label: 'Brand Mentions' },
   likes: { label: 'Likes' },
@@ -123,7 +123,7 @@ const KPI_METRICS: Record<string, { label: string; unit?: string }> = {
   ctr: { label: 'CTR', unit: '%' },
   leads: { label: 'Leads' },
   sales: { label: 'Sales' },
-  revenue: { label: 'Revenue', unit: 'VND' },
+  revenue: { label: 'Revenue' },
 };
 
 // ============= UTILITY FUNCTIONS =============
@@ -267,7 +267,7 @@ async function handleSuggest(
     .limit(20);
 
   // Analyze historical data
-  let historicalSummary = 'Chưa có dữ liệu campaigns hoàn thành trước đó.';
+  let historicalSummary = 'No completed campaign data available yet.';
   const historicalStats: Record<string, { totalTarget: number; totalCurrent: number; count: number }> = {};
   
   if (historicalCampaigns && historicalCampaigns.length > 0) {
@@ -327,23 +327,25 @@ async function handleSuggest(
     console.warn('[kpi-ai:suggest] Failed to fetch prompt from registry, using hardcoded');
   }
 
-  const systemPrompt = baseSystemPrompt || `Bạn là chuyên gia marketing phân tích KPI cho thị trường Việt Nam. Hãy đề xuất KPI targets phù hợp và thực tế.
+  const systemPrompt = baseSystemPrompt || `You are a marketing KPI analysis expert. Suggest realistic and suitable KPI targets.
 
-## Quy tắc:
+## Rules:
 1. Confidence level:
-   - HIGH: Có data historical rõ ràng hoặc đã có campaigns tương tự đạt kết quả
-   - MEDIUM: Dựa trên industry benchmark, không có historical data cụ thể
-   - LOW: Ước tính, target có thể cần điều chỉnh
+   - HIGH: Clear historical data or similar campaigns with proven results
+   - MEDIUM: Based on industry benchmarks, no specific historical data
+   - LOW: Estimated, targets may need adjustment
 
-2. Reasoning phải ngắn gọn, dưới 50 từ, bằng tiếng Việt
+2. Reasoning must be concise, under 50 words
 
-3. Tính toán dựa trên:
-   - Budget chia cho CPM/CPC để ước tính reach/clicks
-   - Engagement rate theo benchmark ngành
-   - Seasonal multiplier cho mùa cao điểm
-   - Historical achievement rate nếu có
+3. Calculate based on:
+   - Budget divided by CPM/CPC for reach/clicks estimation
+   - Engagement rate by industry benchmark
+   - Seasonal multiplier for peak seasons
+   - Historical achievement rate if available
 
-4. Recommendations tối đa 3 gợi ý chiến lược`;
+4. Maximum 3 strategic recommendations
+
+Respond in the same language as the campaign context provided.`;
 
   const userPrompt = `## Campaign Context:
 - Campaign type: ${campaignType}
@@ -529,7 +531,7 @@ async function handleAdjust(
   if (analyses.length === 0) {
     const result: AdjustResponse = {
       needsAdjustment: false,
-      overallAssessment: "Tất cả KPI đang trong phạm vi mục tiêu. Không cần điều chỉnh.",
+      overallAssessment: "All KPIs are within target range. No adjustments needed.",
       suggestions: [],
       actionItems: [],
       analyzedAt: now.toISOString(),
@@ -549,41 +551,43 @@ async function handleAdjust(
     velocity: a.analysis.velocity.toFixed(2) + "/ngày",
   }));
 
-  const systemPrompt = `Bạn là chuyên gia phân tích KPI cho marketing campaigns tại Việt Nam.
-Nhiệm vụ: Phân tích performance và đề xuất điều chỉnh KPI targets một cách thông minh.
+  const systemPrompt = `You are a KPI analysis expert for marketing campaigns.
+Task: Analyze performance and suggest smart KPI target adjustments.
 
-Quy tắc đề xuất:
-1. Overperforming (vượt mục tiêu):
-   - Tăng target 20-50% tùy mức độ vượt
-   - Confidence "high" nếu > 150% achievement, "medium" nếu 120-150%
-   - Priority "recommended" để tối ưu budget
+Suggestion Rules:
+1. Overperforming (exceeding target):
+   - Increase target 20-50% depending on how much exceeded
+   - Confidence "high" if > 150% achievement, "medium" if 120-150%
+   - Priority "recommended" to optimize budget
 
-2. Underperforming (thiếu hụt):
-   - Giảm target 20-40% nếu trend tiếp tục
-   - Hoặc giữ nguyên nếu còn thời gian và có thể cải thiện
-   - Confidence dựa trên trend stability
-   - Priority "urgent" nếu achievement < 30%
+2. Underperforming (falling short):
+   - Reduce target 20-40% if trend continues
+   - Or keep unchanged if there's still time and improvement is possible
+   - Confidence based on trend stability
+   - Priority "urgent" if achievement < 30%
 
-3. Anomaly (biến động bất thường):
-   - Cần xem xét nguyên nhân trước khi điều chỉnh
-   - Confidence "low" do chưa rõ pattern
-   - Priority "recommended" để review
+3. Anomaly (unusual fluctuation):
+   - Need to investigate cause before adjusting
+   - Confidence "low" due to unclear pattern
+   - Priority "recommended" for review
 
-Trả về JSON với format:
+Respond in the same language as the campaign context provided.
+
+Return JSON with format:
 {
-  "overallAssessment": "Đánh giá tổng quan ngắn gọn (1-2 câu)",
+  "overallAssessment": "Brief overall assessment (1-2 sentences)",
   "suggestions": [
     {
-      "metric": "tên metric",
+      "metric": "metric name",
       "suggestedTarget": number,
-      "changePercent": number (phần trăm thay đổi so với target cũ),
-      "reason": "Lý do ngắn gọn",
+      "changePercent": number,
+      "reason": "Brief reason",
       "confidence": "high" | "medium" | "low",
       "priority": "urgent" | "recommended" | "optional",
-      "riskNote": "Ghi chú rủi ro nếu có (optional)"
+      "riskNote": "Risk note if any (optional)"
     }
   ],
-  "actionItems": ["Hành động cụ thể 1", "Hành động 2"]
+  "actionItems": ["Specific action 1", "Action 2"]
 }`;
 
   const userPrompt = `Campaign: ${campaignName || "N/A"}
@@ -622,10 +626,10 @@ Hãy đưa ra đề xuất điều chỉnh phù hợp.`;
         suggestedTarget,
         changePercent,
         reason: a.analysis.trigger === "overperforming" 
-          ? "Performance vượt mục tiêu, nên tăng target" 
+          ? "Performance exceeds target, should increase" 
           : a.analysis.trigger === "underperforming"
-          ? "Performance thấp hơn kỳ vọng, nên điều chỉnh target"
-          : "Có biến động bất thường, cần review",
+          ? "Performance below expectations, should adjust target"
+           : "Unusual fluctuation detected, needs review",
         trigger: a.analysis.trigger,
         confidence: "medium" as const,
         priority: a.analysis.trigger === "underperforming" ? "urgent" as const : "recommended" as const,
@@ -636,9 +640,9 @@ Hãy đưa ra đề xuất điều chỉnh phù hợp.`;
 
     const result: AdjustResponse = {
       needsAdjustment: true,
-      overallAssessment: `Phát hiện ${analyses.length} KPI cần điều chỉnh dựa trên phân tích trend.`,
+      overallAssessment: `Found ${analyses.length} KPIs that need adjustment based on trend analysis.`,
       suggestions: fallbackSuggestions,
-      actionItems: ["Review lại chiến lược content", "Kiểm tra ngân sách và phân bổ"],
+      actionItems: ["Review content strategy", "Check budget allocation"],
       analyzedAt: now.toISOString(),
     };
     
@@ -681,7 +685,7 @@ Hãy đưa ra đề xuất điều chỉnh phù hợp.`;
       currentValue: a.goal.current,
       suggestedTarget: aiSuggestion?.suggestedTarget || Math.round(a.goal.target * 1.2),
       changePercent: aiSuggestion?.changePercent || 20,
-      reason: aiSuggestion?.reason || "Dựa trên phân tích trend",
+      reason: aiSuggestion?.reason || "Based on trend analysis",
       trigger: a.analysis.trigger,
       confidence: aiSuggestion?.confidence || "medium",
       priority: aiSuggestion?.priority || "recommended",
