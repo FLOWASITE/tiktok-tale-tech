@@ -576,5 +576,72 @@
         "desc": "Mọi quyết định đều hướng đến việc mang lại giá trị tốt nhất cho khách hàng."
       }
     }
+  },
+  "chatbot": {
+    "welcome": "Xin chào! 👋 Tôi là **AI Content Strategist** của Flowa.\n\nTôi có thể giúp bạn tạo:\n🎬 **TikTok Script** - Kịch bản video với movement và dialogue chi tiết\n📸 **Carousel** - Prompt hình ảnh cho Facebook/TikTok slides\n📱 **Multi-Channel** - Nội dung Website, Facebook, Instagram, X, Google Maps\n\n💡 **Tip:** Chọn Brand Template ở trên để tôi hiểu rõ tone of voice, personas mục tiêu và sản phẩm đã liên kết của bạn.\n\nBạn muốn tạo content gì hôm nay? ✨",
+    "header": {
+      "chatHistory": "Lịch sử chat",
+      "searchInChat": "Tìm trong chat",
+      "soundOn": "Tắt âm thanh",
+      "soundOff": "Bật âm thanh",
+      "guide": "Hướng dẫn",
+      "closePanel": "Đóng panel",
+      "viewTopics": "Xem topics ({{count}})",
+      "refreshChat": "Làm mới chat",
+      "searchPlaceholder": "Tìm kiếm trong chat...",
+      "results": "{{count}} kết quả"
+    },
+    "input": {
+      "placeholder": "Nhập tin nhắn... (hỗ trợ Markdown)",
+      "listening": "Đang nghe...",
+      "hidePreview": "Ẩn preview",
+      "showPreview": "Xem preview Markdown",
+      "shortcuts": "Phím tắt",
+      "send": "Gửi",
+      "stop": "Dừng",
+      "focus": "Focus",
+      "sendHint": "Gửi (Enter hoặc ⌘/Ctrl+Enter)",
+      "stopHint": "Dừng (Esc)",
+      "startVoice": "Nhập giọng nói",
+      "stopVoice": "Dừng ghi âm"
+    },
+    "onboarding": {
+      "step1Title": "Chào mừng đến Flowa Mind!",
+      "step1Desc": "Tôi là AI trợ lý giúp bạn tìm ý tưởng content. Hãy mô tả sản phẩm hoặc chủ đề bạn muốn tạo content!",
+      "step2Title": "Tìm kiếm & Tính năng",
+      "step2Desc": "Dùng nút 🔍 để tìm trong lịch sử chat. Kéo xuống ở đầu chat để làm mới (trên mobile).",
+      "step3Title": "Topic thành Content",
+      "step3Desc": "Khi AI gợi ý topic, bạn có thể nhấn để tạo ngay Multichannel, Script hoặc Carousel!",
+      "skip": "Bỏ qua",
+      "next": "Tiếp theo",
+      "back": "Quay lại",
+      "start": "Bắt đầu!"
+    },
+    "personalized": {
+      "withBrand": "Tôi là AI Content Strategist của Flowa. Đã sẵn sàng hỗ trợ **{{brandName}}** với TikTok Scripts, Carousels, và Multi-channel content.",
+      "noBrand": "Tôi là AI Content Strategist của Flowa. Chọn Brand Template để tôi hiểu rõ context thương hiệu của bạn nhé!",
+      "tipBeginner": "Mô tả sản phẩm hoặc chọn một gợi ý bên dưới để bắt đầu.",
+      "tipIntermediate": "Thử tính năng Discovery Tab hoặc yêu cầu AI search xu hướng mới!",
+      "tipExpert": "Sử dụng \"/\" để truy cập quick commands hoặc @mention để tag context.",
+      "tipDefault": "Bạn muốn tôi giúp gì hôm nay?",
+      "activityHint": "Bạn đã tạo {{count}} topics. Tiếp tục nhé!"
+    },
+    "time": {
+      "justNow": "Vừa xong",
+      "minutesAgo": "{{count}} phút trước"
+    }
+  },
+  "helpChat": {
+    "title": "Trợ lý Hướng dẫn",
+    "subtitle": "Hỏi bất cứ điều gì về hệ thống",
+    "welcome": "Xin chào! 👋 Tôi là trợ lý hướng dẫn. Bạn cần giúp gì về cách sử dụng hệ thống?",
+    "inputPlaceholder": "Nhập câu hỏi của bạn...",
+    "clearHistory": "Xoá lịch sử",
+    "quickActions": "Hành động nhanh",
+    "faq": "Câu hỏi thường gặp",
+    "guidePrefix": "Hướng dẫn",
+    "connectionError": "Không thể kết nối với trợ lý",
+    "noResponse": "Không nhận được phản hồi",
+    "genericError": "Đã xảy ra lỗi"
   }
 }

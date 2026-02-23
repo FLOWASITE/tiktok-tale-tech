@@ -9,6 +9,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 import { getQuickActions, HELP_FAQS, HelpFeature } from '@/data/help-knowledge-base';
 
 interface HelpQuickActionsProps {
@@ -26,6 +27,7 @@ const FEATURE_ICONS: Record<string, React.ReactNode> = {
 };
 
 export function HelpQuickActions({ currentRoute, onSelect }: HelpQuickActionsProps) {
+  const { t } = useTranslation();
   const quickFeatures = getQuickActions(currentRoute);
   const popularFaqs = HELP_FAQS.slice(0, 3);
 
@@ -40,7 +42,7 @@ export function HelpQuickActions({ currentRoute, onSelect }: HelpQuickActionsPro
       {quickFeatures.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Hành động nhanh
+            {t('helpChat.quickActions')}
           </p>
           <div className="grid grid-cols-1 gap-2">
             {quickFeatures.map((feature) => (
@@ -49,7 +51,7 @@ export function HelpQuickActions({ currentRoute, onSelect }: HelpQuickActionsPro
                 variant="outline"
                 size="sm"
                 className="justify-start h-auto py-2 px-3 text-left"
-                onClick={() => onSelect(`Hướng dẫn ${feature.title.toLowerCase()}`)}
+                onClick={() => onSelect(`${t('helpChat.guidePrefix')} ${feature.title.toLowerCase()}`)}
               >
                 <span className="mr-2 text-primary">
                   {FEATURE_ICONS[feature.id] || <HelpCircle className="h-4 w-4" />}
@@ -69,7 +71,7 @@ export function HelpQuickActions({ currentRoute, onSelect }: HelpQuickActionsPro
       {/* Popular Questions */}
       <div className="space-y-2">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Câu hỏi thường gặp
+          {t('helpChat.faq')}
         </p>
         <div className="space-y-1">
           {popularFaqs.map((faq, idx) => (

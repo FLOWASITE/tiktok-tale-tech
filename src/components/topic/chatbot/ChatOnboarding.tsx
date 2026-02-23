@@ -6,6 +6,7 @@
 import { Bot, Search as SearchIcon, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 interface ChatOnboardingProps {
   show: boolean;
@@ -20,6 +21,8 @@ export function ChatOnboarding({
   onStepChange,
   onDismiss,
 }: ChatOnboardingProps) {
+  const { t } = useTranslation();
+  
   if (!show) return null;
 
   return (
@@ -29,14 +32,14 @@ export function ChatOnboarding({
           <>
             <div className="flex items-center gap-2 text-primary">
               <Bot className="w-5 h-5" />
-              <h4 className="font-semibold">Chào mừng đến Flowa Mind!</h4>
+              <h4 className="font-semibold">{t('chatbot.onboarding.step1Title')}</h4>
             </div>
             <p className="text-sm text-muted-foreground">
-              Tôi là AI trợ lý giúp bạn tìm ý tưởng content. Hãy mô tả sản phẩm hoặc chủ đề bạn muốn tạo content!
+              {t('chatbot.onboarding.step1Desc')}
             </p>
             <div className="flex justify-between">
-              <Button variant="ghost" size="sm" onClick={onDismiss}>Bỏ qua</Button>
-              <Button size="sm" onClick={() => onStepChange(1)}>Tiếp theo</Button>
+              <Button variant="ghost" size="sm" onClick={onDismiss}>{t('chatbot.onboarding.skip')}</Button>
+              <Button size="sm" onClick={() => onStepChange(1)}>{t('chatbot.onboarding.next')}</Button>
             </div>
           </>
         )}
@@ -44,14 +47,14 @@ export function ChatOnboarding({
           <>
             <div className="flex items-center gap-2 text-primary">
               <SearchIcon className="w-5 h-5" />
-              <h4 className="font-semibold">Tìm kiếm & Tính năng</h4>
+              <h4 className="font-semibold">{t('chatbot.onboarding.step2Title')}</h4>
             </div>
             <p className="text-sm text-muted-foreground">
-              Dùng nút 🔍 để tìm trong lịch sử chat. Kéo xuống ở đầu chat để làm mới (trên mobile).
+              {t('chatbot.onboarding.step2Desc')}
             </p>
             <div className="flex justify-between">
-              <Button variant="ghost" size="sm" onClick={() => onStepChange(0)}>Quay lại</Button>
-              <Button size="sm" onClick={() => onStepChange(2)}>Tiếp theo</Button>
+              <Button variant="ghost" size="sm" onClick={() => onStepChange(0)}>{t('chatbot.onboarding.back')}</Button>
+              <Button size="sm" onClick={() => onStepChange(2)}>{t('chatbot.onboarding.next')}</Button>
             </div>
           </>
         )}
@@ -59,13 +62,13 @@ export function ChatOnboarding({
           <>
             <div className="flex items-center gap-2 text-primary">
               <Sparkles className="w-5 h-5" />
-              <h4 className="font-semibold">Topic thành Content</h4>
+              <h4 className="font-semibold">{t('chatbot.onboarding.step3Title')}</h4>
             </div>
             <p className="text-sm text-muted-foreground">
-              Khi AI gợi ý topic, bạn có thể nhấn để tạo ngay Multichannel, Script hoặc Carousel!
+              {t('chatbot.onboarding.step3Desc')}
             </p>
             <div className="flex justify-end">
-              <Button size="sm" onClick={onDismiss}>Bắt đầu!</Button>
+              <Button size="sm" onClick={onDismiss}>{t('chatbot.onboarding.start')}</Button>
             </div>
           </>
         )}

@@ -576,5 +576,72 @@
         "desc": "Every decision is aimed at delivering the best value to customers."
       }
     }
+  },
+  "chatbot": {
+    "welcome": "Hello! 👋 I'm Flowa's **AI Content Strategist**.\n\nI can help you create:\n🎬 **TikTok Script** - Video scripts with detailed movement and dialogue\n📸 **Carousel** - Image prompts for Facebook/TikTok slides\n📱 **Multi-Channel** - Content for Website, Facebook, Instagram, X, Google Maps\n\n💡 **Tip:** Select a Brand Template above so I understand your tone of voice, target personas, and linked products.\n\nWhat content would you like to create today? ✨",
+    "header": {
+      "chatHistory": "Chat history",
+      "searchInChat": "Search in chat",
+      "soundOn": "Mute sound",
+      "soundOff": "Enable sound",
+      "guide": "Guide",
+      "closePanel": "Close panel",
+      "viewTopics": "View topics ({{count}})",
+      "refreshChat": "Refresh chat",
+      "searchPlaceholder": "Search in chat...",
+      "results": "{{count}} results"
+    },
+    "input": {
+      "placeholder": "Type a message... (supports Markdown)",
+      "listening": "Listening...",
+      "hidePreview": "Hide preview",
+      "showPreview": "Show Markdown preview",
+      "shortcuts": "Shortcuts",
+      "send": "Send",
+      "stop": "Stop",
+      "focus": "Focus",
+      "sendHint": "Send (Enter or ⌘/Ctrl+Enter)",
+      "stopHint": "Stop (Esc)",
+      "startVoice": "Voice input",
+      "stopVoice": "Stop recording"
+    },
+    "onboarding": {
+      "step1Title": "Welcome to Flowa Mind!",
+      "step1Desc": "I'm an AI assistant helping you find content ideas. Describe your product or topic to get started!",
+      "step2Title": "Search & Features",
+      "step2Desc": "Use the 🔍 button to search chat history. Pull down at the top to refresh (on mobile).",
+      "step3Title": "From Topic to Content",
+      "step3Desc": "When AI suggests a topic, click to instantly create Multichannel, Script, or Carousel content!",
+      "skip": "Skip",
+      "next": "Next",
+      "back": "Back",
+      "start": "Get started!"
+    },
+    "personalized": {
+      "withBrand": "I'm Flowa's AI Content Strategist. Ready to support **{{brandName}}** with TikTok Scripts, Carousels, and Multi-channel content.",
+      "noBrand": "I'm Flowa's AI Content Strategist. Select a Brand Template so I can understand your brand context!",
+      "tipBeginner": "Describe your product or choose a suggestion below to get started.",
+      "tipIntermediate": "Try the Discovery Tab or ask AI to search for new trends!",
+      "tipExpert": "Use \"/\" to access quick commands or @mention to tag context.",
+      "tipDefault": "What can I help you with today?",
+      "activityHint": "You've created {{count}} topics. Let's keep going!"
+    },
+    "time": {
+      "justNow": "Just now",
+      "minutesAgo": "{{count}} min ago"
+    }
+  },
+  "helpChat": {
+    "title": "Help Assistant",
+    "subtitle": "Ask anything about the system",
+    "welcome": "Hello! 👋 I'm your help assistant. How can I help you use the system?",
+    "inputPlaceholder": "Type your question...",
+    "clearHistory": "Clear history",
+    "quickActions": "Quick actions",
+    "faq": "Frequently asked questions",
+    "guidePrefix": "Guide to",
+    "connectionError": "Cannot connect to assistant",
+    "noResponse": "No response received",
+    "genericError": "An error occurred"
   }
 }

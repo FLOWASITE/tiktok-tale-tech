@@ -458,5 +458,72 @@
         "desc": "ทุกการตัดสินใจมุ่งเน้นการส่งมอบคุณค่าที่ดีที่สุดให้ลูกค้า"
       }
     }
+  },
+  "chatbot": {
+    "welcome": "สวัสดี! 👋 ผม/ฉันคือ **AI Content Strategist** ของ Flowa\n\nสามารถช่วยคุณสร้าง:\n🎬 **TikTok Script** - สคริปต์วิดีโอพร้อมรายละเอียดการเคลื่อนไหวและบทสนทนา\n📸 **Carousel** - พรอมต์รูปภาพสำหรับ Facebook/TikTok slides\n📱 **Multi-Channel** - เนื้อหาสำหรับ Website, Facebook, Instagram, X, Google Maps\n\n💡 **เคล็ดลับ:** เลือก Brand Template ด้านบนเพื่อให้ผม/ฉันเข้าใจ tone of voice, personas เป้าหมาย และผลิตภัณฑ์ที่เชื่อมต่อ\n\nวันนี้คุณต้องการสร้างคอนเทนต์อะไร? ✨",
+    "header": {
+      "chatHistory": "ประวัติแชท",
+      "searchInChat": "ค้นหาในแชท",
+      "soundOn": "ปิดเสียง",
+      "soundOff": "เปิดเสียง",
+      "guide": "คำแนะนำ",
+      "closePanel": "ปิดแผง",
+      "viewTopics": "ดูหัวข้อ ({{count}})",
+      "refreshChat": "รีเฟรชแชท",
+      "searchPlaceholder": "ค้นหาในแชท...",
+      "results": "{{count}} ผลลัพธ์"
+    },
+    "input": {
+      "placeholder": "พิมพ์ข้อความ... (รองรับ Markdown)",
+      "listening": "กำลังฟัง...",
+      "hidePreview": "ซ่อนตัวอย่าง",
+      "showPreview": "ดูตัวอย่าง Markdown",
+      "shortcuts": "ปุ่มลัด",
+      "send": "ส่ง",
+      "stop": "หยุด",
+      "focus": "โฟกัส",
+      "sendHint": "ส่ง (Enter หรือ ⌘/Ctrl+Enter)",
+      "stopHint": "หยุด (Esc)",
+      "startVoice": "พิมพ์ด้วยเสียง",
+      "stopVoice": "หยุดบันทึก"
+    },
+    "onboarding": {
+      "step1Title": "ยินดีต้อนรับสู่ Flowa Mind!",
+      "step1Desc": "ผม/ฉันเป็นผู้ช่วย AI ช่วยคุณหาไอเดียคอนเทนต์ อธิบายผลิตภัณฑ์หรือหัวข้อที่ต้องการสร้างคอนเทนต์!",
+      "step2Title": "ค้นหา & คุณสมบัติ",
+      "step2Desc": "ใช้ปุ่ม 🔍 เพื่อค้นหาในประวัติแชท ดึงลงที่ด้านบนเพื่อรีเฟรช (บนมือถือ)",
+      "step3Title": "จากหัวข้อสู่คอนเทนต์",
+      "step3Desc": "เมื่อ AI แนะนำหัวข้อ คุณสามารถกดเพื่อสร้าง Multichannel, Script หรือ Carousel ได้ทันที!",
+      "skip": "ข้าม",
+      "next": "ถัดไป",
+      "back": "ย้อนกลับ",
+      "start": "เริ่มต้น!"
+    },
+    "personalized": {
+      "withBrand": "ผม/ฉันคือ AI Content Strategist ของ Flowa พร้อมสนับสนุน **{{brandName}}** ด้วย TikTok Scripts, Carousels และ Multi-channel content",
+      "noBrand": "ผม/ฉันคือ AI Content Strategist ของ Flowa เลือก Brand Template เพื่อให้เข้าใจ context แบรนด์ของคุณ!",
+      "tipBeginner": "อธิบายผลิตภัณฑ์หรือเลือกคำแนะนำด้านล่างเพื่อเริ่มต้น",
+      "tipIntermediate": "ลอง Discovery Tab หรือขอให้ AI ค้นหาเทรนด์ใหม่!",
+      "tipExpert": "ใช้ \"/\" เพื่อเข้าถึง quick commands หรือ @mention เพื่อ tag context",
+      "tipDefault": "วันนี้ต้องการให้ช่วยอะไร?",
+      "activityHint": "คุณสร้างไป {{count}} หัวข้อแล้ว มาสร้างต่อ!"
+    },
+    "time": {
+      "justNow": "เมื่อสักครู่",
+      "minutesAgo": "{{count}} นาทีที่แล้ว"
+    }
+  },
+  "helpChat": {
+    "title": "ผู้ช่วยแนะนำ",
+    "subtitle": "ถามอะไรก็ได้เกี่ยวกับระบบ",
+    "welcome": "สวัสดี! 👋 ผม/ฉันเป็นผู้ช่วยแนะนำ ต้องการความช่วยเหลือเรื่องการใช้งานระบบอย่างไร?",
+    "inputPlaceholder": "พิมพ์คำถามของคุณ...",
+    "clearHistory": "ล้างประวัติ",
+    "quickActions": "การดำเนินการด่วน",
+    "faq": "คำถามที่พบบ่อย",
+    "guidePrefix": "คู่มือ",
+    "connectionError": "ไม่สามารถเชื่อมต่อกับผู้ช่วยได้",
+    "noResponse": "ไม่ได้รับการตอบกลับ",
+    "genericError": "เกิดข้อผิดพลาด"
   }
 }

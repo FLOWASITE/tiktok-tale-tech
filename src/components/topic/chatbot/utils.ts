@@ -3,24 +3,26 @@
 // ============================================
 
 import type { ExtractedTopic, ChatMessage } from './types';
+import i18n from '@/i18n';
 
-// Format timestamp to Vietnamese relative time
+// Format timestamp with i18n-aware relative time
 export function formatTimestamp(date: Date): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
+  const lang = i18n.language || 'vi';
 
-  if (diffMins < 1) return 'Vừa xong';
-  if (diffMins < 60) return `${diffMins} phút trước`;
+  if (diffMins < 1) return i18n.t('chatbot.time.justNow');
+  if (diffMins < 60) return i18n.t('chatbot.time.minutesAgo', { count: diffMins });
   if (diffHours < 24 && now.getDate() === date.getDate()) {
-    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' });
   }
   if (diffDays < 7) {
-    return date.toLocaleDateString('vi-VN', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleDateString(lang, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
   }
-  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleDateString(lang, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 // Trigger haptic feedback on mobile devices
@@ -107,7 +109,6 @@ export function calculateDynamicWidth(messages: ChatMessage[]): 'compact' | 'nor
   
   if (hasTables || hasCode) return 'wide';
   if (hasLongContent) return 'normal';
-  // Mặc định 'normal' thay vì 'compact' để chatbot đủ rộng trên Desktop
   return 'normal';
 }
 
