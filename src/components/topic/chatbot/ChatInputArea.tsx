@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 import { MAX_CHARS } from './constants';
 
 interface ChatInputAreaProps {
@@ -18,18 +19,14 @@ interface ChatInputAreaProps {
   onKeyDown: (e: React.KeyboardEvent) => void;
   isLoading: boolean;
   onCancel: () => void;
-  // Voice
   isRecording: boolean;
   interimText: string;
   onToggleVoice: () => void;
   voiceSupported: boolean;
-  // Preview
   showMarkdownPreview: boolean;
   onToggleMarkdownPreview: () => void;
-  // Shortcuts
   showShortcutsHint: boolean;
   onToggleShortcutsHint: () => void;
-  // Refs
   textareaRef: React.RefObject<HTMLTextAreaElement>;
   maxChars?: number;
 }
@@ -52,12 +49,13 @@ export function ChatInputArea({
   textareaRef,
   maxChars = MAX_CHARS,
 }: ChatInputAreaProps) {
+  const { t } = useTranslation();
+  
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     if (value.length <= maxChars) {
       onInputChange(value);
     }
-    // Auto-resize textarea
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
@@ -81,7 +79,6 @@ export function ChatInputArea({
       {/* Input toolbar */}
       <div className="flex items-center justify-between px-0.5">
         <div className="flex items-center gap-1">
-          {/* Markdown preview toggle */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -95,11 +92,10 @@ export function ChatInputArea({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top" className="text-xs">
-              {showMarkdownPreview ? 'Ẩn preview' : 'Xem preview Markdown'}
+              {showMarkdownPreview ? t('chatbot.input.hidePreview') : t('chatbot.input.showPreview')}
             </TooltipContent>
           </Tooltip>
           
-          {/* Keyboard shortcuts hint */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -113,20 +109,19 @@ export function ChatInputArea({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top" className="text-xs">
-              Phím tắt
+              {t('chatbot.input.shortcuts')}
             </TooltipContent>
           </Tooltip>
         </div>
         
-        {/* Shortcuts hint panel */}
         {showShortcutsHint && (
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground animate-in fade-in-0 duration-150">
             <kbd className="px-1.5 py-0.5 bg-muted rounded text-[9px] font-mono">⌘/Ctrl+Enter</kbd>
-            <span>Gửi</span>
+            <span>{t('chatbot.input.send')}</span>
             <kbd className="px-1.5 py-0.5 bg-muted rounded text-[9px] font-mono">Esc</kbd>
-            <span>Dừng</span>
+            <span>{t('chatbot.input.stop')}</span>
             <kbd className="px-1.5 py-0.5 bg-muted rounded text-[9px] font-mono">⌘/Ctrl+K</kbd>
-            <span>Focus</span>
+            <span>{t('chatbot.input.focus')}</span>
           </div>
         )}
       </div>
@@ -136,7 +131,6 @@ export function ChatInputArea({
           "flex-1 relative rounded-xl transition-all duration-300",
           "chat-input-glow"
         )}>
-          {/* Interim text indicator */}
           {interimText && (
             <div className="absolute -top-7 left-0 right-0 text-[10px] text-primary italic truncate flex items-center gap-1.5 px-2">
               <span className="inline-flex items-center gap-1 bg-primary/10 rounded-full px-2 py-0.5">
@@ -150,7 +144,7 @@ export function ChatInputArea({
             value={input}
             onChange={handleChange}
             onKeyDown={onKeyDown}
-            placeholder={isRecording ? "Đang nghe..." : "Nhập tin nhắn... (hỗ trợ Markdown)"}
+            placeholder={isRecording ? t('chatbot.input.listening') : t('chatbot.input.placeholder')}
             className={cn(
               "min-h-[40px] max-h-[120px] resize-none text-xs sm:text-sm py-2.5 px-3 pr-14",
               "rounded-xl border-2 transition-all duration-200",
@@ -162,7 +156,6 @@ export function ChatInputArea({
             disabled={isLoading}
             style={{ height: '40px' }}
           />
-          {/* Character counter with enhanced styling */}
           <span className={cn(
             "absolute bottom-2 right-3 text-[10px] transition-all duration-200 pointer-events-none font-medium",
             input.length === 0 && "opacity-0",
@@ -174,7 +167,6 @@ export function ChatInputArea({
           </span>
         </div>
         
-        {/* Voice input button */}
         {voiceSupported && !isLoading && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -196,7 +188,7 @@ export function ChatInputArea({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top" className="text-xs">
-              {isRecording ? 'Dừng ghi âm' : 'Nhập giọng nói'}
+              {isRecording ? t('chatbot.input.stopVoice') : t('chatbot.input.startVoice')}
             </TooltipContent>
           </Tooltip>
         )}
@@ -215,7 +207,7 @@ export function ChatInputArea({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top" className="text-xs">
-              Dừng (Esc)
+              {t('chatbot.input.stopHint')}
             </TooltipContent>
           </Tooltip>
         ) : (
@@ -238,7 +230,7 @@ export function ChatInputArea({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top" className="text-xs">
-              Gửi (Enter hoặc ⌘/Ctrl+Enter)
+              {t('chatbot.input.sendHint')}
             </TooltipContent>
           </Tooltip>
         )}

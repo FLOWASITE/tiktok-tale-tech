@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Sparkles, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 import type { PersonalizedWelcomeData } from '@/hooks/usePersonalizedWelcome';
 import { SmartSuggestionsGrid } from './SmartSuggestionsGrid';
 import { BrandContextCard } from './BrandContextCard';
@@ -22,6 +23,7 @@ export function PersonalizedWelcome({
   onSuggestionClick,
   className 
 }: PersonalizedWelcomeProps) {
+  const { t } = useTranslation();
   const [showGreeting, setShowGreeting] = useState(false);
   const [showBrand, setShowBrand] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -29,32 +31,29 @@ export function PersonalizedWelcome({
   // Staggered animation sequence
   useEffect(() => {
     const timers: NodeJS.Timeout[] = [];
-    
     timers.push(setTimeout(() => setShowGreeting(true), 100));
     timers.push(setTimeout(() => setShowBrand(true), 400));
     timers.push(setTimeout(() => setShowSuggestions(true), 700));
-    
     return () => timers.forEach(clearTimeout);
   }, []);
   
-  // Build welcome message based on context
   const getWelcomeMessage = () => {
     if (data.brandName) {
-      return `Tôi là AI Content Strategist của Flowa. Đã sẵn sàng hỗ trợ **${data.brandName}** với TikTok Scripts, Carousels, và Multi-channel content.`;
+      return t('chatbot.personalized.withBrand', { brandName: data.brandName });
     }
-    return 'Tôi là AI Content Strategist của Flowa. Chọn Brand Template để tôi hiểu rõ context thương hiệu của bạn nhé!';
+    return t('chatbot.personalized.noBrand');
   };
   
   const getSkillTip = () => {
     switch (data.skillLevel) {
       case 'beginner':
-        return 'Mô tả sản phẩm hoặc chọn một gợi ý bên dưới để bắt đầu.';
+        return t('chatbot.personalized.tipBeginner');
       case 'intermediate':
-        return 'Thử tính năng Discovery Tab hoặc yêu cầu AI search xu hướng mới!';
+        return t('chatbot.personalized.tipIntermediate');
       case 'expert':
-        return 'Sử dụng "/" để truy cập quick commands hoặc @mention để tag context.';
+        return t('chatbot.personalized.tipExpert');
       default:
-        return 'Bạn muốn tôi giúp gì hôm nay?';
+        return t('chatbot.personalized.tipDefault');
     }
   };
 
@@ -170,7 +169,7 @@ export function PersonalizedWelcome({
           transition={{ delay: 1, duration: 0.4 }}
           className="text-xs text-muted-foreground/70 italic"
         >
-          Bạn đã tạo {data.totalTopicsGenerated} topics. Tiếp tục nhé!
+          {t('chatbot.personalized.activityHint', { count: data.totalTopicsGenerated })}
         </motion.p>
       )}
     </div>

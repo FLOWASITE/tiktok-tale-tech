@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect, useCallback, useContext } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircleQuestion, X, Minimize2, Send, Trash2, Sparkles } from 'lucide-react';
+import { X, Minimize2, Send, Trash2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 import { useHelpChat } from '@/hooks/useHelpChat';
 import { HelpMessageBubble } from './HelpMessageBubble';
 import { HelpQuickActions } from './HelpQuickActions';
@@ -24,6 +25,7 @@ function useSafeCoachmark() {
 }
 
 export function HelpChatWidget() {
+  const { t } = useTranslation();
   const coachmark = useSafeCoachmark();
   
   const startTour = useCallback((tourId: string) => {
@@ -156,8 +158,8 @@ export function HelpChatWidget() {
                   <Sparkles className="h-4 w-4 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-sm">Trợ lý Hướng dẫn</h3>
-                  <p className="text-xs text-muted-foreground">Hỏi bất cứ điều gì về hệ thống</p>
+                  <h3 className="font-semibold text-sm">{t('helpChat.title')}</h3>
+                  <p className="text-xs text-muted-foreground">{t('helpChat.subtitle')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -166,7 +168,7 @@ export function HelpChatWidget() {
                   size="icon"
                   className="h-8 w-8"
                   onClick={clearMessages}
-                  title="Xoá lịch sử"
+                  title={t('helpChat.clearHistory')}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -236,7 +238,7 @@ export function HelpChatWidget() {
                       ref={inputRef}
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
-                      placeholder="Nhập câu hỏi của bạn..."
+                      placeholder={t('helpChat.inputPlaceholder')}
                       disabled={isStreaming}
                       className="flex-1"
                     />

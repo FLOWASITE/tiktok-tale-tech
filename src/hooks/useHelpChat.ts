@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import i18n from '@/i18n';
 
 const HELP_CHAT_STORAGE_KEY = 'help-chat-messages';
 const RECENT_PAGES_KEY = 'help-chat-recent-pages';
@@ -35,7 +36,6 @@ function parseMessageContent(content: string): {
   
   let cleanContent = content;
   
-  // Parse action tags
   const actionPattern = /\[ACTION:(NAVIGATE|COACHMARK):([^\|]+)\|([^\]]+)\]/g;
   let match;
   
@@ -49,7 +49,6 @@ function parseMessageContent(content: string): {
     cleanContent = cleanContent.replace(fullMatch, '');
   }
   
-  // Parse suggestion tags
   const suggestPattern = /\[SUGGEST:([^\]]+)\]/g;
   while ((match = suggestPattern.exec(content)) !== null) {
     const [fullMatch, suggestion] = match;
@@ -60,12 +59,14 @@ function parseMessageContent(content: string): {
   return { cleanContent: cleanContent.trim(), actions, suggestions };
 }
 
-const WELCOME_MESSAGE: HelpMessage = {
-  id: 'welcome',
-  role: 'assistant',
-  content: 'Xin chào! 👋 Tôi là trợ lý hướng dẫn. Bạn cần giúp gì về cách sử dụng hệ thống?',
-  timestamp: new Date()
-};
+function getWelcomeMessage(): HelpMessage {
+  return {
+    id: 'welcome',
+    role: 'assistant',
+    content: i18n.t('helpChat.welcome'),
+    timestamp: new Date()
+  };
+}
 
 // Rich context for the help chatbot
 interface HelpContext {
@@ -80,7 +81,7 @@ interface HelpContext {
 }
 
 export function useHelpChat(onStartTour?: (tourId: string) => void) {
-  const [messages, setMessages] = useState<HelpMessage[]>([WELCOME_MESSAGE]);
+  const [messages, setMessages] = useState<HelpMessage[]>([getWelcomeMessage()]);
   const [isOpen, setIsOpen] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const location = useLocation();
@@ -93,7 +94,6 @@ export function useHelpChat(onStartTour?: (tourId: string) => void) {
     const stored = localStorage.getItem(RECENT_PAGES_KEY);
     let pages: string[] = stored ? JSON.parse(stored) : [];
     
-    // Add current page if different from last
     if (pages[0] !== currentPath) {
       pages = [currentPath, ...pages.slice(0, MAX_RECENT_PAGES - 1)];
       localStorage.setItem(RECENT_PAGES_KEY, JSON.stringify(pages));
@@ -134,11 +134,10 @@ export function useHelpChat(onStartTour?: (tourId: string) => void) {
   const buildContext = useCallback(async (): Promise<HelpContext> => {
     const context: HelpContext = {
       currentRoute: location.pathname,
-      recentPages: recentPagesRef.current.slice(1, 4), // Exclude current, take last 3
+      recentPages: recentPagesRef.current.slice(1, 4),
     };
 
     try {
-      // Get user session and role
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         const { data: roleData } = await supabase
@@ -150,7 +149,6 @@ export function useHelpChat(onStartTour?: (tourId: string) => void) {
         context.userRole = roleData?.role || 'member';
       }
 
-      // Get selected brand from localStorage
       const selectedBrandId = localStorage.getItem('selectedBrandId');
       if (selectedBrandId) {
         const { data: brand } = await supabase
@@ -191,10 +189,8 @@ export function useHelpChat(onStartTour?: (tourId: string) => void) {
     const assistantId = `assistant-${Date.now()}`;
 
     try {
-      // Build rich context
       const context = await buildContext();
 
-      // Prepare conversation history (exclude welcome message for API)
       const conversationHistory = messages
         .filter(m => m.id !== 'welcome')
         .map(m => ({ role: m.role, content: m.content }));
@@ -214,16 +210,15 @@ export function useHelpChat(onStartTour?: (tourId: string) => void) {
 
       if (!resp.ok) {
         const errorData = await resp.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Không thể kết nối với trợ lý');
+        throw new Error(errorData.error || i18n.t('helpChat.connectionError'));
       }
 
-      if (!resp.body) throw new Error('Không nhận được phản hồi');
+      if (!resp.body) throw new Error(i18n.t('helpChat.noResponse'));
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let textBuffer = '';
 
-      // Add initial assistant message
       setMessages(prev => [...prev, {
         id: assistantId,
         role: 'assistant',
@@ -267,7 +262,6 @@ export function useHelpChat(onStartTour?: (tourId: string) => void) {
         }
       }
 
-      // Parse actions and suggestions from final content
       const { cleanContent, actions, suggestions } = parseMessageContent(assistantContent);
       
       setMessages(prev => prev.map(m => 
@@ -278,9 +272,8 @@ export function useHelpChat(onStartTour?: (tourId: string) => void) {
 
     } catch (error) {
       console.error('[useHelpChat] Error:', error);
-      toast.error(error instanceof Error ? error.message : 'Đã xảy ra lỗi');
+      toast.error(error instanceof Error ? error.message : i18n.t('helpChat.genericError'));
       
-      // Remove failed assistant message
       setMessages(prev => prev.filter(m => m.id !== assistantId));
     } finally {
       setIsStreaming(false);
@@ -300,7 +293,7 @@ export function useHelpChat(onStartTour?: (tourId: string) => void) {
   }, [navigate, onStartTour]);
 
   const clearMessages = useCallback(() => {
-    setMessages([WELCOME_MESSAGE]);
+    setMessages([getWelcomeMessage()]);
     localStorage.removeItem(HELP_CHAT_STORAGE_KEY);
   }, []);
 

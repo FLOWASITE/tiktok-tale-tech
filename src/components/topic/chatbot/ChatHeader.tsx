@@ -14,29 +14,25 @@ import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 import type { ActiveView } from './types';
 import { ConversationHistorySidebar } from './ConversationHistorySidebar';
 
 interface ChatHeaderProps {
   activeView: ActiveView;
   onActiveViewChange: (view: ActiveView) => void;
-  // Search
   isSearchOpen: boolean;
   onSearchToggle: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   searchResultsCount: number;
-  // Sound
   soundEnabled: boolean;
   onSoundToggle: () => void;
-  // Controls
   onReset: () => void;
   onShowOnboarding: () => void;
-  // Artifacts
   artifactsCount: number;
   showArtifactsPanel: boolean;
   onArtifactsPanelToggle: () => void;
-  // History
   showHistorySidebar: boolean;
   onHistorySidebarChange: (show: boolean) => void;
   conversations: any[];
@@ -73,6 +69,8 @@ export function ChatHeader({
   onDeleteConversation,
   onArchiveConversation,
 }: ChatHeaderProps) {
+  const { t } = useTranslation();
+  
   return (
     <CardHeader className="flex-shrink-0 py-1.5 sm:py-2.5 px-2 sm:px-4 border-b bg-gradient-to-r from-primary/5 via-violet-500/5 to-primary/5">
       <div className="flex items-center justify-between">
@@ -103,7 +101,7 @@ export function ChatHeader({
                   </Button>
                 </SheetTrigger>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">Lịch sử chat</TooltipContent>
+              <TooltipContent side="bottom" className="text-xs">{t('chatbot.header.chatHistory')}</TooltipContent>
             </Tooltip>
             <SheetContent side="left" className="p-0 w-72">
               <ConversationHistorySidebar
@@ -137,7 +135,7 @@ export function ChatHeader({
                 <SearchIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">Tìm trong chat</TooltipContent>
+            <TooltipContent side="bottom" className="text-xs">{t('chatbot.header.searchInChat')}</TooltipContent>
           </Tooltip>
           
           {/* Sound toggle */}
@@ -157,7 +155,7 @@ export function ChatHeader({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
-              {soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
+              {soundEnabled ? t('chatbot.header.soundOn') : t('chatbot.header.soundOff')}
             </TooltipContent>
           </Tooltip>
           
@@ -173,7 +171,7 @@ export function ChatHeader({
                 <HelpCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">Hướng dẫn</TooltipContent>
+            <TooltipContent side="bottom" className="text-xs">{t('chatbot.header.guide')}</TooltipContent>
           </Tooltip>
           
           {/* Artifacts panel toggle */}
@@ -198,7 +196,7 @@ export function ChatHeader({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
-              {showArtifactsPanel ? 'Đóng panel' : `Xem topics (${artifactsCount})`}
+              {showArtifactsPanel ? t('chatbot.header.closePanel') : t('chatbot.header.viewTopics', { count: artifactsCount })}
             </TooltipContent>
           </Tooltip>
           
@@ -214,7 +212,7 @@ export function ChatHeader({
                 <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">Làm mới chat</TooltipContent>
+            <TooltipContent side="bottom" className="text-xs">{t('chatbot.header.refreshChat')}</TooltipContent>
           </Tooltip>
         </div>
       </div>
@@ -227,7 +225,7 @@ export function ChatHeader({
             <Input
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Tìm kiếm trong chat..."
+              placeholder={t('chatbot.header.searchPlaceholder')}
               className="h-7 pl-7 pr-7 text-xs"
               autoFocus
             />
@@ -242,7 +240,7 @@ export function ChatHeader({
           </div>
           {searchQuery && (
             <Badge variant="secondary" className="text-[10px] h-5 shrink-0">
-              {searchResultsCount} kết quả
+              {t('chatbot.header.results', { count: searchResultsCount })}
             </Badge>
           )}
         </div>
