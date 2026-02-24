@@ -27,6 +27,7 @@ export function useEnhancedTopicSuggestions(options: {
     isLoading: suggestionsModule.isLoading,
     isEnhancing: suggestionsModule.isEnhancing,
     error: suggestionsModule.error,
+    errorCode: suggestionsModule.errorCode,
     sortBy: suggestionsModule.sortBy,
     setSortBy: suggestionsModule.setSortBy,
     minScore: suggestionsModule.minScore,
