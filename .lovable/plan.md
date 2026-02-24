@@ -1,182 +1,247 @@
 
 
-# Ke hoach nang cap UI/UX Multi-Agent (5 module)
+# Nang cap Multi-Agent Architecture: 7 Module Uu Tien
 
 ## Tong quan
 
-Nang cap UI/UX de phan anh day du he thong multi-agent, tap trung vao 5 yeu cau chinh: Agent Team Overview, Context Quality visual breakdown, Mobile responsive, Emotion/Delight, va cac tinh nang nang cao (Co-Pilot sidebar, Review Score Card, Supervisor toggle).
+Dua tren phan tich chi tiet codebase hien tai, ke hoach nay tap trung vao 7 nang cap theo 3 muc uu tien. He thong hien tai co: FSM 8 trang thai, 4 agent (Research/Strategy/Content/Reviewer), Blackboard in-memory + DB, TokenBudgetController don gian, va Learning Agent co ban.
 
 ---
 
-## Module 1: Review Score Card + Confetti Delight
+## Muc 1: Lam ngay (1-2 tuan)
 
-**Muc tieu**: Hien thi diem cua Reviewer Agent va tao "wow moment" khi approved.
+### Module 1: Nang cap Reviewer Agent - Them 3 Tool
 
-**Thay doi**:
+**Van de**: Reviewer hien tai khong co tool nao (`tools: []` trong agent-registry), chi dung reasoning thuan. Khong the kiem tra brand voice hay compliance thuc te.
 
-- **Tao file moi** `src/components/topic/chatbot/ReviewScoreCard.tsx`
-  - Component hien thi 4 thanh progress nho: Relevance, Creativity, Brand Alignment, Platform Fit
-  - Overall score badge voi 3 muc: Xuat sac (>90, mau xanh), Tot (>70, mau vang), Can cai thien (<70, mau do)
-  - Nut "Yeu cau AI cai thien" khi diem < 70
-  - Khi `approved === true` va `overall >= 85`: trigger confetti effect su dung `useConfetti` hook da co san
+**Giai phap**: Them 3 tool moi va ket noi voi du lieu thuc trong DB.
 
-- **Cap nhat** `src/components/topic/chatbot/types.ts`
-  - Them `ReviewScores` interface va `agentContributions` vao `ChatMessage`
-  ```text
-  interface ReviewScores {
-    relevance: number;
-    creativity: number;
-    brandAlignment: number;
-    platformFit: number;
-    overall: number;
-    approved: boolean;
-    feedback?: string;
-  }
-  interface AgentContribution {
-    agentName: string;
-    phase: string;
-    duration?: number;
-    summary?: string;
-  }
-  // Them vao ChatMessage:
-  reviewScores?: ReviewScores;
-  agentContributions?: AgentContribution[];
-  suggestedFollowUps?: string[];
-  ```
+**File thay doi**:
 
-- **Cap nhat** `src/hooks/useChatStreaming.ts`
-  - Parse SSE event `review_scores` va `agent_complete`
-  - Luu `reviewScores` va `agentContributions` vao ChatMessage
+- `supabase/functions/_shared/tool-definitions.ts`
+  - Them 3 tool definitions:
+    - `brand_voice_check`: Nhan content, tra ve diem brand alignment dua tren `brand_templates` (tone_of_voice, forbidden_words, preferred_words)
+    - `legal_compliance_check`: Nhan content + industry, tra ve violations dua tren `industry_jurisdiction_profiles.resolved_rules`
+    - `platform_best_practices`: Nhan content + platform, tra ve danh gia format/length/hashtag theo best practices
 
-- **Cap nhat** `src/components/topic/chatbot/ChatMessageBubble.tsx`
-  - Render `ReviewScoreCard` phia duoi noi dung khi `message.reviewScores` ton tai
-  - Render `AgentAttributionBar` (badges nho: Research, Strategy, Content, Reviewed) phia tren noi dung khi co `agentContributions`
+- `supabase/functions/_shared/tool-executor.ts`
+  - Them handler cho 3 tool moi
+  - `brand_voice_check`: Query `brand_templates` -> kiem tra forbidden_words, tone match, preferred_words usage
+  - `legal_compliance_check`: Query `industry_jurisdiction_profiles` -> kiem tra forbidden_terms, claim_restrictions tu resolved_rules
+  - `platform_best_practices`: Tra ve static best practices theo platform (TikTok/Facebook/Instagram/LinkedIn)
+
+- `supabase/functions/_shared/supervisor/agent-registry.ts`
+  - Cap nhat Reviewer Agent config:
+    ```text
+    tools: ['brand_voice_check', 'legal_compliance_check', 'platform_best_practices']
+    maxTurns: 2  (tang tu 1 len 2 de co 1 turn goi tool + 1 turn ket luan)
+    timeoutMs: 15000  (tang tu 10000)
+    ```
+
+- `supabase/functions/_shared/agents/reviewer-agent.ts`
+  - Cap nhat system prompt: yeu cau Reviewer goi tools truoc khi cho diem
+  - Output format giu nguyen JSON nhung them `tool_evidence` field
 
 ---
 
-## Module 2: Context Quality Visual Breakdown
+### Module 2: Global Session Budget & Dynamic Re-allocation
 
-**Muc tieu**: Thay the hien thi `%` don gian bang stacked bar chart cho thay nguon context.
+**Van de**: `TokenBudgetController` trong supervisor-loop chi co tong budget co dinh (16384) va khong re-allocate khi agent dung it.
 
-**Thay doi**:
+**Giai phap**: Nang cap thanh Session Budget Manager voi dynamic allocation.
 
-- **Cap nhat** `src/components/topic/chatbot/ContextBadges.tsx`
-  - Them component `ContextQualityMeter`
-  - Stacked horizontal bar (khong can thu vien chart) voi mau sac theo nguon: Brand Memory (tim), Web Search (xanh duong), Conversation History (xanh la), Industry Pack (cam)
-  - Tooltip khi hover hien thi breakdown chi tiet
-  - Khi context richness < 30%: hien thi goi y nho "Them brand template de AI hieu ban hon"
+**File thay doi**:
 
-- **Cap nhat** `src/components/topic/chatbot/ChatMessageBubble.tsx`
-  - Thay the hien thi `{message.contextRichness}% context` bang `ContextQualityMeter`
+- `supabase/functions/_shared/supervisor/supervisor-loop.ts`
+  - Thay `TokenBudgetController` class bang `SessionBudgetManager`:
+    ```text
+    class SessionBudgetManager {
+      totalBudget: number = 16384
+      perAgentUsage: Record<string, number>
+      agentOrder: string[]  // Thu tu agent se chay
 
-- **Cap nhat** `src/components/topic/chatbot/types.ts`
-  - Them `contextSources` vao `ChatMessage`:
-  ```text
-  contextSources?: {
-    brandMemory: number;    // 0-100
-    webSearch: number;
-    conversationHistory: number;
-    industryPack: number;
-  };
-  ```
+      // Khi agent A dung it hon budget,
+      // phan du duoc chuyen cho agent tiep theo
+      getRemainingBudgetForAgent(agentName: string): number {
+        const usedSoFar = sum of all previous agents usage
+        return totalBudget - usedSoFar
+      }
 
-- **Cap nhat** `src/hooks/useChatStreaming.ts`
-  - Parse `context_sources` tu SSE event `context_metadata`
-
----
-
-## Module 3: Mobile Responsive + Pipeline Ngang
-
-**Muc tieu**: Dam bao pipeline visualizer va badges khong bi tran tren mobile.
-
-**Thay doi**:
-
-- **Cap nhat** `src/components/topic/chatbot/ChatThinkingIndicator.tsx`
-  - Khi man hinh >= md (768px): hien thi pipeline ngang (horizontal stepper) voi icon + ten agent
-  - Khi man hinh < md: giu layout doc (vertical) hien tai nhung compact hon (chi hien thi icon + abbreviated label)
-  - Su dung Tailwind responsive classes: `hidden md:flex` va `flex md:hidden`
-  - Agent icons: Search (Research), ClipboardList (Strategy), Pen (Content), Shield (Reviewer)
-
-- **Cap nhat** `src/components/topic/chatbot/ContextBadges.tsx`
-  - Tren mobile: hien thi toi da 3 badges, phan con lai gom vao `+N more` badge voi tooltip
-  - `ContextQualityMeter` chuyen sang full-width tren mobile
-
-- **Cap nhat** `src/components/topic/chatbot/ChatMessageBubble.tsx`
-  - Follow-up suggestions: scroll ngang tren mobile thay vi wrap xuong dong
-  - `ReviewScoreCard`: layout 2x2 grid tren mobile thay vi 4 cot
+      // Tinh budget kha dung thuc te cho agent
+      getEffectiveBudget(agentName: string): number {
+        const config = getAgent(agentName)
+        const remaining = getRemainingBudgetForAgent(agentName)
+        // Cho phep dung toi da 150% budget goc neu co du
+        return Math.min(remaining, config.tokenBudget * 1.5)
+      }
+    }
+    ```
+  - Emit SSE event `budget_update` sau moi agent hoan thanh de frontend hien thi token usage
+  - Them `cost_estimate_usd` vao SSE `final_response` event (dung `cost-estimator.ts` da co)
 
 ---
 
-## Module 4: Supervisor Mode Toggle + Sound Effects
+### Module 3: Blackboard Context Pruning & Auto-Summary
 
-**Muc tieu**: Cho phep nguoi dung bat/tat multi-agent pipeline va them sound delight.
+**Van de**: Blackboard `memoryStore` tich tu vo han trong 1 session. Sau nhieu agent, context bi dai va ton token.
 
-**Thay doi**:
+**Giai phap**: Them versioning va auto-summary.
 
-- **Cap nhat** `src/hooks/useChatUI.ts`
-  - Them state `supervisorEnabled` (default: true), luu vao localStorage
-  - Them state cho sound notification preference
+**File thay doi**:
 
-- **Cap nhat** `src/components/topic/chatbot/ChatHeader.tsx`
-  - Them toggle "AI Pro Mode" (icon Brain) ben canh cac nut hien tai
-  - Tooltip giai thich: "Bat de AI su dung nhieu chuyen gia phan tich truoc khi tra loi"
-  - Visual: khi bat, icon Brain co glow effect
+- `supabase/functions/_shared/supervisor/blackboard.ts`
+  - Them version tracking cho moi key:
+    ```text
+    // Thay Map<string, BlackboardEntry> bang:
+    Map<string, BlackboardEntry[]>  // Array of versions per key
 
-- **Cap nhat** `src/hooks/useChatStreaming.ts`
-  - Nhan `supervisorEnabled` tu options va truyen vao API body `enableSupervisor`
+    write(): Them entry moi vao array, giu toi da 3 versions
+    read(): Tra ve version moi nhat
+    readHistory(key, limit): Tra ve N versions gan nhat
+    ```
+  - Them `prune()` method: Khi tong token cua blackboard > 3000, tu dong:
+    1. Giu nguyen latest version cua moi key
+    2. Summarize older versions thanh 1 dong
+  - Cap nhat `buildBlackboardContext()`: Chi inject latest version, them 1 dong "Previous: [summary]" neu co
 
-- **Sound effects**:
-  - Tao file `src/hooks/useAgentSound.ts`
-  - Play sound nhe khi: agent hoan thanh (soft chime), reviewer approve (success tone), review score cao (confetti + chime)
-  - Su dung Web Audio API (oscillator don gian, khong can file audio)
-  - Respect `soundEnabled` setting tu `useChatUI`
+- `supabase/functions/_shared/supervisor/supervisor-loop.ts`
+  - Goi `blackboard.prune()` truoc moi lan `buildAgentTask()` (truoc khi inject context cho agent tiep theo)
 
 ---
 
-## Module 5: Agent Attribution Bar + Dynamic Follow-ups
+## Muc 2: Lam trong thang
 
-**Muc tieu**: Hien thi agents da tham gia va goi y follow-up thong minh.
+### Module 4: Hierarchical Supervisor voi Conditional Branching
 
-**Thay doi**:
+**Van de**: FSM hien tai co 8 trang thai co dinh. Khong the xu ly yeu cau phuc tap nhu "nghien cuu doi thu + tao content 30 ngay + toi uu ads" vi luong chay luon la tuyen tinh: Research -> Strategy -> Content -> Review.
 
-- **Tao file moi** `src/components/topic/chatbot/AgentAttributionBar.tsx`
-  - Horizontal bar voi badges nho cho moi agent da tham gia
-  - Moi badge co icon + ten agent + duration (VD: "Research 2.1s")
-  - Badge "Reviewed" mau xanh la khi approved, mau vang khi co revision
-  - Click vao badge mo collapsible panel (su dung Radix Collapsible da co) hien thi summary output cua agent do
+**Giai phap**: Nang cap FSM thanh graph-based execution voi conditional branching. Khong can thu vien ngoai (LangGraph), tu build nhe dua tren FSM hien tai.
 
-- **Cap nhat** `src/components/topic/chatbot/ChatMessageBubble.tsx`
-  - Render `AgentAttributionBar` phia tren context badges khi co `message.agentContributions`
-  - Thay the follow-up buttons cung ("Them", "Format") bang `message.suggestedFollowUps` khi co
-  - Fallback ve buttons cung khi khong co suggested follow-ups
+**File thay doi**:
 
-- **Cap nhat** `src/hooks/useChatStreaming.ts`
-  - Parse `suggested_followups` tu SSE `final_response` event
-  - Parse `agent_complete` events de build `agentContributions` array
+- `supabase/functions/_shared/supervisor/state-machine.ts`
+  - Them `WorkflowState` moi: `parallel_research`, `sub_workflow`
+  - Them `WorkflowEvent` moi: `classified_multi_step`, `sub_complete`, `merge_results`
+  - Them `ConditionalTransition` type:
+    ```text
+    interface ConditionalTransition extends WorkflowTransition {
+      condition?: (context: WorkflowContext) => boolean;
+      // VD: chi chuyen sang 'reviewing' khi stateData.contentLength > 500
+    }
+    ```
+  - Them `subWorkflows` vao `WorkflowContext` de ho tro workflow long nhau
+  - Giu backward compatible: FSM cu van hoat dong, chi them nhanh moi
+
+- `supabase/functions/_shared/supervisor/intent-classifier.ts`
+  - Them intent `multi_step`: Phat hien yeu cau nhieu buoc (VD: "nghien cuu roi tao content roi phan tich")
+  - Classifier tra ve `steps: string[]` cho Supervisor biet thu tu agent
+  - Them patterns moi trong `INTENT_PATTERNS`:
+    ```text
+    multi_step: [
+      /nghiên cứu.*tạo.*phân tích|research.*create.*analyze/i,
+      /bước 1.*bước 2|step 1.*step 2/i,
+      /từ A đến Z|end-to-end|full pipeline/i,
+    ]
+    ```
+
+- `supabase/functions/_shared/supervisor/supervisor-loop.ts`
+  - Them logic xu ly `multi_step` intent: Doc `steps` tu classification, chay tung step
+  - Them `mergeResults()` function: Gom ket qua tu nhieu sub-workflow thanh 1 response
+
+---
+
+### Module 5: Learning Agent Nang Cap - Feedback Loop
+
+**Van de**: Learning Agent hien tai chi chay fire-and-forget sau workflow. Khong co co che feedback tu user (thumbs up/down) anh huong truc tiep den prompt tuning.
+
+**Giai phap**: Them feedback collection, pattern analysis, va prompt adaptation.
+
+**File thay doi**:
+
+- `supabase/functions/_shared/agents/learning-agent.ts`
+  - Them `analyzePatterns()`: Sau khi co >= 5 learnings cho 1 brand, goi LLM de tong hop thanh "brand style rules"
+  - Them `adaptSystemPrompt()`: Inject learned rules vao system prompt cua Content Agent
+  - Them support cho `performance_pattern` memory type: Luu ket qua tot (user thumbs up) de reinforcement
+
+- Tao migration moi:
+  - Them cot `feedback_score` vao bang `agent_execution_logs` (nullable, -1/0/1)
+  - Them index: `idx_agent_exec_brand_feedback ON agent_execution_logs(session_id, agent_name)`
+
+- `supabase/functions/_shared/supervisor/supervisor-loop.ts`
+  - Truyen `reviewScores` vao `runLearningAgent()` de Learning Agent biet content nao duoc Reviewer danh gia cao/thap
+  - Luu `sessionId` vao response de frontend co the gui feedback sau
+
+---
+
+### Module 6: Agent Performance Dashboard (Frontend)
+
+**Muc tieu**: Cho user thay tong quan hieu suat cua tung agent.
+
+**File thay doi**:
+
+- Tao `src/components/topic/chatbot/AgentPerformanceDashboard.tsx`
+  - Query `agent_execution_logs` group by agent_name
+  - Hien thi:
+    - Tong so lan chay moi agent
+    - Thoi gian trung binh (avg duration_ms)
+    - Ty le thanh cong (success rate)
+    - Token su dung trung binh
+  - Dung Recharts (da co) de ve bar chart so sanh agents
+  - Accessible tu ChatHeader hoac Settings
+
+- Tao `src/hooks/useAgentPerformance.ts`
+  - Hook query `agent_execution_logs` voi filter theo organization_id va date range
+  - Return aggregated stats per agent
+
+---
+
+## Muc 3: Tuong lai
+
+### Module 7: Brand Memory Agent
+
+**Muc tieu**: Agent chuyen biet quan ly Brand Profile, tu dong cap nhat dua tren interaction.
+
+**File thay doi**:
+
+- Tao `supabase/functions/_shared/agents/brand-memory-agent.ts`
+  - System prompt: Chuyen gia brand management
+  - Tools: `update_brand_voice`, `add_brand_term`, `query_brand_history`
+  - Tu dong chay khi phat hien user thay doi brand-related content nhieu lan
+
+- `supabase/functions/_shared/supervisor/agent-registry.ts`
+  - Dang ky brand-memory-agent voi priority 0 (cao nhat), maxTurns 1, tokenBudget 1000
+
+- `supabase/functions/_shared/supervisor/state-machine.ts`
+  - Them trang thai `brand_learning` giua `completed` va terminal state
+  - Agent nay chay async (khong block response)
 
 ---
 
 ## Thu tu implement
 
-1. Module 1: Types + ReviewScoreCard + Confetti (foundation cho cac module khac)
-2. Module 2: Context Quality Meter (doc lap, it dependency)
-3. Module 3: Mobile responsive (ap dung len cac component da update)
-4. Module 4: Supervisor toggle + Sound
-5. Module 5: Agent Attribution + Dynamic follow-ups
+```text
+Tuan 1:  Module 1 (Reviewer Tools) + Module 3 (Blackboard Pruning)
+Tuan 2:  Module 2 (Session Budget) + Module 5 (Learning Feedback - DB migration)
+Tuan 3:  Module 4 (Hierarchical Supervisor)
+Tuan 4:  Module 6 (Performance Dashboard) + Module 5 (Learning Agent code)
+Sau do:  Module 7 (Brand Memory Agent)
+```
 
 ## Tong file thay doi
 
-| File | Thay doi |
-|------|----------|
-| `types.ts` | Them ReviewScores, AgentContribution, contextSources, suggestedFollowUps |
-| `ReviewScoreCard.tsx` | Tao moi |
-| `AgentAttributionBar.tsx` | Tao moi |
-| `useAgentSound.ts` | Tao moi |
-| `ContextBadges.tsx` | Them ContextQualityMeter, mobile truncation |
-| `ChatThinkingIndicator.tsx` | Horizontal pipeline desktop, compact mobile |
-| `ChatMessageBubble.tsx` | Tich hop ReviewScore, Attribution, dynamic follow-ups, mobile scroll |
-| `ChatHeader.tsx` | Them AI Pro Mode toggle |
-| `useChatUI.ts` | Them supervisorEnabled state |
-| `useChatStreaming.ts` | Parse review_scores, agent_complete, context_sources, suggested_followups, truyen supervisorEnabled |
-| `index.ts` | Export cac component moi |
+| File | Module | Thay doi |
+|------|--------|----------|
+| `tool-definitions.ts` | 1 | Them 3 tool definitions cho Reviewer |
+| `tool-executor.ts` | 1 | Them handler cho 3 tool moi |
+| `agent-registry.ts` | 1, 7 | Cap nhat Reviewer config, dang ky Brand Memory Agent |
+| `reviewer-agent.ts` | 1 | Cap nhat system prompt yeu cau goi tools |
+| `supervisor-loop.ts` | 2, 3, 4, 5 | SessionBudgetManager, prune, multi-step, learning feedback |
+| `blackboard.ts` | 3 | Versioning, prune, auto-summary |
+| `state-machine.ts` | 4, 7 | Conditional branching, brand_learning state |
+| `intent-classifier.ts` | 4 | Them multi_step intent |
+| `learning-agent.ts` | 5 | Pattern analysis, prompt adaptation |
+| `brand-memory-agent.ts` | 7 | Tao moi |
+| `AgentPerformanceDashboard.tsx` | 6 | Tao moi |
+| `useAgentPerformance.ts` | 6 | Tao moi |
+| DB migration | 5 | Them feedback_score vao agent_execution_logs |
 
