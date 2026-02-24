@@ -7,7 +7,7 @@
 import { callAI } from "../ai-provider.ts";
 import { WorkflowEvent } from "./state-machine.ts";
 
-export type IntentType = 'chat' | 'research' | 'plan' | 'generate' | 'complex_workflow';
+export type IntentType = 'chat' | 'research' | 'plan' | 'generate' | 'complex_workflow' | 'multi_step';
 
 export interface ClassificationResult {
   intent: IntentType;
@@ -15,6 +15,8 @@ export interface ClassificationResult {
   reasoning: string;
   suggestedAgents: string[];
   workflowEvent: WorkflowEvent;
+  /** For multi_step intent: ordered list of sub-tasks */
+  steps?: string[];
 }
 
 // Fast classification using keyword heuristics first, LLM fallback
@@ -39,6 +41,14 @@ const INTENT_PATTERNS: Record<IntentType, RegExp[]> = {
     /từ a.*z|end.to.end|full workflow/i,
     /research.*rồi.*tạo|tìm.*rồi.*viết/i,
   ],
+  multi_step: [
+    /nghiên cứu.*tạo.*phân tích|research.*create.*analyze/i,
+    /bước 1.*bước 2|step 1.*step 2/i,
+    /từ A đến Z|end-to-end|full pipeline/i,
+    /nghiên cứu.*rồi.*lập kế hoạch.*rồi.*tạo/i,
+    /phân tích đối thủ.*tạo chiến dịch|competitor.*campaign/i,
+    /chiến dịch.*ngày.*ngành|campaign.*days.*industry/i,
+  ],
   chat: [], // Default fallback
 };
 
@@ -48,7 +58,22 @@ const INTENT_PATTERNS: Record<IntentType, RegExp[]> = {
 export function classifyIntentFast(message: string): ClassificationResult | null {
   const lowerMessage = message.toLowerCase();
 
-  // Check complex_workflow first (highest priority)
+  // Check multi_step first (highest priority — supersedes complex_workflow)
+  for (const pattern of INTENT_PATTERNS.multi_step) {
+    if (pattern.test(lowerMessage)) {
+      const steps = extractMultiSteps(lowerMessage);
+      return {
+        intent: 'multi_step',
+        confidence: 0.88,
+        reasoning: 'Multi-step workflow pattern detected',
+        suggestedAgents: ['research-agent', 'strategy-agent', 'content-agent', 'reviewer-agent'],
+        workflowEvent: 'classified_multi_step',
+        steps,
+      };
+    }
+  }
+
+  // Check complex_workflow second
   for (const pattern of INTENT_PATTERNS.complex_workflow) {
     if (pattern.test(lowerMessage)) {
       return {
@@ -63,7 +88,7 @@ export function classifyIntentFast(message: string): ClassificationResult | null
 
   // Check other intents
   const intentScores: Record<IntentType, number> = {
-    research: 0, plan: 0, generate: 0, complex_workflow: 0, chat: 0,
+    research: 0, plan: 0, generate: 0, complex_workflow: 0, multi_step: 0, chat: 0,
   };
 
   for (const [intent, patterns] of Object.entries(INTENT_PATTERNS)) {
@@ -75,7 +100,7 @@ export function classifyIntentFast(message: string): ClassificationResult | null
   }
 
   const topIntent = Object.entries(intentScores)
-    .filter(([k]) => k !== 'chat' && k !== 'complex_workflow')
+    .filter(([k]) => k !== 'chat' && k !== 'complex_workflow' && k !== 'multi_step')
     .sort((a, b) => b[1] - a[1])[0];
 
   if (topIntent && topIntent[1] > 0) {
@@ -86,6 +111,7 @@ export function classifyIntentFast(message: string): ClassificationResult | null
       generate: 'classified_generate',
       chat: 'classified_chat',
       complex_workflow: 'classified_complex',
+      multi_step: 'classified_multi_step',
     };
 
     const agentMap: Record<IntentType, string[]> = {
@@ -94,6 +120,7 @@ export function classifyIntentFast(message: string): ClassificationResult | null
       generate: ['content-agent'],
       chat: ['content-agent'],
       complex_workflow: ['research-agent', 'strategy-agent', 'content-agent'],
+      multi_step: ['research-agent', 'strategy-agent', 'content-agent', 'reviewer-agent'],
     };
 
     return {
@@ -123,14 +150,16 @@ export async function classifyIntentLLM(
         {
           role: 'system',
           content: `You are an intent classifier. Classify the user message into exactly one category.
-Respond ONLY with valid JSON: {"intent": "chat|research|plan|generate|complex_workflow", "reasoning": "brief reason"}
+Respond ONLY with valid JSON: {"intent": "chat|research|plan|generate|complex_workflow|multi_step", "reasoning": "brief reason", "steps": ["step1","step2"]}
+Note: "steps" is only needed for multi_step intent.
 
 Categories:
 - chat: General conversation, Q&A, advice
 - research: Finding trends, news, competitor info, data gathering
 - plan: Content planning, calendars, strategy, scheduling
 - generate: Creating specific content (posts, scripts, carousels)
-- complex_workflow: Multi-step tasks combining research + planning + generation`,
+- complex_workflow: Multi-step tasks combining research + planning + generation
+- multi_step: Explicit multi-step requests with distinct phases (e.g. "research then plan then create")`,
         },
         { role: 'user', content: message },
       ],
@@ -150,6 +179,7 @@ Categories:
         generate: 'classified_generate',
         chat: 'classified_chat',
         complex_workflow: 'classified_complex',
+        multi_step: 'classified_multi_step',
       };
 
       return {
@@ -158,6 +188,7 @@ Categories:
         reasoning: parsed.reasoning || 'LLM classification',
         suggestedAgents: getAgentsForIntent(intent),
         workflowEvent: eventMap[intent] || 'classified_chat',
+        steps: parsed.steps,
       };
     }
   } catch (err) {
@@ -199,8 +230,30 @@ function getAgentsForIntent(intent: IntentType): string[] {
     case 'plan': return ['strategy-agent'];
     case 'generate': return ['content-agent'];
     case 'complex_workflow': return ['research-agent', 'strategy-agent', 'content-agent', 'reviewer-agent'];
+    case 'multi_step': return ['research-agent', 'strategy-agent', 'content-agent', 'reviewer-agent'];
     default: return ['content-agent'];
   }
+}
+
+/**
+ * Extract ordered steps from multi-step user message
+ */
+function extractMultiSteps(message: string): string[] {
+  const steps: string[] = [];
+  
+  // Check for explicit step mentions
+  const stepMatches = message.match(/bước\s*\d+[:\s]+([^.]+)/gi);
+  if (stepMatches && stepMatches.length >= 2) {
+    return stepMatches.map(s => s.replace(/bước\s*\d+[:\s]+/i, '').trim());
+  }
+
+  // Detect implicit steps from keywords
+  if (/nghiên cứu|research|tìm kiếm|phân tích đối thủ/i.test(message)) steps.push('research');
+  if (/kế hoạch|plan|chiến lược|strategy/i.test(message)) steps.push('plan');
+  if (/tạo|viết|generate|create|content/i.test(message)) steps.push('generate');
+  if (/tối ưu|optimize|review|kiểm tra/i.test(message)) steps.push('review');
+
+  return steps.length >= 2 ? steps : ['research', 'plan', 'generate'];
 }
 
 // Use shared utility

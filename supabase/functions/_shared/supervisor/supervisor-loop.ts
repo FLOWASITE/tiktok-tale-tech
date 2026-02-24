@@ -11,6 +11,9 @@ import {
   isTerminalState,
   WorkflowContext,
   WorkflowEvent,
+  createSubWorkflow,
+  advanceSubWorkflow,
+  allSubWorkflowsComplete,
 } from "./state-machine.ts";
 import { classifyIntent, ClassificationResult } from "./intent-classifier.ts";
 import { getAgent, AgentConfig, getTotalTokenBudget } from "./agent-registry.ts";
@@ -196,7 +199,131 @@ export async function executeSupervisorLoop(
     return buildFallbackResult(userMessage, options, classification, workflow, startTime, tokenController);
   }
 
-  // Execute agents based on state machine
+  // ============================================
+  // Multi-step routing (Hierarchical Supervisor)
+  // ============================================
+  if (classification.intent === 'multi_step' && workflow.currentState === 'multi_step_routing') {
+    console.log(`[Supervisor] Multi-step workflow with ${classification.steps?.length || 3} steps`);
+    
+    const stepToAgent: Record<string, string> = {
+      research: 'research-agent',
+      plan: 'strategy-agent',
+      generate: 'content-agent',
+      review: 'reviewer-agent',
+    };
+    
+    const agentSteps = (classification.steps || ['research', 'plan', 'generate'])
+      .map(s => stepToAgent[s] || 'content-agent');
+    
+    const sub = createSubWorkflow(agentSteps);
+    workflow.subWorkflows.push(sub);
+    workflow.activeSubWorkflowId = sub.id;
+    workflow.multiStepPlan = classification.steps;
+
+    options.onEvent?.({
+      type: 'tool_result' as any,
+      data: {
+        type: 'multi_step_plan',
+        steps: classification.steps,
+        agents: agentSteps,
+      },
+    });
+
+    let nextAgent = advanceSubWorkflow(sub);
+    let stepIndex = 0;
+    
+    while (nextAgent) {
+      stepIndex++;
+      const agentConfig = getAgent(nextAgent);
+      if (!agentConfig || !tokenController.canAfford(nextAgent, agentConfig.tokenBudget)) {
+        console.warn(`[Supervisor] Skipping ${nextAgent} in multi-step`);
+        nextAgent = advanceSubWorkflow(sub);
+        continue;
+      }
+
+      options.onEvent?.({
+        type: 'tool_executing',
+        data: {
+          tool: nextAgent,
+          turn: stepIndex,
+          state: 'multi_step_routing',
+          agent_name: AGENT_DISPLAY_NAMES[nextAgent] || nextAgent,
+          phase: AGENT_PHASES[nextAgent] || 'Đang xử lý...',
+          step: `${stepIndex}/${sub.steps.length}`,
+        },
+      });
+
+      await blackboard.prune();
+      const task = await buildAgentTask(nextAgent, userMessage, options, brandMemoryContext, blackboard);
+      const result = await executeAgentWithDegradation(agentConfig, task, blackboard, execContext, nextAgent, workflow);
+      agentResults.push(result);
+
+      const estimatedTokens = Math.ceil((result.content?.length || 0) / 4) + 500;
+      tokenController.recordUsage(nextAgent, estimatedTokens);
+
+      if (result.success) {
+        const bbKey = getBlackboardKey(nextAgent);
+        await blackboard.write(bbKey, { content: result.content, toolResults: result.toolResults }, nextAgent);
+        sub.results[nextAgent] = result.content;
+      }
+
+      options.onEvent?.({
+        type: 'tool_result',
+        data: {
+          agent: nextAgent,
+          agent_name: AGENT_DISPLAY_NAMES[nextAgent] || nextAgent,
+          success: result.success,
+          duration_ms: result.durationMs,
+          step: `${stepIndex}/${sub.steps.length}`,
+          token_budget_remaining: tokenController.getRemainingBudget(),
+        },
+      });
+
+      transition(workflow, 'sub_complete');
+      nextAgent = advanceSubWorkflow(sub);
+    }
+
+    transition(workflow, 'all_subs_complete');
+
+    // Merge results
+    const mergedContent = mergeMultiStepResults(agentResults, sub);
+    transition(workflow, 'merge_complete');
+
+    // Fire learning agent
+    runLearningAgent(options.supabase, {
+      sessionId,
+      brandTemplateId: options.brandTemplateId,
+      organizationId: options.organizationId,
+      agentResults: agentResults.map(r => ({ agentName: r.agentName, content: r.content, success: r.success })),
+    }).catch(() => {});
+
+    const totalDuration = Date.now() - startTime;
+    options.onEvent?.({
+      type: 'final_response',
+      data: {
+        exit_reason: 'completed',
+        total_agents: agentResults.length,
+        workflow_type: 'multi_step',
+        total_duration_ms: totalDuration,
+        token_usage: tokenController.getSnapshot(),
+      },
+    });
+
+    return {
+      success: true,
+      finalContent: mergedContent,
+      agentResults,
+      classification,
+      workflowStates: workflow.previousStates,
+      totalDurationMs: totalDuration,
+      exitReason: 'completed',
+      tokenUsage: tokenController.getSnapshot(),
+    };
+  }
+
+  // ============================================
+  // Standard linear workflow (existing logic)
+  // ============================================
   let maxIterations = 6;
   let iteration = 0;
   let skippedAgents: string[] = [];
@@ -227,7 +354,6 @@ export async function executeSupervisorLoop(
 
     console.log(`[Supervisor] Executing ${agentName} (state: ${workflow.currentState})`);
     
-    // Emit SSE with agent_name and phase
     options.onEvent?.({
       type: 'tool_executing',
       data: {
@@ -239,24 +365,18 @@ export async function executeSupervisorLoop(
       },
     });
 
-    // Prune blackboard before building task to control token usage
     await blackboard.prune();
-
-    // Build task with blackboard context injection
     const task = await buildAgentTask(agentName, userMessage, options, brandMemoryContext, blackboard);
 
-    // Execute agent with graceful degradation
     const result = await executeAgentWithDegradation(
       agentConfig, task, blackboard, execContext, agentName, workflow
     );
     
     agentResults.push(result);
 
-    // Record token usage
     const estimatedTokens = Math.ceil((result.content?.length || 0) / 4) + 500;
     tokenController.recordUsage(agentName, estimatedTokens);
 
-    // Write result to blackboard
     if (result.success) {
       const blackboardKey = getBlackboardKey(agentName);
       await blackboard.write(blackboardKey, {
@@ -265,7 +385,6 @@ export async function executeSupervisorLoop(
       }, agentName);
     }
 
-    // Report result via SSE with agent info
     options.onEvent?.({
       type: 'tool_result',
       data: {
@@ -278,13 +397,19 @@ export async function executeSupervisorLoop(
       },
     });
 
-    // Transition based on result
     const event = getTransitionEvent(agentName, result);
     transition(workflow, event);
   }
 
   // Build final content from agent results — prioritize content-agent
   const finalContent = buildFinalContent(agentResults, classification);
+
+  // Extract review scores if reviewer ran
+  const reviewerResult = agentResults.find(r => r.agentName === 'reviewer-agent' && r.success);
+  let reviewScores: any;
+  if (reviewerResult?.content) {
+    try { reviewScores = JSON.parse(reviewerResult.content); } catch {}
+  }
 
   // Fire-and-forget: Run learning agent async
   runLearningAgent(options.supabase, {
@@ -296,6 +421,7 @@ export async function executeSupervisorLoop(
       content: r.content,
       success: r.success,
     })),
+    reviewScores,
   }).catch(() => {});
 
   const totalDuration = Date.now() - startTime;
@@ -502,6 +628,33 @@ function buildFinalContent(agentResults: AgentResult[], classification: Classifi
   if (anyContent) return anyContent.content;
 
   return 'Không thể tạo nội dung. Vui lòng thử lại.';
+}
+
+/**
+ * Merge results from multi-step sub-workflow into unified response
+ */
+function mergeMultiStepResults(
+  agentResults: AgentResult[],
+  sub: import('./state-machine.ts').SubWorkflow
+): string {
+  const parts: string[] = [];
+  
+  for (const agentName of sub.steps) {
+    const result = agentResults.find(r => r.agentName === agentName && r.success);
+    if (result?.content && !result.content.startsWith('[')) {
+      parts.push(result.content);
+    }
+  }
+
+  if (parts.length === 0) {
+    return 'Không thể hoàn thành tất cả các bước. Vui lòng thử lại.';
+  }
+
+  // If only content-agent produced real content, return just that
+  if (parts.length === 1) return parts[0];
+
+  // Otherwise combine all meaningful outputs
+  return parts.join('\n\n---\n\n');
 }
 
 async function buildFallbackResult(
