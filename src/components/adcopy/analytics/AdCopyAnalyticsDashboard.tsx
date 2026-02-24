@@ -10,8 +10,9 @@ import { BenchmarkRadarChart } from './BenchmarkRadarChart';
 import { AnalyticsFiltersComponent } from './AnalyticsFilters';
 import { Button } from '@/components/ui/button';
 import { Download, BarChart3 } from 'lucide-react';
-
+import { useTranslation } from 'react-i18next';
 export function AdCopyAnalyticsDashboard() {
+  const { t } = useTranslation();
   const {
     filters,
     updateFilters,
@@ -68,12 +69,12 @@ export function AdCopyAnalyticsDashboard() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-6 w-6 text-primary" />
-          <h2 className="text-xl font-semibold">Analytics Dashboard</h2>
+          <h2 className="text-xl font-semibold">{t('app.analytics.title')}</h2>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleExportCSV}>
             <Download className="h-4 w-4 mr-2" />
-            Export CSV
+            {t('app.analytics.exportCsv')}
           </Button>
         </div>
       </div>

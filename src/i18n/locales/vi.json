@@ -643,5 +643,123 @@
     "connectionError": "Không thể kết nối với trợ lý",
     "noResponse": "Không nhận được phản hồi",
     "genericError": "Đã xảy ra lỗi"
+  },
+  "app": {
+    "sidebar": {
+      "quick": "Nhanh",
+      "content": "Nội dung",
+      "management": "Quản lý",
+      "settings": "Cài đặt",
+      "admin": "Admin",
+      "dashboard": "Dashboard",
+      "ideaBank": "Kho Ý Tưởng",
+      "coreContent": "Core Content",
+      "multichannel": "Nội dung đa kênh",
+      "videoScript": "Kịch bản Video",
+      "carousel": "Carousel",
+      "adCopies": "Ad Copies",
+      "campaigns": "Chiến dịch",
+      "tasks": "Công việc",
+      "calendar": "Lịch đăng",
+      "brandManagement": "Quản lý Brand",
+      "adminDashboard": "Dashboard",
+      "adminUsers": "Users",
+      "adminAI": "AI Management",
+      "adminSocial": "Social Platforms",
+      "adminIndustry": "Industry Park",
+      "adminKnowledgeGraph": "Knowledge Graph",
+      "adminCountries": "Countries",
+      "adminCategories": "Categories",
+      "adminEvents": "Curated Events",
+      "adminNews": "Curated News",
+      "adminHelp": "Help Articles",
+      "adminVersions": "Version History"
+    },
+    "userMenu": {
+      "profile": "Hồ sơ cá nhân",
+      "account": "Tài khoản",
+      "organization": "Tổ chức",
+      "selectOrg": "Chọn Tổ chức",
+      "yourOrgs": "Tổ chức của bạn",
+      "noOrgs": "Chưa có tổ chức nào",
+      "orgSettings": "Cài đặt tổ chức",
+      "admin": "Quản trị",
+      "adminDashboard": "Admin Dashboard",
+      "help": "Trợ giúp",
+      "signOut": "Đăng xuất",
+      "signedOut": "Đã đăng xuất",
+      "switchedOrg": "Đã chuyển tổ chức"
+    },
+    "orgSwitcher": {
+      "yourOrgs": "Tổ chức của bạn",
+      "createNew": "Tạo tổ chức mới",
+      "createTitle": "Tạo tổ chức mới",
+      "createDesc": "Tạo một tổ chức mới để quản lý nội dung và mời thành viên cộng tác.",
+      "orgName": "Tên tổ chức",
+      "orgPlaceholder": "VD: Công ty ABC",
+      "cancel": "Hủy",
+      "creating": "Đang tạo...",
+      "create": "Tạo tổ chức"
+    },
+    "notifications": {
+      "title": "Thông báo",
+      "markAllRead": "Đánh dấu tất cả đã đọc",
+      "empty": "Không có thông báo nào"
+    },
+    "search": {
+      "placeholder": "Tìm kiếm nhanh...",
+      "inputPlaceholder": "Tìm kiếm nội dung, topic, kịch bản...",
+      "noResults": "Không tìm thấy kết quả",
+      "quickNav": "Điều hướng nhanh",
+      "ideaBank": "Kho ý tưởng",
+      "multichannel": "Nội dung đa kênh",
+      "videoScript": "Kịch bản Video",
+      "carouselPrompt": "Carousel Prompt",
+      "brands": "Thương hiệu",
+      "calendarMgmt": "Quản lý lịch đăng",
+      "favoriteTopics": "Topic yêu thích",
+      "topPerformers": "Topic hiệu suất cao",
+      "scripts": "Kịch bản",
+      "select": "chọn",
+      "move": "di chuyển",
+      "close": "đóng",
+      "new": "Mới"
+    },
+    "theme": {
+      "toggle": "Chuyển đổi theme",
+      "light": "Sáng",
+      "dark": "Tối",
+      "lime": "Vàng chanh",
+      "system": "Theo hệ thống"
+    },
+    "breadcrumb": {
+      "home": "Trang chủ",
+      "scripts": "Kịch bản Video",
+      "carousel": "Carousel Prompt",
+      "brands": "Quản lý Brand",
+      "multichannel": "Nội dung đa kênh"
+    },
+    "dashboardHeader": {
+      "morning": "Chào buổi sáng",
+      "afternoon": "Chào buổi chiều",
+      "evening": "Chào buổi tối",
+      "overview": "Đây là tổng quan hoạt động của bạn hôm nay",
+      "postsToday": "{{count}} bài đăng hôm nay",
+      "pendingApproval": "{{count}} chờ duyệt",
+      "goodPerformance": "Hiệu suất tốt",
+      "guide": "Hướng dẫn"
+    },
+    "analytics": {
+      "title": "Analytics Dashboard",
+      "exportCsv": "Export CSV",
+      "totalSpend": "Tổng chi tiêu",
+      "roas": "ROAS",
+      "avgCtr": "CTR trung bình",
+      "conversions": "Chuyển đổi",
+      "vsPrevious": "vs kỳ trước"
+    },
+    "mobileSidebar": {
+      "moreInfo": "Thông tin thêm"
+    }
   }
 }

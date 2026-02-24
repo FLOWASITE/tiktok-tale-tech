@@ -1,17 +1,20 @@
 import { useLocation } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
-const routeNames: Record<string, string> = {
-  '/': 'Kịch bản Video',
-  '/carousel': 'Carousel Prompt',
-  '/brands': 'Quản lý Brand',
-  '/multichannel': 'Nội dung đa kênh',
+const routeKeys: Record<string, string> = {
+  '/': 'app.breadcrumb.scripts',
+  '/carousel': 'app.breadcrumb.carousel',
+  '/brands': 'app.breadcrumb.brands',
+  '/multichannel': 'app.breadcrumb.multichannel',
 };
 
 export function Breadcrumb() {
   const location = useLocation();
+  const { t } = useTranslation();
   const currentPath = location.pathname;
-  const pageName = routeNames[currentPath] || 'Trang';
+  const pageKey = routeKeys[currentPath];
+  const pageName = pageKey ? t(pageKey) : t('app.breadcrumb.home');
 
   return (
     <nav className="flex items-center gap-1.5 text-sm">

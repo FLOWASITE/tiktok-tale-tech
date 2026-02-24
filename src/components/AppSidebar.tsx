@@ -9,6 +9,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { ORG_ROLE_LABELS } from '@/types/organization';
+import { useTranslation } from 'react-i18next';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -44,52 +45,10 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar';
 
-// Nhóm 1: Quick Access - Dùng thường xuyên
-const quickItems = [
-  { title: 'Dashboard', url: '/', icon: LayoutDashboard },
-  { title: 'Kho Ý Tưởng', url: '/topics', icon: Lightbulb },
-  { title: 'Core Content', url: '/core-content', icon: FileText },
-];
-
-// Nhóm 2: Content Creation - Tạo nội dung
-const contentItems = [
-  { title: 'Nội dung đa kênh', url: '/multichannel', icon: Layers },
-  { title: 'Kịch bản Video', url: '/scripts', icon: Film },
-  { title: 'Carousel', url: '/carousel', icon: Images },
-  { title: 'Ad Copies', url: '/ad-copies', icon: Megaphone },
-];
-
-// Nhóm 3: Management - Quản lý
-const managementItems = [
-  { title: 'Chiến dịch', url: '/campaigns', icon: Target },
-  { title: 'Công việc', url: '/tasks', icon: ClipboardList },
-  { title: 'Lịch đăng', url: '/calendar', icon: CalendarDays },
-];
-
-// Nhóm 4: Settings - Cài đặt
-const settingsItems = [
-  { title: 'Quản lý Brand', url: '/brands', icon: Bookmark },
-];
-
-// Nhóm 5: Admin - Quản trị hệ thống
-const adminItems = [
-  { title: 'Dashboard', url: '/admin/dashboard', icon: BarChart3 },
-  { title: 'Users', url: '/admin/users', icon: User },
-  { title: 'AI Management', url: '/admin/ai', icon: Sparkles },
-  { title: 'Social Platforms', url: '/admin/social-settings', icon: Globe },
-  { title: 'Industry Park', url: '/admin/industries', icon: Layers },
-  { title: 'Knowledge Graph', url: '/admin/knowledge-graph', icon: Network },
-  { title: 'Countries', url: '/admin/countries', icon: Flag },
-  { title: 'Categories', url: '/admin/categories', icon: Bookmark },
-  { title: 'Curated Events', url: '/admin/events', icon: CalendarDays },
-  { title: 'Curated News', url: '/admin/industry-news', icon: Newspaper },
-  { title: 'Help Articles', url: '/admin/help-articles', icon: BookOpen },
-  { title: 'Version History', url: '/admin/versions', icon: GitBranch },
-];
-
 // Menu Item Component với premium styling
 interface MenuItem {
   title: string;
+  titleKey: string;
   url: string;
   icon: React.ComponentType<{ className?: string }>;
   isMain?: boolean;
@@ -97,11 +56,13 @@ interface MenuItem {
 
 function PremiumMenuItem({ item, isCollapsed, isAdminItem = false }: { item: MenuItem; isCollapsed: boolean; isAdminItem?: boolean }) {
   const location = useLocation();
+  const { t } = useTranslation();
   const isActive = location.pathname === item.url || (item.url !== '/' && location.pathname.startsWith(item.url));
+  const label = t(item.titleKey, { defaultValue: item.title });
   
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild tooltip={item.title}>
+      <SidebarMenuButton asChild tooltip={label}>
         <NavLink
           to={item.url}
           className={cn(
@@ -133,7 +94,7 @@ function PremiumMenuItem({ item, isCollapsed, isAdminItem = false }: { item: Men
             isActive && "drop-shadow-[0_0_6px_hsl(var(--primary)/0.5)]",
             isAdminItem && item.isMain && isActive && "drop-shadow-[0_0_6px_hsl(var(--destructive)/0.5)]"
           )} />
-          <span className={isCollapsed ? 'sr-only' : ''}>{item.title}</span>
+          <span className={isCollapsed ? 'sr-only' : ''}>{label}</span>
         </NavLink>
       </SidebarMenuButton>
     </SidebarMenuItem>
@@ -170,15 +131,58 @@ export function AppSidebar() {
   const { organizations, currentOrganization, switchOrganization } = useOrganizationContext();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   const isCollapsed = state === 'collapsed';
   
-  // Admin section mặc định đóng, mở nếu đang ở trang admin
   const isOnAdminPage = location.pathname.startsWith('/admin');
   const [adminOpen, setAdminOpen] = useState(isOnAdminPage);
 
+  // Nhóm 1: Quick Access
+  const quickItems: MenuItem[] = [
+    { title: 'Dashboard', titleKey: 'app.sidebar.dashboard', url: '/', icon: LayoutDashboard },
+    { title: 'Kho Ý Tưởng', titleKey: 'app.sidebar.ideaBank', url: '/topics', icon: Lightbulb },
+    { title: 'Core Content', titleKey: 'app.sidebar.coreContent', url: '/core-content', icon: FileText },
+  ];
+
+  // Nhóm 2: Content Creation
+  const contentItems: MenuItem[] = [
+    { title: 'Nội dung đa kênh', titleKey: 'app.sidebar.multichannel', url: '/multichannel', icon: Layers },
+    { title: 'Kịch bản Video', titleKey: 'app.sidebar.videoScript', url: '/scripts', icon: Film },
+    { title: 'Carousel', titleKey: 'app.sidebar.carousel', url: '/carousel', icon: Images },
+    { title: 'Ad Copies', titleKey: 'app.sidebar.adCopies', url: '/ad-copies', icon: Megaphone },
+  ];
+
+  // Nhóm 3: Management
+  const managementItems: MenuItem[] = [
+    { title: 'Chiến dịch', titleKey: 'app.sidebar.campaigns', url: '/campaigns', icon: Target },
+    { title: 'Công việc', titleKey: 'app.sidebar.tasks', url: '/tasks', icon: ClipboardList },
+    { title: 'Lịch đăng', titleKey: 'app.sidebar.calendar', url: '/calendar', icon: CalendarDays },
+  ];
+
+  // Nhóm 4: Settings
+  const settingsItems: MenuItem[] = [
+    { title: 'Quản lý Brand', titleKey: 'app.sidebar.brandManagement', url: '/brands', icon: Bookmark },
+  ];
+
+  // Nhóm 5: Admin
+  const adminItems: MenuItem[] = [
+    { title: 'Dashboard', titleKey: 'app.sidebar.adminDashboard', url: '/admin/dashboard', icon: BarChart3 },
+    { title: 'Users', titleKey: 'app.sidebar.adminUsers', url: '/admin/users', icon: User },
+    { title: 'AI Management', titleKey: 'app.sidebar.adminAI', url: '/admin/ai', icon: Sparkles },
+    { title: 'Social Platforms', titleKey: 'app.sidebar.adminSocial', url: '/admin/social-settings', icon: Globe },
+    { title: 'Industry Park', titleKey: 'app.sidebar.adminIndustry', url: '/admin/industries', icon: Layers },
+    { title: 'Knowledge Graph', titleKey: 'app.sidebar.adminKnowledgeGraph', url: '/admin/knowledge-graph', icon: Network },
+    { title: 'Countries', titleKey: 'app.sidebar.adminCountries', url: '/admin/countries', icon: Flag },
+    { title: 'Categories', titleKey: 'app.sidebar.adminCategories', url: '/admin/categories', icon: Bookmark },
+    { title: 'Curated Events', titleKey: 'app.sidebar.adminEvents', url: '/admin/events', icon: CalendarDays },
+    { title: 'Curated News', titleKey: 'app.sidebar.adminNews', url: '/admin/industry-news', icon: Newspaper },
+    { title: 'Help Articles', titleKey: 'app.sidebar.adminHelp', url: '/admin/help-articles', icon: BookOpen },
+    { title: 'Version History', titleKey: 'app.sidebar.adminVersions', url: '/admin/versions', icon: GitBranch },
+  ];
+
   const handleSwitchOrg = (orgId: string) => {
     switchOrganization(orgId);
-    toast.success('Đã chuyển tổ chức');
+    toast.success(t('app.userMenu.switchedOrg'));
   };
 
   const handleSupportClick = () => {
@@ -191,37 +195,23 @@ export function AppSidebar() {
 
   const getInitials = () => {
     if (profile?.full_name) {
-      return profile.full_name
-        .split(' ')
-        .map(n => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
+      return profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     }
     if (user?.user_metadata?.full_name) {
-      return user.user_metadata.full_name
-        .split(' ')
-        .map((n: string) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
+      return user.user_metadata.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
     }
     return user?.email?.charAt(0).toUpperCase() || 'U';
   };
 
   const getDisplayName = () => {
-    if (profile?.full_name) {
-      return profile.full_name;
-    }
-    if (user?.user_metadata?.full_name) {
-      return user.user_metadata.full_name;
-    }
+    if (profile?.full_name) return profile.full_name;
+    if (user?.user_metadata?.full_name) return user.user_metadata.full_name;
     return user?.email?.split('@')[0] || 'User';
   };
 
   const handleSignOut = async () => {
     await signOut();
-    toast.success('Đã đăng xuất');
+    toast.success(t('app.userMenu.signedOut'));
     navigate('/auth');
   };
 
@@ -230,12 +220,10 @@ export function AppSidebar() {
       {/* Premium Header */}
       <SidebarHeader className="p-3 border-b border-border/20">
         <div className="flex items-center gap-3 px-2 py-2 relative">
-          {/* Logo với glow effect */}
           <div className="relative flex-shrink-0">
             <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full scale-150" />
             <img src={logoImage} alt="Flowa Logo" className="w-9 h-9 object-contain relative z-10" />
           </div>
-          
           {!isCollapsed && (
             <div className="overflow-hidden">
               <div className="flex items-center gap-2">
@@ -254,11 +242,11 @@ export function AppSidebar() {
       <SidebarContent className="px-2">
         {/* Nhóm 1: Quick Access */}
         <SidebarGroup className="py-2">
-          <PremiumGroupLabel isCollapsed={isCollapsed}>Nhanh</PremiumGroupLabel>
+          <PremiumGroupLabel isCollapsed={isCollapsed}>{t('app.sidebar.quick')}</PremiumGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {quickItems.map((item) => (
-                <PremiumMenuItem key={item.title} item={item} isCollapsed={isCollapsed} />
+                <PremiumMenuItem key={item.url} item={item} isCollapsed={isCollapsed} />
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -268,11 +256,11 @@ export function AppSidebar() {
 
         {/* Nhóm 2: Content Creation */}
         <SidebarGroup className="py-2">
-          <PremiumGroupLabel isCollapsed={isCollapsed}>Nội dung</PremiumGroupLabel>
+          <PremiumGroupLabel isCollapsed={isCollapsed}>{t('app.sidebar.content')}</PremiumGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {contentItems.map((item) => (
-                <PremiumMenuItem key={item.title} item={item} isCollapsed={isCollapsed} />
+                <PremiumMenuItem key={item.url} item={item} isCollapsed={isCollapsed} />
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -282,11 +270,11 @@ export function AppSidebar() {
 
         {/* Nhóm 3: Management */}
         <SidebarGroup className="py-2">
-          <PremiumGroupLabel isCollapsed={isCollapsed}>Quản lý</PremiumGroupLabel>
+          <PremiumGroupLabel isCollapsed={isCollapsed}>{t('app.sidebar.management')}</PremiumGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {managementItems.map((item) => (
-                <PremiumMenuItem key={item.title} item={item} isCollapsed={isCollapsed} />
+                <PremiumMenuItem key={item.url} item={item} isCollapsed={isCollapsed} />
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -296,17 +284,17 @@ export function AppSidebar() {
 
         {/* Nhóm 4: Settings */}
         <SidebarGroup className="py-2">
-          <PremiumGroupLabel isCollapsed={isCollapsed}>Cài đặt</PremiumGroupLabel>
+          <PremiumGroupLabel isCollapsed={isCollapsed}>{t('app.sidebar.settings')}</PremiumGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {settingsItems.map((item) => (
-                <PremiumMenuItem key={item.title} item={item} isCollapsed={isCollapsed} />
+                <PremiumMenuItem key={item.url} item={item} isCollapsed={isCollapsed} />
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Nhóm 5: Admin - Collapsible với distinct styling */}
+        {/* Nhóm 5: Admin */}
         {isAdmin && (
           <>
             <GradientSeparator />
@@ -323,7 +311,7 @@ export function AppSidebar() {
                     <div className="flex items-center gap-2">
                       <Shield className="w-3.5 h-3.5 text-destructive/70" />
                       <span className="uppercase tracking-wider text-[10px] font-semibold text-destructive/70">
-                        Admin
+                        {t('app.sidebar.admin')}
                       </span>
                     </div>
                     <ChevronDown className={cn(
@@ -337,7 +325,7 @@ export function AppSidebar() {
                     <SidebarMenu>
                       {adminItems.map((item) => (
                         <PremiumMenuItem 
-                          key={item.title} 
+                          key={item.url} 
                           item={item} 
                           isCollapsed={isCollapsed} 
                           isAdminItem 
@@ -371,7 +359,6 @@ export function AppSidebar() {
                     )}
                     tooltip={getDisplayName()}
                   >
-                    {/* Avatar với gradient ring */}
                     <div className="relative">
                       <div className="absolute -inset-0.5 bg-gradient-to-br from-primary to-secondary rounded-full opacity-75" />
                       <Avatar className="h-9 w-9 border-2 border-background relative">
@@ -380,10 +367,8 @@ export function AppSidebar() {
                           {getInitials()}
                         </AvatarFallback>
                       </Avatar>
-                      {/* Online indicator */}
                       <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-background rounded-full" />
                     </div>
-                    
                     {!isCollapsed && (
                       <>
                         <div className="flex-1 text-left min-w-0">
@@ -403,39 +388,36 @@ export function AppSidebar() {
                   align="start"
                   className="w-64 glass-card border-border/30 shadow-xl bg-popover"
                 >
-                  {/* Hồ sơ cá nhân */}
                   <DropdownMenuLabel className="text-xs text-muted-foreground">
-                    Hồ sơ cá nhân
+                    {t('app.userMenu.profile')}
                   </DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => navigate('/account')} className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
-                    Tài khoản
+                    {t('app.userMenu.account')}
                   </DropdownMenuItem>
                   
                   <DropdownMenuSeparator className="bg-border/30" />
                   
-                  {/* Tổ chức */}
                   <DropdownMenuLabel className="text-xs text-muted-foreground">
-                    Tổ chức
+                    {t('app.userMenu.organization')}
                   </DropdownMenuLabel>
                   
-                  {/* Organization Switcher */}
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger className="gap-2 cursor-pointer">
                       <Building2 className="h-4 w-4" />
                       <span className="flex-1 truncate">
-                        {currentOrganization?.name || 'Chọn Tổ chức'}
+                        {currentOrganization?.name || t('app.userMenu.selectOrg')}
                       </span>
                     </DropdownMenuSubTrigger>
                     <DropdownMenuPortal>
                       <DropdownMenuSubContent className="w-56 bg-popover">
                         <DropdownMenuLabel className="text-xs text-muted-foreground">
-                          Tổ chức của bạn
+                          {t('app.userMenu.yourOrgs')}
                         </DropdownMenuLabel>
                         
                         {organizations.length === 0 ? (
                           <div className="px-2 py-3 text-sm text-muted-foreground text-center">
-                            Chưa có tổ chức nào
+                            {t('app.userMenu.noOrgs')}
                           </div>
                         ) : (
                           organizations.map((org) => (
@@ -462,19 +444,18 @@ export function AppSidebar() {
                   
                   <DropdownMenuItem onClick={() => navigate('/organization')} className="cursor-pointer">
                     <Building2 className="mr-2 h-4 w-4" />
-                    Cài đặt tổ chức
+                    {t('app.userMenu.orgSettings')}
                   </DropdownMenuItem>
                   
-                  {/* Admin */}
                   {isAdmin && (
                     <>
                       <DropdownMenuSeparator className="bg-border/30" />
                       <DropdownMenuLabel className="text-xs text-muted-foreground">
-                        Quản trị
+                        {t('app.userMenu.admin')}
                       </DropdownMenuLabel>
                       <DropdownMenuItem onClick={() => navigate('/admin/dashboard')} className="cursor-pointer">
                         <Shield className="mr-2 h-4 w-4 text-destructive" />
-                        Admin Dashboard
+                        {t('app.userMenu.adminDashboard')}
                       </DropdownMenuItem>
                     </>
                   )}
@@ -483,7 +464,7 @@ export function AppSidebar() {
                   
                   <DropdownMenuItem onClick={handleSupportClick} className="cursor-pointer">
                     <HelpCircle className="mr-2 h-4 w-4" />
-                    Trợ giúp
+                    {t('app.userMenu.help')}
                     <ExternalLink className="ml-auto h-3 w-3 text-muted-foreground" />
                   </DropdownMenuItem>
                   
@@ -494,7 +475,7 @@ export function AppSidebar() {
                     className="text-destructive focus:text-destructive cursor-pointer"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
-                    Đăng xuất
+                    {t('app.userMenu.signOut')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -643,5 +643,123 @@
     "connectionError": "Cannot connect to assistant",
     "noResponse": "No response received",
     "genericError": "An error occurred"
+  },
+  "app": {
+    "sidebar": {
+      "quick": "Quick",
+      "content": "Content",
+      "management": "Management",
+      "settings": "Settings",
+      "admin": "Admin",
+      "dashboard": "Dashboard",
+      "ideaBank": "Idea Bank",
+      "coreContent": "Core Content",
+      "multichannel": "Multi-channel",
+      "videoScript": "Video Script",
+      "carousel": "Carousel",
+      "adCopies": "Ad Copies",
+      "campaigns": "Campaigns",
+      "tasks": "Tasks",
+      "calendar": "Content Calendar",
+      "brandManagement": "Brand Management",
+      "adminDashboard": "Dashboard",
+      "adminUsers": "Users",
+      "adminAI": "AI Management",
+      "adminSocial": "Social Platforms",
+      "adminIndustry": "Industry Park",
+      "adminKnowledgeGraph": "Knowledge Graph",
+      "adminCountries": "Countries",
+      "adminCategories": "Categories",
+      "adminEvents": "Curated Events",
+      "adminNews": "Curated News",
+      "adminHelp": "Help Articles",
+      "adminVersions": "Version History"
+    },
+    "userMenu": {
+      "profile": "Profile",
+      "account": "Account",
+      "organization": "Organization",
+      "selectOrg": "Select Organization",
+      "yourOrgs": "Your organizations",
+      "noOrgs": "No organizations yet",
+      "orgSettings": "Organization settings",
+      "admin": "Administration",
+      "adminDashboard": "Admin Dashboard",
+      "help": "Help",
+      "signOut": "Sign out",
+      "signedOut": "Signed out",
+      "switchedOrg": "Organization switched"
+    },
+    "orgSwitcher": {
+      "yourOrgs": "Your organizations",
+      "createNew": "Create new organization",
+      "createTitle": "Create new organization",
+      "createDesc": "Create a new organization to manage content and invite team members.",
+      "orgName": "Organization name",
+      "orgPlaceholder": "e.g. Company ABC",
+      "cancel": "Cancel",
+      "creating": "Creating...",
+      "create": "Create organization"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "markAllRead": "Mark all as read",
+      "empty": "No notifications"
+    },
+    "search": {
+      "placeholder": "Quick search...",
+      "inputPlaceholder": "Search content, topics, scripts...",
+      "noResults": "No results found",
+      "quickNav": "Quick navigation",
+      "ideaBank": "Idea Bank",
+      "multichannel": "Multi-channel content",
+      "videoScript": "Video Script",
+      "carouselPrompt": "Carousel Prompt",
+      "brands": "Brands",
+      "calendarMgmt": "Content calendar",
+      "favoriteTopics": "Favorite topics",
+      "topPerformers": "Top performing topics",
+      "scripts": "Scripts",
+      "select": "select",
+      "move": "navigate",
+      "close": "close",
+      "new": "New"
+    },
+    "theme": {
+      "toggle": "Toggle theme",
+      "light": "Light",
+      "dark": "Dark",
+      "lime": "Lime",
+      "system": "System"
+    },
+    "breadcrumb": {
+      "home": "Home",
+      "scripts": "Video Scripts",
+      "carousel": "Carousel Prompt",
+      "brands": "Brand Management",
+      "multichannel": "Multi-channel Content"
+    },
+    "dashboardHeader": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening",
+      "overview": "Here's your activity overview for today",
+      "postsToday": "{{count}} posts today",
+      "pendingApproval": "{{count}} pending approval",
+      "goodPerformance": "Good performance",
+      "guide": "Guide"
+    },
+    "analytics": {
+      "title": "Analytics Dashboard",
+      "exportCsv": "Export CSV",
+      "totalSpend": "Total Spend",
+      "roas": "ROAS",
+      "avgCtr": "Average CTR",
+      "conversions": "Conversions",
+      "vsPrevious": "vs previous period"
+    },
+    "mobileSidebar": {
+      "moreInfo": "More Info"
+    }
   }
 }
