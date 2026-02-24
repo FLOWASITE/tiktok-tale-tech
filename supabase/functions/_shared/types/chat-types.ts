@@ -15,6 +15,7 @@ export interface ChatRequest {
   userId?: string;
   enableTools?: boolean;
   enableAgenticLoop?: boolean;
+  enableSupervisor?: boolean; // Use multi-agent supervisor loop
   maxAgentTurns?: number;
   forceWebSearch?: boolean; // Force web search even without trending keywords
 }

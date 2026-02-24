@@ -13,6 +13,7 @@ import {
 import { fetchUserPreferences, UserPreferencesContext } from "../_shared/user-preferences.ts";
 import { fetchCrossSessionMemory, CrossSessionMemory } from "../_shared/session-memory.ts";
 import { executeAgenticLoop, createSSEWriter, buildReActPromptSection } from "../_shared/agentic-loop.ts";
+import { executeSupervisorLoop } from "../_shared/supervisor/supervisor-loop.ts";
 import { buildContextMetadata, serializeContextMetadata, summarizeContext } from "../_shared/context-tracker.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 
@@ -77,7 +78,7 @@ serve(async (req) => {
   const requestStartTime = performance.now();
 
   try {
-    const { messages, brandTemplateId, contentGoal, organizationId, userId, enableTools, enableAgenticLoop, maxAgentTurns, forceWebSearch }: ChatRequest = await req.json();
+    const { messages, brandTemplateId, contentGoal, organizationId, userId, enableTools, enableAgenticLoop, enableSupervisor, maxAgentTurns, forceWebSearch }: ChatRequest = await req.json();
 
     // Extend logger context
     if (userId) logger.info('Request received', { userId, organizationId, brandTemplateId });
@@ -590,10 +591,11 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
     // Determine mode and settings
     const useTools = enableTools !== false;
     const useAgenticLoop = enableAgenticLoop === true;
+    const useSupervisor = enableSupervisor === true;
     const maxTurns = maxAgentTurns || 5;
 
-    // Add ReAct prompt section if using agentic loop
-    const finalSystemPrompt = useAgenticLoop 
+    // Add ReAct prompt section if using agentic loop (not supervisor - it has its own prompts)
+    const finalSystemPrompt = useAgenticLoop && !useSupervisor
       ? systemPrompt + buildReActPromptSection()
       : systemPrompt;
 
@@ -667,6 +669,119 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
       badgeCount: contextMetadata.badges.length,
       richnessScore: contextMetadata.context_richness_score,
     });
+
+    // ============ SUPERVISOR MULTI-AGENT MODE ============
+    if (useSupervisor) {
+      logger.info('Starting supervisor multi-agent loop', { inputTokensEstimated });
+
+      const { readable, writable } = new TransformStream();
+      const writer = writable.getWriter();
+      const encoder = new TextEncoder();
+      const sseWriter = createSSEWriter(writer);
+
+      // Send context metadata first
+      const metadataEvent = `data: ${serializeContextMetadata(contextMetadata)}\n\n`;
+      writer.write(encoder.encode(metadataEvent));
+
+      const aiCallStart = performance.now();
+      (async () => {
+        let hadError = false;
+        let errorType: string | undefined;
+        let errorMessage: string | undefined;
+
+        try {
+          const supervisorResult = await executeSupervisorLoop(
+            processedMessages[processedMessages.length - 1]?.content || '',
+            {
+              supabase,
+              userId: userId || undefined,
+              organizationId: organizationId || undefined,
+              brandTemplateId: brandTemplateId || undefined,
+              brandName: brandContext?.brandName,
+              industry: brandContext?.industry?.[0],
+              complianceRules: industryMemory?.compliance_rules?.map(r => typeof r === 'string' ? r : r.rule),
+              systemPrompt: finalSystemPrompt,
+              conversationHistory: processedMessages.map(m => ({ role: m.role, content: m.content })),
+              onEvent: (event) => {
+                sseWriter.write(event).catch(() => {});
+              },
+            }
+          );
+
+          // Stream final content
+          if (supervisorResult.finalContent) {
+            const chunks = supervisorResult.finalContent.match(/.{1,100}/g) || [];
+            for (const chunk of chunks) {
+              await sseWriter.write({ type: 'content_chunk', data: { chunk } });
+            }
+          }
+
+          await writer.write(encoder.encode('data: [DONE]\n\n'));
+
+          logger.info('Supervisor loop complete', {
+            success: supervisorResult.success,
+            agents: supervisorResult.agentResults.length,
+            intent: supervisorResult.classification.intent,
+            states: supervisorResult.workflowStates,
+            durationMs: supervisorResult.totalDurationMs,
+            exitReason: supervisorResult.exitReason,
+          });
+        } catch (err) {
+          hadError = true;
+          errorType = err instanceof Error ? err.name : 'UnknownError';
+          errorMessage = err instanceof Error ? err.message : 'Unknown error';
+          logger.error('Supervisor loop error', err instanceof Error ? err : undefined);
+
+          const errorEvent = `data: ${JSON.stringify({
+            type: 'error',
+            data: { message: errorMessage },
+          })}\n\n`;
+          await writer.write(encoder.encode(errorEvent));
+        } finally {
+          await writer.close();
+
+          if (!hadError && userId) {
+            logUsage(supabase, userId, 'ai_edit', undefined, {
+              mode: 'supervisor',
+              brandTemplateId,
+            }).catch(err => logger.warn('Failed to log usage', { error: err.message }));
+          }
+
+          const aiCallDurationMs = Math.round(performance.now() - aiCallStart);
+          const totalDurationMs = Math.round(performance.now() - requestStartTime);
+          const model = 'google/gemini-2.5-flash';
+          const outputTokensEstimated = 1000;
+          const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
+
+          saveMetrics(supabase, {
+            traceId: logger.getTraceId(),
+            functionName: 'chat-topics',
+            organizationId: organizationId || undefined,
+            userId: userId || undefined,
+            brandTemplateId: brandTemplateId || undefined,
+            totalDurationMs,
+            aiCallDurationMs,
+            contextFetchDurationMs,
+            inputTokensEstimated,
+            outputTokensEstimated,
+            contextSources,
+            contextRichnessScore: contextMetadata.context_richness_score,
+            totalTurns: 0,
+            toolsExecuted: [],
+            exitReason: 'supervisor',
+            hadError,
+            errorType,
+            errorMessage,
+            modelsUsed: { default: model, supervisor: true },
+            estimatedCostUsd,
+          }).catch(err => logger.warn('Failed to save metrics', { error: err.message }));
+        }
+      })();
+
+      return new Response(readable, {
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
+      });
+    }
 
     // ============ AGENTIC LOOP MODE ============
     if (useAgenticLoop) {

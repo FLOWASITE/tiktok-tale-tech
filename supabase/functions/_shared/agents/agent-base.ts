@@ -123,7 +123,7 @@ export async function executeAgent(
 
     // Log to agent_execution_logs
     await logAgentExecution(execContext.supabase, {
-      sessionId: blackboard instanceof Object ? 'session' : 'unknown',
+      sessionId: 'agent-session',
       agentName,
       status: 'completed',
       outputSummary: content.slice(0, 200),
