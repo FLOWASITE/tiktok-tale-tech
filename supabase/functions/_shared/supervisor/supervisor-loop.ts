@@ -138,6 +138,17 @@ export async function executeSupervisorLoop(
   const classification = await classifyIntent(userMessage, options.organizationId);
   console.log(`[Supervisor] Intent: ${classification.intent} (${classification.confidence})`);
 
+  // Emit classification result so frontend can build dynamic progress steps
+  options.onEvent?.({
+    type: 'tool_result' as any,
+    data: {
+      type: 'classification',
+      intent: classification.intent,
+      suggestedAgents: classification.suggestedAgents,
+      confidence: classification.confidence,
+    },
+  });
+
   // Fetch brand memory context
   let brandMemoryContext = '';
   if (options.brandTemplateId) {
@@ -380,21 +391,25 @@ async function buildAgentTask(
     .filter(Boolean)
     .join('\n\n');
 
+  // Build conversation history (last 10 messages for context)
+  const conversationHistory = options.conversationHistory?.slice(-10);
+
   switch (agentName) {
     case 'research-agent':
-      return createResearchTask(userMessage, options.brandName, options.industry, additionalContext);
+      return { ...createResearchTask(userMessage, options.brandName, options.industry, additionalContext), conversationHistory };
     case 'strategy-agent':
-      return createStrategyTask(userMessage, options.brandName, options.industry, additionalContext);
+      return { ...createStrategyTask(userMessage, options.brandName, options.industry, additionalContext), conversationHistory };
     case 'content-agent':
-      return createContentTask(userMessage, options.brandName, options.industry, additionalContext);
+      return { ...createContentTask(userMessage, options.brandName, options.industry, additionalContext), conversationHistory };
     case 'reviewer-agent': {
       // Reviewer should review generated_content from blackboard, not user message
       const generatedContent = await blackboard.read('generated_content');
       const contentToReview = generatedContent?.content || userMessage;
-      return createReviewerTask(contentToReview, options.brandName, options.industry, options.complianceRules);
+      // Pass additionalContext (brand memory + blackboard) to reviewer too
+      return { ...createReviewerTask(contentToReview, options.brandName, options.industry, options.complianceRules), additionalContext, conversationHistory };
     }
     default:
-      return createContentTask(userMessage, options.brandName, options.industry, additionalContext);
+      return { ...createContentTask(userMessage, options.brandName, options.industry, additionalContext), conversationHistory };
   }
 }
 

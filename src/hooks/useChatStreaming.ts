@@ -281,24 +281,38 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
               const toolName = parsed.data?.tool || parsed.tool_name;
               const agentDisplayName = parsed.data?.agent_name;
               const phase = parsed.data?.phase;
-              setState(prev => ({
-                ...prev,
-                currentExecutingTool: toolName,
-                thinkingStatus: 'executing_tools',
-                agentTurnInfo: prev.agentTurnInfo ? {
-                  ...prev.agentTurnInfo,
-                  toolsExecuted: [...prev.agentTurnInfo.toolsExecuted, toolName],
-                  agentName: agentDisplayName || prev.agentTurnInfo.agentName,
-                  phase: phase || prev.agentTurnInfo.phase,
-                } : {
-                  currentTurn: parsed.data?.turn || 1,
-                  maxTurns: 5,
-                  toolsExecuted: [toolName],
-                  isComplete: false,
-                  agentName: agentDisplayName,
-                  phase: phase,
-                },
-              }));
+              setState(prev => {
+                // Update dynamic progress steps: mark current agent as active, previous as complete
+                const updatedSteps = prev.progressSteps.map(step => {
+                  if (step.id === toolName) {
+                    return { ...step, status: 'active' as const, startTime: Date.now() };
+                  }
+                  if (step.status === 'active' && step.id !== toolName) {
+                    return { ...step, status: 'complete' as const, duration: Date.now() - (step.startTime || Date.now()) };
+                  }
+                  return step;
+                });
+
+                return {
+                  ...prev,
+                  currentExecutingTool: toolName,
+                  thinkingStatus: 'executing_tools',
+                  progressSteps: updatedSteps,
+                  agentTurnInfo: prev.agentTurnInfo ? {
+                    ...prev.agentTurnInfo,
+                    toolsExecuted: [...prev.agentTurnInfo.toolsExecuted, toolName],
+                    agentName: agentDisplayName || prev.agentTurnInfo.agentName,
+                    phase: phase || prev.agentTurnInfo.phase,
+                  } : {
+                    currentTurn: parsed.data?.turn || 1,
+                    maxTurns: 5,
+                    toolsExecuted: [toolName],
+                    isComplete: false,
+                    agentName: agentDisplayName,
+                    phase: phase,
+                  },
+                };
+              });
               continue;
             }
             
@@ -316,6 +330,9 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                       ? { ...step, status: 'complete' as const, duration: Date.now() - (step.startTime || Date.now()) }
                       : step.id === 'response'
                       ? { ...step, status: 'active' as const, startTime: Date.now() }
+                      // Mark any remaining active/pending agent steps as complete
+                      : (step.status === 'active' || step.status === 'pending') && step.id !== 'response'
+                      ? { ...step, status: 'complete' as const, duration: step.startTime ? Date.now() - step.startTime : undefined }
                       : step
                   ),
                 }));
@@ -352,11 +369,31 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
               continue;
             }
             
-            // Agentic tool_result event
+            // Agentic tool_result event (can be classification or actual tool result)
             if (parsed.type === 'tool_result' && parsed.data) {
+              // Handle classification event from supervisor — build dynamic progress steps
+              if (parsed.data.type === 'classification' && parsed.data.suggestedAgents) {
+                const agentLabels: Record<string, string> = {
+                  'research-agent': '🔍 Nghiên cứu xu hướng',
+                  'strategy-agent': '📋 Lập kế hoạch',
+                  'content-agent': '✍️ Tạo nội dung',
+                  'reviewer-agent': '✅ Kiểm tra chất lượng',
+                };
+                const dynamicSteps: ProgressStep[] = parsed.data.suggestedAgents.map((agent: string) => ({
+                  id: agent,
+                  label: agentLabels[agent] || agent,
+                  status: 'pending' as const,
+                }));
+                setState(prev => ({
+                  ...prev,
+                  progressSteps: dynamicSteps,
+                }));
+                continue;
+              }
+
               receivedToolResults = receivedToolResults || [];
               receivedToolResults.push({
-                tool_name: parsed.data.tool || 'unknown',
+                tool_name: parsed.data.tool || parsed.data.agent || 'unknown',
                 success: parsed.data.success !== false,
                 result: parsed.data.result,
               });

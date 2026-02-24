@@ -689,8 +689,9 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
         let errorType: string | undefined;
         let errorMessage: string | undefined;
 
+        let supervisorResult: any = null;
         try {
-          const supervisorResult = await executeSupervisorLoop(
+          supervisorResult = await executeSupervisorLoop(
             processedMessages[processedMessages.length - 1]?.content || '',
             {
               supabase,
@@ -750,7 +751,13 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
           const aiCallDurationMs = Math.round(performance.now() - aiCallStart);
           const totalDurationMs = Math.round(performance.now() - requestStartTime);
           const model = 'google/gemini-2.5-flash';
-          const outputTokensEstimated = 1000;
+          
+          // Use actual supervisor results for metrics instead of hardcoded values
+          const agentCount = supervisorResult?.agentResults?.length || 0;
+          const toolsUsed = supervisorResult?.agentResults?.flatMap((r: any) => 
+            r.toolResults?.map((t: any) => t.tool_name) || []
+          ) || [];
+          const outputTokensEstimated = Math.ceil((supervisorResult?.finalContent?.length || 0) / 4) + (agentCount * 500);
           const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
 
           saveMetrics(supabase, {
@@ -766,13 +773,13 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
             outputTokensEstimated,
             contextSources,
             contextRichnessScore: contextMetadata.context_richness_score,
-            totalTurns: 0,
-            toolsExecuted: [],
-            exitReason: 'supervisor',
+            totalTurns: agentCount,
+            toolsExecuted: toolsUsed,
+            exitReason: supervisorResult?.exitReason || 'supervisor',
             hadError,
             errorType,
             errorMessage,
-            modelsUsed: { default: model, supervisor: true },
+            modelsUsed: { default: model, supervisor: true, agents: supervisorResult?.agentResults?.map((r: any) => r.agentName) || [] },
             estimatedCostUsd,
           }).catch(err => logger.warn('Failed to save metrics', { error: err.message }));
         }
