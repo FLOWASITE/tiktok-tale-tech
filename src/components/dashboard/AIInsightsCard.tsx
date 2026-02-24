@@ -46,6 +46,7 @@ interface AIInsightsResponse {
   fromCache: boolean;
   cachedAt?: string;
   metadata?: InsightMetadata;
+  creditsError?: 'CREDITS_EXHAUSTED' | 'RATE_LIMIT';
 }
 
 interface AIInsightsCardProps {
@@ -101,6 +102,20 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
       });
 
       if (error) {
+        // Try to parse body for structured error (credits/rate limit)
+        try {
+          const body = error?.context?.body ? JSON.parse(error.context.body) : null;
+          if (body?.errorCode === 'CREDITS_EXHAUSTED' || body?.errorCode === 'RATE_LIMIT') {
+            // Return empty insights with error info instead of throwing
+            return { insights: [], fromCache: false, creditsError: body.errorCode };
+          }
+        } catch {
+          // Check error message as fallback
+          const msg = error?.message || '';
+          if (msg.includes('402') || msg.includes('Payment') || msg.includes('credits')) {
+            return { insights: [], fromCache: false, creditsError: 'CREDITS_EXHAUSTED' as const };
+          }
+        }
         console.error('Error fetching insights:', error);
         throw error;
       }
@@ -286,6 +301,25 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
   // Loading state
   if (isLoading) {
     return <InsightsSkeleton />;
+  }
+
+  // Credits exhausted - show graceful message instead of error
+  if (data?.creditsError === 'CREDITS_EXHAUSTED') {
+    return (
+      <Card className={`gradient-card border-border/50 ${className}`}>
+        <CardContent className="p-4 sm:p-5 text-center">
+          <div className="p-3 rounded-full bg-muted/50 w-fit mx-auto mb-3">
+            <Sparkles className="w-5 h-5 text-muted-foreground" />
+          </div>
+          <p className="text-sm text-muted-foreground mb-2">
+            AI Insights tạm ngưng
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Đã hết credits AI. Insights sẽ hoạt động lại khi credits được nạp thêm.
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   // Error state
