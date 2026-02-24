@@ -147,6 +147,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
           organizationId,
           userId,
           enableTools: true,
+          enableAgenticLoop: true,
+          enableSupervisor: true, // Use multi-agent supervisor architecture
           forceWebSearch, // Pass through to backend for real-time web search
         }),
         signal: abortControllerRef.current.signal,
