@@ -12,7 +12,10 @@ export type WorkflowState =
   | 'reviewing'
   | 'completed'
   | 'failed'
-  | 'error_recovery';
+  | 'error_recovery'
+  | 'multi_step_routing'
+  | 'sub_workflow'
+  | 'merging_results';
 
 export type WorkflowEvent =
   | 'user_message'
@@ -22,6 +25,7 @@ export type WorkflowEvent =
   | 'classified_generate'
   | 'classified_chat'
   | 'classified_complex'
+  | 'classified_multi_step'
   | 'research_complete'
   | 'plan_complete'
   | 'content_complete'
@@ -30,13 +34,21 @@ export type WorkflowEvent =
   | 'error'
   | 'recovery_success'
   | 'recovery_failed'
-  | 'skip_agent';
+  | 'skip_agent'
+  | 'sub_complete'
+  | 'all_subs_complete'
+  | 'merge_complete';
 
 export interface WorkflowTransition {
   from: WorkflowState;
   event: WorkflowEvent;
   to: WorkflowState;
   action?: string; // Agent to execute
+  condition?: (context: WorkflowContext) => boolean;
+}
+
+export interface ConditionalTransition extends WorkflowTransition {
+  condition: (context: WorkflowContext) => boolean;
 }
 
 // State machine transition table
@@ -76,7 +88,23 @@ const TRANSITIONS: WorkflowTransition[] = [
   // Error recovery
   { from: 'error_recovery', event: 'recovery_success', to: 'generating', action: 'content-agent' },
   { from: 'error_recovery', event: 'recovery_failed', to: 'failed' },
+  
+  // Multi-step workflow (Hierarchical Supervisor)
+  { from: 'classifying', event: 'classified_multi_step', to: 'multi_step_routing' },
+  { from: 'multi_step_routing', event: 'sub_complete', to: 'multi_step_routing' },
+  { from: 'multi_step_routing', event: 'all_subs_complete', to: 'merging_results' },
+  { from: 'multi_step_routing', event: 'error', to: 'error_recovery' },
+  { from: 'merging_results', event: 'merge_complete', to: 'completed' },
+  { from: 'merging_results', event: 'error', to: 'error_recovery' },
 ];
+
+export interface SubWorkflow {
+  id: string;
+  steps: string[]; // Agent names in order
+  currentStepIndex: number;
+  results: Record<string, any>;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+}
 
 export interface WorkflowContext {
   sessionId: string;
@@ -88,6 +116,10 @@ export interface WorkflowContext {
   startedAt: number;
   revisionCount: number;
   maxRevisions: number;
+  // Hierarchical Supervisor support
+  subWorkflows: SubWorkflow[];
+  activeSubWorkflowId?: string;
+  multiStepPlan?: string[];
 }
 
 export function createWorkflowContext(sessionId: string): WorkflowContext {
@@ -101,6 +133,7 @@ export function createWorkflowContext(sessionId: string): WorkflowContext {
     startedAt: Date.now(),
     revisionCount: 0,
     maxRevisions: 2,
+    subWorkflows: [],
   };
 }
 
@@ -120,6 +153,7 @@ export function transition(
 ): TransitionResult {
   const validTransition = TRANSITIONS.find(
     t => t.from === context.currentState && t.event === event
+      && (!t.condition || t.condition(context))
   );
 
   if (!validTransition) {
@@ -167,6 +201,45 @@ export function transition(
  */
 export function isTerminalState(state: WorkflowState): boolean {
   return state === 'completed' || state === 'failed';
+}
+
+// ============================================
+// Hierarchical Supervisor Helpers
+// ============================================
+
+/**
+ * Create a sub-workflow for multi-step execution
+ */
+export function createSubWorkflow(steps: string[]): SubWorkflow {
+  return {
+    id: crypto.randomUUID(),
+    steps,
+    currentStepIndex: 0,
+    results: {},
+    status: 'pending',
+  };
+}
+
+/**
+ * Advance sub-workflow to next step, returns the next agent or null if done
+ */
+export function advanceSubWorkflow(sub: SubWorkflow): string | null {
+  if (sub.currentStepIndex >= sub.steps.length) {
+    sub.status = 'completed';
+    return null;
+  }
+  sub.status = 'running';
+  const agent = sub.steps[sub.currentStepIndex];
+  sub.currentStepIndex++;
+  return agent;
+}
+
+/**
+ * Check if all sub-workflows are completed
+ */
+export function allSubWorkflowsComplete(context: WorkflowContext): boolean {
+  return context.subWorkflows.length > 0 &&
+    context.subWorkflows.every(sw => sw.status === 'completed' || sw.status === 'failed');
 }
 
 /**
