@@ -361,6 +361,60 @@ export const CHAT_TOOLS: ToolDefinition[] = [
       },
     },
   },
+  // ============ REVIEWER TOOLS ============
+  {
+    type: "function",
+    function: {
+      name: "brand_voice_check",
+      description: "Kiểm tra content có phù hợp với brand voice không. Đối chiếu với forbidden_words, preferred_words, tone_of_voice từ Brand Template.",
+      parameters: {
+        type: "object",
+        properties: {
+          content: { type: "string", description: "Nội dung cần kiểm tra" },
+          brand_template_id: { type: "string", description: "ID của brand template" },
+        },
+        required: ["content"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "legal_compliance_check",
+      description: "Kiểm tra content có vi phạm quy định pháp luật ngành không. Đối chiếu với forbidden_terms, claim_restrictions từ Industry Jurisdiction Profile.",
+      parameters: {
+        type: "object",
+        properties: {
+          content: { type: "string", description: "Nội dung cần kiểm tra" },
+          industry_code: { type: "string", description: "Mã ngành (VD: beauty, health, finance)" },
+          jurisdiction: { type: "string", description: "Khu vực pháp lý (VD: VN, US, EU). Mặc định: VN" },
+        },
+        required: ["content"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "platform_best_practices",
+      description: "Đánh giá content theo best practices của từng nền tảng social media (độ dài, hashtag, format, CTA).",
+      parameters: {
+        type: "object",
+        properties: {
+          content: { type: "string", description: "Nội dung cần đánh giá" },
+          platform: {
+            type: "string",
+            enum: ["tiktok", "facebook", "instagram", "linkedin", "youtube", "threads"],
+            description: "Nền tảng đăng content",
+          },
+        },
+        required: ["content", "platform"],
+        additionalProperties: false,
+      },
+    },
+  },
   // ============ AGENTIC CONTROL TOOLS ============
   {
     type: "function",

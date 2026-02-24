@@ -31,6 +31,13 @@ export async function executeToolCall(
         return await executeGenerateMultichannel(parameters, context);
       case "search_topics":
         return await executeSearchTopics(parameters, context);
+      // Reviewer tools
+      case "brand_voice_check":
+        return await executeBrandVoiceCheck(parameters, context);
+      case "legal_compliance_check":
+        return await executeLegalComplianceCheck(parameters, context);
+      case "platform_best_practices":
+        return await executePlatformBestPractices(parameters, context);
       // Planning tools
       case "start_planning_session":
         return await executeStartPlanningSession(parameters, context);
@@ -469,6 +476,284 @@ async function executeSearchTopics(
       message: data?.length 
         ? `Tìm thấy ${data.length} topics phù hợp với "${query}"`
         : `Không tìm thấy topic nào với "${query}"`,
+    },
+  };
+}
+
+// ============ REVIEWER TOOLS ============
+
+// Brand voice check against brand_templates
+async function executeBrandVoiceCheck(
+  params: Record<string, any>,
+  context: ExecutionContext
+): Promise<ToolCallResult> {
+  const { content, brand_template_id } = params;
+  const templateId = brand_template_id || context.brandTemplateId;
+
+  if (!templateId) {
+    return {
+      success: true,
+      tool_name: "brand_voice_check",
+      result: {
+        score: 7,
+        message: "Không có Brand Template để kiểm tra. Cho điểm mặc định.",
+        forbidden_found: [],
+        preferred_found: [],
+        tone_match: "unknown",
+      },
+    };
+  }
+
+  try {
+    const { data: brand } = await context.supabase
+      .from("brand_templates")
+      .select("brand_name, tone_of_voice, forbidden_words, preferred_words, formality_level, language_style")
+      .eq("id", templateId)
+      .single();
+
+    if (!brand) {
+      return { success: true, tool_name: "brand_voice_check", result: { score: 7, message: "Brand template not found" } };
+    }
+
+    const contentLower = content.toLowerCase();
+    const forbiddenWords: string[] = brand.forbidden_words || [];
+    const preferredWords: string[] = brand.preferred_words || [];
+
+    const forbiddenFound = forbiddenWords.filter((w: string) => contentLower.includes(w.toLowerCase()));
+    const preferredFound = preferredWords.filter((w: string) => contentLower.includes(w.toLowerCase()));
+
+    // Score calculation
+    let score = 8;
+    if (forbiddenFound.length > 0) score -= forbiddenFound.length * 2;
+    if (preferredFound.length > 0) score += Math.min(preferredFound.length * 0.5, 1);
+    score = Math.max(1, Math.min(10, score));
+
+    return {
+      success: true,
+      tool_name: "brand_voice_check",
+      result: {
+        brand_name: brand.brand_name,
+        score: Math.round(score * 10) / 10,
+        tone_of_voice: brand.tone_of_voice,
+        formality_level: brand.formality_level,
+        language_style: brand.language_style,
+        forbidden_found: forbiddenFound,
+        preferred_found: preferredFound,
+        forbidden_count: forbiddenFound.length,
+        preferred_count: preferredFound.length,
+        message: forbiddenFound.length > 0
+          ? `⚠️ Phát hiện ${forbiddenFound.length} từ cấm: ${forbiddenFound.join(", ")}`
+          : `✅ Không phát hiện từ cấm. ${preferredFound.length > 0 ? `Sử dụng ${preferredFound.length} từ khuyến nghị.` : ''}`,
+      },
+    };
+  } catch (err) {
+    return { success: false, tool_name: "brand_voice_check", result: null, error: String(err) };
+  }
+}
+
+// Legal compliance check against industry jurisdiction profiles
+async function executeLegalComplianceCheck(
+  params: Record<string, any>,
+  context: ExecutionContext
+): Promise<ToolCallResult> {
+  const { content, industry_code, jurisdiction } = params;
+  const region = jurisdiction || 'VN';
+
+  try {
+    // Find matching jurisdiction profile
+    let query = context.supabase
+      .from("industry_jurisdiction_profiles")
+      .select("jurisdiction_code, resolved_rules, industry_template_id")
+      .eq("jurisdiction_code", region)
+      .limit(5);
+
+    const { data: profiles } = await query;
+
+    if (!profiles?.length) {
+      return {
+        success: true,
+        tool_name: "legal_compliance_check",
+        result: {
+          risk_level: "unknown",
+          violations: [],
+          message: `Không tìm thấy quy định cho khu vực ${region}. Cần kiểm tra thủ công.`,
+        },
+      };
+    }
+
+    const contentLower = content.toLowerCase();
+    const violations: Array<{ term: string; rule: string; severity: string }> = [];
+
+    for (const profile of profiles) {
+      const rules = profile.resolved_rules;
+      if (!rules) continue;
+
+      // Check forbidden_terms
+      const forbiddenTerms: string[] = rules.forbidden_terms || [];
+      for (const term of forbiddenTerms) {
+        if (contentLower.includes(term.toLowerCase())) {
+          violations.push({ term, rule: 'forbidden_term', severity: 'high' });
+        }
+      }
+
+      // Check claim_restrictions
+      const claimRestrictions: string[] = rules.claim_restrictions || [];
+      for (const claim of claimRestrictions) {
+        if (claim.length > 5 && contentLower.includes(claim.toLowerCase())) {
+          violations.push({ term: claim, rule: 'claim_restriction', severity: 'medium' });
+        }
+      }
+    }
+
+    const riskLevel = violations.length === 0 ? 'low'
+      : violations.some(v => v.severity === 'high') ? 'high' : 'medium';
+
+    return {
+      success: true,
+      tool_name: "legal_compliance_check",
+      result: {
+        jurisdiction: region,
+        risk_level: riskLevel,
+        violations,
+        violation_count: violations.length,
+        profiles_checked: profiles.length,
+        message: violations.length === 0
+          ? `✅ Content tuân thủ quy định ${region}`
+          : `⚠️ Phát hiện ${violations.length} vi phạm tiềm ẩn tại ${region}`,
+      },
+    };
+  } catch (err) {
+    return { success: false, tool_name: "legal_compliance_check", result: null, error: String(err) };
+  }
+}
+
+// Platform best practices evaluation
+async function executePlatformBestPractices(
+  params: Record<string, any>,
+  _context: ExecutionContext
+): Promise<ToolCallResult> {
+  const { content, platform } = params;
+
+  const BEST_PRACTICES: Record<string, {
+    maxLength: number;
+    idealHashtags: [number, number];
+    ctaRequired: boolean;
+    tips: string[];
+  }> = {
+    tiktok: {
+      maxLength: 2200,
+      idealHashtags: [3, 5],
+      ctaRequired: true,
+      tips: [
+        "Hook mạnh trong 3 giây đầu",
+        "Sử dụng trending sounds",
+        "Caption ngắn gọn, có CTA",
+        "Hashtag trending + niche mix",
+      ],
+    },
+    facebook: {
+      maxLength: 63206,
+      idealHashtags: [1, 3],
+      ctaRequired: false,
+      tips: [
+        "3 dòng đầu quan trọng nhất (before See more)",
+        "Ưu tiên storytelling format",
+        "Emoji vừa phải, tránh lạm dụng",
+        "Kêu gọi comment/share tự nhiên",
+      ],
+    },
+    instagram: {
+      maxLength: 2200,
+      idealHashtags: [5, 15],
+      ctaRequired: true,
+      tips: [
+        "Caption hook + value + CTA",
+        "Hashtag mix: 5 big + 5 niche + 5 specific",
+        "Carousel > single image cho engagement",
+        "Sử dụng line breaks để dễ đọc",
+      ],
+    },
+    linkedin: {
+      maxLength: 3000,
+      idealHashtags: [3, 5],
+      ctaRequired: false,
+      tips: [
+        "Hook với số liệu hoặc insight",
+        "Chia paragraph ngắn (1-2 câu)",
+        "Tone chuyên nghiệp nhưng cá nhân",
+        "Kết thúc bằng câu hỏi mở",
+      ],
+    },
+    youtube: {
+      maxLength: 5000,
+      idealHashtags: [3, 5],
+      ctaRequired: true,
+      tips: [
+        "Title dưới 60 ký tự, có keyword",
+        "Description chi tiết, timestamps",
+        "CTA subscribe + bell",
+        "Tags relevant và specific",
+      ],
+    },
+    threads: {
+      maxLength: 500,
+      idealHashtags: [0, 2],
+      ctaRequired: false,
+      tips: [
+        "Ngắn gọn, conversational",
+        "Ít hashtag hoặc không dùng",
+        "Tone casual, authentic",
+        "Tận dụng reply chains cho long-form",
+      ],
+    },
+  };
+
+  const practices = BEST_PRACTICES[platform] || BEST_PRACTICES.facebook;
+  const contentLength = content.length;
+  const hashtagCount = (content.match(/#\w+/g) || []).length;
+  const hasCTA = /(?:mua ngay|đăng ký|comment|share|link|bio|click|xem thêm|follow|subscribe|liên hệ)/i.test(content);
+
+  // Score calculation
+  let fitScore = 7;
+  
+  // Length check
+  if (contentLength > practices.maxLength) fitScore -= 2;
+  else if (contentLength < 50) fitScore -= 1;
+  
+  // Hashtag check
+  if (hashtagCount < practices.idealHashtags[0]) fitScore -= 0.5;
+  else if (hashtagCount > practices.idealHashtags[1]) fitScore -= 1;
+  else fitScore += 0.5;
+  
+  // CTA check
+  if (practices.ctaRequired && !hasCTA) fitScore -= 1;
+  else if (hasCTA) fitScore += 0.5;
+
+  fitScore = Math.max(1, Math.min(10, fitScore));
+
+  const issues: string[] = [];
+  if (contentLength > practices.maxLength) issues.push(`Vượt giới hạn ${practices.maxLength} ký tự (hiện ${contentLength})`);
+  if (hashtagCount > practices.idealHashtags[1]) issues.push(`Quá nhiều hashtag (${hashtagCount}, nên ${practices.idealHashtags[0]}-${practices.idealHashtags[1]})`);
+  if (hashtagCount < practices.idealHashtags[0]) issues.push(`Thiếu hashtag (${hashtagCount}, nên ít nhất ${practices.idealHashtags[0]})`);
+  if (practices.ctaRequired && !hasCTA) issues.push("Thiếu CTA (Call to Action)");
+
+  return {
+    success: true,
+    tool_name: "platform_best_practices",
+    result: {
+      platform,
+      fit_score: Math.round(fitScore * 10) / 10,
+      content_length: contentLength,
+      max_length: practices.maxLength,
+      hashtag_count: hashtagCount,
+      ideal_hashtags: practices.idealHashtags,
+      has_cta: hasCTA,
+      cta_required: practices.ctaRequired,
+      issues,
+      tips: practices.tips,
+      message: issues.length === 0
+        ? `✅ Content phù hợp với ${platform}`
+        : `⚠️ ${issues.length} vấn đề cần cải thiện cho ${platform}`,
     },
   };
 }

@@ -1,6 +1,7 @@
 // ============================================
 // Shared Blackboard
 // Inter-agent communication via database
+// With Versioning & Context Pruning
 // ============================================
 
 export interface BlackboardEntry {
@@ -8,6 +9,7 @@ export interface BlackboardEntry {
   value: any;
   agentName: string;
   createdAt?: string;
+  version?: number;
 }
 
 export interface BlackboardClient {
@@ -15,30 +17,47 @@ export interface BlackboardClient {
   read(key: string): Promise<any | null>;
   readAll(): Promise<BlackboardEntry[]>;
   readByAgent(agentName: string): Promise<BlackboardEntry[]>;
+  readHistory(key: string, limit?: number): Promise<BlackboardEntry[]>;
+  prune(): Promise<void>;
+}
+
+const MAX_VERSIONS_PER_KEY = 3;
+const MAX_CONTEXT_TOKENS = 3000;
+
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
 }
 
 /**
  * Create a blackboard client for a session
- * Uses in-memory store for speed, persists to DB for durability
+ * Uses in-memory store with versioning, persists to DB for durability
  */
 export function createBlackboard(
   supabase: any,
   sessionId: string
 ): BlackboardClient {
-  // In-memory cache for fast read/write within same request
-  const memoryStore = new Map<string, BlackboardEntry>();
+  // Versioned in-memory store: key -> array of entries (newest last)
+  const memoryStore = new Map<string, BlackboardEntry[]>();
 
   return {
     async write(key: string, value: any, agentName: string): Promise<void> {
+      const versions = memoryStore.get(key) || [];
       const entry: BlackboardEntry = {
         key,
         value,
         agentName,
         createdAt: new Date().toISOString(),
+        version: versions.length + 1,
       };
       
-      // Write to memory first (fast path)
-      memoryStore.set(key, entry);
+      versions.push(entry);
+      
+      // Keep only latest N versions
+      if (versions.length > MAX_VERSIONS_PER_KEY) {
+        versions.splice(0, versions.length - MAX_VERSIONS_PER_KEY);
+      }
+      
+      memoryStore.set(key, versions);
       
       // Persist to DB (async, non-blocking)
       try {
@@ -54,9 +73,9 @@ export function createBlackboard(
     },
 
     async read(key: string): Promise<any | null> {
-      // Check memory first
-      const cached = memoryStore.get(key);
-      if (cached) return cached.value;
+      // Check memory first - return latest version
+      const versions = memoryStore.get(key);
+      if (versions?.length) return versions[versions.length - 1].value;
 
       // Fallback to DB
       try {
@@ -70,7 +89,8 @@ export function createBlackboard(
           .single();
         
         if (data) {
-          memoryStore.set(key, { key, value: data.data_value, agentName: 'db' });
+          const entry: BlackboardEntry = { key, value: data.data_value, agentName: 'db', version: 1 };
+          memoryStore.set(key, [entry]);
           return data.data_value;
         }
       } catch {}
@@ -79,18 +99,93 @@ export function createBlackboard(
     },
 
     async readAll(): Promise<BlackboardEntry[]> {
-      return Array.from(memoryStore.values());
+      // Return only latest version of each key
+      const latest: BlackboardEntry[] = [];
+      for (const versions of memoryStore.values()) {
+        if (versions.length > 0) {
+          latest.push(versions[versions.length - 1]);
+        }
+      }
+      return latest;
     },
 
     async readByAgent(agentName: string): Promise<BlackboardEntry[]> {
-      return Array.from(memoryStore.values())
-        .filter(e => e.agentName === agentName);
+      const all = await this.readAll();
+      return all.filter(e => e.agentName === agentName);
+    },
+
+    async readHistory(key: string, limit: number = MAX_VERSIONS_PER_KEY): Promise<BlackboardEntry[]> {
+      const versions = memoryStore.get(key) || [];
+      return versions.slice(-limit);
+    },
+
+    async prune(): Promise<void> {
+      // Calculate total token usage across all latest entries
+      let totalTokens = 0;
+      const entries: Array<{ key: string; tokens: number }> = [];
+
+      for (const [key, versions] of memoryStore.entries()) {
+        if (versions.length === 0) continue;
+        const latest = versions[versions.length - 1];
+        const valueStr = typeof latest.value === 'string'
+          ? latest.value
+          : JSON.stringify(latest.value);
+        const tokens = estimateTokens(valueStr);
+        totalTokens += tokens;
+        entries.push({ key, tokens });
+      }
+
+      if (totalTokens <= MAX_CONTEXT_TOKENS) return;
+
+      console.log(`[Blackboard] Pruning: ${totalTokens} tokens > ${MAX_CONTEXT_TOKENS} limit`);
+
+      // Strategy: For each key with multiple versions, keep only latest
+      // and summarize the value if it's too long
+      for (const [key, versions] of memoryStore.entries()) {
+        if (versions.length <= 1) continue;
+        
+        // Keep only the latest version
+        const latest = versions[versions.length - 1];
+        memoryStore.set(key, [latest]);
+      }
+
+      // If still over budget, truncate large values
+      totalTokens = 0;
+      for (const [, versions] of memoryStore.entries()) {
+        if (versions.length === 0) continue;
+        const latest = versions[versions.length - 1];
+        const valueStr = typeof latest.value === 'string'
+          ? latest.value
+          : JSON.stringify(latest.value);
+        totalTokens += estimateTokens(valueStr);
+      }
+
+      if (totalTokens > MAX_CONTEXT_TOKENS) {
+        // Truncate non-critical keys (research_data, content_plan)
+        const truncatePriority = ['research_data', 'content_plan', 'review_result'];
+        for (const key of truncatePriority) {
+          const versions = memoryStore.get(key);
+          if (!versions?.length) continue;
+          const latest = versions[versions.length - 1];
+          const valueStr = typeof latest.value === 'string'
+            ? latest.value
+            : JSON.stringify(latest.value);
+          
+          if (estimateTokens(valueStr) > 500) {
+            // Truncate to ~500 tokens
+            const truncated = valueStr.slice(0, 2000) + '\n...[truncated for token budget]';
+            latest.value = truncated;
+            console.log(`[Blackboard] Truncated key=${key} from ${valueStr.length} to 2000 chars`);
+          }
+        }
+      }
     },
   };
 }
 
 /**
  * Build context string from blackboard for injection into agent prompts
+ * Only uses latest version of each key
  */
 export function buildBlackboardContext(entries: BlackboardEntry[]): string {
   if (entries.length === 0) return '';
@@ -99,7 +194,8 @@ export function buildBlackboardContext(entries: BlackboardEntry[]): string {
     const valueStr = typeof e.value === 'string' 
       ? e.value 
       : JSON.stringify(e.value, null, 2).slice(0, 500);
-    return `### ${e.key} (from ${e.agentName})\n${valueStr}`;
+    const versionLabel = e.version ? ` v${e.version}` : '';
+    return `### ${e.key}${versionLabel} (from ${e.agentName})\n${valueStr}`;
   });
 
   return `\n## 📋 Context from Previous Agents\n${sections.join('\n\n')}`;
