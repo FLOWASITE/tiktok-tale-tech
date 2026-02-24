@@ -25,6 +25,7 @@ import { createStrategyTask } from "../agents/strategy-agent.ts";
 import { createContentTask } from "../agents/content-agent.ts";
 import { createReviewerTask } from "../agents/reviewer-agent.ts";
 import { runLearningAgent } from "../agents/learning-agent.ts";
+import { runBrandMemoryAgent } from "../agents/brand-memory-agent.ts";
 import { estimateCost } from "../cost-estimator.ts";
 import { AgentSSEEvent } from "../agentic-loop.ts";
 
@@ -423,6 +424,18 @@ export async function executeSupervisorLoop(
     })),
     reviewScores,
   }).catch(() => {});
+
+  // Fire-and-forget: Run brand memory agent async (non-blocking)
+  if (options.brandTemplateId && options.organizationId) {
+    runBrandMemoryAgent({
+      supabase: options.supabase,
+      brandTemplateId: options.brandTemplateId,
+      organizationId: options.organizationId,
+      sessionId,
+      userMessage,
+      generatedContent: finalContent,
+    }).catch(() => {});
+  }
 
   const totalDuration = Date.now() - startTime;
   const tokenSnapshot = tokenController.getSnapshot();

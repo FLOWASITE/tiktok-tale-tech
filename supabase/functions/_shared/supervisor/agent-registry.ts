@@ -74,6 +74,18 @@ const DEFAULT_AGENTS: AgentConfig[] = [
     priority: 4,
     tokenBudget: 2000,
   },
+  {
+    name: 'brand-memory-agent',
+    description: 'Manages and auto-updates Brand Profile based on user interactions',
+    tools: [], // Uses direct DB operations, not chat tools
+    defaultModel: 'google/gemini-2.5-flash-lite',
+    systemPromptKey: 'brand-memory-agent',
+    maxTurns: 1,
+    timeoutMs: 10000,
+    maxRetries: 1,
+    priority: 0, // Highest priority but runs async
+    tokenBudget: 1000,
+  },
 ];
 
 // Initialize registry with defaults
