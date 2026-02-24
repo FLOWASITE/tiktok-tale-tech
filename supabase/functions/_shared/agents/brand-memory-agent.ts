@@ -40,8 +40,8 @@ export async function runBrandMemoryAgent(
 ): Promise<void> {
   const { supabase, brandTemplateId, organizationId } = input;
 
-  // Only run when there's enough signal (>= 2 brand changes)
-  if ((input.brandChangeCount || 0) < 2 && !input.userEdits?.length) {
+  // Run when there's enough signal: user edits OR generated content to analyze
+  if ((input.brandChangeCount || 0) < 2 && !input.userEdits?.length && !input.generatedContent) {
     return;
   }
 

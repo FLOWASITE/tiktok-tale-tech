@@ -24,7 +24,7 @@ import { createResearchTask } from "../agents/research-agent.ts";
 import { createStrategyTask } from "../agents/strategy-agent.ts";
 import { createContentTask } from "../agents/content-agent.ts";
 import { createReviewerTask } from "../agents/reviewer-agent.ts";
-import { runLearningAgent } from "../agents/learning-agent.ts";
+import { runLearningAgent, getLearnedPromptRules } from "../agents/learning-agent.ts";
 import { runBrandMemoryAgent } from "../agents/brand-memory-agent.ts";
 import { estimateCost } from "../cost-estimator.ts";
 import { AgentSSEEvent } from "../agentic-loop.ts";
@@ -120,6 +120,7 @@ const AGENT_DISPLAY_NAMES: Record<string, string> = {
   'strategy-agent': 'Strategy Agent',
   'content-agent': 'Content Agent',
   'reviewer-agent': 'Reviewer Agent',
+  'brand-memory-agent': 'Brand Memory Agent',
 };
 
 const AGENT_PHASES: Record<string, string> = {
@@ -127,6 +128,7 @@ const AGENT_PHASES: Record<string, string> = {
   'strategy-agent': 'Đang lập kế hoạch nội dung...',
   'content-agent': 'Đang tạo nội dung...',
   'reviewer-agent': 'Đang kiểm tra chất lượng...',
+  'brand-memory-agent': 'Đang cập nhật hồ sơ thương hiệu...',
 };
 
 /**
@@ -290,13 +292,24 @@ export async function executeSupervisorLoop(
     const mergedContent = mergeMultiStepResults(agentResults, sub);
     transition(workflow, 'merge_complete');
 
-    // Fire learning agent
+    // Fire learning agent + brand memory agent
     runLearningAgent(options.supabase, {
       sessionId,
       brandTemplateId: options.brandTemplateId,
       organizationId: options.organizationId,
       agentResults: agentResults.map(r => ({ agentName: r.agentName, content: r.content, success: r.success })),
     }).catch(() => {});
+
+    if (options.brandTemplateId && options.organizationId) {
+      runBrandMemoryAgent({
+        supabase: options.supabase,
+        brandTemplateId: options.brandTemplateId,
+        organizationId: options.organizationId,
+        sessionId,
+        userMessage,
+        generatedContent: mergedContent,
+      }).catch(() => {});
+    }
 
     const totalDuration = Date.now() - startTime;
     options.onEvent?.({
@@ -548,7 +561,15 @@ async function buildAgentTask(
   const blackboardEntries = await blackboard.readAll();
   const blackboardContext = buildBlackboardContext(blackboardEntries);
   
-  const additionalContext = [options.systemPrompt, brandMemoryContext, blackboardContext]
+  // Fetch learned prompt rules for content-agent
+  let learnedRules = '';
+  if (agentName === 'content-agent' && options.brandTemplateId) {
+    try {
+      learnedRules = await getLearnedPromptRules(options.supabase, options.brandTemplateId);
+    } catch {}
+  }
+  
+  const additionalContext = [options.systemPrompt, brandMemoryContext, learnedRules, blackboardContext]
     .filter(Boolean)
     .join('\n\n');
 
@@ -648,7 +669,7 @@ function buildFinalContent(agentResults: AgentResult[], classification: Classifi
  */
 function mergeMultiStepResults(
   agentResults: AgentResult[],
-  sub: import('./state-machine.ts').SubWorkflow
+  sub: { steps: string[]; results: Record<string, any> }
 ): string {
   const parts: string[] = [];
   

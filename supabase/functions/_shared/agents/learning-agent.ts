@@ -4,7 +4,7 @@
 // Pattern extraction + prompt adaptation
 // ============================================
 
-import { saveBrandMemory, searchBrandMemory } from "../supervisor/brand-memory.ts";
+import { saveBrandMemory } from "../supervisor/brand-memory.ts";
 import { callAI } from "../ai-provider.ts";
 import { streamToText } from "../stream-utils.ts";
 
