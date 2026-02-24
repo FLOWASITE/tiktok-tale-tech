@@ -13,14 +13,17 @@ export function useAutoLanguage() {
   const countryCode = defaultBrand?.country_code;
 
   useEffect(() => {
+    if (!countryCode) return; // templates still loading
     const override = localStorage.getItem(OVERRIDE_KEY);
     if (override) return; // user chose manually, respect it
 
     const targetLang = getUILanguageFromCountry(countryCode);
-    if (i18n.language !== targetLang) {
+    const currentLang = i18n.language?.split('-')[0];
+    if (currentLang !== targetLang) {
       i18n.changeLanguage(targetLang);
     }
-  }, [countryCode, i18n]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countryCode]);
 
   const setManualOverride = useCallback((langCode: string) => {
     localStorage.setItem(OVERRIDE_KEY, langCode);
