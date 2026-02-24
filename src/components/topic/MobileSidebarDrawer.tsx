@@ -1,5 +1,6 @@
 import React from 'react';
 import { Menu } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -60,6 +61,7 @@ export function MobileSidebarDrawer({
   aiLearningStats,
   isEnhancing,
 }: MobileSidebarDrawerProps) {
+  const { t } = useTranslation();
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -77,7 +79,7 @@ export function MobileSidebarDrawer({
       >
         <SheetHeader className="p-4 border-b bg-muted/30">
           <div className="flex items-center justify-between">
-            <SheetTitle className="text-base">Thông tin thêm</SheetTitle>
+            <SheetTitle className="text-base">{t('app.mobileSidebar.moreInfo')}</SheetTitle>
           </div>
         </SheetHeader>
         

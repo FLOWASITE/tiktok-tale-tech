@@ -2,6 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, Minus, DollarSign, Target, MousePointer, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnalyticsSummary } from '@/hooks/useAdCopyAnalytics';
+import { useTranslation } from 'react-i18next';
 
 interface AnalyticsOverviewCardsProps {
   summary: AnalyticsSummary;
@@ -17,6 +18,7 @@ interface MetricCardProps {
 }
 
 function MetricCard({ title, value, change, icon }: MetricCardProps) {
+  const { t } = useTranslation();
   const isPositive = change > 0;
   const isNeutral = Math.abs(change) < 1;
 
@@ -48,7 +50,7 @@ function MetricCard({ title, value, change, icon }: MetricCardProps) {
           >
             {isNeutral ? '0%' : `${isPositive ? '+' : ''}${change.toFixed(1)}%`}
           </span>
-          <span className="text-sm text-muted-foreground">vs kỳ trước</span>
+          <span className="text-sm text-muted-foreground">{t('app.analytics.vsPrevious')}</span>
         </div>
       </CardContent>
     </Card>
@@ -69,6 +71,7 @@ function formatCurrency(value: number): string {
 }
 
 export function AnalyticsOverviewCards({ summary, isLoading }: AnalyticsOverviewCardsProps) {
+  const { t } = useTranslation();
   if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -86,25 +89,25 @@ export function AnalyticsOverviewCards({ summary, isLoading }: AnalyticsOverview
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <MetricCard
-        title="Tổng chi tiêu"
+        title={t('app.analytics.totalSpend')}
         value={`${formatCurrency(summary.totalSpend)} ₫`}
         change={summary.spendChange}
         icon={<DollarSign className="h-6 w-6 text-primary" />}
       />
       <MetricCard
-        title="ROAS"
+        title={t('app.analytics.roas')}
         value={`${summary.overallROAS.toFixed(2)}x`}
         change={summary.roasChange}
         icon={<Target className="h-6 w-6 text-primary" />}
       />
       <MetricCard
-        title="CTR trung bình"
+        title={t('app.analytics.avgCtr')}
         value={`${summary.avgCTR.toFixed(2)}%`}
         change={summary.ctrChange}
         icon={<MousePointer className="h-6 w-6 text-primary" />}
       />
       <MetricCard
-        title="Chuyển đổi"
+        title={t('app.analytics.conversions')}
         value={summary.totalConversions.toLocaleString('vi-VN')}
         change={summary.conversionsChange}
         icon={<Eye className="h-6 w-6 text-primary" />}

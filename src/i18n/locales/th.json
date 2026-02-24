@@ -525,5 +525,123 @@
     "connectionError": "ไม่สามารถเชื่อมต่อกับผู้ช่วยได้",
     "noResponse": "ไม่ได้รับการตอบกลับ",
     "genericError": "เกิดข้อผิดพลาด"
+  },
+  "app": {
+    "sidebar": {
+      "quick": "ด่วน",
+      "content": "เนื้อหา",
+      "management": "จัดการ",
+      "settings": "ตั้งค่า",
+      "admin": "Admin",
+      "dashboard": "Dashboard",
+      "ideaBank": "คลังไอเดีย",
+      "coreContent": "Core Content",
+      "multichannel": "เนื้อหาหลายช่องทาง",
+      "videoScript": "สคริปต์วิดีโอ",
+      "carousel": "Carousel",
+      "adCopies": "Ad Copies",
+      "campaigns": "แคมเปญ",
+      "tasks": "งาน",
+      "calendar": "ปฏิทินเนื้อหา",
+      "brandManagement": "จัดการแบรนด์",
+      "adminDashboard": "Dashboard",
+      "adminUsers": "Users",
+      "adminAI": "AI Management",
+      "adminSocial": "Social Platforms",
+      "adminIndustry": "Industry Park",
+      "adminKnowledgeGraph": "Knowledge Graph",
+      "adminCountries": "Countries",
+      "adminCategories": "Categories",
+      "adminEvents": "Curated Events",
+      "adminNews": "Curated News",
+      "adminHelp": "Help Articles",
+      "adminVersions": "Version History"
+    },
+    "userMenu": {
+      "profile": "โปรไฟล์",
+      "account": "บัญชี",
+      "organization": "องค์กร",
+      "selectOrg": "เลือกองค์กร",
+      "yourOrgs": "องค์กรของคุณ",
+      "noOrgs": "ยังไม่มีองค์กร",
+      "orgSettings": "ตั้งค่าองค์กร",
+      "admin": "การดูแลระบบ",
+      "adminDashboard": "Admin Dashboard",
+      "help": "ช่วยเหลือ",
+      "signOut": "ออกจากระบบ",
+      "signedOut": "ออกจากระบบแล้ว",
+      "switchedOrg": "เปลี่ยนองค์กรแล้ว"
+    },
+    "orgSwitcher": {
+      "yourOrgs": "องค์กรของคุณ",
+      "createNew": "สร้างองค์กรใหม่",
+      "createTitle": "สร้างองค์กรใหม่",
+      "createDesc": "สร้างองค์กรใหม่เพื่อจัดการเนื้อหาและเชิญสมาชิก",
+      "orgName": "ชื่อองค์กร",
+      "orgPlaceholder": "เช่น บริษัท ABC",
+      "cancel": "ยกเลิก",
+      "creating": "กำลังสร้าง...",
+      "create": "สร้างองค์กร"
+    },
+    "notifications": {
+      "title": "การแจ้งเตือน",
+      "markAllRead": "ทำเครื่องหมายทั้งหมดว่าอ่านแล้ว",
+      "empty": "ไม่มีการแจ้งเตือน"
+    },
+    "search": {
+      "placeholder": "ค้นหาด่วน...",
+      "inputPlaceholder": "ค้นหาเนื้อหา หัวข้อ สคริปต์...",
+      "noResults": "ไม่พบผลลัพธ์",
+      "quickNav": "นำทางด่วน",
+      "ideaBank": "คลังไอเดีย",
+      "multichannel": "เนื้อหาหลายช่องทาง",
+      "videoScript": "สคริปต์วิดีโอ",
+      "carouselPrompt": "Carousel Prompt",
+      "brands": "แบรนด์",
+      "calendarMgmt": "ปฏิทินเนื้อหา",
+      "favoriteTopics": "หัวข้อที่ชอบ",
+      "topPerformers": "หัวข้อยอดนิยม",
+      "scripts": "สคริปต์",
+      "select": "เลือก",
+      "move": "เลื่อน",
+      "close": "ปิด",
+      "new": "ใหม่"
+    },
+    "theme": {
+      "toggle": "เปลี่ยนธีม",
+      "light": "สว่าง",
+      "dark": "มืด",
+      "lime": "มะนาว",
+      "system": "ตามระบบ"
+    },
+    "breadcrumb": {
+      "home": "หน้าแรก",
+      "scripts": "สคริปต์วิดีโอ",
+      "carousel": "Carousel Prompt",
+      "brands": "จัดการแบรนด์",
+      "multichannel": "เนื้อหาหลายช่องทาง"
+    },
+    "dashboardHeader": {
+      "morning": "สวัสดีตอนเช้า",
+      "afternoon": "สวัสดีตอนบ่าย",
+      "evening": "สวัสดีตอนเย็น",
+      "overview": "ภาพรวมกิจกรรมของคุณวันนี้",
+      "postsToday": "{{count}} โพสต์วันนี้",
+      "pendingApproval": "{{count}} รออนุมัติ",
+      "goodPerformance": "ประสิทธิภาพดี",
+      "guide": "คู่มือ"
+    },
+    "analytics": {
+      "title": "Analytics Dashboard",
+      "exportCsv": "Export CSV",
+      "totalSpend": "ค่าใช้จ่ายทั้งหมด",
+      "roas": "ROAS",
+      "avgCtr": "CTR เฉลี่ย",
+      "conversions": "การแปลง",
+      "vsPrevious": "เทียบกับช่วงก่อน"
+    },
+    "mobileSidebar": {
+      "moreInfo": "ข้อมูลเพิ่มเติม"
+    }
   }
 }
