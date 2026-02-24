@@ -114,23 +114,5 @@ export async function runLearningAgent(
   }
 }
 
-async function streamToText(stream: ReadableStream): Promise<string> {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let chunks: string[] = [];
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const text = decoder.decode(value, { stream: true });
-    for (const line of text.split('\n')) {
-      if (!line.startsWith('data: ') || line.includes('[DONE]')) continue;
-      try {
-        const parsed = JSON.parse(line.slice(6));
-        const content = parsed.choices?.[0]?.delta?.content || parsed.choices?.[0]?.message?.content;
-        if (content) chunks.push(content);
-      } catch {}
-    }
-  }
-  return chunks.join('');
-}
+// Use shared utility
+import { streamToText } from "../stream-utils.ts";
