@@ -65,14 +65,14 @@ const DEFAULT_AGENTS: AgentConfig[] = [
   {
     name: 'reviewer-agent',
     description: 'Reviews content for compliance, quality, and brand consistency',
-    tools: [],
-    defaultModel: 'google/gemini-2.5-flash-lite',
+    tools: ['brand_voice_check', 'legal_compliance_check', 'platform_best_practices'],
+    defaultModel: 'google/gemini-2.5-flash',
     systemPromptKey: 'reviewer-agent',
-    maxTurns: 1,
-    timeoutMs: 10000,
-    maxRetries: 1,
+    maxTurns: 2,
+    timeoutMs: 15000,
+    maxRetries: 2,
     priority: 4,
-    tokenBudget: 1500,
+    tokenBudget: 2000,
   },
 ];
 

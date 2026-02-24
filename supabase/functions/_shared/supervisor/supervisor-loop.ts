@@ -1,7 +1,8 @@
 // ============================================
 // Supervisor Loop
 // Orchestrates multi-agent workflow using State Machine
-// With Token Budget Controller + Graceful Degradation
+// With Session Budget Manager + Graceful Degradation
+// + Blackboard Pruning + Cost Estimation
 // ============================================
 
 import {
@@ -21,6 +22,7 @@ import { createStrategyTask } from "../agents/strategy-agent.ts";
 import { createContentTask } from "../agents/content-agent.ts";
 import { createReviewerTask } from "../agents/reviewer-agent.ts";
 import { runLearningAgent } from "../agents/learning-agent.ts";
+import { estimateCost } from "../cost-estimator.ts";
 import { AgentSSEEvent } from "../agentic-loop.ts";
 
 export interface SupervisorOptions {
@@ -54,26 +56,43 @@ interface TokenBudgetSnapshot {
   perAgent: Record<string, { budget: number; used: number }>;
 }
 
-class TokenBudgetController {
+class SessionBudgetManager {
   private totalBudget: number;
-  private usedTokens: number = 0;
   private agentUsage: Record<string, number> = {};
+  private agentOrder: string[] = [];
 
   constructor(totalBudget: number = 16384) {
     this.totalBudget = totalBudget;
   }
 
+  /** Record which agents will run, in order */
+  setAgentOrder(agents: string[]): void {
+    this.agentOrder = agents;
+  }
+
+  /** Total tokens used so far */
+  private getUsedTokens(): number {
+    return Object.values(this.agentUsage).reduce((sum, v) => sum + v, 0);
+  }
+
+  /** Dynamic budget: allows agent to use up to 150% of its base budget if surplus exists */
+  getEffectiveBudget(agentName: string): number {
+    const config = getAgent(agentName);
+    const baseBudget = config?.tokenBudget || 2000;
+    const remaining = this.totalBudget - this.getUsedTokens();
+    return Math.min(remaining, Math.ceil(baseBudget * 1.5));
+  }
+
   canAfford(agentName: string, estimatedTokens: number): boolean {
-    return (this.usedTokens + estimatedTokens) <= this.totalBudget;
+    return (this.getUsedTokens() + estimatedTokens) <= this.totalBudget;
   }
 
   recordUsage(agentName: string, tokens: number): void {
-    this.usedTokens += tokens;
     this.agentUsage[agentName] = (this.agentUsage[agentName] || 0) + tokens;
   }
 
   getRemainingBudget(): number {
-    return Math.max(0, this.totalBudget - this.usedTokens);
+    return Math.max(0, this.totalBudget - this.getUsedTokens());
   }
 
   getSnapshot(): TokenBudgetSnapshot {
@@ -84,7 +103,7 @@ class TokenBudgetController {
     }
     return {
       total: this.totalBudget,
-      used: this.usedTokens,
+      used: this.getUsedTokens(),
       remaining: this.getRemainingBudget(),
       perAgent: agentConfigs,
     };
@@ -116,7 +135,7 @@ export async function executeSupervisorLoop(
   const startTime = Date.now();
   const sessionId = crypto.randomUUID();
   const agentResults: AgentResult[] = [];
-  const tokenController = new TokenBudgetController();
+  const tokenController = new SessionBudgetManager();
 
   console.log(`[Supervisor] Starting session ${sessionId}`);
 
@@ -219,6 +238,9 @@ export async function executeSupervisorLoop(
         phase: AGENT_PHASES[agentName] || 'Đang xử lý...',
       },
     });
+
+    // Prune blackboard before building task to control token usage
+    await blackboard.prune();
 
     // Build task with blackboard context injection
     const task = await buildAgentTask(agentName, userMessage, options, brandMemoryContext, blackboard);
@@ -488,7 +510,7 @@ async function buildFallbackResult(
   classification: ClassificationResult,
   workflow: WorkflowContext,
   startTime: number,
-  tokenController: TokenBudgetController
+  tokenController: SessionBudgetManager
 ): Promise<SupervisorResult> {
   return {
     success: false,
