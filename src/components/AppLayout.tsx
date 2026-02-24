@@ -9,12 +9,16 @@ import { QuickSearch } from '@/components/QuickSearch';
 import { HelpChatWidget } from '@/components/help/HelpChatWidget';
 import { HelpHeaderButton } from '@/components/help/HelpHeaderButton';
 import { MobileSidebarTrigger } from '@/components/MobileSidebarTrigger';
+import { LanguageSwitcher } from '@/components/landing/LanguageSwitcher';
+import { useAutoLanguage } from '@/hooks/useAutoLanguage';
 
 interface AppLayoutProps {
   children: React.ReactNode;
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
+  useAutoLanguage();
+
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="min-h-screen flex w-full overflow-x-hidden bg-background">
@@ -36,6 +40,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               <QuickSearch />
               <HelpHeaderButton />
               <NotificationDropdown />
+              <LanguageSwitcher variant="pill" />
               <ThemeToggle />
               <UserAvatar />
             </div>
