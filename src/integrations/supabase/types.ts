@@ -1194,6 +1194,84 @@ export type Database = {
           },
         ]
       }
+      agent_blackboard: {
+        Row: {
+          agent_name: string
+          created_at: string | null
+          data_key: string
+          data_value: Json
+          id: string
+          session_id: string
+          ttl_seconds: number | null
+        }
+        Insert: {
+          agent_name: string
+          created_at?: string | null
+          data_key: string
+          data_value: Json
+          id?: string
+          session_id: string
+          ttl_seconds?: number | null
+        }
+        Update: {
+          agent_name?: string
+          created_at?: string | null
+          data_key?: string
+          data_value?: Json
+          id?: string
+          session_id?: string
+          ttl_seconds?: number | null
+        }
+        Relationships: []
+      }
+      agent_execution_logs: {
+        Row: {
+          agent_name: string
+          created_at: string | null
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          input_summary: string | null
+          model_used: string | null
+          output_summary: string | null
+          retry_count: number | null
+          session_id: string
+          status: string
+          token_usage: Json | null
+          tools_used: string[] | null
+        }
+        Insert: {
+          agent_name: string
+          created_at?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          input_summary?: string | null
+          model_used?: string | null
+          output_summary?: string | null
+          retry_count?: number | null
+          session_id: string
+          status?: string
+          token_usage?: Json | null
+          tools_used?: string[] | null
+        }
+        Update: {
+          agent_name?: string
+          created_at?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          input_summary?: string | null
+          model_used?: string | null
+          output_summary?: string | null
+          retry_count?: number | null
+          session_id?: string
+          status?: string
+          token_usage?: Json | null
+          tools_used?: string[] | null
+        }
+        Relationships: []
+      }
       ai_channel_model_configs: {
         Row: {
           allow_user_override: boolean | null
@@ -2120,6 +2198,66 @@ export type Database = {
             columns: ["brand_template_id"]
             isOneToOne: false
             referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_memory: {
+        Row: {
+          brand_template_id: string | null
+          confidence: number | null
+          content: string
+          created_at: string | null
+          embedding: string | null
+          id: string
+          last_used_at: string | null
+          memory_type: string
+          organization_id: string | null
+          source: string | null
+          updated_at: string | null
+          used_count: number | null
+        }
+        Insert: {
+          brand_template_id?: string | null
+          confidence?: number | null
+          content: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          last_used_at?: string | null
+          memory_type: string
+          organization_id?: string | null
+          source?: string | null
+          updated_at?: string | null
+          used_count?: number | null
+        }
+        Update: {
+          brand_template_id?: string | null
+          confidence?: number | null
+          content?: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          last_used_at?: string | null
+          memory_type?: string
+          organization_id?: string | null
+          source?: string | null
+          updated_at?: string | null
+          used_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_memory_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_memory_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -8366,6 +8504,24 @@ export type Database = {
         Returns: Json
       }
       normalize_vn_text: { Args: { input_text: string }; Returns: string }
+      search_brand_memory: {
+        Args: {
+          match_brand_template_id: string
+          match_count?: number
+          match_threshold?: number
+          match_types?: string[]
+          query_embedding: string
+        }
+        Returns: {
+          confidence: number
+          content: string
+          id: string
+          memory_type: string
+          similarity: number
+          source: string
+          used_count: number
+        }[]
+      }
       search_conversation_embeddings: {
         Args: {
           exclude_conversation_id?: string
