@@ -93,7 +93,8 @@ export function TopicAIChatbot({
     contentGoal,
     organizationId: currentOrganization?.id,
     userId: user?.id,
-    forceWebSearch: isEmbedded, // Always use web search for brainstorm context
+    forceWebSearch: isEmbedded,
+    supervisorEnabled: uiHook.supervisorEnabled,
     onMessageCreate: (msg) => messagesHook.setMessages(prev => [...prev, msg]),
     onMessageUpdate: messagesHook.updateMessage,
     onComplete: () => playReceive(),

@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion';
 import { Award, TrendingUp, Palette, Shield, Sparkles, ArrowUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import type { ReviewScores } from './types';
 import { useConfetti } from '@/hooks/useConfetti';
