@@ -1,75 +1,39 @@
 
 
-# Auto-switch Dashboard Language by Brand Country
+# Fix LanguageSwitcher Not Working
 
-## Overview
-Khi user chọn brand có `country_code`, giao diện dashboard sẽ tự động chuyển ngôn ngữ tương ứng (VN → vi, TH → th, US → en). User vẫn có thể override thủ công bằng nút chuyển ngôn ngữ trên header.
+## Root Cause Analysis
 
-## How It Works
+There are two likely issues preventing the LanguageSwitcher from working correctly:
 
-```text
-Brand (country_code: "TH")
-        │
-        ▼
-  useAutoLanguage hook
-        │
-        ├── Checks localStorage for manual override
-        │   ├── YES → Keep user's chosen language
-        │   └── NO  → Auto-set i18n to "th"
-        │
-        ▼
-  Dashboard renders in Thai
-        │
-  User clicks LanguageSwitcher → picks "EN"
-        │
-        ▼
-  Sets override flag in localStorage
-  Dashboard renders in English (sticky until cleared)
-```
+1. **Language code mismatch**: `i18n.language` can return region-qualified codes like `vi-VN` or `en-US` (from browser detection), but the switcher compares against short codes (`vi`, `en`, `th`). This means the active indicator never highlights, and the button appears unresponsive even though the language might actually change.
 
-## Implementation Steps
+2. **`useAutoLanguage` overriding user selection**: The hook's `useEffect` runs on `[countryCode, i18n]` changes. When `templates` are loading, `countryCode` is initially `undefined`, causing it to set language to `vi` (fallback) -- potentially reverting a manual selection before the override flag is set, or fighting with the LanguageSwitcher's own `handleLanguageChange`.
 
-### 1. Frontend Country-Language Map (`src/utils/countryLanguageMap.ts`)
-- Simple mapping object: `{ VN: 'vi', TH: 'th', US: 'en', SG: 'en', ID: 'id', MY: 'en', PH: 'en', JP: 'ja', KR: 'ko', EU: 'en', GLOBAL: 'en' }`
-- Function `getUILanguageFromCountry(countryCode)` that returns a supported i18n language code (`vi`, `en`, `th`), falling back to `vi` for unsupported mappings.
+## Changes
 
-### 2. Auto-Language Hook (`src/hooks/useAutoLanguage.ts`)
-- Reads the default brand's `country_code` from `useBrandTemplates()`
-- Checks `localStorage` key `flowa_lang_override` for manual override
-- If no override exists: calls `i18n.changeLanguage()` to match brand's country
-- If override exists: respects user's manual choice
-- Exposes `clearOverride()` to reset back to auto mode
+### 1. Normalize language comparison in LanguageSwitcher (`src/components/landing/LanguageSwitcher.tsx`)
 
-### 3. Add LanguageSwitcher to Dashboard Header (`src/components/AppLayout.tsx`)
-- Import the existing `LanguageSwitcher` component (pill variant) into the header bar
-- Place it between `ThemeToggle` and `UserAvatar`
+- Extract the base language code from `i18n.language` (e.g., `en-US` becomes `en`) for all comparisons.
+- This ensures the active pill highlights correctly and click feedback works.
 
-### 4. Modify LanguageSwitcher to Set Override Flag (`src/components/landing/LanguageSwitcher.tsx`)
-- When user manually clicks a language in the dashboard, set `localStorage.setItem('flowa_lang_override', langCode)`
-- This prevents auto-switching from overriding user's explicit choice
+### 2. Harden `useAutoLanguage` hook (`src/hooks/useAutoLanguage.ts`)
 
-### 5. Wire Hook in AppLayout
-- Call `useAutoLanguage()` inside `AppLayout` so it runs on every dashboard page load
-- The hook watches `brand.country_code` changes and reacts accordingly
+- Remove `i18n` from the `useEffect` dependency array (keep only `countryCode`) to prevent unnecessary re-runs.
+- Add a guard: skip auto-switching while `countryCode` is still `undefined` (templates loading).
+
+### 3. Sync `handleLanguageChange` with i18next localStorage key
+
+- In `handleLanguageChange`, also update `i18nextLng` in localStorage so i18next's own detector stays in sync and doesn't revert language on next page load.
 
 ## Technical Details
 
-### localStorage Keys
-| Key | Purpose | Example |
-|-----|---------|---------|
-| `i18nextLng` | Current i18n language (managed by i18next) | `"th"` |
-| `flowa_lang_override` | Manual override flag | `"en"` or absent |
+### File: `src/components/landing/LanguageSwitcher.tsx`
+- Add helper: `const activeLang = i18n.language?.split('-')[0] || 'vi'`
+- Replace all `i18n.language === lang.code` with `activeLang === lang.code`
 
-### Override Logic
-- **Brand changes** → if no override, auto-switch language
-- **User clicks LanguageSwitcher** → set override, language stays
-- **User clicks "Auto" / reset** → remove override key, revert to brand-based language
-
-### Files to Create
-- `src/utils/countryLanguageMap.ts` — country code to UI language mapping
-- `src/hooks/useAutoLanguage.ts` — auto-sync hook
-
-### Files to Modify
-- `src/components/AppLayout.tsx` — add LanguageSwitcher + wire hook
-- `src/components/landing/LanguageSwitcher.tsx` — set override flag on manual selection
+### File: `src/hooks/useAutoLanguage.ts`
+- Change deps from `[countryCode, i18n]` to `[countryCode]`
+- Add early return when `countryCode` is `undefined`
+- Use `i18n.language?.split('-')[0]` for comparison
 
