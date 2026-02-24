@@ -38,7 +38,8 @@ interface UseChatStreamingOptions {
   contentGoal?: ContentGoal;
   organizationId?: string;
   userId?: string;
-  forceWebSearch?: boolean; // Force web search for real-time data
+  forceWebSearch?: boolean;
+  supervisorEnabled?: boolean;
   onMessageCreate: (message: ChatMessage) => void;
   onMessageUpdate: (id: string, updates: Partial<ChatMessage>) => void;
   onComplete?: () => void;
@@ -57,6 +58,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
     organizationId,
     userId,
     forceWebSearch,
+    supervisorEnabled = true,
     onMessageCreate,
     onMessageUpdate,
     onComplete,
@@ -148,8 +150,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
           userId,
           enableTools: true,
           enableAgenticLoop: true,
-          enableSupervisor: true, // Use multi-agent supervisor architecture
-          forceWebSearch, // Pass through to backend for real-time web search
+          enableSupervisor: supervisorEnabled,
+          forceWebSearch,
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -581,7 +583,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
       }));
       abortControllerRef.current = null;
     }
-  }, [brandTemplateId, contentGoal, organizationId, userId, onMessageCreate, onMessageUpdate, onComplete, onError]);
+  }, [brandTemplateId, contentGoal, organizationId, userId, supervisorEnabled, onMessageCreate, onMessageUpdate, onComplete, onError]);
   
   return {
     ...state,
