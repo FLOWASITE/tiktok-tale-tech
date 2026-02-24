@@ -15,7 +15,8 @@ export type WorkflowState =
   | 'error_recovery'
   | 'multi_step_routing'
   | 'sub_workflow'
-  | 'merging_results';
+  | 'merging_results'
+  | 'image_generating';
 
 export type WorkflowEvent =
   | 'user_message'
@@ -37,7 +38,9 @@ export type WorkflowEvent =
   | 'skip_agent'
   | 'sub_complete'
   | 'all_subs_complete'
-  | 'merge_complete';
+  | 'merge_complete'
+  | 'classified_image_generate'
+  | 'image_complete';
 
 export interface WorkflowTransition {
   from: WorkflowState;
@@ -88,6 +91,12 @@ const TRANSITIONS: WorkflowTransition[] = [
   // Error recovery
   { from: 'error_recovery', event: 'recovery_success', to: 'generating', action: 'content-agent' },
   { from: 'error_recovery', event: 'recovery_failed', to: 'failed' },
+  
+  // Image generation
+  { from: 'classifying', event: 'classified_image_generate', to: 'image_generating', action: 'image-agent' },
+  { from: 'image_generating', event: 'image_complete', to: 'completed' },
+  { from: 'image_generating', event: 'error', to: 'error_recovery' },
+  { from: 'image_generating', event: 'skip_agent', to: 'completed' },
   
   // Multi-step workflow (Hierarchical Supervisor)
   { from: 'classifying', event: 'classified_multi_step', to: 'multi_step_routing' },

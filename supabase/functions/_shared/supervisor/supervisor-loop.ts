@@ -26,6 +26,7 @@ import { createContentTask } from "../agents/content-agent.ts";
 import { createReviewerTask } from "../agents/reviewer-agent.ts";
 import { runLearningAgent, getLearnedPromptRules } from "../agents/learning-agent.ts";
 import { runBrandMemoryAgent } from "../agents/brand-memory-agent.ts";
+import { createImageTask } from "../agents/image-agent.ts";
 import { estimateCost } from "../cost-estimator.ts";
 import { AgentSSEEvent } from "../agentic-loop.ts";
 
@@ -121,6 +122,7 @@ const AGENT_DISPLAY_NAMES: Record<string, string> = {
   'content-agent': 'Content Agent',
   'reviewer-agent': 'Reviewer Agent',
   'brand-memory-agent': 'Brand Memory Agent',
+  'image-agent': 'Image Agent',
 };
 
 const AGENT_PHASES: Record<string, string> = {
@@ -129,6 +131,7 @@ const AGENT_PHASES: Record<string, string> = {
   'content-agent': 'Đang tạo nội dung...',
   'reviewer-agent': 'Đang kiểm tra chất lượng...',
   'brand-memory-agent': 'Đang cập nhật hồ sơ thương hiệu...',
+  'image-agent': 'Đang tạo hình ảnh...',
 };
 
 /**
@@ -213,6 +216,7 @@ export async function executeSupervisorLoop(
       plan: 'strategy-agent',
       generate: 'content-agent',
       review: 'reviewer-agent',
+      image: 'image-agent',
     };
     
     const agentSteps = (classification.steps || ['research', 'plan', 'generate'])
@@ -542,6 +546,7 @@ function getNextAgent(workflow: WorkflowContext): string | null {
     planning: 'strategy-agent',
     generating: 'content-agent',
     reviewing: 'reviewer-agent',
+    image_generating: 'image-agent',
   };
   return stateToAgent[workflow.currentState] || null;
 }
@@ -590,6 +595,8 @@ async function buildAgentTask(
       // Pass additionalContext (brand memory + blackboard) to reviewer too
       return { ...createReviewerTask(contentToReview, options.brandName, options.industry, options.complianceRules), additionalContext, conversationHistory };
     }
+    case 'image-agent':
+      return { ...createImageTask(userMessage, options.brandName, options.industry, additionalContext), conversationHistory };
     default:
       return { ...createContentTask(userMessage, options.brandName, options.industry, additionalContext), conversationHistory };
   }
@@ -601,6 +608,7 @@ function getBlackboardKey(agentName: string): string {
     'strategy-agent': 'content_plan',
     'content-agent': 'generated_content',
     'reviewer-agent': 'review_result',
+    'image-agent': 'generated_image',
   };
   return keyMap[agentName] || agentName;
 }
@@ -635,6 +643,7 @@ function getTransitionEvent(agentName: string, result: AgentResult): WorkflowEve
     'strategy-agent': 'plan_complete',
     'content-agent': 'content_complete',
     'reviewer-agent': 'review_approved',
+    'image-agent': 'image_complete',
   };
   return eventMap[agentName] || 'skip_agent';
 }

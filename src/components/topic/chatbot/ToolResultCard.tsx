@@ -1,7 +1,7 @@
 import { 
   CheckCircle, XCircle, Save, FileText, Images, Share2, Search,
   ExternalLink, ArrowRight, Loader2, Calendar, Play, ListChecks,
-  Settings, Eye, Globe
+  Settings, Eye, Globe, ImageIcon, Paintbrush, Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,6 +33,8 @@ const TOOL_ICONS: Record<string, React.ElementType> = {
   refine_plan: Settings,
   finalize_plan: CheckCircle,
   get_active_session: Eye,
+  generate_image: ImageIcon,
+  edit_image: Paintbrush,
 };
 
 const TOOL_LABELS: Record<string, string> = {
@@ -47,6 +49,8 @@ const TOOL_LABELS: Record<string, string> = {
   refine_plan: 'Chỉnh sửa Plan',
   finalize_plan: 'Hoàn thành Plan',
   get_active_session: 'Xem Session',
+  generate_image: 'Tạo Ảnh AI',
+  edit_image: 'Chỉnh sửa Ảnh',
 };
 
 export function ToolResultCard({ toolResult, onNavigate, className }: ToolResultCardProps) {
@@ -129,6 +133,14 @@ export function ToolResultCard({ toolResult, onNavigate, className }: ToolResult
 
             {toolResult.tool_name === 'get_active_session' && (
               <ActiveSessionResult result={toolResult.result} />
+            )}
+
+            {toolResult.tool_name === 'generate_image' && (
+              <GenerateImageResult result={toolResult.result} />
+            )}
+
+            {toolResult.tool_name === 'edit_image' && (
+              <EditImageResult result={toolResult.result} />
             )}
           </div>
         </div>
@@ -460,6 +472,96 @@ function ActiveSessionResult({ result }: { result: any }) {
           {items.length} planned items từ {session.timeframe_start} đến {session.timeframe_end}
         </div>
       )}
+    </div>
+  );
+}
+
+// ============ IMAGE RESULT COMPONENTS ============
+
+function GenerateImageResult({ result }: { result: any }) {
+  const handleDownload = () => {
+    if (result.image_url) {
+      window.open(result.image_url, '_blank');
+    }
+  };
+
+  return (
+    <div className="mt-2 space-y-2">
+      <p className="text-xs text-muted-foreground">{result.message}</p>
+      
+      {result.image_url && (
+        <div className="relative rounded-lg overflow-hidden border border-border/50 max-w-[280px]">
+          <img 
+            src={result.image_url} 
+            alt="AI Generated" 
+            className="w-full h-auto object-cover"
+            loading="lazy"
+          />
+          <div className="absolute top-1.5 right-1.5">
+            <Badge variant="secondary" className="text-[9px] h-4 px-1.5 bg-background/80 backdrop-blur-sm">
+              {result.model_used}
+            </Badge>
+          </div>
+        </div>
+      )}
+      
+      <div className="flex flex-wrap gap-1">
+        {result.style && (
+          <Badge variant="outline" className="text-[10px] capitalize">{result.style}</Badge>
+        )}
+        {result.aspect_ratio && (
+          <Badge variant="outline" className="text-[10px]">{result.aspect_ratio}</Badge>
+        )}
+        {result.channel && result.channel !== 'general' && (
+          <Badge variant="secondary" className="text-[10px] capitalize">{result.channel}</Badge>
+        )}
+      </div>
+
+      {result.image_url && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs gap-1.5"
+          onClick={handleDownload}
+        >
+          <Download className="w-3 h-3" />
+          Tải ảnh
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function EditImageResult({ result }: { result: any }) {
+  return (
+    <div className="mt-2 space-y-2">
+      <p className="text-xs text-muted-foreground">{result.message}</p>
+      
+      <div className="flex gap-2 max-w-[400px]">
+        {result.original_url && (
+          <div className="flex-1 space-y-1">
+            <p className="text-[10px] text-muted-foreground text-center">Gốc</p>
+            <div className="rounded-md overflow-hidden border border-border/50">
+              <img src={result.original_url} alt="Original" className="w-full h-auto object-cover" loading="lazy" />
+            </div>
+          </div>
+        )}
+        {result.edited_url && (
+          <div className="flex-1 space-y-1">
+            <p className="text-[10px] text-primary text-center font-medium">Đã sửa</p>
+            <div className="rounded-md overflow-hidden border border-primary/30">
+              <img src={result.edited_url} alt="Edited" className="w-full h-auto object-cover" loading="lazy" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-1">
+        <Badge variant="outline" className="text-[10px] capitalize">{result.edit_type?.replace('_', ' ')}</Badge>
+        {result.model_used && (
+          <Badge variant="secondary" className="text-[10px]">{result.model_used}</Badge>
+        )}
+      </div>
     </div>
   );
 }

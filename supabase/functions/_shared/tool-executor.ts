@@ -38,6 +38,11 @@ export async function executeToolCall(
         return await executeLegalComplianceCheck(parameters, context);
       case "platform_best_practices":
         return await executePlatformBestPractices(parameters, context);
+      // Image tools
+      case "generate_image":
+        return await executeGenerateImage(parameters, context);
+      case "edit_image":
+        return await executeEditImage(parameters, context);
       // Planning tools
       case "start_planning_session":
         return await executeStartPlanningSession(parameters, context);
@@ -1313,4 +1318,154 @@ async function executeGetActiveSession(
       message: `Session "${session.goal}" - ${session.status} - ${items.length} items`,
     },
   };
+}
+
+// ============ IMAGE GENERATION TOOLS ============
+
+async function executeGenerateImage(
+  params: Record<string, any>,
+  context: ExecutionContext
+): Promise<ToolCallResult> {
+  const { prompt, style, aspect_ratio, channel, text_overlay, content_id } = params;
+
+  // Auto-select aspect ratio from channel if not specified
+  const channelAspectMap: Record<string, string> = {
+    tiktok: '9:16',
+    instagram: '1:1',
+    facebook: '16:9',
+    linkedin: '16:9',
+    youtube: '16:9',
+  };
+  const finalAspectRatio = aspect_ratio || (channel ? channelAspectMap[channel] : '1:1');
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  try {
+    // Call generate-brand-image edge function (consolidated image generator)
+    const response = await fetch(`${supabaseUrl}/functions/v1/generate-brand-image`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({
+        prompt,
+        style: style || 'photorealistic',
+        aspectRatio: finalAspectRatio,
+        channel: channel || 'general',
+        textOverlay: text_overlay || '',
+        brandTemplateId: context.brandTemplateId,
+        organizationId: context.organizationId,
+        contentId: content_id,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        success: false,
+        tool_name: "generate_image",
+        result: null,
+        error: `Image generation failed: ${errorText}`,
+      };
+    }
+
+    const imageData = await response.json();
+    const imageUrl = imageData.imageUrl || imageData.image_url || imageData.url;
+    const modelUsed = imageData.modelUsed || imageData.model_used || 'unknown';
+
+    // Save to channel_image_history if content_id provided
+    if (content_id && imageUrl && context.organizationId) {
+      await context.supabase.from("channel_image_history").insert({
+        content_id,
+        channel: channel || 'general',
+        image_url: imageUrl,
+        prompt_used: prompt,
+        style_used: style || 'photorealistic',
+        model_used: modelUsed,
+        organization_id: context.organizationId,
+        is_selected: true,
+      }).catch(() => {});
+    }
+
+    return {
+      success: true,
+      tool_name: "generate_image",
+      result: {
+        image_url: imageUrl,
+        model_used: modelUsed,
+        style: style || 'photorealistic',
+        aspect_ratio: finalAspectRatio,
+        channel: channel || 'general',
+        prompt_used: prompt,
+        message: `Đã tạo ảnh thành công (${modelUsed}, ${finalAspectRatio})`,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      tool_name: "generate_image",
+      result: null,
+      error: error instanceof Error ? error.message : "Image generation error",
+    };
+  }
+}
+
+async function executeEditImage(
+  params: Record<string, any>,
+  context: ExecutionContext
+): Promise<ToolCallResult> {
+  const { image_url, edit_type, edit_prompt } = params;
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/edit-image-background`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({
+        imageUrl: image_url,
+        editType: edit_type,
+        editPrompt: edit_prompt || '',
+        organizationId: context.organizationId,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        success: false,
+        tool_name: "edit_image",
+        result: null,
+        error: `Image editing failed: ${errorText}`,
+      };
+    }
+
+    const editData = await response.json();
+    const editedUrl = editData.imageUrl || editData.image_url || editData.url;
+
+    return {
+      success: true,
+      tool_name: "edit_image",
+      result: {
+        original_url: image_url,
+        edited_url: editedUrl,
+        edit_type,
+        model_used: editData.modelUsed || 'unknown',
+        message: `Đã chỉnh sửa ảnh thành công (${edit_type})`,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      tool_name: "edit_image",
+      result: null,
+      error: error instanceof Error ? error.message : "Image editing error",
+    };
+  }
 }
