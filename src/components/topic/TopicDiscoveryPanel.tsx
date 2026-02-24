@@ -52,6 +52,7 @@ import { TopicIdeaCard } from './TopicIdeaCard';
 import { TopicHistoryTab } from './TopicHistoryTab';
 import { TopicSystemExplainer } from './TopicSystemExplainer';
 import { PromptQualityIndicator } from '../PromptQualityIndicator';
+import { TopicCreditsAlert } from './TopicCreditsAlert';
 
 // Source badge tooltip content
 const SOURCE_TOOLTIPS = {
@@ -131,7 +132,8 @@ export function TopicDiscoveryPanel({
     suggestions, 
     source, 
     isLoading, 
-    error, 
+    error,
+    errorCode,
     refresh,
     sortBy,
     setSortBy,
@@ -696,8 +698,18 @@ export function TopicDiscoveryPanel({
           </ScrollArea>
         </Tabs>
 
+        {/* Credits/Rate limit alert */}
+        {(errorCode === 'CREDITS_EXHAUSTED' || errorCode === 'RATE_LIMIT') && (
+          <TopicCreditsAlert 
+            errorCode={errorCode} 
+            errorMessage={error || undefined}
+            onRetry={errorCode === 'RATE_LIMIT' ? refresh : undefined}
+            className="mt-2"
+          />
+        )}
+
         {/* Error display */}
-        {error && (
+        {error && errorCode !== 'CREDITS_EXHAUSTED' && errorCode !== 'RATE_LIMIT' && (
           <div className="mt-2 p-2 rounded bg-destructive/10 text-destructive text-xs">
             {error}
           </div>

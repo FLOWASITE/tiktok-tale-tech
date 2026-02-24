@@ -109,6 +109,7 @@ interface SuggestionsModule {
   isLoading: boolean;
   isEnhancing: boolean;
   error: string | null;
+  errorCode: AIErrorCode | null;
   sortBy: SortOption;
   setSortBy: (sort: SortOption) => void;
   minScore: number;
@@ -190,6 +191,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestEnhancing, setSuggestEnhancing] = useState(false);
   const [suggestError, setSuggestError] = useState<string | null>(null);
+  const [suggestErrorCode, setSuggestErrorCode] = useState<AIErrorCode | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('overall');
   const [minScore, setMinScore] = useState<number>(0);
   const [autoSavedCount, setAutoSavedCount] = useState(0);
@@ -279,6 +281,11 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
 
   const handleAudienceApiError = useMemo(
     () => createApiErrorHandler(setAudienceError, setAudienceErrorCode, 'Audience'),
+    [createApiErrorHandler]
+  );
+
+  const handleSuggestApiError = useMemo(
+    () => createApiErrorHandler(setSuggestError, setSuggestErrorCode, 'Suggestions'),
     [createApiErrorHandler]
   );
 
@@ -804,6 +811,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     suggestIsFetchingRef.current = true;
     setSuggestEnhancing(true);
     setSuggestError(null);
+    setSuggestErrorCode(null);
 
     try {
       const { data, error: functionError } = await supabase.functions.invoke('topic-ai', {
@@ -857,8 +865,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
         console.log('[useTopicAI] Request aborted');
         return;
       }
-      console.error('Error fetching enhanced topic suggestions:', err);
-      setSuggestError(err instanceof Error ? err.message : 'Failed to fetch suggestions');
+      handleSuggestApiError(err, 'Không thể tải gợi ý chủ đề');
       setAllSuggestions([]);
       setSuggestSource('fallback');
     } finally {
@@ -1231,6 +1238,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
       isLoading: suggestLoading,
       isEnhancing: suggestEnhancing,
       error: suggestError,
+      errorCode: suggestErrorCode,
       sortBy,
       setSortBy,
       minScore,
