@@ -27,34 +27,30 @@ export function LanguageSwitcher({ variant = 'dropdown', className }: LanguageSw
     setIsOpen(false);
   };
 
-  // Pill variant - compact horizontal pills
+  // Pill variant - compact inline pills
   if (variant === 'pill') {
     return (
-      <div className={cn('flex items-center gap-1', className)}>
+      <div className={cn('flex items-center gap-0.5 p-0.5 rounded-lg bg-muted/50 border border-border/40', className)}>
         {languages.map((lang) => (
           <motion.button
             key={lang.code}
             onClick={() => handleLanguageChange(lang.code)}
             className={cn(
-              'relative px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-300',
+              'relative px-1.5 py-1 rounded-md text-[11px] font-medium transition-colors duration-200',
               i18n.language === lang.code
                 ? 'text-primary-foreground'
                 : 'text-muted-foreground hover:text-foreground'
             )}
-            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
             {i18n.language === lang.code && (
               <motion.div
                 layoutId="activePill"
-                className="absolute inset-0 bg-gradient-to-r from-primary to-primary/80 rounded-full shadow-lg shadow-primary/25"
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                className="absolute inset-0 bg-primary rounded-md"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
               />
             )}
-            <span className="relative z-10 flex items-center gap-1">
-              <span className="text-sm">{lang.flag}</span>
-              <span className="hidden sm:inline">{lang.code.toUpperCase()}</span>
-            </span>
+            <span className="relative z-10">{lang.code.toUpperCase()}</span>
           </motion.button>
         ))}
       </div>
