@@ -19,10 +19,12 @@ export function LanguageSwitcher({ variant = 'dropdown', className }: LanguageSw
   const { i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
-  const currentLang = languages.find((l) => l.code === i18n.language) || languages[0];
+  const activeLang = i18n.language?.split('-')[0] || 'vi';
+  const currentLang = languages.find((l) => l.code === activeLang) || languages[0];
 
   const handleLanguageChange = (langCode: string) => {
     localStorage.setItem('flowa_lang_override', langCode);
+    localStorage.setItem('i18nextLng', langCode);
     i18n.changeLanguage(langCode);
     setIsOpen(false);
   };
@@ -37,13 +39,13 @@ export function LanguageSwitcher({ variant = 'dropdown', className }: LanguageSw
             onClick={() => handleLanguageChange(lang.code)}
             className={cn(
               'relative px-1.5 py-1 rounded-md text-[11px] font-medium transition-colors duration-200',
-              i18n.language === lang.code
+              activeLang === lang.code
                 ? 'text-primary-foreground'
                 : 'text-muted-foreground hover:text-foreground'
             )}
             whileTap={{ scale: 0.95 }}
           >
-            {i18n.language === lang.code && (
+            {activeLang === lang.code && (
               <motion.div
                 layoutId="activePill"
                 className="absolute inset-0 bg-primary rounded-md"
@@ -70,14 +72,14 @@ export function LanguageSwitcher({ variant = 'dropdown', className }: LanguageSw
             onClick={() => handleLanguageChange(lang.code)}
             className={cn(
               'relative px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-300 z-10',
-              i18n.language === lang.code
+              activeLang === lang.code
                 ? 'text-primary-foreground'
                 : 'text-muted-foreground hover:text-foreground'
             )}
-            whileHover={{ scale: i18n.language === lang.code ? 1 : 1.02 }}
+            whileHover={{ scale: activeLang === lang.code ? 1 : 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            {i18n.language === lang.code && (
+            {activeLang === lang.code && (
               <motion.div
                 layoutId="activeTab"
                 className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-primary/90 rounded-xl shadow-lg shadow-primary/30"
@@ -149,7 +151,7 @@ export function LanguageSwitcher({ variant = 'dropdown', className }: LanguageSw
                     onClick={() => handleLanguageChange(lang.code)}
                     className={cn(
                       'w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
-                      i18n.language === lang.code
+                      activeLang === lang.code
                         ? 'bg-gradient-to-r from-primary/15 to-primary/5 text-primary'
                         : 'text-foreground hover:bg-muted/60'
                     )}
@@ -162,7 +164,7 @@ export function LanguageSwitcher({ variant = 'dropdown', className }: LanguageSw
                       <span className="text-lg">{lang.flag}</span>
                       <span>{lang.name}</span>
                     </div>
-                    {i18n.language === lang.code && (
+                    {activeLang === lang.code && (
                       <motion.div
                         initial={{ scale: 0, rotate: -90 }}
                         animate={{ scale: 1, rotate: 0 }}
