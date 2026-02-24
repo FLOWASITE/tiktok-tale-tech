@@ -608,8 +608,20 @@ serve(async (req) => {
           console.error(`[analyze-dashboard-insights] AI error (attempt ${attempt + 1}):`, aiResult.error);
           
           if (aiResult.error?.includes('429') || aiResult.error?.includes('rate')) {
-            return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later" }), {
+            return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later", errorCode: "RATE_LIMIT" }), {
               status: 429,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          
+          // Payment / credits exhausted - return 402 with structured error
+          if (aiResult.error?.includes('402') || aiResult.error?.includes('Payment required') || aiResult.error?.includes('credits') || aiResult.error?.includes('payment_required')) {
+            return new Response(JSON.stringify({ 
+              success: false, 
+              error: "AI credits exhausted. Please top up.", 
+              errorCode: "CREDITS_EXHAUSTED" 
+            }), {
+              status: 402,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
@@ -687,8 +699,22 @@ serve(async (req) => {
     });
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("[analyze-dashboard-insights] Error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
+    
+    // Check if it's a payment/credits error that wasn't caught earlier
+    if (errorMessage.includes('Payment required') || errorMessage.includes('402') || errorMessage.includes('credits')) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: "AI credits exhausted. Please top up.", 
+        errorCode: "CREDITS_EXHAUSTED" 
+      }), {
+        status: 402,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
