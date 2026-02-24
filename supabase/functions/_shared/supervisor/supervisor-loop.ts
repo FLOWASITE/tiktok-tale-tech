@@ -1,6 +1,7 @@
 // ============================================
 // Supervisor Loop
 // Orchestrates multi-agent workflow using State Machine
+// With Token Budget Controller + Graceful Degradation
 // ============================================
 
 import {
@@ -11,7 +12,7 @@ import {
   WorkflowEvent,
 } from "./state-machine.ts";
 import { classifyIntent, ClassificationResult } from "./intent-classifier.ts";
-import { getAgent, AgentConfig } from "./agent-registry.ts";
+import { getAgent, AgentConfig, getTotalTokenBudget } from "./agent-registry.ts";
 import { createBlackboard, BlackboardClient, buildBlackboardContext } from "./blackboard.ts";
 import { searchBrandMemory, buildBrandMemoryContext } from "./brand-memory.ts";
 import { executeAgent, AgentResult, AgentExecutionContext } from "../agents/agent-base.ts";
@@ -30,7 +31,7 @@ export interface SupervisorOptions {
   brandName?: string;
   industry?: string;
   complianceRules?: string[];
-  systemPrompt: string; // Full system prompt from chat-topics
+  systemPrompt: string;
   conversationHistory: Array<{ role: string; content: string }>;
   onEvent?: (event: AgentSSEEvent) => void;
 }
@@ -43,6 +44,55 @@ export interface SupervisorResult {
   workflowStates: string[];
   totalDurationMs: number;
   exitReason: string;
+  tokenUsage: TokenBudgetSnapshot;
+}
+
+// ============================================
+// Token Budget Controller
+// ============================================
+
+interface TokenBudgetSnapshot {
+  total: number;
+  used: number;
+  remaining: number;
+  perAgent: Record<string, { budget: number; used: number }>;
+}
+
+class TokenBudgetController {
+  private totalBudget: number;
+  private usedTokens: number = 0;
+  private agentUsage: Record<string, number> = {};
+
+  constructor(totalBudget: number = 16384) {
+    this.totalBudget = totalBudget;
+  }
+
+  canAfford(agentName: string, estimatedTokens: number): boolean {
+    return (this.usedTokens + estimatedTokens) <= this.totalBudget;
+  }
+
+  recordUsage(agentName: string, tokens: number): void {
+    this.usedTokens += tokens;
+    this.agentUsage[agentName] = (this.agentUsage[agentName] || 0) + tokens;
+  }
+
+  getRemainingBudget(): number {
+    return Math.max(0, this.totalBudget - this.usedTokens);
+  }
+
+  getSnapshot(): TokenBudgetSnapshot {
+    const agentConfigs: Record<string, { budget: number; used: number }> = {};
+    for (const [name, used] of Object.entries(this.agentUsage)) {
+      const config = getAgent(name);
+      agentConfigs[name] = { budget: config?.tokenBudget || 0, used };
+    }
+    return {
+      total: this.totalBudget,
+      used: this.usedTokens,
+      remaining: this.getRemainingBudget(),
+      perAgent: agentConfigs,
+    };
+  }
 }
 
 /**
@@ -55,10 +105,10 @@ export async function executeSupervisorLoop(
   const startTime = Date.now();
   const sessionId = crypto.randomUUID();
   const agentResults: AgentResult[] = [];
+  const tokenController = new TokenBudgetController();
 
   console.log(`[Supervisor] Starting session ${sessionId}`);
 
-  // Create workflow context and blackboard
   const workflow = createWorkflowContext(sessionId);
   const blackboard = createBlackboard(options.supabase, sessionId);
 
@@ -101,19 +151,19 @@ export async function executeSupervisorLoop(
 
   if (!transitionResult.success) {
     console.error(`[Supervisor] Invalid transition:`, transitionResult.error);
-    return buildFallbackResult(userMessage, options, classification, workflow, startTime);
+    return buildFallbackResult(userMessage, options, classification, workflow, startTime, tokenController);
   }
 
   // Execute agents based on state machine
-  let maxIterations = 6; // Safety limit
+  let maxIterations = 6;
   let iteration = 0;
+  let skippedAgents: string[] = [];
 
   while (!isTerminalState(workflow.currentState) && iteration < maxIterations) {
     iteration++;
     const agentName = getNextAgent(workflow);
     
     if (!agentName) {
-      // No agent for current state, try to advance
       transition(workflow, 'skip_agent');
       continue;
     }
@@ -125,23 +175,33 @@ export async function executeSupervisorLoop(
       continue;
     }
 
-    console.log(`[Supervisor] Executing ${agentName} (state: ${workflow.currentState})`);
+    // Token budget check — skip non-critical agents if budget exhausted
+    if (!tokenController.canAfford(agentName, agentConfig.tokenBudget)) {
+      console.warn(`[Supervisor] Token budget exhausted, skipping ${agentName} (remaining: ${tokenController.getRemainingBudget()})`);
+      skippedAgents.push(agentName);
+      transition(workflow, 'skip_agent');
+      continue;
+    }
+
+    console.log(`[Supervisor] Executing ${agentName} (state: ${workflow.currentState}, budget: ${tokenController.getRemainingBudget()})`);
     options.onEvent?.({
       type: 'tool_executing',
       data: { tool: agentName, turn: iteration, state: workflow.currentState },
     });
 
     // Build task based on agent type
-    const task = buildAgentTask(
-      agentName,
-      userMessage,
-      options,
-      brandMemoryContext
-    );
+    const task = buildAgentTask(agentName, userMessage, options, brandMemoryContext);
 
-    // Execute agent
-    const result = await executeAgent(agentConfig, task, blackboard, execContext);
+    // Execute agent with graceful degradation
+    const result = await executeAgentWithDegradation(
+      agentConfig, task, blackboard, execContext, agentName, workflow
+    );
+    
     agentResults.push(result);
+
+    // Record token usage (estimate from content length)
+    const estimatedTokens = Math.ceil((result.content?.length || 0) / 4) + 500;
+    tokenController.recordUsage(agentName, estimatedTokens);
 
     // Write result to blackboard
     if (result.success) {
@@ -160,6 +220,7 @@ export async function executeSupervisorLoop(
         success: result.success,
         duration_ms: result.durationMs,
         content_preview: result.content?.slice(0, 200),
+        token_budget_remaining: tokenController.getRemainingBudget(),
       },
     });
 
@@ -184,14 +245,18 @@ export async function executeSupervisorLoop(
   }).catch(() => {});
 
   const totalDuration = Date.now() - startTime;
-  console.log(`[Supervisor] Complete in ${totalDuration}ms, ${agentResults.length} agents executed`);
+  const tokenSnapshot = tokenController.getSnapshot();
+  
+  console.log(`[Supervisor] Complete in ${totalDuration}ms, ${agentResults.length} agents executed, ${skippedAgents.length} skipped, tokens: ${tokenSnapshot.used}/${tokenSnapshot.total}`);
 
   options.onEvent?.({
     type: 'final_response',
     data: {
       exit_reason: workflow.currentState,
       total_agents: agentResults.length,
+      skipped_agents: skippedAgents,
       total_duration_ms: totalDuration,
+      token_usage: tokenSnapshot,
     },
   });
 
@@ -203,7 +268,65 @@ export async function executeSupervisorLoop(
     workflowStates: workflow.previousStates,
     totalDurationMs: totalDuration,
     exitReason: workflow.currentState,
+    tokenUsage: tokenSnapshot,
   };
+}
+
+// ============================================
+// Graceful Degradation
+// ============================================
+
+async function executeAgentWithDegradation(
+  agentConfig: AgentConfig,
+  task: any,
+  blackboard: BlackboardClient,
+  execContext: AgentExecutionContext,
+  agentName: string,
+  workflow: WorkflowContext
+): Promise<AgentResult> {
+  try {
+    const result = await executeAgent(agentConfig, task, blackboard, execContext);
+    
+    if (!result.success) {
+      console.warn(`[Supervisor] Agent ${agentName} failed: ${result.error}`);
+      return handleAgentFailure(agentName, result, workflow);
+    }
+    
+    return result;
+  } catch (err) {
+    console.error(`[Supervisor] Agent ${agentName} threw:`, err);
+    return handleAgentFailure(agentName, {
+      success: false,
+      agentName,
+      content: '',
+      toolResults: [],
+      durationMs: 0,
+      error: err instanceof Error ? err.message : String(err),
+      blackboardWrites: [],
+    }, workflow);
+  }
+}
+
+function handleAgentFailure(
+  agentName: string,
+  result: AgentResult,
+  workflow: WorkflowContext
+): AgentResult {
+  // Graceful degradation: non-critical agents can be skipped
+  const criticalAgents = new Set(['content-agent']);
+  
+  if (!criticalAgents.has(agentName)) {
+    console.log(`[Supervisor] Non-critical agent ${agentName} failed, continuing workflow`);
+    // Return a degraded but non-failing result
+    return {
+      ...result,
+      success: true, // Mark as success to not block workflow
+      content: `[${agentName} skipped due to error: ${result.error}]`,
+    };
+  }
+
+  // Critical agent failure - return as-is
+  return result;
 }
 
 // ============================================
@@ -261,15 +384,14 @@ function getTransitionEvent(agentName: string, result: AgentResult): WorkflowEve
     'research-agent': 'research_complete',
     'strategy-agent': 'plan_complete',
     'content-agent': 'content_complete',
-    'reviewer-agent': 'review_approved', // TODO: parse review result for needs_revision
+    'reviewer-agent': 'review_approved',
   };
   return eventMap[agentName] || 'skip_agent';
 }
 
 function buildFinalContent(agentResults: AgentResult[], classification: ClassificationResult): string {
-  // Find the last successful content-generating agent result
   const contentResult = agentResults
-    .filter(r => r.success && r.content)
+    .filter(r => r.success && r.content && !r.content.startsWith('['))
     .pop();
 
   return contentResult?.content || 'Không thể tạo nội dung. Vui lòng thử lại.';
@@ -280,7 +402,8 @@ async function buildFallbackResult(
   options: SupervisorOptions,
   classification: ClassificationResult,
   workflow: WorkflowContext,
-  startTime: number
+  startTime: number,
+  tokenController: TokenBudgetController
 ): Promise<SupervisorResult> {
   return {
     success: false,
@@ -290,5 +413,6 @@ async function buildFallbackResult(
     workflowStates: workflow.previousStates,
     totalDurationMs: Date.now() - startTime,
     exitReason: 'fallback',
+    tokenUsage: tokenController.getSnapshot(),
   };
 }
