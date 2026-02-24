@@ -7,7 +7,7 @@
 import { callAI } from "../ai-provider.ts";
 import { WorkflowEvent } from "./state-machine.ts";
 
-export type IntentType = 'chat' | 'research' | 'plan' | 'generate' | 'complex_workflow' | 'multi_step';
+export type IntentType = 'chat' | 'research' | 'plan' | 'generate' | 'complex_workflow' | 'multi_step' | 'image_generate';
 
 export interface ClassificationResult {
   intent: IntentType;
@@ -49,6 +49,13 @@ const INTENT_PATTERNS: Record<IntentType, RegExp[]> = {
     /phân tích đối thủ.*tạo chiến dịch|competitor.*campaign/i,
     /chiến dịch.*ngày.*ngành|campaign.*days.*industry/i,
   ],
+  image_generate: [
+    /tạo ảnh|tạo hình|generate image|make image/i,
+    /thiết kế ảnh|design image|tạo visual/i,
+    /ảnh cho bài|image for post|thumbnail/i,
+    /ảnh minh họa|illustration|banner|cover photo/i,
+    /สร้างภาพ|ออกแบบภาพ|ทำรูป/i,
+  ],
   chat: [], // Default fallback
 };
 
@@ -87,8 +94,21 @@ export function classifyIntentFast(message: string): ClassificationResult | null
   }
 
   // Check other intents
+  // Check image_generate before other intents (higher priority than generate)
+  for (const pattern of INTENT_PATTERNS.image_generate) {
+    if (pattern.test(lowerMessage)) {
+      return {
+        intent: 'image_generate',
+        confidence: 0.88,
+        reasoning: 'Image generation pattern detected',
+        suggestedAgents: ['image-agent'],
+        workflowEvent: 'classified_image_generate',
+      };
+    }
+  }
+
   const intentScores: Record<IntentType, number> = {
-    research: 0, plan: 0, generate: 0, complex_workflow: 0, multi_step: 0, chat: 0,
+    research: 0, plan: 0, generate: 0, complex_workflow: 0, multi_step: 0, image_generate: 0, chat: 0,
   };
 
   for (const [intent, patterns] of Object.entries(INTENT_PATTERNS)) {
@@ -100,7 +120,7 @@ export function classifyIntentFast(message: string): ClassificationResult | null
   }
 
   const topIntent = Object.entries(intentScores)
-    .filter(([k]) => k !== 'chat' && k !== 'complex_workflow' && k !== 'multi_step')
+    .filter(([k]) => k !== 'chat' && k !== 'complex_workflow' && k !== 'multi_step' && k !== 'image_generate')
     .sort((a, b) => b[1] - a[1])[0];
 
   if (topIntent && topIntent[1] > 0) {
@@ -112,6 +132,7 @@ export function classifyIntentFast(message: string): ClassificationResult | null
       chat: 'classified_chat',
       complex_workflow: 'classified_complex',
       multi_step: 'classified_multi_step',
+      image_generate: 'classified_image_generate',
     };
 
     const agentMap: Record<IntentType, string[]> = {
@@ -121,6 +142,7 @@ export function classifyIntentFast(message: string): ClassificationResult | null
       chat: ['content-agent'],
       complex_workflow: ['research-agent', 'strategy-agent', 'content-agent'],
       multi_step: ['research-agent', 'strategy-agent', 'content-agent', 'reviewer-agent'],
+      image_generate: ['image-agent'],
     };
 
     return {
@@ -150,7 +172,7 @@ export async function classifyIntentLLM(
         {
           role: 'system',
           content: `You are an intent classifier. Classify the user message into exactly one category.
-Respond ONLY with valid JSON: {"intent": "chat|research|plan|generate|complex_workflow|multi_step", "reasoning": "brief reason", "steps": ["step1","step2"]}
+Respond ONLY with valid JSON: {"intent": "chat|research|plan|generate|image_generate|complex_workflow|multi_step", "reasoning": "brief reason", "steps": ["step1","step2"]}
 Note: "steps" is only needed for multi_step intent.
 
 Categories:
@@ -158,6 +180,7 @@ Categories:
 - research: Finding trends, news, competitor info, data gathering
 - plan: Content planning, calendars, strategy, scheduling
 - generate: Creating specific content (posts, scripts, carousels)
+- image_generate: Creating/editing images, visuals, thumbnails, banners
 - complex_workflow: Multi-step tasks combining research + planning + generation
 - multi_step: Explicit multi-step requests with distinct phases (e.g. "research then plan then create")`,
         },
@@ -180,6 +203,7 @@ Categories:
         chat: 'classified_chat',
         complex_workflow: 'classified_complex',
         multi_step: 'classified_multi_step',
+        image_generate: 'classified_image_generate',
       };
 
       return {
@@ -231,6 +255,7 @@ function getAgentsForIntent(intent: IntentType): string[] {
     case 'generate': return ['content-agent'];
     case 'complex_workflow': return ['research-agent', 'strategy-agent', 'content-agent', 'reviewer-agent'];
     case 'multi_step': return ['research-agent', 'strategy-agent', 'content-agent', 'reviewer-agent'];
+    case 'image_generate': return ['image-agent'];
     default: return ['content-agent'];
   }
 }

@@ -415,6 +415,75 @@ export const CHAT_TOOLS: ToolDefinition[] = [
       },
     },
   },
+  // ============ IMAGE GENERATION TOOLS ============
+  {
+    type: "function",
+    function: {
+      name: "generate_image",
+      description: "Tạo ảnh AI từ mô tả. Gọi khi user muốn tạo ảnh, visual, thumbnail, banner cho bài viết hoặc social media.",
+      parameters: {
+        type: "object",
+        properties: {
+          prompt: {
+            type: "string",
+            description: "Mô tả chi tiết ảnh cần tạo (nên viết bằng tiếng Anh để kết quả tốt nhất)",
+          },
+          style: {
+            type: "string",
+            enum: ["photorealistic", "illustration", "minimalist", "3d_render", "flat_design", "cinematic", "watercolor", "pop_art", "product_only", "infographic", "abstract", "collage"],
+            description: "Phong cách hình ảnh",
+          },
+          aspect_ratio: {
+            type: "string",
+            enum: ["1:1", "16:9", "9:16", "4:5"],
+            description: "Tỷ lệ khung hình",
+          },
+          channel: {
+            type: "string",
+            enum: ["facebook", "instagram", "tiktok", "linkedin", "youtube"],
+            description: "Kênh social media đích (tự động chọn aspect_ratio phù hợp)",
+          },
+          text_overlay: {
+            type: "string",
+            description: "Văn bản cần hiển thị trên ảnh (optional)",
+          },
+          content_id: {
+            type: "string",
+            description: "ID content liên kết (optional)",
+          },
+        },
+        required: ["prompt"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "edit_image",
+      description: "Chỉnh sửa ảnh đã có: xóa nền, đổi nền, thêm text, đổi phong cách.",
+      parameters: {
+        type: "object",
+        properties: {
+          image_url: {
+            type: "string",
+            description: "URL ảnh gốc cần chỉnh sửa",
+          },
+          edit_type: {
+            type: "string",
+            enum: ["remove_background", "change_background", "add_text", "change_style"],
+            description: "Loại chỉnh sửa",
+          },
+          edit_prompt: {
+            type: "string",
+            description: "Mô tả chi tiết chỉnh sửa (VD: 'đổi nền thành bãi biển hoàng hôn')",
+          },
+        },
+        required: ["image_url", "edit_type"],
+        additionalProperties: false,
+      },
+    },
+  },
   // ============ AGENTIC CONTROL TOOLS ============
   {
     type: "function",

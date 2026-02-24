@@ -86,6 +86,18 @@ const DEFAULT_AGENTS: AgentConfig[] = [
     priority: 0, // Highest priority but runs async
     tokenBudget: 1000,
   },
+  {
+    name: 'image-agent',
+    description: 'Generates and edits images for content using AI models',
+    tools: ['generate_image', 'edit_image'],
+    defaultModel: 'google/gemini-2.5-flash',
+    systemPromptKey: 'image-agent',
+    maxTurns: 3,
+    timeoutMs: 120000,
+    maxRetries: 2,
+    priority: 3,
+    tokenBudget: 2000,
+  },
 ];
 
 // Initialize registry with defaults
