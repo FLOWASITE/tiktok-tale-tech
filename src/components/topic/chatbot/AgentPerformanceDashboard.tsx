@@ -149,7 +149,7 @@ function AgentStatCard({ stat }: { stat: AgentStats }) {
         </div>
         <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-0.5">
-            <CheckCircle2 className="w-3 h-3 text-green-500" />
+            <CheckCircle2 className="w-3 h-3 text-primary" />
             {stat.successRate}%
           </span>
           <span className="flex items-center gap-0.5">
