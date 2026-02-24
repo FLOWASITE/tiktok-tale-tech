@@ -22,6 +22,7 @@ export function LanguageSwitcher({ variant = 'dropdown', className }: LanguageSw
   const currentLang = languages.find((l) => l.code === i18n.language) || languages[0];
 
   const handleLanguageChange = (langCode: string) => {
+    localStorage.setItem('flowa_lang_override', langCode);
     i18n.changeLanguage(langCode);
     setIsOpen(false);
   };
