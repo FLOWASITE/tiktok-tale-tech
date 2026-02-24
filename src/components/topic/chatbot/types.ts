@@ -58,6 +58,10 @@ export interface ChatMessage {
   isToolExecuting?: boolean;
   contextBadges?: RealtimeContextBadge[];
   contextRichness?: number;
+  reviewScores?: ReviewScores;
+  agentContributions?: AgentContribution[];
+  contextSources?: ContextSources;
+  suggestedFollowUps?: string[];
 }
 
 export interface ExtractedTopic {
@@ -97,6 +101,33 @@ export interface AgentTurnEvent {
   total_turns?: number;
   agent_name?: string;
   phase?: string;
+}
+
+// Review scores from Reviewer Agent
+export interface ReviewScores {
+  relevance: number;      // 0-100
+  creativity: number;     // 0-100
+  brandAlignment: number; // 0-100
+  platformFit: number;    // 0-100
+  overall: number;        // 0-100
+  approved: boolean;
+  feedback?: string;
+}
+
+// Agent contribution tracking
+export interface AgentContribution {
+  agentName: string;
+  phase: string;
+  duration?: number;
+  summary?: string;
+}
+
+// Context source breakdown
+export interface ContextSources {
+  brandMemory: number;        // 0-100
+  webSearch: number;
+  conversationHistory: number;
+  industryPack: number;
 }
 
 // Dynamic width type

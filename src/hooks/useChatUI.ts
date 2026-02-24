@@ -54,6 +54,10 @@ interface UseChatUIReturn {
   soundEnabled: boolean;
   setSoundEnabled: (enabled: boolean) => void;
   
+  // Supervisor mode
+  supervisorEnabled: boolean;
+  setSupervisorEnabled: (enabled: boolean) => void;
+  
   // Dynamic width
   dynamicWidth: DynamicWidth;
   
@@ -91,6 +95,12 @@ export function useChatUI(options: UseChatUIOptions): UseChatUIReturn {
   
   // Sound state
   const [soundEnabled, setSoundEnabled] = useState(true);
+  
+  // Supervisor mode state (persisted)
+  const [supervisorEnabled, setSupervisorEnabled] = useState(() => {
+    const saved = localStorage.getItem('flowa-supervisor-enabled');
+    return saved !== null ? saved === 'true' : true;
+  });
   
   // History sidebar state
   const [showHistorySidebar, setShowHistorySidebar] = useState(false);
@@ -235,6 +245,13 @@ export function useChatUI(options: UseChatUIOptions): UseChatUIReturn {
     // Sound
     soundEnabled,
     setSoundEnabled,
+    
+    // Supervisor
+    supervisorEnabled,
+    setSupervisorEnabled: (enabled: boolean) => {
+      setSupervisorEnabled(enabled);
+      localStorage.setItem('flowa-supervisor-enabled', String(enabled));
+    },
     
     // Dynamic width
     dynamicWidth,

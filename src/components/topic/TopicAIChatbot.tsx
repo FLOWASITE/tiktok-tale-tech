@@ -249,6 +249,8 @@ export function TopicAIChatbot({
               artifactsCount={artifactsHook.artifactTopics.length}
               showArtifactsPanel={artifactsHook.showArtifactsPanel}
               onArtifactsPanelToggle={() => artifactsHook.setShowArtifactsPanel(!artifactsHook.showArtifactsPanel)}
+              supervisorEnabled={uiHook.supervisorEnabled}
+              onSupervisorToggle={() => uiHook.setSupervisorEnabled(!uiHook.supervisorEnabled)}
               showHistorySidebar={uiHook.showHistorySidebar}
               onHistorySidebarChange={uiHook.setShowHistorySidebar}
               conversations={conversations}

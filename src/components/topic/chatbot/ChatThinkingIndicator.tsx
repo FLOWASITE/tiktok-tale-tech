@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Bot, Brain, Sparkles, Save, Search, FileText, Images, Calendar, Wand2, CheckCircle2, Loader2, Globe } from 'lucide-react';
+import { Bot, Brain, Sparkles, Save, Search, FileText, Images, Calendar, Wand2, CheckCircle2, Loader2, Globe, ClipboardList, Pen, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type ThinkingStatus = 
@@ -61,6 +61,17 @@ const STATUS_CONFIG: Record<ThinkingStatus, { message: string; icon: typeof Brai
   fetch_context: { message: 'Đang tải ngữ cảnh...', icon: FileText },
   task_complete: { message: 'Đã hoàn thành!', icon: CheckCircle2 },
 };
+
+// Agent icon mapping
+function getAgentIcon(agentId: string) {
+  const map: Record<string, typeof Search> = {
+    'research-agent': Search,
+    'strategy-agent': ClipboardList,
+    'content-agent': Pen,
+    'reviewer-agent': Shield,
+  };
+  return map[agentId] || Brain;
+}
 
 export function ChatThinkingIndicator({ 
   status = 'thinking',
@@ -166,70 +177,89 @@ export function ChatThinkingIndicator({
           )}
         </div>
 
-        {/* Progress Steps Timeline */}
+        {/* Progress Steps - Horizontal on desktop, Vertical compact on mobile */}
         {hasProgressSteps && (
-          <div className="mt-3 space-y-1">
-            {progressSteps.map((step, idx) => (
-              <motion.div
-                key={step.id}
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                className="flex items-center gap-2"
-              >
-                {/* Step indicator */}
-                <div className="relative flex items-center justify-center w-5 h-5">
-                  {step.status === 'complete' ? (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center"
-                    >
-                      <CheckCircle2 className="w-3 h-3 text-primary" />
-                    </motion.div>
-                  ) : step.status === 'active' ? (
-                    <div className="relative">
-                      <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                      <div className="absolute inset-0 w-4 h-4 rounded-full bg-primary/20 animate-ping" />
-                    </div>
-                  ) : step.status === 'error' ? (
-                    <div className="w-4 h-4 rounded-full bg-destructive/20 flex items-center justify-center">
-                      <span className="text-destructive text-[10px]">!</span>
-                    </div>
-                  ) : (
-                    <div className="w-3 h-3 rounded-full border-2 border-muted-foreground/30" />
-                  )}
-                  
-                  {/* Connecting line */}
-                  {idx < progressSteps.length - 1 && (
-                    <div 
-                      className={cn(
-                        "absolute top-5 left-1/2 w-0.5 h-4 -translate-x-1/2",
-                        step.status === 'complete' ? 'bg-primary/30' : 'bg-muted-foreground/20'
+          <>
+            {/* Desktop: Horizontal Pipeline */}
+            <div className="mt-3 hidden md:flex items-center gap-1">
+              {progressSteps.map((step, idx) => {
+                const AgentIcon = getAgentIcon(step.id);
+                return (
+                  <div key={step.id} className="flex items-center gap-1">
+                    <div className={cn(
+                      'flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] border transition-all',
+                      step.status === 'complete' ? 'bg-primary/10 border-primary/20 text-primary' :
+                      step.status === 'active' ? 'bg-primary/15 border-primary/30 text-primary font-medium ring-1 ring-primary/20' :
+                      'bg-muted/30 border-border/30 text-muted-foreground/60'
+                    )}>
+                      {step.status === 'complete' ? (
+                        <CheckCircle2 className="w-3 h-3" />
+                      ) : step.status === 'active' ? (
+                        <div className="relative">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <div className="absolute inset-0 w-3 h-3 rounded-full bg-primary/20 animate-ping" />
+                        </div>
+                      ) : (
+                        <AgentIcon className="w-3 h-3" />
                       )}
-                    />
-                  )}
-                </div>
-                
-                {/* Step label */}
-                <span className={cn(
-                  "text-xs",
-                  step.status === 'complete' ? 'text-muted-foreground' :
-                  step.status === 'active' ? 'text-foreground font-medium' :
-                  'text-muted-foreground/60'
-                )}>
-                  {step.label}
-                </span>
-                
-                {/* Duration badge */}
-                {step.status === 'complete' && step.duration && (
-                  <span className="text-[10px] text-muted-foreground/60">
-                    ({(step.duration / 1000).toFixed(1)}s)
+                      <span>{step.label.replace(/^[^\s]+\s/, '')}</span>
+                      {step.status === 'complete' && step.duration && (
+                        <span className="opacity-60">{(step.duration / 1000).toFixed(1)}s</span>
+                      )}
+                    </div>
+                    {idx < progressSteps.length - 1 && (
+                      <div className={cn(
+                        'w-4 h-0.5 rounded-full',
+                        step.status === 'complete' ? 'bg-primary/30' : 'bg-muted-foreground/20'
+                      )} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Mobile: Compact Vertical */}
+            <div className="mt-3 space-y-1 md:hidden">
+              {progressSteps.map((step, idx) => (
+                <motion.div
+                  key={step.id}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.1 }}
+                  className="flex items-center gap-2"
+                >
+                  <div className="relative flex items-center justify-center w-5 h-5">
+                    {step.status === 'complete' ? (
+                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center">
+                        <CheckCircle2 className="w-3 h-3 text-primary" />
+                      </motion.div>
+                    ) : step.status === 'active' ? (
+                      <div className="relative">
+                        <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                        <div className="absolute inset-0 w-4 h-4 rounded-full bg-primary/20 animate-ping" />
+                      </div>
+                    ) : (
+                      <div className="w-3 h-3 rounded-full border-2 border-muted-foreground/30" />
+                    )}
+                    {idx < progressSteps.length - 1 && (
+                      <div className={cn("absolute top-5 left-1/2 w-0.5 h-4 -translate-x-1/2", step.status === 'complete' ? 'bg-primary/30' : 'bg-muted-foreground/20')} />
+                    )}
+                  </div>
+                  <span className={cn(
+                    "text-xs",
+                    step.status === 'complete' ? 'text-muted-foreground' :
+                    step.status === 'active' ? 'text-foreground font-medium' :
+                    'text-muted-foreground/60'
+                  )}>
+                    {step.label}
                   </span>
-                )}
-              </motion.div>
-            ))}
-          </div>
+                  {step.status === 'complete' && step.duration && (
+                    <span className="text-[10px] text-muted-foreground/60">({(step.duration / 1000).toFixed(1)}s)</span>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          </>
         )}
 
         {/* Multi-turn progress indicator */}

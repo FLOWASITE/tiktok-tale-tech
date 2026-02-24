@@ -4,7 +4,7 @@
 // ============================================
 
 import { useState, useRef, useCallback } from 'react';
-import type { ChatMessage, RealtimeContextBadge } from '@/components/topic/chatbot/types';
+import type { ChatMessage, RealtimeContextBadge, ReviewScores, AgentContribution, ContextSources } from '@/components/topic/chatbot/types';
 import type { ThinkingStatus, AgentTurnInfo } from '@/components/topic/chatbot/ChatThinkingIndicator';
 import type { ToolResult } from '@/components/topic/chatbot/ToolResultCard';
 import { CHAT_URL } from '@/components/topic/chatbot/constants';
@@ -199,6 +199,10 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
       let messageCreated = false;
       let pendingContextBadges: RealtimeContextBadge[] | null = null;
       let contextRichness: number | undefined = undefined;
+      let pendingReviewScores: ReviewScores | undefined = undefined;
+      let pendingAgentContributions: AgentContribution[] = [];
+      let pendingContextSources: ContextSources | undefined = undefined;
+      let pendingSuggestedFollowUps: string[] | undefined = undefined;
       
       // Update progress: context loaded, move to thinking
       setState(prev => ({ 
@@ -238,6 +242,26 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
             if (parsed.type === 'context_metadata' && parsed.badges) {
               pendingContextBadges = parsed.badges;
               contextRichness = parsed.context_richness_score;
+              if (parsed.context_sources) {
+                pendingContextSources = parsed.context_sources;
+              }
+              continue;
+            }
+            
+            // Review scores from reviewer agent
+            if (parsed.type === 'review_scores' && parsed.data) {
+              pendingReviewScores = parsed.data;
+              continue;
+            }
+            
+            // Agent completion event
+            if (parsed.type === 'agent_complete' && parsed.data) {
+              pendingAgentContributions.push({
+                agentName: parsed.data.agent_name,
+                phase: parsed.data.phase || '',
+                duration: parsed.data.duration,
+                summary: parsed.data.summary,
+              });
               continue;
             }
             
@@ -346,6 +370,10 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   toolResults: receivedToolResults || undefined,
                   contextBadges: pendingContextBadges || undefined,
                   contextRichness,
+                  reviewScores: pendingReviewScores,
+                  agentContributions: pendingAgentContributions.length > 0 ? pendingAgentContributions : undefined,
+                  contextSources: pendingContextSources,
+                  suggestedFollowUps: pendingSuggestedFollowUps,
                 };
                 onMessageCreate(newMessage);
               } else {
@@ -355,6 +383,10 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   toolResults: receivedToolResults || undefined,
                   contextBadges: pendingContextBadges || undefined,
                   contextRichness,
+                  reviewScores: pendingReviewScores,
+                  agentContributions: pendingAgentContributions.length > 0 ? pendingAgentContributions : undefined,
+                  contextSources: pendingContextSources,
+                  suggestedFollowUps: pendingSuggestedFollowUps,
                 });
               }
               continue;
@@ -362,9 +394,11 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
             
             // Agentic final_response event
             if (parsed.type === 'final_response') {
-              // Extract final content if available
               if (parsed.data?.content && !assistantContent) {
                 assistantContent = parsed.data.content;
+              }
+              if (parsed.data?.suggested_followups) {
+                pendingSuggestedFollowUps = parsed.data.suggested_followups;
               }
               continue;
             }
@@ -440,6 +474,10 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   toolResults: receivedToolResults || undefined,
                   contextBadges: pendingContextBadges || undefined,
                   contextRichness,
+                  reviewScores: pendingReviewScores,
+                  agentContributions: pendingAgentContributions.length > 0 ? pendingAgentContributions : undefined,
+                  contextSources: pendingContextSources,
+                  suggestedFollowUps: pendingSuggestedFollowUps,
                 };
                 onMessageCreate(newMessage);
               } else {
@@ -449,6 +487,10 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   toolResults: receivedToolResults || undefined,
                   contextBadges: pendingContextBadges || undefined,
                   contextRichness,
+                  reviewScores: pendingReviewScores,
+                  agentContributions: pendingAgentContributions.length > 0 ? pendingAgentContributions : undefined,
+                  contextSources: pendingContextSources,
+                  suggestedFollowUps: pendingSuggestedFollowUps,
                 });
               }
             }
@@ -469,6 +511,10 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
         toolResults: receivedToolResults || undefined,
         contextBadges: pendingContextBadges || undefined,
         contextRichness,
+        reviewScores: pendingReviewScores,
+        agentContributions: pendingAgentContributions.length > 0 ? pendingAgentContributions : undefined,
+        contextSources: pendingContextSources,
+        suggestedFollowUps: pendingSuggestedFollowUps,
       };
       
       if (!messageCreated && (assistantContent || receivedToolResults)) {

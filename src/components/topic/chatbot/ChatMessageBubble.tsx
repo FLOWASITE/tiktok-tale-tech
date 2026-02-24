@@ -13,12 +13,14 @@ import type { ParsedContextBadge } from './ContextBadges';
 import { CodeBlock } from './CodeBlock';
 import { MessageFeedback } from './MessageFeedback';
 import { ToolResultCard, type ToolResult } from './ToolResultCard';
-import { ContextBadges, parseContextBadges, removeContextLine } from './ContextBadges';
+import { ContextBadges, ContextQualityMeter, MobileContextBadges, parseContextBadges, removeContextLine } from './ContextBadges';
 import { CopyButton } from './CopyButton';
 import { MessageSkeleton } from './MessageSkeleton';
 import { formatTimestamp } from './utils';
 import { PersonalizedWelcome } from './PersonalizedWelcome';
 import type { PersonalizedWelcomeData } from '@/hooks/usePersonalizedWelcome';
+import { ReviewScoreCard } from './ReviewScoreCard';
+import { AgentAttributionBar } from './AgentAttributionBar';
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
@@ -150,15 +152,33 @@ export function ChatMessageBubble({
                 (() => {
                   return (
                     <>
-                      {/* Context Badges - displayed at top of message */}
+                      {/* Agent Attribution Bar */}
+                      {message.agentContributions && message.agentContributions.length > 0 && (
+                        <div className="mb-2 pb-2 border-b border-border/30">
+                          <AgentAttributionBar
+                            contributions={message.agentContributions}
+                            approved={message.reviewScores?.approved}
+                          />
+                        </div>
+                      )}
+
+                      {/* Context Badges + Quality Meter */}
                       {contextBadges.length > 0 && message.id !== 'welcome' && (
                         <div className="mb-2 pb-2 border-b border-border/30">
                           <div className="flex items-center gap-2">
-                            <ContextBadges badges={contextBadges} />
-                            {message.contextRichness !== undefined && message.contextRichness >= 50 && (
-                              <span className="text-[9px] text-muted-foreground/60 ml-auto">
-                                {message.contextRichness}% context
-                              </span>
+                            {/* Desktop: full badges, Mobile: truncated */}
+                            <div className="hidden sm:block">
+                              <ContextBadges badges={contextBadges} />
+                            </div>
+                            <div className="sm:hidden">
+                              <MobileContextBadges badges={contextBadges} maxVisible={3} />
+                            </div>
+                            {message.contextRichness !== undefined && message.contextRichness >= 30 && (
+                              <ContextQualityMeter
+                                richness={message.contextRichness}
+                                sources={message.contextSources}
+                                className="ml-auto"
+                              />
                             )}
                           </div>
                         </div>
@@ -207,9 +227,22 @@ export function ChatMessageBubble({
               isLoading && message.role === 'assistant' && <MessageSkeleton />
             )}
             
-            {/* Copy button - shown on hover for assistant messages */}
+            {/* Copy button */}
             {message.role === 'assistant' && message.content && !isLoading && (
               <CopyButton content={message.content} />
+            )}
+
+            {/* Review Score Card */}
+            {message.role === 'assistant' && message.reviewScores && (
+              <div className="mt-2 pt-2 border-t border-border/30">
+                <ReviewScoreCard
+                  scores={message.reviewScores}
+                  onRequestImprove={message.reviewScores.overall < 70
+                    ? () => onSendFollowUp('Hãy cải thiện nội dung dựa trên review feedback')
+                    : undefined
+                  }
+                />
+              </div>
             )}
           </div>
         )}
@@ -317,34 +350,51 @@ export function ChatMessageBubble({
           </div>
         )}
 
-        {/* Follow-up Suggestions - hidden in embedded mode */}
+        {/* Follow-up Suggestions - dynamic or fallback */}
         {mode !== 'embedded' &&
          message.role === 'assistant' && 
          message.id !== 'welcome' && 
          !message.isError && 
          message.content && 
          !isLoading && (
-          <div className="flex flex-wrap gap-1 pl-1 pt-0.5">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-6 text-[10px] gap-1 border-dashed"
-              onClick={() => onSendFollowUp('Gợi ý thêm các topic khác')}
-              disabled={isLoading}
-            >
-              <Plus className="w-2.5 h-2.5" />
-              Thêm
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-6 text-[10px] gap-1 border-dashed"
-              onClick={() => onSendFollowUp('Thay đổi format content khác')}
-              disabled={isLoading}
-            >
-              <Shuffle className="w-2.5 h-2.5" />
-              Format
-            </Button>
+          <div className="flex gap-1 pl-1 pt-0.5 overflow-x-auto scrollbar-none">
+            {message.suggestedFollowUps && message.suggestedFollowUps.length > 0 ? (
+              message.suggestedFollowUps.map((suggestion, i) => (
+                <Button
+                  key={i}
+                  size="sm"
+                  variant="outline"
+                  className="h-6 text-[10px] gap-1 border-dashed shrink-0 max-w-[200px] truncate"
+                  onClick={() => onSendFollowUp(suggestion)}
+                  disabled={isLoading}
+                >
+                  {suggestion}
+                </Button>
+              ))
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 text-[10px] gap-1 border-dashed shrink-0"
+                  onClick={() => onSendFollowUp('Gợi ý thêm các topic khác')}
+                  disabled={isLoading}
+                >
+                  <Plus className="w-2.5 h-2.5" />
+                  Thêm
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 text-[10px] gap-1 border-dashed shrink-0"
+                  onClick={() => onSendFollowUp('Thay đổi format content khác')}
+                  disabled={isLoading}
+                >
+                  <Shuffle className="w-2.5 h-2.5" />
+                  Format
+                </Button>
+              </>
+            )}
           </div>
         )}
       </div>

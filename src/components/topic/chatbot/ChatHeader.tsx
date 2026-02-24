@@ -5,7 +5,7 @@
 
 import {
   Bot, Search as SearchIcon, Volume2, VolumeX,
-  RefreshCw, HelpCircle, X, Compass, History, PanelRightOpen, PanelRightClose
+  RefreshCw, HelpCircle, X, Compass, History, PanelRightOpen, PanelRightClose, Brain
 } from 'lucide-react';
 import { CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,8 @@ interface ChatHeaderProps {
   artifactsCount: number;
   showArtifactsPanel: boolean;
   onArtifactsPanelToggle: () => void;
+  supervisorEnabled: boolean;
+  onSupervisorToggle: () => void;
   showHistorySidebar: boolean;
   onHistorySidebarChange: (show: boolean) => void;
   conversations: any[];
@@ -59,6 +61,8 @@ export function ChatHeader({
   artifactsCount,
   showArtifactsPanel,
   onArtifactsPanelToggle,
+  supervisorEnabled,
+  onSupervisorToggle,
   showHistorySidebar,
   onHistorySidebarChange,
   conversations,
@@ -87,6 +91,32 @@ export function ChatHeader({
         </div>
         
         <div className="flex items-center gap-0.5">
+          {/* AI Pro Mode toggle */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onSupervisorToggle}
+                className={cn(
+                  "h-6 w-6 sm:h-7 sm:w-7 relative",
+                  supervisorEnabled && "text-primary"
+                )}
+              >
+                <Brain className={cn(
+                  "w-3 h-3 sm:w-3.5 sm:h-3.5 transition-all",
+                  supervisorEnabled && "drop-shadow-[0_0_4px_hsl(var(--primary)/0.5)]"
+                )} />
+                {supervisorEnabled && (
+                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs max-w-[180px]">
+              {supervisorEnabled ? 'AI Pro Mode: Bật — nhiều chuyên gia phân tích' : 'AI Pro Mode: Tắt — phản hồi nhanh'}
+            </TooltipContent>
+          </Tooltip>
+
           {/* History sidebar toggle */}
           <Sheet open={showHistorySidebar} onOpenChange={onHistorySidebarChange}>
             <Tooltip>
