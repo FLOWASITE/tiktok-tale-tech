@@ -47,10 +47,6 @@ export interface SupervisorResult {
   tokenUsage: TokenBudgetSnapshot;
 }
 
-// ============================================
-// Token Budget Controller
-// ============================================
-
 interface TokenBudgetSnapshot {
   total: number;
   used: number;
@@ -95,6 +91,21 @@ class TokenBudgetController {
   }
 }
 
+// Agent display names for SSE events
+const AGENT_DISPLAY_NAMES: Record<string, string> = {
+  'research-agent': 'Research Agent',
+  'strategy-agent': 'Strategy Agent',
+  'content-agent': 'Content Agent',
+  'reviewer-agent': 'Reviewer Agent',
+};
+
+const AGENT_PHASES: Record<string, string> = {
+  'research-agent': 'Đang nghiên cứu xu hướng...',
+  'strategy-agent': 'Đang lập kế hoạch nội dung...',
+  'content-agent': 'Đang tạo nội dung...',
+  'reviewer-agent': 'Đang kiểm tra chất lượng...',
+};
+
 /**
  * Main supervisor loop - orchestrates multi-agent workflow
  */
@@ -117,6 +128,7 @@ export async function executeSupervisorLoop(
     userId: options.userId,
     organizationId: options.organizationId,
     brandTemplateId: options.brandTemplateId,
+    sessionId, // Pass real session ID
   };
 
   // Step 1: Classify intent
@@ -175,22 +187,30 @@ export async function executeSupervisorLoop(
       continue;
     }
 
-    // Token budget check — skip non-critical agents if budget exhausted
+    // Token budget check
     if (!tokenController.canAfford(agentName, agentConfig.tokenBudget)) {
-      console.warn(`[Supervisor] Token budget exhausted, skipping ${agentName} (remaining: ${tokenController.getRemainingBudget()})`);
+      console.warn(`[Supervisor] Token budget exhausted, skipping ${agentName}`);
       skippedAgents.push(agentName);
       transition(workflow, 'skip_agent');
       continue;
     }
 
-    console.log(`[Supervisor] Executing ${agentName} (state: ${workflow.currentState}, budget: ${tokenController.getRemainingBudget()})`);
+    console.log(`[Supervisor] Executing ${agentName} (state: ${workflow.currentState})`);
+    
+    // Emit SSE with agent_name and phase
     options.onEvent?.({
       type: 'tool_executing',
-      data: { tool: agentName, turn: iteration, state: workflow.currentState },
+      data: {
+        tool: agentName,
+        turn: iteration,
+        state: workflow.currentState,
+        agent_name: AGENT_DISPLAY_NAMES[agentName] || agentName,
+        phase: AGENT_PHASES[agentName] || 'Đang xử lý...',
+      },
     });
 
-    // Build task based on agent type
-    const task = buildAgentTask(agentName, userMessage, options, brandMemoryContext);
+    // Build task with blackboard context injection
+    const task = await buildAgentTask(agentName, userMessage, options, brandMemoryContext, blackboard);
 
     // Execute agent with graceful degradation
     const result = await executeAgentWithDegradation(
@@ -199,7 +219,7 @@ export async function executeSupervisorLoop(
     
     agentResults.push(result);
 
-    // Record token usage (estimate from content length)
+    // Record token usage
     const estimatedTokens = Math.ceil((result.content?.length || 0) / 4) + 500;
     tokenController.recordUsage(agentName, estimatedTokens);
 
@@ -212,11 +232,12 @@ export async function executeSupervisorLoop(
       }, agentName);
     }
 
-    // Report result via SSE
+    // Report result via SSE with agent info
     options.onEvent?.({
       type: 'tool_result',
       data: {
         agent: agentName,
+        agent_name: AGENT_DISPLAY_NAMES[agentName] || agentName,
         success: result.success,
         duration_ms: result.durationMs,
         content_preview: result.content?.slice(0, 200),
@@ -229,7 +250,7 @@ export async function executeSupervisorLoop(
     transition(workflow, event);
   }
 
-  // Build final content from agent results
+  // Build final content from agent results — prioritize content-agent
   const finalContent = buildFinalContent(agentResults, classification);
 
   // Fire-and-forget: Run learning agent async
@@ -247,7 +268,7 @@ export async function executeSupervisorLoop(
   const totalDuration = Date.now() - startTime;
   const tokenSnapshot = tokenController.getSnapshot();
   
-  console.log(`[Supervisor] Complete in ${totalDuration}ms, ${agentResults.length} agents executed, ${skippedAgents.length} skipped, tokens: ${tokenSnapshot.used}/${tokenSnapshot.total}`);
+  console.log(`[Supervisor] Complete in ${totalDuration}ms, ${agentResults.length} agents, ${skippedAgents.length} skipped`);
 
   options.onEvent?.({
     type: 'final_response',
@@ -312,20 +333,17 @@ function handleAgentFailure(
   result: AgentResult,
   workflow: WorkflowContext
 ): AgentResult {
-  // Graceful degradation: non-critical agents can be skipped
   const criticalAgents = new Set(['content-agent']);
   
   if (!criticalAgents.has(agentName)) {
-    console.log(`[Supervisor] Non-critical agent ${agentName} failed, continuing workflow`);
-    // Return a degraded but non-failing result
+    console.log(`[Supervisor] Non-critical agent ${agentName} failed, continuing`);
     return {
       ...result,
-      success: true, // Mark as success to not block workflow
+      success: true,
       content: `[${agentName} skipped due to error: ${result.error}]`,
     };
   }
 
-  // Critical agent failure - return as-is
   return result;
 }
 
@@ -343,13 +361,22 @@ function getNextAgent(workflow: WorkflowContext): string | null {
   return stateToAgent[workflow.currentState] || null;
 }
 
-function buildAgentTask(
+/**
+ * Build agent task with blackboard context injection
+ * Reviewer gets generated_content from blackboard instead of user message
+ */
+async function buildAgentTask(
   agentName: string,
   userMessage: string,
   options: SupervisorOptions,
-  brandMemoryContext: string
+  brandMemoryContext: string,
+  blackboard: BlackboardClient
 ) {
-  const additionalContext = [options.systemPrompt, brandMemoryContext]
+  // Read blackboard entries for context injection
+  const blackboardEntries = await blackboard.readAll();
+  const blackboardContext = buildBlackboardContext(blackboardEntries);
+  
+  const additionalContext = [options.systemPrompt, brandMemoryContext, blackboardContext]
     .filter(Boolean)
     .join('\n\n');
 
@@ -360,8 +387,12 @@ function buildAgentTask(
       return createStrategyTask(userMessage, options.brandName, options.industry, additionalContext);
     case 'content-agent':
       return createContentTask(userMessage, options.brandName, options.industry, additionalContext);
-    case 'reviewer-agent':
-      return createReviewerTask(userMessage, options.brandName, options.industry, options.complianceRules);
+    case 'reviewer-agent': {
+      // Reviewer should review generated_content from blackboard, not user message
+      const generatedContent = await blackboard.read('generated_content');
+      const contentToReview = generatedContent?.content || userMessage;
+      return createReviewerTask(contentToReview, options.brandName, options.industry, options.complianceRules);
+    }
     default:
       return createContentTask(userMessage, options.brandName, options.industry, additionalContext);
   }
@@ -377,9 +408,31 @@ function getBlackboardKey(agentName: string): string {
   return keyMap[agentName] || agentName;
 }
 
+/**
+ * Get transition event based on agent result
+ * Reviewer: parse JSON to check approved status
+ */
 function getTransitionEvent(agentName: string, result: AgentResult): WorkflowEvent {
   if (!result.success) return 'error';
   
+  // Special handling for reviewer: parse JSON output
+  if (agentName === 'reviewer-agent' && result.content) {
+    try {
+      // Try to parse reviewer JSON output
+      const reviewJson = JSON.parse(result.content);
+      if (reviewJson.approved === false) {
+        console.log(`[Supervisor] Reviewer rejected content (score: ${reviewJson.overall_score})`);
+        return 'review_needs_revision' as WorkflowEvent;
+      }
+    } catch {
+      // If not valid JSON, try to extract from content
+      if (result.content.toLowerCase().includes('"approved": false') || 
+          result.content.toLowerCase().includes('"approved":false')) {
+        return 'review_needs_revision' as WorkflowEvent;
+      }
+    }
+  }
+
   const eventMap: Record<string, WorkflowEvent> = {
     'research-agent': 'research_complete',
     'strategy-agent': 'plan_complete',
@@ -389,12 +442,29 @@ function getTransitionEvent(agentName: string, result: AgentResult): WorkflowEve
   return eventMap[agentName] || 'skip_agent';
 }
 
+/**
+ * Build final content — prioritize content-agent output
+ */
 function buildFinalContent(agentResults: AgentResult[], classification: ClassificationResult): string {
-  const contentResult = agentResults
+  // Priority 1: content-agent result
+  const contentAgentResult = agentResults.find(
+    r => r.agentName === 'content-agent' && r.success && r.content && !r.content.startsWith('[')
+  );
+  if (contentAgentResult) return contentAgentResult.content;
+
+  // Priority 2: any successful agent with real content (not reviewer JSON, not skipped)
+  const validResult = agentResults
+    .filter(r => r.success && r.content && !r.content.startsWith('[') && r.agentName !== 'reviewer-agent')
+    .pop();
+  if (validResult) return validResult.content;
+
+  // Priority 3: any content at all
+  const anyContent = agentResults
     .filter(r => r.success && r.content && !r.content.startsWith('['))
     .pop();
+  if (anyContent) return anyContent.content;
 
-  return contentResult?.content || 'Không thể tạo nội dung. Vui lòng thử lại.';
+  return 'Không thể tạo nội dung. Vui lòng thử lại.';
 }
 
 async function buildFallbackResult(

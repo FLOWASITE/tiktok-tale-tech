@@ -24,6 +24,8 @@ export interface AgentTurnInfo {
   maxTurns: number;
   toolsExecuted: string[];
   isComplete: boolean;
+  agentName?: string;
+  phase?: string;
 }
 
 export interface ProgressStep {
@@ -126,12 +128,12 @@ export function ChatThinkingIndicator({
           </motion.div>
           
           <span className="text-xs text-foreground font-medium">
-            {agentTurn && agentTurn.currentTurn > 0 && !agentTurn.isComplete && (
+            {agentTurn && agentTurn.agentName && !agentTurn.isComplete && (
               <span className="text-primary mr-1.5 font-semibold">
-                Turn {agentTurn.currentTurn}/{agentTurn.maxTurns}:
+                {agentTurn.agentName}:
               </span>
             )}
-            {config.message}
+            {agentTurn?.phase || config.message}
           </span>
           
           {/* Elapsed time badge */}

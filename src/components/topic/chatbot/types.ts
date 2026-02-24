@@ -95,6 +95,8 @@ export interface AgentTurnEvent {
   tool_result?: any;
   exit_reason?: string;
   total_turns?: number;
+  agent_name?: string;
+  phase?: string;
 }
 
 // Dynamic width type
