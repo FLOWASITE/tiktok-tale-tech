@@ -218,7 +218,8 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     moduleName: string
   ) => {
     return (err: any, fallbackMessage: string) => {
-      console.error(`[${moduleName}] ${fallbackMessage}`, err);
+      // Only log unknown errors as console.error; credits/rate-limit are expected states.
+      // (Some monitoring setups treat console.error as "runtime crash".)
       
       // Try to extract structured error from response body
       if (err?.context?.body) {
@@ -257,6 +258,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
       }
       
       // Default: unknown error
+      console.error(`[${moduleName}] ${fallbackMessage}`, err);
       setError(errMessage || fallbackMessage);
       setErrorCode('UNKNOWN');
       toast.error(fallbackMessage);

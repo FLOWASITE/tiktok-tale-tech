@@ -618,7 +618,7 @@ serve(async (req) => {
           if (aiResult.error?.includes('402') || aiResult.error?.includes('Payment required') || aiResult.error?.includes('credits') || aiResult.error?.includes('payment_required')) {
             return new Response(JSON.stringify({ 
               success: false, 
-              error: "AI credits exhausted. Please top up.", 
+              error: "AI credits đã hết. Vui lòng nạp thêm tại Settings → Usage.", 
               errorCode: "CREDITS_EXHAUSTED" 
             }), {
               status: 402,

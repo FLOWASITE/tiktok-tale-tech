@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { InsightsSkeleton } from './InsightsSkeleton';
 import { useToast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
@@ -86,36 +87,34 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['dashboard-insights', user?.id],
     queryFn: async (): Promise<AIInsightsResponse> => {
-      // Extra safety: ensure we always send an access token explicitly.
-      // In some edge cases, `functions.invoke()` can run before the client has attached the session.
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
+      if (!user) return { insights: [], fromCache: false };
 
-      if (!user || !accessToken) {
-        return { insights: [], fromCache: false };
-      }
-
-      const { data, error } = await supabase.functions.invoke('analyze-dashboard-insights', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+      const { data, error } = await invokeWithTimeout<any>('analyze-dashboard-insights', {
+        timeoutMs: 30_000,
       });
 
       if (error) {
-        // Try to parse body for structured error (credits/rate limit)
-        try {
-          const body = error?.context?.body ? JSON.parse(error.context.body) : null;
-          if (body?.errorCode === 'CREDITS_EXHAUSTED' || body?.errorCode === 'RATE_LIMIT') {
-            // Return empty insights with error info instead of throwing
-            return { insights: [], fromCache: false, creditsError: body.errorCode };
+        // invokeWithTimeout error message format: "Edge Function error (402): <body>"
+        const match = error.message.match(/Edge Function error \((\d+)\):\s*(.*)$/s);
+        const status = match ? Number(match[1]) : null;
+        const rawBody = match ? match[2] : null;
+
+        if (status === 402 && rawBody) {
+          try {
+            const body = JSON.parse(rawBody);
+            if (body?.errorCode === 'CREDITS_EXHAUSTED') {
+              return { insights: [], fromCache: false, creditsError: 'CREDITS_EXHAUSTED' };
+            }
+          } catch {
+            // ignore
           }
-        } catch {
-          // Check error message as fallback
-          const msg = error?.message || '';
-          if (msg.includes('402') || msg.includes('Payment') || msg.includes('credits')) {
-            return { insights: [], fromCache: false, creditsError: 'CREDITS_EXHAUSTED' as const };
-          }
+          return { insights: [], fromCache: false, creditsError: 'CREDITS_EXHAUSTED' };
         }
+
+        if (status === 429) {
+          return { insights: [], fromCache: false, creditsError: 'RATE_LIMIT' };
+        }
+
         console.error('Error fetching insights:', error);
         throw error;
       }
@@ -224,14 +223,21 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
     try {
       // Force refresh bypasses cache
       if (forceRefresh) {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const accessToken = sessionData.session?.access_token;
-
-        const { error } = await supabase.functions.invoke('analyze-dashboard-insights', {
+        const { error } = await invokeWithTimeout('analyze-dashboard-insights', {
           body: { forceRefresh: true },
-          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+          timeoutMs: 30_000,
         });
-        if (error) throw error;
+
+        if (error) {
+          if (error.message.includes('(402)')) {
+            toast({
+              title: 'AI credits đã hết',
+              description: 'Vui lòng nạp thêm tại Settings → Usage.',
+            });
+            return;
+          }
+          throw error;
+        }
       }
 
       await refetch();
@@ -247,7 +253,6 @@ export function AIInsightsCard({ className }: AIInsightsCardProps) {
       });
     }
   };
-
   const handleNext = () => {
     setCurrentIndex((prev) => (prev + 1) % visibleInsights.length);
   };
