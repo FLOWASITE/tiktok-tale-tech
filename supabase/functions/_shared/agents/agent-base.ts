@@ -1,9 +1,11 @@
 // ============================================
 // Agent Base Class
 // Abstract base for all specialized agents
+// With mini ReAct tool-calling loop
 // ============================================
 
-import { ToolCallResult } from "../tool-definitions.ts";
+import { ToolCallResult, ToolCall } from "../tool-definitions.ts";
+import { executeToolCall } from "../tool-executor.ts";
 import { BlackboardClient, buildBlackboardContext } from "../supervisor/blackboard.ts";
 import { withRetry, withTimeout, isRetryableError, createCircuitBreaker } from "../error-utils.ts";
 import { callAI } from "../ai-provider.ts";
@@ -32,10 +34,11 @@ export interface AgentExecutionContext {
   userId?: string;
   organizationId?: string;
   brandTemplateId?: string;
+  sessionId?: string;
 }
 
 /**
- * Execute a specialized agent
+ * Execute a specialized agent with mini ReAct tool-calling loop
  */
 export async function executeAgent(
   agentConfig: AgentConfig,
@@ -47,10 +50,10 @@ export async function executeAgent(
   const agentName = agentConfig.name;
   const blackboardWrites: Array<{ key: string; value: any }> = [];
   const toolResults: ToolCallResult[] = [];
+  const sessionId = execContext.sessionId || 'agent-session';
 
   console.log(`[${agentName}] Starting execution, model: ${agentConfig.defaultModel}`);
 
-  // Create circuit breaker for this agent
   const circuitBreaker = createCircuitBreaker(agentName, {
     failureThreshold: 3,
     resetTimeoutMs: 30000,
@@ -61,8 +64,8 @@ export async function executeAgent(
     const blackboardEntries = await blackboard.readAll();
     const blackboardContext = buildBlackboardContext(blackboardEntries);
 
-    // Build messages
-    const messages = [
+    // Build initial messages
+    const messages: Array<{ role: string; content: string | null; tool_calls?: ToolCall[]; tool_call_id?: string }> = [
       {
         role: 'system',
         content: [
@@ -75,58 +78,136 @@ export async function executeAgent(
       { role: 'user', content: task.userMessage },
     ];
 
-    // Get tools for this agent
     const tools = getAgentTools(agentName);
+    const maxTurns = agentConfig.maxTurns || 2;
 
-    // Execute with circuit breaker + retry + timeout
-    const result = await circuitBreaker.execute(async () => {
-      return withTimeout(
-        () => withRetry(
-          async () => {
-            const aiResult = await callAI({
-              functionName: agentName,
-              organizationId: execContext.organizationId,
-              messages,
-              tools: tools.length > 0 ? tools : undefined,
-              toolChoice: tools.length > 0 ? 'auto' : undefined,
-              stream: false,
-              modelOverride: agentConfig.defaultModel,
-            });
+    // Mini ReAct loop: AI → parse tool_calls → execute → feed back → repeat
+    let finalContent = '';
+    
+    for (let turn = 0; turn < maxTurns; turn++) {
+      const result = await circuitBreaker.execute(async () => {
+        return withTimeout(
+          () => withRetry(
+            async () => {
+              const aiResult = await callAI({
+                functionName: agentName,
+                organizationId: execContext.organizationId,
+                messages: messages as any,
+                tools: tools.length > 0 ? tools : undefined,
+                toolChoice: tools.length > 0 ? 'auto' : undefined,
+                stream: false,
+                modelOverride: agentConfig.defaultModel,
+              });
 
-            if (!aiResult.success) {
-              throw new Error(aiResult.error || 'AI call failed');
+              if (!aiResult.success) {
+                throw new Error(aiResult.error || 'AI call failed');
+              }
+              return aiResult;
+            },
+            {
+              maxRetries: agentConfig.maxRetries,
+              baseDelayMs: 1000,
+              maxDelayMs: 5000,
+              retryOn: isRetryableError,
             }
+          ),
+          agentConfig.timeoutMs,
+          `${agentName} timed out after ${agentConfig.timeoutMs}ms`
+        );
+      });
 
-            return aiResult;
-          },
-          {
-            maxRetries: agentConfig.maxRetries,
-            baseDelayMs: 1000,
-            maxDelayMs: 5000,
-            retryOn: isRetryableError,
-          }
-        ),
-        agentConfig.timeoutMs,
-        `${agentName} timed out after ${agentConfig.timeoutMs}ms`
-      );
-    });
+      // Parse response
+      const data = result.data;
+      let content = '';
+      let parsedToolCalls: ToolCall[] = [];
 
-    // Parse response
-    let content = '';
-    if (result.data) {
-      if (typeof result.data === 'string') {
-        content = result.data;
-      } else if (result.data instanceof ReadableStream) {
-        content = await streamToText(result.data);
+      if (typeof data === 'string') {
+        content = data;
+      } else if (data instanceof ReadableStream) {
+        content = await streamToText(data);
+      } else if (data && typeof data === 'object') {
+        // OpenAI-style response object
+        const choice = data.choices?.[0];
+        if (choice) {
+          content = choice.message?.content || choice.delta?.content || '';
+          parsedToolCalls = choice.message?.tool_calls || [];
+        } else {
+          content = JSON.stringify(data);
+        }
+      }
+
+      // If no tool calls, this is the final response
+      if (parsedToolCalls.length === 0) {
+        finalContent = content;
+        break;
+      }
+
+      // Execute tool calls
+      console.log(`[${agentName}] Turn ${turn + 1}: executing ${parsedToolCalls.length} tool(s)`);
+      
+      // Add assistant message with tool_calls to conversation
+      messages.push({
+        role: 'assistant',
+        content: content || null,
+        tool_calls: parsedToolCalls,
+      });
+
+      for (const toolCall of parsedToolCalls) {
+        const toolName = toolCall.function.name;
+        let args: Record<string, any> = {};
+        try {
+          args = JSON.parse(toolCall.function.arguments);
+        } catch {
+          args = {};
+        }
+
+        // Handle task_complete specially
+        if (toolName === 'task_complete') {
+          finalContent = content || args.summary || '';
+          toolResults.push({
+            success: true,
+            tool_name: 'task_complete',
+            result: { summary: args.summary, outputs: args.outputs },
+          });
+          // Add tool result message
+          messages.push({
+            role: 'tool' as any,
+            content: JSON.stringify({ success: true, summary: args.summary }),
+            tool_call_id: toolCall.id,
+          });
+          break;
+        }
+
+        // Execute the tool
+        const toolResult = await executeToolCall(toolName, args, {
+          supabase: execContext.supabase,
+          userId: execContext.userId,
+          organizationId: execContext.organizationId,
+          brandTemplateId: execContext.brandTemplateId,
+        });
+        
+        toolResults.push(toolResult);
+
+        // Add tool result as message for next AI turn
+        messages.push({
+          role: 'tool' as any,
+          content: JSON.stringify(toolResult.result),
+          tool_call_id: toolCall.id,
+        });
+      }
+
+      // If task_complete was called, stop
+      if (toolResults.some(t => t.tool_name === 'task_complete')) {
+        break;
       }
     }
 
     // Log to agent_execution_logs
     await logAgentExecution(execContext.supabase, {
-      sessionId: 'agent-session',
+      sessionId,
       agentName,
       status: 'completed',
-      outputSummary: content.slice(0, 200),
+      outputSummary: finalContent.slice(0, 200),
       toolsUsed: toolResults.map(t => t.tool_name),
       durationMs: Date.now() - startTime,
       modelUsed: agentConfig.defaultModel,
@@ -135,7 +216,7 @@ export async function executeAgent(
     return {
       success: true,
       agentName,
-      content,
+      content: finalContent,
       toolResults,
       durationMs: Date.now() - startTime,
       blackboardWrites,
@@ -144,9 +225,8 @@ export async function executeAgent(
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error(`[${agentName}] Execution failed:`, errorMsg);
 
-    // Log failure
     await logAgentExecution(execContext.supabase, {
-      sessionId: 'session',
+      sessionId,
       agentName,
       status: 'failed',
       errorMessage: errorMsg,
@@ -202,7 +282,6 @@ async function streamToText(stream: ReadableStream): Promise<string> {
     if (done) break;
     const text = decoder.decode(value, { stream: true });
     
-    // Parse SSE events
     for (const line of text.split('\n')) {
       if (!line.startsWith('data: ') || line.includes('[DONE]')) continue;
       try {

@@ -279,6 +279,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
             
             if (parsed.type === 'tool_executing') {
               const toolName = parsed.data?.tool || parsed.tool_name;
+              const agentDisplayName = parsed.data?.agent_name;
+              const phase = parsed.data?.phase;
               setState(prev => ({
                 ...prev,
                 currentExecutingTool: toolName,
@@ -286,7 +288,16 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                 agentTurnInfo: prev.agentTurnInfo ? {
                   ...prev.agentTurnInfo,
                   toolsExecuted: [...prev.agentTurnInfo.toolsExecuted, toolName],
-                } : null,
+                  agentName: agentDisplayName || prev.agentTurnInfo.agentName,
+                  phase: phase || prev.agentTurnInfo.phase,
+                } : {
+                  currentTurn: parsed.data?.turn || 1,
+                  maxTurns: 5,
+                  toolsExecuted: [toolName],
+                  isComplete: false,
+                  agentName: agentDisplayName,
+                  phase: phase,
+                },
               }));
               continue;
             }
