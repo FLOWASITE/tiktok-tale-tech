@@ -298,3 +298,118 @@ export function ContextSummary({ badges, className }: ContextSummaryProps) {
     </TooltipProvider>
   );
 }
+
+// Context Quality Meter - stacked bar chart showing context sources
+interface ContextQualityMeterProps {
+  richness: number;
+  sources?: {
+    brandMemory: number;
+    webSearch: number;
+    conversationHistory: number;
+    industryPack: number;
+  };
+  className?: string;
+}
+
+const SOURCE_CONFIG = [
+  { key: 'brandMemory' as const, label: 'Brand Memory', color: 'bg-violet-500' },
+  { key: 'webSearch' as const, label: 'Web Search', color: 'bg-blue-500' },
+  { key: 'conversationHistory' as const, label: 'History', color: 'bg-emerald-500' },
+  { key: 'industryPack' as const, label: 'Industry', color: 'bg-amber-500' },
+];
+
+export function ContextQualityMeter({ richness, sources, className }: ContextQualityMeterProps) {
+  const hasSourceBreakdown = sources && Object.values(sources).some(v => v > 0);
+  const totalSource = sources ? Object.values(sources).reduce((a, b) => a + b, 0) : 0;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className={cn('flex items-center gap-1.5 cursor-help', className)}>
+            <div className="flex-1 h-1.5 bg-muted/40 rounded-full overflow-hidden flex min-w-[60px] max-w-[120px]">
+              {hasSourceBreakdown && totalSource > 0 ? (
+                SOURCE_CONFIG.map(({ key, color }) => {
+                  const pct = (sources[key] / totalSource) * 100;
+                  if (pct <= 0) return null;
+                  return (
+                    <div key={key} className={cn('h-full', color)} style={{ width: `${pct}%` }} />
+                  );
+                })
+              ) : (
+                <div className="h-full bg-primary rounded-full" style={{ width: `${richness}%` }} />
+              )}
+            </div>
+            <span className="text-[9px] text-muted-foreground/60 shrink-0">{richness}%</span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs max-w-[200px] space-y-1.5 p-2">
+          <p className="font-medium">Context Richness: {richness}%</p>
+          {hasSourceBreakdown && totalSource > 0 && (
+            <div className="space-y-1">
+              {SOURCE_CONFIG.map(({ key, label, color }) => {
+                const val = sources[key];
+                if (val <= 0) return null;
+                return (
+                  <div key={key} className="flex items-center gap-1.5">
+                    <div className={cn('w-2 h-2 rounded-full', color)} />
+                    <span className="flex-1">{label}</span>
+                    <span className="font-medium">{Math.round((val / totalSource) * 100)}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {richness < 30 && (
+            <p className="text-amber-500 text-[10px]">💡 Thêm brand template để AI hiểu bạn hơn</p>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+// Mobile-friendly badges with truncation
+interface MobileContextBadgesProps {
+  badges: ParsedContextBadge[];
+  maxVisible?: number;
+  className?: string;
+}
+
+export function MobileContextBadges({ badges, maxVisible = 3, className }: MobileContextBadgesProps) {
+  if (badges.length === 0) return null;
+  const visible = badges.slice(0, maxVisible);
+  const remaining = badges.length - maxVisible;
+
+  return (
+    <TooltipProvider>
+      <div className={cn('flex gap-1 flex-wrap', className)}>
+        {visible.map((badge, index) => {
+          const config = BADGE_CONFIG[badge.type];
+          const Icon = config.icon;
+          return (
+            <Tooltip key={`${badge.type}-${index}`}>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className={cn('gap-1 px-1.5 py-0.5 text-[10px] font-medium cursor-help transition-colors border', config.bgColor, config.color)}>
+                  <Icon className="w-2.5 h-2.5" />
+                  <span className="hidden sm:inline">{config.label}</span>
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">{config.description}</TooltipContent>
+            </Tooltip>
+          );
+        })}
+        {remaining > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="outline" className="px-1.5 py-0.5 text-[10px] cursor-help border-border/50">+{remaining}</Badge>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="p-2">
+              <ContextBadges badges={badges.slice(maxVisible)} variant="stacked" />
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    </TooltipProvider>
+  );
+}
