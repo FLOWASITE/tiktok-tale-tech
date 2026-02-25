@@ -399,18 +399,51 @@ serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Get user from auth header
+    // Parse request body first (need body.userId for fallback)
+    const body: GenerateCoreContentRequest = await req.json();
+
+    // Get user from auth header with body userId fallback
     const authHeader = req.headers.get('authorization');
     let userId: string | null = null;
-    
+    let isServiceRoleCall = false;
+    const bodyUserId = (body as any).userId || (body as any).user_id || null;
+
     if (authHeader) {
       const token = authHeader.replace('Bearer ', '');
-      const { data: { user } } = await supabase.auth.getUser(token);
-      userId = user?.id || null;
+      const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+      const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+
+      if (token === serviceRoleKey || token === anonKey) {
+        // Internal trusted call (from tool-executor or other edge functions)
+        isServiceRoleCall = true;
+        userId = bodyUserId;
+      } else {
+        const { data: { user } } = await supabase.auth.getUser(token);
+        if (user?.id) {
+          userId = user.id;
+        } else {
+          // JWT invalid, fallback to body userId
+          userId = bodyUserId;
+          if (userId) isServiceRoleCall = true;
+        }
+      }
     }
-    
-    // Parse request body
-    const body: GenerateCoreContentRequest = await req.json();
+
+    // Verify org membership if using body userId (security check)
+    const orgId = body.organizationId || (body as any).organization_id || null;
+    if (isServiceRoleCall && userId && orgId) {
+      const { data: member } = await supabase
+        .from('organization_members')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('organization_id', orgId)
+        .limit(1)
+        .maybeSingle();
+      if (!member) {
+        console.warn(`[generate-core-content] Body userId ${userId} is not a member of org ${orgId}, resetting to null`);
+        userId = null;
+      }
+    }
     const {
       topic,
       contentGoal,
