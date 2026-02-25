@@ -35,6 +35,7 @@ export interface AgentExecutionContext {
   organizationId?: string;
   brandTemplateId?: string;
   sessionId?: string;
+  userAccessToken?: string;
 }
 
 /**
@@ -184,14 +185,19 @@ export async function executeAgent(
           userId: execContext.userId,
           organizationId: execContext.organizationId,
           brandTemplateId: execContext.brandTemplateId,
+          userAccessToken: execContext.userAccessToken,
         });
         
         toolResults.push(toolResult);
 
-        // Add tool result as message for next AI turn
+        // Add full tool result (success + error) so AI knows if tool failed
         messages.push({
           role: 'tool' as any,
-          content: JSON.stringify(toolResult.result),
+          content: JSON.stringify({
+            success: toolResult.success,
+            result: toolResult.result,
+            error: toolResult.error || null,
+          }),
           tool_call_id: toolCall.id,
         });
       }

@@ -41,6 +41,7 @@ export interface SupervisorOptions {
   systemPrompt: string;
   conversationHistory: Array<{ role: string; content: string }>;
   onEvent?: (event: AgentSSEEvent) => void;
+  userAccessToken?: string;
 }
 
 export interface SupervisorResult {
@@ -157,6 +158,7 @@ export async function executeSupervisorLoop(
     organizationId: options.organizationId,
     brandTemplateId: options.brandTemplateId,
     sessionId, // Pass real session ID
+    userAccessToken: options.userAccessToken,
   };
 
   // Step 1: Classify intent

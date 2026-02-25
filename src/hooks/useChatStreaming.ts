@@ -136,11 +136,16 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
     const assistantId = createMessageId('assistant');
     
     try {
+      // Get user access token for proper auth propagation
+      const { data: sessionData } = await (await import('@/integrations/supabase/client')).supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      
       const response = await fetch(CHAT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${accessToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({
           messages: apiMessages,

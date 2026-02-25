@@ -7,6 +7,7 @@ interface ExecutionContext {
   userId?: string;
   organizationId?: string;
   brandTemplateId?: string;
+  userAccessToken?: string;
 }
 
 // Execute a single tool call
@@ -390,13 +391,23 @@ async function executeGenerateMultichannel(
 
   console.log(`[generate_multichannel] Calling with userId=${context.userId}, orgId=${context.organizationId}, stage=${requestBody.targetJourneyStage}, angle=${requestBody.contentAngle}`);
 
+  // Use user access token if available, otherwise fall back to service key
+  const authToken = context.userAccessToken || supabaseKey;
+
   const response = await fetch(`${supabaseUrl}/functions/v1/generate-multichannel`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${supabaseKey}`,
+      "Authorization": `Bearer ${authToken}`,
     },
-    body: JSON.stringify(requestBody),
+    body: JSON.stringify({
+      ...requestBody,
+      // Send both camelCase and snake_case for compatibility
+      userId: context.userId,
+      user_id: context.userId,
+      organizationId: context.organizationId,
+      organization_id: context.organizationId,
+    }),
   });
 
   if (!response.ok) {
