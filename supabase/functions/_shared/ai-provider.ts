@@ -56,10 +56,18 @@ const MODEL_TO_PROVIDER: Record<string, string> = {
   "01-ai/": "openrouter",        // Yi models via OpenRouter
 };
 
+export type AIMessage = {
+  role: string;
+  content: string;
+  tool_calls?: any[];
+  tool_call_id?: string;
+  name?: string;
+};
+
 export interface AICallOptions {
   functionName: string;
   organizationId?: string;
-  messages: Array<{ role: string; content: string }>;
+  messages: AIMessage[];
   tools?: any[];
   toolChoice?: any;
   stream?: boolean;
@@ -219,7 +227,7 @@ async function getApiKey(config: ProviderConfig): Promise<string | null> {
  * Call Lovable AI Gateway (default)
  */
 async function callLovableGateway(
-  messages: Array<{ role: string; content: string }>,
+  messages: AIMessage[],
   model: string,
   config: AIFunctionConfig,
   options: AICallOptions
@@ -301,7 +309,7 @@ async function callLovableGateway(
  */
 async function callOpenAI(
   apiKey: string,
-  messages: Array<{ role: string; content: string }>,
+  messages: AIMessage[],
   model: string,
   config: AIFunctionConfig,
   options: AICallOptions
@@ -363,7 +371,7 @@ async function callOpenAI(
  */
 async function callAnthropic(
   apiKey: string,
-  messages: Array<{ role: string; content: string }>,
+  messages: AIMessage[],
   model: string,
   config: AIFunctionConfig,
   options: AICallOptions
@@ -464,7 +472,7 @@ async function callAnthropic(
  */
 async function callOpenRouter(
   apiKey: string,
-  messages: Array<{ role: string; content: string }>,
+  messages: AIMessage[],
   model: string,
   config: AIFunctionConfig,
   options: AICallOptions
@@ -531,7 +539,7 @@ async function callOpenRouter(
  */
 async function callGeminiDirect(
   apiKey: string,
-  messages: Array<{ role: string; content: string }>,
+  messages: AIMessage[],
   model: string,
   config: AIFunctionConfig,
   options: AICallOptions
