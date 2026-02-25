@@ -152,7 +152,7 @@ export const CHAT_TOOLS: ToolDefinition[] = [
     type: "function",
     function: {
       name: "generate_multichannel",
-      description: "Tạo nội dung cho nhiều kênh social media cùng lúc VÀ LƯU VÀO DATABASE. Gọi khi user muốn tạo multi-channel content. Nội dung sẽ xuất hiện trong danh sách /multichannel.",
+      description: "Tạo nội dung đa kênh theo quy trình 2 bước: (1) Tạo Core Content trước, (2) Transform sang các kênh. Nội dung sẽ xuất hiện trong cả /core-content và /multichannel. Gọi khi user muốn tạo multi-channel content.",
       parameters: {
         type: "object",
         properties: {
@@ -178,10 +178,19 @@ export const CHAT_TOOLS: ToolDefinition[] = [
             enum: ["seed", "sprout", "harvest"],
             description: "Vai trò nội dung trong phễu: seed (nhận biết), sprout (nuôi dưỡng), harvest (chuyển đổi). Mặc định: seed"
           },
+          content_role: {
+            type: "string",
+            enum: ["seed", "sprout", "harvest"],
+            description: "Vai trò chiến lược của nội dung: seed (awareness), sprout (trust building), harvest (conversion). Nên trùng với journey_stage."
+          },
           content_angle: {
             type: "string",
             enum: ["educational", "storytelling", "promotional", "behind_the_scenes", "social_proof", "qa_faq", "entertaining"],
             description: "Góc nhìn nội dung. Mặc định: educational"
+          },
+          target_audience: {
+            type: "string",
+            description: "Đối tượng mục tiêu (optional)"
           },
           auto_research: {
             type: "boolean",
