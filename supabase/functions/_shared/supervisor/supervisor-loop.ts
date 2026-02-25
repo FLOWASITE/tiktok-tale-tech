@@ -704,7 +704,9 @@ async function buildTopicSuggestionsPayload(
 
   if (discoverTool?.result?.topics?.length) {
     const topics = discoverTool.result.topics.slice(0, 5);
-    const bestTopicRaw = discoverTool.result.best_topic ?? topics[0]?.topic;
+    // Sort by score descending to pick the best topic
+    const sortedTopics = [...topics].sort((a: any, b: any) => (b.score || 0) - (a.score || 0));
+    const bestTopicRaw = sortedTopics[0]?.topic;
     const bestTopic = typeof bestTopicRaw === 'string' ? bestTopicRaw : bestTopicRaw?.topic;
     return { topics, best_topic: bestTopic };
   }

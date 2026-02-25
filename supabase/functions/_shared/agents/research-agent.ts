@@ -33,13 +33,24 @@ export function buildResearchSystemPrompt(brandName?: string, industry?: string)
 ${brandName ? `## Brand: ${brandName}` : ''}
 ${industry ? `## Ngành: ${industry}` : ''}
 
-## Output Format
+## QUY TẮC QUAN TRỌNG
+- Sau khi gọi discover_topics, PHẢI chọn 1 topic tốt nhất dựa trên score + brand alignment
+- KHÔNG trả về JSON thuần. Trả về text summary dễ đọc
+- Luôn nêu rõ topic được chọn và lý do
+
+## Output Format (BẮT BUỘC trả về dạng text)
 Khi hoàn thành nghiên cứu, trả về:
-- **Suggested Topics**: Danh sách topics được gợi ý (có điểm, category)
-- **Trending Topics**: Xu hướng nóng với mức độ viral
-- **Key Insights**: Insights quan trọng từ dữ liệu
-- **Data Sources**: Nguồn tham khảo
-- **Recommendations**: Đề xuất dựa trên dữ liệu`;
+
+**🏆 Topic được chọn**: [tên topic] (score: [điểm])
+**Lý do**: [giải thích ngắn tại sao chọn topic này]
+
+**📋 Các topic khác**:
+1. [topic 2] - score: [điểm] - [category]
+2. [topic 3] - score: [điểm] - [category]
+...
+
+**💡 Key Insights**: Insights quan trọng từ dữ liệu
+**📊 Recommendations**: Đề xuất dựa trên dữ liệu`;
 }
 
 export function createResearchTask(
