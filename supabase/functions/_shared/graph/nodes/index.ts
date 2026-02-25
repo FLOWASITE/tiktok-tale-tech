@@ -10,6 +10,8 @@ import { createContentNode } from "./content-node.ts";
 import { createReviewerNode } from "./reviewer-node.ts";
 import { createBrandMemoryNode } from "./brand-memory-node.ts";
 import { createImageNode } from "./image-node.ts";
+import { createComplianceNode } from "./compliance-node.ts";
+import { createGovernorNode } from "./governor-node.ts";
 
 export { createResearchNode } from "./research-node.ts";
 export { createStrategyNode } from "./strategy-node.ts";
@@ -17,6 +19,8 @@ export { createContentNode } from "./content-node.ts";
 export { createReviewerNode } from "./reviewer-node.ts";
 export { createBrandMemoryNode } from "./brand-memory-node.ts";
 export { createImageNode } from "./image-node.ts";
+export { createComplianceNode } from "./compliance-node.ts";
+export { createGovernorNode } from "./governor-node.ts";
 
 // ---- Shared execution context ----
 
@@ -75,6 +79,18 @@ export function createNodeRegistry(context: NodeExecutionContext): Map<string, N
     name: 'image',
     fn: createImageNode(context),
     estimatedTokens: 1500,
+  });
+
+  registry.set('compliance', {
+    name: 'compliance',
+    fn: createComplianceNode(context),
+    estimatedTokens: 0,
+  });
+
+  registry.set('governor', {
+    name: 'governor',
+    fn: createGovernorNode(),
+    estimatedTokens: 0,
   });
 
   return registry;

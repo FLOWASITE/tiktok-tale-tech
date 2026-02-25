@@ -9,6 +9,7 @@ import { callAI } from "../../ai-provider.ts";
 import { executeToolCall } from "../../tool-executor.ts";
 import { CHAT_TOOLS } from "../../tool-definitions.ts";
 import { buildContentSystemPrompt } from "../../agents/content-agent.ts";
+import { withCache, generateCacheKey } from "../../cache/redis-cache.ts";
 
 const CONTENT_TOOLS = ['generate_script', 'generate_carousel', 'generate_multichannel', 'save_topic'];
 
@@ -25,6 +26,14 @@ interface ContentNodeContext {
 export function createContentNode(ctx: ContentNodeContext) {
   return async function contentNode(state: GraphState): Promise<Partial<GraphState>> {
     console.log('[ContentNode] Starting');
+
+    const cacheKey = await generateCacheKey(
+      ctx.brandTemplateId || 'default',
+      'content',
+      { userMessage: state.userMessage, bestTopic: state.bestTopic, contentPlan: state.contentPlan?.slice?.(0, 200), industry: ctx.industry }
+    );
+
+    return withCache(cacheKey, async () => {
     const systemPrompt = buildContentSystemPrompt(ctx.brandName, ctx.industry);
     const stateContext = buildStateContext(state);
     const tools = CHAT_TOOLS.filter(t => CONTENT_TOOLS.includes(t.function.name));
@@ -107,5 +116,6 @@ export function createContentNode(ctx: ContentNodeContext) {
 
     console.log('[ContentNode] Complete');
     return { generatedContent };
+    }, 3600); // 1 hour TTL
   };
 }

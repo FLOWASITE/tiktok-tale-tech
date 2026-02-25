@@ -98,7 +98,11 @@ export function createReviewerNode(ctx: ReviewerNodeContext) {
     let reviewResult: any;
     try { reviewResult = JSON.parse(finalContent); } catch { reviewResult = { feedback: finalContent }; }
 
-    console.log('[ReviewerNode] Complete');
-    return { reviewResult };
+    // Extract score and confidence for Governor node
+    const reviewScore = reviewResult?.score ?? reviewResult?.overall_score ?? reviewResult?.quality_score ?? 0;
+    const reviewConfidence = reviewResult?.confidence ?? (reviewScore > 0 ? 0.7 : 0);
+
+    console.log(`[ReviewerNode] Complete. Score=${reviewScore}, Confidence=${reviewConfidence}`);
+    return { reviewResult, reviewScore, reviewConfidence };
   };
 }

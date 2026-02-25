@@ -173,9 +173,11 @@ function tryFastPath(message: string): GraphPlan | null {
 const NODE_DESCRIPTIONS = `Available nodes:
 - research: Web search, topic discovery, competitor analysis, trend finding
 - brand_memory: Load brand context, voice guidelines, industry knowledge (lightweight, always safe to run parallel)
+- compliance: Rule-based legal/industry compliance pre-check (lightweight, always safe to run parallel)
 - strategy: Content planning, channel strategy, editorial calendar
 - content: Generate content (posts, scripts, carousels, emails)
 - reviewer: Quality check, compliance, brand voice verification
+- governor: Token budget gate + quality early-exit (always runs after reviewer)
 - image: AI image generation and editing`;
 
 const ORCHESTRATOR_SYSTEM_PROMPT = `You are the Orchestrator of Flowa's AI content creation system.
@@ -191,6 +193,8 @@ Rules:
 5. Minimize nodes — don't include unnecessary steps.
 6. Use parallelWith for nodes that can run simultaneously.
 7. Use dependsOn for nodes that need results from previous nodes.
+8. compliance should run in parallel with research/brand_memory (lightweight, rule-based).
+9. governor should always be the last node after reviewer for quality gating.
 
 You MUST call the create_graph_plan tool with your plan.`;
 
@@ -209,7 +213,7 @@ const CREATE_GRAPH_PLAN_TOOL = {
             properties: {
               node: {
                 type: "string",
-                enum: ["research", "brand_memory", "strategy", "content", "reviewer", "image"],
+                enum: ["research", "brand_memory", "compliance", "strategy", "content", "reviewer", "governor", "image"],
               },
               parallelWith: {
                 type: "array",
@@ -309,7 +313,7 @@ async function planWithLLM(
 
 // ---- Plan Validation ----
 
-const VALID_NODES = new Set(["research", "brand_memory", "strategy", "content", "reviewer", "image"]);
+const VALID_NODES = new Set(["research", "brand_memory", "compliance", "strategy", "content", "reviewer", "governor", "image"]);
 
 function validatePlan(raw: any): GraphPlan {
   const steps = (raw.steps || [])

@@ -438,19 +438,21 @@ export const TEMPLATE_PLANS: Record<string, GraphPlan> = {
   },
   generate_with_research: {
     steps: [
-      { node: 'research', parallelWith: ['brand_memory'] },
+      { node: 'research', parallelWith: ['brand_memory', 'compliance'] },
       { node: 'strategy', dependsOn: ['research'] },
       { node: 'content', dependsOn: ['strategy'] },
       { node: 'reviewer', dependsOn: ['content'] },
+      { node: 'governor', dependsOn: ['reviewer'] },
     ],
     skipNodes: [],
-    reasoning: 'Full content pipeline with research',
+    reasoning: 'Full content pipeline with research + parallel compliance',
     fastPath: true,
   },
   generate_simple: {
     steps: [
       { node: 'content' },
       { node: 'reviewer', dependsOn: ['content'] },
+      { node: 'governor', dependsOn: ['reviewer'] },
     ],
     skipNodes: ['research', 'strategy'],
     reasoning: 'Direct generation with explicit topic',
@@ -458,19 +460,20 @@ export const TEMPLATE_PLANS: Record<string, GraphPlan> = {
   },
   image_generate: {
     steps: [{ node: 'image' }],
-    skipNodes: ['research', 'strategy', 'content', 'reviewer'],
+    skipNodes: ['research', 'strategy', 'content', 'reviewer', 'compliance', 'governor'],
     reasoning: 'Image generation only',
     fastPath: true,
   },
   full_pipeline: {
     steps: [
-      { node: 'research', parallelWith: ['brand_memory'] },
+      { node: 'research', parallelWith: ['brand_memory', 'compliance'] },
       { node: 'strategy', dependsOn: ['research'] },
       { node: 'content', dependsOn: ['strategy'] },
       { node: 'reviewer', dependsOn: ['content'] },
+      { node: 'governor', dependsOn: ['reviewer'] },
     ],
     skipNodes: [],
-    reasoning: 'Full multi-step pipeline',
+    reasoning: 'Full multi-step pipeline with parallel compliance + governor',
     fastPath: true,
   },
 };

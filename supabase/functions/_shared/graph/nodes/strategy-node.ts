@@ -8,6 +8,7 @@ import { callAI } from "../../ai-provider.ts";
 import { executeToolCall } from "../../tool-executor.ts";
 import { CHAT_TOOLS } from "../../tool-definitions.ts";
 import { buildStrategySystemPrompt } from "../../agents/strategy-agent.ts";
+import { withCache, generateCacheKey } from "../../cache/redis-cache.ts";
 
 const STRATEGY_TOOLS = ['start_planning_session', 'generate_plan_draft', 'refine_plan', 'finalize_plan'];
 
@@ -24,6 +25,14 @@ interface StrategyNodeContext {
 export function createStrategyNode(ctx: StrategyNodeContext) {
   return async function strategyNode(state: GraphState): Promise<Partial<GraphState>> {
     console.log('[StrategyNode] Starting');
+
+    const cacheKey = await generateCacheKey(
+      ctx.brandTemplateId || 'default',
+      'strategy',
+      { userMessage: state.userMessage, bestTopic: state.bestTopic, industry: ctx.industry }
+    );
+
+    return withCache(cacheKey, async () => {
     const systemPrompt = buildStrategySystemPrompt(ctx.brandName, ctx.industry);
     const stateContext = buildStateContext(state);
     const tools = CHAT_TOOLS.filter(t => STRATEGY_TOOLS.includes(t.function.name));
@@ -89,5 +98,6 @@ export function createStrategyNode(ctx: StrategyNodeContext) {
     const contentPlan = finalResult.data?.choices?.[0]?.message?.content || '';
     console.log('[StrategyNode] Complete');
     return { contentPlan };
+    }, 7200); // 2 hours TTL
   };
 }
