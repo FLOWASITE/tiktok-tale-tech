@@ -230,7 +230,41 @@ Categories:
 }
 
 /**
+ * Check if a "generate" intent message has an explicit topic
+ * If not, upgrade to complex_workflow so Research Agent finds topics first
+ */
+function hasExplicitTopic(message: string): boolean {
+  const lowerMsg = message.toLowerCase();
+  
+  // Check for quoted topic: "topic here" or 'topic here'
+  if (/["'「].{5,}["'」]/.test(message)) return true;
+  
+  // Check for "về + topic" pattern (Vietnamese: "viết về skincare")
+  if (/về\s+\S{3,}/i.test(lowerMsg)) return true;
+  
+  // Check for "about + topic" pattern
+  if (/about\s+\S{3,}/i.test(lowerMsg)) return true;
+  
+  // Check for ": topic" pattern
+  if (/:\s*\S{3,}/.test(message)) return true;
+  
+  // Check for specific content keywords that imply a topic
+  const topicKeywords = /(?:bài|content|nội dung|post|script|carousel)\s+(?:về\s+)?\S{4,}/i;
+  if (topicKeywords.test(lowerMsg)) return true;
+  
+  // Count meaningful words (excluding common verbs/prepositions/platforms)
+  const stopWords = new Set(['tạo', 'viết', 'soạn', 'làm', 'cho', 'một', 'bài', 'nội', 'dung', 'content', 'post', 
+    'generate', 'create', 'write', 'make', 'facebook', 'instagram', 'tiktok', 'linkedin', 'twitter', 'threads',
+    'kênh', 'channel', 'đa', 'multi', 'noi', 'the', 'a', 'an', 'for']);
+  const words = lowerMsg.split(/\s+/).filter(w => w.length >= 2 && !stopWords.has(w));
+  
+  // If only platform/action words remain, no explicit topic
+  return words.length >= 3;
+}
+
+/**
  * Classify intent: fast heuristic first, LLM fallback
+ * Auto-upgrade: generate without topic → complex_workflow (research first)
  */
 export async function classifyIntent(
   message: string,
@@ -239,6 +273,18 @@ export async function classifyIntent(
   // Try fast classification first
   const fastResult = classifyIntentFast(message);
   if (fastResult && fastResult.confidence >= 0.7) {
+    // AUTO-UPGRADE: If generate but no explicit topic, route through Research Agent first
+    if (fastResult.intent === 'generate' && !hasExplicitTopic(message)) {
+      console.log(`[IntentClassifier] Auto-upgrade: generate → complex_workflow (no explicit topic detected)`);
+      return {
+        intent: 'complex_workflow',
+        confidence: 0.82,
+        reasoning: 'Generate intent without explicit topic - routing through Research Agent first',
+        suggestedAgents: ['research-agent', 'content-agent'],
+        workflowEvent: 'classified_complex',
+      };
+    }
+    
     console.log(`[IntentClassifier] Fast classification: ${fastResult.intent} (${fastResult.confidence})`);
     return fastResult;
   }
