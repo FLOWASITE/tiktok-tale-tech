@@ -30,7 +30,7 @@ export function createContentNode(ctx: ContentNodeContext) {
     const cacheKey = await generateCacheKey(
       ctx.brandTemplateId || 'default',
       'content',
-      { userMessage: state.userMessage, bestTopic: state.bestTopic, contentPlan: state.contentPlan?.slice?.(0, 200), industry: ctx.industry }
+      { userMessage: state.userMessage, bestTopic: state.bestTopic, contentPlan: typeof state.contentPlan === 'string' ? state.contentPlan.slice(0, 200) : JSON.stringify(state.contentPlan)?.slice(0, 200), industry: ctx.industry }
     );
 
     return withCache(cacheKey, async () => {

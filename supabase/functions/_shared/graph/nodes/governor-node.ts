@@ -23,6 +23,7 @@ export function createGovernorNode() {
         status: 'completed',
         exitReason: 'quality_met',
         finalResponse: state.generatedContent || '',
+        completedAt: Date.now(),
       };
     }
 
@@ -33,6 +34,7 @@ export function createGovernorNode() {
         status: 'completed',
         exitReason: 'budget_exhausted',
         finalResponse: state.generatedContent || '',
+        completedAt: Date.now(),
       };
     }
 
