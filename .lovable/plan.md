@@ -1,99 +1,91 @@
 
 
-# Fix: Topic được chọn từ Research Agent chưa hiển thị trên Chat UI
+# Fix: Content Agent không lấy được Topic từ Research Agent
 
 ## Nguyên nhân gốc
 
-Có **2 vấn đề** khiến topics từ `discover_topics` không hiển thị:
+Có **2 vấn đề cốt lõi** khiến Content Agent không sử dụng topic do Research Agent tìm được:
 
-### Vấn đề 1: Research Agent trả về JSON → bị bỏ qua
-Trong `supervisor-loop.ts` (dòng 293-312 và 446-465), khi emit `agent_step_result`, hệ thống kiểm tra:
+### Vấn đề 1: Blackboard context bị cắt ngắn (500 ký tự)
+
+Trong `blackboard.ts` dòng 196, hàm `buildBlackboardContext` cắt giá trị JSON xuống còn **500 ký tự**:
 
 ```text
-if content starts with '{' or '[' → skip (isJson = true)
+JSON.stringify(e.value, null, 2).slice(0, 500)
 ```
 
-Research Agent khi gọi `discover_topics` trả về nội dung có cấu trúc (JSON tool results). Nếu Research Agent chỉ trả lại JSON từ tool, nội dung bị skip hoàn toàn, **không gửi về frontend**.
+Research Agent ghi vào blackboard key `research_data` một object phức tạp: `{ content: "...", toolResults: [...] }`. Khi JSON.stringify, dữ liệu topics nằm sâu bên trong `toolResults` bị cắt mất hoàn toàn. Content Agent chỉ nhận được phần đầu (metadata), **không bao giờ thấy danh sách topics**.
 
-### Vấn đề 2: `buildFinalContent` ưu tiên Content Agent
-Hàm `buildFinalContent` (dòng 704-729) luôn ưu tiên output của `content-agent`. Kết quả của Research Agent (danh sách topics gợi ý) bị ghi đè bởi nội dung từ Content Agent, nên user **chỉ thấy nội dung cuối cùng**, không thấy topics nào đã được chọn.
+### Vấn đề 2: Không có key `best_topic` trên Blackboard
+
+Supervisor emit SSE event `topic_suggestions` về frontend (OK), nhưng **không ghi `best_topic` lên Blackboard** cho Content Agent đọc. Content Agent chỉ thấy `research_data` bị cắt ngắn, không có key riêng biệt cho topic được chọn.
 
 ## Giải pháp
 
-### 1. Emit `topic_suggestions` event mới từ Supervisor
+### 1. Ghi `best_topic` và `suggested_topics` lên Blackboard sau Research Agent
 
 **File**: `supabase/functions/_shared/supervisor/supervisor-loop.ts`
 
-Sau khi Research Agent hoàn thành (dòng ~424-430), kiểm tra Blackboard có `suggested_topics` không. Nếu có, emit một SSE event mới `topic_suggestions` về frontend:
+Sau khi emit `topic_suggestions` (dòng ~282-288 và ~446-453), thêm logic ghi trực tiếp lên blackboard:
 
 ```text
-if (agentName === 'research-agent' && result.success) {
-  const suggestedTopics = await blackboard.read('suggested_topics');
-  if (suggestedTopics) {
-    options.onEvent?.({
-      type: 'topic_suggestions',
-      data: { topics: suggestedTopics, best_topic: await blackboard.read('best_topic') }
-    });
-  }
+if (topicPayload) {
+  // Emit SSE to frontend (existing)
+  options.onEvent?.({ type: 'topic_suggestions', data: topicPayload });
+
+  // NEW: Write best_topic to blackboard for Content Agent
+  await blackboard.write('best_topic', topicPayload.best_topic, 'research-agent');
+  await blackboard.write('suggested_topics', topicPayload.topics, 'research-agent');
 }
 ```
 
-Tương tự cho multi-step workflow (dòng ~273-276).
+Thay đổi này áp dụng ở **2 nơi**: multi-step workflow (dòng ~278-288) và linear workflow (dòng ~443-453).
 
-### 2. Frontend nhận và hiển thị topics
+### 2. Tăng giới hạn truncation cho blackboard context
 
-**File**: `src/hooks/useChatStreaming.ts`
+**File**: `supabase/functions/_shared/supervisor/blackboard.ts`
 
-Thêm handler cho event `topic_suggestions`:
-- Lưu topics vào state tạm
-- Khi render message cuối cùng, chèn phần "Topics được chọn" vào đầu nội dung
-
-### 3. Render Topics Card trong Chat Bubble
-
-**File**: `src/components/topic/chatbot/ChatMessageBubble.tsx`
-
-Thêm component hiển thị danh sách topics kèm điểm số, category khi message có `suggestedTopics` data. Hiển thị dạng card nhỏ gọn với:
-- Topic name + score
-- Category badge
-- Highlight topic được chọn (best_topic)
-
-### 4. Cập nhật ChatMessage type
-
-**File**: `src/components/topic/chatbot/types.ts`
-
-Thêm field mới vào `ChatMessage`:
+Tăng giới hạn slice từ 500 lên 1500 ký tự trong `buildBlackboardContext` (dòng 196):
 
 ```text
-suggestedTopics?: {
-  topic: string;
-  category: string;
-  score: number | null;
-  reasoning: string | null;
-}[];
-selectedTopic?: string;
+// Trước: .slice(0, 500)
+// Sau: .slice(0, 1500)
 ```
 
-## Thay đổi chi tiết theo file
+### 3. Cập nhật Content Agent system prompt
 
-| File | Thay đổi |
-|------|----------|
-| `types.ts` | Thêm `suggestedTopics` và `selectedTopic` vào `ChatMessage` |
-| `supervisor-loop.ts` | Emit `topic_suggestions` event sau khi research-agent hoàn thành (2 noi: linear + multi-step) |
-| `useChatStreaming.ts` | Parse event `topic_suggestions`, lưu vào pending state, gắn vào message khi tạo/update |
-| `ChatMessageBubble.tsx` | Render `TopicSuggestionsCard` khi message có `suggestedTopics` |
+**File**: `supabase/functions/_shared/agents/content-agent.ts`
 
-## Luồng hoạt động sau fix
+Thêm chỉ dẫn rõ ràng trong system prompt để Content Agent **ưu tiên sử dụng `best_topic`** từ blackboard:
 
 ```text
-User: "Tạo nội dung Facebook"
-  → Intent: complex_workflow (auto-upgrade)
-  → Research Agent: gọi discover_topics
-  → Blackboard: suggested_topics = [{topic: "...", score: 85}, ...]
-  → Supervisor emit SSE: {type: "topic_suggestions", data: {topics: [...], best_topic: "..."}}
-  → Frontend nhận: lưu topics vào pending state
-  → Content Agent tạo nội dung dựa trên best_topic
-  → Final message hiển thị:
-      [Topics Card: 5 topics với scores, best_topic highlighted]
-      [Nội dung Facebook đã tạo]
+## QUY TẮC CHỌN TOPIC (ƯU TIÊN)
+1. Nếu có key "best_topic" trên Blackboard → BẮT BUỘC dùng topic này
+2. Nếu có key "suggested_topics" → chọn topic đầu tiên
+3. Chỉ tự chọn topic khi KHÔNG CÓ dữ liệu nào từ Research Agent
 ```
 
+## Thay đổi chi tiết
+
+| File | Dòng | Thay đổi |
+|------|------|----------|
+| `supervisor-loop.ts` | ~282-288 | Ghi `best_topic` + `suggested_topics` lên blackboard (multi-step) |
+| `supervisor-loop.ts` | ~446-453 | Ghi `best_topic` + `suggested_topics` lên blackboard (linear) |
+| `blackboard.ts` | 196 | Tăng truncation limit từ 500 lên 1500 chars |
+| `content-agent.ts` | 17-24 | Thêm quy tắc ưu tiên best_topic từ blackboard |
+
+## Luồng sau fix
+
+```text
+Research Agent:
+  → discover_topics → 5 topics
+  → Blackboard: research_data = {content, toolResults}
+  → Blackboard: best_topic = "Tối ưu hóa thuế cho startup 2026"  ← NEW
+  → Blackboard: suggested_topics = [{topic, score, ...}, ...]    ← NEW
+
+Content Agent:
+  → Đọc blackboard context
+  → Thấy best_topic = "Tối ưu hóa thuế cho startup 2026"        ← KEY FIX
+  → Gọi generate_multichannel(topic="Tối ưu hóa thuế cho startup 2026", ...)
+  → Core Content được tạo với đúng topic
+```
