@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, ClipboardList, Pen, Shield } from 'lucide-react';
+import { Search, ClipboardList, Pen, Shield, ImageIcon, Brain } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,8 @@ const AGENT_CONFIG: Record<string, { icon: typeof Search; color: string; bgColor
   'strategy-agent': { icon: ClipboardList, color: 'text-violet-600 dark:text-violet-400', bgColor: 'bg-violet-500/10 border-violet-500/20', label: 'Strategy' },
   'content-agent': { icon: Pen, color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-500/10 border-amber-500/20', label: 'Content' },
   'reviewer-agent': { icon: Shield, color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-500/10 border-emerald-500/20', label: 'Reviewer' },
+  'image-agent': { icon: ImageIcon, color: 'text-pink-600 dark:text-pink-400', bgColor: 'bg-pink-500/10 border-pink-500/20', label: 'Image' },
+  'brand-memory-agent': { icon: Brain, color: 'text-cyan-600 dark:text-cyan-400', bgColor: 'bg-cyan-500/10 border-cyan-500/20', label: 'Memory' },
 };
 
 export function AgentAttributionBar({ contributions, approved, className }: AgentAttributionBarProps) {
