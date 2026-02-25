@@ -307,24 +307,34 @@ export async function executeSupervisorLoop(
       console.log(`[Supervisor] agent_step_result check (multi-step): agent=${nextAgent}, success=${result.success}, contentLength=${result.content?.length || 0}, contentStart="${result.content?.slice(0, 50)}"`);
       if (result.success && result.content && nextAgent !== 'reviewer-agent') {
         const trimmed = result.content.trim();
-        const isJson = (trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'));
-        if (!isJson) {
-          console.log(`[Supervisor] Emitting agent_step_result for ${nextAgent}, ${result.content.length} chars`);
-          options.onEvent?.({
-            type: 'agent_step_result',
-            data: {
-              agent: nextAgent,
-              agent_name: AGENT_DISPLAY_NAMES[nextAgent] || nextAgent,
-              content: result.content,
-              success: true,
-              duration_ms: result.durationMs,
-              step_index: stepIndex,
-              is_final: false,
-            },
-          });
-        } else {
-          console.log(`[Supervisor] Skipped agent_step_result for ${nextAgent}: content is JSON`);
+      const isJson = (trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'));
+      // Always emit for strategy-agent even if output looks like JSON
+      const shouldEmit = !isJson || nextAgent === 'strategy-agent';
+      if (shouldEmit) {
+        // If content is JSON (strategy-agent fallback), convert to readable text
+        let emitContent = result.content;
+        if (isJson && nextAgent === 'strategy-agent') {
+          try {
+            const parsed = JSON.parse(trimmed);
+            emitContent = formatStrategyJsonAsText(parsed);
+          } catch { /* use raw content */ }
         }
+        console.log(`[Supervisor] Emitting agent_step_result for ${nextAgent}, ${emitContent.length} chars`);
+        options.onEvent?.({
+          type: 'agent_step_result',
+          data: {
+            agent: nextAgent,
+            agent_name: AGENT_DISPLAY_NAMES[nextAgent] || nextAgent,
+            content: emitContent,
+            success: true,
+            duration_ms: result.durationMs,
+            step_index: stepIndex,
+            is_final: false,
+          },
+        });
+      } else {
+        console.log(`[Supervisor] Skipped agent_step_result for ${nextAgent}: content is JSON`);
+      }
       }
 
       transition(workflow, 'sub_complete');
@@ -476,14 +486,23 @@ export async function executeSupervisorLoop(
     if (result.success && result.content && agentName !== 'reviewer-agent') {
       const trimmed = result.content.trim();
       const isJson = (trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'));
-      if (!isJson) {
-        console.log(`[Supervisor] Emitting agent_step_result for ${agentName}, ${result.content.length} chars`);
+      // Always emit for strategy-agent even if output looks like JSON
+      const shouldEmit = !isJson || agentName === 'strategy-agent';
+      if (shouldEmit) {
+        let emitContent = result.content;
+        if (isJson && agentName === 'strategy-agent') {
+          try {
+            const parsed = JSON.parse(trimmed);
+            emitContent = formatStrategyJsonAsText(parsed);
+          } catch { /* use raw content */ }
+        }
+        console.log(`[Supervisor] Emitting agent_step_result for ${agentName}, ${emitContent.length} chars`);
         options.onEvent?.({
           type: 'agent_step_result',
           data: {
             agent: agentName,
             agent_name: AGENT_DISPLAY_NAMES[agentName] || agentName,
-            content: result.content,
+            content: emitContent,
             success: true,
             duration_ms: result.durationMs,
             step_index: iteration,
@@ -836,4 +855,49 @@ async function buildFallbackResult(
     exitReason: 'fallback',
     tokenUsage: tokenController.getSnapshot(),
   };
+}
+
+/**
+ * Convert Strategy Agent JSON output to readable text
+ */
+function formatStrategyJsonAsText(json: any): string {
+  const lines: string[] = ['**Chiến lược nội dung**\n'];
+  
+  if (json.topic || json.main_topic || json.topic_chinh) {
+    lines.push(`- Topic chính: ${json.topic || json.main_topic || json.topic_chinh}`);
+  }
+  if (json.channel || json.kenh || json.platform) {
+    lines.push(`- Kênh: ${json.channel || json.kenh || json.platform}`);
+  }
+  if (json.timing || json.thoi_gian || json.schedule) {
+    lines.push(`- Thời gian đăng: ${json.timing || json.thoi_gian || json.schedule}`);
+  }
+  
+  if (json.content_mix) {
+    lines.push('\n**Content Mix**');
+    if (typeof json.content_mix === 'object') {
+      for (const [key, val] of Object.entries(json.content_mix)) {
+        lines.push(`- ${key}: ${val}`);
+      }
+    } else {
+      lines.push(`- ${json.content_mix}`);
+    }
+  }
+  
+  if (json.priority_topics || json.topics) {
+    const topics = json.priority_topics || json.topics;
+    lines.push('\n**Priority Topics**');
+    if (Array.isArray(topics)) {
+      topics.forEach((t: any, i: number) => {
+        lines.push(`${i + 1}. ${typeof t === 'string' ? t : t.title || t.name || JSON.stringify(t)}`);
+      });
+    }
+  }
+  
+  // Fallback: if we extracted nothing meaningful, stringify nicely
+  if (lines.length <= 1) {
+    return '**Chiến lược nội dung**\n\n' + JSON.stringify(json, null, 2);
+  }
+  
+  return lines.join('\n');
 }
