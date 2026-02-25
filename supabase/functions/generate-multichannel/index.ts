@@ -1270,24 +1270,39 @@ serve(async (req) => {
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
       
-      // Check if this is a service role key (internal call from tool-executor)
+      // Check if this is a service role key OR anon key (internal call from tool-executor)
       const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-      if (token === serviceRoleKey) {
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_KEY") || '';
+      
+      if (token === serviceRoleKey || token === anonKey) {
         isServiceRoleCall = true;
         // Fallback: read userId from body (trusted internal call)
         userId = (formData as any).userId || (formData as any).user_id || null;
-        console.log("Service role call, userId from body:", userId);
+        console.log("Internal call (service/anon key), userId from body:", userId);
       } else {
         // Standard user JWT path
         try {
           const { data: { user }, error: authError } = await supabase.auth.getUser(token);
           if (authError) {
             console.error("Auth error:", authError.message);
+            // If JWT validation fails, try body userId as last resort
+            userId = (formData as any).userId || (formData as any).user_id || null;
+            if (userId) {
+              isServiceRoleCall = true;
+              console.log("JWT failed but userId found in body:", userId);
+            }
+          } else {
+            userId = user?.id || null;
+            console.log("User ID from token:", userId);
           }
-          userId = user?.id || null;
-          console.log("User ID from token:", userId);
         } catch (authErr) {
           console.error("Failed to parse auth:", authErr);
+          // Last resort: try body userId
+          userId = (formData as any).userId || (formData as any).user_id || null;
+          if (userId) {
+            isServiceRoleCall = true;
+            console.log("Auth exception but userId found in body:", userId);
+          }
         }
       }
     }

@@ -93,19 +93,24 @@ serve(async (req) => {
 
     // Extract user access token from Authorization header for downstream forwarding
     const authHeader = req.headers.get('authorization') || '';
-    const userAccessToken = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '') : '';
+    const rawToken = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '') : '';
     
     // Validate user from token if possible (prefer token over body userId)
+    // CRITICAL: Only set userAccessToken if it's a VALID user JWT (not anon key or service key)
     let resolvedUserId = userId;
-    if (userAccessToken && userAccessToken !== supabaseKey) {
+    let userAccessToken = ''; // Only populated with a verified user JWT
+    if (rawToken && rawToken !== supabaseKey) {
       try {
-        const { data: { user }, error: authError } = await supabase.auth.getUser(userAccessToken);
+        const { data: { user }, error: authError } = await supabase.auth.getUser(rawToken);
         if (!authError && user?.id) {
           resolvedUserId = user.id;
+          userAccessToken = rawToken; // Only set when confirmed as valid user JWT
           logger.info('Resolved user from JWT', { resolvedUserId });
+        } else {
+          logger.info('Token is not a valid user JWT, will use service-role for downstream calls');
         }
       } catch {
-        // Fall back to body userId
+        // Fall back to body userId, userAccessToken stays empty
       }
     }
 
