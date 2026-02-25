@@ -274,6 +274,18 @@ export async function executeSupervisorLoop(
         const bbKey = getBlackboardKey(nextAgent);
         await blackboard.write(bbKey, { content: result.content, toolResults: result.toolResults }, nextAgent);
         sub.results[nextAgent] = result.content;
+
+        // Emit topic_suggestions after research-agent completes
+        if (nextAgent === 'research-agent') {
+          const suggestedTopics = await blackboard.read('suggested_topics');
+          if (suggestedTopics) {
+            const bestTopic = await blackboard.read('best_topic');
+            options.onEvent?.({
+              type: 'topic_suggestions' as any,
+              data: { topics: suggestedTopics, best_topic: bestTopic },
+            });
+          }
+        }
       }
 
       options.onEvent?.({
@@ -427,6 +439,18 @@ export async function executeSupervisorLoop(
         content: result.content,
         toolResults: result.toolResults,
       }, agentName);
+
+      // Emit topic_suggestions after research-agent completes
+      if (agentName === 'research-agent') {
+        const suggestedTopics = await blackboard.read('suggested_topics');
+        if (suggestedTopics) {
+          const bestTopic = await blackboard.read('best_topic');
+          options.onEvent?.({
+            type: 'topic_suggestions' as any,
+            data: { topics: suggestedTopics, best_topic: bestTopic },
+          });
+        }
+      }
     }
 
     options.onEvent?.({

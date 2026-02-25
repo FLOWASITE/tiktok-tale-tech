@@ -62,6 +62,17 @@ export interface ChatMessage {
   agentContributions?: AgentContribution[];
   contextSources?: ContextSources;
   suggestedFollowUps?: string[];
+  /** Topics suggested by Research Agent via discover_topics */
+  suggestedTopics?: SuggestedTopic[];
+  /** The best topic selected by Research Agent */
+  selectedTopic?: string;
+}
+
+export interface SuggestedTopic {
+  topic: string;
+  category: string;
+  score: number | null;
+  reasoning: string | null;
 }
 
 export interface ExtractedTopic {

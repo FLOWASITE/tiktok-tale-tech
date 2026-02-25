@@ -21,6 +21,7 @@ import { PersonalizedWelcome } from './PersonalizedWelcome';
 import type { PersonalizedWelcomeData } from '@/hooks/usePersonalizedWelcome';
 import { ReviewScoreCard } from './ReviewScoreCard';
 import { AgentAttributionBar } from './AgentAttributionBar';
+import { TopicSuggestionsCard } from './TopicSuggestionsCard';
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
@@ -247,6 +248,16 @@ export function ChatMessageBubble({
             {/* Copy button */}
             {message.role === 'assistant' && message.content && !isLoading && (
               <CopyButton content={message.content} />
+            )}
+
+            {/* Topic Suggestions Card */}
+            {message.role === 'assistant' && message.suggestedTopics && message.suggestedTopics.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-border/30">
+                <TopicSuggestionsCard
+                  topics={message.suggestedTopics}
+                  selectedTopic={message.selectedTopic}
+                />
+              </div>
             )}
 
             {/* Review Score Card */}
