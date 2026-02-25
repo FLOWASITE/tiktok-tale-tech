@@ -1260,36 +1260,67 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user from auth header
+    // Get user from auth header (supports both user JWT and service-role with body fallback)
     const authHeader = req.headers.get("authorization");
     console.log("Auth header present:", !!authHeader);
     
     let userId: string | null = null;
+    let isServiceRoleCall = false;
+    
     if (authHeader) {
-      try {
-        const token = authHeader.replace("Bearer ", "");
-        // Use getUser with token directly instead of relying on session
-        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-        if (authError) {
-          console.error("Auth error:", authError.message);
+      const token = authHeader.replace("Bearer ", "");
+      
+      // Check if this is a service role key (internal call from tool-executor)
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (token === serviceRoleKey) {
+        isServiceRoleCall = true;
+        // Fallback: read userId from body (trusted internal call)
+        userId = (formData as any).userId || (formData as any).user_id || null;
+        console.log("Service role call, userId from body:", userId);
+      } else {
+        // Standard user JWT path
+        try {
+          const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+          if (authError) {
+            console.error("Auth error:", authError.message);
+          }
+          userId = user?.id || null;
+          console.log("User ID from token:", userId);
+        } catch (authErr) {
+          console.error("Failed to parse auth:", authErr);
         }
-        userId = user?.id || null;
-        console.log("User ID from token:", userId);
-      } catch (authErr) {
-        console.error("Failed to parse auth:", authErr);
       }
     }
 
     if (!userId) {
-      console.error("No valid user found from authorization header");
+      console.error("No valid user found from authorization header or body");
       return new Response(
         JSON.stringify({ error: "Unauthorized - Please login" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    // If service role call, verify user is member of the org for safety
+    if (isServiceRoleCall && (formData as any).organizationId) {
+      const { data: membership } = await supabase
+        .from("organization_members")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("organization_id", (formData as any).organizationId || (formData as any).organization_id)
+        .limit(1)
+        .single();
+      
+      if (!membership) {
+        console.error("User is not a member of the specified organization");
+        return new Response(
+          JSON.stringify({ error: "Forbidden - User not in organization" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
 
-    // Get organization_id: prefer from request body, fallback to query
-    let organizationId = formData.organization_id || null;
+    // Get organization_id: prefer from request body (support both camelCase and snake_case), fallback to query
+    let organizationId = formData.organization_id || (formData as any).organizationId || null;
     
     if (!organizationId) {
       // Fallback: get first org where user is a member

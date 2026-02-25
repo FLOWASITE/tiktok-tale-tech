@@ -91,6 +91,24 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Extract user access token from Authorization header for downstream forwarding
+    const authHeader = req.headers.get('authorization') || '';
+    const userAccessToken = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '') : '';
+    
+    // Validate user from token if possible (prefer token over body userId)
+    let resolvedUserId = userId;
+    if (userAccessToken && userAccessToken !== supabaseKey) {
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser(userAccessToken);
+        if (!authError && user?.id) {
+          resolvedUserId = user.id;
+          logger.info('Resolved user from JWT', { resolvedUserId });
+        }
+      } catch {
+        // Fall back to body userId
+      }
+    }
+
     // ============ RATE LIMITING & QUOTA CHECK ============
     if (userId) {
       // Get user's plan type
@@ -695,9 +713,10 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
             processedMessages[processedMessages.length - 1]?.content || '',
             {
               supabase,
-              userId: userId || undefined,
+              userId: resolvedUserId || undefined,
               organizationId: organizationId || undefined,
               brandTemplateId: brandTemplateId || undefined,
+              userAccessToken: userAccessToken || undefined,
               brandName: brandContext?.brandName,
               industry: brandContext?.industry?.[0],
               complianceRules: industryMemory?.compliance_rules?.map(r => typeof r === 'string' ? r : r.rule),
@@ -796,9 +815,10 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
       
       const executionContext = {
         supabase,
-        userId: userId || undefined,
+        userId: resolvedUserId || undefined,
         organizationId: organizationId || undefined,
         brandTemplateId: brandTemplateId || undefined,
+        userAccessToken: userAccessToken || undefined,
       };
 
       // Create streaming response
@@ -1097,9 +1117,10 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
       
       const executionContext = {
         supabase,
-        userId: userId || undefined,
+        userId: resolvedUserId || undefined,
         organizationId: organizationId || undefined,
         brandTemplateId: brandTemplateId || undefined,
+        userAccessToken: userAccessToken || undefined,
       };
 
       const { isChain, dependencyGraph } = detectToolChainDependencies(toolCalls);
