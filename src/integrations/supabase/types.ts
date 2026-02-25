@@ -8250,6 +8250,33 @@ export type Database = {
         }
         Relationships: []
       }
+      workflow_checkpoints: {
+        Row: {
+          created_at: string
+          graph_state: Json
+          id: string
+          node_name: string
+          session_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          graph_state: Json
+          id?: string
+          node_name: string
+          session_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          graph_state?: Json
+          id?: string
+          node_name?: string
+          session_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       industry_memory_packs: {
@@ -8302,6 +8329,7 @@ export type Database = {
       cleanup_expired_cache: { Args: never; Returns: number }
       cleanup_expired_generation_tasks: { Args: never; Returns: number }
       cleanup_knowledge_graph_cache: { Args: never; Returns: number }
+      cleanup_old_checkpoints: { Args: never; Returns: number }
       cleanup_web_search_cache: { Args: never; Returns: number }
       extract_doc_year: { Args: { doc_name: string }; Returns: string }
       find_duplicate_regulations: {
