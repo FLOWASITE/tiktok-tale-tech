@@ -1342,8 +1342,12 @@ async function executeGenerateImage(
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
   try {
-    // Call generate-brand-image edge function (consolidated image generator)
+    // Call generate-brand-image edge function with timeout (image gen can be slow)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 110000); // 110s timeout
+
     const response = await fetch(`${supabaseUrl}/functions/v1/generate-brand-image`, {
+      signal: controller.signal,
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1360,6 +1364,7 @@ async function executeGenerateImage(
         contentId: content_id,
       }),
     });
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const errorText = await response.text();

@@ -277,6 +277,7 @@ function extractMultiSteps(message: string): string[] {
   if (/kế hoạch|plan|chiến lược|strategy/i.test(message)) steps.push('plan');
   if (/tạo|viết|generate|create|content/i.test(message)) steps.push('generate');
   if (/tối ưu|optimize|review|kiểm tra/i.test(message)) steps.push('review');
+  if (/ảnh|hình ảnh|image|visual|thumbnail|banner/i.test(message)) steps.push('image');
 
   return steps.length >= 2 ? steps : ['research', 'plan', 'generate'];
 }
