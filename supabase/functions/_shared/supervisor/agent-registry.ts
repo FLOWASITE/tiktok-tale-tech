@@ -30,7 +30,7 @@ const DEFAULT_AGENTS: AgentConfig[] = [
   {
     name: 'research-agent',
     description: 'Collects data, trends, competitor info from web and database',
-    tools: ['web_search', 'search_topics'],
+    tools: ['web_search', 'search_topics', 'discover_topics'],
     defaultModel: 'google/gemini-2.5-flash',
     systemPromptKey: 'research-agent',
     maxTurns: 2,

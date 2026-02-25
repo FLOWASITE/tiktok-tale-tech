@@ -40,6 +40,7 @@ const AVG_TOOL_EXECUTION_MS = 2000;
 const TOOL_OUTPUTS: Record<string, string[]> = {
   'web_search': ['web_results', 'trending_topics', 'news_items'],
   'search_topics': ['found_topics', 'topic_list'],
+  'discover_topics': ['suggested_topics', 'topic_suggestions', 'gap_analysis'],
   'save_topic': ['saved_topic_id', 'topic_data'],
   'start_planning_session': ['session_id', 'planning_session'],
   'generate_plan_draft': ['plan_items', 'draft_plan'],

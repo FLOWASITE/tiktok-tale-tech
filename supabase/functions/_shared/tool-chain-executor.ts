@@ -55,6 +55,16 @@ export class ChainContext {
             this.context.first_topic = result.result.topics[0];
           }
           break;
+        case 'discover_topics':
+          if (result.result.topics?.length) {
+            this.context.suggested_topics = result.result.topics;
+            this.context.best_topic = result.result.topics[0];
+            this.context.topic_action = result.result.action;
+          }
+          if (result.result.gaps?.length) {
+            this.context.topic_gaps = result.result.gaps;
+          }
+          break;
         case 'start_planning_session':
           if (result.result.session_id) {
             this.context.active_session_id = result.result.session_id;
@@ -296,6 +306,7 @@ export function detectToolChainDependencies(toolCalls: ToolCall[]): {
   const outputPatterns: Record<string, string[]> = {
     'save_topic': ['saved_topic_id', 'saved_topic'],
     'search_topics': ['found_topics', 'first_topic'],
+    'discover_topics': ['suggested_topics', 'best_topic', 'topic_gaps'],
     'start_planning_session': ['active_session_id', 'session_goal'],
     'generate_plan_draft': ['planned_items', 'plan_summary'],
     'web_search': ['web_search_results', 'first_web_result', 'web_query'],

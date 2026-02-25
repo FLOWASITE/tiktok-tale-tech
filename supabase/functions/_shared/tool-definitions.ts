@@ -507,6 +507,39 @@ export const CHAT_TOOLS: ToolDefinition[] = [
       },
     },
   },
+  // ============ TOPIC DISCOVERY TOOL ============
+  {
+    type: "function",
+    function: {
+      name: "discover_topics",
+      description: "Gọi Topic-AI để gợi ý chủ đề mới, tìm trending topics, hoặc phân tích topic gaps. Gọi khi user muốn tìm ý tưởng nội dung mới, brainstorm topics, hoặc phân tích khoảng trống nội dung. KHÁC với search_topics (tìm topics đã lưu).",
+      parameters: {
+        type: "object",
+        properties: {
+          action: {
+            type: "string",
+            enum: ["suggest", "trending", "gap_analysis"],
+            description: "Loại hành động: suggest (gợi ý topic mới), trending (xu hướng nóng), gap_analysis (phân tích khoảng trống nội dung)",
+          },
+          query: {
+            type: "string",
+            description: "Mô tả yêu cầu của user (VD: 'skincare cho Gen Z', 'content marketing B2B')",
+          },
+          content_goal: {
+            type: "string",
+            enum: ["viral", "evergreen", "seasonal", "series"],
+            description: "Mục tiêu nội dung (optional)",
+          },
+          limit: {
+            type: "number",
+            description: "Số lượng topics tối đa (1-10, mặc định 5)",
+          },
+        },
+        required: ["action", "query"],
+        additionalProperties: false,
+      },
+    },
+  },
   // ============ AGENTIC CONTROL TOOLS ============
   {
     type: "function",
