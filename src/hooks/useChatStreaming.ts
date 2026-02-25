@@ -408,10 +408,10 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
             
             // Agentic content_chunk event (from agentic-loop.ts)
             if (parsed.type === 'content_chunk' && parsed.data?.chunk) {
-              // If we already have step results, final content replaces them
-              if (hasStepResults && !finalContentStarted) {
-                assistantContent = '';
-                finalContentStarted = true;
+              // If we already have step results, skip content_chunk to avoid duplicate/flicker
+              // buildFinalContent() returns the same content as agent_step_result
+              if (hasStepResults) {
+                continue;
               }
               assistantContent += parsed.data.chunk;
               

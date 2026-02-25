@@ -289,11 +289,12 @@ export async function executeSupervisorLoop(
       });
 
       // Emit agent_step_result for realtime streaming to frontend
-      if (result.success && result.content && !result.content.startsWith('[') && nextAgent !== 'reviewer-agent') {
-        // Skip if content looks like JSON (reviewer scores)
+      console.log(`[Supervisor] agent_step_result check (multi-step): agent=${nextAgent}, success=${result.success}, contentLength=${result.content?.length || 0}, contentStart="${result.content?.slice(0, 50)}"`);
+      if (result.success && result.content && nextAgent !== 'reviewer-agent') {
         const trimmed = result.content.trim();
         const isJson = (trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'));
         if (!isJson) {
+          console.log(`[Supervisor] Emitting agent_step_result for ${nextAgent}, ${result.content.length} chars`);
           options.onEvent?.({
             type: 'agent_step_result',
             data: {
@@ -306,6 +307,8 @@ export async function executeSupervisorLoop(
               is_final: false,
             },
           });
+        } else {
+          console.log(`[Supervisor] Skipped agent_step_result for ${nextAgent}: content is JSON`);
         }
       }
 
@@ -439,10 +442,12 @@ export async function executeSupervisorLoop(
     });
 
     // Emit agent_step_result for realtime streaming to frontend
-    if (result.success && result.content && !result.content.startsWith('[') && agentName !== 'reviewer-agent') {
+    console.log(`[Supervisor] agent_step_result check (linear): agent=${agentName}, success=${result.success}, contentLength=${result.content?.length || 0}, contentStart="${result.content?.slice(0, 50)}"`);
+    if (result.success && result.content && agentName !== 'reviewer-agent') {
       const trimmed = result.content.trim();
       const isJson = (trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'));
       if (!isJson) {
+        console.log(`[Supervisor] Emitting agent_step_result for ${agentName}, ${result.content.length} chars`);
         options.onEvent?.({
           type: 'agent_step_result',
           data: {
@@ -455,6 +460,8 @@ export async function executeSupervisorLoop(
             is_final: false,
           },
         });
+      } else {
+        console.log(`[Supervisor] Skipped agent_step_result for ${agentName}: content is JSON`);
       }
     }
 
