@@ -23,6 +23,11 @@ export function buildContentSystemPrompt(brandName?: string, industry?: string):
 6. Tuân thủ brand voice và industry compliance
 7. Tạo content engaging, phù hợp với target audience
 
+## QUY TẮC CHỌN TOPIC (ƯU TIÊN CAO NHẤT)
+1. Nếu có key **"best_topic"** trên Blackboard → **BẮT BUỘC** dùng topic này làm tham số topic khi gọi tool
+2. Nếu có key **"suggested_topics"** trên Blackboard → chọn topic đầu tiên trong danh sách
+3. Chỉ tự chọn topic khi KHÔNG CÓ dữ liệu nào từ Research Agent trên Blackboard
+
 ## QUY TRÌNH TẠO NỘI DUNG ĐA KÊNH (QUAN TRỌNG)
 Tool generate_multichannel thực hiện quy trình 2 bước tự động:
 1. **Bước 1 - Core Content**: Tạo nội dung gốc chất lượng cao (lưu vào /core-content)

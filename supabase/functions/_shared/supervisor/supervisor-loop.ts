@@ -283,7 +283,10 @@ export async function executeSupervisorLoop(
               type: 'topic_suggestions' as any,
               data: topicPayload,
             });
-            console.log(`[Supervisor] Emitted topic_suggestions (${topicPayload.topics.length} topics)`);
+            // Write best_topic to blackboard for Content Agent
+            await blackboard.write('best_topic', topicPayload.best_topic, 'research-agent');
+            await blackboard.write('suggested_topics', topicPayload.topics, 'research-agent');
+            console.log(`[Supervisor] Emitted topic_suggestions (${topicPayload.topics.length} topics) + wrote best_topic to blackboard`);
           }
         }
       }
@@ -448,7 +451,10 @@ export async function executeSupervisorLoop(
             type: 'topic_suggestions' as any,
             data: topicPayload,
           });
-          console.log(`[Supervisor] Emitted topic_suggestions (${topicPayload.topics.length} topics)`);
+          // Write best_topic to blackboard for Content Agent
+          await blackboard.write('best_topic', topicPayload.best_topic, 'research-agent');
+          await blackboard.write('suggested_topics', topicPayload.topics, 'research-agent');
+          console.log(`[Supervisor] Emitted topic_suggestions (${topicPayload.topics.length} topics) + wrote best_topic to blackboard`);
         }
       }
     }

@@ -193,7 +193,7 @@ export function buildBlackboardContext(entries: BlackboardEntry[]): string {
   const sections = entries.map(e => {
     const valueStr = typeof e.value === 'string' 
       ? e.value 
-      : JSON.stringify(e.value, null, 2).slice(0, 500);
+      : JSON.stringify(e.value, null, 2).slice(0, 1500);
     const versionLabel = e.version ? ` v${e.version}` : '';
     return `### ${e.key}${versionLabel} (from ${e.agentName})\n${valueStr}`;
   });
