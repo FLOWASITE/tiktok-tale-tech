@@ -288,6 +288,27 @@ export async function executeSupervisorLoop(
         },
       });
 
+      // Emit agent_step_result for realtime streaming to frontend
+      if (result.success && result.content && !result.content.startsWith('[') && nextAgent !== 'reviewer-agent') {
+        // Skip if content looks like JSON (reviewer scores)
+        const trimmed = result.content.trim();
+        const isJson = (trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'));
+        if (!isJson) {
+          options.onEvent?.({
+            type: 'agent_step_result' as any,
+            data: {
+              agent: nextAgent,
+              agent_name: AGENT_DISPLAY_NAMES[nextAgent] || nextAgent,
+              content: result.content,
+              success: true,
+              duration_ms: result.durationMs,
+              step_index: stepIndex,
+              is_final: false,
+            },
+          });
+        }
+      }
+
       transition(workflow, 'sub_complete');
       nextAgent = advanceSubWorkflow(sub);
     }
@@ -416,6 +437,26 @@ export async function executeSupervisorLoop(
         token_budget_remaining: tokenController.getRemainingBudget(),
       },
     });
+
+    // Emit agent_step_result for realtime streaming to frontend
+    if (result.success && result.content && !result.content.startsWith('[') && agentName !== 'reviewer-agent') {
+      const trimmed = result.content.trim();
+      const isJson = (trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'));
+      if (!isJson) {
+        options.onEvent?.({
+          type: 'agent_step_result' as any,
+          data: {
+            agent: agentName,
+            agent_name: AGENT_DISPLAY_NAMES[agentName] || agentName,
+            content: result.content,
+            success: true,
+            duration_ms: result.durationMs,
+            step_index: iteration,
+            is_final: false,
+          },
+        });
+      }
+    }
 
     const event = getTransitionEvent(agentName, result);
     transition(workflow, event);
