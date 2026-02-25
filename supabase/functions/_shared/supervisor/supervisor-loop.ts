@@ -295,7 +295,7 @@ export async function executeSupervisorLoop(
         const isJson = (trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'));
         if (!isJson) {
           options.onEvent?.({
-            type: 'agent_step_result' as any,
+            type: 'agent_step_result',
             data: {
               agent: nextAgent,
               agent_name: AGENT_DISPLAY_NAMES[nextAgent] || nextAgent,
@@ -444,7 +444,7 @@ export async function executeSupervisorLoop(
       const isJson = (trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'));
       if (!isJson) {
         options.onEvent?.({
-          type: 'agent_step_result' as any,
+          type: 'agent_step_result',
           data: {
             agent: agentName,
             agent_name: AGENT_DISPLAY_NAMES[agentName] || agentName,

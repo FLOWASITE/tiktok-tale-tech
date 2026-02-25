@@ -38,7 +38,7 @@ interface SSEWriter {
 }
 
 export interface AgentSSEEvent {
-  type: 'turn_start' | 'tool_executing' | 'tool_result' | 'turn_complete' | 'content_chunk' | 'final_response' | 'error';
+  type: 'turn_start' | 'tool_executing' | 'tool_result' | 'turn_complete' | 'content_chunk' | 'final_response' | 'error' | 'agent_step_result';
   data: any;
 }
 
