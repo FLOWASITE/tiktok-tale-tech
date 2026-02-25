@@ -32,6 +32,8 @@ export async function executeToolCall(
         return await executeGenerateMultichannel(parameters, context);
       case "search_topics":
         return await executeSearchTopics(parameters, context);
+      case "discover_topics":
+        return await executeDiscoverTopics(parameters, context);
       // Reviewer tools
       case "brand_voice_check":
         return await executeBrandVoiceCheck(parameters, context);
@@ -579,6 +581,106 @@ async function executeSearchTopics(
         : `Không tìm thấy topic nào với "${query}"`,
     },
   };
+}
+
+// ============ TOPIC DISCOVERY TOOL ============
+
+// Discover new topics via topic-ai edge function
+async function executeDiscoverTopics(
+  params: Record<string, any>,
+  context: ExecutionContext
+): Promise<ToolCallResult> {
+  const { action, query, content_goal, limit } = params;
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  // Build request to topic-ai edge function
+  const topicAiUrl = `${supabaseUrl}/functions/v1/topic-ai?action=${action}`;
+
+  const requestBody: Record<string, any> = {
+    query,
+    limit: limit || 5,
+    brandTemplateId: context.brandTemplateId || null,
+    organizationId: context.organizationId || null,
+  };
+
+  if (content_goal) {
+    requestBody.contentGoal = content_goal;
+  }
+
+  // Add action-specific params
+  if (action === 'suggest') {
+    requestBody.forceWebSearch = true; // Always get fresh data for suggestions
+  }
+
+  console.log(`[discover_topics] Calling topic-ai action=${action}, query="${query}"`);
+
+  try {
+    const response = await fetch(topicAiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[discover_topics] topic-ai error: ${errorText}`);
+      return {
+        success: false,
+        tool_name: "discover_topics",
+        result: null,
+        error: `Topic-AI ${action} failed: ${errorText}`,
+      };
+    }
+
+    const data = await response.json();
+
+    // Normalize response based on action type
+    const topics = data.suggestions || data.topics || data.trendingTopics || [];
+    const gaps = data.gaps || [];
+
+    return {
+      success: true,
+      tool_name: "discover_topics",
+      result: {
+        action,
+        query,
+        content_goal: content_goal || null,
+        topics: topics.slice(0, limit || 5).map((t: any) => ({
+          topic: t.topic || t.title || t.name,
+          category: t.category || t.pillar || 'general',
+          score: t.overallScore || t.score || t.velocityScore || null,
+          reasoning: t.reasoning || t.explanation || t.suggestedAngles?.[0] || null,
+          format: t.suggestedFormat || t.format || null,
+          engagement_potential: t.engagementPotential || t.scores?.engagement || null,
+        })),
+        gaps: gaps.slice(0, 5).map((g: any) => ({
+          pillar: g.pillar,
+          gap_type: g.gapType || g.type,
+          severity: g.severity,
+          reason: g.reason,
+          suggested_topics: g.suggestedTopics || [],
+        })),
+        total_found: topics.length,
+        insights: data.insights || data.summary || null,
+        message: topics.length > 0
+          ? `Tìm thấy ${topics.length} topic suggestions cho "${query}" (action: ${action})`
+          : `Không tìm thấy topic nào cho "${query}"`,
+      },
+    };
+  } catch (error) {
+    console.error(`[discover_topics] Error:`, error);
+    return {
+      success: false,
+      tool_name: "discover_topics",
+      result: null,
+      error: error instanceof Error ? error.message : "Lỗi gọi Topic-AI",
+    };
+  }
 }
 
 // ============ REVIEWER TOOLS ============
