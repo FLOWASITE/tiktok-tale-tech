@@ -214,6 +214,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
       let pendingAgentContributions: AgentContribution[] = [];
       let pendingContextSources: ContextSources | undefined = undefined;
       let pendingSuggestedFollowUps: string[] | undefined = undefined;
+      let hasStepResults = false;
+      let finalContentStarted = false;
       
       // Update progress: context loaded, move to thinking
       setState(prev => ({ 
@@ -351,8 +353,66 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
               continue;
             }
             
+            // Agent step result — realtime streaming of each agent's output
+            if (parsed.type === 'agent_step_result' && parsed.data?.content) {
+              const agentName = parsed.data.agent_name || parsed.data.agent || 'Agent';
+              const durationSec = parsed.data.duration_ms ? (parsed.data.duration_ms / 1000).toFixed(1) : null;
+              const stepHeader = durationSec
+                ? `\n\n---\n\n**${agentName}** *(${durationSec}s)*\n\n`
+                : `\n\n---\n\n**${agentName}**\n\n`;
+              assistantContent += stepHeader + parsed.data.content;
+              hasStepResults = true;
+
+              if (!messageCreated) {
+                messageCreated = true;
+                setState(prev => ({
+                  ...prev,
+                  progressSteps: prev.progressSteps.map(step =>
+                    step.id === 'thinking'
+                      ? { ...step, status: 'complete' as const, duration: Date.now() - (step.startTime || Date.now()) }
+                      : step.id === 'response'
+                      ? { ...step, status: 'active' as const, startTime: Date.now() }
+                      : step
+                  ),
+                }));
+                const newMessage: ChatMessage = {
+                  id: assistantId,
+                  role: 'assistant',
+                  content: assistantContent,
+                  timestamp: new Date(),
+                  extractedTopics: extractTopicsFromMessage(assistantContent),
+                  toolResults: receivedToolResults || undefined,
+                  contextBadges: pendingContextBadges || undefined,
+                  contextRichness,
+                  reviewScores: pendingReviewScores,
+                  agentContributions: pendingAgentContributions.length > 0 ? pendingAgentContributions : undefined,
+                  contextSources: pendingContextSources,
+                  suggestedFollowUps: pendingSuggestedFollowUps,
+                };
+                onMessageCreate(newMessage);
+              } else {
+                onMessageUpdate(assistantId, {
+                  content: assistantContent,
+                  extractedTopics: extractTopicsFromMessage(assistantContent),
+                  toolResults: receivedToolResults || undefined,
+                  contextBadges: pendingContextBadges || undefined,
+                  contextRichness,
+                  reviewScores: pendingReviewScores,
+                  agentContributions: pendingAgentContributions.length > 0 ? pendingAgentContributions : undefined,
+                  contextSources: pendingContextSources,
+                  suggestedFollowUps: pendingSuggestedFollowUps,
+                });
+              }
+              continue;
+            }
+            
             // Agentic content_chunk event (from agentic-loop.ts)
             if (parsed.type === 'content_chunk' && parsed.data?.chunk) {
+              // If we already have step results, final content replaces them
+              if (hasStepResults && !finalContentStarted) {
+                assistantContent = '';
+                finalContentStarted = true;
+              }
               assistantContent += parsed.data.chunk;
               
               // Update progress: move to response step when content starts
