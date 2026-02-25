@@ -341,7 +341,16 @@ async function executeGenerateMultichannel(
   params: Record<string, any>,
   context: ExecutionContext
 ): Promise<ToolCallResult> {
-  const { topic, channels, content_goal } = params;
+  const { topic, channels, content_goal, journey_stage, content_angle, auto_research } = params;
+
+  if (!context.userId) {
+    return {
+      success: false,
+      tool_name: "generate_multichannel",
+      result: null,
+      error: "User not authenticated. Không thể tạo và lưu nội dung.",
+    };
+  }
 
   // Fetch brand template for context
   let brandName = "Brand";
@@ -363,20 +372,31 @@ async function executeGenerateMultichannel(
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+  const requestBody: Record<string, any> = {
+    topic,
+    channels: channels || ["facebook", "instagram"],
+    contentGoal: content_goal || "engagement",
+    brandName,
+    brandGuideline,
+    brandTemplateId: context.brandTemplateId,
+    // Strategic params - inject from agent or use smart defaults
+    targetJourneyStage: journey_stage || "seed",
+    contentAngle: content_angle || "educational",
+    autoResearch: auto_research || false,
+    // Critical: inject user/org so content is saved properly
+    userId: context.userId,
+    organizationId: context.organizationId,
+  };
+
+  console.log(`[generate_multichannel] Calling with userId=${context.userId}, orgId=${context.organizationId}, stage=${requestBody.targetJourneyStage}, angle=${requestBody.contentAngle}`);
+
   const response = await fetch(`${supabaseUrl}/functions/v1/generate-multichannel`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${supabaseKey}`,
     },
-    body: JSON.stringify({
-      topic,
-      channels: channels || ["facebook", "instagram"],
-      contentGoal: content_goal || "engagement",
-      brandName,
-      brandGuideline,
-      brandTemplateId: context.brandTemplateId,
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
@@ -401,6 +421,8 @@ async function executeGenerateMultichannel(
     }
   }
 
+  const contentId = multiData.contentId || multiData.content_id || null;
+
   return {
     success: true,
     tool_name: "generate_multichannel",
@@ -408,9 +430,14 @@ async function executeGenerateMultichannel(
       topic,
       channels: channels || ["facebook", "instagram"],
       content_goal: content_goal || "engagement",
+      journey_stage: requestBody.targetJourneyStage,
+      content_angle: requestBody.contentAngle,
+      content_id: contentId,
       channel_previews: channelPreviews,
       full_content: multiData.data,
-      message: `Đã tạo content cho ${(channels || []).length} kênh: ${(channels || []).join(", ")}`,
+      message: contentId 
+        ? `Đã tạo và lưu content "${topic}" cho ${(channels || []).length} kênh. Xem tại /multichannel`
+        : `Đã tạo content cho ${(channels || []).length} kênh: ${(channels || []).join(", ")}`,
     },
   };
 }
