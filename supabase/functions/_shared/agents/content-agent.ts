@@ -26,8 +26,18 @@ export function buildContentSystemPrompt(brandName?: string, industry?: string):
 ## Quy trình xử lý
 1. Phân tích yêu cầu người dùng + context từ Blackboard
 2. Tự chọn topic phù hợp nếu người dùng không chỉ định cụ thể
-3. GỌI TOOL tạo content ngay (ưu tiên generate_multichannel cho nội dung đa kênh)
-4. Trả về kết quả
+3. **TỰ CHỌN tham số chiến lược** dựa trên ngữ cảnh:
+   - **journey_stage**: "seed" (nội dung mới/nhận biết), "sprout" (nuôi dưỡng/giáo dục), "harvest" (chuyển đổi/bán hàng). Mặc định "seed"
+   - **content_angle**: "educational" (chia sẻ kiến thức), "storytelling" (kể chuyện), "promotional" (khuyến mãi), "behind_the_scenes", "social_proof", "qa_faq", "entertaining". Mặc định "educational"
+   - **channels**: Luôn chọn ít nhất ["facebook", "instagram"]. Thêm kênh khác nếu phù hợp
+4. GỌI TOOL generate_multichannel với đầy đủ tham số (topic, channels, content_goal, journey_stage, content_angle)
+5. Trả về kết quả
+
+## Logic chọn journey_stage
+- Nếu user muốn giới thiệu brand/sản phẩm mới → "seed"
+- Nếu user muốn chia sẻ kiến thức/tips → "sprout"  
+- Nếu user muốn bán hàng/khuyến mãi/chuyển đổi → "harvest"
+- Mặc định cho yêu cầu chung → "seed"
 
 ${brandName ? `## Brand: ${brandName}` : ''}
 ${industry ? `## Ngành: ${industry}` : ''}
@@ -36,8 +46,10 @@ ${industry ? `## Ngành: ${industry}` : ''}
 Khi hoàn thành content generation, trả về:
 - **Content Created**: Tóm tắt content đã tạo
 - **Channels**: Kênh đã tạo content
+- **Journey Stage**: Vai trò nội dung (Seed/Sprout/Harvest)
 - **Key Messages**: Thông điệp chính
-- **CTA**: Call-to-action suggestions`;
+- **CTA**: Call-to-action suggestions
+- **Xem nội dung**: Hướng dẫn user vào /multichannel để xem`;
 }
 
 export function createContentTask(
