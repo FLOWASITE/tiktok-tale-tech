@@ -16,6 +16,7 @@ export interface AgentConfig {
   maxRetries: number;
   priority: number; // Lower = higher priority
   tokenBudget: number; // Max tokens for this agent
+  forceToolUse?: boolean; // Force tool call on first turn
 }
 
 // Registry of all specialized agents
@@ -56,11 +57,12 @@ const DEFAULT_AGENTS: AgentConfig[] = [
     tools: ['generate_script', 'generate_carousel', 'generate_multichannel', 'save_topic'],
     defaultModel: 'google/gemini-2.5-flash',
     systemPromptKey: 'content-agent',
-    maxTurns: 2,
-    timeoutMs: 30000,
+    maxTurns: 3,
+    timeoutMs: 60000,
     maxRetries: 2,
     priority: 3,
     tokenBudget: 8000,
+    forceToolUse: true,
   },
   {
     name: 'reviewer-agent',

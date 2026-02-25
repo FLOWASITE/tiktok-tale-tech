@@ -94,7 +94,7 @@ export async function executeAgent(
                 organizationId: execContext.organizationId,
                 messages: messages as any,
                 tools: tools.length > 0 ? tools : undefined,
-                toolChoice: tools.length > 0 ? 'auto' : undefined,
+                toolChoice: tools.length > 0 ? (turn === 0 && agentConfig.forceToolUse ? 'required' : 'auto') : undefined,
                 stream: false,
                 modelOverride: agentConfig.defaultModel,
               });
