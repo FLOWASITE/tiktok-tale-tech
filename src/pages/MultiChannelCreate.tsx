@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Wand2, X } from 'lucide-react';
+import { ArrowLeft, Wand2, X, MessageSquare, PanelRightClose } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MultiChannelFormWizard } from '@/components/multichannel/MultiChannelFormWizard';
 import { CreatePreviewPanel } from '@/components/multichannel/CreatePreviewPanel';
 import { CompactBrandSelector } from '@/components/multichannel/CompactBrandSelector';
 import { MobileGenerationSheet } from '@/components/multichannel/MobileGenerationSheet';
+import { TopicAIChatbot } from '@/components/topic/TopicAIChatbot';
+import { cn } from '@/lib/utils';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useStreamingGeneration, ProgressEvent } from '@/hooks/useStreamingGeneration';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
@@ -53,6 +55,9 @@ export default function MultiChannelCreate() {
     coreContentId: coreContentIdFromUrl || undefined,
   });
   const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>(prefillData?.topicHistoryId);
+
+  // Chat panel state
+  const [showChatPanel, setShowChatPanel] = useState(false);
 
   // Generation state
   const [generationState, setGenerationState] = useState<GenerationState>('idle');
@@ -235,8 +240,26 @@ export default function MultiChannelCreate() {
           </h1>
         </div>
 
-        {/* Right: Brand Selector + Close */}
+        {/* Right: Chat toggle + Brand Selector + Close */}
         <div className="flex items-center gap-2">
+          <Button
+            variant={showChatPanel ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowChatPanel(!showChatPanel)}
+            className="hidden lg:flex gap-2 h-8"
+          >
+            {showChatPanel ? (
+              <>
+                <PanelRightClose className="w-4 h-4" />
+                Ẩn chat
+              </>
+            ) : (
+              <>
+                <MessageSquare className="w-4 h-4" />
+                Brainstorm AI
+              </>
+            )}
+          </Button>
           <div className="hidden md:block max-w-[200px]">
             <CompactBrandSelector
               templates={templates}
@@ -291,32 +314,49 @@ export default function MultiChannelCreate() {
           </div>
         </div>
 
-        {/* Right Panel: Preview */}
-        <div className="hidden lg:flex flex-1 bg-muted/5 overflow-y-auto">
-          <div className="w-full p-6 lg:p-8">
-            <CreatePreviewPanel
-              state={generationState}
-              formData={formData}
-              brandName={selectedTemplate?.brand_name}
-              estimatedTime={estimatedTime}
-              elapsedMs={generationElapsedMs}
-              sseProgress={sseProgress}
-              streamingTexts={streamingTexts}
-              completedChannels={sseProgress?.completedChannels}
-              totalChannels={sseProgress?.totalChannels}
-              currentChannel={sseProgress?.currentChannel}
-              onViewContent={handleViewContent}
-              onCreateAnother={handleCreateAnother}
-              // Auto Image Pipeline props
-              imagePhase={imagePipeline.phase}
-              imageProgress={imagePipeline.imageProgress}
-              imageProgressTimes={imagePipeline.imageProgressTimes}
-              generatedImages={imagePipeline.generatedImages}
-              imageCompletedCount={imagePipeline.imageCompletedCount}
-              imageTotalCount={imagePipeline.imageTotalCount}
-              logoOverlayFailures={imagePipeline.logoOverlayFailures}
-            />
-          </div>
+        {/* Right Panel: Preview or Chat */}
+        <div className="hidden lg:flex flex-1 bg-muted/5 overflow-hidden">
+          {showChatPanel && selectedBrandId ? (
+            <div className="w-full flex flex-col min-h-0">
+              <TopicAIChatbot
+                brandTemplateId={selectedBrandId}
+                contentGoal={formData.contentGoal || 'education'}
+                mode="embedded"
+                onNavigate={(path, state) => navigate(path, { state })}
+                isExpanded={true}
+                className="flex-1 min-h-0 h-full rounded-none border-0"
+                onTopicSelect={(topic) => {
+                  setFormData(prev => ({ ...prev, topic }));
+                  setShowChatPanel(false);
+                }}
+              />
+            </div>
+          ) : (
+            <div className="w-full p-6 lg:p-8 overflow-y-auto">
+              <CreatePreviewPanel
+                state={generationState}
+                formData={formData}
+                brandName={selectedTemplate?.brand_name}
+                estimatedTime={estimatedTime}
+                elapsedMs={generationElapsedMs}
+                sseProgress={sseProgress}
+                streamingTexts={streamingTexts}
+                completedChannels={sseProgress?.completedChannels}
+                totalChannels={sseProgress?.totalChannels}
+                currentChannel={sseProgress?.currentChannel}
+                onViewContent={handleViewContent}
+                onCreateAnother={handleCreateAnother}
+                // Auto Image Pipeline props
+                imagePhase={imagePipeline.phase}
+                imageProgress={imagePipeline.imageProgress}
+                imageProgressTimes={imagePipeline.imageProgressTimes}
+                generatedImages={imagePipeline.generatedImages}
+                imageCompletedCount={imagePipeline.imageCompletedCount}
+                imageTotalCount={imagePipeline.imageTotalCount}
+                logoOverlayFailures={imagePipeline.logoOverlayFailures}
+              />
+            </div>
+          )}
         </div>
       </div>
 
