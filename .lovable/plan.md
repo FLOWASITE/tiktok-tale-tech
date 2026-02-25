@@ -1,74 +1,65 @@
 
-# Kết nối Chatbot với Quy trình Tạo Nội dung Đa kênh
+Mục tiêu: xử lý dứt điểm việc chat “tạo nội dung” nhưng không tạo bản ghi trong Multichannel và không chạy trọn pipeline tạo nội dung.
 
-## Vấn đề hiện tại
+1) Những gì đã xác minh từ log (nguyên nhân gốc)
+- Content Agent đã gọi tool `generate_multichannel` đúng (có `topic`, `journey_stage`, `content_angle`, `userId`, `orgId`).
+- Nhưng function `generate-multichannel` trả về lỗi auth:
+  - `Auth error: invalid claim: missing sub claim`
+  - `User ID from token: null`
+  - `No valid user found from authorization header`
+- Lý do trực tiếp:
+  - Tool executor đang gọi `generate-multichannel` bằng service key (`Authorization: Bearer SUPABASE_SERVICE_ROLE_KEY`), trong khi `generate-multichannel` lại đang bắt buộc đọc user từ JWT “end-user” (`supabase.auth.getUser(token)`).
+- Lý do khiến UI vẫn trả lời “đã tạo” dù thực tế fail:
+  - Trong `executeAgent`, khi tool fail thì message trả lại model chỉ chứa `toolResult.result` (thường là `null`), không kèm `success/error`, nên model tiếp tục trả lời như thể đã hoàn tất.
+  - Supervisor vì vậy vẫn đi tiếp các bước review/summarize, gây cảm giác “chỉ trả về chủ đề/summary”.
 
-Khi bạn nhắn "tạo nội dung cho hôm nay" trong chatbot, hệ thống gọi tool `generate_multichannel` nhưng chỉ gửi **3 tham số cơ bản** (topic, channels, content_goal) đến backend. Trong khi đó, form tạo nội dung đầy đủ ở `/multichannel/new` gửi **hơn 15 tham số** bao gồm:
+2) Hướng sửa đề xuất (ưu tiên theo luồng)
+A. Sửa xác thực đầu-cuối cho luồng chat
+- File: `src/hooks/useChatStreaming.ts`
+  - Đổi cách gửi Authorization cho `chat-topics`: lấy access token của user hiện tại (như các hook streaming khác đang làm), không dùng publishable key làm bearer.
+  - Gửi thêm `apikey` publishable key để giữ tương thích preflight.
+- File: `supabase/functions/chat-topics/index.ts`
+  - Đọc Authorization header, xác thực user từ token.
+  - Nếu token hợp lệ: dùng user từ token làm nguồn sự thật (không tin tuyệt đối vào `userId` từ body).
+  - Truyền token xuống execution context cho supervisor/agentic/tool chain.
 
-- user_id, organization_id
-- brandVoiceVariantId
-- journeyStage (Seed/Sprout/Harvest)
-- contentAngle, personaId, productId
-- selected_hooks, auto_research
-- v.v.
+B. Sửa invoke nội bộ tool `generate_multichannel`
+- File: `supabase/functions/_shared/tool-executor.ts`
+  - `executeGenerateMultichannel` ưu tiên dùng user access token (được truyền từ context) khi gọi `generate-multichannel`.
+  - Đồng thời gửi đầy đủ field tương thích cả camelCase và snake_case cho user/org:
+    - `userId`, `user_id`
+    - `organizationId`, `organization_id`
+  - Giữ nguyên strategic params (`journey_stage`, `content_angle`, `auto_research`) đã thêm trước đó.
 
-Kết quả là nội dung tạo từ chatbot:
-1. **Thiếu chiến lược** (không có journey stage, content angle, hooks)
-2. **Không lưu vào danh sách** nội dung đa kênh (thiếu user_id, org_id)
-3. **Không xuất hiện** trong trang `/multichannel`
+C. Làm `generate-multichannel` chấp nhận đúng cả 2 ngữ cảnh gọi (an toàn)
+- File: `supabase/functions/generate-multichannel/index.ts`
+  - Flow auth chuẩn:
+    1) Ưu tiên xác thực user từ JWT header.
+    2) Nếu JWT không phải token user nhưng là internal trusted call (service role path), cho phép fallback user từ body (`userId`/`user_id`) để không gãy luồng chatbot nội bộ.
+  - Đọc `organizationId`/`organization_id` linh hoạt.
+  - Nếu dùng fallback, thêm kiểm tra membership org trước khi insert để tránh ghi sai workspace.
+  - Giữ response lỗi rõ ràng (Unauthorized vs Missing user context).
 
-## Giải pháp
+D. Chặn “thành công giả” ở tầng Agent
+- File: `supabase/functions/_shared/agents/agent-base.ts`
+  - Khi gửi tool result ngược lại model, gửi đầy đủ object gồm `success`, `result`, `error` (không chỉ `result`).
+  - Nếu tool tạo nội dung chính (`generate_multichannel` / `generate_script` / `generate_carousel`) fail mà không có tool thành công thay thế, trả `success: false` cho agent để supervisor dừng đúng trạng thái lỗi (không review/summarize như đã tạo xong).
 
-Nâng cấp tool `generate_multichannel` trong hệ thống agent để gửi đầy đủ tham số như form wizard, đảm bảo nội dung được lưu đúng cách.
+3) Trình tự triển khai
+- Bước 1: Sửa `useChatStreaming.ts` và `chat-topics/index.ts` để có user token thật trong execution context.
+- Bước 2: Sửa `tool-executor.ts` để forward token + payload user/org nhất quán.
+- Bước 3: Sửa `generate-multichannel/index.ts` để xử lý auth/fallback an toàn.
+- Bước 4: Sửa `agent-base.ts` để error propagation đúng, tránh success giả.
+- Bước 5: Kiểm thử end-to-end + kiểm chứng DB/log.
 
-### Thay đổi 1: Mở rộng Tool Definition (`tool-definitions.ts`)
+4) Kế hoạch kiểm thử (bắt buộc)
+- Test 1 (E2E): vào chat, gửi “tạo nội dung cho hôm nay”.
+- Test 2: xác nhận log không còn `missing sub claim` / `No valid user found`.
+- Test 3: xác nhận có bản ghi mới trong `multi_channel_contents` với đúng `user_id`, `organization_id`, thời gian hiện tại.
+- Test 4: reload `/multichannel`, nội dung mới phải xuất hiện ngay.
+- Test 5: xác nhận trả lời chat không còn kiểu “đã tạo” khi tool thực tế fail.
+- Test 6: thử mobile flow (vì bạn đang dùng chat mobile) và desktop flow.
 
-Thêm các tham số chiến lược vào schema của tool `generate_multichannel`:
-- `content_angle` (educational, storytelling, promotional, v.v.)
-- `journey_stage` (seed, sprout, harvest)
-- `auto_research` (boolean)
-
-### Thay đổi 2: Nâng cấp Tool Executor (`tool-executor.ts`)
-
-Cập nhật hàm `executeGenerateMultichannel` để:
-- Truyền `user_id` và `organization_id` từ execution context
-- Truyền thêm `contentAngle`, `targetJourneyStage`, `autoResearch`
-- Đảm bảo nội dung được lưu vào database giống như khi tạo từ form
-
-### Thay đổi 3: Cập nhật Content Agent Prompt (`content-agent.ts`)
-
-Hướng dẫn agent:
-- Tự chọn `journey_stage` phù hợp (mặc định "seed" cho nội dung mới)
-- Tự chọn `content_angle` dựa trên ngữ cảnh
-- Luôn truyền đầy đủ channels (ít nhất facebook + instagram)
-
-### Thay đổi 4: Truyền userId/orgId vào Agent Context
-
-Đảm bảo `executeAgent` truyền `userId` và `organizationId` xuống tool executor để nội dung được gắn đúng user.
-
----
-
-## Kết quả sau khi sửa
-
-- Nhắn "tạo nội dung cho hôm nay" trong chatbot sẽ tạo nội dung **đầy đủ chiến lược**
-- Nội dung sẽ **xuất hiện trong danh sách** tại `/multichannel`
-- Trải nghiệm tương đương với việc dùng form wizard
-
-## Chi tiết kỹ thuật
-
-```text
-Trước:
-  Chatbot -> generate_multichannel(topic, channels, content_goal)
-  -> Thiếu user_id, org_id -> Không lưu vào DB đúng cách
-
-Sau:
-  Chatbot -> generate_multichannel(topic, channels, content_goal, 
-             journey_stage, content_angle, auto_research)
-  + Tự động inject user_id, organization_id từ context
-  -> Lưu đầy đủ vào DB -> Hiển thị trong /multichannel
-```
-
-**Files cần sửa:**
-1. `supabase/functions/_shared/tool-definitions.ts` - Thêm params
-2. `supabase/functions/_shared/tool-executor.ts` - Truyền đầy đủ data
-3. `supabase/functions/_shared/agents/content-agent.ts` - Cập nhật prompt
+5) Ghi chú phạm vi
+- Không cần migration DB hoặc đổi RLS cho lỗi này (RLS hiện tại đã hợp lý cho `multi_channel_contents` và `generation_tasks`).
+- Cảnh báo accessibility `DialogContent` (thiếu title/description) thấy trong console là issue riêng, không phải nguyên nhân của lỗi “không xuất hiện trong multichannel”; có thể xử lý ở task riêng sau khi fix xong luồng tạo nội dung.
