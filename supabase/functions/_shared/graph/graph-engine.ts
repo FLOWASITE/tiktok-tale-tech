@@ -14,6 +14,7 @@ import {
   createGraphState,
 } from "./graph-state.ts";
 import { orchestrateWorkflow, OrchestratorOptions } from "./orchestrator.ts";
+export { createNodeRegistry, type NodeExecutionContext } from "./nodes/index.ts";
 
 // ---- Types ----
 
