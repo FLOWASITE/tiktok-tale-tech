@@ -1,57 +1,37 @@
 
 
-## Kế hoạch: Rà soát và hoàn thiện Chat UI
+## Hoàn thiện Flowa Team — Sửa lỗi console còn lại
 
-Sau khi kiểm tra toàn bộ code, phát hiện **3 vấn đề** cần sửa:
+### Phát hiện sau rà soát
 
----
+Tất cả các chức năng đã implement đúng theo kế hoạch:
+- **AgentPipelineBar**: Hiển thị đúng khi supervisor bật, 5 pill với trạng thái realtime
+- **AgentInsightsTab**: Thay thế Discovery tab, hiển thị context sources, agent status, suggestions, token usage
+- **ChatInputArea**: @ mention agent hoạt động, nút "Đội ngũ" hiển thị khi supervisor bật, smart suggestions hiện phía trên input
+- **ChatMessageBubble**: Streaming agent name hiển thị khi AI đang viết
+- **SimpleMessageList**: Truyền streamingAgentName đúng cho message cuối
+- **ChatHeader**: Tab "Insights" với icon Brain thay vì Compass
+- **FlowaChatPage**: Navigation handler đã hoạt động với useNavigate
 
-### 1. Console Warning: ChatThinkingIndicator thiếu forwardRef
+### Vấn đề duy nhất còn lại
 
-**Vấn đề**: `SimpleMessageList` bọc `ChatThinkingIndicator` trong `AnimatePresence`, nhưng `ChatThinkingIndicator` là function component thường — React cảnh báo "Function components cannot be given refs".
+**Console Warning: AgentPipelineBar thiếu forwardRef**
 
-**Sửa**: Bọc `ChatThinkingIndicator` bằng `React.forwardRef` để tương thích với `AnimatePresence`.
-
-**File**: `src/components/topic/chatbot/ChatThinkingIndicator.tsx`
-
----
-
-### 2. FlowaChatPage: onNavigate là no-op
-
-**Vấn đề**: `FlowaChatPage` truyền `onNavigate={() => {}}` — khi user bấm nút "Multi", "Script", "Carousel" trên extracted topics, không có gì xảy ra.
-
-**Sửa**: Dùng `useNavigate()` từ `react-router-dom` để thực hiện navigation thực sự.
-
-**File**: `src/pages/FlowaChatPage.tsx`
-
-```text
-// Hiện tại:
-onNavigate={() => {}}
-
-// Sửa thành:
-const navigate = useNavigate();
-onNavigate={(path, state) => navigate(path, { state })}
+Lỗi trong console:
+```
+Warning: Function components cannot be given refs.
+Check the render method of `TopicAIChatbot`.
+  at AgentPipelineBar
 ```
 
----
+`AgentPipelineBar` sử dụng `memo()` nhưng thiếu `forwardRef`. React cảnh báo khi validate component trong tree.
 
-### 3. ActiveView type naming (nhỏ, cosmetic)
+### Sửa chữa
 
-**Vấn đề**: Type `ActiveView = 'chat' | 'discovery'` nhưng UI hiển thị "Insights" + icon `Brain`. Không gây lỗi nhưng code đọc confusing.
+**File**: `src/components/topic/chatbot/AgentPipelineBar.tsx`
 
-**Quyết định**: Giữ nguyên value `'discovery'` để tránh breaking change ở nhiều file. Chỉ cần nhận biết rằng `'discovery'` = tab Insights trong ngữ cảnh mới.
-
----
-
-### Tổng hợp thay đổi
-
-| File | Thay đổi |
-|------|----------|
-| `src/components/topic/chatbot/ChatThinkingIndicator.tsx` | Wrap bằng `forwardRef` |
-| `src/pages/FlowaChatPage.tsx` | Thêm `useNavigate`, truyền navigation handler thực |
+Thay `memo(function AgentPipelineBar(...))` bằng `memo(forwardRef<HTMLDivElement, AgentPipelineBarProps>(function AgentPipelineBar(props, ref)))` và truyền `ref` vào div gốc.
 
 ### Kết quả
-- Hết console warning về ref
-- Các nút hành động topic (Multi/Script/Carousel) hoạt động đúng trên trang `/chat`
-- Code ổn định, không breaking change
-
+- Hết toàn bộ console warning
+- Tất cả chức năng Flowa Team hoạt động đúng
