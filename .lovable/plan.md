@@ -19,6 +19,11 @@
 - Mặc định Graph Engine ON, Supervisor OFF
 - Removed `supervisorEnabled` dependency từ request body
 
+### 5. ✅ ROOT CAUSE: ai-provider.ts message type stripping (CRITICAL)
+- `AICallOptions.messages` type chỉ là `{ role, content }` → bỏ mất `tool_calls`, `tool_call_id`
+- Fix: Tạo `AIMessage` type với đầy đủ fields, áp dụng cho tất cả provider functions
+- Files: `callLovableGateway`, `callOpenAI`, `callAnthropic`, `callOpenRouter`, `callGeminiDirect`
+
 ## Files đã thay đổi
 
 | File | Status |
