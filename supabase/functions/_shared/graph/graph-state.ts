@@ -55,6 +55,9 @@ export interface GraphState {
   generatedImage?: any;
   brandMemoryContext?: string;
 
+  // Orchestrator tracking
+  orchestratorReasoning?: string;
+
   // Topics
   bestTopic?: string;
   suggestedTopics?: any[];
