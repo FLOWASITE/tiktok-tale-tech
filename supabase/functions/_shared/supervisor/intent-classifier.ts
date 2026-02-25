@@ -313,7 +313,7 @@ export async function classifyIntent(
         intent: 'complex_workflow',
         confidence: 0.82,
         reasoning: 'Generate intent without explicit topic - routing through Research Agent first',
-        suggestedAgents: ['research-agent', 'content-agent'],
+        suggestedAgents: ['research-agent', 'strategy-agent', 'content-agent'],
         workflowEvent: 'classified_complex',
       };
     }
