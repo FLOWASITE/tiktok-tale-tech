@@ -337,12 +337,12 @@ async function executeGenerateCarousel(
   };
 }
 
-// Generate multichannel content via generate-multichannel edge function
+// Generate multichannel content via 2-step pipeline: Core Content → Transform
 async function executeGenerateMultichannel(
   params: Record<string, any>,
   context: ExecutionContext
 ): Promise<ToolCallResult> {
-  const { topic, channels, content_goal, journey_stage, content_angle, auto_research } = params;
+  const { topic, channels, content_goal, journey_stage, content_angle, content_role, auto_research, target_audience } = params;
 
   if (!context.userId) {
     return {
@@ -373,6 +373,58 @@ async function executeGenerateMultichannel(
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+  // Derive content_role from journey_stage if not explicitly set
+  const effectiveContentRole = content_role || journey_stage || "seed";
+
+  // ============================================
+  // STEP 1: Generate Core Content first
+  // ============================================
+  console.log(`[generate_multichannel] STEP 1: Generating Core Content for topic="${topic}", role=${effectiveContentRole}`);
+
+  let coreContentId: string | null = null;
+  let coreContentTitle: string | null = null;
+
+  try {
+    const coreContentResponse = await fetch(`${supabaseUrl}/functions/v1/generate-core-content`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({
+        topic,
+        contentGoal: content_goal || "engagement",
+        contentAngle: content_angle || "educational",
+        contentRole: effectiveContentRole,
+        lengthMode: "medium",
+        brandTemplateId: context.brandTemplateId,
+        organizationId: context.organizationId,
+        targetAudience: target_audience || null,
+        enableResearch: auto_research || false,
+      }),
+    });
+
+    if (!coreContentResponse.ok) {
+      const errorText = await coreContentResponse.text();
+      console.error(`[generate_multichannel] Core Content generation failed: ${errorText}`);
+      // Don't fail entirely - fall back to topic-based generation
+      console.warn(`[generate_multichannel] Falling back to topic-based generation (no Core Content)`);
+    } else {
+      const coreData = await coreContentResponse.json();
+      coreContentId = coreData.id || null;
+      coreContentTitle = coreData.title || topic;
+      console.log(`[generate_multichannel] STEP 1 SUCCESS: Core Content ID=${coreContentId}, title="${coreContentTitle}"`);
+    }
+  } catch (coreError) {
+    console.error(`[generate_multichannel] Core Content step error:`, coreError);
+    console.warn(`[generate_multichannel] Proceeding with topic-based generation`);
+  }
+
+  // ============================================
+  // STEP 2: Transform to multichannel using Core Content
+  // ============================================
+  console.log(`[generate_multichannel] STEP 2: Transforming to multichannel, coreContentId=${coreContentId}`);
+
   const requestBody: Record<string, any> = {
     topic,
     channels: channels || ["facebook", "instagram"],
@@ -380,18 +432,18 @@ async function executeGenerateMultichannel(
     brandName,
     brandGuideline,
     brandTemplateId: context.brandTemplateId,
-    // Strategic params - inject from agent or use smart defaults
     targetJourneyStage: journey_stage || "seed",
     contentAngle: content_angle || "educational",
     autoResearch: auto_research || false,
-    // Critical: inject user/org so content is saved properly
     userId: context.userId,
     organizationId: context.organizationId,
+    // Core Content pipeline params
+    coreContentId: coreContentId,
+    contentRole: effectiveContentRole,
   };
 
-  console.log(`[generate_multichannel] Calling with userId=${context.userId}, orgId=${context.organizationId}, stage=${requestBody.targetJourneyStage}, angle=${requestBody.contentAngle}`);
+  console.log(`[generate_multichannel] Calling with userId=${context.userId}, orgId=${context.organizationId}, coreContentId=${coreContentId}, role=${effectiveContentRole}`);
 
-  // Use user access token if available, otherwise fall back to service key
   const authToken = context.userAccessToken || supabaseKey;
 
   const response = await fetch(`${supabaseUrl}/functions/v1/generate-multichannel`, {
@@ -402,7 +454,6 @@ async function executeGenerateMultichannel(
     },
     body: JSON.stringify({
       ...requestBody,
-      // Send both camelCase and snake_case for compatibility
       userId: context.userId,
       user_id: context.userId,
       organizationId: context.organizationId,
@@ -443,11 +494,16 @@ async function executeGenerateMultichannel(
       content_goal: content_goal || "engagement",
       journey_stage: requestBody.targetJourneyStage,
       content_angle: requestBody.contentAngle,
+      content_role: effectiveContentRole,
       content_id: contentId,
+      core_content_id: coreContentId,
+      pipeline_steps: coreContentId 
+        ? ["generate-core-content", "generate-multichannel"]
+        : ["generate-multichannel (topic-based fallback)"],
       channel_previews: channelPreviews,
       full_content: multiData.data,
-      message: contentId 
-        ? `Đã tạo và lưu content "${topic}" cho ${(channels || []).length} kênh. Xem tại /multichannel`
+      message: coreContentId
+        ? `✅ Pipeline hoàn tất:\n1) Đã tạo Core Content: "${coreContentTitle}"\n2) Đã transform sang ${(channels || []).length} kênh.\nXem tại /multichannel và /core-content`
         : `Đã tạo content cho ${(channels || []).length} kênh: ${(channels || []).join(", ")}`,
     },
   };

@@ -208,6 +208,37 @@ export async function executeAgent(
       }
     }
 
+    // Guard: check if critical content tools failed → agent should fail too
+    const CRITICAL_CONTENT_TOOLS = ['generate_multichannel', 'generate_script', 'generate_carousel'];
+    const criticalFailures = toolResults.filter(
+      t => CRITICAL_CONTENT_TOOLS.includes(t.tool_name) && !t.success
+    );
+    
+    if (criticalFailures.length > 0 && !toolResults.some(t => CRITICAL_CONTENT_TOOLS.includes(t.tool_name) && t.success)) {
+      const failedTools = criticalFailures.map(t => `${t.tool_name}: ${t.error}`).join('; ');
+      console.error(`[${agentName}] Critical content tool(s) failed: ${failedTools}`);
+
+      await logAgentExecution(execContext.supabase, {
+        sessionId,
+        agentName,
+        status: 'failed',
+        errorMessage: `Critical tool failure: ${failedTools}`,
+        toolsUsed: toolResults.map(t => t.tool_name),
+        durationMs: Date.now() - startTime,
+        modelUsed: agentConfig.defaultModel,
+      });
+
+      return {
+        success: false,
+        agentName,
+        content: finalContent || `Không thể tạo nội dung: ${failedTools}`,
+        toolResults,
+        durationMs: Date.now() - startTime,
+        error: `Critical tool failure: ${failedTools}`,
+        blackboardWrites,
+      };
+    }
+
     // Log to agent_execution_logs
     await logAgentExecution(execContext.supabase, {
       sessionId,

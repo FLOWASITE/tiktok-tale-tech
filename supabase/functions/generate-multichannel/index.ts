@@ -1400,15 +1400,16 @@ serve(async (req) => {
     let coreContent: CoreContentData | null = null;
 
     if (formData.coreContentId) {
+      // Allow draft + approved Core Content (chat pipeline creates as 'draft')
       const { data, error } = await supabase
         .from('core_contents')
         .select('id, content, key_messages, title, topic, content_goal, word_count')
         .eq('id', formData.coreContentId)
-        .eq('status', 'approved') // Only use approved content
+        .in('status', ['draft', 'approved', 'reviewed']) // Accept draft for pipeline flow
         .single();
       
       if (error || !data) {
-        console.warn(`Core Content ${formData.coreContentId} not found or not approved, falling back to topic-based generation`);
+        console.warn(`Core Content ${formData.coreContentId} not found or invalid status, falling back to topic-based generation`);
       } else {
         coreContent = data as CoreContentData;
         console.log(`[core-content-mode] Using Core Content: "${coreContent.title}" (${coreContent.word_count || 0} words, ${coreContent.content?.length || 0} chars)`);
