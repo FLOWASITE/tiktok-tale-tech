@@ -1,114 +1,69 @@
 
 
-## Kế hoạch: Đồng bộ luồng Chat với quy trình "Tạo nội dung đa kênh" chuẩn
+## Thêm "Flowa Team" vào Sidebar — Mục nổi bật nhất, trên Dashboard
 
-### Vấn đề hiện tại
+### Mô tả
+Thêm mục **"Flowa Team"** (chức năng Chat Agent) vào sidebar, đặt ở vị trí **trên cùng** trước Dashboard, với thiết kế nổi bật nhất để thu hút sự chú ý.
 
-Quy trình chuẩn (wizard UI tại `/multichannel/new`) có 4 bước:
-1. Chọn Chủ đề
-2. Tạo Core Content (gọi `generate-core-content`)
-3. Chọn Vai trò nội dung (seed/sprout/harvest)
-4. Tạo nội dung đa kênh (gọi `generate-multichannel` với `coreContentId`)
+### Thay đổi
 
-Luồng chat qua tool executor **đã có Step 1 + Step 2** (gọi `generate-core-content` rồi `generate-multichannel`), **nhưng `generate-core-content` không nhận được `userId` từ body** khi gọi nội bộ bằng service role key. Kết quả:
-- Core Content được tạo với `user_id = null` 
-- Nhưng insert vẫn thành công vì dùng service role (bypass RLS)
-- Khi user mở `/core-content`, bản ghi vẫn hiển thị (vì RLS check `organization_id`, không phải `user_id`)
-- **Vấn đề chính**: `generate-core-content` **không đọc `userId` từ body request** như `generate-multichannel` đã làm
+#### 1. Tạo trang `/chat` mới (`src/pages/FlowaChatPage.tsx`)
+- Trang toàn màn hình chứa `TopicAIChatbot` ở chế độ `fullscreen`
+- Tự động chọn brand mặc định nếu có
+- Wrapped trong `AppLayout` + `ProtectedRoute`
 
-### Nguyên nhân gốc
+#### 2. Đăng ký route trong `src/App.tsx`
+- Thêm route `/chat` trỏ đến `FlowaChatPage`
+- Đặt trong khối protected routes
 
-1. **`generate-core-content/index.ts`** chỉ lấy userId từ JWT header (dòng 403-410), không fallback đọc từ body khi JWT không hợp lệ
-2. **`tool-executor.ts`** gọi `generate-core-content` không truyền `userAccessToken` (luôn dùng service role key)
-3. Không truyền `userId` trong body request đến `generate-core-content`
+#### 3. Cập nhật Sidebar (`src/components/AppSidebar.tsx`)
 
-### Kế hoạch sửa (2 file)
+**Thêm mục "Flowa Team" đặc biệt** phía trên nhóm Quick Access:
+- Icon: `Sparkles` (hoặc `MessageSquare` kết hợp gradient)
+- Vị trí: Ngay sau header logo, **trước** Dashboard
+- Thiết kế nổi bật:
+  - Nền gradient `from-primary/15 to-secondary/15`
+  - Border gradient `border-primary/30`
+  - Hiệu ứng pulse nhẹ hoặc glow
+  - Font đậm hơn các mục khác
+  - Badge "AI" nhỏ bên cạnh
 
-#### File 1: `supabase/functions/generate-core-content/index.ts`
-- Thêm fallback đọc `userId` từ body khi JWT validation fail (giống logic đã có trong `generate-multichannel`)
-- Thêm kiểm tra organization membership khi dùng body userId
-- Giữ ưu tiên: JWT user > body userId
-
-#### File 2: `supabase/functions/_shared/tool-executor.ts`  
-- Trong `executeGenerateMultichannel` Step 1 (gọi `generate-core-content`):
-  - Forward `userAccessToken` nếu có
-  - Truyền `userId` và `organizationId` trong body request
-  - Đảm bảo core content được tạo với đúng `user_id`
+```text
++---------------------------+
+| [Logo] Flowa PRO          |
++---------------------------+
+| ★ Flowa Team  [AI]        |  <-- Mục mới, nổi bật nhất
++---------------------------+
+| ● QUICK ACCESS            |
+|   Dashboard               |
+|   Kho Y Tuong             |
+|   Core Content            |
++---------------------------+
+| ● CONTENT                 |
+|   ...                     |
+```
 
 ### Chi tiết kỹ thuật
 
-**`generate-core-content/index.ts` (dòng 396-415)**:
+**File 1: `src/pages/FlowaChatPage.tsx`** (mới)
+- Import `TopicAIChatbot` từ `@/components/topic/TopicAIChatbot`
+- Sử dụng `useBrandTemplates` để lấy brand mặc định
+- Render chatbot full-height trong container
 
-```text
-// Hiện tại:
-let userId: string | null = null;
-if (authHeader) {
-  const token = authHeader.replace('Bearer ', '');
-  const { data: { user } } = await supabase.auth.getUser(token);
-  userId = user?.id || null;
-}
+**File 2: `src/App.tsx`**
+- Thêm `<Route path="/chat" element={<ProtectedRoute><AppLayout><FlowaChatPage /></AppLayout></ProtectedRoute>} />`
 
-// Sẽ sửa thành:
-let userId: string | null = null;
-let isServiceRoleCall = false;
-const bodyUserId = body.userId || (body as any).user_id || null;
+**File 3: `src/components/AppSidebar.tsx`**
+- Thêm component `FlowaTeamMenuItem` riêng với styling đặc biệt:
+  - Gradient background khi active và cả khi inactive (nhẹ hơn)
+  - Animation shimmer/glow nhẹ
+  - Icon `Sparkles` với hiệu ứng rotate
+- Đặt trước `quickItems` map, ngay sau `SidebarHeader`
+- Hỗ trợ cả trạng thái collapsed (chỉ hiện icon với glow)
 
-if (authHeader) {
-  const token = authHeader.replace('Bearer ', '');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-  
-  if (token === serviceRoleKey || token === anonKey) {
-    // Internal trusted call
-    isServiceRoleCall = true;
-    userId = bodyUserId;
-  } else {
-    const { data: { user } } = await supabase.auth.getUser(token);
-    if (user?.id) {
-      userId = user.id;
-    } else {
-      userId = bodyUserId;
-      if (userId) isServiceRoleCall = true;
-    }
-  }
-}
+**File 4: i18n** — Thêm key `app.sidebar.flowaTeam` cho cả `vi` và `en`
 
-// Verify org membership if using body userId
-if (isServiceRoleCall && userId && organizationId) {
-  const { data: member } = await supabase
-    .from('organization_members')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('organization_id', organizationId)
-    .limit(1)
-    .maybeSingle();
-  if (!member) {
-    userId = null; // Reset if not a member
-  }
-}
-```
-
-**`tool-executor.ts` (dòng 387-405, Step 1 call)**:
-
-```text
-// Hiện tại:
-"Authorization": `Bearer ${supabaseKey}`,
-body: { topic, contentGoal, contentAngle, ... }
-
-// Sẽ sửa thành:
-"Authorization": `Bearer ${context.userAccessToken || supabaseKey}`,
-body: { topic, contentGoal, contentAngle, ..., userId: context.userId, user_id: context.userId }
-```
-
-### Kết quả sau khi sửa
-
-- Core Content được tạo với đúng `user_id` (không còn null)
-- Pipeline 2 bước hoàn chỉnh: Core Content → Multichannel
-- Cả 2 bản ghi đều liên kết đúng user và organization
-- Dữ liệu hiển thị nhất quán trên `/core-content` và `/multichannel`
-
-### Kiểm thử
-
-1. Gửi "tạo nội dung đa kênh cho hôm nay" trong chat
-2. Kiểm tra DB: `core_contents` có `user_id` khác null
-3. Kiểm tra DB: `multi_channel_contents` có `core_content_id` trỏ đúng
-4. Mở `/core-content` và `/multichannel` — nội dung hiển thị đúng
+### Kết quả
+- "Flowa Team" là mục đầu tiên và nổi bật nhất trong sidebar
+- Click vào sẽ mở trang chat agent toàn màn hình tại `/chat`
+- Giữ nguyên toàn bộ cấu trúc sidebar hiện tại
