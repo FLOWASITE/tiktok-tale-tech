@@ -4,7 +4,7 @@
 // ============================================
 
 import { useState, useRef, useCallback } from 'react';
-import type { ChatMessage, RealtimeContextBadge, ReviewScores, AgentContribution, ContextSources } from '@/components/topic/chatbot/types';
+import type { ChatMessage, RealtimeContextBadge, ReviewScores, AgentContribution, ContextSources, SuggestedTopic } from '@/components/topic/chatbot/types';
 import type { ThinkingStatus, AgentTurnInfo } from '@/components/topic/chatbot/ChatThinkingIndicator';
 import type { ToolResult } from '@/components/topic/chatbot/ToolResultCard';
 import { CHAT_URL } from '@/components/topic/chatbot/constants';
@@ -214,6 +214,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
       let pendingAgentContributions: AgentContribution[] = [];
       let pendingContextSources: ContextSources | undefined = undefined;
       let pendingSuggestedFollowUps: string[] | undefined = undefined;
+      let pendingSuggestedTopics: SuggestedTopic[] | undefined = undefined;
+      let pendingSelectedTopic: string | undefined = undefined;
       let hasStepResults = false;
       let finalContentStarted = false;
       
@@ -251,6 +253,13 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
           try {
             const parsed = JSON.parse(jsonStr);
             
+            // Topic suggestions from Research Agent
+            if (parsed.type === 'topic_suggestions' && parsed.data?.topics) {
+              pendingSuggestedTopics = parsed.data.topics;
+              pendingSelectedTopic = parsed.data.best_topic || undefined;
+              continue;
+            }
+
             // Context metadata event
             if (parsed.type === 'context_metadata' && parsed.badges) {
               pendingContextBadges = parsed.badges;
@@ -388,6 +397,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   agentContributions: pendingAgentContributions.length > 0 ? pendingAgentContributions : undefined,
                   contextSources: pendingContextSources,
                   suggestedFollowUps: pendingSuggestedFollowUps,
+                  suggestedTopics: pendingSuggestedTopics,
+                  selectedTopic: pendingSelectedTopic,
                 };
                 onMessageCreate(newMessage);
               } else {
@@ -401,6 +412,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   agentContributions: pendingAgentContributions.length > 0 ? pendingAgentContributions : undefined,
                   contextSources: pendingContextSources,
                   suggestedFollowUps: pendingSuggestedFollowUps,
+                  suggestedTopics: pendingSuggestedTopics,
+                  selectedTopic: pendingSelectedTopic,
                 });
               }
               continue;
@@ -445,6 +458,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   agentContributions: pendingAgentContributions.length > 0 ? pendingAgentContributions : undefined,
                   contextSources: pendingContextSources,
                   suggestedFollowUps: pendingSuggestedFollowUps,
+                  suggestedTopics: pendingSuggestedTopics,
+                  selectedTopic: pendingSelectedTopic,
                 };
                 onMessageCreate(newMessage);
               } else {
@@ -458,6 +473,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   agentContributions: pendingAgentContributions.length > 0 ? pendingAgentContributions : undefined,
                   contextSources: pendingContextSources,
                   suggestedFollowUps: pendingSuggestedFollowUps,
+                  suggestedTopics: pendingSuggestedTopics,
+                  selectedTopic: pendingSelectedTopic,
                 });
               }
               continue;
@@ -551,6 +568,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   agentContributions: pendingAgentContributions.length > 0 ? pendingAgentContributions : undefined,
                   contextSources: pendingContextSources,
                   suggestedFollowUps: pendingSuggestedFollowUps,
+                  suggestedTopics: pendingSuggestedTopics,
+                  selectedTopic: pendingSelectedTopic,
                 };
                 onMessageCreate(newMessage);
               } else {
@@ -564,6 +583,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   agentContributions: pendingAgentContributions.length > 0 ? pendingAgentContributions : undefined,
                   contextSources: pendingContextSources,
                   suggestedFollowUps: pendingSuggestedFollowUps,
+                  suggestedTopics: pendingSuggestedTopics,
+                  selectedTopic: pendingSelectedTopic,
                 });
               }
             }
@@ -588,6 +609,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
         agentContributions: pendingAgentContributions.length > 0 ? pendingAgentContributions : undefined,
         contextSources: pendingContextSources,
         suggestedFollowUps: pendingSuggestedFollowUps,
+        suggestedTopics: pendingSuggestedTopics,
+        selectedTopic: pendingSelectedTopic,
       };
       
       if (!messageCreated && (assistantContent || receivedToolResults)) {
