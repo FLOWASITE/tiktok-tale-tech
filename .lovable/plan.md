@@ -1,37 +1,70 @@
 
 
-## Hoàn thiện Flowa Team — Sửa lỗi console còn lại
+## Kế hoạch: Làm AgentPipelineBar hoạt động đúng
 
-### Phát hiện sau rà soát
+### Vấn đề gốc
 
-Tất cả các chức năng đã implement đúng theo kế hoạch:
-- **AgentPipelineBar**: Hiển thị đúng khi supervisor bật, 5 pill với trạng thái realtime
-- **AgentInsightsTab**: Thay thế Discovery tab, hiển thị context sources, agent status, suggestions, token usage
-- **ChatInputArea**: @ mention agent hoạt động, nút "Đội ngũ" hiển thị khi supervisor bật, smart suggestions hiện phía trên input
-- **ChatMessageBubble**: Streaming agent name hiển thị khi AI đang viết
-- **SimpleMessageList**: Truyền streamingAgentName đúng cho message cuối
-- **ChatHeader**: Tab "Insights" với icon Brain thay vì Compass
-- **FlowaChatPage**: Navigation handler đã hoạt động với useNavigate
+`AgentPipelineBar` **không bao giờ hiển thị được lâu** vì:
 
-### Vấn đề duy nhất còn lại
+1. `useChatStreaming.ts` dòng 604: reset `progressSteps: []` trong block `finally` khi streaming kết thúc
+2. `TopicAIChatbot.tsx` dòng 292: chỉ render khi `progressSteps.length > 0`
+3. Kết quả: bar hiện thoáng qua rồi biến mất ngay, user không thấy
 
-**Console Warning: AgentPipelineBar thiếu forwardRef**
+### Giải pháp
 
-Lỗi trong console:
+Thêm state `lastPipelineSteps` trong `TopicAIChatbot.tsx` để lưu lại kết quả pipeline sau mỗi lần chạy. Bar sẽ hiển thị cả khi đang chạy (realtime) lẫn sau khi hoàn thành (persistent).
+
+---
+
+### Thay đổi cụ thể
+
+#### 1. `src/components/topic/TopicAIChatbot.tsx`
+
+- Thêm state `lastPipelineSteps` bằng `useState`
+- Dùng `useEffect` theo dõi `streamingHook.progressSteps`: khi có steps mới (length > 0), cập nhật `lastPipelineSteps`
+- Thay điều kiện render: dùng `lastPipelineSteps` thay vì chỉ `streamingHook.progressSteps`
+- Ưu tiên hiển thị: khi đang streaming dùng `streamingHook.progressSteps` (realtime), khi xong dùng `lastPipelineSteps` (persistent)
+- Truyền `lastPipelineSteps` xuống `AgentInsightsTab` thay vì `streamingHook.progressSteps`
+
+```text
+// Thêm state
+const [lastPipelineSteps, setLastPipelineSteps] = useState<ProgressStep[]>([]);
+
+// Theo dõi và lưu
+useEffect(() => {
+  if (streamingHook.progressSteps.length > 0) {
+    setLastPipelineSteps(streamingHook.progressSteps);
+  }
+}, [streamingHook.progressSteps]);
+
+// Tính steps hiển thị
+const displayPipelineSteps = streamingHook.progressSteps.length > 0
+  ? streamingHook.progressSteps   // realtime khi đang chạy
+  : lastPipelineSteps;             // persistent sau khi xong
+
+// Render bar: dùng displayPipelineSteps thay vì streamingHook.progressSteps
+{uiHook.supervisorEnabled && displayPipelineSteps.length > 0 && (
+  <AgentPipelineBar steps={displayPipelineSteps} />
+)}
 ```
-Warning: Function components cannot be given refs.
-Check the render method of `TopicAIChatbot`.
-  at AgentPipelineBar
-```
 
-`AgentPipelineBar` sử dụng `memo()` nhưng thiếu `forwardRef`. React cảnh báo khi validate component trong tree.
+- Reset `lastPipelineSteps` về `[]` khi user bấm "Reset chat" (trong `handleReset`)
 
-### Sửa chữa
+#### 2. Không cần sửa `useChatStreaming.ts`
 
-**File**: `src/components/topic/chatbot/AgentPipelineBar.tsx`
+Giữ nguyên logic reset `progressSteps: []` trong streaming hook -- đó là đúng vì streaming hook chỉ quản lý trạng thái streaming hiện tại. Việc persist thuộc về component cha.
 
-Thay `memo(function AgentPipelineBar(...))` bằng `memo(forwardRef<HTMLDivElement, AgentPipelineBarProps>(function AgentPipelineBar(props, ref)))` và truyền `ref` vào div gốc.
+#### 3. Không cần sửa `AgentPipelineBar.tsx`
 
-### Kết quả
-- Hết toàn bộ console warning
-- Tất cả chức năng Flowa Team hoạt động đúng
+Component đã hoàn chỉnh -- nhận steps và render đúng 3 trạng thái (pending/active/complete) với tooltip chi tiết.
+
+---
+
+### Kết quả sau khi sửa
+
+- Khi supervisor bật và gửi tin nhắn: bar hiện realtime với trạng thái từng agent (pending xám, active pulse tím, complete checkmark xanh + thời gian)
+- Khi streaming xong: bar vẫn giữ nguyên kết quả lần chạy cuối
+- Hover vào pill: tooltip hiện chi tiết agent
+- Reset chat: bar biến mất
+- Tab Insights cũng nhận đúng `displayPipelineSteps`
+
