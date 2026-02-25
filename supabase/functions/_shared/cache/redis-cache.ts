@@ -19,7 +19,7 @@ async function getRedis(): Promise<any | null> {
   }
 
   try {
-    const { Redis } = await import('https://deno.land/x/upstash_redis@v1.19.3/mod.ts');
+    const { Redis } = await import('npm:@upstash/redis@1.34.3');
     redisClient = new Redis({ url, token });
     console.log('[RedisCache] Connected');
     return redisClient;
