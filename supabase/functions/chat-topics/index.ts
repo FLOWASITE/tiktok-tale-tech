@@ -701,6 +701,18 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
       const writer = writable.getWriter();
       const encoder = new TextEncoder();
       const sseWriter = createSSEWriter(writer);
+      let pendingEventWrites = Promise.resolve();
+
+      const enqueueSupervisorEvent = (event: any) => {
+        pendingEventWrites = pendingEventWrites
+          .then(() => sseWriter.write(event))
+          .catch((err) => {
+            logger.warn('Failed to stream supervisor event', {
+              eventType: event?.type,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          });
+      };
 
       // Send context metadata first
       const metadataEvent = `data: ${serializeContextMetadata(contextMetadata)}\n\n`;
@@ -728,10 +740,13 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
               systemPrompt: finalSystemPrompt,
               conversationHistory: processedMessages.map(m => ({ role: m.role, content: m.content })),
               onEvent: (event) => {
-                sseWriter.write(event).catch(() => {});
+                enqueueSupervisorEvent(event);
               },
             }
           );
+
+          // Ensure all queued supervisor events (including agent_step_result) are flushed first
+          await pendingEventWrites;
 
           // Stream final content
           if (supervisorResult.finalContent) {
