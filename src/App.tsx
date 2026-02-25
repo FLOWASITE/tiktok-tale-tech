@@ -61,6 +61,7 @@ import ThreadsCallback from "./pages/ThreadsCallback";
 import ZaloCallback from "./pages/ZaloCallback";
 import GoogleBusinessCallback from "./pages/GoogleBusinessCallback";
 import CoreContentPage from "./pages/CoreContentPage";
+import FlowaChatPage from "./pages/FlowaChatPage";
 
 const queryClient = new QueryClient();
 
@@ -110,6 +111,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <AppLayout>
               <Dashboard />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/chat"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <FlowaChatPage />
             </AppLayout>
           </ProtectedRoute>
         }

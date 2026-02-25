@@ -1,4 +1,5 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -240,6 +241,52 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-2">
+        {/* Flowa Team - Most prominent item */}
+        <SidebarGroup className="py-2 pb-0">
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip={t('app.sidebar.flowaTeam', { defaultValue: 'Flowa Team' })}>
+                  <NavLink
+                    to="/chat"
+                    className={cn(
+                      "group relative flex items-center gap-3 px-3 py-3 rounded-xl",
+                      "bg-gradient-to-r from-primary/10 to-secondary/10",
+                      "border border-primary/20",
+                      "text-foreground font-semibold transition-all duration-200 ease-out",
+                      "hover:from-primary/15 hover:to-secondary/15 hover:border-primary/30",
+                      "hover:shadow-[0_0_16px_hsl(var(--primary)/0.15)]",
+                    )}
+                    activeClassName={cn(
+                      "from-primary/15 to-secondary/15 border-primary/40",
+                      "shadow-[0_0_20px_hsl(var(--primary)/0.2)]",
+                      "animate-pulse-glow",
+                    )}
+                  >
+                    <div className="relative flex-shrink-0">
+                      <Sparkles className={cn(
+                        "w-5 h-5 text-primary transition-transform duration-300",
+                        "group-hover:rotate-12 group-hover:scale-110",
+                        "drop-shadow-[0_0_6px_hsl(var(--primary)/0.5)]",
+                      )} />
+                    </div>
+                    {!isCollapsed && (
+                      <>
+                        <span className="flex-1 text-sm">{t('app.sidebar.flowaTeam', { defaultValue: 'Flowa Team' })}</span>
+                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 bg-primary/15 text-primary border-primary/25 font-bold">
+                          AI
+                        </Badge>
+                      </>
+                    )}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <GradientSeparator />
+
         {/* Nhóm 1: Quick Access */}
         <SidebarGroup className="py-2">
           <PremiumGroupLabel isCollapsed={isCollapsed}>{t('app.sidebar.quick')}</PremiumGroupLabel>
