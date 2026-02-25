@@ -244,31 +244,55 @@ Categories:
  */
 function hasExplicitTopic(message: string): boolean {
   const lowerMsg = message.toLowerCase();
-  
+
+  const nonTopicTerms = new Set([
+    'facebook', 'instagram', 'tiktok', 'linkedin', 'twitter', 'threads', 'youtube',
+    'kênh', 'channel', 'social', 'mxh', 'online',
+    'bài', 'post', 'content', 'nội', 'dung', 'noi',
+    'viết', 'tạo', 'soạn', 'làm', 'generate', 'create', 'write', 'make',
+    'cho', 'về', 'about', 'the', 'a', 'an', 'một', 'mot'
+  ]);
+
+  const hasRealTopicWords = (raw: string): boolean => {
+    const words = raw
+      .toLowerCase()
+      .replace(/[^\w\u00C0-\u1EF9\s]/g, ' ')
+      .split(/\s+/)
+      .map(w => w.trim())
+      .filter(Boolean);
+
+    const meaningful = words.filter(w => w.length >= 3 && !nonTopicTerms.has(w));
+    return meaningful.length > 0;
+  };
+
   // Check for quoted topic: "topic here" or 'topic here'
-  if (/["'「].{5,}["'」]/.test(message)) return true;
-  
+  const quoted = message.match(/["'「]([^"'」]{5,})["'」]/);
+  if (quoted && hasRealTopicWords(quoted[1])) return true;
+
   // Check for "về + topic" pattern (Vietnamese: "viết về skincare")
-  if (/về\s+\S{3,}/i.test(lowerMsg)) return true;
-  
+  const veMatch = lowerMsg.match(/về\s+([^.,!?\n]+)/i);
+  if (veMatch && hasRealTopicWords(veMatch[1])) return true;
+
   // Check for "about + topic" pattern
-  if (/about\s+\S{3,}/i.test(lowerMsg)) return true;
-  
+  const aboutMatch = lowerMsg.match(/about\s+([^.,!?\n]+)/i);
+  if (aboutMatch && hasRealTopicWords(aboutMatch[1])) return true;
+
   // Check for ": topic" pattern
-  if (/:\s*\S{3,}/.test(message)) return true;
-  
-  // Check for specific content keywords that imply a topic
-  const topicKeywords = /(?:bài|content|nội dung|post|script|carousel)\s+(?:về\s+)?\S{4,}/i;
-  if (topicKeywords.test(lowerMsg)) return true;
-  
-  // Count meaningful words (excluding common verbs/prepositions/platforms)
-  const stopWords = new Set(['tạo', 'viết', 'soạn', 'làm', 'cho', 'một', 'bài', 'nội', 'dung', 'content', 'post', 
-    'generate', 'create', 'write', 'make', 'facebook', 'instagram', 'tiktok', 'linkedin', 'twitter', 'threads',
-    'kênh', 'channel', 'đa', 'multi', 'noi', 'the', 'a', 'an', 'for']);
-  const words = lowerMsg.split(/\s+/).filter(w => w.length >= 2 && !stopWords.has(w));
-  
-  // If only platform/action words remain, no explicit topic
-  return words.length >= 3;
+  const colonMatch = message.match(/:\s*([^.,!?\n]{3,})/);
+  if (colonMatch && hasRealTopicWords(colonMatch[1])) return true;
+
+  // Check content phrase but ignore platform-only/generic targets
+  const contentTopicMatch = lowerMsg.match(/(?:bài|content|nội dung|post|script|carousel)\s+(?:về\s+)?([^.,!?\n]+)/i);
+  if (contentTopicMatch && hasRealTopicWords(contentTopicMatch[1])) return true;
+
+  // Fallback heuristic: enough non-generic words in full message
+  const words = lowerMsg
+    .replace(/[^\w\u00C0-\u1EF9\s]/g, ' ')
+    .split(/\s+/)
+    .map(w => w.trim())
+    .filter(Boolean);
+  const meaningfulWords = words.filter(w => w.length >= 3 && !nonTopicTerms.has(w));
+  return meaningfulWords.length >= 2;
 }
 
 /**
