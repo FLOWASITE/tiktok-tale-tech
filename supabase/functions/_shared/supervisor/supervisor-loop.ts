@@ -652,6 +652,12 @@ function getTransitionEvent(agentName: string, result: AgentResult): WorkflowEve
  * Build final content — prioritize content-agent output
  */
 function buildFinalContent(agentResults: AgentResult[], classification: ClassificationResult): string {
+  // Priority 0: image-agent — its value is in toolResults, but content has the summary
+  if (classification.intent === 'image_generate') {
+    const imageResult = agentResults.find(r => r.agentName === 'image-agent' && r.success);
+    if (imageResult?.content) return imageResult.content;
+  }
+
   // Priority 1: content-agent result
   const contentAgentResult = agentResults.find(
     r => r.agentName === 'content-agent' && r.success && r.content && !r.content.startsWith('[')
