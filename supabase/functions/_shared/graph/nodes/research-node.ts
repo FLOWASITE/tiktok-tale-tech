@@ -8,6 +8,7 @@ import { callAI, AICallResult } from "../../ai-provider.ts";
 import { executeToolCall } from "../../tool-executor.ts";
 import { CHAT_TOOLS, ToolDefinition } from "../../tool-definitions.ts";
 import { buildResearchSystemPrompt } from "../../agents/research-agent.ts";
+import { withCache, generateCacheKey } from "../../cache/redis-cache.ts";
 
 const RESEARCH_TOOLS = ['web_search', 'search_topics', 'discover_topics'];
 
@@ -24,6 +25,15 @@ interface ResearchNodeContext {
 export function createResearchNode(ctx: ResearchNodeContext) {
   return async function researchNode(state: GraphState): Promise<Partial<GraphState>> {
     console.log('[ResearchNode] Starting');
+
+    // Try cache first (TTL 4h)
+    const cacheKey = await generateCacheKey(
+      ctx.brandTemplateId || 'default',
+      'research',
+      { userMessage: state.userMessage, industry: ctx.industry }
+    );
+
+    return withCache(cacheKey, async () => {
     const systemPrompt = buildResearchSystemPrompt(ctx.brandName, ctx.industry);
     const stateContext = buildStateContext(state);
 
@@ -119,5 +129,6 @@ export function createResearchNode(ctx: ResearchNodeContext) {
       bestTopic,
       suggestedTopics,
     };
+    }, 14400); // 4 hours TTL
   };
 }

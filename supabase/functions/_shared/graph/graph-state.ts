@@ -54,6 +54,12 @@ export interface GraphState {
   reviewResult?: any;
   generatedImage?: any;
   brandMemoryContext?: string;
+  complianceResult?: any;
+
+  // Governor / Review scoring
+  reviewScore?: number;
+  reviewConfidence?: number;
+  finalResponse?: string;
 
   // Orchestrator tracking
   orchestratorReasoning?: string;

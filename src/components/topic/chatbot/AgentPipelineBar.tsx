@@ -4,7 +4,7 @@
 // ============================================
 
 import { memo } from 'react';
-import { Search, ClipboardList, PenTool, Image, ShieldCheck, Check, Loader2, Brain, AlertCircle } from 'lucide-react';
+import { Search, ClipboardList, PenTool, Image, ShieldCheck, Check, Loader2, Brain, AlertCircle, Shield, Gauge } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { ProgressStep } from './ChatThinkingIndicator';
@@ -17,10 +17,12 @@ interface AgentPipelineBarProps {
 const AGENT_CONFIG = [
   { key: 'research', matchIds: ['research', 'research-agent'], label: 'Research', icon: Search, viLabel: 'Nghiên cứu' },
   { key: 'brand_memory', matchIds: ['brand_memory', 'brand-memory-agent'], label: 'Brand Memory', icon: Brain, viLabel: 'Thương hiệu' },
+  { key: 'compliance', matchIds: ['compliance', 'compliance-agent'], label: 'Compliance', icon: Shield, viLabel: 'Tuân thủ' },
   { key: 'strategy', matchIds: ['strategy', 'strategy-agent'], label: 'Strategy', icon: ClipboardList, viLabel: 'Chiến lược' },
   { key: 'content', matchIds: ['content', 'content-agent'], label: 'Content', icon: PenTool, viLabel: 'Nội dung' },
   { key: 'visual', matchIds: ['visual', 'image', 'image-agent'], label: 'Visual', icon: Image, viLabel: 'Hình ảnh' },
   { key: 'reviewer', matchIds: ['reviewer', 'reviewer-agent'], label: 'Reviewer', icon: ShieldCheck, viLabel: 'Kiểm duyệt' },
+  { key: 'governor', matchIds: ['governor', 'governor-agent'], label: 'Governor', icon: Gauge, viLabel: 'Kiểm soát' },
 ] as const;
 
 function getStepForAgent(steps: ProgressStep[], agent: typeof AGENT_CONFIG[number]): ProgressStep | undefined {
