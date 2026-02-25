@@ -1,82 +1,114 @@
 
-Mấu chốt bạn gặp là đúng: luồng chat hiện tại **không đi qua Core Content pipeline** như flow “Tạo nội dung đa kênh”.
 
-## Chẩn đoán chính xác từ code + log
+## Kế hoạch: Đồng bộ luồng Chat với quy trình "Tạo nội dung đa kênh" chuẩn
 
-1. **Chat chỉ gọi `generate_multichannel` trực tiếp**
-   - `content-agent` hiện ép gọi `generate_multichannel` ngay.
-   - `tool-definitions` không có tool `generate_core_content` cho agent dùng.
-   - Log gần nhất xác nhận payload chỉ có `topic/channels/content_goal/journey_stage/content_angle`, không có `coreContentId`.
+### Vấn đề hiện tại
 
-2. **Bằng chứng dữ liệu cho thấy Core Content chưa được dùng trong bản ghi đa kênh**
-   - `multi_channel_contents` gần nhất đều có `core_content_id = null`, `content_role = null`.
-   - Query tổng cho thấy `with_core = 0`, `with_role = 0`.
+Quy trình chuẩn (wizard UI tại `/multichannel/new`) có 4 bước:
+1. Chọn Chủ đề
+2. Tạo Core Content (gọi `generate-core-content`)
+3. Chọn Vai trò nội dung (seed/sprout/harvest)
+4. Tạo nội dung đa kênh (gọi `generate-multichannel` với `coreContentId`)
 
-3. **Một điểm gây “success giả” vẫn còn tồn tại**
-   - `agent-base.ts` đã gửi `success/error` vào tool message cho model, nhưng hàm `executeAgent` vẫn có thể trả `success: true` dù tool tạo nội dung fail (vì không có guard fail-fast ở tầng agent result).
+Luồng chat qua tool executor **đã có Step 1 + Step 2** (gọi `generate-core-content` rồi `generate-multichannel`), **nhưng `generate-core-content` không nhận được `userId` từ body** khi gọi nội bộ bằng service role key. Kết quả:
+- Core Content được tạo với `user_id = null` 
+- Nhưng insert vẫn thành công vì dùng service role (bypass RLS)
+- Khi user mở `/core-content`, bản ghi vẫn hiển thị (vì RLS check `organization_id`, không phải `user_id`)
+- **Vấn đề chính**: `generate-core-content` **không đọc `userId` từ body request** như `generate-multichannel` đã làm
 
-4. **Ràng buộc status Core Content có thể làm rơi về topic-mode**
-   - `generate-multichannel` chỉ load Core Content khi `status = 'approved'`.
-   - Trong flow wizard, Core Content mới tạo thường là `draft`; nếu áp logic cứng này thì dễ fallback về topic-based generation.
+### Nguyên nhân gốc
 
-## Cách xử lý dứt điểm (theo đúng tinh thần flow Create Multi-channel)
+1. **`generate-core-content/index.ts`** chỉ lấy userId từ JWT header (dòng 403-410), không fallback đọc từ body khi JWT không hợp lệ
+2. **`tool-executor.ts`** gọi `generate-core-content` không truyền `userAccessToken` (luôn dùng service role key)
+3. Không truyền `userId` trong body request đến `generate-core-content`
 
-### 1) Buộc chat dùng quy trình 2 bước: Core Content → Transform đa kênh
-- **File:** `supabase/functions/_shared/tool-executor.ts`
-- Nâng `executeGenerateMultichannel` thành orchestration pipeline:
-  1. Gọi `generate-core-content` trước (với topic, goal, angle, role, org, brand, audience nếu có)
-  2. Lấy `coreContentId` từ kết quả
-  3. Gọi `generate-multichannel` với `coreContentId` + `contentRole` + các tham số chiến lược
-- Trả về result gộp (có `core_content_id`, `multichannel_content_id`, summary 2 bước) để chat hiển thị rõ đã đi đúng pipeline.
+### Kế hoạch sửa (2 file)
 
-### 2) Mở rộng schema tool để không mất dữ liệu chiến lược của flow chuẩn
-- **File:** `supabase/functions/_shared/tool-definitions.ts`
-- Thêm/chuẩn hóa các tham số cho `generate_multichannel`:
-  - `content_role` (seed/sprout/harvest)
-  - `target_audience` (optional)
-  - giữ `journey_stage`, `content_angle`, `auto_research`
-- Đảm bảo mô tả tool ghi rõ: “luồng này tạo Core Content trước rồi mới transform”.
+#### File 1: `supabase/functions/generate-core-content/index.ts`
+- Thêm fallback đọc `userId` từ body khi JWT validation fail (giống logic đã có trong `generate-multichannel`)
+- Thêm kiểm tra organization membership khi dùng body userId
+- Giữ ưu tiên: JWT user > body userId
 
-### 3) Sửa prompt Content Agent để tuân thủ quy trình mới
-- **File:** `supabase/functions/_shared/agents/content-agent.ts`
-- Cập nhật quy tắc:
-  - Khi user yêu cầu tạo nội dung đa kênh, **phải dùng flow Core Content trước**
-  - Luôn xác định `content_role` (từ goal/angle/journey) trước khi tạo
-  - Kết quả trả về nêu rõ 2 giai đoạn đã chạy.
+#### File 2: `supabase/functions/_shared/tool-executor.ts`  
+- Trong `executeGenerateMultichannel` Step 1 (gọi `generate-core-content`):
+  - Forward `userAccessToken` nếu có
+  - Truyền `userId` và `organizationId` trong body request
+  - Đảm bảo core content được tạo với đúng `user_id`
 
-### 4) Chặn thành công giả ở Agent layer
-- **File:** `supabase/functions/_shared/agents/agent-base.ts`
-- Thêm guard:
-  - Nếu tool tạo nội dung chính (`generate_multichannel`, `generate_script`, `generate_carousel`) thất bại và không có phương án thành công thay thế → trả `success: false` cho agent.
-- Mục tiêu: supervisor không đi tiếp như “đã hoàn tất” khi thực tế pipeline fail.
+### Chi tiết kỹ thuật
 
-### 5) Đồng bộ logic Core Content status để tránh fallback sai
-- **File:** `supabase/functions/generate-multichannel/index.ts`
-- Khi nhận `coreContentId`:
-  - Cho phép dùng Core Content cùng tổ chức theo quy tắc an toàn (không chỉ mỗi `approved` cứng), hoặc thêm logic ưu tiên nguồn vừa tạo trong pipeline chat.
-- Vẫn giữ kiểm tra membership/org để đảm bảo an toàn dữ liệu.
+**`generate-core-content/index.ts` (dòng 396-415)**:
 
-## Kết quả sau khi áp dụng
+```text
+// Hiện tại:
+let userId: string | null = null;
+if (authHeader) {
+  const token = authHeader.replace('Bearer ', '');
+  const { data: { user } } = await supabase.auth.getUser(token);
+  userId = user?.id || null;
+}
 
-- Chat sẽ tạo nội dung đúng chuỗi:
-  1) sinh Core Content
-  2) transform sang đa kênh từ Core Content đó
-- `multi_channel_contents` sẽ có:
-  - `core_content_id` khác null
-  - `content_role` khác null
-- `/core-content` và `/multichannel` liên kết đúng như flow chuẩn, không còn cảm giác “Core Content bị bỏ qua”.
+// Sẽ sửa thành:
+let userId: string | null = null;
+let isServiceRoleCall = false;
+const bodyUserId = body.userId || (body as any).user_id || null;
 
-## Kế hoạch kiểm thử bắt buộc (E2E)
+if (authHeader) {
+  const token = authHeader.replace('Bearer ', '');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  
+  if (token === serviceRoleKey || token === anonKey) {
+    // Internal trusted call
+    isServiceRoleCall = true;
+    userId = bodyUserId;
+  } else {
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (user?.id) {
+      userId = user.id;
+    } else {
+      userId = bodyUserId;
+      if (userId) isServiceRoleCall = true;
+    }
+  }
+}
 
-1. Gửi trong chat: “Tạo nội dung đa kênh cho hôm nay”.
-2. Kiểm tra log phải có cả 2 bước: gọi `generate-core-content` rồi `generate-multichannel`.
-3. Kiểm tra DB:
-   - có bản ghi mới trong `core_contents`
-   - bản ghi mới trong `multi_channel_contents` có `core_content_id` trỏ đúng sang bản ghi trên và có `content_role`.
-4. Vào `/core-content`: thấy bản ghi mới.
-5. Vào `/multichannel`: thấy nội dung mới và liên kết đúng Core Content.
-6. Test lại trên mobile + desktop để xác nhận không lệch flow.
+// Verify org membership if using body userId
+if (isServiceRoleCall && userId && organizationId) {
+  const { data: member } = await supabase
+    .from('organization_members')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('organization_id', organizationId)
+    .limit(1)
+    .maybeSingle();
+  if (!member) {
+    userId = null; // Reset if not a member
+  }
+}
+```
 
-## Ghi chú thêm
+**`tool-executor.ts` (dòng 387-405, Step 1 call)**:
 
-- Cảnh báo console về `ref` trong `CoreContentCard/Badge` là vấn đề UI riêng, không phải nguyên nhân “Core Content không được sử dụng”. Có thể xử lý ở task riêng sau khi fix pipeline xong.
+```text
+// Hiện tại:
+"Authorization": `Bearer ${supabaseKey}`,
+body: { topic, contentGoal, contentAngle, ... }
+
+// Sẽ sửa thành:
+"Authorization": `Bearer ${context.userAccessToken || supabaseKey}`,
+body: { topic, contentGoal, contentAngle, ..., userId: context.userId, user_id: context.userId }
+```
+
+### Kết quả sau khi sửa
+
+- Core Content được tạo với đúng `user_id` (không còn null)
+- Pipeline 2 bước hoàn chỉnh: Core Content → Multichannel
+- Cả 2 bản ghi đều liên kết đúng user và organization
+- Dữ liệu hiển thị nhất quán trên `/core-content` và `/multichannel`
+
+### Kiểm thử
+
+1. Gửi "tạo nội dung đa kênh cho hôm nay" trong chat
+2. Kiểm tra DB: `core_contents` có `user_id` khác null
+3. Kiểm tra DB: `multi_channel_contents` có `core_content_id` trỏ đúng
+4. Mở `/core-content` và `/multichannel` — nội dung hiển thị đúng
