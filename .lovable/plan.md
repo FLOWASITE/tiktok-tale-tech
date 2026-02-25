@@ -15,3 +15,21 @@
 `graph-engine.ts` updated to re-export `createNodeRegistry` and `NodeExecutionContext`.
 
 Backward compatible: agent-base.ts, research-agent.ts, content-agent.ts etc. untouched.
+
+# Phase 4: Integration - DONE ✅
+
+Graph Engine được kết nối vào `chat-topics/index.ts` edge function:
+
+- **Feature flag**: `enableGraphEngine?: boolean` trong `ChatRequest` (chat-types.ts)
+- **Execution path**: Block mới trong `chat-topics/index.ts` trước supervisor block
+- **SSE Streaming**: Real-time events qua SSE — `graph_plan`, `node_start`, `node_complete`, `node_error`, `content_chunk`
+- **Heartbeat**: `:heartbeat` mỗi 15s giữ connection alive
+- **Metrics**: Log đầy đủ vào `ai_metrics` với `mode: graph_engine`
+- **Backward compatible**: Mặc định off, chỉ kích hoạt khi `enableGraphEngine: true`
+
+Flow: `enableGraphEngine` → `createNodeRegistry(context)` → `runOrchestrator(userMessage, registry)` → SSE stream results
+
+Files thay đổi:
+- `supabase/functions/_shared/types/chat-types.ts` — Thêm `enableGraphEngine`
+- `supabase/functions/chat-topics/index.ts` — Import graph engine, thêm execution block
+- `.lovable/plan.md` — Cập nhật
