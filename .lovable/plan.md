@@ -1,91 +1,111 @@
 
 
-# Fix: Content Agent không lấy được Topic từ Research Agent
+# Fix: Research Agent chọn 1 topic duy nhất, truyền cho Content Agent và hiển thị trên Chat UI
 
-## Nguyên nhân gốc
+## Vấn đề hiện tại
 
-Có **2 vấn đề cốt lõi** khiến Content Agent không sử dụng topic do Research Agent tìm được:
+Qua phân tích code, có 3 vấn đề:
 
-### Vấn đề 1: Blackboard context bị cắt ngắn (500 ký tự)
+1. **Research Agent không chọn rõ ràng 1 topic**: `buildTopicSuggestionsPayload` lấy `best_topic` từ tool result, nhưng tool `discover_topics` trả về danh sách topics mà KHÔNG có field `best_topic`. Fallback chỉ lấy `topics[0]` -- không phải topic tốt nhất.
 
-Trong `blackboard.ts` dòng 196, hàm `buildBlackboardContext` cắt giá trị JSON xuống còn **500 ký tự**:
+2. **Research Agent output là JSON -> bị skip trên UI**: Supervisor kiểm tra `content.startsWith('{')` rồi skip `agent_step_result`. Research Agent thường trả về JSON từ tool results, nên output của nó KHÔNG BAO GIỜ hiển thị trên chat.
 
-```text
-JSON.stringify(e.value, null, 2).slice(0, 500)
-```
-
-Research Agent ghi vào blackboard key `research_data` một object phức tạp: `{ content: "...", toolResults: [...] }`. Khi JSON.stringify, dữ liệu topics nằm sâu bên trong `toolResults` bị cắt mất hoàn toàn. Content Agent chỉ nhận được phần đầu (metadata), **không bao giờ thấy danh sách topics**.
-
-### Vấn đề 2: Không có key `best_topic` trên Blackboard
-
-Supervisor emit SSE event `topic_suggestions` về frontend (OK), nhưng **không ghi `best_topic` lên Blackboard** cho Content Agent đọc. Content Agent chỉ thấy `research_data` bị cắt ngắn, không có key riêng biệt cho topic được chọn.
+3. **Topic card có thể không hiển thị**: Event `topic_suggestions` được emit ĐÚNG, frontend nhận và lưu vào `pendingSuggestedTopics`. Nhưng nếu timing sai (message chưa tạo hoặc đã tạo trước khi event đến), card sẽ không render.
 
 ## Giải pháp
 
-### 1. Ghi `best_topic` và `suggested_topics` lên Blackboard sau Research Agent
+### 1. Research Agent tự chọn best_topic (Backend)
 
 **File**: `supabase/functions/_shared/supervisor/supervisor-loop.ts`
 
-Sau khi emit `topic_suggestions` (dòng ~282-288 và ~446-453), thêm logic ghi trực tiếp lên blackboard:
+Cập nhật `buildTopicSuggestionsPayload` để chọn topic có **score cao nhất** thay vì lấy `topics[0]`:
 
 ```text
-if (topicPayload) {
-  // Emit SSE to frontend (existing)
-  options.onEvent?.({ type: 'topic_suggestions', data: topicPayload });
+// Hiện tại: best_topic = discoverTool.result.best_topic ?? topics[0]?.topic
+// Sau fix: Sắp xếp theo score, chọn topic có score cao nhất
+const sortedTopics = [...topics].sort((a, b) => (b.score || 0) - (a.score || 0));
+const bestTopic = sortedTopics[0]?.topic;
+```
 
-  // NEW: Write best_topic to blackboard for Content Agent
-  await blackboard.write('best_topic', topicPayload.best_topic, 'research-agent');
-  await blackboard.write('suggested_topics', topicPayload.topics, 'research-agent');
+### 2. Research Agent prompt yêu cầu chọn 1 topic
+
+**File**: `supabase/functions/_shared/agents/research-agent.ts`
+
+Thêm quy tắc vào system prompt:
+
+```text
+## QUY TẮC QUAN TRỌNG
+- Sau khi gọi discover_topics, PHẢI chọn 1 topic tốt nhất dựa trên score + brand alignment
+- Trả về text summary (KHÔNG trả JSON thuần) với format:
+  **Topic được chọn**: [tên topic]
+  **Lý do**: [giải thích ngắn]
+  **Các topic khác**: [danh sách]
+```
+
+Điều này đảm bảo Research Agent trả về **text content** (không phải JSON), giúp `agent_step_result` được emit thành công.
+
+### 3. Đảm bảo topic card luôn hiển thị (Frontend)
+
+**File**: `src/hooks/useChatStreaming.ts`
+
+Thêm logic: Khi stream kết thúc (`done = true`), nếu `pendingSuggestedTopics` chưa được gắn vào message, gọi `onMessageUpdate` một lần cuối để đảm bảo topics luôn hiển thị:
+
+```text
+// Sau vòng while (done)
+if (messageCreated && (pendingSuggestedTopics || pendingSelectedTopic)) {
+  onMessageUpdate(assistantId, {
+    suggestedTopics: pendingSuggestedTopics,
+    selectedTopic: pendingSelectedTopic,
+  });
 }
 ```
 
-Thay đổi này áp dụng ở **2 nơi**: multi-step workflow (dòng ~278-288) và linear workflow (dòng ~443-453).
+### 4. TopicSuggestionsCard cho phép click chọn topic (Frontend - Bonus)
 
-### 2. Tăng giới hạn truncation cho blackboard context
+**File**: `src/components/topic/chatbot/TopicSuggestionsCard.tsx`
 
-**File**: `supabase/functions/_shared/supervisor/blackboard.ts`
-
-Tăng giới hạn slice từ 500 lên 1500 ký tự trong `buildBlackboardContext` (dòng 196):
+Thêm prop `onSelect` để user có thể click chọn topic khác nếu muốn:
 
 ```text
-// Trước: .slice(0, 500)
-// Sau: .slice(0, 1500)
-```
-
-### 3. Cập nhật Content Agent system prompt
-
-**File**: `supabase/functions/_shared/agents/content-agent.ts`
-
-Thêm chỉ dẫn rõ ràng trong system prompt để Content Agent **ưu tiên sử dụng `best_topic`** từ blackboard:
-
-```text
-## QUY TẮC CHỌN TOPIC (ƯU TIÊN)
-1. Nếu có key "best_topic" trên Blackboard → BẮT BUỘC dùng topic này
-2. Nếu có key "suggested_topics" → chọn topic đầu tiên
-3. Chỉ tự chọn topic khi KHÔNG CÓ dữ liệu nào từ Research Agent
+interface TopicSuggestionsCardProps {
+  topics: SuggestedTopic[];
+  selectedTopic?: string;
+  onSelect?: (topic: string) => void;  // NEW
+}
 ```
 
 ## Thay đổi chi tiết
 
-| File | Dòng | Thay đổi |
-|------|------|----------|
-| `supervisor-loop.ts` | ~282-288 | Ghi `best_topic` + `suggested_topics` lên blackboard (multi-step) |
-| `supervisor-loop.ts` | ~446-453 | Ghi `best_topic` + `suggested_topics` lên blackboard (linear) |
-| `blackboard.ts` | 196 | Tăng truncation limit từ 500 lên 1500 chars |
-| `content-agent.ts` | 17-24 | Thêm quy tắc ưu tiên best_topic từ blackboard |
+| File | Thay đổi |
+|------|----------|
+| `supervisor-loop.ts` | `buildTopicSuggestionsPayload`: chọn topic theo score cao nhất |
+| `research-agent.ts` | System prompt: yêu cầu trả text summary, chọn 1 best topic |
+| `useChatStreaming.ts` | Đảm bảo `suggestedTopics` được gắn vào message khi stream kết thúc |
+| `TopicSuggestionsCard.tsx` | Thêm `onSelect` callback cho phép click chọn topic |
 
 ## Luồng sau fix
 
 ```text
+User: "Tạo nội dung Facebook"
+
 Research Agent:
-  → discover_topics → 5 topics
-  → Blackboard: research_data = {content, toolResults}
-  → Blackboard: best_topic = "Tối ưu hóa thuế cho startup 2026"  ← NEW
-  → Blackboard: suggested_topics = [{topic, score, ...}, ...]    ← NEW
+  -> discover_topics -> 5 topics (có score)
+  -> Chọn topic score cao nhất (VD: score=92)
+  -> Trả về TEXT (không JSON):
+     "**Topic được chọn**: Quyết toán thuế TNCN 2026 (score: 92)
+      **Lý do**: Trending cao, phù hợp thời điểm..."
+
+Supervisor:
+  -> buildTopicSuggestionsPayload: sort by score, best = score cao nhất
+  -> Emit SSE: topic_suggestions {topics: [...], best_topic: "Quyết toán thuế TNCN 2026"}
+  -> Write blackboard: best_topic = "Quyết toán thuế TNCN 2026"
+  -> agent_step_result: content là TEXT -> emit OK (không bị skip)
 
 Content Agent:
-  → Đọc blackboard context
-  → Thấy best_topic = "Tối ưu hóa thuế cho startup 2026"        ← KEY FIX
-  → Gọi generate_multichannel(topic="Tối ưu hóa thuế cho startup 2026", ...)
-  → Core Content được tạo với đúng topic
+  -> Đọc blackboard: best_topic = "Quyết toán thuế TNCN 2026"
+  -> Gọi generate_multichannel(topic="Quyết toán thuế TNCN 2026")
+
+Chat UI:
+  -> [TopicSuggestionsCard] hiển thị 5 topics, highlight best_topic
+  -> [Content] hiển thị nội dung đa kênh
 ```
