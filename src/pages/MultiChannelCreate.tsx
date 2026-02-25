@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Wand2, X, MessageSquare, PanelRightClose } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { MultiChannelFormWizard } from '@/components/multichannel/MultiChannelFormWizard';
 import { CreatePreviewPanel } from '@/components/multichannel/CreatePreviewPanel';
 import { CompactBrandSelector } from '@/components/multichannel/CompactBrandSelector';
@@ -58,6 +59,7 @@ export default function MultiChannelCreate() {
 
   // Chat panel state
   const [showChatPanel, setShowChatPanel] = useState(false);
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
 
   // Generation state
   const [generationState, setGenerationState] = useState<GenerationState>('idle');
@@ -382,6 +384,44 @@ export default function MultiChannelCreate() {
         imageTotalCount={imagePipeline.imageTotalCount}
         logoOverlayFailures={imagePipeline.logoOverlayFailures}
       />
+
+      {/* Mobile Chat FAB + Drawer */}
+      {selectedBrandId && (
+        <>
+          <Button
+            onClick={() => setMobileChatOpen(true)}
+            className="lg:hidden fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-lg bg-gradient-to-br from-primary to-secondary p-0"
+            size="icon"
+          >
+            <MessageSquare className="w-6 h-6 text-primary-foreground" />
+          </Button>
+
+          <Drawer open={mobileChatOpen} onOpenChange={setMobileChatOpen}>
+            <DrawerContent className="h-[85dvh] p-0">
+              <DrawerHeader className="px-4 py-2 border-b flex-shrink-0">
+                <DrawerTitle className="text-sm font-semibold flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-primary" />
+                  Brainstorm AI
+                </DrawerTitle>
+              </DrawerHeader>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <TopicAIChatbot
+                  brandTemplateId={selectedBrandId}
+                  contentGoal={formData.contentGoal || 'education'}
+                  mode="embedded"
+                  onNavigate={(path, state) => navigate(path, { state })}
+                  isExpanded={true}
+                  className="h-full rounded-none border-0"
+                  onTopicSelect={(topic) => {
+                    setFormData(prev => ({ ...prev, topic }));
+                    setMobileChatOpen(false);
+                  }}
+                />
+              </div>
+            </DrawerContent>
+          </Drawer>
+        </>
+      )}
     </div>
   );
 }
