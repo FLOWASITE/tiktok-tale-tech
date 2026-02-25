@@ -139,12 +139,16 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
       // Get user access token for proper auth propagation
       const { data: sessionData } = await (await import('@/integrations/supabase/client')).supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        throw new Error('AUTH_SESSION_MISSING');
+      }
       
       const response = await fetch(CHAT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Authorization': `Bearer ${accessToken}`,
           'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({
@@ -538,6 +542,18 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
         return null;
       }
       
+      if (error instanceof Error && error.message === 'AUTH_SESSION_MISSING') {
+        const errorMessage: ChatMessage = {
+          id: createMessageId('error'),
+          role: 'assistant',
+          content: '🔒 Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tạo nội dung.',
+          timestamp: new Date(),
+          isError: true,
+        };
+        onMessageCreate(errorMessage);
+        return null;
+      }
+
       if (error instanceof Error && (error.message === 'RATE_LIMIT' || error.message === 'PAYMENT_REQUIRED' || error.message === 'QUOTA_EXCEEDED')) {
         const isRateLimit = error.message === 'RATE_LIMIT';
         const isQuota = error.message === 'QUOTA_EXCEEDED';

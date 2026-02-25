@@ -1260,51 +1260,82 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user from auth header (supports both user JWT and service-role with body fallback)
+    // Get user from auth header (supports both user JWT and internal trusted calls)
     const authHeader = req.headers.get("authorization");
     console.log("Auth header present:", !!authHeader);
-    
+
     let userId: string | null = null;
     let isServiceRoleCall = false;
-    
-    if (authHeader) {
-      const token = authHeader.replace("Bearer ", "");
-      
-      // Check if this is a service role key OR anon key (internal call from tool-executor)
-      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_KEY") || '';
-      
-      if (token === serviceRoleKey || token === anonKey) {
+
+    const bodyUserId = (formData as any).userId || (formData as any).user_id || null;
+    const requestedOrganizationId = (formData as any).organizationId || (formData as any).organization_id || null;
+
+    const parseJwtPayload = (token: string): Record<string, any> | null => {
+      try {
+        const [, payloadPart] = token.split('.');
+        if (!payloadPart) return null;
+        const normalized = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+        const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+        return JSON.parse(atob(padded));
+      } catch {
+        return null;
+      }
+    };
+
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.slice("Bearer ".length).trim();
+
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_KEY") || Deno.env.get("VITE_SUPABASE_PUBLISHABLE_KEY") || "";
+
+      const tokenPayload = parseJwtPayload(token);
+      const jwtRole = tokenPayload?.role;
+      const hasSub = Boolean(tokenPayload?.sub);
+
+      const isInternalToken =
+        token === serviceRoleKey ||
+        token === anonKey ||
+        jwtRole === "service_role" ||
+        (jwtRole === "anon" && !hasSub);
+
+      if (isInternalToken) {
         isServiceRoleCall = true;
-        // Fallback: read userId from body (trusted internal call)
-        userId = (formData as any).userId || (formData as any).user_id || null;
-        console.log("Internal call (service/anon key), userId from body:", userId);
+        userId = bodyUserId;
+        console.log("Internal token detected, userId from body:", userId);
       } else {
-        // Standard user JWT path
         try {
           const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-          if (authError) {
-            console.error("Auth error:", authError.message);
-            // If JWT validation fails, try body userId as last resort
-            userId = (formData as any).userId || (formData as any).user_id || null;
+          if (authError || !user?.id) {
+            if (authError) {
+              console.error("Auth error:", authError.message);
+            } else {
+              console.warn("Token validated but missing user/sub claim");
+            }
+
+            // Fallback for internal chain where body carries resolved user
+            userId = bodyUserId;
             if (userId) {
               isServiceRoleCall = true;
-              console.log("JWT failed but userId found in body:", userId);
+              console.log("Fallback to body userId after JWT validation failure:", userId);
             }
           } else {
-            userId = user?.id || null;
+            userId = user.id;
             console.log("User ID from token:", userId);
           }
         } catch (authErr) {
           console.error("Failed to parse auth:", authErr);
-          // Last resort: try body userId
-          userId = (formData as any).userId || (formData as any).user_id || null;
+          userId = bodyUserId;
           if (userId) {
             isServiceRoleCall = true;
-            console.log("Auth exception but userId found in body:", userId);
+            console.log("Auth exception, fallback to body userId:", userId);
           }
         }
       }
+    } else if (bodyUserId) {
+      // Allow trusted internal call that may omit bearer user JWT
+      isServiceRoleCall = true;
+      userId = bodyUserId;
+      console.log("No bearer JWT, using body userId fallback:", userId);
     }
 
     if (!userId) {
@@ -1314,17 +1345,17 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    
-    // If service role call, verify user is member of the org for safety
-    if (isServiceRoleCall && (formData as any).organizationId) {
+
+    // If service role/internal call, verify user is member of the requested org for safety
+    if (isServiceRoleCall && requestedOrganizationId) {
       const { data: membership } = await supabase
         .from("organization_members")
         .select("id")
         .eq("user_id", userId)
-        .eq("organization_id", (formData as any).organizationId || (formData as any).organization_id)
+        .eq("organization_id", requestedOrganizationId)
         .limit(1)
         .single();
-      
+
       if (!membership) {
         console.error("User is not a member of the specified organization");
         return new Response(
@@ -1335,7 +1366,7 @@ serve(async (req) => {
     }
 
     // Get organization_id: prefer from request body (support both camelCase and snake_case), fallback to query
-    let organizationId = formData.organization_id || (formData as any).organizationId || null;
+    let organizationId = requestedOrganizationId;
     
     if (!organizationId) {
       // Fallback: get first org where user is a member
@@ -1349,7 +1380,7 @@ serve(async (req) => {
       
       organizationId = orgMember?.organization_id || null;
     }
-    console.log("Using organization_id:", organizationId, "(from request:", !!formData.organization_id, ")");
+    console.log("Using organization_id:", organizationId, "(from request:", !!requestedOrganizationId, ")");
 
     // ============================================
     // CORE CONTENT MODE
