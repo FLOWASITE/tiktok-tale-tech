@@ -191,8 +191,17 @@ Categories:
     });
 
     if (result.success && result.data) {
-      // Parse streaming response to get content
-      const text = await streamToText(result.data);
+      // Handle both streaming and non-streaming responses
+      let text: string;
+      if (result.data instanceof ReadableStream) {
+        text = await streamToText(result.data);
+      } else if (result.data?.choices?.[0]?.message?.content) {
+        text = result.data.choices[0].message.content;
+      } else if (typeof result.data === 'string') {
+        text = result.data;
+      } else {
+        text = JSON.stringify(result.data);
+      }
       const parsed = JSON.parse(text.replace(/```json\n?|\n?```/g, '').trim());
       
       const intent = parsed.intent as IntentType;
