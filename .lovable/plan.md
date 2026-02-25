@@ -1,70 +1,125 @@
 
 
-## Kế hoạch: Làm AgentPipelineBar hoạt động đúng
+## Kế hoạch: Streaming kết quả realtime từng bước Agent
 
-### Vấn đề gốc
+### Vấn đề hiện tại
 
-`AgentPipelineBar` **không bao giờ hiển thị được lâu** vì:
-
-1. `useChatStreaming.ts` dòng 604: reset `progressSteps: []` trong block `finally` khi streaming kết thúc
-2. `TopicAIChatbot.tsx` dòng 292: chỉ render khi `progressSteps.length > 0`
-3. Kết quả: bar hiện thoáng qua rồi biến mất ngay, user không thấy
+Hiện tại, backend (supervisor-loop) chạy xong TẤT CẢ agents rồi mới stream nội dung cuối cùng (finalContent) dưới dạng `content_chunk`. Trong quá trình chạy, frontend chỉ thấy pipeline bar chuyển trạng thái nhưng **không thấy kết quả gì** cho đến khi tất cả hoàn thành.
 
 ### Giải pháp
 
-Thêm state `lastPipelineSteps` trong `TopicAIChatbot.tsx` để lưu lại kết quả pipeline sau mỗi lần chạy. Bar sẽ hiển thị cả khi đang chạy (realtime) lẫn sau khi hoàn thành (persistent).
+Thêm event SSE mới `agent_step_result` từ backend, stream nội dung của từng agent ngay khi hoàn thành. Frontend hiển thị từng phần kết quả realtime trong chat bubble, và sau khi tất cả agents xong, hiển thị nội dung tổng hợp cuối cùng.
 
 ---
 
-### Thay đổi cụ thể
+### Chi tiết kỹ thuật
 
-#### 1. `src/components/topic/TopicAIChatbot.tsx`
+#### 1. Backend: `supabase/functions/_shared/supervisor/supervisor-loop.ts`
 
-- Thêm state `lastPipelineSteps` bằng `useState`
-- Dùng `useEffect` theo dõi `streamingHook.progressSteps`: khi có steps mới (length > 0), cập nhật `lastPipelineSteps`
-- Thay điều kiện render: dùng `lastPipelineSteps` thay vì chỉ `streamingHook.progressSteps`
-- Ưu tiên hiển thị: khi đang streaming dùng `streamingHook.progressSteps` (realtime), khi xong dùng `lastPipelineSteps` (persistent)
-- Truyền `lastPipelineSteps` xuống `AgentInsightsTab` thay vì `streamingHook.progressSteps`
+Sau mỗi agent hoàn thành thành công, emit thêm event `agent_step_result` chứa nội dung đầy đủ:
 
 ```text
-// Thêm state
-const [lastPipelineSteps, setLastPipelineSteps] = useState<ProgressStep[]>([]);
-
-// Theo dõi và lưu
-useEffect(() => {
-  if (streamingHook.progressSteps.length > 0) {
-    setLastPipelineSteps(streamingHook.progressSteps);
-  }
-}, [streamingHook.progressSteps]);
-
-// Tính steps hiển thị
-const displayPipelineSteps = streamingHook.progressSteps.length > 0
-  ? streamingHook.progressSteps   // realtime khi đang chạy
-  : lastPipelineSteps;             // persistent sau khi xong
-
-// Render bar: dùng displayPipelineSteps thay vì streamingHook.progressSteps
-{uiHook.supervisorEnabled && displayPipelineSteps.length > 0 && (
-  <AgentPipelineBar steps={displayPipelineSteps} />
-)}
+// Sau khi agent chạy xong (cả multi-step và linear workflow):
+options.onEvent?.({
+  type: 'agent_step_result',
+  data: {
+    agent: agentName,
+    agent_name: AGENT_DISPLAY_NAMES[agentName],
+    content: result.content,        // Nội dung đầy đủ
+    success: result.success,
+    duration_ms: result.durationMs,
+    step_index: stepIndex,
+    is_final: false,                // Chưa phải bước cuối
+  },
+});
 ```
 
-- Reset `lastPipelineSteps` về `[]` khi user bấm "Reset chat" (trong `handleReset`)
+Thay đổi ở 2 vị trí:
+- **Multi-step workflow** (line ~279): sau `tool_result` event, thêm `agent_step_result`
+- **Linear workflow** (line ~408): sau `tool_result` event, thêm `agent_step_result`
 
-#### 2. Không cần sửa `useChatStreaming.ts`
+Lọc: Chỉ emit khi `result.success === true` và `result.content` không rỗng, không phải JSON (reviewer).
 
-Giữ nguyên logic reset `progressSteps: []` trong streaming hook -- đó là đúng vì streaming hook chỉ quản lý trạng thái streaming hiện tại. Việc persist thuộc về component cha.
+#### 2. Frontend: `src/hooks/useChatStreaming.ts`
 
-#### 3. Không cần sửa `AgentPipelineBar.tsx`
+Thêm handler cho event `agent_step_result`:
 
-Component đã hoàn chỉnh -- nhận steps và render đúng 3 trạng thái (pending/active/complete) với tooltip chi tiết.
+- Khi nhận được event này, append nội dung vào `assistantContent` với header agent name
+- Format: `\n\n### [icon] Agent Name\n\n[content]\n\n`
+- Tạo hoặc update message bubble ngay lập tức (giống logic `content_chunk`)
+- Track `stepContents[]` để biết có bao nhiêu bước đã hiển thị
+
+Khi nhận `content_chunk` (nội dung tổng hợp cuối):
+- Nếu đã có step results, **thay thế** toàn bộ nội dung bằng final consolidated content
+- Điều này đảm bảo kết quả cuối cùng là bản tổng hợp sạch, không lặp
+
+Logic cụ thể:
+```text
+if (parsed.type === 'agent_step_result' && parsed.data?.content) {
+  const agentName = parsed.data.agent_name || parsed.data.agent;
+  const stepHeader = `\n\n---\n\n**${agentName}** *(${(parsed.data.duration_ms/1000).toFixed(1)}s)*\n\n`;
+  assistantContent += stepHeader + parsed.data.content;
+  hasStepResults = true;
+  
+  // Create or update message (same logic as content_chunk)
+  if (!messageCreated) { ... onMessageCreate(...) }
+  else { ... onMessageUpdate(...) }
+}
+
+// Trong content_chunk handler:
+if (hasStepResults && !finalContentStarted) {
+  // Final content replaces step-by-step content
+  assistantContent = '';
+  finalContentStarted = true;
+}
+assistantContent += chunk;
+```
+
+#### 3. Không cần thay đổi UI components
+
+- `ChatMessageBubble` đã hỗ trợ markdown rendering (react-markdown)
+- `SimpleMessageList` đã auto-scroll khi content update
+- `AgentPipelineBar` tiếp tục hoạt động song song
 
 ---
 
-### Kết quả sau khi sửa
+### Luồng hoạt động sau khi sửa
 
-- Khi supervisor bật và gửi tin nhắn: bar hiện realtime với trạng thái từng agent (pending xám, active pulse tím, complete checkmark xanh + thời gian)
-- Khi streaming xong: bar vẫn giữ nguyên kết quả lần chạy cuối
-- Hover vào pill: tooltip hiện chi tiết agent
-- Reset chat: bar biến mất
-- Tab Insights cũng nhận đúng `displayPipelineSteps`
+```text
+User gửi tin nhắn
+  ↓
+[Pipeline Bar: Research active]
+  ↓
+Research Agent xong → SSE agent_step_result → Chat hiện:
+  "**Research Agent** *(2.1s)*
+   Tìm thấy 5 xu hướng Tết 2026..."
+  ↓
+[Pipeline Bar: Strategy active]
+  ↓
+Strategy Agent xong → SSE agent_step_result → Chat append:
+  "**Strategy Agent** *(1.8s)*
+   Đề xuất kế hoạch 3 bài viết..."
+  ↓
+[Pipeline Bar: Content active]
+  ↓
+Content Agent xong → SSE agent_step_result → Chat append:
+  "**Content Agent** *(3.2s)*
+   [Nội dung bài viết đầy đủ]"
+  ↓
+Supervisor tổng hợp → SSE content_chunk → Chat thay bằng nội dung cuối cùng
+```
+
+### Files cần sửa
+
+| File | Thay đổi |
+|------|----------|
+| `supabase/functions/_shared/supervisor/supervisor-loop.ts` | Emit `agent_step_result` event sau mỗi agent thành công |
+| `src/hooks/useChatStreaming.ts` | Parse `agent_step_result`, hiển thị realtime, replace khi có final content |
+
+### Edge Cases
+
+- Agent thất bại: không emit `agent_step_result`, chỉ emit `tool_result` với `success: false`
+- Reviewer agent: content là JSON scores, không hiển thị dạng text → lọc bỏ
+- Image agent: content là summary text → hiển thị bình thường
+- Single agent workflow: chỉ có 1 step result, final content giống hệt → không thay thế
 
