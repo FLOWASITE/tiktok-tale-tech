@@ -304,9 +304,9 @@ export function TopicAIChatbot({
           ) : (
             <>
               {/* Agent Pipeline Bar - persistent after streaming */}
-              {uiHook.supervisorEnabled && displayPipelineSteps.length > 0 && (
-                <AgentPipelineBar steps={displayPipelineSteps} />
-              )}
+               {displayPipelineSteps.length > 0 && (
+                 <AgentPipelineBar steps={displayPipelineSteps} />
+               )}
               
               <SimpleMessageList
                 messages={messagesHook.messages}

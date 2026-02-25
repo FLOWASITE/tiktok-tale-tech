@@ -4,7 +4,7 @@
 // ============================================
 
 import { memo } from 'react';
-import { Search, ClipboardList, PenTool, Image, ShieldCheck, Check, Loader2 } from 'lucide-react';
+import { Search, ClipboardList, PenTool, Image, ShieldCheck, Check, Loader2, Brain, AlertCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { ProgressStep } from './ChatThinkingIndicator';
@@ -16,9 +16,10 @@ interface AgentPipelineBarProps {
 
 const AGENT_CONFIG = [
   { key: 'research', matchIds: ['research', 'research-agent'], label: 'Research', icon: Search, viLabel: 'Nghiên cứu' },
+  { key: 'brand_memory', matchIds: ['brand_memory', 'brand-memory-agent'], label: 'Brand Memory', icon: Brain, viLabel: 'Thương hiệu' },
   { key: 'strategy', matchIds: ['strategy', 'strategy-agent'], label: 'Strategy', icon: ClipboardList, viLabel: 'Chiến lược' },
   { key: 'content', matchIds: ['content', 'content-agent'], label: 'Content', icon: PenTool, viLabel: 'Nội dung' },
-  { key: 'visual', matchIds: ['visual', 'image-agent'], label: 'Visual', icon: Image, viLabel: 'Hình ảnh' },
+  { key: 'visual', matchIds: ['visual', 'image', 'image-agent'], label: 'Visual', icon: Image, viLabel: 'Hình ảnh' },
   { key: 'reviewer', matchIds: ['reviewer', 'reviewer-agent'], label: 'Reviewer', icon: ShieldCheck, viLabel: 'Kiểm duyệt' },
 ] as const;
 
@@ -34,6 +35,8 @@ function getStepForAgent(steps: ProgressStep[], agent: typeof AGENT_CONFIG[numbe
 export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, className }: AgentPipelineBarProps) {
   if (!steps || steps.length === 0) return null;
 
+  // Only show agents that are present in the steps (graph engine sends only relevant nodes)
+  const activeAgents = AGENT_CONFIG.filter(agent => getStepForAgent(steps, agent));
   return (
     <div className={cn(
       "flex-shrink-0 border-b bg-gradient-to-r from-primary/5 via-violet-500/5 to-primary/5 px-2 sm:px-4 py-2",
@@ -41,7 +44,7 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
     )}>
       {/* Desktop: full pills */}
       <div className="hidden sm:flex items-center gap-1.5 justify-center">
-        {AGENT_CONFIG.map((agent, idx) => {
+        {activeAgents.map((agent, idx) => {
           const step = getStepForAgent(steps, agent);
           const status = step?.status || 'pending';
           const Icon = agent.icon;
@@ -55,11 +58,14 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
                     status === 'pending' && "bg-muted/50 text-muted-foreground/50",
                     status === 'active' && "bg-gradient-to-r from-primary/20 to-violet-500/20 text-primary ring-2 ring-primary/30 animate-pulse",
                     status === 'complete' && "bg-gradient-to-r from-primary/10 to-violet-500/10 text-primary/80",
+                    status === 'error' && "bg-destructive/10 text-destructive ring-1 ring-destructive/30",
                   )}>
                     {status === 'complete' ? (
                       <Check className="w-3 h-3 text-emerald-500" />
                     ) : status === 'active' ? (
                       <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : status === 'error' ? (
+                      <AlertCircle className="w-3 h-3" />
                     ) : (
                       <Icon className="w-3 h-3" />
                     )}
@@ -81,7 +87,7 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
                 </TooltipContent>
               </Tooltip>
 
-              {idx < AGENT_CONFIG.length - 1 && (
+              {idx < activeAgents.length - 1 && (
                 <div className={cn(
                   "w-4 h-px transition-colors duration-300",
                   status === 'complete' ? "bg-primary/40" : "bg-border"
@@ -95,7 +101,7 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
       {/* Mobile: compact progress bar */}
       <div className="sm:hidden flex items-center gap-2">
         <div className="flex items-center gap-1">
-          {AGENT_CONFIG.map((agent) => {
+          {activeAgents.map((agent) => {
             const step = getStepForAgent(steps, agent);
             const status = step?.status || 'pending';
             const Icon = agent.icon;
@@ -107,6 +113,7 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
                   status === 'pending' && "bg-muted/50 text-muted-foreground/40",
                   status === 'active' && "bg-primary/20 text-primary ring-1 ring-primary/40 animate-pulse",
                   status === 'complete' && "bg-primary/10 text-emerald-500",
+                  status === 'error' && "bg-destructive/10 text-destructive",
                 )}
               >
                 {status === 'complete' ? (
@@ -124,7 +131,7 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
           <div
             className="h-full bg-gradient-to-r from-primary to-violet-500 rounded-full transition-all duration-500"
             style={{
-              width: `${(steps.filter(s => s.status === 'complete').length / AGENT_CONFIG.length) * 100}%`
+              width: `${(steps.filter(s => s.status === 'complete').length / Math.max(activeAgents.length, 1)) * 100}%`
             }}
           />
         </div>

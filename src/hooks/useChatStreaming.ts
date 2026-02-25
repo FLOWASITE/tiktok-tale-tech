@@ -260,6 +260,91 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
               continue;
             }
 
+            // ---- Graph Engine events ----
+            if (parsed.type === 'graph_plan' && parsed.data?.steps) {
+              const nodeLabels: Record<string, string> = {
+                'research': '🔍 Nghiên cứu',
+                'brand_memory': '🧠 Brand Memory',
+                'strategy': '📋 Chiến lược',
+                'content': '✍️ Nội dung',
+                'reviewer': '✅ Kiểm duyệt',
+                'image': '🎨 Hình ảnh',
+              };
+              const planSteps: ProgressStep[] = [];
+              for (const step of parsed.data.steps) {
+                planSteps.push({
+                  id: step.node,
+                  label: nodeLabels[step.node] || step.node,
+                  status: 'pending',
+                });
+                // Include parallel nodes
+                if (step.parallelWith) {
+                  for (const pNode of step.parallelWith) {
+                    if (!planSteps.some(s => s.id === pNode)) {
+                      planSteps.push({
+                        id: pNode,
+                        label: nodeLabels[pNode] || pNode,
+                        status: 'pending',
+                      });
+                    }
+                  }
+                }
+              }
+              setState(prev => ({ ...prev, progressSteps: planSteps }));
+              continue;
+            }
+
+            if (parsed.type === 'node_start' && parsed.data?.node) {
+              const nodeName = parsed.data.node;
+              setState(prev => ({
+                ...prev,
+                thinkingStatus: 'executing_tools',
+                currentExecutingTool: nodeName,
+                progressSteps: prev.progressSteps.map(step =>
+                  step.id === nodeName
+                    ? { ...step, status: 'active' as const, startTime: Date.now() }
+                    : step
+                ),
+              }));
+              continue;
+            }
+
+            if (parsed.type === 'node_complete' && parsed.data?.node) {
+              const nodeName = parsed.data.node;
+              const durationMs = parsed.data.durationMs;
+              setState(prev => ({
+                ...prev,
+                currentExecutingTool: null,
+                thinkingStatus: 'generating',
+                progressSteps: prev.progressSteps.map(step =>
+                  step.id === nodeName
+                    ? { ...step, status: 'complete' as const, duration: durationMs || (Date.now() - (step.startTime || Date.now())) }
+                    : step
+                ),
+              }));
+              // Track as agent contribution
+              pendingAgentContributions.push({
+                agentName: nodeName,
+                phase: 'graph_engine',
+                duration: durationMs,
+              });
+              continue;
+            }
+
+            if (parsed.type === 'node_error' && parsed.data?.node) {
+              const nodeName = parsed.data.node;
+              setState(prev => ({
+                ...prev,
+                currentExecutingTool: null,
+                progressSteps: prev.progressSteps.map(step =>
+                  step.id === nodeName
+                    ? { ...step, status: 'error' as const }
+                    : step
+                ),
+              }));
+              continue;
+            }
+
             // Context metadata event
             if (parsed.type === 'context_metadata' && parsed.badges) {
               pendingContextBadges = parsed.badges;

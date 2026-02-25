@@ -12,24 +12,24 @@
 - `image-node.ts` — Image generation, tools: generate_image, edit_image. Force tool use. Output: generatedImage.
 - `index.ts` — Re-exports + `createNodeRegistry(context)` factory returning Map<string, NodeConfig>.
 
-`graph-engine.ts` updated to re-export `createNodeRegistry` and `NodeExecutionContext`.
-
-Backward compatible: agent-base.ts, research-agent.ts, content-agent.ts etc. untouched.
-
 # Phase 4: Integration - DONE ✅
 
-Graph Engine được kết nối vào `chat-topics/index.ts` edge function:
+Graph Engine kết nối vào `chat-topics/index.ts`:
 
-- **Feature flag**: `enableGraphEngine?: boolean` trong `ChatRequest` (chat-types.ts)
-- **Execution path**: Block mới trong `chat-topics/index.ts` trước supervisor block
-- **SSE Streaming**: Real-time events qua SSE — `graph_plan`, `node_start`, `node_complete`, `node_error`, `content_chunk`
-- **Heartbeat**: `:heartbeat` mỗi 15s giữ connection alive
-- **Metrics**: Log đầy đủ vào `ai_metrics` với `mode: graph_engine`
-- **Backward compatible**: Mặc định off, chỉ kích hoạt khi `enableGraphEngine: true`
+- Feature flag `enableGraphEngine?: boolean` trong `ChatRequest`
+- Execution path mới với SSE streaming (`graph_plan`, `node_start`, `node_complete`, `node_error`, `content_chunk`)
+- Heartbeat, metrics logging, backward compatible
 
-Flow: `enableGraphEngine` → `createNodeRegistry(context)` → `runOrchestrator(userMessage, registry)` → SSE stream results
+# Phase 5: SSE Event Rendering - DONE ✅
+
+Frontend parse & render graph engine SSE events:
+
+- **useChatStreaming.ts**: Parse 4 event types mới — `graph_plan` (build dynamic ProgressStep[]), `node_start` (mark active), `node_complete` (mark complete + duration), `node_error` (mark error)
+- **AgentPipelineBar.tsx**: Thêm `brand_memory` node, `error` status styling (destructive colors), dynamic filtering chỉ hiển thị nodes có trong plan
+- **TopicAIChatbot.tsx**: Bỏ gate `supervisorEnabled` — pipeline bar hiển thị cho cả Supervisor và Graph Engine mode
+- Agent contributions tự động tracked từ `node_complete` events
 
 Files thay đổi:
-- `supabase/functions/_shared/types/chat-types.ts` — Thêm `enableGraphEngine`
-- `supabase/functions/chat-topics/index.ts` — Import graph engine, thêm execution block
-- `.lovable/plan.md` — Cập nhật
+- `src/hooks/useChatStreaming.ts` — Graph engine event handlers
+- `src/components/topic/chatbot/AgentPipelineBar.tsx` — Brand memory node, error status, dynamic filtering
+- `src/components/topic/TopicAIChatbot.tsx` — Remove supervisor gate for pipeline bar
