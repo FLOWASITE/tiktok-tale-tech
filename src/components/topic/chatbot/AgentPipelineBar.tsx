@@ -3,7 +3,7 @@
 // Persistent horizontal pipeline showing agent execution status
 // ============================================
 
-import { memo, forwardRef } from 'react';
+import { memo } from 'react';
 import { Search, ClipboardList, PenTool, Image, ShieldCheck, Check, Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -26,11 +26,11 @@ function getStepForAgent(steps: ProgressStep[], agentKey: string): ProgressStep 
   return steps.find(s => s.label.toLowerCase().includes(agentKey));
 }
 
-export const AgentPipelineBar = memo(forwardRef<HTMLDivElement, AgentPipelineBarProps>(function AgentPipelineBar({ steps, className }, ref) {
+export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, className }: AgentPipelineBarProps) {
   if (!steps || steps.length === 0) return null;
 
   return (
-    <div ref={ref} className={cn(
+    <div className={cn(
       "flex-shrink-0 border-b bg-gradient-to-r from-primary/5 via-violet-500/5 to-primary/5 px-2 sm:px-4 py-2",
       className
     )}>
@@ -126,4 +126,4 @@ export const AgentPipelineBar = memo(forwardRef<HTMLDivElement, AgentPipelineBar
       </div>
     </div>
   );
-}));
+});
