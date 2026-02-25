@@ -24,6 +24,7 @@ interface SimpleMessageListProps {
   elapsedSeconds?: number;
   userProfile: any;
   personalizedWelcome: PersonalizedWelcomeData | null;
+  streamingAgentName?: string;
   onFeedback: (messageId: string, feedback: 'up' | 'down') => void;
   onRegenerate: (message: ChatMessage) => void;
   onTopicAction: (topic: ExtractedTopic, format: 'multichannel' | 'script' | 'carousel') => void;
@@ -53,6 +54,7 @@ const MessageRow = memo(function MessageRow({
   personalizedWelcome,
   searchQuery,
   searchResults,
+  streamingAgentName,
   onFeedback,
   onRegenerate,
   onTopicAction,
@@ -71,6 +73,7 @@ const MessageRow = memo(function MessageRow({
   personalizedWelcome: PersonalizedWelcomeData | null;
   searchQuery: string;
   searchResults: string[];
+  streamingAgentName?: string;
   onFeedback: (messageId: string, feedback: 'up' | 'down') => void;
   onRegenerate: (message: ChatMessage) => void;
   onTopicAction: (topic: ExtractedTopic, format: 'multichannel' | 'script' | 'carousel') => void;
@@ -89,6 +92,7 @@ const MessageRow = memo(function MessageRow({
       isRegenerating={false}
       isLoading={isLoading}
       userProfile={userProfile}
+      streamingAgentName={streamingAgentName}
       onFeedback={onFeedback}
       onRegenerate={onRegenerate}
       onTopicAction={onTopicAction}
@@ -118,6 +122,7 @@ export function SimpleMessageList({
   elapsedSeconds,
   userProfile,
   personalizedWelcome,
+  streamingAgentName,
   onFeedback,
   onRegenerate,
   onTopicAction,
@@ -173,29 +178,33 @@ export function SimpleMessageList({
       )}
 
       <div className="space-y-4">
-        {messages.map((message, idx) => (
-          <div key={message.id} className={cn(idx > 0 && 'pt-0')}>
-            <MessageRow
-              message={message}
-              isAnimating={animatingMessageId === message.id}
-              isHighlighted={searchResults.includes(message.id)}
-              isLoading={isLoading}
-              userProfile={userProfile}
-              personalizedWelcome={personalizedWelcome}
-              searchQuery={searchQuery}
-              searchResults={searchResults}
-              onFeedback={onFeedback}
-              onRegenerate={onRegenerate}
-              onTopicAction={onTopicAction}
-              onTopicRefinement={onTopicRefinement}
-              onSendFollowUp={onSendFollowUp}
-              onNavigate={onNavigate}
-              highlightSearchTerm={highlightSearchTerm}
-              mode={mode}
-              onTopicSelect={onTopicSelect}
-            />
-          </div>
-        ))}
+        {messages.map((message, idx) => {
+          const isLastAssistant = isLoading && message.role === 'assistant' && idx === messages.length - 1;
+          return (
+            <div key={message.id} className={cn(idx > 0 && 'pt-0')}>
+              <MessageRow
+                message={message}
+                isAnimating={animatingMessageId === message.id}
+                isHighlighted={searchResults.includes(message.id)}
+                isLoading={isLoading}
+                userProfile={userProfile}
+                personalizedWelcome={personalizedWelcome}
+                searchQuery={searchQuery}
+                searchResults={searchResults}
+                streamingAgentName={isLastAssistant ? streamingAgentName : undefined}
+                onFeedback={onFeedback}
+                onRegenerate={onRegenerate}
+                onTopicAction={onTopicAction}
+                onTopicRefinement={onTopicRefinement}
+                onSendFollowUp={onSendFollowUp}
+                onNavigate={onNavigate}
+                highlightSearchTerm={highlightSearchTerm}
+                mode={mode}
+                onTopicSelect={onTopicSelect}
+              />
+            </div>
+          );
+        })}
       </div>
 
       <AnimatePresence>

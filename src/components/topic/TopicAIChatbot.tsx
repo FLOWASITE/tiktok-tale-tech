@@ -3,7 +3,7 @@
 // Uses modular hooks and sub-components
 // ============================================
 
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useMemo } from 'react';
 import { ArrowDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
@@ -30,6 +30,8 @@ import {
   ChatOnboarding, 
   DiscoveryTab,
   ArtifactsPanel,
+  AgentPipelineBar,
+  AgentInsightsTab,
   type TopicAIChatbotProps,
   type TopicAIChatbotHandle,
   type ChatMessage,
@@ -205,6 +207,18 @@ export function TopicAIChatbot({
     toast({ title: 'Đã làm mới', description: 'Lịch sử chat đã được xóa.' });
   }, [messagesHook, artifactsHook]);
   
+  // Compute smart suggestions from last assistant message
+  const smartSuggestions = useMemo(() => {
+    const lastAssistant = [...messagesHook.messages].reverse().find(m => m.role === 'assistant' && m.suggestedFollowUps?.length);
+    return lastAssistant?.suggestedFollowUps || [];
+  }, [messagesHook.messages]);
+
+  // Get last context sources
+  const lastContextSources = useMemo(() => {
+    const lastAssistant = [...messagesHook.messages].reverse().find(m => m.role === 'assistant' && m.contextSources);
+    return lastAssistant?.contextSources;
+  }, [messagesHook.messages]);
+
   const isMobileFullscreen = className?.includes('border-0') || className?.includes('rounded-none');
   const widthClasses = {
     compact: 'w-full max-w-xl',
@@ -265,15 +279,20 @@ export function TopicAIChatbot({
           )}
           
           {uiHook.activeView === 'discovery' ? (
-            <DiscoveryTab
-              brandTemplateId={brandTemplateId}
-              contentGoal={contentGoal}
-              onCreateContent={(topic, format) => onNavigate(TOPIC_ACTION_PATHS[format], { prefillTopic: topic, fromTopics: true })}
-              onInjectPrompt={(prompt) => { inputHook.setInput(prompt); uiHook.setActiveView('chat'); }}
-              onSendMessage={handleSend}
+            <AgentInsightsTab
+              progressSteps={streamingHook.progressSteps}
+              suggestions={smartSuggestions}
+              contextSources={lastContextSources}
+              messageCount={messagesHook.messages.length}
+              onSendSuggestion={(s) => { handleSend(s); uiHook.setActiveView('chat'); }}
             />
           ) : (
             <>
+              {/* Agent Pipeline Bar - only when supervisor is enabled */}
+              {uiHook.supervisorEnabled && streamingHook.progressSteps && streamingHook.progressSteps.length > 0 && (
+                <AgentPipelineBar steps={streamingHook.progressSteps} />
+              )}
+              
               <SimpleMessageList
                 messages={messagesHook.messages}
                 animatingMessageId={messagesHook.animatingMessageId}
@@ -287,6 +306,7 @@ export function TopicAIChatbot({
                 elapsedSeconds={streamingHook.elapsedSeconds}
                 userProfile={profile}
                 personalizedWelcome={messagesHook.personalizedWelcome}
+                streamingAgentName={streamingHook.agentTurnInfo?.agentName}
                 onFeedback={handleFeedback}
                 onRegenerate={handleRegenerate}
                 onTopicAction={handleTopicAction}
@@ -347,6 +367,8 @@ export function TopicAIChatbot({
                 showShortcutsHint={inputHook.showShortcutsHint}
                 onToggleShortcutsHint={() => inputHook.setShowShortcutsHint(!inputHook.showShortcutsHint)}
                 textareaRef={inputHook.textareaRef}
+                supervisorEnabled={uiHook.supervisorEnabled}
+                smartSuggestions={smartSuggestions}
               />
             </>
           )}

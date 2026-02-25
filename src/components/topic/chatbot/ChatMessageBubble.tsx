@@ -30,6 +30,8 @@ interface ChatMessageBubbleProps {
   isLoading: boolean;
   // User profile
   userProfile?: { avatar_url?: string; full_name?: string };
+  // Streaming agent name
+  streamingAgentName?: string;
   // Handlers
   onReaction?: (messageId: string, emoji: string) => void;
   onFeedback: (messageId: string, feedback: 'up' | 'down') => void;
@@ -56,6 +58,7 @@ export function ChatMessageBubble({
   isRegenerating,
   isLoading,
   userProfile,
+  streamingAgentName,
   onFeedback,
   onRegenerate,
   onTopicAction,
@@ -181,6 +184,20 @@ export function ChatMessageBubble({
                               />
                             )}
                           </div>
+                        </div>
+                      )}
+                      {/* Streaming agent indicator */}
+                      {streamingAgentName && isLoading && (
+                        <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-border/20">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary bg-primary/10 rounded-full px-2 py-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                            {streamingAgentName} đang viết
+                            <span className="inline-flex gap-0.5">
+                              <span className="w-1 h-1 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '0ms' }} />
+                              <span className="w-1 h-1 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '150ms' }} />
+                              <span className="w-1 h-1 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '300ms' }} />
+                            </span>
+                          </span>
                         </div>
                       )}
                       <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-2">
