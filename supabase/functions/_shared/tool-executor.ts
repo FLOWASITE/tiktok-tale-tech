@@ -389,7 +389,7 @@ async function executeGenerateMultichannel(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${supabaseKey}`,
+        "Authorization": `Bearer ${context.userAccessToken || supabaseKey}`,
       },
       body: JSON.stringify({
         topic,
@@ -401,6 +401,8 @@ async function executeGenerateMultichannel(
         organizationId: context.organizationId,
         targetAudience: target_audience || null,
         enableResearch: auto_research || false,
+        userId: context.userId,
+        user_id: context.userId,
       }),
     });
 
