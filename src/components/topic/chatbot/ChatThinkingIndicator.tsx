@@ -75,14 +75,16 @@ function getAgentIcon(agentId: string) {
   return map[agentId] || Brain;
 }
 
-export function ChatThinkingIndicator({ 
+import React from 'react';
+
+export const ChatThinkingIndicator = React.forwardRef<HTMLDivElement, ChatThinkingIndicatorProps>(function ChatThinkingIndicator({ 
   status = 'thinking',
   currentTool,
   agentTurn,
   progressSteps,
   elapsedSeconds = 0,
   className 
-}: ChatThinkingIndicatorProps) {
+}, ref) {
   const effectiveStatus = currentTool && (currentTool in STATUS_CONFIG) 
     ? currentTool as ThinkingStatus 
     : status;
@@ -96,6 +98,7 @@ export function ChatThinkingIndicator({
 
   return (
     <motion.div
+      ref={ref}
       initial={{ opacity: 0, y: 16, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -10, scale: 0.95 }}
@@ -328,4 +331,4 @@ export function ChatThinkingIndicator({
       </div>
     </motion.div>
   );
-}
+});
