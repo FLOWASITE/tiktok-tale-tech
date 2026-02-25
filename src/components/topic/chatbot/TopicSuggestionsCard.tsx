@@ -11,10 +11,11 @@ import type { SuggestedTopic } from './types';
 interface TopicSuggestionsCardProps {
   topics: SuggestedTopic[];
   selectedTopic?: string;
+  onSelect?: (topic: string) => void;
   className?: string;
 }
 
-export function TopicSuggestionsCard({ topics, selectedTopic, className }: TopicSuggestionsCardProps) {
+export function TopicSuggestionsCard({ topics, selectedTopic, onSelect, className }: TopicSuggestionsCardProps) {
   if (!topics || topics.length === 0) return null;
 
   return (
@@ -33,8 +34,10 @@ export function TopicSuggestionsCard({ topics, selectedTopic, className }: Topic
           return (
             <div
               key={i}
+              onClick={() => onSelect?.(t.topic)}
               className={cn(
                 'flex items-start gap-2 rounded-lg px-2.5 py-1.5 text-xs transition-colors',
+                onSelect && 'cursor-pointer hover:bg-accent/50',
                 isSelected
                   ? 'bg-primary/15 border border-primary/30 ring-1 ring-primary/20'
                   : 'bg-background/60 border border-border/40'

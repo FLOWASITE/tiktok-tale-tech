@@ -615,6 +615,22 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
       
       if (!messageCreated && (assistantContent || receivedToolResults)) {
         onMessageCreate(finalMessage);
+      } else if (messageCreated) {
+        // Safety: ensure pending topic suggestions are always attached to the final message
+        // This handles timing issues where topic_suggestions SSE arrives after message creation
+        onMessageUpdate(assistantId, {
+          content: assistantContent,
+          extractedTopics: extractTopicsFromMessage(assistantContent),
+          toolResults: receivedToolResults || undefined,
+          contextBadges: pendingContextBadges || undefined,
+          contextRichness,
+          reviewScores: pendingReviewScores,
+          agentContributions: pendingAgentContributions.length > 0 ? pendingAgentContributions : undefined,
+          contextSources: pendingContextSources,
+          suggestedFollowUps: pendingSuggestedFollowUps,
+          suggestedTopics: pendingSuggestedTopics,
+          selectedTopic: pendingSelectedTopic,
+        });
       }
       
       onComplete?.();
