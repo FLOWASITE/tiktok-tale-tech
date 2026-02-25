@@ -724,6 +724,11 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
         let errorType: string | undefined;
         let errorMessage: string | undefined;
 
+        // Heartbeat: send SSE comment every 15s to keep connection alive during long tool executions
+        const heartbeatInterval = setInterval(() => {
+          writer.write(encoder.encode(':heartbeat\n\n')).catch(() => {});
+        }, 15000);
+
         let supervisorResult: any = null;
         try {
           supervisorResult = await executeSupervisorLoop(
@@ -778,6 +783,7 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
           })}\n\n`;
           await writer.write(encoder.encode(errorEvent));
         } finally {
+          clearInterval(heartbeatInterval);
           await writer.close();
 
           if (!hadError && userId) {
@@ -825,7 +831,13 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
       })();
 
       return new Response(readable, {
-        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no',
+        },
       });
     }
 
