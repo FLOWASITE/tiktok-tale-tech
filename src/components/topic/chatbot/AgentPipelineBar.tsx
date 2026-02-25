@@ -15,15 +15,20 @@ interface AgentPipelineBarProps {
 }
 
 const AGENT_CONFIG = [
-  { key: 'research', label: 'Research', icon: Search, viLabel: 'Nghiên cứu' },
-  { key: 'strategy', label: 'Strategy', icon: ClipboardList, viLabel: 'Chiến lược' },
-  { key: 'content', label: 'Content', icon: PenTool, viLabel: 'Nội dung' },
-  { key: 'visual', label: 'Visual', icon: Image, viLabel: 'Hình ảnh' },
-  { key: 'reviewer', label: 'Reviewer', icon: ShieldCheck, viLabel: 'Kiểm duyệt' },
+  { key: 'research', matchIds: ['research', 'research-agent'], label: 'Research', icon: Search, viLabel: 'Nghiên cứu' },
+  { key: 'strategy', matchIds: ['strategy', 'strategy-agent'], label: 'Strategy', icon: ClipboardList, viLabel: 'Chiến lược' },
+  { key: 'content', matchIds: ['content', 'content-agent'], label: 'Content', icon: PenTool, viLabel: 'Nội dung' },
+  { key: 'visual', matchIds: ['visual', 'image-agent'], label: 'Visual', icon: Image, viLabel: 'Hình ảnh' },
+  { key: 'reviewer', matchIds: ['reviewer', 'reviewer-agent'], label: 'Reviewer', icon: ShieldCheck, viLabel: 'Kiểm duyệt' },
 ] as const;
 
-function getStepForAgent(steps: ProgressStep[], agentKey: string): ProgressStep | undefined {
-  return steps.find(s => s.label.toLowerCase().includes(agentKey));
+function getStepForAgent(steps: ProgressStep[], agent: typeof AGENT_CONFIG[number]): ProgressStep | undefined {
+  // Match by step.id first (e.g. 'research-agent'), then fallback to label includes
+  return steps.find(s => 
+    agent.matchIds.some(id => s.id === id) || 
+    s.label.toLowerCase().includes(agent.key) ||
+    s.id.toLowerCase().includes(agent.key)
+  );
 }
 
 export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, className }: AgentPipelineBarProps) {
@@ -37,7 +42,7 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
       {/* Desktop: full pills */}
       <div className="hidden sm:flex items-center gap-1.5 justify-center">
         {AGENT_CONFIG.map((agent, idx) => {
-          const step = getStepForAgent(steps, agent.key);
+          const step = getStepForAgent(steps, agent);
           const status = step?.status || 'pending';
           const Icon = agent.icon;
 
@@ -91,7 +96,7 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
       <div className="sm:hidden flex items-center gap-2">
         <div className="flex items-center gap-1">
           {AGENT_CONFIG.map((agent) => {
-            const step = getStepForAgent(steps, agent.key);
+            const step = getStepForAgent(steps, agent);
             const status = step?.status || 'pending';
             const Icon = agent.icon;
             return (

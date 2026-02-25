@@ -28,7 +28,9 @@ const AGENTS = [
 
 function getAgentStatus(steps: ProgressStep[] | undefined, key: string): 'online' | 'busy' | 'idle' {
   if (!steps || steps.length === 0) return 'idle';
-  const step = steps.find(s => s.label.toLowerCase().includes(key));
+  const step = steps.find(s => 
+    s.id?.toLowerCase().includes(key) || s.label.toLowerCase().includes(key)
+  );
   if (!step) return 'idle';
   if (step.status === 'active') return 'busy';
   if (step.status === 'complete') return 'online';
@@ -82,7 +84,7 @@ export function AgentInsightsTab({
           {AGENTS.map(agent => {
             const status = getAgentStatus(progressSteps, agent.key);
             const Icon = agent.icon;
-            const step = progressSteps?.find(s => s.label.toLowerCase().includes(agent.key));
+            const step = progressSteps?.find(s => s.id?.toLowerCase().includes(agent.key) || s.label.toLowerCase().includes(agent.key));
             return (
               <div key={agent.key} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-muted/30 transition-colors">
                 <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-primary/15 to-violet-500/15 flex items-center justify-center">
