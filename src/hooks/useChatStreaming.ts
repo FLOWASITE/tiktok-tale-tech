@@ -159,7 +159,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
           userId,
           enableTools: true,
           enableAgenticLoop: true,
-          enableSupervisor: supervisorEnabled,
+          enableGraphEngine: true,
+          enableSupervisor: false,
           forceWebSearch,
         }),
         signal: abortControllerRef.current.signal,
@@ -218,6 +219,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
       let pendingSelectedTopic: string | undefined = undefined;
       let hasStepResults = false;
       let finalContentStarted = false;
+      let isGraphEngineMode = false;
       
       // Update progress: context loaded, move to thinking
       setState(prev => ({ 
@@ -290,6 +292,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   }
                 }
               }
+              isGraphEngineMode = true;
               setState(prev => ({ ...prev, progressSteps: planSteps }));
               continue;
             }
@@ -506,9 +509,9 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
             
             // Agentic content_chunk event (from agentic-loop.ts)
             if (parsed.type === 'content_chunk' && parsed.data?.chunk) {
-              // If we already have step results, skip content_chunk to avoid duplicate/flicker
-              // buildFinalContent() returns the same content as agent_step_result
-              if (hasStepResults) {
+              // If we already have step results AND not in graph engine mode, skip to avoid duplicate/flicker
+              // Graph Engine always sends content_chunk as final output, so we must render it
+              if (hasStepResults && !isGraphEngineMode) {
                 continue;
               }
               assistantContent += parsed.data.chunk;

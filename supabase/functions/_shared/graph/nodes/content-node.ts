@@ -83,15 +83,16 @@ export function createContentNode(ctx: ContentNodeContext) {
     }
 
     // Follow-up LLM call to summarize
-    const followUpMessages: Array<{ role: string; content: string }> = [
+    const followUpMessages: Array<{ role: string; content: string; tool_calls?: any[]; tool_call_id?: string }> = [
       { role: 'system', content: systemPrompt + stateContext },
       { role: 'user', content: userContent },
-      { role: 'assistant', content: message?.content || '' },
+      { role: 'assistant', content: message?.content || '', tool_calls: toolCalls },
     ];
     for (let i = 0; i < toolCalls.length; i++) {
       followUpMessages.push({
         role: 'tool',
         content: JSON.stringify(toolResults[i]?.result || toolResults[i]?.error || 'No result'),
+        tool_call_id: toolCalls[i].id,
       });
     }
 
