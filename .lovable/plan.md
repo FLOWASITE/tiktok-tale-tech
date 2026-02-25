@@ -1,103 +1,99 @@
 
 
-# Tích hợp Research Agent với Topic-AI
+# Fix: Topic được chọn từ Research Agent chưa hiển thị trên Chat UI
 
-## Vấn đề hiện tại
+## Nguyên nhân gốc
 
-Research Agent và Topic-AI hoạt động **hoàn toàn độc lập**:
+Có **2 vấn đề** khiến topics từ `discover_topics` không hiển thị:
 
-- **Research Agent**: Chỉ có 2 tools (`web_search`, `search_topics`) -- `search_topics` chỉ tìm trong Topic Bank (topics đã lưu), không gợi ý topic mới
-- **Topic-AI Edge Function**: Có 10+ actions mạnh mẽ (`suggest`, `refine`, `trending`, `gap_analysis`, `cluster`, `keywords`, `next_best`, `weekly_plan`, `suggest_compliant`, `suggest_audience`) nhưng **không được Research Agent sử dụng**
+### Vấn đề 1: Research Agent trả về JSON → bị bỏ qua
+Trong `supervisor-loop.ts` (dòng 293-312 và 446-465), khi emit `agent_step_result`, hệ thống kiểm tra:
 
-Kết quả: Research Agent chỉ search web rồi trả text, không tạo được topic suggestions có điểm số, không tận dụng được brand context, persona matching, hay industry compliance.
+```text
+if content starts with '{' or '[' → skip (isJson = true)
+```
+
+Research Agent khi gọi `discover_topics` trả về nội dung có cấu trúc (JSON tool results). Nếu Research Agent chỉ trả lại JSON từ tool, nội dung bị skip hoàn toàn, **không gửi về frontend**.
+
+### Vấn đề 2: `buildFinalContent` ưu tiên Content Agent
+Hàm `buildFinalContent` (dòng 704-729) luôn ưu tiên output của `content-agent`. Kết quả của Research Agent (danh sách topics gợi ý) bị ghi đè bởi nội dung từ Content Agent, nên user **chỉ thấy nội dung cuối cùng**, không thấy topics nào đã được chọn.
 
 ## Giải pháp
 
-Thêm tool mới `discover_topics` cho Research Agent, tool này gọi trực tiếp vào `topic-ai` edge function để:
-1. Gợi ý topics mới dựa trên brand context + web search
-2. Phân tích trending topics trong ngành
-3. Tìm topic gaps chưa được khai thác
+### 1. Emit `topic_suggestions` event mới từ Supervisor
 
-## Thay đổi cụ thể
+**File**: `supabase/functions/_shared/supervisor/supervisor-loop.ts`
 
-### 1. Thêm Tool Definition `discover_topics`
-
-**File**: `supabase/functions/_shared/tool-definitions.ts`
-
-Thêm tool mới vào `CHAT_TOOLS`:
+Sau khi Research Agent hoàn thành (dòng ~424-430), kiểm tra Blackboard có `suggested_topics` không. Nếu có, emit một SSE event mới `topic_suggestions` về frontend:
 
 ```text
-name: "discover_topics"
-description: "Gọi Topic-AI để gợi ý chủ đề mới, tìm trending topics, hoặc phân tích topic gaps. Gọi khi user muốn tìm ý tưởng nội dung mới."
-parameters:
-  - action: "suggest" | "trending" | "gap_analysis" (bắt buộc)
-  - query: string (mô tả yêu cầu của user)
-  - content_goal: "viral" | "evergreen" | "seasonal" | "series" (tùy chọn)
-  - limit: number (tùy chọn, mặc định 5)
+if (agentName === 'research-agent' && result.success) {
+  const suggestedTopics = await blackboard.read('suggested_topics');
+  if (suggestedTopics) {
+    options.onEvent?.({
+      type: 'topic_suggestions',
+      data: { topics: suggestedTopics, best_topic: await blackboard.read('best_topic') }
+    });
+  }
+}
 ```
 
-### 2. Implement Tool Executor `executeDiscoverTopics`
+Tương tự cho multi-step workflow (dòng ~273-276).
 
-**File**: `supabase/functions/_shared/tool-executor.ts`
+### 2. Frontend nhận và hiển thị topics
 
-Thêm case `discover_topics` gọi internal đến `topic-ai` edge function:
+**File**: `src/hooks/useChatStreaming.ts`
 
-- Với action `suggest`: Gọi `topic-ai?action=suggest` kèm brand context
-- Với action `trending`: Gọi `topic-ai?action=trending`
-- Với action `gap_analysis`: Gọi `topic-ai?action=gap_analysis`
-- Kết quả trả về dạng structured: danh sách topics với scores, categories, reasoning
+Thêm handler cho event `topic_suggestions`:
+- Lưu topics vào state tạm
+- Khi render message cuối cùng, chèn phần "Topics được chọn" vào đầu nội dung
 
-### 3. Cập nhật Agent Registry
+### 3. Render Topics Card trong Chat Bubble
 
-**File**: `supabase/functions/_shared/supervisor/agent-registry.ts`
+**File**: `src/components/topic/chatbot/ChatMessageBubble.tsx`
 
-- Thêm `discover_topics` vào tools list của `research-agent`
-- Tools mới: `['web_search', 'search_topics', 'discover_topics']`
+Thêm component hiển thị danh sách topics kèm điểm số, category khi message có `suggestedTopics` data. Hiển thị dạng card nhỏ gọn với:
+- Topic name + score
+- Category badge
+- Highlight topic được chọn (best_topic)
 
-### 4. Cập nhật Research Agent System Prompt
+### 4. Cập nhật ChatMessage type
 
-**File**: `supabase/functions/_shared/agents/research-agent.ts`
+**File**: `src/components/topic/chatbot/types.ts`
 
-Cập nhật prompt để:
-- Hướng dẫn agent gọi `discover_topics` khi user cần ý tưởng topic mới
-- Phân biệt rõ: `search_topics` = tìm topics cũ đã lưu, `discover_topics` = gợi ý topics mới từ AI
-- Yêu cầu agent chọn topic tốt nhất từ kết quả và ghi vào Blackboard
-
-### 5. Cập nhật Tool Chain & Parallel Executor
-
-**Files**:
-- `supabase/functions/_shared/tool-chain-executor.ts` -- thêm output mapping cho `discover_topics`
-- `supabase/functions/_shared/parallel-tool-executor.ts` -- thêm `discover_topics` vào TOOL_OUTPUTS
-
----
-
-## Luồng hoạt động mới
+Thêm field mới vào `ChatMessage`:
 
 ```text
-User: "Tìm ý tưởng content về skincare cho Gen Z"
-         |
-    Intent: research
-         |
-  Research Agent
-    |-- web_search("skincare Gen Z trends 2026")
-    |-- discover_topics(action="suggest", query="skincare Gen Z")
-         |
-         |  (discover_topics gọi internal topic-ai)
-         |  topic-ai: brand context + Perplexity + AI scoring
-         |
-    Research Agent nhận:
-      - Web search results (xu hướng thực tế)
-      - Topic suggestions (có điểm, category, reasoning)
-         |
-    Ghi vào Blackboard: research_data + suggested_topics
-         |
-    Trả kết quả cho user / chuyển cho Content Agent
+suggestedTopics?: {
+  topic: string;
+  category: string;
+  score: number | null;
+  reasoning: string | null;
+}[];
+selectedTopic?: string;
 ```
 
-## Lợi ích
+## Thay đổi chi tiết theo file
 
-- **Không duplicate web search**: `discover_topics` tận dụng cache + web search optimization của topic-ai (skip nếu đã có data)
-- **Topics có chất lượng cao**: Được scoring, persona matching, brand alignment từ topic-ai
-- **Kết nối 2 hệ thống**: Research Agent output có thể dùng trực tiếp cho Content Agent qua Blackboard
-- **Backward compatible**: Không ảnh hưởng đến topic-ai standalone hay frontend hiện tại
+| File | Thay đổi |
+|------|----------|
+| `types.ts` | Thêm `suggestedTopics` và `selectedTopic` vào `ChatMessage` |
+| `supervisor-loop.ts` | Emit `topic_suggestions` event sau khi research-agent hoàn thành (2 noi: linear + multi-step) |
+| `useChatStreaming.ts` | Parse event `topic_suggestions`, lưu vào pending state, gắn vào message khi tạo/update |
+| `ChatMessageBubble.tsx` | Render `TopicSuggestionsCard` khi message có `suggestedTopics` |
+
+## Luồng hoạt động sau fix
+
+```text
+User: "Tạo nội dung Facebook"
+  → Intent: complex_workflow (auto-upgrade)
+  → Research Agent: gọi discover_topics
+  → Blackboard: suggested_topics = [{topic: "...", score: 85}, ...]
+  → Supervisor emit SSE: {type: "topic_suggestions", data: {topics: [...], best_topic: "..."}}
+  → Frontend nhận: lưu topics vào pending state
+  → Content Agent tạo nội dung dựa trên best_topic
+  → Final message hiển thị:
+      [Topics Card: 5 topics với scores, best_topic highlighted]
+      [Nội dung Facebook đã tạo]
+```
 
