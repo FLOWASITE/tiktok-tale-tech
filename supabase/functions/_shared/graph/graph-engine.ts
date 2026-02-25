@@ -11,7 +11,9 @@ import {
   GraphPlanStep,
   NodeResult,
   mergeStateUpdate,
+  createGraphState,
 } from "./graph-state.ts";
+import { orchestrateWorkflow, OrchestratorOptions } from "./orchestrator.ts";
 
 // ---- Types ----
 
@@ -471,3 +473,112 @@ export const TEMPLATE_PLANS: Record<string, GraphPlan> = {
     fastPath: true,
   },
 };
+
+// ---- Orchestrator Integration ----
+
+export interface RunOrchestratorOptions {
+  organizationId?: string;
+  /** SSE-style event emitter */
+  onEvent?: (event: { type: string; data: any }) => void;
+  /** Checkpoint callback */
+  onCheckpoint?: (state: GraphState, completedNode: string) => Promise<void>;
+  /** Brand memory context to inject into state */
+  brandMemoryContext?: string;
+  /** Force a specific template (bypass orchestrator) */
+  forceTemplate?: string;
+  /** Max execution time in ms */
+  maxExecutionMs?: number;
+  /** Abort signal */
+  abortSignal?: AbortSignal;
+}
+
+/**
+ * High-level entry point: orchestrate + compile + execute.
+ *
+ * 1. Creates initial GraphState from userMessage
+ * 2. Calls orchestrateWorkflow() to get the plan
+ * 3. Emits `graph_plan` event
+ * 4. Compiles plan into GraphDefinition
+ * 5. Executes the graph
+ * 6. Returns the result
+ */
+export async function runOrchestrator(
+  userMessage: string,
+  nodeRegistry: Map<string, NodeConfig>,
+  options: RunOrchestratorOptions = {}
+): Promise<GraphExecutionResult> {
+  const sessionId = crypto.randomUUID();
+
+  // 1. Create initial state
+  let state = createGraphState(sessionId, userMessage);
+  if (options.brandMemoryContext) {
+    state.brandMemoryContext = options.brandMemoryContext;
+  }
+
+  // 2. Orchestrate — get the plan
+  const orchestratorOpts: OrchestratorOptions = {
+    organizationId: options.organizationId,
+    forceTemplate: options.forceTemplate,
+  };
+
+  const plan = await orchestrateWorkflow(state, orchestratorOpts);
+
+  // Store reasoning in state
+  state.orchestratorPlan = plan;
+  state.orchestratorReasoning = plan.reasoning;
+  state.userIntent = plan.fastPath ? 'fast_path' : 'llm_planned';
+
+  // 3. Emit plan event
+  options.onEvent?.({
+    type: 'graph_plan',
+    data: {
+      steps: plan.steps,
+      skipNodes: plan.skipNodes,
+      reasoning: plan.reasoning,
+      fastPath: plan.fastPath,
+    },
+  });
+
+  // 4. Compile plan into graph
+  let graph: GraphDefinition;
+  try {
+    graph = compileGraphFromPlan(plan, nodeRegistry);
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[runOrchestrator] Failed to compile plan: ${errorMsg}`);
+    return {
+      state: mergeStateUpdate(state, {
+        status: 'failed',
+        exitReason: `compile_error: ${errorMsg}`,
+        completedAt: Date.now(),
+      }),
+      executedNodes: [],
+      skippedNodes: [],
+      error: errorMsg,
+    };
+  }
+
+  // 5. Execute graph
+  const result = await executeGraph(graph, state, {
+    onNodeStart: (nodeName, s) => {
+      options.onEvent?.({ type: 'node_start', data: { node: nodeName } });
+    },
+    onNodeComplete: (nodeName, update, durationMs) => {
+      options.onEvent?.({
+        type: 'node_complete',
+        data: { node: nodeName, durationMs },
+      });
+    },
+    onNodeError: (nodeName, error) => {
+      options.onEvent?.({
+        type: 'node_error',
+        data: { node: nodeName, error: error.message },
+      });
+    },
+    onCheckpoint: options.onCheckpoint,
+    maxExecutionMs: options.maxExecutionMs,
+    abortSignal: options.abortSignal,
+  });
+
+  return result;
+}
