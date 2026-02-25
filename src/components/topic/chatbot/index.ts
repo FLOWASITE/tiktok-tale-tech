@@ -34,4 +34,8 @@ export { ChatInputArea } from './ChatInputArea';
 export { ChatOnboarding } from './ChatOnboarding';
 export { ChatMessageBubble } from './ChatMessageBubble';
 export { VirtualizedMessageList } from './VirtualizedMessageList';
+export { AgentPipelineBar } from './AgentPipelineBar';
+export { AgentMentionPopover } from './AgentMentionPopover';
+export { SmartInputSuggestions } from './SmartInputSuggestions';
+export { AgentInsightsTab } from './AgentInsightsTab';
 export { LazyMessageContent, MessageContentSkeleton, LazyMarkdown } from './LazyMessageContent';

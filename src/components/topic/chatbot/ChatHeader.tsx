@@ -299,8 +299,8 @@ export function ChatHeader({
           )}
           onClick={() => onActiveViewChange('discovery')}
         >
-          <Compass className="w-3 h-3" />
-          Discovery
+          <Brain className="w-3 h-3" />
+          Insights
         </Button>
       </div>
     </CardHeader>
