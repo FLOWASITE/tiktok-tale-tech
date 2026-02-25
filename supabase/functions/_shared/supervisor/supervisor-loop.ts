@@ -277,13 +277,13 @@ export async function executeSupervisorLoop(
 
         // Emit topic_suggestions after research-agent completes
         if (nextAgent === 'research-agent') {
-          const suggestedTopics = await blackboard.read('suggested_topics');
-          if (suggestedTopics) {
-            const bestTopic = await blackboard.read('best_topic');
+          const topicPayload = await buildTopicSuggestionsPayload(result, blackboard);
+          if (topicPayload) {
             options.onEvent?.({
               type: 'topic_suggestions' as any,
-              data: { topics: suggestedTopics, best_topic: bestTopic },
+              data: topicPayload,
             });
+            console.log(`[Supervisor] Emitted topic_suggestions (${topicPayload.topics.length} topics)`);
           }
         }
       }
@@ -442,13 +442,13 @@ export async function executeSupervisorLoop(
 
       // Emit topic_suggestions after research-agent completes
       if (agentName === 'research-agent') {
-        const suggestedTopics = await blackboard.read('suggested_topics');
-        if (suggestedTopics) {
-          const bestTopic = await blackboard.read('best_topic');
+        const topicPayload = await buildTopicSuggestionsPayload(result, blackboard);
+        if (topicPayload) {
           options.onEvent?.({
             type: 'topic_suggestions' as any,
-            data: { topics: suggestedTopics, best_topic: bestTopic },
+            data: topicPayload,
           });
+          console.log(`[Supervisor] Emitted topic_suggestions (${topicPayload.topics.length} topics)`);
         }
       }
     }
@@ -685,6 +685,36 @@ function getBlackboardKey(agentName: string): string {
     'image-agent': 'generated_image',
   };
   return keyMap[agentName] || agentName;
+}
+
+async function buildTopicSuggestionsPayload(
+  result: AgentResult,
+  blackboard: BlackboardClient
+): Promise<{ topics: any[]; best_topic?: string } | null> {
+  // Primary source: discover_topics tool result from research-agent
+  const discoverTool = result.toolResults?.find(
+    (tool) => tool.tool_name === 'discover_topics' && tool.success && tool.result?.topics?.length
+  );
+
+  if (discoverTool?.result?.topics?.length) {
+    const topics = discoverTool.result.topics.slice(0, 5);
+    const bestTopicRaw = discoverTool.result.best_topic ?? topics[0]?.topic;
+    const bestTopic = typeof bestTopicRaw === 'string' ? bestTopicRaw : bestTopicRaw?.topic;
+    return { topics, best_topic: bestTopic };
+  }
+
+  // Fallback source: legacy blackboard keys (if any custom flow writes these)
+  const suggestedTopics = await blackboard.read('suggested_topics');
+  if (suggestedTopics && Array.isArray(suggestedTopics) && suggestedTopics.length > 0) {
+    const bestTopicRaw = await blackboard.read('best_topic');
+    const bestTopic = typeof bestTopicRaw === 'string' ? bestTopicRaw : bestTopicRaw?.topic;
+    return {
+      topics: suggestedTopics.slice(0, 5),
+      best_topic: bestTopic,
+    };
+  }
+
+  return null;
 }
 
 /**

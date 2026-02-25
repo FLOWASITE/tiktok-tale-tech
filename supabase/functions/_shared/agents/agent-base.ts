@@ -208,6 +208,25 @@ export async function executeAgent(
       }
     }
 
+    // Safety net for research-agent: ensure we always have discover_topics data
+    // so frontend can render Topic Suggestions card consistently.
+    if (agentName === 'research-agent' && !toolResults.some(t => t.tool_name === 'discover_topics' && t.success)) {
+      const fallbackDiscover = await executeToolCall('discover_topics', {
+        query: task.userMessage,
+        action: 'suggest',
+        limit: 5,
+      }, {
+        supabase: execContext.supabase,
+        userId: execContext.userId,
+        organizationId: execContext.organizationId,
+        brandTemplateId: execContext.brandTemplateId,
+        userAccessToken: execContext.userAccessToken,
+      });
+
+      toolResults.push(fallbackDiscover);
+      console.log(`[${agentName}] Fallback discover_topics executed: success=${fallbackDiscover.success}`);
+    }
+
     // Guard: check if critical content tools failed → agent should fail too
     const CRITICAL_CONTENT_TOOLS = ['generate_multichannel', 'generate_script', 'generate_carousel'];
     const criticalFailures = toolResults.filter(

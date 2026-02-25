@@ -38,6 +38,7 @@ const DEFAULT_AGENTS: AgentConfig[] = [
     maxRetries: 2,
     priority: 1,
     tokenBudget: 2000,
+    forceToolUse: true,
   },
   {
     name: 'strategy-agent',
