@@ -3,7 +3,8 @@
 // Uses modular hooks and sub-components
 // ============================================
 
-import { useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import type { ProgressStep } from './chatbot/ChatThinkingIndicator';
 import { ArrowDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
@@ -101,6 +102,19 @@ export function TopicAIChatbot({
     onMessageUpdate: messagesHook.updateMessage,
     onComplete: () => playReceive(),
   });
+  
+  // Persist pipeline steps so bar remains visible after streaming ends
+  const [lastPipelineSteps, setLastPipelineSteps] = useState<ProgressStep[]>([]);
+  
+  useEffect(() => {
+    if (streamingHook.progressSteps.length > 0) {
+      setLastPipelineSteps(streamingHook.progressSteps);
+    }
+  }, [streamingHook.progressSteps]);
+  
+  const displayPipelineSteps = streamingHook.progressSteps.length > 0
+    ? streamingHook.progressSteps
+    : lastPipelineSteps;
   
   // Send message handler
   const handleSend = useCallback(async (messageText: string) => {
@@ -204,6 +218,7 @@ export function TopicAIChatbot({
   const handleReset = useCallback(() => {
     messagesHook.resetMessages();
     artifactsHook.clearArtifacts();
+    setLastPipelineSteps([]);
     toast({ title: 'Đã làm mới', description: 'Lịch sử chat đã được xóa.' });
   }, [messagesHook, artifactsHook]);
   
@@ -280,7 +295,7 @@ export function TopicAIChatbot({
           
           {uiHook.activeView === 'discovery' ? (
             <AgentInsightsTab
-              progressSteps={streamingHook.progressSteps}
+              progressSteps={displayPipelineSteps}
               suggestions={smartSuggestions}
               contextSources={lastContextSources}
               messageCount={messagesHook.messages.length}
@@ -288,9 +303,9 @@ export function TopicAIChatbot({
             />
           ) : (
             <>
-              {/* Agent Pipeline Bar - only when supervisor is enabled */}
-              {uiHook.supervisorEnabled && streamingHook.progressSteps && streamingHook.progressSteps.length > 0 && (
-                <AgentPipelineBar steps={streamingHook.progressSteps} />
+              {/* Agent Pipeline Bar - persistent after streaming */}
+              {uiHook.supervisorEnabled && displayPipelineSteps.length > 0 && (
+                <AgentPipelineBar steps={displayPipelineSteps} />
               )}
               
               <SimpleMessageList
