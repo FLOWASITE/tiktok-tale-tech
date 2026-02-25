@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Bot, Brain, Sparkles, Save, Search, FileText, Images, Calendar, Wand2, CheckCircle2, Loader2, Globe, ClipboardList, Pen, Shield } from 'lucide-react';
+import { Bot, Brain, Sparkles, Save, Search, FileText, Images, Calendar, Wand2, CheckCircle2, Loader2, Globe, ClipboardList, Pen, Shield, ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type ThinkingStatus = 
@@ -69,6 +69,8 @@ function getAgentIcon(agentId: string) {
     'strategy-agent': ClipboardList,
     'content-agent': Pen,
     'reviewer-agent': Shield,
+    'image-agent': ImageIcon,
+    'brand-memory-agent': Brain,
   };
   return map[agentId] || Brain;
 }
