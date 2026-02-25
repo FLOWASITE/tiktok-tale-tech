@@ -1,125 +1,113 @@
 
 
-## Kế hoạch: Streaming kết quả realtime từng bước Agent
+## Kế hoạch: Fix streaming kết quả realtime từng Agent
 
-### Vấn đề hiện tại
+### Phân tích vấn đề
 
-Hiện tại, backend (supervisor-loop) chạy xong TẤT CẢ agents rồi mới stream nội dung cuối cùng (finalContent) dưới dạng `content_chunk`. Trong quá trình chạy, frontend chỉ thấy pipeline bar chuyển trạng thái nhưng **không thấy kết quả gì** cho đến khi tất cả hoàn thành.
+Sau khi kiểm tra kỹ code và logs, tôi phát hiện **3 vấn đề chính** khiến kết quả realtime không hiển thị:
 
-### Giải pháp
+#### Vấn đề 1: Thiếu debug logging
+Backend emit `agent_step_result` nhưng không có `console.log` nào xác nhận event được gửi hay bị filter. Không thể verify từ logs.
 
-Thêm event SSE mới `agent_step_result` từ backend, stream nội dung của từng agent ngay khi hoàn thành. Frontend hiển thị từng phần kết quả realtime trong chat bubble, và sau khi tất cả agents xong, hiển thị nội dung tổng hợp cuối cùng.
+#### Vấn đề 2: Filter quá chặt  
+Dòng 442 trong `supervisor-loop.ts`:
+```text
+if (result.success && result.content && !result.content.startsWith('[') && agentName !== 'reviewer-agent')
+```
+Nếu content-agent trả về content bắt đầu bằng `[` (ví dụ markdown list), nó bị filter bỏ trước khi đến JSON check.
+
+#### Vấn đề 3: Content bị thay thế ngay lập tức
+Với intent `generate`, luồng hoạt động là:
+1. Content-agent chạy xong (75 giây) → emit `agent_step_result`
+2. Reviewer-agent chạy (4 giây)
+3. `buildFinalContent()` trả về content GIỐNG HỆT content-agent
+4. `content_chunk` events gửi ngay sau → frontend XÓA step results và thay bằng final content
+
+Kết quả: step result hiện thoáng qua rồi bị xóa ngay, hoặc SSE events xếp hàng chặt nhau trong buffer nên frontend xử lý tất cả cùng lúc trong 1 render cycle → user không thấy gì.
 
 ---
 
-### Chi tiết kỹ thuật
+### Giải pháp
 
-#### 1. Backend: `supabase/functions/_shared/supervisor/supervisor-loop.ts`
+#### 1. Backend: Thêm debug logging + sửa filter (`supervisor-loop.ts`)
 
-Sau mỗi agent hoàn thành thành công, emit thêm event `agent_step_result` chứa nội dung đầy đủ:
+Thêm `console.log` trước và sau khi emit `agent_step_result` ở CẢ 2 vị trí (multi-step line ~292 và linear line ~442):
 
 ```text
-// Sau khi agent chạy xong (cả multi-step và linear workflow):
-options.onEvent?.({
-  type: 'agent_step_result',
-  data: {
-    agent: agentName,
-    agent_name: AGENT_DISPLAY_NAMES[agentName],
-    content: result.content,        // Nội dung đầy đủ
-    success: result.success,
-    duration_ms: result.durationMs,
-    step_index: stepIndex,
-    is_final: false,                // Chưa phải bước cuối
-  },
-});
+console.log(`[Supervisor] agent_step_result check: agent=${agentName}, success=${result.success}, contentLength=${result.content?.length || 0}, contentStart="${result.content?.slice(0,50)}"`);
 ```
 
-Thay đổi ở 2 vị trí:
-- **Multi-step workflow** (line ~279): sau `tool_result` event, thêm `agent_step_result`
-- **Linear workflow** (line ~408): sau `tool_result` event, thêm `agent_step_result`
+Sửa filter: bỏ `!result.content.startsWith('[')` thừa (đã có JSON check bên dưới). Chỉ giữ JSON check chính xác hơn:
 
-Lọc: Chỉ emit khi `result.success === true` và `result.content` không rỗng, không phải JSON (reviewer).
-
-#### 2. Frontend: `src/hooks/useChatStreaming.ts`
-
-Thêm handler cho event `agent_step_result`:
-
-- Khi nhận được event này, append nội dung vào `assistantContent` với header agent name
-- Format: `\n\n### [icon] Agent Name\n\n[content]\n\n`
-- Tạo hoặc update message bubble ngay lập tức (giống logic `content_chunk`)
-- Track `stepContents[]` để biết có bao nhiêu bước đã hiển thị
-
-Khi nhận `content_chunk` (nội dung tổng hợp cuối):
-- Nếu đã có step results, **thay thế** toàn bộ nội dung bằng final consolidated content
-- Điều này đảm bảo kết quả cuối cùng là bản tổng hợp sạch, không lặp
-
-Logic cụ thể:
 ```text
-if (parsed.type === 'agent_step_result' && parsed.data?.content) {
-  const agentName = parsed.data.agent_name || parsed.data.agent;
-  const stepHeader = `\n\n---\n\n**${agentName}** *(${(parsed.data.duration_ms/1000).toFixed(1)}s)*\n\n`;
-  assistantContent += stepHeader + parsed.data.content;
-  hasStepResults = true;
-  
-  // Create or update message (same logic as content_chunk)
-  if (!messageCreated) { ... onMessageCreate(...) }
-  else { ... onMessageUpdate(...) }
+if (result.success && result.content && agentName !== 'reviewer-agent') {
+  const trimmed = result.content.trim();
+  const isJson = (trimmed.startsWith('{') && trimmed.endsWith('}')) || 
+                 (trimmed.startsWith('[') && trimmed.endsWith(']'));
+  if (!isJson) {
+    console.log(`[Supervisor] Emitting agent_step_result for ${agentName}, ${result.content.length} chars`);
+    options.onEvent?.({ type: 'agent_step_result', data: { ... } });
+  }
 }
-
-// Trong content_chunk handler:
-if (hasStepResults && !finalContentStarted) {
-  // Final content replaces step-by-step content
-  assistantContent = '';
-  finalContentStarted = true;
-}
-assistantContent += chunk;
 ```
 
-#### 3. Không cần thay đổi UI components
+#### 2. Frontend: Không thay thế step results (`useChatStreaming.ts`)
 
-- `ChatMessageBubble` đã hỗ trợ markdown rendering (react-markdown)
-- `SimpleMessageList` đã auto-scroll khi content update
-- `AgentPipelineBar` tiếp tục hoạt động song song
+Thay đổi logic `content_chunk` handler: nếu đã có step results, KHÔNG xóa chúng. Thay vào đó, bỏ qua `content_chunk` vì nội dung đã được hiển thị qua `agent_step_result`.
+
+Lý do: `buildFinalContent()` trả về chính xác content-agent output, tức GIỐNG HỆT nội dung đã hiển thị qua step result. Xóa rồi hiện lại gây nhấp nháy và mất realtime effect.
+
+```text
+// Thay đổi logic content_chunk:
+if (parsed.type === 'content_chunk' && parsed.data?.chunk) {
+  // Nếu đã có step results, skip content_chunk (tránh duplicate)
+  if (hasStepResults) {
+    continue;  // Bỏ qua, nội dung đã hiển thị qua agent_step_result
+  }
+  // Chỉ xử lý content_chunk khi KHÔNG có step results (single agent mode)
+  assistantContent += parsed.data.chunk;
+  ...
+}
+```
+
+#### 3. Deploy lại edge function
+
+Sau khi sửa backend, deploy lại `chat-topics` để đảm bảo code mới được áp dụng.
 
 ---
 
 ### Luồng hoạt động sau khi sửa
 
 ```text
-User gửi tin nhắn
+User: "Tạo content cho hôm nay"
   ↓
-[Pipeline Bar: Research active]
+[Intent: generate → content-agent → reviewer-agent]
   ↓
-Research Agent xong → SSE agent_step_result → Chat hiện:
-  "**Research Agent** *(2.1s)*
-   Tìm thấy 5 xu hướng Tết 2026..."
+Content Agent chạy (75 giây)
   ↓
-[Pipeline Bar: Strategy active]
+Content Agent xong → agent_step_result → Chat hiện:
+  "---
+   **Content Agent** *(75.2s)*
+   
+   [Nội dung đầy đủ về bài viết]"
   ↓
-Strategy Agent xong → SSE agent_step_result → Chat append:
-  "**Strategy Agent** *(1.8s)*
-   Đề xuất kế hoạch 3 bài viết..."
+Reviewer Agent chạy (4 giây) → filtered (reviewer)
   ↓
-[Pipeline Bar: Content active]
+content_chunk events → SKIPPED (đã có step results)
   ↓
-Content Agent xong → SSE agent_step_result → Chat append:
-  "**Content Agent** *(3.2s)*
-   [Nội dung bài viết đầy đủ]"
-  ↓
-Supervisor tổng hợp → SSE content_chunk → Chat thay bằng nội dung cuối cùng
+[DONE] → Kết quả giữ nguyên, không nhấp nháy
 ```
 
 ### Files cần sửa
 
 | File | Thay đổi |
 |------|----------|
-| `supabase/functions/_shared/supervisor/supervisor-loop.ts` | Emit `agent_step_result` event sau mỗi agent thành công |
-| `src/hooks/useChatStreaming.ts` | Parse `agent_step_result`, hiển thị realtime, replace khi có final content |
+| `supabase/functions/_shared/supervisor/supervisor-loop.ts` | Thêm debug logging, sửa filter bỏ `startsWith('[')` thừa (2 vị trí) |
+| `src/hooks/useChatStreaming.ts` | Skip `content_chunk` khi đã có `agent_step_result` thay vì xóa + thay thế |
 
 ### Edge Cases
-
-- Agent thất bại: không emit `agent_step_result`, chỉ emit `tool_result` với `success: false`
-- Reviewer agent: content là JSON scores, không hiển thị dạng text → lọc bỏ
-- Image agent: content là summary text → hiển thị bình thường
-- Single agent workflow: chỉ có 1 step result, final content giống hệt → không thay thế
+- Single agent (không có supervisor): không có `agent_step_result`, `content_chunk` hoạt động bình thường
+- Multi-step workflow: nhiều `agent_step_result` nối tiếp, `content_chunk` bị skip → OK
+- Image agent: content là text summary → hiển thị bình thường
+- Content bắt đầu bằng `[`: vẫn hiển thị nhờ bỏ filter `startsWith('[')` thừa
 
