@@ -414,6 +414,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   'strategy-agent': '📋 Lập kế hoạch',
                   'content-agent': '✍️ Tạo nội dung',
                   'reviewer-agent': '✅ Kiểm tra chất lượng',
+                  'image-agent': '🎨 Tạo hình ảnh',
+                  'brand-memory-agent': '🧠 Cập nhật thương hiệu',
                 };
                 const dynamicSteps: ProgressStep[] = parsed.data.suggestedAgents.map((agent: string) => ({
                   id: agent,

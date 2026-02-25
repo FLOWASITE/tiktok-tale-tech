@@ -489,7 +489,7 @@ function GenerateImageResult({ result }: { result: any }) {
     <div className="mt-2 space-y-2">
       <p className="text-xs text-muted-foreground">{result.message}</p>
       
-      {result.image_url && (
+      {result.image_url ? (
         <div className="relative rounded-lg overflow-hidden border border-border/50 max-w-[280px]">
           <img 
             src={result.image_url} 
@@ -502,6 +502,10 @@ function GenerateImageResult({ result }: { result: any }) {
               {result.model_used}
             </Badge>
           </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border/50 bg-muted/30 p-4 max-w-[280px] text-center">
+          <p className="text-xs text-muted-foreground">⏳ Ảnh đang được xử lý hoặc không khả dụng.</p>
         </div>
       )}
       
@@ -537,24 +541,30 @@ function EditImageResult({ result }: { result: any }) {
     <div className="mt-2 space-y-2">
       <p className="text-xs text-muted-foreground">{result.message}</p>
       
-      <div className="flex gap-2 max-w-[400px]">
-        {result.original_url && (
-          <div className="flex-1 space-y-1">
-            <p className="text-[10px] text-muted-foreground text-center">Gốc</p>
-            <div className="rounded-md overflow-hidden border border-border/50">
-              <img src={result.original_url} alt="Original" className="w-full h-auto object-cover" loading="lazy" />
+      {result.edited_url || result.original_url ? (
+        <div className="flex gap-2 max-w-[400px]">
+          {result.original_url && (
+            <div className="flex-1 space-y-1">
+              <p className="text-[10px] text-muted-foreground text-center">Gốc</p>
+              <div className="rounded-md overflow-hidden border border-border/50">
+                <img src={result.original_url} alt="Original" className="w-full h-auto object-cover" loading="lazy" />
+              </div>
             </div>
-          </div>
-        )}
-        {result.edited_url && (
-          <div className="flex-1 space-y-1">
-            <p className="text-[10px] text-primary text-center font-medium">Đã sửa</p>
-            <div className="rounded-md overflow-hidden border border-primary/30">
-              <img src={result.edited_url} alt="Edited" className="w-full h-auto object-cover" loading="lazy" />
+          )}
+          {result.edited_url && (
+            <div className="flex-1 space-y-1">
+              <p className="text-[10px] text-primary text-center font-medium">Đã sửa</p>
+              <div className="rounded-md overflow-hidden border border-primary/30">
+                <img src={result.edited_url} alt="Edited" className="w-full h-auto object-cover" loading="lazy" />
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border/50 bg-muted/30 p-4 max-w-[280px] text-center">
+          <p className="text-xs text-muted-foreground">⏳ Ảnh chỉnh sửa đang được xử lý hoặc không khả dụng.</p>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-1">
         <Badge variant="outline" className="text-[10px] capitalize">{result.edit_type?.replace('_', ' ')}</Badge>

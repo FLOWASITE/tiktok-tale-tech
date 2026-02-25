@@ -1426,6 +1426,9 @@ async function executeEditImage(
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60_000);
+
   try {
     const response = await fetch(`${supabaseUrl}/functions/v1/edit-image-background`, {
       method: "POST",
@@ -1439,7 +1442,10 @@ async function executeEditImage(
         editPrompt: edit_prompt || '',
         organizationId: context.organizationId,
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -1466,6 +1472,15 @@ async function executeEditImage(
       },
     };
   } catch (error) {
+    clearTimeout(timeout);
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return {
+        success: false,
+        tool_name: "edit_image",
+        result: null,
+        error: "Image editing timed out after 60s",
+      };
+    }
     return {
       success: false,
       tool_name: "edit_image",
