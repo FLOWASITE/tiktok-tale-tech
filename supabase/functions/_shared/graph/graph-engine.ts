@@ -1,0 +1,473 @@
+// ============================================
+// Mini Graph Engine
+// Lightweight DAG execution engine for Deno
+// Supports: conditional edges, parallel fan-out/fan-in,
+//           dynamic graph compilation, checkpoints
+// ============================================
+
+import {
+  GraphState,
+  GraphPlan,
+  GraphPlanStep,
+  NodeResult,
+  mergeStateUpdate,
+} from "./graph-state.ts";
+
+// ---- Types ----
+
+export type NodeFunction = (state: GraphState) => Promise<Partial<GraphState>>;
+
+export interface NodeConfig {
+  name: string;
+  fn: NodeFunction;
+  /** If true, failure stops the entire graph */
+  critical?: boolean;
+  /** Estimated token cost for budget checks */
+  estimatedTokens?: number;
+}
+
+export interface StaticEdge {
+  from: string;
+  to: string;
+}
+
+export interface ConditionalEdge {
+  from: string;
+  condition: (state: GraphState) => string | string[] | null;
+  // Returns target node name(s) or null to end
+}
+
+export interface GraphDefinition {
+  nodes: Map<string, NodeConfig>;
+  edges: StaticEdge[];
+  conditionalEdges: ConditionalEdge[];
+  entryPoint: string;
+  endNodes: Set<string>;
+}
+
+export interface GraphExecutionOptions {
+  /** Called when a node starts */
+  onNodeStart?: (nodeName: string, state: GraphState) => void;
+  /** Called when a node completes */
+  onNodeComplete?: (nodeName: string, result: Partial<GraphState>, durationMs: number) => void;
+  /** Called on node error */
+  onNodeError?: (nodeName: string, error: Error) => void;
+  /** Checkpoint save function */
+  onCheckpoint?: (state: GraphState, completedNode: string) => Promise<void>;
+  /** Max total execution time in ms */
+  maxExecutionMs?: number;
+  /** Abort signal for cancellation */
+  abortSignal?: AbortSignal;
+}
+
+export interface GraphExecutionResult {
+  state: GraphState;
+  executedNodes: string[];
+  skippedNodes: string[];
+  error?: string;
+}
+
+// ---- Graph Builder ----
+
+export class GraphBuilder {
+  private nodes = new Map<string, NodeConfig>();
+  private edges: StaticEdge[] = [];
+  private conditionalEdges: ConditionalEdge[] = [];
+  private entry = '';
+  private ends = new Set<string>();
+
+  addNode(name: string, fn: NodeFunction, opts?: Partial<Omit<NodeConfig, 'name' | 'fn'>>): this {
+    this.nodes.set(name, { name, fn, ...opts });
+    return this;
+  }
+
+  addEdge(from: string, to: string): this {
+    this.edges.push({ from, to });
+    return this;
+  }
+
+  addConditionalEdge(from: string, condition: ConditionalEdge['condition']): this {
+    this.conditionalEdges.push({ from, condition });
+    return this;
+  }
+
+  setEntryPoint(name: string): this {
+    this.entry = name;
+    return this;
+  }
+
+  addEndNode(name: string): this {
+    this.ends.add(name);
+    return this;
+  }
+
+  build(): GraphDefinition {
+    if (!this.entry) throw new Error('Graph must have an entry point');
+    if (!this.nodes.has(this.entry)) throw new Error(`Entry point '${this.entry}' not found in nodes`);
+    return {
+      nodes: new Map(this.nodes),
+      edges: [...this.edges],
+      conditionalEdges: [...this.conditionalEdges],
+      entryPoint: this.entry,
+      endNodes: new Set(this.ends),
+    };
+  }
+}
+
+// ---- Dynamic Graph Compilation from Orchestrator Plan ----
+
+/**
+ * Compile an orchestrator plan into a GraphDefinition.
+ * The plan specifies ordered steps with parallel groups and dependencies.
+ * Node functions must be provided via the nodeRegistry.
+ */
+export function compileGraphFromPlan(
+  plan: GraphPlan,
+  nodeRegistry: Map<string, NodeConfig>
+): GraphDefinition {
+  const builder = new GraphBuilder();
+  const skipSet = new Set(plan.skipNodes || []);
+
+  // Filter valid steps
+  const steps = plan.steps.filter(s => !skipSet.has(s.node) && nodeRegistry.has(s.node));
+
+  if (steps.length === 0) {
+    throw new Error('Graph plan has no executable steps');
+  }
+
+  // Add all nodes
+  for (const step of steps) {
+    const config = nodeRegistry.get(step.node)!;
+    builder.addNode(config.name, config.fn, {
+      critical: config.critical,
+      estimatedTokens: config.estimatedTokens,
+    });
+
+    // Also add parallel nodes
+    for (const pNode of step.parallelWith || []) {
+      if (!skipSet.has(pNode) && nodeRegistry.has(pNode) && !steps.some(s => s.node === pNode)) {
+        const pConfig = nodeRegistry.get(pNode)!;
+        builder.addNode(pConfig.name, pConfig.fn, {
+          critical: pConfig.critical,
+          estimatedTokens: pConfig.estimatedTokens,
+        });
+      }
+    }
+  }
+
+  // Set entry point
+  builder.setEntryPoint(steps[0].node);
+
+  // Build edges from step dependencies
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+
+    // Add edges from dependencies
+    if (step.dependsOn?.length) {
+      for (const dep of step.dependsOn) {
+        if (!skipSet.has(dep)) {
+          builder.addEdge(dep, step.node);
+        }
+      }
+    } else if (i > 0) {
+      // Default: sequential edge from previous step
+      const prev = steps[i - 1];
+      // Connect from previous step (and its parallels) to current
+      builder.addEdge(prev.node, step.node);
+      for (const pNode of prev.parallelWith || []) {
+        if (!skipSet.has(pNode)) {
+          builder.addEdge(pNode, step.node);
+        }
+      }
+    }
+  }
+
+  // Last step is end node
+  const lastStep = steps[steps.length - 1];
+  builder.addEndNode(lastStep.node);
+  for (const pNode of lastStep.parallelWith || []) {
+    if (!skipSet.has(pNode)) builder.addEndNode(pNode);
+  }
+
+  return builder.build();
+}
+
+// ---- Graph Executor ----
+
+/**
+ * Execute a graph definition against a state.
+ * Supports parallel execution of independent nodes.
+ */
+export async function executeGraph(
+  graph: GraphDefinition,
+  initialState: GraphState,
+  options: GraphExecutionOptions = {}
+): Promise<GraphExecutionResult> {
+  const executedNodes: string[] = [];
+  const skippedNodes: string[] = [];
+  let state = { ...initialState };
+  const startTime = Date.now();
+  const maxMs = options.maxExecutionMs || 55000; // Default 55s (Edge Function safety margin)
+
+  // Build adjacency & in-degree for topological execution
+  const { adjacency, inDegree, allNodes } = buildDAG(graph);
+
+  // Track completed nodes
+  const completed = new Set<string>();
+  const failed = new Set<string>();
+
+  // BFS-style execution: process nodes whose dependencies are all met
+  while (completed.size + failed.size + skippedNodes.length < allNodes.size) {
+    // Check timeout
+    if (Date.now() - startTime > maxMs) {
+      state = mergeStateUpdate(state, {
+        status: 'failed',
+        exitReason: 'timeout',
+      });
+      return { state, executedNodes, skippedNodes, error: 'Graph execution timeout' };
+    }
+
+    // Check abort
+    if (options.abortSignal?.aborted) {
+      state = mergeStateUpdate(state, {
+        status: 'failed',
+        exitReason: 'aborted',
+      });
+      return { state, executedNodes, skippedNodes, error: 'Aborted' };
+    }
+
+    // Find ready nodes: all dependencies completed
+    const readyNodes = [...allNodes].filter(n =>
+      !completed.has(n) && !failed.has(n) && !skippedNodes.includes(n) &&
+      (inDegree.get(n) || []).every(dep => completed.has(dep))
+    );
+
+    if (readyNodes.length === 0) {
+      // Deadlock or all done
+      break;
+    }
+
+    // Execute ready nodes in parallel
+    const results = await Promise.allSettled(
+      readyNodes.map(async (nodeName) => {
+        const nodeConfig = graph.nodes.get(nodeName);
+        if (!nodeConfig) {
+          skippedNodes.push(nodeName);
+          return { nodeName, skipped: true };
+        }
+
+        // Token budget check
+        if (nodeConfig.estimatedTokens && !canAfford(state, nodeConfig.estimatedTokens)) {
+          console.warn(`[GraphEngine] Token budget exhausted, skipping ${nodeName}`);
+          skippedNodes.push(nodeName);
+          return { nodeName, skipped: true };
+        }
+
+        options.onNodeStart?.(nodeName, state);
+        const nodeStart = Date.now();
+
+        try {
+          const update = await nodeConfig.fn(state);
+          const durationMs = Date.now() - nodeStart;
+
+          options.onNodeComplete?.(nodeName, update, durationMs);
+
+          return { nodeName, update, durationMs, skipped: false };
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          options.onNodeError?.(nodeName, error);
+
+          if (nodeConfig.critical) {
+            throw err; // Propagate critical errors
+          }
+
+          console.warn(`[GraphEngine] Non-critical node ${nodeName} failed: ${error.message}`);
+          return {
+            nodeName,
+            update: {} as Partial<GraphState>,
+            durationMs: Date.now() - nodeStart,
+            error: error.message,
+            skipped: false,
+          };
+        }
+      })
+    );
+
+    // Process results
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        // Critical node failure
+        const errorMsg = result.reason instanceof Error ? result.reason.message : String(result.reason);
+        state = mergeStateUpdate(state, {
+          status: 'failed',
+          exitReason: `critical_node_failure: ${errorMsg}`,
+        });
+        return { state, executedNodes, skippedNodes, error: errorMsg };
+      }
+
+      const { nodeName, update, durationMs, skipped, error } = result.value as any;
+
+      if (skipped) continue;
+
+      executedNodes.push(nodeName);
+
+      if (error) {
+        failed.add(nodeName);
+        state = mergeStateUpdate(state, {
+          nodeResults: [{
+            nodeName,
+            success: false,
+            content: '',
+            toolResults: [],
+            durationMs: durationMs || 0,
+            error,
+            stateUpdate: {},
+          }],
+        });
+      } else {
+        completed.add(nodeName);
+        state = mergeStateUpdate(state, update || {});
+        state = mergeStateUpdate(state, {
+          nodeResults: [{
+            nodeName,
+            success: true,
+            content: (update as any)?.generatedContent || '',
+            toolResults: [],
+            durationMs: durationMs || 0,
+            stateUpdate: update || {},
+          }],
+        });
+      }
+
+      // Checkpoint after each node
+      if (options.onCheckpoint) {
+        try {
+          await options.onCheckpoint(state, nodeName);
+        } catch (e) {
+          console.warn(`[GraphEngine] Checkpoint failed after ${nodeName}:`, e);
+        }
+      }
+    }
+
+    // Resolve conditional edges from completed nodes
+    for (const nodeName of [...completed]) {
+      const condEdges = graph.conditionalEdges.filter(e => e.from === nodeName);
+      for (const edge of condEdges) {
+        const target = edge.condition(state);
+        if (target) {
+          const targets = Array.isArray(target) ? target : [target];
+          for (const t of targets) {
+            if (graph.nodes.has(t) && !completed.has(t) && !failed.has(t)) {
+              // Dynamically add to allNodes and update inDegree
+              allNodes.add(t);
+              if (!inDegree.has(t)) inDegree.set(t, []);
+              // Dependencies are already met (the conditional node completed)
+            }
+          }
+        }
+      }
+    }
+
+    // Handle interrupt
+    if (state.interruptPayload) {
+      state = mergeStateUpdate(state, { status: 'interrupted' });
+      return { state, executedNodes, skippedNodes };
+    }
+  }
+
+  // Determine final status
+  if (state.status === 'running') {
+    state = mergeStateUpdate(state, {
+      status: failed.size > 0 && executedNodes.length === 0 ? 'failed' : 'completed',
+      completedAt: Date.now(),
+      exitReason: 'completed',
+    });
+  }
+
+  return { state, executedNodes, skippedNodes };
+}
+
+// ---- Internal Helpers ----
+
+function buildDAG(graph: GraphDefinition) {
+  const allNodes = new Set<string>();
+  const adjacency = new Map<string, string[]>();
+  const inDegree = new Map<string, string[]>(); // node -> list of dependencies
+
+  // Collect all nodes
+  for (const [name] of graph.nodes) {
+    allNodes.add(name);
+    adjacency.set(name, []);
+    inDegree.set(name, []);
+  }
+
+  // Build from static edges
+  for (const edge of graph.edges) {
+    if (!allNodes.has(edge.from) || !allNodes.has(edge.to)) continue;
+    adjacency.get(edge.from)!.push(edge.to);
+    inDegree.get(edge.to)!.push(edge.from);
+  }
+
+  return { adjacency, inDegree, allNodes };
+}
+
+function canAfford(state: GraphState, estimatedTokens: number): boolean {
+  return (state.tokenBudget.used + estimatedTokens) <= state.tokenBudget.total;
+}
+
+// ---- Template Graphs ----
+
+/**
+ * Pre-built graph plans for common workflows (fast-path, no LLM orchestrator needed)
+ */
+export const TEMPLATE_PLANS: Record<string, GraphPlan> = {
+  chat: {
+    steps: [{ node: 'content' }],
+    skipNodes: ['research', 'strategy', 'reviewer', 'image'],
+    reasoning: 'Simple chat — direct to content node',
+    fastPath: true,
+  },
+  research_only: {
+    steps: [{ node: 'research' }],
+    skipNodes: ['strategy', 'content', 'reviewer', 'image'],
+    reasoning: 'Research-only request',
+    fastPath: true,
+  },
+  generate_with_research: {
+    steps: [
+      { node: 'research', parallelWith: ['brand_memory'] },
+      { node: 'strategy', dependsOn: ['research'] },
+      { node: 'content', dependsOn: ['strategy'] },
+      { node: 'reviewer', dependsOn: ['content'] },
+    ],
+    skipNodes: [],
+    reasoning: 'Full content pipeline with research',
+    fastPath: true,
+  },
+  generate_simple: {
+    steps: [
+      { node: 'content' },
+      { node: 'reviewer', dependsOn: ['content'] },
+    ],
+    skipNodes: ['research', 'strategy'],
+    reasoning: 'Direct generation with explicit topic',
+    fastPath: true,
+  },
+  image_generate: {
+    steps: [{ node: 'image' }],
+    skipNodes: ['research', 'strategy', 'content', 'reviewer'],
+    reasoning: 'Image generation only',
+    fastPath: true,
+  },
+  full_pipeline: {
+    steps: [
+      { node: 'research', parallelWith: ['brand_memory'] },
+      { node: 'strategy', dependsOn: ['research'] },
+      { node: 'content', dependsOn: ['strategy'] },
+      { node: 'reviewer', dependsOn: ['content'] },
+    ],
+    skipNodes: [],
+    reasoning: 'Full multi-step pipeline',
+    fastPath: true,
+  },
+};

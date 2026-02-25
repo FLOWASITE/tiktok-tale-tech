@@ -26,7 +26,7 @@ Hệ thống hiện tại gồm:
 
 > **Lý do không dùng LangGraph.js**: LangGraph.js yêu cầu Node.js runtime với `@langchain/core`, `@langchain/langgraph` - các package này KHÔNG tương thích với Deno Deploy (Edge Functions). Việc import toàn bộ LangChain ecosystem vào Edge Function sẽ gây cold-start chậm (>5s) và vượt size limit. Thay vào đó, chúng ta sẽ xây dựng một **mini graph engine** nhẹ, tối ưu cho Deno.
 
-### Phase 1: Graph Engine Core (Tuần 1-2)
+### Phase 1: Graph Engine Core (Tuần 1-2) ✅ DONE
 
 Xây dựng `graph-engine.ts` thay thế `state-machine.ts`:
 
