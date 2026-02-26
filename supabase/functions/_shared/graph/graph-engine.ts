@@ -729,41 +729,73 @@ export async function runOrchestrator(
       if (nodeName === 'research' && update) {
         const u = update as any;
         if (u.suggestedTopics?.length) {
+          const normalize = (s: string) => (s || '').toLowerCase().trim().replace(/[""'']/g, '');
+          const isRichReason = (r: string | null | undefined): r is string =>
+            !!r && r.trim().length > 10; // reject single-word reasons like "practical"
+
           const normalizedTopics = u.suggestedTopics.map((t: any) => ({
             topic: t.topic || t.title || t.name || 'Untitled',
             category: t.category || t.pillar || 'general',
             score: t.score ?? t.overallScore ?? null,
             reasoning: t.reasoning || t.explanation || null,
           }));
+
           // Use refined bestTopic directly (may differ from raw list after refinement)
           const normalizedBestTopic = u.bestTopic || normalizedTopics[0]?.topic || undefined;
-          const refinedVariants = u.researchData?.refinedVariants || [];
+          const refinedVariants: any[] = u.researchData?.refinedVariants || [];
+
+          // Merge refined topic into normalizedTopics so frontend can always find it
+          if (normalizedBestTopic && refinedVariants.length > 0) {
+            const bestNorm = normalize(normalizedBestTopic);
+            const alreadyExists = normalizedTopics.some((t: any) => normalize(t.topic) === bestNorm);
+            if (!alreadyExists) {
+              const matchingVariant = refinedVariants.find((v: any) => normalize(v.topic) === bestNorm) || refinedVariants[0];
+              const baseTopicData = normalizedTopics[0] || {};
+              normalizedTopics.unshift({
+                topic: normalizedBestTopic,
+                category: baseTopicData.category || 'general',
+                score: baseTopicData.score ?? null,
+                reasoning: matchingVariant?.hook || matchingVariant?.angle || baseTopicData.reasoning || null,
+              });
+            }
+          }
+
           // Robust fallback for best_topic_reason:
-          // 1) Exact match in normalized topics
-          // 2) Case-insensitive match
-          // 3) Matching refined variant's angle
-          // 4) First topic's reasoning
-          const exactMatch = normalizedTopics.find(
-            (t: any) => t.topic === normalizedBestTopic
-          )?.reasoning;
-          const looseMatch = !exactMatch && normalizedBestTopic
-            ? normalizedTopics.find(
-                (t: any) => t.topic?.toLowerCase().trim() === normalizedBestTopic.toLowerCase().trim()
-              )?.reasoning
-            : undefined;
-          const variantAngle = !exactMatch && !looseMatch && refinedVariants.length > 0
-            ? (refinedVariants.find((v: any) => v.topic === normalizedBestTopic)?.angle
-              || refinedVariants[0]?.angle)
-            : undefined;
-          const bestTopicReason = exactMatch || looseMatch || variantAngle || normalizedTopics[0]?.reasoning || null;
-          console.log(`[GraphEngine] Emitting topic_suggestions: ${normalizedTopics.length} topics, best: ${normalizedBestTopic}, reason: ${bestTopicReason?.slice(0, 50)}, refined variants: ${refinedVariants.length}`);
+          // Priority: a) rich reasoning from exact topic match
+          //           b) rich reasoning from loose match
+          //           c) rich reasoning from highest-score topic
+          //           d) hook from refined variant matching best topic
+          //           e) angle from refined variant (last resort)
+          const bestNorm = normalize(normalizedBestTopic || '');
+          const exactMatch = normalizedTopics.find((t: any) => normalize(t.topic) === bestNorm);
+          const richExact = isRichReason(exactMatch?.reasoning) ? exactMatch.reasoning : null;
+
+          const highScoreTopic = normalizedTopics
+            .filter((t: any) => isRichReason(t.reasoning))
+            .sort((a: any, b: any) => (b.score ?? 0) - (a.score ?? 0))[0];
+          const richHighScore = highScoreTopic?.reasoning || null;
+
+          const matchingVariant = refinedVariants.find((v: any) => normalize(v.topic) === bestNorm) || refinedVariants[0];
+          const variantHook = isRichReason(matchingVariant?.hook) ? matchingVariant.hook : null;
+          const variantAngle = isRichReason(matchingVariant?.angle) ? matchingVariant.angle : null;
+
+          // Also accept short exact reason as absolute last resort
+          const shortExact = exactMatch?.reasoning || null;
+
+          const bestTopicReason = richExact || richHighScore || variantHook || variantAngle || shortExact || null;
+
+          console.log(`[GraphEngine] Emitting topic_suggestions: ${normalizedTopics.length} topics, best: ${normalizedBestTopic}, reason: ${bestTopicReason?.slice(0, 80)}, refined variants: ${refinedVariants.length}`);
           options.onEvent?.({
             type: 'topic_suggestions',
             data: {
               topics: normalizedTopics,
               best_topic: normalizedBestTopic,
               best_topic_reason: bestTopicReason,
-              refined_variants: refinedVariants,
+              refined_variants: refinedVariants.map((v: any) => ({
+                topic: v.topic,
+                angle: v.angle,
+                hook: v.hook || undefined,
+              })),
             },
           });
         }

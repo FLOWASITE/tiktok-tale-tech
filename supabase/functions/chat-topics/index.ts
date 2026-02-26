@@ -165,15 +165,17 @@ serve(async (req) => {
         await pendingWrites;
 
         // Stream final content
+        // Clean fallback: never stringify raw objects into chat bubble
+        const researchSummary = graphResult.state.researchData?.summary;
         const finalContent = graphResult.state.generatedContent
-          || graphResult.state.researchData
+          || (typeof researchSummary === 'string' && researchSummary.length > 20 ? researchSummary : null)
           || graphResult.state.nodeResults
               .filter(r => r.success && r.content)
               .map(r => r.content)
               .join('\n\n')
           || 'Xin lỗi, không thể xử lý yêu cầu này.';
 
-        contentStr = typeof finalContent === 'string' ? finalContent : JSON.stringify(finalContent);
+        contentStr = typeof finalContent === 'string' ? finalContent : 'Đã hoàn tất phân tích. Vui lòng thử lại nếu cần chi tiết hơn.';
         const chunks = contentStr.match(/.{1,100}/g) || [];
         for (const chunk of chunks) {
           await sseWriter.write({ type: 'content_chunk', data: { chunk } });
