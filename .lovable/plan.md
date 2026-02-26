@@ -1,31 +1,26 @@
 
-## Sửa lỗi: Core Content bị đứng ở 10%
 
-### Nguyên nhân gốc
+## Xóa trạng thái tiến trình cũ khi vào lại form Tạo mới đa kênh
 
-Hàm `generateSinglePass` trong edge function `generate-core-content` chỉ gửi **2 sự kiện progress**:
-- 10% khi bắt đầu gọi AI
-- 95% khi AI trả về xong hoàn toàn
+### Vấn đề
 
-Trong khoảng giữa (có thể kéo dài 30-120 giây), **không có progress nào được gửi**. Dù text streaming hoạt động, thanh tiến trình vẫn hiển thị 10%.
+Khi người dùng quay lại trang "Tạo mới đa kênh", các thanh tiến trình (progress bars) và trạng thái streaming từ lần tạo trước vẫn còn hiển thị. Nguyên nhân: React Router giữ lại component state khi navigate, và không có logic reset state khi component mount lại.
 
-Thêm vào đó, log cho thấy lỗi "connection closed before message completed" - kết nối SSE bị ngắt trước khi hoàn thành.
+### Nguyên nhân kỹ thuật
 
-### Kế hoạch sửa
+1. Hook `useStreamingCoreContent` có hàm `reset()` nhưng **không bao giờ được gọi**
+2. Hook `useStreamingGeneration` cũng giữ state cũ (streamingTexts, progress)
+3. State `generationState`, `sseProgress` ở `MultiChannelCreate.tsx` không được reset khi remount
+4. Không có `key` prop trên `MultiChannelFormWizard` để force remount
 
-**File: `supabase/functions/generate-core-content/index.ts`**
+### Giải pháp
 
-1. **Thêm progress động trong `generateSinglePass`**: Theo dõi số ký tự đã nhận được từ streaming và tính toán progress dựa trên tỷ lệ so với `maxTokens`. Progress sẽ tăng dần từ 10% đến 90% khi nhận được text chunks.
+**File 1: `src/pages/MultiChannelCreate.tsx`**
+- Thêm `key` prop dựa trên `location.key` cho component `MultiChannelFormWizard` -- khi navigate lại cùng route, React Router tạo location.key mới, buộc component remount hoàn toàn, reset tất cả state bên trong (bao gồm `useStreamingCoreContent`)
+- Reset `generationState` về `'idle'` và `sseProgress` về `null` trong useEffect khi `location.key` thay đổi
 
-2. **Cụ thể**: Wrap callback `onChunk` để mỗi khi nhận chunk mới, tính `estimatedProgress = 10 + (accumulatedLength / expectedLength) * 80`, gửi progress event mỗi ~500 ký tự (tránh gửi quá nhiều).
+**File 2: `src/hooks/useStreamingGeneration.ts`**
+- Thêm logic cleanup khi unmount: abort controller, reset state
 
-### Chi tiết kỹ thuật
+Cách tiếp cận dùng `key={location.key}` là đơn giản và triệt để nhất -- force React unmount/remount toàn bộ wizard, đảm bảo mọi state đều sạch.
 
-Trong hàm `generateSinglePass` (dòng 333-383):
-- Thêm biến `accumulatedLength` để theo dõi text đã nhận
-- Tính `expectedLength` dựa trên `maxTokens * 3.5` (ước tính chars per token)
-- Wrap `onChunk` để gửi progress mỗi 500 chars
-- Progress tăng từ 10 -> 90 theo tỷ lệ text nhận được
-- Cap tại 90% để 95% vẫn dành cho bước finalize
-
-Thay đổi nhỏ, chỉ sửa 1 hàm trong edge function. Không ảnh hưởng frontend vì frontend đã xử lý progress events đúng cách.
