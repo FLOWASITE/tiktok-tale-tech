@@ -106,12 +106,21 @@ export function TopicAIChatbot({
   
   // Persist pipeline steps so bar remains visible after streaming ends
   const [lastPipelineSteps, setLastPipelineSteps] = useState<ProgressStep[]>([]);
+  const [showSessionSummary, setShowSessionSummary] = useState(false);
   
   useEffect(() => {
     if (streamingHook.progressSteps.length > 0) {
       setLastPipelineSteps(streamingHook.progressSteps);
     }
   }, [streamingHook.progressSteps]);
+
+  // Show summary only when pipeline completes, hide on next send
+  useEffect(() => {
+    const steps = streamingHook.progressSteps.length > 0 ? streamingHook.progressSteps : lastPipelineSteps;
+    if (!streamingHook.isLoading && steps.length > 0 && steps.every(s => s.status === 'complete')) {
+      setShowSessionSummary(true);
+    }
+  }, [streamingHook.isLoading, streamingHook.progressSteps, lastPipelineSteps]);
   
   const displayPipelineSteps = streamingHook.progressSteps.length > 0
     ? streamingHook.progressSteps
@@ -120,6 +129,7 @@ export function TopicAIChatbot({
   // Send message handler
   const handleSend = useCallback(async (messageText: string) => {
     if (!messageText.trim() || streamingHook.isLoading) return;
+    setShowSessionSummary(false);
     
     triggerHaptic('medium');
     playSend();
@@ -309,8 +319,8 @@ export function TopicAIChatbot({
                  <AgentPipelineBar steps={displayPipelineSteps} />
                )}
                
-               {/* Session Summary - shows after all agents complete */}
-               {!streamingHook.isLoading && displayPipelineSteps.length > 0 && (
+               {/* Session Summary - shows after all agents complete, hides on new send */}
+               {showSessionSummary && !streamingHook.isLoading && displayPipelineSteps.length > 0 && (
                  <AgentSessionSummary
                    steps={displayPipelineSteps}
                    contextSources={lastContextSources}
