@@ -1,25 +1,50 @@
 
-# Sprint 1, 2, 3 — COMPLETED ✅
 
-Tất cả 13 tasks + 5 refinements đã hoàn thành.
+# Hoàn thiện UI: 3 vấn đề còn lại
 
-## Refinements (hoàn thiện)
+## 1. BrandContextCard gây console error (ref warning)
 
-### 1. ✅ Circuit Breaker: `getStats()` async fix
-- `getStats()` → `async`, `await getState()`
+**Lỗi hiện tại:** Console liên tục báo "Function components cannot be given refs" cho BrandContextCard bên trong PersonalizedWelcome. Framer Motion's AnimatePresence cần ref trên children để thực hiện exit animations.
 
-### 2. ✅ Circuit Breaker: `resetCircuit()`/`resetAllCircuits()` xoá Redis
-- Cả hai hàm → `async`, xoá Redis keys khi reset
+**Fix:** Wrap BrandContextCard bằng `React.forwardRef()` để loại bỏ warning.
 
-### 3. ✅ Logger: `saveMetrics()` lưu `spanId`/`parentSpanId`
-- Thêm `span_id`, `parent_span_id` vào insert object
+**File:** `src/components/topic/chatbot/BrandContextCard.tsx`
 
-### 4. ✅ ContentFeedback tích hợp vào Chat UI
-- Import + render trong `ChatMessageBubble.tsx`
-- Thêm `conversationId`, `traceId` vào `ChatMessage` type
-- Auto-resolve userId từ auth session
+---
 
-### 5. ✅ Governor Revision Loop re-review
-- Conditional edge: governor → reviewer khi `exitReason` = `revised_full` hoặc `revised_soft`
-- Reviewer re-score nội dung đã revision
-- MAX_REVISION_ROUNDS ngăn infinite loop
+## 2. Duplicate Feedback UI - 2 hệ thống feedback chồng nhau
+
+**Lỗi hiện tại:** Mỗi assistant message hiển thị **cả hai**:
+- `ContentFeedback` (dòng 278-288): Thumbs up/down + tags + comment, lưu vào bảng `content_feedback`
+- `MessageFeedback` (dòng 303-311): Thumbs up/down + Regenerate button, KHÔNG lưu DB
+
+Kết quả: User thấy **4 nút thumbs** trên mỗi tin nhắn, rất confusing.
+
+**Fix:** 
+- Xoá `MessageFeedback` cũ (chỉ là UI local, không persist)
+- Di chuyển nút "Tạo lại" (Regenerate) ra ngoài cạnh timestamp, tách khỏi feedback
+- Giữ `ContentFeedback` làm hệ thống feedback duy nhất (đã lưu DB)
+
+**File:** `src/components/topic/chatbot/ChatMessageBubble.tsx`
+
+---
+
+## 3. ContentFeedback dùng `as any` type cast
+
+**Lỗi hiện tại:** `supabase.from('content_feedback' as any)` — bảng đã có trong types.ts, không cần cast.
+
+**Fix:** Bỏ `as any`, dùng trực tiếp `supabase.from('content_feedback')`.
+
+**File:** `src/components/chat/ContentFeedback.tsx`
+
+---
+
+## Chi tiet ky thuat
+
+| File | Thay doi |
+|------|----------|
+| `BrandContextCard.tsx` | Wrap component bang `forwardRef` |
+| `ChatMessageBubble.tsx` | Xoa `MessageFeedback`, giu `ContentFeedback`, chuyen nut Regenerate ra khu vuc timestamp |
+| `ContentFeedback.tsx` | Bo `as any` cast |
+
+Tat ca fix deu nho, khong thay doi kien truc. Sau khi hoan thanh, khong con console warning va UX feedback thong nhat 1 he thong duy nhat.
