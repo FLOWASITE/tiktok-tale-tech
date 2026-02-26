@@ -204,32 +204,35 @@ export function ChatMessageBubble({
                           </span>
                         </div>
                       )}
-                      <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-2">
-                        {searchQuery && searchResults.includes(message.id) && highlightSearchTerm ? (
-                          <div dangerouslySetInnerHTML={{ __html: highlightSearchTerm(cleanContent) }} />
-                        ) : (
-                          <ReactMarkdown
-                            components={{
-                              code({ node, inline, className, children, ...props }: any) {
-                                const match = /language-(\w+)/.exec(className || '');
-                                const codeString = String(children).replace(/\n$/, '');
-                                
-                                if (!inline && (match || codeString.includes('\n'))) {
-                                  return <CodeBlock language={match?.[1]}>{codeString}</CodeBlock>;
+                      {/* Hide verbose research output when selectedTopic exists */}
+                      {!message.selectedTopic && (
+                        <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-2">
+                          {searchQuery && searchResults.includes(message.id) && highlightSearchTerm ? (
+                            <div dangerouslySetInnerHTML={{ __html: highlightSearchTerm(cleanContent) }} />
+                          ) : (
+                            <ReactMarkdown
+                              components={{
+                                code({ node, inline, className, children, ...props }: any) {
+                                  const match = /language-(\w+)/.exec(className || '');
+                                  const codeString = String(children).replace(/\n$/, '');
+                                  
+                                  if (!inline && (match || codeString.includes('\n'))) {
+                                    return <CodeBlock language={match?.[1]}>{codeString}</CodeBlock>;
+                                  }
+                                  
+                                  return (
+                                    <code className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono" {...props}>
+                                      {children}
+                                    </code>
+                                  );
                                 }
-                                
-                                return (
-                                  <code className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono" {...props}>
-                                    {children}
-                                  </code>
-                                );
-                              }
-                            }}
-                          >
-                            {cleanContent}
-                          </ReactMarkdown>
-                        )}
-                      </div>
+                              }}
+                            >
+                              {cleanContent}
+                            </ReactMarkdown>
+                          )}
+                        </div>
+                      )}
                     </>
                   );
                 })()
