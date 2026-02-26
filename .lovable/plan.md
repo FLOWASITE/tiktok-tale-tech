@@ -1,30 +1,40 @@
 
 
-# Show Topic AI Results on UI
+# Fix: Show Topic AI Results on UI
 
-## Problem
-The Research Agent discovers topics via `discover_topics` tool and stores them in GraphState (`suggestedTopics`, `bestTopic`), but the graph engine never emits a `topic_suggestions` SSE event. The frontend already has:
-- `useChatStreaming.ts` (line 288): Handles `topic_suggestions` event type
-- `ChatMessageBubble.tsx` (line 257): Renders `TopicSuggestionsCard` when `suggestedTopics` exists
-- `TopicSuggestionsCard.tsx`: Full UI component ready to display topics
+## Root Cause Analysis
 
-The only missing piece is the backend emitting the event.
+After tracing the entire data flow end-to-end, the architecture is correctly wired:
+- Backend: `research-node.ts` extracts `suggestedTopics` from `discover_topics` results
+- Backend: `graph-engine.ts` (line 728-740) emits `topic_suggestions` SSE event  
+- Frontend: `useChatStreaming.ts` (line 288) captures event into `pendingSuggestedTopics`
+- Frontend: `ChatMessageBubble.tsx` (line 257) renders `TopicSuggestionsCard`
 
-## Fix (1 file)
+However, the event emission has **no logging** and the topic data format may not match what the frontend expects. The `TopicSuggestionsCard` requires `{ topic, category, score, reasoning }` but the cached/raw data from Topic AI may use different field names (`title`, `name`, `overallScore`).
 
-### `supabase/functions/_shared/graph/graph-engine.ts`
+## Fix (2 files)
 
-In the `onNodeComplete` callback (line 706), after the existing governor-specific logic, add a check: when the completed node is `research` and the state update contains `suggestedTopics`, emit a `topic_suggestions` SSE event with the topics and `bestTopic`.
+### 1. Backend: Add logging + normalize topic data (`graph-engine.ts`)
+
+In the `onNodeComplete` handler (lines 728-740), add:
+- A `console.log` to confirm event emission
+- Normalize each topic object to ensure field names match `SuggestedTopic` interface
 
 ```typescript
-// After line 726 (existing onEvent for node_complete)
 if (nodeName === 'research' && update) {
   const u = update as any;
   if (u.suggestedTopics?.length) {
+    const normalizedTopics = u.suggestedTopics.map((t: any) => ({
+      topic: t.topic || t.title || t.name || 'Untitled',
+      category: t.category || t.pillar || 'general',
+      score: t.score ?? t.overallScore ?? null,
+      reasoning: t.reasoning || t.explanation || null,
+    }));
+    console.log(`[GraphEngine] Emitting topic_suggestions: ${normalizedTopics.length} topics, best: ${u.bestTopic}`);
     options.onEvent?.({
       type: 'topic_suggestions',
       data: {
-        topics: u.suggestedTopics,
+        topics: normalizedTopics,
         best_topic: u.bestTopic || undefined,
       },
     });
@@ -32,11 +42,22 @@ if (nodeName === 'research' && update) {
 }
 ```
 
-This connects the existing backend data to the existing frontend UI -- no new components needed.
+### 2. Frontend: Add debug logging (`useChatStreaming.ts`)
 
-## Technical Notes
+At the `topic_suggestions` handler (line 288), add a `console.log` to confirm receipt:
 
-- The `TopicSuggestionsCard` expects `SuggestedTopic[]` with fields: `topic`, `reasoning`, `category`, `score`
-- The `discover_topics` tool returns topics in a compatible format
-- The event will be emitted immediately after the research node completes, so users see topic suggestions while content is still being generated
+```typescript
+if (parsed.type === 'topic_suggestions' && parsed.data?.topics) {
+  console.log('[Chat] Received topic_suggestions:', parsed.data.topics.length, 'topics');
+  pendingSuggestedTopics = parsed.data.topics;
+  pendingSelectedTopic = parsed.data.best_topic || undefined;
+  continue;
+}
+```
+
+## Why This Should Fix It
+
+1. **Data normalization** ensures field names always match regardless of how Topic AI returns them (cached vs fresh, different response formats)
+2. **Logging** lets us confirm in the next test whether the event is actually emitted and received
+3. No architectural changes needed -- the pipeline is correctly wired, just needs format consistency
 
