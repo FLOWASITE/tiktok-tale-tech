@@ -24,33 +24,43 @@ export interface OrchestratorOptions {
 
 const INTENT_PATTERNS: Record<string, RegExp[]> = {
   research: [
-    /xu hướng|trending|trend|hot topic|viral|tin tức|news/i,
-    /tìm kiếm|search|discover|khám phá|competitor|đối thủ/i,
-    /phân tích|analyze|analysis|insight|nghiên cứu|research/i,
+    /xu hướng|trending|trend|hot topic|viral|tin tức|news|dữ liệu|data/i,
+    /tìm kiếm|search|discover|khám phá|competitor|đối thủ|đối\ thủ\ cạnh\ tranh/i,
+    /phân tích|analyze|analysis|insight|nghiên cứu|research|survey|khảo sát/i,
+    /thị trường|market|audience|khách hàng mục tiêu|target/i,
+    /benchmark|so sánh|compare|comparison/i,
     /เทรนด์|กำลังฮิต|ไวรัล|ข่าวล่าสุด/i,
   ],
   plan: [
-    /lập kế hoạch|kế hoạch|plan|planning|lịch|calendar|30 ngày|7 ngày/i,
-    /content plan|editorial|strategy|chiến lược|timeline/i,
+    /lập kế hoạch|kế hoạch|plan|planning|lịch|calendar|30 ngày|7 ngày|14 ngày/i,
+    /content plan|editorial|strategy|chiến lược|timeline|roadmap|lộ trình/i,
+    /content mix|phân bổ|distribution|tần suất|frequency|scheduling/i,
+    /nên đăng (gì|bao nhiêu|khi nào)|should (i|we) post/i,
     /วางแผน|กลยุทธ์|ปฏิทิน/i,
   ],
   generate: [
-    /viết|tạo|generate|write|create|soạn|làm content/i,
-    /script|carousel|post|bài viết|caption|email/i,
+    /viết|tạo|generate|write|create|soạn|làm content|draft/i,
+    /script|carousel|post|bài viết|caption|email|newsletter|thread/i,
+    /hook|headline|tiêu đề|mở bài|cta|call.to.action/i,
+    /rewrite|chỉnh sửa|sửa lại|paraphrase|biến tấu|adapt/i,
     /เขียน|สร้าง|โพสต์|แคปชัน/i,
   ],
   topic_discovery: [
     /gợi ý.*(?:chủ đề|topic)|(?:chủ đề|topic).*gợi ý/i,
-    /(?:tìm|cho|đề xuất|suggest)\s*(?:\d+\s*)?(?:chủ đề|topic|ý tưởng|idea)/i,
+    /(?:tìm|cho|đề xuất|suggest|recommend)\s*(?:\d+\s*)?(?:chủ đề|topic|ý tưởng|idea)/i,
     /(?:chọn|chon)\s*\d+\s*(?:chủ đề|topic)/i,
-    /brainstorm|ý tưởng|idea|ideation/i,
+    /brainstorm|ý tưởng|idea|ideation|inspiration|nguồn cảm hứng/i,
     /(?:\d+)\s*(?:chủ đề|topic|ý tưởng)/i,
+    /viết (gì|về gì|chủ đề gì)|nên (viết|đăng|làm) (gì|về|cái gì)/i,
+    /hết ý tưởng|không biết viết gì|bí ý|out of ideas/i,
     /หัวข้อ|ไอเดีย|brainstorm/i,
   ],
   complex_workflow: [
-    /tạo nội dung.*ngày|content.*tuần|toàn bộ|complete/i,
-    /từ a.*z|end.to.end|full workflow/i,
-    /research.*rồi.*tạo|tìm.*rồi.*viết/i,
+    /tạo nội dung.*ngày|content.*tuần|toàn bộ|complete|trọn gói/i,
+    /từ a.*z|end.to.end|full workflow|full process/i,
+    /research.*rồi.*tạo|tìm.*rồi.*viết|nghiên cứu.*viết/i,
+    /chiến dịch.*hoàn chỉnh|complete campaign|full campaign/i,
+    /làm hết|làm tất cả|do everything|handle everything/i,
   ],
   multi_step: [
     /nghiên cứu.*tạo.*phân tích|research.*create.*analyze/i,
@@ -59,18 +69,28 @@ const INTENT_PATTERNS: Record<string, RegExp[]> = {
     /nghiên cứu.*rồi.*lập kế hoạch.*rồi.*tạo/i,
     /phân tích đối thủ.*tạo chiến dịch|competitor.*campaign/i,
     /chiến dịch.*ngày.*ngành|campaign.*days.*industry/i,
+    /(?:trước tiên|đầu tiên|first).*(?:sau đó|rồi|then)/i,
   ],
   image_generate: [
     /tạo ảnh|tạo hình|generate image|make image/i,
     /thiết kế ảnh|design image|tạo visual/i,
     /ảnh cho bài|image for post|thumbnail/i,
-    /ảnh minh họa|illustration|banner|cover photo/i,
+    /ảnh minh họa|illustration|banner|cover photo|poster/i,
     /สร้างภาพ|ออกแบบภาพ|ทำรูป/i,
   ],
   clarify_needed: [
     /^(tạo|viết|soạn|làm)\s*(content|nội dung|bài)?\s*$/i,
     /^(giúp|help)\s*(tôi|mình|me)?\s*$/i,
     /^(thêm|more|nữa|tiếp)\s*$/i,
+    /^\?\s*$/i,
+    /^(gì|what|huh)\s*\??$/i,
+  ],
+  conversational: [
+    /^(xin chào|hello|hi|hey|chào|halo)\b/i,
+    /^(cảm ơn|thanks|thank you|tks)\b/i,
+    /bạn là ai|who are you|giới thiệu bản thân/i,
+    /hướng dẫn|help me|tutorial|cách dùng|how to use/i,
+    /giải thích|explain|là gì|what is|nghĩa là/i,
   ],
 };
 
@@ -86,34 +106,46 @@ function detectAmbiguity(message: string): AmbiguityCheck {
   const lower = message.toLowerCase().trim();
   const missingInfo: string[] = [];
 
+  // Follow-up references — never ambiguous
+  const followUpPatterns = /^(thêm|more|nữa|tiếp|ok|được|yes|vâng|ừ|đồng ý|tốt|hay|continue|next|go|lại|giống|tương tự|like that|same)/i;
+  if (followUpPatterns.test(lower)) {
+    return { isAmbiguous: false, missingInfo: [], suggestedAction: 'proceed' };
+  }
+
+  // "thêm X cái nữa" pattern — needs context from conversation
+  const addMorePattern = /thêm\s*(\d+)?\s*(cái|topic|chủ đề|bài|ý tưởng|version|phiên bản)?\s*(nữa|thêm)?/i;
+  if (addMorePattern.test(lower)) {
+    return { isAmbiguous: false, missingInfo: [], suggestedAction: 'proceed' };
+  }
+
+  // Conversational — never ambiguous, just chat
+  const isConversational = INTENT_PATTERNS.conversational?.some(p => p.test(lower));
+  if (isConversational) {
+    return { isAmbiguous: false, missingInfo: [], suggestedAction: 'proceed' };
+  }
+
   // Very short messages with no context
   if (lower.length < 15) {
-    // Check if it's a follow-up reference (e.g., "thêm 3 cái nữa", "tiếp", "ok")
-    const followUpPatterns = /^(thêm|more|nữa|tiếp|ok|được|yes|vâng|ừ|đồng ý|tốt|hay|continue|next|go)/i;
-    if (followUpPatterns.test(lower)) {
-      return { isAmbiguous: false, missingInfo: [], suggestedAction: 'proceed' };
-    }
     missingInfo.push('message_too_short');
   }
 
   // Has generate intent but no topic, no channel, no format
-  const hasGenerateVerb = /viết|tạo|soạn|làm|generate|create|write/i.test(lower);
-  const hasContentNoun = /content|nội dung|bài|post|caption/i.test(lower);
+  const hasGenerateVerb = /viết|tạo|soạn|làm|generate|create|write|draft/i.test(lower);
+  const hasContentNoun = /content|nội dung|bài|post|caption|script|carousel/i.test(lower);
   
   if (hasGenerateVerb && hasContentNoun) {
     if (!hasExplicitTopic(message)) {
       missingInfo.push('no_topic');
     }
-    // Check if channel is specified
-    const hasChannel = /facebook|instagram|tiktok|linkedin|youtube|twitter|threads|email|blog/i.test(lower);
+    const hasChannel = /facebook|instagram|tiktok|linkedin|youtube|twitter|threads|email|blog|website|zalo/i.test(lower);
     if (!hasChannel) {
       missingInfo.push('no_channel');
     }
   }
 
-  // "thêm X cái nữa" pattern — needs context from conversation
-  const addMorePattern = /thêm\s*(\d+)?\s*(cái|topic|chủ đề|bài|ý tưởng)?\s*(nữa|thêm)?/i;
-  if (addMorePattern.test(lower)) {
+  // Vague question patterns: "làm sao để...", "nên làm gì..." — route to chat, not ambiguous
+  const vagueQuestion = /^(làm sao|làm thế nào|how|nên|should)\s/i;
+  if (vagueQuestion.test(lower)) {
     return { isAmbiguous: false, missingInfo: [], suggestedAction: 'proceed' };
   }
 
@@ -128,17 +160,24 @@ function detectAmbiguity(message: string): AmbiguityCheck {
 // ---- Heuristic Topic Detection ----
 
 const NON_TOPIC_TERMS = new Set([
-  'facebook', 'instagram', 'tiktok', 'linkedin', 'twitter', 'threads', 'youtube',
-  'kênh', 'channel', 'social', 'mxh', 'online',
+  // Platforms
+  'facebook', 'instagram', 'tiktok', 'linkedin', 'twitter', 'threads', 'youtube', 'zalo', 'pinterest',
+  // Channel nouns
+  'kênh', 'channel', 'social', 'mxh', 'online', 'platform', 'nền', 'tảng',
+  // Content nouns
   'bài', 'post', 'content', 'nội', 'dung', 'noi',
-  'viết', 'tạo', 'soạn', 'làm', 'generate', 'create', 'write', 'make',
-  'cho', 'về', 'about', 'the', 'a', 'an', 'một', 'mot',
+  // Verbs
+  'viết', 'tạo', 'soạn', 'làm', 'generate', 'create', 'write', 'make', 'draft', 'build',
+  // Prepositions / filler
+  'cho', 'về', 'about', 'the', 'a', 'an', 'một', 'mot', 'của', 'với', 'for', 'with', 'to', 'in', 'on',
   // Content format terms
   'carousel', 'script', 'kịch', 'bản', 'video', 'reel', 'reels', 'story', 'stories',
-  'multichannel', 'đa', 'multi',
+  'multichannel', 'đa', 'multi', 'thread', 'newsletter', 'email', 'blog',
   // Common filler words
   'giúp', 'help', 'tôi', 'mình', 'me', 'hãy', 'please', 'cần', 'need', 'muốn', 'want',
-  'gợi', 'ý', 'suggest', 'đề', 'xuất',
+  'gợi', 'ý', 'suggest', 'đề', 'xuất', 'hôm', 'nay', 'today', 'ngày', 'tuần', 'tháng',
+  // Journey/role terms (not topics)
+  'seed', 'sprout', 'harvest', 'awareness', 'engagement', 'conversion',
 ]);
 
 function hasExplicitTopic(message: string): boolean {
@@ -158,11 +197,20 @@ function hasExplicitTopic(message: string): boolean {
   const aboutMatch = lowerMsg.match(/about\s+([^.,!?\n]+)/i);
   if (aboutMatch && hasRealWords(aboutMatch[1])) return true;
 
-  const colonMatch = message.match(/:\s*([^.,!?\n]{3,})/);
+  // "topic: [value]" or "chủ đề: [value]" pattern
+  const colonMatch = message.match(/(?:topic|chủ đề|subject)\s*[:：]\s*([^.,!?\n]{3,})/i);
   if (colonMatch && hasRealWords(colonMatch[1])) return true;
+
+  // General colon pattern
+  const generalColon = message.match(/:\s*([^.,!?\n]{3,})/);
+  if (generalColon && hasRealWords(generalColon[1])) return true;
 
   const contentMatch = lowerMsg.match(/(?:bài|content|nội dung|post|script|carousel)\s+(?:về\s+)?([^.,!?\n]+)/i);
   if (contentMatch && hasRealWords(contentMatch[1])) return true;
+
+  // Hashtag as topic indicator
+  const hashtagMatch = message.match(/#(\w{3,})/);
+  if (hashtagMatch) return true;
 
   const words = lowerMsg.replace(/[^\w\u00C0-\u1EF9\s]/g, ' ').split(/\s+/).filter(Boolean);
   return words.filter(w => w.length >= 3 && !NON_TOPIC_TERMS.has(w)).length >= 2;
@@ -184,7 +232,13 @@ interface FastPathResult {
 function matchIntent(message: string): FastPathResult | null {
   const lower = message.toLowerCase();
 
-  // Priority order: multi_step > complex_workflow > image > topic_discovery > others
+  // Priority order: conversational > multi_step > complex_workflow > image > topic_discovery > others
+
+  // Conversational — simple chat, no workflow needed
+  if (INTENT_PATTERNS.conversational?.some(p => p.test(lower))) {
+    return { intent: 'conversational', confidence: 0.95 };
+  }
+
   for (const p of INTENT_PATTERNS.multi_step) {
     if (p.test(lower)) return { intent: 'multi_step', confidence: 0.88 };
   }
@@ -194,7 +248,7 @@ function matchIntent(message: string): FastPathResult | null {
   for (const p of INTENT_PATTERNS.image_generate) {
     if (p.test(lower)) return { intent: 'image_generate', confidence: 0.88 };
   }
-  // Topic discovery (e.g., "chọn 5 chủ đề", "gợi ý topic", "brainstorm ý tưởng")
+  // Topic discovery
   for (const p of INTENT_PATTERNS.topic_discovery) {
     if (p.test(lower)) return { intent: 'topic_discovery', confidence: 0.9 };
   }
@@ -209,12 +263,18 @@ function matchIntent(message: string): FastPathResult | null {
   }
 
   // Score remaining intents
+  const skipIntents = ['multi_step', 'complex_workflow', 'image_generate', 'topic_discovery', 'clarify_needed', 'conversational'];
   const scores: Record<string, number> = { research: 0, plan: 0, generate: 0 };
   for (const [intent, patterns] of Object.entries(INTENT_PATTERNS)) {
-    if (['multi_step', 'complex_workflow', 'image_generate', 'topic_discovery', 'clarify_needed'].includes(intent)) continue;
+    if (skipIntents.includes(intent)) continue;
     for (const p of patterns) {
       if (p.test(lower)) scores[intent] = (scores[intent] || 0) + 1;
     }
+  }
+
+  // Multi-intent detection: if both research and generate score, it's likely complex
+  if (scores.research >= 1 && scores.generate >= 1) {
+    return { intent: 'complex_workflow', confidence: 0.82 };
   }
 
   const top = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
@@ -241,7 +301,9 @@ function intentToTemplate(intent: string, message: string): string {
     case 'multi_step':
       return 'full_pipeline';
     case 'clarify_needed':
-      return 'chat'; // Simple chat to ask clarifying questions
+      return 'chat';
+    case 'conversational':
+      return 'chat';
     default:
       return 'chat';
   }
@@ -282,15 +344,24 @@ Given the user's message and current context, create an optimal execution graph 
 ${NODE_DESCRIPTIONS}
 
 Rules:
-1. For simple chat/Q&A, use only the "content" node.
+1. For simple chat/Q&A/greetings/explanations, use only the "content" node.
 2. brand_memory should run in parallel with the first substantive node when brand context matters.
 3. reviewer should come after content generation.
-4. image should only be included when visual content is explicitly requested.
+4. image should only be included when visual content is explicitly requested (e.g., "tạo ảnh", "design image").
 5. Minimize nodes — don't include unnecessary steps.
 6. Use parallelWith for nodes that can run simultaneously.
 7. Use dependsOn for nodes that need results from previous nodes.
 8. compliance should run in parallel with research/brand_memory (lightweight, rule-based).
 9. governor should always be the last node after reviewer for quality gating.
+
+Intent Classification Guidelines:
+- If user asks "viết gì / nên đăng gì" → topic_discovery → use research node
+- If user provides a specific topic (e.g., "viết bài về skincare mùa hè") → generate directly
+- If user message is vague with no topic AND no channel → research first, then generate
+- If user says "thêm", "nữa", "tiếp" → these are follow-ups, treat as simple generate
+- If user asks a question about marketing/content strategy → use content node only (chat mode)
+- If user explicitly chains steps ("nghiên cứu rồi tạo") → multi_step / full_pipeline
+- IMPORTANT: Extract the topic from the message if present, even if embedded in a longer sentence
 
 You MUST call the create_graph_plan tool with your plan.`;
 
