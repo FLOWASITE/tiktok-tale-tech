@@ -1,118 +1,73 @@
 
+# Flowa Agentic OS — Project Plan v2.5
 
-# Sprint 8: Security Hardening & Production Optimization
-
-Sau khi hoan thanh Sprint 6-7, he thong da co nen tang tot. Sprint 8 tap trung vao 3 muc tieu: fix security findings con ton dong, toi uu context fetching, va cache safety.
+## Trang thai Hien tai: Sprint 8 COMPLETED ✅
 
 ---
 
-## Tinh trang Hien tai
+## Da hoan thanh
 
-**Da hoan thanh (Sprint 6-7):**
-- Dead code cleanup, Governor degradation, Observability SQL views
-- Error taxonomy, index.ts decomposition, Resume API, Blackboard bootstrap
+### Sprint 1-5: Core Platform
+- Multi-agent graph engine (DAG) with BFS parallel execution
+- Brand templates, personas, products, journey mapping
+- Content generation (multichannel, script, carousel)
+- RAG search with gte-small embeddings (384d)
+- Industry Memory v2 with Knowledge Graph
+- Ad Copy management with A/B testing & performance tracking
+- Campaign management with KPI notifications
+
+### Sprint 6-7: Architecture & Reliability
+- Dead code cleanup (Supervisor Loop, Agentic Loop removed)
+- index.ts decomposition → pipeline modules
+- Governor degradation (graceful fallback)
+- Observability SQL views (v_daily_metrics, v_node_performance, v_cache_and_revision)
+- Error taxonomy with structured error types
+- Resume API for interrupted sessions
+- Blackboard bootstrap for semantic context
 - Token budget reserve 25%
+- forwardRef fixes for DashboardStats components
 
-**Con ton dong (tu Security Scan + Expert Review):**
-1. Security: `sales_chat_messages_log` cho phep anonymous insert (ERROR)
-2. Security: `social_platform_settings` luu OAuth secrets trong DB (ERROR)
-3. Security: `ad_copy_performance` thieu direct org isolation (WARN)
-4. Context fetcher thieu per-source timeout (expert review)
-5. Cache invalidation race condition khi brand update giua request
-
----
-
-## Sprint 8A: Security Fixes (P0)
-
-### Task 32: Fix `sales_chat_messages_log` public write
-
-**Van de:** Policy "Allow anonymous insert" voi `USING (true)` cho phep bat ky ai cung insert — spam/abuse risk.
-
-**Giai phap:** Database migration:
-- Drop policy "Allow anonymous insert on sales_chat_messages_log"
-- Tao policy moi yeu cau `session_id IS NOT NULL AND length(message) < 5000`
-- Giu anonymous access (sales chatbot can thiet) nhung them validation
-
-### Task 33: Fix `social_platform_settings` credentials
-
-**Van de:** OAuth `consumer_key` va `consumer_secret` luu trong user-accessible table.
-
-**Giai phap:** 
-- Khong the migrate ngay vi nhieu edge functions dang doc tu bang nay
-- Tam thoi: them RLS policy restrict SELECT tren `consumer_key`, `consumer_secret` chi cho service role
-- Tao database view `v_social_platform_settings_safe` khong bao gom sensitive columns cho frontend
-- Long-term: migrate secrets to Vault (defer)
-
-### Task 34: Strengthen `ad_copy_performance` isolation
-
-**Van de:** RLS dua vao complex join chain qua `ad_copies` -> `organization_members`.
-
-**Giai phap:** Database migration:
-- Them column `organization_id` truc tiep vao `ad_copy_performance` (nullable, backfill tu ad_copies)
-- Tao trigger auto-populate `organization_id` khi insert
-- Them RLS policy direct: `organization_id IN (SELECT org_id FROM organization_members WHERE user_id = auth.uid())`
+### Sprint 8: Security Hardening & Production Optimization
+- **Task 32:** `sales_chat_messages_log` — replaced `USING(true)` anonymous insert with validated policy (session_id required, content < 5000 chars)
+- **Task 33:** `social_platform_settings` — created `v_social_platform_settings_safe` view (SECURITY INVOKER) hiding OAuth secrets; admin-only RLS retained
+- **Task 34:** `ad_copy_performance` — added direct `organization_id` column with auto-populate trigger; replaced complex join-chain RLS with direct org membership check
+- **Task 35:** Context Fetcher — implemented per-source timeouts (DB: 3s, RAG: 4s, Web: 5s) with `Promise.allSettled()` for graceful partial results
+- **Task 36:** Cache Safety — added `version` column to `brand_templates` with auto-increment trigger; `generateCacheKey()` now includes `brandVersion` to prevent stale cache on brand updates
 
 ---
 
-## Sprint 8B: Context Fetcher Timeout (P1)
+## Security Posture
 
-### Task 35: Per-source timeout cho parallel context fetch
+| Area | Status | Notes |
+|------|--------|-------|
+| `sales_chat_messages_log` | ✅ Fixed | Validated anonymous insert |
+| `social_platform_settings` | ✅ Mitigated | Safe view for frontend, secrets hidden |
+| `ad_copy_performance` | ✅ Fixed | Direct org isolation |
+| Observability views | ✅ Fixed | SECURITY INVOKER |
+| Function search_path | ✅ Fixed | All SET search_path TO 'public' |
+| `duplicate_ignore_list` | ✅ Fixed | Scoped to auth.uid() |
+| Industry personas v2 | ✅ Fixed | Admin-only write, authenticated read |
+| OAuth Vault migration | ⏳ Deferred | RLS restriction sufficient for now |
 
-**Van de:** `context-fetcher.ts` fetch 6+ sources nhung web search co the mat 10-12s, chiem het time budget.
-
-**Giai phap:** Sua `context-fetcher.ts`:
-- Wrap moi source trong `withTimeout()` voi timeout rieng:
-  - DB fetches (brand, persona, product): 3s
-  - RAG search: 4s  
-  - Web search: 5s (giam tu 12s hien tai)
-  - Conversation RAG: 3s
-- Dung `Promise.allSettled()` cho tat ca parallel fetches
-- Log source nao bi timeout de track qua observability
-
-**File:** `supabase/functions/_shared/pipeline/context-fetcher.ts`
+**Remaining linter warnings:** ~17 `USING(true)` on service-role/public-read tables (by design)
 
 ---
 
-## Sprint 8C: Cache Safety (P1)
+## Khong lam (Backlog)
 
-### Task 36: Them `brand_version` vao cache key
-
-**Van de:** Neu brand template update giua khi request dang chay (12-25s), request co the dung cache cu cho mot phan va brand moi cho phan khac.
-
-**Giai phap:**
-- Them column `version` (integer, default 1) vao `brand_templates` table
-- Tao trigger: khi brand_templates update -> `version = version + 1`
-- Sua `generateCacheKey()` trong `redis-cache.ts`: them `brandVersion` vao hash input
-- Cache tu dong miss khi brand update -> khong can invalidation trigger
-
-**Files:**
-- Database migration: them column + trigger
-- `supabase/functions/_shared/cache/redis-cache.ts`: sua `generateCacheKey()`
-- `supabase/functions/_shared/graph/nodes/content-node.ts`: truyen `brandVersion` khi goi `generateCacheKey()`
+- **Rate limiter Redis** (P2) — in-memory sufficient
+- **HITL UI** (P2) — degradation path covers this
+- **Multi-model routing** (P2) — needs observability data first
+- **OAuth Vault migration** (P3) — high effort, RLS restriction adequate
+- **Streaming per-node** (P3) — requires SSE protocol redesign
+- **Custom Node Plugins** (P3) — future extensibility
 
 ---
 
-## Sprint 8D: Cap nhat Tai lieu (P0)
+## Architecture Notes
 
-### Task 37: Cap nhat `.lovable/plan.md` len v2.5
-- Ghi Sprint 8 completions
-- Cap nhat Known Limitations (xoa security items da fix)
-- Them section "Security Posture" tom tat trang thai bao mat
-
----
-
-## Thu tu Thuc hien
-
-| Buoc | Sprint | Priority | Effort | Impact |
-|------|--------|----------|--------|--------|
-| 1 | 8A (Security fixes) | P0 | Trung binh | Fix 2 ERROR + 1 WARN findings |
-| 2 | 8B (Context timeout) | P1 | Thap | Giam latency P95, tang reliability |
-| 3 | 8C (Cache safety) | P1 | Thap | Fix race condition |
-| 4 | 8D (Tai lieu) | P0 | Thap | Accuracy |
-
-### Khong lam trong Sprint 8
-- **Rate limiter Redis** (P2) — in-memory van du
-- **HITL UI** (P2) — degradation path da cover
-- **Multi-model routing** (P2) — can observability data truoc
-- **OAuth Vault migration** (P3) — effort cao, RLS restriction du tam thoi
-
+- **Execution:** Graph Engine (DAG) only, BFS parallel with 55s safety limit
+- **Pipeline:** request-validator → context-fetcher → token-processor → prompt-assembler
+- **Cache:** Upstash Redis with graceful fallback; brand_version in cache key
+- **Auth:** JWT propagation with trusted fallback for service-role calls
+- **Context:** Per-source timeouts, Promise.allSettled for partial results

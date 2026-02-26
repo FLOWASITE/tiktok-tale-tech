@@ -23,6 +23,7 @@ interface ContentNodeContext {
   industry?: string;
   userAccessToken?: string;
   retriever?: any;
+  brandVersion?: number;
 }
 
 export function createContentNode(ctx: ContentNodeContext) {
@@ -34,7 +35,8 @@ export function createContentNode(ctx: ContentNodeContext) {
       ctx.brandTemplateId || 'default',
       'content',
       { userMessage: state.userMessage, bestTopic: state.bestTopic, contentPlan: typeof state.contentPlan === 'string' ? state.contentPlan.slice(0, 200) : JSON.stringify(state.contentPlan)?.slice(0, 200), industry: ctx.industry },
-      PROMPT_VERSION
+      PROMPT_VERSION,
+      ctx.brandVersion
     );
 
     return withCache(cacheKey, async () => {
