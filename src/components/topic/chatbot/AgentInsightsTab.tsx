@@ -3,7 +3,7 @@
 // Right sidebar: Agent status, context, suggestions, tokens
 // ============================================
 
-import { Search, ClipboardList, PenTool, Image, ShieldCheck, Send, Zap, Brain, Shield, Gauge } from 'lucide-react';
+import { Search, ClipboardList, PenTool, Image, ShieldCheck, Send, Zap, Brain, Shield, Gauge, Crosshair } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,7 @@ interface AgentInsightsTabProps {
 }
 
 const AGENTS = [
+  { key: 'orchestrator', label: 'Orchestrator', icon: Crosshair },
   { key: 'research', label: 'Research', icon: Search },
   { key: 'brand_memory', label: 'Brand Memory', icon: Brain },
   { key: 'compliance', label: 'Compliance', icon: Shield },

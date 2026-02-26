@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Bot, Brain, Sparkles, Save, Search, FileText, Images, Calendar, Wand2, CheckCircle2, Loader2, Globe, ClipboardList, Pen, Shield, ImageIcon } from 'lucide-react';
+import { Bot, Brain, Sparkles, Save, Search, FileText, Images, Calendar, Wand2, CheckCircle2, Loader2, Globe, ClipboardList, Pen, Shield, ImageIcon, Crosshair } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type ThinkingStatus = 
@@ -65,6 +65,8 @@ const STATUS_CONFIG: Record<ThinkingStatus, { message: string; icon: typeof Brai
 // Agent icon mapping
 function getAgentIcon(agentId: string) {
   const map: Record<string, typeof Search> = {
+    'orchestrator': Crosshair,
+    'orchestrator-agent': Crosshair,
     'research-agent': Search,
     'strategy-agent': ClipboardList,
     'content-agent': Pen,

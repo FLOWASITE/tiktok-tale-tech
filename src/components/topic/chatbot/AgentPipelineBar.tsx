@@ -4,7 +4,7 @@
 // ============================================
 
 import { memo } from 'react';
-import { Search, ClipboardList, PenTool, Image, ShieldCheck, Check, Loader2, Brain, AlertCircle, Shield, Gauge } from 'lucide-react';
+import { Search, ClipboardList, PenTool, Image, ShieldCheck, Check, Loader2, Brain, AlertCircle, Shield, Gauge, Crosshair } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { ProgressStep } from './ChatThinkingIndicator';
@@ -15,6 +15,7 @@ interface AgentPipelineBarProps {
 }
 
 const AGENT_CONFIG = [
+  { key: 'orchestrator', matchIds: ['orchestrator', 'orchestrator-agent'], label: 'Orchestrator', icon: Crosshair, viLabel: 'Điều phối' },
   { key: 'research', matchIds: ['research', 'research-agent'], label: 'Research', icon: Search, viLabel: 'Nghiên cứu' },
   { key: 'brand_memory', matchIds: ['brand_memory', 'brand-memory-agent'], label: 'Brand Memory', icon: Brain, viLabel: 'Thương hiệu' },
   { key: 'compliance', matchIds: ['compliance', 'compliance-agent'], label: 'Compliance', icon: Shield, viLabel: 'Tuân thủ' },
