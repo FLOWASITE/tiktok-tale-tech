@@ -68,6 +68,15 @@ export default function MultiChannelCreate() {
   const [generatedContentId, setGeneratedContentId] = useState<string | null>(null);
   const generationStartRef = useRef<number | null>(null);
 
+  // Reset generation state when navigating back to this page
+  useEffect(() => {
+    setGenerationState('idle');
+    setSseProgress(null);
+    setGeneratedContentId(null);
+    setGenerationElapsedMs(0);
+    generationStartRef.current = null;
+  }, [location.key]);
+
   // Selected brand template
   const selectedTemplate = templates.find((t) => t.id === selectedBrandId);
 
@@ -304,6 +313,7 @@ export default function MultiChannelCreate() {
             </div>
 
             <MultiChannelFormWizard
+              key={location.key}
               brandTemplateId={selectedBrandId}
               brandTemplate={selectedTemplate}
               voiceVariantId={selectedVoiceVariantId}
