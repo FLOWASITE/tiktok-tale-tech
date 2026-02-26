@@ -352,13 +352,34 @@ async function generateSinglePass(
   
   let content: string;
   if (onChunk) {
+    // Track accumulated text length for dynamic progress (10% -> 90%)
+    let accumulatedLength = 0;
+    let lastProgressSent = 10;
+    const expectedLength = maxTokens * 3.5; // ~3.5 chars per token estimate
+    
+    const wrappedOnChunk = (text: string) => {
+      accumulatedLength += text.length;
+      
+      // Calculate progress: 10% -> 90% based on text received
+      const ratio = Math.min(accumulatedLength / expectedLength, 1);
+      const estimatedProgress = Math.round(10 + ratio * 80);
+      
+      // Send progress every ~5% increment to avoid flooding
+      if (estimatedProgress >= lastProgressSent + 5) {
+        lastProgressSent = estimatedProgress;
+        onProgress?.('generating', Math.min(estimatedProgress, 90), 'AI đang tạo nội dung...');
+      }
+      
+      onChunk(text);
+    };
+    
     content = await callAIStreaming(
       model,
       prompt,
       `Write high-quality Core Content about: ${config.topic}`,
       maxTokens,
       0.7,
-      onChunk
+      wrappedOnChunk
     );
   } else {
     content = await callAI(
