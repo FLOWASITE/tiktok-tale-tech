@@ -1,43 +1,55 @@
 
 
-# Remove Redundant Brand Memory & Compliance Nodes
+# Bắt buộc Research Node gọi Trending + Suggest song song
 
-## Why
+## Vấn đề hiện tại
 
-The `generate-multichannel` edge function (which Content Node calls) already has:
-- **Compliance pre-check**: Loads `industry_jurisdiction_profiles`, merges forbidden terms, compliance rules, claim restrictions, and blocks topics with forbidden terms (lines 1970-2000)
-- **Brand voice/memory**: Loads full `brand_templates` with tone, forbidden words, compliance rules and injects them into the LLM prompt (lines 1750-1850)
+Research Node phụ thuộc hoàn toàn vào LLM để quyết định gọi tool nào. LLM thường chỉ chọn 1 action (thường là `suggest`), bỏ qua `trending` -- dẫn đến thiếu dữ liệu xu hướng/viral.
 
-The separate Brand Memory and Compliance graph nodes duplicate this work, adding ~100-200ms of latency per request for zero benefit.
+## Giải pháp
 
-## Changes
+Thay đổi Research Node để **gọi trực tiếp** 2 lệnh `discover_topics` (suggest + trending) **trước khi** gọi LLM, rồi đưa kết quả vào context cho LLM tổng hợp.
 
-### 1. Remove nodes from graph plans (`graph-engine.ts`)
+## Thay đổi chi tiết
 
-Update the 3 plan templates that reference these nodes:
+### 1. `research-node.ts` -- Gọi song song trước LLM
 
-- `generate_with_research`: Change `{ node: 'research', parallelWith: ['brand_memory', 'compliance'] }` to `{ node: 'research' }`
-- `full_pipeline`: Same change
-- Add `'brand_memory'` and `'compliance'` to `skipNodes` arrays
+```text
+Flow mới:
+┌─────────────────────────────────┐
+│ 1. Gọi SONG SONG (không qua LLM):    │
+│    - discover_topics(suggest)         │
+│    - discover_topics(trending)        │
+├─────────────────────────────────┤
+│ 2. Inject kết quả vào user message   │
+├─────────────────────────────────┤
+│ 3. LLM call (vẫn có tools nếu cần   │
+│    web_search thêm) → tổng hợp      │
+├─────────────────────────────────┤
+│ 4. Merge topics từ cả 2 nguồn       │
+│    Ưu tiên: trending score cao hơn   │
+└─────────────────────────────────┘
+```
 
-### 2. Remove from node registry (`graph/nodes/index.ts`)
+- Trước LLM call, thực thi `executeToolCall('discover_topics', { action: 'suggest', query: userMessage })` và `executeToolCall('discover_topics', { action: 'trending' })` song song bằng `Promise.all`
+- Gộp kết quả thành `prefetchedContext` string, inject vào message cho LLM
+- LLM vẫn có thể gọi thêm `web_search` nếu cần, nhưng không cần gọi lại `discover_topics`
+- Merge topics: trending topics được tag `[TRENDING]`, suggest topics tag `[SUGGEST]`, sắp xếp theo score
 
-- Remove imports for `createBrandMemoryNode` and `createComplianceNode`
-- Remove `registry.set('brand_memory', ...)` and `registry.set('compliance', ...)` entries
-- Keep the re-exports for backward compatibility (other code may reference them)
+### 2. `research-agent.ts` -- Cập nhật system prompt
 
-### 3. Clean up GraphState (`graph-state.ts`)
+- Thêm hướng dẫn: "Dữ liệu trending và suggest đã được cung cấp sẵn bên dưới. Hãy tổng hợp và chọn topic tốt nhất."
+- Bỏ quy tắc yêu cầu LLM tự gọi `discover_topics` (vì đã gọi sẵn)
+- Giữ `web_search` trong tools để LLM bổ sung nếu cần
 
-- Keep `brandMemoryContext` and `complianceResult` fields in the interface (they won't be populated but won't cause errors either)
-- Remove them from `buildStateContext()` output since they'll always be empty
+### 3. Merge logic cho `suggestedTopics`
 
-## What stays unchanged
+- Gộp topics từ cả suggest + trending, dedup theo tên
+- Trending topics được boost score +10 để ưu tiên hiển thị
+- `bestTopic` chọn từ pool gộp (score cao nhất)
 
-- `brand-memory-node.ts` and `compliance-node.ts` files are kept (not deleted) for potential future use
-- `generate-multichannel` continues to handle all compliance and brand voice logic internally
-- No frontend changes needed
+## Tác động
 
-## Impact
-
-- Faster graph execution (2 fewer parallel DB calls)
-- Simpler pipeline: Research -> Strategy -> Content -> Reviewer -> Governor
+- Đảm bảo **100%** request đều có dữ liệu trending
+- Giảm phụ thuộc vào quyết định của LLM
+- Tăng nhẹ latency (~200ms) do 2 tool call song song, nhưng đổi lại chất lượng topic tốt hơn nhiều
