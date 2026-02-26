@@ -1,70 +1,70 @@
 
 
-# Sprint 9: Security Hardening Phase 2 — COMPLETED
+# Sprint 10: Security Hardening Phase 3 — COMPLETED
 
-All 7 ERROR-level and 3 WARN-level security findings have been resolved.
+All ERROR-level and WARN-level RLS findings resolved. Only leaked password protection remains (requires manual action).
 
 ---
 
 ## Completed Tasks
 
-### Task 38: Fix Service-Role Tables ✅
-- Dropped `USING(true)` ALL policies on `agent_blackboard`, `agent_execution_logs`, `campaign_notification_logs`
-- Service role bypasses RLS by default — no explicit policy needed
-- These tables are now inaccessible to anon/authenticated roles (service-role only)
+### Phase 1: Fix 6 WARN RLS Policy Always True ✅
+- `ai_metrics`, `circuit_breaker_events`, `security_events`: INSERT restricted from `{public}` → `{service_role}`
+- `brand_memory`, `workflow_checkpoints`: ALL restricted from `{public}` → `{service_role}`
+- `blog_comments`: Anonymous INSERT now validates `post_slug`, `content`, `author_name` NOT NULL + length limits
 
-### Task 39: Fix prompt_analytics and ai_response_cache ✅
-- Dropped `Service role can manage prompt analytics` ALL policy
-- Dropped `Admins can manage all cache entries` ALL policy
-- Org-scoped SELECT policies remain intact for authenticated users
+### Phase 1: Fix profiles + sales data ✅
+- `profiles`: All policies restricted to `{authenticated}` role; service_role INSERT for trigger
+- `sales_chat_leads`: Read restricted to admin-only
+- `sales_chat_analytics`: Read restricted to admin-only
+- `ad_copy_benchmarks`: Read restricted to admin-only
 
-### Task 40: Profiles — Verified Safe ✅
-- Existing policies properly scoped: own profile, org members, admins
-- All use `auth.uid()` checks — anon has no matching policy = denied by default
-- No changes needed
+### Phase 2: Fix social_connections token exposure ✅
+- All SELECT/UPDATE/INSERT/DELETE policies restricted to org admins or brand owners
+- Regular org members can no longer see connection tokens
+- Service role retains full access for edge functions
 
-### Task 41: Fix regulation_crawl_history ✅
-- Replaced public `USING(true)` SELECT with authenticated-only policy
-- Insert/update policies already scoped to authenticated users
+### Phase 2: Fix ai_provider_configs API key exposure ✅
+- SELECT restricted from all org members → org admins only
+- ALL management policies restricted to `{authenticated}` role
 
-### Task 42: Harden Anonymous-Write Tables ✅
-- `blog_reactions`: INSERT requires `post_slug IS NOT NULL AND reaction_type IS NOT NULL`; DELETE restricted to authenticated users
-- `sales_chat_analytics`: INSERT/UPDATE require `session_id IS NOT NULL`
-- `sales_chat_leads`: INSERT requires `session_id IS NOT NULL AND email IS NOT NULL`; UPDATE requires `session_id IS NOT NULL`; SELECT restricted to authenticated users
-
-### Task 43: Auth Configuration ✅
-- Anonymous users disabled
-- Email auto-confirm disabled (users must verify email)
-
-### Task 44: Documentation ✅
-- Plan updated to v2.6
+### Leaked Password Protection ⚠️
+- Not available via API — must be enabled manually in Lovable Cloud Auth settings
 
 ---
 
-## Security Posture Summary
+## Current Linter Status
+
+| Finding | Level | Status |
+|---------|-------|--------|
+| 3× RLS Enabled No Policy (service-role tables) | INFO | Acceptable — intentional |
+| Leaked Password Protection Disabled | WARN | Manual action required |
+
+**ERROR findings: 0 | WARN RLS findings: 0**
+
+---
+
+## Cumulative Security Posture
 
 | Category | Status |
 |----------|--------|
-| Service-role tables (agent_blackboard, agent_execution_logs, campaign_notification_logs) | Service-role only |
-| Analytics tables (prompt_analytics, ai_response_cache) | Org-scoped SELECT, service-role write |
-| User data (profiles) | Own profile + org members + admin |
-| Regulation data (regulation_crawl_history) | Authenticated-only read |
-| Anonymous-write tables | Validated with NOT NULL checks |
+| Service-role tables | Service-role only |
+| User profiles | Authenticated-only: own + org members + admin |
+| Social connections (tokens) | Org admin/brand owner only |
+| AI provider configs (API keys) | Org admin only |
+| Sales leads (PII) | Admin-only read |
+| Sales analytics | Admin-only read |
+| Ad benchmarks | Admin-only read |
+| Blog comments | Validated INSERT with length limits |
 | Auth configuration | No anonymous signup, email verification required |
 
 ---
 
-## Remaining Linter Warnings (Acceptable)
+## Backlog
 
-- 3 INFO: "RLS Enabled No Policy" on service-role-only tables — intentional, service role bypasses RLS
-- Remaining WARN items are from other tables not in Sprint 9 scope (previously assessed as acceptable risk)
-
----
-
-## Backlog (Deferred)
-
+- Leaked password protection (manual — P1)
+- `social_connections` token encryption at rest (P1)
 - Redis rate limiting migration (P2)
 - HITL UI (P2)
 - Multi-model routing (P2)
 - OAuth Vault migration (P3)
-- `social_connections` token encryption (P1 — flagged in scan)
