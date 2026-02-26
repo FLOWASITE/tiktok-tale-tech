@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ChannelContentPreview {
@@ -334,6 +334,19 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
 
   // Stable snapshot for consumers that need the full object
   const streamingTexts = streamingTextsRef.current;
+
+  // Cleanup on unmount: abort any active generation and reset state
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortReasonRef.current = 'replaced';
+        abortControllerRef.current.abort();
+      }
+      cleanupTimers();
+      generatingRef.current = false;
+      streamingTextsRef.current = {};
+    };
+  }, [cleanupTimers]);
 
   return {
     generate,
