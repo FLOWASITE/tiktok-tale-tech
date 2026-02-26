@@ -56,10 +56,20 @@ export function createReviewerNode(ctx: ReviewerNodeContext) {
     const toolCalls = message?.tool_calls || [];
 
     if (toolCalls.length === 0) {
-      // LLM reviewed without tools
+      // LLM reviewed without tools — use result directly (skip follow-up LLM call)
       let reviewResult: any;
       try { reviewResult = JSON.parse(message?.content || '{}'); } catch { reviewResult = { feedback: message?.content }; }
-      return { reviewResult };
+
+      const reviewScore = reviewResult?.score ?? reviewResult?.overall_score ?? reviewResult?.quality_score ?? 0;
+      const reviewConfidence = reviewResult?.confidence ?? (reviewScore > 0 ? 0.7 : 0);
+      const usage = aiResult.data?.usage;
+      const actualTokensUsed = (usage?.prompt_tokens || 0) + (usage?.completion_tokens || 0);
+
+      console.log(`[ReviewerNode] Complete (no-tool fast path). Score=${reviewScore}, Confidence=${reviewConfidence}, Tokens=${actualTokensUsed}`);
+      return { 
+        reviewResult, reviewScore, reviewConfidence,
+        metadata: { actualTokensUsed_reviewer: actualTokensUsed, reviewerFastPath: true },
+      };
     }
 
     // Execute review tools
