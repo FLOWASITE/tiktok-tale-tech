@@ -68,7 +68,7 @@ export function ContentFeedback({
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from('content_feedback' as any).insert({
+      const { error } = await (supabase.from as any)('content_feedback').insert({
         user_id: userId,
         conversation_id: conversationId || null,
         message_id: messageId,

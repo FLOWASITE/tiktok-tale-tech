@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import type { ChatMessage, ExtractedTopic } from './types';
 import type { ParsedContextBadge } from './ContextBadges';
 import { CodeBlock } from './CodeBlock';
-import { MessageFeedback } from './MessageFeedback';
+import { Loader2, RefreshCcw } from 'lucide-react';
 import { ToolResultCard, type ToolResult } from './ToolResultCard';
 import { ContextBadges, ContextQualityMeter, MobileContextBadges, parseContextBadges, removeContextLine } from './ContextBadges';
 import { CopyButton } from './CopyButton';
@@ -299,15 +299,23 @@ export function ChatMessageBubble({
               {formatTimestamp(message.timestamp)}
             </span>
             
-            {/* Message Feedback */}
+            {/* Regenerate button */}
             {message.role === 'assistant' && message.content && !isLoading && message.id !== 'welcome' && (
-              <MessageFeedback 
-                messageId={message.id}
-                initialFeedback={message.feedback}
-                onFeedback={onFeedback}
-                onRegenerate={() => onRegenerate(message)}
-                isRegenerating={isRegenerating}
-              />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-1.5 text-[10px] gap-1 hover:bg-primary/10 hover:text-primary"
+                onClick={() => onRegenerate(message)}
+                disabled={isRegenerating}
+                title="Tạo lại phản hồi"
+              >
+                {isRegenerating ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <RefreshCcw className="w-3 h-3" />
+                )}
+                <span className="hidden sm:inline">Tạo lại</span>
+              </Button>
             )}
           </div>
         )}
