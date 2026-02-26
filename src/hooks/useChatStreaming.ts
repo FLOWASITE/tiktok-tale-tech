@@ -158,8 +158,6 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
           organizationId,
           userId,
           enableTools: true,
-          enableAgenticLoop: true,
-          enableGraphEngine: true,
           
           forceWebSearch,
         }),
