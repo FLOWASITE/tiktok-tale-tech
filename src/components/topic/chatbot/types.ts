@@ -66,6 +66,10 @@ export interface ChatMessage {
   suggestedTopics?: SuggestedTopic[];
   /** The best topic selected by Research Agent */
   selectedTopic?: string;
+  /** Conversation ID for feedback tracking */
+  conversationId?: string;
+  /** Trace ID for distributed tracing */
+  traceId?: string;
 }
 
 export interface SuggestedTopic {

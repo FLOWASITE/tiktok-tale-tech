@@ -298,6 +298,8 @@ export async function saveMetrics(supabase: any, metrics: AIMetrics): Promise<vo
       retry_count: metrics.retryCount ?? 0,
       content_id: metrics.contentId || null,
       action_type: metrics.actionType || null,
+      span_id: metrics.spanId || null,
+      parent_span_id: metrics.parentSpanId || null,
     });
 
     if (error) {
