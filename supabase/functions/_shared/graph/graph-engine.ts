@@ -725,6 +725,20 @@ export async function runOrchestrator(
         data: eventData,
       });
 
+      // Emit topic_suggestions when research node discovers topics
+      if (nodeName === 'research' && update) {
+        const u = update as any;
+        if (u.suggestedTopics?.length) {
+          options.onEvent?.({
+            type: 'topic_suggestions',
+            data: {
+              topics: u.suggestedTopics,
+              best_topic: u.bestTopic || undefined,
+            },
+          });
+        }
+      }
+
       // Auto-store node output to Blackboard v2
       if (options.retriever) {
         const storable = extractStorableContent(nodeName, update);
