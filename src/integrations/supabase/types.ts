@@ -648,6 +648,7 @@ export type Database = {
           likes: number | null
           logged_at: string
           notes: string | null
+          organization_id: string | null
           raw_api_response: Json | null
           reach: number | null
           roas: number | null
@@ -679,6 +680,7 @@ export type Database = {
           likes?: number | null
           logged_at: string
           notes?: string | null
+          organization_id?: string | null
           raw_api_response?: Json | null
           reach?: number | null
           roas?: number | null
@@ -710,6 +712,7 @@ export type Database = {
           likes?: number | null
           logged_at?: string
           notes?: string | null
+          organization_id?: string | null
           raw_api_response?: Json | null
           reach?: number | null
           roas?: number | null
@@ -727,6 +730,13 @@ export type Database = {
             columns: ["ad_copy_id"]
             isOneToOne: false
             referencedRelation: "ad_copies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_copy_performance_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
@@ -2450,6 +2460,7 @@ export type Database = {
           unique_value_proposition: string | null
           updated_at: string
           user_id: string | null
+          version: number
           vision: string | null
         }
         Insert: {
@@ -2502,6 +2513,7 @@ export type Database = {
           unique_value_proposition?: string | null
           updated_at?: string
           user_id?: string | null
+          version?: number
           vision?: string | null
         }
         Update: {
@@ -2554,6 +2566,7 @@ export type Database = {
           unique_value_proposition?: string | null
           updated_at?: string
           user_id?: string | null
+          version?: number
           vision?: string | null
         }
         Relationships: [
@@ -8483,6 +8496,39 @@ export type Database = {
           function_name: string | null
           p95_duration_ms: number | null
           total_calls: number | null
+        }
+        Relationships: []
+      }
+      v_social_platform_settings_safe: {
+        Row: {
+          app_name: string | null
+          created_at: string | null
+          created_by: string | null
+          has_credentials: boolean | null
+          id: string | null
+          is_active: boolean | null
+          platform: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          app_name?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          has_credentials?: never
+          id?: string | null
+          is_active?: boolean | null
+          platform?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          app_name?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          has_credentials?: never
+          id?: string | null
+          is_active?: boolean | null
+          platform?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }

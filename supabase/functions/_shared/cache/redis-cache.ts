@@ -35,9 +35,10 @@ export async function generateCacheKey(
   brandId: string,
   nodeType: string,
   stateSubset: Record<string, any>,
-  promptVersion: string = 'v1'
+  promptVersion: string = 'v1',
+  brandVersion?: number
 ): Promise<string> {
-  const payload = JSON.stringify({ ...stateSubset, _pv: promptVersion });
+  const payload = JSON.stringify({ ...stateSubset, _pv: promptVersion, _bv: brandVersion ?? 0 });
   const hashBuffer = await crypto.subtle.digest(
     'SHA-256',
     new TextEncoder().encode(payload)

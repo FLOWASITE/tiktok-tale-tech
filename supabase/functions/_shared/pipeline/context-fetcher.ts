@@ -70,35 +70,64 @@ export async function fetchAllContext(
     prefetchSection: '',
   };
 
-  // 1. Fetch user preferences & cross-session memory
+  const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+
+  // Parallel fetch all context sources with per-source timeouts
+  const fetches: Promise<void>[] = [];
+
+  // Source 1: User preferences & session memory (3s timeout)
   if (userId) {
-    const [userPrefsResult, sessionMemoryResult] = await Promise.all([
-      fetchUserPreferences(supabase, userId, brandTemplateId),
-      fetchCrossSessionMemory(supabase, userId, brandTemplateId, organizationId, 10),
-    ]);
-    ctx.userPreferences = userPrefsResult;
-    ctx.sessionMemory = sessionMemoryResult;
+    fetches.push(
+      withTimeout(async () => {
+        const [userPrefsResult, sessionMemoryResult] = await Promise.all([
+          fetchUserPreferences(supabase, userId, brandTemplateId),
+          fetchCrossSessionMemory(supabase, userId, brandTemplateId, organizationId, 10),
+        ]);
+        ctx.userPreferences = userPrefsResult;
+        ctx.sessionMemory = sessionMemoryResult;
+      }, 3000, '[ContextFetcher] User prefs/session memory timeout')
+        .catch(e => logger.warn('[ContextFetcher] User prefs timed out', { error: String(e) }))
+    );
   }
 
-  // 2. Fetch brand context
+  // Source 2: Brand context (3s timeout for DB fetches)
   if (brandTemplateId) {
-    await fetchBrandContext(supabase, brandTemplateId, organizationId, ctx, logger);
+    fetches.push(
+      withTimeout(
+        () => fetchBrandContext(supabase, brandTemplateId, organizationId, ctx, logger),
+        3000,
+        '[ContextFetcher] Brand context timeout'
+      ).catch(e => logger.warn('[ContextFetcher] Brand context timed out', { error: String(e) }))
+    );
   }
 
-  // 3. RAG search
-  if (messages.length > 0) {
-    const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-    if (lastUserMessage) {
-      await fetchRAGContext(supabase, lastUserMessage.content, organizationId, brandTemplateId, userId, ctx, logger);
-    }
+  // Source 3: RAG search (4s timeout)
+  if (lastUserMessage && organizationId) {
+    fetches.push(
+      withTimeout(
+        () => fetchRAGContext(supabase, lastUserMessage.content, organizationId, brandTemplateId, userId, ctx, logger),
+        4000,
+        '[ContextFetcher] RAG search timeout'
+      ).catch(e => logger.warn('[ContextFetcher] RAG timed out', { error: String(e) }))
+    );
   }
 
-  // 4. Prefetch web search for trending intent
-  if (messages.length > 0) {
-    const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-    if (lastUserMessage) {
-      await fetchTrendingContext(lastUserMessage.content, forceWebSearch, ctx, logger, userId, organizationId);
-    }
+  // Source 4: Web search / trending (5s timeout, reduced from 12s)
+  if (lastUserMessage) {
+    fetches.push(
+      withTimeout(
+        () => fetchTrendingContext(lastUserMessage.content, forceWebSearch, ctx, logger, userId, organizationId),
+        5000,
+        '[ContextFetcher] Web search timeout'
+      ).catch(e => logger.warn('[ContextFetcher] Web search timed out', { error: String(e) }))
+    );
+  }
+
+  // Execute all in parallel — partial results on timeout
+  const results = await Promise.allSettled(fetches);
+  const timedOut = results.filter(r => r.status === 'rejected');
+  if (timedOut.length > 0) {
+    logger.warn(`[ContextFetcher] ${timedOut.length}/${results.length} sources timed out or failed`);
   }
 
   return ctx;
