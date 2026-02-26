@@ -1,73 +1,140 @@
 
-# Flowa Agentic OS — Project Plan v2.5
 
-## Trang thai Hien tai: Sprint 8 COMPLETED ✅
+# Sprint 9: Security Hardening Phase 2 — Critical Data Exposure Fixes
 
----
-
-## Da hoan thanh
-
-### Sprint 1-5: Core Platform
-- Multi-agent graph engine (DAG) with BFS parallel execution
-- Brand templates, personas, products, journey mapping
-- Content generation (multichannel, script, carousel)
-- RAG search with gte-small embeddings (384d)
-- Industry Memory v2 with Knowledge Graph
-- Ad Copy management with A/B testing & performance tracking
-- Campaign management with KPI notifications
-
-### Sprint 6-7: Architecture & Reliability
-- Dead code cleanup (Supervisor Loop, Agentic Loop removed)
-- index.ts decomposition → pipeline modules
-- Governor degradation (graceful fallback)
-- Observability SQL views (v_daily_metrics, v_node_performance, v_cache_and_revision)
-- Error taxonomy with structured error types
-- Resume API for interrupted sessions
-- Blackboard bootstrap for semantic context
-- Token budget reserve 25%
-- forwardRef fixes for DashboardStats components
-
-### Sprint 8: Security Hardening & Production Optimization
-- **Task 32:** `sales_chat_messages_log` — replaced `USING(true)` anonymous insert with validated policy (session_id required, content < 5000 chars)
-- **Task 33:** `social_platform_settings` — created `v_social_platform_settings_safe` view (SECURITY INVOKER) hiding OAuth secrets; admin-only RLS retained
-- **Task 34:** `ad_copy_performance` — added direct `organization_id` column with auto-populate trigger; replaced complex join-chain RLS with direct org membership check
-- **Task 35:** Context Fetcher — implemented per-source timeouts (DB: 3s, RAG: 4s, Web: 5s) with `Promise.allSettled()` for graceful partial results
-- **Task 36:** Cache Safety — added `version` column to `brand_templates` with auto-increment trigger; `generateCacheKey()` now includes `brandVersion` to prevent stale cache on brand updates
+Sprint 8 addressed specific security issues. The latest security scan reveals **7 new ERROR-level findings** where sensitive tables are publicly readable, plus **3 WARN-level** findings for anonymous write access. This sprint fixes all critical data exposure issues.
 
 ---
 
-## Security Posture
+## Current Security Scan Results
 
-| Area | Status | Notes |
-|------|--------|-------|
-| `sales_chat_messages_log` | ✅ Fixed | Validated anonymous insert |
-| `social_platform_settings` | ✅ Mitigated | Safe view for frontend, secrets hidden |
-| `ad_copy_performance` | ✅ Fixed | Direct org isolation |
-| Observability views | ✅ Fixed | SECURITY INVOKER |
-| Function search_path | ✅ Fixed | All SET search_path TO 'public' |
-| `duplicate_ignore_list` | ✅ Fixed | Scoped to auth.uid() |
-| Industry personas v2 | ✅ Fixed | Admin-only write, authenticated read |
-| OAuth Vault migration | ⏳ Deferred | RLS restriction sufficient for now |
+### ERROR (Must Fix)
 
-**Remaining linter warnings:** ~17 `USING(true)` on service-role/public-read tables (by design)
+| # | Table | Issue |
+|---|-------|-------|
+| 1 | `profiles` | User emails/names readable by anyone (no public-read RLS restriction) |
+| 2 | `agent_blackboard` | AI session data (221 rows) publicly readable — `USING(true)` for ALL |
+| 3 | `agent_execution_logs` | AI model names, tokens, errors (128 rows) publicly readable — `USING(true)` for ALL |
+| 4 | `prompt_analytics` | Execution times, model perf (219 rows) — service-role policy `USING(true)` for ALL |
+| 5 | `ai_response_cache` | Cached AI content (5 rows) — admin policy `USING(true)` for ALL |
+| 6 | `campaign_notification_logs` | Campaign patterns (16 rows) — service-role policy `USING(true)` for ALL |
+| 7 | `regulation_crawl_history` | Regulatory sources (32 rows) — no RLS policies at all |
 
----
+### WARN (Should Fix)
 
-## Khong lam (Backlog)
-
-- **Rate limiter Redis** (P2) — in-memory sufficient
-- **HITL UI** (P2) — degradation path covers this
-- **Multi-model routing** (P2) — needs observability data first
-- **OAuth Vault migration** (P3) — high effort, RLS restriction adequate
-- **Streaming per-node** (P3) — requires SSE protocol redesign
-- **Custom Node Plugins** (P3) — future extensibility
+| # | Table | Issue |
+|---|-------|-------|
+| 8 | `blog_reactions` | Anonymous INSERT/DELETE — bot manipulation risk |
+| 9 | `sales_chat_analytics` | Anonymous INSERT/UPDATE — data poisoning risk |
+| 10 | `sales_chat_leads` | Anonymous INSERT/UPDATE — fake lead injection risk |
+| 11 | - | Leaked password protection disabled |
 
 ---
 
-## Architecture Notes
+## Implementation Plan
 
-- **Execution:** Graph Engine (DAG) only, BFS parallel with 55s safety limit
-- **Pipeline:** request-validator → context-fetcher → token-processor → prompt-assembler
-- **Cache:** Upstash Redis with graceful fallback; brand_version in cache key
-- **Auth:** JWT propagation with trusted fallback for service-role calls
-- **Context:** Per-source timeouts, Promise.allSettled for partial results
+### Task 38: Fix Service-Role Tables (agent_blackboard, agent_execution_logs, campaign_notification_logs)
+
+These tables use `USING(true)` FOR ALL policies intended for service-role only, but this also grants access to anon/authenticated roles.
+
+**Fix:** Drop the permissive ALL policies and replace with role-specific policies:
+- Service role: ALL access (via `auth.role() = 'service_role'` or simply restricting to authenticated + org check)
+- Authenticated users: SELECT only, scoped to their organization
+- No anon access
+
+### Task 39: Fix prompt_analytics and ai_response_cache
+
+Both already have org-scoped SELECT policies, but also have permissive ALL policies that override them.
+
+**Fix:** Drop the `USING(true)` ALL policies and replace with service-role-only INSERT/UPDATE/DELETE policies.
+
+### Task 40: Fix profiles table public read
+
+The `profiles` table has proper per-user policies but the "Org members can view profiles of other members" policy may be too broad.
+
+**Fix:** Verify the org-member policy is properly scoped. Add explicit denial for anon access if missing.
+
+### Task 41: Fix regulation_crawl_history (no RLS)
+
+**Fix:** Enable RLS and add policies:
+- Authenticated users: SELECT only
+- Service role: ALL (for crawl edge functions)
+
+### Task 42: Harden anonymous-write tables
+
+For `blog_reactions`, `sales_chat_analytics`, `sales_chat_leads`:
+
+**Fix:** Add validation constraints to anonymous write policies:
+- `blog_reactions`: Require `post_id IS NOT NULL`, limit to INSERT only (remove DELETE for anon)
+- `sales_chat_analytics`: Require `session_id IS NOT NULL`
+- `sales_chat_leads`: Require `session_id IS NOT NULL AND email IS NOT NULL`
+
+### Task 43: Enable leaked password protection
+
+Use auth configuration to enable leaked password protection.
+
+### Task 44: Update documentation
+
+Update `.lovable/plan.md` to v2.6 reflecting Sprint 9 completions and updated security posture.
+
+---
+
+## Execution Order
+
+| Step | Task | Priority | Impact |
+|------|------|----------|--------|
+| 1 | Task 38 (service-role tables) | P0 | Fix 3 ERROR findings |
+| 2 | Task 39 (analytics/cache) | P0 | Fix 2 ERROR findings |
+| 3 | Task 40 (profiles) | P0 | Fix 1 ERROR finding |
+| 4 | Task 41 (regulation_crawl) | P0 | Fix 1 ERROR finding |
+| 5 | Task 42 (anon-write hardening) | P1 | Fix 3 WARN findings |
+| 6 | Task 43 (leaked password) | P1 | Fix 1 WARN finding |
+| 7 | Task 44 (documentation) | P0 | Accuracy |
+
+---
+
+## Technical Details
+
+### Task 38 — Service-Role Table RLS Pattern
+
+```sql
+-- Drop permissive ALL policy
+DROP POLICY IF EXISTS "Service role access for agent_blackboard" ON public.agent_blackboard;
+
+-- Service role write access (edge functions use service role key)
+-- No explicit policy needed — service role bypasses RLS by default
+
+-- Authenticated users: read-only, scoped to org
+CREATE POLICY "Authenticated users can read own session data"
+ON public.agent_blackboard FOR SELECT TO authenticated
+USING (
+  session_id IN (
+    SELECT id FROM public.agent_sessions
+    WHERE user_id = auth.uid()
+  )
+);
+```
+
+If `agent_sessions` table doesn't exist, fall back to `user_id` column check or restrict to service-role only (no authenticated SELECT).
+
+### Task 40 — Profiles Verification
+
+The existing policies are:
+- "Users can view own profile" — `auth.uid() = id`
+- "Org members can view profiles of other members" — org membership check
+- "Admins can view all profiles"
+
+These should be sufficient. The security scan may flag this because anon role has no explicit deny. Since RLS is enabled, anon gets no access by default (no policy = deny). Need to verify no `USING(true)` SELECT policy exists.
+
+### Task 42 — Anonymous Write Validation Pattern
+
+```sql
+-- Replace permissive insert with validated insert
+DROP POLICY IF EXISTS "Allow anonymous insert on sales_chat_analytics"
+  ON public.sales_chat_analytics;
+
+CREATE POLICY "Validated anonymous insert on sales_chat_analytics"
+ON public.sales_chat_analytics FOR INSERT
+WITH CHECK (session_id IS NOT NULL);
+```
+
