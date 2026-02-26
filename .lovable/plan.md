@@ -1,50 +1,113 @@
 
 
-# Hoàn thiện UI: 3 vấn đề còn lại
+# Sprint 4: Dead Code Cleanup + Graph Engine Polish
 
-## 1. BrandContextCard gây console error (ref warning)
+## Tong quan
 
-**Lỗi hiện tại:** Console liên tục báo "Function components cannot be given refs" cho BrandContextCard bên trong PersonalizedWelcome. Framer Motion's AnimatePresence cần ref trên children để thực hiện exit animations.
-
-**Fix:** Wrap BrandContextCard bằng `React.forwardRef()` để loại bỏ warning.
-
-**File:** `src/components/topic/chatbot/BrandContextCard.tsx`
+Sprint 4 tap trung vao 2 muc tieu chinh:
+1. **Loai bo hoan toan Legacy Supervisor va Single-Turn mode** — dead code chiem ~600 dong trong `chat-topics/index.ts` va toan bo thu muc `supervisor/`
+2. **Polish Graph Engine** — fix cac loi nho ve UI labels, metrics, va conversation context
 
 ---
 
-## 2. Duplicate Feedback UI - 2 hệ thống feedback chồng nhau
+## Task 14: Xoa Legacy Supervisor Code
 
-**Lỗi hiện tại:** Mỗi assistant message hiển thị **cả hai**:
-- `ContentFeedback` (dòng 278-288): Thumbs up/down + tags + comment, lưu vào bảng `content_feedback`
-- `MessageFeedback` (dòng 303-311): Thumbs up/down + Regenerate button, KHÔNG lưu DB
+**Van de:** `enableSupervisor` luon la `false`, nhung toan bo code van ton tai: ~140 dong trong `chat-topics/index.ts` (dong 865-1011) va 6 file trong `supabase/functions/_shared/supervisor/`.
 
-Kết quả: User thấy **4 nút thumbs** trên mỗi tin nhắn, rất confusing.
+**Thay doi:**
 
-**Fix:** 
-- Xoá `MessageFeedback` cũ (chỉ là UI local, không persist)
-- Di chuyển nút "Tạo lại" (Regenerate) ra ngoài cạnh timestamp, tách khỏi feedback
-- Giữ `ContentFeedback` làm hệ thống feedback duy nhất (đã lưu DB)
+1. **`chat-topics/index.ts`**:
+   - Xoa block `SUPERVISOR MULTI-AGENT MODE` (dong 865-1011)
+   - Xoa import `executeSupervisorLoop` (dong 16)
+   - Xoa request param `enableSupervisor` va bien `useSupervisor`
 
-**File:** `src/components/topic/chatbot/ChatMessageBubble.tsx`
+2. **Xoa toan bo thu muc** `supabase/functions/_shared/supervisor/`:
+   - `supervisor-loop.ts`
+   - `state-machine.ts`
+   - `intent-classifier.ts`
+   - `agent-registry.ts`
+   - `blackboard.ts`
+   - `brand-memory.ts`
+
+3. **`useChatStreaming.ts`** (frontend):
+   - Xoa `enableSupervisor: false` khoi request body (dong 163)
+   - Xoa option `supervisorEnabled` khoi interface (dong 42)
 
 ---
 
-## 3. ContentFeedback dùng `as any` type cast
+## Task 15: Xoa Legacy Single-Turn Mode
 
-**Lỗi hiện tại:** `supabase.from('content_feedback' as any)` — bảng đã có trong types.ts, không cần cast.
+**Van de:** Khi `useGraphEngine = true` (luon true), code fallback xuong Single-Turn mode (dong 1143-1515) khong bao gio duoc chay. ~370 dong dead code.
 
-**Fix:** Bỏ `as any`, dùng trực tiếp `supabase.from('content_feedback')`.
+**Thay doi:**
 
-**File:** `src/components/chat/ContentFeedback.tsx`
+1. **`chat-topics/index.ts`**:
+   - Xoa toan bo block `LEGACY SINGLE-TURN MODE` (dong 1143-1515)
+   - Xoa toan bo block `AGENTIC LOOP MODE` (dong 1013-1141) — cung bi bypass boi Graph Engine
+   - Xoa import `executeAgenticLoop`, `buildReActPromptSection` (dong 15)
+   - Xoa cac bien `useAgenticLoop`, `useSupervisor`, `useGraphEngine` — Graph Engine la mode duy nhat
+   - Xoa logic `finalSystemPrompt` dieu kien (dong 628-630) — khong con can
+
+---
+
+## Task 16: Them Missing Node Labels cho Graph Engine UI
+
+**Van de:** `useChatStreaming.ts` (dong 300-307) dinh nghia `nodeLabels` nhung thieu `governor` va `compliance`. Khi cac node nay chay, progress bar hien thi ten ky thuat thay vi label than thien.
+
+**Thay doi:**
+
+1. **`useChatStreaming.ts`** — Them vao `nodeLabels` map:
+   ```
+   'governor': '⚖️ Kiểm soát chất lượng',
+   'compliance': '🛡️ Tuân thủ quy định',
+   ```
+
+---
+
+## Task 17: Fix Graph Engine Metrics (outputTokensEstimated sai)
+
+**Van de:** Dong 828 dung `contentGoal?.length` (vi du "education" = 9 chars) de uoc tinh output tokens. Ket qua: metrics luu output = 2-3 tokens thay vi so that.
+
+**Thay doi:**
+
+1. **`chat-topics/index.ts`** — Sua `outputTokensEstimated` trong Graph Engine mode:
+   - Tinh tu `finalContent` thuc te: `Math.ceil(contentStr.length / 4)`
+   - Can di chuyen khai bao `contentStr` len truoc block `finally` de truy cap duoc
+
+---
+
+## Task 18: Truyen Conversation History vao Graph Engine
+
+**Van de:** Graph Engine chi nhan `processedMessages[last].content` lam `userMessage`. Cac tin nhan truoc do bi mat — AI khong co context hoi thoai.
+
+**Thay doi:**
+
+1. **`chat-topics/index.ts`** — Truyen conversation history vao `runOrchestrator`:
+   - Them `conversationHistory` vao `RunOrchestratorOptions`
+   - Trong `runOrchestrator()`, inject conversation history vao `state.messages`
+
+2. **`graph-engine.ts`** — Them `conversationHistory` vao `RunOrchestratorOptions`:
+   - Them field `conversationHistory?: Array<{ role: string; content: string }>`
+   - Trong `runOrchestrator()`: merge vao `state.messages` truoc khi chay orchestrator
 
 ---
 
 ## Chi tiet ky thuat
 
-| File | Thay doi |
-|------|----------|
-| `BrandContextCard.tsx` | Wrap component bang `forwardRef` |
-| `ChatMessageBubble.tsx` | Xoa `MessageFeedback`, giu `ContentFeedback`, chuyen nut Regenerate ra khu vuc timestamp |
-| `ContentFeedback.tsx` | Bo `as any` cast |
+### Files thay doi
 
-Tat ca fix deu nho, khong thay doi kien truc. Sau khi hoan thanh, khong con console warning va UX feedback thong nhat 1 he thong duy nhat.
+| File | Loai | Mo ta |
+|------|------|-------|
+| `chat-topics/index.ts` | Sua | Xoa Supervisor block, Single-Turn block, Agentic block; fix metrics |
+| `supervisor/` (6 files) | Xoa | Toan bo thu muc legacy |
+| `useChatStreaming.ts` | Sua | Xoa supervisor option; them governor/compliance labels |
+| `graph-engine.ts` | Sua | Them conversationHistory support |
+| `.lovable/plan.md` | Sua | Cap nhat Sprint 4 = COMPLETED |
+
+### Tac dong
+- Giam ~600 dong dead code trong `chat-topics/index.ts`
+- Xoa 6 file legacy (~900 dong)
+- Metrics chinh xac hon
+- UI hien thi dung ten tat ca 8 nodes
+- Graph Engine co full conversation context
+
