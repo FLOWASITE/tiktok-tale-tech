@@ -94,6 +94,9 @@ const MessageRow = memo(function MessageRow({
   return (
     prevProps.message.id === nextProps.message.id &&
     prevProps.message.content === nextProps.message.content &&
+    prevProps.message.selectedTopic === nextProps.message.selectedTopic &&
+    prevProps.message.selectedTopicReason === nextProps.message.selectedTopicReason &&
+    prevProps.message.reviewScores === nextProps.message.reviewScores &&
     prevProps.isAnimating === nextProps.isAnimating &&
     prevProps.isHighlighted === nextProps.isHighlighted &&
     prevProps.isLoading === nextProps.isLoading &&
