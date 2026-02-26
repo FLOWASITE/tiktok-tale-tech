@@ -288,7 +288,33 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
             if (parsed.type === 'topic_suggestions' && parsed.data?.topics) {
               console.log('[Chat] Received topic_suggestions:', parsed.data.topics.length, 'topics');
               pendingSuggestedTopics = parsed.data.topics;
-              pendingSelectedTopic = parsed.data.best_topic || undefined;
+              pendingSelectedTopic = parsed.data.best_topic || parsed.data.topics?.[0]?.topic || undefined;
+
+              // Render ngay cả khi chưa có content_chunk để tránh mất TopicSuggestionsCard
+              if (messageCreated) {
+                onMessageUpdate(assistantId, {
+                  suggestedTopics: pendingSuggestedTopics,
+                  selectedTopic: pendingSelectedTopic,
+                });
+              } else {
+                const topicOnlyMessage: ChatMessage = {
+                  id: assistantId,
+                  role: 'assistant',
+                  content: assistantContent,
+                  timestamp: new Date(),
+                  toolResults: receivedToolResults || undefined,
+                  contextBadges: pendingContextBadges || undefined,
+                  contextRichness,
+                  reviewScores: pendingReviewScores,
+                  agentContributions: pendingAgentContributions.length > 0 ? pendingAgentContributions : undefined,
+                  contextSources: pendingContextSources,
+                  suggestedFollowUps: pendingSuggestedFollowUps,
+                  suggestedTopics: pendingSuggestedTopics,
+                  selectedTopic: pendingSelectedTopic,
+                };
+                onMessageCreate(topicOnlyMessage);
+                messageCreated = true;
+              }
               continue;
             }
 
@@ -842,7 +868,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
         selectedTopic: pendingSelectedTopic,
       };
       
-      if (!messageCreated && (assistantContent || receivedToolResults)) {
+      if (!messageCreated && (assistantContent || receivedToolResults || (pendingSuggestedTopics && pendingSuggestedTopics.length > 0))) {
         onMessageCreate(finalMessage);
       } else if (messageCreated) {
         onMessageUpdate(assistantId, {

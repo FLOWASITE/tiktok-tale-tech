@@ -735,12 +735,15 @@ export async function runOrchestrator(
             score: t.score ?? t.overallScore ?? null,
             reasoning: t.reasoning || t.explanation || null,
           }));
-          console.log(`[GraphEngine] Emitting topic_suggestions: ${normalizedTopics.length} topics, best: ${u.bestTopic}`);
+          const normalizedBestTopic = normalizedTopics.find((t: any) => t.topic === (u.bestTopic || ''))?.topic
+            || normalizedTopics[0]?.topic
+            || undefined;
+          console.log(`[GraphEngine] Emitting topic_suggestions: ${normalizedTopics.length} topics, best: ${normalizedBestTopic}`);
           options.onEvent?.({
             type: 'topic_suggestions',
             data: {
               topics: normalizedTopics,
-              best_topic: u.bestTopic || undefined,
+              best_topic: normalizedBestTopic,
             },
           });
         }
