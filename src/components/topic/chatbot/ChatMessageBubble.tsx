@@ -3,6 +3,7 @@
 // Individual message rendering with all features
 // ============================================
 
+import { useState } from 'react';
 import { Bot, MessageSquare, Video, Images, Plus, Shuffle, Search as SearchIcon, User, AlertCircle, RotateCcw, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -23,7 +24,7 @@ import { PersonalizedWelcome } from './PersonalizedWelcome';
 import type { PersonalizedWelcomeData } from '@/hooks/usePersonalizedWelcome';
 import { ReviewScoreCard } from './ReviewScoreCard';
 import { AgentAttributionBar } from './AgentAttributionBar';
-import { Star, Lightbulb } from 'lucide-react';
+import { Star, Lightbulb, Sparkles } from 'lucide-react';
 import { ContentFeedback } from '@/components/chat/ContentFeedback';
 
 interface ChatMessageBubbleProps {
@@ -78,7 +79,9 @@ export function ChatMessageBubble({
   mode = 'standalone',
   onTopicSelect,
 }: ChatMessageBubbleProps) {
-  // Check if this is a personalized welcome message
+  // Track user-selected topic (not auto from AI)
+  const [userSelectedTopic, setUserSelectedTopic] = useState<string | null>(null);
+  
   const isPersonalizedWelcome = message.id === 'welcome' && 
     (message.content === '__PERSONALIZED_WELCOME__' || message.content.includes('AI Content Strategist'));
 
@@ -206,9 +209,8 @@ export function ChatMessageBubble({
                           </span>
                         </div>
                       )}
-                      {/* Hide verbose research output when suggestedTopics cards replace it */}
-                      {!message.suggestedTopics?.length && (
-                        <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-2">
+                      {/* Always show markdown content (AI analysis) */}
+                      <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-2">
                           {searchQuery && searchResults.includes(message.id) && highlightSearchTerm ? (
                             <div dangerouslySetInnerHTML={{ __html: highlightSearchTerm(cleanContent) }} />
                           ) : (
@@ -234,7 +236,6 @@ export function ChatMessageBubble({
                             </ReactMarkdown>
                           )}
                         </div>
-                      )}
                     </>
                   );
                 })()
@@ -258,29 +259,26 @@ export function ChatMessageBubble({
               <CopyButton content={message.content} />
             )}
 
-            {/* Selected Topic Display (text-based) */}
-            {message.role === 'assistant' && message.selectedTopic && (() => {
-              // Robust fallback for reason display with normalize
+            {/* Selected Topic Display — only when user explicitly clicked "Chọn" */}
+            {message.role === 'assistant' && userSelectedTopic && (() => {
               const norm = (s: string) => (s || '').toLowerCase().trim();
-              const selectedNorm = norm(message.selectedTopic);
+              const selectedNorm = norm(userSelectedTopic);
               const resolvedReason = message.selectedTopicReason
                 || message.suggestedTopics?.find(t => norm(t.topic) === selectedNorm)?.reasoning
                 || message.refinedVariants?.find(v => norm(v.topic) === selectedNorm)?.hook
                 || message.refinedVariants?.find(v => norm(v.topic) === selectedNorm)?.angle
-                || message.refinedVariants?.[0]?.hook
-                || message.refinedVariants?.[0]?.angle
                 || null;
               return (
                 <div className="mt-2 pt-2 border-t border-border/30 space-y-1">
                   <p className="text-sm font-medium flex items-center gap-1.5">
                     <Star className="w-3.5 h-3.5 text-primary fill-primary shrink-0" />
                     <span>Chủ đề được chọn:</span>
-                    <span className="text-primary font-semibold">{message.selectedTopic}</span>
+                    <span className="text-primary font-semibold">{userSelectedTopic}</span>
                   </p>
                   {resolvedReason && (
                     <p className="text-xs text-muted-foreground flex items-start gap-1.5 pl-5">
                       <Lightbulb className="w-3 h-3 mt-0.5 shrink-0" />
-                      <span className="italic">Lý do chọn: {resolvedReason}</span>
+                      <span className="italic">Lý do: {resolvedReason}</span>
                     </p>
                   )}
                 </div>
@@ -290,21 +288,33 @@ export function ChatMessageBubble({
             {/* Suggested Topics Cards */}
             {message.role === 'assistant' && message.suggestedTopics && message.suggestedTopics.length > 0 && (
               <div className="mt-2 pt-2 border-t border-border/30 space-y-2">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
-                  <Lightbulb className="w-3.5 h-3.5" />
-                  <span>{message.suggestedTopics.length} topics gợi ý</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                    <Lightbulb className="w-3.5 h-3.5" />
+                    <span>{message.suggestedTopics.length} topics gợi ý</span>
+                  </div>
+                  {/* AI recommendation badge (small, not a banner) */}
+                  {message.aiRecommendedTopic && !userSelectedTopic && (
+                    <Badge variant="secondary" className="text-[9px] px-2 py-0.5 h-auto gap-1">
+                      <Sparkles className="w-2.5 h-2.5" />
+                      AI đề xuất: {message.aiRecommendedTopic.length > 30 ? message.aiRecommendedTopic.slice(0, 30) + '…' : message.aiRecommendedTopic}
+                    </Badge>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   {message.suggestedTopics.map((t, i) => {
-                    const isSelected = message.selectedTopic && t.topic.toLowerCase().trim() === message.selectedTopic.toLowerCase().trim();
+                    const isUserSelected = userSelectedTopic && t.topic.toLowerCase().trim() === userSelectedTopic.toLowerCase().trim();
+                    const isAiRecommended = !userSelectedTopic && message.aiRecommendedTopic && t.topic.toLowerCase().trim() === message.aiRecommendedTopic.toLowerCase().trim();
                     const topicAsExtracted: ExtractedTopic = { topic: t.topic, reason: t.reasoning || undefined };
                     return (
                       <div
                         key={i}
                         className={cn(
                           'rounded-xl p-2.5 space-y-1.5 transition-all',
-                          isSelected
+                          isUserSelected
                             ? 'bg-gradient-to-r from-primary/10 to-violet-500/10 border border-primary/30 ring-1 ring-primary/20'
+                            : isAiRecommended
+                            ? 'bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/20 border-dashed'
                             : 'bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/15 hover:border-primary/25'
                         )}
                       >
@@ -312,8 +322,9 @@ export function ChatMessageBubble({
                         <div className="flex items-start gap-2">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
-                              {isSelected && <Star className="w-3 h-3 text-primary fill-primary shrink-0" />}
-                              <span className={cn('text-xs font-semibold line-clamp-2', isSelected ? 'text-primary' : 'text-foreground')}>
+                              {isUserSelected && <Star className="w-3 h-3 text-primary fill-primary shrink-0" />}
+                              {isAiRecommended && <Sparkles className="w-3 h-3 text-primary/60 shrink-0" />}
+                              <span className={cn('text-xs font-semibold line-clamp-2', isUserSelected ? 'text-primary' : 'text-foreground')}>
                                 {t.topic}
                               </span>
                             </div>
@@ -340,7 +351,7 @@ export function ChatMessageBubble({
                             )}
                           </div>
                         </div>
-                        {/* Action buttons */}
+                        {/* Action buttons — "Chọn" primary + format buttons secondary */}
                         <div className="flex flex-wrap gap-1">
                           {mode === 'embedded' && onTopicSelect ? (
                             <Button
@@ -353,6 +364,21 @@ export function ChatMessageBubble({
                             </Button>
                           ) : (
                             <>
+                              {/* Primary: Select button */}
+                              <Button
+                                size="sm"
+                                className={cn(
+                                  "h-7 text-[10px] gap-1.5 px-3",
+                                  isUserSelected
+                                    ? "bg-primary/20 text-primary border border-primary/30"
+                                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                                )}
+                                onClick={() => setUserSelectedTopic(isUserSelected ? null : t.topic)}
+                              >
+                                <Check className="w-3 h-3" />
+                                {isUserSelected ? 'Đã chọn' : 'Chọn'}
+                              </Button>
+                              {/* Secondary: Format action buttons */}
                               <Button
                                 size="sm"
                                 variant="secondary"

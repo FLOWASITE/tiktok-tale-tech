@@ -64,10 +64,12 @@ export interface ChatMessage {
   suggestedFollowUps?: string[];
   /** Topics suggested by Research Agent via discover_topics */
   suggestedTopics?: SuggestedTopic[];
-  /** The best topic selected by Research Agent */
+  /** The best topic selected by Research Agent (user-confirmed) */
   selectedTopic?: string;
   /** Reason why this topic was selected */
   selectedTopicReason?: string;
+  /** AI-recommended topic (auto from backend, not user-confirmed) */
+  aiRecommendedTopic?: string;
   /** Refined variants from topic refinement step */
   refinedVariants?: RefinedVariant[];
   /** Conversation ID for feedback tracking */
