@@ -184,58 +184,60 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
               continue;
             }
 
+            let event: any;
             try {
-              const event = JSON.parse(jsonStr);
-
-              // Handle keepalive events
-              if (event.type === 'keepalive') {
-                resetWatchdog();
-                continue;
-              }
-
-              // Handle progress events
-              if (event.type === 'progress') {
-                const progressData: CoreContentProgress = {
-                  step: event.step || '',
-                  progress: event.progress || 0,
-                  message: event.message || '',
-                  isComplete: false,
-                  estimatedRemainingMs: event.estimatedRemainingMs,
-                };
-                setProgress(progressData);
-                options.onProgress?.(progressData);
-              }
-
-              // Handle streaming text
-              if (event.type === 'streaming_text') {
-                const deltaText = event.content || event.text || '';
-                if (deltaText) {
-                  accumulatedText += deltaText;
-                  setStreamingText(accumulatedText);
-                }
-              }
-
-              // Handle final result
-              if (event.type === 'result') {
-                finalResult = {
-                  id: event.data?.id || '',
-                  title: event.data?.title || '',
-                  content: event.data?.content || accumulatedText,
-                  wordCount: event.data?.wordCount || 0,
-                  qualityScore: event.data?.qualityScore || 0,
-                  keyMessages: event.data?.keyMessages || [],
-                  generationMetadata: event.data?.generationMetadata,
-                };
-                setProgress({ step: 'complete', progress: 100, message: 'Hoàn thành!', isComplete: true });
-                options.onComplete?.(finalResult);
-              }
-
-              // Handle error
-              if (event.type === 'error') {
-                throw new Error(event.message || 'Lỗi không xác định');
-              }
+              event = JSON.parse(jsonStr);
             } catch (parseError) {
               // Ignore parse errors for incomplete JSON
+              continue;
+            }
+
+            // Handle keepalive events
+            if (event.type === 'keepalive') {
+              resetWatchdog();
+              continue;
+            }
+
+            // Handle progress events
+            if (event.type === 'progress') {
+              const progressData: CoreContentProgress = {
+                step: event.step || '',
+                progress: event.progress || 0,
+                message: event.message || '',
+                isComplete: false,
+                estimatedRemainingMs: event.estimatedRemainingMs,
+              };
+              setProgress(progressData);
+              options.onProgress?.(progressData);
+            }
+
+            // Handle streaming text
+            if (event.type === 'streaming_text') {
+              const deltaText = event.content || event.text || '';
+              if (deltaText) {
+                accumulatedText += deltaText;
+                setStreamingText(accumulatedText);
+              }
+            }
+
+            // Handle final result
+            if (event.type === 'result') {
+              finalResult = {
+                id: event.data?.id || '',
+                title: event.data?.title || '',
+                content: event.data?.content || accumulatedText,
+                wordCount: event.data?.wordCount || 0,
+                qualityScore: event.data?.qualityScore || 0,
+                keyMessages: event.data?.keyMessages || [],
+                generationMetadata: event.data?.generationMetadata,
+              };
+              setProgress({ step: 'complete', progress: 100, message: 'Hoàn thành!', isComplete: true });
+              options.onComplete?.(finalResult);
+            }
+
+            // Handle error - throw to outer catch (NOT swallowed by parse catch)
+            if (event.type === 'error') {
+              throw new Error(event.message || 'Lỗi không xác định từ AI');
             }
           }
         }
@@ -243,6 +245,11 @@ export function useStreamingCoreContent(options: UseStreamingCoreContentOptions 
 
       if (watchdogTimer) clearTimeout(watchdogTimer);
       setRetryCount(0); // Reset retry count on success
+
+      // If stream ended without a result event, treat as error
+      if (!finalResult) {
+        throw new Error('Không nhận được nội dung từ AI, vui lòng thử lại.');
+      }
 
       return finalResult;
     } catch (error) {
