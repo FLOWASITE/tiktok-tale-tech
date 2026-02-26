@@ -3,12 +3,13 @@
 // Right sidebar: Agent status, context, suggestions, tokens
 // ============================================
 
-import { Search, ClipboardList, PenTool, Image, ShieldCheck, Send, Zap } from 'lucide-react';
+import { Search, ClipboardList, PenTool, Image, ShieldCheck, Send, Zap, Brain, Shield, Gauge } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import type { ProgressStep } from './ChatThinkingIndicator';
 import type { ContextSources } from './types';
+import { AgentTimeline } from './AgentTimeline';
 
 interface AgentInsightsTabProps {
   progressSteps?: ProgressStep[];
@@ -20,10 +21,13 @@ interface AgentInsightsTabProps {
 
 const AGENTS = [
   { key: 'research', label: 'Research', icon: Search },
+  { key: 'brand_memory', label: 'Brand Memory', icon: Brain },
+  { key: 'compliance', label: 'Compliance', icon: Shield },
   { key: 'strategy', label: 'Strategy', icon: ClipboardList },
   { key: 'content', label: 'Content', icon: PenTool },
   { key: 'visual', label: 'Visual', icon: Image },
   { key: 'reviewer', label: 'Reviewer', icon: ShieldCheck },
+  { key: 'governor', label: 'Governor', icon: Gauge },
 ] as const;
 
 function getAgentStatus(steps: ProgressStep[] | undefined, key: string): 'online' | 'busy' | 'idle' {
@@ -107,6 +111,11 @@ export function AgentInsightsTab({
           })}
         </div>
       </section>
+
+      {/* Section 2b: Agent Timeline */}
+      {progressSteps && progressSteps.length > 0 && (
+        <AgentTimeline steps={progressSteps} />
+      )}
 
       {/* Section 3: Smart Suggestions */}
       {suggestions && suggestions.length > 0 && (

@@ -5,7 +5,7 @@
 
 import {
   Bot, Search as SearchIcon, Volume2, VolumeX,
-  RefreshCw, HelpCircle, X, Compass, History, PanelRightOpen, PanelRightClose, Brain
+  RefreshCw, HelpCircle, X, Compass, History, PanelRightOpen, PanelRightClose, Brain, MoreHorizontal
 } from 'lucide-react';
 import { CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import type { ActiveView } from './types';
@@ -91,7 +92,7 @@ export function ChatHeader({
         </div>
         
         <div className="flex items-center gap-0.5">
-          {/* AI Pro Mode toggle */}
+          {/* AI Pro Mode toggle - always visible */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -117,7 +118,7 @@ export function ChatHeader({
             </TooltipContent>
           </Tooltip>
 
-          {/* History sidebar toggle */}
+          {/* History sidebar toggle - always visible */}
           <Sheet open={showHistorySidebar} onOpenChange={onHistorySidebarChange}>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -153,14 +154,14 @@ export function ChatHeader({
             </SheetContent>
           </Sheet>
           
-          {/* Search toggle */}
+          {/* Desktop-only buttons */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onSearchToggle}
-                className={cn("h-6 w-6 sm:h-7 sm:w-7", isSearchOpen && "bg-primary/10")}
+                className={cn("h-6 w-6 sm:h-7 sm:w-7 hidden sm:inline-flex", isSearchOpen && "bg-primary/10")}
               >
                 <SearchIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               </Button>
@@ -168,14 +169,13 @@ export function ChatHeader({
             <TooltipContent side="bottom" className="text-xs">{t('chatbot.header.searchInChat')}</TooltipContent>
           </Tooltip>
           
-          {/* Sound toggle */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onSoundToggle}
-                className="h-6 w-6 sm:h-7 sm:w-7"
+                className="h-6 w-6 sm:h-7 sm:w-7 hidden sm:inline-flex"
               >
                 {soundEnabled ? (
                   <Volume2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
@@ -189,14 +189,13 @@ export function ChatHeader({
             </TooltipContent>
           </Tooltip>
           
-          {/* Help/onboarding */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onShowOnboarding}
-                className="h-6 w-6 sm:h-7 sm:w-7"
+                className="h-6 w-6 sm:h-7 sm:w-7 hidden sm:inline-flex"
               >
                 <HelpCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               </Button>
@@ -204,14 +203,13 @@ export function ChatHeader({
             <TooltipContent side="bottom" className="text-xs">{t('chatbot.header.guide')}</TooltipContent>
           </Tooltip>
           
-          {/* Artifacts panel toggle */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onArtifactsPanelToggle}
-                className={cn("h-6 w-6 sm:h-7 sm:w-7", showArtifactsPanel && "bg-primary/10")}
+                className={cn("h-6 w-6 sm:h-7 sm:w-7 hidden sm:inline-flex", showArtifactsPanel && "bg-primary/10")}
               >
                 {showArtifactsPanel ? (
                   <PanelRightClose className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
@@ -230,20 +228,54 @@ export function ChatHeader({
             </TooltipContent>
           </Tooltip>
           
-          {/* Reset button */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onReset}
-                className="h-6 w-6 sm:h-7 sm:w-7"
+                className="h-6 w-6 sm:h-7 sm:w-7 hidden sm:inline-flex"
               >
                 <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">{t('chatbot.header.refreshChat')}</TooltipContent>
           </Tooltip>
+
+          {/* Mobile overflow menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 sm:hidden"
+              >
+                <MoreHorizontal className="w-3.5 h-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onClick={onSearchToggle}>
+                <SearchIcon className="w-3.5 h-3.5 mr-2" />
+                Tìm kiếm
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onSoundToggle}>
+                {soundEnabled ? <Volume2 className="w-3.5 h-3.5 mr-2" /> : <VolumeX className="w-3.5 h-3.5 mr-2" />}
+                {soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onShowOnboarding}>
+                <HelpCircle className="w-3.5 h-3.5 mr-2" />
+                Hướng dẫn
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onArtifactsPanelToggle}>
+                <PanelRightOpen className="w-3.5 h-3.5 mr-2" />
+                Topics {artifactsCount > 0 && `(${artifactsCount})`}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onReset}>
+                <RefreshCw className="w-3.5 h-3.5 mr-2" />
+                Làm mới chat
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       
