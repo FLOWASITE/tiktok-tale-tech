@@ -348,7 +348,13 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
               continue;
             }
 
-            // Context metadata event
+            // Continuation pattern - auto-resume long-running workflows
+            if (parsed.type === 'continuation_required' && parsed.data?.continuationToken) {
+              console.log('[useChatStreaming] Continuation required, token:', parsed.data.continuationToken);
+              // Will be handled after the stream loop ends
+              (state as any).__continuationToken = parsed.data.continuationToken;
+              continue;
+            }
             if (parsed.type === 'context_metadata' && parsed.badges) {
               pendingContextBadges = parsed.badges;
               contextRichness = parsed.context_richness_score;

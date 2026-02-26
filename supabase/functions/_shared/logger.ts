@@ -207,18 +207,22 @@ export interface AIMetrics {
   errorType?: string;
   errorMessage?: string;
   
-  // NEW: Generation-specific fields (Phase 1: Analytics & Intelligence)
+  // Generation-specific fields
   channels?: string[];
   qualityMode?: string;
-  modelsUsed?: Record<string, string>;          // { channel: model }
-  channelDurations?: Record<string, number>;    // { channel: ms }
+  modelsUsed?: Record<string, string>;
+  channelDurations?: Record<string, number>;
   cacheHit?: boolean;
   estimatedCostUsd?: number;
   usedFallback?: boolean;
   fallbackModel?: string;
   retryCount?: number;
   contentId?: string;
-  actionType?: string;  // 'create' | 'expand' | 'regenerate' | 'preview'
+  actionType?: string;
+
+  // Distributed tracing (Sprint 2)
+  spanId?: string;
+  parentSpanId?: string;
 }
 
 /**

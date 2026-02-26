@@ -15,6 +15,7 @@ import {
 } from "./graph-state.ts";
 import { orchestrateWorkflow, OrchestratorOptions } from "./orchestrator.ts";
 import { BlackboardRetriever, extractStorableContent } from "./blackboard-retriever.ts";
+import { createTrace, createSpan, endSpan, getTraceHeaders, type Trace } from "../tracing.ts";
 export { createNodeRegistry, type NodeExecutionContext } from "./nodes/index.ts";
 export { BlackboardRetriever } from "./blackboard-retriever.ts";
 
@@ -63,6 +64,8 @@ export interface GraphExecutionOptions {
   maxExecutionMs?: number;
   /** Abort signal for cancellation */
   abortSignal?: AbortSignal;
+  /** Continuation threshold - when elapsed > this, save checkpoint and return partial result */
+  continuationThresholdMs?: number;
 }
 
 export interface GraphExecutionResult {
@@ -223,7 +226,23 @@ export async function executeGraph(
 
   // BFS-style execution: process nodes whose dependencies are all met
   while (completed.size + failed.size + skippedNodes.length < allNodes.size) {
-    // Check timeout
+    // Check continuation threshold (soft timeout — save & resume later)
+    const continuationMs = options.continuationThresholdMs || 0;
+    if (continuationMs > 0 && Date.now() - startTime > continuationMs) {
+      const checkpointId = crypto.randomUUID();
+      state = mergeStateUpdate(state, {
+        status: 'continuing',
+        exitReason: 'continuation_required',
+        continuationToken: checkpointId,
+      });
+      // Save checkpoint before returning
+      if (options.onCheckpoint) {
+        try { await options.onCheckpoint(state, `continuation_at_${Date.now()}`); } catch {}
+      }
+      return { state, executedNodes, skippedNodes };
+    }
+
+    // Check hard timeout
     if (Date.now() - startTime > maxMs) {
       state = mergeStateUpdate(state, {
         status: 'failed',
@@ -518,6 +537,10 @@ export interface RunOrchestratorOptions {
   abortSignal?: AbortSignal;
   /** Blackboard retriever for auto-storing node outputs */
   retriever?: BlackboardRetriever;
+  /** Continuation threshold for anti-timeout pattern */
+  continuationThresholdMs?: number;
+  /** Trace ID from frontend for distributed tracing */
+  traceId?: string;
 }
 
 /**
@@ -537,19 +560,28 @@ export async function runOrchestrator(
 ): Promise<GraphExecutionResult> {
   const sessionId = crypto.randomUUID();
 
+  // Initialize distributed trace
+  const trace = createTrace(options.traceId);
+  const rootSpan = trace.spans.get(trace.rootSpanId)!;
+  rootSpan.name = 'runOrchestrator';
+
   // 1. Create initial state
   let state = createGraphState(sessionId, userMessage);
+  state.metadata.traceId = trace.traceId;
+  state.metadata.rootSpanId = trace.rootSpanId;
   if (options.brandMemoryContext) {
     state.brandMemoryContext = options.brandMemoryContext;
   }
 
   // 2. Orchestrate — get the plan
+  const orchSpan = createSpan(trace, trace.rootSpanId, 'orchestrate');
   const orchestratorOpts: OrchestratorOptions = {
     organizationId: options.organizationId,
     forceTemplate: options.forceTemplate,
   };
 
   const plan = await orchestrateWorkflow(state, orchestratorOpts);
+  endSpan(orchSpan);
 
   // Store reasoning in state
   state.orchestratorPlan = plan;
@@ -564,6 +596,7 @@ export async function runOrchestrator(
       skipNodes: plan.skipNodes,
       reasoning: plan.reasoning,
       fastPath: plan.fastPath,
+      traceId: trace.traceId,
     },
   });
 
@@ -574,6 +607,7 @@ export async function runOrchestrator(
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.error(`[runOrchestrator] Failed to compile plan: ${errorMsg}`);
+    endSpan(rootSpan, 'error');
     return {
       state: mergeStateUpdate(state, {
         status: 'failed',
@@ -586,22 +620,33 @@ export async function runOrchestrator(
     };
   }
 
-  // 5. Execute graph
+  // 5. Execute graph with tracing + continuation
   const result = await executeGraph(graph, state, {
     onNodeStart: (nodeName, s) => {
-      options.onEvent?.({ type: 'node_start', data: { node: nodeName } });
+      const span = createSpan(trace, trace.rootSpanId, `node:${nodeName}`);
+      s.metadata[`spanId_${nodeName}`] = span.spanId;
+      options.onEvent?.({
+        type: 'node_start',
+        data: { node: nodeName, traceId: trace.traceId, spanId: span.spanId },
+      });
     },
     onNodeComplete: async (nodeName, update, durationMs) => {
+      // End node span
+      const spanId = state.metadata[`spanId_${nodeName}`] as string;
+      if (spanId) {
+        const span = trace.spans.get(spanId);
+        if (span) endSpan(span);
+      }
+
       options.onEvent?.({
         type: 'node_complete',
-        data: { node: nodeName, durationMs },
+        data: { node: nodeName, durationMs, traceId: trace.traceId },
       });
 
       // Auto-store node output to Blackboard v2
       if (options.retriever) {
         const storable = extractStorableContent(nodeName, update);
         if (storable) {
-          // Fire-and-forget — don't block graph execution
           options.retriever.store(storable.content, nodeName, storable.contentType).catch(err => {
             console.warn(`[GraphEngine] Blackboard store failed for ${nodeName}:`, err);
           });
@@ -609,15 +654,36 @@ export async function runOrchestrator(
       }
     },
     onNodeError: (nodeName, error) => {
+      const spanId = state.metadata[`spanId_${nodeName}`] as string;
+      if (spanId) {
+        const span = trace.spans.get(spanId);
+        if (span) endSpan(span, 'error');
+      }
       options.onEvent?.({
         type: 'node_error',
-        data: { node: nodeName, error: error.message },
+        data: { node: nodeName, error: error.message, traceId: trace.traceId },
       });
     },
     onCheckpoint: options.onCheckpoint,
     maxExecutionMs: options.maxExecutionMs,
     abortSignal: options.abortSignal,
+    continuationThresholdMs: options.continuationThresholdMs,
   });
+
+  // End root span
+  endSpan(rootSpan, result.error ? 'error' : 'ok');
+
+  // If continuation required, emit event
+  if (result.state.status === 'continuing' && result.state.continuationToken) {
+    options.onEvent?.({
+      type: 'continuation_required',
+      data: {
+        continuationToken: result.state.continuationToken,
+        executedNodes: result.executedNodes,
+        traceId: trace.traceId,
+      },
+    });
+  }
 
   return result;
 }

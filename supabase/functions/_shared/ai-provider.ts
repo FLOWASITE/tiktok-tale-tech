@@ -75,6 +75,9 @@ export interface AICallOptions {
   // Per-channel model overrides (Admin-configured)
   modelOverride?: string;
   temperatureOverride?: number;
+  // Distributed tracing (Sprint 2)
+  traceId?: string;
+  spanId?: string;
 }
 
 // Extended options for callAIWithMetrics - includes user context for tracking
@@ -255,12 +258,17 @@ async function callLovableGateway(
       body.stream = true;
     }
 
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    };
+    // Inject trace headers if available
+    if (options.traceId) headers["x-trace-id"] = options.traceId;
+    if (options.spanId) headers["x-span-id"] = options.spanId;
+
     const response = await fetch(PROVIDER_ENDPOINTS.lovable, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(body),
     });
 
