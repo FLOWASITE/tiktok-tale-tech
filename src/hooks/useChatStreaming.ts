@@ -286,6 +286,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
             
             // Topic suggestions from Research Agent
             if (parsed.type === 'topic_suggestions' && parsed.data?.topics) {
+              console.log('[Chat] Received topic_suggestions:', parsed.data.topics.length, 'topics');
               pendingSuggestedTopics = parsed.data.topics;
               pendingSelectedTopic = parsed.data.best_topic || undefined;
               continue;

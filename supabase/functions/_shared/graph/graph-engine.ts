@@ -729,10 +729,17 @@ export async function runOrchestrator(
       if (nodeName === 'research' && update) {
         const u = update as any;
         if (u.suggestedTopics?.length) {
+          const normalizedTopics = u.suggestedTopics.map((t: any) => ({
+            topic: t.topic || t.title || t.name || 'Untitled',
+            category: t.category || t.pillar || 'general',
+            score: t.score ?? t.overallScore ?? null,
+            reasoning: t.reasoning || t.explanation || null,
+          }));
+          console.log(`[GraphEngine] Emitting topic_suggestions: ${normalizedTopics.length} topics, best: ${u.bestTopic}`);
           options.onEvent?.({
             type: 'topic_suggestions',
             data: {
-              topics: u.suggestedTopics,
+              topics: normalizedTopics,
               best_topic: u.bestTopic || undefined,
             },
           });
