@@ -529,8 +529,12 @@ export function MultiChannelFormWizard({
 
   // NEW: Generate Core Content inline with streaming
   const handleGenerateCoreContent = useCallback(async () => {
-    if (!formData.topic.trim() || !organizationId) {
+    if (!formData.topic.trim()) {
       toast.error('Vui lòng nhập chủ đề');
+      return;
+    }
+    if (!organizationId) {
+      toast.error('Không tìm thấy tổ chức. Vui lòng chọn tổ chức trước.');
       return;
     }
 
