@@ -66,6 +66,8 @@ export interface ChatMessage {
   suggestedTopics?: SuggestedTopic[];
   /** The best topic selected by Research Agent */
   selectedTopic?: string;
+  /** Refined variants from topic refinement step */
+  refinedVariants?: RefinedVariant[];
   /** Conversation ID for feedback tracking */
   conversationId?: string;
   /** Trace ID for distributed tracing */
@@ -77,6 +79,11 @@ export interface SuggestedTopic {
   category: string;
   score: number | null;
   reasoning: string | null;
+}
+
+export interface RefinedVariant {
+  topic: string;
+  angle: string;
 }
 
 export interface ExtractedTopic {

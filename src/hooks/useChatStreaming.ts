@@ -289,12 +289,14 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
               console.log('[Chat] Received topic_suggestions:', parsed.data.topics.length, 'topics');
               pendingSuggestedTopics = parsed.data.topics;
               pendingSelectedTopic = parsed.data.best_topic || parsed.data.topics?.[0]?.topic || undefined;
+              const pendingRefinedVariants = parsed.data.refined_variants || undefined;
 
               // Render ngay cả khi chưa có content_chunk để tránh mất TopicSuggestionsCard
               if (messageCreated) {
                 onMessageUpdate(assistantId, {
                   suggestedTopics: pendingSuggestedTopics,
                   selectedTopic: pendingSelectedTopic,
+                  refinedVariants: pendingRefinedVariants,
                 });
               } else {
                 const topicOnlyMessage: ChatMessage = {
@@ -311,6 +313,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   suggestedFollowUps: pendingSuggestedFollowUps,
                   suggestedTopics: pendingSuggestedTopics,
                   selectedTopic: pendingSelectedTopic,
+                  refinedVariants: pendingRefinedVariants,
                 };
                 onMessageCreate(topicOnlyMessage);
                 messageCreated = true;

@@ -259,6 +259,7 @@ export function ChatMessageBubble({
                 <TopicSuggestionsCard
                   topics={message.suggestedTopics}
                   selectedTopic={message.selectedTopic}
+                  refinedVariants={message.refinedVariants}
                 />
               </div>
             )}
