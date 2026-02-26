@@ -761,11 +761,12 @@ export async function runOrchestrator(
           }
 
           // Robust fallback for best_topic_reason:
-          // Priority: a) rich reasoning from exact topic match
-          //           b) rich reasoning from loose match
-          //           c) rich reasoning from highest-score topic
+          // Priority: a) LLM-generated deep reasoning from research node
+          //           b) rich reasoning from exact topic match
+          //           c) rich reasoning from loose match (highest-score)
           //           d) hook from refined variant matching best topic
           //           e) angle from refined variant (last resort)
+          const llmTopicReason = u.researchData?.llmTopicReason || null;
           const bestNorm = normalize(normalizedBestTopic || '');
           const exactMatch = normalizedTopics.find((t: any) => normalize(t.topic) === bestNorm);
           const richExact = isRichReason(exactMatch?.reasoning) ? exactMatch.reasoning : null;
@@ -782,7 +783,7 @@ export async function runOrchestrator(
           // Also accept short exact reason as absolute last resort
           const shortExact = exactMatch?.reasoning || null;
 
-          const bestTopicReason = richExact || richHighScore || variantHook || variantAngle || shortExact || null;
+          const bestTopicReason = llmTopicReason || richExact || richHighScore || variantHook || variantAngle || shortExact || null;
 
           console.log(`[GraphEngine] Emitting topic_suggestions: ${normalizedTopics.length} topics, best: ${normalizedBestTopic}, reason: ${bestTopicReason?.slice(0, 80)}, refined variants: ${refinedVariants.length}`);
           options.onEvent?.({

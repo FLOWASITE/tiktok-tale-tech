@@ -261,12 +261,23 @@ export function createResearchNode(ctx: ResearchNodeContext) {
 
       const finalContent = message?.content || '';
 
-      // ── Step 4: Best topic from merged pool ──
+      // ── Step 4: Extract LLM-generated reason from finalContent ──
+      let llmTopicReason: string | null = null;
+      const reasonMatch = finalContent.match(/\*\*Lý do(?:\s*chọn)?\*\*\s*[:：]\s*(.+?)(?:\n\n|\n\*\*|$)/s);
+      if (reasonMatch?.[1]) {
+        const extracted = reasonMatch[1].trim();
+        // Only use if it's a real sentence (>15 chars), not a placeholder
+        if (extracted.length > 15) {
+          llmTopicReason = extracted;
+        }
+      }
+
+      // ── Step 5: Best topic from merged pool ──
       const rawBestTopic = mergedTopics[0]
         ? (mergedTopics[0].title || mergedTopics[0].topic || mergedTopics[0].name || String(mergedTopics[0]))
         : undefined;
 
-      // ── Step 5: Refine best topic via topic-ai ──
+      // ── Step 6: Refine best topic via topic-ai ──
       let bestTopic = rawBestTopic;
       let refinedVariants: any[] | undefined;
 
@@ -278,13 +289,14 @@ export function createResearchNode(ctx: ResearchNodeContext) {
         }
       }
 
-      console.log(`[ResearchNode] Complete. rawBestTopic: ${rawBestTopic}, refinedBestTopic: ${bestTopic}, merged: ${mergedTopics.length}, tokens: ${totalTokens}`);
+      console.log(`[ResearchNode] Complete. rawBestTopic: ${rawBestTopic}, refinedBestTopic: ${bestTopic}, merged: ${mergedTopics.length}, tokens: ${totalTokens}, llmReason: ${llmTopicReason?.slice(0, 80)}`);
 
       return {
         researchData: {
           toolResults: [suggestResult, trendingResult],
           summary: finalContent,
           refinedVariants,
+          llmTopicReason,
         },
         bestTopic,
         suggestedTopics: mergedTopics,
