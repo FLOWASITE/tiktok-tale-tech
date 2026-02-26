@@ -14,11 +14,7 @@ export interface ChatRequest {
   organizationId?: string;
   userId?: string;
   enableTools?: boolean;
-  enableAgenticLoop?: boolean;
-  enableSupervisor?: boolean; // Use multi-agent supervisor loop
-  enableGraphEngine?: boolean; // Use new Graph Engine (DAG-based orchestration)
-  maxAgentTurns?: number;
-  forceWebSearch?: boolean; // Force web search even without trending keywords
+  forceWebSearch?: boolean;
 }
 
 export interface RAGResult {

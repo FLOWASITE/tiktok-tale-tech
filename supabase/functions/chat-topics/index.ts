@@ -2,22 +2,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { fetchLearningContext } from "../_shared/learning-context.ts";
 import { LearningContext, JourneyStageMessagingData, JourneyStage } from "../_shared/prompt-utils.ts";
-import { CHAT_TOOLS, ToolCallResult } from "../_shared/tool-definitions.ts";
-import { executeToolCall } from "../_shared/tool-executor.ts";
-import { 
-  executeToolChain, 
-  detectToolChainDependencies, 
-  summarizeToolChain,
-  ToolChainResult 
-} from "../_shared/tool-chain-executor.ts";
 import { fetchUserPreferences, UserPreferencesContext } from "../_shared/user-preferences.ts";
 import { fetchCrossSessionMemory, CrossSessionMemory } from "../_shared/session-memory.ts";
-import { createSSEWriter } from "../_shared/agentic-loop.ts";
+import { createSSEWriter } from "../_shared/sse-writer.ts";
 import { buildContextMetadata, serializeContextMetadata, summarizeContext } from "../_shared/context-tracker.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 // Graph Engine imports
 import { runOrchestrator, createNodeRegistry, type NodeExecutionContext } from "../_shared/graph/graph-engine.ts";
-// createSSEWriter imported above from agentic-loop.ts
 
 // Import shared types
 import { ChatMessage, ChatRequest, BrandContext, IndustryMemory, GlossaryTerm, RAGResult } from "../_shared/types/chat-types.ts";
@@ -83,7 +74,7 @@ serve(async (req) => {
   const requestStartTime = performance.now();
 
   try {
-    const { messages, brandTemplateId, contentGoal, organizationId, userId, enableTools, forceWebSearch }: ChatRequest = await req.json();
+    const { messages, brandTemplateId, contentGoal, organizationId, userId, forceWebSearch }: ChatRequest = await req.json();
 
     // Extend logger context
     if (userId) logger.info('Request received', { userId, organizationId, brandTemplateId });

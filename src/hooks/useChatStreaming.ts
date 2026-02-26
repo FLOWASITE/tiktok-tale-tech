@@ -157,8 +157,6 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
           contentGoal,
           organizationId,
           userId,
-          enableTools: true,
-          
           forceWebSearch,
         }),
         signal: abortControllerRef.current.signal,
