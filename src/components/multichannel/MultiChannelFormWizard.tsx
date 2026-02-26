@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -68,6 +69,9 @@ import {
   Pencil,
   GraduationCap,
   Award,
+  FileTextIcon,
+  AlignLeft,
+  AlertTriangle,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -84,6 +88,8 @@ import { SelectedHooksSummary } from '@/components/multichannel/SelectedHooksSum
 import { ProductSelector } from '@/components/topic/ProductSelector';
 import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
 import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
+import { CompactChannelGrid } from '@/components/multichannel/CompactChannelGrid';
+import { InlineJourneySelector } from '@/components/multichannel/InlineJourneySelector';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { InlineTopicSuggestions } from '@/components/multichannel/InlineTopicSuggestions';
 import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
@@ -817,13 +823,8 @@ export function MultiChannelFormWizard({
     toast.info('Đã hủy yêu cầu xếp hàng');
   }, []);
 
-  // Channel categories
-  const channelCategories = [
-    { name: 'Nền tảng nội dung', key: 'content', channels: CHANNELS.filter(c => c.category === 'content') },
-    { name: 'Mạng xã hội', key: 'social', channels: CHANNELS.filter(c => c.category === 'social') },
-    { name: 'Kênh trực tiếp', key: 'direct', channels: CHANNELS.filter(c => c.category === 'direct') },
-    { name: 'Địa phương', key: 'local', channels: CHANNELS.filter(c => c.category === 'local') },
-  ];
+
+
 
   return (
     <TooltipProvider>
@@ -1090,162 +1091,228 @@ export function MultiChannelFormWizard({
 
               {/* Core Content Generation Form - Hidden when generating */}
               {!coreContentData && !formData.coreContentId && !isGeneratingCoreContent && (
-                <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-                  <CardContent className="p-5 space-y-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <BookOpen className="w-5 h-5 text-primary" />
+                <Card className="border-border/50 overflow-hidden">
+                  {/* Gradient Header */}
+                  <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-5 border-b border-border/30">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-xl bg-primary/15 flex items-center justify-center">
+                        <BookOpen className="w-6 h-6 text-primary" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-foreground">Tạo Core Content</h3>
-                        <p className="text-xs text-muted-foreground">Nội dung gốc 800-2000 từ làm nguồn cho đa kênh</p>
+                        <h3 className="font-semibold text-foreground text-base">Tạo Core Content</h3>
+                        <p className="text-xs text-muted-foreground">Nội dung gốc làm nguồn cho tất cả kênh xuất bản</p>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Advanced Settings - Always visible */}
-                    <Separator className="my-2" />
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Settings2 className="w-4 h-4" />
-                        <span>Tuỳ chọn chi tiết</span>
-                      </div>
+                  <CardContent className="p-5 space-y-4">
+                    {/* Tabbed Options */}
+                    <Tabs defaultValue="basic" className="w-full">
+                      <TabsList className="w-full grid grid-cols-2 h-9">
+                        <TabsTrigger value="basic" className="text-xs gap-1.5">
+                          <Settings2 className="w-3.5 h-3.5" />
+                          Cơ bản
+                        </TabsTrigger>
+                        <TabsTrigger value="advanced" className="text-xs gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          Nâng cao
+                        </TabsTrigger>
+                      </TabsList>
 
-                      {/* Content Angle - Visual Badges */}
-                      <ContentAngleSelector
-                        value={coreContentAngle === '__none__' ? undefined : coreContentAngle}
-                        onValueChange={(angle) => setCoreContentAngle(angle || '__none__')}
-                        disabled={isGeneratingCoreContent}
-                      />
-                      {/* Auto-suggestion hint - shows when angle was auto-suggested from Goal */}
-                      {formData.contentGoal && coreContentAngle !== '__none__' && 
-                       GOAL_TO_ANGLE_MAP[formData.contentGoal] === coreContentAngle && (
-                        <p className="text-[10px] text-muted-foreground flex items-center gap-1 -mt-1">
-                          <Sparkles className="w-3 h-3 text-primary" />
-                          Gợi ý từ mục tiêu "{CONTENT_GOALS.find(g => g.value === formData.contentGoal)?.label}"
-                        </p>
-                      )}
-
-                      {/* Target Audience - PersonaSelector or Textarea fallback */}
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-muted-foreground">Đối tượng mục tiêu (tuỳ chọn)</Label>
-                        {brandTemplateId ? (
-                          brandPersonasCount === 0 ? (
-                            // Fallback: Textarea + hint when brand has no personas
-                            <div className="space-y-2">
-                              <Textarea
-                                value={coreContentAudience}
-                                onChange={(e) => setCoreContentAudience(e.target.value)}
-                                placeholder="VD: Chủ doanh nghiệp SME, 30-45 tuổi, quan tâm đến..."
-                                className="min-h-[60px] text-sm resize-none"
-                                disabled={isGeneratingCoreContent}
-                              />
-                              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                                <Sparkles className="w-3 h-3 shrink-0 text-primary" />
-                                <span>
-                                  <Link 
-                                    to={`/brands/${brandTemplateId}?tab=personas`}
-                                    className="underline text-primary hover:text-primary/80"
-                                  >
-                                    Thêm Personas cho brand
-                                  </Link>
-                                  {' '}để AI targeting chính xác hơn
-                                </span>
-                              </p>
-                            </div>
-                          ) : (
-                            <PersonaSelector
-                              brandTemplateId={brandTemplateId}
-                              value={coreContentPersonaId}
-                              onValueChange={(id) => setCoreContentPersonaId(id)}
-                              onPersonasLoaded={setBrandPersonasCount}
-                              disabled={isGeneratingCoreContent}
-                            />
-                          )
-                        ) : (
-                          <Textarea
-                            value={coreContentAudience}
-                            onChange={(e) => setCoreContentAudience(e.target.value)}
-                            placeholder="VD: Chủ doanh nghiệp SME, 30-45 tuổi..."
-                            className="min-h-[60px] text-sm resize-none"
-                          />
-                        )}
-                      </div>
-
-                      {/* Length Mode Selector */}
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Độ dài nội dung</Label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {CORE_CONTENT_LENGTH_MODES.map((mode) => (
-                            <button
-                              key={mode.value}
-                              type="button"
-                              onClick={() => setCoreContentLengthMode(mode.value)}
-                              className={cn(
-                                "p-2.5 rounded-lg border text-left transition-all relative",
-                                coreContentLengthMode === mode.value
-                                  ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                                  : "border-border/50 hover:bg-muted/30"
-                              )}
-                            >
-                              {mode.recommended && (
-                                <Badge 
-                                  variant="outline" 
-                                  className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] px-1.5 py-0 bg-primary/10 text-primary border-primary/30"
-                                >
-                                  Khuyến khích
-                                </Badge>
-                              )}
-                              <div className="text-sm font-medium">{mode.labelVi}</div>
-                              <p className="text-[10px] text-muted-foreground mt-0.5">
-                                {mode.minWords}-{mode.maxWords} từ
-                              </p>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* Auto Research Toggle - Enhanced UI */}
-                      <div className={cn(
-                        "flex items-center gap-3 p-3 rounded-lg border transition-all",
-                        enableResearch 
-                          ? "border-primary/50 bg-primary/5" 
-                          : "border-border/50 hover:bg-muted/30"
-                      )}>
-                        <Switch
-                          id="enable-research"
-                          checked={enableResearch}
-                          onCheckedChange={setEnableResearch}
+                      <TabsContent value="basic" className="space-y-4 mt-4">
+                        {/* Content Angle */}
+                        <ContentAngleSelector
+                          value={coreContentAngle === '__none__' ? undefined : coreContentAngle}
+                          onValueChange={(angle) => setCoreContentAngle(angle || '__none__')}
                           disabled={isGeneratingCoreContent}
                         />
-                        <div className="flex-1">
-                          <label htmlFor="enable-research" className="text-sm font-medium cursor-pointer flex items-center gap-2">
-                            <Globe className="w-4 h-4 text-primary" />
-                            Tự động nghiên cứu từ internet
-                            {enableResearch && (
-                              <Badge variant="outline" className="ml-1 text-[10px] px-1.5 py-0 border-primary/30 text-primary">
-                                Bật
-                              </Badge>
-                            )}
-                          </label>
-                          <p className="text-xs text-muted-foreground">
-                            AI tìm kiếm facts và số liệu mới nhất trước khi viết
+                        {formData.contentGoal && coreContentAngle !== '__none__' && 
+                         GOAL_TO_ANGLE_MAP[formData.contentGoal] === coreContentAngle && (
+                          <p className="text-[10px] text-muted-foreground flex items-center gap-1 -mt-2">
+                            <Sparkles className="w-3 h-3 text-primary" />
+                            Gợi ý từ mục tiêu "{CONTENT_GOALS.find(g => g.value === formData.contentGoal)?.label}"
                           </p>
+                        )}
+
+                        {/* Length Mode - Visual Cards */}
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">Độ dài nội dung</Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {CORE_CONTENT_LENGTH_MODES.map((mode) => {
+                              const lengthIcons = {
+                                short: <FileTextIcon className="w-4 h-4" />,
+                                medium: <AlignLeft className="w-4 h-4" />,
+                                long: <BookOpen className="w-4 h-4" />,
+                              };
+                              const estTimes = { short: '~30s', medium: '~45s', long: '~60s' };
+                              return (
+                                <button
+                                  key={mode.value}
+                                  type="button"
+                                  onClick={() => setCoreContentLengthMode(mode.value)}
+                                  className={cn(
+                                    "p-3 rounded-lg border text-center transition-all relative group",
+                                    coreContentLengthMode === mode.value
+                                      ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                                      : "border-border/50 hover:bg-muted/30 hover:border-border"
+                                  )}
+                                >
+                                  {mode.recommended && (
+                                    <Badge 
+                                      variant="default" 
+                                      className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] px-1.5 py-0"
+                                    >
+                                      Phổ biến
+                                    </Badge>
+                                  )}
+                                  <div className={cn(
+                                    "w-8 h-8 rounded-lg mx-auto mb-1.5 flex items-center justify-center",
+                                    coreContentLengthMode === mode.value
+                                      ? "bg-primary/15 text-primary"
+                                      : "bg-muted text-muted-foreground"
+                                  )}>
+                                    {lengthIcons[mode.value]}
+                                  </div>
+                                  <div className="text-sm font-medium">{mode.labelVi}</div>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                                    {mode.minWords}-{mode.maxWords} từ
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-0.5 mt-0.5">
+                                    <Clock className="w-2.5 h-2.5" />
+                                    {estTimes[mode.value]}
+                                  </p>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                      
-                      {/* Context Richness Indicator */}
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-3 p-2 bg-muted/30 rounded-lg">
-                        <Sparkles className="w-3.5 h-3.5 text-primary" />
-                        <span>AI Context:</span>
-                        <div className="flex flex-wrap gap-1">
-                          {brandTemplateId && <Badge variant="outline" className="text-[9px] py-0">Brand</Badge>}
-                          {coreContentPersonaId && <Badge variant="outline" className="text-[9px] py-0">Persona</Badge>}
-                          {enableResearch && <Badge variant="outline" className="text-[9px] py-0">Research</Badge>}
-                          {coreContentAngle !== '__none__' && <Badge variant="outline" className="text-[9px] py-0">Angle</Badge>}
-                          {!brandTemplateId && !coreContentPersonaId && !enableResearch && coreContentAngle === '__none__' && (
-                            <span className="text-muted-foreground/70 italic">Cơ bản</span>
+                      </TabsContent>
+
+                      <TabsContent value="advanced" className="space-y-4 mt-4">
+                        {/* Target Audience - PersonaSelector or Textarea fallback */}
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Đối tượng mục tiêu (tuỳ chọn)</Label>
+                          {brandTemplateId ? (
+                            brandPersonasCount === 0 ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={coreContentAudience}
+                                  onChange={(e) => setCoreContentAudience(e.target.value)}
+                                  placeholder="VD: Chủ doanh nghiệp SME, 30-45 tuổi, quan tâm đến..."
+                                  className="min-h-[60px] text-sm resize-none"
+                                  disabled={isGeneratingCoreContent}
+                                />
+                                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                  <Sparkles className="w-3 h-3 shrink-0 text-primary" />
+                                  <span>
+                                    <Link 
+                                      to={`/brands/${brandTemplateId}?tab=personas`}
+                                      className="underline text-primary hover:text-primary/80"
+                                    >
+                                      Thêm Personas cho brand
+                                    </Link>
+                                    {' '}để AI targeting chính xác hơn
+                                  </span>
+                                </p>
+                              </div>
+                            ) : (
+                              <PersonaSelector
+                                brandTemplateId={brandTemplateId}
+                                value={coreContentPersonaId}
+                                onValueChange={(id) => setCoreContentPersonaId(id)}
+                                onPersonasLoaded={setBrandPersonasCount}
+                                disabled={isGeneratingCoreContent}
+                              />
+                            )
+                          ) : (
+                            <Textarea
+                              value={coreContentAudience}
+                              onChange={(e) => setCoreContentAudience(e.target.value)}
+                              placeholder="VD: Chủ doanh nghiệp SME, 30-45 tuổi..."
+                              className="min-h-[60px] text-sm resize-none"
+                            />
                           )}
                         </div>
+
+                        {/* Auto Research Toggle */}
+                        <div className={cn(
+                          "flex items-center gap-3 p-3 rounded-lg border transition-all",
+                          enableResearch 
+                            ? "border-primary/50 bg-primary/5" 
+                            : "border-border/50 hover:bg-muted/30"
+                        )}>
+                          <Switch
+                            id="enable-research"
+                            checked={enableResearch}
+                            onCheckedChange={setEnableResearch}
+                            disabled={isGeneratingCoreContent}
+                          />
+                          <div className="flex-1">
+                            <label htmlFor="enable-research" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                              <Globe className="w-4 h-4 text-primary" />
+                              Tự động nghiên cứu từ internet
+                              {enableResearch && (
+                                <Badge variant="outline" className="ml-1 text-[10px] px-1.5 py-0 border-primary/30 text-primary">
+                                  Bật
+                                </Badge>
+                              )}
+                            </label>
+                            <p className="text-xs text-muted-foreground">
+                              AI tìm kiếm facts và số liệu mới nhất trước khi viết
+                            </p>
+                          </div>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+
+                    {/* AI Context Summary - Enhanced chips with icons */}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground p-2.5 bg-muted/30 rounded-lg border border-border/30">
+                      <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                      <span className="shrink-0">AI Context:</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {brandTemplateId && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="text-[10px] py-0 gap-1 cursor-help">
+                                <Package className="w-2.5 h-2.5" /> Brand
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent><p className="text-xs">Sử dụng brand voice & tone</p></TooltipContent>
+                          </Tooltip>
+                        )}
+                        {coreContentPersonaId && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="text-[10px] py-0 gap-1 cursor-help">
+                                <Users className="w-2.5 h-2.5" /> Persona
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent><p className="text-xs">Nhắm đến persona cụ thể</p></TooltipContent>
+                          </Tooltip>
+                        )}
+                        {enableResearch && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="text-[10px] py-0 gap-1 cursor-help">
+                                <Globe className="w-2.5 h-2.5" /> Research
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent><p className="text-xs">Tìm kiếm dữ liệu mới nhất</p></TooltipContent>
+                          </Tooltip>
+                        )}
+                        {coreContentAngle !== '__none__' && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="text-[10px] py-0 gap-1 cursor-help">
+                                <Target className="w-2.5 h-2.5" /> Angle
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent><p className="text-xs">Góc tiếp cận nội dung</p></TooltipContent>
+                          </Tooltip>
+                        )}
+                        {!brandTemplateId && !coreContentPersonaId && !enableResearch && coreContentAngle === '__none__' && (
+                          <span className="text-muted-foreground/70 italic">Cơ bản</span>
+                        )}
                       </div>
                     </div>
 
@@ -1264,40 +1331,61 @@ export function MultiChannelFormWizard({
 
               {/* Core Content Preview - After Generation (hidden while streaming) */}
               {coreContentData && !isGeneratingCoreContent && (
-                <Card className="bg-card/50 backdrop-blur-sm border-primary/30">
+                <Card className="bg-gradient-to-br from-primary/5 via-card to-card border-2 border-primary/30 shadow-sm">
                   <CardContent className="p-5 space-y-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-green-500/15 flex items-center justify-center">
                           <CheckCircle2 className="w-5 h-5 text-green-500" />
                         </div>
                         <div>
                           <h3 className="font-semibold text-foreground">Core Content đã tạo</h3>
-                          <p className="text-xs text-muted-foreground">{coreContentData.wordCount} từ • Điểm: {coreContentData.qualityScore}/100</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-muted-foreground">{coreContentData.wordCount} từ</span>
+                            {/* Mini quality ring */}
+                            <div className="flex items-center gap-1">
+                              <svg className="w-4 h-4 -rotate-90" viewBox="0 0 20 20">
+                                <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted/30" />
+                                <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" strokeWidth="2" 
+                                  className="text-primary"
+                                  strokeDasharray={`${(coreContentData.qualityScore / 100) * 50.3} 50.3`}
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                              <span className="text-xs font-medium text-primary">{coreContentData.qualityScore}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => setShowCoreContentPreview(!showCoreContentPreview)}
-                          className="gap-1.5 text-xs"
+                          className="gap-1 text-xs h-8"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           {showCoreContentPreview ? 'Ẩn' : 'Xem'}
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setCoreContentData(null);
-                            setFormData(prev => ({ ...prev, coreContentId: undefined }));
-                          }}
-                          className="gap-1.5 text-xs"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5" />
-                          Tạo lại
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (window.confirm('Bạn có chắc muốn tạo lại Core Content? Nội dung hiện tại sẽ bị thay thế.')) {
+                                  setCoreContentData(null);
+                                  setFormData(prev => ({ ...prev, coreContentId: undefined }));
+                                }
+                              }}
+                              className="gap-1 text-xs h-8"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                              Tạo lại
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p className="text-xs">Tạo lại sẽ thay thế nội dung hiện tại</p></TooltipContent>
+                        </Tooltip>
                       </div>
                     </div>
 
@@ -1307,15 +1395,18 @@ export function MultiChannelFormWizard({
                       <p className="font-medium text-sm">{coreContentData.title}</p>
                     </div>
 
-                    {/* Key Messages */}
+                    {/* Key Messages - Numbered list */}
                     {coreContentData.keyMessages.length > 0 && (
                       <div>
                         <p className="text-xs text-muted-foreground mb-2">Thông điệp chính</p>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="space-y-1.5">
                           {coreContentData.keyMessages.slice(0, 4).map((msg, idx) => (
-                            <Badge key={idx} variant="secondary" className="text-xs">
-                              {msg}
-                            </Badge>
+                            <div key={idx} className="flex items-start gap-2 text-sm">
+                              <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                                {idx + 1}
+                              </span>
+                              <span className="text-foreground/90">{msg}</span>
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -1389,168 +1480,98 @@ export function MultiChannelFormWizard({
           {/* ========== STEP 4: NỘI DUNG ĐA KÊNH ========== */}
           {currentStep === 4 && (
             <div className="space-y-5 animate-fade-in">
-              {/* Targeting Card */}
+              {/* Targeting - Compact 2-column inline */}
               {formData.brandTemplateId && (
-                <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-                  <CardContent className="p-5 space-y-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Crosshair className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground">Nhắm đối tượng</h3>
-                        <p className="text-xs text-muted-foreground">Sản phẩm & Persona mục tiêu</p>
-                      </div>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Crosshair className="w-4 h-4 text-primary" />
+                    <Label className="text-sm font-semibold">Nhắm đối tượng</Label>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Package className="w-3 h-3" />
+                        Sản phẩm
+                      </Label>
+                      <ProductSelector
+                        brandTemplateId={formData.brandTemplateId}
+                        value={formData.productId}
+                        onValueChange={(productId) => setFormData(prev => ({ ...prev, productId }))}
+                        disabled={isGenerating}
+                        placeholder="Chọn sản phẩm..."
+                      />
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                          <Package className="w-3.5 h-3.5" />
-                          Sản phẩm/Dịch vụ
-                        </Label>
-                        <ProductSelector
-                          brandTemplateId={formData.brandTemplateId}
-                          value={formData.productId}
-                          onValueChange={(productId) => setFormData(prev => ({ ...prev, productId }))}
-                          disabled={isGenerating}
-                          placeholder="Chọn sản phẩm..."
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5" />
-                          Persona mục tiêu
-                        </Label>
-                        <PersonaSelector
-                          brandTemplateId={formData.brandTemplateId}
-                          value={formData.personaId}
-                          onValueChange={(personaId) => setFormData(prev => ({ ...prev, personaId }))}
-                          disabled={isGenerating}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Content Angle */}
-                    <div className="pt-2 border-t border-border/30">
-                      <ContentAngleSelector
-                        value={formData.contentAngle}
-                        onValueChange={(angle) => setFormData(prev => ({ ...prev, contentAngle: angle }))}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Users className="w-3 h-3" />
+                        Persona
+                      </Label>
+                      <PersonaSelector
+                        brandTemplateId={formData.brandTemplateId}
+                        value={formData.personaId}
+                        onValueChange={(personaId) => setFormData(prev => ({ ...prev, personaId }))}
                         disabled={isGenerating}
                       />
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                  {/* Content Angle - readonly chip if set in Step 2, or allow override */}
+                  {coreContentAngle !== '__none__' ? (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Target className="w-3 h-3" />
+                      <span>Angle:</span>
+                      <Badge variant="outline" className="text-[10px]">
+                        {CONTENT_ANGLES.find(a => a.value === coreContentAngle)?.label || coreContentAngle}
+                      </Badge>
+                      <button
+                        type="button"
+                        onClick={() => {/* Allow override */}}
+                        className="text-[10px] text-primary hover:underline"
+                      >
+                        Đổi
+                      </button>
+                    </div>
+                  ) : (
+                    <ContentAngleSelector
+                      value={formData.contentAngle}
+                      onValueChange={(angle) => setFormData(prev => ({ ...prev, contentAngle: angle }))}
+                      disabled={isGenerating}
+                    />
+                  )}
+                </div>
               )}
 
-              {/* Journey Stage - Always visible */}
-              <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-                <CardContent className="p-5 space-y-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Rocket className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground">Giai đoạn hành trình</h3>
-                      <p className="text-xs text-muted-foreground">Điều chỉnh messaging theo phễu</p>
-                    </div>
-                  </div>
-                  <Separator />
-                  <JourneyStageSelector
-                    value={formData.journeyStage}
-                    onValueChange={(stage) => setFormData(prev => ({ ...prev, journeyStage: stage }))}
-                    disabled={isGenerating}
-                    showEmotionalTone={true}
-                  />
-                </CardContent>
-              </Card>
+              {/* Gradient divider */}
+              <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
-              {/* Channel Selection */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-foreground font-semibold flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-primary" />
-                    Kênh xuất bản
-                  </Label>
-                  <Badge variant="secondary">
-                    {formData.channels.length}/{CHANNELS.length} kênh
-                  </Badge>
-                </div>
+              {/* Journey Stage - Inline button group */}
+              <InlineJourneySelector
+                value={formData.journeyStage}
+                onValueChange={(stage) => setFormData(prev => ({ ...prev, journeyStage: stage }))}
+                disabled={isGenerating}
+              />
 
-                {/* Quick Select */}
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSelectAll}
-                    disabled={isGenerating}
-                    className="text-xs h-8"
-                  >
-                    <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
-                    Tất cả
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDeselectAll}
-                    disabled={isGenerating}
-                    className="text-xs h-8"
-                  >
-                    <Square className="w-3.5 h-3.5 mr-1.5" />
-                    Bỏ chọn
-                  </Button>
-                </div>
+              {/* Gradient divider */}
+              <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
-                {/* Channel Grid */}
-                {channelCategories.map((category) => (
-                  <div key={category.key} className="space-y-2">
-                    <p className="text-xs text-muted-foreground font-medium">{category.name}</p>
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                      {category.channels.map((channel) => {
-                        const hasOverride = brandTemplate?.channel_overrides && 
-                          Object.keys(brandTemplate.channel_overrides).includes(channel.value);
-                        return (
-                          <Tooltip key={channel.value}>
-                            <TooltipTrigger asChild>
-                              <label
-                                className={cn(
-                                  "flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-all",
-                                  formData.channels.includes(channel.value)
-                                    ? 'border-primary bg-primary/5'
-                                    : 'border-border/50 hover:border-border',
-                                  isGenerating && 'opacity-50 cursor-not-allowed'
-                                )}
-                              >
-                                <Checkbox
-                                  checked={formData.channels.includes(channel.value)}
-                                  onCheckedChange={() => handleChannelToggle(channel.value)}
-                                  disabled={isGenerating}
-                                  className="w-4 h-4"
-                                />
-                                <span className="text-primary">
-                                  {channelIcons[channel.value]}
-                                </span>
-                                <span className="text-sm truncate flex-1">{channel.label}</span>
-                                {hasOverride && (
-                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-purple-300 text-purple-600 dark:border-purple-700 dark:text-purple-400">
-                                    <Settings2 className="w-2.5 h-2.5 mr-0.5" />
-                                  </Badge>
-                                )}
-                              </label>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-[200px]">
-                              <p className="text-xs">{channel.description}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
+              {/* Channel Selection - Compact Grid */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-primary" />
+                  Kênh xuất bản
+                </Label>
+                <CompactChannelGrid
+                  selectedChannels={formData.channels}
+                  onChannelToggle={handleChannelToggle}
+                  onSelectAll={handleSelectAll}
+                  onDeselectAll={handleDeselectAll}
+                  channelIcons={channelIcons}
+                  brandTemplate={brandTemplate}
+                  disabled={isGenerating}
+                />
               </div>
+
+              {/* Gradient divider */}
+              <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
               {/* Hook Generator */}
               {formData.topic.trim().length >= 10 && formData.channels.length > 0 && (
@@ -1581,64 +1602,50 @@ export function MultiChannelFormWizard({
                 defaultCollapsed={false}
               />
 
-              {/* Footer Info Option */}
-              <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Phone className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground">Thông tin liên hệ (Footer)</h3>
-                        <p className="text-xs text-muted-foreground">Tự động thêm hotline, email, website vào cuối bài</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {brandTemplateId && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 px-2 text-muted-foreground hover:text-primary"
-                              asChild
-                            >
-                              <Link to="/brands/new" state={{ editTemplate: { id: brandTemplateId }, focusFooterInfo: true }}>
-                                <ExternalLink className="w-4 h-4 mr-1" />
-                                Sửa
-                              </Link>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Chỉnh sửa thông tin liên hệ của thương hiệu</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                      <Checkbox
-                        id="includeFooterInfo"
-                        checked={formData.includeFooterInfo !== false}
-                        onCheckedChange={(checked) => 
-                          setFormData(prev => ({ ...prev, includeFooterInfo: checked as boolean }))
-                        }
-                        disabled={isGenerating}
-                      />
-                    </div>
+              {/* Footer Info - Simple toggle row */}
+              <div className={cn(
+                "flex items-center justify-between p-3 rounded-lg border transition-all",
+                formData.includeFooterInfo !== false
+                  ? "border-primary/30 bg-primary/5"
+                  : "border-border/50"
+              )}>
+                <div className="flex items-center gap-2.5">
+                  <Phone className="w-4 h-4 text-primary" />
+                  <div>
+                    <span className="text-sm font-medium">Thông tin liên hệ (Footer)</span>
+                    <p className="text-[11px] text-muted-foreground">Hotline, email, website</p>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+                <div className="flex items-center gap-2">
+                  {brandTemplateId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-muted-foreground hover:text-primary"
+                      asChild
+                    >
+                      <Link to="/brands/new" state={{ editTemplate: { id: brandTemplateId }, focusFooterInfo: true }}>
+                        <Pencil className="w-3 h-3 mr-1" />
+                        Sửa
+                      </Link>
+                    </Button>
+                  )}
+                  <Switch
+                    checked={formData.includeFooterInfo !== false}
+                    onCheckedChange={(checked) => 
+                      setFormData(prev => ({ ...prev, includeFooterInfo: checked }))
+                    }
+                    disabled={isGenerating}
+                  />
+                </div>
+              </div>
 
               {/* Estimated Time */}
               {formData.channels.length > 0 && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Timer className="w-4 h-4" />
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Timer className="w-3.5 h-3.5" />
                   <span>
-                    Ước tính: ~{formData.qualityMode === 'fast' 
-                      ? Math.round(estimatedTime * 0.6) 
-                      : formData.qualityMode === 'quality' 
-                        ? Math.round(estimatedTime * 1.3) 
-                        : estimatedTime} giây
-                    {formData.qualityMode === 'fast' && <Badge variant="outline" className="ml-2 text-[10px]">Nhanh hơn 40%</Badge>}
+                    Ước tính: ~{estimatedTime} giây cho {formData.channels.length} kênh
                   </span>
                 </div>
               )}
