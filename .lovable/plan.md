@@ -1,42 +1,60 @@
 
 
-## Thêm content-type terms vào NON_TOPIC_TERMS
+## Khắc phục Content Node bị chậm và đứng
 
-### Vấn đề
-Khi người dùng nhập "Tạo kịch bản video" hoặc "Tạo carousel cho hôm nay", các từ như "kịch bản", "video", "carousel", "script" được tính là "real words", khiến `hasExplicitTopic` trả về `true` sai -- hệ thống bỏ qua Research Agent.
+### Nguyên nhân gốc (đã xác nhận)
 
-### Giải pháp
-Thêm các từ chỉ **loại nội dung** (content format) vào `NON_TOPIC_TERMS` trong `supabase/functions/_shared/graph/orchestrator.ts`.
+File `content-node.ts` **chưa được tối ưu** dù kế hoạch đã được duyệt trước đó. Hiện tại vẫn chạy **4 bước nối tiếp**:
 
-### Chi tiết kỹ thuật
-
-**File:** `supabase/functions/_shared/graph/orchestrator.ts` (dòng 65-71)
-
-Thêm một dòng mới vào Set `NON_TOPIC_TERMS`:
-
-```typescript
-const NON_TOPIC_TERMS = new Set([
-  'facebook', 'instagram', 'tiktok', 'linkedin', 'twitter', 'threads', 'youtube',
-  'kênh', 'channel', 'social', 'mxh', 'online',
-  'bài', 'post', 'content', 'nội', 'dung', 'noi',
-  'viết', 'tạo', 'soạn', 'làm', 'generate', 'create', 'write', 'make',
-  'cho', 'về', 'about', 'the', 'a', 'an', 'một', 'mot',
-  // Content format terms - không phải topic cụ thể
-  'carousel', 'script', 'kịch', 'bản', 'video', 'reel', 'reels', 'story', 'stories',
-  'multichannel', 'đa', 'multi',
-]);
+```text
+LLM #1 (chọn tool)     ~10s
+  Core Content API      ~15s
+  Multichannel API      ~20s
+LLM #2 (tổng hợp)       ~8s
+─────────────────────────────
+Tổng                   ~53s  (timeout Edge Function = 55s)
 ```
 
-**Lưu ý:** Tách "kịch bản" thành "kịch" và "bản" vì hàm split theo khoảng trắng sẽ tạo ra 2 từ riêng biệt. Thêm luôn "reel", "reels", "story", "stories" để phủ hết các format phổ biến.
+### Giải pháp: Loại bỏ 2 lần gọi LLM thừa
 
-### Kết quả
+**File:** `supabase/functions/_shared/graph/nodes/content-node.ts`
 
-| Prompt | Trước | Sau |
-|--------|-------|-----|
-| "Tạo carousel" | `false` (1 word) | `false` (0 words) |
-| "Tạo kịch bản video" | `true` (2 words: kịch, bản) | `false` (0 words) |
-| "Tạo video về skincare" | `true` (2 words: video, skincare) | `true` (1 word >= 2 needed → `false`) |
-| "Tạo carousel về skincare mùa hè" | `true` | `true` (skincare, mùa, hè) |
+#### Thay đổi 1: Bỏ LLM call #1 khi đã có topic/plan
 
-**Lưu ý cho "Tạo video về skincare":** chỉ còn 1 real word ("skincare") nên `hasExplicitTopic` trả về `false` theo check cuối (cần >= 2). Tuy nhiên, nó sẽ match qua `veMatch` pattern ("về skincare") và `hasRealWords` sẽ return `true` -- nên kết quả cuối cùng vẫn đúng: `true`.
+Khi `state.bestTopic` hoặc `state.contentPlan` tồn tại (tức Research/Strategy đã chạy), gọi thẳng `executeToolCall('generate_multichannel', ...)` mà không cần hỏi LLM chọn tool.
+
+Chỉ giữ LLM call #1 cho trường hợp chat đơn giản (không có pipeline context).
+
+#### Thay đổi 2: Bỏ LLM call #2 (tổng hợp kết quả)
+
+Dùng trực tiếp kết quả từ tool (`contentResult.result`) làm `generatedContent` thay vì gọi thêm 1 lần LLM để "summarize".
+
+#### Logic mới (pseudo-code):
+
+```text
+IF state.bestTopic OR state.contentPlan:
+  // Fast path: gọi thẳng tool, bỏ qua cả 2 LLM calls
+  topic = state.bestTopic || extractFromPlan(state.contentPlan)
+  result = executeToolCall('generate_multichannel', { topic, channels, ... })
+  return { generatedContent: JSON.stringify(result) }
+ELSE:
+  // Fallback: giữ LLM call #1 để quyết định tool (chat tự do)
+  // Vẫn bỏ LLM call #2
+  aiResult = callAI({ tools, toolChoice: 'required' })
+  result = executeToolCall(aiResult.tool_name, aiResult.args)
+  return { generatedContent: JSON.stringify(result) }
+```
+
+### Kết quả kỳ vọng
+
+```text
+TRƯỚC: ~53s (4 bước sequential) → thường timeout
+SAU:   ~35s (2 bước: Core + Multichannel) → an toàn trong budget
+```
+
+### Trình tự triển khai
+
+1. Sửa `content-node.ts`: thêm fast-path khi có `bestTopic`/`contentPlan`, gọi thẳng tool
+2. Loại bỏ follow-up LLM call (dòng 116-134) cho cả 2 path
+3. Giữ nguyên cache logic và error handling hiện tại
 
