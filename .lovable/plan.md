@@ -1,73 +1,140 @@
 
 
-# Blackboard v2 — Implementation Status
+# Nhan xet: Streaming 2.0 – Delta Streaming
 
-## ✅ COMPLETED — Phase 2: Pragmatic Blackboard v2
+## Danh gia hien trang (QUAN TRONG)
 
-### Buoc 1: Migration (schema + RPC) ✅
-- Added `session_id` (UUID) and `node_name` (TEXT) columns to `content_embeddings`
-- Created indexes: `idx_ce_session`, `idx_ce_node_name`
-- Created RPC function `match_blackboard_context` with hybrid priority scoring:
-  - Same session: +0.15 priority boost
-  - Same brand: +0.05 priority boost
-  - Supports filtering by node_types, threshold, count
+Sau khi doc ky toan bo code streaming hien tai, phat hien **van de co ban** trong de xuat:
 
-### Buoc 2: BlackboardRetriever class ✅
-- New file: `supabase/functions/_shared/graph/blackboard-retriever.ts`
-- Methods: `store()`, `retrieve()`, `retrieveHierarchical()`, `retrieveCrossSession()`
-- Uses gte-small 384-dim embeddings (free, no API key)
-- Helper functions: `formatRetrievedContext()`, `extractStorableContent()`
+### He thong hien tai DA la delta streaming
 
-### Buoc 3: Auto-store in graph-engine ✅
-- `onNodeComplete` callback now auto-stores node outputs via `extractStorableContent()`
-- Fire-and-forget pattern — doesn't block graph execution
-- Stores: research_output, plan, generated_content, review, compliance_check
-
-### Buoc 4: Update nodes to use retriever ✅
-- All 4 LLM nodes (research, strategy, content, reviewer) updated
-- Each node uses `retriever.retrieve()` for semantic context when available
-- Falls back to `buildStateContext()` when retriever is not provided
-- `NodeExecutionContext` interface extended with optional `retriever` field
-
-### Buoc 5: Cross-session memory in orchestrator ✅
-- Orchestrator queries `retrieveCrossSession()` before LLM planning
-- Past session context injected into orchestrator prompt
-- Graceful fallback on error
-
-## Architecture Summary
-
-```
-User Message → Orchestrator (+ cross-session memory)
-                    │
-                    ▼
-              Graph Engine
-                    │
-        ┌───────────┼───────────┐
-        │           │           │
-   Research    Strategy    Content    ...
-        │           │           │
-        └───────────┼───────────┘
-                    │
-              Auto-store (fire-and-forget)
-                    │
-                    ▼
-          content_embeddings (pgvector 384-dim)
-                    │
-              match_blackboard_context RPC
-                    │
-        ┌───────────┼───────────┐
-        │           │           │
-   Same Session  Same Brand   Global
-   (+0.15 boost) (+0.05 boost) (base)
+Backend (`streaming-handler.ts`) **da gui tung token** qua event `streaming_text`:
+```text
+emit({
+  type: 'streaming_text',
+  streamingChunk: { channel: 'facebook', text: 'token_moi', isComplete: false }
+})
 ```
 
-## Backward Compatibility
-- `buildStateContext()` preserved as fallback
-- Retriever is optional — nodes work without it
-- No new tables — extended existing `content_embeddings`
-- Consistent 384-dim gte-small embeddings throughout
+Frontend (`useStreamingGeneration.ts`) **da accumulate per-channel**:
+```text
+setStreamingTexts(prev => ({
+  ...prev,
+  [channel]: (prev[channel] || '') + text,  // chi append delta
+}))
+```
 
-## Next Steps (Future)
-- Connect retriever in Edge Function entry points (chat handler)
-- Monitor embedding storage growth
-- Consider Memgraph when >50k entries need graph algorithms
+**Khong co luc nao gui toan bo multichannel object lap lai.** Moi event chi chua 1 token (5-20 bytes). SSE payload hien tai da la ~20-50 bytes/event, khong phai 2-8KB nhu de xuat gia dinh.
+
+### Cac event hien co
+- `streaming_text`: per-token delta (DA toi uu)
+- `channel_complete`: gui full content 1 lan duy nhat khi channel xong (khong lap lai)
+- `result`: gui 1 lan cuoi cung de sync
+
+### Ket luan
+De xuat JSON Patch (RFC 6902) giai quyet mot van de **khong ton tai** trong codebase hien tai. Them `fast-json-patch` + `immer` se tang complexity ma khong co loi ich do luong duoc.
+
+---
+
+## Nhung gi THUC SU can cai thien
+
+Sau khi phan tich, co 3 van de thuc te:
+
+### 1. Re-render khong can thiet (Frontend)
+`setStreamingTexts()` thay doi object reference moi token → toan bo `StreamingTextGrid` re-render. Fix don gian: `React.memo` + stable channel references.
+
+### 2. Thieu debounce (Backend)
+Moi token tao 1 SSE event rieng. Voi 11 kenh, co the co 500+ events/giay. Batch 50-100ms se giam event count 80%.
+
+### 3. StreamingChannelCard re-render tat ca kenh
+Khi 1 channel co token moi, tat ca channel cards deu re-render vi `streamingTexts` object thay doi reference.
+
+---
+
+## Ke hoach thuc thi (Pragmatic Streaming Optimization)
+
+### Thay doi 1: Backend Token Batching
+
+**File**: `supabase/functions/_shared/streaming-handler.ts`
+
+Trong `generateChannelStreaming()`, thay vi emit moi token:
+- Accumulate tokens trong buffer 80ms
+- Emit 1 event chua toan bo batch (van la delta, chi gom nhieu token lai)
+- Giam event count tu ~500/s xuong ~12/s per channel
+
+```text
+// Truoc: emit moi token
+emit({ type: 'streaming_text', streamingChunk: { channel, text: delta.content } })
+
+// Sau: batch 80ms
+tokenBuffer += delta.content;
+if (Date.now() - lastEmitTime > 80) {
+  emit({ type: 'streaming_text', streamingChunk: { channel, text: tokenBuffer } })
+  tokenBuffer = '';
+  lastEmitTime = Date.now();
+}
+// + flush khi stream ket thuc
+```
+
+### Thay doi 2: Frontend Per-Channel State Isolation
+
+**File**: `src/hooks/useStreamingGeneration.ts`
+
+Thay `Record<string, string>` bang `useRef` + per-channel update:
+- Dung `useRef` cho accumulated text (khong trigger re-render)
+- Dung `useState` chi cho channel dang active (chi re-render channel do)
+- Expose `getChannelText(channel)` thay vi full object
+
+```text
+// Truoc:
+const [streamingTexts, setStreamingTexts] = useState<Record<string, string>>({});
+// Moi token → new object → all consumers re-render
+
+// Sau:
+const textsRef = useRef<Record<string, string>>({});
+const [lastUpdate, setLastUpdate] = useState<{ channel: string; version: number }>({ channel: '', version: 0 });
+
+// Trong event handler:
+textsRef.current[channel] = (textsRef.current[channel] || '') + text;
+setLastUpdate({ channel, version: Date.now() }); // chi channel nay re-render
+
+// Expose:
+const getChannelText = useCallback((ch: string) => textsRef.current[ch] || '', []);
+```
+
+### Thay doi 3: StreamingChannelCard React.memo
+
+**File**: `src/components/multichannel/streaming/StreamingChannelCard.tsx`
+
+Wrap component voi `React.memo` va chi nhan `text` cua channel do, khong nhan toan bo `streamingTexts` object.
+
+### Thay doi 4: StreamingTextGrid Per-Channel Isolation
+
+**File**: `src/components/multichannel/streaming/StreamingTextGrid.tsx`
+
+Moi `StreamingChannelCard` chi subscribe vao channel cua minh thong qua `getChannelText(channel)` hoac context selector.
+
+---
+
+## Files thay doi
+
+| File | Loai | Mo ta |
+|------|------|-------|
+| `streaming-handler.ts` | Cap nhat | Token batching 80ms |
+| `useStreamingGeneration.ts` | Cap nhat | useRef + per-channel isolation |
+| `StreamingChannelCard.tsx` | Cap nhat | React.memo optimization |
+| `StreamingTextGrid.tsx` | Cap nhat | Per-channel text subscription |
+| `.lovable/plan.md` | Cap nhat | Streaming optimization status |
+
+## Khong lam
+- **Khong them `fast-json-patch`** — khong can thiet, he thong da la delta
+- **Khong them `immer`** — simple string append khong can immutable library
+- **Khong tao event type moi** (`multichannel_delta`) — `streaming_text` da du
+- **Khong can feature flag** — thay doi nho, backward compatible
+
+## Ket qua du kien
+- SSE events: giam 80% (token batching)
+- React re-renders: giam 70% (per-channel isolation)
+- Bandwidth: giam 15-20% (batch headers)
+- Complexity: GIAM (khong them dependency)
+
