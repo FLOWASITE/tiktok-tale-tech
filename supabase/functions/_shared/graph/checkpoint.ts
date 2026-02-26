@@ -82,6 +82,59 @@ export async function loadCheckpoint(
 }
 
 /**
+ * Validate a checkpoint for resume eligibility.
+ * Checks staleness (> 5 min = reject) and status.
+ */
+export interface CheckpointValidation {
+  valid: boolean;
+  reason?: string;
+  checkpoint?: CheckpointRecord;
+}
+
+export async function validateCheckpoint(
+  supabase: any,
+  continuationToken: string,
+  maxAgeMs: number = 5 * 60 * 1000 // 5 minutes
+): Promise<CheckpointValidation> {
+  try {
+    const { data, error } = await supabase
+      .from('workflow_checkpoints')
+      .select('*')
+      .eq('id', continuationToken)
+      .single();
+
+    if (error || !data) {
+      return { valid: false, reason: 'Checkpoint not found' };
+    }
+
+    // Check status
+    if (data.status !== 'active') {
+      return { valid: false, reason: `Checkpoint status is '${data.status}', expected 'active'` };
+    }
+
+    // Staleness check
+    const createdAt = new Date(data.created_at).getTime();
+    const age = Date.now() - createdAt;
+    if (age > maxAgeMs) {
+      return { valid: false, reason: `Checkpoint is stale (${Math.round(age / 1000)}s old, max ${maxAgeMs / 1000}s)` };
+    }
+
+    const checkpoint: CheckpointRecord = {
+      id: data.id,
+      sessionId: data.session_id,
+      nodeName: data.node_name,
+      graphState: data.graph_state as GraphState,
+      createdAt: data.created_at,
+      status: data.status,
+    };
+
+    return { valid: true, checkpoint };
+  } catch (err) {
+    return { valid: false, reason: `Validation error: ${err}` };
+  }
+}
+
+/**
  * Mark a checkpoint as completed
  */
 export async function completeCheckpoint(

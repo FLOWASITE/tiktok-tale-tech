@@ -763,8 +763,59 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
           });
           messageCreated = true;
         }
-        // Auto-trigger continuation (would need streamChat to accept continuationToken)
-        console.log('[useChatStreaming] Auto-continuation with token:', continuationToken);
+
+        // Auto-trigger continuation with the token
+        console.log('[useChatStreaming] Auto-resuming with continuation token:', continuationToken);
+        try {
+          const { supabase } = await import('@/integrations/supabase/client');
+          const { data: sessionData } = await supabase.auth.getSession();
+          const accessToken = sessionData?.session?.access_token;
+          if (accessToken) {
+            const resumeResponse = await fetch(CHAT_URL, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+                'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              },
+              body: JSON.stringify({
+                messages: apiMessages,
+                brandTemplateId,
+                contentGoal,
+                organizationId,
+                userId,
+                continuationToken,
+              }),
+            });
+
+            if (resumeResponse.ok && resumeResponse.body) {
+              const resumeReader = resumeResponse.body.getReader();
+              // Read continuation stream and append content
+              while (true) {
+                const { done: rDone, value: rValue } = await resumeReader.read();
+                if (rDone) break;
+                const rText = decoder.decode(rValue, { stream: true });
+                // Parse SSE lines for content_chunk
+                for (const rLine of rText.split('\n')) {
+                  if (!rLine.startsWith('data: ') || rLine.includes('[DONE]')) continue;
+                  try {
+                    const rParsed = JSON.parse(rLine.slice(6));
+                    if (rParsed.type === 'content_chunk' && rParsed.data?.chunk) {
+                      assistantContent += rParsed.data.chunk;
+                      onMessageUpdate(assistantId, { content: assistantContent });
+                    }
+                  } catch { /* skip invalid JSON */ }
+                }
+              }
+              console.log('[useChatStreaming] Continuation completed successfully');
+            }
+          }
+        } catch (resumeErr) {
+          console.warn('[useChatStreaming] Auto-resume failed:', resumeErr);
+          // Keep partial content with warning
+          assistantContent += '\n\n---\n⚠️ Không thể tiếp tục tự động. Vui lòng thử lại.';
+          onMessageUpdate(assistantId, { content: assistantContent });
+        }
       }
 
       // Final message
