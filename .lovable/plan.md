@@ -1,56 +1,77 @@
 
-# Sprint 3: Triển khai 5 tính năng Q2/2026 — ✅ COMPLETED
 
-## Tổng quan
-Đã triển khai 5 task: Cache Key Improvements, Cross-session Memory Recency Decay, Topic Detection LLM Fallback, Frontend Error Recovery Matrix, và Multichannel Prioritization.
+# Rà soát & Hoàn thiện Sprint 1, 2, 3
 
----
-
-## Task 9: Cache Key Improvements ✅
-
-- Thêm `promptVersion` parameter vào `generateCacheKey()` trong `redis-cache.ts`
-- Cập nhật tất cả 3 nodes (research, strategy, content) truyền `PROMPT_VERSION = 'v2'`
-- Payload hash bao gồm `_pv` field để tránh cache stale khi prompt thay đổi
-
-## Task 10: Cross-session Memory Recency Decay ✅
-
-- Migration cập nhật RPC `match_blackboard_context` với recency decay:
-  - Entries > 90 ngày: trừ 0.25 priority
-  - Entries > 30 ngày: trừ 0.1 priority
-- Thêm `primary_channels TEXT[]` vào `brand_templates` + validation trigger (max 3)
-
-## Task 11: Topic Detection LLM Fallback ✅
-
-- Thêm `extracted_topic` vào `CREATE_GRAPH_PLAN_TOOL` schema trong orchestrator
-- Thêm `extractedTopic?: string` vào `GraphPlan` interface
-- `runOrchestrator()` gán `plan.extractedTopic` vào `state.bestTopic` (zero-cost fallback)
-
-## Task 12: Frontend Error Recovery Matrix ✅
-
-- SSE Connection Drop: exponential backoff (1s, 2s, 4s), max 3 retries
-- Critical Node Error: hiển thị message cụ thể + retry flag cho content/reviewer nodes
-- Timeout với Partial Result: phát hiện stream kết thúc thiếu final_response/[DONE], hiển thị banner cảnh báo
-
-## Task 13: Multichannel Prioritization ✅
-
-- Đọc `primary_channels` từ brand template
-- Sắp xếp channels: primary trước, secondary sau
-- Khi elapsed > 40s: skip secondary channels
-- Return metadata `{ primaryCompleted, secondarySkipped, primaryChannels }`
+Sau khi kiểm tra toàn bộ code, phát hiện **5 vấn đề** cần hoàn thiện:
 
 ---
 
-## Files đã thay đổi
+## 1. Circuit Breaker: `getStats()` gọi async nhưng không await (Bug)
 
-| File | Loại | Mô tả |
-|------|------|--------|
-| `redis-cache.ts` | Sửa | Thêm `promptVersion` parameter |
-| `content-node.ts` | Sửa | Truyền PROMPT_VERSION |
-| `research-node.ts` | Sửa | Truyền PROMPT_VERSION |
-| `strategy-node.ts` | Sửa | Truyền PROMPT_VERSION |
-| `graph-state.ts` | Sửa | Thêm `extractedTopic` vào GraphPlan |
-| `orchestrator.ts` | Sửa | extracted_topic trong tool schema + validatePlan |
-| `graph-engine.ts` | Sửa | Gán extractedTopic vào state.bestTopic |
-| `useChatStreaming.ts` | Sửa | Error Recovery Matrix |
-| `generate-multichannel/index.ts` | Sửa | Primary channels prioritization |
-| Migration SQL | Mới | Recency decay + primary_channels + trigger |
+**File:** `supabase/functions/_shared/circuit-breaker.ts` (dòng 296-315)
+
+`getState(model)` đã được chuyển sang async (trả về Promise), nhưng `getStats()` vẫn là hàm sync gọi nó mà không `await`. Kết quả: trả về Promise thay vì state object thực tế.
+
+**Fix:** Chuyển `getStats()` sang `async` và `await getState()`.
+
+---
+
+## 2. Circuit Breaker: `resetCircuit()`/`resetAllCircuits()` không xoá Redis (Thiếu)
+
+**File:** `supabase/functions/_shared/circuit-breaker.ts` (dòng 320-333)
+
+Hai hàm reset chỉ xoá in-memory state mà không xoá Redis. Nếu một instance khác đọc từ Redis, state cũ vẫn còn.
+
+**Fix:** Thêm logic xoá Redis key (`flowa:cb:*`) trong cả hai hàm reset. Chuyển sang async.
+
+---
+
+## 3. Logger: `saveMetrics()` không lưu `spanId`/`parentSpanId` (Thiếu)
+
+**File:** `supabase/functions/_shared/logger.ts` (dòng 268-309)
+
+Interface `AIMetrics` đã có `spanId` và `parentSpanId` (Sprint 2), nhưng `saveMetrics()` không insert chúng vào DB. Distributed tracing thiếu persistence.
+
+**Fix:** Thêm `span_id` và `parent_span_id` vào object insert trong `saveMetrics()`.
+
+---
+
+## 4. ContentFeedback chưa được tích hợp vào Chat UI (Thiếu)
+
+**File:** `src/components/chat/ContentFeedback.tsx` -- đã tạo nhưng chưa được import/render ở đâu.
+
+Component feedback (thumbs up/down + tags) đã hoàn chỉnh nhưng không có file nào import nó. Cần tích hợp vào component hiển thị tin nhắn assistant.
+
+**Fix:** Tìm component render chat messages (nơi hiển thị assistant bubble) và thêm `<ContentFeedback>` dưới mỗi assistant message có `generatedContent` hoặc `reviewScores`.
+
+---
+
+## 5. Governor Revision Loop không có re-review (Thiếu quan trọng)
+
+**File:** `supabase/functions/_shared/graph/nodes/governor-node.ts`
+
+Plan yêu cầu "Sau revision: gọi lại Reviewer, kiểm tra score mới" và "Thêm conditional edge từ Governor quay về Content/Reviewer khi needs_revision". Hiện tại Governor trả về `generatedContent` đã revision nhưng **không loop back** Reviewer để re-score -- nội dung đã revision không được đánh giá lại chất lượng.
+
+**Fix:** 
+- Thêm conditional edge trong `graph-engine.ts`: khi Governor trả về `exitReason: 'revised_full'` hoặc `'revised_soft'`, route lại về `reviewer` node
+- Reviewer re-score, rồi quay lại Governor kiểm tra score mới
+- Governor đã có logic `revisionRound >= MAX_REVISION_ROUNDS` để thoát loop, nên không lo infinite loop
+
+---
+
+## Chi tiết kỹ thuật
+
+### Files cần sửa
+
+| File | Thay đổi |
+|------|----------|
+| `circuit-breaker.ts` | Fix `getStats()` async + `resetCircuit()`/`resetAllCircuits()` xoá Redis |
+| `logger.ts` | Thêm `span_id`, `parent_span_id` vào `saveMetrics()` insert |
+| `graph-engine.ts` | Thêm conditional edge: governor -> reviewer khi `exitReason` chứa `'revised'` |
+| Chat message component | Import + render `ContentFeedback` dưới assistant messages |
+
+### Lưu ý
+- Tất cả fix đều nhỏ, không thay đổi kiến trúc
+- Governor revision loop là fix quan trọng nhất vì ảnh hưởng đến quality gate
+- ContentFeedback cần xác định đúng component chat message đang render để tích hợp
+
