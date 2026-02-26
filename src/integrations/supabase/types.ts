@@ -2436,6 +2436,7 @@ export type Database = {
           name: string
           organization_id: string | null
           preferred_words: string[] | null
+          primary_channels: string[] | null
           primary_color: string | null
           sample_texts: Json | null
           secondary_colors: string[] | null
@@ -2487,6 +2488,7 @@ export type Database = {
           name: string
           organization_id?: string | null
           preferred_words?: string[] | null
+          primary_channels?: string[] | null
           primary_color?: string | null
           sample_texts?: Json | null
           secondary_colors?: string[] | null
@@ -2538,6 +2540,7 @@ export type Database = {
           name?: string
           organization_id?: string | null
           preferred_words?: string[] | null
+          primary_channels?: string[] | null
           primary_color?: string | null
           sample_texts?: Json | null
           secondary_colors?: string[] | null

@@ -242,6 +242,10 @@ const CREATE_GRAPH_PLAN_TOOL = {
           type: "string",
           description: "Brief explanation of why this plan was chosen",
         },
+        extracted_topic: {
+          type: "string",
+          description: "The main topic extracted from user message, if any. E.g. 'skincare routine for oily skin'",
+        },
       },
       required: ["steps", "skipNodes", "reasoning"],
       additionalProperties: false,
@@ -321,7 +325,7 @@ async function planWithLLM(
     const planArgs = JSON.parse(toolCall.function.arguments);
     const plan = validatePlan(planArgs);
 
-    console.log(`[Orchestrator] LLM plan: ${plan.steps.length} steps, reasoning: ${plan.reasoning}`);
+    console.log(`[Orchestrator] LLM plan: ${plan.steps.length} steps, reasoning: ${plan.reasoning}${plan.extractedTopic ? `, topic: ${plan.extractedTopic}` : ''}`);
     return plan;
   } catch (err) {
     console.error("[Orchestrator] LLM planning failed:", err);
@@ -351,6 +355,7 @@ function validatePlan(raw: any): GraphPlan {
     skipNodes: (raw.skipNodes || []).filter((n: string) => VALID_NODES.has(n)),
     reasoning: raw.reasoning || "LLM-generated plan",
     fastPath: false,
+    extractedTopic: raw.extracted_topic || undefined,
   };
 }
 
