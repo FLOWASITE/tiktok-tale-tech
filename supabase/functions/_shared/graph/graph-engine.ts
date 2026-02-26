@@ -735,15 +735,16 @@ export async function runOrchestrator(
             score: t.score ?? t.overallScore ?? null,
             reasoning: t.reasoning || t.explanation || null,
           }));
-          const normalizedBestTopic = normalizedTopics.find((t: any) => t.topic === (u.bestTopic || ''))?.topic
-            || normalizedTopics[0]?.topic
-            || undefined;
-          console.log(`[GraphEngine] Emitting topic_suggestions: ${normalizedTopics.length} topics, best: ${normalizedBestTopic}`);
+          // Use refined bestTopic directly (may differ from raw list after refinement)
+          const normalizedBestTopic = u.bestTopic || normalizedTopics[0]?.topic || undefined;
+          const refinedVariants = u.researchData?.refinedVariants || [];
+          console.log(`[GraphEngine] Emitting topic_suggestions: ${normalizedTopics.length} topics, best: ${normalizedBestTopic}, refined variants: ${refinedVariants.length}`);
           options.onEvent?.({
             type: 'topic_suggestions',
             data: {
               topics: normalizedTopics,
               best_topic: normalizedBestTopic,
+              refined_variants: refinedVariants,
             },
           });
         }
