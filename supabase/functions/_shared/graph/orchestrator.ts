@@ -68,6 +68,9 @@ const NON_TOPIC_TERMS = new Set([
   'bài', 'post', 'content', 'nội', 'dung', 'noi',
   'viết', 'tạo', 'soạn', 'làm', 'generate', 'create', 'write', 'make',
   'cho', 'về', 'about', 'the', 'a', 'an', 'một', 'mot',
+  // Content format terms - không phải topic cụ thể
+  'carousel', 'script', 'kịch', 'bản', 'video', 'reel', 'reels', 'story', 'stories',
+  'multichannel', 'đa', 'multi',
 ]);
 
 function hasExplicitTopic(message: string): boolean {
