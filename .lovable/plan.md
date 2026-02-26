@@ -1,68 +1,93 @@
 
 
-## Cải thiện UI hiển thị danh sách chủ đề gợi ý
+## Cải thiện UI: Core Content (Step 2) & Multi Content (Step 4)
 
-### Vấn đề hiện tại
+### Tổng quan
 
-Khi bạn yêu cầu "chọn 5 chủ đề", UI có 3 vấn đề:
+Nâng cấp giao diện 2 bước quan trọng nhất trong wizard: bước tạo Core Content và bước cấu hình đa kênh, theo hướng đẹp hơn, gọn hơn, và thông minh hơn.
 
-1. **Tự động chọn topic**: Hệ thống tự hiển thị "Chủ đề được chọn" mà bạn chưa chọn gì
-2. **Ẩn nội dung AI**: Phần giải thích/phân tích của AI bị ẩn hoàn toàn khi có topic cards
-3. **Nút hành động thay vì nút chọn**: Mỗi topic hiển thị 3 nút (Multi/Script/Carousel) thay vì 1 nút "Chọn" đơn giản
+---
 
-### Giải pháp
+### A. Step 2: Core Content - Cải thiện
 
-#### 1. Hiển thị lại nội dung markdown kèm topic cards
+**Hiện tại:** Form khá dài với nhiều field cùng level, thiếu visual hierarchy, streaming card đơn điệu.
 
-**File:** `src/components/topic/chatbot/ChatMessageBubble.tsx`
+**Cải thiện:**
 
-- Bỏ điều kiện `!message.suggestedTopics?.length` ở dòng 210 -- luôn hiển thị markdown content
-- Nội dung AI (giải thích, phân tích) sẽ hiện phía trên, topic cards hiện phía dưới
+1. **Header Card nổi bật hơn** - Thêm gradient background, icon lớn hơn, và description rõ ràng hơn cho section "Tạo Core Content"
 
-#### 2. Không tự động hiển thị "Chủ đề được chọn" khi user chưa chọn
+2. **Gom nhóm tuỳ chọn thành Tabs/Sections**
+   - Tab "Cơ bản": Content Angle + Length Mode (2 cột)
+   - Tab "Nâng cao": Audience/Persona + Auto Research
+   - Giảm cognitive load bằng cách tách thành 2 nhóm rõ ràng
 
-**File:** `src/components/topic/chatbot/ChatMessageBubble.tsx`
+3. **Length Mode - Visual Cards thay vì plain buttons**
+   - Thêm icon cho mỗi mode (FileText nhỏ/trung/lớn)
+   - Hiển thị estimated time bên cạnh word count
+   - Badge "Phổ biến" thay vì "Khuyến khích"
 
-- Thêm state tracking: chỉ hiển thị banner "Chủ đề được chọn" khi user thực sự click chọn, không phải từ `best_topic` tự động
-- Ban đầu tất cả topics đều bình đẳng, không topic nào bị highlight sẵn
+4. **Core Content Result Card cải thiện**
+   - Thêm gradient border khi đã tạo thành công
+   - Key Messages hiển thị dạng numbered list thay vì badges (dễ đọc hơn)
+   - Thêm mini progress ring cho Quality Score
+   - Nút "Tạo lại" có confirm dialog tránh click nhầm
 
-#### 3. Thay đổi UI topic card: ưu tiên nút "Chọn" rõ ràng
+5. **AI Context Summary đẹp hơn**
+   - Từ badges nhỏ sang progress dots/chips có icon tương ứng
+   - Tooltip giải thích mỗi context item
 
-**File:** `src/components/topic/chatbot/ChatMessageBubble.tsx`
+### B. Step 4: Đa kênh - Cải thiện
 
-- Standalone mode: Thêm nút "Chọn topic này" nổi bật bên cạnh các nút Multi/Script/Carousel
-- Khi click "Chọn", topic đó được highlight và banner "Chủ đề được chọn" mới xuất hiện
-- Các nút Multi/Script/Carousel vẫn giữ nhưng nhỏ hơn, ở hàng thứ 2
+**Hiện tại:** Rất dài, nhiều cards chồng lên nhau, channel grid chiếm nhiều không gian.
 
-#### 4. Cập nhật streaming: không auto-select best_topic cho UI
+**Cải thiện:**
 
-**File:** `src/hooks/useChatStreaming.ts`
+1. **Channel Selection gọn hơn**
+   - Compact mode: Channels hiển thị dạng icon chips (không text) với tooltip
+   - Nhóm categories collapsible, mặc định expand "Mạng xã hội" (phổ biến nhất)
+   - Counter badge cho mỗi category ("3/5 đã chọn")
 
-- Vẫn nhận `best_topic` từ backend nhưng lưu riêng, không gán vào `selectedTopic` ngay
-- `selectedTopic` chỉ được set khi user click chọn
+2. **Targeting Card gom lại**
+   - Product + Persona hiển thị inline dạng 2-column dropdown compact
+   - Content Angle chuyển sang chip selector nhỏ (đã chọn ở Step 2, ở đây chỉ hiện readonly hoặc cho override)
 
-### Layout mới cho topic cards
+3. **Journey Stage compact**
+   - Chuyển từ Card lớn sang inline selector với 3-5 stage buttons ngang
+   - Bỏ Card wrapper, chỉ label + button group
 
-```text
-[Nội dung AI - giải thích, phân tích]
-─────────────────────────────────
-5 topics gợi ý         [AI đề xuất: Topic X]
-┌──────────────────────────────────────┐
-│ ⭐ Topic 1                    85 pts │
-│ Lý do: ...                          │
-│ [✓ Chọn] [Multi] [Script] [Carousel]│
-├──────────────────────────────────────┤
-│ Topic 2                       72 pts │
-│ ...                                  │
-└──────────────────────────────────────┘
-```
+4. **Hook Generator & Summary**
+   - Hook section default collapsed khi chưa có hook
+   - Summary hiển thị compact hơn với channel icons thay vì text dài
 
-- "AI đề xuất" chỉ là label nhỏ, không phải banner lớn
-- User click "Chọn" để xác nhận topic
+5. **Footer Info gọn lại**
+   - Từ Card lớn sang simple toggle row (1 line)
+
+### C. Shared Improvements
+
+1. **Section dividers đẹp hơn** - Thêm subtle gradient dividers giữa các sections
+2. **Smooth transitions** - AnimatePresence cho mỗi section khi mở/đóng
+3. **Mobile responsive** - Stack 1 column trên mobile, compact spacing
+
+---
 
 ### Chi tiết kỹ thuật
 
-1. **`ChatMessageBubble.tsx`**: Bỏ condition ẩn markdown (dòng 210). Thêm state `userSelectedTopic`. Refactor topic cards layout với nút "Chọn" primary. Chuyển `selectedTopic` từ auto-display sang user-triggered.
-2. **`useChatStreaming.ts`**: Lưu `best_topic` vào field `aiRecommendedTopic` thay vì `selectedTopic`. `selectedTopic` bắt đầu là `undefined`.
-3. **`types.ts`**: Thêm field `aiRecommendedTopic?: string` vào `ChatMessage` interface.
+**Files cần sửa:**
+- `src/components/multichannel/MultiChannelFormWizard.tsx` - Refactor Step 2 layout (gom options), Step 4 layout (compact channels, inline journey)
+- `src/components/multichannel/streaming/CoreContentStreamingCard.tsx` - Không đổi (đã tốt)
+- Tạo mới: `src/components/multichannel/CompactChannelGrid.tsx` - Component channel selection compact với icon-only mode
+- Tạo mới: `src/components/multichannel/InlineJourneySelector.tsx` - Journey stage selector dạng button group ngang
+
+**Thay đổi chính trong MultiChannelFormWizard.tsx:**
+
+Step 2:
+- Wrap options trong 2 nhóm: "Cơ bản" (Angle + Length) vs "Nâng cao" (Audience + Research)
+- Length Mode cards thêm icon và estimated time
+- Result card: numbered key messages, gradient border, confirm on "Tạo lại"
+
+Step 4:
+- Channel grid: icon-only compact mode với category counters
+- Journey stage: inline button group thay vì Card wrapper
+- Footer info: single row toggle
+- Targeting: compact 2-column layout
 
