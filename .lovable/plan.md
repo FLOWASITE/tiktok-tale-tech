@@ -1,61 +1,73 @@
 
 
-## Vấn đề
+## Hiển thị kết quả chọn chủ đề dạng text (bỏ Card)
 
-Hiện tại UI chat chỉ hiển thị **danh sách topics gợi ý** (TopicSuggestionsCard) mà không có phần **nổi bật riêng** cho topic đã được chọn. Có 2 nguyên nhân:
+### Thay đổi
 
-1. **Lỗi matching sau Refinement**: Sau khi Research Agent refine topic, tên topic mới (refined) khác với tên gốc trong danh sách `suggestedTopics`. Code ở `graph-engine.ts` so sánh `u.bestTopic` với danh sách nhưng không tìm thấy match, nên `best_topic` rơi về topic đầu tiên -- người dùng không phân biệt được.
+#### 1. Backend - Gửi lý do chọn topic qua SSE (`graph-engine.ts`)
+- Thêm trường `best_topic_reason` vào event `topic_suggestions`, lấy từ `reasoning` của topic được chọn trong `normalizedTopics`
 
-2. **UI thiếu phần hiển thị rõ ràng**: `TopicSuggestionsCard` chỉ dùng một ngôi sao nhỏ và viền nhạt để đánh dấu topic được chọn, rất dễ bỏ qua.
+#### 2. Frontend - Bỏ TopicSuggestionsCard, hiển thị dạng text (`ChatMessageBubble.tsx`)
+- Xóa phần render `TopicSuggestionsCard` (dòng 256-265)
+- Thay bằng một đoạn text đơn giản hiển thị:
+  - **Chủ đề được chọn**: tên topic (bold)
+  - **Lý do**: reasoning text
+- Styling nhẹ nhàng (không card), dùng markdown-style hoặc div đơn giản với icon nhỏ
 
-## Kế hoạch sửa
+#### 3. Types + Streaming (`types.ts`, `useChatStreaming.ts`)
+- Thêm `selectedTopicReason?: string` vào `ChatMessage`
+- Parse `best_topic_reason` từ SSE event và lưu vào message
 
-### 1. Thêm "Selected Topic Banner" vào TopicSuggestionsCard
-- File: `src/components/topic/chatbot/TopicSuggestionsCard.tsx`
-- Thêm một banner nổi bật ở đầu card khi có `selectedTopic`, hiển thị rõ ràng: icon Star + "Topic được chọn: [tên topic]" với background primary, font bold
-- Nếu `selectedTopic` khác với tất cả topic trong danh sách (trường hợp refined), vẫn hiển thị banner riêng phía trên danh sách
+#### 4. Giữ lại `TopicSuggestionsCard.tsx` file (không xóa) phòng dùng lại sau
 
-### 2. Truyền refined topic đúng từ backend
-- File: `supabase/functions/_shared/graph/graph-engine.ts`
-- Khi emit `topic_suggestions`, dùng trực tiếp `u.bestTopic` thay vì cố match với danh sách `normalizedTopics`. Nếu `u.bestTopic` không khớp danh sách (do đã refined), vẫn gửi nguyên giá trị refined về frontend
+### Kết quả hiển thị trên UI
 
-### 3. Hiển thị refined variants (nếu có)
-- File: `src/components/topic/chatbot/types.ts` -- thêm `refinedVariants?: { topic: string; angle: string }[]` vào `ChatMessage`
-- File: `supabase/functions/_shared/graph/graph-engine.ts` -- emit `refinedVariants` trong event `topic_suggestions`
-- File: `src/hooks/useChatStreaming.ts` -- đọc `parsed.data.refined_variants` và lưu vào message
-- File: `src/components/topic/chatbot/TopicSuggestionsCard.tsx` -- hiển thị các biến thể refined dưới banner topic được chọn (optional, collapsible)
+```text
+⭐ Chủ đề được chọn: "10 Xu hướng AI năm 2025 bạn không thể bỏ lỡ"
+💡 Lý do: Phù hợp với ngành công nghệ, điểm trending cao (85/100), 
+   dễ tạo nội dung đa kênh và thu hút engagement.
+```
 
 ### Chi tiết kỹ thuật
 
-**graph-engine.ts** (line ~738):
+**graph-engine.ts** (~line 739):
 ```typescript
-// Trước: cố match refined name với raw list → fail
-const normalizedBestTopic = normalizedTopics.find(...)?.topic || normalizedTopics[0]?.topic;
+const bestTopicReason = normalizedTopics.find(
+  (t: any) => t.topic === normalizedBestTopic
+)?.reasoning || normalizedTopics[0]?.reasoning || null;
 
-// Sau: dùng trực tiếp bestTopic từ research node (đã refined)
-const normalizedBestTopic = u.bestTopic || normalizedTopics[0]?.topic || undefined;
-```
-
-Thêm `refined_variants` vào event data:
-```typescript
 data: {
   topics: normalizedTopics,
   best_topic: normalizedBestTopic,
-  refined_variants: u.researchData?.refinedVariants || [],
+  best_topic_reason: bestTopicReason,
+  refined_variants: refinedVariants,
 }
 ```
 
-**TopicSuggestionsCard.tsx** -- thêm banner:
+**useChatStreaming.ts** (~line 291):
+```typescript
+pendingSelectedTopic = parsed.data.best_topic || ...;
+const pendingSelectedTopicReason = parsed.data.best_topic_reason || undefined;
+// pass to onMessageUpdate
+```
+
+**ChatMessageBubble.tsx** - thay TopicSuggestionsCard:
 ```tsx
-{selectedTopic && (
-  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-primary/15 border border-primary/30">
-    <Star className="w-4 h-4 text-primary fill-primary" />
-    <div>
-      <p className="text-[10px] text-primary/70 font-medium">Topic duoc chon</p>
-      <p className="text-sm font-semibold text-primary">{selectedTopic}</p>
-    </div>
+{message.selectedTopic && (
+  <div className="mt-2 pt-2 border-t border-border/30 space-y-1">
+    <p className="text-sm font-medium flex items-center gap-1.5">
+      <Star className="w-3.5 h-3.5 text-primary fill-primary" />
+      <span>Chủ đề được chọn:</span>
+      <span className="text-primary">{message.selectedTopic}</span>
+    </p>
+    {message.selectedTopicReason && (
+      <p className="text-xs text-muted-foreground flex items-start gap-1.5 pl-5">
+        <Lightbulb className="w-3 h-3 mt-0.5 shrink-0" />
+        {message.selectedTopicReason}
+      </p>
+    )}
   </div>
 )}
 ```
 
-**Tác động**: 4 file frontend + 1 file backend. Không ảnh hưởng logic Content Agent hay Blackboard.
+**Tac dong**: 4 file (1 backend + 3 frontend). Khong xoa TopicSuggestionsCard file.
