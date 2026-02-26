@@ -42,7 +42,7 @@ ${industry ? `## Ngành: ${industry}` : ''}
 Khi hoàn thành nghiên cứu, trả về:
 
 **🏆 Topic được chọn**: [tên topic] (score: [điểm])
-**Lý do**: [giải thích ngắn tại sao chọn topic này]
+**Lý do chọn**: [Giải thích sâu sắc 2-4 câu tại sao chọn topic này. Phải bao gồm: (1) Lý do topic phù hợp với thương hiệu/ngành, (2) Yếu tố xu hướng hoặc nhu cầu thị trường đang có, (3) Tiềm năng thu hút đối tượng mục tiêu. KHÔNG viết lý do chung chung 1 từ như "practical" hay "educational".]
 
 **📋 Các topic khác**:
 1. [topic 2] - score: [điểm] - [category] - [TRENDING/SUGGEST]
