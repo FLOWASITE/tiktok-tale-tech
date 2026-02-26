@@ -1,7 +1,7 @@
 // SSE Writer utility for streaming events to frontend
 
 export interface AgentSSEEvent {
-  type: 'turn_start' | 'tool_executing' | 'tool_result' | 'turn_complete' | 'content_chunk' | 'final_response' | 'error' | 'agent_step_result';
+  type: 'turn_start' | 'tool_executing' | 'tool_result' | 'turn_complete' | 'content_chunk' | 'final_response' | 'error' | 'agent_step_result' | 'node_progress';
   data: any;
 }
 

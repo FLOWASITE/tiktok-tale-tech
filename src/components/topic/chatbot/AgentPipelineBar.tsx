@@ -57,30 +57,52 @@ export const AgentPipelineBar = memo(function AgentPipelineBar({ steps, classNam
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium transition-all duration-300 cursor-default",
-                    status === 'pending' && "bg-muted/50 text-muted-foreground/50",
-                    status === 'active' && "bg-gradient-to-r from-primary/20 to-violet-500/20 text-primary ring-2 ring-primary/30 animate-pulse",
-                    status === 'complete' && "bg-gradient-to-r from-primary/10 to-violet-500/10 text-primary/80",
-                    status === 'error' && "bg-destructive/10 text-destructive ring-1 ring-destructive/30",
+                    "flex flex-col items-center transition-all duration-300 cursor-default",
                   )}>
-                    {status === 'complete' ? (
-                      <Check className="w-3 h-3 text-emerald-500" />
-                    ) : status === 'active' ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : status === 'error' ? (
-                      <AlertCircle className="w-3 h-3" />
-                    ) : (
-                      <Icon className="w-3 h-3" />
+                    <div className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium",
+                      status === 'pending' && "bg-muted/50 text-muted-foreground/50",
+                      status === 'active' && "bg-gradient-to-r from-primary/20 to-violet-500/20 text-primary ring-2 ring-primary/30 animate-pulse",
+                      status === 'complete' && "bg-gradient-to-r from-primary/10 to-violet-500/10 text-primary/80",
+                      status === 'error' && "bg-destructive/10 text-destructive ring-1 ring-destructive/30",
+                    )}>
+                      {status === 'complete' ? (
+                        <Check className="w-3 h-3 text-emerald-500" />
+                      ) : status === 'active' ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : status === 'error' ? (
+                        <AlertCircle className="w-3 h-3" />
+                      ) : (
+                        <Icon className="w-3 h-3" />
+                      )}
+                      <span className="hidden lg:inline">{agent.viLabel}</span>
+                      {status === 'complete' && step?.duration && (
+                        <span className="text-[9px] text-muted-foreground/60">{(step.duration / 1000).toFixed(1)}s</span>
+                      )}
+                    </div>
+                    {/* Sub-label for active steps with progress info */}
+                    {status === 'active' && step?.subLabel && (
+                      <span className="hidden lg:block text-[9px] text-primary/70 mt-0.5 max-w-[140px] truncate animate-fade-in">
+                        {step.subLabel}
+                      </span>
                     )}
-                    <span className="hidden lg:inline">{agent.viLabel}</span>
-                    {status === 'complete' && step?.duration && (
-                      <span className="text-[9px] text-muted-foreground/60">{(step.duration / 1000).toFixed(1)}s</span>
+                    {/* Mini progress bar for active content step */}
+                    {status === 'active' && step?.progress != null && step.progress > 0 && (
+                      <div className="hidden lg:block w-full max-w-[80px] h-0.5 bg-muted/40 rounded-full mt-0.5 overflow-hidden">
+                        <div
+                          className="h-full bg-primary/60 rounded-full transition-all duration-700 ease-out"
+                          style={{ width: `${step.progress}%` }}
+                        />
+                      </div>
                     )}
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs max-w-[200px]">
                   <p className="font-medium">{agent.label} Agent</p>
-                  {status === 'active' && (
+                  {status === 'active' && step?.subLabel && (
+                    <p className="text-primary mt-0.5">{step.subLabel}</p>
+                  )}
+                  {status === 'active' && !step?.subLabel && (
                     <p className="text-muted-foreground mt-0.5">Đang xử lý...</p>
                   )}
                   {status === 'complete' && step?.duration && (

@@ -15,6 +15,8 @@ import { formatRetrievedContext } from "../blackboard-retriever.ts";
 
 const CONTENT_TOOLS = ['generate_script', 'generate_carousel', 'generate_multichannel', 'save_topic'];
 
+export type ContentProgressCallback = (subStep: string, label: string, progress: number) => void;
+
 interface ContentNodeContext {
   supabase: any;
   userId?: string;
@@ -25,6 +27,7 @@ interface ContentNodeContext {
   userAccessToken?: string;
   retriever?: any;
   brandVersion?: number;
+  onProgress?: ContentProgressCallback;
 }
 
 /** Extract topic string from contentPlan (string or object) */
@@ -59,11 +62,16 @@ export function createContentNode(ctx: ContentNodeContext) {
       if (hasPipelineContext) {
         console.log('[ContentNode] Fast path — skipping LLM, calling tool directly');
 
+        ctx.onProgress?.('preparing', 'Chuẩn bị nội dung...', 10);
+
         const topic = state.bestTopic || extractTopicFromPlan(state.contentPlan) || state.userMessage;
+        const channels = ['facebook', 'instagram', 'tiktok'];
         const toolArgs: Record<string, any> = {
           topic,
-          channels: ['facebook', 'instagram', 'tiktok'],
+          channels,
         };
+
+        ctx.onProgress?.('generating_channels', `Đang tạo nội dung cho ${channels.length} kênh...`, 40);
 
         const toolResult = await executeToolCall('generate_multichannel', toolArgs, {
           supabase: ctx.supabase,
@@ -77,6 +85,8 @@ export function createContentNode(ctx: ContentNodeContext) {
           throw new Error(`ContentNode fast-path failed: ${toolResult.error}`);
         }
 
+        ctx.onProgress?.('finalizing', 'Đang hoàn thiện...', 90);
+
         console.log('[ContentNode] Fast path complete');
         return {
           generatedContent: typeof toolResult.result === 'string'
@@ -88,6 +98,7 @@ export function createContentNode(ctx: ContentNodeContext) {
 
       // ─── Fallback Path: use LLM #1 to pick tool (free chat) ───
       console.log('[ContentNode] Fallback path — using LLM to select tool');
+      ctx.onProgress?.('analyzing', 'Đang phân tích yêu cầu...', 15);
 
       const systemPrompt = buildContentSystemPrompt(ctx.brandName, ctx.industry);
 
@@ -132,6 +143,7 @@ export function createContentNode(ctx: ContentNodeContext) {
       }
 
       // Execute tools
+      ctx.onProgress?.('generating_channels', 'Đang tạo nội dung...', 50);
       const toolResults = await Promise.all(
         toolCalls.map(async (tc: any) => {
           const args = JSON.parse(tc.function.arguments || '{}');
@@ -155,6 +167,7 @@ export function createContentNode(ctx: ContentNodeContext) {
         throw new Error(`ContentNode: All content tools failed: ${errors}`);
       }
 
+      ctx.onProgress?.('finalizing', 'Đang hoàn thiện...', 90);
       // Use tool result directly — NO follow-up LLM call
       const generatedContent = typeof contentResult.result === 'string'
         ? contentResult.result
