@@ -501,13 +501,12 @@ export const TEMPLATE_PLANS: Record<string, GraphPlan> = {
   generate_with_research: {
     steps: [
       { node: 'research' },
-      { node: 'strategy', dependsOn: ['research'] },
-      { node: 'content', dependsOn: ['strategy'] },
+      { node: 'content', dependsOn: ['research'] },
       { node: 'reviewer', dependsOn: ['content'] },
       { node: 'governor', dependsOn: ['reviewer'] },
     ],
-    skipNodes: ['brand_memory', 'compliance'],
-    reasoning: 'Full content pipeline with research',
+    skipNodes: ['strategy', 'brand_memory', 'compliance'],
+    reasoning: 'Content pipeline with research (Strategy skipped — Content fast-path uses bestTopic directly)',
     fastPath: true,
   },
   generate_simple: {
