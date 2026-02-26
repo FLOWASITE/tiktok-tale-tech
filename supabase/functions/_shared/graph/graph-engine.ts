@@ -588,6 +588,12 @@ export async function runOrchestrator(
   state.orchestratorReasoning = plan.reasoning;
   state.userIntent = plan.fastPath ? 'fast_path' : 'llm_planned';
 
+  // Task 11: Use LLM-extracted topic as fallback (zero additional cost)
+  if (plan.extractedTopic && !state.bestTopic) {
+    state.bestTopic = plan.extractedTopic;
+    console.log(`[runOrchestrator] Using LLM-extracted topic: "${plan.extractedTopic}"`);
+  }
+
   // 3. Emit plan event
   options.onEvent?.({
     type: 'graph_plan',

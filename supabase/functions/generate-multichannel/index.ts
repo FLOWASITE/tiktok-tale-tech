@@ -2719,7 +2719,35 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
           };
           
           try {
-            const channels = formData.channels;
+            // Task 13: Multichannel Prioritization — sort primary channels first
+            let primaryChannels: string[] = [];
+            if (formData.brandTemplateId) {
+              try {
+                const { data: btData } = await getSupabaseClient()
+                  .from('brand_templates')
+                  .select('primary_channels')
+                  .eq('id', formData.brandTemplateId)
+                  .single();
+                primaryChannels = (btData as any)?.primary_channels || [];
+              } catch {}
+            }
+            
+            const rawChannels = formData.channels;
+            const channels = primaryChannels.length > 0
+              ? [
+                  ...rawChannels.filter(ch => primaryChannels.includes(ch)),
+                  ...rawChannels.filter(ch => !primaryChannels.includes(ch)),
+                ]
+              : rawChannels;
+            const secondaryChannels = primaryChannels.length > 0
+              ? channels.filter(ch => !primaryChannels.includes(ch))
+              : [];
+            
+            if (primaryChannels.length > 0) {
+              console.log(`[streaming-mode] Primary channels: ${primaryChannels.join(',')}, secondary: ${secondaryChannels.join(',')}`);
+            }
+            
+            const streamStartTime = Date.now();
             
             emit({ type: 'progress', step: 'init', progress: 0, message: 'Đang khởi tạo...' });
             await streamDelay(100);
@@ -2746,6 +2774,7 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
             // Store results for each channel
             const channelResults: Record<string, string> = {};
             const completedChannelsSet = new Set<string>();
+            const skippedSecondaryChannels: string[] = [];
             
             // Build user prompt for each channel (with channel-specific hook and transformation rules)
             const coreContentWordCount = coreContent?.word_count || coreContent?.content?.split(/\s+/).length || 0;
@@ -2778,13 +2807,22 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               console.log(`[streaming-mode] Using hooks: ${formData.selectedHooks?.length || 0} channel-specific, globalHook: ${!!formData.globalHook}`);
             }
             
-            // Generate content for ALL channels in PARALLEL
-            console.log(`[streaming-mode] Starting PARALLEL generation for ${channels.length} channels`);
+            // Task 13: Skip secondary channels if near timeout (>40s elapsed)
+            const elapsedMs = Date.now() - streamStartTime;
+            let channelsToGenerate = channels;
+            if (primaryChannels.length > 0 && elapsedMs > 40000 && secondaryChannels.length > 0) {
+              channelsToGenerate = channels.filter(ch => primaryChannels.includes(ch));
+              skippedSecondaryChannels.push(...secondaryChannels);
+              console.log(`[streaming-mode] Timeout approaching (${elapsedMs}ms), skipping secondary: ${secondaryChannels.join(',')}`);
+            }
+            
+            // Generate content for channels in PARALLEL
+            console.log(`[streaming-mode] Starting PARALLEL generation for ${channelsToGenerate.length} channels`);
             
             const { generateChannelsParallel } = await import("../_shared/streaming-handler.ts");
             
             const parallelResult = await generateChannelsParallel({
-              channels,
+              channels: channelsToGenerate,
               systemPrompt: fullSystemPrompt, // Use adjusted prompt with strategy conflict compensation
               buildUserPrompt: buildChannelUserPrompt,
               context: streamingContext,
@@ -3239,7 +3277,13 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
                   overallScore: crossChannelDedupResult.overallScore,
                   channelsNeedingDiversification: crossChannelDedupResult.channelsNeedingDiversification,
                   diversificationSuggestions: crossChannelDedupResult.diversificationSuggestions,
-                  pairs: crossChannelDedupResult.pairs.slice(0, 10), // Limit pairs to reduce payload
+                  pairs: crossChannelDedupResult.pairs.slice(0, 10),
+                } : null,
+                // Task 13: Multichannel Prioritization metadata
+                channelPrioritization: primaryChannels.length > 0 ? {
+                  primaryCompleted: true,
+                  secondarySkipped: skippedSecondaryChannels,
+                  primaryChannels,
                 } : null,
               }
             });

@@ -34,9 +34,10 @@ export async function getRedis(): Promise<any | null> {
 export async function generateCacheKey(
   brandId: string,
   nodeType: string,
-  stateSubset: Record<string, any>
+  stateSubset: Record<string, any>,
+  promptVersion: string = 'v1'
 ): Promise<string> {
-  const payload = JSON.stringify(stateSubset);
+  const payload = JSON.stringify({ ...stateSubset, _pv: promptVersion });
   const hashBuffer = await crypto.subtle.digest(
     'SHA-256',
     new TextEncoder().encode(payload)

@@ -28,10 +28,12 @@ export function createStrategyNode(ctx: StrategyNodeContext) {
   return async function strategyNode(state: GraphState): Promise<Partial<GraphState>> {
     console.log('[StrategyNode] Starting');
 
+    const PROMPT_VERSION = 'v2';
     const cacheKey = await generateCacheKey(
       ctx.brandTemplateId || 'default',
       'strategy',
-      { userMessage: state.userMessage, bestTopic: state.bestTopic, industry: ctx.industry }
+      { userMessage: state.userMessage, bestTopic: state.bestTopic, industry: ctx.industry },
+      PROMPT_VERSION
     );
 
     return withCache(cacheKey, async () => {

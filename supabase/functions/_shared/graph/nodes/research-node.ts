@@ -29,10 +29,12 @@ export function createResearchNode(ctx: ResearchNodeContext) {
     console.log('[ResearchNode] Starting');
 
     // Try cache first (TTL 4h)
+    const PROMPT_VERSION = 'v2';
     const cacheKey = await generateCacheKey(
       ctx.brandTemplateId || 'default',
       'research',
-      { userMessage: state.userMessage, industry: ctx.industry }
+      { userMessage: state.userMessage, industry: ctx.industry },
+      PROMPT_VERSION
     );
 
     return withCache(cacheKey, async () => {

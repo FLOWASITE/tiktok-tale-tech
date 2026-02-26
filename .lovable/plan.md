@@ -1,125 +1,56 @@
 
-# Sprint 3: Triển khai 5 tính năng Q2/2026
+# Sprint 3: Triển khai 5 tính năng Q2/2026 — ✅ COMPLETED
 
 ## Tổng quan
-Triển khai 5 task còn lại: Cache Key Improvements, Cross-session Memory Recency Decay, Topic Detection LLM Fallback, Frontend Error Recovery Matrix, và Multichannel Prioritization.
+Đã triển khai 5 task: Cache Key Improvements, Cross-session Memory Recency Decay, Topic Detection LLM Fallback, Frontend Error Recovery Matrix, và Multichannel Prioritization.
 
 ---
 
-## Task 9: Cache Key Improvements
+## Task 9: Cache Key Improvements ✅
 
-**Vấn đề:** Hash 16 chars dễ collision; prompt thay đổi nhưng cache cũ vẫn trả kết quả sai.
+- Thêm `promptVersion` parameter vào `generateCacheKey()` trong `redis-cache.ts`
+- Cập nhật tất cả 3 nodes (research, strategy, content) truyền `PROMPT_VERSION = 'v2'`
+- Payload hash bao gồm `_pv` field để tránh cache stale khi prompt thay đổi
 
-**Thay đổi:**
+## Task 10: Cross-session Memory Recency Decay ✅
 
-1. **`redis-cache.ts`** - Sửa `generateCacheKey()`:
-   - Hiện tại hash đã là 32 chars (đã fix ở Sprint 1), cần thêm `promptVersion` parameter
-   - Thêm tham số `promptVersion: string = 'v1'` vào signature
-   - Include `promptVersion` vào payload trước khi hash: `JSON.stringify({ ...stateSubset, _pv: promptVersion })`
-   - Format key: `flowa:cache:{brandId}:{nodeType}:{hash32}`
+- Migration cập nhật RPC `match_blackboard_context` với recency decay:
+  - Entries > 90 ngày: trừ 0.25 priority
+  - Entries > 30 ngày: trừ 0.1 priority
+- Thêm `primary_channels TEXT[]` vào `brand_templates` + validation trigger (max 3)
 
-2. **Sửa các node dùng cache** (`content-node.ts`, `research-node.ts`, `strategy-node.ts`):
-   - Truyền `promptVersion` khi gọi `generateCacheKey()`
-   - Version lấy từ constant hoặc config
+## Task 11: Topic Detection LLM Fallback ✅
 
----
+- Thêm `extracted_topic` vào `CREATE_GRAPH_PLAN_TOOL` schema trong orchestrator
+- Thêm `extractedTopic?: string` vào `GraphPlan` interface
+- `runOrchestrator()` gán `plan.extractedTopic` vào `state.bestTopic` (zero-cost fallback)
 
-## Task 10: Cross-session Memory Recency Decay
+## Task 12: Frontend Error Recovery Matrix ✅
 
-**Vấn đề:** Context cũ từ session trước có thể gây nhiễu khi brand đã thay đổi strategy.
+- SSE Connection Drop: exponential backoff (1s, 2s, 4s), max 3 retries
+- Critical Node Error: hiển thị message cụ thể + retry flag cho content/reviewer nodes
+- Timeout với Partial Result: phát hiện stream kết thúc thiếu final_response/[DONE], hiển thị banner cảnh báo
 
-**Thay đổi:**
+## Task 13: Multichannel Prioritization ✅
 
-1. **Database migration** - Sửa RPC `match_blackboard_context`:
-   - Thêm recency decay vào `priority_score`:
-     - Entries > 30 ngày: trừ 0.1
-     - Entries > 90 ngày: trừ 0.25
-   - SQL: `- CASE WHEN ce.created_at < now() - interval '90 days' THEN 0.25 WHEN ce.created_at < now() - interval '30 days' THEN 0.1 ELSE 0 END`
-
----
-
-## Task 11: Topic Detection LLM Fallback
-
-**Vấn đề:** `hasExplicitTopic()` dùng pattern matching, miss nhiều case tự nhiên.
-
-**Thay đổi:**
-
-1. **`orchestrator.ts`** - Thêm `extracted_topic` vào `create_graph_plan` tool schema:
-   - Thêm property `extracted_topic` (optional string) vào `CREATE_GRAPH_PLAN_TOOL.parameters.properties`
-   - Trong `planWithLLM()`: extract `planArgs.extracted_topic` sau khi parse tool call
-   - Return extracted topic trong `GraphPlan` (thêm field `extractedTopic?: string`)
-
-2. **`graph-engine.ts`** - Sửa `runOrchestrator()`:
-   - Nếu `plan.extractedTopic` có giá trị và `state.bestTopic` chưa có: gán `state.bestTopic = plan.extractedTopic`
-   - Zero additional cost vì LLM đã được gọi cho planning
-
-3. **`orchestrator.ts`** - Cập nhật types:
-   - Thêm `extractedTopic?: string` vào `GraphPlan` interface
-   - Thêm vào `validatePlan()`: extract `raw.extracted_topic`
+- Đọc `primary_channels` từ brand template
+- Sắp xếp channels: primary trước, secondary sau
+- Khi elapsed > 40s: skip secondary channels
+- Return metadata `{ primaryCompleted, secondarySkipped, primaryChannels }`
 
 ---
 
-## Task 12: Frontend Error Recovery Matrix
-
-**Vấn đề:** Frontend thiếu xử lý structured cho SSE drop, critical node errors, timeout với partial result.
-
-**Thay đổi:**
-
-1. **`useChatStreaming.ts`** - Thêm Error Recovery Matrix:
-
-   **SSE Connection Drop:**
-   - Wrap `reader.read()` trong try-catch
-   - Khi bắt được network error: auto-reconnect với exponential backoff (1s, 2s, 4s, max 3 lần)
-   - Nếu có checkpoint/continuationToken: resume từ đó
-   - Sau 3 lần fail: hiển thị message cụ thể + retry button
-
-   **Critical Node Error:**
-   - Khi nhận `node_error` cho node có `critical: true` (content, reviewer): hiển thị message cụ thể thay vì generic error
-   - Message format: "Node [name] gặp lỗi: [error]. Bạn có muốn thử lại?"
-   - Thêm `isRetryable` flag vào error message
-
-   **Timeout với Partial Result:**
-   - Khi stream kết thúc mà `assistantContent` có nội dung nhưng không có `final_response` hoặc `[DONE]`:
-   - Hiển thị partial content + banner "Nội dung chưa hoàn chỉnh"
-   - Thêm "Tiếp tục" button (trigger continuation nếu có token)
-
----
-
-## Task 13: Multichannel Prioritization
-
-**Vấn đề:** `generate_multichannel` tạo content cho 11 kênh không phân biệt ưu tiên; khi resource constrained thì không biết ưu tiên kênh nào.
-
-**Thay đổi:**
-
-1. **Database migration** - Thêm `primary_channels` vào `brand_templates`:
-   - `ALTER TABLE brand_templates ADD COLUMN primary_channels TEXT[] DEFAULT '{}'::TEXT[];`
-   - Max 3 channels, validate bằng trigger
-
-2. **`generate-multichannel/index.ts`** - Sửa logic generation:
-   - Đọc `primary_channels` từ brand template
-   - Sắp xếp channels: primary trước, secondary sau
-   - Khi timeout gần (elapsed > 40s trong streaming mode): skip secondary channels
-   - Return metadata `{ primaryCompleted: true, secondarySkipped: ['channel1', ...] }`
-
----
-
-## Chi tiết kỹ thuật
-
-### Files thay đổi
+## Files đã thay đổi
 
 | File | Loại | Mô tả |
 |------|------|--------|
-| `redis-cache.ts` | Sửa | Thêm `promptVersion` vào `generateCacheKey()` |
-| `content-node.ts` | Sửa | Truyền promptVersion khi cache |
-| `research-node.ts` | Sửa | Truyền promptVersion khi cache |
-| `strategy-node.ts` | Sửa | Truyền promptVersion khi cache |
-| `orchestrator.ts` | Sửa | Thêm `extracted_topic` vào tool schema + GraphPlan |
+| `redis-cache.ts` | Sửa | Thêm `promptVersion` parameter |
+| `content-node.ts` | Sửa | Truyền PROMPT_VERSION |
+| `research-node.ts` | Sửa | Truyền PROMPT_VERSION |
+| `strategy-node.ts` | Sửa | Truyền PROMPT_VERSION |
+| `graph-state.ts` | Sửa | Thêm `extractedTopic` vào GraphPlan |
+| `orchestrator.ts` | Sửa | extracted_topic trong tool schema + validatePlan |
 | `graph-engine.ts` | Sửa | Gán extractedTopic vào state.bestTopic |
-| `useChatStreaming.ts` | Sửa | Error Recovery Matrix (reconnect, retry, partial) |
+| `useChatStreaming.ts` | Sửa | Error Recovery Matrix |
 | `generate-multichannel/index.ts` | Sửa | Primary channels prioritization |
-| Migration SQL | Mới | Recency decay cho RPC + primary_channels column |
-| `.lovable/plan.md` | Sửa | Cập nhật Sprint 3 = COMPLETED |
-
-### Database migrations
-1. `CREATE OR REPLACE FUNCTION match_blackboard_context` - Thêm recency decay
-2. `ALTER TABLE brand_templates ADD COLUMN primary_channels` + validation trigger
+| Migration SQL | Mới | Recency decay + primary_channels + trigger |

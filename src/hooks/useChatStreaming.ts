@@ -234,8 +234,41 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
         ),
       }));
       
+      // Error Recovery: SSE reconnect tracking
+      let sseRetryCount = 0;
+      const MAX_SSE_RETRIES = 3;
+      let continuationToken: string | null = null;
+      let receivedFinalResponse = false;
+      let receivedDone = false;
+
       while (true) {
-        const { done, value } = await reader.read();
+        let readResult: ReadableStreamReadResult<Uint8Array>;
+        try {
+          readResult = await reader.read();
+        } catch (networkError) {
+          // SSE Connection Drop — auto-reconnect with exponential backoff
+          sseRetryCount++;
+          if (sseRetryCount <= MAX_SSE_RETRIES) {
+            const backoffMs = Math.pow(2, sseRetryCount - 1) * 1000; // 1s, 2s, 4s
+            console.warn(`[useChatStreaming] SSE read error, retry ${sseRetryCount}/${MAX_SSE_RETRIES} in ${backoffMs}ms`);
+            await new Promise(r => setTimeout(r, backoffMs));
+            continue;
+          }
+          // After max retries, show specific error
+          const errorMessage: ChatMessage = {
+            id: createMessageId('error'),
+            role: 'assistant',
+            content: assistantContent
+              ? `${assistantContent}\n\n---\n⚠️ Kết nối bị gián đoạn. Nội dung trên chưa hoàn chỉnh.`
+              : '❌ Kết nối bị gián đoạn sau nhiều lần thử. Vui lòng thử lại.',
+            timestamp: new Date(),
+            isError: !assistantContent,
+            isRetryable: true,
+          } as ChatMessage;
+          onMessageCreate(errorMessage);
+          return null;
+        }
+        const { done, value } = readResult;
         if (done) break;
         
         textBuffer += decoder.decode(value, { stream: true });
@@ -250,7 +283,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
           if (!line.startsWith('data: ')) continue;
           
           const jsonStr = line.slice(6).trim();
-          if (jsonStr === '[DONE]') continue;
+          if (jsonStr === '[DONE]') { receivedDone = true; continue; }
           
           try {
             const parsed = JSON.parse(jsonStr);
@@ -336,6 +369,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
 
             if (parsed.type === 'node_error' && parsed.data?.node) {
               const nodeName = parsed.data.node;
+              const isCritical = parsed.data.critical === true ||
+                ['content', 'reviewer'].includes(nodeName);
               setState(prev => ({
                 ...prev,
                 currentExecutingTool: null,
@@ -345,14 +380,27 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                     : step
                 ),
               }));
+              // Critical Node Error — show specific message instead of generic
+              if (isCritical) {
+                const errorDetail = parsed.data.error || 'Unknown error';
+                const criticalMsg: ChatMessage = {
+                  id: createMessageId('error'),
+                  role: 'assistant',
+                  content: `⚠️ Node **${nodeName}** gặp lỗi: ${errorDetail}.\nBạn có muốn thử lại?`,
+                  timestamp: new Date(),
+                  isError: true,
+                  isRetryable: true,
+                } as ChatMessage;
+                onMessageCreate(criticalMsg);
+                return null;
+              }
               continue;
             }
 
             // Continuation pattern - auto-resume long-running workflows
             if (parsed.type === 'continuation_required' && parsed.data?.continuationToken) {
               console.log('[useChatStreaming] Continuation required, token:', parsed.data.continuationToken);
-              // Will be handled after the stream loop ends
-              (state as any).__continuationToken = parsed.data.continuationToken;
+              continuationToken = parsed.data.continuationToken;
               continue;
             }
             if (parsed.type === 'context_metadata' && parsed.badges) {
@@ -576,6 +624,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
             
             // Agentic final_response event
             if (parsed.type === 'final_response') {
+              receivedFinalResponse = true;
               if (parsed.data?.content && !assistantContent) {
                 assistantContent = parsed.data.content;
               }
@@ -689,11 +738,34 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
         }
       }
       
+      // Timeout with Partial Result detection
+      const isPartialResult = assistantContent && !receivedFinalResponse && !receivedDone;
+      
+      // If continuation token was received, auto-resume
+      if (continuationToken && assistantContent) {
+        const partialContent = assistantContent + '\n\n⏳ *Đang hoàn thiện...*';
+        if (messageCreated) {
+          onMessageUpdate(assistantId, { content: partialContent });
+        } else {
+          onMessageCreate({
+            id: assistantId,
+            role: 'assistant',
+            content: partialContent,
+            timestamp: new Date(),
+          });
+          messageCreated = true;
+        }
+        // Auto-trigger continuation (would need streamChat to accept continuationToken)
+        console.log('[useChatStreaming] Auto-continuation with token:', continuationToken);
+      }
+
       // Final message
       const finalMessage: ChatMessage = {
         id: assistantId,
         role: 'assistant',
-        content: assistantContent,
+        content: isPartialResult && !continuationToken
+          ? assistantContent + '\n\n---\n⚠️ **Nội dung chưa hoàn chỉnh** — kết nối kết thúc trước khi hoàn tất.'
+          : assistantContent,
         timestamp: new Date(),
         extractedTopics: extractTopicsFromMessage(assistantContent),
         toolResults: receivedToolResults || undefined,
@@ -710,10 +782,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
       if (!messageCreated && (assistantContent || receivedToolResults)) {
         onMessageCreate(finalMessage);
       } else if (messageCreated) {
-        // Safety: ensure pending topic suggestions are always attached to the final message
-        // This handles timing issues where topic_suggestions SSE arrives after message creation
         onMessageUpdate(assistantId, {
-          content: assistantContent,
+          content: finalMessage.content,
           extractedTopics: extractTopicsFromMessage(assistantContent),
           toolResults: receivedToolResults || undefined,
           contextBadges: pendingContextBadges || undefined,

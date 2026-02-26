@@ -104,6 +104,7 @@ export interface GraphPlan {
   skipNodes: string[];
   reasoning: string;
   fastPath?: boolean;  // true = heuristic, no LLM orchestrator needed
+  extractedTopic?: string; // Topic extracted by LLM during planning (zero-cost fallback)
 }
 
 // ---- Token Budget ----

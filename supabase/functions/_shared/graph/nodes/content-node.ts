@@ -29,10 +29,12 @@ export function createContentNode(ctx: ContentNodeContext) {
   return async function contentNode(state: GraphState): Promise<Partial<GraphState>> {
     console.log('[ContentNode] Starting');
 
+    const PROMPT_VERSION = 'v2';
     const cacheKey = await generateCacheKey(
       ctx.brandTemplateId || 'default',
       'content',
-      { userMessage: state.userMessage, bestTopic: state.bestTopic, contentPlan: typeof state.contentPlan === 'string' ? state.contentPlan.slice(0, 200) : JSON.stringify(state.contentPlan)?.slice(0, 200), industry: ctx.industry }
+      { userMessage: state.userMessage, bestTopic: state.bestTopic, contentPlan: typeof state.contentPlan === 'string' ? state.contentPlan.slice(0, 200) : JSON.stringify(state.contentPlan)?.slice(0, 200), industry: ctx.industry },
+      PROMPT_VERSION
     );
 
     return withCache(cacheKey, async () => {
