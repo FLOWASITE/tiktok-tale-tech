@@ -82,6 +82,56 @@ function formatPrefetchedContext(merged: any[]): string {
   return `\n\n## 📊 Dữ liệu Topics đã thu thập (tự động)\n${lines.join('\n')}`;
 }
 
+// ---- Helper: call topic-ai refine action ----
+async function refineTopic(
+  bestTopic: string,
+  ctx: ResearchNodeContext
+): Promise<{ refinedTopic: string; refinedVariants: any[] } | null> {
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const topicAiUrl = `${supabaseUrl}/functions/v1/topic-ai`;
+
+    const response = await fetch(topicAiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({
+        action: 'refine',
+        rawTopic: bestTopic,
+        brandTemplateId: ctx.brandTemplateId || null,
+        organizationId: ctx.organizationId || null,
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn(`[ResearchNode] Refine failed (${response.status}):`, await response.text());
+      return null;
+    }
+
+    const data = await response.json();
+    const refinedTopics: any[] = data.refinedTopics || [];
+
+    if (refinedTopics.length === 0) {
+      console.warn('[ResearchNode] Refine returned empty results');
+      return null;
+    }
+
+    // Pick the first refined version as the improved bestTopic
+    const best = refinedTopics[0];
+    const refinedTopic = best.topic || bestTopic;
+
+    console.log(`[ResearchNode] Refined topic: "${bestTopic}" → "${refinedTopic}"`);
+
+    return { refinedTopic, refinedVariants: refinedTopics };
+  } catch (err) {
+    console.warn('[ResearchNode] Refine error:', err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 export function createResearchNode(ctx: ResearchNodeContext) {
   return async function researchNode(state: GraphState): Promise<Partial<GraphState>> {
     console.log('[ResearchNode] Starting — prefetching suggest+trending');
@@ -212,14 +262,30 @@ export function createResearchNode(ctx: ResearchNodeContext) {
       const finalContent = message?.content || '';
 
       // ── Step 4: Best topic from merged pool ──
-      const bestTopic = mergedTopics[0]
+      const rawBestTopic = mergedTopics[0]
         ? (mergedTopics[0].title || mergedTopics[0].topic || mergedTopics[0].name || String(mergedTopics[0]))
         : undefined;
 
-      console.log(`[ResearchNode] Complete. bestTopic: ${bestTopic}, merged: ${mergedTopics.length}, tokens: ${totalTokens}`);
+      // ── Step 5: Refine best topic via topic-ai ──
+      let bestTopic = rawBestTopic;
+      let refinedVariants: any[] | undefined;
+
+      if (rawBestTopic) {
+        const refineResult = await refineTopic(rawBestTopic, ctx);
+        if (refineResult) {
+          bestTopic = refineResult.refinedTopic;
+          refinedVariants = refineResult.refinedVariants;
+        }
+      }
+
+      console.log(`[ResearchNode] Complete. rawBestTopic: ${rawBestTopic}, refinedBestTopic: ${bestTopic}, merged: ${mergedTopics.length}, tokens: ${totalTokens}`);
 
       return {
-        researchData: { toolResults: [suggestResult, trendingResult], summary: finalContent },
+        researchData: {
+          toolResults: [suggestResult, trendingResult],
+          summary: finalContent,
+          refinedVariants,
+        },
         bestTopic,
         suggestedTopics: mergedTopics,
         metadata: { actualTokensUsed_research: totalTokens },
