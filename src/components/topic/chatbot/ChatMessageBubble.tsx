@@ -21,7 +21,7 @@ import { PersonalizedWelcome } from './PersonalizedWelcome';
 import type { PersonalizedWelcomeData } from '@/hooks/usePersonalizedWelcome';
 import { ReviewScoreCard } from './ReviewScoreCard';
 import { AgentAttributionBar } from './AgentAttributionBar';
-import { TopicSuggestionsCard } from './TopicSuggestionsCard';
+import { Star, Lightbulb } from 'lucide-react';
 import { ContentFeedback } from '@/components/chat/ContentFeedback';
 
 interface ChatMessageBubbleProps {
@@ -253,14 +253,20 @@ export function ChatMessageBubble({
               <CopyButton content={message.content} />
             )}
 
-            {/* Topic Suggestions Card */}
-            {message.role === 'assistant' && message.suggestedTopics && message.suggestedTopics.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-border/30">
-                <TopicSuggestionsCard
-                  topics={message.suggestedTopics}
-                  selectedTopic={message.selectedTopic}
-                  refinedVariants={message.refinedVariants}
-                />
+            {/* Selected Topic Display (text-based) */}
+            {message.role === 'assistant' && message.selectedTopic && (
+              <div className="mt-2 pt-2 border-t border-border/30 space-y-1">
+                <p className="text-sm font-medium flex items-center gap-1.5">
+                  <Star className="w-3.5 h-3.5 text-primary fill-primary shrink-0" />
+                  <span>Chủ đề được chọn:</span>
+                  <span className="text-primary font-semibold">{message.selectedTopic}</span>
+                </p>
+                {message.selectedTopicReason && (
+                  <p className="text-xs text-muted-foreground flex items-start gap-1.5 pl-5">
+                    <Lightbulb className="w-3 h-3 mt-0.5 shrink-0" />
+                    <span>{message.selectedTopicReason}</span>
+                  </p>
+                )}
               </div>
             )}
 
