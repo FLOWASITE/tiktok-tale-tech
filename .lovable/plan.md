@@ -1,55 +1,61 @@
 
-Mục tiêu
-- Làm cho Research Agent trả topic mới thực sự (không lặp lại list cũ), đồng thời đảm bảo trending được gọi đúng.
 
-Phát hiện từ code/log
-1) `discover_topics` đang gửi `action` ở URL query (`...?action=...`) nhưng `topic-ai` chỉ đọc `action` từ JSON body → cả 2 call đều rơi về mặc định `suggest`.
-2) Kết quả `trending` từ `topic-ai` trả về ở field `data`, nhưng tool executor chỉ đọc `suggestions/topics/trendingTopics` → mất dữ liệu trending thật.
-3) `suggest` đang cache theo brand/goal/time bucket nhưng KHÔNG có `query` trong cache key, và prompt suggest cũng chưa dùng `query` → dễ trả lại topic cũ cho nhiều yêu cầu khác nhau.
-4) Log hiện tại xác nhận: `topic-ai` chỉ thấy `Action: suggest` dù ResearchNode gọi cả suggest + trending.
+## Vấn đề
 
-Kế hoạch triển khai
-1. Sửa contract gọi discover_topics (backend tool layer)
-- File: `supabase/functions/_shared/tool-executor.ts`
-- Đưa `action` vào request body (giữ query param chỉ để tương thích ngược nếu cần).
-- Hỗ trợ thêm cờ `force_refresh`/`forceRefresh` để ép dữ liệu mới khi Research prefetch.
-- Chuẩn hóa parser kết quả:
-  - Ưu tiên đọc `data.data` cho action `trending`
-  - Fallback `suggestions/topics/trendingTopics`
-  - Mapping score hỗ trợ cả `velocity_score`, `scores.trend`, `scores.engagement`.
+Hiện tại UI chat chỉ hiển thị **danh sách topics gợi ý** (TopicSuggestionsCard) mà không có phần **nổi bật riêng** cho topic đã được chọn. Có 2 nguyên nhân:
 
-2. Sửa topic-ai để hiểu action ổn định và dùng query thật
-- File: `supabase/functions/topic-ai/index.ts`
-- Action resolution: ưu tiên `request.action`, fallback từ URL search param `action` (để không vỡ client/test cũ).
-- Mở rộng `TopicAIRequest` có `query?: string`.
-- `handleSuggest`:
-  - Đưa `query` vào prompt để topic bám đúng yêu cầu user.
-  - Thêm `queryHash` vào cache key (không dùng chung cache cho query khác nhau).
-  - Dùng `forceRefresh` đúng semantics (bỏ lệch tên `forceWebSearch` ở luồng discover_topics).
-- (Tùy mức chặt) giảm TTL suggest cache cho flow research để tăng độ mới.
+1. **Lỗi matching sau Refinement**: Sau khi Research Agent refine topic, tên topic mới (refined) khác với tên gốc trong danh sách `suggestedTopics`. Code ở `graph-engine.ts` so sánh `u.bestTopic` với danh sách nhưng không tìm thấy match, nên `best_topic` rơi về topic đầu tiên -- người dùng không phân biệt được.
 
-3. Ép freshness ở Research prefetch
-- File: `supabase/functions/_shared/graph/nodes/research-node.ts`
-- Khi prefetch:
-  - suggest: gửi `force_refresh: true` + query user
-  - trending: gửi `force_refresh: true` (hoặc chỉ force khi user yêu cầu “mới” nếu muốn tiết kiệm chi phí).
-- Mục tiêu: lần chạy mới không bị dính list cũ từ cache DB.
+2. **UI thiếu phần hiển thị rõ ràng**: `TopicSuggestionsCard` chỉ dùng một ngôi sao nhỏ và viền nhạt để đánh dấu topic được chọn, rất dễ bỏ qua.
 
-4. Cập nhật test để bắt lỗi regression
-- File: `supabase/functions/chat-topics/index.test.ts`
-- Thêm/điều chỉnh test:
-  - trending phải thực sự trả shape `data` hoặc list hợp lệ từ action trending.
-  - verify endpoint nhận action từ body (không phụ thuộc query param).
-  - smoke test: gọi suggest + trending liên tiếp, đảm bảo không cùng một payload giả mạo do route sai action.
+## Kế hoạch sửa
 
-Tiêu chí nghiệm thu
-- Trong log phải thấy 2 action tách biệt:
-  - `[topic-ai] Action: suggest`
-  - `[topic-ai] Action: trending`
-- `ResearchNode Prefetch done` thường có `merged > suggest` (không còn cố định 5 do trùng 100%).
-- Hai lần tạo topic liên tiếp với query khác nhau cho ra danh sách khác nhau rõ rệt.
-- Không còn hiện tượng “toàn topic cũ” khi user yêu cầu ý tưởng mới.
+### 1. Thêm "Selected Topic Banner" vào TopicSuggestionsCard
+- File: `src/components/topic/chatbot/TopicSuggestionsCard.tsx`
+- Thêm một banner nổi bật ở đầu card khi có `selectedTopic`, hiển thị rõ ràng: icon Star + "Topic được chọn: [tên topic]" với background primary, font bold
+- Nếu `selectedTopic` khác với tất cả topic trong danh sách (trường hợp refined), vẫn hiển thị banner riêng phía trên danh sách
 
-Rủi ro & cân bằng
-- Ép force refresh toàn phần sẽ tăng chi phí/latency.
-- Nếu cần cân bằng, giữ force refresh cho `trending`, còn `suggest` dùng query-aware cache + TTL ngắn là đủ mới trong đa số trường hợp.
+### 2. Truyền refined topic đúng từ backend
+- File: `supabase/functions/_shared/graph/graph-engine.ts`
+- Khi emit `topic_suggestions`, dùng trực tiếp `u.bestTopic` thay vì cố match với danh sách `normalizedTopics`. Nếu `u.bestTopic` không khớp danh sách (do đã refined), vẫn gửi nguyên giá trị refined về frontend
+
+### 3. Hiển thị refined variants (nếu có)
+- File: `src/components/topic/chatbot/types.ts` -- thêm `refinedVariants?: { topic: string; angle: string }[]` vào `ChatMessage`
+- File: `supabase/functions/_shared/graph/graph-engine.ts` -- emit `refinedVariants` trong event `topic_suggestions`
+- File: `src/hooks/useChatStreaming.ts` -- đọc `parsed.data.refined_variants` và lưu vào message
+- File: `src/components/topic/chatbot/TopicSuggestionsCard.tsx` -- hiển thị các biến thể refined dưới banner topic được chọn (optional, collapsible)
+
+### Chi tiết kỹ thuật
+
+**graph-engine.ts** (line ~738):
+```typescript
+// Trước: cố match refined name với raw list → fail
+const normalizedBestTopic = normalizedTopics.find(...)?.topic || normalizedTopics[0]?.topic;
+
+// Sau: dùng trực tiếp bestTopic từ research node (đã refined)
+const normalizedBestTopic = u.bestTopic || normalizedTopics[0]?.topic || undefined;
+```
+
+Thêm `refined_variants` vào event data:
+```typescript
+data: {
+  topics: normalizedTopics,
+  best_topic: normalizedBestTopic,
+  refined_variants: u.researchData?.refinedVariants || [],
+}
+```
+
+**TopicSuggestionsCard.tsx** -- thêm banner:
+```tsx
+{selectedTopic && (
+  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-primary/15 border border-primary/30">
+    <Star className="w-4 h-4 text-primary fill-primary" />
+    <div>
+      <p className="text-[10px] text-primary/70 font-medium">Topic duoc chon</p>
+      <p className="text-sm font-semibold text-primary">{selectedTopic}</p>
+    </div>
+  </div>
+)}
+```
+
+**Tác động**: 4 file frontend + 1 file backend. Không ảnh hưởng logic Content Agent hay Blackboard.
