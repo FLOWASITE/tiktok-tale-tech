@@ -1,60 +1,76 @@
+## Tối ưu toàn diện Pipeline Multi-Agent
 
+### Phân tích hiện tại
 
-## Khắc phục Content Node bị chậm và đứng
-
-### Nguyên nhân gốc (đã xác nhận)
-
-File `content-node.ts` **chưa được tối ưu** dù kế hoạch đã được duyệt trước đó. Hiện tại vẫn chạy **4 bước nối tiếp**:
+Pipeline `generate_with_research` hiện chạy **5 bước tuần tự**:
 
 ```text
-LLM #1 (chọn tool)     ~10s
-  Core Content API      ~15s
-  Multichannel API      ~20s
-LLM #2 (tổng hợp)       ~8s
-─────────────────────────────
-Tổng                   ~53s  (timeout Edge Function = 55s)
+Research (~15s) → Strategy (~12s) → Content (~20s) → Reviewer (~10s) → Governor (~2s)
+                                                                        Tổng: ~59s
 ```
 
-### Giải pháp: Loại bỏ 2 lần gọi LLM thừa
+Content Node đã được tối ưu (bỏ 2 LLM call), nhưng **Strategy Node** và **Reviewer Node** vẫn gọi 2 lần LLM mỗi node, và pipeline vẫn chạy tuần tự không cần thiết.
 
-**File:** `supabase/functions/_shared/graph/nodes/content-node.ts`
+---
 
-#### Thay đổi 1: Bỏ LLM call #1 khi đã có topic/plan
+### Tối ưu 1: Bỏ Strategy Node khỏi generate_with_research
 
-Khi `state.bestTopic` hoặc `state.contentPlan` tồn tại (tức Research/Strategy đã chạy), gọi thẳng `executeToolCall('generate_multichannel', ...)` mà không cần hỏi LLM chọn tool.
+**Vấn đề:** Strategy Node chạy 2 LLM calls (~12s) chỉ để tạo `contentPlan`. Nhưng Content Node fast-path chỉ cần `bestTopic` (đã có từ Research). `contentPlan` gần như không được sử dụng hiệu quả.
 
-Chỉ giữ LLM call #1 cho trường hợp chat đơn giản (không có pipeline context).
+**Giải pháp:** Chuyển template `generate_with_research` từ Research → Strategy → Content thành Research → Content (bỏ Strategy). Giữ Strategy cho template `full_pipeline` khi cần lập kế hoạch chi tiết.
 
-#### Thay đổi 2: Bỏ LLM call #2 (tổng hợp kết quả)
-
-Dùng trực tiếp kết quả từ tool (`contentResult.result`) làm `generatedContent` thay vì gọi thêm 1 lần LLM để "summarize".
-
-#### Logic mới (pseudo-code):
+**File:** `supabase/functions/_shared/graph/graph-engine.ts` (dòng 501-512)
 
 ```text
-IF state.bestTopic OR state.contentPlan:
-  // Fast path: gọi thẳng tool, bỏ qua cả 2 LLM calls
-  topic = state.bestTopic || extractFromPlan(state.contentPlan)
-  result = executeToolCall('generate_multichannel', { topic, channels, ... })
-  return { generatedContent: JSON.stringify(result) }
-ELSE:
-  // Fallback: giữ LLM call #1 để quyết định tool (chat tự do)
-  // Vẫn bỏ LLM call #2
-  aiResult = callAI({ tools, toolChoice: 'required' })
-  result = executeToolCall(aiResult.tool_name, aiResult.args)
-  return { generatedContent: JSON.stringify(result) }
+TRƯỚC: Research → Strategy → Content → Reviewer → Governor (~59s)
+SAU:   Research → Content → Reviewer → Governor (~47s)
+Tiết kiệm: ~12s
 ```
 
-### Kết quả kỳ vọng
+---
+
+&nbsp;
 
 ```text
-TRƯỚC: ~53s (4 bước sequential) → thường timeout
-SAU:   ~35s (2 bước: Core + Multichannel) → an toàn trong budget
+
+
 ```
 
-### Trình tự triển khai
+---
 
-1. Sửa `content-node.ts`: thêm fast-path khi có `bestTopic`/`contentPlan`, gọi thẳng tool
-2. Loại bỏ follow-up LLM call (dòng 116-134) cho cả 2 path
-3. Giữ nguyên cache logic và error handling hiện tại
+### Tối ưư 2  Reviewer Node -- bỏ follow-up LLM call
 
+**Vấn đề:** Reviewer Node chạy 2 LLM calls: call #1 (review + tool calls) và call #2 (follow-up tổng hợp). Giống pattern đã sửa ở Content Node.
+
+**Giải pháp:** Khi LLM call #1 không gọi tool (trường hợp phổ biến), dùng trực tiếp kết quả. Khi có tool calls, vẫn giữ follow-up nhưng dùng model nhẹ hơn hoặc giảm context.
+
+**File:** `supabase/functions/_shared/graph/nodes/reviewer-node.ts`
+
+```text
+Tiết kiệm: ~4-6s (khi không cần tool calls)
+```
+
+---
+
+### Tối ưu 3: Cache key generation -- dùng sync hash
+
+**Vấn đề nhỏ:** `generateCacheKey` dùng `crypto.subtle.digest` (async) cho mỗi node. Với 4-5 nodes, tổng cộng thêm vài ms không cần thiết.
+
+**Giải pháp:** Không thay đổi (ảnh hưởng quá nhỏ, giữ nguyên vì SHA-256 bảo mật hơn).
+
+---
+
+### Kết quả kỳ vọng tổng thể
+
+```text
+TRƯỚC: ~59s (Research → Strategy → Content → Reviewer → Governor)
+SAU:   ~40s (Research → Content → Reviewer → Governor)
+       - Bỏ Strategy: -12s
+       - Bỏ refineTopic: -3s
+       - Reviewer 1 LLM call: -4s
+```
+
+### Chi tiết kỹ thuật -- Trình tự triển khai
+
+1. **Sửa `graph-engine.ts**`: Cập nhật template `generate_with_research` bỏ Strategy step, Content `dependsOn: ['research']`
+2. **Sửa `reviewer-node.ts**`: Khi LLM không gọi tool, trả kết quả trực tiếp thay vì follow-up LLM call thứ 2
