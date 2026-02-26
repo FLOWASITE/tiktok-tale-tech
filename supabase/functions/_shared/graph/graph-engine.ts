@@ -606,10 +606,24 @@ export async function runOrchestrator(
     },
   });
 
-  // 4. Compile plan into graph
+  // 4. Compile plan into graph + add governor->reviewer revision loop
   let graph: GraphDefinition;
   try {
     graph = compileGraphFromPlan(plan, nodeRegistry);
+
+    // Add conditional edge: governor routes back to reviewer after revision
+    if (graph.nodes.has('governor') && graph.nodes.has('reviewer')) {
+      graph.conditionalEdges.push({
+        from: 'governor',
+        condition: (s: GraphState) => {
+          const reason = s.exitReason;
+          if (reason === 'revised_full' || reason === 'revised_soft') {
+            return 'reviewer'; // Re-score revised content
+          }
+          return null; // No loop — proceed to end
+        },
+      });
+    }
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.error(`[runOrchestrator] Failed to compile plan: ${errorMsg}`);

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { ThumbsUp, ThumbsDown, MessageSquare, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,6 +14,15 @@ interface ContentFeedbackProps {
   governorScore?: number;
   userId?: string;
   className?: string;
+}
+
+// Hook to get current user ID
+function useCurrentUserId() {
+  const [userId, setUserId] = useState<string | undefined>();
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id));
+  }, []);
+  return userId;
 }
 
 const POSITIVE_TAGS = [
@@ -34,9 +43,11 @@ export function ContentFeedback({
   conversationId,
   traceId,
   governorScore,
-  userId,
+  userId: userIdProp,
   className,
 }: ContentFeedbackProps) {
+  const currentUserId = useCurrentUserId();
+  const userId = userIdProp || currentUserId;
   const [feedbackType, setFeedbackType] = useState<'thumbs_up' | 'thumbs_down' | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [comment, setComment] = useState('');

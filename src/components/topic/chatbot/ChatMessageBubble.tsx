@@ -22,6 +22,7 @@ import type { PersonalizedWelcomeData } from '@/hooks/usePersonalizedWelcome';
 import { ReviewScoreCard } from './ReviewScoreCard';
 import { AgentAttributionBar } from './AgentAttributionBar';
 import { TopicSuggestionsCard } from './TopicSuggestionsCard';
+import { ContentFeedback } from '@/components/chat/ContentFeedback';
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
@@ -269,6 +270,19 @@ export function ChatMessageBubble({
                     ? () => onSendFollowUp('Hãy cải thiện nội dung dựa trên review feedback')
                     : undefined
                   }
+                />
+              </div>
+            )}
+
+            {/* Content Feedback (thumbs + tags) */}
+            {message.role === 'assistant' && message.content && !isLoading && message.id !== 'welcome' && (
+              <div className="mt-2 pt-2 border-t border-border/30">
+                <ContentFeedback
+                  messageId={message.id}
+                  conversationId={message.conversationId}
+                  traceId={message.traceId}
+                  governorScore={message.reviewScores?.overall}
+                  className="px-0.5"
                 />
               </div>
             )}

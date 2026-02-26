@@ -293,15 +293,15 @@ export async function getEffectiveModel(
 /**
  * Get circuit breaker statistics for a model
  */
-export function getStats(model: string, config: CircuitBreakerConfig = DEFAULT_CONFIG): {
+export async function getStats(model: string, config: CircuitBreakerConfig = DEFAULT_CONFIG): Promise<{
   state: 'closed' | 'open' | 'half-open';
   failures: number;
   successes: number;
   failureRate: number;
   lastFailure: number | null;
   openedAt: number | null;
-} {
-  const state = getState(model);
+}> {
+  const state = await getState(model);
   const failureRate = getFailureRate(model, config);
   
   return {
@@ -317,18 +317,29 @@ export function getStats(model: string, config: CircuitBreakerConfig = DEFAULT_C
 /**
  * Reset circuit breaker for a model (for testing/admin)
  */
-export function resetCircuit(model: string): void {
+export async function resetCircuit(model: string): Promise<void> {
   circuitStates.delete(model);
   requestHistory.delete(model);
+  try {
+    const redis = await getRedis();
+    if (redis) await redis.del(cbRedisKey(model));
+  } catch { /* Redis unavailable */ }
   console.log(`[circuit-breaker] ${model}: RESET`);
 }
 
 /**
- * Reset all circuit breakers
+ * Reset all circuit breakers (clears in-memory + Redis)
  */
-export function resetAllCircuits(): void {
+export async function resetAllCircuits(): Promise<void> {
+  const models = [...circuitStates.keys()];
   circuitStates.clear();
   requestHistory.clear();
+  try {
+    const redis = await getRedis();
+    if (redis && models.length > 0) {
+      await Promise.all(models.map(m => redis.del(cbRedisKey(m))));
+    }
+  } catch { /* Redis unavailable */ }
   console.log(`[circuit-breaker] All circuits RESET`);
 }
 
