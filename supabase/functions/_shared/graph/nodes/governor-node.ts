@@ -27,7 +27,10 @@ export function createGovernorNode(ctx: GovernorNodeContext = {}) {
     const reviewConfidence = state.reviewConfidence ?? 0;
     const tokensUsed = state.tokenBudget.used;
     const totalBudget = state.tokenBudget.total;
-    const budgetRatio = totalBudget > 0 ? tokensUsed / totalBudget : 0;
+    // Use reserved revision budget if available (Sprint 6E)
+    const revisionReserve = (state.metadata?.revisionBudgetReserve as number) || 0;
+    const effectiveBudget = revisionReserve > 0 ? totalBudget + revisionReserve : totalBudget;
+    const budgetRatio = effectiveBudget > 0 ? tokensUsed / effectiveBudget : 0;
     const revisionRound = (state.metadata?.revisionRound as number) || 0;
 
     // Rule 1: High quality — early exit
@@ -54,23 +57,18 @@ export function createGovernorNode(ctx: GovernorNodeContext = {}) {
 
     // Rule 3: Max revision rounds exceeded — escalate to human
     if (revisionRound >= MAX_REVISION_ROUNDS) {
-      console.log(`[GovernorNode] Max revision rounds reached (${revisionRound}). Escalating to human.`);
+      console.log(`[GovernorNode] Max revision rounds reached (${revisionRound}). Returning best available content with quality warning.`);
       return {
-        status: 'interrupted',
-        exitReason: 'human_escalation',
+        status: 'completed',
+        exitReason: 'quality_warning',
         finalResponse: state.generatedContent || '',
-        interruptPayload: {
-          type: 'approval' as const,
-          prompt: `Nội dung đã qua ${revisionRound} vòng revision nhưng chất lượng chưa đạt yêu cầu (score: ${reviewScore}). Bạn có muốn chấp nhận bản hiện tại hay yêu cầu sửa thêm?`,
-          options: [
-            { label: 'Chấp nhận bản hiện tại', value: 'accept' },
-            { label: 'Thử lại từ đầu', value: 'retry' },
-          ],
-          resumeNodeId: 'governor',
-        },
+        completedAt: Date.now(),
         metadata: {
           ...state.metadata,
           revisionRound,
+          reviewScore,
+          reviewConfidence,
+          qualityWarning: true,
           lastRevisionDiff: state.metadata?.lastRevisionDiff,
         },
       };

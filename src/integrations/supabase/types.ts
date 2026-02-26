@@ -8447,6 +8447,45 @@ export type Database = {
         }
         Relationships: []
       }
+      v_cache_and_revision: {
+        Row: {
+          cache_hit_rate: number | null
+          cache_hits: number | null
+          cache_misses: number | null
+          circuit_breaker_trips: number | null
+          day: string | null
+          fallback_rate: number | null
+          revision_count: number | null
+          revision_rate: number | null
+        }
+        Relationships: []
+      }
+      v_daily_metrics: {
+        Row: {
+          avg_cost_usd: number | null
+          day: string | null
+          error_count: number | null
+          error_rate: number | null
+          p50_ms: number | null
+          p95_ms: number | null
+          p99_ms: number | null
+          total_cost_usd: number | null
+          total_requests: number | null
+        }
+        Relationships: []
+      }
+      v_node_performance: {
+        Row: {
+          avg_cost_usd: number | null
+          avg_duration_ms: number | null
+          error_rate: number | null
+          fast_path_ratio: number | null
+          function_name: string | null
+          p95_duration_ms: number | null
+          total_calls: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       aggregate_content_learnings: {

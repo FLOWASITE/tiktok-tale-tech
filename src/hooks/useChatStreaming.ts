@@ -362,6 +362,16 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                 phase: 'graph_engine',
                 duration: durationMs,
               });
+
+              // Quality warning: Governor completed but content didn't meet optimal quality
+              if (nodeName === 'governor' && parsed.data.exitReason === 'quality_warning') {
+                toast({
+                  variant: 'default',
+                  title: '⚠️ Cảnh báo chất lượng',
+                  description: `Nội dung chưa đạt tiêu chuẩn tối ưu sau ${parsed.data.revisionRound || 'nhiều'} vòng revision (score: ${parsed.data.reviewScore || 'N/A'}). Bạn có thể yêu cầu chỉnh sửa thêm.`,
+                  className: 'border-amber-500/50 bg-amber-500/5',
+                });
+              }
               continue;
             }
 
