@@ -1,201 +1,153 @@
 
-# Plan: Triển khai Góp ý Chuyên gia - Flowa Multi-Agent System
 
-Dựa trên 19 đề xuất từ chuyên gia, chia thành 3 sprint theo mức độ ưu tiên.
+# Sprint 2: Triển khai 4 tính năng tiếp theo
 
----
-
-## SPRINT 1: Ngay lập tức (Critical) ✅ COMPLETED
-
-### 1. Governor Revision Controller (Vấn đề #1)
-
-Tách logic revision ra khỏi Governor thành module riêng `revision-controller.ts`.
-
-**Thay đổi:**
-- Tạo file `supabase/functions/_shared/graph/nodes/revision-controller.ts`
-  - Nhận `reviewResult` với danh sách issues cụ thể
-  - Score < 70: Full revision - gọi lại Content Node với revision prompt kèm issue list
-  - Score 70-89: Soft revision - chỉ patch các phần bị flag, không regenerate toàn bộ
-  - Max 2 vòng revision, sau đó escalate kèm diff
-  - Trả về `revisionResult` với diff (original vs revised)
-
-- Sửa `governor-node.ts`:
-  - Khi score < 70: gọi Revision Controller (full revision)
-  - Khi score 70-89: gọi Revision Controller (soft revision)
-  - Sau revision: gọi lại Reviewer, kiểm tra score mới
-  - Sau 2 vòng vẫn dưới ngưỡng: set `interruptPayload` type `human_escalation` kèm diff
-
-- Sửa `nodes/index.ts`: Đăng ký revision controller vào Node Registry
-
-- Sửa `graph-engine.ts`: Thêm conditional edge từ Governor quay về Content/Reviewer khi `needs_revision`
-
-### 2. Lightweight Prompt Injection Protection (#13)
-
-**Thay đổi:**
-- Tạo file `supabase/functions/_shared/prompt-guard.ts`
-  - `sanitizeInput(message)`: Kiểm tra message length (cap 10,000 chars)
-  - Strip các pattern nguy hiểm: "ignore all previous instructions", "system prompt:", "you are now", "ADMIN MODE", etc.
-  - Log suspicious inputs vào bảng `security_events`
-  - Return sanitized message + risk flags
-
-- Sửa Edge Function entry point (chat-topics): Gọi `sanitizeInput()` trước khi tạo GraphState
-
-- Migration: Tạo bảng `security_events` (id, user_id, event_type, original_input, sanitized_input, risk_level, created_at)
-
-### 3. Circuit Breaker trên Redis (#5)
-
-**Thay đổi:**
-- Sửa `circuit-breaker.ts`:
-  - Thêm `getRedisState(model)` / `setRedisState(model, state)` sử dụng Upstash Redis (import từ redis-cache.ts)
-  - Key: `flowa:cb:{model}` với TTL = resetTimeoutMs (5 phút)
-  - Fallback: Nếu Redis không available, dùng in-memory (giữ logic hiện tại)
-  - Khi circuit trip: write record vào bảng `circuit_breaker_events` (#11)
-
-- Migration: Tạo bảng `circuit_breaker_events` (id, provider, model, failure_count, failure_rate, tripped_at, instance_id, created_at)
-
-### 4. Actual Token Tracking (#3)
-
-**Thay đổi:**
-- Sửa `graph-engine.ts` executeGraph():
-  - Sau mỗi node complete, extract `usage.prompt_tokens` + `usage.completion_tokens` từ node result
-  - Gọi `recordNodeTokens()` với actual tokens thay vì estimated
-  - Governor dùng `tokenBudget.used` (actual) thay vì estimated để tính budget
-
-- Sửa mỗi node (content-node, research-node, strategy-node, reviewer-node):
-  - Return `actualTokensUsed` trong Partial<GraphState> metadata
-
-- Sửa `graph-state.ts`:
-  - Thêm field `actualTokensUsed` vào NodeResult
+## Tổng quan
+Triển khai 4 đề xuất Sprint 2: Continuation Pattern, Distributed Tracing, User Feedback Loop, và Image Node Blackboard Integration.
 
 ---
 
-## SPRINT 2: Tháng tới
+## Task 5: Continuation Pattern (Chống Timeout)
 
-### 5. Continuation Pattern (#4)
-
-**Thay đổi:**
-- Sửa `graph-engine.ts` executeGraph():
-  - Thêm configurable `continuationThresholdMs` (default 40000)
-  - Khi elapsed > threshold: save checkpoint, set status `continuing`, return partial result kèm `continuationToken`
-
-- Sửa `graph-state.ts`:
-  - Thêm `continuationToken?: string` và `continuingFromNode?: string` vào GraphState
-
-- Sửa `runOrchestrator()`:
-  - Nếu nhận `continuationToken` trong options: load checkpoint, resume từ node dang dở
-
-- Sửa frontend `useChatStreaming.ts`:
-  - Xử lý SSE event `continuation_required`
-  - Hiển thị "Đang hoàn thiện..." + auto-trigger continuation request
-
-### 6. Distributed Tracing (#10)
+**Vấn đề:** Pipeline `generate_with_research` (7 nodes) có thể mất > 55s, gây timeout Edge Function.
 
 **Thay đổi:**
-- Tạo file `supabase/functions/_shared/tracing.ts`
-  - `createTrace(requestId)`: Tạo trace_id + root span
-  - `createSpan(traceId, parentSpanId, name)`: Tạo child span
-  - Propagate trace_id qua tất cả layer (node logs, tool calls, external API headers)
 
-- Sửa `graph-engine.ts`: Inject trace_id vào GraphState.metadata, truyền qua mỗi node
-- Sửa `ai-provider.ts`: Include trace_id trong request headers
-- Sửa `logger.ts`: Include trace_id trong mọi ai_metrics record
+1. **`graph-state.ts`** - Thêm fields mới vào `GraphState`:
+   - `continuationToken?: string`
+   - `continuingFromNode?: string`
+   - Thêm status `'continuing'` vào union type
 
-### 7. User Feedback Loop (#16)
+2. **`graph-engine.ts`** - Sửa `executeGraph()`:
+   - Thêm `continuationThresholdMs` vào `GraphExecutionOptions` (default 40000ms)
+   - Trong vòng lặp BFS, khi `Date.now() - startTime > continuationThresholdMs`:
+     - Save checkpoint via `onCheckpoint`
+     - Set `state.status = 'continuing'`, `state.continuationToken = checkpointId`
+     - Return partial result với `exitReason: 'continuation_required'`
+   - Sửa `runOrchestrator()`:
+     - Thêm `continuationToken?: string` vào `RunOrchestratorOptions`
+     - Nếu có `continuationToken`: load checkpoint, xác định node tiếp theo, resume graph từ đó thay vì chạy lại orchestrator
 
-**Thay đổi:**
-- Migration: Tạo bảng `content_feedback` (id, user_id, content_id, trace_id, governor_score, feedback_type enum('thumbs_up','thumbs_down'), tags text[], comment, created_at)
-
-- Tạo component `ContentFeedback.tsx`: Thumbs up/down + tag chips ("off-brand", "too long", "not relevant", "love it")
-- Thêm vào chat message render sau content generation
-
-### 8. Image Node Blackboard Integration (#7)
-
-**Thay đổi:**
-- Sửa `image-node.ts`:
-  - Thêm `retriever` vào ImageNodeContext
-  - Dùng `retriever.retrieve()` thay vì `buildStateContext()`
-  - Store image metadata (prompt, aspect_ratio, style, channel) vào Blackboard sau generation
-
-- Sửa `graph-engine.ts` `extractStorableContent()`:
-  - Thêm case `image`: Extract prompt + metadata từ generatedImage
+3. **`useChatStreaming.ts`** - Frontend xử lý continuation:
+   - Xử lý SSE event `continuation_required` (data chứa `continuationToken`)
+   - Khi nhận event: hiển thị "Dang hoàn thiện..." + tự động gửi request mới với `continuationToken` trong body
+   - Giữ nguyên message hiện tại, append thêm content từ continuation
 
 ---
 
-## SPRINT 3: Q2/2026
+## Task 6: Distributed Tracing
 
-### 9. Cache Key Improvements (#6)
-
-**Thay đổi:**
-- Sửa `redis-cache.ts` `generateCacheKey()`:
-  - Tăng hash từ 16 chars lên 32 chars
-  - Thêm `promptVersion` parameter vào function signature
-  - Cache key format: `flowa:cache:{brandId}:{nodeType}:{hash32}`
-
-### 10. Cross-session Memory Recency Decay (#8)
+**Vấn đề:** Không thể trace end-to-end từ Frontend qua Graph Engine đến External API.
 
 **Thay đổi:**
-- Sửa RPC `match_blackboard_context`:
-  - Thêm recency decay: entries > 30 ngày trừ 0.1, > 90 ngày trừ 0.25
-  - Thêm `is_stale` flag check khi brand template updated
 
-### 11. Topic Detection LLM Fallback (#15)
+1. **Tạo file `supabase/functions/_shared/tracing.ts`**:
+   ```text
+   - createTrace(requestId): Tao trace object { traceId, rootSpanId, spans[] }
+   - createSpan(traceId, parentSpanId, name): Tao span con
+   - endSpan(span): Ghi thoi gian ket thuc
+   - getTraceHeaders(traceId, spanId): Return headers W3C Trace Context
+   ```
 
-**Thay đổi:**
-- Sửa `orchestrator.ts`:
-  - Thêm field `extracted_topic` vào `create_graph_plan` tool schema
-  - Khi LLM planning, extract topic cùng lúc (zero additional cost)
-  - Store extracted topic vào `state.bestTopic` nếu pattern matching miss
+2. **`graph-engine.ts`**:
+   - Inject `traceId` vào `GraphState.metadata.traceId` ngay khi `runOrchestrator()` bat dau
+   - Moi node execution: tao span con tu root span
+   - Emit trace info trong `node_complete` event
 
-### 12. Frontend Error Recovery Matrix (#12)
+3. **`ai-provider.ts`**:
+   - Them `x-trace-id` header vao moi LLM API call
+   - Extract tu `options` hoac tu context
 
-**Thay đổi:**
-- Sửa `useChatStreaming.ts`:
-  - SSE drop: Auto-reconnect với exponential backoff (max 3 lần)
-  - node_error cho critical node: Message cụ thể + retry button
-  - Timeout + partial result: Hiển thị partial + "Tiếp tục?" button
-
-### 13. Multichannel Prioritization (#17)
-
-**Thay đổi:**
-- Sửa brand template schema: Thêm `primary_channels` (max 3)
-- Sửa `generate-multichannel` Edge Function: Generate primary channels trước, secondary sau
-- Khi resource constrained: Skip secondary channels
+4. **`logger.ts`** - Sua `saveMetrics()`:
+   - Dam bao `traceId` always luu vao `ai_metrics` record
+   - Them `spanId` vao metrics cho per-node granularity
 
 ---
 
-## Chi tiết kỹ thuật
+## Task 7: User Feedback Loop
 
-### Cấu trúc file mới
-```text
-supabase/functions/_shared/
-  graph/nodes/revision-controller.ts  (MỚI)
-  prompt-guard.ts                      (MỚI)
-  tracing.ts                           (MỚI)
-src/components/chat/ContentFeedback.tsx (MỚI)
-```
+**Vấn đề:** Hệ thống không thu thập feedback từ user thực tế để calibrate Governor.
 
-### Database migrations
-```text
-1. Bảng security_events (Sprint 1)
-2. Bảng circuit_breaker_events (Sprint 1)
-3. Bảng content_feedback (Sprint 2)
-4. Cập nhật RPC match_blackboard_context (Sprint 3)
-```
+**Thay đổi:**
 
-### Files cần sửa (Sprint 1)
-| File | Thay đổi |
-|------|----------|
-| `governor-node.ts` | Thêm revision logic, gọi Revision Controller |
-| `circuit-breaker.ts` | Thêm Redis persistence, event logging |
-| `redis-cache.ts` | Export getRedis() cho circuit-breaker |
-| `graph-engine.ts` | Actual token tracking, conditional edges |
-| `graph-state.ts` | Thêm actualTokensUsed, revisionRound fields |
-| `nodes/index.ts` | Đăng ký revision controller |
-| `content-node.ts` | Return usage tokens trong metadata |
-| `research-node.ts` | Return usage tokens trong metadata |
-| `chat-topics/index.ts` | Thêm prompt guard sanitization |
+1. **Database migration** - Tao bang `content_feedback`:
+   ```sql
+   CREATE TABLE public.content_feedback (
+     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+     user_id UUID NOT NULL,
+     conversation_id UUID,
+     message_id TEXT,
+     trace_id TEXT,
+     governor_score INTEGER,
+     feedback_type TEXT NOT NULL CHECK (feedback_type IN ('thumbs_up', 'thumbs_down')),
+     tags TEXT[] DEFAULT '{}',
+     comment TEXT,
+     created_at TIMESTAMPTZ DEFAULT now()
+   );
+   -- RLS: user chi thao tac duoc feedback cua minh
+   ```
 
-### Ước tính effort
-- Sprint 1 (Critical): 3-4 ngày development
-- Sprint 2 (Tháng tới): 4-5 ngày development
-- Sprint 3 (Q2/2026): 3-4 ngày development
+2. **Tao component `src/components/chat/ContentFeedback.tsx`**:
+   - Thumbs up / Thumbs down buttons
+   - Tag chips khi thumbs_down: "Off-brand", "Quá dài", "Không liên quan", "Sai thông tin"
+   - Tag chips khi thumbs_up: "Tuyệt vời", "Đúng ý", "Sáng tạo"
+   - Optional comment textarea (collapse by default)
+   - Goi Supabase insert vao `content_feedback`
+
+3. **Tích hợp vào chat message render**:
+   - Hien thi `ContentFeedback` duoi moi assistant message co `reviewScores` hoac `generatedContent`
+   - Truyen `traceId`, `governorScore` tu message metadata
+
+---
+
+## Task 8: Image Node Blackboard Integration
+
+**Vấn đề:** Image Node không dùng Blackboard v2, không lưu output cho cross-session memory.
+
+**Thay đổi:**
+
+1. **`image-node.ts`**:
+   - Them `retriever?: BlackboardRetriever` vao `ImageNodeContext`
+   - Neu co retriever: goi `retriever.retrieve(state.userMessage)` de lay context thay vi `buildStateContext()`
+   - Sau khi generate xong: goi `retriever.store()` voi metadata (prompt, aspect_ratio, style, channel)
+   - Return metadata trong state update de graph-engine co the extract
+
+2. **`blackboard-retriever.ts`** - Sua `extractStorableContent()`:
+   - Them case `'image'`:
+     ```typescript
+     case 'image': {
+       if (!update.generatedImage) return null;
+       const img = update.generatedImage;
+       const meta = [
+         img.prompt && `Prompt: ${img.prompt}`,
+         img.aspect_ratio && `Aspect: ${img.aspect_ratio}`,
+         img.style && `Style: ${img.style}`,
+         img.channel && `Channel: ${img.channel}`,
+       ].filter(Boolean).join('\n');
+       return { content: meta || JSON.stringify(img), contentType: 'image_generation' };
+     }
+     ```
+
+3. **`graph-engine.ts`** - Sua `runOrchestrator()`:
+   - Truyen `retriever` vao Image Node context khi tao node registry (da co pattern cho cac node khac)
+
+---
+
+## Cau truc thay doi
+
+| File | Loai | Mo ta |
+|------|------|-------|
+| `supabase/functions/_shared/tracing.ts` | Moi | Distributed tracing module |
+| `src/components/chat/ContentFeedback.tsx` | Moi | Feedback UI component |
+| `supabase/functions/_shared/graph/graph-state.ts` | Sua | Them continuation fields |
+| `supabase/functions/_shared/graph/graph-engine.ts` | Sua | Continuation logic + tracing injection |
+| `supabase/functions/_shared/ai-provider.ts` | Sua | Trace headers |
+| `supabase/functions/_shared/logger.ts` | Sua | spanId trong metrics |
+| `supabase/functions/_shared/graph/nodes/image-node.ts` | Sua | Blackboard v2 integration |
+| `supabase/functions/_shared/graph/blackboard-retriever.ts` | Sua | Them image case |
+| `src/hooks/useChatStreaming.ts` | Sua | Continuation + feedback handling |
+| Migration SQL | Moi | Bang content_feedback |
+
+## Uoc tinh
+4-5 ngay development, thuc hien song song 4 tasks.
+
