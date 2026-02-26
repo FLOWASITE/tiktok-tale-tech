@@ -66,6 +66,8 @@ export interface ChatMessage {
   suggestedTopics?: SuggestedTopic[];
   /** The best topic selected by Research Agent */
   selectedTopic?: string;
+  /** Reason why this topic was selected */
+  selectedTopicReason?: string;
   /** Refined variants from topic refinement step */
   refinedVariants?: RefinedVariant[];
   /** Conversation ID for feedback tracking */

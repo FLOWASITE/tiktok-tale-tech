@@ -738,12 +738,16 @@ export async function runOrchestrator(
           // Use refined bestTopic directly (may differ from raw list after refinement)
           const normalizedBestTopic = u.bestTopic || normalizedTopics[0]?.topic || undefined;
           const refinedVariants = u.researchData?.refinedVariants || [];
-          console.log(`[GraphEngine] Emitting topic_suggestions: ${normalizedTopics.length} topics, best: ${normalizedBestTopic}, refined variants: ${refinedVariants.length}`);
+          const bestTopicReason = normalizedTopics.find(
+            (t: any) => t.topic === normalizedBestTopic
+          )?.reasoning || normalizedTopics[0]?.reasoning || null;
+          console.log(`[GraphEngine] Emitting topic_suggestions: ${normalizedTopics.length} topics, best: ${normalizedBestTopic}, reason: ${bestTopicReason?.slice(0, 50)}, refined variants: ${refinedVariants.length}`);
           options.onEvent?.({
             type: 'topic_suggestions',
             data: {
               topics: normalizedTopics,
               best_topic: normalizedBestTopic,
+              best_topic_reason: bestTopicReason,
               refined_variants: refinedVariants,
             },
           });
