@@ -1,5 +1,5 @@
 // ============================================
-// Research Node
+// Research Node — v3
 // Prefetch trending+suggest → LLM synthesis
 // ============================================
 
