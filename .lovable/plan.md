@@ -1,55 +1,55 @@
 
+Mục tiêu
+- Làm cho Research Agent trả topic mới thực sự (không lặp lại list cũ), đồng thời đảm bảo trending được gọi đúng.
 
-# Bắt buộc Research Node gọi Trending + Suggest song song
+Phát hiện từ code/log
+1) `discover_topics` đang gửi `action` ở URL query (`...?action=...`) nhưng `topic-ai` chỉ đọc `action` từ JSON body → cả 2 call đều rơi về mặc định `suggest`.
+2) Kết quả `trending` từ `topic-ai` trả về ở field `data`, nhưng tool executor chỉ đọc `suggestions/topics/trendingTopics` → mất dữ liệu trending thật.
+3) `suggest` đang cache theo brand/goal/time bucket nhưng KHÔNG có `query` trong cache key, và prompt suggest cũng chưa dùng `query` → dễ trả lại topic cũ cho nhiều yêu cầu khác nhau.
+4) Log hiện tại xác nhận: `topic-ai` chỉ thấy `Action: suggest` dù ResearchNode gọi cả suggest + trending.
 
-## Vấn đề hiện tại
+Kế hoạch triển khai
+1. Sửa contract gọi discover_topics (backend tool layer)
+- File: `supabase/functions/_shared/tool-executor.ts`
+- Đưa `action` vào request body (giữ query param chỉ để tương thích ngược nếu cần).
+- Hỗ trợ thêm cờ `force_refresh`/`forceRefresh` để ép dữ liệu mới khi Research prefetch.
+- Chuẩn hóa parser kết quả:
+  - Ưu tiên đọc `data.data` cho action `trending`
+  - Fallback `suggestions/topics/trendingTopics`
+  - Mapping score hỗ trợ cả `velocity_score`, `scores.trend`, `scores.engagement`.
 
-Research Node phụ thuộc hoàn toàn vào LLM để quyết định gọi tool nào. LLM thường chỉ chọn 1 action (thường là `suggest`), bỏ qua `trending` -- dẫn đến thiếu dữ liệu xu hướng/viral.
+2. Sửa topic-ai để hiểu action ổn định và dùng query thật
+- File: `supabase/functions/topic-ai/index.ts`
+- Action resolution: ưu tiên `request.action`, fallback từ URL search param `action` (để không vỡ client/test cũ).
+- Mở rộng `TopicAIRequest` có `query?: string`.
+- `handleSuggest`:
+  - Đưa `query` vào prompt để topic bám đúng yêu cầu user.
+  - Thêm `queryHash` vào cache key (không dùng chung cache cho query khác nhau).
+  - Dùng `forceRefresh` đúng semantics (bỏ lệch tên `forceWebSearch` ở luồng discover_topics).
+- (Tùy mức chặt) giảm TTL suggest cache cho flow research để tăng độ mới.
 
-## Giải pháp
+3. Ép freshness ở Research prefetch
+- File: `supabase/functions/_shared/graph/nodes/research-node.ts`
+- Khi prefetch:
+  - suggest: gửi `force_refresh: true` + query user
+  - trending: gửi `force_refresh: true` (hoặc chỉ force khi user yêu cầu “mới” nếu muốn tiết kiệm chi phí).
+- Mục tiêu: lần chạy mới không bị dính list cũ từ cache DB.
 
-Thay đổi Research Node để **gọi trực tiếp** 2 lệnh `discover_topics` (suggest + trending) **trước khi** gọi LLM, rồi đưa kết quả vào context cho LLM tổng hợp.
+4. Cập nhật test để bắt lỗi regression
+- File: `supabase/functions/chat-topics/index.test.ts`
+- Thêm/điều chỉnh test:
+  - trending phải thực sự trả shape `data` hoặc list hợp lệ từ action trending.
+  - verify endpoint nhận action từ body (không phụ thuộc query param).
+  - smoke test: gọi suggest + trending liên tiếp, đảm bảo không cùng một payload giả mạo do route sai action.
 
-## Thay đổi chi tiết
+Tiêu chí nghiệm thu
+- Trong log phải thấy 2 action tách biệt:
+  - `[topic-ai] Action: suggest`
+  - `[topic-ai] Action: trending`
+- `ResearchNode Prefetch done` thường có `merged > suggest` (không còn cố định 5 do trùng 100%).
+- Hai lần tạo topic liên tiếp với query khác nhau cho ra danh sách khác nhau rõ rệt.
+- Không còn hiện tượng “toàn topic cũ” khi user yêu cầu ý tưởng mới.
 
-### 1. `research-node.ts` -- Gọi song song trước LLM
-
-```text
-Flow mới:
-┌─────────────────────────────────┐
-│ 1. Gọi SONG SONG (không qua LLM):    │
-│    - discover_topics(suggest)         │
-│    - discover_topics(trending)        │
-├─────────────────────────────────┤
-│ 2. Inject kết quả vào user message   │
-├─────────────────────────────────┤
-│ 3. LLM call (vẫn có tools nếu cần   │
-│    web_search thêm) → tổng hợp      │
-├─────────────────────────────────┤
-│ 4. Merge topics từ cả 2 nguồn       │
-│    Ưu tiên: trending score cao hơn   │
-└─────────────────────────────────┘
-```
-
-- Trước LLM call, thực thi `executeToolCall('discover_topics', { action: 'suggest', query: userMessage })` và `executeToolCall('discover_topics', { action: 'trending' })` song song bằng `Promise.all`
-- Gộp kết quả thành `prefetchedContext` string, inject vào message cho LLM
-- LLM vẫn có thể gọi thêm `web_search` nếu cần, nhưng không cần gọi lại `discover_topics`
-- Merge topics: trending topics được tag `[TRENDING]`, suggest topics tag `[SUGGEST]`, sắp xếp theo score
-
-### 2. `research-agent.ts` -- Cập nhật system prompt
-
-- Thêm hướng dẫn: "Dữ liệu trending và suggest đã được cung cấp sẵn bên dưới. Hãy tổng hợp và chọn topic tốt nhất."
-- Bỏ quy tắc yêu cầu LLM tự gọi `discover_topics` (vì đã gọi sẵn)
-- Giữ `web_search` trong tools để LLM bổ sung nếu cần
-
-### 3. Merge logic cho `suggestedTopics`
-
-- Gộp topics từ cả suggest + trending, dedup theo tên
-- Trending topics được boost score +10 để ưu tiên hiển thị
-- `bestTopic` chọn từ pool gộp (score cao nhất)
-
-## Tác động
-
-- Đảm bảo **100%** request đều có dữ liệu trending
-- Giảm phụ thuộc vào quyết định của LLM
-- Tăng nhẹ latency (~200ms) do 2 tool call song song, nhưng đổi lại chất lượng topic tốt hơn nhiều
+Rủi ro & cân bằng
+- Ép force refresh toàn phần sẽ tăng chi phí/latency.
+- Nếu cần cân bằng, giữ force refresh cho `trending`, còn `suggest` dùng query-aware cache + TTL ngắn là đủ mới trong đa số trường hợp.
