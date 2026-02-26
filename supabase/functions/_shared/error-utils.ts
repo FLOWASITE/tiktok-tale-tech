@@ -1,7 +1,17 @@
 // ============================================
 // Error Handling Utilities
 // Retry logic, Circuit Breaker, Graceful Degradation
+// Re-exports FlowaError taxonomy for convenience
 // ============================================
+
+// Re-export error taxonomy
+export { 
+  FlowaError, TransientError, PermanentError, DegradationError,
+  LLMTimeoutError, RateLimitError, NetworkError,
+  AuthenticationError, InvalidInputError, ConfigurationError,
+  NonCriticalNodeError, CacheError, EmbeddingError,
+  classifyError, getErrorStrategy,
+} from "./errors/flowa-error.ts";
 
 export class RetryableError extends Error {
   retryable: boolean = true;

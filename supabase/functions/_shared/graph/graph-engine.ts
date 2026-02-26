@@ -16,6 +16,7 @@ import {
 import { orchestrateWorkflow, OrchestratorOptions } from "./orchestrator.ts";
 import { BlackboardRetriever, extractStorableContent } from "./blackboard-retriever.ts";
 import { createTrace, createSpan, endSpan, getTraceHeaders, type Trace } from "../tracing.ts";
+import { classifyError, getErrorStrategy, type FlowaError, TransientError, DegradationError } from "../errors/flowa-error.ts";
 export { createNodeRegistry, type NodeExecutionContext } from "./nodes/index.ts";
 export { BlackboardRetriever } from "./blackboard-retriever.ts";
 
@@ -298,21 +299,41 @@ export async function executeGraph(
 
           return { nodeName, update, durationMs, skipped: false };
         } catch (err) {
-          const error = err instanceof Error ? err : new Error(String(err));
-          options.onNodeError?.(nodeName, error);
+          const classified = classifyError(err);
+          const strategy = getErrorStrategy(classified, !!nodeConfig.critical);
+          const durationMs = Date.now() - nodeStart;
 
-          if (nodeConfig.critical) {
-            throw err; // Propagate critical errors
+          console.warn(`[GraphEngine] Node ${nodeName} error (${classified.code}), strategy: ${strategy}`);
+
+          // Retry transient errors (max 1 retry for nodes)
+          if (strategy === 'retry') {
+            console.log(`[GraphEngine] Retrying ${nodeName} once...`);
+            try {
+              const retryUpdate = await nodeConfig.fn(state);
+              const retryDurationMs = Date.now() - nodeStart;
+              options.onNodeComplete?.(nodeName, retryUpdate, retryDurationMs);
+              return { nodeName, update: retryUpdate, durationMs: retryDurationMs, skipped: false };
+            } catch (retryErr) {
+              const retryClassified = classifyError(retryErr);
+              options.onNodeError?.(nodeName, retryClassified);
+              // After retry fails: critical → propagate, non-critical → skip
+              if (nodeConfig.critical) {
+                throw retryClassified;
+              }
+              console.warn(`[GraphEngine] Retry failed for ${nodeName}, skipping: ${retryClassified.message}`);
+              return { nodeName, update: {} as Partial<GraphState>, durationMs: Date.now() - nodeStart, error: retryClassified.message, skipped: false };
+            }
           }
 
-          console.warn(`[GraphEngine] Non-critical node ${nodeName} failed: ${error.message}`);
-          return {
-            nodeName,
-            update: {} as Partial<GraphState>,
-            durationMs: Date.now() - nodeStart,
-            error: error.message,
-            skipped: false,
-          };
+          // Fail immediately for permanent errors on critical nodes
+          if (strategy === 'fail') {
+            options.onNodeError?.(nodeName, classified);
+            throw classified;
+          }
+
+          // Skip (degradation) — log and continue
+          options.onNodeError?.(nodeName, classified);
+          return { nodeName, update: {} as Partial<GraphState>, durationMs, error: classified.message, skipped: false };
         }
       })
     );

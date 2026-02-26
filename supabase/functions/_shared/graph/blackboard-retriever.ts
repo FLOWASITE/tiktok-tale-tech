@@ -87,6 +87,7 @@ export class BlackboardRetriever {
   /**
    * Retrieve relevant context via vector similarity search.
    * Uses match_blackboard_context RPC for hybrid priority scoring.
+   * Bootstrap strategy: if session has no results, auto-fallback to cross-session.
    */
   async retrieve(
     query: string,
@@ -115,7 +116,7 @@ export class BlackboardRetriever {
         return [];
       }
 
-      return (data || []).map((row: any) => ({
+      const results = (data || []).map((row: any) => ({
         id: row.id,
         contentType: row.content_type,
         contentText: row.content_text,
@@ -126,6 +127,15 @@ export class BlackboardRetriever {
         metadata: row.metadata || {},
         createdAt: row.created_at,
       }));
+
+      // Bootstrap strategy: if no session-specific results found,
+      // auto-fallback to cross-session context for same brand
+      if (results.length === 0 && this.ctx.brandTemplateId) {
+        console.log('[BlackboardRetriever] No session results, bootstrapping from cross-session');
+        return this.retrieveCrossSession(query, limit, threshold - 0.05);
+      }
+
+      return results;
     } catch (err) {
       console.error('[BlackboardRetriever] Retrieve error:', err);
       return [];
