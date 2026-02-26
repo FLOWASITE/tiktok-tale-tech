@@ -84,6 +84,7 @@ export default function MultiChannelCreate() {
     generate: streamGenerate, 
     isGenerating,
     streamingTexts,
+    getChannelText,
   } = useStreamingGeneration({
     onProgress: (event) => {
       setSseProgress(event);
@@ -171,7 +172,7 @@ export default function MultiChannelCreate() {
         setTimeout(() => {
           const channelTexts: Record<string, string> = {};
           channels.forEach(ch => {
-            channelTexts[ch] = streamingTexts[ch] || '';
+            channelTexts[ch] = getChannelText(ch);
           });
 
           imagePipeline.startPipeline(
