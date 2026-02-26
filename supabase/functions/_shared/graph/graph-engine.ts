@@ -541,6 +541,8 @@ export interface RunOrchestratorOptions {
   continuationThresholdMs?: number;
   /** Trace ID from frontend for distributed tracing */
   traceId?: string;
+  /** Conversation history for multi-turn context */
+  conversationHistory?: Array<{ role: string; content: string }>;
 }
 
 /**
@@ -571,6 +573,14 @@ export async function runOrchestrator(
   state.metadata.rootSpanId = trace.rootSpanId;
   if (options.brandMemoryContext) {
     state.brandMemoryContext = options.brandMemoryContext;
+  }
+
+  // Inject conversation history for multi-turn context
+  if (options.conversationHistory?.length) {
+    state.messages = [
+      ...options.conversationHistory.map(m => ({ role: m.role, content: m.content })),
+      ...state.messages,
+    ];
   }
 
   // 2. Orchestrate — get the plan
