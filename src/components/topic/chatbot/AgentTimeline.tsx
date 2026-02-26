@@ -1,6 +1,7 @@
 // ============================================
 // AgentTimeline Component
 // Gantt-chart style visualization of agent execution
+// Supports parallel agent groups for accurate wall-clock representation
 // ============================================
 
 import { memo, useMemo } from 'react';
@@ -12,20 +13,50 @@ interface AgentTimelineProps {
   className?: string;
 }
 
+// Agents that run in parallel (first phase)
+const PARALLEL_AGENTS = new Set(['research', 'brand_memory', 'compliance']);
+
+function extractAgentKey(step: ProgressStep): string {
+  // step.id is like "research-agent", "brand_memory-agent", etc.
+  return step.id.replace(/-agent$/, '');
+}
+
 export const AgentTimeline = memo(function AgentTimeline({ steps, className }: AgentTimelineProps) {
   const completedSteps = steps.filter(s => s.status === 'complete' && s.duration);
   
   const timeline = useMemo(() => {
     if (completedSteps.length === 0) return null;
 
-    // Estimate start times: sequential by order
-    let cumulativeStart = 0;
-    const entries = completedSteps.map(step => {
-      const start = cumulativeStart;
+    // Separate parallel and sequential agents
+    const parallelGroup: typeof completedSteps = [];
+    const sequentialGroup: typeof completedSteps = [];
+
+    for (const step of completedSteps) {
+      const key = extractAgentKey(step);
+      if (PARALLEL_AGENTS.has(key)) {
+        parallelGroup.push(step);
+      } else {
+        sequentialGroup.push(step);
+      }
+    }
+
+    const entries: Array<ProgressStep & { startMs: number; durationMs: number }> = [];
+
+    // Parallel agents all start at 0
+    let parallelEndMs = 0;
+    for (const step of parallelGroup) {
       const duration = step.duration || 0;
+      entries.push({ ...step, startMs: 0, durationMs: duration });
+      parallelEndMs = Math.max(parallelEndMs, duration);
+    }
+
+    // Sequential agents start after the parallel group
+    let cumulativeStart = parallelEndMs;
+    for (const step of sequentialGroup) {
+      const duration = step.duration || 0;
+      entries.push({ ...step, startMs: cumulativeStart, durationMs: duration });
       cumulativeStart += duration;
-      return { ...step, startMs: start, durationMs: duration };
-    });
+    }
 
     const totalMs = cumulativeStart;
     return { entries, totalMs };

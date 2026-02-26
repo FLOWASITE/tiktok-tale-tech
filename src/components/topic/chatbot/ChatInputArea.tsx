@@ -268,8 +268,28 @@ export function ChatInputArea({
               {t('chatbot.input.stopHint')}
             </TooltipContent>
           </Tooltip>
-        ) : (
-          <WorkflowPreviewTooltip input={input} enabled={supervisorEnabled && !isLoading}>
+        ) : supervisorEnabled && !isLoading ? (
+            <WorkflowPreviewTooltip input={input} enabled>
+              <Button 
+                type="submit" 
+                size="icon"
+                className={cn(
+                  "shrink-0 transition-all duration-200",
+                  "bg-gradient-to-br from-primary to-violet-600 hover:from-primary/90 hover:to-violet-600/90",
+                  "shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30",
+                  "hover:scale-105 active:scale-95",
+                  "send-btn-ripple",
+                  !input.trim() && "opacity-50 shadow-none hover:scale-100",
+                  "h-10 w-auto px-3 rounded-xl gap-1.5"
+                )}
+                disabled={!input.trim() || input.length > maxChars}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <Sparkles className="w-3 h-3" />
+                <span className="text-[10px] font-medium hidden sm:inline">Đội ngũ</span>
+              </Button>
+            </WorkflowPreviewTooltip>
+          ) : (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
@@ -282,27 +302,18 @@ export function ChatInputArea({
                     "hover:scale-105 active:scale-95",
                     "send-btn-ripple",
                     !input.trim() && "opacity-50 shadow-none hover:scale-100",
-                    supervisorEnabled ? "h-10 w-auto px-3 rounded-xl gap-1.5" : "h-10 w-10 rounded-xl"
+                    "h-10 w-10 rounded-xl"
                   )}
                   disabled={!input.trim() || input.length > maxChars}
                 >
-                  {supervisorEnabled ? (
-                    <>
-                      <Users className="w-3.5 h-3.5" />
-                      <Sparkles className="w-3 h-3" />
-                      <span className="text-[10px] font-medium hidden sm:inline">Đội ngũ</span>
-                    </>
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
+                  <Send className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top" className="text-xs">
-                {supervisorEnabled ? 'Giao cho Đội ngũ AI' : t('chatbot.input.sendHint')}
+                {t('chatbot.input.sendHint')}
               </TooltipContent>
             </Tooltip>
-          </WorkflowPreviewTooltip>
-        )}
+          )}
       </div>
     </form>
   );
