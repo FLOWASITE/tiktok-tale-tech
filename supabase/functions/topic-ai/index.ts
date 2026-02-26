@@ -115,9 +115,14 @@ serve(async (req) => {
 
   try {
     const request: TopicAIRequest = await req.json();
-    const { action = 'suggest', ...params } = request;
+    // Action resolution: body first, then URL search param (backward compat)
+    const url = new URL(req.url);
+    const actionFromBody = request.action;
+    const actionFromQuery = url.searchParams.get('action') as TopicAIAction | null;
+    const action: TopicAIAction = actionFromBody || actionFromQuery || 'suggest';
+    const { action: _unused, ...params } = request;
 
-    console.log(`[topic-ai] Action: ${action}, Brand: ${params.brandTemplateId?.substring(0, 8) || 'none'}`);
+    console.log(`[topic-ai] Action: ${action} (source: ${actionFromBody ? 'body' : actionFromQuery ? 'query' : 'default'}), Brand: ${params.brandTemplateId?.substring(0, 8) || 'none'}`);
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -170,12 +175,13 @@ async function handleSuggest(
   params: TopicAIRequest,
   startTime: number
 ): Promise<Response> {
-  const { contentGoal, format, organizationId, brandTemplateId, recentTopics, seasonality, forceRefresh, skipWebSearch } = params;
+  const { contentGoal, format, organizationId, brandTemplateId, recentTopics, seasonality, forceRefresh, skipWebSearch, query } = params as TopicAIRequest & { query?: string };
 
-  // Phase 4: Enhanced cache key with context hash to invalidate when personas/products change
-  const hourBucket = Math.floor(Date.now() / (1000 * 60 * 60 * 8)); // 8-hour buckets
+  // Phase 4: Enhanced cache key with context hash + query hash for unique results per query
+  const hourBucket = Math.floor(Date.now() / (1000 * 60 * 60 * 4)); // 4-hour buckets (reduced from 8h for freshness)
   const contextHash = hashContextData(brandContext);
-  const cacheKey = `topic-suggestions-v8:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${hourBucket}`;
+  const queryHash = query ? hashContextData({ q: query }) : 'no-query';
+  const cacheKey = `topic-suggestions-v9:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${queryHash}:${hourBucket}`;
   
   // Check cache first
   let cacheHitTimestamp: number | undefined;
@@ -241,7 +247,7 @@ async function handleSuggest(
     console.log('[topic-ai:suggest] Skipped all Perplexity API calls - cost optimization');
   }
 
-  // Build prompts
+  // Build prompts — inject query into prompt context for relevance
   const { systemPrompt, userPrompt } = buildSuggestPrompts({
     brandContext,
     contentGoal,
@@ -251,6 +257,7 @@ async function handleSuggest(
     learningContext,
     industryInsight,
     audienceQA,
+    query, // Pass user query so prompt generates relevant topics
   });
 
   // Call AI with metrics tracking
@@ -1236,8 +1243,9 @@ function buildSuggestPrompts(params: {
   learningContext?: any;
   industryInsight?: any;
   audienceQA?: any;
+  query?: string;
 }): { systemPrompt: string; userPrompt: string } {
-  const { brandContext, contentGoal, format, recentTopics, seasonality, learningContext, industryInsight, audienceQA } = params;
+  const { brandContext, contentGoal, format, recentTopics, seasonality, learningContext, industryInsight, audienceQA, query } = params;
 
   const goalLabels: Record<string, string> = {
     education: 'giáo dục, chia sẻ kiến thức chuyên môn',
@@ -1311,6 +1319,7 @@ Trả về JSON array với 8-10 topics:
 - Mục tiêu: ${goalLabels[contentGoal || 'education']}
 - Format: ${format || 'all'}
 ${brandContext ? `- Brand: ${brandContext.brandName}` : ''}
+${query ? `\n🎯 YÊU CẦU CỤ THỂ CỦA USER: "${query}"\n→ ƯU TIÊN CAO: Các topic phải liên quan trực tiếp đến yêu cầu trên.` : ''}
 ${recentTopics?.length ? `\nTRÁNH topics tương tự: ${recentTopics.slice(0, 5).join('; ')}` : ''}
 
 Trả về JSON array theo format đã định nghĩa.`;

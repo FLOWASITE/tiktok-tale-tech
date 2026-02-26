@@ -108,12 +108,14 @@ export function createResearchNode(ctx: ResearchNodeContext) {
         executeToolCall('discover_topics', {
           action: 'suggest',
           query: state.userMessage,
+          force_refresh: true, // Bypass cache for fresh results
         }, toolCtx).catch(err => {
           console.warn('[ResearchNode] suggest prefetch failed:', err.message);
           return { success: false, result: null, tool_name: 'discover_topics' };
         }),
         executeToolCall('discover_topics', {
           action: 'trending',
+          force_refresh: true, // Bypass cache for fresh trending data
         }, toolCtx).catch(err => {
           console.warn('[ResearchNode] trending prefetch failed:', err.message);
           return { success: false, result: null, tool_name: 'discover_topics' };

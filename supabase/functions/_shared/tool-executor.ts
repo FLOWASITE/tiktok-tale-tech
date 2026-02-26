@@ -590,15 +590,16 @@ async function executeDiscoverTopics(
   params: Record<string, any>,
   context: ExecutionContext
 ): Promise<ToolCallResult> {
-  const { action, query, content_goal, limit } = params;
+  const { action, query, content_goal, limit, force_refresh } = params;
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  // Build request to topic-ai edge function
-  const topicAiUrl = `${supabaseUrl}/functions/v1/topic-ai?action=${action}`;
+  // Build request to topic-ai edge function — action goes in BODY (not just query param)
+  const topicAiUrl = `${supabaseUrl}/functions/v1/topic-ai`;
 
   const requestBody: Record<string, any> = {
+    action: action || 'suggest',
     query,
     limit: limit || 5,
     brandTemplateId: context.brandTemplateId || null,
@@ -609,12 +610,12 @@ async function executeDiscoverTopics(
     requestBody.contentGoal = content_goal;
   }
 
-  // Add action-specific params
-  if (action === 'suggest') {
-    requestBody.forceWebSearch = true; // Always get fresh data for suggestions
+  // Force refresh to bypass cache when called from research prefetch
+  if (force_refresh) {
+    requestBody.forceRefresh = true;
   }
 
-  console.log(`[discover_topics] Calling topic-ai action=${action}, query="${query}"`);
+  console.log(`[discover_topics] Calling topic-ai action=${action}, query="${query}", forceRefresh=${!!force_refresh}`);
 
   try {
     const response = await fetch(topicAiUrl, {
@@ -640,7 +641,8 @@ async function executeDiscoverTopics(
     const data = await response.json();
 
     // Normalize response based on action type
-    const topics = data.suggestions || data.topics || data.trendingTopics || [];
+    // trending returns { data: [...] }, suggest returns { suggestions: [...] }
+    const topics = data.data || data.suggestions || data.topics || data.trendingTopics || [];
     const gaps = data.gaps || [];
 
     return {
@@ -650,13 +652,14 @@ async function executeDiscoverTopics(
         action,
         query,
         content_goal: content_goal || null,
-        topics: topics.slice(0, limit || 5).map((t: any) => ({
+        topics: topics.slice(0, limit || 10).map((t: any) => ({
           topic: t.topic || t.title || t.name,
           category: t.category || t.pillar || 'general',
-          score: t.overallScore || t.score || t.velocityScore || null,
-          reasoning: t.reasoning || t.explanation || t.suggestedAngles?.[0] || null,
+          score: t.overallScore || t.score || t.velocity_score || t.velocityScore || (t.scores?.trend) || null,
+          reasoning: t.reasoning || t.explanation || t.suggestedAngles?.[0] || t.suggested_angles?.[0] || null,
           format: t.suggestedFormat || t.format || null,
-          engagement_potential: t.engagementPotential || t.scores?.engagement || null,
+          engagement_potential: t.engagementPotential || t.engagement_potential || t.scores?.engagement || null,
+          source: t.source || (action === 'trending' ? 'trending' : 'suggest'),
         })),
         gaps: gaps.slice(0, 5).map((g: any) => ({
           pillar: g.pillar,

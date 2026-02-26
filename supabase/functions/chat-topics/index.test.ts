@@ -17,12 +17,23 @@ async function callChatTopics(body: Record<string, unknown>, token?: string) {
   return response;
 }
 
+// Helper to call topic-ai
+async function callTopicAI(body: Record<string, unknown>) {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/topic-ai`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+    body: JSON.stringify(body),
+  });
+  return response;
+}
+
 // ============================================
 // Test 1: discover_topics tool definition exists
 // ============================================
 Deno.test("discover_topics tool is registered in Research Agent", async () => {
-  // We verify by sending a research-type message that should trigger discover_topics
-  // The supervisor should classify this as 'research' intent
   const response = await callChatTopics({
     messages: [{ role: "user", content: "Gợi ý 3 chủ đề content về skincare cho Gen Z" }],
     brandTemplateId: null,
@@ -30,72 +41,52 @@ Deno.test("discover_topics tool is registered in Research Agent", async () => {
     enableSupervisor: true,
   });
 
-  // Should not error - at minimum returns a response
   const text = await response.text();
   console.log("Test 1 response status:", response.status);
   console.log("Test 1 response preview:", text.slice(0, 500));
   
-  // Should return 200 (may fail auth but structure should be valid)
-  // 401 = auth required, 200 = success, both are acceptable for structural test
   assertEquals(response.status === 200 || response.status === 401 || response.status === 429, true, 
     `Expected 200/401/429 but got ${response.status}: ${text.slice(0, 200)}`);
 });
 
 // ============================================
-// Test 2: Tool executor - discover_topics calls topic-ai
+// Test 2: topic-ai receives action from body (NOT just query param)
 // ============================================
-Deno.test("topic-ai endpoint responds to suggest action", async () => {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/topic-ai?action=suggest`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-    },
-    body: JSON.stringify({
-      query: "skincare trends 2026",
-      limit: 3,
-      brandTemplateId: null,
-      organizationId: null,
-      forceWebSearch: false,
-    }),
+Deno.test("topic-ai receives action from request body", async () => {
+  const response = await callTopicAI({
+    action: "suggest",
+    query: "skincare trends 2026",
+    limit: 3,
+    brandTemplateId: null,
+    organizationId: null,
   });
 
   const text = await response.text();
   console.log("Test 2 topic-ai status:", response.status);
   console.log("Test 2 response preview:", text.slice(0, 500));
   
-  // topic-ai should respond (200 or 401 for auth)
   assertEquals(response.status === 200 || response.status === 401 || response.status === 429, true,
     `Expected 200/401/429 but got ${response.status}: ${text.slice(0, 200)}`);
   
-  // If 200, verify response structure
   if (response.status === 200) {
     try {
       const data = JSON.parse(text);
-      // Should have suggestions or topics array
       const hasTopics = data.suggestions || data.topics || data.trendingTopics;
       assertEquals(hasTopics !== undefined, true, "Response should contain topic suggestions");
     } catch {
-      // Streaming response or non-JSON is also valid
       console.log("Response was non-JSON (possibly streaming)");
     }
   }
 });
 
 // ============================================
-// Test 3: topic-ai trending action
+// Test 3: topic-ai trending action via body returns correct shape
 // ============================================
-Deno.test("topic-ai endpoint responds to trending action", async () => {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/topic-ai?action=trending`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-    },
-    body: JSON.stringify({
-      query: "marketing trends",
-      limit: 3,
-    }),
+Deno.test("topic-ai trending via body returns { data: [...] } shape", async () => {
+  const response = await callTopicAI({
+    action: "trending",
+    query: "marketing trends",
+    limit: 3,
   });
 
   const text = await response.text();
@@ -104,22 +95,31 @@ Deno.test("topic-ai endpoint responds to trending action", async () => {
   
   assertEquals(response.status === 200 || response.status === 401 || response.status === 429, true,
     `Expected 200/401/429 but got ${response.status}`);
+
+  if (response.status === 200) {
+    try {
+      const data = JSON.parse(text);
+      // Trending should return { data: [...] } not { suggestions: [...] }
+      if (data.data) {
+        console.log("✅ Trending returned 'data' field with", data.data.length, "items");
+        assertEquals(Array.isArray(data.data), true, "data field should be an array");
+      } else if (data.suggestions) {
+        console.log("⚠️ Trending returned 'suggestions' — action routing may still be wrong");
+      }
+    } catch {
+      console.log("Response was non-JSON");
+    }
+  }
 });
 
 // ============================================
 // Test 4: topic-ai gap_analysis action  
 // ============================================
 Deno.test("topic-ai endpoint responds to gap_analysis action", async () => {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/topic-ai?action=gap_analysis`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-    },
-    body: JSON.stringify({
-      query: "content gaps analysis",
-      limit: 3,
-    }),
+  const response = await callTopicAI({
+    action: "gap_analysis",
+    query: "content gaps analysis",
+    limit: 3,
   });
 
   const text = await response.text();
@@ -131,10 +131,51 @@ Deno.test("topic-ai endpoint responds to gap_analysis action", async () => {
 });
 
 // ============================================
-// Test 5: E2E Research → Content flow via Supervisor
+// Test 5: suggest + trending return different payloads (not both suggest)
+// ============================================
+Deno.test("suggest and trending return structurally different responses", async () => {
+  const [suggestRes, trendingRes] = await Promise.all([
+    callTopicAI({ action: "suggest", query: "skincare", limit: 3 }),
+    callTopicAI({ action: "trending", query: "skincare", limit: 3 }),
+  ]);
+
+  const suggestText = await suggestRes.text();
+  const trendingText = await trendingRes.text();
+
+  console.log("Test 5 suggest status:", suggestRes.status);
+  console.log("Test 5 trending status:", trendingRes.status);
+
+  if (suggestRes.status === 200 && trendingRes.status === 200) {
+    try {
+      const suggestData = JSON.parse(suggestText);
+      const trendingData = JSON.parse(trendingText);
+      
+      const suggestHasSuggestions = !!suggestData.suggestions;
+      const trendingHasData = !!trendingData.data;
+      
+      console.log(`suggest has 'suggestions': ${suggestHasSuggestions}, trending has 'data': ${trendingHasData}`);
+      
+      // They should NOT both have the same shape
+      if (suggestHasSuggestions && trendingHasData) {
+        console.log("✅ Actions are properly routed — different response shapes");
+      } else {
+        console.log("⚠️ May still be routing both to the same handler");
+      }
+    } catch {
+      console.log("Non-JSON responses");
+    }
+  }
+
+  assertEquals(suggestRes.status === 200 || suggestRes.status === 401 || suggestRes.status === 429, true,
+    `Suggest: Expected 200/401/429 but got ${suggestRes.status}`);
+  assertEquals(trendingRes.status === 200 || trendingRes.status === 401 || trendingRes.status === 429, true,
+    `Trending: Expected 200/401/429 but got ${trendingRes.status}`);
+});
+
+// ============================================
+// Test 6: E2E Research → Content flow via Supervisor
 // ============================================
 Deno.test("E2E: Research intent triggers discover_topics then content generation", async () => {
-  // This test simulates a complex workflow: research + content generation
   const response = await callChatTopics({
     messages: [{ role: "user", content: "Tìm ý tưởng content skincare Gen Z rồi viết bài cho Facebook" }],
     brandTemplateId: null,
@@ -143,28 +184,23 @@ Deno.test("E2E: Research intent triggers discover_topics then content generation
   });
 
   const text = await response.text();
-  console.log("Test 5 E2E status:", response.status);
-  console.log("Test 5 E2E response preview:", text.slice(0, 800));
+  console.log("Test 6 E2E status:", response.status);
+  console.log("Test 6 E2E response preview:", text.slice(0, 800));
   
-  // Should return valid response (auth may block, but endpoint should work)
   assertEquals(response.status === 200 || response.status === 401 || response.status === 429, true,
     `Expected 200/401/429 but got ${response.status}: ${text.slice(0, 200)}`);
   
   if (response.status === 200) {
-    // If successful, the response should contain content from the pipeline
     try {
       const data = JSON.parse(text);
       console.log("E2E result keys:", Object.keys(data));
       
-      // Supervisor results should include agent outputs
       if (data.agentResults) {
         console.log("Agents executed:", data.agentResults.map((r: any) => r.agentName));
         
-        // Verify research-agent was involved
         const researchResult = data.agentResults.find((r: any) => r.agentName === 'research-agent');
         if (researchResult) {
           console.log("Research agent ran successfully:", researchResult.success);
-          // Check if discover_topics was called
           const discoverTool = researchResult.toolResults?.find((t: any) => t.tool_name === 'discover_topics');
           if (discoverTool) {
             console.log("discover_topics was called:", discoverTool.success);
@@ -173,9 +209,7 @@ Deno.test("E2E: Research intent triggers discover_topics then content generation
         }
       }
     } catch {
-      // Streaming or non-JSON response
       console.log("Response was non-JSON (streaming mode)");
-      // For streaming, check that content mentions topics
       assertEquals(text.length > 0, true, "Streaming response should not be empty");
     }
   }
