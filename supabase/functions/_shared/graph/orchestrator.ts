@@ -20,12 +20,13 @@ export interface OrchestratorOptions {
   retriever?: BlackboardRetriever;
 }
 
-// ---- Intent Patterns (reused from intent-classifier.ts) ----
+// ---- Intent Patterns (enhanced Vietnamese + English + Thai) ----
 
 const INTENT_PATTERNS: Record<string, RegExp[]> = {
   research: [
     /xu hướng|trending|trend|hot topic|viral|tin tức|news/i,
     /tìm kiếm|search|discover|khám phá|competitor|đối thủ/i,
+    /phân tích|analyze|analysis|insight|nghiên cứu|research/i,
     /เทรนด์|กำลังฮิต|ไวรัล|ข่าวล่าสุด/i,
   ],
   plan: [
@@ -37,6 +38,14 @@ const INTENT_PATTERNS: Record<string, RegExp[]> = {
     /viết|tạo|generate|write|create|soạn|làm content/i,
     /script|carousel|post|bài viết|caption|email/i,
     /เขียน|สร้าง|โพสต์|แคปชัน/i,
+  ],
+  topic_discovery: [
+    /gợi ý.*(?:chủ đề|topic)|(?:chủ đề|topic).*gợi ý/i,
+    /(?:tìm|cho|đề xuất|suggest)\s*(?:\d+\s*)?(?:chủ đề|topic|ý tưởng|idea)/i,
+    /(?:chọn|chon)\s*\d+\s*(?:chủ đề|topic)/i,
+    /brainstorm|ý tưởng|idea|ideation/i,
+    /(?:\d+)\s*(?:chủ đề|topic|ý tưởng)/i,
+    /หัวข้อ|ไอเดีย|brainstorm/i,
   ],
   complex_workflow: [
     /tạo nội dung.*ngày|content.*tuần|toàn bộ|complete/i,
@@ -58,7 +67,63 @@ const INTENT_PATTERNS: Record<string, RegExp[]> = {
     /ảnh minh họa|illustration|banner|cover photo/i,
     /สร้างภาพ|ออกแบบภาพ|ทำรูป/i,
   ],
+  clarify_needed: [
+    /^(tạo|viết|soạn|làm)\s*(content|nội dung|bài)?\s*$/i,
+    /^(giúp|help)\s*(tôi|mình|me)?\s*$/i,
+    /^(thêm|more|nữa|tiếp)\s*$/i,
+  ],
 };
+
+// ---- Ambiguity Detection ----
+
+interface AmbiguityCheck {
+  isAmbiguous: boolean;
+  missingInfo: string[];
+  suggestedAction: 'ask_clarify' | 'proceed' | 'research_first';
+}
+
+function detectAmbiguity(message: string): AmbiguityCheck {
+  const lower = message.toLowerCase().trim();
+  const missingInfo: string[] = [];
+
+  // Very short messages with no context
+  if (lower.length < 15) {
+    // Check if it's a follow-up reference (e.g., "thêm 3 cái nữa", "tiếp", "ok")
+    const followUpPatterns = /^(thêm|more|nữa|tiếp|ok|được|yes|vâng|ừ|đồng ý|tốt|hay|continue|next|go)/i;
+    if (followUpPatterns.test(lower)) {
+      return { isAmbiguous: false, missingInfo: [], suggestedAction: 'proceed' };
+    }
+    missingInfo.push('message_too_short');
+  }
+
+  // Has generate intent but no topic, no channel, no format
+  const hasGenerateVerb = /viết|tạo|soạn|làm|generate|create|write/i.test(lower);
+  const hasContentNoun = /content|nội dung|bài|post|caption/i.test(lower);
+  
+  if (hasGenerateVerb && hasContentNoun) {
+    if (!hasExplicitTopic(message)) {
+      missingInfo.push('no_topic');
+    }
+    // Check if channel is specified
+    const hasChannel = /facebook|instagram|tiktok|linkedin|youtube|twitter|threads|email|blog/i.test(lower);
+    if (!hasChannel) {
+      missingInfo.push('no_channel');
+    }
+  }
+
+  // "thêm X cái nữa" pattern — needs context from conversation
+  const addMorePattern = /thêm\s*(\d+)?\s*(cái|topic|chủ đề|bài|ý tưởng)?\s*(nữa|thêm)?/i;
+  if (addMorePattern.test(lower)) {
+    return { isAmbiguous: false, missingInfo: [], suggestedAction: 'proceed' };
+  }
+
+  const isAmbiguous = missingInfo.length >= 2;
+  return {
+    isAmbiguous,
+    missingInfo,
+    suggestedAction: isAmbiguous ? 'ask_clarify' : missingInfo.includes('no_topic') ? 'research_first' : 'proceed',
+  };
+}
 
 // ---- Heuristic Topic Detection ----
 
@@ -68,9 +133,12 @@ const NON_TOPIC_TERMS = new Set([
   'bài', 'post', 'content', 'nội', 'dung', 'noi',
   'viết', 'tạo', 'soạn', 'làm', 'generate', 'create', 'write', 'make',
   'cho', 'về', 'about', 'the', 'a', 'an', 'một', 'mot',
-  // Content format terms - không phải topic cụ thể
+  // Content format terms
   'carousel', 'script', 'kịch', 'bản', 'video', 'reel', 'reels', 'story', 'stories',
   'multichannel', 'đa', 'multi',
+  // Common filler words
+  'giúp', 'help', 'tôi', 'mình', 'me', 'hãy', 'please', 'cần', 'need', 'muốn', 'want',
+  'gợi', 'ý', 'suggest', 'đề', 'xuất',
 ]);
 
 function hasExplicitTopic(message: string): boolean {
@@ -100,6 +168,12 @@ function hasExplicitTopic(message: string): boolean {
   return words.filter(w => w.length >= 3 && !NON_TOPIC_TERMS.has(w)).length >= 2;
 }
 
+/** Extract requested topic count from message (e.g., "5 chủ đề" → 5) */
+function extractRequestedCount(message: string): number | null {
+  const match = message.match(/(\d+)\s*(?:chủ đề|topic|ý tưởng|idea|cái)/i);
+  return match ? parseInt(match[1], 10) : null;
+}
+
 // ---- Fast-path heuristic ----
 
 interface FastPathResult {
@@ -110,7 +184,7 @@ interface FastPathResult {
 function matchIntent(message: string): FastPathResult | null {
   const lower = message.toLowerCase();
 
-  // Priority order: multi_step > complex_workflow > image_generate > others
+  // Priority order: multi_step > complex_workflow > image > topic_discovery > others
   for (const p of INTENT_PATTERNS.multi_step) {
     if (p.test(lower)) return { intent: 'multi_step', confidence: 0.88 };
   }
@@ -120,11 +194,24 @@ function matchIntent(message: string): FastPathResult | null {
   for (const p of INTENT_PATTERNS.image_generate) {
     if (p.test(lower)) return { intent: 'image_generate', confidence: 0.88 };
   }
+  // Topic discovery (e.g., "chọn 5 chủ đề", "gợi ý topic", "brainstorm ý tưởng")
+  for (const p of INTENT_PATTERNS.topic_discovery) {
+    if (p.test(lower)) return { intent: 'topic_discovery', confidence: 0.9 };
+  }
+  // Ambiguity check — very short or missing info prompts
+  for (const p of INTENT_PATTERNS.clarify_needed) {
+    if (p.test(lower)) {
+      const ambiguity = detectAmbiguity(message);
+      if (ambiguity.isAmbiguous) {
+        return { intent: 'clarify_needed', confidence: 0.8 };
+      }
+    }
+  }
 
   // Score remaining intents
   const scores: Record<string, number> = { research: 0, plan: 0, generate: 0 };
   for (const [intent, patterns] of Object.entries(INTENT_PATTERNS)) {
-    if (['multi_step', 'complex_workflow', 'image_generate'].includes(intent)) continue;
+    if (['multi_step', 'complex_workflow', 'image_generate', 'topic_discovery', 'clarify_needed'].includes(intent)) continue;
     for (const p of patterns) {
       if (p.test(lower)) scores[intent] = (scores[intent] || 0) + 1;
     }
@@ -144,14 +231,17 @@ function intentToTemplate(intent: string, message: string): string {
     case 'image_generate':
       return 'image_generate';
     case 'research':
+    case 'topic_discovery':
       return 'research_only';
     case 'plan':
-      return 'generate_with_research'; // planning needs research context
+      return 'generate_with_research';
     case 'generate':
       return hasExplicitTopic(message) ? 'generate_simple' : 'generate_with_research';
     case 'complex_workflow':
     case 'multi_step':
       return 'full_pipeline';
+    case 'clarify_needed':
+      return 'chat'; // Simple chat to ask clarifying questions
     default:
       return 'chat';
   }
