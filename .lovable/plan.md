@@ -1,63 +1,43 @@
 
 
-# Fix: Show Topic AI Results on UI
+# Remove Redundant Brand Memory & Compliance Nodes
 
-## Root Cause Analysis
+## Why
 
-After tracing the entire data flow end-to-end, the architecture is correctly wired:
-- Backend: `research-node.ts` extracts `suggestedTopics` from `discover_topics` results
-- Backend: `graph-engine.ts` (line 728-740) emits `topic_suggestions` SSE event  
-- Frontend: `useChatStreaming.ts` (line 288) captures event into `pendingSuggestedTopics`
-- Frontend: `ChatMessageBubble.tsx` (line 257) renders `TopicSuggestionsCard`
+The `generate-multichannel` edge function (which Content Node calls) already has:
+- **Compliance pre-check**: Loads `industry_jurisdiction_profiles`, merges forbidden terms, compliance rules, claim restrictions, and blocks topics with forbidden terms (lines 1970-2000)
+- **Brand voice/memory**: Loads full `brand_templates` with tone, forbidden words, compliance rules and injects them into the LLM prompt (lines 1750-1850)
 
-However, the event emission has **no logging** and the topic data format may not match what the frontend expects. The `TopicSuggestionsCard` requires `{ topic, category, score, reasoning }` but the cached/raw data from Topic AI may use different field names (`title`, `name`, `overallScore`).
+The separate Brand Memory and Compliance graph nodes duplicate this work, adding ~100-200ms of latency per request for zero benefit.
 
-## Fix (2 files)
+## Changes
 
-### 1. Backend: Add logging + normalize topic data (`graph-engine.ts`)
+### 1. Remove nodes from graph plans (`graph-engine.ts`)
 
-In the `onNodeComplete` handler (lines 728-740), add:
-- A `console.log` to confirm event emission
-- Normalize each topic object to ensure field names match `SuggestedTopic` interface
+Update the 3 plan templates that reference these nodes:
 
-```typescript
-if (nodeName === 'research' && update) {
-  const u = update as any;
-  if (u.suggestedTopics?.length) {
-    const normalizedTopics = u.suggestedTopics.map((t: any) => ({
-      topic: t.topic || t.title || t.name || 'Untitled',
-      category: t.category || t.pillar || 'general',
-      score: t.score ?? t.overallScore ?? null,
-      reasoning: t.reasoning || t.explanation || null,
-    }));
-    console.log(`[GraphEngine] Emitting topic_suggestions: ${normalizedTopics.length} topics, best: ${u.bestTopic}`);
-    options.onEvent?.({
-      type: 'topic_suggestions',
-      data: {
-        topics: normalizedTopics,
-        best_topic: u.bestTopic || undefined,
-      },
-    });
-  }
-}
-```
+- `generate_with_research`: Change `{ node: 'research', parallelWith: ['brand_memory', 'compliance'] }` to `{ node: 'research' }`
+- `full_pipeline`: Same change
+- Add `'brand_memory'` and `'compliance'` to `skipNodes` arrays
 
-### 2. Frontend: Add debug logging (`useChatStreaming.ts`)
+### 2. Remove from node registry (`graph/nodes/index.ts`)
 
-At the `topic_suggestions` handler (line 288), add a `console.log` to confirm receipt:
+- Remove imports for `createBrandMemoryNode` and `createComplianceNode`
+- Remove `registry.set('brand_memory', ...)` and `registry.set('compliance', ...)` entries
+- Keep the re-exports for backward compatibility (other code may reference them)
 
-```typescript
-if (parsed.type === 'topic_suggestions' && parsed.data?.topics) {
-  console.log('[Chat] Received topic_suggestions:', parsed.data.topics.length, 'topics');
-  pendingSuggestedTopics = parsed.data.topics;
-  pendingSelectedTopic = parsed.data.best_topic || undefined;
-  continue;
-}
-```
+### 3. Clean up GraphState (`graph-state.ts`)
 
-## Why This Should Fix It
+- Keep `brandMemoryContext` and `complianceResult` fields in the interface (they won't be populated but won't cause errors either)
+- Remove them from `buildStateContext()` output since they'll always be empty
 
-1. **Data normalization** ensures field names always match regardless of how Topic AI returns them (cached vs fresh, different response formats)
-2. **Logging** lets us confirm in the next test whether the event is actually emitted and received
-3. No architectural changes needed -- the pipeline is correctly wired, just needs format consistency
+## What stays unchanged
 
+- `brand-memory-node.ts` and `compliance-node.ts` files are kept (not deleted) for potential future use
+- `generate-multichannel` continues to handle all compliance and brand voice logic internally
+- No frontend changes needed
+
+## Impact
+
+- Faster graph execution (2 fewer parallel DB calls)
+- Simpler pipeline: Research -> Strategy -> Content -> Reviewer -> Governor
