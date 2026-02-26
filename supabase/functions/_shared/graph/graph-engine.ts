@@ -598,6 +598,17 @@ export async function runOrchestrator(
   state.orchestratorReasoning = plan.reasoning;
   state.userIntent = plan.fastPath ? 'fast_path' : 'llm_planned';
 
+  // Sprint 6E: Reserve 25% token budget for revision loop when governor is in plan
+  const hasGovernor = plan.steps.some(s => s.node === 'governor');
+  if (hasGovernor) {
+    const totalBudget = state.tokenBudget.total;
+    const revisionReserve = Math.floor(totalBudget * 0.25);
+    state.tokenBudget.total = totalBudget - revisionReserve;
+    state.metadata.revisionBudgetReserve = revisionReserve;
+    state.metadata.originalTotalBudget = totalBudget;
+    console.log(`[runOrchestrator] Reserved ${revisionReserve} tokens for revision (pipeline budget: ${state.tokenBudget.total})`);
+  }
+
   // Task 11: Use LLM-extracted topic as fallback (zero additional cost)
   if (plan.extractedTopic && !state.bestTopic) {
     state.bestTopic = plan.extractedTopic;
@@ -668,9 +679,18 @@ export async function runOrchestrator(
         if (span) endSpan(span);
       }
 
+      // Include quality warning metadata for governor node
+      const eventData: Record<string, any> = { node: nodeName, durationMs, traceId: trace.traceId };
+      if (nodeName === 'governor' && update) {
+        const u = update as any;
+        if (u.exitReason) eventData.exitReason = u.exitReason;
+        if (u.metadata?.revisionRound) eventData.revisionRound = u.metadata.revisionRound;
+        if (u.metadata?.reviewScore !== undefined) eventData.reviewScore = u.metadata.reviewScore;
+      }
+
       options.onEvent?.({
         type: 'node_complete',
-        data: { node: nodeName, durationMs, traceId: trace.traceId },
+        data: eventData,
       });
 
       // Auto-store node output to Blackboard v2

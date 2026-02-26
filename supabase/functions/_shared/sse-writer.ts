@@ -1,4 +1,4 @@
-// SSE Writer utility — extracted from agentic-loop.ts
+// SSE Writer utility for streaming events to frontend
 
 export interface AgentSSEEvent {
   type: 'turn_start' | 'tool_executing' | 'tool_result' | 'turn_complete' | 'content_chunk' | 'final_response' | 'error' | 'agent_step_result';
