@@ -297,15 +297,19 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
             if (parsed.type === 'topic_suggestions' && parsed.data?.topics) {
               console.log('[Chat] Received topic_suggestions:', parsed.data.topics.length, 'topics');
               pendingSuggestedTopics = parsed.data.topics;
-              pendingSelectedTopic = parsed.data.best_topic || parsed.data.topics?.[0]?.topic || undefined;
+              // Don't auto-select: store as AI recommendation only
+              pendingSelectedTopic = undefined;
               pendingRefinedVariants = parsed.data.refined_variants || undefined;
               pendingSelectedTopicReason = parsed.data.best_topic_reason || undefined;
+              // Store AI recommendation separately
+              const aiRecommended = parsed.data.best_topic || parsed.data.topics?.[0]?.topic || undefined;
 
               // Render ngay cả khi chưa có content_chunk để tránh mất TopicSuggestionsCard
               if (messageCreated) {
                 onMessageUpdate(assistantId, {
                   suggestedTopics: pendingSuggestedTopics,
-                  selectedTopic: pendingSelectedTopic,
+                  selectedTopic: undefined,
+                  aiRecommendedTopic: aiRecommended,
                   selectedTopicReason: pendingSelectedTopicReason,
                   refinedVariants: pendingRefinedVariants,
                 });
@@ -323,7 +327,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   contextSources: pendingContextSources,
                   suggestedFollowUps: pendingSuggestedFollowUps,
                   suggestedTopics: pendingSuggestedTopics,
-                  selectedTopic: pendingSelectedTopic,
+                  selectedTopic: undefined,
+                  aiRecommendedTopic: aiRecommended,
                   selectedTopicReason: pendingSelectedTopicReason,
                   refinedVariants: pendingRefinedVariants,
                 };
