@@ -3398,7 +3398,9 @@ export type Database = {
           embedding: string | null
           id: string
           metadata: Json | null
+          node_name: string | null
           organization_id: string | null
+          session_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -3411,7 +3413,9 @@ export type Database = {
           embedding?: string | null
           id?: string
           metadata?: Json | null
+          node_name?: string | null
           organization_id?: string | null
+          session_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -3424,7 +3428,9 @@ export type Database = {
           embedding?: string | null
           id?: string
           metadata?: Json | null
+          node_name?: string | null
           organization_id?: string | null
+          session_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -8522,6 +8528,28 @@ export type Database = {
           p_result_count?: number
         }
         Returns: string
+      }
+      match_blackboard_context: {
+        Args: {
+          match_brand_id?: string
+          match_count?: number
+          match_node_types?: string[]
+          match_session_id?: string
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          brand_template_id: string
+          content_text: string
+          content_type: string
+          created_at: string
+          id: string
+          metadata: Json
+          node_name: string
+          priority_score: number
+          session_id: string
+          similarity: number
+        }[]
       }
       merge_duplicate_nodes: {
         Args: {

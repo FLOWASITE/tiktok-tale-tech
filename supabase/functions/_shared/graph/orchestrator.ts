@@ -6,6 +6,7 @@
 
 import { GraphState, GraphPlan } from "./graph-state.ts";
 import { TEMPLATE_PLANS } from "./graph-engine.ts";
+import { BlackboardRetriever, formatRetrievedContext } from "./blackboard-retriever.ts";
 
 // ---- Types ----
 
@@ -15,6 +16,8 @@ export interface OrchestratorOptions {
   availableNodes?: string[];
   /** Force a specific template plan (bypass heuristic + LLM) */
   forceTemplate?: string;
+  /** Blackboard retriever for cross-session memory */
+  retriever?: BlackboardRetriever;
 }
 
 // ---- Intent Patterns (reused from intent-classifier.ts) ----
@@ -265,6 +268,21 @@ async function planWithLLM(
       ? `\n\nBrand context available: ${state.brandMemoryContext.slice(0, 500)}`
       : '';
 
+    // Blackboard v2: inject cross-session memory into orchestrator context
+    let crossSessionContext = '';
+    if (_options.retriever) {
+      try {
+        const pastEntries = await _options.retriever.retrieveCrossSession(state.userMessage, 3);
+        if (pastEntries.length > 0) {
+          crossSessionContext = `\n\nPast session context (from previous workflows for this brand):\n${
+            pastEntries.map((e: any) => `- [${e.nodeName || e.contentType}] ${e.contentText.slice(0, 300)}`).join('\n')
+          }`;
+        }
+      } catch (err) {
+        console.warn('[Orchestrator] Cross-session memory lookup failed:', err);
+      }
+    }
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -277,7 +295,7 @@ async function planWithLLM(
           { role: "system", content: ORCHESTRATOR_SYSTEM_PROMPT },
           {
             role: "user",
-            content: `User message: "${state.userMessage}"${userContext}`,
+            content: `User message: "${state.userMessage}"${userContext}${crossSessionContext}`,
           },
         ],
         tools: [CREATE_GRAPH_PLAN_TOOL],

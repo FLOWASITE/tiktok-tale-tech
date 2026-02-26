@@ -10,6 +10,7 @@ import { executeToolCall } from "../../tool-executor.ts";
 import { CHAT_TOOLS } from "../../tool-definitions.ts";
 import { buildContentSystemPrompt } from "../../agents/content-agent.ts";
 import { withCache, generateCacheKey } from "../../cache/redis-cache.ts";
+import { formatRetrievedContext } from "../blackboard-retriever.ts";
 
 const CONTENT_TOOLS = ['generate_script', 'generate_carousel', 'generate_multichannel', 'save_topic'];
 
@@ -21,6 +22,7 @@ interface ContentNodeContext {
   brandName?: string;
   industry?: string;
   userAccessToken?: string;
+  retriever?: any;
 }
 
 export function createContentNode(ctx: ContentNodeContext) {
@@ -35,7 +37,23 @@ export function createContentNode(ctx: ContentNodeContext) {
 
     return withCache(cacheKey, async () => {
     const systemPrompt = buildContentSystemPrompt(ctx.brandName, ctx.industry);
-    const stateContext = buildStateContext(state);
+
+    // Blackboard v2: semantic context retrieval
+    let stateContext: string;
+    if (ctx.retriever) {
+      try {
+        const entries = await ctx.retriever.retrieve(
+          state.userMessage,
+          ['research_output', 'plan', 'compliance_check', 'generated_content'],
+          5
+        );
+        stateContext = formatRetrievedContext(entries);
+      } catch {
+        stateContext = buildStateContext(state);
+      }
+    } else {
+      stateContext = buildStateContext(state);
+    }
     const tools = CHAT_TOOLS.filter(t => CONTENT_TOOLS.includes(t.function.name));
 
     // Inject bestTopic into user message if available

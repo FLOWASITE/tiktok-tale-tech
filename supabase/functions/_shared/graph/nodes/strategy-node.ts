@@ -9,6 +9,7 @@ import { executeToolCall } from "../../tool-executor.ts";
 import { CHAT_TOOLS } from "../../tool-definitions.ts";
 import { buildStrategySystemPrompt } from "../../agents/strategy-agent.ts";
 import { withCache, generateCacheKey } from "../../cache/redis-cache.ts";
+import { formatRetrievedContext } from "../blackboard-retriever.ts";
 
 const STRATEGY_TOOLS = ['start_planning_session', 'generate_plan_draft', 'refine_plan', 'finalize_plan'];
 
@@ -20,6 +21,7 @@ interface StrategyNodeContext {
   brandName?: string;
   industry?: string;
   userAccessToken?: string;
+  retriever?: any;
 }
 
 export function createStrategyNode(ctx: StrategyNodeContext) {
@@ -34,7 +36,19 @@ export function createStrategyNode(ctx: StrategyNodeContext) {
 
     return withCache(cacheKey, async () => {
     const systemPrompt = buildStrategySystemPrompt(ctx.brandName, ctx.industry);
-    const stateContext = buildStateContext(state);
+
+    // Blackboard v2: semantic context retrieval
+    let stateContext: string;
+    if (ctx.retriever) {
+      try {
+        const entries = await ctx.retriever.retrieve(state.userMessage, ['research_output', 'plan', 'compliance_check'], 5);
+        stateContext = formatRetrievedContext(entries);
+      } catch {
+        stateContext = buildStateContext(state);
+      }
+    } else {
+      stateContext = buildStateContext(state);
+    }
     const tools = CHAT_TOOLS.filter(t => STRATEGY_TOOLS.includes(t.function.name));
 
     const aiResult = await callAI({
