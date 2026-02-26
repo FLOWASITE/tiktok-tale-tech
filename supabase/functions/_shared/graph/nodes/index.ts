@@ -35,6 +35,8 @@ export interface NodeExecutionContext {
   complianceRules?: string[];
   /** Blackboard retriever for semantic context (v2) */
   retriever?: any;
+  /** Content node progress callback for sub-step SSE events */
+  onContentProgress?: (subStep: string, label: string, progress: number) => void;
 }
 
 // ---- Factory ----
@@ -60,7 +62,7 @@ export function createNodeRegistry(context: NodeExecutionContext): Map<string, N
 
   registry.set('content', {
     name: 'content',
-    fn: createContentNode(context),
+    fn: createContentNode({ ...context, onProgress: context.onContentProgress }),
     critical: true,
     estimatedTokens: 4000,
   });

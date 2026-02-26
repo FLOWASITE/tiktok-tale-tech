@@ -33,6 +33,8 @@ export interface ProgressStep {
   label: string;
   status: 'pending' | 'active' | 'complete' | 'error';
   duration?: number;
+  subLabel?: string;
+  progress?: number;
 }
 
 interface ChatThinkingIndicatorProps {
@@ -210,6 +212,9 @@ export const ChatThinkingIndicator = React.forwardRef<HTMLDivElement, ChatThinki
                         <AgentIcon className="w-3 h-3" />
                       )}
                       <span>{step.label.replace(/^[^\s]+\s/, '')}</span>
+                      {step.status === 'active' && step.subLabel && (
+                        <span className="text-[9px] text-primary/70 ml-0.5">· {step.subLabel}</span>
+                      )}
                       {step.status === 'complete' && step.duration && (
                         <span className="opacity-60">{(step.duration / 1000).toFixed(1)}s</span>
                       )}

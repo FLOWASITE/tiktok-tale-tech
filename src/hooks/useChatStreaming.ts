@@ -22,6 +22,8 @@ export interface ProgressStep {
   status: 'pending' | 'active' | 'complete' | 'error';
   duration?: number;
   startTime?: number;
+  subLabel?: string;
+  progress?: number;
 }
 
 interface StreamingState {
@@ -67,6 +69,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
   
   const abortControllerRef = useRef<AbortController | null>(null);
   const elapsedIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const contentFallbackRef = useRef<NodeJS.Timeout | null>(null);
   
   const [state, setState] = useState<StreamingState>({
     isLoading: false,
@@ -85,6 +88,10 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
     if (elapsedIntervalRef.current) {
       clearInterval(elapsedIntervalRef.current);
       elapsedIntervalRef.current = null;
+    }
+    if (contentFallbackRef.current) {
+      clearInterval(contentFallbackRef.current);
+      contentFallbackRef.current = null;
     }
     setState(prev => ({
       ...prev,
@@ -374,7 +381,49 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                 currentExecutingTool: nodeName,
                 progressSteps: prev.progressSteps.map(step =>
                   step.id === nodeName
-                    ? { ...step, status: 'active' as const, startTime: Date.now() }
+                    ? { ...step, status: 'active' as const, startTime: Date.now(), subLabel: undefined, progress: undefined }
+                    : step
+                ),
+              }));
+
+              // Fallback timer for content node — animate progress if no backend events arrive
+              if (nodeName === 'content') {
+                if (contentFallbackRef.current) clearInterval(contentFallbackRef.current);
+                const contentStartTime = Date.now();
+                contentFallbackRef.current = setInterval(() => {
+                  const elapsed = (Date.now() - contentStartTime) / 1000;
+                  let subLabel: string;
+                  let progress: number;
+                  if (elapsed < 5) { subLabel = 'Chuẩn bị nội dung...'; progress = 20; }
+                  else if (elapsed < 15) { subLabel = 'Đang tạo nội dung...'; progress = 55; }
+                  else if (elapsed < 25) { subLabel = 'Đang hoàn thiện...'; progress = 80; }
+                  else { subLabel = 'Sắp xong...'; progress = 92; }
+                  setState(prev => {
+                    const step = prev.progressSteps.find(s => s.id === 'content');
+                    // Only set fallback if no backend progress was received (subLabel still matches fallback pattern)
+                    if (step?.status !== 'active') return prev;
+                    return {
+                      ...prev,
+                      progressSteps: prev.progressSteps.map(s =>
+                        s.id === 'content' && s.status === 'active'
+                          ? { ...s, subLabel, progress }
+                          : s
+                      ),
+                    };
+                  });
+                }, 2000);
+              }
+              continue;
+            }
+
+            // Handle node_progress for sub-step updates (content node)
+            if (parsed.type === 'node_progress' && parsed.data?.node) {
+              const { node, subStep, label, progress } = parsed.data;
+              setState(prev => ({
+                ...prev,
+                progressSteps: prev.progressSteps.map(step =>
+                  step.id === node && step.status === 'active'
+                    ? { ...step, subLabel: label, progress }
                     : step
                 ),
               }));
@@ -384,13 +433,18 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
             if (parsed.type === 'node_complete' && parsed.data?.node) {
               const nodeName = parsed.data.node;
               const durationMs = parsed.data.durationMs;
+              // Clear content fallback timer
+              if (nodeName === 'content' && contentFallbackRef.current) {
+                clearInterval(contentFallbackRef.current);
+                contentFallbackRef.current = null;
+              }
               setState(prev => ({
                 ...prev,
                 currentExecutingTool: null,
                 thinkingStatus: 'generating',
                 progressSteps: prev.progressSteps.map(step =>
                   step.id === nodeName
-                    ? { ...step, status: 'complete' as const, duration: durationMs || (Date.now() - (step.startTime || Date.now())) }
+                    ? { ...step, status: 'complete' as const, duration: durationMs || (Date.now() - (step.startTime || Date.now())), subLabel: undefined, progress: undefined }
                     : step
                 ),
               }));

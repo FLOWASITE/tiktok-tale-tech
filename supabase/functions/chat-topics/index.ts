@@ -109,8 +109,6 @@ serve(async (req) => {
       complianceRules: ctx.industryMemory?.compliance_rules?.map((r: any) => typeof r === 'string' ? r : r.rule),
     };
 
-    const nodeRegistry = createNodeRegistry(nodeContext);
-
     const { readable, writable } = new TransformStream();
     const writer = writable.getWriter();
     const encoder = new TextEncoder();
@@ -127,6 +125,13 @@ serve(async (req) => {
           });
         });
     };
+
+    // Wire content node progress to SSE
+    nodeContext.onContentProgress = (subStep: string, label: string, progress: number) => {
+      enqueueEvent({ type: 'node_progress', data: { node: 'content', subStep, label, progress } });
+    };
+
+    const nodeRegistry = createNodeRegistry(nodeContext);
 
     // Send context metadata first
     const metadataEvent = `data: ${serializeContextMetadata(contextMetadata)}\n\n`;
