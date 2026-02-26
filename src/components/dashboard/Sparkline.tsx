@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, forwardRef } from 'react';
 
 interface SparklineProps {
   data: number[];
@@ -9,14 +9,14 @@ interface SparklineProps {
   className?: string;
 }
 
-export function Sparkline({ 
+export const Sparkline = forwardRef<SVGSVGElement, SparklineProps>(function Sparkline({ 
   data, 
   width = 80, 
   height = 32, 
   color = 'hsl(var(--primary))',
   showGradient = true,
   className = '' 
-}: SparklineProps) {
+}, ref) {
   const path = useMemo(() => {
     if (!data.length) return '';
     
@@ -48,6 +48,7 @@ export function Sparkline({
 
   return (
     <svg 
+      ref={ref}
       width={width} 
       height={height} 
       className={`overflow-visible ${className}`}
@@ -96,4 +97,4 @@ export function Sparkline({
       )}
     </svg>
   );
-}
+});

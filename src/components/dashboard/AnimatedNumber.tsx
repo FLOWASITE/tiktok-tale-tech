@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, forwardRef } from 'react';
 
 interface AnimatedNumberProps {
   value: number;
@@ -6,7 +6,7 @@ interface AnimatedNumberProps {
   className?: string;
 }
 
-export function AnimatedNumber({ value, duration = 1000, className = '' }: AnimatedNumberProps) {
+export const AnimatedNumber = forwardRef<HTMLSpanElement, AnimatedNumberProps>(function AnimatedNumber({ value, duration = 1000, className = '' }, ref) {
   const [displayValue, setDisplayValue] = useState(0);
   const previousValue = useRef(0);
   const animationRef = useRef<number>();
@@ -43,8 +43,8 @@ export function AnimatedNumber({ value, duration = 1000, className = '' }: Anima
   }, [value, duration]);
 
   return (
-    <span className={className}>
+    <span ref={ref} className={className}>
       {displayValue.toLocaleString()}
     </span>
   );
-}
+});
