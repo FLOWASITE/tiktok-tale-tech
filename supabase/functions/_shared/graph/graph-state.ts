@@ -28,6 +28,8 @@ export interface NodeResult {
   error?: string;
   /** Partial state update produced by this node */
   stateUpdate: Partial<GraphState>;
+  /** Actual tokens used (from LLM response usage header) */
+  actualTokensUsed?: number;
 }
 
 // ---- Core Graph State ----
@@ -111,7 +113,7 @@ export interface TokenBudget {
 // ---- Human-in-the-loop ----
 
 export interface InterruptPayload {
-  type: 'topic_selection' | 'approval' | 'custom';
+  type: 'topic_selection' | 'approval' | 'custom' | 'human_escalation';
   prompt: string;
   options?: Array<{ label: string; value: string }>;
   resumeNodeId: string;

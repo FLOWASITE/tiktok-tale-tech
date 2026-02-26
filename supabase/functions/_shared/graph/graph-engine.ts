@@ -332,6 +332,13 @@ export async function executeGraph(
       } else {
         completed.add(nodeName);
         state = mergeStateUpdate(state, update || {});
+
+        // Extract actual tokens from metadata if available
+        const updateAny = update as any;
+        const actualTokens = Object.keys(updateAny?.metadata || {})
+          .filter(k => k.startsWith('actualTokensUsed_'))
+          .reduce((sum, k) => sum + (updateAny.metadata[k] || 0), 0);
+
         state = mergeStateUpdate(state, {
           nodeResults: [{
             nodeName,
@@ -340,8 +347,21 @@ export async function executeGraph(
             toolResults: [],
             durationMs: durationMs || 0,
             stateUpdate: update || {},
+            actualTokensUsed: actualTokens || undefined,
           }],
         });
+
+        // Update token budget with actual usage if available
+        if (actualTokens > 0) {
+          const nodeConfig = graph.nodes.get(nodeName);
+          state.tokenBudget.used += actualTokens;
+          if (nodeConfig?.name) {
+            state.tokenBudget.perNode[nodeConfig.name] = {
+              budget: nodeConfig.estimatedTokens || 0,
+              used: actualTokens,
+            };
+          }
+        }
       }
 
       // Checkpoint after each node

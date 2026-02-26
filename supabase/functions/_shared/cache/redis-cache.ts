@@ -6,7 +6,7 @@
 let redisClient: any = null;
 let redisInitAttempted = false;
 
-async function getRedis(): Promise<any | null> {
+export async function getRedis(): Promise<any | null> {
   if (redisInitAttempted) return redisClient;
   redisInitAttempted = true;
 
@@ -45,7 +45,7 @@ export async function generateCacheKey(
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
 
-  return `flowa:cache:${brandId}:${nodeType}:${hashHex.slice(0, 16)}`;
+  return `flowa:cache:${brandId}:${nodeType}:${hashHex.slice(0, 32)}`;
 }
 
 // ---- Cache Decorator ----

@@ -648,7 +648,7 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
   const effectiveTemperature = temperatureOverride ?? config.temperature;
   
   // Check circuit breaker - may switch to fallback model
-  const { model: effectiveModel, usingFallback } = getEffectiveModel(requestedModel);
+  const { model: effectiveModel, usingFallback } = await getEffectiveModel(requestedModel);
   
   // Create effective config with overrides
   const effectiveConfig = {
@@ -747,9 +747,9 @@ async function callWithCircuitBreaker(
   if (options.stream) {
     const result = await fn();
     if (result.success) {
-      recordSuccess(model);
+      await recordSuccess(model);
     } else {
-      recordFailure(model);
+      await recordFailure(model);
     }
     return result;
   }
@@ -789,10 +789,10 @@ async function callWithCircuitBreaker(
       }
     );
     
-    recordSuccess(model);
+    await recordSuccess(model);
     return result;
   } catch (error) {
-    recordFailure(model);
+    await recordFailure(model);
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error),

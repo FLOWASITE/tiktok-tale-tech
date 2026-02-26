@@ -104,7 +104,15 @@ export function createReviewerNode(ctx: ReviewerNodeContext) {
     const reviewScore = reviewResult?.score ?? reviewResult?.overall_score ?? reviewResult?.quality_score ?? 0;
     const reviewConfidence = reviewResult?.confidence ?? (reviewScore > 0 ? 0.7 : 0);
 
-    console.log(`[ReviewerNode] Complete. Score=${reviewScore}, Confidence=${reviewConfidence}`);
-    return { reviewResult, reviewScore, reviewConfidence };
+    // Extract actual token usage
+    const usage = finalResult.data?.usage;
+    const actualTokensUsed = (usage?.prompt_tokens || 0) + (usage?.completion_tokens || 0)
+      + (aiResult.data?.usage?.prompt_tokens || 0) + (aiResult.data?.usage?.completion_tokens || 0);
+
+    console.log(`[ReviewerNode] Complete. Score=${reviewScore}, Confidence=${reviewConfidence}, Tokens=${actualTokensUsed}`);
+    return { 
+      reviewResult, reviewScore, reviewConfidence,
+      metadata: { actualTokensUsed_reviewer: actualTokensUsed },
+    };
   };
 }

@@ -3,7 +3,11 @@
  * 
  * Tracks failure rates per model and automatically falls back to backup models
  * when failure threshold is exceeded.
+ * 
+ * v2: Hybrid Redis + in-memory state for cross-instance awareness.
  */
+
+import { getRedis } from "./cache/redis-cache.ts";
 
 // ============================================
 // TYPES
@@ -66,19 +70,40 @@ const FALLBACK_MODELS: Record<string, string> = {
 const DEFAULT_FALLBACK = 'google/gemini-2.5-flash';
 
 // ============================================
-// STATE MANAGEMENT
+// STATE MANAGEMENT (Hybrid: Redis + In-Memory)
 // ============================================
 
-// In-memory state for circuit breakers (per-model)
+// In-memory state for circuit breakers (per-model) — local fallback
 const circuitStates = new Map<string, CircuitBreakerState>();
 
 // Request timestamps for rate calculation
 const requestHistory = new Map<string, { timestamp: number; success: boolean }[]>();
 
+/** Redis key for circuit breaker state */
+function cbRedisKey(model: string): string {
+  return `flowa:cb:${model.replace(/\//g, ':')}`;
+}
+
 /**
- * Get or create circuit breaker state for a model
+ * Get circuit breaker state — try Redis first, fallback to in-memory
  */
-function getState(model: string): CircuitBreakerState {
+async function getState(model: string): Promise<CircuitBreakerState> {
+  // Try Redis first
+  try {
+    const redis = await getRedis();
+    if (redis) {
+      const cached = await redis.get(cbRedisKey(model));
+      if (cached) {
+        const parsed = typeof cached === 'string' ? JSON.parse(cached) : cached;
+        // Sync to in-memory
+        circuitStates.set(model, parsed);
+        return parsed;
+      }
+    }
+  } catch {
+    // Redis unavailable, use in-memory
+  }
+
   let state = circuitStates.get(model);
   if (!state) {
     state = {
@@ -92,6 +117,45 @@ function getState(model: string): CircuitBreakerState {
     circuitStates.set(model, state);
   }
   return state;
+}
+
+/**
+ * Persist circuit breaker state to Redis (fire-and-forget)
+ */
+async function persistState(model: string, state: CircuitBreakerState, ttlMs: number): Promise<void> {
+  try {
+    const redis = await getRedis();
+    if (redis) {
+      await redis.set(cbRedisKey(model), JSON.stringify(state), { ex: Math.ceil(ttlMs / 1000) });
+    }
+  } catch {
+    // Redis unavailable, in-memory only
+  }
+}
+
+/**
+ * Log circuit breaker trip event to database
+ */
+async function logCircuitBreakerEvent(
+  model: string,
+  state: CircuitBreakerState,
+  failureRate: number,
+  supabase?: any
+): Promise<void> {
+  if (!supabase) return;
+  try {
+    const provider = model.split('/')[0] || 'unknown';
+    await supabase.from('circuit_breaker_events').insert({
+      provider,
+      model,
+      failure_count: state.failures,
+      failure_rate: failureRate,
+      tripped_at: new Date().toISOString(),
+      instance_id: crypto.randomUUID().slice(0, 8),
+    });
+  } catch (err) {
+    console.warn('[circuit-breaker] Failed to log event:', err);
+  }
 }
 
 /**
@@ -128,14 +192,16 @@ function getFailureRate(model: string, config: CircuitBreakerConfig): number {
 /**
  * Check if a model's circuit is open (should use fallback)
  */
-export function isCircuitOpen(model: string, config: CircuitBreakerConfig = DEFAULT_CONFIG): boolean {
-  const state = getState(model);
+export async function isCircuitOpen(model: string, config: CircuitBreakerConfig = DEFAULT_CONFIG): Promise<boolean> {
+  const state = await getState(model);
   const now = Date.now();
   
   // If open, check if we should transition to half-open
   if (state.state === 'open' && state.openedAt) {
     if (now - state.openedAt > config.resetTimeoutMs) {
       state.state = 'half-open';
+      circuitStates.set(model, state);
+      await persistState(model, state, config.resetTimeoutMs);
       console.log(`[circuit-breaker] ${model}: OPEN -> HALF-OPEN (trying again)`);
     }
   }
@@ -146,8 +212,8 @@ export function isCircuitOpen(model: string, config: CircuitBreakerConfig = DEFA
 /**
  * Record a successful request
  */
-export function recordSuccess(model: string, config: CircuitBreakerConfig = DEFAULT_CONFIG): void {
-  const state = getState(model);
+export async function recordSuccess(model: string, config: CircuitBreakerConfig = DEFAULT_CONFIG): Promise<void> {
+  const state = await getState(model);
   state.successes++;
   state.lastSuccess = Date.now();
   
@@ -163,13 +229,16 @@ export function recordSuccess(model: string, config: CircuitBreakerConfig = DEFA
     state.openedAt = null;
     console.log(`[circuit-breaker] ${model}: HALF-OPEN -> CLOSED (recovered)`);
   }
+
+  circuitStates.set(model, state);
+  await persistState(model, state, config.resetTimeoutMs);
 }
 
 /**
  * Record a failed request
  */
-export function recordFailure(model: string, config: CircuitBreakerConfig = DEFAULT_CONFIG): void {
-  const state = getState(model);
+export async function recordFailure(model: string, config: CircuitBreakerConfig = DEFAULT_CONFIG, supabase?: any): Promise<void> {
+  const state = await getState(model);
   state.failures++;
   state.lastFailure = Date.now();
   
@@ -190,7 +259,13 @@ export function recordFailure(model: string, config: CircuitBreakerConfig = DEFA
     state.state = 'open';
     state.openedAt = Date.now();
     console.log(`[circuit-breaker] ${model}: -> OPEN (failures: ${state.failures}, rate: ${(failureRate * 100).toFixed(1)}%)`);
+    
+    // Log trip event to database
+    logCircuitBreakerEvent(model, state, failureRate, supabase).catch(() => {});
   }
+
+  circuitStates.set(model, state);
+  await persistState(model, state, config.resetTimeoutMs);
 }
 
 /**
@@ -203,11 +278,11 @@ export function getFallbackModel(model: string): string {
 /**
  * Get effective model (original or fallback if circuit is open)
  */
-export function getEffectiveModel(
+export async function getEffectiveModel(
   model: string, 
   config: CircuitBreakerConfig = DEFAULT_CONFIG
-): { model: string; usingFallback: boolean } {
-  if (isCircuitOpen(model, config)) {
+): Promise<{ model: string; usingFallback: boolean }> {
+  if (await isCircuitOpen(model, config)) {
     const fallback = getFallbackModel(model);
     console.log(`[circuit-breaker] ${model} circuit OPEN, using fallback: ${fallback}`);
     return { model: fallback, usingFallback: true };

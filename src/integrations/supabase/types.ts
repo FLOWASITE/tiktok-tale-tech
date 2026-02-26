@@ -3283,6 +3283,39 @@ export type Database = {
           },
         ]
       }
+      circuit_breaker_events: {
+        Row: {
+          created_at: string
+          failure_count: number
+          failure_rate: number | null
+          id: string
+          instance_id: string | null
+          model: string
+          provider: string
+          tripped_at: string
+        }
+        Insert: {
+          created_at?: string
+          failure_count?: number
+          failure_rate?: number | null
+          id?: string
+          instance_id?: string | null
+          model: string
+          provider: string
+          tripped_at?: string
+        }
+        Update: {
+          created_at?: string
+          failure_count?: number
+          failure_rate?: number | null
+          id?: string
+          instance_id?: string | null
+          model?: string
+          provider?: string
+          tripped_at?: string
+        }
+        Relationships: []
+      }
       competitor_profiles: {
         Row: {
           competitor_name: string
@@ -7370,6 +7403,53 @@ export type Database = {
           },
           {
             foreignKeyName: "scripts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      security_events: {
+        Row: {
+          created_at: string
+          details: Json | null
+          event_type: string
+          flagged_patterns: string[] | null
+          id: string
+          organization_id: string | null
+          original_length: number | null
+          risk_level: string
+          user_id: string | null
+          was_truncated: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          event_type?: string
+          flagged_patterns?: string[] | null
+          id?: string
+          organization_id?: string | null
+          original_length?: number | null
+          risk_level?: string
+          user_id?: string | null
+          was_truncated?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          event_type?: string
+          flagged_patterns?: string[] | null
+          id?: string
+          organization_id?: string | null
+          original_length?: number | null
+          risk_level?: string
+          user_id?: string | null
+          was_truncated?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_events_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
