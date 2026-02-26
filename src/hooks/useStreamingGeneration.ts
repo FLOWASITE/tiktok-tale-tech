@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ChannelContentPreview {
@@ -45,7 +45,10 @@ type AbortReason = 'user' | 'replaced' | 'watchdog' | null;
 export function useStreamingGeneration(options: UseStreamingGenerationOptions = {}) {
   const [progress, setProgress] = useState<ProgressEvent | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [streamingTexts, setStreamingTexts] = useState<Record<string, string>>({});
+  // Per-channel state isolation: useRef for accumulated text (no re-render),
+  // useState only for signaling which channel updated (targeted re-render)
+  const streamingTextsRef = useRef<Record<string, string>>({});
+  const [channelUpdateSignal, setChannelUpdateSignal] = useState<{ channel: string; version: number }>({ channel: '', version: 0 });
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastEventTimeRef = useRef<number>(Date.now());
@@ -86,7 +89,8 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
     abortReasonRef.current = null; // Reset abort reason for new request
     lastEventTimeRef.current = Date.now();
     setIsGenerating(true);
-    setStreamingTexts({}); // Reset streaming texts
+    streamingTextsRef.current = {}; // Reset streaming texts
+    setChannelUpdateSignal({ channel: '', version: 0 });
     setProgress({ type: 'progress', step: 'init', progress: 0, message: 'Đang khởi tạo...' });
 
     let taskId: string | null = null;
@@ -225,10 +229,11 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
               if (event.type === 'streaming_text' && event.streamingChunk) {
                 const { channel, text, isComplete } = event.streamingChunk;
                 console.log(`[streaming_text] ${channel}: +${text.length} chars, complete: ${isComplete}`);
-                setStreamingTexts(prev => ({
-                  ...prev,
-                  [channel]: (prev[channel] || '') + text,
-                }));
+                streamingTextsRef.current = {
+                  ...streamingTextsRef.current,
+                  [channel]: (streamingTextsRef.current[channel] || '') + text,
+                };
+                setChannelUpdateSignal({ channel, version: Date.now() });
               }
               
               setProgress(event);
@@ -318,17 +323,26 @@ export function useStreamingGeneration(options: UseStreamingGenerationOptions = 
       abortControllerRef.current.abort();
       setIsGenerating(false);
       setProgress(null);
-      setStreamingTexts({});
+      streamingTextsRef.current = {};
+      setChannelUpdateSignal({ channel: '', version: 0 });
       setCurrentTaskId(null);
     }
   }, [cleanupTimers]);
+
+  // Expose getChannelText for per-channel subscription (avoids full object re-render)
+  const getChannelText = useCallback((ch: string) => streamingTextsRef.current[ch] || '', []);
+
+  // Stable snapshot for consumers that need the full object
+  const streamingTexts = streamingTextsRef.current;
 
   return {
     generate,
     cancel,
     progress,
     isGenerating,
-    streamingTexts, // New: accumulated streaming text per channel
-    currentTaskId, // New: current task ID for background tracking
+    streamingTexts, // Accumulated streaming text per channel (ref snapshot)
+    getChannelText, // Per-channel accessor (no re-render on other channels)
+    channelUpdateSignal, // Signal for per-channel re-render
+    currentTaskId, // Current task ID for background tracking
   };
 }

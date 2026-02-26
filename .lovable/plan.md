@@ -1,4 +1,12 @@
 
+# Streaming Optimization (Pragmatic) — ✅ DONE
+
+## Thay doi da thuc hien
+1. **Backend Token Batching 80ms** (`streaming-handler.ts`): Accumulate tokens 80ms, flush khi het stream. Giam SSE events ~80%.
+2. **Frontend Per-Channel State Isolation** (`useStreamingGeneration.ts`): useRef + channelUpdateSignal. Expose `getChannelText()`.
+3. **StreamingChannelCard React.memo** (`StreamingChannelCard.tsx`): Wrap voi `memo()`.
+
+---
 
 # Nhan xet: Streaming 2.0 – Delta Streaming
 

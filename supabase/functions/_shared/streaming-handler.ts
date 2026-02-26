@@ -318,8 +318,12 @@ export async function generateChannelStreaming(
     }
 
     // Optimized streaming with array join (faster than string concat)
+    // Token batching: accumulate tokens for 80ms before emitting
     const contentParts: string[] = [];
     let outputTokenCount = 0;
+    let tokenBuffer = '';
+    let lastEmitTime = Date.now();
+    const BATCH_INTERVAL_MS = 80;
 
     try {
       for await (const delta of iterateStreamDeltas(aiResult.data)) {
@@ -328,20 +332,38 @@ export async function generateChannelStreaming(
         if (delta.content) {
           contentParts.push(delta.content);
           outputTokenCount++;
+          tokenBuffer += delta.content;
 
-          // Emit every token - SSE is already optimized
-          emit({
-            type: 'streaming_text',
-            streamingChunk: {
-              channel,
-              text: delta.content,
-              isComplete: false,
-            },
-          });
+          // Batch emit: only send when 80ms elapsed since last emit
+          const now = Date.now();
+          if (now - lastEmitTime >= BATCH_INTERVAL_MS) {
+            emit({
+              type: 'streaming_text',
+              streamingChunk: {
+                channel,
+                text: tokenBuffer,
+                isComplete: false,
+              },
+            });
+            tokenBuffer = '';
+            lastEmitTime = now;
+          }
         }
       }
     } catch (streamError) {
       // Don't log - already handled by AI provider
+    }
+
+    // Flush remaining tokens in buffer
+    if (tokenBuffer) {
+      emit({
+        type: 'streaming_text',
+        streamingChunk: {
+          channel,
+          text: tokenBuffer,
+          isComplete: false,
+        },
+      });
     }
 
     // Mark complete
