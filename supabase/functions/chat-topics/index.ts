@@ -12,13 +12,12 @@ import {
 } from "../_shared/tool-chain-executor.ts";
 import { fetchUserPreferences, UserPreferencesContext } from "../_shared/user-preferences.ts";
 import { fetchCrossSessionMemory, CrossSessionMemory } from "../_shared/session-memory.ts";
-import { executeAgenticLoop, createSSEWriter, buildReActPromptSection } from "../_shared/agentic-loop.ts";
-import { executeSupervisorLoop } from "../_shared/supervisor/supervisor-loop.ts";
+import { createSSEWriter } from "../_shared/agentic-loop.ts";
 import { buildContextMetadata, serializeContextMetadata, summarizeContext } from "../_shared/context-tracker.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 // Graph Engine imports
 import { runOrchestrator, createNodeRegistry, type NodeExecutionContext } from "../_shared/graph/graph-engine.ts";
-import { createSSEWriter as createGraphSSEWriter } from "../_shared/agentic-loop.ts";
+// createSSEWriter imported above from agentic-loop.ts
 
 // Import shared types
 import { ChatMessage, ChatRequest, BrandContext, IndustryMemory, GlossaryTerm, RAGResult } from "../_shared/types/chat-types.ts";
@@ -84,7 +83,7 @@ serve(async (req) => {
   const requestStartTime = performance.now();
 
   try {
-    const { messages, brandTemplateId, contentGoal, organizationId, userId, enableTools, enableAgenticLoop, enableSupervisor, enableGraphEngine, maxAgentTurns, forceWebSearch }: ChatRequest = await req.json();
+    const { messages, brandTemplateId, contentGoal, organizationId, userId, enableTools, forceWebSearch }: ChatRequest = await req.json();
 
     // Extend logger context
     if (userId) logger.info('Request received', { userId, organizationId, brandTemplateId });
@@ -617,17 +616,8 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
       prefetchSection // NEW: Prefetched web search for trending intent
     );
 
-    // Determine mode and settings
-    const useTools = enableTools !== false;
-    const useAgenticLoop = enableAgenticLoop === true;
-    const useSupervisor = enableSupervisor === true;
-    const useGraphEngine = enableGraphEngine === true;
-    const maxTurns = maxAgentTurns || 5;
-
-    // Add ReAct prompt section if using agentic loop (not supervisor/graph - they have own prompts)
-    const finalSystemPrompt = useAgenticLoop && !useSupervisor
-      ? systemPrompt + buildReActPromptSection()
-      : systemPrompt;
+    // Graph Engine is the only execution mode
+    const finalSystemPrompt = systemPrompt;
 
     // Token budget validation
     const systemPromptTokens = estimateTokenCount(finalSystemPrompt);
@@ -700,8 +690,8 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
       richnessScore: contextMetadata.context_richness_score,
     });
 
-    // ============ GRAPH ENGINE MODE (NEW) ============
-    if (useGraphEngine) {
+    // ============ GRAPH ENGINE MODE ============
+    {
       logger.info('Starting Graph Engine execution', { inputTokensEstimated });
 
       const nodeContext: NodeExecutionContext = {
@@ -720,7 +710,7 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
       const { readable, writable } = new TransformStream();
       const writer = writable.getWriter();
       const encoder = new TextEncoder();
-      const sseWriter = createGraphSSEWriter(writer);
+      const sseWriter = createSSEWriter(writer);
       let pendingWrites = Promise.resolve();
 
       const enqueueEvent = (event: any) => {
@@ -743,6 +733,7 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
         let hadError = false;
         let errorType: string | undefined;
         let errorMessage: string | undefined;
+        let contentStr = '';
 
         // Heartbeat
         const heartbeatInterval = setInterval(() => {
@@ -768,6 +759,7 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
             organizationId: organizationId || undefined,
             brandMemoryContext: undefined, // brand_memory node handles this
             maxExecutionMs: 55000,
+            conversationHistory: processedMessages.map(m => ({ role: m.role, content: m.content })),
             onEvent: (event) => {
               enqueueEvent(event);
             },
@@ -785,7 +777,7 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
                 .join('\n\n')
             || 'Xin lỗi, không thể xử lý yêu cầu này.';
 
-          const contentStr = typeof finalContent === 'string' ? finalContent : JSON.stringify(finalContent);
+          contentStr = typeof finalContent === 'string' ? finalContent : JSON.stringify(finalContent);
           const chunks = contentStr.match(/.{1,100}/g) || [];
           for (const chunk of chunks) {
             await sseWriter.write({ type: 'content_chunk', data: { chunk } });
@@ -825,7 +817,7 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
           const aiCallDurationMs = Math.round(performance.now() - aiCallStart);
           const totalDurationMs = Math.round(performance.now() - requestStartTime);
           const model = 'google/gemini-2.5-flash';
-          const outputTokensEstimated = Math.ceil((contentGoal?.length || 200) / 4);
+          const outputTokensEstimated = Math.ceil((contentStr?.length || 200) / 4);
           const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
 
           saveMetrics(supabase, {
@@ -861,658 +853,7 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
         },
       });
     }
-
-    // ============ SUPERVISOR MULTI-AGENT MODE ============
-    if (useSupervisor) {
-      logger.info('Starting supervisor multi-agent loop', { inputTokensEstimated });
-
-      const { readable, writable } = new TransformStream();
-      const writer = writable.getWriter();
-      const encoder = new TextEncoder();
-      const sseWriter = createSSEWriter(writer);
-      let pendingEventWrites = Promise.resolve();
-
-      const enqueueSupervisorEvent = (event: any) => {
-        pendingEventWrites = pendingEventWrites
-          .then(() => sseWriter.write(event))
-          .catch((err) => {
-            logger.warn('Failed to stream supervisor event', {
-              eventType: event?.type,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          });
-      };
-
-      // Send context metadata first
-      const metadataEvent = `data: ${serializeContextMetadata(contextMetadata)}\n\n`;
-      writer.write(encoder.encode(metadataEvent));
-
-      const aiCallStart = performance.now();
-      (async () => {
-        let hadError = false;
-        let errorType: string | undefined;
-        let errorMessage: string | undefined;
-
-        // Heartbeat: send SSE comment every 15s to keep connection alive during long tool executions
-        const heartbeatInterval = setInterval(() => {
-          writer.write(encoder.encode(':heartbeat\n\n')).catch(() => {});
-        }, 15000);
-
-        let supervisorResult: any = null;
-        try {
-          supervisorResult = await executeSupervisorLoop(
-            processedMessages[processedMessages.length - 1]?.content || '',
-            {
-              supabase,
-              userId: resolvedUserId || undefined,
-              organizationId: organizationId || undefined,
-              brandTemplateId: brandTemplateId || undefined,
-              userAccessToken: userAccessToken || undefined,
-              brandName: brandContext?.brandName,
-              industry: brandContext?.industry?.[0],
-              complianceRules: industryMemory?.compliance_rules?.map(r => typeof r === 'string' ? r : r.rule),
-              systemPrompt: finalSystemPrompt,
-              conversationHistory: processedMessages.map(m => ({ role: m.role, content: m.content })),
-              onEvent: (event) => {
-                enqueueSupervisorEvent(event);
-              },
-            }
-          );
-
-          // Ensure all queued supervisor events (including agent_step_result) are flushed first
-          await pendingEventWrites;
-
-          // Stream final content
-          if (supervisorResult.finalContent) {
-            const chunks = supervisorResult.finalContent.match(/.{1,100}/g) || [];
-            for (const chunk of chunks) {
-              await sseWriter.write({ type: 'content_chunk', data: { chunk } });
-            }
-          }
-
-          await writer.write(encoder.encode('data: [DONE]\n\n'));
-
-          logger.info('Supervisor loop complete', {
-            success: supervisorResult.success,
-            agents: supervisorResult.agentResults.length,
-            intent: supervisorResult.classification.intent,
-            states: supervisorResult.workflowStates,
-            durationMs: supervisorResult.totalDurationMs,
-            exitReason: supervisorResult.exitReason,
-          });
-        } catch (err) {
-          hadError = true;
-          errorType = err instanceof Error ? err.name : 'UnknownError';
-          errorMessage = err instanceof Error ? err.message : 'Unknown error';
-          logger.error('Supervisor loop error', err instanceof Error ? err : undefined);
-
-          const errorEvent = `data: ${JSON.stringify({
-            type: 'error',
-            data: { message: errorMessage },
-          })}\n\n`;
-          await writer.write(encoder.encode(errorEvent));
-        } finally {
-          clearInterval(heartbeatInterval);
-          await writer.close();
-
-          if (!hadError && userId) {
-            logUsage(supabase, userId, 'ai_edit', undefined, {
-              mode: 'supervisor',
-              brandTemplateId,
-            }).catch(err => logger.warn('Failed to log usage', { error: err.message }));
-          }
-
-          const aiCallDurationMs = Math.round(performance.now() - aiCallStart);
-          const totalDurationMs = Math.round(performance.now() - requestStartTime);
-          const model = 'google/gemini-2.5-flash';
-          
-          // Use actual supervisor results for metrics instead of hardcoded values
-          const agentCount = supervisorResult?.agentResults?.length || 0;
-          const toolsUsed = supervisorResult?.agentResults?.flatMap((r: any) => 
-            r.toolResults?.map((t: any) => t.tool_name) || []
-          ) || [];
-          const outputTokensEstimated = Math.ceil((supervisorResult?.finalContent?.length || 0) / 4) + (agentCount * 500);
-          const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
-
-          saveMetrics(supabase, {
-            traceId: logger.getTraceId(),
-            functionName: 'chat-topics',
-            organizationId: organizationId || undefined,
-            userId: userId || undefined,
-            brandTemplateId: brandTemplateId || undefined,
-            totalDurationMs,
-            aiCallDurationMs,
-            contextFetchDurationMs,
-            inputTokensEstimated,
-            outputTokensEstimated,
-            contextSources,
-            contextRichnessScore: contextMetadata.context_richness_score,
-            totalTurns: agentCount,
-            toolsExecuted: toolsUsed,
-            exitReason: supervisorResult?.exitReason || 'supervisor',
-            hadError,
-            errorType,
-            errorMessage,
-            modelsUsed: { default: model, supervisor: true, agents: supervisorResult?.agentResults?.map((r: any) => r.agentName) || [] },
-            estimatedCostUsd,
-          }).catch(err => logger.warn('Failed to save metrics', { error: err.message }));
-        }
-      })();
-
-      return new Response(readable, {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/event-stream; charset=utf-8',
-          'Cache-Control': 'no-cache, no-transform',
-          'Connection': 'keep-alive',
-          'X-Accel-Buffering': 'no',
-        },
-      });
-    }
-
-    // ============ AGENTIC LOOP MODE ============
-    if (useAgenticLoop) {
-      logger.info('Starting agentic loop', { maxTurns, inputTokensEstimated });
-      
-      const executionContext = {
-        supabase,
-        userId: resolvedUserId || undefined,
-        organizationId: organizationId || undefined,
-        brandTemplateId: brandTemplateId || undefined,
-        userAccessToken: userAccessToken || undefined,
-      };
-
-      // Create streaming response
-      const { readable, writable } = new TransformStream();
-      const writer = writable.getWriter();
-      const encoder = new TextEncoder();
-      const sseWriter = createSSEWriter(writer);
-      
-      // Send context metadata first
-      const metadataEvent = `data: ${serializeContextMetadata(contextMetadata)}\n\n`;
-      writer.write(encoder.encode(metadataEvent));
-
-      // Start async agentic loop execution
-      const aiCallStart = performance.now();
-      (async () => {
-        let hadError = false;
-        let errorType: string | undefined;
-        let errorMessage: string | undefined;
-        let totalTurns = 0;
-        let exitReason: string | undefined;
-        let toolsExecuted: string[] = [];
-
-        try {
-          const agentResult = await executeAgenticLoop(
-            messages,
-            finalSystemPrompt,
-            {
-              maxTurns,
-              executionContext,
-              onTurnStart: (turn) => {
-                logger.debug(`Turn ${turn} started`);
-              },
-              onTurnComplete: (turn) => {
-                logger.debug(`Turn ${turn.turn_number} complete`, { observation: turn.observation_summary });
-                if (turn.tool_calls && turn.tool_calls.length > 0) {
-                  toolsExecuted.push(...turn.tool_calls.map((t: { function: { name: string } }) => t.function.name));
-                }
-              },
-              onToolExecuting: (toolName) => {
-                logger.debug(`Executing tool: ${toolName}`);
-              },
-            },
-            sseWriter
-          );
-
-          // Send done signal
-          await writer.write(encoder.encode('data: [DONE]\n\n'));
-          
-          totalTurns = agentResult.total_turns;
-          exitReason = agentResult.exit_reason;
-          
-          logger.info('Agentic loop complete', {
-            turns: totalTurns,
-            exitReason,
-            durationMs: agentResult.total_duration_ms,
-            toolsExecuted: [...new Set(toolsExecuted)],
-          });
-        } catch (err) {
-          hadError = true;
-          errorType = err instanceof Error ? err.name : 'UnknownError';
-          errorMessage = err instanceof Error ? err.message : 'Unknown error';
-          logger.error('Agentic loop error', err instanceof Error ? err : undefined);
-          
-          const errorEvent = `data: ${JSON.stringify({
-            type: 'error',
-            data: { message: errorMessage },
-          })}\n\n`;
-          await writer.write(encoder.encode(errorEvent));
-        } finally {
-          await writer.close();
-          
-          // Log usage for quota tracking (only if no error)
-          if (!hadError && userId) {
-            logUsage(supabase, userId, 'ai_edit', undefined, {
-              mode: 'agentic',
-              turns: totalTurns,
-              brandTemplateId,
-            }).catch(err => logger.warn('Failed to log usage', { error: err.message }));
-          }
-          
-          // Save metrics asynchronously
-          const aiCallDurationMs = Math.round(performance.now() - aiCallStart);
-          const totalDurationMs = Math.round(performance.now() - requestStartTime);
-          
-          // Estimate output tokens from agentic loop turns
-          const outputTokensEstimated = totalTurns * 500; // Estimate 500 tokens per turn
-          const model = 'google/gemini-2.5-flash'; // Default model
-          const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
-          
-          saveMetrics(supabase, {
-            traceId: logger.getTraceId(),
-            functionName: 'chat-topics',
-            organizationId: organizationId || undefined,
-            userId: userId || undefined,
-            brandTemplateId: brandTemplateId || undefined,
-            totalDurationMs,
-            aiCallDurationMs,
-            contextFetchDurationMs,
-            inputTokensEstimated,
-            outputTokensEstimated,
-            contextSources,
-            contextRichnessScore: contextMetadata.context_richness_score,
-            totalTurns,
-            toolsExecuted: [...new Set(toolsExecuted)],
-            exitReason,
-            hadError,
-            errorType,
-            errorMessage,
-            // NEW: Cost tracking fields
-            modelsUsed: { default: model },
-            estimatedCostUsd,
-          }).catch(err => logger.warn('Failed to save metrics', { error: err.message }));
-        }
-      })();
-
-      return new Response(readable, {
-        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
-      });
-    }
-
-    // ============ LEGACY SINGLE-TURN MODE ============
-    console.log('[chat-topics] Using legacy single-turn mode');
-    
-    // Fetch AI config from database for runtime configuration
-    const aiConfig = await getAIConfig('chat-topics', organizationId || undefined);
-    console.log(`[ai-config] Using model: ${aiConfig.model}, temp: ${aiConfig.temperature}`);
-    
-    const requestBody: any = {
-      model: aiConfig.model,
-      messages: aiMessages,
-      temperature: aiConfig.temperature,
-      stream: true,
-    };
-
-    if (useTools) {
-      requestBody.tools = CHAT_TOOLS;
-      requestBody.tool_choice = 'auto';
-    }
-
-    // Call Lovable AI with streaming and retry logic
-    const response = await withRetry(
-      async () => {
-        const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        });
-
-        if (!res.ok) {
-          const status = res.status;
-          // Non-retryable errors - return specific responses
-          if (status === 402) {
-            throw { status: 402, message: 'Payment required' };
-          }
-          // Retryable errors
-          if (status === 429 || (status >= 500 && status !== 501)) {
-            const retryAfter = res.headers.get('Retry-After');
-            throw { status, message: `AI gateway error: ${status}`, retryable: true, retryAfter };
-          }
-          throw { status, message: `AI gateway error: ${status}` };
-        }
-        return res;
-      },
-      {
-        maxRetries: 3,
-        baseDelayMs: 1000,
-        maxDelayMs: 10000,
-        retryOn: (err: any) => err?.retryable === true,
-        onRetry: (err: any, attempt, delay) => {
-          console.log(`[chat-topics] AI call retry ${attempt}, waiting ${delay}ms:`, err?.message);
-        },
-      }
-    ).catch((err: any) => {
-      // Return error response for non-retryable or exhausted retries
-      if (err?.status === 429) {
-        return { error: true, status: 429, message: 'Rate limits exceeded, please try again later.' };
-      }
-      if (err?.status === 402) {
-        return { error: true, status: 402, message: 'Payment required, please add funds to your Lovable AI workspace.' };
-      }
-      console.error('AI gateway error after retries:', err?.message || err);
-      return { error: true, status: 500, message: 'AI gateway error' };
-    });
-
-    // Handle error responses
-    if (response && 'error' in response) {
-      return new Response(JSON.stringify({ error: response.message }), {
-        status: response.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Parse streaming response to check for tool calls
-    const reader = response.body?.getReader();
-    if (!reader) {
-      return new Response(JSON.stringify({ error: 'No response body' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const decoder = new TextDecoder();
-    let textBuffer = '';
-    let contentChunks: string[] = [];
-    let toolCalls: any[] = [];
-    let toolCallArgBuffers: Map<number, string> = new Map();
-    let finishReason: string | null = null;
-
-    // Collect all streaming data first
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      textBuffer += decoder.decode(value, { stream: true });
-
-      let newlineIndex: number;
-      while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-        let line = textBuffer.slice(0, newlineIndex);
-        textBuffer = textBuffer.slice(newlineIndex + 1);
-
-        if (line.endsWith('\r')) line = line.slice(0, -1);
-        if (line.startsWith(':') || line.trim() === '') continue;
-        if (!line.startsWith('data: ')) continue;
-
-        const jsonStr = line.slice(6).trim();
-        if (jsonStr === '[DONE]') continue;
-
-        try {
-          const parsed = JSON.parse(jsonStr);
-          const delta = parsed.choices?.[0]?.delta;
-          const reason = parsed.choices?.[0]?.finish_reason;
-          
-          if (reason) {
-            finishReason = reason;
-          }
-
-          if (delta?.content) {
-            contentChunks.push(delta.content);
-          }
-
-          if (delta?.tool_calls) {
-            for (const tc of delta.tool_calls) {
-              const index = tc.index ?? 0;
-              
-              if (tc.id) {
-                toolCalls[index] = {
-                  id: tc.id,
-                  type: tc.type || 'function',
-                  function: {
-                    name: tc.function?.name || '',
-                    arguments: '',
-                  },
-                };
-                toolCallArgBuffers.set(index, '');
-              }
-              
-              if (tc.function?.name && toolCalls[index]) {
-                toolCalls[index].function.name = tc.function.name;
-              }
-              
-              if (tc.function?.arguments) {
-                const currentArgs = toolCallArgBuffers.get(index) || '';
-                toolCallArgBuffers.set(index, currentArgs + tc.function.arguments);
-              }
-            }
-          }
-        } catch {
-          // Incomplete JSON, skip
-        }
-      }
-    }
-
-    // Finalize tool call arguments
-    for (const [index, args] of toolCallArgBuffers.entries()) {
-      if (toolCalls[index]) {
-        toolCalls[index].function.arguments = args;
-      }
-    }
-
-    toolCalls = toolCalls.filter(tc => tc && tc.id && tc.function?.name);
-
-    const fullContent = contentChunks.join('');
-
-    console.log('Streaming complete:', {
-      contentLength: fullContent.length,
-      toolCallsCount: toolCalls.length,
-      finishReason,
-    });
-
-    // Check if AI wants to call tools
-    if (toolCalls.length > 0 && useTools) {
-      console.log('AI requested tool calls:', toolCalls.length, toolCalls.map(tc => tc.function.name));
-      
-      const executionContext = {
-        supabase,
-        userId: resolvedUserId || undefined,
-        organizationId: organizationId || undefined,
-        brandTemplateId: brandTemplateId || undefined,
-        userAccessToken: userAccessToken || undefined,
-      };
-
-      const { isChain, dependencyGraph } = detectToolChainDependencies(toolCalls);
-      
-      let toolResults: ToolCallResult[] = [];
-      let chainResult: ToolChainResult | null = null;
-      let chainSummary: { summary: string; outputs: Record<string, any> } | null = null;
-
-      if (isChain) {
-        console.log('Detected tool chain with dependencies:', 
-          Array.from(dependencyGraph.entries()).map(([to, from]) => 
-            `${toolCalls[to].function.name} depends on ${from.map(i => toolCalls[i].function.name).join(', ')}`
-          )
-        );
-
-        chainResult = await executeToolChain(toolCalls, executionContext, {
-          stopOnError: false,
-          maxRetries: 1,
-        });
-
-        toolResults = chainResult.final_results;
-        chainSummary = summarizeToolChain(chainResult);
-        
-        console.log('Chain execution complete:', chainSummary.summary);
-      } else {
-        console.log('Executing tools in parallel (no dependencies detected)');
-        
-        const toolPromises = toolCalls.map(async (toolCall) => {
-          try {
-            const args = JSON.parse(toolCall.function.arguments);
-            return await executeToolCall(toolCall.function.name, args, executionContext);
-          } catch (err) {
-            console.error(`Tool ${toolCall.function.name} parse error:`, err);
-            return {
-              success: false,
-              tool_name: toolCall.function.name,
-              result: null,
-              error: 'Failed to parse tool arguments',
-            };
-          }
-        });
-
-        toolResults = await Promise.all(toolPromises);
-      }
-
-      toolResults.forEach((result, idx) => {
-        console.log(`Tool ${toolCalls[idx].function.name} result:`, result.success);
-      });
-
-      const toolResultsMessages = toolCalls.map((tc, idx) => {
-        const baseResult = toolResults[idx] || { error: 'No result' };
-        const enrichedResult = chainResult ? {
-          ...baseResult,
-          chain_step: idx + 1,
-          total_steps: toolCalls.length,
-          chain_context: chainResult.chain_context,
-        } : baseResult;
-        
-        return {
-          role: 'tool' as const,
-          content: JSON.stringify(enrichedResult),
-          tool_call_id: tc.id,
-        };
-      });
-
-      const assistantMessage = {
-        role: 'assistant' as const,
-        content: fullContent || null,
-        tool_calls: toolCalls,
-      };
-
-      const followUpMessages = [
-        ...aiMessages,
-        assistantMessage,
-        ...toolResultsMessages,
-      ];
-
-      if (chainResult && chainSummary) {
-        followUpMessages.push({
-          role: 'system' as const,
-          content: `Multi-step tool chain completed. ${chainSummary.summary}. 
-Available outputs from chain: ${Object.keys(chainSummary.outputs).join(', ')}.
-Summarize results for user and suggest next actions.`,
-        });
-      }
-
-      console.log('Calling follow-up with tool results, streaming response...');
-
-      const followUpResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: followUpMessages,
-          temperature: 0.8,
-          stream: true,
-        }),
-      });
-
-      if (!followUpResponse.ok) {
-        console.error('Follow-up AI error:', followUpResponse.status);
-        return new Response(JSON.stringify({
-          type: 'tool_results',
-          content: fullContent,
-          tool_calls: toolCalls,
-          tool_results: toolResults,
-          chain_result: chainResult ? {
-            total_duration_ms: chainResult.total_duration_ms,
-            has_errors: chainResult.has_errors,
-            chain_context: chainResult.chain_context,
-          } : undefined,
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      const { readable, writable } = new TransformStream();
-      const writer = writable.getWriter();
-      const encoder = new TextEncoder();
-
-      (async () => {
-        try {
-          const toolResultsEvent = `data: ${JSON.stringify({
-            type: 'tool_results',
-            tool_calls: toolCalls,
-            tool_results: toolResults,
-            is_chain: isChain,
-            chain_result: chainResult ? {
-              total_duration_ms: chainResult.total_duration_ms,
-              has_errors: chainResult.has_errors,
-              chain_context: chainResult.chain_context,
-              summary: chainSummary?.summary,
-            } : undefined,
-          })}\n\n`;
-          await writer.write(encoder.encode(toolResultsEvent));
-
-          const followUpReader = followUpResponse.body?.getReader();
-          if (followUpReader) {
-            while (true) {
-              const { done, value } = await followUpReader.read();
-              if (done) break;
-              await writer.write(value);
-            }
-          }
-        } catch (err) {
-          console.error('Streaming error:', err);
-        } finally {
-          await writer.close();
-        }
-      })();
-
-      return new Response(readable, {
-        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
-      });
-    }
-
-    // No tool calls - return streamed content as regular message
-    const { readable, writable } = new TransformStream();
-    const writer = writable.getWriter();
-    const encoder = new TextEncoder();
-
-    (async () => {
-      try {
-        const metadataEvent = `data: ${serializeContextMetadata(contextMetadata)}\n\n`;
-        await writer.write(encoder.encode(metadataEvent));
-        
-        const chunkSize = 20;
-        for (let i = 0; i < fullContent.length; i += chunkSize) {
-          const chunk = fullContent.slice(i, i + chunkSize);
-          const sseEvent = `data: ${JSON.stringify({
-            choices: [{
-              delta: { content: chunk },
-              index: 0,
-            }],
-          })}\n\n`;
-          await writer.write(encoder.encode(sseEvent));
-        }
-        await writer.write(encoder.encode('data: [DONE]\n\n'));
-      } catch (err) {
-        console.error('Re-streaming error:', err);
-      } finally {
-        await writer.close();
-      }
-    })();
-
-    return new Response(readable, {
-      headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
-    });
+    // (Legacy supervisor, agentic loop, and single-turn modes removed — Graph Engine is the only path)
 
   } catch (error) {
     console.error('Chat-topics error:', error);

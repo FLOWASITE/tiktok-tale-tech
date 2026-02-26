@@ -39,7 +39,7 @@ interface UseChatStreamingOptions {
   organizationId?: string;
   userId?: string;
   forceWebSearch?: boolean;
-  supervisorEnabled?: boolean;
+  
   onMessageCreate: (message: ChatMessage) => void;
   onMessageUpdate: (id: string, updates: Partial<ChatMessage>) => void;
   onComplete?: () => void;
@@ -58,7 +58,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
     organizationId,
     userId,
     forceWebSearch,
-    supervisorEnabled = true,
+    
     onMessageCreate,
     onMessageUpdate,
     onComplete,
@@ -160,7 +160,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
           enableTools: true,
           enableAgenticLoop: true,
           enableGraphEngine: true,
-          enableSupervisor: false,
+          
           forceWebSearch,
         }),
         signal: abortControllerRef.current.signal,
@@ -304,6 +304,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                 'content': '✍️ Nội dung',
                 'reviewer': '✅ Kiểm duyệt',
                 'image': '🎨 Hình ảnh',
+                'governor': '⚖️ Kiểm soát chất lượng',
+                'compliance': '🛡️ Tuân thủ quy định',
               };
               const planSteps: ProgressStep[] = [];
               for (const step of parsed.data.steps) {
@@ -869,7 +871,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
       }));
       abortControllerRef.current = null;
     }
-  }, [brandTemplateId, contentGoal, organizationId, userId, supervisorEnabled, onMessageCreate, onMessageUpdate, onComplete, onError]);
+  }, [brandTemplateId, contentGoal, organizationId, userId, onMessageCreate, onMessageUpdate, onComplete, onError]);
   
   return {
     ...state,

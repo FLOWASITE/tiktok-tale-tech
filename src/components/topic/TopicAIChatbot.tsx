@@ -97,7 +97,7 @@ export function TopicAIChatbot({
     organizationId: currentOrganization?.id,
     userId: user?.id,
     forceWebSearch: isEmbedded,
-    supervisorEnabled: uiHook.supervisorEnabled,
+    
     onMessageCreate: (msg) => messagesHook.setMessages(prev => [...prev, msg]),
     onMessageUpdate: messagesHook.updateMessage,
     onComplete: () => playReceive(),
