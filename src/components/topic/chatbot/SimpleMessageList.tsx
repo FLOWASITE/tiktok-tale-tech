@@ -8,7 +8,7 @@ import { AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { ChatMessageBubble } from './ChatMessageBubble';
 import { ChatThinkingIndicator, type ThinkingStatus, type ProgressStep, type AgentTurnInfo } from './ChatThinkingIndicator';
-import type { ChatMessage, ExtractedTopic } from './types';
+import type { ChatMessage, ExtractedTopic, ReviewScores } from './types';
 import type { PersonalizedWelcomeData } from '@/hooks/usePersonalizedWelcome';
 
 interface SimpleMessageListProps {
@@ -47,6 +47,7 @@ interface SimpleMessageListProps {
 
 const MessageRow = memo(function MessageRow({
   message,
+  previousReviewScores,
   isAnimating,
   isHighlighted,
   isLoading,
@@ -66,6 +67,7 @@ const MessageRow = memo(function MessageRow({
   onTopicSelect,
 }: {
   message: ChatMessage;
+  previousReviewScores?: ReviewScores;
   isAnimating: boolean;
   isHighlighted: boolean;
   isLoading: boolean;
@@ -87,6 +89,7 @@ const MessageRow = memo(function MessageRow({
   return (
     <ChatMessageBubble
       message={message}
+      previousReviewScores={previousReviewScores}
       isAnimating={isAnimating}
       isHighlighted={isHighlighted}
       isRegenerating={false}
@@ -180,10 +183,21 @@ export function SimpleMessageList({
       <div className="space-y-4">
         {messages.map((message, idx) => {
           const isLastAssistant = isLoading && message.role === 'assistant' && idx === messages.length - 1;
+          // Find previous assistant message's review scores for delta tracking
+          let prevReviewScores: ReviewScores | undefined;
+          if (message.role === 'assistant' && message.reviewScores) {
+            for (let i = idx - 1; i >= 0; i--) {
+              if (messages[i].role === 'assistant' && messages[i].reviewScores) {
+                prevReviewScores = messages[i].reviewScores;
+                break;
+              }
+            }
+          }
           return (
             <div key={message.id} className={cn(idx > 0 && 'pt-0')}>
               <MessageRow
                 message={message}
+                previousReviewScores={prevReviewScores}
                 isAnimating={animatingMessageId === message.id}
                 isHighlighted={searchResults.includes(message.id)}
                 isLoading={isLoading}

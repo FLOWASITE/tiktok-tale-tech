@@ -26,6 +26,7 @@ import { ContentFeedback } from '@/components/chat/ContentFeedback';
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
+  previousReviewScores?: import('./types').ReviewScores;
   isAnimating: boolean;
   isHighlighted: boolean;
   isRegenerating: boolean;
@@ -55,6 +56,7 @@ interface ChatMessageBubbleProps {
 
 export function ChatMessageBubble({
   message,
+  previousReviewScores,
   isAnimating,
   isHighlighted,
   isRegenerating,
@@ -266,6 +268,7 @@ export function ChatMessageBubble({
               <div className="mt-2 pt-2 border-t border-border/30">
                 <ReviewScoreCard
                   scores={message.reviewScores}
+                  previousScores={previousReviewScores}
                   onRequestImprove={message.reviewScores.overall < 70
                     ? () => onSendFollowUp('Hãy cải thiện nội dung dựa trên review feedback')
                     : undefined

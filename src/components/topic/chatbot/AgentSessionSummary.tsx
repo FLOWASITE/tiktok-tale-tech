@@ -5,7 +5,7 @@
 
 import { memo } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle2, Clock, Brain, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Brain, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ProgressStep } from './ChatThinkingIndicator';
 import type { ContextSources } from './types';
