@@ -14,7 +14,9 @@ import {
   createGraphState,
 } from "./graph-state.ts";
 import { orchestrateWorkflow, OrchestratorOptions } from "./orchestrator.ts";
+import { BlackboardRetriever, extractStorableContent } from "./blackboard-retriever.ts";
 export { createNodeRegistry, type NodeExecutionContext } from "./nodes/index.ts";
+export { BlackboardRetriever } from "./blackboard-retriever.ts";
 
 // ---- Types ----
 
@@ -494,6 +496,8 @@ export interface RunOrchestratorOptions {
   maxExecutionMs?: number;
   /** Abort signal */
   abortSignal?: AbortSignal;
+  /** Blackboard retriever for auto-storing node outputs */
+  retriever?: BlackboardRetriever;
 }
 
 /**
@@ -567,11 +571,22 @@ export async function runOrchestrator(
     onNodeStart: (nodeName, s) => {
       options.onEvent?.({ type: 'node_start', data: { node: nodeName } });
     },
-    onNodeComplete: (nodeName, update, durationMs) => {
+    onNodeComplete: async (nodeName, update, durationMs) => {
       options.onEvent?.({
         type: 'node_complete',
         data: { node: nodeName, durationMs },
       });
+
+      // Auto-store node output to Blackboard v2
+      if (options.retriever) {
+        const storable = extractStorableContent(nodeName, update);
+        if (storable) {
+          // Fire-and-forget — don't block graph execution
+          options.retriever.store(storable.content, nodeName, storable.contentType).catch(err => {
+            console.warn(`[GraphEngine] Blackboard store failed for ${nodeName}:`, err);
+          });
+        }
+      }
     },
     onNodeError: (nodeName, error) => {
       options.onEvent?.({

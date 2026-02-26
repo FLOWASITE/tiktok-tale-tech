@@ -9,6 +9,7 @@ import { executeToolCall } from "../../tool-executor.ts";
 import { CHAT_TOOLS, ToolDefinition } from "../../tool-definitions.ts";
 import { buildResearchSystemPrompt } from "../../agents/research-agent.ts";
 import { withCache, generateCacheKey } from "../../cache/redis-cache.ts";
+import { formatRetrievedContext } from "../blackboard-retriever.ts";
 
 const RESEARCH_TOOLS = ['web_search', 'search_topics', 'discover_topics'];
 
@@ -20,6 +21,7 @@ interface ResearchNodeContext {
   brandName?: string;
   industry?: string;
   userAccessToken?: string;
+  retriever?: any;
 }
 
 export function createResearchNode(ctx: ResearchNodeContext) {
@@ -35,7 +37,19 @@ export function createResearchNode(ctx: ResearchNodeContext) {
 
     return withCache(cacheKey, async () => {
     const systemPrompt = buildResearchSystemPrompt(ctx.brandName, ctx.industry);
-    const stateContext = buildStateContext(state);
+
+    // Blackboard v2: semantic context retrieval (fallback to buildStateContext)
+    let stateContext: string;
+    if (ctx.retriever) {
+      try {
+        const entries = await ctx.retriever.retrieve(state.userMessage, ['research_output', 'plan'], 5);
+        stateContext = formatRetrievedContext(entries);
+      } catch {
+        stateContext = buildStateContext(state);
+      }
+    } else {
+      stateContext = buildStateContext(state);
+    }
 
     const tools = CHAT_TOOLS.filter(t => RESEARCH_TOOLS.includes(t.function.name));
 

@@ -33,6 +33,8 @@ export interface NodeExecutionContext {
   industry?: string;
   userAccessToken?: string;
   complianceRules?: string[];
+  /** Blackboard retriever for semantic context (v2) */
+  retriever?: any;
 }
 
 // ---- Factory ----

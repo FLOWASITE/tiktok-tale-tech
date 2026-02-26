@@ -8,6 +8,7 @@ import { callAI } from "../../ai-provider.ts";
 import { executeToolCall } from "../../tool-executor.ts";
 import { CHAT_TOOLS } from "../../tool-definitions.ts";
 import { buildReviewerSystemPrompt } from "../../agents/reviewer-agent.ts";
+import { formatRetrievedContext } from "../blackboard-retriever.ts";
 
 const REVIEWER_TOOLS = ['brand_voice_check', 'legal_compliance_check', 'platform_best_practices'];
 
@@ -20,6 +21,7 @@ interface ReviewerNodeContext {
   industry?: string;
   complianceRules?: string[];
   userAccessToken?: string;
+  retriever?: any;
 }
 
 export function createReviewerNode(ctx: ReviewerNodeContext) {
