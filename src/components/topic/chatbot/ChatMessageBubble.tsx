@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
-import type { ChatMessage, ExtractedTopic } from './types';
+import type { ChatMessage, ExtractedTopic, SuggestedTopic } from './types';
+import { Badge } from '@/components/ui/badge';
+import { TrendingUp } from 'lucide-react';
 import type { ParsedContextBadge } from './ContextBadges';
 import { CodeBlock } from './CodeBlock';
 import { Loader2, RefreshCcw } from 'lucide-react';
@@ -204,8 +206,8 @@ export function ChatMessageBubble({
                           </span>
                         </div>
                       )}
-                      {/* Hide verbose research output when selectedTopic exists */}
-                      {!message.selectedTopic && (
+                      {/* Hide verbose research output when suggestedTopics cards replace it */}
+                      {!message.suggestedTopics?.length && (
                         <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-headings:my-2">
                           {searchQuery && searchResults.includes(message.id) && highlightSearchTerm ? (
                             <div dangerouslySetInnerHTML={{ __html: highlightSearchTerm(cleanContent) }} />
@@ -284,6 +286,109 @@ export function ChatMessageBubble({
                 </div>
               );
             })()}
+
+            {/* Suggested Topics Cards */}
+            {message.role === 'assistant' && message.suggestedTopics && message.suggestedTopics.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-border/30 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                  <Lightbulb className="w-3.5 h-3.5" />
+                  <span>{message.suggestedTopics.length} topics gợi ý</span>
+                </div>
+                <div className="space-y-1.5">
+                  {message.suggestedTopics.map((t, i) => {
+                    const isSelected = message.selectedTopic && t.topic.toLowerCase().trim() === message.selectedTopic.toLowerCase().trim();
+                    const topicAsExtracted: ExtractedTopic = { topic: t.topic, reason: t.reasoning || undefined };
+                    return (
+                      <div
+                        key={i}
+                        className={cn(
+                          'rounded-xl p-2.5 space-y-1.5 transition-all',
+                          isSelected
+                            ? 'bg-gradient-to-r from-primary/10 to-violet-500/10 border border-primary/30 ring-1 ring-primary/20'
+                            : 'bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/15 hover:border-primary/25'
+                        )}
+                      >
+                        {/* Topic name + score + category */}
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              {isSelected && <Star className="w-3 h-3 text-primary fill-primary shrink-0" />}
+                              <span className={cn('text-xs font-semibold line-clamp-2', isSelected ? 'text-primary' : 'text-foreground')}>
+                                {t.topic}
+                              </span>
+                            </div>
+                            {t.reasoning && (
+                              <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{t.reasoning}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {t.category && (
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">
+                                {t.category}
+                              </Badge>
+                            )}
+                            {t.score != null && (
+                              <span className={cn(
+                                'flex items-center gap-0.5 text-[10px] font-semibold tabular-nums',
+                                t.score >= 80 ? 'text-emerald-600 dark:text-emerald-400' :
+                                t.score >= 60 ? 'text-amber-600 dark:text-amber-400' :
+                                'text-muted-foreground'
+                              )}>
+                                <TrendingUp className="w-2.5 h-2.5" />
+                                {t.score}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {/* Action buttons */}
+                        <div className="flex flex-wrap gap-1">
+                          {mode === 'embedded' && onTopicSelect ? (
+                            <Button
+                              size="sm"
+                              className="h-7 text-[10px] gap-1.5 px-3 bg-primary hover:bg-primary/90 text-primary-foreground"
+                              onClick={() => onTopicSelect(t.topic)}
+                            >
+                              <Check className="w-3 h-3" />
+                              Chọn topic này
+                            </Button>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="h-6 text-[10px] gap-1 px-2 hover:bg-primary hover:text-primary-foreground"
+                                onClick={() => onTopicAction(topicAsExtracted, 'multichannel')}
+                              >
+                                <MessageSquare className="w-2.5 h-2.5" />
+                                Multi
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="h-6 text-[10px] gap-1 px-2 hover:bg-violet-600 hover:text-white"
+                                onClick={() => onTopicAction(topicAsExtracted, 'script')}
+                              >
+                                <Video className="w-2.5 h-2.5" />
+                                Script
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="h-6 text-[10px] gap-1 px-2 hover:bg-orange-500 hover:text-white"
+                                onClick={() => onTopicAction(topicAsExtracted, 'carousel')}
+                              >
+                                <Images className="w-2.5 h-2.5" />
+                                Carousel
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Review Score Card */}
             {message.role === 'assistant' && message.reviewScores && (
