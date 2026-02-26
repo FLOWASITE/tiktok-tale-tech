@@ -14,6 +14,7 @@ export type ProgressStepId =
   | 'prompt' 
   | 'ai' 
   | 'retry' 
+  | 'fallback'
   | 'critique' 
   | 'finalize' 
   | 'complete';
@@ -41,6 +42,7 @@ export const STEP_PROGRESS_MAP: Record<ProgressStepId, number> = {
   prompt: 40,
   ai: 50,
   retry: 65,
+  fallback: 55,
   critique: 75,
   finalize: 90,
   complete: 100,

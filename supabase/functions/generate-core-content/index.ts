@@ -346,49 +346,70 @@ async function generateSinglePass(
 }> {
   console.log(`[generateSinglePass] Starting with model: ${model}, maxTokens: ${maxTokens}`);
   
-  onProgress?.('generating', 10, 'Generating content...');
+  onProgress?.('generating', 10, 'AI đang tạo nội dung...');
   
   const prompt = buildSinglePassPrompt(config);
+  const userMsg = `Write high-quality Core Content about: ${config.topic}`;
   
-  let content: string;
-  if (onChunk) {
-    // Track accumulated text length for dynamic progress (10% -> 90%)
-    let accumulatedLength = 0;
-    let lastProgressSent = 10;
-    const expectedLength = maxTokens * 3.5; // ~3.5 chars per token estimate
+  // --- Soft time-based progress ticker ---
+  // Keeps progress moving even if model hasn't sent tokens yet
+  let currentSoftProgress = 10;
+  let hasReceivedChunk = false;
+  const softProgressInterval = setInterval(() => {
+    if (!hasReceivedChunk && currentSoftProgress < 85) {
+      currentSoftProgress = Math.min(currentSoftProgress + 3, 85);
+      onProgress?.('generating', currentSoftProgress, 'AI đang xử lý...');
+    }
+  }, 3000); // tick every 3s
+  
+  const modelsUsed: string[] = [];
+  let content = '';
+  
+  try {
+    if (onChunk) {
+      // Track accumulated text length for dynamic progress (10% -> 90%)
+      let accumulatedLength = 0;
+      let lastProgressSent = 10;
+      const expectedLength = maxTokens * 3.5;
+      
+      const wrappedOnChunk = (text: string) => {
+        hasReceivedChunk = true;
+        accumulatedLength += text.length;
+        
+        const ratio = Math.min(accumulatedLength / expectedLength, 1);
+        const estimatedProgress = Math.round(10 + ratio * 80);
+        
+        if (estimatedProgress >= lastProgressSent + 5) {
+          lastProgressSent = estimatedProgress;
+          currentSoftProgress = estimatedProgress; // sync soft progress
+          onProgress?.('generating', Math.min(estimatedProgress, 90), 'AI đang tạo nội dung...');
+        }
+        
+        onChunk(text);
+      };
+      
+      content = await callAIStreaming(model, prompt, userMsg, maxTokens, 0.7, wrappedOnChunk);
+    } else {
+      content = await callAI(model, prompt, userMsg, maxTokens, 0.7);
+    }
+    modelsUsed.push(model);
     
-    const wrappedOnChunk = (text: string) => {
-      accumulatedLength += text.length;
+    // --- Fallback if content is empty or too short ---
+    if (!content || content.length < 300) {
+      const FALLBACK_MODEL = 'google/gemini-2.5-flash';
+      console.warn(`[generateSinglePass] Primary model returned ${content?.length || 0} chars, falling back to ${FALLBACK_MODEL}`);
+      onProgress?.('fallback', 50, `Chuyển sang model dự phòng...`);
       
-      // Calculate progress: 10% -> 90% based on text received
-      const ratio = Math.min(accumulatedLength / expectedLength, 1);
-      const estimatedProgress = Math.round(10 + ratio * 80);
+      content = await callAI(FALLBACK_MODEL, prompt, userMsg, maxTokens, 0.7);
+      modelsUsed.push(FALLBACK_MODEL);
       
-      // Send progress every ~5% increment to avoid flooding
-      if (estimatedProgress >= lastProgressSent + 5) {
-        lastProgressSent = estimatedProgress;
-        onProgress?.('generating', Math.min(estimatedProgress, 90), 'AI đang tạo nội dung...');
+      if (!content || content.length < 300) {
+        throw new Error('Không thể tạo nội dung đủ chất lượng sau khi thử nhiều model. Vui lòng thử lại.');
       }
-      
-      onChunk(text);
-    };
-    
-    content = await callAIStreaming(
-      model,
-      prompt,
-      `Write high-quality Core Content about: ${config.topic}`,
-      maxTokens,
-      0.7,
-      wrappedOnChunk
-    );
-  } else {
-    content = await callAI(
-      model,
-      prompt,
-      `Write high-quality Core Content about: ${config.topic}`,
-      maxTokens,
-      0.7
-    );
+      console.log(`[generateSinglePass] Fallback model produced ${content.length} chars`);
+    }
+  } finally {
+    clearInterval(softProgressInterval);
   }
   
   onProgress?.('complete', 95, 'Finalizing...');
@@ -396,8 +417,8 @@ async function generateSinglePass(
   return {
     content,
     metadata: {
-      stepsCompleted: ['single_pass'],
-      modelsUsed: [model],
+      stepsCompleted: modelsUsed.length > 1 ? ['single_pass', 'fallback'] : ['single_pass'],
+      modelsUsed,
       totalTokensEstimated: maxTokens,
     },
   };
@@ -760,7 +781,12 @@ serve(async (req: Request) => {
           
           if (!result.content || result.content.length < 300) {
             clearInterval(keepAliveInterval);
-            sse.sendError('Generated content too short');
+            const errMsg = 'Nội dung AI tạo ra quá ngắn hoặc rỗng. Vui lòng thử lại.';
+            console.error(`[generate-core-content] ${errMsg} (length: ${result.content?.length || 0})`);
+            if (taskId) {
+              await failTask(supabase, taskId, errMsg);
+            }
+            sse.sendError(errMsg);
             sse.close();
             return;
           }
