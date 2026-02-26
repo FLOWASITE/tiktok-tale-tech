@@ -500,14 +500,14 @@ export const TEMPLATE_PLANS: Record<string, GraphPlan> = {
   },
   generate_with_research: {
     steps: [
-      { node: 'research', parallelWith: ['brand_memory', 'compliance'] },
+      { node: 'research' },
       { node: 'strategy', dependsOn: ['research'] },
       { node: 'content', dependsOn: ['strategy'] },
       { node: 'reviewer', dependsOn: ['content'] },
       { node: 'governor', dependsOn: ['reviewer'] },
     ],
-    skipNodes: [],
-    reasoning: 'Full content pipeline with research + parallel compliance',
+    skipNodes: ['brand_memory', 'compliance'],
+    reasoning: 'Full content pipeline with research',
     fastPath: true,
   },
   generate_simple: {
@@ -528,14 +528,14 @@ export const TEMPLATE_PLANS: Record<string, GraphPlan> = {
   },
   full_pipeline: {
     steps: [
-      { node: 'research', parallelWith: ['brand_memory', 'compliance'] },
+      { node: 'research' },
       { node: 'strategy', dependsOn: ['research'] },
       { node: 'content', dependsOn: ['strategy'] },
       { node: 'reviewer', dependsOn: ['content'] },
       { node: 'governor', dependsOn: ['reviewer'] },
     ],
-    skipNodes: [],
-    reasoning: 'Full multi-step pipeline with parallel compliance + governor',
+    skipNodes: ['brand_memory', 'compliance'],
+    reasoning: 'Full multi-step pipeline with governor',
     fastPath: true,
   },
 };

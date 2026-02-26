@@ -244,21 +244,8 @@ export function buildStateContext(state: GraphState): string {
     sections.push(`### Generated Content\n${state.generatedContent.slice(0, 2000)}`);
   }
 
-  if (state.brandMemoryContext) {
-    sections.push(`### Brand Memory\n${state.brandMemoryContext.slice(0, 1000)}`);
-  }
-
-  if (state.complianceResult) {
-    const cr = state.complianceResult;
-    if (cr.issues?.length > 0) {
-      const issueStr = cr.issues
-        .map((i: any) => `- [${i.severity}] ${i.term}: ${i.reason}${i.suggestion ? ` → ${i.suggestion}` : ''}`)
-        .join('\n');
-      sections.push(`### Compliance Pre-check (Risk: ${cr.riskLevel}, Score: ${cr.riskScore})\n${issueStr}`);
-    } else {
-      sections.push(`### Compliance Pre-check\n✅ Passed — no issues detected`);
-    }
-  }
+  // brandMemoryContext and complianceResult removed from context injection
+  // — these are now handled internally by generate-multichannel
 
   if (sections.length === 0) return '';
   return `\n## 📋 Context from Previous Nodes\n${sections.join('\n\n')}`;

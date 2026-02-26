@@ -8,9 +8,7 @@ import { createResearchNode } from "./research-node.ts";
 import { createStrategyNode } from "./strategy-node.ts";
 import { createContentNode } from "./content-node.ts";
 import { createReviewerNode } from "./reviewer-node.ts";
-import { createBrandMemoryNode } from "./brand-memory-node.ts";
 import { createImageNode } from "./image-node.ts";
-import { createComplianceNode } from "./compliance-node.ts";
 import { createGovernorNode } from "./governor-node.ts";
 import { createRevisionController } from "./revision-controller.ts";
 
@@ -73,22 +71,10 @@ export function createNodeRegistry(context: NodeExecutionContext): Map<string, N
     estimatedTokens: 2000,
   });
 
-  registry.set('brand_memory', {
-    name: 'brand_memory',
-    fn: createBrandMemoryNode(context),
-    estimatedTokens: 0, // No LLM call
-  });
-
   registry.set('image', {
     name: 'image',
     fn: createImageNode(context),
     estimatedTokens: 1500,
-  });
-
-  registry.set('compliance', {
-    name: 'compliance',
-    fn: createComplianceNode(context),
-    estimatedTokens: 0,
   });
 
   registry.set('governor', {
