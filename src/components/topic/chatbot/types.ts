@@ -86,6 +86,7 @@ export interface SuggestedTopic {
 export interface RefinedVariant {
   topic: string;
   angle: string;
+  hook?: string;
 }
 
 export interface ExtractedTopic {

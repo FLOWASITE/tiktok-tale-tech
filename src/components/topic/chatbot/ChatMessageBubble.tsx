@@ -255,10 +255,14 @@ export function ChatMessageBubble({
 
             {/* Selected Topic Display (text-based) */}
             {message.role === 'assistant' && message.selectedTopic && (() => {
-              // Robust fallback for reason display
+              // Robust fallback for reason display with normalize
+              const norm = (s: string) => (s || '').toLowerCase().trim();
+              const selectedNorm = norm(message.selectedTopic);
               const resolvedReason = message.selectedTopicReason
-                || message.suggestedTopics?.find(t => t.topic === message.selectedTopic)?.reasoning
-                || message.refinedVariants?.find(v => v.topic === message.selectedTopic)?.angle
+                || message.suggestedTopics?.find(t => norm(t.topic) === selectedNorm)?.reasoning
+                || message.refinedVariants?.find(v => norm(v.topic) === selectedNorm)?.hook
+                || message.refinedVariants?.find(v => norm(v.topic) === selectedNorm)?.angle
+                || message.refinedVariants?.[0]?.hook
                 || message.refinedVariants?.[0]?.angle
                 || null;
               return (
@@ -271,7 +275,7 @@ export function ChatMessageBubble({
                   {resolvedReason && (
                     <p className="text-xs text-muted-foreground flex items-start gap-1.5 pl-5">
                       <Lightbulb className="w-3 h-3 mt-0.5 shrink-0" />
-                      <span>{resolvedReason}</span>
+                      <span className="italic">Lý do chọn: {resolvedReason}</span>
                     </p>
                   )}
                 </div>
