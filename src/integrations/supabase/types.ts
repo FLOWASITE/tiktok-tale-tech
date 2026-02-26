@@ -3483,6 +3483,56 @@ export type Database = {
           },
         ]
       }
+      content_feedback: {
+        Row: {
+          comment: string | null
+          conversation_id: string | null
+          created_at: string | null
+          feedback_type: string
+          governor_score: number | null
+          id: string
+          message_id: string | null
+          organization_id: string | null
+          tags: string[] | null
+          trace_id: string | null
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          feedback_type: string
+          governor_score?: number | null
+          id?: string
+          message_id?: string | null
+          organization_id?: string | null
+          tags?: string[] | null
+          trace_id?: string | null
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          feedback_type?: string
+          governor_score?: number | null
+          id?: string
+          message_id?: string | null
+          organization_id?: string | null
+          tags?: string[] | null
+          trace_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_feedback_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_learnings: {
         Row: {
           brand_template_id: string | null

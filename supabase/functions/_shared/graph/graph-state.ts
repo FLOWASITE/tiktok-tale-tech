@@ -77,8 +77,12 @@ export interface GraphState {
   metadata: Record<string, any>;
   startedAt: number;
   completedAt?: number;
-  status: 'running' | 'completed' | 'failed' | 'interrupted';
+  status: 'running' | 'completed' | 'failed' | 'interrupted' | 'continuing';
   exitReason?: string;
+
+  // Continuation pattern (anti-timeout)
+  continuationToken?: string;
+  continuingFromNode?: string;
 
   // Token budget
   tokenBudget: TokenBudget;

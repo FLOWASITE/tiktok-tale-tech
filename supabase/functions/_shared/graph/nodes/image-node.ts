@@ -7,6 +7,7 @@ import { GraphState, buildStateContext } from "../graph-state.ts";
 import { callAI } from "../../ai-provider.ts";
 import { executeToolCall } from "../../tool-executor.ts";
 import { CHAT_TOOLS } from "../../tool-definitions.ts";
+import { BlackboardRetriever, formatRetrievedContext } from "../blackboard-retriever.ts";
 
 const IMAGE_TOOLS = ['generate_image', 'edit_image'];
 
@@ -18,6 +19,8 @@ interface ImageNodeContext {
   brandName?: string;
   industry?: string;
   userAccessToken?: string;
+  /** Blackboard retriever for semantic context + memory storage */
+  retriever?: BlackboardRetriever;
 }
 
 function buildImageSystemPrompt(brandName?: string, industry?: string): string {
@@ -47,14 +50,27 @@ export function createImageNode(ctx: ImageNodeContext) {
   return async function imageNode(state: GraphState): Promise<Partial<GraphState>> {
     console.log('[ImageNode] Starting');
     const systemPrompt = buildImageSystemPrompt(ctx.brandName, ctx.industry);
-    const stateContext = buildStateContext(state);
+
+    // Use Blackboard v2 for context if available, fallback to legacy
+    let contextStr = '';
+    if (ctx.retriever) {
+      try {
+        const entries = await ctx.retriever.retrieve(state.userMessage, ['image_generation', 'generated_content'], 3);
+        contextStr = formatRetrievedContext(entries);
+      } catch {
+        contextStr = buildStateContext(state);
+      }
+    } else {
+      contextStr = buildStateContext(state);
+    }
+
     const tools = CHAT_TOOLS.filter(t => IMAGE_TOOLS.includes(t.function.name));
 
     const aiResult = await callAI({
       functionName: 'image_node',
       organizationId: ctx.organizationId,
       messages: [
-        { role: 'system', content: systemPrompt + stateContext },
+        { role: 'system', content: systemPrompt + contextStr },
         { role: 'user', content: state.userMessage },
       ],
       tools,
@@ -84,7 +100,32 @@ export function createImageNode(ctx: ImageNodeContext) {
       userAccessToken: ctx.userAccessToken,
     });
 
+    // Store image metadata to Blackboard v2 for cross-session memory
+    if (ctx.retriever && result.success) {
+      const imageMetadata = [
+        args.prompt && `Prompt: ${args.prompt}`,
+        args.aspect_ratio && `Aspect Ratio: ${args.aspect_ratio}`,
+        args.style && `Style: ${args.style}`,
+        args.channel && `Channel: ${args.channel}`,
+        result.result?.url && `URL: ${result.result.url}`,
+      ].filter(Boolean).join('\n');
+
+      ctx.retriever.store(imageMetadata, 'image', 'image_generation', {
+        prompt: args.prompt,
+        aspect_ratio: args.aspect_ratio,
+        style: args.style,
+      }).catch(err => console.warn('[ImageNode] Blackboard store failed:', err));
+    }
+
     console.log('[ImageNode] Complete');
-    return { generatedImage: result.success ? result.result : null };
+    return {
+      generatedImage: result.success ? result.result : null,
+      metadata: {
+        ...state.metadata,
+        imagePrompt: args.prompt,
+        imageAspectRatio: args.aspect_ratio,
+        imageStyle: args.style,
+      },
+    };
   };
 }

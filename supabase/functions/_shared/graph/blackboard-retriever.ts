@@ -310,6 +310,20 @@ export function extractStorableContent(
         contentType: 'compliance_check',
       };
     }
+    case 'image': {
+      if (!update.generatedImage) return null;
+      const img = update.generatedImage;
+      const meta = [
+        img.prompt && `Prompt: ${img.prompt}`,
+        img.aspect_ratio && `Aspect: ${img.aspect_ratio}`,
+        img.style && `Style: ${img.style}`,
+        img.channel && `Channel: ${img.channel}`,
+        update.metadata?.imagePrompt && `Prompt: ${update.metadata.imagePrompt}`,
+        update.metadata?.imageAspectRatio && `Aspect: ${update.metadata.imageAspectRatio}`,
+      ].filter(Boolean).join('\n');
+      const content = meta || (typeof img === 'string' ? img : JSON.stringify(img));
+      return { content, contentType: 'image_generation' };
+    }
     default:
       return null;
   }
