@@ -1,17 +1,18 @@
 // ============================================
 // Research Node
-// Web search + topic discovery (single LLM call)
+// Prefetch trending+suggest → LLM synthesis
 // ============================================
 
 import { GraphState, buildStateContext } from "../graph-state.ts";
 import { callAI, AICallResult } from "../../ai-provider.ts";
 import { executeToolCall } from "../../tool-executor.ts";
-import { CHAT_TOOLS, ToolDefinition } from "../../tool-definitions.ts";
+import { CHAT_TOOLS } from "../../tool-definitions.ts";
 import { buildResearchSystemPrompt } from "../../agents/research-agent.ts";
 import { withCache, generateCacheKey } from "../../cache/redis-cache.ts";
 import { formatRetrievedContext } from "../blackboard-retriever.ts";
 
-const RESEARCH_TOOLS = ['web_search', 'search_topics', 'discover_topics'];
+// Only web_search and search_topics remain as LLM-callable tools
+const RESEARCH_TOOLS = ['web_search', 'search_topics'];
 
 interface ResearchNodeContext {
   supabase: any;
@@ -24,12 +25,68 @@ interface ResearchNodeContext {
   retriever?: any;
 }
 
+// ---- Helper: extract topics array from tool result ----
+function extractTopics(result: any): any[] {
+  if (!result) return [];
+  return result.topics || result.suggestions || [];
+}
+
+// ---- Helper: tag & boost trending topics ----
+function mergeAndDedup(
+  suggestTopics: any[],
+  trendingTopics: any[],
+  trendingBoost = 10
+): any[] {
+  const seen = new Set<string>();
+  const merged: any[] = [];
+
+  // Trending first (boosted)
+  for (const t of trendingTopics) {
+    const name = t.title || t.topic || t.name || String(t);
+    const key = name.toLowerCase().trim();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push({
+      ...t,
+      score: (t.score ?? 50) + trendingBoost,
+      source: 'trending',
+    });
+  }
+
+  // Then suggest
+  for (const t of suggestTopics) {
+    const name = t.title || t.topic || t.name || String(t);
+    const key = name.toLowerCase().trim();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push({ ...t, source: 'suggest' });
+  }
+
+  // Sort descending by score
+  merged.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  return merged;
+}
+
+// ---- Helper: format prefetched topics for LLM context ----
+function formatPrefetchedContext(merged: any[]): string {
+  if (merged.length === 0) return '';
+
+  const lines = merged.slice(0, 15).map((t, i) => {
+    const name = t.title || t.topic || t.name || String(t);
+    const tag = t.source === 'trending' ? '[TRENDING]' : '[SUGGEST]';
+    const score = t.score != null ? ` (score: ${t.score})` : '';
+    const cat = t.category ? ` - ${t.category}` : '';
+    return `${i + 1}. ${tag} ${name}${score}${cat}`;
+  });
+
+  return `\n\n## 📊 Dữ liệu Topics đã thu thập (tự động)\n${lines.join('\n')}`;
+}
+
 export function createResearchNode(ctx: ResearchNodeContext) {
   return async function researchNode(state: GraphState): Promise<Partial<GraphState>> {
-    console.log('[ResearchNode] Starting');
+    console.log('[ResearchNode] Starting — prefetching suggest+trending');
 
-    // Try cache first (TTL 4h)
-    const PROMPT_VERSION = 'v2';
+    const PROMPT_VERSION = 'v3';
     const cacheKey = await generateCacheKey(
       ctx.brandTemplateId || 'default',
       'research',
@@ -38,119 +95,133 @@ export function createResearchNode(ctx: ResearchNodeContext) {
     );
 
     return withCache(cacheKey, async () => {
-    const systemPrompt = buildResearchSystemPrompt(ctx.brandName, ctx.industry);
+      // ── Step 1: Prefetch suggest + trending in parallel ──
+      const toolCtx = {
+        supabase: ctx.supabase,
+        userId: ctx.userId,
+        organizationId: ctx.organizationId,
+        brandTemplateId: ctx.brandTemplateId,
+        userAccessToken: ctx.userAccessToken,
+      };
 
-    // Blackboard v2: semantic context retrieval (fallback to buildStateContext)
-    let stateContext: string;
-    if (ctx.retriever) {
-      try {
-        const entries = await ctx.retriever.retrieve(state.userMessage, ['research_output', 'plan'], 5);
-        stateContext = formatRetrievedContext(entries);
-      } catch {
+      const [suggestResult, trendingResult] = await Promise.all([
+        executeToolCall('discover_topics', {
+          action: 'suggest',
+          query: state.userMessage,
+        }, toolCtx).catch(err => {
+          console.warn('[ResearchNode] suggest prefetch failed:', err.message);
+          return { success: false, result: null, tool_name: 'discover_topics' };
+        }),
+        executeToolCall('discover_topics', {
+          action: 'trending',
+        }, toolCtx).catch(err => {
+          console.warn('[ResearchNode] trending prefetch failed:', err.message);
+          return { success: false, result: null, tool_name: 'discover_topics' };
+        }),
+      ]);
+
+      const suggestTopics = suggestResult.success ? extractTopics(suggestResult.result) : [];
+      const trendingTopics = trendingResult.success ? extractTopics(trendingResult.result) : [];
+      const mergedTopics = mergeAndDedup(suggestTopics, trendingTopics);
+      const prefetchedContext = formatPrefetchedContext(mergedTopics);
+
+      console.log(`[ResearchNode] Prefetch done — suggest: ${suggestTopics.length}, trending: ${trendingTopics.length}, merged: ${mergedTopics.length}`);
+
+      // ── Step 2: Build context ──
+      const systemPrompt = buildResearchSystemPrompt(ctx.brandName, ctx.industry);
+
+      let stateContext: string;
+      if (ctx.retriever) {
+        try {
+          const entries = await ctx.retriever.retrieve(state.userMessage, ['research_output', 'plan'], 5);
+          stateContext = formatRetrievedContext(entries);
+        } catch {
+          stateContext = buildStateContext(state);
+        }
+      } else {
         stateContext = buildStateContext(state);
       }
-    } else {
-      stateContext = buildStateContext(state);
-    }
 
-    const tools = CHAT_TOOLS.filter(t => RESEARCH_TOOLS.includes(t.function.name));
+      // ── Step 3: LLM call (web_search still available) ──
+      const tools = CHAT_TOOLS.filter(t => RESEARCH_TOOLS.includes(t.function.name));
 
-    // First LLM call with forced tool use
-    const aiResult = await callAI({
-      functionName: 'research_node',
-      organizationId: ctx.organizationId,
-      messages: [
-        { role: 'system', content: systemPrompt + stateContext },
-        { role: 'user', content: state.userMessage },
-      ],
-      tools,
-      toolChoice: 'required',
-    });
-
-    if (!aiResult.success) {
-      console.error('[ResearchNode] AI call failed:', aiResult.error);
-      return { researchData: null };
-    }
-
-    const message = aiResult.data?.choices?.[0]?.message;
-    const toolCalls = message?.tool_calls || [];
-
-    // Execute tools
-    const toolResults = await Promise.all(
-      toolCalls.map(async (tc: any) => {
-        const args = JSON.parse(tc.function.arguments || '{}');
-        return executeToolCall(tc.function.name, args, {
-          supabase: ctx.supabase,
-          userId: ctx.userId,
-          organizationId: ctx.organizationId,
-          brandTemplateId: ctx.brandTemplateId,
-          userAccessToken: ctx.userAccessToken,
-        });
-      })
-    );
-
-    // Build tool results messages for follow-up
-    const followUpMessages: Array<{ role: string; content: string; tool_calls?: any[]; tool_call_id?: string }> = [
-      { role: 'system', content: systemPrompt + stateContext },
-      { role: 'user', content: state.userMessage },
-      { role: 'assistant', content: message?.content || '', tool_calls: toolCalls },
-    ];
-
-    for (let i = 0; i < toolCalls.length; i++) {
-      followUpMessages.push({
-        role: 'tool',
-        content: JSON.stringify(toolResults[i]?.result || toolResults[i]?.error || 'No result'),
-        tool_call_id: toolCalls[i].id,
+      const aiResult = await callAI({
+        functionName: 'research_node',
+        organizationId: ctx.organizationId,
+        messages: [
+          { role: 'system', content: systemPrompt + stateContext },
+          { role: 'user', content: state.userMessage + prefetchedContext },
+        ],
+        tools: tools.length > 0 ? tools : undefined,
+        toolChoice: 'auto',
       });
-    }
 
-    // Second LLM call to get final response
-    const finalResult = await callAI({
-      functionName: 'research_node',
-      organizationId: ctx.organizationId,
-      messages: followUpMessages,
-      toolChoice: 'auto',
-    });
-
-    const finalContent = finalResult.data?.choices?.[0]?.message?.content || '';
-
-    // Extract best topic and suggested topics from discover_topics results
-    let bestTopic: string | undefined;
-    let suggestedTopics: any[] | undefined;
-
-    for (const tr of toolResults) {
-      if (tr.tool_name === 'discover_topics' && tr.success && tr.result) {
-        const topics = tr.result.topics || tr.result.suggestions || [];
-        if (topics.length > 0) {
-          suggestedTopics = topics;
-          bestTopic = topics[0]?.title || topics[0]?.topic || topics[0]?.name || String(topics[0]);
-        }
+      if (!aiResult.success) {
+        console.error('[ResearchNode] AI call failed:', aiResult.error);
+        // Still return prefetched topics even if LLM fails
+        const bestTopic = mergedTopics[0]
+          ? (mergedTopics[0].title || mergedTopics[0].topic || mergedTopics[0].name)
+          : undefined;
+        return {
+          researchData: { toolResults: [suggestResult, trendingResult], summary: 'LLM failed, using prefetched topics' },
+          bestTopic,
+          suggestedTopics: mergedTopics,
+        };
       }
-    }
 
-    // Safety net: if no discover_topics result, try to extract from search results
-    if (!bestTopic) {
-      for (const tr of toolResults) {
-        if (tr.tool_name === 'web_search' && tr.success && tr.result?.results?.length) {
-          bestTopic = tr.result.results[0]?.title;
-          break;
+      let message = aiResult.data?.choices?.[0]?.message;
+      let toolCalls = message?.tool_calls || [];
+      let totalTokens = (aiResult.data?.usage?.prompt_tokens || 0) + (aiResult.data?.usage?.completion_tokens || 0);
+
+      // Handle any additional tool calls from LLM (web_search etc.)
+      if (toolCalls.length > 0) {
+        const toolResults = await Promise.all(
+          toolCalls.map(async (tc: any) => {
+            const args = JSON.parse(tc.function.arguments || '{}');
+            return executeToolCall(tc.function.name, args, toolCtx);
+          })
+        );
+
+        const followUpMessages: any[] = [
+          { role: 'system', content: systemPrompt + stateContext },
+          { role: 'user', content: state.userMessage + prefetchedContext },
+          { role: 'assistant', content: message?.content || '', tool_calls: toolCalls },
+        ];
+
+        for (let i = 0; i < toolCalls.length; i++) {
+          followUpMessages.push({
+            role: 'tool',
+            content: JSON.stringify(toolResults[i]?.result || toolResults[i]?.error || 'No result'),
+            tool_call_id: toolCalls[i].id,
+          });
         }
+
+        const finalResult = await callAI({
+          functionName: 'research_node',
+          organizationId: ctx.organizationId,
+          messages: followUpMessages,
+          toolChoice: 'auto',
+        });
+
+        message = finalResult.data?.choices?.[0]?.message;
+        totalTokens += (finalResult.data?.usage?.prompt_tokens || 0) + (finalResult.data?.usage?.completion_tokens || 0);
       }
-    }
 
-    // Extract actual token usage
-    const usage = finalResult.data?.usage;
-    const actualTokensUsed = (usage?.prompt_tokens || 0) + (usage?.completion_tokens || 0)
-      + (aiResult.data?.usage?.prompt_tokens || 0) + (aiResult.data?.usage?.completion_tokens || 0);
+      const finalContent = message?.content || '';
 
-    console.log(`[ResearchNode] Complete. bestTopic: ${bestTopic}, actualTokens: ${actualTokensUsed}`);
+      // ── Step 4: Best topic from merged pool ──
+      const bestTopic = mergedTopics[0]
+        ? (mergedTopics[0].title || mergedTopics[0].topic || mergedTopics[0].name || String(mergedTopics[0]))
+        : undefined;
 
-    return {
-      researchData: { toolResults, summary: finalContent },
-      bestTopic,
-      suggestedTopics,
-      metadata: { actualTokensUsed_research: actualTokensUsed },
-    };
-    }, 14400); // 4 hours TTL
+      console.log(`[ResearchNode] Complete. bestTopic: ${bestTopic}, merged: ${mergedTopics.length}, tokens: ${totalTokens}`);
+
+      return {
+        researchData: { toolResults: [suggestResult, trendingResult], summary: finalContent },
+        bestTopic,
+        suggestedTopics: mergedTopics,
+        metadata: { actualTokensUsed_research: totalTokens },
+      };
+    }, 14400); // 4h TTL
   };
 }
