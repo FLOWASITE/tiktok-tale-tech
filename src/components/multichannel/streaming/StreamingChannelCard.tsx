@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, memo } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -14,7 +14,7 @@ interface StreamingChannelCardProps {
   progress?: number;
 }
 
-export function StreamingChannelCard({
+const StreamingChannelCardInner = function StreamingChannelCard({
   channel,
   text,
   isComplete,
@@ -119,3 +119,5 @@ export function StreamingChannelCard({
     </Card>
   );
 }
+
+export const StreamingChannelCard = memo(StreamingChannelCardInner);
