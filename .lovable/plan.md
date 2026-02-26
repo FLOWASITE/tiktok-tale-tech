@@ -1,56 +1,42 @@
 
 
-# Add Orchestrator Agent to UI + Upgrade Model
+# Show Topic AI Results on UI
 
-## Overview
-Make the Orchestrator visible as the first agent in the pipeline UI, and upgrade its LLM model from `gemini-2.5-flash` to `gemini-2.5-pro` for better planning quality.
+## Problem
+The Research Agent discovers topics via `discover_topics` tool and stores them in GraphState (`suggestedTopics`, `bestTopic`), but the graph engine never emits a `topic_suggestions` SSE event. The frontend already has:
+- `useChatStreaming.ts` (line 288): Handles `topic_suggestions` event type
+- `ChatMessageBubble.tsx` (line 257): Renders `TopicSuggestionsCard` when `suggestedTopics` exists
+- `TopicSuggestionsCard.tsx`: Full UI component ready to display topics
 
-## Changes
+The only missing piece is the backend emitting the event.
 
-### 1. Backend: Emit Orchestrator Events (graph-engine.ts)
+## Fix (1 file)
 
-In `runOrchestrator()` (lines 607-615), wrap the orchestrator call with `node_start` and `node_complete` events so the frontend can track it:
+### `supabase/functions/_shared/graph/graph-engine.ts`
 
-```
-onEvent({ type: 'node_start', data: { node: 'orchestrator' } })
-// ... orchestrateWorkflow() ...
-onEvent({ type: 'node_complete', data: { node: 'orchestrator', durationMs, reasoning } })
-```
+In the `onNodeComplete` callback (line 706), after the existing governor-specific logic, add a check: when the completed node is `research` and the state update contains `suggestedTopics`, emit a `topic_suggestions` SSE event with the topics and `bestTopic`.
 
-Also include the orchestrator in the `graph_plan` event so it appears first in the progress steps.
-
-### 2. Backend: Upgrade Orchestrator Model (orchestrator.ts)
-
-Change `model: "google/gemini-2.5-flash"` to `model: "google/gemini-2.5-pro"` at line 297 for more accurate intent classification and plan generation.
-
-### 3. Frontend: Add Orchestrator to Progress Steps (useChatStreaming.ts)
-
-Add `'orchestrator': '🎯 Orchestrator'` to the `nodeLabels` map (line 296). The existing `node_start`/`node_complete` handlers will automatically handle status updates.
-
-### 4. Frontend: Add Orchestrator to All Agent UI Components
-
-Update 4 component files to include the Orchestrator agent:
-
-| File | Change |
-|------|--------|
-| `AgentPipelineBar.tsx` | Add orchestrator as first entry in `AGENT_CONFIG` with `Crosshair` icon |
-| `AgentInsightsTab.tsx` | Add orchestrator as first entry in `AGENTS` list |
-| `AgentTimeline.tsx` | Add 'orchestrator' to `PARALLEL_AGENTS` exclusion (it runs before everything) |
-| `ChatThinkingIndicator.tsx` | Add `'orchestrator'` to the agent icon map |
-
-### 5. Frontend: Handle Orchestrator in Timeline
-
-The orchestrator runs before all other agents (it's not parallel, not sequential with others -- it's Phase 0). In `AgentTimeline.tsx`, treat it as starting at `0ms` with others starting after it completes.
-
-## Execution Flow After Change
-
-```text
-[Orchestrator] --> [Research, Brand Memory, Compliance] (parallel) --> Strategy --> Content --> Image --> Reviewer --> Governor
+```typescript
+// After line 726 (existing onEvent for node_complete)
+if (nodeName === 'research' && update) {
+  const u = update as any;
+  if (u.suggestedTopics?.length) {
+    options.onEvent?.({
+      type: 'topic_suggestions',
+      data: {
+        topics: u.suggestedTopics,
+        best_topic: u.bestTopic || undefined,
+      },
+    });
+  }
+}
 ```
 
-## Technical Details
+This connects the existing backend data to the existing frontend UI -- no new components needed.
 
-- Icon: `Crosshair` from lucide-react (represents targeting/planning)
-- Vietnamese label: `Điều phối` 
-- The orchestrator step will show planning duration (typically 0.5-2s for fast-path, 2-4s for LLM planning)
-- Model upgrade: `gemini-2.5-pro` provides better reasoning for complex intent classification and graph planning
+## Technical Notes
+
+- The `TopicSuggestionsCard` expects `SuggestedTopic[]` with fields: `topic`, `reasoning`, `category`, `score`
+- The `discover_topics` tool returns topics in a compatible format
+- The event will be emitted immediately after the research node completes, so users see topic suggestions while content is still being generated
+
