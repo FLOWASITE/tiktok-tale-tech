@@ -38,4 +38,7 @@ export { AgentPipelineBar } from './AgentPipelineBar';
 export { AgentMentionPopover } from './AgentMentionPopover';
 export { SmartInputSuggestions } from './SmartInputSuggestions';
 export { AgentInsightsTab } from './AgentInsightsTab';
+export { AgentSessionSummary } from './AgentSessionSummary';
+export { AgentTimeline } from './AgentTimeline';
+export { WorkflowPreviewTooltip } from './WorkflowPreviewTooltip';
 export { LazyMessageContent, MessageContentSkeleton, LazyMarkdown } from './LazyMessageContent';

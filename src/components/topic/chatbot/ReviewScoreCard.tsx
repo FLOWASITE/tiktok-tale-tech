@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Award, TrendingUp, Palette, Shield, Sparkles, ArrowUp } from 'lucide-react';
+import { Award, TrendingUp, Palette, Shield, Sparkles, ArrowUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { ReviewScores } from './types';
@@ -8,6 +8,7 @@ import { useEffect, useRef } from 'react';
 
 interface ReviewScoreCardProps {
   scores: ReviewScores;
+  previousScores?: ReviewScores;
   onRequestImprove?: () => void;
   className?: string;
 }
@@ -31,7 +32,22 @@ function getBarColor(score: number): string {
   return 'bg-red-500';
 }
 
-export function ReviewScoreCard({ scores, onRequestImprove, className }: ReviewScoreCardProps) {
+function DeltaBadge({ current, previous }: { current: number; previous: number }) {
+  const delta = current - previous;
+  if (delta === 0) return null;
+  const isPositive = delta > 0;
+  return (
+    <span className={cn(
+      'inline-flex items-center gap-0.5 text-[9px] font-medium',
+      isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+    )}>
+      {isPositive ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
+      {isPositive ? '+' : ''}{delta}
+    </span>
+  );
+}
+
+export function ReviewScoreCard({ scores, previousScores, onRequestImprove, className }: ReviewScoreCardProps) {
   const { fireConfetti } = useConfetti();
   const confettiFired = useRef(false);
   const grade = getGrade(scores.overall);
@@ -42,6 +58,8 @@ export function ReviewScoreCard({ scores, onRequestImprove, className }: ReviewS
       setTimeout(() => fireConfetti(), 300);
     }
   }, [scores.approved, scores.overall, fireConfetti]);
+
+  const overallDelta = previousScores ? scores.overall - previousScores.overall : 0;
 
   return (
     <motion.div
@@ -59,8 +77,13 @@ export function ReviewScoreCard({ scores, onRequestImprove, className }: ReviewS
           <Award className={cn('w-3.5 h-3.5', grade.color)} />
           <span className="text-[11px] font-semibold">Review Score</span>
         </div>
-        <div className={cn('text-xs font-bold px-2 py-0.5 rounded-full border', grade.bgColor, grade.color)}>
-          {scores.overall}/100 · {grade.label}
+        <div className="flex items-center gap-1.5">
+          {previousScores && overallDelta !== 0 && (
+            <DeltaBadge current={scores.overall} previous={previousScores.overall} />
+          )}
+          <div className={cn('text-xs font-bold px-2 py-0.5 rounded-full border', grade.bgColor, grade.color)}>
+            {scores.overall}/100 · {grade.label}
+          </div>
         </div>
       </div>
 
@@ -68,12 +91,14 @@ export function ReviewScoreCard({ scores, onRequestImprove, className }: ReviewS
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {SCORE_ITEMS.map(({ key, label, icon: Icon }) => {
           const value = scores[key];
+          const prevValue = previousScores?.[key];
           return (
             <div key={key} className="space-y-1">
               <div className="flex items-center gap-1">
                 <Icon className="w-2.5 h-2.5 text-muted-foreground" />
                 <span className="text-[10px] text-muted-foreground">{label}</span>
                 <span className="text-[10px] font-medium ml-auto">{value}</span>
+                {prevValue !== undefined && <DeltaBadge current={value} previous={prevValue} />}
               </div>
               <div className="h-1.5 bg-muted/40 rounded-full overflow-hidden">
                 <motion.div

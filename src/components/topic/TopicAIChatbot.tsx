@@ -41,6 +41,7 @@ import {
   TOPIC_ACTION_PATHS,
 } from './chatbot';
 import { SimpleMessageList } from './chatbot/SimpleMessageList';
+import { AgentSessionSummary } from './chatbot/AgentSessionSummary';
 
 // Re-export handle type for consumers
 export type { TopicAIChatbotHandle } from './chatbot';
@@ -306,6 +307,15 @@ export function TopicAIChatbot({
               {/* Agent Pipeline Bar - persistent after streaming */}
                {displayPipelineSteps.length > 0 && (
                  <AgentPipelineBar steps={displayPipelineSteps} />
+               )}
+               
+               {/* Session Summary - shows after all agents complete */}
+               {!streamingHook.isLoading && displayPipelineSteps.length > 0 && (
+                 <AgentSessionSummary
+                   steps={displayPipelineSteps}
+                   contextSources={lastContextSources}
+                   onViewDetails={() => uiHook.setActiveView('discovery')}
+                 />
                )}
               
               <SimpleMessageList
