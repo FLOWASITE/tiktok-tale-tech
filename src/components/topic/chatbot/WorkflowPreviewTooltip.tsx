@@ -4,7 +4,7 @@
 // ============================================
 
 import { useMemo } from 'react';
-import { Search, ClipboardList, PenTool, Image, ShieldCheck, Brain, Shield, Gauge } from 'lucide-react';
+import { Search, ClipboardList, PenTool, Image, ShieldCheck, Brain, Shield, Gauge, MessageCircle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface WorkflowPreviewTooltipProps {
@@ -14,14 +14,15 @@ interface WorkflowPreviewTooltipProps {
 }
 
 const WORKFLOW_AGENTS = [
-  { key: 'research', label: 'Research', icon: Search, patterns: [/nghiên cứu|research|xu hướng|trend|tìm|search|phân tích/i] },
+  { key: 'research', label: 'Research', icon: Search, patterns: [/nghiên cứu|research|xu hướng|trend|tìm|search|phân tích|thị trường|market|benchmark|so sánh/i] },
   { key: 'brand_memory', label: 'Brand Memory', icon: Brain, patterns: [/.*/] },
   { key: 'compliance', label: 'Compliance', icon: Shield, patterns: [/quảng cáo|ad|policy|tuân thủ|compliance|facebook|google|tiktok/i] },
-  { key: 'strategy', label: 'Strategy', icon: ClipboardList, patterns: [/chiến lược|strategy|kế hoạch|plan|content mix/i] },
+  { key: 'strategy', label: 'Strategy', icon: ClipboardList, patterns: [/chiến lược|strategy|kế hoạch|plan|content mix|lộ trình|roadmap/i] },
   { key: 'content', label: 'Content', icon: PenTool, patterns: [/.*/] },
-  { key: 'visual', label: 'Visual', icon: Image, patterns: [/hình|image|ảnh|visual|thiết kế|design|banner|poster/i] },
+  { key: 'visual', label: 'Visual', icon: Image, patterns: [/hình|image|ảnh|visual|thiết kế|design|banner|poster|thumbnail/i] },
   { key: 'reviewer', label: 'Reviewer', icon: ShieldCheck, patterns: [/.*/] },
   { key: 'governor', label: 'Governor', icon: Gauge, patterns: [/.*/] },
+  { key: 'chat', label: 'Chat', icon: MessageCircle, patterns: [/^(xin chào|hello|hi|hey|chào|cảm ơn|thanks|giải thích|explain|hướng dẫn)/i] },
 ];
 
 export function WorkflowPreviewTooltip({ input, children, enabled = true }: WorkflowPreviewTooltipProps) {
