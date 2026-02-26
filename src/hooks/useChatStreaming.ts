@@ -294,6 +294,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
             // ---- Graph Engine events ----
             if (parsed.type === 'graph_plan' && parsed.data?.steps) {
               const nodeLabels: Record<string, string> = {
+                'orchestrator': '🎯 Điều phối',
                 'research': '🔍 Nghiên cứu',
                 'brand_memory': '🧠 Brand Memory',
                 'strategy': '📋 Chiến lược',
@@ -305,10 +306,12 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
               };
               const planSteps: ProgressStep[] = [];
               for (const step of parsed.data.steps) {
+                const isOrchestrator = step.node === 'orchestrator';
                 planSteps.push({
                   id: step.node,
                   label: nodeLabels[step.node] || step.node,
-                  status: 'pending',
+                  status: isOrchestrator ? 'complete' : 'pending',
+                  duration: isOrchestrator ? parsed.data.orchestratorDurationMs : undefined,
                 });
                 // Include parallel nodes
                 if (step.parallelWith) {

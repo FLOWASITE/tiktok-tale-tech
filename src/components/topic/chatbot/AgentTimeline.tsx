@@ -13,8 +13,10 @@ interface AgentTimelineProps {
   className?: string;
 }
 
-// Agents that run in parallel (first phase)
+// Agents that run in parallel (first phase after orchestrator)
 const PARALLEL_AGENTS = new Set(['research', 'brand_memory', 'compliance']);
+// Orchestrator runs as Phase 0 (before everything)
+const PHASE_ZERO_AGENTS = new Set(['orchestrator']);
 
 function extractAgentKey(step: ProgressStep): string {
   // step.id is like "research-agent", "brand_memory-agent", etc.
@@ -27,13 +29,16 @@ export const AgentTimeline = memo(function AgentTimeline({ steps, className }: A
   const timeline = useMemo(() => {
     if (completedSteps.length === 0) return null;
 
-    // Separate parallel and sequential agents
+    // Separate phase-0, parallel and sequential agents
+    const phase0Group: typeof completedSteps = [];
     const parallelGroup: typeof completedSteps = [];
     const sequentialGroup: typeof completedSteps = [];
 
     for (const step of completedSteps) {
       const key = extractAgentKey(step);
-      if (PARALLEL_AGENTS.has(key)) {
+      if (PHASE_ZERO_AGENTS.has(key)) {
+        phase0Group.push(step);
+      } else if (PARALLEL_AGENTS.has(key)) {
         parallelGroup.push(step);
       } else {
         sequentialGroup.push(step);
@@ -42,12 +47,20 @@ export const AgentTimeline = memo(function AgentTimeline({ steps, className }: A
 
     const entries: Array<ProgressStep & { startMs: number; durationMs: number }> = [];
 
-    // Parallel agents all start at 0
-    let parallelEndMs = 0;
-    for (const step of parallelGroup) {
+    // Phase 0: Orchestrator starts at 0
+    let phase0EndMs = 0;
+    for (const step of phase0Group) {
       const duration = step.duration || 0;
       entries.push({ ...step, startMs: 0, durationMs: duration });
-      parallelEndMs = Math.max(parallelEndMs, duration);
+      phase0EndMs = Math.max(phase0EndMs, duration);
+    }
+
+    // Parallel agents start after phase 0
+    let parallelEndMs = phase0EndMs;
+    for (const step of parallelGroup) {
+      const duration = step.duration || 0;
+      entries.push({ ...step, startMs: phase0EndMs, durationMs: duration });
+      parallelEndMs = Math.max(parallelEndMs, phase0EndMs + duration);
     }
 
     // Sequential agents start after the parallel group

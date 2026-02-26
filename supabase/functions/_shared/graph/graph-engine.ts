@@ -605,6 +605,11 @@ export async function runOrchestrator(
   }
 
   // 2. Orchestrate — get the plan
+  options.onEvent?.({
+    type: 'node_start',
+    data: { node: 'orchestrator', traceId: trace.traceId },
+  });
+  const orchStart = Date.now();
   const orchSpan = createSpan(trace, trace.rootSpanId, 'orchestrate');
   const orchestratorOpts: OrchestratorOptions = {
     organizationId: options.organizationId,
@@ -613,6 +618,11 @@ export async function runOrchestrator(
 
   const plan = await orchestrateWorkflow(state, orchestratorOpts);
   endSpan(orchSpan);
+  const orchDurationMs = Date.now() - orchStart;
+  options.onEvent?.({
+    type: 'node_complete',
+    data: { node: 'orchestrator', durationMs: orchDurationMs, reasoning: plan.reasoning },
+  });
 
   // Store reasoning in state
   state.orchestratorPlan = plan;
@@ -636,15 +646,16 @@ export async function runOrchestrator(
     console.log(`[runOrchestrator] Using LLM-extracted topic: "${plan.extractedTopic}"`);
   }
 
-  // 3. Emit plan event
+  // 3. Emit plan event (include orchestrator as first step)
   options.onEvent?.({
     type: 'graph_plan',
     data: {
-      steps: plan.steps,
+      steps: [{ node: 'orchestrator' }, ...plan.steps],
       skipNodes: plan.skipNodes,
       reasoning: plan.reasoning,
       fastPath: plan.fastPath,
       traceId: trace.traceId,
+      orchestratorDurationMs: orchDurationMs,
     },
   });
 
