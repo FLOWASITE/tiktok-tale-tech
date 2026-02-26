@@ -132,8 +132,16 @@ export function createContentNode(ctx: ContentNodeContext) {
     const generatedContent = finalResult.data?.choices?.[0]?.message?.content || 
       JSON.stringify(contentResult.result);
 
-    console.log('[ContentNode] Complete');
-    return { generatedContent };
+    // Extract actual token usage
+    const usage = finalResult.data?.usage;
+    const actualTokensUsed = (usage?.prompt_tokens || 0) + (usage?.completion_tokens || 0)
+      + (aiResult.data?.usage?.prompt_tokens || 0) + (aiResult.data?.usage?.completion_tokens || 0);
+
+    console.log(`[ContentNode] Complete. Actual tokens: ${actualTokensUsed}`);
+    return { 
+      generatedContent,
+      metadata: { actualTokensUsed_content: actualTokensUsed },
+    };
     }, 3600); // 1 hour TTL
   };
 }

@@ -62,9 +62,12 @@ import {
 // NEW: Prompt Registry Integration - Phase 4
 import { createPromptManager } from "../_shared/prompt-integration.ts";
 
+// Prompt Guard
+import { sanitizeInput, logSecurityEvent } from "../_shared/prompt-guard.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -747,7 +750,19 @@ Lưu ý: Không nói với user rằng "công cụ tìm kiếm bị lỗi". Đư
         }, 15000);
 
         try {
-          const userMessage = processedMessages[processedMessages.length - 1]?.content || '';
+          let userMessage = processedMessages[processedMessages.length - 1]?.content || '';
+
+          // Prompt Guard: sanitize user input
+          const guardResult = sanitizeInput(userMessage);
+          if (guardResult.riskLevel !== 'none') {
+            logger.warn('Prompt injection detected', {
+              riskLevel: guardResult.riskLevel,
+              patterns: guardResult.flaggedPatterns,
+            });
+            // Fire-and-forget log
+            logSecurityEvent(supabase, resolvedUserId, organizationId || undefined, guardResult).catch(() => {});
+            userMessage = guardResult.sanitizedMessage;
+          }
 
           const graphResult = await runOrchestrator(userMessage, nodeRegistry, {
             organizationId: organizationId || undefined,

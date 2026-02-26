@@ -12,6 +12,7 @@ import { createBrandMemoryNode } from "./brand-memory-node.ts";
 import { createImageNode } from "./image-node.ts";
 import { createComplianceNode } from "./compliance-node.ts";
 import { createGovernorNode } from "./governor-node.ts";
+import { createRevisionController } from "./revision-controller.ts";
 
 export { createResearchNode } from "./research-node.ts";
 export { createStrategyNode } from "./strategy-node.ts";
@@ -21,6 +22,7 @@ export { createBrandMemoryNode } from "./brand-memory-node.ts";
 export { createImageNode } from "./image-node.ts";
 export { createComplianceNode } from "./compliance-node.ts";
 export { createGovernorNode } from "./governor-node.ts";
+export { createRevisionController } from "./revision-controller.ts";
 
 // ---- Shared execution context ----
 
@@ -91,8 +93,12 @@ export function createNodeRegistry(context: NodeExecutionContext): Map<string, N
 
   registry.set('governor', {
     name: 'governor',
-    fn: createGovernorNode(),
-    estimatedTokens: 0,
+    fn: createGovernorNode({
+      organizationId: context.organizationId,
+      brandName: context.brandName,
+      industry: context.industry,
+    }),
+    estimatedTokens: 2000, // Revision controller may call LLM
   });
 
   return registry;

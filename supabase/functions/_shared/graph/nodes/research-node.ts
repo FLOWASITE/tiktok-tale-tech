@@ -136,12 +136,18 @@ export function createResearchNode(ctx: ResearchNodeContext) {
       }
     }
 
-    console.log('[ResearchNode] Complete. bestTopic:', bestTopic);
+    // Extract actual token usage
+    const usage = finalResult.data?.usage;
+    const actualTokensUsed = (usage?.prompt_tokens || 0) + (usage?.completion_tokens || 0)
+      + (aiResult.data?.usage?.prompt_tokens || 0) + (aiResult.data?.usage?.completion_tokens || 0);
+
+    console.log(`[ResearchNode] Complete. bestTopic: ${bestTopic}, actualTokens: ${actualTokensUsed}`);
 
     return {
       researchData: { toolResults, summary: finalContent },
       bestTopic,
       suggestedTopics,
+      metadata: { actualTokensUsed_research: actualTokensUsed },
     };
     }, 14400); // 4 hours TTL
   };

@@ -110,8 +110,17 @@ export function createStrategyNode(ctx: StrategyNodeContext) {
     });
 
     const contentPlan = finalResult.data?.choices?.[0]?.message?.content || '';
-    console.log('[StrategyNode] Complete');
-    return { contentPlan };
+
+    // Extract actual token usage
+    const usage = finalResult.data?.usage;
+    const actualTokensUsed = (usage?.prompt_tokens || 0) + (usage?.completion_tokens || 0)
+      + (aiResult.data?.usage?.prompt_tokens || 0) + (aiResult.data?.usage?.completion_tokens || 0);
+
+    console.log(`[StrategyNode] Complete. Tokens: ${actualTokensUsed}`);
+    return { 
+      contentPlan,
+      metadata: { actualTokensUsed_strategy: actualTokensUsed },
+    };
     }, 7200); // 2 hours TTL
   };
 }
