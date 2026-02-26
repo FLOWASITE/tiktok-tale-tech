@@ -214,6 +214,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
       let pendingSuggestedTopics: SuggestedTopic[] | undefined = undefined;
       let pendingSelectedTopic: string | undefined = undefined;
       let pendingSelectedTopicReason: string | undefined = undefined;
+      let pendingRefinedVariants: import('@/components/topic/chatbot/types').RefinedVariant[] | undefined = undefined;
       let hasStepResults = false;
       let finalContentStarted = false;
       let isGraphEngineMode = false;
@@ -290,7 +291,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
               console.log('[Chat] Received topic_suggestions:', parsed.data.topics.length, 'topics');
               pendingSuggestedTopics = parsed.data.topics;
               pendingSelectedTopic = parsed.data.best_topic || parsed.data.topics?.[0]?.topic || undefined;
-              const pendingRefinedVariants = parsed.data.refined_variants || undefined;
+              pendingRefinedVariants = parsed.data.refined_variants || undefined;
               pendingSelectedTopicReason = parsed.data.best_topic_reason || undefined;
 
               // Render ngay cả khi chưa có content_chunk để tránh mất TopicSuggestionsCard
@@ -586,7 +587,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   suggestedFollowUps: pendingSuggestedFollowUps,
                   suggestedTopics: pendingSuggestedTopics,
                   selectedTopic: pendingSelectedTopic,
-                  selectedTopicReason: pendingSelectedTopicReason,
+                   selectedTopicReason: pendingSelectedTopicReason,
+                  refinedVariants: pendingRefinedVariants,
                 };
                 onMessageCreate(newMessage);
               } else {
@@ -602,7 +604,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   suggestedFollowUps: pendingSuggestedFollowUps,
                   suggestedTopics: pendingSuggestedTopics,
                   selectedTopic: pendingSelectedTopic,
-                  selectedTopicReason: pendingSelectedTopicReason,
+                   selectedTopicReason: pendingSelectedTopicReason,
+                  refinedVariants: pendingRefinedVariants,
                 });
               }
               continue;
@@ -649,7 +652,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   suggestedFollowUps: pendingSuggestedFollowUps,
                   suggestedTopics: pendingSuggestedTopics,
                   selectedTopic: pendingSelectedTopic,
-                  selectedTopicReason: pendingSelectedTopicReason,
+                   selectedTopicReason: pendingSelectedTopicReason,
+                  refinedVariants: pendingRefinedVariants,
                 };
                 onMessageCreate(newMessage);
               } else {
@@ -665,7 +669,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   suggestedFollowUps: pendingSuggestedFollowUps,
                   suggestedTopics: pendingSuggestedTopics,
                   selectedTopic: pendingSelectedTopic,
-                  selectedTopicReason: pendingSelectedTopicReason,
+                   selectedTopicReason: pendingSelectedTopicReason,
+                  refinedVariants: pendingRefinedVariants,
                 });
               }
               continue;
@@ -762,7 +767,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   suggestedFollowUps: pendingSuggestedFollowUps,
                   suggestedTopics: pendingSuggestedTopics,
                   selectedTopic: pendingSelectedTopic,
-                  selectedTopicReason: pendingSelectedTopicReason,
+                   selectedTopicReason: pendingSelectedTopicReason,
+                  refinedVariants: pendingRefinedVariants,
                 };
                 onMessageCreate(newMessage);
               } else {
@@ -778,7 +784,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
                   suggestedFollowUps: pendingSuggestedFollowUps,
                   suggestedTopics: pendingSuggestedTopics,
                   selectedTopic: pendingSelectedTopic,
-                  selectedTopicReason: pendingSelectedTopicReason,
+                   selectedTopicReason: pendingSelectedTopicReason,
+                  refinedVariants: pendingRefinedVariants,
                 });
               }
             }
@@ -880,6 +887,7 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
         suggestedTopics: pendingSuggestedTopics,
         selectedTopic: pendingSelectedTopic,
         selectedTopicReason: pendingSelectedTopicReason,
+        refinedVariants: pendingRefinedVariants,
       };
       
       if (!messageCreated && (assistantContent || receivedToolResults || (pendingSuggestedTopics && pendingSuggestedTopics.length > 0))) {
@@ -897,7 +905,8 @@ export function useChatStreaming(options: UseChatStreamingOptions): UseChatStrea
           suggestedFollowUps: pendingSuggestedFollowUps,
           suggestedTopics: pendingSuggestedTopics,
           selectedTopic: pendingSelectedTopic,
-          selectedTopicReason: pendingSelectedTopicReason,
+           selectedTopicReason: pendingSelectedTopicReason,
+          refinedVariants: pendingRefinedVariants,
         });
       }
       
