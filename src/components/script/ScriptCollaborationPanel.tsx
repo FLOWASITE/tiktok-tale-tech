@@ -37,7 +37,7 @@ export function ScriptCollaborationPanel({
   
   const status = (scriptWithCollab.status || 'draft') as ScriptApprovalStatus;
   const version = scriptWithCollab.version || 1;
-  const sharedWithOrg = scriptWithCollab.shared_with_org || false;
+  const sharedWithOrg = scriptWithCollab.shared_with_org ?? true;
 
   useEffect(() => {
     fetchApproval();
