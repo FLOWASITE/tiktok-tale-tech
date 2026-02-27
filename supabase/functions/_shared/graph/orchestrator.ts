@@ -167,8 +167,10 @@ const NON_TOPIC_TERMS = new Set([
   'kênh', 'channel', 'social', 'mxh', 'online', 'platform', 'nền', 'tảng',
   // Content nouns
   'bài', 'post', 'content', 'nội', 'dung', 'noi',
-  // Verbs
+  // Action verbs (Vietnamese + English) — these describe WHAT to do, not WHAT ABOUT
   'viết', 'tạo', 'soạn', 'làm', 'generate', 'create', 'write', 'make', 'draft', 'build',
+  'đăng', 'đăng', 'publish', 'share', 'chia', 'sẻ', 'upload', 'up', 'gửi', 'send',
+  'chỉnh', 'sửa', 'edit', 'update', 'xóa', 'delete',
   // Prepositions / filler
   'cho', 'về', 'about', 'the', 'a', 'an', 'một', 'mot', 'của', 'với', 'for', 'with', 'to', 'in', 'on',
   // Content format terms
@@ -177,6 +179,7 @@ const NON_TOPIC_TERMS = new Set([
   // Common filler words
   'giúp', 'help', 'tôi', 'mình', 'me', 'hãy', 'please', 'cần', 'need', 'muốn', 'want',
   'gợi', 'ý', 'suggest', 'đề', 'xuất', 'hôm', 'nay', 'today', 'ngày', 'tuần', 'tháng',
+  'mới', 'new', 'hay', 'good', 'tốt', 'best', 'thêm', 'more', 'nữa', 'tiếp', 'next',
   // Journey/role terms (not topics)
   'seed', 'sprout', 'harvest', 'awareness', 'engagement', 'conversion',
 ]);
