@@ -228,7 +228,7 @@ export function MultiChannelFormWizard({
   const [coreContentAudience, setCoreContentAudience] = useState('');
   const [coreContentPersonaId, setCoreContentPersonaId] = useState<string | undefined>();
   const [coreContentLengthMode, setCoreContentLengthMode] = useState<CoreContentLengthMode>('medium');
-  const [enableResearch, setEnableResearch] = useState(false); // Auto research toggle
+  const [enableResearch, setEnableResearch] = useState(true); // Auto research toggle - default ON
   const [brandPersonasCount, setBrandPersonasCount] = useState<number | null>(null); // Track personas availability
 
   // Background generation tracking - for tasks that continue when user navigates away
