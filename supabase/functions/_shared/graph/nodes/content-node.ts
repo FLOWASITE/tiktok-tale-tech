@@ -71,7 +71,9 @@ export function createContentNode(ctx: ContentNodeContext) {
           channels,
         };
 
-        ctx.onProgress?.('generating_channels', `Đang tạo nội dung cho ${channels.length} kênh...`, 40);
+        ctx.onProgress?.('core_content_generating', 'Đang tạo Core Content...', 25);
+        ctx.onProgress?.('role_assigned', `Vai trò: ${toolArgs.content_role || 'seed'}`, 35);
+        ctx.onProgress?.('transforming_channels', `Đang chuyển đổi sang ${channels.length} kênh...`, 45);
 
         const toolResult = await executeToolCall('generate_multichannel', toolArgs, {
           supabase: ctx.supabase,
@@ -99,6 +101,7 @@ export function createContentNode(ctx: ContentNodeContext) {
       // ─── Fallback Path: use LLM #1 to pick tool (free chat) ───
       console.log('[ContentNode] Fallback path — using LLM to select tool');
       ctx.onProgress?.('analyzing', 'Đang phân tích yêu cầu...', 15);
+      ctx.onProgress?.('core_content_generating', 'Đang tạo Core Content...', 25);
 
       const systemPrompt = buildContentSystemPrompt(ctx.brandName, ctx.industry);
 
@@ -143,7 +146,8 @@ export function createContentNode(ctx: ContentNodeContext) {
       }
 
       // Execute tools
-      ctx.onProgress?.('generating_channels', 'Đang tạo nội dung...', 50);
+      ctx.onProgress?.('role_assigned', 'Đã xác định vai trò chiến lược', 45);
+      ctx.onProgress?.('transforming_channels', 'Đang chuyển đổi sang đa kênh...', 50);
       const toolResults = await Promise.all(
         toolCalls.map(async (tc: any) => {
           const args = JSON.parse(tc.function.arguments || '{}');

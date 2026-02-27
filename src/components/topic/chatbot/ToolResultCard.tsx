@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { ContentPipelineSteps } from './ContentPipelineSteps';
 
 export interface ToolResult {
   success: boolean;
@@ -207,6 +208,14 @@ function CarouselResult({ result, onNavigate }: { result: any; onNavigate?: (pat
 }
 
 function MultichannelResult({ result, onNavigate }: { result: any; onNavigate?: (path: string, state?: any) => void }) {
+  // Use pipeline steps view when data is available (2-step pipeline)
+  const hasPipelineData = result.pipeline_steps?.length > 0 && result.content_role;
+
+  if (hasPipelineData) {
+    return <ContentPipelineSteps result={result} onNavigate={onNavigate} />;
+  }
+
+  // Fallback: simple badges + preview (legacy or topic-based fallback)
   const channels = result.channels || [];
   const previews = result.channel_previews || {};
 
