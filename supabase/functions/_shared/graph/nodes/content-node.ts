@@ -71,16 +71,13 @@ export function createContentNode(ctx: ContentNodeContext) {
           channels,
         };
 
-        ctx.onProgress?.('core_content_generating', 'Đang tạo Core Content...', 25);
-        ctx.onProgress?.('role_assigned', `Vai trò: ${toolArgs.content_role || 'seed'}`, 35);
-        ctx.onProgress?.('transforming_channels', `Đang chuyển đổi sang ${channels.length} kênh...`, 45);
-
         const toolResult = await executeToolCall('generate_multichannel', toolArgs, {
           supabase: ctx.supabase,
           userId: ctx.userId,
           organizationId: ctx.organizationId,
           brandTemplateId: ctx.brandTemplateId,
           userAccessToken: ctx.userAccessToken,
+          onProgress: ctx.onProgress,
         });
 
         if (!toolResult.success) {
@@ -101,7 +98,6 @@ export function createContentNode(ctx: ContentNodeContext) {
       // ─── Fallback Path: use LLM #1 to pick tool (free chat) ───
       console.log('[ContentNode] Fallback path — using LLM to select tool');
       ctx.onProgress?.('analyzing', 'Đang phân tích yêu cầu...', 15);
-      ctx.onProgress?.('core_content_generating', 'Đang tạo Core Content...', 25);
 
       const systemPrompt = buildContentSystemPrompt(ctx.brandName, ctx.industry);
 
@@ -146,8 +142,7 @@ export function createContentNode(ctx: ContentNodeContext) {
       }
 
       // Execute tools
-      ctx.onProgress?.('role_assigned', 'Đã xác định vai trò chiến lược', 45);
-      ctx.onProgress?.('transforming_channels', 'Đang chuyển đổi sang đa kênh...', 50);
+      // Progress events will be emitted inside executeToolCall → executeGenerateMultichannel
       const toolResults = await Promise.all(
         toolCalls.map(async (tc: any) => {
           const args = JSON.parse(tc.function.arguments || '{}');
@@ -157,6 +152,7 @@ export function createContentNode(ctx: ContentNodeContext) {
             organizationId: ctx.organizationId,
             brandTemplateId: ctx.brandTemplateId,
             userAccessToken: ctx.userAccessToken,
+            onProgress: ctx.onProgress,
           });
         })
       );
