@@ -8,6 +8,7 @@ interface ExecutionContext {
   organizationId?: string;
   brandTemplateId?: string;
   userAccessToken?: string;
+  onProgress?: (subStep: string, label: string, progress: number) => void;
 }
 
 // Execute a single tool call
@@ -383,6 +384,9 @@ async function executeGenerateMultichannel(
   // ============================================
   console.log(`[generate_multichannel] STEP 1: Generating Core Content for topic="${topic}", role=${effectiveContentRole}`);
 
+  // Emit real progress: Core Content starting
+  context.onProgress?.('core_content_generating', 'Đang tạo Core Content...', 25);
+
   let coreContentId: string | null = null;
   let coreContentTitle: string | null = null;
 
@@ -411,7 +415,6 @@ async function executeGenerateMultichannel(
     if (!coreContentResponse.ok) {
       const errorText = await coreContentResponse.text();
       console.error(`[generate_multichannel] Core Content generation failed: ${errorText}`);
-      // Don't fail entirely - fall back to topic-based generation
       console.warn(`[generate_multichannel] Falling back to topic-based generation (no Core Content)`);
     } else {
       const coreData = await coreContentResponse.json();
@@ -424,10 +427,17 @@ async function executeGenerateMultichannel(
     console.warn(`[generate_multichannel] Proceeding with topic-based generation`);
   }
 
+  // Emit real progress: Core Content done
+  context.onProgress?.('core_content_done', 'Core Content hoàn tất', 50);
+
   // ============================================
   // STEP 2: Transform to multichannel using Core Content
   // ============================================
   console.log(`[generate_multichannel] STEP 2: Transforming to multichannel, coreContentId=${coreContentId}`);
+
+  // Emit real progress: Transform starting
+  const channelCount = (channels || ["facebook", "instagram"]).length;
+  context.onProgress?.('transforming_channels', `Đang chuyển đổi sang ${channelCount} kênh...`, 55);
 
   const requestBody: Record<string, any> = {
     topic,
@@ -476,6 +486,9 @@ async function executeGenerateMultichannel(
   }
 
   const multiData = await response.json();
+
+  // Emit real progress: Transform done
+  context.onProgress?.('transform_done', 'Đã chuyển đổi xong', 85);
 
   // Extract previews for each channel
   const channelPreviews: Record<string, string> = {};
