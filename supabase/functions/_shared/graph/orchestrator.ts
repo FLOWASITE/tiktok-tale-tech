@@ -137,7 +137,7 @@ function detectAmbiguity(message: string): AmbiguityCheck {
     if (!hasExplicitTopic(message)) {
       missingInfo.push('no_topic');
     }
-    const hasChannel = /facebook|instagram|tiktok|linkedin|youtube|twitter|threads|email|blog|website|zalo/i.test(lower);
+    const hasChannel = /facebook|instagram|tiktok|linkedin|youtube|twitter|threads|email|blog|website|zalo|fb|ig|tt|yt/i.test(lower);
     if (!hasChannel) {
       missingInfo.push('no_channel');
     }
@@ -160,8 +160,9 @@ function detectAmbiguity(message: string): AmbiguityCheck {
 // ---- Heuristic Topic Detection ----
 
 const NON_TOPIC_TERMS = new Set([
-  // Platforms
+  // Platforms (full + abbreviations)
   'facebook', 'instagram', 'tiktok', 'linkedin', 'twitter', 'threads', 'youtube', 'zalo', 'pinterest',
+  'fb', 'ig', 'tt', 'li', 'yt', 'tw', 'x',
   // Channel nouns
   'kênh', 'channel', 'social', 'mxh', 'online', 'platform', 'nền', 'tảng',
   // Content nouns
@@ -180,7 +181,7 @@ const NON_TOPIC_TERMS = new Set([
   'seed', 'sprout', 'harvest', 'awareness', 'engagement', 'conversion',
 ]);
 
-function hasExplicitTopic(message: string): boolean {
+export function hasExplicitTopic(message: string): boolean {
   const lowerMsg = message.toLowerCase();
 
   const hasRealWords = (raw: string): boolean => {
@@ -362,6 +363,8 @@ Intent Classification Guidelines:
 - If user asks a question about marketing/content strategy → use content node only (chat mode)
 - If user explicitly chains steps ("nghiên cứu rồi tạo") → multi_step / full_pipeline
 - IMPORTANT: Extract the topic from the message if present, even if embedded in a longer sentence
+- CRITICAL: If the user does NOT provide a specific topic (e.g., "Tạo nội dung FB", "Viết 1 bài cho Instagram"), you MUST include the "research" node FIRST to discover a suitable topic. NEVER skip research when there is no explicit topic.
+- Platform abbreviations count as channels, NOT topics: FB=Facebook, IG=Instagram, TT=TikTok, YT=YouTube
 
 You MUST call the create_graph_plan tool with your plan.`;
 

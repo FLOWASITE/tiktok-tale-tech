@@ -13,7 +13,7 @@ import {
   mergeStateUpdate,
   createGraphState,
 } from "./graph-state.ts";
-import { orchestrateWorkflow, OrchestratorOptions } from "./orchestrator.ts";
+import { orchestrateWorkflow, OrchestratorOptions, hasExplicitTopic } from "./orchestrator.ts";
 import { BlackboardRetriever, extractStorableContent } from "./blackboard-retriever.ts";
 import { createTrace, createSpan, endSpan, getTraceHeaders, type Trace } from "../tracing.ts";
 import { classifyError, getErrorStrategy, type FlowaError, TransientError, DegradationError } from "../errors/flowa-error.ts";
@@ -565,15 +565,64 @@ export interface RunOrchestratorOptions {
   conversationHistory?: Array<{ role: string; content: string }>;
 }
 
+// ---- Post-plan validation: inject research when no explicit topic ----
+
+function validateResearchInclusion(
+  userMessage: string,
+  plan: GraphPlan,
+  nodeRegistry: Map<string, NodeConfig>
+): GraphPlan {
+  // If message already has an explicit topic, no need to force research
+  if (hasExplicitTopic(userMessage)) return plan;
+
+  // If plan already includes research, we're good
+  const hasResearch = plan.steps.some(s => s.node === 'research');
+  if (hasResearch) return plan;
+
+  // Check research is not in skipNodes and registry has it
+  if (!nodeRegistry.has('research')) return plan;
+
+  // Chat-only plans should not get research injected
+  if (plan.steps.length === 1 && plan.steps[0].node === 'content' && plan.skipNodes.includes('research')) {
+    // Check if this looks like a content generation request (not just chat)
+    const isGenerate = /viết|tạo|soạn|làm|generate|create|write|draft/i.test(userMessage) &&
+                       /content|nội dung|bài|post|caption|script|carousel/i.test(userMessage);
+    if (!isGenerate) return plan;
+  }
+
+  // Force-inject research before content
+  console.log(`[validateResearchInclusion] No explicit topic detected — injecting research node`);
+
+  const newSteps = [
+    { node: 'research' },
+    ...plan.steps.map(s => {
+      if (s.node === 'content' && !s.dependsOn?.includes('research')) {
+        return { ...s, dependsOn: [...(s.dependsOn || []), 'research'] };
+      }
+      return s;
+    }),
+  ];
+
+  const newSkipNodes = plan.skipNodes.filter(n => n !== 'research');
+
+  return {
+    ...plan,
+    steps: newSteps,
+    skipNodes: newSkipNodes,
+    reasoning: plan.reasoning + ' [research injected: no explicit topic detected]',
+  };
+}
+
 /**
  * High-level entry point: orchestrate + compile + execute.
  *
  * 1. Creates initial GraphState from userMessage
  * 2. Calls orchestrateWorkflow() to get the plan
- * 3. Emits `graph_plan` event
- * 4. Compiles plan into GraphDefinition
- * 5. Executes the graph
- * 6. Returns the result
+ * 3. Validates plan (injects research if no topic)
+ * 4. Emits `graph_plan` event
+ * 5. Compiles plan into GraphDefinition
+ * 6. Executes the graph
+ * 7. Returns the result
  */
 export async function runOrchestrator(
   userMessage: string,
@@ -615,9 +664,13 @@ export async function runOrchestrator(
     forceTemplate: options.forceTemplate,
   };
 
-  const plan = await orchestrateWorkflow(state, orchestratorOpts);
+  let plan = await orchestrateWorkflow(state, orchestratorOpts);
   endSpan(orchSpan);
   const orchDurationMs = Date.now() - orchStart;
+
+  // Post-plan validation: ensure research is included when no explicit topic
+  plan = validateResearchInclusion(userMessage, plan, nodeRegistry);
+
   options.onEvent?.({
     type: 'node_complete',
     data: { node: 'orchestrator', durationMs: orchDurationMs, reasoning: plan.reasoning },
