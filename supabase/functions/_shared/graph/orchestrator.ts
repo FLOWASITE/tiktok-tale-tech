@@ -333,11 +333,11 @@ function tryFastPath(message: string): GraphPlan | null {
 
 /** Node descriptions for the orchestrator LLM */
 const NODE_DESCRIPTIONS = `Available nodes:
-- research: Web search, topic discovery, competitor analysis, trend finding
+- research: Web search, topic discovery, competitor analysis, trend finding. Also provides data/facts for Core Content generation.
 - brand_memory: Load brand context, voice guidelines, industry knowledge (lightweight, always safe to run parallel)
 - compliance: Rule-based legal/industry compliance pre-check (lightweight, always safe to run parallel)
 - strategy: Content planning, channel strategy, editorial calendar
-- content: Generate content (posts, scripts, carousels, emails)
+- content: Generate multichannel content. Internally runs a 3-step pipeline: (1) Core Content generation (base article using topic + angle + length), (2) Content Role assignment (seed/sprout/harvest), (3) Channel Transformation (convert Core Content to platform-specific posts for N channels). Uses generate_multichannel tool which handles all 3 steps automatically.
 - reviewer: Quality check, compliance, brand voice verification
 - governor: Token budget gate + quality early-exit (always runs after reviewer)
 - image: AI image generation and editing`;
@@ -346,6 +346,30 @@ const ORCHESTRATOR_SYSTEM_PROMPT = `You are the Orchestrator of Flowa's AI conte
 Given the user's message and current context, create an optimal execution graph plan.
 
 ${NODE_DESCRIPTIONS}
+
+## Content Creation Pipeline (4-step process)
+The system follows a strict 4-step workflow to create multichannel content:
+
+**Step 1 — Topic Selection (Orchestrator responsibility):**
+- User must provide a Content Goal (1 of 5: education, awareness, engagement, expertise, conversion) + Topic (min 10 chars).
+- If user provides NO specific topic → you MUST include "research" node FIRST to discover a suitable topic.
+- The "research" node finds trending topics, competitor insights, and relevant data.
+
+**Step 2 — Core Content Generation (handled by "content" node):**
+- Uses topic + Content Angle (educational, storytelling, promotional, social_proof, behind_the_scenes, qa_faq) + Length Mode.
+- Research node output feeds into this step as supporting data/facts.
+
+**Step 3 — Content Role Assignment (handled by "content" node):**
+- Assigns strategic role: seed (awareness), sprout (trust-building), or harvest (conversion).
+- Must be consistent with Goal + Angle chosen.
+
+**Step 4 — Multi-channel Transform (handled by "content" node):**
+- Converts Core Content into platform-specific posts for N channels (facebook, instagram, tiktok, twitter, youtube, linkedin, zalo, telegram, threads, email, website, google_maps).
+- Each channel gets optimized content with appropriate length, tone, and format.
+
+→ The "content" node handles steps 2-4 internally via the generate_multichannel tool.
+→ The "research" node handles step 1 (topic discovery) when user has no specific topic.
+→ When user provides a topic, you can skip "research" and go directly to "content".
 
 Rules:
 1. For simple chat/Q&A/greetings/explanations, use only the "content" node.
