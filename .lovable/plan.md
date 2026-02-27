@@ -1,88 +1,73 @@
 
 
-## Hiển thị quy trình 4 bước tạo content trong Chat UI
+## Thêm progress thực sự trong lúc Core Content & Transform đang chạy
 
-### Mục tiêu
-Khi Agent tạo nội dung đa kênh qua chat, UI sẽ hiển thị rõ ràng kết quả từng bước của quy trình: Topic -> Core Content -> Vai trò -> Đa kênh, thay vì chỉ show badge kênh và preview ngắn như hiện tại.
+### Vấn đề
+Hiện tại, các progress event (`core_content_generating`, `role_assigned`, `transforming_channels`) đều được emit **trước** khi `executeToolCall` chạy. Trong suốt thời gian thực sự gọi API tạo Core Content (10-20s) và Transform (15-30s), UI không nhận được bất kỳ update nào -- tạo cảm giác "đứng im".
 
-### Hiện trạng
-- Tool `generate_multichannel` đã trả về đầy đủ dữ liệu: `pipeline_steps`, `core_content_id`, `content_goal`, `content_angle`, `content_role`, `journey_stage`, `channel_previews`, `channels`
-- Component `MultichannelResult` trong `ToolResultCard.tsx` chỉ hiển thị message + channel badges + 2 dòng preview
-- Pipeline Bar (`AgentPipelineBar`) hiển thị progress các Agent nodes (research, content, reviewer...) nhưng không hiển thị bước nội bộ của content pipeline
+### Giải pháp
+Truyền callback `onProgress` từ Content Node xuống `executeToolCall` → `executeGenerateMultichannel`, để emit progress **đúng thời điểm** mỗi bước thực sự bắt đầu và kết thúc.
 
-### Thay đổi
+### Thay đổi chi tiết
 
-#### 1. Tạo component `ContentPipelineSteps` (file mới)
-`src/components/topic/chatbot/ContentPipelineSteps.tsx`
-
-Component hiển thị 4 bước dạng vertical timeline với trạng thái hoàn thành:
-
-```text
-Step 1: Topic & Goal
-  [Education badge] "Cách tối ưu SEO cho website thương mại điện tử"
-
-Step 2: Core Content  
-  [Core Content ID link] | Quality Score | Word count
-
-Step 3: Vai trò chiến lược
-  [Seed/Sprout/Harvest badge] + mô tả ngắn
-
-Step 4: Đa kênh (N kênh)
-  [FB] [IG] [TikTok] badges + preview thu gọn
+#### 1. Mở rộng `ExecutionContext` (tool-executor.ts)
+Thêm field `onProgress` vào interface `ExecutionContext`:
+```typescript
+interface ExecutionContext {
+  supabase: any;
+  userId?: string;
+  organizationId?: string;
+  brandTemplateId?: string;
+  userAccessToken?: string;
+  onProgress?: (subStep: string, label: string, progress: number) => void;
+}
 ```
 
-Mỗi bước hiển thị icon check (completed), thông tin tham số đã sử dụng, và có thể thu gọn/mở rộng (Collapsible).
-
-#### 2. Cập nhật `MultichannelResult` trong `ToolResultCard.tsx`
-Thay thế giao diện hiện tại (chỉ badges + preview) bằng `ContentPipelineSteps` khi tool result có `pipeline_steps` (tức là đi qua pipeline 2 bước). Giữ nguyên UI cũ cho trường hợp fallback (không có core content).
-
-#### 3. Thêm sub-step SSE events chi tiết hơn cho Content Node
-Cập nhật `content-node.ts` để emit thêm progress events cho từng bước nội bộ:
-- `core_content_generating` → "Đang tạo Core Content..."
-- `role_assigned` → "Vai trò: Seed/Sprout/Harvest"  
-- `transforming_channels` → "Đang chuyển đổi sang N kênh..."
-
-Điều này giúp `ChatThinkingIndicator` hiển thị sub-label chính xác hơn khi content node đang active.
-
-### Chi tiết kỹ thuật
-
-**Files mới:**
-- `src/components/topic/chatbot/ContentPipelineSteps.tsx` — Component timeline 4 bước
-
-**Files cần sửa:**
-- `src/components/topic/chatbot/ToolResultCard.tsx` — Tích hợp `ContentPipelineSteps` vào `MultichannelResult`
-- `supabase/functions/_shared/graph/nodes/content-node.ts` — Thêm granular progress events
-- `supabase/functions/_shared/tool-executor.ts` — Bổ sung thêm metadata vào tool result (goal label, role label, angle label) để UI render đúng tiếng Việt
-
-**Dữ liệu có sẵn từ tool result (không cần thay đổi schema):**
-- `content_goal`, `content_angle`, `content_role`, `journey_stage`
-- `core_content_id`, `pipeline_steps`
-- `channels`, `channel_previews`
-- `topic`
-
-**Component ContentPipelineSteps — cấu trúc:**
+#### 2. Emit progress bên trong `executeGenerateMultichannel` (tool-executor.ts)
+Thêm các lệnh gọi `context.onProgress` tại đúng thời điểm:
+- Trước khi gọi `generate-core-content`: emit `core_content_generating` (25%)
+- Sau khi Core Content hoàn tất: emit `core_content_done` (50%)
+- Trước khi gọi `generate-multichannel`: emit `transforming_channels` (55%)
+- Sau khi Transform hoàn tất: emit `transform_done` (85%)
 
 ```text
-+------------------------------------------+
-| Quy trình tạo nội dung                   |
-+------------------------------------------+
-| [check] Bước 1: Chủ đề & Mục tiêu       |
-|   Goal: [Education badge]                |
-|   Topic: "Cách tối ưu SEO..."           |
-|                                          |
-| [check] Bước 2: Core Content            |
-|   Angle: [Storytelling]  Length: [Medium] |
-|   [Link: Xem Core Content]              |
-|                                          |
-| [check] Bước 3: Vai trò chiến lược      |
-|   [Sprout - Xây dựng lòng tin]           |
-|                                          |
-| [check] Bước 4: Đa kênh (3 kênh)        |
-|   [FB] [IG] [TikTok]                    |
-|   Preview thu gọn...                     |
-+------------------------------------------+
-| [Button: Mở & Chỉnh sửa]               |
-+------------------------------------------+
+Timeline thực tế:
+  25% ── "Đang tạo Core Content..."  (bắt đầu gọi API)
+  50% ── "Core Content hoàn tất"     (API trả về)
+  55% ── "Đang chuyển đổi sang N kênh..." (bắt đầu gọi API)
+  85% ── "Đã chuyển đổi xong"       (API trả về)
+  90% ── "Đang hoàn thiện..."        (content-node.ts)
 ```
 
-Sử dụng Collapsible từ Radix UI để thu gọn preview kênh mặc định, người dùng có thể mở ra xem chi tiết từng kênh.
+#### 3. Cập nhật Content Node truyền callback (content-node.ts)
+- Truyền `ctx.onProgress` vào `executeToolCall` qua context
+- Loại bỏ các progress event giả (fire trước khi tool chạy) ở cả Fast Path và Fallback Path
+- Giữ lại `preparing` (10%) và `finalizing` (90%) ở content-node level
+
+**Fast Path (trước):**
+```typescript
+ctx.onProgress?.('core_content_generating', '...', 25);  // giả
+ctx.onProgress?.('role_assigned', '...', 35);             // giả
+ctx.onProgress?.('transforming_channels', '...', 45);     // giả
+const toolResult = await executeToolCall(...);             // silent 30-50s
+```
+
+**Fast Path (sau):**
+```typescript
+ctx.onProgress?.('preparing', 'Chuẩn bị nội dung...', 10);
+const toolResult = await executeToolCall('generate_multichannel', toolArgs, {
+  ...context,
+  onProgress: ctx.onProgress,  // callback truyền xuống
+});
+// Progress 25→50→55→85 được emit BÊN TRONG executeGenerateMultichannel
+ctx.onProgress?.('finalizing', 'Đang hoàn thiện...', 90);
+```
+
+### Files cần sửa
+- `supabase/functions/_shared/tool-executor.ts` -- Thêm `onProgress` vào ExecutionContext, emit progress trong `executeGenerateMultichannel`
+- `supabase/functions/_shared/graph/nodes/content-node.ts` -- Truyền callback, loại bỏ progress giả
+
+### Không thay đổi
+- Schema database
+- Frontend components (ContentPipelineSteps, ToolResultCard)
+- Các tool executor khác (generate_script, generate_carousel...)
