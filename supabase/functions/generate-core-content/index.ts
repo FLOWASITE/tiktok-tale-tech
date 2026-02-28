@@ -446,7 +446,7 @@ serve(async (req: Request) => {
     const {
       topic, contentGoal, contentAngle, contentRole, lengthMode,
       brandTemplateId, targetAudience, additionalContext, topicHistoryId,
-      stream, enableResearch, researchRecency,
+      stream, enableResearch, researchRecency, taskId,
     } = body;
 
     // Get auth info needed for parallel resolution
@@ -543,6 +543,39 @@ serve(async (req: Request) => {
       console.warn('[generate-core-content] Auth resolution failed:', authResult.reason);
     }
     
+    // --- Extract AI Config ---
+    const aiConfig = aiConfigResult.status === 'fulfilled' ? aiConfigResult.value : null;
+
+    // --- Extract Brand Data ---
+    const brandData = brandResult.status === 'fulfilled' ? brandResult.value?.data : null;
+    const brandContext: BrandContext | null = brandData ? {
+      brandName: brandData.brand_name || '',
+      industry: brandData.industry || [],
+      toneOfVoice: brandData.tone_of_voice || [],
+      brandPositioning: brandData.brand_positioning || undefined,
+      uniqueValueProposition: brandData.unique_value_proposition || undefined,
+      contentPillars: brandData.content_pillars || [],
+      mainCompetitors: brandData.main_competitors || [],
+      preferredWords: brandData.preferred_words || [],
+      bannedWords: brandData.forbidden_words || [],
+      sentenceStyle: brandData.sentence_style || undefined,
+      emojiPolicy: brandData.emoji_policy || undefined,
+    } : null;
+
+    // --- Extract Personas ---
+    const personas = personasResult.status === 'fulfilled' ? (personasResult.value?.data || []) : [];
+
+    // --- Extract Products ---
+    const products = productsResult.status === 'fulfilled' ? (productsResult.value?.data || []) : [];
+
+    // --- Extract Smart Context ---
+    const smartCtx = smartCtxResult.status === 'fulfilled' ? smartCtxResult.value : null;
+    const smartContextInjection = smartCtx?.contextInjection || '';
+
+    // --- Derive model & maxTokens ---
+    const model = aiConfig?.model || getDefaultModel(lengthMode as CoreContentLengthMode);
+    const maxTokens = getMaxTokens(lengthMode as CoreContentLengthMode);
+
     // ========== PHASE 2: PARALLEL RESEARCH + KG + PROMPT ==========
     // These depend on Phase 1 results (brandContext, brandData) but are independent of each other
     console.log(`[generate-core-content] Phase 2: Starting parallel Research + KG + Prompt...`);
