@@ -1,24 +1,39 @@
-## Cho phép đóng màn hình tạo nội dung khi đang chạy
 
-### Vấn đề
 
-Drawer `MobileGenerationSheet` chặn đóng khi đang tạo ảnh (`canClose = !isGenerating && !isImageGenerating`). Nếu ảnh bị lỗi/timeout mà state không chuyển sang 'complete' hoặc 'error', người dùng bị kẹt vĩnh viễn.
+## Sửa lỗi không lên lịch được dù bài đã duyệt
+
+### Nguyên nhân
+Hàm `canSchedule` trong `SchedulePanel.tsx` (dòng 52-55) chỉ kiểm tra `channel_statuses[channel]` (trạng thái riêng từng kênh). Khi nội dung được duyệt qua nút "Duyệt" tổng thể, trạng thái master `content.status` được cập nhật thành `approved`, nhưng `channel_statuses` của từng kênh vẫn giữ nguyên là `draft`.
+
+Kết quả: Nút "Lên lịch" bị disable và hiển thị "Cần duyệt nội dung trước khi lên lịch" mặc dù bài đã được duyệt.
 
 ### Giải pháp
+Mở rộng logic `canSchedule` để xét thêm trạng thái master `content.status`. Nếu `content.status` là `approved` hoặc `published`, cho phép lên lịch cho tất cả các kênh, bất kể `channel_statuses` riêng lẻ.
 
-Luôn hiển thị nút X để đóng, kèm cảnh báo nếu đang tạo dở. Không chặn cứng việc đóng drawer.
+### Chi tiết thay đổi
 
-### Thay đổi trong `MobileGenerationSheet.tsx`
+**File: `src/components/SchedulePanel.tsx`** (dòng 52-55)
 
-1. **Bỏ chặn đóng cứng**: Thay `canClose` logic -- luôn cho phép đóng drawer, nhưng nếu đang generating thì hiển thị confirm toast trước khi đóng.
-2. **Luôn hiển thị nút X**: Bỏ điều kiện `{canClose && ...}` quanh nút X, nút X luôn hiển thị.
-3. **Thêm logic xác nhận**: Khi bấm đóng trong lúc generating, show `toast` cảnh báo "Nội dung đang tạo sẽ tiếp tục ở nền" 
-
-```text
-Trước: canClose = !isGenerating && !isImageGenerating → chặn cứng
-Sau:   Luôn cho đóng, nút X luôn hiển thị
+Thay:
+```typescript
+const canSchedule = (channel: Channel) => {
+  const status = getChannelStatus(channel);
+  return status === 'approved' || status === 'published';
+};
 ```
 
-### File cần sửa
+Thành:
+```typescript
+const canSchedule = (channel: Channel) => {
+  const channelStatus = getChannelStatus(channel);
+  const masterStatus = content.status;
+  return channelStatus === 'approved' || channelStatus === 'published' 
+    || masterStatus === 'approved' || masterStatus === 'published';
+};
+```
 
-- `src/components/multichannel/MobileGenerationSheet.tsx` -- Bỏ chặn đóng, luôn hiển thị nút X
+### Tác động
+- Khi bài được duyệt tổng (master status = approved), tất cả kênh đều có thể lên lịch
+- Khi chỉ duyệt riêng từng kênh, logic cũ vẫn hoạt động bình thường
+- Không ảnh hưởng đến các component khác
+
