@@ -1,22 +1,27 @@
 
 
-## Thay đổi mặc định tạo ảnh
+## Loại bỏ nút "Dùng Hook" và "AI Tối ưu" khỏi phần text trên ảnh
 
-### Thay đổi 1: Logo mặc định ở góc trên bên trái
+### Mục tiêu
+Text trên ảnh sẽ được AI xử lý tự động khi tạo ảnh, không cần người dùng bấm thêm nút nào. Giao diện chỉ còn ô nhập text đơn giản.
+
+### Thay đổi
+
+**File: `src/components/multichannel/ImageAdvancedOptions.tsx`**
+
+1. **Phần "Chung" (shared text)** — Xóa dải nút "Dùng Hook" + "AI Tối ưu", chỉ giữ lại label "Text trên ảnh" và textarea
+2. **Phần "Theo kênh" (per-channel text)** — Xóa nút "Dùng Hook" ở mỗi tab kênh, chỉ giữ label và textarea
+
+**File: `src/components/multichannel/ImageAdvancedOptions.tsx` (props cleanup)**
+- Loại bỏ props `fillHookText`, `isOptimizingText`, `onOptimizeText` khỏi interface vì không còn dùng
+- Loại bỏ import `Hash`, `Wand2`, `Loader2` nếu không dùng ở chỗ khác
+
 **File: `src/components/multichannel/SimpleImageGenerator.tsx`**
-- Đổi `logoPosition` mặc định từ `'bottom-right'` sang `'top-left'`
-
-### Thay đổi 2: Mặc định có text trên ảnh
-**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
-- Đổi `imageContentType` mặc định từ `'background_only'` sang `'with_text'`
-
-### Thay đổi 3: Auto pipeline cũng áp dụng mặc định mới
-**File: `src/hooks/useAutoImagePipeline.ts`**
-- Thêm `includeLogo: true` + `logoPosition: 'top-left'` + `logoUrl: brandLogoUrl` vào `genOptions` khi có brand logo
-- Thêm `imageContentType: 'with_text'` + `useCanvasFallback: true` để ảnh tự động tạo cũng có text
+- Loại bỏ truyền props `fillHookText`, `isOptimizingText`, `onOptimizeText` vào ImageAdvancedOptions
+- Có thể giữ lại logic auto-fill text từ hook (useEffect) để textarea vẫn được điền sẵn text tốt nhất
 
 ### Kết quả
-- Khi mở trình tạo ảnh (SimpleImageGenerator): logo mặc định góc trên trái, có text
-- Khi tạo ảnh tự động (auto pipeline): cũng áp dụng logo góc trên trái + có text
-- Người dùng vẫn có thể thay đổi các tùy chọn này trước khi tạo
+- Giao diện gọn hơn: chỉ còn textarea để nhập/sửa text
+- Text vẫn được tự động điền sẵn khi mở form (nhờ useEffect hiện có)
+- AI xử lý text trong quá trình tạo ảnh, không cần bước tối ưu riêng
 
