@@ -182,11 +182,15 @@ async function uploadToStorage(
 
   console.log(`[overlay-text-canvas] Uploading to storage: ${fileName}`);
 
+  // Use Blob to avoid request body size issues with large SVGs
+  const blob = new Blob([imageBytes], { type: "image/svg+xml" });
+
   const { error: uploadError } = await supabase.storage
     .from("carousel-images")
-    .upload(fileName, imageBytes, {
+    .upload(fileName, blob, {
       contentType: "image/svg+xml",
       upsert: true,
+      duplex: "half",
     });
 
   if (uploadError) {
