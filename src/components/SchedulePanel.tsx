@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Clock, CalendarClock, Check, X, Loader2, AlertCircle, CalendarPlus } from 'lucide-react';
+import { Calendar, Clock, CalendarClock, Check, X, Loader2, AlertCircle, CalendarPlus, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +27,7 @@ import { vi } from 'date-fns/locale';
 interface SchedulePanelProps {
   content: MultiChannelContent;
   onScheduleChange?: () => void;
+  onBack?: () => void;
 }
 
 const channelLabels: Record<Channel, string> = {
@@ -44,7 +45,7 @@ const channelLabels: Record<Channel, string> = {
   threads: 'Threads',
 };
 
-export function SchedulePanel({ content, onScheduleChange }: SchedulePanelProps) {
+export function SchedulePanel({ content, onScheduleChange, onBack }: SchedulePanelProps) {
   const { schedules, upsertSchedule, cancelSchedule, markAsPublished, isLoading } = useContentSchedules(content.id);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [scheduleDate, setScheduleDate] = useState('');
@@ -198,6 +199,11 @@ export function SchedulePanel({ content, onScheduleChange }: SchedulePanelProps)
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
+          {onBack && (
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onBack}>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+          )}
           <CalendarClock className="w-5 h-5 text-primary" />
           <h3 className="font-semibold">Lên lịch đăng bài</h3>
         </div>
