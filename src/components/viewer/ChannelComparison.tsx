@@ -93,6 +93,7 @@ export function ChannelComparison({
             </span>
             {(content?.selected_channels ?? []).map((channel) => {
               const config = channelConfig[channel];
+              if (!config) return null;
               const isSelected = selectedChannels.includes(channel);
               const isDisabled = !isSelected && selectedChannels.length >= 3;
               
@@ -131,6 +132,7 @@ export function ChannelComparison({
             )}>
               {selectedChannels.map((channel) => {
                 const config = channelConfig[channel];
+                if (!config) return null;
                 const channelContent = getContentForChannel(content, channel) || '';
                 const words = countWords(channelContent);
                 const chars = countCharacters(channelContent);
