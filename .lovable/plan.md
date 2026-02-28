@@ -1,33 +1,32 @@
 
-## Sửa nút Back trong quá trình tạo ảnh
 
-### Vấn đề
-Nút "Quay lại" bị vô hiệu hóa (`disabled`) khi đang tạo ảnh. Người dùng không thể quay lại, và quá trình tạo ảnh bị chặn hoàn toàn.
-
-### Yêu cầu
-Khi bấm Back, người dùng quay về màn hình setup, nhưng quá trình tạo ảnh vẫn tiếp tục chạy ngầm (background).
+## Bỏ nút "Tạo ảnh" ở mỗi kênh trong Mockup
 
 ### Thay đổi
 
-**File 1: `src/components/multichannel/SimpleImageGenerator.tsx`**
+**File: `src/components/MultiChannelViewer.tsx`**
 
-- Bỏ `disabled={batchGen.isGenerating}` trên nút Back (dòng 457)
-- Sửa `handleBackToSetup`: chỉ chuyển `viewMode` về `'setup'` mà KHÔNG cancel hay reset progress. Quá trình tạo ảnh tiếp tục chạy ngầm, khi xong sẽ tự cập nhật state.
+Xóa nút ImagePlus trong phần action bar của từng kênh (khu vực hiển thị các nút Sửa, Copy, Tạo lại...).
 
-```typescript
-const handleBackToSetup = () => {
-  if (!batchGen.isGenerating) {
-    batchGen.resetProgress();
-  }
-  setViewMode('setup');
-};
+Cụ thể, xóa đoạn code nút Tooltip + ImagePlus button ở khoảng dòng 1262-1269:
+```tsx
+// XÓA đoạn này:
+<Tooltip>
+  <TooltipTrigger asChild>
+    <Button variant="outline" size="icon" onClick={() => { setActiveImageChannel(channel); setShowImageGenerator(true); }} ...>
+      <ImagePlus className="w-4 h-4" />
+    </Button>
+  </TooltipTrigger>
+  <TooltipContent>{hasImage ? 'Tạo lại ảnh' : 'Tạo ảnh'}</TooltipContent>
+</Tooltip>
 ```
 
-**File 2: `src/components/multichannel/UnifiedImageGenerator.tsx`**
+### Giữ lại
 
-- Áp dụng cùng logic: bỏ `disabled={batchGen.isGenerating}` (dòng 1482) và sửa `handleBackToSetup` tương tự.
+- Nút **"Tạo ảnh AI"** trên thanh công cụ phía trên (batch, tạo cho tất cả kênh)
+- Nút **RefreshCw** (tạo lại ảnh) hiển thị khi hover lên ảnh đã tạo -- vẫn giữ để người dùng có thể tạo lại ảnh cho từng kênh khi cần
 
 ### Kết quả
-- Nút Back luôn bấm được
-- Quay về setup ngay lập tức
-- Ảnh vẫn tiếp tục tạo ở nền, khi xong sẽ tự động lưu và cập nhật mockup
+
+Giao diện mockup gọn hơn, chỉ còn 1 nút "Tạo ảnh AI" chính trên toolbar. Người dùng vẫn có thể tạo lại ảnh cho từng kênh bằng nút hover trên ảnh.
+
