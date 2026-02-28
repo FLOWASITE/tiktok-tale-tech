@@ -444,92 +444,61 @@ serve(async (req: Request) => {
     // Parse request body first (need body.userId for fallback)
     const body: GenerateCoreContentRequest = await req.json();
 
-    // Get user from auth header with body userId fallback
+    // Get auth info needed for parallel resolution
     const authHeader = req.headers.get('authorization');
-    let userId: string | null = null;
-    let isServiceRoleCall = false;
     const bodyUserId = (body as any).userId || (body as any).user_id || null;
-
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-      const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
-
-      if (token === serviceRoleKey || token === anonKey) {
-        // Internal trusted call (from tool-executor or other edge functions)
-        isServiceRoleCall = true;
-        userId = bodyUserId;
-      } else {
-        const { data: { user } } = await supabase.auth.getUser(token);
-        if (user?.id) {
-          userId = user.id;
-        } else {
-          // JWT invalid, fallback to body userId
-          userId = bodyUserId;
-          if (userId) isServiceRoleCall = true;
-        }
-      }
-    }
-
-    // Verify org membership if using body userId (security check)
     const orgId = body.organizationId || (body as any).organization_id || null;
-    if (isServiceRoleCall && userId && orgId) {
-      const { data: member } = await supabase
-        .from('organization_members')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('organization_id', orgId)
-        .limit(1)
-        .maybeSingle();
-      if (!member) {
-        console.warn(`[generate-core-content] Body userId ${userId} is not a member of org ${orgId}, resetting to null`);
-        userId = null;
-      }
-    }
-    const {
-      topic,
-      contentGoal,
-      contentAngle,
-      contentRole,
-      lengthMode = 'medium',
-      brandTemplateId,
-      organizationId,
-      targetAudience,
-      additionalContext,
-      topicHistoryId,
-      stream = false,
-      enableResearch = false,
-      researchRecency = 'month',
-      taskId,
-    } = body;
     
-    // Validate required fields
-    if (!topic || topic.trim().length < 5) {
-      return new Response(
-        JSON.stringify({ error: 'Topic is required (min 5 characters)' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    if (!organizationId) {
-      return new Response(
-        JSON.stringify({ error: 'Organization ID is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    // Set organization ID for multi-provider AI calls
-    currentOrganizationId = organizationId;
-    
-    console.log(`[generate-core-content] Topic: "${topic.slice(0, 50)}...", Length: ${lengthMode}, Stream: ${stream}`);
-    
-    // ========== PHASE 1: PARALLEL DATA FETCHING ==========
-    // All independent DB queries + config run concurrently
-    console.log(`[generate-core-content] Phase 1: Starting parallel data fetching...`);
+    // ========== PHASE 1: PARALLEL AUTH + DATA FETCHING ==========
+    // Auth verification runs concurrently with all DB queries
+    console.log(`[generate-core-content] Phase 1: Starting parallel auth + data fetching...`);
     const phase1Start = Date.now();
     
-    const [aiConfigResult, brandResult, personasResult, productsResult, smartCtxResult] = 
+    // Helper to resolve auth (runs in parallel with other fetches)
+    const resolveAuth = async (): Promise<{ userId: string | null; isServiceRoleCall: boolean }> => {
+      let userId: string | null = null;
+      let isServiceRoleCall = false;
+      
+      if (authHeader) {
+        const token = authHeader.replace('Bearer ', '');
+        const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+        const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+
+        if (token === serviceRoleKey || token === anonKey) {
+          isServiceRoleCall = true;
+          userId = bodyUserId;
+        } else {
+          const { data: { user } } = await supabase.auth.getUser(token);
+          if (user?.id) {
+            userId = user.id;
+          } else {
+            userId = bodyUserId;
+            if (userId) isServiceRoleCall = true;
+          }
+        }
+      }
+
+      // Verify org membership if using body userId
+      if (isServiceRoleCall && userId && orgId) {
+        const { data: member } = await supabase
+          .from('organization_members')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('organization_id', orgId)
+          .limit(1)
+          .maybeSingle();
+        if (!member) {
+          console.warn(`[generate-core-content] Body userId ${userId} is not a member of org ${orgId}, resetting to null`);
+          userId = null;
+        }
+      }
+      return { userId, isServiceRoleCall };
+    };
+    
+    const [authResult, aiConfigResult, brandResult, personasResult, productsResult, smartCtxResult] = 
       await Promise.allSettled([
+        // 0. Auth (parallel with everything else)
+        resolveAuth(),
         // 1. AI Config
         getAIConfig('generate-core-content', organizationId),
         // 2. Brand template
@@ -561,78 +530,12 @@ serve(async (req: Request) => {
     
     console.log(`[generate-core-content] Phase 1 completed in ${Date.now() - phase1Start}ms`);
     
-    // --- Extract AI Config ---
-    let model = getDefaultModel();
-    if (aiConfigResult.status === 'fulfilled' && aiConfigResult.value?.model) {
-      model = aiConfigResult.value.model;
-      console.log(`[generate-core-content] Using admin config model: ${model}`);
-    } else if (aiConfigResult.status === 'rejected') {
-      console.warn('[generate-core-content] Failed to fetch admin config, using default model');
-    }
-    
-    // Calculate max tokens based on length mode
-    const maxTokens = getMaxTokens(lengthMode as CoreContentLengthMode);
-    
-    // --- Extract Brand Context ---
-    let brandContext: BrandContext | null = null;
-    let brandData: any = null;
-    if (brandResult.status === 'fulfilled' && brandResult.value?.data) {
-      brandData = brandResult.value.data;
-      brandContext = {
-        brandName: brandData.brand_name,
-        brandPositioning: brandData.brand_positioning || undefined,
-        toneOfVoice: brandData.tone_of_voice || undefined,
-        uniqueValueProposition: brandData.unique_value_proposition || undefined,
-        contentPillars: brandData.content_pillars || undefined,
-        evergreenThemes: brandData.evergreen_themes || undefined,
-        industry: brandData.industry || undefined,
-        targetAgeRange: brandData.target_age_range || undefined,
-        targetGender: brandData.target_gender || undefined,
-        brandHashtags: brandData.brand_hashtags || undefined,
-        mainCompetitors: brandData.main_competitors || undefined,
-        preferredWords: brandData.preferred_words || undefined,
-        bannedWords: brandData.forbidden_words || undefined,
-        sentenceStyle: brandData.sentence_style || undefined,
-        emojiPolicy: brandData.emoji_policy || undefined,
-      };
-      console.log(`[generate-core-content] Loaded brand: ${brandData.brand_name}`);
-    }
-    
-    // --- Extract Personas ---
-    let personas: CustomerPersonaContext[] = [];
-    if (personasResult.status === 'fulfilled' && personasResult.value?.data) {
-      personas = personasResult.value.data.map((p: any) => ({
-        name: p.name,
-        description: p.occupation || undefined,
-        pain_points: p.pain_points || undefined,
-        triggers: p.buying_triggers || undefined,
-        communication_style: p.communication_style || undefined,
-      }));
-    }
-    
-    // --- Extract Products ---
-    let products: BrandProductContext[] = [];
-    if (productsResult.status === 'fulfilled' && productsResult.value?.data) {
-      products = productsResult.value.data.map((p: any) => ({
-        name: p.name,
-        description: p.description || undefined,
-        unique_selling_points: p.unique_selling_points || undefined,
-        benefits: p.benefits || undefined,
-        content_angles: p.suggested_content_angles || undefined,
-      }));
-    }
-    
-    // --- Extract Smart Context ---
-    let smartContextInjection = '';
-    if (smartCtxResult.status === 'fulfilled' && smartCtxResult.value) {
-      const smartContext = smartCtxResult.value as SmartContextResult;
-      if (smartContext.fewShotExamples || smartContext.negativePatterns) {
-        smartContextInjection = [
-          smartContext.fewShotExamples,
-          smartContext.negativePatterns,
-        ].filter(Boolean).join('\n\n');
-        console.log(`[generate-core-content] Smart context loaded, richness: ${smartContext.contextRichnessScore}`);
-      }
+    // --- Extract Auth ---
+    let userId: string | null = null;
+    if (authResult.status === 'fulfilled') {
+      userId = authResult.value.userId;
+    } else {
+      console.warn('[generate-core-content] Auth resolution failed:', authResult.reason);
     }
     
     // ========== PHASE 2: PARALLEL RESEARCH + KG + PROMPT ==========
@@ -804,63 +707,51 @@ serve(async (req: Request) => {
           
           console.log(`[generate-core-content] Quality Gate: ${qualityScore}/100`);
           
-          // Save to database
-          const { data: coreContent, error: insertError } = await supabase
-            .from('core_contents')
-            .insert({
-              title,
-              topic,
-              content: result.content,
-              word_count: wordCount,
-              content_goal: contentGoal || 'education',
-              content_angle: contentAngle || null,
-              content_role: contentRole || null,
-              target_audience: targetAudience || null,
-              key_messages: keyMessages,
-              brand_template_id: brandTemplateId || null,
-              organization_id: organizationId,
-              user_id: userId,
-              source_type: 'ai_generated',
-              source_topic_history_id: topicHistoryId || null,
-              quality_score: qualityScore,
-              ai_model_used: model,
-              status: 'draft',
-              outline: null,
-              generation_metadata: {
-                lengthMode,
-                stepsCompleted: enableResearch ? ['research', ...result.metadata.stepsCompleted] : result.metadata.stepsCompleted,
-                totalTokensEstimated: result.metadata.totalTokensEstimated,
-                modelsUsed: result.metadata.modelsUsed,
-                generationTimeMs: duration,
-                researchEnabled: enableResearch,
-                researchFacts: researchData?.facts?.length || 0,
-                qualityMetrics: {
-                  overall: qualityMetrics.overall,
-                  breakdown: qualityMetrics.breakdown,
-                  issues: qualityMetrics.issues,
-                  suggestions: qualityMetrics.suggestions,
-                  passesThreshold: qualityMetrics.passesThreshold,
-                },
+          // Save to database + metrics in PARALLEL
+          const insertData = {
+            title,
+            topic,
+            content: result.content,
+            word_count: wordCount,
+            content_goal: contentGoal || 'education',
+            content_angle: contentAngle || null,
+            content_role: contentRole || null,
+            target_audience: targetAudience || null,
+            key_messages: keyMessages,
+            brand_template_id: brandTemplateId || null,
+            organization_id: organizationId,
+            user_id: userId,
+            source_type: 'ai_generated',
+            source_topic_history_id: topicHistoryId || null,
+            quality_score: qualityScore,
+            ai_model_used: model,
+            status: 'draft',
+            outline: null,
+            generation_metadata: {
+              lengthMode,
+              stepsCompleted: enableResearch ? ['research', ...result.metadata.stepsCompleted] : result.metadata.stepsCompleted,
+              totalTokensEstimated: result.metadata.totalTokensEstimated,
+              modelsUsed: result.metadata.modelsUsed,
+              generationTimeMs: duration,
+              researchEnabled: enableResearch,
+              researchFacts: researchData?.facts?.length || 0,
+              qualityMetrics: {
+                overall: qualityMetrics.overall,
+                breakdown: qualityMetrics.breakdown,
+                issues: qualityMetrics.issues,
+                suggestions: qualityMetrics.suggestions,
+                passesThreshold: qualityMetrics.passesThreshold,
               },
-            })
-            .select('id')
-            .single();
+            },
+          };
           
-          if (insertError) {
-            console.error(`[generate-core-content] Insert error:`, insertError);
-            clearInterval(keepAliveInterval);
-            sse.sendError(`Failed to save: ${insertError.message}`);
-            sse.close();
-            return;
-          }
+          const inputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.4);
+          const outputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.6);
+          const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
           
-          // Save metrics
-          try {
-            const inputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.4);
-            const outputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.6);
-            const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
-            
-            await saveMetrics(supabase, {
+          const [insertResult, _metricsResult] = await Promise.allSettled([
+            supabase.from('core_contents').insert(insertData).select('id').single(),
+            saveMetrics(supabase, {
               traceId: generateTraceId(),
               functionName: 'generate-core-content',
               organizationId,
@@ -872,12 +763,20 @@ serve(async (req: Request) => {
               modelsUsed: { step_0: model },
               estimatedCostUsd,
               hadError: false,
-              contentId: coreContent.id,
               contextSources: enableResearch ? ['research'] : [],
-            });
-          } catch (metricsErr) {
-            console.warn(`[generate-core-content] Failed to save metrics:`, metricsErr);
+            }),
+          ]);
+          
+          if (insertResult.status === 'rejected' || !insertResult.value?.data) {
+            const insertError = insertResult.status === 'rejected' ? insertResult.reason : insertResult.value?.error;
+            console.error(`[generate-core-content] Insert error:`, insertError);
+            clearInterval(keepAliveInterval);
+            sse.sendError(`Failed to save: ${insertError?.message || 'Unknown insert error'}`);
+            sse.close();
+            return;
           }
+          
+          const coreContent = insertResult.value.data;
           
           if (taskId) {
             await completeTask(supabase, taskId, coreContent.id, 'core_contents');
@@ -948,60 +847,51 @@ serve(async (req: Request) => {
     
     console.log(`[generate-core-content] Generated ${wordCount} words, score: ${qualityScore}, time: ${duration}ms`);
     
-    // Save to database
-    const { data: coreContent, error: insertError } = await supabase
-      .from('core_contents')
-      .insert({
-        title,
-        topic,
-        content: result.content,
-        word_count: wordCount,
-        content_goal: contentGoal || 'education',
-        content_angle: contentAngle || null,
-        content_role: contentRole || null,
-        target_audience: targetAudience || null,
-        key_messages: keyMessages,
-        brand_template_id: brandTemplateId || null,
-        organization_id: organizationId,
-        user_id: userId,
-        source_type: 'ai_generated',
-        source_topic_history_id: topicHistoryId || null,
-        quality_score: qualityScore,
-        ai_model_used: model,
-        status: 'draft',
-        outline: null,
-        generation_metadata: {
-          lengthMode,
-          stepsCompleted: enableResearch ? ['research', ...result.metadata.stepsCompleted] : result.metadata.stepsCompleted,
-          totalTokensEstimated: result.metadata.totalTokensEstimated,
-          modelsUsed: result.metadata.modelsUsed,
-          generationTimeMs: duration,
-          researchEnabled: enableResearch,
-          researchFacts: researchData?.facts?.length || 0,
-          qualityMetrics: {
-            overall: qualityMetrics.overall,
-            breakdown: qualityMetrics.breakdown,
-            issues: qualityMetrics.issues,
-            suggestions: qualityMetrics.suggestions,
-            passesThreshold: qualityMetrics.passesThreshold,
-          },
+    // Save to database + metrics in PARALLEL
+    const insertData = {
+      title,
+      topic,
+      content: result.content,
+      word_count: wordCount,
+      content_goal: contentGoal || 'education',
+      content_angle: contentAngle || null,
+      content_role: contentRole || null,
+      target_audience: targetAudience || null,
+      key_messages: keyMessages,
+      brand_template_id: brandTemplateId || null,
+      organization_id: organizationId,
+      user_id: userId,
+      source_type: 'ai_generated',
+      source_topic_history_id: topicHistoryId || null,
+      quality_score: qualityScore,
+      ai_model_used: model,
+      status: 'draft',
+      outline: null,
+      generation_metadata: {
+        lengthMode,
+        stepsCompleted: enableResearch ? ['research', ...result.metadata.stepsCompleted] : result.metadata.stepsCompleted,
+        totalTokensEstimated: result.metadata.totalTokensEstimated,
+        modelsUsed: result.metadata.modelsUsed,
+        generationTimeMs: duration,
+        researchEnabled: enableResearch,
+        researchFacts: researchData?.facts?.length || 0,
+        qualityMetrics: {
+          overall: qualityMetrics.overall,
+          breakdown: qualityMetrics.breakdown,
+          issues: qualityMetrics.issues,
+          suggestions: qualityMetrics.suggestions,
+          passesThreshold: qualityMetrics.passesThreshold,
         },
-      })
-      .select('id')
-      .single();
+      },
+    };
     
-    if (insertError) {
-      console.error(`[generate-core-content] Insert error:`, insertError);
-      throw new Error(`Failed to save core content: ${insertError.message}`);
-    }
+    const inputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.4);
+    const outputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.6);
+    const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
     
-    // Save metrics
-    try {
-      const inputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.4);
-      const outputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.6);
-      const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
-      
-      await saveMetrics(supabase, {
+    const [insertResult, _metricsResult] = await Promise.allSettled([
+      supabase.from('core_contents').insert(insertData).select('id').single(),
+      saveMetrics(supabase, {
         traceId: generateTraceId(),
         functionName: 'generate-core-content',
         organizationId: organizationId || undefined,
@@ -1014,10 +904,16 @@ serve(async (req: Request) => {
         estimatedCostUsd,
         hadError: false,
         contextSources: enableResearch ? ['research'] : [],
-      });
-    } catch (metricsErr) {
-      console.warn(`[generate-core-content] Failed to save metrics:`, metricsErr);
+      }),
+    ]);
+    
+    if (insertResult.status === 'rejected' || !insertResult.value?.data) {
+      const insertError = insertResult.status === 'rejected' ? insertResult.reason : insertResult.value?.error;
+      console.error(`[generate-core-content] Insert error:`, insertError);
+      throw new Error(`Failed to save core content: ${insertError?.message || 'Unknown insert error'}`);
     }
+    
+    const coreContent = insertResult.value.data;
     
     console.log(`[generate-core-content] Saved with ID: ${coreContent.id}`);
     

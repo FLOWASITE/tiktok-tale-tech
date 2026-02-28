@@ -80,42 +80,45 @@ export async function fetchKnowledgeGraphContext(
   const { topic, industryTemplateId, organizationId, limit = 10 } = options;
   
   try {
-    // Step 1: If industryTemplateId provided, find the primary industry node
-    let primaryIndustry: KnowledgeNode | undefined;
-    if (industryTemplateId) {
-      const { data: industryNode } = await supabase
-        .from('industry_knowledge_nodes')
-        .select('*')
-        .eq('source_id', industryTemplateId)
-        .eq('node_type', 'industry')
-        .single();
-      
-      if (industryNode) {
-        primaryIndustry = mapToKnowledgeNode(industryNode);
-      }
+    // Early-return: skip KG when no industryTemplateId (results usually empty)
+    if (!industryTemplateId) {
+      console.log('[KG] No industryTemplateId, skipping KG fetch');
+      return EMPTY_CONTEXT;
     }
 
-    // Step 2: Semantic search for relevant nodes based on topic
-    const embedding = await generateQueryEmbedding(topic);
-    let semanticResults: KnowledgeNode[] = [];
-    
-    if (embedding) {
-      const embeddingStr = `[${embedding.join(',')}]`;
-      
-      const { data: searchResults, error } = await supabase.rpc('search_knowledge_nodes', {
-        p_query_embedding: embeddingStr,
-        p_node_types: null,
-        p_global_pack_id: null,
-        p_threshold: 0.6,
-        p_limit: limit,
-      });
-      
-      if (!error && searchResults) {
-        semanticResults = searchResults.map((r: any) => mapToKnowledgeNode(r));
-      }
-    }
+    // Step 1+2 PARALLEL: Find industry node AND semantic search simultaneously
+    const [industryResult, semanticResult] = await Promise.allSettled([
+      // 1. Find primary industry node
+      (async () => {
+        const { data: industryNode } = await supabase
+          .from('industry_knowledge_nodes')
+          .select('*')
+          .eq('source_id', industryTemplateId)
+          .eq('node_type', 'industry')
+          .single();
+        return industryNode ? mapToKnowledgeNode(industryNode) : undefined;
+      })(),
+      // 2. Semantic search for relevant nodes
+      (async () => {
+        const embedding = await generateQueryEmbedding(topic);
+        if (!embedding) return [];
+        const embeddingStr = `[${embedding.join(',')}]`;
+        const { data: searchResults, error } = await supabase.rpc('search_knowledge_nodes', {
+          p_query_embedding: embeddingStr,
+          p_node_types: null,
+          p_global_pack_id: null,
+          p_threshold: 0.6,
+          p_limit: limit,
+        });
+        if (error || !searchResults) return [];
+        return searchResults.map((r: any) => mapToKnowledgeNode(r));
+      })(),
+    ]);
 
-    // Step 3: If primary industry exists, get connected nodes
+    const primaryIndustry = industryResult.status === 'fulfilled' ? industryResult.value : undefined;
+    const semanticResults: KnowledgeNode[] = semanticResult.status === 'fulfilled' ? semanticResult.value : [];
+
+    // Step 3: Get connected nodes (depends on step 1)
     let connectedNodes: KnowledgeNode[] = [];
     if (primaryIndustry) {
       const { data: connected, error } = await supabase.rpc('get_connected_nodes', {
@@ -123,7 +126,6 @@ export async function fetchKnowledgeGraphContext(
         p_edge_types: ['regulated_by', 'related_to', 'applies_to'],
         p_direction: 'both',
       });
-      
       if (!error && connected) {
         connectedNodes = connected.map((r: any) => mapToKnowledgeNode(r));
       }
