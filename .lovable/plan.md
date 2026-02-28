@@ -1,93 +1,67 @@
 
 
-## Tối ưu thêm tốc độ tạo Core Content
+## Fix: `brandData is not defined` trong generate-core-content
 
-### Phân tích hiện trạng
+### Vấn đề
 
-Code đã được tối ưu Phase 1 (song song DB queries) và Phase 2 (song song Research + KG + Prompt). Các điểm nghẽn còn lại:
+Khi refactor song song hóa Phase 1, code đã gom tất cả DB queries vào `Promise.allSettled` nhưng **quên extract kết quả** từ các settled promises. Cụ thể:
 
-### Thay đổi đề xuất
+- `brandData`, `brandContext`, `personas`, `products`, `smartContextInjection` - không được extract từ Phase 1 results
+- `model`, `maxTokens` - không được tính từ `aiConfig` và `lengthMode`  
+- `taskId` - thiếu trong destructuring body
 
-#### 1. Song song hóa Auth verification + Phase 1 (tiết kiệm ~200-400ms)
+### File cần sửa
 
-Hiện tại auth check (getUser + org membership) chạy tuần tự **trước** Phase 1. Có thể gom auth vào chạy song song với Phase 1 vì chúng độc lập.
+**`supabase/functions/generate-core-content/index.ts`**
 
-**File: `supabase/functions/generate-core-content/index.ts`**
+#### 1. Thêm `taskId` vào destructuring body (line 446-450)
 
-Gom `supabase.auth.getUser()` và `organization_members` check vào `Promise.allSettled` cùng Phase 1.
-
-#### 2. Song song hóa bên trong Knowledge Graph fetcher (tiết kiệm ~300-500ms)
-
-**File: `supabase/functions/_shared/data-fetchers/knowledge-graph-fetcher.ts`**
-
-Hiện tại KG fetcher chạy 3 bước tuần tự:
-```text
-Find industry node (150ms) -> Generate embedding + Semantic search (200ms) -> Get connected nodes (150ms)
-```
-
-Bước 1 (find industry node) và bước 2 (generate embedding + semantic search) hoàn toàn độc lập, chạy song song được:
-```text
-[Find industry node | Generate embedding + Semantic search] -> Get connected nodes
-```
-
-#### 3. Song song hóa post-generation (tiết kiệm ~200-300ms)
-
-**File: `supabase/functions/generate-core-content/index.ts`**
-
-Sau khi AI tạo xong nội dung, hiện tại chạy tuần tự:
-```text
-Quality Gate -> DB Insert -> Save Metrics
-```
-
-DB Insert và Save Metrics độc lập, có thể song song:
-```text
-Quality Gate -> [DB Insert | Save Metrics] (song song)
-```
-
-#### 4. Skip KG khi không có industry template (tiết kiệm ~200ms)
-
-Nếu không có `industryTemplateId`, KG fetcher vẫn gọi embedding + semantic search nhưng thường trả về kết quả rỗng. Thêm early-return khi không có `industryTemplateId` và topic quá chung.
-
-### Chi tiết kỹ thuật
-
-**knowledge-graph-fetcher.ts - Song song hóa nội bộ:**
 ```typescript
-// Before: sequential
-const primaryIndustry = await findIndustryNode();
-const semanticResults = await semanticSearch();
-const connectedNodes = await getConnected(primaryIndustry);
-
-// After: parallel step 1+2, then step 3
-const [industryResult, semanticResult] = await Promise.allSettled([
-  findIndustryNode(),
-  semanticSearch(),
-]);
-// Step 3 depends on step 1
-const connectedNodes = primaryIndustry 
-  ? await getConnected(primaryIndustry) 
-  : [];
+const {
+  topic, contentGoal, contentAngle, contentRole, lengthMode,
+  brandTemplateId, targetAudience, additionalContext, topicHistoryId,
+  stream, enableResearch, researchRecency, taskId,  // <-- thêm taskId
+} = body;
 ```
 
-**index.ts - Song song auth + Phase 1:**
+#### 2. Thêm extraction Phase 1 results (sau line 544, trước Phase 2)
+
+Sau khi extract `userId` từ `authResult`, cần extract tất cả kết quả khác:
+
 ```typescript
-const [authResult, ...phase1Results] = await Promise.allSettled([
-  resolveAuth(supabase, authHeader, bodyUserId, orgId),
-  getAIConfig(...),
-  brandTemplateId ? supabase.from('brand_templates')... : ...,
-  // ... other Phase 1 queries
-]);
+// --- Extract AI Config ---
+const aiConfig = aiConfigResult.status === 'fulfilled' ? aiConfigResult.value : null;
+
+// --- Extract Brand Data ---
+const brandData = brandResult.status === 'fulfilled' ? brandResult.value?.data : null;
+const brandContext: BrandContext | null = brandData ? {
+  brand_name: brandData.brand_name,
+  industry: brandData.industry,
+  brand_voice: brandData.brand_voice,
+  target_audience: brandData.target_audience,
+  unique_selling_points: brandData.unique_selling_points,
+  content_pillars: brandData.content_pillars,
+  competitors: brandData.competitors,
+  brand_values: brandData.brand_values,
+  communication_style: brandData.communication_style,
+} : null;
+
+// --- Extract Personas ---
+const personas = personasResult.status === 'fulfilled' ? (personasResult.value?.data || []) : [];
+
+// --- Extract Products ---
+const products = productsResult.status === 'fulfilled' ? (productsResult.value?.data || []) : [];
+
+// --- Extract Smart Context ---
+const smartCtx = smartCtxResult.status === 'fulfilled' ? smartCtxResult.value : null;
+const smartContextInjection = smartCtx?.contextInjection || '';
+
+// --- Derive model & maxTokens ---
+const model = aiConfig?.model || getDefaultModel(lengthMode as CoreContentLengthMode);
+const maxTokens = getMaxTokens(lengthMode as CoreContentLengthMode);
 ```
 
-**index.ts - Song song post-generation:**
-```typescript
-const [insertResult, _metricsResult] = await Promise.allSettled([
-  supabase.from('core_contents').insert({...}).select('id').single(),
-  saveMetrics(supabase, {...}),
-]);
-```
+### Tổng kết
 
-### Kết quả dự kiến
-- Giảm thêm ~700ms-1.2s thời gian pre/post generation
-- Tổng cộng với tối ưu trước: giảm ~4-6s so với code gốc
-- Không ảnh hưởng chất lượng output
+Chỉ sửa 1 file, thêm ~25 dòng extraction code giữa Phase 1 và Phase 2. Không thay đổi logic, chỉ khôi phục các biến bị mất khi refactor.
 
