@@ -75,19 +75,23 @@ export function QuickScheduleDialog({
 
   // Filter channels that can be scheduled (approved or published)
   const schedulableChannels = useMemo(() => {
+    const masterApproved = content.status === 'approved' || content.status === 'published';
     return content.selected_channels.filter(channel => {
+      if (masterApproved) return true;
       const status = content.channel_statuses?.[channel] || 'draft';
       return status === 'approved' || status === 'published';
     });
-  }, [content.selected_channels, content.channel_statuses]);
+  }, [content.selected_channels, content.channel_statuses, content.status]);
 
   // Channels that need approval first
   const pendingChannels = useMemo(() => {
+    const masterApproved = content.status === 'approved' || content.status === 'published';
+    if (masterApproved) return [];
     return content.selected_channels.filter(channel => {
       const status = content.channel_statuses?.[channel] || 'draft';
       return status !== 'approved' && status !== 'published';
     });
-  }, [content.selected_channels, content.channel_statuses]);
+  }, [content.selected_channels, content.channel_statuses, content.status]);
 
   // Get existing schedule for a channel
   const getExistingSchedule = (channel: Channel) => {
