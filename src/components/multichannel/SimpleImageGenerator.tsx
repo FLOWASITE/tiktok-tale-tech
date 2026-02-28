@@ -453,11 +453,9 @@ export function SimpleImageGenerator({
   const headerContent = (
     <>
       <div className="flex items-center gap-2">
-        {viewMode !== 'setup' && (
-          <Button variant="ghost" size="icon" className="h-7 w-7 -ml-1" onClick={handleBackToSetup}>
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-        )}
+        <Button variant="ghost" size="icon" className="h-7 w-7 -ml-1" onClick={viewMode === 'setup' ? () => onOpenChange(false) : handleBackToSetup}>
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
         <Sparkles className="w-5 h-5 text-primary" />
         {viewMode === 'setup' && 'Tạo ảnh AI'}
         {viewMode === 'streaming' && 'Đang tạo ảnh...'}
