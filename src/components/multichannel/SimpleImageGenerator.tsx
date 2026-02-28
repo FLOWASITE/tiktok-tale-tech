@@ -425,8 +425,8 @@ export function SimpleImageGenerator({
   const handleBackToSetup = () => {
     if (!batchGen.isGenerating) {
       batchGen.resetProgress();
-      setViewMode('setup');
     }
+    setViewMode('setup');
   };
 
   const handleOptimizeText = async () => {
@@ -454,7 +454,7 @@ export function SimpleImageGenerator({
     <>
       <div className="flex items-center gap-2">
         {viewMode !== 'setup' && (
-          <Button variant="ghost" size="icon" className="h-7 w-7 -ml-1" onClick={handleBackToSetup} disabled={batchGen.isGenerating}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 -ml-1" onClick={handleBackToSetup}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
         )}

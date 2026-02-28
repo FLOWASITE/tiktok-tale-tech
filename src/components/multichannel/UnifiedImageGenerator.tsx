@@ -687,8 +687,8 @@ export function UnifiedImageGenerator({
   const handleBackToSetup = () => {
     if (!batchGen.isGenerating) {
       batchGen.resetProgress();
-      setViewMode('setup');
     }
+    setViewMode('setup');
   };
 
   const handleToggleChannel = (channel: Channel) => {
@@ -1479,7 +1479,7 @@ export function UnifiedImageGenerator({
 
           {viewMode === 'preview' && (
             <>
-              <Button variant="outline" onClick={handleBackToSetup} disabled={batchGen.isGenerating}>
+              <Button variant="outline" onClick={handleBackToSetup}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Quay lại
               </Button>
