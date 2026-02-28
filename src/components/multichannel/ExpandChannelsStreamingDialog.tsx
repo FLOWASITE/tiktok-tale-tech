@@ -233,6 +233,8 @@ export function ExpandChannelsStreamingDialog({
                     const icon = CHANNEL_ICONS[channelValue];
                     const hasOverride = channelOverrides?.[channelValue];
                     
+                    if (!config) return null;
+                    
                     return (
                       <label
                         key={channelValue}
