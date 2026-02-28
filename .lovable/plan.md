@@ -1,82 +1,33 @@
 
+## Sửa nút Back trong quá trình tạo ảnh
 
-## Hoàn thiện chức năng đăng lịch
+### Vấn đề
+Nút "Quay lại" bị vô hiệu hóa (`disabled`) khi đang tạo ảnh. Người dùng không thể quay lại, và quá trình tạo ảnh bị chặn hoàn toàn.
 
-### Vấn đề hiện tại
+### Yêu cầu
+Khi bấm Back, người dùng quay về màn hình setup, nhưng quá trình tạo ảnh vẫn tiếp tục chạy ngầm (background).
 
-1. **QuickScheduleDialog cũng bị lỗi giống SchedulePanel**: Hàm `schedulableChannels` và `pendingChannels` trong `QuickScheduleDialog.tsx` (dòng 77-90) chỉ kiểm tra `channel_statuses[channel]`, không xét `content.status` master. Khi bài được duyệt tổng, dialog "Lên lịch nhanh" vẫn hiện "Không có kênh nào sẵn sàng" hoặc liệt kê kênh vào nhóm "Cần duyệt".
+### Thay đổi
 
-2. **Thiếu thông báo khi chọn thời gian quá khứ**: `SchedulePanel` chặn lưu nhưng không báo lỗi cho người dùng (dòng 88-89: `return` im lặng).
+**File 1: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-3. **Thiếu nút "Lên lịch tất cả" trong SchedulePanel**: Phải lên lịch từng kênh một, không có cách lên lịch tất cả cùng lúc.
-
-4. **Thiếu xác nhận trước khi hủy lịch**: Hủy lịch không có bước xác nhận, dễ bấm nhầm.
-
-### Giải pháp
-
-#### 1. Sửa QuickScheduleDialog - Xét master status (quan trọng nhất)
-
-**File: `src/components/QuickScheduleDialog.tsx`** (dòng 77-90)
-
-Cập nhật `schedulableChannels` và `pendingChannels` để xét thêm `content.status`:
+- Bỏ `disabled={batchGen.isGenerating}` trên nút Back (dòng 457)
+- Sửa `handleBackToSetup`: chỉ chuyển `viewMode` về `'setup'` mà KHÔNG cancel hay reset progress. Quá trình tạo ảnh tiếp tục chạy ngầm, khi xong sẽ tự cập nhật state.
 
 ```typescript
-const schedulableChannels = useMemo(() => {
-  const masterApproved = content.status === 'approved' || content.status === 'published';
-  return content.selected_channels.filter(channel => {
-    if (masterApproved) return true;
-    const status = content.channel_statuses?.[channel] || 'draft';
-    return status === 'approved' || status === 'published';
-  });
-}, [content.selected_channels, content.channel_statuses, content.status]);
-
-const pendingChannels = useMemo(() => {
-  const masterApproved = content.status === 'approved' || content.status === 'published';
-  if (masterApproved) return [];
-  return content.selected_channels.filter(channel => {
-    const status = content.channel_statuses?.[channel] || 'draft';
-    return status !== 'approved' && status !== 'published';
-  });
-}, [content.selected_channels, content.channel_statuses, content.status]);
+const handleBackToSetup = () => {
+  if (!batchGen.isGenerating) {
+    batchGen.resetProgress();
+  }
+  setViewMode('setup');
+};
 ```
 
-#### 2. Thêm toast cảnh báo khi chọn thời gian quá khứ
+**File 2: `src/components/multichannel/UnifiedImageGenerator.tsx`**
 
-**File: `src/components/SchedulePanel.tsx`** (dòng 88-89)
+- Áp dụng cùng logic: bỏ `disabled={batchGen.isGenerating}` (dòng 1482) và sửa `handleBackToSetup` tương tự.
 
-Thay `return;` bằng toast thông báo rõ ràng:
-
-```typescript
-if (isBefore(scheduledAt, new Date())) {
-  toast({
-    title: 'Thời gian không hợp lệ',
-    description: 'Vui lòng chọn thời gian trong tương lai',
-    variant: 'destructive',
-  });
-  return;
-}
-```
-
-#### 3. Thêm nút "Lên lịch tất cả kênh" trong SchedulePanel
-
-**File: `src/components/SchedulePanel.tsx`**
-
-Thêm nút bên cạnh tiêu đề để lên lịch tất cả kênh đã duyệt cùng lúc. Khi bấm, mở form chung với ngày/giờ, sau đó upsert cho tất cả kênh đủ điều kiện.
-
-#### 4. Thêm xác nhận trước khi hủy lịch
-
-**File: `src/components/SchedulePanel.tsx`**
-
-Sử dụng `AlertDialog` để xác nhận trước khi hủy, tránh bấm nhầm.
-
-### Tác động
-
-- QuickScheduleDialog sẽ hoạt động đúng khi bài được duyệt tổng (master approved)
-- Người dùng nhận được phản hồi rõ ràng khi chọn sai thời gian
-- Tiết kiệm thời gian khi lên lịch nhiều kênh cùng lúc
-- Tránh hủy lịch nhầm nhờ bước xác nhận
-
-### File cần sửa
-- `src/components/QuickScheduleDialog.tsx` -- Sửa logic kiểm tra trạng thái duyệt
-- `src/components/SchedulePanel.tsx` -- Thêm toast lỗi, nút lên lịch tất cả, xác nhận hủy
-
+### Kết quả
+- Nút Back luôn bấm được
+- Quay về setup ngay lập tức
+- Ảnh vẫn tiếp tục tạo ở nền, khi xong sẽ tự động lưu và cập nhật mockup
