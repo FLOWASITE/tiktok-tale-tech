@@ -50,8 +50,10 @@ export function SchedulePanel({ content, onScheduleChange }: SchedulePanelProps)
   };
 
   const canSchedule = (channel: Channel) => {
-    const status = getChannelStatus(channel);
-    return status === 'approved' || status === 'published';
+    const channelStatus = getChannelStatus(channel);
+    const masterStatus = content.status;
+    return channelStatus === 'approved' || channelStatus === 'published'
+      || masterStatus === 'approved' || masterStatus === 'published';
   };
 
   const handleStartEdit = (channel: Channel) => {
