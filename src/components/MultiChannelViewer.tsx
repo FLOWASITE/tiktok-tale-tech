@@ -1023,6 +1023,7 @@ export function MultiChannelViewer({
                 <div className="p-2 space-y-1">
                   {(content?.selected_channels ?? []).map((channel) => {
                     const config = channelConfig[channel];
+                    if (!config) return null;
                     const isRegenerating = regeneratingChannel === channel;
                     const hasImage = !!(content.channel_images?.[channel]?.url);
                     const channelText = getContentForChannel(content, channel);
@@ -1112,6 +1113,7 @@ export function MultiChannelViewer({
                 const channel = selectedChannel;
                 const channelContent = getContentForChannel(content, channel);
                 const config = channelConfig[channel];
+                if (!config) return <div className="flex-1 flex items-center justify-center text-muted-foreground">Kênh không hợp lệ</div>;
                 const isEditing = editingChannel === channel;
                 const isAIEditing = aiEditingChannel === channel;
                 const displayContent = previewContent || (isEditing ? editContent : (channelContent || ''));
