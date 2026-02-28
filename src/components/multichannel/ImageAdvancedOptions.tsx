@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, Settings2, Camera, Brush, LayoutGrid, Box, Layers, Droplets, Film, Sparkles, Leaf, TrendingUp, Wheat, Hash, Wand2, Loader2, Type } from 'lucide-react';
+import { ChevronDown, Settings2, Camera, Brush, LayoutGrid, Box, Layers, Droplets, Film, Sparkles, Leaf, TrendingUp, Wheat, Type } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -76,10 +76,6 @@ interface ImageAdvancedOptionsProps {
   onTextToIncludeChange: (text: string) => void;
   textsPerChannel: Record<Channel, string>;
   onTextsPerChannelChange: (texts: Record<Channel, string>) => void;
-  fillHookText: (channel: Channel) => string;
-  isOptimizingText: boolean;
-  onOptimizeText: () => void;
-
   className?: string;
 }
 
@@ -119,7 +115,6 @@ export function ImageAdvancedOptions({
   useSharedText, onUseSharedTextChange,
   textToInclude, onTextToIncludeChange,
   textsPerChannel, onTextsPerChannelChange,
-  fillHookText, isOptimizingText, onOptimizeText,
   className,
 }: ImageAdvancedOptionsProps) {
   const [isOpen, setIsOpen] = useState(true);
@@ -281,17 +276,6 @@ export function ImageAdvancedOptions({
                 <button
                   onClick={() => {
                     onUseSharedTextChange(false);
-                    if (selectedChannels) {
-                      const updated = { ...textsPerChannel };
-                      let changed = false;
-                      selectedChannels.forEach(ch => {
-                        if (!updated[ch]) {
-                          const t = fillHookText(ch);
-                          if (t) { updated[ch] = t; changed = true; }
-                        }
-                      });
-                      if (changed) onTextsPerChannelChange(updated);
-                    }
                   }}
                   className={cn(
                     "px-3 py-1 text-xs rounded-md transition-all font-medium",
@@ -304,32 +288,7 @@ export function ImageAdvancedOptions({
 
               {useSharedText ? (
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs text-muted-foreground">Text trên ảnh</Label>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost" size="sm"
-                        className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                        onClick={() => {
-                          const best = fillHookText(selectedChannels?.[0] || 'facebook' as Channel);
-                          if (best) { onTextToIncludeChange(best); toast.success('Đã điền hook'); }
-                          else toast.error('Không tìm thấy hook');
-                        }}
-                      >
-                        <Hash className="w-3 h-3" />
-                        Dùng Hook
-                      </Button>
-                      <Button
-                        variant="ghost" size="sm"
-                        className="h-6 text-xs gap-1 text-primary"
-                        onClick={onOptimizeText}
-                        disabled={isOptimizingText || !textToInclude.trim()}
-                      >
-                        {isOptimizingText ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
-                        AI Tối ưu
-                      </Button>
-                    </div>
-                  </div>
+                  <Label className="text-xs text-muted-foreground">Text trên ảnh</Label>
                   <Textarea
                     value={textToInclude}
                     onChange={e => onTextToIncludeChange(e.target.value)}
@@ -349,23 +308,7 @@ export function ImageAdvancedOptions({
                     </TabsList>
                     {selectedChannels.map(ch => (
                       <TabsContent key={ch} value={ch} className="mt-2 space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs text-muted-foreground">Text – {ch}</Label>
-                          <Button
-                            variant="ghost" size="sm"
-                            className="h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                            onClick={() => {
-                              const best = fillHookText(ch);
-                              if (best) {
-                                onTextsPerChannelChange({ ...textsPerChannel, [ch]: best });
-                                toast.success('Đã điền hook');
-                              } else toast.error('Không tìm thấy hook');
-                            }}
-                          >
-                            <Hash className="w-3 h-3" />
-                            Dùng Hook
-                          </Button>
-                        </div>
+                        <Label className="text-xs text-muted-foreground">Text – {ch}</Label>
                         <Textarea
                           value={textsPerChannel[ch] || ''}
                           onChange={e => onTextsPerChannelChange({ ...textsPerChannel, [ch]: e.target.value })}
