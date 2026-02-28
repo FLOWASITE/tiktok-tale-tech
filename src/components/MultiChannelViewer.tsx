@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
 import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight, Wand2, Plus } from 'lucide-react';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
+import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChannelImageHistory } from '@/components/multichannel/ChannelImageHistory';
@@ -1501,8 +1502,8 @@ export function MultiChannelViewer({
                                 />
                               )}
                               
-                              {/* Quick Schedule Button */}
-                              <div className="flex justify-center pt-2">
+                              {/* Quick Actions: Schedule + Post Now */}
+                              <div className="flex justify-center gap-2 pt-2">
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -1512,6 +1513,14 @@ export function MultiChannelViewer({
                                   <CalendarClock className="w-4 h-4" />
                                   Lên lịch đăng bài
                                 </Button>
+                                <DirectPublishButton
+                                  content={channelContent || ''}
+                                  contentId={content.id}
+                                  channel={channel}
+                                  brandTemplateId={content.brand_template_id || undefined}
+                                  variant="default"
+                                  size="sm"
+                                />
                               </div>
                             </div>
                           ) : (
