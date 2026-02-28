@@ -580,9 +580,6 @@ export function SimpleImageGenerator({
         onTextToIncludeChange={setTextToInclude}
         textsPerChannel={textsPerChannel}
         onTextsPerChannelChange={setTextsPerChannel}
-        fillHookText={fillHookText}
-        isOptimizingText={isOptimizingText}
-        onOptimizeText={handleOptimizeText}
       />
     </div>
   );
