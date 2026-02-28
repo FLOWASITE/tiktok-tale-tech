@@ -523,108 +523,185 @@ serve(async (req: Request) => {
     
     console.log(`[generate-core-content] Topic: "${topic.slice(0, 50)}...", Length: ${lengthMode}, Stream: ${stream}`);
     
-    // ========== FETCH MODEL FROM ADMIN CONFIG ==========
+    // ========== PHASE 1: PARALLEL DATA FETCHING ==========
+    // All independent DB queries + config run concurrently
+    console.log(`[generate-core-content] Phase 1: Starting parallel data fetching...`);
+    const phase1Start = Date.now();
+    
+    const [aiConfigResult, brandResult, personasResult, productsResult, smartCtxResult] = 
+      await Promise.allSettled([
+        // 1. AI Config
+        getAIConfig('generate-core-content', organizationId),
+        // 2. Brand template
+        brandTemplateId 
+          ? supabase.from('brand_templates').select('*').eq('id', brandTemplateId).single()
+          : Promise.resolve({ data: null }),
+        // 3. Personas
+        brandTemplateId
+          ? supabase.from('customer_personas')
+              .select('name, occupation, pain_points, buying_triggers, communication_style')
+              .eq('brand_template_id', brandTemplateId).limit(3)
+          : Promise.resolve({ data: null }),
+        // 4. Products
+        brandTemplateId
+          ? supabase.from('brand_products')
+              .select('name, description, unique_selling_points, benefits, suggested_content_angles')
+              .eq('brand_template_id', brandTemplateId).eq('is_active', true).limit(3)
+          : Promise.resolve({ data: null }),
+        // 5. Smart Context
+        buildSmartContext(supabase, {
+          qualityMode: 'balanced',
+          brandTemplateId,
+          organizationId,
+          includeHookPatterns: false,
+          includeCTAPatterns: false,
+          includeLearning: true,
+        }).catch(err => { console.warn('[generate-core-content] Smart context failed:', err); return null; }),
+      ]);
+    
+    console.log(`[generate-core-content] Phase 1 completed in ${Date.now() - phase1Start}ms`);
+    
+    // --- Extract AI Config ---
     let model = getDefaultModel();
-    try {
-      const aiConfig = await getAIConfig('generate-core-content', organizationId);
-      if (aiConfig.model) {
-        model = aiConfig.model;
-        console.log(`[generate-core-content] Using admin config model: ${model}`);
-      }
-    } catch (configErr) {
-      console.warn('[generate-core-content] Failed to fetch admin config, using default model:', configErr);
+    if (aiConfigResult.status === 'fulfilled' && aiConfigResult.value?.model) {
+      model = aiConfigResult.value.model;
+      console.log(`[generate-core-content] Using admin config model: ${model}`);
+    } else if (aiConfigResult.status === 'rejected') {
+      console.warn('[generate-core-content] Failed to fetch admin config, using default model');
     }
     
     // Calculate max tokens based on length mode
     const maxTokens = getMaxTokens(lengthMode as CoreContentLengthMode);
     
-    // Fetch brand template
+    // --- Extract Brand Context ---
     let brandContext: BrandContext | null = null;
-    if (brandTemplateId) {
-      const { data: brandData } = await supabase
-        .from('brand_templates')
-        .select('*')
-        .eq('id', brandTemplateId)
-        .single();
-      
-      if (brandData) {
-        brandContext = {
-          brandName: brandData.brand_name,
-          brandPositioning: brandData.brand_positioning || undefined,
-          toneOfVoice: brandData.tone_of_voice || undefined,
-          uniqueValueProposition: brandData.unique_value_proposition || undefined,
-          contentPillars: brandData.content_pillars || undefined,
-          evergreenThemes: brandData.evergreen_themes || undefined,
-          industry: brandData.industry || undefined,
-          targetAgeRange: brandData.target_age_range || undefined,
-          targetGender: brandData.target_gender || undefined,
-          brandHashtags: brandData.brand_hashtags || undefined,
-          mainCompetitors: brandData.main_competitors || undefined,
-          preferredWords: brandData.preferred_words || undefined,
-          bannedWords: brandData.forbidden_words || undefined,
-          sentenceStyle: brandData.sentence_style || undefined,
-          emojiPolicy: brandData.emoji_policy || undefined,
-        };
-        console.log(`[generate-core-content] Loaded brand: ${brandData.brand_name}`);
-      }
+    let brandData: any = null;
+    if (brandResult.status === 'fulfilled' && brandResult.value?.data) {
+      brandData = brandResult.value.data;
+      brandContext = {
+        brandName: brandData.brand_name,
+        brandPositioning: brandData.brand_positioning || undefined,
+        toneOfVoice: brandData.tone_of_voice || undefined,
+        uniqueValueProposition: brandData.unique_value_proposition || undefined,
+        contentPillars: brandData.content_pillars || undefined,
+        evergreenThemes: brandData.evergreen_themes || undefined,
+        industry: brandData.industry || undefined,
+        targetAgeRange: brandData.target_age_range || undefined,
+        targetGender: brandData.target_gender || undefined,
+        brandHashtags: brandData.brand_hashtags || undefined,
+        mainCompetitors: brandData.main_competitors || undefined,
+        preferredWords: brandData.preferred_words || undefined,
+        bannedWords: brandData.forbidden_words || undefined,
+        sentenceStyle: brandData.sentence_style || undefined,
+        emojiPolicy: brandData.emoji_policy || undefined,
+      };
+      console.log(`[generate-core-content] Loaded brand: ${brandData.brand_name}`);
     }
     
-    // Fetch personas if brand exists
+    // --- Extract Personas ---
     let personas: CustomerPersonaContext[] = [];
-    if (brandTemplateId) {
-      const { data: personaData } = await supabase
-        .from('customer_personas')
-        .select('name, occupation, pain_points, buying_triggers, communication_style')
-        .eq('brand_template_id', brandTemplateId)
-        .limit(3);
-      
-      if (personaData) {
-        personas = personaData.map(p => ({
-          name: p.name,
-          description: p.occupation || undefined,
-          pain_points: p.pain_points || undefined,
-          triggers: p.buying_triggers || undefined,
-          communication_style: p.communication_style || undefined,
-        }));
-      }
+    if (personasResult.status === 'fulfilled' && personasResult.value?.data) {
+      personas = personasResult.value.data.map((p: any) => ({
+        name: p.name,
+        description: p.occupation || undefined,
+        pain_points: p.pain_points || undefined,
+        triggers: p.buying_triggers || undefined,
+        communication_style: p.communication_style || undefined,
+      }));
     }
     
-    // Fetch products if brand exists
+    // --- Extract Products ---
     let products: BrandProductContext[] = [];
-    if (brandTemplateId) {
-      const { data: productData } = await supabase
-        .from('brand_products')
-        .select('name, description, unique_selling_points, benefits, suggested_content_angles')
-        .eq('brand_template_id', brandTemplateId)
-        .eq('is_active', true)
-        .limit(3);
-      
-      if (productData) {
-        products = productData.map(p => ({
-          name: p.name,
-          description: p.description || undefined,
-          unique_selling_points: p.unique_selling_points || undefined,
-          benefits: p.benefits || undefined,
-          content_angles: p.suggested_content_angles || undefined,
-        }));
+    if (productsResult.status === 'fulfilled' && productsResult.value?.data) {
+      products = productsResult.value.data.map((p: any) => ({
+        name: p.name,
+        description: p.description || undefined,
+        unique_selling_points: p.unique_selling_points || undefined,
+        benefits: p.benefits || undefined,
+        content_angles: p.suggested_content_angles || undefined,
+      }));
+    }
+    
+    // --- Extract Smart Context ---
+    let smartContextInjection = '';
+    if (smartCtxResult.status === 'fulfilled' && smartCtxResult.value) {
+      const smartContext = smartCtxResult.value as SmartContextResult;
+      if (smartContext.fewShotExamples || smartContext.negativePatterns) {
+        smartContextInjection = [
+          smartContext.fewShotExamples,
+          smartContext.negativePatterns,
+        ].filter(Boolean).join('\n\n');
+        console.log(`[generate-core-content] Smart context loaded, richness: ${smartContext.contextRichnessScore}`);
       }
     }
     
-    // ========== AUTO RESEARCH (Optional) ==========
+    // ========== PHASE 2: PARALLEL RESEARCH + KG + PROMPT ==========
+    // These depend on Phase 1 results (brandContext, brandData) but are independent of each other
+    console.log(`[generate-core-content] Phase 2: Starting parallel Research + KG + Prompt...`);
+    const phase2Start = Date.now();
+    
+    const promptManager = createPromptManager(supabase, 'generate-core-content', organizationId, brandTemplateId);
+    const lengthConfigData = getLengthConfig(lengthMode as CoreContentLengthMode);
+    const wordBudgetData = getWordBudgetByLength(lengthMode as CoreContentLengthMode);
+    
+    // Use industry_template_id from Phase 1 brand data (no duplicate query!)
+    const industryTemplateId = brandData?.industry_template_id;
+    
+    const [researchSettled, kgSettled, promptSettled] = await Promise.allSettled([
+      // 1. Research (Perplexity)
+      enableResearch 
+        ? performResearch({
+            topic,
+            industry: brandContext?.industry,
+            recency: researchRecency,
+            maxFacts: 8,
+            organizationId,
+          })
+        : Promise.resolve(null),
+      // 2. Knowledge Graph (reuses industryTemplateId from Phase 1)
+      fetchKnowledgeGraphContext(supabase, {
+        topic,
+        industryTemplateId,
+        organizationId,
+        limit: 10,
+      }).catch(err => { console.warn('[generate-core-content] KG failed:', err); return null; }),
+      // 3. Prompt Registry (needs promptVariables built from Phase 1 data)
+      // We build variables inline since they're ready
+      (async () => {
+        const promptVariables = {
+          topic,
+          contentGoalDescription: getGoalDescription(contentGoal),
+          contentAngle: contentAngle ? getAngleDescription(contentAngle) : '',
+          roleContext: buildRoleContext(contentRole),
+          brandContext: buildBrandContextBlock(brandContext),
+          personaContext: buildPersonaContextBlock(personas),
+          productContext: buildProductContextBlock(products),
+          targetAudience: targetAudience || '',
+          additionalContext: additionalContext || '', // Will be enriched after research
+          smartContextInjection: smartContextInjection || '',
+          knowledgeGraphContext: '', // Will be filled after KG
+          targetWords: lengthConfigData.targetWords.toString(),
+          minWords: lengthConfigData.minWords.toString(),
+          maxWords: lengthConfigData.maxWords.toString(),
+          introWords: lengthConfigData.sectionBudgets.intro.toString(),
+          analysisWords: lengthConfigData.sectionBudgets.analysis.toString(),
+          impactWords: lengthConfigData.sectionBudgets.impact.toString(),
+          solutionWords: lengthConfigData.sectionBudgets.solution.toString(),
+          conclusionWords: lengthConfigData.sectionBudgets.conclusion.toString(),
+          competitiveContext: buildCompetitiveContextBlock(brandContext),
+          styleGuide: buildStyleGuideBlock(brandContext),
+        };
+        return promptManager.get('system_prompt', promptVariables);
+      })().catch(err => { console.warn('[generate-core-content] Prompt registry failed:', err); return null; }),
+    ]);
+    
+    console.log(`[generate-core-content] Phase 2 completed in ${Date.now() - phase2Start}ms`);
+    
+    // --- Extract Research ---
     let researchContext = '';
     let researchData: ResearchResult | null = null;
-    
-    if (enableResearch) {
-      console.log(`[generate-core-content] Performing auto research for: "${topic.slice(0, 50)}..."`);
-      
-      researchData = await performResearch({
-        topic,
-        industry: brandContext?.industry,
-        recency: researchRecency,
-        maxFacts: 8,
-        organizationId,
-      });
-      
+    if (researchSettled.status === 'fulfilled' && researchSettled.value) {
+      researchData = researchSettled.value;
       if (researchData.success && researchData.facts.length > 0) {
         researchContext = buildResearchContext(researchData);
         console.log(`[generate-core-content] Research found ${researchData.facts.length} facts`);
@@ -633,102 +710,21 @@ serve(async (req: Request) => {
     
     const enrichedContext = [additionalContext, researchContext].filter(Boolean).join('\n\n');
     
-    // ========== SMART CONTEXT (Few-shot Learning) ==========
-    let smartContextInjection = '';
-    
-    try {
-      const smartContext = await buildSmartContext(supabase, {
-        qualityMode: 'balanced', // Always use balanced for smart context
-        brandTemplateId,
-        organizationId,
-        includeHookPatterns: false,
-        includeCTAPatterns: false,
-        includeLearning: true,
-      });
-      
-      if (smartContext.fewShotExamples || smartContext.negativePatterns) {
-        smartContextInjection = [
-          smartContext.fewShotExamples,
-          smartContext.negativePatterns,
-        ].filter(Boolean).join('\n\n');
-        console.log(`[generate-core-content] Smart context loaded, richness: ${smartContext.contextRichnessScore}`);
-      }
-    } catch (err) {
-      console.warn('[generate-core-content] Failed to build smart context:', err);
-    }
-    
-    // ========== KNOWLEDGE GRAPH CONTEXT (Phase 6) ==========
-    let knowledgeGraphContext: KnowledgeGraphContext | null = null;
+    // --- Extract Knowledge Graph ---
     let knowledgeGraphInjection = '';
-    
-    try {
-      // Fetch industry template ID from brand template if available
-      let industryTemplateId: string | undefined;
-      if (brandTemplateId) {
-        const { data: brandData } = await supabase
-          .from('brand_templates')
-          .select('industry_template_id')
-          .eq('id', brandTemplateId)
-          .single();
-        industryTemplateId = brandData?.industry_template_id;
+    if (kgSettled.status === 'fulfilled' && kgSettled.value) {
+      const kgCtx = kgSettled.value as KnowledgeGraphContext;
+      if (kgCtx.regulations.length > 0 || kgCtx.relevantTerms.length > 0) {
+        knowledgeGraphInjection = buildKnowledgeGraphPromptSection(kgCtx);
+        console.log(`[generate-core-content] Knowledge Graph loaded: ${kgCtx.regulations.length} regulations, ${kgCtx.relevantTerms.length} terms`);
       }
-      
-      knowledgeGraphContext = await fetchKnowledgeGraphContext(supabase, {
-        topic,
-        industryTemplateId,
-        organizationId,
-        limit: 10,
-      });
-      
-      if (knowledgeGraphContext.regulations.length > 0 || knowledgeGraphContext.relevantTerms.length > 0) {
-        knowledgeGraphInjection = buildKnowledgeGraphPromptSection(knowledgeGraphContext);
-        console.log(`[generate-core-content] Knowledge Graph loaded: ${knowledgeGraphContext.regulations.length} regulations, ${knowledgeGraphContext.relevantTerms.length} terms`);
-      }
-    } catch (err) {
-      console.warn('[generate-core-content] Failed to fetch Knowledge Graph context:', err);
     }
     
-    // ========== PROMPT MANAGER INTEGRATION ==========
-    const promptManager = createPromptManager(
-      supabase,
-      'generate-core-content',
-      organizationId,
-      brandTemplateId
-    );
-    
-    const lengthConfigData = getLengthConfig(lengthMode as CoreContentLengthMode);
-    const wordBudgetData = getWordBudgetByLength(lengthMode as CoreContentLengthMode);
-    
-    const promptVariables = {
-      topic,
-      contentGoalDescription: getGoalDescription(contentGoal),
-      contentAngle: contentAngle ? getAngleDescription(contentAngle) : '',
-      roleContext: buildRoleContext(contentRole),
-      brandContext: buildBrandContextBlock(brandContext),
-      personaContext: buildPersonaContextBlock(personas),
-      productContext: buildProductContextBlock(products),
-      targetAudience: targetAudience || '',
-      additionalContext: enrichedContext || '',
-      smartContextInjection: smartContextInjection || '',
-      knowledgeGraphContext: knowledgeGraphInjection || '',
-      targetWords: lengthConfigData.targetWords.toString(),
-      minWords: lengthConfigData.minWords.toString(),
-      maxWords: lengthConfigData.maxWords.toString(),
-      introWords: lengthConfigData.sectionBudgets.intro.toString(),
-      analysisWords: lengthConfigData.sectionBudgets.analysis.toString(),
-      impactWords: lengthConfigData.sectionBudgets.impact.toString(),
-      solutionWords: lengthConfigData.sectionBudgets.solution.toString(),
-      conclusionWords: lengthConfigData.sectionBudgets.conclusion.toString(),
-      competitiveContext: buildCompetitiveContextBlock(brandContext),
-      styleGuide: buildStyleGuideBlock(brandContext),
-    };
-    
+    // --- Extract Registry Prompt ---
     let registrySystemPrompt: string | null = null;
-    try {
-      registrySystemPrompt = await promptManager.get('system_prompt', promptVariables);
+    if (promptSettled.status === 'fulfilled' && promptSettled.value) {
+      registrySystemPrompt = promptSettled.value as string;
       console.log(`[generate-core-content] Using registry system_prompt (${registrySystemPrompt.length} chars)`);
-    } catch (promptErr) {
-      console.warn('[generate-core-content] Failed to fetch registry prompt, will use hardcoded fallback:', promptErr);
     }
     
     // Build pipeline config
