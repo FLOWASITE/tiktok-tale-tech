@@ -709,12 +709,21 @@ function buildCountryCharacterSection(countryCode?: string): string {
   const directive = COUNTRY_CHARACTER_DIRECTIVES[countryCode];
   if (!directive) return '';
   
-  return `\n\n## HUMAN CHARACTER APPEARANCE (CRITICAL):
-When featuring people/humans in the image:
+  return `\n\n## MANDATORY CHARACTER ETHNICITY (DO NOT IGNORE):
+ALL human characters in this image MUST be ${directive.ethnicity}.
 - Ethnicity: ${directive.ethnicity}
 - Cultural Context: ${directive.culturalContext}
 - Setting: ${directive.settingHints}
-- IMPORTANT: Characters must look authentic and natural for ${countryCode} market`;
+- DO NOT use Western/Caucasian or other non-${countryCode} faces
+- This is a STRICT requirement for brand authenticity in ${countryCode} market
+- ANY person, model, or human figure MUST match this ethnicity requirement`;
+}
+
+function buildCountryReminderSuffix(countryCode?: string): string {
+  if (!countryCode) return '';
+  const directive = COUNTRY_CHARACTER_DIRECTIVES[countryCode];
+  if (!directive) return '';
+  return `\n\nREMINDER (FINAL CHECK): If this image contains ANY human figures, they MUST be ${directive.ethnicity}. DO NOT use non-${countryCode} faces.`;
 }
 
 /**
@@ -744,6 +753,8 @@ export function buildImagePrompt(params: ImagePromptParams): string {
 ${contentSummary}
 
 CRITICAL: The image MUST visually represent the specific topic/concept mentioned above, not just a generic industry image. Analyze the content summary to identify the core subject and create imagery that directly illustrates it.
+
+${buildCountryCharacterSection(countryCode)}
 
 ## CHANNEL: ${channel.toUpperCase()}
 - Aspect Ratio: ${finalAspectRatio}
@@ -788,9 +799,6 @@ ${channelSpec.avoidElements.map(e => `- ${e}`).join('\n')}`;
   
   // Add persona section
   prompt += buildPersonaVisualSection(persona);
-  
-  // Add country-specific character appearance
-  prompt += buildCountryCharacterSection(countryCode);
   
   // Add journey stage section
   prompt += buildJourneyStageSection(journeyStage);
@@ -844,6 +852,9 @@ ${channelSpec.avoidElements.map(e => `- ${e}`).join('\n')}`;
 9. Background must have visible color, texture, or gradient - NEVER pure white (#FFFFFF)
 10. Image must have at least one clear focal point or subject`;
   }
+
+  // Add country ethnicity reminder at end (sandwich technique)
+  prompt += buildCountryReminderSuffix(countryCode);
 
   return prompt;
 }
