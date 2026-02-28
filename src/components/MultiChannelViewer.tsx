@@ -955,7 +955,7 @@ export function MultiChannelViewer({
           </div>
         ) : showSchedule ? (
           <div className="p-6">
-            <SchedulePanel content={content} />
+            <SchedulePanel content={content} onBack={() => setShowSchedule(false)} />
           </div>
         ) : showGallery ? (
           <div className="p-6">
@@ -1500,6 +1500,19 @@ export function MultiChannelViewer({
                                   brandName={content.brand_name}
                                 />
                               )}
+                              
+                              {/* Quick Schedule Button */}
+                              <div className="flex justify-center pt-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => { setShowSchedule(true); setShowGallery(false); setShowTeamPanel(false); }}
+                                  className="gap-2"
+                                >
+                                  <CalendarClock className="w-4 h-4" />
+                                  Lên lịch đăng bài
+                                </Button>
+                              </div>
                             </div>
                           ) : (
                           <div className="rounded-xl border border-border/50 bg-muted/20 p-5 min-h-[350px]">
