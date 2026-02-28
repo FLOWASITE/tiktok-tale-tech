@@ -17,6 +17,7 @@ import { PipelinePhase } from '@/hooks/useAutoImagePipeline';
 import { CHANNELS, Channel } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { toast } from '@/hooks/use-toast';
 
 type GenerationState = 'idle' | 'generating' | 'complete' | 'error';
 
@@ -76,8 +77,17 @@ export function MobileGenerationSheet({
     return CHANNELS.find(c => c.value === ch)?.label || ch;
   };
 
-  // Prevent closing while generating text or images
-  const canClose = !isGenerating && !isImageGenerating;
+  const isStillWorking = isGenerating || isImageGenerating;
+
+  const handleClose = () => {
+    if (isStillWorking) {
+      toast({
+        title: 'Nội dung đang tạo sẽ tiếp tục ở nền',
+        description: 'Bạn có thể quay lại xem kết quả sau.',
+      });
+    }
+    onClose?.();
+  };
 
   // Determine title
   const getTitle = () => {
@@ -94,8 +104,7 @@ export function MobileGenerationSheet({
     <Drawer 
       open={open} 
       onOpenChange={(isOpen) => {
-        if (!isOpen && !canClose) return;
-        if (!isOpen && onClose) onClose();
+        if (!isOpen) handleClose();
       }}
     >
       <DrawerContent className="lg:hidden max-h-[90vh]">
@@ -104,16 +113,14 @@ export function MobileGenerationSheet({
             <DrawerTitle className="text-base font-semibold">
               {getTitle()}
             </DrawerTitle>
-            {canClose && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={onClose || onCreateAnother}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleClose}
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
 
           {/* Progress bar for text generating state */}
