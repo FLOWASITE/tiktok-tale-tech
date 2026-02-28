@@ -1659,7 +1659,7 @@ export function MultiChannelFormWizard({
 
         {/* Floating Progress Indicator - Show when on Step 3/4 and Core Content generating */}
         {currentStep > 2 && isGeneratingCoreContent && (
-          <div className="fixed bottom-24 right-4 z-50 animate-fade-in">
+          <div className="fixed bottom-36 right-4 z-50 animate-fade-in">
             <Card className="bg-card/95 backdrop-blur-md shadow-lg border-primary/20">
               <CardContent className="p-3 flex items-center gap-3">
                 <div className="relative">
