@@ -1,41 +1,33 @@
 
 
-## Thêm nút Back thoát khỏi trình Tạo ảnh
+## Khắc phục: Ảnh AI không tạo nhân vật người Việt cho brand Việt Nam
 
-### Vấn đề
-Khi mở trình tạo ảnh (SimpleImageGenerator), ở màn hình setup không có nút Back rõ ràng để quay lại mockup. Chỉ có nút X nhỏ trên Dialog (desktop), còn trên mobile Drawer thì khó tìm cách thoát.
+### Nguyên nhân
+Code hiện tại **đã có** logic truyền `country_code` từ brand template vào prompt tạo ảnh. Tuy nhiên, phần chỉ dẫn về diện mạo nhân vật (`HUMAN CHARACTER APPEARANCE`) được đặt **ở cuối prompt** (sau 7-8 section khác), khiến AI model dễ bỏ qua hoặc ưu tiên thấp. Ngoài ra, ngôn ngữ chỉ dẫn chưa đủ mạnh để bắt buộc model tuân thủ.
 
-### Thay đổi
+### Giải pháp
 
-**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
+**File: `supabase/functions/_shared/image-prompt-builder.ts`**
 
-Sửa phần `headerContent` (dòng 453-466): thêm nút ArrowLeft cho chế độ `setup` để đóng trình tạo ảnh.
+1. **Di chuyển phần country character lên đầu prompt** -- ngay sau "ARTICLE CONTENT CONTEXT", trước các section khác. Vị trí đầu prompt có trọng số cao hơn với AI model.
 
-Hiện tại nút ArrowLeft chỉ hiển thị khi `viewMode !== 'setup'` (để quay về setup). Sẽ sửa thành:
-- **setup mode**: ArrowLeft gọi `onOpenChange(false)` -- đóng dialog, quay lại mockup
-- **streaming/preview mode**: ArrowLeft gọi `handleBackToSetup` -- quay về setup (giữ nguyên)
+2. **Tăng cường ngôn ngữ chỉ dẫn** -- dùng từ mạnh hơn, lặp lại yêu cầu, thêm negative prompt tự động:
 
-```tsx
-const headerContent = (
-  <div className="flex items-center gap-2">
-    <Button 
-      variant="ghost" 
-      size="icon" 
-      className="h-7 w-7 -ml-1" 
-      onClick={viewMode === 'setup' ? () => onOpenChange(false) : handleBackToSetup}
-    >
-      <ArrowLeft className="w-4 h-4" />
-    </Button>
-    <Sparkles className="w-5 h-5 text-primary" />
-    {viewMode === 'setup' && 'Tạo ảnh AI'}
-    {viewMode === 'streaming' && 'Đang tạo ảnh...'}
-    {viewMode === 'preview' && 'Xem trước ảnh'}
-  </div>
-);
+```
+## MANDATORY CHARACTER ETHNICITY (DO NOT IGNORE):
+ALL human characters MUST be Vietnamese people.
+- Vietnamese facial features, black hair, warm skin tone
+- Vietnamese cultural context, local fashion style
+- Vietnamese urban/rural settings, tropical greenery
+- DO NOT use Western/Caucasian or other non-Vietnamese faces
+- This is a STRICT requirement for brand authenticity
 ```
 
-### Kết quả
-- Nút Back luôn hiển thị trong header của trình tạo ảnh
-- Ở setup: bấm Back = đóng và quay lại mockup
-- Ở streaming/preview: bấm Back = quay về setup (giữ nguyên logic cũ)
-- Hoạt động cả trên desktop (Dialog) lẫn mobile (Drawer)
+3. **Thêm reminder ở cuối prompt** -- lặp lại yêu cầu ethnicity một lần nữa ở cuối để tăng tuân thủ (sandwich technique).
+
+### Chi tiết kỹ thuật
+
+- Sửa hàm `buildCountryCharacterSection()` (dòng 706-718): tăng cường nội dung và thêm negative instruction
+- Sửa hàm `buildImagePrompt()` (dòng 792-793): di chuyển lời gọi `buildCountryCharacterSection(countryCode)` lên ngay sau dòng 758 (sau CHANNEL section, trước BRAND section)
+- Thêm reminder cuối prompt: "REMINDER: All people must be [ethnicity]"
+
