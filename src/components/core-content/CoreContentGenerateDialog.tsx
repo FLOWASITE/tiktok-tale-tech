@@ -25,6 +25,7 @@ import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { CONTENT_GOALS, CONTENT_ANGLES } from '@/types/multichannel';
 import type { ContentGoal, ContentAngle } from '@/types/multichannel';
+import { CORE_CONTENT_LENGTH_MODES, type CoreContentLengthMode } from '@/types/coreContent';
 
 interface CoreContentGenerateDialogProps {
   open: boolean;
@@ -48,6 +49,7 @@ export function CoreContentGenerateDialog({
   const [brandTemplateId, setBrandTemplateId] = useState<string>('__none__');
   const [targetAudience, setTargetAudience] = useState('');
   const [additionalContext, setAdditionalContext] = useState('');
+  const [lengthMode, setLengthMode] = useState<CoreContentLengthMode>('medium');
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleGenerate = async () => {
@@ -67,6 +69,7 @@ export function CoreContentGenerateDialog({
         topic: topic.trim(),
         contentGoal,
         contentAngle: contentAngle === '__none__' ? undefined : contentAngle,
+        lengthMode,
         brandTemplateId: brandTemplateId === '__none__' ? undefined : brandTemplateId,
         organizationId: currentOrganization.id,
         targetAudience: targetAudience || undefined,
@@ -85,6 +88,7 @@ export function CoreContentGenerateDialog({
       setContentGoal('education');
       setContentAngle('__none__');
       setBrandTemplateId('__none__');
+      setLengthMode('medium');
       setTargetAudience('');
       setAdditionalContext('');
     } catch (error) {
@@ -176,6 +180,29 @@ export function CoreContentGenerateDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Length Mode */}
+          <div className="space-y-2">
+            <Label>Độ dài nội dung</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {CORE_CONTENT_LENGTH_MODES.map((mode) => (
+                <button
+                  key={mode.value}
+                  type="button"
+                  onClick={() => setLengthMode(mode.value)}
+                  disabled={isGenerating}
+                  className={`p-2 rounded-lg border text-center transition-all text-sm ${
+                    lengthMode === mode.value
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                      : 'border-border/50 hover:bg-muted/30'
+                  }`}
+                >
+                  <div className="font-medium">{mode.labelVi}</div>
+                  <div className="text-xs text-muted-foreground">{mode.minWords}-{mode.maxWords} từ</div>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Brand Template - using simple Select */}
