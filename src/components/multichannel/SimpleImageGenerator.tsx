@@ -181,7 +181,7 @@ export function SimpleImageGenerator({
   // Advanced (with smart defaults)
   const [imageStyle, setImageStyle] = useState<ImageStylePreset | 'auto'>('auto');
   const [aspectRatio, setAspectRatio] = useState<AspectRatioOption>('auto');
-  const [includeLogo, setIncludeLogo] = useState(!!brandLogoUrl);
+  const [includeLogo, setIncludeLogo] = useState(true);
   const [logoPosition, setLogoPosition] = useState<LogoPosition>('top-left');
   const [logoStyle, setLogoStyle] = useState<LogoStyle>('clean');
   const [logoSize, setLogoSize] = useState(15);
