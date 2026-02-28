@@ -1,32 +1,41 @@
 
 
-## Bỏ nút "Tạo ảnh" ở mỗi kênh trong Mockup
+## Thêm nút Back thoát khỏi trình Tạo ảnh
+
+### Vấn đề
+Khi mở trình tạo ảnh (SimpleImageGenerator), ở màn hình setup không có nút Back rõ ràng để quay lại mockup. Chỉ có nút X nhỏ trên Dialog (desktop), còn trên mobile Drawer thì khó tìm cách thoát.
 
 ### Thay đổi
 
-**File: `src/components/MultiChannelViewer.tsx`**
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-Xóa nút ImagePlus trong phần action bar của từng kênh (khu vực hiển thị các nút Sửa, Copy, Tạo lại...).
+Sửa phần `headerContent` (dòng 453-466): thêm nút ArrowLeft cho chế độ `setup` để đóng trình tạo ảnh.
 
-Cụ thể, xóa đoạn code nút Tooltip + ImagePlus button ở khoảng dòng 1262-1269:
+Hiện tại nút ArrowLeft chỉ hiển thị khi `viewMode !== 'setup'` (để quay về setup). Sẽ sửa thành:
+- **setup mode**: ArrowLeft gọi `onOpenChange(false)` -- đóng dialog, quay lại mockup
+- **streaming/preview mode**: ArrowLeft gọi `handleBackToSetup` -- quay về setup (giữ nguyên)
+
 ```tsx
-// XÓA đoạn này:
-<Tooltip>
-  <TooltipTrigger asChild>
-    <Button variant="outline" size="icon" onClick={() => { setActiveImageChannel(channel); setShowImageGenerator(true); }} ...>
-      <ImagePlus className="w-4 h-4" />
+const headerContent = (
+  <div className="flex items-center gap-2">
+    <Button 
+      variant="ghost" 
+      size="icon" 
+      className="h-7 w-7 -ml-1" 
+      onClick={viewMode === 'setup' ? () => onOpenChange(false) : handleBackToSetup}
+    >
+      <ArrowLeft className="w-4 h-4" />
     </Button>
-  </TooltipTrigger>
-  <TooltipContent>{hasImage ? 'Tạo lại ảnh' : 'Tạo ảnh'}</TooltipContent>
-</Tooltip>
+    <Sparkles className="w-5 h-5 text-primary" />
+    {viewMode === 'setup' && 'Tạo ảnh AI'}
+    {viewMode === 'streaming' && 'Đang tạo ảnh...'}
+    {viewMode === 'preview' && 'Xem trước ảnh'}
+  </div>
+);
 ```
 
-### Giữ lại
-
-- Nút **"Tạo ảnh AI"** trên thanh công cụ phía trên (batch, tạo cho tất cả kênh)
-- Nút **RefreshCw** (tạo lại ảnh) hiển thị khi hover lên ảnh đã tạo -- vẫn giữ để người dùng có thể tạo lại ảnh cho từng kênh khi cần
-
 ### Kết quả
-
-Giao diện mockup gọn hơn, chỉ còn 1 nút "Tạo ảnh AI" chính trên toolbar. Người dùng vẫn có thể tạo lại ảnh cho từng kênh bằng nút hover trên ảnh.
-
+- Nút Back luôn hiển thị trong header của trình tạo ảnh
+- Ở setup: bấm Back = đóng và quay lại mockup
+- Ở streaming/preview: bấm Back = quay về setup (giữ nguyên logic cũ)
+- Hoạt động cả trên desktop (Dialog) lẫn mobile (Drawer)
