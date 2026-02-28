@@ -1261,15 +1261,6 @@ export function MultiChannelViewer({
                             
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button variant="outline" size="icon" onClick={() => { setActiveImageChannel(channel); setShowImageGenerator(true); }} disabled={isRegenerating || !!regeneratingChannel} className="h-8 w-8">
-                                  <ImagePlus className="w-4 h-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>{hasImage ? 'Tạo lại ảnh' : 'Tạo ảnh'}</TooltipContent>
-                            </Tooltip>
-                            
-                            <Tooltip>
-                              <TooltipTrigger asChild>
                                 <Button variant="outline" size="icon" onClick={() => handleCopy(channel)} disabled={isRegenerating} className="h-8 w-8">
                                   {copiedChannel === channel ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                                 </Button>
