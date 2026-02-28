@@ -1,79 +1,93 @@
-## Tối ưu tốc độ tạo Core Content
 
-### Vấn đề
 
-Quy trình hiện tại chạy **tuần tự** ~8 bước trước khi gọi AI, mỗi bước chờ bước trước xong mới bắt đầu. Tổng thời gian chờ không cần thiết ước tính 3-5 giây.
+## Tối ưu thêm tốc độ tạo Core Content
 
-### Thay đổi
+### Phân tích hiện trạng
 
-**File: `supabase/functions/generate-core-content/index.ts**`
+Code đã được tối ưu Phase 1 (song song DB queries) và Phase 2 (song song Research + KG + Prompt). Các điểm nghẽn còn lại:
 
-#### 1. Song song hóa tất cả data fetching (tiết kiệm ~2-3s)
+### Thay đổi đề xuất
 
-Gom các bước sau vào `Promise.allSettled` chạy đồng thời:
+#### 1. Song song hóa Auth verification + Phase 1 (tiết kiệm ~200-400ms)
 
-- Fetch AI config
-- Fetch brand template
-- Fetch personas
-- Fetch products
-- Fetch prompt registry
-- Fetch smart context
+Hiện tại auth check (getUser + org membership) chạy tuần tự **trước** Phase 1. Có thể gom auth vào chạy song song với Phase 1 vì chúng độc lập.
 
-Hiện tại (tuần tự):
+**File: `supabase/functions/generate-core-content/index.ts`**
 
+Gom `supabase.auth.getUser()` và `organization_members` check vào `Promise.allSettled` cùng Phase 1.
+
+#### 2. Song song hóa bên trong Knowledge Graph fetcher (tiết kiệm ~300-500ms)
+
+**File: `supabase/functions/_shared/data-fetchers/knowledge-graph-fetcher.ts`**
+
+Hiện tại KG fetcher chạy 3 bước tuần tự:
 ```text
-AI Config (200ms) -> Brand (300ms) -> Personas (200ms) -> Products (200ms) -> Smart Context (500ms)
-Total: ~1400ms
+Find industry node (150ms) -> Generate embedding + Semantic search (200ms) -> Get connected nodes (150ms)
 ```
 
-Sau tối ưu (song song):
-
+Bước 1 (find industry node) và bước 2 (generate embedding + semantic search) hoàn toàn độc lập, chạy song song được:
 ```text
-[AI Config | Brand | Personas | Products | Smart Context] -> max(500ms)
-Total: ~500ms
+[Find industry node | Generate embedding + Semantic search] -> Get connected nodes
 ```
 
-#### 2. Loại bỏ truy vấn brand_templates trùng lặp trong Knowledge Graph (tiết kiệm ~200ms)
+#### 3. Song song hóa post-generation (tiết kiệm ~200-300ms)
 
-Dòng 668-673 fetch `brand_templates.industry_template_id` nhưng dữ liệu này đã có từ bước fetch brand (dòng 544-548). Sẽ truyền `industry_template_id` trực tiếp thay vì query lại.
+**File: `supabase/functions/generate-core-content/index.ts`**
 
-#### 3. Song song hóa Research + Knowledge Graph (tiết kiệm ~1-2s)
+Sau khi AI tạo xong nội dung, hiện tại chạy tuần tự:
+```text
+Quality Gate -> DB Insert -> Save Metrics
+```
 
-Research (Perplexity ~10s) và Knowledge Graph fetch hoàn toàn độc lập, có thể chạy cùng lúc.
+DB Insert và Save Metrics độc lập, có thể song song:
+```text
+Quality Gate -> [DB Insert | Save Metrics] (song song)
+```
 
-#### 4. Giữ nguyên model (không đổi)
+#### 4. Skip KG khi không có industry template (tiết kiệm ~200ms)
 
-Model `qwen/qwen3.5-397b-a17b` do admin config quyết định, không thay đổi trong code.
-
-### Kết quả dự kiến
-
-- Giảm ~3-5 giây thời gian chờ trước khi AI bắt đầu generate
-- Tổng thời gian giảm từ ~25-30s xuống ~20-25s
-- Không thay đổi chất lượng output
+Nếu không có `industryTemplateId`, KG fetcher vẫn gọi embedding + semantic search nhưng thường trả về kết quả rỗng. Thêm early-return khi không có `industryTemplateId` và topic quá chung.
 
 ### Chi tiết kỹ thuật
 
-Cấu trúc code mới sẽ gom fetching thành 2 phase song song:
-
-**Phase 1** - Tất cả DB queries + config (chạy đồng thời):
-
+**knowledge-graph-fetcher.ts - Song song hóa nội bộ:**
 ```typescript
-const [aiConfigResult, brandResult, personasResult, productsResult, smartCtxResult] = 
-  await Promise.allSettled([
-    getAIConfig('generate-core-content', organizationId),
-    brandTemplateId ? supabase.from('brand_templates').select('*').eq('id', brandTemplateId).single() : null,
-    brandTemplateId ? supabase.from('customer_personas').select(...).eq('brand_template_id', brandTemplateId).limit(3) : null,
-    brandTemplateId ? supabase.from('brand_products').select(...).eq('brand_template_id', brandTemplateId).eq('is_active', true).limit(3) : null,
-    buildSmartContext(supabase, { ... }),
-  ]);
+// Before: sequential
+const primaryIndustry = await findIndustryNode();
+const semanticResults = await semanticSearch();
+const connectedNodes = await getConnected(primaryIndustry);
+
+// After: parallel step 1+2, then step 3
+const [industryResult, semanticResult] = await Promise.allSettled([
+  findIndustryNode(),
+  semanticSearch(),
+]);
+// Step 3 depends on step 1
+const connectedNodes = primaryIndustry 
+  ? await getConnected(primaryIndustry) 
+  : [];
 ```
 
-**Phase 2** - Research + Knowledge Graph + Prompt Registry (song song, phụ thuộc Phase 1 cho brandContext):
-
+**index.ts - Song song auth + Phase 1:**
 ```typescript
-const [researchResult, kgResult, promptResult] = await Promise.allSettled([
-  enableResearch ? performResearch({ topic, industry: brandContext?.industry, ... }) : null,
-  fetchKnowledgeGraphContext(supabase, { topic, industryTemplateId: brandData?.industry_template_id, ... }),
-  promptManager.get('system_prompt', promptVariables),
+const [authResult, ...phase1Results] = await Promise.allSettled([
+  resolveAuth(supabase, authHeader, bodyUserId, orgId),
+  getAIConfig(...),
+  brandTemplateId ? supabase.from('brand_templates')... : ...,
+  // ... other Phase 1 queries
 ]);
 ```
+
+**index.ts - Song song post-generation:**
+```typescript
+const [insertResult, _metricsResult] = await Promise.allSettled([
+  supabase.from('core_contents').insert({...}).select('id').single(),
+  saveMetrics(supabase, {...}),
+]);
+```
+
+### Kết quả dự kiến
+- Giảm thêm ~700ms-1.2s thời gian pre/post generation
+- Tổng cộng với tối ưu trước: giảm ~4-6s so với code gốc
+- Không ảnh hưởng chất lượng output
+
