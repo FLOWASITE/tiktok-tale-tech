@@ -125,6 +125,13 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
         imageStylePreset: imageStylePreset as any,
         contentRole: (contentMeta.contentRole || 'seed') as any,
         contentAngle: contentMeta.contentAngle,
+        // Default: logo top-left when brand has logo
+        includeLogo: !!brandLogoUrl,
+        logoPosition: 'top-left',
+        logoUrl: brandLogoUrl || undefined,
+        // Default: with text + canvas fallback
+        imageContentType: 'with_text',
+        useCanvasFallback: true,
       };
 
       // Save callback - persists image to multi_channel_contents.channel_images

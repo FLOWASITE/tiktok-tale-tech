@@ -172,7 +172,7 @@ export function SimpleImageGenerator({
 
   // Core settings
   const [selectedChannels, setSelectedChannels] = useState<Channel[]>(content?.selected_channels ?? []);
-  const [imageContentType, setImageContentType] = useState<ImageContentType>('background_only');
+  const [imageContentType, setImageContentType] = useState<ImageContentType>('with_text');
   const [textToInclude, setTextToInclude] = useState('');
   const [useSharedText, setUseSharedText] = useState(true);
   const [textsPerChannel, setTextsPerChannel] = useState<Record<Channel, string>>({} as Record<Channel, string>);
@@ -182,7 +182,7 @@ export function SimpleImageGenerator({
   const [imageStyle, setImageStyle] = useState<ImageStylePreset | 'auto'>('auto');
   const [aspectRatio, setAspectRatio] = useState<AspectRatioOption>('auto');
   const [includeLogo, setIncludeLogo] = useState(!!brandLogoUrl);
-  const [logoPosition, setLogoPosition] = useState<LogoPosition>('bottom-right');
+  const [logoPosition, setLogoPosition] = useState<LogoPosition>('top-left');
   const [logoStyle, setLogoStyle] = useState<LogoStyle>('clean');
   const [logoSize, setLogoSize] = useState(15);
   const [logoOpacity, setLogoOpacity] = useState(100);
