@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Clock, CalendarClock, Check, X, Loader2, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, CalendarClock, Check, X, Loader2, AlertCircle, CalendarPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,10 +7,21 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { MultiChannelContent, Channel, CONTENT_STATUSES } from '@/types/multichannel';
 import { ContentSchedule, PUBLISH_STATUSES } from '@/types/publishing';
 import { useContentSchedules } from '@/hooks/useContentSchedules';
-import { format, parseISO, isBefore, addMinutes } from 'date-fns';
+import { toast } from '@/hooks/use-toast';
+import { format, parseISO, isBefore, addMinutes, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 interface SchedulePanelProps {
@@ -41,6 +52,16 @@ export function SchedulePanel({ content, onScheduleChange }: SchedulePanelProps)
   const [scheduleNotes, setScheduleNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Schedule All state
+  const [showScheduleAll, setShowScheduleAll] = useState(false);
+  const [allDate, setAllDate] = useState('');
+  const [allTime, setAllTime] = useState('10:00');
+  const [allNotes, setAllNotes] = useState('');
+  const [isSavingAll, setIsSavingAll] = useState(false);
+
+  // Cancel confirmation state
+  const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
+
   const getChannelStatus = (channel: Channel) => {
     return content.channel_statuses?.[channel] || 'draft';
   };
@@ -56,6 +77,8 @@ export function SchedulePanel({ content, onScheduleChange }: SchedulePanelProps)
       || masterStatus === 'approved' || masterStatus === 'published';
   };
 
+  const schedulableChannels = (content?.selected_channels ?? []).filter(ch => canSchedule(ch));
+
   const handleStartEdit = (channel: Channel) => {
     const existingSchedule = getScheduleForChannel(channel);
     if (existingSchedule) {
@@ -64,7 +87,6 @@ export function SchedulePanel({ content, onScheduleChange }: SchedulePanelProps)
       setScheduleTime(format(dt, 'HH:mm'));
       setScheduleNotes(existingSchedule.notes || '');
     } else {
-      // Default to tomorrow 10:00
       const tomorrow = addMinutes(new Date(), 24 * 60);
       setScheduleDate(format(tomorrow, 'yyyy-MM-dd'));
       setScheduleTime('10:00');
@@ -86,7 +108,12 @@ export function SchedulePanel({ content, onScheduleChange }: SchedulePanelProps)
     const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}:00`);
     
     if (isBefore(scheduledAt, new Date())) {
-      return; // Don't allow past dates
+      toast({
+        title: 'Thời gian không hợp lệ',
+        description: 'Vui lòng chọn thời gian trong tương lai',
+        variant: 'destructive',
+      });
+      return;
     }
 
     setIsSaving(true);
@@ -103,14 +130,60 @@ export function SchedulePanel({ content, onScheduleChange }: SchedulePanelProps)
     }
   };
 
-  const handleCancelSchedule = async (scheduleId: string) => {
-    await cancelSchedule(scheduleId);
+  const handleConfirmCancel = async () => {
+    if (!cancelConfirmId) return;
+    await cancelSchedule(cancelConfirmId);
+    setCancelConfirmId(null);
     onScheduleChange?.();
   };
 
   const handleMarkPublished = async (scheduleId: string) => {
     await markAsPublished(scheduleId);
     onScheduleChange?.();
+  };
+
+  // Schedule All handlers
+  const handleOpenScheduleAll = () => {
+    const tomorrow = addDays(new Date(), 1);
+    setAllDate(format(tomorrow, 'yyyy-MM-dd'));
+    setAllTime('10:00');
+    setAllNotes('');
+    setShowScheduleAll(true);
+  };
+
+  const handleSaveScheduleAll = async () => {
+    if (!allDate || !allTime) return;
+
+    const scheduledAt = new Date(`${allDate}T${allTime}:00`);
+    if (isBefore(scheduledAt, new Date())) {
+      toast({
+        title: 'Thời gian không hợp lệ',
+        description: 'Vui lòng chọn thời gian trong tương lai',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSavingAll(true);
+    try {
+      await Promise.all(
+        schedulableChannels.map(channel =>
+          upsertSchedule(content.id, {
+            channel,
+            scheduled_at: scheduledAt.toISOString(),
+            notes: allNotes || undefined,
+          })
+        )
+      );
+      setShowScheduleAll(false);
+      onScheduleChange?.();
+      toast({
+        title: 'Thành công',
+        description: `Đã lên lịch ${schedulableChannels.length} kênh`,
+      });
+    } finally {
+      setIsSavingAll(false);
+    }
   };
 
   if (isLoading) {
@@ -123,10 +196,79 @@ export function SchedulePanel({ content, onScheduleChange }: SchedulePanelProps)
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-4">
-        <CalendarClock className="w-5 h-5 text-primary" />
-        <h3 className="font-semibold">Lên lịch đăng bài</h3>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <CalendarClock className="w-5 h-5 text-primary" />
+          <h3 className="font-semibold">Lên lịch đăng bài</h3>
+        </div>
+        {schedulableChannels.length > 1 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpenScheduleAll}
+          >
+            <CalendarPlus className="w-4 h-4 mr-1.5" />
+            Lên lịch tất cả ({schedulableChannels.length})
+          </Button>
+        )}
       </div>
+
+      {/* Schedule All Form */}
+      {showScheduleAll && (
+        <div className="p-4 rounded-lg border border-primary bg-primary/5 space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">Lên lịch tất cả kênh đã duyệt</Label>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowScheduleAll(false)}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Ngày</Label>
+              <Input
+                type="date"
+                value={allDate}
+                onChange={(e) => setAllDate(e.target.value)}
+                min={format(new Date(), 'yyyy-MM-dd')}
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Giờ</Label>
+              <Input
+                type="time"
+                value={allTime}
+                onChange={(e) => setAllTime(e.target.value)}
+                className="h-9"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Ghi chú (tùy chọn)</Label>
+            <Textarea
+              value={allNotes}
+              onChange={(e) => setAllNotes(e.target.value)}
+              placeholder="Ghi chú cho lịch đăng..."
+              className="h-16 resize-none text-sm"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setShowScheduleAll(false)} disabled={isSavingAll}>
+              Hủy
+            </Button>
+            <Button size="sm" onClick={handleSaveScheduleAll} disabled={isSavingAll || !allDate || !allTime}>
+              {isSavingAll ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  Đang lưu...
+                </>
+              ) : (
+                `Lên lịch ${schedulableChannels.length} kênh`
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
 
       <ScrollArea className="h-[400px] pr-4">
         <div className="space-y-3">
@@ -189,7 +331,7 @@ export function SchedulePanel({ content, onScheduleChange }: SchedulePanelProps)
                                   variant="ghost"
                                   size="icon"
                                   className="h-7 w-7"
-                                  onClick={() => handleCancelSchedule(schedule.id)}
+                                  onClick={() => setCancelConfirmId(schedule.id)}
                                 >
                                   <X className="w-4 h-4 text-destructive" />
                                 </Button>
@@ -310,6 +452,24 @@ export function SchedulePanel({ content, onScheduleChange }: SchedulePanelProps)
           })}
         </div>
       </ScrollArea>
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={!!cancelConfirmId} onOpenChange={(open) => !open && setCancelConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận hủy lịch</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc chắn muốn hủy lịch đăng bài này? Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Không, giữ lại</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmCancel}>
+              Xác nhận hủy
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
