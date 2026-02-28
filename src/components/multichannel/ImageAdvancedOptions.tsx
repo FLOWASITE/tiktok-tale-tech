@@ -122,7 +122,7 @@ export function ImageAdvancedOptions({
   fillHookText, isOptimizingText, onOptimizeText,
   className,
 }: ImageAdvancedOptionsProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
 
   // Find V3 suggestion for a style (to show score badge)
   const getV3Score = (style: string): SuggestionV3 | undefined =>
