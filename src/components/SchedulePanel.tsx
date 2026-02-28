@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Clock, CalendarClock, Check, X, Loader2, AlertCircle, CalendarPlus, ChevronLeft } from 'lucide-react';
+import { Calendar, Clock, CalendarClock, Check, X, Loader2, AlertCircle, CalendarPlus, ChevronLeft, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +20,7 @@ import {
 import { MultiChannelContent, Channel, CONTENT_STATUSES } from '@/types/multichannel';
 import { ContentSchedule, PUBLISH_STATUSES } from '@/types/publishing';
 import { useContentSchedules } from '@/hooks/useContentSchedules';
+import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { toast } from '@/hooks/use-toast';
 import { format, parseISO, isBefore, addMinutes, addDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -356,6 +357,14 @@ export function SchedulePanel({ content, onScheduleChange, onBack }: SchedulePan
                         <Calendar className="w-4 h-4 mr-1.5" />
                         {schedule ? 'Đổi lịch' : 'Lên lịch'}
                       </Button>
+                      <DirectPublishButton
+                        content={(content as any)[`${channel}_content`] || ''}
+                        contentId={content.id}
+                        channel={channel}
+                        brandTemplateId={content.brand_template_id || undefined}
+                        variant="default"
+                        size="sm"
+                      />
                     </div>
                   )}
                 </div>
