@@ -1,39 +1,82 @@
 
 
-## Sửa lỗi không lên lịch được dù bài đã duyệt
+## Hoàn thiện chức năng đăng lịch
 
-### Nguyên nhân
-Hàm `canSchedule` trong `SchedulePanel.tsx` (dòng 52-55) chỉ kiểm tra `channel_statuses[channel]` (trạng thái riêng từng kênh). Khi nội dung được duyệt qua nút "Duyệt" tổng thể, trạng thái master `content.status` được cập nhật thành `approved`, nhưng `channel_statuses` của từng kênh vẫn giữ nguyên là `draft`.
+### Vấn đề hiện tại
 
-Kết quả: Nút "Lên lịch" bị disable và hiển thị "Cần duyệt nội dung trước khi lên lịch" mặc dù bài đã được duyệt.
+1. **QuickScheduleDialog cũng bị lỗi giống SchedulePanel**: Hàm `schedulableChannels` và `pendingChannels` trong `QuickScheduleDialog.tsx` (dòng 77-90) chỉ kiểm tra `channel_statuses[channel]`, không xét `content.status` master. Khi bài được duyệt tổng, dialog "Lên lịch nhanh" vẫn hiện "Không có kênh nào sẵn sàng" hoặc liệt kê kênh vào nhóm "Cần duyệt".
+
+2. **Thiếu thông báo khi chọn thời gian quá khứ**: `SchedulePanel` chặn lưu nhưng không báo lỗi cho người dùng (dòng 88-89: `return` im lặng).
+
+3. **Thiếu nút "Lên lịch tất cả" trong SchedulePanel**: Phải lên lịch từng kênh một, không có cách lên lịch tất cả cùng lúc.
+
+4. **Thiếu xác nhận trước khi hủy lịch**: Hủy lịch không có bước xác nhận, dễ bấm nhầm.
 
 ### Giải pháp
-Mở rộng logic `canSchedule` để xét thêm trạng thái master `content.status`. Nếu `content.status` là `approved` hoặc `published`, cho phép lên lịch cho tất cả các kênh, bất kể `channel_statuses` riêng lẻ.
 
-### Chi tiết thay đổi
+#### 1. Sửa QuickScheduleDialog - Xét master status (quan trọng nhất)
 
-**File: `src/components/SchedulePanel.tsx`** (dòng 52-55)
+**File: `src/components/QuickScheduleDialog.tsx`** (dòng 77-90)
 
-Thay:
+Cập nhật `schedulableChannels` và `pendingChannels` để xét thêm `content.status`:
+
 ```typescript
-const canSchedule = (channel: Channel) => {
-  const status = getChannelStatus(channel);
-  return status === 'approved' || status === 'published';
-};
+const schedulableChannels = useMemo(() => {
+  const masterApproved = content.status === 'approved' || content.status === 'published';
+  return content.selected_channels.filter(channel => {
+    if (masterApproved) return true;
+    const status = content.channel_statuses?.[channel] || 'draft';
+    return status === 'approved' || status === 'published';
+  });
+}, [content.selected_channels, content.channel_statuses, content.status]);
+
+const pendingChannels = useMemo(() => {
+  const masterApproved = content.status === 'approved' || content.status === 'published';
+  if (masterApproved) return [];
+  return content.selected_channels.filter(channel => {
+    const status = content.channel_statuses?.[channel] || 'draft';
+    return status !== 'approved' && status !== 'published';
+  });
+}, [content.selected_channels, content.channel_statuses, content.status]);
 ```
 
-Thành:
+#### 2. Thêm toast cảnh báo khi chọn thời gian quá khứ
+
+**File: `src/components/SchedulePanel.tsx`** (dòng 88-89)
+
+Thay `return;` bằng toast thông báo rõ ràng:
+
 ```typescript
-const canSchedule = (channel: Channel) => {
-  const channelStatus = getChannelStatus(channel);
-  const masterStatus = content.status;
-  return channelStatus === 'approved' || channelStatus === 'published' 
-    || masterStatus === 'approved' || masterStatus === 'published';
-};
+if (isBefore(scheduledAt, new Date())) {
+  toast({
+    title: 'Thời gian không hợp lệ',
+    description: 'Vui lòng chọn thời gian trong tương lai',
+    variant: 'destructive',
+  });
+  return;
+}
 ```
+
+#### 3. Thêm nút "Lên lịch tất cả kênh" trong SchedulePanel
+
+**File: `src/components/SchedulePanel.tsx`**
+
+Thêm nút bên cạnh tiêu đề để lên lịch tất cả kênh đã duyệt cùng lúc. Khi bấm, mở form chung với ngày/giờ, sau đó upsert cho tất cả kênh đủ điều kiện.
+
+#### 4. Thêm xác nhận trước khi hủy lịch
+
+**File: `src/components/SchedulePanel.tsx`**
+
+Sử dụng `AlertDialog` để xác nhận trước khi hủy, tránh bấm nhầm.
 
 ### Tác động
-- Khi bài được duyệt tổng (master status = approved), tất cả kênh đều có thể lên lịch
-- Khi chỉ duyệt riêng từng kênh, logic cũ vẫn hoạt động bình thường
-- Không ảnh hưởng đến các component khác
+
+- QuickScheduleDialog sẽ hoạt động đúng khi bài được duyệt tổng (master approved)
+- Người dùng nhận được phản hồi rõ ràng khi chọn sai thời gian
+- Tiết kiệm thời gian khi lên lịch nhiều kênh cùng lúc
+- Tránh hủy lịch nhầm nhờ bước xác nhận
+
+### File cần sửa
+- `src/components/QuickScheduleDialog.tsx` -- Sửa logic kiểm tra trạng thái duyệt
+- `src/components/SchedulePanel.tsx` -- Thêm toast lỗi, nút lên lịch tất cả, xác nhận hủy
 
