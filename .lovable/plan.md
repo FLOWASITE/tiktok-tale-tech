@@ -1,33 +1,22 @@
 
 
-## Khắc phục: Ảnh AI không tạo nhân vật người Việt cho brand Việt Nam
+## Thay đổi mặc định tạo ảnh
 
-### Nguyên nhân
-Code hiện tại **đã có** logic truyền `country_code` từ brand template vào prompt tạo ảnh. Tuy nhiên, phần chỉ dẫn về diện mạo nhân vật (`HUMAN CHARACTER APPEARANCE`) được đặt **ở cuối prompt** (sau 7-8 section khác), khiến AI model dễ bỏ qua hoặc ưu tiên thấp. Ngoài ra, ngôn ngữ chỉ dẫn chưa đủ mạnh để bắt buộc model tuân thủ.
+### Thay đổi 1: Logo mặc định ở góc trên bên trái
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
+- Đổi `logoPosition` mặc định từ `'bottom-right'` sang `'top-left'`
 
-### Giải pháp
+### Thay đổi 2: Mặc định có text trên ảnh
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
+- Đổi `imageContentType` mặc định từ `'background_only'` sang `'with_text'`
 
-**File: `supabase/functions/_shared/image-prompt-builder.ts`**
+### Thay đổi 3: Auto pipeline cũng áp dụng mặc định mới
+**File: `src/hooks/useAutoImagePipeline.ts`**
+- Thêm `includeLogo: true` + `logoPosition: 'top-left'` + `logoUrl: brandLogoUrl` vào `genOptions` khi có brand logo
+- Thêm `imageContentType: 'with_text'` + `useCanvasFallback: true` để ảnh tự động tạo cũng có text
 
-1. **Di chuyển phần country character lên đầu prompt** -- ngay sau "ARTICLE CONTENT CONTEXT", trước các section khác. Vị trí đầu prompt có trọng số cao hơn với AI model.
-
-2. **Tăng cường ngôn ngữ chỉ dẫn** -- dùng từ mạnh hơn, lặp lại yêu cầu, thêm negative prompt tự động:
-
-```
-## MANDATORY CHARACTER ETHNICITY (DO NOT IGNORE):
-ALL human characters MUST be Vietnamese people.
-- Vietnamese facial features, black hair, warm skin tone
-- Vietnamese cultural context, local fashion style
-- Vietnamese urban/rural settings, tropical greenery
-- DO NOT use Western/Caucasian or other non-Vietnamese faces
-- This is a STRICT requirement for brand authenticity
-```
-
-3. **Thêm reminder ở cuối prompt** -- lặp lại yêu cầu ethnicity một lần nữa ở cuối để tăng tuân thủ (sandwich technique).
-
-### Chi tiết kỹ thuật
-
-- Sửa hàm `buildCountryCharacterSection()` (dòng 706-718): tăng cường nội dung và thêm negative instruction
-- Sửa hàm `buildImagePrompt()` (dòng 792-793): di chuyển lời gọi `buildCountryCharacterSection(countryCode)` lên ngay sau dòng 758 (sau CHANNEL section, trước BRAND section)
-- Thêm reminder cuối prompt: "REMINDER: All people must be [ethnicity]"
+### Kết quả
+- Khi mở trình tạo ảnh (SimpleImageGenerator): logo mặc định góc trên trái, có text
+- Khi tạo ảnh tự động (auto pipeline): cũng áp dụng logo góc trên trái + có text
+- Người dùng vẫn có thể thay đổi các tùy chọn này trước khi tạo
 
