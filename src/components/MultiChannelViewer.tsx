@@ -994,7 +994,7 @@ export function MultiChannelViewer({
               "border-r border-border/50 bg-muted/20 flex flex-col shrink-0 transition-all duration-300 overflow-hidden",
               sidebarCollapsed 
                 ? "w-0 opacity-0" 
-                : showMockupView ? "w-44" : "w-52"
+                : "w-44"
             )}>
               {/* Sidebar Header với nút đóng */}
               <div className="p-2 border-b border-border/30 flex items-center justify-between shrink-0">
@@ -1239,22 +1239,7 @@ export function MultiChannelViewer({
                           </>
                         ) : (
                           <>
-                            {/* View Mode Toggle */}
-                            <ToggleGroup 
-                              type="single" 
-                              value={showMockupView ? 'mockup' : 'text'}
-                              onValueChange={(value) => value && setShowMockupView(value === 'mockup')}
-                              className="bg-muted/50 p-0.5 rounded-md h-8"
-                            >
-                              <ToggleGroupItem value="text" className="h-7 px-2.5 text-xs data-[state=on]:bg-background">
-                                <Code className="w-3.5 h-3.5 mr-1" />
-                                Text
-                              </ToggleGroupItem>
-                              <ToggleGroupItem value="mockup" className="h-7 px-2.5 text-xs data-[state=on]:bg-background">
-                                <Eye className="w-3.5 h-3.5 mr-1" />
-                                Mockup
-                              </ToggleGroupItem>
-                            </ToggleGroup>
+                            {/* Mockup view is always default */}
                             
                             {onRegenerate && (
                               <Tooltip>
@@ -1298,14 +1283,7 @@ export function MultiChannelViewer({
 
                     {/* Content Area */}
                       <ScrollArea className="flex-1">
-                        <div className={showMockupView ? "p-2" : "p-4"}>
-                        {/* Length Indicator & Rules */}
-                        {!showMockupView && (
-                          <div className="space-y-2 mb-4">
-                            <ContentLengthIndicator content={displayContent} settings={DEFAULT_CHANNEL_SETTINGS[channel]} />
-                            <ChannelRulesPanel channel={channel} />
-                          </div>
-                        )}
+                        <div className="p-2">
 
                         {isEditing ? (
                           <div className="space-y-3">
@@ -1413,8 +1391,8 @@ export function MultiChannelViewer({
                             )}
                           </div>
                         ) : (
-                          /* View Mode */
-                          showMockupView ? (
+                          /* View Mode - Always Mockup */
+                          (
                             <div className="space-y-4">
                               <div className="relative group">
                               <ContentMockupToggle
@@ -1522,36 +1500,6 @@ export function MultiChannelViewer({
                                   size="sm"
                                 />
                               </div>
-                            </div>
-                          ) : (
-                          <div className="rounded-xl border border-border/50 bg-muted/20 p-5 min-h-[350px]">
-                              {isRegenerating ? (
-                                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                                  <Loader2 className="w-8 h-8 animate-spin mb-3" />
-                                  <p>Đang tạo lại nội dung...</p>
-                                </div>
-                              ) : channelContent ? (
-                                <div className="prose prose-sm dark:prose-invert max-w-none prose-p:mb-3 prose-p:leading-relaxed prose-strong:text-foreground prose-strong:font-semibold">
-                                  <ReactMarkdown
-                                    components={{
-                                      p: ({ children }) => <p className="mb-3 leading-relaxed text-[15px]">{children}</p>,
-                                      strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-                                      em: ({ children }) => <em className="italic">{children}</em>,
-                                      ul: ({ children }) => <ul className="list-none space-y-2 my-3 pl-0">{children}</ul>,
-                                      li: ({ children }) => <li className="flex items-start gap-2 text-[15px]">{children}</li>,
-                                      h1: ({ children }) => <h1 className="text-xl font-bold mb-3 text-foreground">{children}</h1>,
-                                      h2: ({ children }) => <h2 className="text-lg font-bold mb-2 text-foreground">{children}</h2>,
-                                      h3: ({ children }) => <h3 className="text-base font-semibold mb-2 text-foreground">{children}</h3>,
-                                    }}
-                                  >
-                                    {channelContent}
-                                  </ReactMarkdown>
-                                </div>
-                              ) : (
-                                <p className="text-muted-foreground text-center py-8">
-                                  Không có nội dung cho kênh này
-                                </p>
-                              )}
                             </div>
                           )
                         )}
