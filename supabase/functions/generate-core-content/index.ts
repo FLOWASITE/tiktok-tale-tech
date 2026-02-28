@@ -443,11 +443,16 @@ serve(async (req: Request) => {
     
     // Parse request body first (need body.userId for fallback)
     const body: GenerateCoreContentRequest = await req.json();
+    const {
+      topic, contentGoal, contentAngle, contentRole, lengthMode,
+      brandTemplateId, targetAudience, additionalContext, topicHistoryId,
+      stream, enableResearch, researchRecency,
+    } = body;
 
     // Get auth info needed for parallel resolution
     const authHeader = req.headers.get('authorization');
     const bodyUserId = (body as any).userId || (body as any).user_id || null;
-    const orgId = body.organizationId || (body as any).organization_id || null;
+    const organizationId = body.organizationId || (body as any).organization_id || null;
     
     // ========== PHASE 1: PARALLEL AUTH + DATA FETCHING ==========
     // Auth verification runs concurrently with all DB queries
@@ -479,16 +484,16 @@ serve(async (req: Request) => {
       }
 
       // Verify org membership if using body userId
-      if (isServiceRoleCall && userId && orgId) {
+      if (isServiceRoleCall && userId && organizationId) {
         const { data: member } = await supabase
           .from('organization_members')
           .select('id')
           .eq('user_id', userId)
-          .eq('organization_id', orgId)
+          .eq('organization_id', organizationId)
           .limit(1)
           .maybeSingle();
         if (!member) {
-          console.warn(`[generate-core-content] Body userId ${userId} is not a member of org ${orgId}, resetting to null`);
+          console.warn(`[generate-core-content] Body userId ${userId} is not a member of org ${organizationId}, resetting to null`);
           userId = null;
         }
       }
