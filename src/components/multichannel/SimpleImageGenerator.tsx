@@ -615,17 +615,9 @@ export function SimpleImageGenerator({
   );
 
   const bodyContent = (
-    <div className="flex-1 min-h-0 overflow-hidden">
-      {viewMode === 'setup' && (
-        <ScrollArea className="h-full pr-3">
-          {setupFields}
-        </ScrollArea>
-      )}
-      {(viewMode === 'streaming' || viewMode === 'preview') && (
-        <ScrollArea className="h-full">
-          {streamingPreviewContent}
-        </ScrollArea>
-      )}
+    <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+      {viewMode === 'setup' && setupFields}
+      {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
     </div>
   );
 
@@ -673,7 +665,7 @@ export function SimpleImageGenerator({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
         className={cn(
-          "transition-all duration-300 max-h-[90vh] overflow-hidden flex flex-col",
+          "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
           viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
         )}
         onPointerDownOutside={(e) => e.preventDefault()}
