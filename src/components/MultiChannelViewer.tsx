@@ -674,7 +674,7 @@ export function MultiChannelViewer({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl w-[98vw] h-[95vh] max-h-[95vh] p-0 overflow-hidden flex flex-col">
+      <DialogContent className="max-w-6xl w-[98vw] h-[95vh] max-h-[95vh] p-0 overflow-hidden flex flex-col [&>button.absolute]:hidden">
         {/* Premium 2-Row Header */}
         <DialogHeader className="shrink-0">
           {/* Row 1: Primary Info Bar */}
