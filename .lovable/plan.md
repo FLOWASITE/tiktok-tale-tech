@@ -1,49 +1,30 @@
 
+## Fix: Reset trạng thái view khi mở lại MultiChannelViewer
 
-## Fix: Loại bỏ trùng lặp 2 thanh progress Core Content
+### Vấn đề
+Khi xem nội dung, chuyển sang Lịch đăng bài hoặc Gallery, rồi đóng dialog, lần mở lại tiếp theo vẫn giữ nguyên màn hình cũ (Gallery/Schedule) thay vì quay về Mockup mặc định.
 
 ### Nguyên nhân
-
-Khi tạo Core Content ở Step 2, hai component cùng hiển thị tiến trình:
-1. **CoreContentStreamingCard** (inline, Step 2) - hiển thị chi tiết streaming text + progress
-2. **ActiveTasksIndicator** (floating, bottom-right) - hiển thị task dạng nhỏ gọn
-
-Ca 2 đều hiển thị khi `isGeneratingCoreContent = true`, gây trùng lặp.
+Các state `showGallery`, `showSchedule`, `showTeamPanel` không được reset khi dialog đóng. React giữ nguyên state vì component không bị unmount.
 
 ### Giải pháp
-
-Lọc bỏ task `core_content` khỏi `ActiveTasksIndicator` khi đang ở Step 2 và `isGeneratingCoreContent = true` (vì inline card đã hiển thị đầy đủ).
+Thêm `useEffect` theo dõi prop `open` -- khi dialog mở (`open` chuyển thành `true`), reset tất cả panel state về mặc định (Mockup view).
 
 ### Chi tiết kỹ thuật
 
-**File: `src/components/multichannel/MultiChannelFormWizard.tsx`**
+**File: `src/components/MultiChannelViewer.tsx`**
 
-Tại nơi truyền `tasks` cho `ActiveTasksIndicator` (line ~1768), lọc bỏ task core_content khi inline card đang hiển thị:
+Thêm useEffect sau các khai báo state (khoảng sau line 285):
 
-```tsx
-<ActiveTasksIndicator
-  tasks={
-    // Hide core_content task from floating indicator when inline streaming card is visible
-    isGeneratingCoreContent && currentStep === 2
-      ? activeTasks.filter(t => t.task_type !== 'core_content')
-      : activeTasks
+```typescript
+// Reset panel states when dialog opens to always start at mockup view
+useEffect(() => {
+  if (open) {
+    setShowGallery(false);
+    setShowSchedule(false);
+    setShowTeamPanel(false);
   }
-  pendingQueue={pendingQueueItems}
-  onDismiss={dismissTask}
-  onTaskClick={handleTaskClick}
-  onCancelPending={handleCancelPending}
-/>
+}, [open]);
 ```
 
-Ngoai ra, floating progress indicator ở line 1661 (`currentStep > 2 && isGeneratingCoreContent`) cũng cần lọc tương tự -- khi floating indicator hiển thị (step 3/4), ẩn core_content task trong ActiveTasksIndicator:
-
-```tsx
-tasks={
-  isGeneratingCoreContent
-    ? activeTasks.filter(t => t.task_type !== 'core_content')
-    : activeTasks
-}
-```
-
-Tóm lại: Khi `isGeneratingCoreContent = true`, luôn lọc bỏ task core_content khỏi ActiveTasksIndicator vì đã có UI chuyên dụng (inline card ở step 2, floating card ở step 3/4).
-
+Chỉ sửa 1 file, thêm 7 dòng code.
