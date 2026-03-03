@@ -615,14 +615,14 @@ export function SimpleImageGenerator({
   );
 
   const bodyContent = (
-    <div className="flex-1 overflow-hidden">
+    <div className="flex-1 min-h-0 overflow-hidden">
       {viewMode === 'setup' && (
-        <ScrollArea className="h-full max-h-[70vh] pr-3">
+        <ScrollArea className="h-full pr-3">
           {setupFields}
         </ScrollArea>
       )}
       {(viewMode === 'streaming' || viewMode === 'preview') && (
-        <ScrollArea className="h-full max-h-[65vh]">
+        <ScrollArea className="h-full">
           {streamingPreviewContent}
         </ScrollArea>
       )}
