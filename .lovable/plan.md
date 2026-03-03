@@ -1,67 +1,49 @@
 
 
-## Fix: `brandData is not defined` trong generate-core-content
+## Fix: Loại bỏ trùng lặp 2 thanh progress Core Content
 
-### Vấn đề
+### Nguyên nhân
 
-Khi refactor song song hóa Phase 1, code đã gom tất cả DB queries vào `Promise.allSettled` nhưng **quên extract kết quả** từ các settled promises. Cụ thể:
+Khi tạo Core Content ở Step 2, hai component cùng hiển thị tiến trình:
+1. **CoreContentStreamingCard** (inline, Step 2) - hiển thị chi tiết streaming text + progress
+2. **ActiveTasksIndicator** (floating, bottom-right) - hiển thị task dạng nhỏ gọn
 
-- `brandData`, `brandContext`, `personas`, `products`, `smartContextInjection` - không được extract từ Phase 1 results
-- `model`, `maxTokens` - không được tính từ `aiConfig` và `lengthMode`  
-- `taskId` - thiếu trong destructuring body
+Ca 2 đều hiển thị khi `isGeneratingCoreContent = true`, gây trùng lặp.
 
-### File cần sửa
+### Giải pháp
 
-**`supabase/functions/generate-core-content/index.ts`**
+Lọc bỏ task `core_content` khỏi `ActiveTasksIndicator` khi đang ở Step 2 và `isGeneratingCoreContent = true` (vì inline card đã hiển thị đầy đủ).
 
-#### 1. Thêm `taskId` vào destructuring body (line 446-450)
+### Chi tiết kỹ thuật
 
-```typescript
-const {
-  topic, contentGoal, contentAngle, contentRole, lengthMode,
-  brandTemplateId, targetAudience, additionalContext, topicHistoryId,
-  stream, enableResearch, researchRecency, taskId,  // <-- thêm taskId
-} = body;
+**File: `src/components/multichannel/MultiChannelFormWizard.tsx`**
+
+Tại nơi truyền `tasks` cho `ActiveTasksIndicator` (line ~1768), lọc bỏ task core_content khi inline card đang hiển thị:
+
+```tsx
+<ActiveTasksIndicator
+  tasks={
+    // Hide core_content task from floating indicator when inline streaming card is visible
+    isGeneratingCoreContent && currentStep === 2
+      ? activeTasks.filter(t => t.task_type !== 'core_content')
+      : activeTasks
+  }
+  pendingQueue={pendingQueueItems}
+  onDismiss={dismissTask}
+  onTaskClick={handleTaskClick}
+  onCancelPending={handleCancelPending}
+/>
 ```
 
-#### 2. Thêm extraction Phase 1 results (sau line 544, trước Phase 2)
+Ngoai ra, floating progress indicator ở line 1661 (`currentStep > 2 && isGeneratingCoreContent`) cũng cần lọc tương tự -- khi floating indicator hiển thị (step 3/4), ẩn core_content task trong ActiveTasksIndicator:
 
-Sau khi extract `userId` từ `authResult`, cần extract tất cả kết quả khác:
-
-```typescript
-// --- Extract AI Config ---
-const aiConfig = aiConfigResult.status === 'fulfilled' ? aiConfigResult.value : null;
-
-// --- Extract Brand Data ---
-const brandData = brandResult.status === 'fulfilled' ? brandResult.value?.data : null;
-const brandContext: BrandContext | null = brandData ? {
-  brand_name: brandData.brand_name,
-  industry: brandData.industry,
-  brand_voice: brandData.brand_voice,
-  target_audience: brandData.target_audience,
-  unique_selling_points: brandData.unique_selling_points,
-  content_pillars: brandData.content_pillars,
-  competitors: brandData.competitors,
-  brand_values: brandData.brand_values,
-  communication_style: brandData.communication_style,
-} : null;
-
-// --- Extract Personas ---
-const personas = personasResult.status === 'fulfilled' ? (personasResult.value?.data || []) : [];
-
-// --- Extract Products ---
-const products = productsResult.status === 'fulfilled' ? (productsResult.value?.data || []) : [];
-
-// --- Extract Smart Context ---
-const smartCtx = smartCtxResult.status === 'fulfilled' ? smartCtxResult.value : null;
-const smartContextInjection = smartCtx?.contextInjection || '';
-
-// --- Derive model & maxTokens ---
-const model = aiConfig?.model || getDefaultModel(lengthMode as CoreContentLengthMode);
-const maxTokens = getMaxTokens(lengthMode as CoreContentLengthMode);
+```tsx
+tasks={
+  isGeneratingCoreContent
+    ? activeTasks.filter(t => t.task_type !== 'core_content')
+    : activeTasks
+}
 ```
 
-### Tổng kết
-
-Chỉ sửa 1 file, thêm ~25 dòng extraction code giữa Phase 1 và Phase 2. Không thay đổi logic, chỉ khôi phục các biến bị mất khi refactor.
+Tóm lại: Khi `isGeneratingCoreContent = true`, luôn lọc bỏ task core_content khỏi ActiveTasksIndicator vì đã có UI chuyên dụng (inline card ở step 2, floating card ở step 3/4).
 
