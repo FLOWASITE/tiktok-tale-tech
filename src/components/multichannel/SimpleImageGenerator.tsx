@@ -617,7 +617,7 @@ export function SimpleImageGenerator({
   const bodyContent = (
     <div className="flex-1 overflow-hidden">
       {viewMode === 'setup' && (
-        <ScrollArea className="h-full max-h-[60vh] pr-3">
+        <ScrollArea className="h-full max-h-[70vh] pr-3">
           {setupFields}
         </ScrollArea>
       )}
