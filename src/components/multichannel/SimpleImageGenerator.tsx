@@ -674,7 +674,7 @@ export function SimpleImageGenerator({
       <DialogContent
         className={cn(
           "transition-all duration-300 max-h-[90vh] overflow-hidden flex flex-col",
-          viewMode === 'setup' ? "sm:max-w-lg" : "sm:max-w-3xl"
+          viewMode === 'setup' ? "sm:max-w-2xl" : "sm:max-w-4xl"
         )}
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
