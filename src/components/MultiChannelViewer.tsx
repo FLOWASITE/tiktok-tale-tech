@@ -262,6 +262,15 @@ export function MultiChannelViewer({
   const [showSchedule, setShowSchedule] = useState(false);
   const [showTeamPanel, setShowTeamPanel] = useState(false);
   const [deletingImageChannel, setDeletingImageChannel] = useState<Channel | null>(null);
+
+  // Reset panel states when dialog opens to always start at mockup view
+  useEffect(() => {
+    if (open) {
+      setShowGallery(false);
+      setShowSchedule(false);
+      setShowTeamPanel(false);
+    }
+  }, [open]);
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
   const [assignmentChannel, setAssignmentChannel] = useState<Channel | null>(null);
   const [showMockupView, setShowMockupView] = useState(true);
