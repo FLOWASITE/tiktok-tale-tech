@@ -1766,7 +1766,11 @@ export function MultiChannelFormWizard({
 
         {/* Background Tasks Indicator - shows tasks that continue when user navigates away */}
         <ActiveTasksIndicator
-          tasks={activeTasks}
+          tasks={
+            isGeneratingCoreContent
+              ? activeTasks.filter(t => t.task_type !== 'core_content')
+              : activeTasks
+          }
           pendingQueue={pendingQueueItems}
           onDismiss={dismissTask}
           onTaskClick={handleTaskClick}
