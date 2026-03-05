@@ -95,7 +95,7 @@ export function useSocialConnections(options: UseSocialConnectionsOptions = {}) 
       return data;
     },
     onSuccess: (data) => {
-      if (data.requiresManualSetup) {
+      if (data.requiresManualSetup || data.requiresOAuth) {
         return;
       }
       queryClient.invalidateQueries({ queryKey });

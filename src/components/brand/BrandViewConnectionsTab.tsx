@@ -172,15 +172,83 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     accessToken: '',
     accessTokenSecret: '',
   });
-  
+  const [oauthConnecting, setOauthConnecting] = useState<SocialPlatform | null>(null);
+  const [websiteDialogOpen, setWebsiteDialogOpen] = useState(false);
+  const [websiteForm, setWebsiteForm] = useState({
+    websiteUrl: '',
+    integrationType: 'wordpress' as 'wordpress' | 'custom_api' | 'webhook' | 'manual',
+    username: '',
+    appPassword: '',
+    apiKey: '',
+  });
+  const [isWebsiteConnecting, setIsWebsiteConnecting] = useState(false);
 
-  const handleConnect = (platform: SocialPlatform) => {
+  const handleConnect = async (platform: SocialPlatform) => {
     if (!PLATFORM_CONFIG[platform].available) {
       toast.info(`${PLATFORM_CONFIG[platform].name} sẽ sớm được hỗ trợ!`);
       return;
     }
-    setSelectedPlatform(platform);
-    setSetupDialogOpen(true);
+
+    if (platform === 'twitter') {
+      setSelectedPlatform(platform);
+      setSetupDialogOpen(true);
+      return;
+    }
+
+    if (platform === 'website') {
+      setSelectedPlatform(platform);
+      setWebsiteDialogOpen(true);
+      return;
+    }
+
+    // OAuth platforms (Facebook, Instagram, LinkedIn, Threads, Zalo OA, Google Business)
+    setOauthConnecting(platform);
+    try {
+      const result = await connect({
+        platform,
+        brandTemplateId: template.id,
+      });
+      if (result?.requiresOAuth && result?.oauthUrl) {
+        window.open(result.oauthUrl, '_blank', 'width=620,height=720,noopener,noreferrer');
+        toast.info(`Đã mở trang đăng nhập ${PLATFORM_CONFIG[platform].name}`, {
+          description: 'Hoàn tất đăng nhập trong cửa sổ mới để kết nối tài khoản.',
+        });
+      }
+    } catch {
+      // Error handled in mutation
+    } finally {
+      setOauthConnecting(null);
+    }
+  };
+
+  const handleWebsiteSubmit = async () => {
+    if (!websiteForm.websiteUrl) {
+      toast.error('Vui lòng nhập URL website');
+      return;
+    }
+    setIsWebsiteConnecting(true);
+    try {
+      const body: Record<string, unknown> = {
+        brandTemplateId: template.id,
+        websiteUrl: websiteForm.websiteUrl,
+        integrationType: websiteForm.integrationType,
+      };
+      if (websiteForm.integrationType === 'wordpress' && websiteForm.username && websiteForm.appPassword) {
+        body.wordpressConfig = { username: websiteForm.username, applicationPassword: websiteForm.appPassword };
+      } else if (websiteForm.apiKey) {
+        body.apiKey = websiteForm.apiKey;
+      }
+      const { data, error } = await supabase.functions.invoke('connect-website', { body });
+      if (error || !data?.success) throw new Error(data?.error || error?.message || 'Kết nối thất bại');
+      toast.success('Đã kết nối Website thành công!');
+      setWebsiteDialogOpen(false);
+      setWebsiteForm({ websiteUrl: '', integrationType: 'wordpress', username: '', appPassword: '', apiKey: '' });
+      refetch();
+    } catch (err: unknown) {
+      toast.error('Lỗi kết nối: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsWebsiteConnecting(false);
+    }
   };
 
   const handleTwitterSubmit = async () => {
@@ -387,10 +455,14 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
               variant={config.available ? 'default' : 'outline'}
               size="sm"
               onClick={() => handleConnect(platform)}
-              disabled={!config.available}
+              disabled={!config.available || oauthConnecting === platform}
             >
-              <Plus className="w-4 h-4 mr-1" />
-              Kết nối
+              {oauthConnecting === platform ? (
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4 mr-1" />
+              )}
+              {oauthConnecting === platform ? 'Đang kết nối...' : 'Kết nối'}
             </Button>
           )}
         </div>
@@ -540,6 +612,128 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
             </Button>
             <Button onClick={handleTwitterSubmit} disabled={isConnecting}>
               {isConnecting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Kết nối
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Website Setup Dialog */}
+      <Dialog open={websiteDialogOpen} onOpenChange={setWebsiteDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-[#10B981] text-white flex items-center justify-center">
+                <Globe className="w-4 h-4" />
+              </div>
+              Kết nối Website
+            </DialogTitle>
+            <DialogDescription>
+              Kết nối WordPress, Custom API hoặc Webhook để đăng bài từ Flowa.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="websiteUrl">URL Website <span className="text-destructive">*</span></Label>
+              <Input
+                id="websiteUrl"
+                type="url"
+                placeholder="https://yourwebsite.com"
+                value={websiteForm.websiteUrl}
+                onChange={(e) => setWebsiteForm(prev => ({ ...prev, websiteUrl: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="integrationType">Loại kết nối</Label>
+              <select
+                id="integrationType"
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                value={websiteForm.integrationType}
+                onChange={(e) => setWebsiteForm(prev => ({ ...prev, integrationType: e.target.value as 'wordpress' | 'custom_api' | 'webhook' | 'manual' }))}
+              >
+                <option value="wordpress">WordPress (REST API)</option>
+                <option value="custom_api">Custom API</option>
+                <option value="webhook">Webhook</option>
+                <option value="manual">Thủ công</option>
+              </select>
+            </div>
+
+            {websiteForm.integrationType === 'wordpress' && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="wpUsername">WordPress Username</Label>
+                  <Input
+                    id="wpUsername"
+                    placeholder="admin"
+                    value={websiteForm.username}
+                    onChange={(e) => setWebsiteForm(prev => ({ ...prev, username: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="wpAppPassword">Application Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="wpAppPassword"
+                      type={showSecrets.wpAppPassword ? 'text' : 'password'}
+                      placeholder="xxxx xxxx xxxx xxxx xxxx xxxx"
+                      value={websiteForm.appPassword}
+                      onChange={(e) => setWebsiteForm(prev => ({ ...prev, appPassword: e.target.value }))}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                      onClick={() => toggleSecret('wpAppPassword')}
+                    >
+                      {showSecrets.wpAppPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Tạo tại WordPress Admin → Users → Profile → Application Passwords
+                  </p>
+                </div>
+              </>
+            )}
+
+            {websiteForm.integrationType === 'custom_api' && (
+              <div className="space-y-2">
+                <Label htmlFor="apiKey">API Key</Label>
+                <div className="relative">
+                  <Input
+                    id="apiKey"
+                    type={showSecrets.apiKey ? 'text' : 'password'}
+                    placeholder="Nhập API Key..."
+                    value={websiteForm.apiKey}
+                    onChange={(e) => setWebsiteForm(prev => ({ ...prev, apiKey: e.target.value }))}
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                    onClick={() => toggleSecret('apiKey')}
+                  >
+                    {showSecrets.apiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWebsiteDialogOpen(false)}>
+              Hủy
+            </Button>
+            <Button
+              onClick={handleWebsiteSubmit}
+              disabled={isWebsiteConnecting || !websiteForm.websiteUrl}
+            >
+              {isWebsiteConnecting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Kết nối
             </Button>
           </DialogFooter>

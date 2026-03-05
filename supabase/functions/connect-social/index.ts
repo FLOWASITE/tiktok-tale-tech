@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 interface ConnectRequest {
-  platform: 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'threads' | 'youtube' | 'zalo_oa' | 'google_maps' | 'website';
+  platform: 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'threads' | 'youtube' | 'zalo_oa' | 'google_business' | 'website';
   organizationId?: string;
   brandTemplateId?: string;
   accessToken?: string;
@@ -649,10 +649,10 @@ serve(async (req) => {
       );
     }
 
-    // For Google Maps (Business Profile) - using OAuth 2.0 flow
-    if (platform === 'google_maps') {
+    // For Google Business Profile - using OAuth 2.0 flow
+    if (platform === 'google_business') {
       const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-      const globalCreds = await getGlobalPlatformCredentials(supabase, 'google_maps', encryptionKey);
+      const globalCreds = await getGlobalPlatformCredentials(supabase, 'google_business', encryptionKey);
       
       if (!globalCreds.consumerKey) {
         throw new Error('Google Business Profile chưa được cấu hình. Liên hệ Admin.');
@@ -710,7 +710,7 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         error: `Platform ${platform} is not yet supported.`,
-        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads', 'zalo_oa', 'google_maps', 'website'],
+        supportedPlatforms: ['twitter', 'instagram', 'linkedin', 'facebook', 'threads', 'zalo_oa', 'google_business', 'website'],
       }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

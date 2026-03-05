@@ -238,15 +238,19 @@ export default function AdminSocialSettings() {
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-medium">1</span>
-            <p>Admin cấu hình <strong>Consumer Key</strong> và <strong>Consumer Secret</strong> của Twitter App tại đây.</p>
+            <p>Admin cấu hình <strong>App ID / Client ID</strong> và <strong>App Secret / Client Secret</strong> của từng nền tảng tại đây.</p>
           </div>
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-medium">2</span>
-            <p>User vào <strong>Brand → Kết nối mạng xã hội</strong>, chỉ cần nhập <strong>Access Token</strong> và <strong>Access Token Secret</strong>.</p>
+            <p><strong>Twitter:</strong> User chỉ cần nhập <strong>Access Token</strong> và <strong>Access Token Secret</strong> của tài khoản Twitter.</p>
           </div>
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-medium">3</span>
-            <p>Hệ thống kết hợp credentials để đăng bài lên Twitter.</p>
+            <p><strong>Facebook, Instagram, LinkedIn, Threads, Zalo OA, Google Business:</strong> User click <strong>Kết nối</strong> → đăng nhập OAuth trong cửa sổ mới → tự động xác thực.</p>
+          </div>
+          <div className="flex gap-3">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-medium">4</span>
+            <p><strong>Website:</strong> User nhập URL và credentials của WordPress / Custom API để kết nối trực tiếp.</p>
           </div>
         </CardContent>
       </Card>
