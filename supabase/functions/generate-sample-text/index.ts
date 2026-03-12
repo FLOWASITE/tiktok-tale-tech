@@ -85,7 +85,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<Channel, ChannelSettings> = {
     format_description: 'Thực tế, xác thực, khách quan',
   },
   linkedin: {
-    min_length: 150, max_length: 400, length_unit: 'words',
+    min_length: 300, max_length: 600, length_unit: 'words',
     hook_required: true, hook_style: 'nhẹ, không giật tít',
     bullet_allowed: true, cta_policy: 'soft',
     emoji_allowed: true, emoji_limit: 2,
