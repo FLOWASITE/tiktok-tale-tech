@@ -17,6 +17,7 @@ import {
   type ImageContentType,
   type TextPosition,
   type TypographyStyle,
+  type FooterInfo,
 } from "../_shared/image-prompt-builder.ts";
 
 const corsHeaders = {
