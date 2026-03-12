@@ -73,6 +73,14 @@ export type TextPosition = 'center' | 'top' | 'bottom' | 'top-left' | 'bottom-ri
 // Without background (text-shadow only): clean, outline, glow
 export type TypographyStyle = 'modern' | 'classic' | 'bold' | 'minimal' | 'clean' | 'outline' | 'glow';
 
+export interface FooterInfo {
+  company_name?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+}
+
 export interface ImagePromptParams {
   channel: Channel;
   contentSummary: string;
@@ -96,6 +104,8 @@ export interface ImagePromptParams {
   typographyStyle?: TypographyStyle;
   // Country-specific character appearance
   countryCode?: string;
+  // Footer/contact info from brand template
+  footerInfo?: FooterInfo;
 }
 
 // Image Style Presets
