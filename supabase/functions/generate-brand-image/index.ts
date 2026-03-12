@@ -261,7 +261,7 @@ serve(async (req) => {
     // Fetch brand template for colors and style
     const { data: brandTemplate, error: brandError } = await supabase
       .from("brand_templates")
-      .select("primary_color, secondary_colors, image_style, logo_url, brand_name, industry, organization_id, tone_of_voice, formality_level, country_code")
+      .select("primary_color, secondary_colors, image_style, logo_url, brand_name, industry, organization_id, tone_of_voice, formality_level, country_code, footer_info")
       .eq("id", brandTemplateId)
       .single();
 
