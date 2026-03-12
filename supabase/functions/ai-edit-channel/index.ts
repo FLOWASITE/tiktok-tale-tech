@@ -39,7 +39,7 @@ interface ChannelSettings {
 
 const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
   website: {
-    min_length: 800, max_length: 1500, length_unit: 'words',
+    min_length: 800, max_length: 2000, length_unit: 'words',
     hook_required: false, hook_style: 'không cần giật tít',
     bullet_allowed: true, cta_policy: 'soft',
     emoji_allowed: false, emoji_limit: 0,
@@ -48,7 +48,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     format_description: 'Cấu trúc H1–H3 rõ ràng, Markdown format',
   },
   facebook: {
-    min_length: 120, max_length: 300, length_unit: 'words',
+    min_length: 250, max_length: 500, length_unit: 'words',
     hook_required: true, hook_style: 'BẮT BUỘC hook mạnh 2 dòng đầu',
     bullet_allowed: true, cta_policy: 'optional',
     emoji_allowed: true, emoji_limit: 3,
@@ -84,7 +84,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     format_description: 'Thực tế, xác thực, khách quan',
   },
   linkedin: {
-    min_length: 150, max_length: 400, length_unit: 'words',
+    min_length: 300, max_length: 600, length_unit: 'words',
     hook_required: true, hook_style: 'nhẹ, không giật tít',
     bullet_allowed: true, cta_policy: 'soft',
     emoji_allowed: true, emoji_limit: 2,
@@ -93,7 +93,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     format_description: 'Chuyên nghiệp, B2B authority',
   },
   email: {
-    min_length: 150, max_length: 400, length_unit: 'words',
+    min_length: 250, max_length: 500, length_unit: 'words',
     hook_required: false, bullet_allowed: true, cta_policy: 'required',
     has_subject_line: true, emoji_allowed: false, emoji_limit: 0,
     hashtag_limit: 0, hashtag_position: 'none',
@@ -119,7 +119,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     format_description: 'Thông báo rõ việc, thân thiện local',
   },
   telegram: {
-    min_length: 100, max_length: 500, length_unit: 'words',
+    min_length: 200, max_length: 500, length_unit: 'words',
     hook_required: false, hook_style: 'không cần giật',
     bullet_allowed: true, cta_policy: 'optional',
     emoji_allowed: false, emoji_limit: 0,
