@@ -119,7 +119,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     format_description: 'Thông báo rõ việc, thân thiện local',
   },
   telegram: {
-    min_length: 100, max_length: 500, length_unit: 'words',
+    min_length: 200, max_length: 500, length_unit: 'words',
     hook_required: false, hook_style: 'không cần giật',
     bullet_allowed: true, cta_policy: 'optional',
     emoji_allowed: false, emoji_limit: 0,
