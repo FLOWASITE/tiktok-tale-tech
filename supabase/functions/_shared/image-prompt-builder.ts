@@ -639,6 +639,74 @@ Typography Guidelines:
 }
 
 /**
+ * Build structured layout section for Social Graphics with title, contact info, and CTA
+ * Only applies to 'with_text' mode
+ */
+function buildStructuredLayoutSection(
+  footerInfo?: FooterInfo,
+  brandColors?: BrandColors
+): string {
+  // Build contact info lines from footer data
+  const contactLines: string[] = [];
+  if (footerInfo?.address) contactLines.push(`📍 ${footerInfo.address}`);
+  if (footerInfo?.phone) contactLines.push(`📞 ${footerInfo.phone}`);
+  if (footerInfo?.email) contactLines.push(`📧 ${footerInfo.email}`);
+  if (footerInfo?.website) contactLines.push(`🌐 ${footerInfo.website}`);
+
+  const hasContactInfo = contactLines.length > 0;
+
+  let section = `
+
+## BỐ CỤC ẢNH SOCIAL GRAPHIC (BẮT BUỘC):
+
+### VÙNG TRÊN (20% trên cùng):
+- TIÊU ĐỀ: Chữ lớn, đậm (Bold), nổi bật, gây tò mò
+- Font: Sans-serif đậm, PHẢI hỗ trợ tiếng Việt có dấu đầy đủ
+- Màu: Trắng hoặc màu sáng trên nền tối, hoặc màu đậm trên nền sáng
+- Tiêu đề lấy từ nội dung chính hoặc hook message
+
+### VÙNG GIỮA (${hasContactInfo ? '50-60' : '60-70'}%):
+- Hình ảnh chính / visual concept minh họa cho nội dung
+- Để trống không gian thở, không chèn quá nhiều element
+- Visual phải liên quan trực tiếp đến chủ đề bài viết`;
+
+  if (hasContactInfo) {
+    section += `
+
+### VÙNG DƯỚI (20-30% dưới cùng):
+- THÔNG TIN LIÊN HỆ với emojis tương ứng:
+${contactLines.map(l => `  ${l}`).join('\n')}
+- Màu chữ: Trắng hoặc sáng, dễ đọc trên nền tối
+- Font size nhỏ hơn tiêu đề nhưng vẫn rõ ràng
+
+### CTA (Call-to-Action):
+- Đặt ngay dưới hoặc bên cạnh thông tin liên hệ
+- Màu nổi bật: Vàng (#FFD700) hoặc Cam (#FF8C00) — tạo contrast mạnh
+- Dạng button hoặc banner nổi bật
+- Ví dụ: "Liên hệ ngay để được tư vấn miễn phí!" hoặc CTA phù hợp nội dung`;
+  } else {
+    section += `
+
+### VÙNG DƯỚI (20% dưới cùng):
+- CTA (Call-to-Action) nổi bật
+- Màu nổi bật: Vàng (#FFD700) hoặc Cam (#FF8C00)
+- Dạng button hoặc banner
+- CTA phù hợp với nội dung bài viết`;
+  }
+
+  section += `
+
+### QUY TẮC MÀU SẮC VÀ FONT CHỮ:
+- Tone chủ đạo: Sử dụng brand primary color${brandColors?.primary ? ` (${brandColors.primary})` : ''}
+- CTA: Màu vàng hoặc cam để tạo điểm nhấn mạnh
+- Thông tin liên hệ: Màu trắng hoặc sáng trên nền tối
+- Font chữ: PHẢI hỗ trợ tiếng Việt có dấu (ă, â, đ, ê, ô, ơ, ư)
+- Phân biệt rõ ràng giữa tiêu đề (lớn, đậm), nội dung, và CTA (nổi bật)`;
+
+  return section;
+}
+
+/**
  * Build image style preset section
  */
 function buildStylePresetSection(stylePreset?: ImageStylePreset): string {
