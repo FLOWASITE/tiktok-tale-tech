@@ -98,7 +98,7 @@ export const CHANNEL_TRANSFORM_MATRIX: Record<string, ChannelTransformConfig> = 
   linkedin: {
     extractionRange: [40, 60],
     extractionLevel: 'balanced',
-    focusAreas: ['insights', 'key_points', 'hook_cta'],
+    focusAreas: ['insights', 'key_points', 'hook_cta', 'storytelling'],
     preserveElements: ['hook', 'key_insight', 'statistic', 'cta'],
     transformNotes: [
       'Mở đầu bằng insight/số liệu gây chú ý (không giật tít)',
@@ -106,15 +106,16 @@ export const CHANNEL_TRANSFORM_MATRIX: Record<string, ChannelTransformConfig> = 
       'Focus vào professional value và learnings',
       'Include data points và industry insights',
       'CTA professional: "Share your thoughts", "What\'s your experience?"',
+      'Cần đủ depth: phân tích, case study, lời khuyên chuyên gia',
     ],
-    formatGuidance: 'Hook insight → 3-4 key points → Personal take → CTA discussion. Bullets allowed.',
-    wordCountMultiplier: [0.15, 0.30],
+    formatGuidance: 'Hook insight → Phân tích vấn đề → 3-4 key points + Case study → Expert advice → CTA discussion.',
+    wordCountMultiplier: [0.25, 0.45],
   },
 
   email: {
     extractionRange: [30, 50],
-    extractionLevel: 'condensed',
-    focusAreas: ['key_points', 'hook_cta', 'summary'],
+    extractionLevel: 'balanced',
+    focusAreas: ['key_points', 'hook_cta', 'summary', 'storytelling'],
     preserveElements: ['hook', 'key_insight', 'cta'],
     transformNotes: [
       'Subject line phải compelling (không spam words)',
@@ -122,9 +123,10 @@ export const CHANNEL_TRANSFORM_MATRIX: Record<string, ChannelTransformConfig> = 
       'Body scannable với bullets',
       'Single clear CTA - không multiple CTAs',
       'PS line nếu phù hợp urgency/bonus',
+      'Cần đủ depth: giới thiệu, key points, giải pháp, CTA',
     ],
-    formatGuidance: 'Subject: [compelling] → Greeting → Hook → 3-5 bullets → CTA button → Signature',
-    wordCountMultiplier: [0.10, 0.25],
+    formatGuidance: 'Subject: [compelling] → Greeting → Hook → Giới thiệu vấn đề → 3-5 bullets + Case study → CTA button → Signature',
+    wordCountMultiplier: [0.20, 0.40],
   },
 
   youtube: {
@@ -148,9 +150,9 @@ export const CHANNEL_TRANSFORM_MATRIX: Record<string, ChannelTransformConfig> = 
   // SOCIAL CHANNELS (Medium extraction)
   // ============================================
   facebook: {
-    extractionRange: [20, 35],
-    extractionLevel: 'condensed',
-    focusAreas: ['hook_cta', 'key_points', 'storytelling'],
+    extractionRange: [20, 40],
+    extractionLevel: 'balanced',
+    focusAreas: ['hook_cta', 'key_points', 'storytelling', 'social_proof'],
     preserveElements: ['hook', 'key_insight', 'cta', 'social_proof'],
     transformNotes: [
       'Hook emoji + **bold** mở đầu',
@@ -159,9 +161,10 @@ export const CHANNEL_TRANSFORM_MATRIX: Record<string, ChannelTransformConfig> = 
       'Storytelling mini nếu có từ Core Content',
       'CTA engagement: comment/share/tag',
       '3 hashtags cuối bài',
+      'Cần đủ depth: giới thiệu, vấn đề, giải pháp, case study, CTA',
     ],
-    formatGuidance: 'Hook emoji → 3-5 short paragraphs → Bullets → CTA → Hashtags',
-    wordCountMultiplier: [0.10, 0.25],
+    formatGuidance: 'Hook emoji → Giới thiệu vấn đề → Key points + Case study → Giải pháp → CTA → Hashtags',
+    wordCountMultiplier: [0.20, 0.40],
   },
 
   instagram: {

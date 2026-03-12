@@ -94,25 +94,23 @@ export const CHANNEL_TRANSFORM_SUMMARY: Record<string, {
     focusLabel: 'Insights + Analysis',
     colorClass: 'bg-violet-500/10 text-violet-600',
   },
+  facebook: {
+    extractionLabel: 'Cân bằng',
+    extractionRange: '20-40%',
+    focusLabel: 'Hook + Key points + Case study',
+    colorClass: 'bg-violet-500/10 text-violet-600',
+  },
+  email: {
+    extractionLabel: 'Cân bằng',
+    extractionRange: '30-50%',
+    focusLabel: 'Key points + CTA',
+    colorClass: 'bg-violet-500/10 text-violet-600',
+  },
   telegram: {
     extractionLabel: 'Cân bằng',
     extractionRange: '20-40%',
     focusLabel: 'Key points + Summary',
     colorClass: 'bg-violet-500/10 text-violet-600',
-  },
-  
-  // Condensed extraction
-  facebook: {
-    extractionLabel: 'Cô đọng',
-    extractionRange: '20-35%',
-    focusLabel: 'Hook + Key points',
-    colorClass: 'bg-amber-500/10 text-amber-600',
-  },
-  email: {
-    extractionLabel: 'Cô đọng',
-    extractionRange: '30-50%',
-    focusLabel: 'Key points + CTA',
-    colorClass: 'bg-amber-500/10 text-amber-600',
   },
   threads: {
     extractionLabel: 'Cô đọng',
@@ -178,10 +176,10 @@ export function estimateChannelWordCount(
     website: [1.0, 1.5],
     blog: [1.0, 1.8],
     youtube: [0.40, 0.70],
-    linkedin: [0.15, 0.30],
+    linkedin: [0.25, 0.45],
     telegram: [0.15, 0.30],
-    facebook: [0.10, 0.25],
-    email: [0.10, 0.25],
+    facebook: [0.20, 0.40],
+    email: [0.20, 0.40],
     threads: [0.08, 0.15],
     zalo_oa: [0.08, 0.15],
     instagram: [0.05, 0.12],

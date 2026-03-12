@@ -41,16 +41,16 @@ export interface MultiChannelLengthValidation {
 // Channel length configurations with word budgets and tolerance
 // Updated from DEFAULT_CHANNEL_SETTINGS for consistency
 export const CHANNEL_LENGTH_CONFIGS: Record<string, ChannelLengthConfig> = {
-  website: { min_length: 800, max_length: 1500, length_unit: 'words', word_budget: 920, tolerance_percent: 5 },
-  facebook: { min_length: 250, max_length: 400, length_unit: 'words', word_budget: 300, tolerance_percent: 10 },
+  website: { min_length: 800, max_length: 2000, length_unit: 'words', word_budget: 920, tolerance_percent: 5 },
+  facebook: { min_length: 250, max_length: 500, length_unit: 'words', word_budget: 350, tolerance_percent: 10 },
   instagram: { min_length: 50, max_length: 150, length_unit: 'words', word_budget: 70, tolerance_percent: 15 },
   twitter: { min_length: 0, max_length: 280, length_unit: 'chars', word_budget: 250, tolerance_percent: 0 },
   google_maps: { min_length: 80, max_length: 150, length_unit: 'words', word_budget: 100, tolerance_percent: 10 },
-  linkedin: { min_length: 150, max_length: 400, length_unit: 'words', word_budget: 200, tolerance_percent: 10 },
-  email: { min_length: 150, max_length: 400, length_unit: 'words', word_budget: 200, tolerance_percent: 10 },
+  linkedin: { min_length: 300, max_length: 600, length_unit: 'words', word_budget: 400, tolerance_percent: 10 },
+  email: { min_length: 250, max_length: 500, length_unit: 'words', word_budget: 350, tolerance_percent: 10 },
   youtube: { min_length: 500, max_length: 800, length_unit: 'words', word_budget: 600, tolerance_percent: 8 },
   zalo_oa: { min_length: 60, max_length: 150, length_unit: 'words', word_budget: 80, tolerance_percent: 15 },
-  telegram: { min_length: 100, max_length: 500, length_unit: 'words', word_budget: 130, tolerance_percent: 10 },
+  telegram: { min_length: 200, max_length: 500, length_unit: 'words', word_budget: 300, tolerance_percent: 10 },
   tiktok: { min_length: 50, max_length: 150, length_unit: 'words', word_budget: 70, tolerance_percent: 15 },
   threads: { min_length: 0, max_length: 500, length_unit: 'chars', word_budget: 400, tolerance_percent: 0 },
 };

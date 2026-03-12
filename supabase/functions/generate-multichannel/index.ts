@@ -747,7 +747,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     seo_optimized: true, heading_structure_required: true, featured_snippet_format: true,
   },
   facebook: {
-    min_length: 120, max_length: 300, length_unit: 'words',
+    min_length: 250, max_length: 500, length_unit: 'words',
     hook_required: true, hook_style: 'Hook mạnh + emoji (🎯⚡💡🔥)',
     bullet_allowed: true, cta_policy: 'optional',
     emoji_allowed: true, emoji_limit: 5, hashtag_limit: 3, hashtag_position: 'end',
@@ -779,7 +779,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     format_description: 'Thực tế, xác thực, khách quan, như đánh giá chuyên nghiệp',
   },
   linkedin: {
-    min_length: 150, max_length: 400, length_unit: 'words',
+    min_length: 300, max_length: 600, length_unit: 'words',
     hook_required: true, hook_style: 'Insight/số liệu (không giật tít)',
     bullet_allowed: true, cta_policy: 'soft',
     emoji_allowed: true, emoji_limit: 2, hashtag_limit: 3, hashtag_position: 'end',
@@ -787,7 +787,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     format_description: 'Hook insight, đoạn 2-3 dòng, bullets →/•, **bold** keywords, emoji tiết chế, 3 hashtag',
   },
   email: {
-    min_length: 150, max_length: 400, length_unit: 'words',
+    min_length: 250, max_length: 500, length_unit: 'words',
     hook_required: false, bullet_allowed: true, cta_policy: 'required', has_subject_line: true,
     emoji_allowed: false, emoji_limit: 0, hashtag_limit: 0, hashtag_position: 'none',
     line_break_style: 'normal', link_position: 'body',
@@ -810,7 +810,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     format_description: 'Mobile-first, đoạn ngắn, KHÔNG emoji, CTA+link, tone thân thiện local',
   },
   telegram: {
-    min_length: 100, max_length: 500, length_unit: 'words',
+    min_length: 200, max_length: 500, length_unit: 'words',
     hook_required: false, hook_style: 'Thông tin giá trị',
     bullet_allowed: true, cta_policy: 'optional',
     emoji_allowed: false, emoji_limit: 0, hashtag_limit: 0, hashtag_position: 'none',
@@ -1229,6 +1229,20 @@ ${wordBudgetSection}
 - Featured Snippet: 40-60 từ trả lời câu hỏi chính
 - Word count: 800-2000 từ | Pure Markdown (KHÔNG HTML)
 - seo_score_estimate: Title(15) + Meta(15) + Keyword trong title(15) + H1(10) + 100 từ đầu(10) + H2(10) + Words(10) + Snippet(10) + Links(5)
+
+## CẤU TRÚC NỘI DUNG CHUẨN (Áp dụng cho kênh long-form: Facebook, LinkedIn, Email, Website, YouTube)
+BÀI VIẾT PHẢI CÓ ĐỦ CÁC THÀNH PHẦN SAU (điều chỉnh theo ngành/brand):
+1. TIÊU ĐỀ: Nổi bật, thu hút, gây tò mò hoặc cấp bách
+2. MỞ ĐẦU: Giới thiệu vấn đề/thay đổi quan trọng, giải thích tại sao cần quan tâm
+3. TÍNH CẤP BÁCH: Nhấn mạnh thời gian, deadline, sự cần thiết hành động ngay
+4. CÂU CHUYỆN THỰC TẾ: Ví dụ thực, case study, tình huống đã xảy ra (lấy từ Industry Memory nếu có)
+5. GIẢI PHÁP/DỊCH VỤ: Chi tiết cách brand giúp giải quyết vấn đề
+6. LỜI KHUYÊN CHUYÊN GIA: Tips, chiến lược, mẹo thực hành
+7. CTA MẠNH MẼ: Rõ ràng, multiple touchpoints (inbox, hotline, đăng ký)
+8. HASHTAGS & TỪ KHÓA: Tối ưu theo channel settings
+9. THÔNG TIN LIÊN HỆ: Đặt vị trí dễ thấy (nếu brand có footer info)
+⚠️ Mỗi phần PHẢI có nội dung thực chất, KHÔNG viết qua loa.
+⚠️ Kênh ngắn (Instagram, TikTok, Twitter, Threads, Zalo OA, Google Maps): Chỉ giữ Hook + Key points + CTA.
 
 ## KIỂM TRA CUỐI (BẮT BUỘC - CHẠY TRƯỚC KHI OUTPUT)
 1. 📊 **ĐẾM TỪ TỪNG KÊNH** - so với min_length trong CHANNEL SETTINGS ở trên
