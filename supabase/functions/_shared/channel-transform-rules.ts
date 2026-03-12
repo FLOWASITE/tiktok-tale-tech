@@ -114,8 +114,8 @@ export const CHANNEL_TRANSFORM_MATRIX: Record<string, ChannelTransformConfig> = 
 
   email: {
     extractionRange: [30, 50],
-    extractionLevel: 'condensed',
-    focusAreas: ['key_points', 'hook_cta', 'summary'],
+    extractionLevel: 'balanced',
+    focusAreas: ['key_points', 'hook_cta', 'summary', 'storytelling'],
     preserveElements: ['hook', 'key_insight', 'cta'],
     transformNotes: [
       'Subject line phải compelling (không spam words)',
@@ -123,9 +123,10 @@ export const CHANNEL_TRANSFORM_MATRIX: Record<string, ChannelTransformConfig> = 
       'Body scannable với bullets',
       'Single clear CTA - không multiple CTAs',
       'PS line nếu phù hợp urgency/bonus',
+      'Cần đủ depth: giới thiệu, key points, giải pháp, CTA',
     ],
-    formatGuidance: 'Subject: [compelling] → Greeting → Hook → 3-5 bullets → CTA button → Signature',
-    wordCountMultiplier: [0.10, 0.25],
+    formatGuidance: 'Subject: [compelling] → Greeting → Hook → Giới thiệu vấn đề → 3-5 bullets + Case study → CTA button → Signature',
+    wordCountMultiplier: [0.20, 0.40],
   },
 
   youtube: {

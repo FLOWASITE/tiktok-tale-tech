@@ -1230,6 +1230,20 @@ ${wordBudgetSection}
 - Word count: 800-2000 từ | Pure Markdown (KHÔNG HTML)
 - seo_score_estimate: Title(15) + Meta(15) + Keyword trong title(15) + H1(10) + 100 từ đầu(10) + H2(10) + Words(10) + Snippet(10) + Links(5)
 
+## CẤU TRÚC NỘI DUNG CHUẨN (Áp dụng cho kênh long-form: Facebook, LinkedIn, Email, Website, YouTube)
+BÀI VIẾT PHẢI CÓ ĐỦ CÁC THÀNH PHẦN SAU (điều chỉnh theo ngành/brand):
+1. TIÊU ĐỀ: Nổi bật, thu hút, gây tò mò hoặc cấp bách
+2. MỞ ĐẦU: Giới thiệu vấn đề/thay đổi quan trọng, giải thích tại sao cần quan tâm
+3. TÍNH CẤP BÁCH: Nhấn mạnh thời gian, deadline, sự cần thiết hành động ngay
+4. CÂU CHUYỆN THỰC TẾ: Ví dụ thực, case study, tình huống đã xảy ra (lấy từ Industry Memory nếu có)
+5. GIẢI PHÁP/DỊCH VỤ: Chi tiết cách brand giúp giải quyết vấn đề
+6. LỜI KHUYÊN CHUYÊN GIA: Tips, chiến lược, mẹo thực hành
+7. CTA MẠNH MẼ: Rõ ràng, multiple touchpoints (inbox, hotline, đăng ký)
+8. HASHTAGS & TỪ KHÓA: Tối ưu theo channel settings
+9. THÔNG TIN LIÊN HỆ: Đặt vị trí dễ thấy (nếu brand có footer info)
+⚠️ Mỗi phần PHẢI có nội dung thực chất, KHÔNG viết qua loa.
+⚠️ Kênh ngắn (Instagram, TikTok, Twitter, Threads, Zalo OA, Google Maps): Chỉ giữ Hook + Key points + CTA.
+
 ## KIỂM TRA CUỐI (BẮT BUỘC - CHẠY TRƯỚC KHI OUTPUT)
 1. 📊 **ĐẾM TỪ TỪNG KÊNH** - so với min_length trong CHANNEL SETTINGS ở trên
 2. 🚨 **DƯỚI min_length?** → VIẾT THÊM ngay: chi tiết, ví dụ minh họa, giải thích sâu, case study, mở rộng từng điểm

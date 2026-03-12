@@ -31,30 +31,30 @@ const CHANNEL_TOKEN_CONFIGS: Record<string, ChannelTokenConfig> = {
   
   // Medium-form content
   linkedin: {
-    minTokens: 600,
-    maxTokens: 2000,
+    minTokens: 800,
+    maxTokens: 2500,
     bufferMultiplier: 1.4,
   },
   youtube: {
     minTokens: 1000,
     maxTokens: 4000,
-    bufferMultiplier: 1.3, // Script format needs structure
+    bufferMultiplier: 1.3,
   },
   email: {
-    minTokens: 500,
-    maxTokens: 1500,
+    minTokens: 600,
+    maxTokens: 2000,
     bufferMultiplier: 1.4,
   },
   telegram: {
-    minTokens: 400,
-    maxTokens: 1200,
+    minTokens: 500,
+    maxTokens: 1500,
     bufferMultiplier: 1.3,
   },
   
-  // Short-form content (Facebook needs more tokens for 250-500 word requirement)
+  // Medium-form content (Facebook, LinkedIn, Email need more tokens for 250-600 word requirement)
   facebook: {
-    minTokens: 500,
-    maxTokens: 1500,  // Increased to support 500 Vietnamese words
+    minTokens: 600,
+    maxTokens: 2000,
     bufferMultiplier: 1.5, // Emoji + formatting
   },
   instagram: {
