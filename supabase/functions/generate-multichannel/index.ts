@@ -779,7 +779,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     format_description: 'Thực tế, xác thực, khách quan, như đánh giá chuyên nghiệp',
   },
   linkedin: {
-    min_length: 150, max_length: 400, length_unit: 'words',
+    min_length: 300, max_length: 600, length_unit: 'words',
     hook_required: true, hook_style: 'Insight/số liệu (không giật tít)',
     bullet_allowed: true, cta_policy: 'soft',
     emoji_allowed: true, emoji_limit: 2, hashtag_limit: 3, hashtag_position: 'end',
@@ -787,7 +787,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     format_description: 'Hook insight, đoạn 2-3 dòng, bullets →/•, **bold** keywords, emoji tiết chế, 3 hashtag',
   },
   email: {
-    min_length: 150, max_length: 400, length_unit: 'words',
+    min_length: 250, max_length: 500, length_unit: 'words',
     hook_required: false, bullet_allowed: true, cta_policy: 'required', has_subject_line: true,
     emoji_allowed: false, emoji_limit: 0, hashtag_limit: 0, hashtag_position: 'none',
     line_break_style: 'normal', link_position: 'body',
