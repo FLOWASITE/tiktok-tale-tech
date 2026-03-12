@@ -815,7 +815,9 @@ export function buildImagePrompt(params: ImagePromptParams): string {
     // NEW: Text-in-image params
     imageContentType, textToInclude, textPosition, typographyStyle,
     // Country-specific character
-    countryCode
+    countryCode,
+    // Footer/contact info
+    footerInfo,
   } = params;
   
   const channelSpec = CHANNEL_IMAGE_SPECS[channel] || CHANNEL_IMAGE_SPECS.facebook;
