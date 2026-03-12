@@ -148,9 +148,9 @@ export const CHANNEL_TRANSFORM_MATRIX: Record<string, ChannelTransformConfig> = 
   // SOCIAL CHANNELS (Medium extraction)
   // ============================================
   facebook: {
-    extractionRange: [20, 35],
-    extractionLevel: 'condensed',
-    focusAreas: ['hook_cta', 'key_points', 'storytelling'],
+    extractionRange: [20, 40],
+    extractionLevel: 'balanced',
+    focusAreas: ['hook_cta', 'key_points', 'storytelling', 'social_proof'],
     preserveElements: ['hook', 'key_insight', 'cta', 'social_proof'],
     transformNotes: [
       'Hook emoji + **bold** mở đầu',
@@ -159,9 +159,10 @@ export const CHANNEL_TRANSFORM_MATRIX: Record<string, ChannelTransformConfig> = 
       'Storytelling mini nếu có từ Core Content',
       'CTA engagement: comment/share/tag',
       '3 hashtags cuối bài',
+      'Cần đủ depth: giới thiệu, vấn đề, giải pháp, case study, CTA',
     ],
-    formatGuidance: 'Hook emoji → 3-5 short paragraphs → Bullets → CTA → Hashtags',
-    wordCountMultiplier: [0.10, 0.25],
+    formatGuidance: 'Hook emoji → Giới thiệu vấn đề → Key points + Case study → Giải pháp → CTA → Hashtags',
+    wordCountMultiplier: [0.20, 0.40],
   },
 
   instagram: {
