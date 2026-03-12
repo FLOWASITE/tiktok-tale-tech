@@ -98,7 +98,7 @@ export const CHANNEL_TRANSFORM_MATRIX: Record<string, ChannelTransformConfig> = 
   linkedin: {
     extractionRange: [40, 60],
     extractionLevel: 'balanced',
-    focusAreas: ['insights', 'key_points', 'hook_cta'],
+    focusAreas: ['insights', 'key_points', 'hook_cta', 'storytelling'],
     preserveElements: ['hook', 'key_insight', 'statistic', 'cta'],
     transformNotes: [
       'Mở đầu bằng insight/số liệu gây chú ý (không giật tít)',
@@ -106,9 +106,10 @@ export const CHANNEL_TRANSFORM_MATRIX: Record<string, ChannelTransformConfig> = 
       'Focus vào professional value và learnings',
       'Include data points và industry insights',
       'CTA professional: "Share your thoughts", "What\'s your experience?"',
+      'Cần đủ depth: phân tích, case study, lời khuyên chuyên gia',
     ],
-    formatGuidance: 'Hook insight → 3-4 key points → Personal take → CTA discussion. Bullets allowed.',
-    wordCountMultiplier: [0.15, 0.30],
+    formatGuidance: 'Hook insight → Phân tích vấn đề → 3-4 key points + Case study → Expert advice → CTA discussion.',
+    wordCountMultiplier: [0.25, 0.45],
   },
 
   email: {
