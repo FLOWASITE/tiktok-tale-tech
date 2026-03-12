@@ -48,7 +48,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     format_description: 'Cấu trúc H1–H3 rõ ràng, Markdown format',
   },
   facebook: {
-    min_length: 120, max_length: 300, length_unit: 'words',
+    min_length: 250, max_length: 500, length_unit: 'words',
     hook_required: true, hook_style: 'BẮT BUỘC hook mạnh 2 dòng đầu',
     bullet_allowed: true, cta_policy: 'optional',
     emoji_allowed: true, emoji_limit: 3,
