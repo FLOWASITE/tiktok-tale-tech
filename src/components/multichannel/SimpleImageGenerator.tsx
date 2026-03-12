@@ -206,7 +206,7 @@ export function SimpleImageGenerator({
       if (!content?.brand_template_id) return null;
       const { data } = await supabase
         .from('brand_templates')
-        .select('industry, tone_of_voice, image_style, formality_level')
+        .select('industry, tone_of_voice, image_style, formality_level, footer_info')
         .eq('id', content.brand_template_id)
         .single();
       return data;

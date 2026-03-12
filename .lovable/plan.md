@@ -1,27 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Trả lời: KHÔNG hạn chế phong cách/loại ảnh khác
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-Hệ thống hiện tại có **2 mode rõ ràng**:
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-| Mode | Khi nào dùng | Thay đổi đề xuất |
-|------|-------------|------------------|
-| `background_only` | Ảnh nền thuần, không text | **Không thay đổi gì** |
-| `with_text` | Social graphic có chữ trên ảnh | **Chỉ thêm layout structure ở mode này** |
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-### Tại sao không hạn chế?
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-1. **Layout structure chỉ inject vào mode `with_text`** — code hiện tại đã có điều kiện `if (isWithText)` (dòng 787). Khi user chọn `background_only`, toàn bộ phần tiêu đề/contact/CTA sẽ không xuất hiện trong prompt.
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-2. **12 phong cách ảnh vẫn giữ nguyên** — `imageStylePreset` (photorealistic, illustration, minimalist, cinematic, v.v.) được inject riêng qua `buildStylePresetSection()` (dòng 784), **độc lập** với layout structure. User vẫn chọn bất kỳ style nào.
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
 
-3. **Channel-specific visual directions vẫn hoạt động** — Mỗi kênh có `CHANNEL_IMAGE_SPECS` riêng (mood, composition, avoidElements) và không bị ghi đè bởi layout mới.
+### Chi tiet ky thuat
 
-4. **Content Role / Content Angle vẫn ảnh hưởng visual** — Seed/Sprout/Harvest và Educational/Storytelling/Promotional vẫn được inject bình thường.
+```typescript
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
+```
 
-### Tóm lại
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
+```
 
-Thay đổi đề xuất **chỉ bổ sung thêm hướng dẫn bố cục** cho mode `with_text`, không xóa bỏ hay thay thế bất kỳ logic nào hiện có. Tất cả 12 phong cách, tất cả channel specs, tất cả content role/angle đều giữ nguyên 100%.
-
-Nếu bạn đồng ý, tôi sẽ tiến hành implement theo kế hoạch đã trình bày trước đó.
-
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)

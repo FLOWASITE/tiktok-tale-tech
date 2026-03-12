@@ -17,6 +17,7 @@ import {
   type ImageContentType,
   type TextPosition,
   type TypographyStyle,
+  type FooterInfo,
 } from "../_shared/image-prompt-builder.ts";
 
 const corsHeaders = {
@@ -260,7 +261,7 @@ serve(async (req) => {
     // Fetch brand template for colors and style
     const { data: brandTemplate, error: brandError } = await supabase
       .from("brand_templates")
-      .select("primary_color, secondary_colors, image_style, logo_url, brand_name, industry, organization_id, tone_of_voice, formality_level, country_code")
+      .select("primary_color, secondary_colors, image_style, logo_url, brand_name, industry, organization_id, tone_of_voice, formality_level, country_code, footer_info")
       .eq("id", brandTemplateId)
       .single();
 
@@ -386,6 +387,13 @@ serve(async (req) => {
       industry: brandTemplate.industry || [],
     };
 
+    // Parse footer_info from brand template
+    const footerInfo: FooterInfo | undefined = brandTemplate.footer_info 
+      ? (typeof brandTemplate.footer_info === 'string' 
+          ? JSON.parse(brandTemplate.footer_info) 
+          : brandTemplate.footer_info) as FooterInfo
+      : undefined;
+
     // Build enhanced prompt using the shared utility
     const enhancedPrompt = buildImagePrompt({
       channel: channel as Channel,
@@ -409,6 +417,8 @@ serve(async (req) => {
       typographyStyle,
       // Country-specific character appearance
       countryCode: brandTemplate.country_code as string | undefined,
+      // Footer/contact info for structured layout
+      footerInfo,
     });
 
     console.log("[generate-brand-image] Starting image generation...");
