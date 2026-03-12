@@ -747,7 +747,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     seo_optimized: true, heading_structure_required: true, featured_snippet_format: true,
   },
   facebook: {
-    min_length: 120, max_length: 300, length_unit: 'words',
+    min_length: 250, max_length: 500, length_unit: 'words',
     hook_required: true, hook_style: 'Hook mạnh + emoji (🎯⚡💡🔥)',
     bullet_allowed: true, cta_policy: 'optional',
     emoji_allowed: true, emoji_limit: 5, hashtag_limit: 3, hashtag_position: 'end',
