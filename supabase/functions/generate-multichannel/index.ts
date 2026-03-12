@@ -810,7 +810,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     format_description: 'Mobile-first, đoạn ngắn, KHÔNG emoji, CTA+link, tone thân thiện local',
   },
   telegram: {
-    min_length: 100, max_length: 500, length_unit: 'words',
+    min_length: 200, max_length: 500, length_unit: 'words',
     hook_required: false, hook_style: 'Thông tin giá trị',
     bullet_allowed: true, cta_policy: 'optional',
     emoji_allowed: false, emoji_limit: 0, hashtag_limit: 0, hashtag_position: 'none',
