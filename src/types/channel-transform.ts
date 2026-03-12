@@ -94,25 +94,23 @@ export const CHANNEL_TRANSFORM_SUMMARY: Record<string, {
     focusLabel: 'Insights + Analysis',
     colorClass: 'bg-violet-500/10 text-violet-600',
   },
+  facebook: {
+    extractionLabel: 'Cân bằng',
+    extractionRange: '20-40%',
+    focusLabel: 'Hook + Key points + Case study',
+    colorClass: 'bg-violet-500/10 text-violet-600',
+  },
+  email: {
+    extractionLabel: 'Cân bằng',
+    extractionRange: '30-50%',
+    focusLabel: 'Key points + CTA',
+    colorClass: 'bg-violet-500/10 text-violet-600',
+  },
   telegram: {
     extractionLabel: 'Cân bằng',
     extractionRange: '20-40%',
     focusLabel: 'Key points + Summary',
     colorClass: 'bg-violet-500/10 text-violet-600',
-  },
-  
-  // Condensed extraction
-  facebook: {
-    extractionLabel: 'Cô đọng',
-    extractionRange: '20-35%',
-    focusLabel: 'Hook + Key points',
-    colorClass: 'bg-amber-500/10 text-amber-600',
-  },
-  email: {
-    extractionLabel: 'Cô đọng',
-    extractionRange: '30-50%',
-    focusLabel: 'Key points + CTA',
-    colorClass: 'bg-amber-500/10 text-amber-600',
   },
   threads: {
     extractionLabel: 'Cô đọng',
