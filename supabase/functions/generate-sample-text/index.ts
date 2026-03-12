@@ -95,7 +95,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<Channel, ChannelSettings> = {
     format_description: 'Chuyên nghiệp, rõ đoạn, B2B authority',
   },
   email: {
-    min_length: 150, max_length: 400, length_unit: 'words',
+    min_length: 250, max_length: 500, length_unit: 'words',
     hook_required: false, bullet_allowed: true,
     cta_policy: 'required', has_subject_line: true,
     emoji_allowed: false, emoji_limit: 0,
