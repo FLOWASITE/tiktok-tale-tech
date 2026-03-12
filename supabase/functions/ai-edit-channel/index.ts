@@ -39,7 +39,7 @@ interface ChannelSettings {
 
 const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
   website: {
-    min_length: 800, max_length: 1500, length_unit: 'words',
+    min_length: 800, max_length: 2000, length_unit: 'words',
     hook_required: false, hook_style: 'không cần giật tít',
     bullet_allowed: true, cta_policy: 'soft',
     emoji_allowed: false, emoji_limit: 0,
