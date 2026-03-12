@@ -3550,15 +3550,15 @@ ${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}
     const channelProperties: Record<string, object> = {};
 const channelDescriptions: Record<string, string> = {
       website: "Bài viết chuẩn SEO (1000-2000 chữ): H1 title, H2/H3 subheadings, intro 50-100 words, body sections, conclusion với CTA mềm. Markdown format.",
-      facebook: "Nội dung cho Facebook (120-300 chữ, hook mạnh, chia đoạn ngắn)",
+      facebook: "Nội dung cho Facebook (250-500 chữ, hook mạnh, cấu trúc đầy đủ: tiêu đề, giới thiệu, case study, giải pháp, CTA)",
       instagram: "Nội dung cho Instagram (50-150 chữ, ngắn gọn, có hashtag cuối)",
       twitter: "Nội dung cho X/Twitter (thread 5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
       google_maps: "Nội dung cho Google Maps (80-150 chữ, trung tính, không emoji/hashtag)",
-      linkedin: "Nội dung cho LinkedIn (150-400 chữ, B2B authority, insight)",
-      email: "Nội dung Email (150-400 chữ, subject line + body + CTA)",
+      linkedin: "Nội dung cho LinkedIn (300-600 chữ, B2B authority, insight sâu, case study, expert advice)",
+      email: "Nội dung Email (250-500 chữ, subject line + body có depth + CTA rõ ràng)",
       youtube: "Script YouTube (500-800 chữ, hook + content + CTA)",
       zalo_oa: "Nội dung Zalo OA (60-150 chữ, thân thiện, local)",
-      telegram: "Nội dung Telegram (100-500 chữ, bullet, dễ đọc)",
+      telegram: "Nội dung Telegram (200-500 chữ, bullet, dễ đọc, có chiều sâu)",
       tiktok: "Short-form script TikTok (60-150 chữ, hook 3s đầu, nhanh - trẻ - năng lượng cao, có CTA cuối)",
       threads: "Nội dung Threads (50-200 chữ, conversational, quan điểm cá nhân, dễ tương tác)",
     };
