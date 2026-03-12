@@ -387,6 +387,13 @@ serve(async (req) => {
       industry: brandTemplate.industry || [],
     };
 
+    // Parse footer_info from brand template
+    const footerInfo: FooterInfo | undefined = brandTemplate.footer_info 
+      ? (typeof brandTemplate.footer_info === 'string' 
+          ? JSON.parse(brandTemplate.footer_info) 
+          : brandTemplate.footer_info) as FooterInfo
+      : undefined;
+
     // Build enhanced prompt using the shared utility
     const enhancedPrompt = buildImagePrompt({
       channel: channel as Channel,
@@ -410,6 +417,8 @@ serve(async (req) => {
       typographyStyle,
       // Country-specific character appearance
       countryCode: brandTemplate.country_code as string | undefined,
+      // Footer/contact info for structured layout
+      footerInfo,
     });
 
     console.log("[generate-brand-image] Starting image generation...");

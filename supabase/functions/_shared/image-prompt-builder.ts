@@ -866,6 +866,8 @@ ${channelSpec.avoidElements.map(e => `- ${e}`).join('\n')}`;
   // NEW: Add text-in-image section if Social Graphic mode
   if (isWithText) {
     prompt += buildTextInImageSection(textToInclude, textPosition, typographyStyle);
+    // Add structured layout with title/contact/CTA
+    prompt += buildStructuredLayoutSection(footerInfo, brand.brandColors);
   }
   
   // Add hook section (CRITICAL - placed early for emphasis)
