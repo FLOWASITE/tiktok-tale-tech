@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Wand2, Palette, PenLine } from 'lucide-react';
+import { Wand2, Palette, PenLine, HelpCircle } from 'lucide-react';
 import { ChevronDown, Settings2, Camera, Brush, LayoutGrid, Box, Layers, Droplets, Film, Sparkles, Leaf, TrendingUp, Wheat, Type } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
