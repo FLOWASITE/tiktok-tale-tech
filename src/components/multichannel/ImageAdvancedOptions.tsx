@@ -433,7 +433,19 @@ export function ImageAdvancedOptions({
         {/* Strategic Context */}
         {(contentRole || contentAngle || (selectedChannels && hookMessages && selectedChannels.some(ch => hookMessages[ch]?.hookMessage))) && (
           <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Ngữ cảnh chiến lược</Label>
+            <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+              Ngữ cảnh chiến lược
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-3 h-3 text-muted-foreground/60 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[240px] text-xs">
+                    Thông tin về vai trò nội dung (Seed/Sprout/Harvest) và góc tiếp cận marketing.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </Label>
             <div className="flex flex-wrap gap-1.5">
               {contentRole && (() => {
                 const cfg = ROLE_CONFIG[contentRole];

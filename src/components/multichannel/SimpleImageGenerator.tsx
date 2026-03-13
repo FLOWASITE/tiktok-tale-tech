@@ -569,6 +569,18 @@ export function SimpleImageGenerator({
           )}
         </Button>
       </div>
+      </div>{/* end Step 2 */}
+
+      {/* Step 3: Advanced Options (optional) */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2.5">
+          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold shrink-0">3</span>
+          <div>
+            <p className="text-sm font-medium text-foreground">Tùy chỉnh <span className="text-muted-foreground font-normal">(tùy chọn)</span></p>
+            <p className="text-[11px] text-muted-foreground">Điều chỉnh phong cách, logo, text overlay nếu cần.</p>
+          </div>
+        </div>
+      </div>
 
       {/* Advanced Options */}
       <ImageAdvancedOptions
