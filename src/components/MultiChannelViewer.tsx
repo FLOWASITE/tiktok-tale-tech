@@ -1436,6 +1436,39 @@ export function MultiChannelViewer({
                                       </TooltipTrigger>
                                       <TooltipContent>Xem ảnh full-screen</TooltipContent>
                                     </Tooltip>
+
+                                    {/* Refine Text */}
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button 
+                                          size="sm" 
+                                          variant="ghost"
+                                          className="h-8 gap-1.5 text-xs"
+                                          disabled={isRefiningText}
+                                          onClick={async () => {
+                                            const imageUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
+                                            if (!imageUrl) return;
+                                            const result = await editBackground({
+                                              imageUrl,
+                                              editType: 'refine_text',
+                                              channel,
+                                              contentId: content.id,
+                                            });
+                                            if (result.success && result.imageUrl) {
+                                              setGeneratedImages(prev => ({ ...prev, [channel]: result.imageUrl! }));
+                                            }
+                                          }}
+                                        >
+                                          {isRefiningText ? (
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                          ) : (
+                                            <Type className="w-3.5 h-3.5" />
+                                          )}
+                                          Sửa chữ
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>AI sửa lại text trên ảnh cho đẹp hơn</TooltipContent>
+                                    </Tooltip>
                                     
                                     <Tooltip>
                                       <TooltipTrigger asChild>
