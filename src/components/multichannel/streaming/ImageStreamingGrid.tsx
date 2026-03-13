@@ -34,6 +34,7 @@ export function ImageStreamingGrid({
   className,
 }: ImageStreamingGridProps) {
   const channels = Object.keys(progress) as Channel[];
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   
   if (channels.length === 0) {
     return null;
