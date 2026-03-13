@@ -1,26 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Vấn đề
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-`handleRefine` trong `topic-ai/index.ts` không inject date context → AI dùng kiến thức training data cũ, có thể đề cập năm 2024/2025 trong topic đã refine.
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-Các handler khác (suggest, generate-multichannel, generate-script...) đều gọi `buildLocalizedDateContext()` nhưng `handleRefine` thì không.
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-## Giải pháp
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-### File: `supabase/functions/topic-ai/index.ts`
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-1. Import `buildLocalizedDateContext` từ `_shared/country-language-map.ts`
-2. Trong `handleRefine`, sau khi build basePrompt, inject date context:
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
 
-```ts
-import { buildLocalizedDateContext } from "../_shared/country-language-map.ts";
+### Chi tiet ky thuat
 
-// Inside handleRefine, after basePrompt:
-const lang = brandContext?.languageCode || 'vi';
-const dateContext = buildLocalizedDateContext(lang);
-promptParts.push(dateContext);
+```typescript
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
 ```
 
-Chỉ cần thêm 2-3 dòng. Hàm `buildLocalizedDateContext` đã có sẵn, trả về context với năm hiện tại động (`new Date().getFullYear()`), đảm bảo AI luôn dùng đúng năm.
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
+```
 
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
