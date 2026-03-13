@@ -330,12 +330,7 @@ export function ChannelImagesGallery({
                       {config.icon}
                       {config.label}
                     </Badge>
-                    {/* Provider badge */}
-                    {image.provider && (
-                      <Badge variant="outline" className="absolute bottom-2 right-2 bg-black/70 text-white text-xs border-0">
-                        {image.provider}
-                      </Badge>
-                    )}
+                    {/* Provider badge removed - was showing internal provider name */}
                   </div>
                 </CardContent>
               </Card>
