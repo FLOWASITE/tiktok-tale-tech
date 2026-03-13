@@ -260,6 +260,16 @@ export function ImageStreamingCard({
           {/* Action buttons overlay for completed images */}
           {isDone && imageUrl && (
             <div className="absolute inset-0 bg-black/60 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+              {onViewImage && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={onViewImage}
+                >
+                  <Eye className="w-4 h-4 mr-1.5" />
+                  Xem ảnh
+                </Button>
+              )}
               {onDownload && (
                 <Button
                   size="sm"
