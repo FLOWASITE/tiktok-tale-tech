@@ -11,8 +11,9 @@ const POYO_BASE_URL = 'https://api.poyo.ai';
 export interface PoyoGenerateParams {
   prompt: string;
   model: string;           // 'poyo/gpt-4o-image', 'poyo/z-image', etc.
-  aspectRatio?: string;    // '1:1', '16:9', '9:16', '4:3', '3:4'
+  aspectRatio?: string;    // '1:1', '16:9', '9:16', '4:3', '3:4', '1:4', '4:1', '1:8', '8:1'
   inputImage?: string;     // URL for image editing mode
+  resolution?: '1K' | '2K' | '4K'; // For nano-banana-2-new models
 }
 
 /**
