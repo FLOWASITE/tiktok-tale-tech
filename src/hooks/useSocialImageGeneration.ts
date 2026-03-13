@@ -150,6 +150,8 @@ export function useSocialImageGeneration() {
     textPosition,
     typographyStyle,
     useCanvasFallback,
+    // Prompt mode
+    promptMode,
   }: GenerateImageParams): Promise<string | null> => {
     if (channel) {
       setGenerating(channel);
