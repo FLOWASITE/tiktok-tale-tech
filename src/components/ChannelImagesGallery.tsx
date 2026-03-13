@@ -382,6 +382,19 @@ export function ChannelImagesGallery({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Image Lightbox */}
+        <ImageLightbox
+          images={lightboxImages}
+          currentIndex={lightboxIndex ?? 0}
+          open={lightboxIndex !== null}
+          onClose={() => setLightboxIndex(null)}
+          onNavigate={setLightboxIndex}
+          onDownload={(idx) => {
+            const item = imagesWithChannels[idx];
+            if (item) handleDownloadSingle(item.channel, item.image);
+          }}
+        />
       </div>
     </TooltipProvider>
   );
