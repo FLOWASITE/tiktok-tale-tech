@@ -435,8 +435,7 @@ Return EXACTLY a JSON array with 3 items (respond in the same language as the ra
 [
   {
     "topic": "Improved topic title (15-50 words)",
-    "angle": "Approach angle (practical, controversial, educational, storytelling, solution, sales, data)",
-    "hook": "1 suggested opening hook for video"${brandContext?.personas?.length ? `,
+    "angle": "MUST be one of: ${allowedAngles.join(', ')}"${brandContext?.personas?.length ? `,
     "targetPersona": "Best matching persona name (if clear)"` : ''}${brandContext?.products?.length ? `,
     "productFit": "Related product name (if any)"` : ''}
   }
