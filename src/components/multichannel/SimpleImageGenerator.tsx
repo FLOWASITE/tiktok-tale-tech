@@ -687,7 +687,7 @@ export function SimpleImageGenerator({
         onTextsPerChannelChange={setTextsPerChannel}
         promptMode={promptMode}
         onPromptModeChange={setPromptMode}
-        onRefineTextContent={handleOptimizeText}
+        onRefineTextContent={() => handleOptimizeText()}
         isRefiningText={isOptimizingText}
       />
     </div>
