@@ -218,6 +218,19 @@ export function MultiChannelFormWizard({
   isGenerating,
   onFormDataChange,
   onGenerate,
+  // Step 5 props
+  onStartImagePipeline,
+  imagePhase,
+  imageProgress,
+  imageProgressTimes,
+  generatedImages,
+  imageCompletedCount,
+  imageTotalCount,
+  logoOverlayFailures,
+  onRetryImageChannel,
+  onDownloadImage,
+  generationComplete,
+  getChannelText,
 }: MultiChannelFormWizardProps) {
   const navigate = useNavigate();
   const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
