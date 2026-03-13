@@ -150,12 +150,24 @@ export function ImageAdvancedOptions({
       <CollapsibleContent className="mt-3 space-y-5 px-1">
         {/* Prompt Mode Selector */}
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Chế độ prompt</Label>
+          <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+            Mức độ kiểm soát AI
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="w-3 h-3 text-muted-foreground/60 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[220px] text-xs">
+                  Chọn mức độ AI can thiệp vào prompt tạo ảnh. Mặc định AI sẽ lo tất cả.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </Label>
           <div className="grid grid-cols-3 gap-1.5">
             {([
-              { value: 'full' as const, label: 'AI tự động', icon: <Wand2 className="w-3.5 h-3.5" />, desc: 'AI tối ưu toàn bộ' },
-              { value: 'brand_only' as const, label: 'Giữ thương hiệu', icon: <Palette className="w-3.5 h-3.5" />, desc: 'Prompt bạn + brand' },
-              { value: 'raw' as const, label: 'Tự do', icon: <PenLine className="w-3.5 h-3.5" />, desc: 'Prompt nguyên vẹn' },
+              { value: 'full' as const, label: 'Để AI lo', icon: <Wand2 className="w-3.5 h-3.5" />, desc: 'AI tối ưu toàn bộ' },
+              { value: 'brand_only' as const, label: 'Giữ brand', icon: <Palette className="w-3.5 h-3.5" />, desc: 'Bạn viết ý tưởng, AI giữ brand' },
+              { value: 'raw' as const, label: 'Toàn quyền', icon: <PenLine className="w-3.5 h-3.5" />, desc: 'Bạn kiểm soát 100%' },
             ]).map(mode => (
               <button
                 key={mode.value}
