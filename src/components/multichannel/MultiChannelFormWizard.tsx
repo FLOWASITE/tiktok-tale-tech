@@ -1690,6 +1690,121 @@ export function MultiChannelFormWizard({
           )}
         </div>
 
+        {/* ========== STEP 5: TẠO ẢNH ========== */}
+        {currentStep === 5 && (
+          <div className="space-y-5 animate-fade-in">
+            {/* Header */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Image className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">Tạo ảnh AI cho các kênh</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Tạo ảnh minh họa tự động cho {formData.channels.length} kênh đã chọn
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Channel summary */}
+            <Card className="bg-muted/30 border-border/50">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Layers className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">Kênh sẽ tạo ảnh</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {formData.channels.map(ch => {
+                    const channelInfo = CHANNELS.find(c => c.value === ch);
+                    return (
+                      <Badge key={ch} variant="secondary" className="gap-1.5">
+                        {channelIcons[ch]}
+                        {channelInfo?.label || ch}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Image generation status */}
+            {imagePhase === 'idle' || !imagePhase ? (
+              <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
+                <CardContent className="p-8 text-center space-y-4">
+                  <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+                    <Image className="w-8 h-8 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-1">Sẵn sàng tạo ảnh</h3>
+                    <p className="text-sm text-muted-foreground">
+                      AI sẽ tự động tạo ảnh phù hợp với nội dung từng kênh
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-center gap-3">
+                    <Button
+                      onClick={() => {
+                        if (onStartImagePipeline && getChannelText) {
+                          const channelTexts: Record<string, string> = {};
+                          formData.channels.forEach(ch => {
+                            channelTexts[ch] = getChannelText(ch);
+                          });
+                          onStartImagePipeline(formData.channels, channelTexts, {
+                            contentGoal: formData.contentGoal,
+                            contentRole: formData.contentRole,
+                            contentAngle: formData.contentAngle,
+                            topic: formData.topic,
+                          });
+                        }
+                      }}
+                      disabled={!onStartImagePipeline}
+                      className="gap-2 gradient-primary glow-primary"
+                      size="lg"
+                    >
+                      <Sparkles className="w-5 h-5" />
+                      Tạo ảnh AI ({formData.channels.length} kênh)
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate('/multichannel')}
+                      className="gap-2"
+                    >
+                      <SkipForward className="w-4 h-4" />
+                      Bỏ qua
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {/* Show ImageStreamingGrid when generating/complete */}
+                <ImageStreamingGrid
+                  progress={(imageProgress || {}) as Record<Channel, any>}
+                  progressTimes={imageProgressTimes as Record<Channel, number>}
+                  logoOverlayFailures={logoOverlayFailures as Record<Channel, boolean>}
+                  generatedImages={(generatedImages || {}) as Record<Channel, any>}
+                  onRetryChannel={onRetryImageChannel}
+                  onDownloadImage={onDownloadImage}
+                />
+
+                {/* Completion actions */}
+                {(imagePhase === 'complete' || imagePhase === 'error') && (
+                  <div className="flex items-center justify-center gap-3 pt-4">
+                    <Button
+                      onClick={() => navigate('/multichannel')}
+                      className="gap-2 gradient-primary glow-primary"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      Hoàn tất
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Floating Progress Indicator - Show when on Step 3/4 and Core Content generating */}
         {currentStep > 2 && isGeneratingCoreContent && (
           <div className="fixed bottom-24 right-4 z-40 mb-16 animate-fade-in">
