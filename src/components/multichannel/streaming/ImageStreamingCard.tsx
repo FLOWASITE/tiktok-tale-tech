@@ -3,7 +3,7 @@ import { ModelUsedBadge } from "@/components/ui/ModelUsedBadge";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Check, AlertCircle, RefreshCw, Download, Image as ImageIcon, Clock, AlertTriangle, Palette, Eye, Copy } from "lucide-react";
+import { Loader2, Check, AlertCircle, RefreshCw, Download, Image as ImageIcon, Clock, AlertTriangle, Palette, Eye, Copy, Type } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChannelIcon, getChannelLabel } from "./ChannelIcon";
 import { ImageGenerationStatus } from "@/hooks/useAutoImageGeneration";
