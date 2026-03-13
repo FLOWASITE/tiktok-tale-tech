@@ -187,42 +187,45 @@ export function ImageAdvancedOptions({
 
         {/* Style Grid with V3 scores — hidden when not in full mode */}
         {promptMode === 'full' && (
-          {topSuggestion && (
-            <p className="text-[10px] text-muted-foreground/70 -mt-1">
-              V3 gợi ý: <span className="font-medium text-primary">{topSuggestion.style}</span> ({topSuggestion.matchPercentage}%)
-            </p>
-          )}
-          <div className="grid grid-cols-4 gap-1.5">
-            {IMAGE_STYLES.map(s => {
-              const isSelected = imageStyle === s.value;
-              const v3 = s.value !== 'auto' ? getV3Score(s.value) : undefined;
-              const isTop = topSuggestion?.style === s.value;
-              return (
-                <button
-                  key={s.value}
-                  onClick={() => onImageStyleChange(s.value)}
-                  className={cn(
-                    "flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all text-xs relative",
-                    isSelected
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border/50 hover:border-primary/30 text-muted-foreground"
-                  )}
-                >
-                  {s.icon}
-                  <span className="font-medium leading-tight">{s.label}</span>
-                  {v3 && (
-                    <span className={cn(
-                      "text-[9px]",
-                      isTop ? "text-primary font-semibold" : "text-muted-foreground/60"
-                    )}>
-                      {isTop ? `★ ${v3.matchPercentage}%` : `${v3.matchPercentage}%`}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Phong cách ảnh</Label>
+            {topSuggestion && (
+              <p className="text-[10px] text-muted-foreground/70 -mt-1">
+                V3 gợi ý: <span className="font-medium text-primary">{topSuggestion.style}</span> ({topSuggestion.matchPercentage}%)
+              </p>
+            )}
+            <div className="grid grid-cols-4 gap-1.5">
+              {IMAGE_STYLES.map(s => {
+                const isSelected = imageStyle === s.value;
+                const v3 = s.value !== 'auto' ? getV3Score(s.value) : undefined;
+                const isTop = topSuggestion?.style === s.value;
+                return (
+                  <button
+                    key={s.value}
+                    onClick={() => onImageStyleChange(s.value)}
+                    className={cn(
+                      "flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all text-xs relative",
+                      isSelected
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border/50 hover:border-primary/30 text-muted-foreground"
+                    )}
+                  >
+                    {s.icon}
+                    <span className="font-medium leading-tight">{s.label}</span>
+                    {v3 && (
+                      <span className={cn(
+                        "text-[9px]",
+                        isTop ? "text-primary font-semibold" : "text-muted-foreground/60"
+                      )}>
+                        {isTop ? `★ ${v3.matchPercentage}%` : `${v3.matchPercentage}%`}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* V3 Top 3 Reasons */}
         {v3Suggestions && v3Suggestions.length > 0 && (
