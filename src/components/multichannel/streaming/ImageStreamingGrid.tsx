@@ -155,6 +155,7 @@ export function ImageStreamingGrid({
                   onRetry={onRetryChannel ? () => onRetryChannel(channel) : undefined}
                   onDownload={onDownloadImage ? () => onDownloadImage(channel) : undefined}
                   onEditBackground={onEditBackground ? () => onEditBackground(channel) : undefined}
+                  onViewImage={status === 'done' && image?.imageUrl ? () => openLightbox(channel) : undefined}
                   isRetrying={retryingChannel === channel}
                   logoOverlayFailed={logoOverlayFailures?.[channel] || image?.logoOverlayFailed}
                   startTime={progressTimes?.[channel]}
