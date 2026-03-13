@@ -10,12 +10,13 @@ const corsHeaders = {
 
 interface EditBackgroundRequest {
   imageUrl: string;
-  editType: 'remove' | 'solid_color' | 'gradient' | 'custom_scene';
+  editType: 'remove' | 'solid_color' | 'gradient' | 'custom_scene' | 'refine_text';
   solidColor?: string;
   gradientFrom?: string;
   gradientTo?: string;
   gradientDirection?: 'vertical' | 'horizontal' | 'diagonal';
   customScenePrompt?: string;
+  refineTextInstruction?: string;
   contentId?: string;
   channel?: string;
   organizationId?: string;
@@ -65,6 +66,27 @@ CRITICAL INSTRUCTIONS:
 - The subject should appear naturally placed in the new environment
 - Adjust edge lighting and shadows to blend seamlessly with the new background
 - Maintain the original quality and details of the subject`;
+
+    case 'refine_text':
+      const textInstruction = request.refineTextInstruction || '';
+      return `Look at this image carefully. It contains text/typography overlays.
+
+TASK: Improve and refine ALL text elements on this image to make them more readable, professional, and visually appealing.
+
+${textInstruction ? `SPECIFIC INSTRUCTIONS: ${textInstruction}` : ''}
+
+CRITICAL RULES:
+- Fix any spelling errors, garbled characters, or broken text
+- Make text crisp, clear, and properly aligned
+- Improve font rendering quality and anti-aliasing
+- Ensure proper contrast between text and background
+- Fix any text that is cut off, overlapping, or poorly positioned
+- Keep the same visual style, colors, and layout of the image
+- Do NOT change the background, images, or non-text elements
+- Keep the same language as the original text
+- If text is in Vietnamese, ensure proper diacritical marks (dấu)
+- Maintain the same font style and approximate size
+- Output the complete image with improved text`;
 
     default:
       return 'Remove the background and make it transparent.';

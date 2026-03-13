@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight, Wand2, Plus } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight, Wand2, Plus, Type } from 'lucide-react';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { Button } from '@/components/ui/button';
@@ -69,6 +69,7 @@ import { ExpandChannelsStreamingDialog } from '@/components/multichannel/ExpandC
 import { RegenerateStreamingOverlay } from '@/components/multichannel/streaming/RegenerateStreamingOverlay';
 import { useStreamingRegenerate } from '@/hooks/useStreamingRegenerate';
 import { ImageLightbox, LightboxImage } from '@/components/ui/ImageLightbox';
+import { useBackgroundEditor } from '@/hooks/useBackgroundEditor';
 import { CoreContentSourceBadge } from '@/components/viewer/CoreContentSourceBadge';
 import { CoreContentViewer } from '@/components/core-content/CoreContentViewer';
 import type { CoreContent } from '@/types/coreContent';
@@ -264,6 +265,8 @@ export function MultiChannelViewer({
   const [showTeamPanel, setShowTeamPanel] = useState(false);
   const [deletingImageChannel, setDeletingImageChannel] = useState<Channel | null>(null);
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
+  const [lightboxChannel, setLightboxChannel] = useState<Channel | null>(null);
+  const { editBackground, isProcessing: isRefiningText } = useBackgroundEditor();
 
   // Reset panel states when dialog opens to always start at mockup view
   useEffect(() => {
@@ -1421,7 +1424,10 @@ export function MultiChannelViewer({
                                           className="h-8 gap-1.5 text-xs"
                                           onClick={() => {
                                             const imageUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
-                                            if (imageUrl) setLightboxImageUrl(imageUrl);
+                                            if (imageUrl) {
+                                              setLightboxImageUrl(imageUrl);
+                                              setLightboxChannel(channel);
+                                            }
                                           }}
                                         >
                                           <Eye className="w-3.5 h-3.5" />
@@ -1429,6 +1435,39 @@ export function MultiChannelViewer({
                                         </Button>
                                       </TooltipTrigger>
                                       <TooltipContent>Xem ảnh full-screen</TooltipContent>
+                                    </Tooltip>
+
+                                    {/* Refine Text */}
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button 
+                                          size="sm" 
+                                          variant="ghost"
+                                          className="h-8 gap-1.5 text-xs"
+                                          disabled={isRefiningText}
+                                          onClick={async () => {
+                                            const imageUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
+                                            if (!imageUrl) return;
+                                            const result = await editBackground({
+                                              imageUrl,
+                                              editType: 'refine_text',
+                                              channel,
+                                              contentId: content.id,
+                                            });
+                                            if (result.success && result.imageUrl) {
+                                              setGeneratedImages(prev => ({ ...prev, [channel]: result.imageUrl! }));
+                                            }
+                                          }}
+                                        >
+                                          {isRefiningText ? (
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                          ) : (
+                                            <Type className="w-3.5 h-3.5" />
+                                          )}
+                                          Sửa chữ
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>AI sửa lại text trên ảnh cho đẹp hơn</TooltipContent>
                                     </Tooltip>
                                     
                                     <Tooltip>
@@ -1659,12 +1698,12 @@ export function MultiChannelViewer({
       <ImageLightbox
         images={[{
           imageUrl: lightboxImageUrl,
-          channel: '',
+          channel: lightboxChannel || '',
           channelLabel: '',
         }]}
         currentIndex={0}
         open={true}
-        onClose={() => setLightboxImageUrl(null)}
+        onClose={() => { setLightboxImageUrl(null); setLightboxChannel(null); }}
         onNavigate={() => {}}
         onDownload={() => {
           const link = document.createElement('a');
@@ -1672,6 +1711,21 @@ export function MultiChannelViewer({
           link.download = 'image.png';
           link.target = '_blank';
           link.click();
+        }}
+        onRefineText={async () => {
+          if (!lightboxImageUrl) return;
+          const result = await editBackground({
+            imageUrl: lightboxImageUrl,
+            editType: 'refine_text',
+            channel: lightboxChannel || undefined,
+            contentId: content.id,
+          });
+          if (result.success && result.imageUrl) {
+            setLightboxImageUrl(result.imageUrl);
+            if (lightboxChannel) {
+              setGeneratedImages(prev => ({ ...prev, [lightboxChannel]: result.imageUrl! }));
+            }
+          }
         }}
       />
     )}

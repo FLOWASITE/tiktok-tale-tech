@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-export type BackgroundEditType = 'remove' | 'solid_color' | 'gradient' | 'custom_scene';
+export type BackgroundEditType = 'remove' | 'solid_color' | 'gradient' | 'custom_scene' | 'refine_text';
 export type GradientDirection = 'vertical' | 'horizontal' | 'diagonal';
 
 export interface BackgroundEditParams {
@@ -13,6 +13,7 @@ export interface BackgroundEditParams {
   gradientTo?: string;
   gradientDirection?: GradientDirection;
   customScenePrompt?: string;
+  refineTextInstruction?: string;
   contentId?: string;
   channel?: string;
   organizationId?: string;

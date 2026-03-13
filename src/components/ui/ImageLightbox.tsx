@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, ChevronLeft, ChevronRight, Download, Palette, RefreshCw, ZoomIn, ZoomOut } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Download, Palette, RefreshCw, ZoomIn, ZoomOut, Type } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface LightboxImage {
@@ -22,6 +22,7 @@ interface ImageLightboxProps {
   onNavigate: (index: number) => void;
   onDownload?: (index: number) => void;
   onEditBackground?: (index: number) => void;
+  onRefineText?: (index: number) => void;
   onRetry?: (index: number) => void;
 }
 
@@ -33,6 +34,7 @@ export function ImageLightbox({
   onNavigate,
   onDownload,
   onEditBackground,
+  onRefineText,
   onRetry,
 }: ImageLightboxProps) {
   const [zoom, setZoom] = useState(1);
@@ -200,6 +202,17 @@ export function ImageLightbox({
               >
                 <Palette className="w-4 h-4 mr-1.5" />
                 Sửa nền
+              </Button>
+            )}
+            {onRefineText && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-white/70 hover:text-white hover:bg-white/10"
+                onClick={() => onRefineText(currentIndex)}
+              >
+                <Type className="w-4 h-4 mr-1.5" />
+                Sửa chữ
               </Button>
             )}
             {onRetry && (
