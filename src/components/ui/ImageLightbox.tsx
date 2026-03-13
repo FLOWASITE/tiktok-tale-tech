@@ -68,7 +68,7 @@ export function ImageLightbox({
 
   if (!open || !current) return null;
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
