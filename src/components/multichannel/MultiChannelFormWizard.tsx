@@ -1847,7 +1847,7 @@ export function MultiChannelFormWizard({
             </Button>
 
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>{currentStep}/4</span>
+              <span>{currentStep}/5</span>
             </div>
 
             {currentStep < 4 ? (
@@ -1869,7 +1869,7 @@ export function MultiChannelFormWizard({
                   </>
                 )}
               </Button>
-            ) : (
+            ) : currentStep === 4 ? (
               <Button
                 type="button"
                 onClick={handleSubmit}
@@ -1896,6 +1896,21 @@ export function MultiChannelFormWizard({
                   </>
                 )}
               </Button>
+            ) : (
+              // Step 5: Footer hidden when image phase is active
+              imagePhase && imagePhase !== 'idle' ? null : (
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate('/multichannel')}
+                    className="gap-2"
+                  >
+                    <SkipForward className="w-4 h-4" />
+                    Bỏ qua
+                  </Button>
+                </div>
+              )
             )}
           </div>
         </div>
