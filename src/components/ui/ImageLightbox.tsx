@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, ChevronLeft, ChevronRight, Download, Palette, RefreshCw, ZoomIn, ZoomOut } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Download, Palette, RefreshCw, ZoomIn, ZoomOut, Type } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface LightboxImage {
