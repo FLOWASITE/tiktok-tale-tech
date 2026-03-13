@@ -21,6 +21,10 @@ const POPULAR_MODELS = new Set([
   'anthropic/claude-opus-4.5',
   'anthropic/claude-haiku-4.5',
   // OpenAI
+  'openai/gpt-5.4',
+  'openai/gpt-5.4-pro',
+  'openai/gpt-5.3-codex',
+  'openai/gpt-5.3-chat',
   'openai/gpt-5.2',
   'openai/gpt-5.2-codex',
   'openai/gpt-5-mini',
@@ -28,6 +32,7 @@ const POPULAR_MODELS = new Set([
   'openai/gpt-oss-120b',
   // Google
   'google/gemini-3.1-pro-preview',
+  'google/gemini-3.1-flash-lite-preview',
   'google/gemini-3-flash-preview',
   'google/gemini-2.5-flash',
   'google/gemini-2.5-flash-lite',
@@ -44,11 +49,13 @@ const POPULAR_MODELS = new Set([
   // MiniMax
   'minimax/minimax-m2.5',
   // xAI
-  'x-ai/grok-4.1-fast',
-  'x-ai/grok-code-fast-1',
+  'x-ai/grok-4.20-beta',
+  'x-ai/grok-4.20-multi-agent-beta',
   // Z.ai
   'z-ai/glm-5',
   // Qwen
+  'qwen/qwen3.5-397b-a17b',
+  'qwen/qwen3.5-flash-02-23',
   'qwen/qwen3-235b-a22b-2507',
   'qwen/qwen3-coder-next',
   'qwen/qwen-2.5-72b-instruct',
@@ -56,6 +63,12 @@ const POPULAR_MODELS = new Set([
   'xiaomi/mimo-v2-flash',
   // Perplexity
   'perplexity/sonar-pro',
+  // Inception
+  'inception/mercury-2',
+  // StepFun
+  'stepfun/step-3.5-flash',
+  // ByteDance
+  'bytedance-seed/seed-2.0-lite',
 ]);
 
 // Determine model category
@@ -122,6 +135,8 @@ function getProviderName(modelId: string): string {
     'stepfun': 'StepFun',
     'arcee-ai': 'Arcee AI',
     'writer': 'Writer',
+    'inception': 'Inception',
+    'bytedance-seed': 'ByteDance',
   };
   
   const prefix = modelId.split('/')[0];
