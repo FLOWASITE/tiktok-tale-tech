@@ -173,30 +173,7 @@ export default function MultiChannelCreate() {
         }
       }
 
-      // AUTO-TRIGGER IMAGE PIPELINE
-      // Collect the final streaming texts for each channel
-      const channels = data.channels || [];
-      if (channels.length > 0 && selectedBrandId) {
-        // Use a short delay to ensure streamingTexts state is finalized
-        setTimeout(() => {
-          const channelTexts: Record<string, string> = {};
-          channels.forEach(ch => {
-            channelTexts[ch] = getChannelText(ch);
-          });
-
-          imagePipeline.startPipeline(
-            result.id,
-            channels,
-            channelTexts,
-            {
-              contentGoal: data.contentGoal,
-              contentRole: data.contentRole,
-              contentAngle: data.contentAngle,
-              topic: data.topic,
-            }
-          );
-        }, 500);
-      }
+      // Mark generation complete - Step 5 will handle image generation manually
     }
   };
 
