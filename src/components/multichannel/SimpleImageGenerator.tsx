@@ -305,9 +305,9 @@ export function SimpleImageGenerator({
     }
   }, [open, selectedChannels, content, useSharedText]);
 
-  // Reset when dialog closes
+  // Reset when dialog closes (but NOT when minimized)
   useEffect(() => {
-    if (!open) {
+    if (!open && !batchGen.isGenerating) {
       batchGen.resetProgress();
       setViewMode('setup');
     }
