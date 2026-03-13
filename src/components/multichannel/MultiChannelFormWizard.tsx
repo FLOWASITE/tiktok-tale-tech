@@ -435,6 +435,29 @@ export function MultiChannelFormWizard({
     contentRole: initialData?.contentRole,
   });
 
+  // Track if user manually changed the goal (to avoid overriding)
+  const userManuallySetGoal = useRef(!!initialData?.contentGoal);
+  const lastAutoDetectedTopic = useRef('');
+
+  // Auto-detect contentGoal from topic keywords
+  useEffect(() => {
+    const topic = formData.topic;
+    if (userManuallySetGoal.current) return;
+    if (topic.length < 10) return;
+    if (topic === lastAutoDetectedTopic.current) return;
+
+    const detected = detectGoalFromTopic(topic);
+    if (detected && detected !== formData.contentGoal) {
+      lastAutoDetectedTopic.current = topic;
+      const goalLabel = CONTENT_GOALS.find(g => g.value === detected)?.label || detected;
+      setFormData(prev => ({ ...prev, contentGoal: detected }));
+      toast.info(`Mục tiêu tự động: ${goalLabel}`, {
+        description: 'Dựa trên chủ đề của bạn. Bạn có thể thay đổi thủ công.',
+        duration: 3000,
+      });
+    }
+  }, [formData.topic]);
+
   // Removed: useCoreContents - now using useStreamingCoreContent
 
   // NEW: Auto-load existing Core Content when coreContentId is provided (e.g. from Transform)
