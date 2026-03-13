@@ -118,6 +118,7 @@ export function ImageAdvancedOptions({
   useSharedText, onUseSharedTextChange,
   textToInclude, onTextToIncludeChange,
   textsPerChannel, onTextsPerChannelChange,
+  promptMode, onPromptModeChange,
   className,
 }: ImageAdvancedOptionsProps) {
   const [isOpen, setIsOpen] = useState(true);

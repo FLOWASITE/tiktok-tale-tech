@@ -584,6 +584,8 @@ export function SimpleImageGenerator({
         onTextToIncludeChange={setTextToInclude}
         textsPerChannel={textsPerChannel}
         onTextsPerChannelChange={setTextsPerChannel}
+        promptMode={promptMode}
+        onPromptModeChange={setPromptMode}
       />
     </div>
   );
