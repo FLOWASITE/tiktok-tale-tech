@@ -1,44 +1,34 @@
 
-## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-### Van de
-Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
+## Plan: Thêm Image Viewer/Lightbox xem ảnh sau khi tạo
 
-### Giai phap
-Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
+### Vấn đề
+Hiện tại ảnh đã tạo chỉ hiển thị nhỏ trong `ImageStreamingCard` (aspect-video ~200px). Muốn xem chi tiết phải hover → nhấn "Tải xuống" hoặc mở tab mới. Không có cách xem ảnh full-size trực tiếp trong app.
 
-**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
+### Giải pháp: Image Lightbox Component + tích hợp vào streaming cards
 
-1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
+#### 1. Tạo `src/components/ui/ImageLightbox.tsx` — Component xem ảnh full-screen
+- Dialog overlay toàn màn hình (bg-black/90)
+- Ảnh hiển thị `object-contain` max-w/max-h viewport
+- Toolbar phía dưới: Download, Sửa nền, Tạo lại, Đóng
+- Hiển thị channel label + aspect ratio badge
+- Hỗ trợ điều hướng trái/phải khi có nhiều ảnh (nút ← → hoặc phím mũi tên)
+- Pinch-to-zoom trên mobile (CSS touch-action)
+- Nhấn ESC hoặc click ngoài để đóng
 
-2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
+#### 2. Cập nhật `ImageStreamingCard.tsx` — Thêm nút "Xem" và click-to-open
+- Thêm nút `Eye` ("Xem ảnh") vào hover overlay (cạnh Download, Sửa nền)
+- Click vào ảnh (không phải hover buttons) cũng mở lightbox
+- Truyền callback `onViewImage` lên parent
 
-Cu the:
-- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
-- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
-- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
+#### 3. Cập nhật `ImageStreamingGrid.tsx` — Quản lý lightbox state
+- State: `viewingChannel: Channel | null`
+- Render `ImageLightbox` với danh sách tất cả ảnh đã tạo
+- Hỗ trợ navigate giữa các channel images
+- Truyền `onViewImage` xuống mỗi `ImageStreamingCard`
 
-### Chi tiet ky thuat
+### Thay đổi (3 files)
+- **Tạo mới**: `src/components/ui/ImageLightbox.tsx`
+- **Sửa**: `src/components/multichannel/streaming/ImageStreamingCard.tsx` — thêm onViewImage prop + click handler
+- **Sửa**: `src/components/multichannel/streaming/ImageStreamingGrid.tsx` — lightbox state + render
 
-```typescript
-// bodyContent - thay doi:
-const bodyContent = (
-  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-    {viewMode === 'setup' && setupFields}
-    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
-  </div>
-);
-```
-
-Va DialogContent:
-```typescript
-className={cn(
-  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
-  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
-)}
-```
-
-### Pham vi thay doi
-- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
-- Thay doi ~10 dong code
-- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
