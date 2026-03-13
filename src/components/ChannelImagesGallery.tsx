@@ -294,10 +294,13 @@ export function ChannelImagesGallery({
                       <Button
                         size="icon"
                         variant="secondary"
-                        onClick={() => handleOpenInNewTab(image.url)}
+                        onClick={() => {
+                          const idx = imagesWithChannels.findIndex(i => i.channel === channel);
+                          if (idx >= 0) setLightboxIndex(idx);
+                        }}
                         className="h-8 w-8"
                       >
-                        <ExternalLink className="w-4 h-4" />
+                        <Eye className="w-4 h-4" />
                       </Button>
                       <Button
                         size="icon"
