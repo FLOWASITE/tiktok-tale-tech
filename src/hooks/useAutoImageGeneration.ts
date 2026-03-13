@@ -101,6 +101,8 @@ export function useAutoImageGeneration() {
       imageContentType, textToInclude, textsPerChannel, textPosition, typographyStyle,
       // Canvas fallback for 100% accurate text
       useCanvasFallback,
+      // Prompt mode
+      promptMode,
     } = options;
     
     const channelAspectRatio = getAspectRatioForChannel(channel, aspectRatio);
