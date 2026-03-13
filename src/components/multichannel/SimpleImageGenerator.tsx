@@ -450,6 +450,7 @@ export function SimpleImageGenerator({
       if (onMinimize) {
         onMinimize();
         onOpenChange(false);
+        toast.info('Ảnh đang tạo sẽ tiếp tục ở nền', { duration: 3000 });
       }
       return;
     }
