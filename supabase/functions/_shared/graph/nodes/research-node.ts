@@ -249,7 +249,7 @@ export function createResearchNode(ctx: ResearchNodeContext) {
         }
 
         const finalResult = await callAI({
-          functionName: 'research_node',
+          functionName: 'research-agent',
           organizationId: ctx.organizationId,
           messages: followUpMessages,
           toolChoice: 'auto',
