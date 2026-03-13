@@ -23,7 +23,7 @@ import {
   AspectRatioOption,
   ImageStylePreset,
 } from '@/hooks/useAutoImageGeneration';
-import { useSocialImageGeneration, type ImageContentType, type TextPosition, type TypographyStyle } from '@/hooks/useSocialImageGeneration';
+import { useSocialImageGeneration, type ImageContentType, type TextPosition, type TypographyStyle, type PromptMode } from '@/hooks/useSocialImageGeneration';
 import { CHANNEL_OPTIMAL_ASPECT_RATIO } from '@/config/channelImageConfig';
 import { cn } from '@/lib/utils';
 import { ImageStreamingGrid } from './streaming/ImageStreamingGrid';
