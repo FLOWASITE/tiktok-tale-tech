@@ -264,8 +264,12 @@ export function ChannelImagesGallery({
                       <img
                         src={image.url}
                         alt={`${config.label} image`}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover cursor-pointer"
                         loading="lazy"
+                        onClick={() => {
+                          const idx = imagesWithChannels.findIndex(i => i.channel === channel);
+                          if (idx >= 0) setLightboxIndex(idx);
+                        }}
                       />
                     )}
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
