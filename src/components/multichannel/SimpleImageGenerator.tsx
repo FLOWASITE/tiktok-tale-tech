@@ -31,6 +31,7 @@ import { ImageChannelPicker } from './ImageChannelPicker';
 import { ImageAdvancedOptions } from './ImageAdvancedOptions';
 import { ImageSettingsSummary } from './ImageSettingsSummary';
 import { BackgroundEditor } from './BackgroundEditor';
+import { useBackgroundEditor } from '@/hooks/useBackgroundEditor';
 import { V3StylePreview } from './V3StylePreview';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 

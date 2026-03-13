@@ -292,6 +292,16 @@ export function ImageStreamingCard({
                   Sửa nền
                 </Button>
               )}
+              {onRefineText && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={onRefineText}
+                >
+                  <Type className="w-4 h-4 mr-1.5" />
+                  Sửa chữ
+                </Button>
+              )}
               {onRetry && (
                 <Button
                   size="sm"
