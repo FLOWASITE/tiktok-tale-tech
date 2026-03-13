@@ -22,6 +22,7 @@ interface ImageLightboxProps {
   onNavigate: (index: number) => void;
   onDownload?: (index: number) => void;
   onEditBackground?: (index: number) => void;
+  onRefineText?: (index: number) => void;
   onRetry?: (index: number) => void;
 }
 
