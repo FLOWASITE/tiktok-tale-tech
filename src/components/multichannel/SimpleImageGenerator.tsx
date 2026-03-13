@@ -701,6 +701,7 @@ export function SimpleImageGenerator({
         onRetryChannel={handleRegenerateChannel}
         onDownloadImage={handleDownloadImage}
         onEditBackground={handleEditBackground}
+        onRefineText={handleRefineText}
         retryingChannel={regeneratingChannel}
       />
       {viewMode === 'preview' && hasImages && (
