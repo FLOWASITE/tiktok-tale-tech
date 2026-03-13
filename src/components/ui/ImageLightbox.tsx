@@ -34,6 +34,7 @@ export function ImageLightbox({
   onNavigate,
   onDownload,
   onEditBackground,
+  onRefineText,
   onRetry,
 }: ImageLightboxProps) {
   const [zoom, setZoom] = useState(1);
