@@ -268,6 +268,8 @@ export function MultiChannelViewer({
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
   const [lightboxChannel, setLightboxChannel] = useState<Channel | null>(null);
   const { editBackground, isProcessing: isRefiningText } = useBackgroundEditor();
+  const [isImageGenMinimized, setIsImageGenMinimized] = useState(false);
+  const [imageGenProgress, setImageGenProgress] = useState<ImageGenProgressInfo | null>(null);
 
   // Reset panel states when dialog opens to always start at mockup view
   useEffect(() => {
