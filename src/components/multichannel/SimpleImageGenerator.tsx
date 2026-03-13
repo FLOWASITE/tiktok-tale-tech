@@ -189,6 +189,7 @@ export function SimpleImageGenerator({
   const [textPosition, setTextPosition] = useState<TextPosition>('center');
   const [typographyStyle, setTypographyStyle] = useState<TypographyStyle>('modern');
   const [negativePrompt, setNegativePrompt] = useState('');
+  const [promptMode, setPromptMode] = useState<PromptMode>('full');
   const [v3Suggestions, setV3Suggestions] = useState<SuggestionV3[]>([]);
 
   // Background editor
