@@ -55,6 +55,7 @@ export function TopicAIChatbot({
   mode = 'standalone',
   onTopicSelect,
   onReady,
+  initialPrompt,
 }: TopicAIChatbotProps) {
   const isEmbedded = mode === 'embedded';
   const { user } = useAuth();

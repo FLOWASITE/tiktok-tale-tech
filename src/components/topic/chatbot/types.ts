@@ -115,6 +115,8 @@ export interface TopicAIChatbotProps {
   onTopicSelect?: (topic: string) => void;
   /** Callback when chatbot is ready with imperative handle */
   onReady?: (handle: TopicAIChatbotHandle) => void;
+  /** Auto-send this prompt when chatbot mounts (used by intent detection) */
+  initialPrompt?: string;
 }
 
 // Agent turn events for multi-turn agentic loop
