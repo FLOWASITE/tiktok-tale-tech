@@ -23,7 +23,7 @@ import {
   AspectRatioOption,
   ImageStylePreset,
 } from '@/hooks/useAutoImageGeneration';
-import { useSocialImageGeneration, type ImageContentType, type TextPosition, type TypographyStyle } from '@/hooks/useSocialImageGeneration';
+import { useSocialImageGeneration, type ImageContentType, type TextPosition, type TypographyStyle, type PromptMode } from '@/hooks/useSocialImageGeneration';
 import { CHANNEL_OPTIMAL_ASPECT_RATIO } from '@/config/channelImageConfig';
 import { cn } from '@/lib/utils';
 import { ImageStreamingGrid } from './streaming/ImageStreamingGrid';
@@ -189,6 +189,7 @@ export function SimpleImageGenerator({
   const [textPosition, setTextPosition] = useState<TextPosition>('center');
   const [typographyStyle, setTypographyStyle] = useState<TypographyStyle>('modern');
   const [negativePrompt, setNegativePrompt] = useState('');
+  const [promptMode, setPromptMode] = useState<PromptMode>('full');
   const [v3Suggestions, setV3Suggestions] = useState<SuggestionV3[]>([]);
 
   // Background editor
@@ -340,19 +341,22 @@ export function SimpleImageGenerator({
     logoUrl: brandLogoUrl || undefined,
     logoStyle, logoSizePercent: logoSize, logoOpacity,
     aspectRatio,
-    imageStylePreset: imageStyle === 'auto' ? undefined : imageStyle,
+    imageStylePreset: (promptMode !== 'full' || imageStyle === 'auto') ? undefined : imageStyle,
     negativePrompt: negativePrompt.trim() || undefined,
-    contentRole, contentAngle, hookMessages,
+    contentRole: promptMode === 'full' ? contentRole : undefined,
+    contentAngle: promptMode === 'full' ? contentAngle : undefined,
+    hookMessages: promptMode === 'full' ? hookMessages : undefined,
     imageContentType,
     textToInclude: imageContentType === 'with_text' && useSharedText ? textToInclude : undefined,
     textsPerChannel: imageContentType === 'with_text' && !useSharedText ? textsPerChannel : undefined,
     textPosition: imageContentType === 'with_text' ? textPosition : undefined,
     typographyStyle: imageContentType === 'with_text' ? typographyStyle : undefined,
     useCanvasFallback: imageContentType === 'with_text' ? true : undefined,
+    promptMode,
   }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries,
     includeLogo, brandLogoUrl, logoPosition, logoStyle, logoSize, logoOpacity,
     aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages,
-    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle]);
+    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode]);
 
   // ─── Handlers ─────────────────────
   const handleGenerate = async () => {
@@ -580,6 +584,8 @@ export function SimpleImageGenerator({
         onTextToIncludeChange={setTextToInclude}
         textsPerChannel={textsPerChannel}
         onTextsPerChannelChange={setTextsPerChannel}
+        promptMode={promptMode}
+        onPromptModeChange={setPromptMode}
       />
     </div>
   );

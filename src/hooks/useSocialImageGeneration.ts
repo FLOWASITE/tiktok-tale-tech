@@ -77,6 +77,9 @@ export type LogoPosition =
 // Content Role types (aligned with coreContent.ts)
 export type ContentRole = 'seed' | 'sprout' | 'harvest';
 
+// Prompt Mode for 3-layer architecture
+export type PromptMode = 'full' | 'brand_only' | 'raw';
+
 // Content Angle types
 export type ContentAngle = 
   | 'educational' 
@@ -121,6 +124,8 @@ interface GenerateImageParams {
   typographyStyle?: TypographyStyle;
   // Canvas fallback for 100% text accuracy
   useCanvasFallback?: boolean;
+  // Prompt mode: full | brand_only | raw
+  promptMode?: PromptMode;
 }
 
 export function useSocialImageGeneration() {
@@ -145,6 +150,8 @@ export function useSocialImageGeneration() {
     textPosition,
     typographyStyle,
     useCanvasFallback,
+    // Prompt mode
+    promptMode,
   }: GenerateImageParams): Promise<string | null> => {
     if (channel) {
       setGenerating(channel);
@@ -179,6 +186,7 @@ export function useSocialImageGeneration() {
           textToInclude: effectiveImageContentType === 'with_text' ? textToInclude : undefined,
           textPosition: effectiveImageContentType === 'with_text' ? textPosition : undefined,
           typographyStyle: effectiveImageContentType === 'with_text' ? typographyStyle : undefined,
+          promptMode,
         },
         timeoutMs: 120_000,
       });

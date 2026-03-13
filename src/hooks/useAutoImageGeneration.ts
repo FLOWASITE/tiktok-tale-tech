@@ -45,6 +45,8 @@ export interface AutoGenerateOptions {
   typographyStyle?: 'modern' | 'classic' | 'bold' | 'minimal' | 'clean' | 'outline' | 'glow';
   // Canvas fallback: overlay text programmatically for 100% accuracy
   useCanvasFallback?: boolean;
+  // Prompt mode: full | brand_only | raw
+  promptMode?: 'full' | 'brand_only' | 'raw';
 }
 
 export interface GeneratedImage {
@@ -99,6 +101,8 @@ export function useAutoImageGeneration() {
       imageContentType, textToInclude, textsPerChannel, textPosition, typographyStyle,
       // Canvas fallback for 100% accurate text
       useCanvasFallback,
+      // Prompt mode
+      promptMode,
     } = options;
     
     const channelAspectRatio = getAspectRatioForChannel(channel, aspectRatio);
@@ -143,6 +147,7 @@ export function useAutoImageGeneration() {
             textToInclude: effectiveContentType === 'with_text' ? channelText : undefined,
             textPosition: effectiveContentType === 'with_text' ? textPosition : undefined,
             typographyStyle: effectiveContentType === 'with_text' ? typographyStyle : undefined,
+            promptMode,
           },
           timeoutMs: 120_000,
         });

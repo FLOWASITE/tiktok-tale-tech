@@ -18,6 +18,7 @@ import {
   type TextPosition,
   type TypographyStyle,
   type FooterInfo,
+  type PromptMode,
 } from "../_shared/image-prompt-builder.ts";
 
 const corsHeaders = {
@@ -46,6 +47,8 @@ interface GenerateImageRequest {
   textToInclude?: string;
   textPosition?: TextPosition;
   typographyStyle?: TypographyStyle;
+  // Prompt mode: full | brand_only | raw
+  promptMode?: PromptMode;
 }
 
 // Default model fallback (used when config not available)
@@ -250,6 +253,8 @@ serve(async (req) => {
       textToInclude,
       textPosition,
       typographyStyle,
+      // Prompt mode
+      promptMode,
     }: GenerateImageRequest = await req.json();
 
     console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}`);
@@ -419,6 +424,8 @@ serve(async (req) => {
       countryCode: brandTemplate.country_code as string | undefined,
       // Footer/contact info for structured layout
       footerInfo,
+      // Prompt mode (3-layer architecture)
+      promptMode,
     });
 
     console.log("[generate-brand-image] Starting image generation...");

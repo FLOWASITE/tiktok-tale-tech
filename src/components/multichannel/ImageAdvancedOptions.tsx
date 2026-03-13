@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Wand2, Palette, PenLine } from 'lucide-react';
 import { ChevronDown, Settings2, Camera, Brush, LayoutGrid, Box, Layers, Droplets, Film, Sparkles, Leaf, TrendingUp, Wheat, Type } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -14,7 +15,7 @@ import {
 import { LogoOptionsPanel, type LogoPosition, type LogoStyle } from './LogoOptionsPanel';
 import { VisualTextPositionPreview } from './VisualTextPositionPreview';
 import type { AspectRatioOption, ImageStylePreset } from '@/hooks/useAutoImageGeneration';
-import type { ImageContentType, TextPosition, TypographyStyle } from '@/hooks/useSocialImageGeneration';
+import type { ImageContentType, TextPosition, TypographyStyle, PromptMode } from '@/hooks/useSocialImageGeneration';
 import type { SuggestionV3 } from '@/lib/imageSuggestionEngine';
 import type { Channel } from '@/types/multichannel';
 import { toast } from 'sonner';
@@ -76,6 +77,9 @@ interface ImageAdvancedOptionsProps {
   onTextToIncludeChange: (text: string) => void;
   textsPerChannel: Record<Channel, string>;
   onTextsPerChannelChange: (texts: Record<Channel, string>) => void;
+  // Prompt mode
+  promptMode: PromptMode;
+  onPromptModeChange: (mode: PromptMode) => void;
   className?: string;
 }
 
@@ -115,6 +119,7 @@ export function ImageAdvancedOptions({
   useSharedText, onUseSharedTextChange,
   textToInclude, onTextToIncludeChange,
   textsPerChannel, onTextsPerChannelChange,
+  promptMode, onPromptModeChange,
   className,
 }: ImageAdvancedOptionsProps) {
   const [isOpen, setIsOpen] = useState(true);
@@ -142,48 +147,88 @@ export function ImageAdvancedOptions({
       </CollapsibleTrigger>
 
       <CollapsibleContent className="mt-3 space-y-5 px-1">
-        {/* Style Grid with V3 scores */}
+        {/* Prompt Mode Selector */}
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Phong cách ảnh</Label>
-          {topSuggestion && (
-            <p className="text-[10px] text-muted-foreground/70 -mt-1">
-              V3 gợi ý: <span className="font-medium text-primary">{topSuggestion.style}</span> ({topSuggestion.matchPercentage}%)
+          <Label className="text-xs text-muted-foreground">Chế độ prompt</Label>
+          <div className="grid grid-cols-3 gap-1.5">
+            {([
+              { value: 'full' as const, label: 'AI tự động', icon: <Wand2 className="w-3.5 h-3.5" />, desc: 'AI tối ưu toàn bộ' },
+              { value: 'brand_only' as const, label: 'Giữ thương hiệu', icon: <Palette className="w-3.5 h-3.5" />, desc: 'Prompt bạn + brand' },
+              { value: 'raw' as const, label: 'Tự do', icon: <PenLine className="w-3.5 h-3.5" />, desc: 'Prompt nguyên vẹn' },
+            ]).map(mode => (
+              <button
+                key={mode.value}
+                type="button"
+                onClick={() => onPromptModeChange(mode.value)}
+                className={cn(
+                  "flex flex-col items-center gap-1 rounded-lg border p-2.5 text-center transition-all",
+                  promptMode === mode.value
+                    ? "border-primary bg-primary/10 text-primary shadow-sm"
+                    : "border-border/50 hover:border-border hover:bg-muted/40 text-muted-foreground"
+                )}
+              >
+                {mode.icon}
+                <span className="text-[11px] font-medium leading-tight">{mode.label}</span>
+                <span className="text-[9px] opacity-70 leading-tight">{mode.desc}</span>
+              </button>
+            ))}
+          </div>
+          {promptMode === 'brand_only' && (
+            <p className="text-[10px] text-muted-foreground/80 bg-muted/30 rounded-md px-2 py-1.5">
+              💡 Phù hợp khi bạn tự viết prompt chi tiết (infographic, layout cụ thể). AI giữ nguyên prompt + thêm brand colors/logo.
             </p>
           )}
-          <div className="grid grid-cols-4 gap-1.5">
-            {IMAGE_STYLES.map(s => {
-              const isSelected = imageStyle === s.value;
-              const v3 = s.value !== 'auto' ? getV3Score(s.value) : undefined;
-              const isTop = topSuggestion?.style === s.value;
-              return (
-                <button
-                  key={s.value}
-                  onClick={() => onImageStyleChange(s.value)}
-                  className={cn(
-                    "flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all text-xs relative",
-                    isSelected
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border/50 hover:border-primary/30 text-muted-foreground"
-                  )}
-                >
-                  {s.icon}
-                  <span className="font-medium leading-tight">{s.label}</span>
-                  {v3 && (
-                    <span className={cn(
-                      "text-[9px]",
-                      isTop ? "text-primary font-semibold" : "text-muted-foreground/60"
-                    )}>
-                      {isTop ? `★ ${v3.matchPercentage}%` : `${v3.matchPercentage}%`}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          {promptMode === 'raw' && (
+            <p className="text-[10px] text-muted-foreground/80 bg-muted/30 rounded-md px-2 py-1.5">
+              ⚡ Gửi prompt nguyên vẹn đến AI, chỉ thêm aspect ratio. Dùng khi bạn muốn kiểm soát 100%.
+            </p>
+          )}
         </div>
 
-        {/* V3 Top 3 Reasons */}
-        {v3Suggestions && v3Suggestions.length > 0 && (
+        {/* Style Grid with V3 scores — hidden when not in full mode */}
+        {promptMode === 'full' && (
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Phong cách ảnh</Label>
+            {topSuggestion && (
+              <p className="text-[10px] text-muted-foreground/70 -mt-1">
+                V3 gợi ý: <span className="font-medium text-primary">{topSuggestion.style}</span> ({topSuggestion.matchPercentage}%)
+              </p>
+            )}
+            <div className="grid grid-cols-4 gap-1.5">
+              {IMAGE_STYLES.map(s => {
+                const isSelected = imageStyle === s.value;
+                const v3 = s.value !== 'auto' ? getV3Score(s.value) : undefined;
+                const isTop = topSuggestion?.style === s.value;
+                return (
+                  <button
+                    key={s.value}
+                    onClick={() => onImageStyleChange(s.value)}
+                    className={cn(
+                      "flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all text-xs relative",
+                      isSelected
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border/50 hover:border-primary/30 text-muted-foreground"
+                    )}
+                  >
+                    {s.icon}
+                    <span className="font-medium leading-tight">{s.label}</span>
+                    {v3 && (
+                      <span className={cn(
+                        "text-[9px]",
+                        isTop ? "text-primary font-semibold" : "text-muted-foreground/60"
+                      )}>
+                        {isTop ? `★ ${v3.matchPercentage}%` : `${v3.matchPercentage}%`}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* V3 Top 3 Reasons — only in full mode */}
+        {promptMode === 'full' && v3Suggestions && v3Suggestions.length > 0 && (
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Lý do gợi ý (V3)</Label>
             <div className="space-y-1">

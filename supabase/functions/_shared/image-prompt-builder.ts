@@ -81,6 +81,9 @@ export interface FooterInfo {
   address?: string;
 }
 
+// Prompt Mode for 3-layer architecture
+export type PromptMode = 'full' | 'brand_only' | 'raw';
+
 export interface ImagePromptParams {
   channel: Channel;
   contentSummary: string;
@@ -106,6 +109,8 @@ export interface ImagePromptParams {
   countryCode?: string;
   // Footer/contact info from brand template
   footerInfo?: FooterInfo;
+  // Prompt mode: full (all layers), brand_only (user prompt + brand), raw (user prompt only)
+  promptMode?: PromptMode;
 }
 
 // Image Style Presets
@@ -818,6 +823,8 @@ export function buildImagePrompt(params: ImagePromptParams): string {
     countryCode,
     // Footer/contact info
     footerInfo,
+    // Prompt mode
+    promptMode = 'full',
   } = params;
   
   const channelSpec = CHANNEL_IMAGE_SPECS[channel] || CHANNEL_IMAGE_SPECS.facebook;
@@ -825,8 +832,62 @@ export function buildImagePrompt(params: ImagePromptParams): string {
   
   // Determine if this is a Social Graphic (with text) or background-only
   const isWithText = imageContentType === 'with_text' && textToInclude;
+
+  // ─── RAW MODE: Only user prompt + aspect ratio + country reminder ───
+  if (promptMode === 'raw') {
+    let prompt = `${contentSummary}\n\nAspect Ratio: ${finalAspectRatio}`;
+    if (negativePrompt) {
+      prompt += `\n\nElements to AVOID:\n${negativePrompt}`;
+    }
+    prompt += buildCountryReminderSuffix(countryCode);
+    return prompt;
+  }
+
+  // ─── BRAND_ONLY MODE: User prompt + brand identity + country, NO AI optimization ───
+  if (promptMode === 'brand_only') {
+    let prompt = `Create a professional image for ${brand.brandName}.
+
+## CONTENT (HIGHEST PRIORITY):
+${contentSummary}
+
+CRITICAL: The image MUST visually represent the specific topic/concept mentioned above.
+
+${buildCountryCharacterSection(countryCode)}
+
+## ASPECT RATIO: ${finalAspectRatio}`;
+
+    // Add brand identity (Layer 2)
+    if (brand.imageStyle) {
+      prompt += `\n\n## BRAND VISUAL IDENTITY:\n- Style: ${brand.imageStyle}`;
+    }
+    if (brand.industry && brand.industry.length > 0) {
+      prompt += `\n- Industry Context: ${brand.industry.join(', ')}`;
+    }
+    prompt += buildColorSection(brand.brandColors);
+
+    // Add text-in-image if needed
+    if (isWithText) {
+      prompt += buildTextInImageSection(textToInclude, textPosition, typographyStyle);
+      prompt += buildStructuredLayoutSection(footerInfo, brand.brandColors);
+    }
+
+    // Add negative prompt
+    if (negativePrompt) {
+      prompt += `\n\n## ELEMENTS TO AVOID:\n${negativePrompt}`;
+    }
+
+    // Critical rules
+    if (isWithText) {
+      prompt += `\n\n## CRITICAL RULES:\n1. INCLUDE the specified text prominently and legibly\n2. Text must be CLEARLY READABLE with HIGH CONTRAST\n3. DO NOT include any logos or brand marks\n4. NEVER create blank, white, or empty images`;
+    } else {
+      prompt += `\n\n## CRITICAL RULES:\n1. DO NOT include any text, words, letters, or typography\n2. DO NOT include any logos or brand marks\n3. NEVER create blank, white, or empty images\n4. Background must have visible color, texture, or gradient`;
+    }
+
+    prompt += buildCountryReminderSuffix(countryCode);
+    return prompt;
+  }
   
-  // Build the comprehensive prompt
+  // ─── FULL MODE (default): All layers - existing logic ───
   let prompt = `Create a professional, brand-aligned ${isWithText ? 'SOCIAL GRAPHIC WITH TEXT' : 'image'} for ${brand.brandName}.
 
 ## ARTICLE CONTENT CONTEXT (HIGHEST PRIORITY):
