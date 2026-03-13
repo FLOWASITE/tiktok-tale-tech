@@ -5,6 +5,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useTopicAI } from './ai';
+import type { ContentGoal } from '@/types/multichannel';
 
 export type { RefinedTopic, RefineContextUsed } from './ai/types';
 
