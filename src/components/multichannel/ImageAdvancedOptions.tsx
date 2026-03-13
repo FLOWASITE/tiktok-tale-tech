@@ -81,6 +81,9 @@ interface ImageAdvancedOptionsProps {
   // Prompt mode
   promptMode: PromptMode;
   onPromptModeChange: (mode: PromptMode) => void;
+  // Refine text callback
+  onRefineTextContent?: (text: string) => void;
+  isRefiningText?: boolean;
   className?: string;
 }
 
