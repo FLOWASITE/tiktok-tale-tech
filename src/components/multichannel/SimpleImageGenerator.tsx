@@ -466,7 +466,7 @@ export function SimpleImageGenerator({
 
   // ─── Shared content ───────────────────────
   const headerContent = (
-    <>
+    <div className="flex items-center justify-between w-full">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="h-7 w-7 -ml-1" onClick={viewMode === 'setup' ? () => onOpenChange(false) : handleBackToSetup}>
           <ArrowLeft className="w-4 h-4" />
@@ -476,7 +476,21 @@ export function SimpleImageGenerator({
         {viewMode === 'streaming' && 'Đang tạo ảnh...'}
         {viewMode === 'preview' && 'Xem trước ảnh'}
       </div>
-    </>
+      {batchGen.isGenerating && onMinimize && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1.5 text-xs text-muted-foreground"
+          onClick={() => {
+            onMinimize();
+            onOpenChange(false);
+          }}
+        >
+          <Minimize2 className="w-3.5 h-3.5" />
+          Thu nhỏ
+        </Button>
+      )}
+    </div>
   );
 
   // Shared form fields (used by both mobile and desktop)
