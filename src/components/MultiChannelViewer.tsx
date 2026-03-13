@@ -1583,7 +1583,7 @@ export function MultiChannelViewer({
         open={showImageGenerator}
         onOpenChange={(open) => {
           setShowImageGenerator(open);
-          if (!open) setActiveImageChannel(null);
+          if (!open && !isImageGenMinimized) setActiveImageChannel(null);
         }}
         content={content}
         brandLogoUrl={brandLogoUrl}
@@ -1597,6 +1597,26 @@ export function MultiChannelViewer({
           // Save to database
           await onSaveChannelImage(content.id, channel, image);
         } : undefined}
+        onMinimize={() => setIsImageGenMinimized(true)}
+        onProgressChange={setImageGenProgress}
+      />
+
+      {/* Floating Image Generation Progress */}
+      <FloatingImageProgress
+        visible={isImageGenMinimized && !!imageGenProgress && (imageGenProgress.isGenerating || imageGenProgress.completedCount > 0)}
+        completedCount={imageGenProgress?.completedCount ?? 0}
+        totalCount={imageGenProgress?.totalCount ?? 0}
+        progress={imageGenProgress?.progress ?? {}}
+        isComplete={!!imageGenProgress && !imageGenProgress.isGenerating && imageGenProgress.completedCount > 0}
+        hasErrors={!!imageGenProgress && Object.values(imageGenProgress.progress).some(s => s === 'error')}
+        onRestore={() => {
+          setIsImageGenMinimized(false);
+          setShowImageGenerator(true);
+        }}
+        onDismiss={() => {
+          setIsImageGenMinimized(false);
+          setImageGenProgress(null);
+        }}
       />
 
       {/* Assignment Dialog */}
