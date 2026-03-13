@@ -48,6 +48,14 @@ function toChannelKey(ch: Channel): ChannelKey {
 }
 
 // ─── Props ────────────────────────────────────────────────────────
+export interface ImageGenProgressInfo {
+  isGenerating: boolean;
+  completedCount: number;
+  totalCount: number;
+  progress: Record<string, string>; // channel -> status
+  generatedImages: Record<string, any>;
+}
+
 interface SimpleImageGeneratorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -60,8 +68,8 @@ interface SimpleImageGeneratorProps {
   initialMode?: 'single' | 'batch';
   /** Called when user minimizes during generation */
   onMinimize?: () => void;
-  /** Whether the generator was previously minimized and is being restored */
-  isRestored?: boolean;
+  /** Report progress to parent for floating indicator */
+  onProgressChange?: (info: ImageGenProgressInfo) => void;
 }
 
 type ViewMode = 'setup' | 'streaming' | 'preview';
