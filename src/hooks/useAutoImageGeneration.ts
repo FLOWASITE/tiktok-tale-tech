@@ -147,6 +147,7 @@ export function useAutoImageGeneration() {
             textToInclude: effectiveContentType === 'with_text' ? channelText : undefined,
             textPosition: effectiveContentType === 'with_text' ? textPosition : undefined,
             typographyStyle: effectiveContentType === 'with_text' ? typographyStyle : undefined,
+            promptMode,
           },
           timeoutMs: 120_000,
         });
