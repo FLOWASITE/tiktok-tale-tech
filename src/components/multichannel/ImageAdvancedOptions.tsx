@@ -305,7 +305,10 @@ export function ImageAdvancedOptions({
         {brandLogoUrl && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Logo overlay</Label>
+              <div>
+                <Label className="text-xs text-muted-foreground">Logo overlay</Label>
+                <p className="text-[10px] text-muted-foreground/60">Logo thương hiệu sẽ được đặt lên ảnh ở vị trí bạn chọn.</p>
+              </div>
               <Switch checked={includeLogo} onCheckedChange={onIncludeLogoChange} />
             </div>
             {includeLogo && (
