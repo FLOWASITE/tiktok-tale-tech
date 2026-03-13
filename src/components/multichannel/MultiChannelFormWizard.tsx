@@ -693,7 +693,9 @@ export function MultiChannelFormWizard({
   };
 
   const handleStepClick = (step: number) => {
-    if (step <= currentStep || completedSteps.includes(step - 1)) {
+    // Allow navigating to any previous/current step, or next step if previous is completed
+    // Special case: Step 5 is always accessible from Step 4
+    if (step <= currentStep || completedSteps.includes(step - 1) || (step === 5 && currentStep === 4)) {
       setCurrentStep(step);
     }
   };
