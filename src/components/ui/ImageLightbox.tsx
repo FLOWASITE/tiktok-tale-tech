@@ -204,6 +204,17 @@ export function ImageLightbox({
                 Sửa nền
               </Button>
             )}
+            {onRefineText && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-white/70 hover:text-white hover:bg-white/10"
+                onClick={() => onRefineText(currentIndex)}
+              >
+                <Type className="w-4 h-4 mr-1.5" />
+                Sửa chữ
+              </Button>
+            )}
             {onRetry && (
               <Button
                 size="sm"
