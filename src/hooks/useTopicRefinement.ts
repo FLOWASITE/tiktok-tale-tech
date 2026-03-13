@@ -13,7 +13,7 @@ export function useTopicRefinement(options: {
   rawTopic: string;
   videoType?: string;
   brandTemplateId?: string;
-  contentGoal?: string;
+  contentGoal?: ContentGoal;
   enabled?: boolean;
 }) {
   const { rawTopic, videoType, brandTemplateId, contentGoal, enabled = true } = options;
