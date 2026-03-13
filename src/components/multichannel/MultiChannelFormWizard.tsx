@@ -1981,22 +1981,20 @@ export function MultiChannelFormWizard({
                     </>
                   )}
                 </Button>
-                {!isGenerating && !pendingMultiChannelGeneration && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setCompletedSteps(prev => [...prev.filter(s => s !== 4), 4]);
-                      setCurrentStep(5);
-                    }}
-                    disabled={formData.channels.length === 0}
-                    className="gap-1.5"
-                  >
-                    <Image className="w-4 h-4" />
-                    Tạo ảnh
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setCompletedSteps(prev => [...prev.filter(s => s !== 4), 4]);
+                    setCurrentStep(5);
+                  }}
+                  disabled={formData.channels.length === 0}
+                  className="gap-1.5"
+                >
+                  <Image className="w-4 h-4" />
+                  Tạo ảnh
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
               </div>
             ) : (
               // Step 5: Footer hidden when image phase is active
