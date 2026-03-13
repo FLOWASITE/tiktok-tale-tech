@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
+import { ImageLightbox, LightboxImage } from '@/components/ui/ImageLightbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   Download, 
-  ExternalLink, 
+  Eye, 
   Trash2, 
   ImageIcon, 
   Package,
@@ -141,6 +142,7 @@ export function ChannelImagesGallery({
   isRegenerating,
 }: ChannelImagesGalleryProps) {
   const [deleteConfirmChannel, setDeleteConfirmChannel] = useState<Channel | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   // Get images that exist for selected channels
   const imagesWithChannels = selectedChannels
@@ -149,6 +151,16 @@ export function ChannelImagesGallery({
       channel,
       image: channelImages[channel] as ChannelImage,
     }));
+
+  // Build lightbox images
+  const lightboxImages: LightboxImage[] = useMemo(() => 
+    imagesWithChannels.map(({ channel, image }) => ({
+      imageUrl: image.url,
+      channel,
+      channelLabel: channelConfig[channel]?.label || channel,
+    })),
+    [imagesWithChannels]
+  );
 
   const handleDownloadSingle = async (channel: Channel, image: ChannelImage) => {
     try {
@@ -252,8 +264,12 @@ export function ChannelImagesGallery({
                       <img
                         src={image.url}
                         alt={`${config.label} image`}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover cursor-pointer"
                         loading="lazy"
+                        onClick={() => {
+                          const idx = imagesWithChannels.findIndex(i => i.channel === channel);
+                          if (idx >= 0) setLightboxIndex(idx);
+                        }}
                       />
                     )}
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
@@ -278,10 +294,13 @@ export function ChannelImagesGallery({
                       <Button
                         size="icon"
                         variant="secondary"
-                        onClick={() => handleOpenInNewTab(image.url)}
+                        onClick={() => {
+                          const idx = imagesWithChannels.findIndex(i => i.channel === channel);
+                          if (idx >= 0) setLightboxIndex(idx);
+                        }}
                         className="h-8 w-8"
                       >
-                        <ExternalLink className="w-4 h-4" />
+                        <Eye className="w-4 h-4" />
                       </Button>
                       <Button
                         size="icon"
@@ -363,6 +382,19 @@ export function ChannelImagesGallery({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Image Lightbox */}
+        <ImageLightbox
+          images={lightboxImages}
+          currentIndex={lightboxIndex ?? 0}
+          open={lightboxIndex !== null}
+          onClose={() => setLightboxIndex(null)}
+          onNavigate={setLightboxIndex}
+          onDownload={(idx) => {
+            const item = imagesWithChannels[idx];
+            if (item) handleDownloadSingle(item.channel, item.image);
+          }}
+        />
       </div>
     </TooltipProvider>
   );
