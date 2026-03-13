@@ -1,44 +1,51 @@
 
-## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-### Van de
-Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
+## Vấn đề
 
-### Giai phap
-Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
+Khi user nhập "bán hàng dịch vụ kế toán" với goal **Conversion**, AI vẫn có thể trả về topic với angle "educational" vì:
 
-**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
+1. **Base prompt** liệt kê "Educational" trong danh sách angles — AI thấy đó là lựa chọn hợp lệ
+2. **Output format** cho phép `"angle": "educational"` — không filter theo goal
+3. **Goal guidance** nói "Focus on sales angles..." nhưng không **CẤM** các angle khác → AI vẫn mix
 
-1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
+## Giải pháp: Goal-Locked Angles
 
-2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
+### File: `supabase/functions/topic-ai/index.ts` — hàm `handleRefine()`
 
-Cu the:
-- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
-- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
-- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
-
-### Chi tiet ky thuat
+**1. Map mỗi contentGoal → allowed angles** (thay vì cho phép tất cả):
 
 ```typescript
-// bodyContent - thay doi:
-const bodyContent = (
-  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-    {viewMode === 'setup' && setupFields}
-    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
-  </div>
-);
+const goalAngles: Record<string, string[]> = {
+  conversion: ['sales', 'solution', 'practical'],
+  education: ['educational', 'practical', 'data'],
+  awareness: ['storytelling', 'controversial', 'data'],
+  engagement: ['controversial', 'storytelling', 'practical'],
+  expertise: ['data', 'educational', 'solution'],
+};
+const allowedAngles = contentGoal ? goalAngles[contentGoal] || ['practical','sales','educational'] : ['practical','controversial','educational','storytelling','solution','sales','data'];
 ```
 
-Va DialogContent:
-```typescript
-className={cn(
-  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
-  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
-)}
+**2. Cập nhật base prompt** — dynamic angles list thay vì hardcoded:
+
+```
+Fresh angles: ${allowedAngles.join(', ')}
 ```
 
-### Pham vi thay doi
-- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
-- Thay doi ~10 dong code
-- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
+**3. Cập nhật output format** — chỉ cho phép angles phù hợp goal:
+
+```
+"angle": "MUST be one of: ${allowedAngles.join(', ')}"
+```
+
+**4. Thêm explicit prohibition** trong content goal section:
+
+```
+⚠️ FORBIDDEN ANGLES for "${contentGoal}": ${forbiddenAngles.join(', ')}
+Do NOT use educational/informational angles when the goal is CONVERSION.
+```
+
+### Tóm tắt
+- Sửa 1 file: `supabase/functions/topic-ai/index.ts`
+- Lock angles theo goal → AI không thể chọn "educational" khi goal = "conversion"
+- Thêm forbidden angles list để tăng enforcement
+
