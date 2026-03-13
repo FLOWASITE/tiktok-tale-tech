@@ -12,10 +12,11 @@ export function useTopicRefinement(options: {
   rawTopic: string;
   videoType?: string;
   brandTemplateId?: string;
+  contentGoal?: string;
   enabled?: boolean;
 }) {
-  const { rawTopic, videoType, brandTemplateId, enabled = true } = options;
-  const topicAI = useTopicAI({ brandTemplateId, enabled });
+  const { rawTopic, videoType, brandTemplateId, contentGoal, enabled = true } = options;
+  const topicAI = useTopicAI({ brandTemplateId, contentGoal, enabled });
 
   // Use refs to avoid stale closures and dependency issues
   const lastRefinedTopicRef = useRef<string>('');

@@ -581,6 +581,7 @@ export function MultiChannelFormWizard({
   } = useTopicRefinement({
     rawTopic: formData.topic,
     brandTemplateId: formData.brandTemplateId,
+    contentGoal: formData.contentGoal,
     enabled: currentStep === 1 && formData.topic.trim().length >= 10,
   });
 

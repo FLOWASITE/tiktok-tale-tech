@@ -321,7 +321,7 @@ async function handleRefine(
   params: TopicAIRequest,
   startTime: number
 ): Promise<Response> {
-  const { rawTopic, videoType, brandTemplateId, organizationId } = params;
+  const { rawTopic, videoType, brandTemplateId, organizationId, contentGoal } = params;
 
   if (!rawTopic || rawTopic.trim().length < 5) {
     return createErrorResponse('rawTopic is required (min 5 chars)', 400);
