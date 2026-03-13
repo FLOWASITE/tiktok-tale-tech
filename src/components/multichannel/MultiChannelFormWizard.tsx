@@ -139,14 +139,28 @@ interface MultiChannelFormWizardProps {
   isGenerating: boolean;
   onFormDataChange?: (data: Partial<MultiChannelFormData>) => void;
   onGenerate: (data: MultiChannelFormData) => Promise<void>;
+  // Step 5: Image generation
+  onStartImagePipeline?: (channels: Channel[], channelTexts: Record<string, string>, contentMeta: { contentGoal?: string; contentRole?: string; contentAngle?: string; topic?: string }) => void;
+  imagePhase?: string;
+  imageProgress?: Record<string, string>;
+  imageProgressTimes?: Record<string, number>;
+  generatedImages?: Record<string, any>;
+  imageCompletedCount?: number;
+  imageTotalCount?: number;
+  logoOverlayFailures?: Record<string, boolean>;
+  onRetryImageChannel?: (channel: Channel) => void;
+  onDownloadImage?: (channel: Channel) => void;
+  generationComplete?: boolean;
+  getChannelText?: (channel: Channel) => string;
 }
 
-// NEW: 4-step flow as per user request
+// 5-step flow with image generation
 const STEPS: Step[] = [
   { id: 1, title: 'Chủ đề', icon: <FileText className="w-4 h-4" /> },
   { id: 2, title: 'Core Content', icon: <BookOpen className="w-4 h-4" /> },
   { id: 3, title: 'Vai trò', icon: <Compass className="w-4 h-4" /> },
   { id: 4, title: 'Đa kênh', icon: <Layers className="w-4 h-4" /> },
+  { id: 5, title: 'Tạo ảnh', icon: <Image className="w-4 h-4" /> },
 ];
 
 const channelIcons: Record<Channel, React.ReactNode> = {
