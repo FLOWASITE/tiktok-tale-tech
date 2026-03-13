@@ -70,6 +70,22 @@ export function ImageStreamingGrid({
     return order[progress[a]] - order[progress[b]];
   });
 
+  // Build lightbox images from completed channels
+  const lightboxImages: LightboxImage[] = sortedChannels
+    .filter(ch => progress[ch] === 'done' && generatedImages[ch]?.imageUrl)
+    .map(ch => ({
+      imageUrl: generatedImages[ch].imageUrl!,
+      channel: ch,
+      channelLabel: getChannelLabel(ch),
+      aspectRatio: generatedImages[ch].aspectRatio,
+      modelUsed: generatedImages[ch].modelUsed,
+    }));
+
+  const openLightbox = (channel: Channel) => {
+    const idx = lightboxImages.findIndex(img => img.channel === channel);
+    if (idx >= 0) setLightboxIndex(idx);
+  };
+
   return (
     <div className={cn("space-y-4", className)}>
       {/* Progress Header */}
