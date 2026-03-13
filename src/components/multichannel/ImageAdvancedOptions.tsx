@@ -280,6 +280,9 @@ export function ImageAdvancedOptions({
         {/* Aspect Ratio */}
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Tỉ lệ khung hình</Label>
+          <p className="text-[10px] text-muted-foreground/70 -mt-1">
+            "Tự động" sẽ chọn tỉ lệ tối ưu cho từng mạng xã hội.
+          </p>
           <div className="flex flex-wrap gap-1.5">
             {ASPECT_RATIOS.map(r => (
               <button
