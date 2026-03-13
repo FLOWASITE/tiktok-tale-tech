@@ -1650,6 +1650,28 @@ export function MultiChannelViewer({
         onOpenChange={(open) => !open && setViewingCoreContent(null)}
       />
     )}
+
+    {/* Image Lightbox - OUTSIDE Dialog */}
+    {lightboxImageUrl && (
+      <ImageLightbox
+        images={[{
+          imageUrl: lightboxImageUrl,
+          channel: '',
+          channelLabel: '',
+        }]}
+        currentIndex={0}
+        open={true}
+        onClose={() => setLightboxImageUrl(null)}
+        onNavigate={() => {}}
+        onDownload={() => {
+          const link = document.createElement('a');
+          link.href = lightboxImageUrl;
+          link.download = 'image.png';
+          link.target = '_blank';
+          link.click();
+        }}
+      />
+    )}
   </>
   );
 }
