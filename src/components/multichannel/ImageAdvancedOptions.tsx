@@ -14,7 +14,7 @@ import {
 import { LogoOptionsPanel, type LogoPosition, type LogoStyle } from './LogoOptionsPanel';
 import { VisualTextPositionPreview } from './VisualTextPositionPreview';
 import type { AspectRatioOption, ImageStylePreset } from '@/hooks/useAutoImageGeneration';
-import type { ImageContentType, TextPosition, TypographyStyle } from '@/hooks/useSocialImageGeneration';
+import type { ImageContentType, TextPosition, TypographyStyle, PromptMode } from '@/hooks/useSocialImageGeneration';
 import type { SuggestionV3 } from '@/lib/imageSuggestionEngine';
 import type { Channel } from '@/types/multichannel';
 import { toast } from 'sonner';
