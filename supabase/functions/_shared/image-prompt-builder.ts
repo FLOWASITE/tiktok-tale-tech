@@ -81,6 +81,9 @@ export interface FooterInfo {
   address?: string;
 }
 
+// Prompt Mode for 3-layer architecture
+export type PromptMode = 'full' | 'brand_only' | 'raw';
+
 export interface ImagePromptParams {
   channel: Channel;
   contentSummary: string;
@@ -106,6 +109,8 @@ export interface ImagePromptParams {
   countryCode?: string;
   // Footer/contact info from brand template
   footerInfo?: FooterInfo;
+  // Prompt mode: full (all layers), brand_only (user prompt + brand), raw (user prompt only)
+  promptMode?: PromptMode;
 }
 
 // Image Style Presets
