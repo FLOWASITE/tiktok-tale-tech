@@ -142,6 +142,7 @@ export function ChannelImagesGallery({
   isRegenerating,
 }: ChannelImagesGalleryProps) {
   const [deleteConfirmChannel, setDeleteConfirmChannel] = useState<Channel | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   // Get images that exist for selected channels
   const imagesWithChannels = selectedChannels
@@ -150,6 +151,16 @@ export function ChannelImagesGallery({
       channel,
       image: channelImages[channel] as ChannelImage,
     }));
+
+  // Build lightbox images
+  const lightboxImages: LightboxImage[] = useMemo(() => 
+    imagesWithChannels.map(({ channel, image }) => ({
+      imageUrl: image.url,
+      channel,
+      channelLabel: channelConfig[channel]?.label || channel,
+    })),
+    [imagesWithChannels]
+  );
 
   const handleDownloadSingle = async (channel: Channel, image: ChannelImage) => {
     try {
