@@ -47,6 +47,8 @@ interface GenerateImageRequest {
   textToInclude?: string;
   textPosition?: TextPosition;
   typographyStyle?: TypographyStyle;
+  // Prompt mode: full | brand_only | raw
+  promptMode?: PromptMode;
 }
 
 // Default model fallback (used when config not available)
