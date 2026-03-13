@@ -28,7 +28,7 @@ function stripPoyoPrefix(model: string): string {
  */
 function mapAspectRatioToSize(aspectRatio?: string): string {
   // PoYo API expects ratio format (e.g. '16:9'), NOT pixel dimensions
-  const validRatios = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'];
+  const validRatios = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9', '1:4', '4:1', '1:8', '8:1'];
   const ratio = aspectRatio || '1:1';
   if (validRatios.includes(ratio)) {
     return ratio;
