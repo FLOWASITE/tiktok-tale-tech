@@ -135,6 +135,8 @@ function getProviderName(modelId: string): string {
     'stepfun': 'StepFun',
     'arcee-ai': 'Arcee AI',
     'writer': 'Writer',
+    'inception': 'Inception',
+    'bytedance-seed': 'ByteDance',
   };
   
   const prefix = modelId.split('/')[0];
