@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ImageStreamingCard } from "./ImageStreamingCard";
@@ -6,6 +7,8 @@ import { Progress } from "@/components/ui/progress";
 import { Sparkles, Image as ImageIcon, CheckCircle, Clock } from "lucide-react";
 import { Channel } from "@/types/multichannel";
 import { ImageGenerationStatus, GeneratedImage } from "@/hooks/useAutoImageGeneration";
+import { ImageLightbox, LightboxImage } from "@/components/ui/ImageLightbox";
+import { getChannelLabel } from "./ChannelIcon";
 
 interface ImageStreamingGridProps {
   progress: Record<Channel, ImageGenerationStatus>;
