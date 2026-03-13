@@ -45,6 +45,8 @@ export interface AutoGenerateOptions {
   typographyStyle?: 'modern' | 'classic' | 'bold' | 'minimal' | 'clean' | 'outline' | 'glow';
   // Canvas fallback: overlay text programmatically for 100% accuracy
   useCanvasFallback?: boolean;
+  // Prompt mode: full | brand_only | raw
+  promptMode?: 'full' | 'brand_only' | 'raw';
 }
 
 export interface GeneratedImage {
