@@ -120,7 +120,7 @@ export function createContentNode(ctx: ContentNodeContext) {
       const tools = CHAT_TOOLS.filter(t => CONTENT_TOOLS.includes(t.function.name));
 
       const aiResult = await callAI({
-        functionName: 'content_node',
+        functionName: 'content-agent',
         organizationId: ctx.organizationId,
         messages: [
           { role: 'system', content: systemPrompt + stateContext },
