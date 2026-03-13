@@ -300,6 +300,22 @@ export default function MultiChannelCreate() {
               isGenerating={isGenerating}
               onFormDataChange={handleFormDataChange}
               onGenerate={handleGenerate}
+              // Step 5: Image pipeline props
+              onStartImagePipeline={(channels, channelTexts, contentMeta) => {
+                if (generatedContentId && selectedBrandId) {
+                  imagePipeline.startPipeline(generatedContentId, channels, channelTexts, contentMeta);
+                }
+              }}
+              imagePhase={imagePipeline.phase}
+              imageProgress={imagePipeline.imageProgress as any}
+              imageProgressTimes={imagePipeline.imageProgressTimes as any}
+              generatedImages={imagePipeline.generatedImages as any}
+              imageCompletedCount={imagePipeline.imageCompletedCount}
+              imageTotalCount={imagePipeline.imageTotalCount}
+              logoOverlayFailures={imagePipeline.logoOverlayFailures as any}
+              onRetryImageChannel={imagePipeline.regenerateForChannel}
+              generationComplete={generationState === 'complete'}
+              getChannelText={getChannelText}
             />
           </div>
         </div>
