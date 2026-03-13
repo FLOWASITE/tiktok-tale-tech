@@ -320,6 +320,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
           rawTopic: rawTopic.trim(),
           videoType,
           brandTemplateId,
+          contentGoal,
         },
       });
 

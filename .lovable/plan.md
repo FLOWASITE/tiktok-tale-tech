@@ -1,52 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Vấn đề
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-Khi refine topic, `contentGoal` không được truyền xuống backend → AI không biết mục tiêu là "Chuyển đổi" nên gợi ý topic theo góc nhìn ngẫu nhiên (giáo dục, nhận diện...) thay vì bán hàng.
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-**Chuỗi thiếu:**
-1. `MultiChannelFormWizard` gọi `useTopicRefinement` nhưng không truyền `contentGoal`
-2. `useTopicRefinement` không nhận `contentGoal` → không truyền cho `useTopicAI`
-3. `useTopicAI.fetchRefinements()` gọi edge function `topic-ai` action=refine nhưng không gửi `contentGoal`
-4. Backend `handleRefine()` không inject `contentGoal` vào prompt
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-## Giải pháp: Truyền contentGoal xuyên suốt chuỗi refine
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-### 1. `src/hooks/useTopicRefinement.ts`
-- Thêm `contentGoal?: ContentGoal` vào options interface
-- Truyền xuống `useTopicAI({ brandTemplateId, contentGoal, enabled })`
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-### 2. `src/hooks/ai/useTopicAI.ts` — `fetchRefinements()`
-- Thêm `contentGoal` vào body request gọi `topic-ai`:
-```ts
-body: {
-  action: 'refine',
-  rawTopic: rawTopic.trim(),
-  videoType,
-  brandTemplateId,
-  contentGoal,  // ← THÊM
-}
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
+
+### Chi tiet ky thuat
+
+```typescript
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
 ```
 
-### 3. `src/components/multichannel/MultiChannelFormWizard.tsx`
-- Truyền `contentGoal: formData.contentGoal` vào `useTopicRefinement`
-
-### 4. `supabase/functions/topic-ai/index.ts` — `handleRefine()`
-- Inject `contentGoal` vào prompt:
-```
-## CONTENT GOAL
-The user's content goal is: "${contentGoal}".
-- conversion → Focus on sales angles, pain points, offers, urgency, CTA
-- education → Focus on tips, how-to, knowledge sharing
-- awareness → Focus on brand story, introduction, viral potential
-- engagement → Focus on interaction, debate, community
-- expertise → Focus on authority, data, insights
-ALL refined topics MUST align with this goal.
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
 ```
 
-### Files cần sửa
-- `src/hooks/useTopicRefinement.ts`
-- `src/hooks/ai/useTopicAI.ts`
-- `src/components/multichannel/MultiChannelFormWizard.tsx`
-- `supabase/functions/topic-ai/index.ts`
-
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
