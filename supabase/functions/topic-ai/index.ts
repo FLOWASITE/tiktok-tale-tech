@@ -352,7 +352,7 @@ async function handleRefine(
 
 ## IMPROVEMENT PRINCIPLES:
 1. Be specific: Add data points, timeframes, specific audiences
-2. Fresh angles: Practical, Controversial, Educational, Storytelling, Sales, Solution
+2. Fresh angles: ${allowedAngles.join(', ')}
 3. Hook-friendly: Title can be immediately turned into a video hook
 4. Brand-aligned: Do not violate brand tone and guidelines
 
