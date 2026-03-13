@@ -213,7 +213,7 @@ export function SimpleImageGenerator({
 
   // Hooks
   const batchGen = useAutoImageGeneration();
-  const bgEditor = useBackgroundEditor();
+  const refineTextEditor = useBackgroundEditor();
 
   // Report progress to parent for floating indicator
   useEffect(() => {
