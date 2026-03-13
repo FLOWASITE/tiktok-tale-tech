@@ -156,7 +156,8 @@ export function ImageStreamingCard({
               transition={{ duration: 0.3 }}
               src={imageUrl}
               alt={`${channel} generated image`}
-              className="w-full h-full object-cover"
+              className={cn("w-full h-full object-cover", onViewImage && "cursor-pointer")}
+              onClick={onViewImage}
             />
           ) : (
             <div className={cn(
