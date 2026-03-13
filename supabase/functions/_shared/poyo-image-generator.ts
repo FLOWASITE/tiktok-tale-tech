@@ -1,7 +1,8 @@
 // ============================================
 // PoYo.ai Image Generation Helper
 // Unified async API: submit task → poll for result
-// Supports: Nano Banana Pro, GPT-4o Image, GPT Image 1.5, Z-Image,
+// Supports: Nano Banana 2 (Gemini 3.1 Flash), Nano Banana Pro (Gemini 3 Pro),
+//           GPT-4o Image, GPT Image 1.5, Z-Image,
 //           Flux 2 Pro/Flex, Seedream 4.5, Grok Imagine + Edit variants
 // ============================================
 
