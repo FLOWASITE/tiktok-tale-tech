@@ -1,56 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Vấn đề
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-Prompt refine hiện tại yêu cầu AI "Improve a raw topic into 3 better versions" nhưng **không ép AI phải giữ nguyên chủ đề gốc**. AI có thể drift sang chủ đề khác hoàn toàn, đặc biệt khi `contentGoal` kéo AI theo hướng khác.
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-Ví dụ: User nhập "dịch vụ kế toán" + goal "conversion" → AI có thể đề xuất topic về "bán hàng online" hoặc "marketing" thay vì giữ đúng chủ đề kế toán.
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-**Nguyên nhân gốc**: Prompt thiếu ràng buộc "MUST stay on the same topic/subject" và content goal guidance quá generic (không liên kết với raw topic).
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-## Giải pháp
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-### File: `supabase/functions/topic-ai/index.ts` — hàm `handleRefine()`
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
 
-**1. Thêm TOPIC ANCHORING rule** ngay sau base prompt:
+### Chi tiet ky thuat
 
-```
-## ⚠️ CRITICAL: TOPIC ANCHORING
-The refined topics MUST be about the SAME subject/industry as the raw topic.
-- Raw topic mentions "${rawTopic}" → ALL 3 refined topics MUST be about this exact subject
-- You are IMPROVING the angle/hook/specificity, NOT changing the subject
-- VIOLATION: Raw topic is about "kế toán" but refined topic is about "marketing" → REJECTED
-```
-
-**2. Cải thiện content goal guidance** — liên kết goal với raw topic thay vì generic:
-
-```
-// Thay vì: "Focus on sales angles, pain points..."
-// Thành: "Apply ${contentGoal} strategy TO the topic '${rawTopic}'. Focus on..."
-```
-
-Cụ thể, mỗi goal guidance sẽ bắt đầu bằng: `"Apply ${contentGoal} angles specifically to '${rawTopic}'."` để AI hiểu phải áp dụng goal lên chủ đề gốc, không phải tạo chủ đề mới.
-
-**3. Thêm NEGATIVE EXAMPLES** trong prompt để tăng enforcement:
-
-```
-## WRONG vs RIGHT EXAMPLES
-❌ WRONG: Raw="dịch vụ kế toán" → Refined="Cách bán hàng online hiệu quả" (đổi chủ đề)
-✅ RIGHT: Raw="dịch vụ kế toán" → Refined="5 lý do doanh nghiệp mất tiền vì không thuê kế toán chuyên nghiệp" (cùng chủ đề, góc conversion)
+```typescript
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
 ```
 
-**4. Strengthen REMINDER cuối prompt:**
-
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
 ```
-REMINDER: 
-1. Content goal is "${contentGoal}" — apply this goal TO the topic "${rawTopic}"
-2. ALL 3 refined topics MUST be about "${rawTopic}" — do NOT change the subject
-3. You are refining the ANGLE, not the TOPIC
-```
 
-### Tóm tắt
-- Chỉ sửa 1 file: `supabase/functions/topic-ai/index.ts`
-- Thêm Topic Anchoring constraint + negative examples
-- Liên kết content goal với raw topic thay vì để generic
-- Strengthen reminder cuối prompt
-
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
