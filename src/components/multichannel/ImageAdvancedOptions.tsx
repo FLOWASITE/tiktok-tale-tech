@@ -227,8 +227,8 @@ export function ImageAdvancedOptions({
           </div>
         )}
 
-        {/* V3 Top 3 Reasons */}
-        {v3Suggestions && v3Suggestions.length > 0 && (
+        {/* V3 Top 3 Reasons — only in full mode */}
+        {promptMode === 'full' && v3Suggestions && v3Suggestions.length > 0 && (
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Lý do gợi ý (V3)</Label>
             <div className="space-y-1">
