@@ -70,7 +70,6 @@ import { RegenerateStreamingOverlay } from '@/components/multichannel/streaming/
 import { useStreamingRegenerate } from '@/hooks/useStreamingRegenerate';
 import { ImageLightbox, LightboxImage } from '@/components/ui/ImageLightbox';
 import { useBackgroundEditor } from '@/hooks/useBackgroundEditor';
-import { toast } from 'sonner';
 import { CoreContentSourceBadge } from '@/components/viewer/CoreContentSourceBadge';
 import { CoreContentViewer } from '@/components/core-content/CoreContentViewer';
 import type { CoreContent } from '@/types/coreContent';
