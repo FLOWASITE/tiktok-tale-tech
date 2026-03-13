@@ -43,8 +43,9 @@ import {
 import { SimpleMessageList } from './chatbot/SimpleMessageList';
 import { AgentSessionSummary } from './chatbot/AgentSessionSummary';
 
-// Re-export handle type for consumers
+// Re-export handle type and props for consumers
 export type { TopicAIChatbotHandle } from './chatbot';
+export type { TopicAIChatbotProps } from './chatbot';
 
 export function TopicAIChatbot({
   brandTemplateId,
