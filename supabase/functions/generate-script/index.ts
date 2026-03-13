@@ -20,6 +20,8 @@ import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 // NEW: Prompt Registry Integration - Phase 4
 import { createPromptManager } from "../_shared/prompt-integration.ts";
+// Multi-country date context support
+import { buildLocalizedDateContext } from "../_shared/country-language-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
