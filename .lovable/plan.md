@@ -1,44 +1,45 @@
 
-## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-### Van de
-Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
+## Audit Result: Implementation is CORRECT ✅
 
-### Giai phap
-Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
+All 4 files are properly synchronized with the 3-Layer Prompt Architecture.
 
-**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
+### File-by-file verification:
 
-1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
+**1. `image-prompt-builder.ts`** ✅
+- `PromptMode` type exported (line 85)
+- `promptMode` in `ImagePromptParams` (line 113)
+- Destructured with default `'full'` (line 827)
+- `raw` mode: user prompt + aspect ratio + negative prompt + country reminder (lines 837-844)
+- `brand_only` mode: user prompt + brand identity + colors + country character + text-in-image + structured layout + negative prompt (lines 847-888)
+- `full` mode: existing logic unchanged (line 890+)
 
-2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
+**2. `generate-brand-image/index.ts`** ✅
+- `PromptMode` imported (line 21)
+- `promptMode` in `GenerateImageRequest` interface (line 51)
+- Destructured from request body (line 257)
+- Passed to `buildImagePrompt()` (line 428)
 
-Cu the:
-- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
-- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
-- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
+**3. `useSocialImageGeneration.ts`** ✅
+- `PromptMode` type exported (line 81)
+- `promptMode` in `GenerateImageParams` (line 128)
+- Destructured and sent in request body (lines 154, 189)
 
-### Chi tiet ky thuat
+**4. `useAutoImageGeneration.ts`** ✅
+- `promptMode` in `AutoGenerateOptions` (line 49)
+- Destructured and passed to edge function (lines 105, 150)
 
-```typescript
-// bodyContent - thay doi:
-const bodyContent = (
-  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-    {viewMode === 'setup' && setupFields}
-    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
-  </div>
-);
-```
+**5. `SimpleImageGenerator.tsx`** ✅
+- State: `promptMode` with default `'full'` (line 192)
+- Conditional logic: hides style preset, contentRole, contentAngle, hookMessages when not `full` (lines 344-348)
+- Passed to `ImageAdvancedOptions` (lines 587-588)
+- Included in `useMemo` deps (line 359)
 
-Va DialogContent:
-```typescript
-className={cn(
-  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
-  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
-)}
-```
+**6. `ImageAdvancedOptions.tsx`** ✅
+- Props: `promptMode` + `onPromptModeChange` (lines 81-82)
+- 3-button UI selector with icons and descriptions (lines 150-186)
+- Contextual help text for `brand_only` and `raw` (lines 176-185)
+- Style grid conditionally hidden when not `full` (line 189)
 
-### Pham vi thay doi
-- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
-- Thay doi ~10 dong code
-- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
+### No issues found. All layers connected end-to-end.
+
