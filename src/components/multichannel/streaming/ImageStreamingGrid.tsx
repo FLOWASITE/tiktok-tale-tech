@@ -165,6 +165,27 @@ export function ImageStreamingGrid({
           })}
         </AnimatePresence>
       </div>
+
+      {/* Image Lightbox */}
+      <ImageLightbox
+        images={lightboxImages}
+        currentIndex={lightboxIndex ?? 0}
+        open={lightboxIndex !== null}
+        onClose={() => setLightboxIndex(null)}
+        onNavigate={setLightboxIndex}
+        onDownload={onDownloadImage ? (idx) => {
+          const ch = lightboxImages[idx]?.channel as Channel;
+          if (ch) onDownloadImage(ch);
+        } : undefined}
+        onEditBackground={onEditBackground ? (idx) => {
+          const ch = lightboxImages[idx]?.channel as Channel;
+          if (ch) { setLightboxIndex(null); onEditBackground(ch); }
+        } : undefined}
+        onRetry={onRetryChannel ? (idx) => {
+          const ch = lightboxImages[idx]?.channel as Channel;
+          if (ch) { setLightboxIndex(null); onRetryChannel(ch); }
+        } : undefined}
+      />
     </div>
   );
 }
