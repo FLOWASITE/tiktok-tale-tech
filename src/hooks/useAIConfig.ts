@@ -715,13 +715,23 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
     provider: 'openrouter',
     isRecommended: true,
   },
-  'x-ai/grok-4.1-fast': {
-    shortName: 'Grok 4.1 Fast',
-    description: '2M context, agentic tasks',
+  'x-ai/grok-4.20-beta': {
+    shortName: 'Grok 4.20',
+    description: 'Flagship xAI mới nhất, 2M context',
     speed: 'fast',
-    quality: 'high',
-    cost: 'low',
+    quality: 'premium',
+    cost: 'medium',
     bestFor: ['Context dài', 'Agentic', 'Coding'],
+    provider: 'openrouter',
+    isRecommended: true,
+  },
+  'x-ai/grok-4.20-multi-agent-beta': {
+    shortName: 'Grok 4.20 Multi-Agent',
+    description: 'Multi-agent variant, 2M context',
+    speed: 'fast',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Multi-agent', 'Agentic', 'Complex tasks'],
     provider: 'openrouter',
   },
   'z-ai/glm-5': {
