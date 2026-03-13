@@ -170,6 +170,7 @@ export function SimpleImageGenerator({
   open, onOpenChange, content,
   brandLogoUrl, brandPrimaryColor, brandIndustry,
   onImageGenerated, initialChannel, initialMode = 'batch',
+  onMinimize, isRestored,
 }: SimpleImageGeneratorProps) {
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<ViewMode>('setup');
