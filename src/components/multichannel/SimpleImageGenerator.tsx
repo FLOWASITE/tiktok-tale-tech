@@ -213,6 +213,19 @@ export function SimpleImageGenerator({
   // Hooks
   const batchGen = useAutoImageGeneration();
 
+  // Report progress to parent for floating indicator
+  useEffect(() => {
+    onProgressChange?.({
+      isGenerating: batchGen.isGenerating,
+      completedCount: batchGen.completedCount,
+      totalCount: batchGen.totalCount,
+      progress: Object.fromEntries(
+        Object.entries(batchGen.progress).map(([k, v]) => [k, v])
+      ),
+      generatedImages: batchGen.generatedImages,
+    });
+  }, [batchGen.isGenerating, batchGen.completedCount, batchGen.totalCount, batchGen.progress, batchGen.generatedImages, onProgressChange]);
+
   // Fetch brand template for style suggestions
   const { data: brandTemplate } = useQuery({
     queryKey: ['brand-tpl-simple-img', content?.brand_template_id],
