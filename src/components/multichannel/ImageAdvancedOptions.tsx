@@ -81,6 +81,9 @@ interface ImageAdvancedOptionsProps {
   // Prompt mode
   promptMode: PromptMode;
   onPromptModeChange: (mode: PromptMode) => void;
+  // Refine text callback
+  onRefineTextContent?: (text: string) => void;
+  isRefiningText?: boolean;
   className?: string;
 }
 
@@ -121,6 +124,7 @@ export function ImageAdvancedOptions({
   textToInclude, onTextToIncludeChange,
   textsPerChannel, onTextsPerChannelChange,
   promptMode, onPromptModeChange,
+  onRefineTextContent, isRefiningText,
   className,
 }: ImageAdvancedOptionsProps) {
   const [isOpen, setIsOpen] = useState(true);
@@ -371,7 +375,30 @@ export function ImageAdvancedOptions({
 
               {useSharedText ? (
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Text trên ảnh</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Text trên ảnh</Label>
+                    {onRefineTextContent && textToInclude.trim() && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs gap-1.5 text-primary hover:text-primary hover:bg-primary/10"
+                        onClick={() => onRefineTextContent(textToInclude)}
+                        disabled={isRefiningText}
+                      >
+                        {isRefiningText ? (
+                          <>
+                            <Wand2 className="w-3.5 h-3.5 animate-spin" />
+                            Đang sửa...
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="w-3.5 h-3.5" />
+                            AI sửa chữ
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                   <Textarea
                     value={textToInclude}
                     onChange={e => onTextToIncludeChange(e.target.value)}
