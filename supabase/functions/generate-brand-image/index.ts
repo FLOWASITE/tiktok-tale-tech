@@ -253,6 +253,8 @@ serve(async (req) => {
       textToInclude,
       textPosition,
       typographyStyle,
+      // Prompt mode
+      promptMode,
     }: GenerateImageRequest = await req.json();
 
     console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}`);
