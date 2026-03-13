@@ -424,6 +424,8 @@ serve(async (req) => {
       countryCode: brandTemplate.country_code as string | undefined,
       // Footer/contact info for structured layout
       footerInfo,
+      // Prompt mode (3-layer architecture)
+      promptMode,
     });
 
     console.log("[generate-brand-image] Starting image generation...");
