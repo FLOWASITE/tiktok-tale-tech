@@ -76,6 +76,9 @@ interface ImageAdvancedOptionsProps {
   onTextToIncludeChange: (text: string) => void;
   textsPerChannel: Record<Channel, string>;
   onTextsPerChannelChange: (texts: Record<Channel, string>) => void;
+  // Prompt mode
+  promptMode: PromptMode;
+  onPromptModeChange: (mode: PromptMode) => void;
   className?: string;
 }
 
