@@ -10,12 +10,13 @@ const corsHeaders = {
 
 interface EditBackgroundRequest {
   imageUrl: string;
-  editType: 'remove' | 'solid_color' | 'gradient' | 'custom_scene';
+  editType: 'remove' | 'solid_color' | 'gradient' | 'custom_scene' | 'refine_text';
   solidColor?: string;
   gradientFrom?: string;
   gradientTo?: string;
   gradientDirection?: 'vertical' | 'horizontal' | 'diagonal';
   customScenePrompt?: string;
+  refineTextInstruction?: string;
   contentId?: string;
   channel?: string;
   organizationId?: string;
