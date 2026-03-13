@@ -1,45 +1,41 @@
 
 
-## Audit Result: Implementation is CORRECT ✅
+## Plan: Update PoYo.ai Models to Latest
 
-All 4 files are properly synchronized with the 3-Layer Prompt Architecture.
+### Phát hiện từ PoYo.ai docs (March 2026)
 
-### File-by-file verification:
+PoYo đã ra model mới **Nano Banana 2** (powered by Gemini 3.1 Flash) với model ID `nano-banana-2-new`. Model cũ `nano-banana-2` giờ gọi là **Nano Banana Pro** (Gemini 3 Pro).
 
-**1. `image-prompt-builder.ts`** ✅
-- `PromptMode` type exported (line 85)
-- `promptMode` in `ImagePromptParams` (line 113)
-- Destructured with default `'full'` (line 827)
-- `raw` mode: user prompt + aspect ratio + negative prompt + country reminder (lines 837-844)
-- `brand_only` mode: user prompt + brand identity + colors + country character + text-in-image + structured layout + negative prompt (lines 847-888)
-- `full` mode: existing logic unchanged (line 890+)
+```text
+Hiện tại trong code:              PoYo API thực tế:
+─────────────────────             ──────────────────
+poyo/nano-banana-2       →        nano-banana-2       (= Nano Banana Pro, Gemini 3 Pro)
+poyo/nano-banana-2-edit  →        nano-banana-2-edit  (= Nano Banana Pro Edit)
+                                  nano-banana-2-new   (= Nano Banana 2 MỚI, Gemini 3.1 Flash) ← THIẾU
+                                  nano-banana-2-new-edit ← THIẾU
+```
 
-**2. `generate-brand-image/index.ts`** ✅
-- `PromptMode` imported (line 21)
-- `promptMode` in `GenerateImageRequest` interface (line 51)
-- Destructured from request body (line 257)
-- Passed to `buildImagePrompt()` (line 428)
+### Thay đổi (3 files)
 
-**3. `useSocialImageGeneration.ts`** ✅
-- `PromptMode` type exported (line 81)
-- `promptMode` in `GenerateImageParams` (line 128)
-- Destructured and sent in request body (lines 154, 189)
+#### 1. `src/types/aiProvider.ts` — Update PoYo provider config
+- Thêm `poyo/nano-banana-2-new` và `poyo/nano-banana-2-new-edit` vào models list
+- Update description: thêm "Nano Banana 2 (Gemini 3.1 Flash)"
+- Đặt `nano-banana-2-new` làm model đầu tiên (recommended)
 
-**4. `useAutoImageGeneration.ts`** ✅
-- `promptMode` in `AutoGenerateOptions` (line 49)
-- Destructured and passed to edge function (lines 105, 150)
+#### 2. `src/hooks/useAIConfig.ts` — Update model lists + MODEL_INFO
+- Thêm `poyo/nano-banana-2-new` và `poyo/nano-banana-2-new-edit` vào `AVAILABLE_MODELS['image']`
+- Thêm MODEL_INFO entries cho 2 model mới:
+  - `nano-banana-2-new`: "Nano Banana 2" — Gemini 3.1 Flash, default 2K/4K, $0.025, fast, recommended
+  - `nano-banana-2-new-edit`: "Nano Banana 2 Edit" — edit variant, 2K/4K
+- Update entry `nano-banana-2` description: rename to "Nano Banana Pro" (Gemini 3 Pro)
+- Đánh dấu `nano-banana-2-new` là `isRecommended: true`, bỏ recommend từ `nano-banana-2`
 
-**5. `SimpleImageGenerator.tsx`** ✅
-- State: `promptMode` with default `'full'` (line 192)
-- Conditional logic: hides style preset, contentRole, contentAngle, hookMessages when not `full` (lines 344-348)
-- Passed to `ImageAdvancedOptions` (lines 587-588)
-- Included in `useMemo` deps (line 359)
+#### 3. `supabase/functions/_shared/poyo-image-generator.ts`
+- Update comment header để reflect model mới
+- Thêm `nano-banana-2-new` support cho `resolution` param (1K/2K/4K) — PoYo API hỗ trợ field `resolution` cho model mới này
+- Update `mapAspectRatioToSize()` thêm extreme ratios (`1:4`, `4:1`, `1:8`, `8:1`) mà Nano Banana 2 hỗ trợ
 
-**6. `ImageAdvancedOptions.tsx`** ✅
-- Props: `promptMode` + `onPromptModeChange` (lines 81-82)
-- 3-button UI selector with icons and descriptions (lines 150-186)
-- Contextual help text for `brand_only` and `raw` (lines 176-185)
-- Style grid conditionally hidden when not `full` (line 189)
-
-### No issues found. All layers connected end-to-end.
+### Không thay đổi
+- `poyo-image-generator.ts` flow (submit → poll) giữ nguyên — chỉ thêm `resolution` field
+- Backend routing logic không đổi (strip prefix → gửi API)
 
