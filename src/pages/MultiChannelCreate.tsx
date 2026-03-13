@@ -173,30 +173,7 @@ export default function MultiChannelCreate() {
         }
       }
 
-      // AUTO-TRIGGER IMAGE PIPELINE
-      // Collect the final streaming texts for each channel
-      const channels = data.channels || [];
-      if (channels.length > 0 && selectedBrandId) {
-        // Use a short delay to ensure streamingTexts state is finalized
-        setTimeout(() => {
-          const channelTexts: Record<string, string> = {};
-          channels.forEach(ch => {
-            channelTexts[ch] = getChannelText(ch);
-          });
-
-          imagePipeline.startPipeline(
-            result.id,
-            channels,
-            channelTexts,
-            {
-              contentGoal: data.contentGoal,
-              contentRole: data.contentRole,
-              contentAngle: data.contentAngle,
-              topic: data.topic,
-            }
-          );
-        }, 500);
-      }
+      // Mark generation complete - Step 5 will handle image generation manually
     }
   };
 
@@ -323,6 +300,22 @@ export default function MultiChannelCreate() {
               isGenerating={isGenerating}
               onFormDataChange={handleFormDataChange}
               onGenerate={handleGenerate}
+              // Step 5: Image pipeline props
+              onStartImagePipeline={(channels, channelTexts, contentMeta) => {
+                if (generatedContentId && selectedBrandId) {
+                  imagePipeline.startPipeline(generatedContentId, channels, channelTexts, contentMeta);
+                }
+              }}
+              imagePhase={imagePipeline.phase}
+              imageProgress={imagePipeline.imageProgress as any}
+              imageProgressTimes={imagePipeline.imageProgressTimes as any}
+              generatedImages={imagePipeline.generatedImages as any}
+              imageCompletedCount={imagePipeline.imageCompletedCount}
+              imageTotalCount={imagePipeline.imageTotalCount}
+              logoOverlayFailures={imagePipeline.logoOverlayFailures as any}
+              onRetryImageChannel={(channel) => imagePipeline.regenerateForChannel(channel, {} as any)}
+              generationComplete={generationState === 'complete'}
+              getChannelText={getChannelText}
             />
           </div>
         </div>
