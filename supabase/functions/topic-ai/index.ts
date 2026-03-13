@@ -393,6 +393,11 @@ ${brandContext.industryContext.forbiddenTerms?.length ? `Forbidden Terms: ${bran
     if (learningSection) promptParts.push(learningSection);
   }
 
+  // Inject date context to prevent outdated year references
+  const lang = brandContext?.languageCode || 'vi';
+  const dateContext = buildLocalizedDateContext(lang);
+  promptParts.push(dateContext);
+
   promptParts.push(`
 ## OUTPUT FORMAT
 Return EXACTLY a JSON array with 3 items (respond in the same language as the raw topic):
