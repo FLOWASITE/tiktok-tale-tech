@@ -31,6 +31,7 @@ import { ImageChannelPicker } from './ImageChannelPicker';
 import { ImageAdvancedOptions } from './ImageAdvancedOptions';
 import { ImageSettingsSummary } from './ImageSettingsSummary';
 import { BackgroundEditor } from './BackgroundEditor';
+import { useBackgroundEditor } from '@/hooks/useBackgroundEditor';
 import { V3StylePreview } from './V3StylePreview';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -212,6 +213,7 @@ export function SimpleImageGenerator({
 
   // Hooks
   const batchGen = useAutoImageGeneration();
+  const refineTextEditor = useBackgroundEditor();
 
   // Report progress to parent for floating indicator
   useEffect(() => {
@@ -442,6 +444,22 @@ export function SimpleImageGenerator({
     if (!editingChannel) return;
     batchGen.updateGeneratedImage(editingChannel, { imageUrl: newImageUrl });
     toast.success('Đã cập nhật ảnh');
+  };
+
+  const handleRefineText = async (channel: Channel) => {
+    const img = batchGen.generatedImages[channel];
+    if (!img?.imageUrl) { toast.error('Không có ảnh để sửa chữ'); return; }
+    toast.info('Đang sửa chữ trên ảnh...', { duration: 2000 });
+    const result = await refineTextEditor.editBackground({
+      imageUrl: img.imageUrl,
+      editType: 'refine_text',
+      contentId: content.id,
+      channel,
+    });
+    if (result.success && result.imageUrl) {
+      batchGen.updateGeneratedImage(channel, { imageUrl: result.imageUrl });
+      toast.success('Đã sửa chữ trên ảnh');
+    }
   };
 
   const handleClose = () => {
@@ -683,6 +701,7 @@ export function SimpleImageGenerator({
         onRetryChannel={handleRegenerateChannel}
         onDownloadImage={handleDownloadImage}
         onEditBackground={handleEditBackground}
+        onRefineText={handleRefineText}
         retryingChannel={regeneratingChannel}
       />
       {viewMode === 'preview' && hasImages && (

@@ -18,6 +18,7 @@ interface ImageStreamingGridProps {
   onRetryChannel?: (channel: Channel) => void;
   onDownloadImage?: (channel: Channel) => void;
   onEditBackground?: (channel: Channel) => void;
+  onRefineText?: (channel: Channel) => void;
   retryingChannel?: Channel | null;
   className?: string;
 }
@@ -30,6 +31,7 @@ export function ImageStreamingGrid({
   onRetryChannel,
   onDownloadImage,
   onEditBackground,
+  onRefineText,
   retryingChannel,
   className,
 }: ImageStreamingGridProps) {
@@ -171,6 +173,7 @@ export function ImageStreamingGrid({
                   onRetry={onRetryChannel ? () => onRetryChannel(channel) : undefined}
                   onDownload={onDownloadImage ? () => onDownloadImage(channel) : undefined}
                   onEditBackground={onEditBackground ? () => onEditBackground(channel) : undefined}
+                  onRefineText={onRefineText ? () => onRefineText(channel) : undefined}
                   onViewImage={status === 'done' && image?.imageUrl ? () => openLightbox(channel) : undefined}
                   isRetrying={retryingChannel === channel}
                   logoOverlayFailed={logoOverlayFailures?.[channel] || image?.logoOverlayFailed}

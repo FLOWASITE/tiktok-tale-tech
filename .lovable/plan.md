@@ -1,24 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Plan: Add "Sửa chữ" (Refine Text) button to SimpleImageGenerator
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-The user's screenshot shows the SimpleImageGenerator dialog — the refine text feature currently only exists in the MultiChannelViewer's lightbox and action bar, but NOT in the image generation dialog's streaming/preview grid.
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-### Changes needed:
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-**1. `src/components/multichannel/streaming/ImageStreamingCard.tsx`**
-- Add `onRefineText?: () => void` prop
-- Add a "Sửa chữ" button (with `Type` icon) next to the existing "Sửa nền" button in the action buttons area when image is done
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-**2. `src/components/multichannel/streaming/ImageStreamingGrid.tsx`**
-- Add `onRefineText?: (channel: Channel) => void` prop
-- Pass it down to each `ImageStreamingCard`
-- Pass it to the `ImageLightbox` as `onRefineText`
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-**3. `src/components/multichannel/SimpleImageGenerator.tsx`**
-- Import and use `useBackgroundEditor` hook for refine text functionality
-- Add `handleRefineText(channel)` handler that calls `editBackground` with `editType: 'refine_text'` and updates the generated image on success
-- Pass `onRefineText` to `ImageStreamingGrid`
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
 
-This reuses the existing `edit-image-background` edge function which already supports the `refine_text` edit type.
+### Chi tiet ky thuat
 
+```typescript
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
+```
+
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
+```
+
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
