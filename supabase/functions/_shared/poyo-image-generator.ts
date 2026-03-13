@@ -65,6 +65,11 @@ async function submitPoyoTask(params: PoyoGenerateParams, apiKey: string): Promi
     },
   };
 
+  // Resolution support for nano-banana-2-new models
+  if (params.resolution && (modelName === 'nano-banana-2-new' || modelName === 'nano-banana-2-new-edit')) {
+    body.input.resolution = params.resolution;
+  }
+
   // Image editing mode
   if (params.inputImage) {
     body.input.image_url = params.inputImage;
