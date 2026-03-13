@@ -313,7 +313,7 @@ export default function MultiChannelCreate() {
               imageCompletedCount={imagePipeline.imageCompletedCount}
               imageTotalCount={imagePipeline.imageTotalCount}
               logoOverlayFailures={imagePipeline.logoOverlayFailures as any}
-              onRetryImageChannel={imagePipeline.regenerateForChannel}
+              onRetryImageChannel={(channel) => imagePipeline.regenerateForChannel(channel, {} as any)}
               generationComplete={generationState === 'complete'}
               getChannelText={getChannelText}
             />
