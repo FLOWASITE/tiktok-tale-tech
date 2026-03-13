@@ -124,6 +124,8 @@ interface GenerateImageParams {
   typographyStyle?: TypographyStyle;
   // Canvas fallback for 100% text accuracy
   useCanvasFallback?: boolean;
+  // Prompt mode: full | brand_only | raw
+  promptMode?: PromptMode;
 }
 
 export function useSocialImageGeneration() {
