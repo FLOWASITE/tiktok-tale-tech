@@ -19,6 +19,7 @@ interface ImageStreamingCardProps {
   onRetry?: () => void;
   onDownload?: () => void;
   onEditBackground?: () => void;
+  onViewImage?: () => void;
   isRetrying?: boolean;
   logoOverlayFailed?: boolean;
   startTime?: number;
@@ -83,6 +84,7 @@ export function ImageStreamingCard({
   onRetry,
   onDownload,
   onEditBackground,
+  onViewImage,
   isRetrying,
   logoOverlayFailed,
   startTime,
@@ -154,7 +156,8 @@ export function ImageStreamingCard({
               transition={{ duration: 0.3 }}
               src={imageUrl}
               alt={`${channel} generated image`}
-              className="w-full h-full object-cover"
+              className={cn("w-full h-full object-cover", onViewImage && "cursor-pointer")}
+              onClick={onViewImage}
             />
           ) : (
             <div className={cn(
@@ -257,6 +260,16 @@ export function ImageStreamingCard({
           {/* Action buttons overlay for completed images */}
           {isDone && imageUrl && (
             <div className="absolute inset-0 bg-black/60 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+              {onViewImage && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={onViewImage}
+                >
+                  <Eye className="w-4 h-4 mr-1.5" />
+                  Xem ảnh
+                </Button>
+              )}
               {onDownload && (
                 <Button
                   size="sm"

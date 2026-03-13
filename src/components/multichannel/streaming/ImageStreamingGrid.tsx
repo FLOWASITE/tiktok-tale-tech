@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ImageStreamingCard } from "./ImageStreamingCard";
@@ -6,6 +7,8 @@ import { Progress } from "@/components/ui/progress";
 import { Sparkles, Image as ImageIcon, CheckCircle, Clock } from "lucide-react";
 import { Channel } from "@/types/multichannel";
 import { ImageGenerationStatus, GeneratedImage } from "@/hooks/useAutoImageGeneration";
+import { ImageLightbox, LightboxImage } from "@/components/ui/ImageLightbox";
+import { getChannelLabel } from "./ChannelIcon";
 
 interface ImageStreamingGridProps {
   progress: Record<Channel, ImageGenerationStatus>;
@@ -31,7 +34,8 @@ export function ImageStreamingGrid({
   className,
 }: ImageStreamingGridProps) {
   const channels = Object.keys(progress) as Channel[];
-  
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
   if (channels.length === 0) {
     return null;
   }
@@ -65,6 +69,22 @@ export function ImageStreamingGrid({
     };
     return order[progress[a]] - order[progress[b]];
   });
+
+  // Build lightbox images from completed channels
+  const lightboxImages: LightboxImage[] = sortedChannels
+    .filter(ch => progress[ch] === 'done' && generatedImages[ch]?.imageUrl)
+    .map(ch => ({
+      imageUrl: generatedImages[ch].imageUrl!,
+      channel: ch,
+      channelLabel: getChannelLabel(ch),
+      aspectRatio: generatedImages[ch].aspectRatio,
+      modelUsed: generatedImages[ch].modelUsed,
+    }));
+
+  const openLightbox = (channel: Channel) => {
+    const idx = lightboxImages.findIndex(img => img.channel === channel);
+    if (idx >= 0) setLightboxIndex(idx);
+  };
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -151,6 +171,7 @@ export function ImageStreamingGrid({
                   onRetry={onRetryChannel ? () => onRetryChannel(channel) : undefined}
                   onDownload={onDownloadImage ? () => onDownloadImage(channel) : undefined}
                   onEditBackground={onEditBackground ? () => onEditBackground(channel) : undefined}
+                  onViewImage={status === 'done' && image?.imageUrl ? () => openLightbox(channel) : undefined}
                   isRetrying={retryingChannel === channel}
                   logoOverlayFailed={logoOverlayFailures?.[channel] || image?.logoOverlayFailed}
                   startTime={progressTimes?.[channel]}
@@ -160,6 +181,27 @@ export function ImageStreamingGrid({
           })}
         </AnimatePresence>
       </div>
+
+      {/* Image Lightbox */}
+      <ImageLightbox
+        images={lightboxImages}
+        currentIndex={lightboxIndex ?? 0}
+        open={lightboxIndex !== null}
+        onClose={() => setLightboxIndex(null)}
+        onNavigate={setLightboxIndex}
+        onDownload={onDownloadImage ? (idx) => {
+          const ch = lightboxImages[idx]?.channel as Channel;
+          if (ch) onDownloadImage(ch);
+        } : undefined}
+        onEditBackground={onEditBackground ? (idx) => {
+          const ch = lightboxImages[idx]?.channel as Channel;
+          if (ch) { setLightboxIndex(null); onEditBackground(ch); }
+        } : undefined}
+        onRetry={onRetryChannel ? (idx) => {
+          const ch = lightboxImages[idx]?.channel as Channel;
+          if (ch) { setLightboxIndex(null); onRetryChannel(ch); }
+        } : undefined}
+      />
     </div>
   );
 }
