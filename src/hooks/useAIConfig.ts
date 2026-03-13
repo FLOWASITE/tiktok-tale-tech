@@ -145,6 +145,8 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
     'grok-imagine/text-to-image',
     'grok-imagine/image-to-image',
     // PoYo.ai models
+    'poyo/nano-banana-2-new',
+    'poyo/nano-banana-2-new-edit',
     'poyo/nano-banana-2',
     'poyo/nano-banana-2-edit',
     'poyo/gpt-4o-image',
