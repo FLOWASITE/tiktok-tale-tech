@@ -202,9 +202,25 @@ export function ImageAdvancedOptions({
         {promptMode === 'full' && (
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Phong cách ảnh</Label>
+            <p className="text-[10px] text-muted-foreground/70 -mt-1">
+              AI gợi ý phong cách phù hợp nhất. Bạn có thể chọn khác nếu muốn.
+            </p>
             {topSuggestion && (
               <p className="text-[10px] text-muted-foreground/70 -mt-1">
-                V3 gợi ý: <span className="font-medium text-primary">{topSuggestion.style}</span> ({topSuggestion.matchPercentage}%)
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-1 cursor-help underline decoration-dotted decoration-muted-foreground/40">
+                        V3 gợi ý
+                        <HelpCircle className="w-2.5 h-2.5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[240px] text-xs">
+                      Hệ thống V3 phân tích nội dung, kênh và mục tiêu để gợi ý phong cách ảnh phù hợp nhất.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                : <span className="font-medium text-primary">{topSuggestion.style}</span> ({topSuggestion.matchPercentage}%)
               </p>
             )}
             <div className="grid grid-cols-4 gap-1.5">
