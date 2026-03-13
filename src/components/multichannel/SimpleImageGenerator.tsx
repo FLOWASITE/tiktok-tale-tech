@@ -58,6 +58,10 @@ interface SimpleImageGeneratorProps {
   onImageGenerated?: (channel: Channel, image: ChannelImage) => Promise<void>;
   initialChannel?: Channel;
   initialMode?: 'single' | 'batch';
+  /** Called when user minimizes during generation */
+  onMinimize?: () => void;
+  /** Whether the generator was previously minimized and is being restored */
+  isRestored?: boolean;
 }
 
 type ViewMode = 'setup' | 'streaming' | 'preview';
