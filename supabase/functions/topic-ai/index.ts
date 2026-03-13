@@ -352,31 +352,32 @@ async function handleRefine(
 
 ## IMPROVEMENT PRINCIPLES:
 1. Be specific: Add data points, timeframes, specific audiences
-2. Fresh angles: Practical, Controversial, Educational, Storytelling
+2. Fresh angles: Practical, Controversial, Educational, Storytelling, Sales, Solution
 3. Hook-friendly: Title can be immediately turned into a video hook
 4. Brand-aligned: Do not violate brand tone and guidelines
 
 Respond in the same language as the raw topic provided.`;
+
+  // Inject content goal at the TOP of prompt (before RAW TOPIC) for maximum AI attention
+  if (contentGoal) {
+    const goalGuidance: Record<string, string> = {
+      conversion: 'Focus on sales angles, pain points, pricing objections, offers, urgency, CTA, case studies, ROI proof. Topics MUST drive purchase decisions and move prospects toward buying.',
+      education: 'Focus on tips, how-to, knowledge sharing, tutorials, step-by-step guides. Topics MUST educate the audience with actionable knowledge.',
+      awareness: 'Focus on brand story, introduction, viral potential, industry trends. Topics MUST increase brand recognition and reach.',
+      engagement: 'Focus on interaction, debate, community building, polls, questions. Topics MUST encourage audience participation and comments.',
+      expertise: 'Focus on authority, data-driven insights, research, deep analysis, trends. Topics MUST establish thought leadership.',
+    };
+    promptParts.push(`## ⚠️ MANDATORY CONTENT GOAL: "${contentGoal}"
+${goalGuidance[contentGoal] || 'Align refined topics with this goal.'}
+This is the PRIMARY constraint. Every refined topic MUST serve this goal.
+Topics that don't align with "${contentGoal}" will be REJECTED.`);
+  }
 
   promptParts.push(`${basePrompt}
 
 ## RAW TOPIC
 "${rawTopic}"
 Video type: ${videoTypeLabel}`);
-
-  // Inject content goal guidance
-  if (contentGoal) {
-    const goalGuidance: Record<string, string> = {
-      conversion: 'Focus on sales angles, pain points, offers, urgency, CTA. Topics MUST drive purchase decisions.',
-      education: 'Focus on tips, how-to, knowledge sharing, tutorials. Topics MUST educate the audience.',
-      awareness: 'Focus on brand story, introduction, viral potential. Topics MUST increase brand recognition.',
-      engagement: 'Focus on interaction, debate, community building, polls. Topics MUST encourage audience participation.',
-      expertise: 'Focus on authority, data-driven insights, research, trends. Topics MUST establish thought leadership.',
-    };
-    promptParts.push(`\n## CONTENT GOAL: "${contentGoal}"
-${goalGuidance[contentGoal] || 'Align refined topics with this goal.'}
-ALL 3 refined topics MUST align with the "${contentGoal}" goal. Do NOT suggest topics that serve a different goal.`);
-  }
 
   if (brandContext) {
     promptParts.push(buildBrandContextString(brandContext));
@@ -404,13 +405,13 @@ Return EXACTLY a JSON array with 3 items (respond in the same language as the ra
 [
   {
     "topic": "Improved topic title (15-50 words)",
-    "angle": "Approach angle (practical, controversial, educational, storytelling, solution, data)",
+    "angle": "Approach angle (practical, controversial, educational, storytelling, solution, sales, data)",
     "hook": "1 suggested opening hook for video"${brandContext?.personas?.length ? `,
     "targetPersona": "Best matching persona name (if clear)"` : ''}${brandContext?.products?.length ? `,
     "productFit": "Related product name (if any)"` : ''}
   }
 ]
-RETURN JSON ONLY, NO ADDITIONAL EXPLANATION.`);
+RETURN JSON ONLY, NO ADDITIONAL EXPLANATION.${contentGoal ? `\n\nREMINDER: Content goal is "${contentGoal}". ALL 3 topics MUST serve this goal. Do NOT mix goals.` : ''}`);
 
   const finalPrompt = promptParts.join('\n\n');
 
