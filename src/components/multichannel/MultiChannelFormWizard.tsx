@@ -584,7 +584,7 @@ export function MultiChannelFormWizard({
     }
   }, [formData.topic, formData.contentGoal, coreContentAngle, coreContentAudience, coreContentPersonaId, coreContentLengthMode, brandTemplateId, organizationId, generateCoreContentStreaming, enableResearch]);
 
-  // Can proceed logic - NEW for 4-step flow with parallel workflow
+  // Can proceed logic - 5-step flow
   const canProceed = useMemo(() => {
     switch (currentStep) {
       case 1:
@@ -599,6 +599,9 @@ export function MultiChannelFormWizard({
       case 4:
         // Step 4: At least 1 channel
         return formData.channels.length > 0;
+      case 5:
+        // Step 5: Always can proceed (skip or finish)
+        return true;
       default:
         return false;
     }
@@ -611,7 +614,7 @@ export function MultiChannelFormWizard({
       return;
     }
     
-    if (currentStep < 4 && canProceed) {
+    if (currentStep < 5 && canProceed) {
       setCompletedSteps(prev => [...prev.filter(s => s !== currentStep), currentStep]);
       setCurrentStep(prev => prev + 1);
     }
