@@ -421,6 +421,7 @@ export function ImageAdvancedOptions({
         {/* Negative Prompt */}
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Không bao gồm (Negative prompt)</Label>
+          <p className="text-[10px] text-muted-foreground/60 -mt-1">Liệt kê những gì KHÔNG muốn xuất hiện trong ảnh.</p>
           <Textarea
             value={negativePrompt}
             onChange={e => onNegativePromptChange(e.target.value)}
