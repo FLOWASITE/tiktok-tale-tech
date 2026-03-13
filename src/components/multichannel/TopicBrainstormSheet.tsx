@@ -10,6 +10,7 @@ interface TopicBrainstormSheetProps {
   onOpenChange: (open: boolean) => void;
   brandTemplateId?: string;
   contentGoal?: ContentGoal;
+  initialPrompt?: string;
   onSelectTopic: (topic: string) => void;
 }
 
@@ -18,6 +19,7 @@ export function TopicBrainstormSheet({
   onOpenChange,
   brandTemplateId,
   contentGoal,
+  initialPrompt,
   onSelectTopic,
 }: TopicBrainstormSheetProps) {
   const chatbotHandleRef = useRef<TopicAIChatbotHandle | null>(null);
@@ -66,6 +68,7 @@ export function TopicBrainstormSheet({
             brandTemplateId={brandTemplateId}
             contentGoal={contentGoal}
             mode="embedded"
+            initialPrompt={open ? initialPrompt : undefined}
             onTopicSelect={handleTopicSelect}
             onNavigate={() => {}} // Not used in embedded mode
             onReady={handleChatbotReady}

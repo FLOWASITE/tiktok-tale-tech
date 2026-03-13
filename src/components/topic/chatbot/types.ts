@@ -1,6 +1,6 @@
 // ============================================
 // TopicAIChatbot Types
-// Updated: Phase 5 - Rate Limiting & Quotas
+// Updated: Phase 5 - Rate Limiting & Quotas + initialPrompt support
 // ============================================
 
 import { ContentGoal } from '@/types/multichannel';
@@ -102,6 +102,7 @@ export interface TopicAIChatbotHandle {
   focusInput: () => void;
 }
 
+
 export interface TopicAIChatbotProps {
   brandTemplateId?: string;
   contentGoal?: ContentGoal;
@@ -115,6 +116,8 @@ export interface TopicAIChatbotProps {
   onTopicSelect?: (topic: string) => void;
   /** Callback when chatbot is ready with imperative handle */
   onReady?: (handle: TopicAIChatbotHandle) => void;
+  /** Auto-send this prompt when chatbot mounts (used by intent detection) */
+  initialPrompt?: string;
 }
 
 // Agent turn events for multi-turn agentic loop

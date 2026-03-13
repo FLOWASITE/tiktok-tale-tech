@@ -239,6 +239,20 @@ export function MultiChannelFormWizard({
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
+  const [brainstormInitialPrompt, setBrainstormInitialPrompt] = useState<string | undefined>();
+
+  // Intent detection: detect AI commands vs actual topics
+  const AI_COMMAND_PATTERNS = /^(tạo|gợi ý|cho tôi|nghĩ giúp|viết về|suggest|give me|create|brainstorm|hãy|giúp tôi|đề xuất|tìm|liệt kê|list)\b/i;
+  
+  const detectAndHandleAICommand = useCallback((text: string) => {
+    if (text.trim().length >= 10 && AI_COMMAND_PATTERNS.test(text.trim())) {
+      setBrainstormInitialPrompt(text.trim());
+      setShowBrainstormSheet(true);
+      setFormData(prev => ({ ...prev, topic: '' }));
+      return true;
+    }
+    return false;
+  }, []);
 
   // NEW: Core Content generation state
   const [coreContentData, setCoreContentData] = useState<GeneratedCoreContent | null>(null);
@@ -964,7 +978,15 @@ export function MultiChannelFormWizard({
                     ...prev, 
                     topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
                   }))}
-                  placeholder="VD: Cách tối ưu thuế cho doanh nghiệp nhỏ trong năm 2024..."
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      const text = (e.target as HTMLTextAreaElement).value;
+                      if (detectAndHandleAICommand(text)) {
+                        e.preventDefault();
+                      }
+                    }
+                  }}
+                  placeholder="VD: Cách tối ưu thuế cho doanh nghiệp nhỏ trong năm 2024... hoặc gõ 'tạo chủ đề bán hàng' để AI gợi ý"
                   className="min-h-[100px] resize-y text-sm"
                   disabled={isGenerating}
                   autoFocus
@@ -1926,11 +1948,16 @@ export function MultiChannelFormWizard({
         {/* Brainstorm Sheet */}
         <TopicBrainstormSheet
           open={showBrainstormSheet}
-          onOpenChange={setShowBrainstormSheet}
+          onOpenChange={(open) => {
+            setShowBrainstormSheet(open);
+            if (!open) setBrainstormInitialPrompt(undefined);
+          }}
           brandTemplateId={formData.brandTemplateId}
           contentGoal={formData.contentGoal}
+          initialPrompt={brainstormInitialPrompt}
           onSelectTopic={(topic) => {
             setFormData(prev => ({ ...prev, topic }));
+            setBrainstormInitialPrompt(undefined);
             toast.success('Đã chọn chủ đề từ AI!');
           }}
         />

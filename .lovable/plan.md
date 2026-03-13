@@ -1,30 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Phân tích: Hành vi khi user nhập "tạo 1 chủ đề bán hàng..."
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-### Hiện trạng
-Khi user gõ text ≥10 ký tự vào ô chủ đề, hệ thống hiển thị **TopicRefinementSuggestions** — tức là AI sẽ cố gắng *cải thiện* đoạn text đó như thể nó là một chủ đề thực sự. Nhưng "tạo 1 chủ đề bán hàng" rõ ràng là **câu lệnh/yêu cầu**, không phải chủ đề.
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-### Vấn đề
-Hệ thống không phân biệt giữa:
-- **Chủ đề thực**: "Cách tối ưu quảng cáo Facebook Ads cho shop online"
-- **Câu lệnh AI**: "tạo 1 chủ đề bán hàng cho shop quần áo"
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-### Giải pháp đề xuất: Phát hiện Intent và chuyển hướng thông minh
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-**1. Thêm logic phát hiện "câu lệnh" trong `MultiChannelFormWizard.tsx`**
-- Detect các pattern như: "tạo", "gợi ý", "cho tôi", "nghĩ giúp", "viết về"... ở đầu câu
-- Khi phát hiện → tự động mở **TopicBrainstormSheet** với nội dung đó làm prompt ban đầu
-- Xóa text khỏi ô input (vì nó không phải chủ đề)
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-**2. Truyền `initialPrompt` vào `TopicBrainstormSheet` → `TopicAIChatbot`**
-- Khi sheet mở với initialPrompt, chatbot tự động gửi message đầu tiên
-- User nhận ngay kết quả gợi ý chủ đề bán hàng từ AI
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
 
-**3. Fallback**: Nếu user không muốn dùng AI, họ vẫn có thể đóng sheet và sửa text thủ công
+### Chi tiet ky thuat
 
-### Files cần sửa
-- `src/components/multichannel/MultiChannelFormWizard.tsx` — thêm intent detection, auto-trigger brainstorm
-- `src/components/multichannel/TopicBrainstormSheet.tsx` — thêm prop `initialPrompt`
-- `src/components/topic/TopicAIChatbot.tsx` — nhận và auto-send `initialPrompt`
+```typescript
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
+```
 
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
+```
+
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)

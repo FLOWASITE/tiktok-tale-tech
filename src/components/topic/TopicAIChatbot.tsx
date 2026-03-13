@@ -43,8 +43,9 @@ import {
 import { SimpleMessageList } from './chatbot/SimpleMessageList';
 import { AgentSessionSummary } from './chatbot/AgentSessionSummary';
 
-// Re-export handle type for consumers
+// Re-export handle type and props for consumers
 export type { TopicAIChatbotHandle } from './chatbot';
+export type { TopicAIChatbotProps } from './chatbot';
 
 export function TopicAIChatbot({
   brandTemplateId,
@@ -55,6 +56,7 @@ export function TopicAIChatbot({
   mode = 'standalone',
   onTopicSelect,
   onReady,
+  initialPrompt,
 }: TopicAIChatbotProps) {
   const isEmbedded = mode === 'embedded';
   const { user } = useAuth();
@@ -161,6 +163,19 @@ export function TopicAIChatbot({
       onReady?.(handleRef.current);
     }
   }, [inputHook.focusInput, onReady]);
+  
+  // Auto-send initialPrompt when provided (from intent detection)
+  const initialPromptSentRef = useRef(false);
+  useEffect(() => {
+    if (initialPrompt && !initialPromptSentRef.current && !streamingHook.isLoading) {
+      initialPromptSentRef.current = true;
+      // Small delay to ensure component is fully mounted
+      const timer = setTimeout(() => {
+        handleSend(initialPrompt);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [initialPrompt, handleSend, streamingHook.isLoading]);
   
   // Global keyboard shortcuts
   useEffect(() => {
