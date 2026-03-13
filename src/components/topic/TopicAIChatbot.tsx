@@ -163,6 +163,19 @@ export function TopicAIChatbot({
     }
   }, [inputHook.focusInput, onReady]);
   
+  // Auto-send initialPrompt when provided (from intent detection)
+  const initialPromptSentRef = useRef(false);
+  useEffect(() => {
+    if (initialPrompt && !initialPromptSentRef.current && !streamingHook.isLoading) {
+      initialPromptSentRef.current = true;
+      // Small delay to ensure component is fully mounted
+      const timer = setTimeout(() => {
+        handleSend(initialPrompt);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [initialPrompt, handleSend, streamingHook.isLoading]);
+  
   // Global keyboard shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
