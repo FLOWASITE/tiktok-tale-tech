@@ -60,8 +60,28 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   'moonshotai/kimi-k2.5': { input: 0.23, output: 3.0 },
   'minimax/minimax-m2.5': { input: 0.30, output: 1.10 },
   'x-ai/grok-4.1-fast': { input: 0.20, output: 0.50 },
+  'x-ai/grok-4.20-beta': { input: 2.0, output: 6.0 },
+  'x-ai/grok-4.20-multi-agent-beta': { input: 2.0, output: 6.0 },
   'z-ai/glm-5': { input: 0.30, output: 2.55 },
   'xiaomi/mimo-v2-flash': { input: 0.09, output: 0.29 },
+  
+  // OpenAI GPT-5.x series (March 2026)
+  'openai/gpt-5.4': { input: 2.50, output: 15.0 },
+  'openai/gpt-5.4-pro': { input: 30.0, output: 180.0 },
+  'openai/gpt-5.3-codex': { input: 1.75, output: 14.0 },
+  'openai/gpt-5.3-chat': { input: 1.75, output: 14.0 },
+  
+  // Google Gemini 3.1 (March 2026)
+  'google/gemini-3.1-flash-lite-preview': { input: 0.25, output: 1.50 },
+  
+  // Qwen 3.5 (March 2026)
+  'qwen/qwen3.5-397b-a17b': { input: 0.39, output: 2.34 },
+  'qwen/qwen3.5-flash-02-23': { input: 0.10, output: 0.40 },
+  
+  // Other new models (March 2026)
+  'inception/mercury-2': { input: 0.25, output: 0.75 },
+  'stepfun/step-3.5-flash': { input: 0.10, output: 0.30 },
+  'bytedance-seed/seed-2.0-lite': { input: 0.25, output: 2.0 },
 };
 
 // Default pricing for unknown models
