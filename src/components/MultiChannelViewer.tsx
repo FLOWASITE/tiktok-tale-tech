@@ -1396,7 +1396,7 @@ export function MultiChannelViewer({
                           /* View Mode - Always Mockup */
                           (
                             <div className="space-y-4">
-                              <div className="relative group">
+                              <div className="relative">
                               <ContentMockupToggle
                                   channel={channel}
                                   content={channelContent || ''}
@@ -1407,89 +1407,92 @@ export function MultiChannelViewer({
                                   seoData={channel === 'website' ? (content as any).website_seo_data : undefined}
                                   channelImage={generatedImages[channel] || content.channel_images?.[channel]?.url}
                                 />
-                                
-                                {/* Quick Image Actions - Floating */}
-                                {(content.channel_images?.[channel]?.url || generatedImages[channel]) && (
-                                  <div className="absolute bottom-3 right-3 flex gap-1 bg-black/60 backdrop-blur-sm rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <TooltipProvider>
-                                      {/* View image */}
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button 
-                                            size="icon" 
-                                            variant="ghost" 
-                                            className="h-8 w-8 text-white hover:bg-white/20"
-                                            onClick={() => {
-                                              const imageUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
-                                              if (imageUrl) setLightboxImageUrl(imageUrl);
-                                            }}
-                                          >
-                                            <Eye className="w-4 h-4" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Xem ảnh</TooltipContent>
-                                      </Tooltip>
-                                      
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button 
-                                            size="icon" 
-                                            variant="ghost" 
-                                            className="h-8 w-8 text-white hover:bg-white/20"
-                                            onClick={() => {
-                                              setActiveImageChannel(channel);
-                                              setShowImageGenerator(true);
-                                            }}
-                                          >
-                                            <RefreshCw className="w-4 h-4" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Tạo lại ảnh</TooltipContent>
-                                      </Tooltip>
-                                      
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button 
-                                            size="icon" 
-                                            variant="ghost" 
-                                            className="h-8 w-8 text-white hover:bg-white/20"
-                                            onClick={() => {
-                                              setHistoryChannel(channel);
-                                              setShowImageHistory(true);
-                                            }}
-                                          >
-                                            <Images className="w-4 h-4" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Lịch sử ảnh</TooltipContent>
-                                      </Tooltip>
-                                      
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button 
-                                            size="icon" 
-                                            variant="ghost" 
-                                            className="h-8 w-8 text-white hover:bg-white/20"
-                                            onClick={() => {
-                                              const imageUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
-                                              if (imageUrl) {
-                                                const link = document.createElement('a');
-                                                link.href = imageUrl;
-                                                link.download = `${channel}-image.png`;
-                                                link.target = '_blank';
-                                                link.click();
-                                              }
-                                            }}
-                                          >
-                                            <Download className="w-4 h-4" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Tải xuống</TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  </div>
-                                )}
                               </div>
+                                
+                              {/* Image Actions Bar - visible below mockup */}
+                              {(content.channel_images?.[channel]?.url || generatedImages[channel]) && (
+                                <div className="flex items-center justify-center gap-1 py-1">
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button 
+                                          size="sm" 
+                                          variant="outline"
+                                          className="h-8 gap-1.5 text-xs"
+                                          onClick={() => {
+                                            const imageUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
+                                            if (imageUrl) setLightboxImageUrl(imageUrl);
+                                          }}
+                                        >
+                                          <Eye className="w-3.5 h-3.5" />
+                                          Xem ảnh
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Xem ảnh full-screen</TooltipContent>
+                                    </Tooltip>
+                                    
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button 
+                                          size="sm" 
+                                          variant="ghost"
+                                          className="h-8 gap-1.5 text-xs"
+                                          onClick={() => {
+                                            setActiveImageChannel(channel);
+                                            setShowImageGenerator(true);
+                                          }}
+                                        >
+                                          <RefreshCw className="w-3.5 h-3.5" />
+                                          Tạo lại
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Tạo lại ảnh</TooltipContent>
+                                    </Tooltip>
+                                    
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button 
+                                          size="sm" 
+                                          variant="ghost"
+                                          className="h-8 gap-1.5 text-xs"
+                                          onClick={() => {
+                                            setHistoryChannel(channel);
+                                            setShowImageHistory(true);
+                                          }}
+                                        >
+                                          <Images className="w-3.5 h-3.5" />
+                                          Lịch sử
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Lịch sử ảnh</TooltipContent>
+                                    </Tooltip>
+                                    
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button 
+                                          size="sm" 
+                                          variant="ghost"
+                                          className="h-8 gap-1.5 text-xs"
+                                          onClick={() => {
+                                            const imageUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
+                                            if (imageUrl) {
+                                              const link = document.createElement('a');
+                                              link.href = imageUrl;
+                                              link.download = `${channel}-image.png`;
+                                              link.target = '_blank';
+                                              link.click();
+                                            }
+                                          }}
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          Tải xuống
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Tải xuống ảnh</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
+                              )}
                               
                               {/* SEO Preview for website channel */}
                               {channel === 'website' && (content as any).website_seo_data && (
