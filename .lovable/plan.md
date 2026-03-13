@@ -1,32 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Vấn đề
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-Khi user chọn/tạo chủ đề về "bán hàng", hệ thống vẫn giữ mặc định `contentGoal = 'education'` → dẫn đến chiến lược hiển thị "Nhận diện" (awareness) + "Kiến thức" (educational), không phù hợp với intent bán hàng.
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-**Nguyên nhân gốc:** Form data khởi tạo với `contentGoal: 'education'` (dòng 391) và không có logic nào phân tích nội dung chủ đề để gợi ý goal phù hợp hơn.
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-## Giải pháp: Auto-detect Goal từ Topic
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-Thêm logic phát hiện từ khóa trong chủ đề để tự động gợi ý `contentGoal` phù hợp.
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-### Thay đổi trong `MultiChannelFormWizard.tsx`
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
 
-**1. Thêm hàm `detectGoalFromTopic`**
-- Phân tích text chủ đề theo keyword patterns:
-  - **Conversion**: `bán hàng, mua, giảm giá, khuyến mãi, đặt hàng, sale, chốt đơn, ưu đãi, deal, flash sale, voucher, order`
-  - **Awareness**: `giới thiệu, ra mắt, thương hiệu, brand, nhận diện, launch`
-  - **Education**: `hướng dẫn, cách, bí quyết, tips, kiến thức, tutorial, how to`
-  - **Engagement**: `thảo luận, bình chọn, chia sẻ, poll, quiz, hỏi đáp`
-  - **Expertise**: `chuyên gia, phân tích, nghiên cứu, insight, trend, báo cáo`
-- Trả về goal có nhiều keyword match nhất, hoặc `null` nếu không detect được
+### Chi tiet ky thuat
 
-**2. Gọi auto-detect khi user hoàn tất nhập topic**
-- Khi topic thay đổi và đủ dài (≥10 ký tự), chạy `detectGoalFromTopic`
-- Nếu detect được goal khác default → tự động cập nhật `contentGoal` + hiển thị toast nhỏ thông báo "Đã tự động chọn Mục tiêu: Chuyển đổi dựa trên chủ đề"
-- User vẫn có thể thay đổi thủ công bằng cách click vào goal khác
-- Chỉ auto-detect 1 lần khi user nhập topic mới (không override nếu user đã chủ động chọn)
+```typescript
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
+```
 
-### Files cần sửa
-- `src/components/multichannel/MultiChannelFormWizard.tsx` — thêm `detectGoalFromTopic` + useEffect auto-detect
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
+```
 
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)

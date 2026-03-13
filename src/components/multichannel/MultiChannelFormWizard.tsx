@@ -193,6 +193,34 @@ const GOAL_ICONS: Record<ContentGoal, React.ReactNode> = {
   conversion: <Target className="w-4 h-4" />,
 };
 
+// Auto-detect content goal from topic keywords
+const GOAL_KEYWORD_PATTERNS: Record<ContentGoal, RegExp> = {
+  conversion: /bán hàng|mua ngay|giảm giá|khuyến mãi|đặt hàng|chốt đơn|ưu đãi|flash sale|voucher|order|combo|deal|freeship|giá rẻ|giá sốc|mở bán|đặt mua|thanh toán|checkout|add to cart|mua hàng|sản phẩm mới|ra mắt sản phẩm|dùng thử/i,
+  awareness: /giới thiệu|thương hiệu|brand|nhận diện|launch|ra mắt|câu chuyện|sứ mệnh|hậu trường|behind the scenes|about us|chúng tôi là ai/i,
+  education: /hướng dẫn|cách làm|bí quyết|tips|kiến thức|tutorial|how to|mẹo|bước|từ a.?z|cho người mới|sai lầm|lưu ý|nên và không nên/i,
+  engagement: /thảo luận|bình chọn|chia sẻ|poll|quiz|hỏi đáp|bạn nghĩ gì|team nào|challenge|thử thách|trending|hot topic|minigame|giveaway/i,
+  expertise: /chuyên gia|phân tích|nghiên cứu|insight|trend|báo cáo|case study|so sánh|đánh giá chuyên sâu|deep.?dive|dự báo|thống kê/i,
+};
+
+function detectGoalFromTopic(topic: string): ContentGoal | null {
+  const normalized = topic.toLowerCase().trim();
+  if (normalized.length < 10) return null;
+
+  let bestGoal: ContentGoal | null = null;
+  let bestCount = 0;
+
+  for (const [goal, pattern] of Object.entries(GOAL_KEYWORD_PATTERNS)) {
+    const matches = normalized.match(new RegExp(pattern.source, 'gi'));
+    const count = matches ? matches.length : 0;
+    if (count > bestCount) {
+      bestCount = count;
+      bestGoal = goal as ContentGoal;
+    }
+  }
+
+  return bestGoal;
+}
+
 // Core Content data structure for inline generation
 interface GeneratedCoreContent {
   id: string;
@@ -406,6 +434,29 @@ export function MultiChannelFormWizard({
     coreContentId: initialData?.coreContentId,
     contentRole: initialData?.contentRole,
   });
+
+  // Track if user manually changed the goal (to avoid overriding)
+  const userManuallySetGoal = useRef(!!initialData?.contentGoal);
+  const lastAutoDetectedTopic = useRef('');
+
+  // Auto-detect contentGoal from topic keywords
+  useEffect(() => {
+    const topic = formData.topic;
+    if (userManuallySetGoal.current) return;
+    if (topic.length < 10) return;
+    if (topic === lastAutoDetectedTopic.current) return;
+
+    const detected = detectGoalFromTopic(topic);
+    if (detected && detected !== formData.contentGoal) {
+      lastAutoDetectedTopic.current = topic;
+      const goalLabel = CONTENT_GOALS.find(g => g.value === detected)?.label || detected;
+      setFormData(prev => ({ ...prev, contentGoal: detected }));
+      toast.info(`Mục tiêu tự động: ${goalLabel}`, {
+        description: 'Dựa trên chủ đề của bạn. Bạn có thể thay đổi thủ công.',
+        duration: 3000,
+      });
+    }
+  }, [formData.topic]);
 
   // Removed: useCoreContents - now using useStreamingCoreContent
 
@@ -917,7 +968,7 @@ export function MultiChannelFormWizard({
                     <button
                       key={goal.value}
                       type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, contentGoal: goal.value }))}
+                      onClick={() => { userManuallySetGoal.current = true; setFormData(prev => ({ ...prev, contentGoal: goal.value })); }}
                       disabled={isGenerating}
                       className={cn(
                         "p-2.5 rounded-lg border text-center transition-all duration-200",
