@@ -147,9 +147,46 @@ export function ImageAdvancedOptions({
       </CollapsibleTrigger>
 
       <CollapsibleContent className="mt-3 space-y-5 px-1">
-        {/* Style Grid with V3 scores */}
+        {/* Prompt Mode Selector */}
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Phong cách ảnh</Label>
+          <Label className="text-xs text-muted-foreground">Chế độ prompt</Label>
+          <div className="grid grid-cols-3 gap-1.5">
+            {([
+              { value: 'full' as const, label: 'AI tự động', icon: <Wand2 className="w-3.5 h-3.5" />, desc: 'AI tối ưu toàn bộ' },
+              { value: 'brand_only' as const, label: 'Giữ thương hiệu', icon: <Palette className="w-3.5 h-3.5" />, desc: 'Prompt bạn + brand' },
+              { value: 'raw' as const, label: 'Tự do', icon: <PenLine className="w-3.5 h-3.5" />, desc: 'Prompt nguyên vẹn' },
+            ]).map(mode => (
+              <button
+                key={mode.value}
+                type="button"
+                onClick={() => onPromptModeChange(mode.value)}
+                className={cn(
+                  "flex flex-col items-center gap-1 rounded-lg border p-2.5 text-center transition-all",
+                  promptMode === mode.value
+                    ? "border-primary bg-primary/10 text-primary shadow-sm"
+                    : "border-border/50 hover:border-border hover:bg-muted/40 text-muted-foreground"
+                )}
+              >
+                {mode.icon}
+                <span className="text-[11px] font-medium leading-tight">{mode.label}</span>
+                <span className="text-[9px] opacity-70 leading-tight">{mode.desc}</span>
+              </button>
+            ))}
+          </div>
+          {promptMode === 'brand_only' && (
+            <p className="text-[10px] text-muted-foreground/80 bg-muted/30 rounded-md px-2 py-1.5">
+              💡 Phù hợp khi bạn tự viết prompt chi tiết (infographic, layout cụ thể). AI giữ nguyên prompt + thêm brand colors/logo.
+            </p>
+          )}
+          {promptMode === 'raw' && (
+            <p className="text-[10px] text-muted-foreground/80 bg-muted/30 rounded-md px-2 py-1.5">
+              ⚡ Gửi prompt nguyên vẹn đến AI, chỉ thêm aspect ratio. Dùng khi bạn muốn kiểm soát 100%.
+            </p>
+          )}
+        </div>
+
+        {/* Style Grid with V3 scores — hidden when not in full mode */}
+        {promptMode === 'full' && (
           {topSuggestion && (
             <p className="text-[10px] text-muted-foreground/70 -mt-1">
               V3 gợi ý: <span className="font-medium text-primary">{topSuggestion.style}</span> ({topSuggestion.matchPercentage}%)
