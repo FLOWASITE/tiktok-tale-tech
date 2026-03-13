@@ -85,6 +85,7 @@ export function ImageStreamingCard({
   onRetry,
   onDownload,
   onEditBackground,
+  onRefineText,
   onViewImage,
   isRetrying,
   logoOverlayFailed,
