@@ -213,6 +213,6 @@ export function isPoyoModel(model: string): boolean {
  */
 export function mapAspectRatioToPoyo(aspectRatio?: string): string {
   if (!aspectRatio) return '1:1';
-  const supported = ['1:1', '16:9', '9:16', '4:3', '3:4', '4:5'];
+  const supported = ['1:1', '16:9', '9:16', '4:3', '3:4', '4:5', '1:4', '4:1', '1:8', '8:1'];
   return supported.includes(aspectRatio) ? aspectRatio : '1:1';
 }

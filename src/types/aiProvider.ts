@@ -83,9 +83,9 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
   {
     id: 'poyo',
     name: 'PoYo.ai',
-    description: 'Nano Banana Pro, GPT-4o, Flux 2, Seedream 4.5, Z-Image, Grok',
+    description: 'Nano Banana 2 (Gemini 3.1 Flash), Nano Banana Pro, GPT-4o, Flux 2, Seedream 4.5, Z-Image, Grok',
     getKeyUrl: 'https://poyo.ai/dashboard/api-key',
-    models: ['poyo/nano-banana-2', 'poyo/nano-banana-2-edit', 'poyo/gpt-4o-image', 'poyo/gpt-4o-image-edit', 'poyo/gpt-image-1.5', 'poyo/z-image', 'poyo/flux-2-pro', 'poyo/flux-2-pro-edit', 'poyo/flux-2-flex', 'poyo/flux-2-flex-edit', 'poyo/seedream-4.5', 'poyo/seedream-4.5-edit', 'poyo/grok-imagine'],
+    models: ['poyo/nano-banana-2-new', 'poyo/nano-banana-2-new-edit', 'poyo/nano-banana-2', 'poyo/nano-banana-2-edit', 'poyo/gpt-4o-image', 'poyo/gpt-4o-image-edit', 'poyo/gpt-image-1.5', 'poyo/z-image', 'poyo/flux-2-pro', 'poyo/flux-2-pro-edit', 'poyo/flux-2-flex', 'poyo/flux-2-flex-edit', 'poyo/seedream-4.5', 'poyo/seedream-4.5-edit', 'poyo/grok-imagine'],
     icon: '🐱',
   },
   {
