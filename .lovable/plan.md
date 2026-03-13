@@ -1,41 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Plan: Update PoYo.ai Models to Latest
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-### Phát hiện từ PoYo.ai docs (March 2026)
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-PoYo đã ra model mới **Nano Banana 2** (powered by Gemini 3.1 Flash) với model ID `nano-banana-2-new`. Model cũ `nano-banana-2` giờ gọi là **Nano Banana Pro** (Gemini 3 Pro).
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-```text
-Hiện tại trong code:              PoYo API thực tế:
-─────────────────────             ──────────────────
-poyo/nano-banana-2       →        nano-banana-2       (= Nano Banana Pro, Gemini 3 Pro)
-poyo/nano-banana-2-edit  →        nano-banana-2-edit  (= Nano Banana Pro Edit)
-                                  nano-banana-2-new   (= Nano Banana 2 MỚI, Gemini 3.1 Flash) ← THIẾU
-                                  nano-banana-2-new-edit ← THIẾU
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
+
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
+
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
+
+### Chi tiet ky thuat
+
+```typescript
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
 ```
 
-### Thay đổi (3 files)
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
+```
 
-#### 1. `src/types/aiProvider.ts` — Update PoYo provider config
-- Thêm `poyo/nano-banana-2-new` và `poyo/nano-banana-2-new-edit` vào models list
-- Update description: thêm "Nano Banana 2 (Gemini 3.1 Flash)"
-- Đặt `nano-banana-2-new` làm model đầu tiên (recommended)
-
-#### 2. `src/hooks/useAIConfig.ts` — Update model lists + MODEL_INFO
-- Thêm `poyo/nano-banana-2-new` và `poyo/nano-banana-2-new-edit` vào `AVAILABLE_MODELS['image']`
-- Thêm MODEL_INFO entries cho 2 model mới:
-  - `nano-banana-2-new`: "Nano Banana 2" — Gemini 3.1 Flash, default 2K/4K, $0.025, fast, recommended
-  - `nano-banana-2-new-edit`: "Nano Banana 2 Edit" — edit variant, 2K/4K
-- Update entry `nano-banana-2` description: rename to "Nano Banana Pro" (Gemini 3 Pro)
-- Đánh dấu `nano-banana-2-new` là `isRecommended: true`, bỏ recommend từ `nano-banana-2`
-
-#### 3. `supabase/functions/_shared/poyo-image-generator.ts`
-- Update comment header để reflect model mới
-- Thêm `nano-banana-2-new` support cho `resolution` param (1K/2K/4K) — PoYo API hỗ trợ field `resolution` cho model mới này
-- Update `mapAspectRatioToSize()` thêm extreme ratios (`1:4`, `4:1`, `1:8`, `8:1`) mà Nano Banana 2 hỗ trợ
-
-### Không thay đổi
-- `poyo-image-generator.ts` flow (submit → poll) giữ nguyên — chỉ thêm `resolution` field
-- Backend routing logic không đổi (strip prefix → gửi API)
-
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)

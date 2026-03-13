@@ -1,7 +1,8 @@
 // ============================================
 // PoYo.ai Image Generation Helper
 // Unified async API: submit task → poll for result
-// Supports: Nano Banana Pro, GPT-4o Image, GPT Image 1.5, Z-Image,
+// Supports: Nano Banana 2 (Gemini 3.1 Flash), Nano Banana Pro (Gemini 3 Pro),
+//           GPT-4o Image, GPT Image 1.5, Z-Image,
 //           Flux 2 Pro/Flex, Seedream 4.5, Grok Imagine + Edit variants
 // ============================================
 
@@ -10,8 +11,9 @@ const POYO_BASE_URL = 'https://api.poyo.ai';
 export interface PoyoGenerateParams {
   prompt: string;
   model: string;           // 'poyo/gpt-4o-image', 'poyo/z-image', etc.
-  aspectRatio?: string;    // '1:1', '16:9', '9:16', '4:3', '3:4'
+  aspectRatio?: string;    // '1:1', '16:9', '9:16', '4:3', '3:4', '1:4', '4:1', '1:8', '8:1'
   inputImage?: string;     // URL for image editing mode
+  resolution?: '1K' | '2K' | '4K'; // For nano-banana-2-new models
 }
 
 /**
@@ -26,7 +28,7 @@ function stripPoyoPrefix(model: string): string {
  */
 function mapAspectRatioToSize(aspectRatio?: string): string {
   // PoYo API expects ratio format (e.g. '16:9'), NOT pixel dimensions
-  const validRatios = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'];
+  const validRatios = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9', '1:4', '4:1', '1:8', '8:1'];
   const ratio = aspectRatio || '1:1';
   if (validRatios.includes(ratio)) {
     return ratio;
@@ -62,6 +64,11 @@ async function submitPoyoTask(params: PoyoGenerateParams, apiKey: string): Promi
       size,
     },
   };
+
+  // Resolution support for nano-banana-2-new models
+  if (params.resolution && (modelName === 'nano-banana-2-new' || modelName === 'nano-banana-2-new-edit')) {
+    body.input.resolution = params.resolution;
+  }
 
   // Image editing mode
   if (params.inputImage) {
@@ -206,6 +213,6 @@ export function isPoyoModel(model: string): boolean {
  */
 export function mapAspectRatioToPoyo(aspectRatio?: string): string {
   if (!aspectRatio) return '1:1';
-  const supported = ['1:1', '16:9', '9:16', '4:3', '3:4', '4:5'];
+  const supported = ['1:1', '16:9', '9:16', '4:3', '3:4', '4:5', '1:4', '4:1', '1:8', '8:1'];
   return supported.includes(aspectRatio) ? aspectRatio : '1:1';
 }

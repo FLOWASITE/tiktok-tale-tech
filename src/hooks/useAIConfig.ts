@@ -145,6 +145,8 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
     'grok-imagine/text-to-image',
     'grok-imagine/image-to-image',
     // PoYo.ai models
+    'poyo/nano-banana-2-new',
+    'poyo/nano-banana-2-new-edit',
     'poyo/nano-banana-2',
     'poyo/nano-banana-2-edit',
     'poyo/gpt-4o-image',
@@ -419,6 +421,25 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
     provider: 'kie',
   },
   // PoYo.ai Image Models
+  'poyo/nano-banana-2-new': {
+    shortName: 'Nano Banana 2',
+    description: 'Gemini 3.1 Flash, 2K/4K, nhanh, $0.025',
+    speed: 'fast',
+    quality: 'premium',
+    cost: 'low',
+    bestFor: ['Fast generation', '2K/4K images', 'Cost-effective'],
+    provider: 'poyo',
+    isRecommended: true,
+  },
+  'poyo/nano-banana-2-new-edit': {
+    shortName: 'Nano Banana 2 Edit',
+    description: 'Edit variant, Gemini 3.1 Flash, 2K/4K',
+    speed: 'fast',
+    quality: 'premium',
+    cost: 'low',
+    bestFor: ['Image editing', '2K/4K refinement'],
+    provider: 'poyo',
+  },
   'poyo/nano-banana-2': {
     shortName: 'Nano Banana Pro',
     description: 'Gemini 3 Pro Image, 4K, text rendering',
@@ -427,10 +448,9 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
     cost: 'low',
     bestFor: ['4K images', 'Text rendering', 'Multi-language'],
     provider: 'poyo',
-    isRecommended: true,
   },
   'poyo/nano-banana-2-edit': {
-    shortName: 'Nano Banana Edit',
+    shortName: 'Nano Banana Pro Edit',
     description: 'Edit variant, multi-image composition',
     speed: 'medium',
     quality: 'premium',
@@ -863,7 +883,7 @@ export const MODELS_BY_PROVIDER: Record<string, string[]> = {
   replicate: ['black-forest-labs/flux-schnell', 'stability-ai/sdxl'],
   perplexity: ['sonar-pro', 'sonar'],
   kie: ['flux-kontext-pro', 'flux-kontext-max', 'gpt-image-1', 'gpt-image-1.5'],
-  poyo: ['poyo/nano-banana-2', 'poyo/nano-banana-2-edit', 'poyo/gpt-4o-image', 'poyo/gpt-4o-image-edit', 'poyo/gpt-image-1.5', 'poyo/z-image', 'poyo/flux-2-pro', 'poyo/flux-2-pro-edit', 'poyo/flux-2-flex', 'poyo/flux-2-flex-edit', 'poyo/seedream-4.5', 'poyo/seedream-4.5-edit', 'poyo/grok-imagine'],
+  poyo: ['poyo/nano-banana-2-new', 'poyo/nano-banana-2-new-edit', 'poyo/nano-banana-2', 'poyo/nano-banana-2-edit', 'poyo/gpt-4o-image', 'poyo/gpt-4o-image-edit', 'poyo/gpt-image-1.5', 'poyo/z-image', 'poyo/flux-2-pro', 'poyo/flux-2-pro-edit', 'poyo/flux-2-flex', 'poyo/flux-2-flex-edit', 'poyo/seedream-4.5', 'poyo/seedream-4.5-edit', 'poyo/grok-imagine'],
   custom: [],
 };
 
