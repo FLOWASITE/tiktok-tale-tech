@@ -97,6 +97,7 @@ import { InlineTopicSuggestions } from '@/components/multichannel/InlineTopicSug
 import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
 import { RoleSelectorCard } from '@/components/core-content/RoleSelectorCard';
 import { CoreContentStreamingCard } from '@/components/multichannel/streaming/CoreContentStreamingCard';
+import { ImageStreamingGrid } from '@/components/multichannel/streaming/ImageStreamingGrid';
 import { CoreContentPreviewPopup } from '@/components/multichannel/CoreContentPreviewPopup';
 import { ActiveTasksIndicator, PendingQueueItem } from '@/components/multichannel/ActiveTasksIndicator';
 import { StrategyOverviewCard } from '@/components/multichannel/StrategyOverviewCard';
