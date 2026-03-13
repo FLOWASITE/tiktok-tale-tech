@@ -124,6 +124,7 @@ export function ImageAdvancedOptions({
   textToInclude, onTextToIncludeChange,
   textsPerChannel, onTextsPerChannelChange,
   promptMode, onPromptModeChange,
+  onRefineTextContent, isRefiningText,
   className,
 }: ImageAdvancedOptionsProps) {
   const [isOpen, setIsOpen] = useState(true);
