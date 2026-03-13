@@ -198,7 +198,7 @@ export function createResearchNode(ctx: ResearchNodeContext) {
       const tools = CHAT_TOOLS.filter(t => RESEARCH_TOOLS.includes(t.function.name));
 
       const aiResult = await callAI({
-        functionName: 'research_node',
+        functionName: 'research-agent',
         organizationId: ctx.organizationId,
         messages: [
           { role: 'system', content: systemPrompt + stateContext },
