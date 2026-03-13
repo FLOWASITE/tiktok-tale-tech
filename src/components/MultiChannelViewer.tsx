@@ -263,6 +263,7 @@ export function MultiChannelViewer({
   const [showSchedule, setShowSchedule] = useState(false);
   const [showTeamPanel, setShowTeamPanel] = useState(false);
   const [deletingImageChannel, setDeletingImageChannel] = useState<Channel | null>(null);
+  const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
 
   // Reset panel states when dialog opens to always start at mockup view
   useEffect(() => {
