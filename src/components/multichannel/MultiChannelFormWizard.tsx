@@ -978,7 +978,15 @@ export function MultiChannelFormWizard({
                     ...prev, 
                     topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
                   }))}
-                  placeholder="VD: Cách tối ưu thuế cho doanh nghiệp nhỏ trong năm 2024..."
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      const text = (e.target as HTMLTextAreaElement).value;
+                      if (detectAndHandleAICommand(text)) {
+                        e.preventDefault();
+                      }
+                    }
+                  }}
+                  placeholder="VD: Cách tối ưu thuế cho doanh nghiệp nhỏ trong năm 2024... hoặc gõ 'tạo chủ đề bán hàng' để AI gợi ý"
                   className="min-h-[100px] resize-y text-sm"
                   disabled={isGenerating}
                   autoFocus
