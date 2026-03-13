@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Sparkles, Loader2, ArrowLeft, AlertTriangle, Image as ImageIcon } from 'lucide-react';
+import { Sparkles, Loader2, ArrowLeft, AlertTriangle, Image as ImageIcon, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -48,6 +48,14 @@ function toChannelKey(ch: Channel): ChannelKey {
 }
 
 // ─── Props ────────────────────────────────────────────────────────
+export interface ImageGenProgressInfo {
+  isGenerating: boolean;
+  completedCount: number;
+  totalCount: number;
+  progress: Record<string, string>; // channel -> status
+  generatedImages: Record<string, any>;
+}
+
 interface SimpleImageGeneratorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -58,6 +66,10 @@ interface SimpleImageGeneratorProps {
   onImageGenerated?: (channel: Channel, image: ChannelImage) => Promise<void>;
   initialChannel?: Channel;
   initialMode?: 'single' | 'batch';
+  /** Called when user minimizes during generation */
+  onMinimize?: () => void;
+  /** Report progress to parent for floating indicator */
+  onProgressChange?: (info: ImageGenProgressInfo) => void;
 }
 
 type ViewMode = 'setup' | 'streaming' | 'preview';
@@ -166,6 +178,7 @@ export function SimpleImageGenerator({
   open, onOpenChange, content,
   brandLogoUrl, brandPrimaryColor, brandIndustry,
   onImageGenerated, initialChannel, initialMode = 'batch',
+  onMinimize, onProgressChange,
 }: SimpleImageGeneratorProps) {
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<ViewMode>('setup');
@@ -199,6 +212,19 @@ export function SimpleImageGenerator({
 
   // Hooks
   const batchGen = useAutoImageGeneration();
+
+  // Report progress to parent for floating indicator
+  useEffect(() => {
+    onProgressChange?.({
+      isGenerating: batchGen.isGenerating,
+      completedCount: batchGen.completedCount,
+      totalCount: batchGen.totalCount,
+      progress: Object.fromEntries(
+        Object.entries(batchGen.progress).map(([k, v]) => [k, v])
+      ),
+      generatedImages: batchGen.generatedImages,
+    });
+  }, [batchGen.isGenerating, batchGen.completedCount, batchGen.totalCount, batchGen.progress, batchGen.generatedImages, onProgressChange]);
 
   // Fetch brand template for style suggestions
   const { data: brandTemplate } = useQuery({
@@ -300,9 +326,9 @@ export function SimpleImageGenerator({
     }
   }, [open, selectedChannels, content, useSharedText]);
 
-  // Reset when dialog closes
+  // Reset when dialog closes (but NOT when minimized)
   useEffect(() => {
-    if (!open) {
+    if (!open && !batchGen.isGenerating) {
       batchGen.resetProgress();
       setViewMode('setup');
     }
@@ -419,11 +445,18 @@ export function SimpleImageGenerator({
   };
 
   const handleClose = () => {
-    if (!batchGen.isGenerating) {
-      batchGen.resetProgress();
-      setViewMode('setup');
-      onOpenChange(false);
+    if (batchGen.isGenerating) {
+      // Minimize instead of blocking close
+      if (onMinimize) {
+        onMinimize();
+        onOpenChange(false);
+        toast.info('Ảnh đang tạo sẽ tiếp tục ở nền', { duration: 3000 });
+      }
+      return;
     }
+    batchGen.resetProgress();
+    setViewMode('setup');
+    onOpenChange(false);
   };
 
   const handleBackToSetup = () => {
@@ -455,7 +488,7 @@ export function SimpleImageGenerator({
 
   // ─── Shared content ───────────────────────
   const headerContent = (
-    <>
+    <div className="flex items-center justify-between w-full">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="h-7 w-7 -ml-1" onClick={viewMode === 'setup' ? () => onOpenChange(false) : handleBackToSetup}>
           <ArrowLeft className="w-4 h-4" />
@@ -465,7 +498,21 @@ export function SimpleImageGenerator({
         {viewMode === 'streaming' && 'Đang tạo ảnh...'}
         {viewMode === 'preview' && 'Xem trước ảnh'}
       </div>
-    </>
+      {batchGen.isGenerating && onMinimize && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1.5 text-xs text-muted-foreground"
+          onClick={() => {
+            onMinimize();
+            onOpenChange(false);
+          }}
+        >
+          <Minimize2 className="w-3.5 h-3.5" />
+          Thu nhỏ
+        </Button>
+      )}
+    </div>
   );
 
   // Shared form fields (used by both mobile and desktop)

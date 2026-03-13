@@ -64,7 +64,8 @@ import { ActivityTimeline } from '@/components/viewer/ActivityTimeline';
 import { AIContentSummary } from '@/components/viewer/AIContentSummary';
 import { ContentQualityScore } from '@/components/ContentQualityScore';
 import { WebsiteSEOPreview } from '@/components/viewer/WebsiteSEOPreview';
-import { SimpleImageGenerator } from '@/components/multichannel/SimpleImageGenerator';
+import { SimpleImageGenerator, ImageGenProgressInfo } from '@/components/multichannel/SimpleImageGenerator';
+import { FloatingImageProgress } from '@/components/multichannel/FloatingImageProgress';
 import { ExpandChannelsStreamingDialog } from '@/components/multichannel/ExpandChannelsStreamingDialog';
 import { RegenerateStreamingOverlay } from '@/components/multichannel/streaming/RegenerateStreamingOverlay';
 import { useStreamingRegenerate } from '@/hooks/useStreamingRegenerate';
@@ -267,6 +268,8 @@ export function MultiChannelViewer({
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
   const [lightboxChannel, setLightboxChannel] = useState<Channel | null>(null);
   const { editBackground, isProcessing: isRefiningText } = useBackgroundEditor();
+  const [isImageGenMinimized, setIsImageGenMinimized] = useState(false);
+  const [imageGenProgress, setImageGenProgress] = useState<ImageGenProgressInfo | null>(null);
 
   // Reset panel states when dialog opens to always start at mockup view
   useEffect(() => {
@@ -1580,7 +1583,7 @@ export function MultiChannelViewer({
         open={showImageGenerator}
         onOpenChange={(open) => {
           setShowImageGenerator(open);
-          if (!open) setActiveImageChannel(null);
+          if (!open && !isImageGenMinimized) setActiveImageChannel(null);
         }}
         content={content}
         brandLogoUrl={brandLogoUrl}
@@ -1594,6 +1597,26 @@ export function MultiChannelViewer({
           // Save to database
           await onSaveChannelImage(content.id, channel, image);
         } : undefined}
+        onMinimize={() => setIsImageGenMinimized(true)}
+        onProgressChange={setImageGenProgress}
+      />
+
+      {/* Floating Image Generation Progress */}
+      <FloatingImageProgress
+        visible={isImageGenMinimized && !!imageGenProgress && (imageGenProgress.isGenerating || imageGenProgress.completedCount > 0)}
+        completedCount={imageGenProgress?.completedCount ?? 0}
+        totalCount={imageGenProgress?.totalCount ?? 0}
+        progress={imageGenProgress?.progress ?? {}}
+        isComplete={!!imageGenProgress && !imageGenProgress.isGenerating && imageGenProgress.completedCount > 0}
+        hasErrors={!!imageGenProgress && Object.values(imageGenProgress.progress).some(s => s === 'error')}
+        onRestore={() => {
+          setIsImageGenMinimized(false);
+          setShowImageGenerator(true);
+        }}
+        onDismiss={() => {
+          setIsImageGenMinimized(false);
+          setImageGenProgress(null);
+        }}
       />
 
       {/* Assignment Dialog */}
