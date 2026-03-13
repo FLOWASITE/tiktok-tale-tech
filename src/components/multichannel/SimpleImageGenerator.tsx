@@ -450,7 +450,7 @@ export function SimpleImageGenerator({
     const img = batchGen.generatedImages[channel];
     if (!img?.imageUrl) { toast.error('Không có ảnh để sửa chữ'); return; }
     toast.info('Đang sửa chữ trên ảnh...', { duration: 2000 });
-    const result = await bgEditor.editBackground({
+    const result = await refineTextEditor.editBackground({
       imageUrl: img.imageUrl,
       editType: 'refine_text',
       contentId: content.id,
