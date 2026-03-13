@@ -10,6 +10,7 @@ interface TopicBrainstormSheetProps {
   onOpenChange: (open: boolean) => void;
   brandTemplateId?: string;
   contentGoal?: ContentGoal;
+  initialPrompt?: string;
   onSelectTopic: (topic: string) => void;
 }
 
