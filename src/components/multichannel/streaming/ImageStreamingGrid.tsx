@@ -31,6 +31,7 @@ export function ImageStreamingGrid({
   onRetryChannel,
   onDownloadImage,
   onEditBackground,
+  onRefineText,
   retryingChannel,
   className,
 }: ImageStreamingGridProps) {
