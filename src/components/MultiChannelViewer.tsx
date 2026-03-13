@@ -1424,7 +1424,10 @@ export function MultiChannelViewer({
                                           className="h-8 gap-1.5 text-xs"
                                           onClick={() => {
                                             const imageUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
-                                            if (imageUrl) setLightboxImageUrl(imageUrl);
+                                            if (imageUrl) {
+                                              setLightboxImageUrl(imageUrl);
+                                              setLightboxChannel(channel);
+                                            }
                                           }}
                                         >
                                           <Eye className="w-3.5 h-3.5" />
