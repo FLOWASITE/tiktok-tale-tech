@@ -415,12 +415,13 @@ RETURN JSON ONLY, NO ADDITIONAL EXPLANATION.${contentGoal ? `\n\nREMINDER: Conte
 
   const finalPrompt = promptParts.join('\n\n');
 
-  // Call AI with metrics
+  // Call AI with metrics — use Gemini 2.5 Pro for stronger goal-aligned reasoning
   const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
     brandTemplateId,
     actionType: 'refine',
+    modelOverride: 'google/gemini-2.5-pro',
     messages: [{ role: 'user', content: finalPrompt }],
   });
 
