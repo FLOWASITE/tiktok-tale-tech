@@ -358,19 +358,32 @@ async function handleRefine(
 
 Respond in the same language as the raw topic provided.`;
 
-  // Inject content goal at the TOP of prompt (before RAW TOPIC) for maximum AI attention
+  // Topic Anchoring + Content Goal constraints
+  promptParts.push(`## ⚠️ CRITICAL: TOPIC ANCHORING
+The refined topics MUST be about the SAME subject/industry as the raw topic.
+- Raw topic mentions "${rawTopic}" → ALL 3 refined topics MUST be about this exact subject
+- You are IMPROVING the angle/hook/specificity, NOT changing the subject
+- VIOLATION: Raw topic is about "kế toán" but refined topic is about "marketing" → REJECTED
+
+## WRONG vs RIGHT EXAMPLES
+❌ WRONG: Raw="dịch vụ kế toán" → Refined="Cách bán hàng online hiệu quả" (changed subject)
+✅ RIGHT: Raw="dịch vụ kế toán" → Refined="5 lý do doanh nghiệp mất tiền vì không thuê kế toán chuyên nghiệp" (same subject, conversion angle)
+❌ WRONG: Raw="yoga cho người mới" → Refined="10 mẹo giảm cân nhanh" (changed subject)
+✅ RIGHT: Raw="yoga cho người mới" → Refined="3 bài tập yoga đơn giản ai cũng làm được ngay tại nhà" (same subject, education angle)`);
+
+  // Inject content goal linked to raw topic
   if (contentGoal) {
     const goalGuidance: Record<string, string> = {
-      conversion: 'Focus on sales angles, pain points, pricing objections, offers, urgency, CTA, case studies, ROI proof. Topics MUST drive purchase decisions and move prospects toward buying.',
-      education: 'Focus on tips, how-to, knowledge sharing, tutorials, step-by-step guides. Topics MUST educate the audience with actionable knowledge.',
-      awareness: 'Focus on brand story, introduction, viral potential, industry trends. Topics MUST increase brand recognition and reach.',
-      engagement: 'Focus on interaction, debate, community building, polls, questions. Topics MUST encourage audience participation and comments.',
-      expertise: 'Focus on authority, data-driven insights, research, deep analysis, trends. Topics MUST establish thought leadership.',
+      conversion: `Apply CONVERSION angles specifically to "${rawTopic}". Focus on sales angles, pain points, pricing objections, offers, urgency, CTA, case studies, ROI proof — ALL related to "${rawTopic}". Topics MUST drive purchase decisions about "${rawTopic}".`,
+      education: `Apply EDUCATION angles specifically to "${rawTopic}". Focus on tips, how-to, knowledge sharing, tutorials, step-by-step guides — ALL related to "${rawTopic}". Topics MUST educate the audience about "${rawTopic}".`,
+      awareness: `Apply AWARENESS angles specifically to "${rawTopic}". Focus on brand story, introduction, viral potential, industry trends — ALL related to "${rawTopic}". Topics MUST increase recognition around "${rawTopic}".`,
+      engagement: `Apply ENGAGEMENT angles specifically to "${rawTopic}". Focus on interaction, debate, community building, polls, questions — ALL related to "${rawTopic}". Topics MUST encourage audience participation about "${rawTopic}".`,
+      expertise: `Apply EXPERTISE angles specifically to "${rawTopic}". Focus on authority, data-driven insights, research, deep analysis — ALL related to "${rawTopic}". Topics MUST establish thought leadership about "${rawTopic}".`,
     };
     promptParts.push(`## ⚠️ MANDATORY CONTENT GOAL: "${contentGoal}"
-${goalGuidance[contentGoal] || 'Align refined topics with this goal.'}
-This is the PRIMARY constraint. Every refined topic MUST serve this goal.
-Topics that don't align with "${contentGoal}" will be REJECTED.`);
+${goalGuidance[contentGoal] || `Align refined topics with "${contentGoal}" goal, applied specifically to "${rawTopic}".`}
+This is the PRIMARY constraint. Every refined topic MUST serve this goal WHILE staying on the subject of "${rawTopic}".
+Topics that don't align with "${contentGoal}" OR drift away from "${rawTopic}" will be REJECTED.`);
   }
 
   promptParts.push(`${basePrompt}
@@ -411,8 +424,12 @@ Return EXACTLY a JSON array with 3 items (respond in the same language as the ra
     "productFit": "Related product name (if any)"` : ''}
   }
 ]
-RETURN JSON ONLY, NO ADDITIONAL EXPLANATION.${contentGoal ? `\n\nREMINDER: Content goal is "${contentGoal}". ALL 3 topics MUST serve this goal. Do NOT mix goals.` : ''}`);
+RETURN JSON ONLY, NO ADDITIONAL EXPLANATION.
 
+## FINAL REMINDER:
+1. Content goal is "${contentGoal || 'general'}" — apply this goal TO the topic "${rawTopic}"
+2. ALL 3 refined topics MUST be about "${rawTopic}" — do NOT change the subject
+3. You are refining the ANGLE/HOOK, not the TOPIC SUBJECT`);
   const finalPrompt = promptParts.join('\n\n');
 
   // Call AI with metrics — use Gemini 2.5 Pro for stronger goal-aligned reasoning
