@@ -424,11 +424,17 @@ export function SimpleImageGenerator({
   };
 
   const handleClose = () => {
-    if (!batchGen.isGenerating) {
-      batchGen.resetProgress();
-      setViewMode('setup');
-      onOpenChange(false);
+    if (batchGen.isGenerating) {
+      // Minimize instead of blocking close
+      if (onMinimize) {
+        onMinimize();
+        onOpenChange(false);
+      }
+      return;
     }
+    batchGen.resetProgress();
+    setViewMode('setup');
+    onOpenChange(false);
   };
 
   const handleBackToSetup = () => {
