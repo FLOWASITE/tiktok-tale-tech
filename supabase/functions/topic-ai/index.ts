@@ -371,6 +371,18 @@ The refined topics MUST be about the SAME subject/industry as the raw topic.
 ❌ WRONG: Raw="yoga cho người mới" → Refined="10 mẹo giảm cân nhanh" (changed subject)
 ✅ RIGHT: Raw="yoga cho người mới" → Refined="3 bài tập yoga đơn giản ai cũng làm được ngay tại nhà" (same subject, education angle)`);
 
+  // Goal-Locked Angles: Map each contentGoal to allowed/forbidden angles
+  const allAngles = ['practical', 'controversial', 'educational', 'storytelling', 'solution', 'sales', 'data'];
+  const goalAngles: Record<string, string[]> = {
+    conversion: ['sales', 'solution', 'practical'],
+    education: ['educational', 'practical', 'data'],
+    awareness: ['storytelling', 'controversial', 'data'],
+    engagement: ['controversial', 'storytelling', 'practical'],
+    expertise: ['data', 'educational', 'solution'],
+  };
+  const allowedAngles = contentGoal ? (goalAngles[contentGoal] || ['practical', 'sales', 'educational']) : allAngles;
+  const forbiddenAngles = allAngles.filter(a => !allowedAngles.includes(a));
+
   // Inject content goal linked to raw topic
   if (contentGoal) {
     const goalGuidance: Record<string, string> = {
@@ -383,7 +395,12 @@ The refined topics MUST be about the SAME subject/industry as the raw topic.
     promptParts.push(`## ⚠️ MANDATORY CONTENT GOAL: "${contentGoal}"
 ${goalGuidance[contentGoal] || `Align refined topics with "${contentGoal}" goal, applied specifically to "${rawTopic}".`}
 This is the PRIMARY constraint. Every refined topic MUST serve this goal WHILE staying on the subject of "${rawTopic}".
-Topics that don't align with "${contentGoal}" OR drift away from "${rawTopic}" will be REJECTED.`);
+Topics that don't align with "${contentGoal}" OR drift away from "${rawTopic}" will be REJECTED.
+
+## ⚠️ FORBIDDEN ANGLES for "${contentGoal}": ${forbiddenAngles.join(', ')}
+Do NOT use these angles: ${forbiddenAngles.join(', ')}.
+ONLY use these angles: ${allowedAngles.join(', ')}.
+${contentGoal === 'conversion' ? 'Do NOT use educational/informational angles when the goal is CONVERSION. The user wants to SELL, not teach.' : ''}`);
   }
 
   promptParts.push(`${basePrompt}
