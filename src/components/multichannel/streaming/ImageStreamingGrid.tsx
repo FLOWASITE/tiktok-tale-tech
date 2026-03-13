@@ -18,6 +18,7 @@ interface ImageStreamingGridProps {
   onRetryChannel?: (channel: Channel) => void;
   onDownloadImage?: (channel: Channel) => void;
   onEditBackground?: (channel: Channel) => void;
+  onRefineText?: (channel: Channel) => void;
   retryingChannel?: Channel | null;
   className?: string;
 }
