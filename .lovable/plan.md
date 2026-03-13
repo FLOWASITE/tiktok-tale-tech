@@ -1,44 +1,38 @@
 
-## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-### Van de
-Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
+## Vấn đề: Content Node dùng sai model vì `functionName` không khớp cấu hình
 
-### Giai phap
-Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
+### Nguyên nhân gốc
 
-**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
+Trong graph engine, các node gọi `callAI()` với `functionName` không khớp với key trong bảng `ai_function_configs`:
 
-1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
+| Node | functionName gọi | Key cần khớp (DB/Default) | Model thực tế |
+|------|-------------------|---------------------------|----------------|
+| Content Node | `content_node` | ❌ không tồn tại | fallback → `google/gemini-2.5-flash` |
+| Research Node | `research_node` | ❌ không tồn tại | fallback → `google/gemini-2.5-flash` |
 
-2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
+Trong khi đó, bạn đã cấu hình trong Admin:
+- `generate-core-content` → `qwen/qwen3.5-397b-a17b`
+- `generate-multichannel` → `anthropic/claude-sonnet-4.5`
 
-Cu the:
-- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
-- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
-- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
+**Kết quả**: LLM điều phối (chọn tool) dùng `gemini-2.5-flash` thay vì model bạn cài đặt. Tuy nhiên, các edge function thực tế tạo content (`generate-core-content`, `generate-multichannel`) vẫn đọc đúng config từ DB.
 
-### Chi tiet ky thuat
+### Giải pháp
 
-```typescript
-// bodyContent - thay doi:
-const bodyContent = (
-  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-    {viewMode === 'setup' && setupFields}
-    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
-  </div>
-);
-```
+**1. Thêm `content_node` và `research_node` vào `DEFAULT_CONFIGS`** trong `ai-config.ts`:
+- `content_node` → map sang cùng default với `content-agent` (`google/gemini-2.5-flash`)
+- `research_node` → map sang `research-agent`
+- Hoặc tốt hơn: sửa `functionName` trong các node để dùng đúng key đã có (`content-agent`, `research-agent`)
 
-Va DialogContent:
-```typescript
-className={cn(
-  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
-  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
-)}
-```
+**2. Sửa `functionName` trong graph nodes** để khớp với key đã tồn tại:
+- `content-node.ts`: đổi `functionName: 'content_node'` → `'content-agent'`
+- `research-node.ts`: đổi `functionName: 'research_node'` → `'research-agent'`
 
-### Pham vi thay doi
-- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
-- Thay doi ~10 dong code
-- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
+Cách này đảm bảo khi bạn thay đổi model cho `content-agent` trong Admin, graph engine cũng sẽ dùng đúng model đó.
+
+**3. Thêm entry `content-agent` vào bảng `ai_function_configs`** nếu bạn muốn override model cho phần điều phối (chọn tool) riêng.
+
+### Files cần sửa
+- `supabase/functions/_shared/graph/nodes/content-node.ts` — đổi functionName
+- `supabase/functions/_shared/graph/nodes/research-node.ts` — đổi functionName
+
