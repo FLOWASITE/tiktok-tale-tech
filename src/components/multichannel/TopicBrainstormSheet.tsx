@@ -19,6 +19,7 @@ export function TopicBrainstormSheet({
   onOpenChange,
   brandTemplateId,
   contentGoal,
+  initialPrompt,
   onSelectTopic,
 }: TopicBrainstormSheetProps) {
   const chatbotHandleRef = useRef<TopicAIChatbotHandle | null>(null);
