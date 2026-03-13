@@ -102,6 +102,7 @@ export interface TopicAIChatbotHandle {
   focusInput: () => void;
 }
 
+
 export interface TopicAIChatbotProps {
   brandTemplateId?: string;
   contentGoal?: ContentGoal;
