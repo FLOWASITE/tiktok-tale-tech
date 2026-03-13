@@ -1,6 +1,6 @@
 // ============================================
 // TopicAIChatbot Types
-// Updated: Phase 5 - Rate Limiting & Quotas
+// Updated: Phase 5 - Rate Limiting & Quotas + initialPrompt support
 // ============================================
 
 import { ContentGoal } from '@/types/multichannel';
