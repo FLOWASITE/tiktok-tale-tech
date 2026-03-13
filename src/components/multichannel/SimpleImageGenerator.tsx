@@ -481,14 +481,38 @@ export function SimpleImageGenerator({
         </Alert>
       )}
 
+      {/* Quick start hint */}
+      <div className="rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
+        <p className="text-xs text-primary/80">
+          💡 <span className="font-medium">Bắt đầu nhanh:</span> Chọn kênh → nhấn <span className="font-semibold">Tạo ảnh</span>. AI sẽ tự tối ưu mọi thứ!
+        </p>
+      </div>
+
       {/* Step 1: Channel Picker */}
-      <ImageChannelPicker
-        availableChannels={content.selected_channels || []}
-        selectedChannels={selectedChannels}
-        onSelectedChange={setSelectedChannels}
-      />
+      <div className="space-y-2">
+        <div className="flex items-center gap-2.5">
+          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">1</span>
+          <div>
+            <p className="text-sm font-medium text-foreground">Chọn kênh</p>
+            <p className="text-[11px] text-muted-foreground">Chọn các kênh cần tạo ảnh. Mỗi kênh sẽ được tối ưu riêng.</p>
+          </div>
+        </div>
+        <ImageChannelPicker
+          availableChannels={content.selected_channels || []}
+          selectedChannels={selectedChannels}
+          onSelectedChange={setSelectedChannels}
+        />
+      </div>
 
-
+      {/* Step 2: Preview & Create */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2.5">
+          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">2</span>
+          <div>
+            <p className="text-sm font-medium text-foreground">Xem trước & Tạo ảnh</p>
+            <p className="text-[11px] text-muted-foreground">AI phân tích nội dung và gợi ý phong cách phù hợp nhất.</p>
+          </div>
+        </div>
 
       {/* V3 Style Suggestions Preview */}
       {v3Suggestions.length > 0 && (
@@ -544,6 +568,18 @@ export function SimpleImageGenerator({
             <><Sparkles className="w-4 h-4" /> Tạo {selectedChannels.length} ảnh</>
           )}
         </Button>
+      </div>
+      </div>{/* end Step 2 */}
+
+      {/* Step 3: Advanced Options (optional) */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2.5">
+          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold shrink-0">3</span>
+          <div>
+            <p className="text-sm font-medium text-foreground">Tùy chỉnh <span className="text-muted-foreground font-normal">(tùy chọn)</span></p>
+            <p className="text-[11px] text-muted-foreground">Điều chỉnh phong cách, logo, text overlay nếu cần.</p>
+          </div>
+        </div>
       </div>
 
       {/* Advanced Options */}

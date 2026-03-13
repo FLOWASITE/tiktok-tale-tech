@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Wand2, Palette, PenLine } from 'lucide-react';
+import { Wand2, Palette, PenLine, HelpCircle } from 'lucide-react';
 import { ChevronDown, Settings2, Camera, Brush, LayoutGrid, Box, Layers, Droplets, Film, Sparkles, Leaf, TrendingUp, Wheat, Type } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -149,12 +150,24 @@ export function ImageAdvancedOptions({
       <CollapsibleContent className="mt-3 space-y-5 px-1">
         {/* Prompt Mode Selector */}
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Chế độ prompt</Label>
+          <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+            Mức độ kiểm soát AI
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="w-3 h-3 text-muted-foreground/60 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[220px] text-xs">
+                  Chọn mức độ AI can thiệp vào prompt tạo ảnh. Mặc định AI sẽ lo tất cả.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </Label>
           <div className="grid grid-cols-3 gap-1.5">
             {([
-              { value: 'full' as const, label: 'AI tự động', icon: <Wand2 className="w-3.5 h-3.5" />, desc: 'AI tối ưu toàn bộ' },
-              { value: 'brand_only' as const, label: 'Giữ thương hiệu', icon: <Palette className="w-3.5 h-3.5" />, desc: 'Prompt bạn + brand' },
-              { value: 'raw' as const, label: 'Tự do', icon: <PenLine className="w-3.5 h-3.5" />, desc: 'Prompt nguyên vẹn' },
+              { value: 'full' as const, label: 'Để AI lo', icon: <Wand2 className="w-3.5 h-3.5" />, desc: 'AI tối ưu toàn bộ' },
+              { value: 'brand_only' as const, label: 'Giữ brand', icon: <Palette className="w-3.5 h-3.5" />, desc: 'Bạn viết ý tưởng, AI giữ brand' },
+              { value: 'raw' as const, label: 'Toàn quyền', icon: <PenLine className="w-3.5 h-3.5" />, desc: 'Bạn kiểm soát 100%' },
             ]).map(mode => (
               <button
                 key={mode.value}
@@ -189,9 +202,25 @@ export function ImageAdvancedOptions({
         {promptMode === 'full' && (
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Phong cách ảnh</Label>
+            <p className="text-[10px] text-muted-foreground/70 -mt-1">
+              AI gợi ý phong cách phù hợp nhất. Bạn có thể chọn khác nếu muốn.
+            </p>
             {topSuggestion && (
               <p className="text-[10px] text-muted-foreground/70 -mt-1">
-                V3 gợi ý: <span className="font-medium text-primary">{topSuggestion.style}</span> ({topSuggestion.matchPercentage}%)
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-1 cursor-help underline decoration-dotted decoration-muted-foreground/40">
+                        V3 gợi ý
+                        <HelpCircle className="w-2.5 h-2.5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[240px] text-xs">
+                      Hệ thống V3 phân tích nội dung, kênh và mục tiêu để gợi ý phong cách ảnh phù hợp nhất.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                : <span className="font-medium text-primary">{topSuggestion.style}</span> ({topSuggestion.matchPercentage}%)
               </p>
             )}
             <div className="grid grid-cols-4 gap-1.5">
@@ -251,6 +280,9 @@ export function ImageAdvancedOptions({
         {/* Aspect Ratio */}
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Tỉ lệ khung hình</Label>
+          <p className="text-[10px] text-muted-foreground/70 -mt-1">
+            "Tự động" sẽ chọn tỉ lệ tối ưu cho từng mạng xã hội.
+          </p>
           <div className="flex flex-wrap gap-1.5">
             {ASPECT_RATIOS.map(r => (
               <button
@@ -273,7 +305,10 @@ export function ImageAdvancedOptions({
         {brandLogoUrl && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Logo overlay</Label>
+              <div>
+                <Label className="text-xs text-muted-foreground">Logo overlay</Label>
+                <p className="text-[10px] text-muted-foreground/60">Logo thương hiệu sẽ được đặt lên ảnh ở vị trí bạn chọn.</p>
+              </div>
               <Switch checked={includeLogo} onCheckedChange={onIncludeLogoChange} />
             </div>
             {includeLogo && (
@@ -295,9 +330,12 @@ export function ImageAdvancedOptions({
         {/* Text Overlay Toggle */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Type className="w-4 h-4 text-muted-foreground" />
-              <Label className="text-xs text-muted-foreground">Thêm text lên ảnh</Label>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <Type className="w-4 h-4 text-muted-foreground" />
+                <Label className="text-xs text-muted-foreground">Thêm text lên ảnh</Label>
+              </div>
+              <p className="text-[10px] text-muted-foreground/60 ml-6">Thêm tiêu đề hoặc hook message trực tiếp lên ảnh.</p>
             </div>
             <Switch
               checked={enableTextOverlay}
@@ -383,6 +421,7 @@ export function ImageAdvancedOptions({
         {/* Negative Prompt */}
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Không bao gồm (Negative prompt)</Label>
+          <p className="text-[10px] text-muted-foreground/60 -mt-1">Liệt kê những gì KHÔNG muốn xuất hiện trong ảnh.</p>
           <Textarea
             value={negativePrompt}
             onChange={e => onNegativePromptChange(e.target.value)}
@@ -394,7 +433,19 @@ export function ImageAdvancedOptions({
         {/* Strategic Context */}
         {(contentRole || contentAngle || (selectedChannels && hookMessages && selectedChannels.some(ch => hookMessages[ch]?.hookMessage))) && (
           <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Ngữ cảnh chiến lược</Label>
+            <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+              Ngữ cảnh chiến lược
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-3 h-3 text-muted-foreground/60 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[240px] text-xs">
+                    Thông tin về vai trò nội dung (Seed/Sprout/Harvest) và góc tiếp cận marketing.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </Label>
             <div className="flex flex-wrap gap-1.5">
               {contentRole && (() => {
                 const cfg = ROLE_CONFIG[contentRole];

@@ -1,47 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Plan: Cải thiện UX tạo ảnh AI — Thêm hướng dẫn trực quan
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-### Vấn đề hiện tại
-UI tạo ảnh có quá nhiều option hiển thị cùng lúc, thiếu hướng dẫn theo bước, user không biết bắt đầu từ đâu. Cụ thể:
-- Setup form hiện: Channel picker → V3 Style Preview → Keywords → Settings Summary → Nút Tạo → Advanced Options (collapsible) — tất cả dồn vào 1 trang dài
-- Không có step indicator hay giải thích ngắn cho từng phần
-- Prompt Mode, Style, Text overlay nằm sâu trong "Tùy chỉnh nâng cao" — user dễ bỏ qua
-- Thiếu tooltip/helper text cho các thuật ngữ kỹ thuật (V3, negative prompt, typography style...)
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-### Giải pháp: Guided Steps + Contextual Help
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-#### 1. `SimpleImageGenerator.tsx` — Thêm Step Labels cho setup form
-- Thêm numbered step headers cho mỗi section trong `setupFields`:
-  - **Bước 1**: "Chọn kênh" — Channel Picker (giữ nguyên)
-  - **Bước 2**: "Xem trước & Tạo ảnh" — V3 Preview + Keywords + Settings Summary + CTA button
-  - **Bước 3**: "Tùy chỉnh (tùy chọn)" — Advanced Options
-- Mỗi step header có: số thứ tự (circle badge), tiêu đề, mô tả ngắn 1 dòng
-- Thêm "quick start" hint dưới DialogDescription: "Chỉ cần chọn kênh → nhấn Tạo ảnh. AI sẽ tự tối ưu mọi thứ!"
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-#### 2. `ImageAdvancedOptions.tsx` — Thêm inline help text
-- Thêm helper text ngắn cho mỗi section:
-  - **Phong cách ảnh**: "AI gợi ý phong cách phù hợp nhất. Bạn có thể chọn khác nếu muốn."
-  - **Tỉ lệ khung hình**: "'Tự động' sẽ chọn tỉ lệ tối ưu cho từng mạng xã hội."
-  - **Logo overlay**: "Logo thương hiệu sẽ được đặt lên ảnh ở vị trí bạn chọn."
-  - **Text lên ảnh**: "Thêm tiêu đề hoặc hook message trực tiếp lên ảnh."
-  - **Negative prompt**: "Liệt kê những gì KHÔNG muốn xuất hiện trong ảnh."
-- Đổi label "Chế độ prompt" thành "Mức độ kiểm soát AI" cho dễ hiểu
-- Cập nhật 3 mode descriptions rõ ràng hơn:
-  - Full → "Để AI lo tất cả" 
-  - Brand only → "Bạn viết ý tưởng, AI giữ brand"
-  - Raw → "Bạn kiểm soát hoàn toàn"
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-#### 3. Thêm Tooltip cho thuật ngữ kỹ thuật
-- Wrap "V3 gợi ý" label bằng Tooltip: "Hệ thống V3 phân tích nội dung và gợi ý phong cách ảnh phù hợp nhất"
-- Wrap "Ngữ cảnh chiến lược" label bằng Tooltip: "Thông tin về vai trò nội dung (Seed/Sprout/Harvest) và góc tiếp cận"
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
 
-### Thay đổi (2 files)
-- `src/components/multichannel/SimpleImageGenerator.tsx` — Step headers + quick start hint
-- `src/components/multichannel/ImageAdvancedOptions.tsx` — Helper texts + label renames + tooltips
+### Chi tiet ky thuat
 
-### Không thay đổi
-- Logic tạo ảnh, props, state management — giữ nguyên 100%
-- Mobile layout — giữ nguyên
-- Advanced Options vẫn là Collapsible, chỉ thêm guidance text bên trong
+```typescript
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
+```
 
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
+```
+
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
