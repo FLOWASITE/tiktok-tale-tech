@@ -1698,12 +1698,12 @@ export function MultiChannelViewer({
       <ImageLightbox
         images={[{
           imageUrl: lightboxImageUrl,
-          channel: '',
+          channel: lightboxChannel || '',
           channelLabel: '',
         }]}
         currentIndex={0}
         open={true}
-        onClose={() => setLightboxImageUrl(null)}
+        onClose={() => { setLightboxImageUrl(null); setLightboxChannel(null); }}
         onNavigate={() => {}}
         onDownload={() => {
           const link = document.createElement('a');
@@ -1711,6 +1711,21 @@ export function MultiChannelViewer({
           link.download = 'image.png';
           link.target = '_blank';
           link.click();
+        }}
+        onRefineText={async () => {
+          if (!lightboxImageUrl) return;
+          const result = await editBackground({
+            imageUrl: lightboxImageUrl,
+            editType: 'refine_text',
+            channel: lightboxChannel || undefined,
+            contentId: content.id,
+          });
+          if (result.success && result.imageUrl) {
+            setLightboxImageUrl(result.imageUrl);
+            if (lightboxChannel) {
+              setGeneratedImages(prev => ({ ...prev, [lightboxChannel]: result.imageUrl! }));
+            }
+          }
         }}
       />
     )}
