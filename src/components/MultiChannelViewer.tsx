@@ -1409,9 +1409,27 @@ export function MultiChannelViewer({
                                 />
                                 
                                 {/* Quick Image Actions - Floating */}
-                                {content.channel_images?.[channel]?.url && (
+                                {(content.channel_images?.[channel]?.url || generatedImages[channel]) && (
                                   <div className="absolute bottom-3 right-3 flex gap-1 bg-black/60 backdrop-blur-sm rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <TooltipProvider>
+                                      {/* View image */}
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button 
+                                            size="icon" 
+                                            variant="ghost" 
+                                            className="h-8 w-8 text-white hover:bg-white/20"
+                                            onClick={() => {
+                                              const imageUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
+                                              if (imageUrl) setLightboxImageUrl(imageUrl);
+                                            }}
+                                          >
+                                            <Eye className="w-4 h-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Xem ảnh</TooltipContent>
+                                      </Tooltip>
+                                      
                                       <Tooltip>
                                         <TooltipTrigger asChild>
                                           <Button 
@@ -1453,7 +1471,7 @@ export function MultiChannelViewer({
                                             variant="ghost" 
                                             className="h-8 w-8 text-white hover:bg-white/20"
                                             onClick={() => {
-                                              const imageUrl = content.channel_images?.[channel]?.url;
+                                              const imageUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
                                               if (imageUrl) {
                                                 const link = document.createElement('a');
                                                 link.href = imageUrl;
