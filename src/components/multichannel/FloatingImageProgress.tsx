@@ -8,7 +8,7 @@ interface FloatingImageProgressProps {
   visible: boolean;
   completedCount: number;
   totalCount: number;
-  progress: Record<string, ImageGenerationStatus>;
+  progress: Record<string, string>;
   isComplete: boolean;
   hasErrors: boolean;
   onRestore: () => void;
