@@ -69,6 +69,8 @@ import { ExpandChannelsStreamingDialog } from '@/components/multichannel/ExpandC
 import { RegenerateStreamingOverlay } from '@/components/multichannel/streaming/RegenerateStreamingOverlay';
 import { useStreamingRegenerate } from '@/hooks/useStreamingRegenerate';
 import { ImageLightbox, LightboxImage } from '@/components/ui/ImageLightbox';
+import { useBackgroundEditor } from '@/hooks/useBackgroundEditor';
+import { toast } from 'sonner';
 import { CoreContentSourceBadge } from '@/components/viewer/CoreContentSourceBadge';
 import { CoreContentViewer } from '@/components/core-content/CoreContentViewer';
 import type { CoreContent } from '@/types/coreContent';
