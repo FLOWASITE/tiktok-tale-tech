@@ -1,11 +1,8 @@
-import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Image, X, Maximize2, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { ImageGenerationStatus } from '@/hooks/useAutoImageGeneration';
-import { Channel } from '@/types/multichannel';
 
 interface FloatingImageProgressProps {
   visible: boolean;
