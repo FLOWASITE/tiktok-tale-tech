@@ -19,6 +19,7 @@ interface ImageStreamingCardProps {
   onRetry?: () => void;
   onDownload?: () => void;
   onEditBackground?: () => void;
+  onRefineText?: () => void;
   onViewImage?: () => void;
   isRetrying?: boolean;
   logoOverlayFailed?: boolean;
