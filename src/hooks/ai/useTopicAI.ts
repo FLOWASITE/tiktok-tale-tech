@@ -380,9 +380,10 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
   }, [enabled, fetchRefinements]);
 
   const refreshRefinement = useCallback(() => {
-    if (lastRefineTopicRef.current) {
+    const topic = lastRefineTopicRef.current;
+    if (topic) {
       lastRefineTopicRef.current = '';
-      fetchRefinements(lastRefineTopicRef.current);
+      fetchRefinements(topic);
     }
   }, [fetchRefinements]);
 
