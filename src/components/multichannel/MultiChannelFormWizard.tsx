@@ -968,7 +968,7 @@ export function MultiChannelFormWizard({
                     <button
                       key={goal.value}
                       type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, contentGoal: goal.value }))}
+                      onClick={() => { userManuallySetGoal.current = true; setFormData(prev => ({ ...prev, contentGoal: goal.value })); }}
                       disabled={isGenerating}
                       className={cn(
                         "p-2.5 rounded-lg border text-center transition-all duration-200",
