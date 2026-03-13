@@ -330,9 +330,12 @@ export function ImageAdvancedOptions({
         {/* Text Overlay Toggle */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Type className="w-4 h-4 text-muted-foreground" />
-              <Label className="text-xs text-muted-foreground">Thêm text lên ảnh</Label>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <Type className="w-4 h-4 text-muted-foreground" />
+                <Label className="text-xs text-muted-foreground">Thêm text lên ảnh</Label>
+              </div>
+              <p className="text-[10px] text-muted-foreground/60 ml-6">Thêm tiêu đề hoặc hook message trực tiếp lên ảnh.</p>
             </div>
             <Switch
               checked={enableTextOverlay}
