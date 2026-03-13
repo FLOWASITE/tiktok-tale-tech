@@ -186,6 +186,7 @@ export function useSocialImageGeneration() {
           textToInclude: effectiveImageContentType === 'with_text' ? textToInclude : undefined,
           textPosition: effectiveImageContentType === 'with_text' ? textPosition : undefined,
           typographyStyle: effectiveImageContentType === 'with_text' ? typographyStyle : undefined,
+          promptMode,
         },
         timeoutMs: 120_000,
       });
