@@ -77,6 +77,9 @@ export type LogoPosition =
 // Content Role types (aligned with coreContent.ts)
 export type ContentRole = 'seed' | 'sprout' | 'harvest';
 
+// Prompt Mode for 3-layer architecture
+export type PromptMode = 'full' | 'brand_only' | 'raw';
+
 // Content Angle types
 export type ContentAngle = 
   | 'educational' 
