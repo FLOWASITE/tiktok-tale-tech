@@ -363,6 +363,20 @@ Respond in the same language as the raw topic provided.`;
 "${rawTopic}"
 Video type: ${videoTypeLabel}`);
 
+  // Inject content goal guidance
+  if (contentGoal) {
+    const goalGuidance: Record<string, string> = {
+      conversion: 'Focus on sales angles, pain points, offers, urgency, CTA. Topics MUST drive purchase decisions.',
+      education: 'Focus on tips, how-to, knowledge sharing, tutorials. Topics MUST educate the audience.',
+      awareness: 'Focus on brand story, introduction, viral potential. Topics MUST increase brand recognition.',
+      engagement: 'Focus on interaction, debate, community building, polls. Topics MUST encourage audience participation.',
+      expertise: 'Focus on authority, data-driven insights, research, trends. Topics MUST establish thought leadership.',
+    };
+    promptParts.push(`\n## CONTENT GOAL: "${contentGoal}"
+${goalGuidance[contentGoal] || 'Align refined topics with this goal.'}
+ALL 3 refined topics MUST align with the "${contentGoal}" goal. Do NOT suggest topics that serve a different goal.`);
+  }
+
   if (brandContext) {
     promptParts.push(buildBrandContextString(brandContext));
     
