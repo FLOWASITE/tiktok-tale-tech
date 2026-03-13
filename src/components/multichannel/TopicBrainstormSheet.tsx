@@ -68,6 +68,7 @@ export function TopicBrainstormSheet({
             brandTemplateId={brandTemplateId}
             contentGoal={contentGoal}
             mode="embedded"
+            initialPrompt={open ? initialPrompt : undefined}
             onTopicSelect={handleTopicSelect}
             onNavigate={() => {}} // Not used in embedded mode
             onReady={handleChatbotReady}

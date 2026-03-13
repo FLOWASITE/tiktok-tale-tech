@@ -1948,11 +1948,16 @@ export function MultiChannelFormWizard({
         {/* Brainstorm Sheet */}
         <TopicBrainstormSheet
           open={showBrainstormSheet}
-          onOpenChange={setShowBrainstormSheet}
+          onOpenChange={(open) => {
+            setShowBrainstormSheet(open);
+            if (!open) setBrainstormInitialPrompt(undefined);
+          }}
           brandTemplateId={formData.brandTemplateId}
           contentGoal={formData.contentGoal}
+          initialPrompt={brainstormInitialPrompt}
           onSelectTopic={(topic) => {
             setFormData(prev => ({ ...prev, topic }));
+            setBrainstormInitialPrompt(undefined);
             toast.success('Đã chọn chủ đề từ AI!');
           }}
         />
