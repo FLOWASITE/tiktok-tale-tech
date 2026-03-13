@@ -446,6 +446,22 @@ export function SimpleImageGenerator({
     toast.success('Đã cập nhật ảnh');
   };
 
+  const handleRefineText = async (channel: Channel) => {
+    const img = batchGen.generatedImages[channel];
+    if (!img?.imageUrl) { toast.error('Không có ảnh để sửa chữ'); return; }
+    toast.info('Đang sửa chữ trên ảnh...', { duration: 2000 });
+    const result = await bgEditor.editBackground({
+      imageUrl: img.imageUrl,
+      editType: 'refine_text',
+      contentId: content.id,
+      channel,
+    });
+    if (result.success && result.imageUrl) {
+      batchGen.updateGeneratedImage(channel, { imageUrl: result.imageUrl });
+      toast.success('Đã sửa chữ trên ảnh');
+    }
+  };
+
   const handleClose = () => {
     if (batchGen.isGenerating) {
       // Minimize instead of blocking close
