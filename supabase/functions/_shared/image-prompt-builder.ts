@@ -833,12 +833,29 @@ export function buildImagePrompt(params: ImagePromptParams): string {
   // Determine if this is a Social Graphic (with text) or background-only
   const isWithText = imageContentType === 'with_text' && textToInclude;
 
-  // ─── RAW MODE: Only user prompt + aspect ratio + country reminder ───
+  // ─── RAW MODE: User prompt only, minimal constraints, full creative freedom ───
   if (promptMode === 'raw') {
-    let prompt = `${contentSummary}\n\nAspect Ratio: ${finalAspectRatio}`;
+    let prompt = `Generate an image based EXACTLY on this description, with NO additional brand styling or optimization:
+
+${contentSummary}
+
+Aspect Ratio: ${finalAspectRatio}
+
+INSTRUCTIONS:
+- Generate freely without any brand constraints
+- Do NOT add brand colors, logos, or corporate styling
+- Follow the description literally — do not add artistic interpretations
+- Keep the image simple and focused on what is described`;
+
+    // Still support text-in-image if user explicitly enabled it
+    if (isWithText) {
+      prompt += buildTextInImageSection(textToInclude, textPosition, typographyStyle);
+    }
+
     if (negativePrompt) {
       prompt += `\n\nElements to AVOID:\n${negativePrompt}`;
     }
+    prompt += `\n\n## CRITICAL RULES:\n1. NEVER create blank, white, or empty images\n2. DO NOT include any logos or brand marks`;
     prompt += buildCountryReminderSuffix(countryCode);
     return prompt;
   }
