@@ -833,42 +833,71 @@ export function buildImagePrompt(params: ImagePromptParams): string {
   // Determine if this is a Social Graphic (with text) or background-only
   const isWithText = imageContentType === 'with_text' && textToInclude;
 
-  // ─── RAW MODE: Only user prompt + aspect ratio + country reminder ───
+  // ─── RAW MODE: User prompt only, minimal constraints, full creative freedom ───
   if (promptMode === 'raw') {
-    let prompt = `${contentSummary}\n\nAspect Ratio: ${finalAspectRatio}`;
+    let prompt = `Generate an image based EXACTLY on this description, with NO additional brand styling or optimization:
+
+${contentSummary}
+
+Aspect Ratio: ${finalAspectRatio}
+
+INSTRUCTIONS:
+- Generate freely without any brand constraints
+- Do NOT add brand colors, logos, or corporate styling
+- Follow the description literally — do not add artistic interpretations
+- Keep the image simple and focused on what is described`;
+
+    // Still support text-in-image if user explicitly enabled it
+    if (isWithText) {
+      prompt += buildTextInImageSection(textToInclude, textPosition, typographyStyle);
+    }
+
     if (negativePrompt) {
       prompt += `\n\nElements to AVOID:\n${negativePrompt}`;
     }
+    prompt += `\n\n## CRITICAL RULES:\n1. NEVER create blank, white, or empty images\n2. DO NOT include any logos or brand marks`;
     prompt += buildCountryReminderSuffix(countryCode);
     return prompt;
   }
 
-  // ─── BRAND_ONLY MODE: User prompt + brand identity + country, NO AI optimization ───
+  // ─── BRAND_ONLY MODE: User prompt + brand colors/identity ONLY, NO AI optimization ───
   if (promptMode === 'brand_only') {
-    let prompt = `Create a professional image for ${brand.brandName}.
+    let prompt = `Create an image for ${brand.brandName} that follows the user's description LITERALLY.
 
-## CONTENT (HIGHEST PRIORITY):
+## CONTENT (FOLLOW EXACTLY — DO NOT REINTERPRET):
 ${contentSummary}
 
-CRITICAL: The image MUST visually represent the specific topic/concept mentioned above.
+⚠️ IMPORTANT: DO NOT add artistic interpretations. Follow the user's description literally.
+Do NOT optimize composition, do NOT add creative elements not mentioned in the description.
+Only apply brand colors and identity — everything else comes from the user's description.
 
 ${buildCountryCharacterSection(countryCode)}
 
 ## ASPECT RATIO: ${finalAspectRatio}`;
 
-    // Add brand identity (Layer 2)
+    // Add brand identity (Layer 2) — but with softer language
     if (brand.imageStyle) {
       prompt += `\n\n## BRAND VISUAL IDENTITY:\n- Style: ${brand.imageStyle}`;
     }
     if (brand.industry && brand.industry.length > 0) {
       prompt += `\n- Industry Context: ${brand.industry.join(', ')}`;
     }
-    prompt += buildColorSection(brand.brandColors);
+    
+    // Softer color section — "subtly incorporate" instead of "MUST USE"
+    if (brand.brandColors?.primary) {
+      prompt += `\n\n## BRAND COLORS (Subtle Integration):`;
+      prompt += `\n- Primary: ${brand.brandColors.primary} — subtly incorporate as accent, not dominant`;
+      if (brand.brandColors.secondary && brand.brandColors.secondary.length > 0) {
+        prompt += `\n- Secondary: ${brand.brandColors.secondary.join(', ')} — use sparingly`;
+      }
+      prompt += `\n- Let the content/subject determine the main color palette`;
+      prompt += `\n- Brand colors should complement, not overpower the image`;
+    }
 
-    // Add text-in-image if needed
+    // Add text-in-image if needed — but NO structured layout (that's AI optimization)
     if (isWithText) {
       prompt += buildTextInImageSection(textToInclude, textPosition, typographyStyle);
-      prompt += buildStructuredLayoutSection(footerInfo, brand.brandColors);
+      // Intentionally skip buildStructuredLayoutSection — that's AI optimization
     }
 
     // Add negative prompt
@@ -878,17 +907,20 @@ ${buildCountryCharacterSection(countryCode)}
 
     // Critical rules
     if (isWithText) {
-      prompt += `\n\n## CRITICAL RULES:\n1. INCLUDE the specified text prominently and legibly\n2. Text must be CLEARLY READABLE with HIGH CONTRAST\n3. DO NOT include any logos or brand marks\n4. NEVER create blank, white, or empty images`;
+      prompt += `\n\n## CRITICAL RULES:\n1. INCLUDE the specified text prominently and legibly\n2. Text must be CLEARLY READABLE with HIGH CONTRAST\n3. DO NOT include any logos or brand marks\n4. NEVER create blank, white, or empty images\n5. DO NOT add structured layouts, CTA buttons, or contact info sections unless explicitly described`;
     } else {
-      prompt += `\n\n## CRITICAL RULES:\n1. DO NOT include any text, words, letters, or typography\n2. DO NOT include any logos or brand marks\n3. NEVER create blank, white, or empty images\n4. Background must have visible color, texture, or gradient`;
+      prompt += `\n\n## CRITICAL RULES:\n1. DO NOT include any text, words, letters, or typography\n2. DO NOT include any logos or brand marks\n3. NEVER create blank, white, or empty images\n4. Background must have visible color, texture, or gradient\n5. DO NOT add creative elements beyond what is described`;
     }
 
     prompt += buildCountryReminderSuffix(countryCode);
     return prompt;
   }
   
-  // ─── FULL MODE (default): All layers - existing logic ───
+  // ─── FULL MODE (default): All layers — AI has full creative freedom ───
   let prompt = `Create a professional, brand-aligned ${isWithText ? 'SOCIAL GRAPHIC WITH TEXT' : 'image'} for ${brand.brandName}.
+
+You have FULL CREATIVE FREEDOM to interpret and enhance the visual concept.
+Optimize composition, color grading, lighting, and layout for maximum visual impact on ${channel}.
 
 ## ARTICLE CONTENT CONTEXT (HIGHEST PRIORITY):
 ${contentSummary}

@@ -1,54 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Phân tích: Tại sao 3 chế độ prompt trông giống nhau
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-### Kiểm tra code
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-Đã kiểm tra toàn bộ luồng từ frontend → edge function → prompt builder:
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-- **Frontend** (`SimpleImageGenerator.tsx`): Gửi `promptMode` đúng ('full' | 'brand_only' | 'raw')
-- **Edge function** (`generate-brand-image/index.ts`): Nhận `promptMode` và truyền vào `buildImagePrompt()`
-- **Prompt builder** (`image-prompt-builder.ts`): Có 3 nhánh if/else cho 3 mode
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-### Vấn đề phát hiện
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-**1. `brand_only` mode quá giống `full` mode về kết quả visual:**
-- Vẫn thêm brand colors section đầy đủ (`buildColorSection`)
-- Vẫn thêm full text-in-image section (`buildTextInImageSection` + `buildStructuredLayoutSection`)
-- Chỉ thiếu channel specs, style preset, hook, persona, journey stage — nhưng những thứ này không ảnh hưởng nhiều đến hình ảnh cuối cùng
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
 
-**2. `raw` mode quá giống `brand_only` về kết quả:**
-- `raw` chỉ gửi `contentSummary` + aspect ratio, nhưng `contentSummary` đã chứa đủ thông tin context → model AI tự "đoán" phong cách tương tự
-- Không có text-in-image hỗ trợ → người dùng không thấy text trên ảnh = khác biệt duy nhất rõ ràng
+### Chi tiet ky thuat
 
-**3. Không có logging** → không verify được mode nào đang được dùng
-
-### Giải pháp: Tăng khác biệt giữa 3 mode
-
-#### File: `supabase/functions/_shared/image-prompt-builder.ts`
-
-**1. RAW mode — thực sự raw:**
-- Giữ nguyên logic hiện tại nhưng thêm instruction rõ: "Generate freely without brand constraints"
-- Vẫn hỗ trợ text-in-image nếu user bật (hiện tại raw mode bỏ qua text hoàn toàn)
-
-**2. BRAND_ONLY mode — giảm AI optimization rõ ràng:**  
-- Thêm instruction: "DO NOT add artistic interpretations. Follow the user's description literally."
-- Giữ brand colors nhưng dùng nhẹ hơn: "Subtly incorporate brand colors" thay vì "Use these colors prominently"
-- Bỏ `buildStructuredLayoutSection` (layout phức tạp là AI optimization)
-
-**3. FULL mode — thêm explicit creative freedom:**
-- Thêm instruction: "You have full creative freedom to interpret and enhance the visual concept"
-- Giữ nguyên logic hiện tại
-
-#### File: `supabase/functions/generate-brand-image/index.ts`
-
-**4. Thêm logging:**
 ```typescript
-console.log(`[generate-brand-image] Prompt mode: ${promptMode || 'full (default)'}`);
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
 ```
 
-### Tóm tắt thay đổi
-- 2 files: `image-prompt-builder.ts` + `generate-brand-image/index.ts`
-- Tăng khác biệt instruction giữa 3 mode để AI model tạo kết quả khác nhau rõ rệt
-- Thêm logging để debug
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
+```
 
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
