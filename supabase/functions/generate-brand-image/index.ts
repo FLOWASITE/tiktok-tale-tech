@@ -257,7 +257,7 @@ serve(async (req) => {
       promptMode,
     }: GenerateImageRequest = await req.json();
 
-    console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}`);
+    console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}, promptMode: ${promptMode || 'full (default)'}`);
     console.log(`[generate-brand-image] Image content type: ${imageContentType || 'background_only'}`);
     if (imageContentType === 'with_text' && textToInclude) {
       console.log(`[generate-brand-image] Text to include: "${textToInclude.slice(0, 50)}..."`);

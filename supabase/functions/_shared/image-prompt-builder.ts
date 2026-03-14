@@ -916,8 +916,11 @@ ${buildCountryCharacterSection(countryCode)}
     return prompt;
   }
   
-  // ─── FULL MODE (default): All layers - existing logic ───
+  // ─── FULL MODE (default): All layers — AI has full creative freedom ───
   let prompt = `Create a professional, brand-aligned ${isWithText ? 'SOCIAL GRAPHIC WITH TEXT' : 'image'} for ${brand.brandName}.
+
+You have FULL CREATIVE FREEDOM to interpret and enhance the visual concept.
+Optimize composition, color grading, lighting, and layout for maximum visual impact on ${channel}.
 
 ## ARTICLE CONTENT CONTEXT (HIGHEST PRIORITY):
 ${contentSummary}
