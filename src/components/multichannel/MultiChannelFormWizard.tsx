@@ -1826,7 +1826,13 @@ export function MultiChannelFormWizard({
                 <button
                   key={mode.value}
                   type="button"
-                  onClick={() => setPromptMode(mode.value)}
+                  onClick={() => {
+                    setPromptMode(mode.value);
+                    // Auto-enable logo for brand_only mode (consistent with SimpleImageGenerator)
+                    if (mode.value === 'brand_only') {
+                      // Logo will be auto-enabled via pipeline
+                    }
+                  }}
                   className={cn(
                     "flex flex-col items-center gap-3 rounded-xl border-2 p-5 text-center transition-all",
                     promptMode === mode.value
@@ -1949,6 +1955,27 @@ export function MultiChannelFormWizard({
                   </CardContent>
                 </Card>
 
+                {/* Hint: raw/brand_only can customize via SimpleImageGenerator */}
+                {promptMode !== 'full' && (
+                  <Card className="border border-dashed border-muted-foreground/30 bg-muted/20">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <Settings2 className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {promptMode === 'raw' ? 'Tùy chỉnh nâng cao' : 'Tùy chỉnh brand'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {promptMode === 'raw' 
+                              ? 'Bạn có thể tùy chỉnh phong cách, logo, text, bố cục chi tiết hơn tại trang chi tiết sau khi tạo nội dung, hoặc sử dụng trình tạo ảnh riêng.' 
+                              : 'Bạn có thể tùy chỉnh logo, vị trí text và typography tại trang chi tiết sau khi tạo nội dung, hoặc sử dụng trình tạo ảnh riêng.'}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Info card */}
                 <Card className="border border-border/50 bg-card/50">
                   <CardContent className="p-5">
@@ -2016,6 +2043,8 @@ export function MultiChannelFormWizard({
                   generatedImages={(generatedImages || {}) as Record<Channel, any>}
                   onRetryChannel={onRetryImageChannel}
                   onDownloadImage={onDownloadImage}
+                  onEditBackground={undefined}
+                  onRefineText={undefined}
                 />
 
                 {/* Completion actions */}
