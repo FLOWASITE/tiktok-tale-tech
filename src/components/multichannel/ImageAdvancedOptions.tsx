@@ -196,9 +196,9 @@ export function ImageAdvancedOptions({
             promptMode === 'brand_only' && "text-amber-700 dark:text-amber-400 bg-amber-500/5 border-amber-500/15",
             promptMode === 'raw' && "text-violet-700 dark:text-violet-400 bg-violet-500/5 border-violet-500/15",
           )}>
-            {promptMode === 'full' && '✨ AI tối ưu phong cách, bố cục, brand + chiến lược marketing'}
-            {promptMode === 'brand_only' && '🎨 Giữ logo & màu brand. Bạn tự quyết nội dung & bố cục'}
-            {promptMode === 'raw' && '⚡ Chỉ tỉ lệ khung hình + negative prompt. Mọi thứ khác do bạn'}
+            {promptMode === 'full' && '✨ AI tự chọn phong cách, bố cục, vị trí text. Bạn chỉ cần duyệt.'}
+            {promptMode === 'brand_only' && '🎨 Giữ logo & màu brand. Bạn tự chọn bố cục text & vị trí.'}
+            {promptMode === 'raw' && '⚡ Bạn kiểm soát mọi thứ: phong cách, logo, text, bố cục.'}
           </p>
         </div>
 
