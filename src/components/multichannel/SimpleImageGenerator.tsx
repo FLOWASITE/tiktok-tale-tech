@@ -369,7 +369,7 @@ export function SimpleImageGenerator({
     logoUrl: brandLogoUrl || undefined,
     logoStyle, logoSizePercent: logoSize, logoOpacity,
     aspectRatio,
-    imageStylePreset: (promptMode !== 'full' || imageStyle === 'auto') ? undefined : imageStyle,
+    imageStylePreset: promptMode === 'full' ? undefined : (promptMode === 'raw' && imageStyle !== 'auto' ? imageStyle : undefined),
     negativePrompt: negativePrompt.trim() || undefined,
     contentRole: promptMode === 'full' ? contentRole : undefined,
     contentAngle: promptMode === 'full' ? contentAngle : undefined,
@@ -588,7 +588,13 @@ export function SimpleImageGenerator({
             <button
               key={mode.value}
               type="button"
-              onClick={() => setPromptMode(mode.value)}
+              onClick={() => {
+                setPromptMode(mode.value);
+                // Auto-enable logo for brand_only mode
+                if (mode.value === 'brand_only' && brandLogoUrl) {
+                  setIncludeLogo(true);
+                }
+              }}
               className={cn(
                 "flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 text-center transition-all",
                 promptMode === mode.value

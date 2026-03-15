@@ -75,6 +75,7 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
       contentAngle?: string;
       topic?: string;
       promptMode?: 'full' | 'brand_only' | 'raw';
+      imageContentType?: 'with_text' | 'background_only';
     }
   ) => {
     if (!brandTemplateId || channels.length === 0) {
@@ -125,18 +126,19 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
         channels,
         contentSummaries,
         aspectRatio: 'auto',
-        imageStylePreset: imageStylePreset as any,
-        contentRole: (contentMeta.contentRole || 'seed') as any,
-        contentAngle: contentMeta.contentAngle,
-        // Adjust based on promptMode
-        includeLogo: mode === 'brand_only' ? true : !!brandLogoUrl,
+        promptMode: mode,
+        // Only send V3 auto-selected style in 'full' mode; other modes let user/brand decide
+        imageStylePreset: mode === 'full' ? (imageStylePreset as any) : undefined,
+        // Strategic context only for 'full' — other modes skip AI intervention
+        contentRole: mode === 'full' ? ((contentMeta.contentRole || 'seed') as any) : undefined,
+        contentAngle: mode === 'full' ? contentMeta.contentAngle : undefined,
+        // Logo: force on for brand_only when URL exists
+        includeLogo: mode === 'brand_only' ? !!brandLogoUrl : !!brandLogoUrl,
         logoPosition: 'top-left',
         logoUrl: brandLogoUrl || undefined,
-        imageContentType: mode === 'full' ? 'with_text' : 'with_text',
+        // Content type: full mode defaults to with_text, others should receive from caller
+        imageContentType: contentMeta.imageContentType || 'with_text',
         useCanvasFallback: true,
-        // For 'raw' mode, user settings override V3 auto-select (handled by caller passing explicit style)
-        // For 'brand_only', keep brand visual identity
-        // For 'full', AI decides everything (default behavior)
       };
 
       // Save callback - persists image to multi_channel_contents.channel_images
