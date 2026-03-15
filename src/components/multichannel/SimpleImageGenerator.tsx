@@ -479,10 +479,11 @@ export function SimpleImageGenerator({
     promptMode,
     structuredOverlay: hybridOverlay,
     overlayMode: useHybridMode ? overlayMode : undefined,
+    structuredTemplate: useHybridMode ? overlayTemplate : undefined,
   }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, hybridBackgroundPrompt, useHybridMode,
     includeLogo, brandLogoUrl, logoPosition, logoStyle, logoSize, logoOpacity,
     aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages,
-    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode, hybridOverlay, overlayMode, v3Suggestions]);
+    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode, hybridOverlay, overlayMode, overlayTemplate, v3Suggestions]);
 
   // ─── Handlers ─────────────────────
   const handleGenerate = async () => {
@@ -840,8 +841,8 @@ export function SimpleImageGenerator({
               </div>
             )}
 
-            {/* Template picker — only when hybrid mode is active and not ai_render */}
-            {useHybridMode && overlayMode === 'satori' && (
+            {/* Template picker — shown for both satori and ai_render modes */}
+            {useHybridMode && (
               <OverlayTemplatePicker
                 value={overlayTemplate}
                 onChange={setOverlayTemplate}

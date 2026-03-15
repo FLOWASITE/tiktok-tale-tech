@@ -61,6 +61,8 @@ export interface AutoGenerateOptions {
   };
   // Overlay mode: 'satori' (default, programmatic) or 'ai_render' (AI renders text directly)
   overlayMode?: 'satori' | 'ai_render';
+  // Template ID for AI layout guidance in ai_render mode
+  structuredTemplate?: string;
 }
 
 export interface GeneratedImage {
@@ -181,6 +183,8 @@ export function useAutoImageGeneration() {
             // AI Render mode: pass structured elements for AI to render text directly
             structuredElements: isAiRenderMode ? structuredOverlay.elements : undefined,
             structuredColors: isAiRenderMode ? structuredOverlay.colors : undefined,
+            // Template ID for AI layout guidance
+            structuredTemplate: isAiRenderMode ? options.structuredTemplate : undefined,
           },
           timeoutMs: 120_000,
         });

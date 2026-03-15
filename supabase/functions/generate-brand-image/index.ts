@@ -58,6 +58,8 @@ interface GenerateImageRequest {
     cta?: string;
   };
   structuredColors?: { primary: string; secondary: string; text: string };
+  // Template ID for layout guidance in AI render mode
+  structuredTemplate?: string;
 }
 
 // Default model fallback (used when config not available)
@@ -231,12 +233,27 @@ async function generateImageWithRetry(
  */
 function structuredElementsToPromptText(
   elements: GenerateImageRequest['structuredElements'],
-  colors?: GenerateImageRequest['structuredColors']
+  colors?: GenerateImageRequest['structuredColors'],
+  templateId?: string
 ): string {
   if (!elements) return '';
 
   const parts: string[] = [];
-  parts.push('\n\nIMPORTANT — Render the following text elements DIRECTLY in the image with professional typography:');
+
+  // Template-based layout instruction
+  const layoutInstructions: Record<string, string> = {
+    poster: 'LAYOUT: Stack layout — bold banner bar at the top edge, large centered headline in the middle, CTA button/text at the bottom. Clean vertical hierarchy.',
+    infographic: 'LAYOUT: Split layout — left side (55%) features large hero text/number, right side (45%) contains a 2×2 grid of info cards. Banner bar spans full width at the top.',
+    quote_card: 'LAYOUT: Centered large quote text with gradient/glow effect filling the middle of the image. Banner bar at the bottom edge.',
+    feature_list: 'LAYOUT: Banner bar at the top edge, followed by a vertical list of feature cards stacked below with even spacing.',
+    contact_card: 'LAYOUT: Headline text at the top, contact information (phone, website, address) displayed as a footer section at the bottom.',
+  };
+
+  if (templateId && templateId !== 'auto' && layoutInstructions[templateId]) {
+    parts.push(`\n\n${layoutInstructions[templateId]}`);
+  }
+
+  parts.push('\nIMPORTANT — Render the following text elements DIRECTLY in the image with professional typography:');
 
   if (elements.banner) {
     const pos = elements.banner.position === 'top' ? 'top of the image' : 'bottom of the image';
@@ -316,6 +333,8 @@ function structuredElementsToPromptText(
       // AI Render mode: structured elements
       structuredElements,
       structuredColors,
+      // Template ID for layout guidance
+      structuredTemplate,
     }: GenerateImageRequest = await req.json();
 
     console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}, promptMode: ${promptMode || 'full (default)'}`);
@@ -483,7 +502,7 @@ function structuredElementsToPromptText(
 
     // AI Render mode: append structured text instructions to prompt
     if (structuredElements) {
-      const structuredText = structuredElementsToPromptText(structuredElements, structuredColors);
+      const structuredText = structuredElementsToPromptText(structuredElements, structuredColors, structuredTemplate);
       enhancedPrompt += structuredText;
       console.log(`[generate-brand-image] AI Render mode: appended structured text instructions (${structuredText.length} chars)`);
     }
