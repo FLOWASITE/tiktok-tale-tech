@@ -45,7 +45,10 @@ function validateOverlay(overlay: any, primaryColor: string): any {
     } else {
       result.cards.items = result.cards.items
         .filter((c: any) => c.label && c.label.trim().length > 0)
-        .map((c: any) => ({ ...c, label: c.label.trim().slice(0, 50) }));
+        .map((c: any) => ({
+          icon: c.icon || undefined,
+          label: c.label.trim().slice(0, 50),
+        }));
 
       if (result.cards.items.length < 2) {
         delete result.cards;
@@ -62,7 +65,34 @@ function validateOverlay(overlay: any, primaryColor: string): any {
     if (result.cta.length === 0) delete result.cta;
   }
 
+  // Footer: validate items
+  if (result.footer) {
+    if (!result.footer.items || !Array.isArray(result.footer.items)) {
+      delete result.footer;
+    } else {
+      result.footer.items = result.footer.items
+        .filter((f: any) => f.text && f.text.trim().length > 0)
+        .map((f: any) => ({
+          icon: f.icon || undefined,
+          text: f.text.trim().slice(0, 60),
+        }))
+        .slice(0, 4);
+      if (result.footer.items.length === 0) delete result.footer;
+    }
+  }
+
   return result;
+}
+
+/** Determine layout type based on content */
+function determineLayout(overlay: any): string {
+  const hasCards = overlay.cards?.items?.length >= 3;
+  const hasHero = !!overlay.heroText || !!overlay.headline;
+  // Split layout when we have both hero content and multiple cards
+  if (hasCards && hasHero) return 'split';
+  if (overlay.banner && hasCards) return 'banner_cards';
+  if (hasHero) return 'hero_text';
+  return 'simple';
 }
 
 serve(async (req) => {
