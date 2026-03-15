@@ -1826,7 +1826,13 @@ export function MultiChannelFormWizard({
                 <button
                   key={mode.value}
                   type="button"
-                  onClick={() => setPromptMode(mode.value)}
+                  onClick={() => {
+                    setPromptMode(mode.value);
+                    // Auto-enable logo for brand_only mode (consistent with SimpleImageGenerator)
+                    if (mode.value === 'brand_only') {
+                      // Logo will be auto-enabled via pipeline
+                    }
+                  }}
                   className={cn(
                     "flex flex-col items-center gap-3 rounded-xl border-2 p-5 text-center transition-all",
                     promptMode === mode.value
