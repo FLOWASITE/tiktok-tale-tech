@@ -190,16 +190,16 @@ export function ImageAdvancedOptions({
               </button>
             ))}
           </div>
-          {promptMode === 'brand_only' && (
-            <p className="text-[10px] text-muted-foreground/80 bg-muted/30 rounded-md px-2 py-1.5">
-              💡 Phù hợp khi bạn tự viết prompt chi tiết (infographic, layout cụ thể). AI giữ nguyên prompt + thêm brand colors/logo.
-            </p>
-          )}
-          {promptMode === 'raw' && (
-            <p className="text-[10px] text-muted-foreground/80 bg-muted/30 rounded-md px-2 py-1.5">
-              ⚡ Gửi prompt nguyên vẹn đến AI, chỉ thêm aspect ratio. Dùng khi bạn muốn kiểm soát 100%.
-            </p>
-          )}
+          <p className={cn(
+            "text-[10px] rounded-md px-2.5 py-1.5 border",
+            promptMode === 'full' && "text-primary/80 bg-primary/5 border-primary/15",
+            promptMode === 'brand_only' && "text-amber-700 dark:text-amber-400 bg-amber-500/5 border-amber-500/15",
+            promptMode === 'raw' && "text-violet-700 dark:text-violet-400 bg-violet-500/5 border-violet-500/15",
+          )}>
+            {promptMode === 'full' && '✨ AI tối ưu phong cách, bố cục, brand + chiến lược marketing'}
+            {promptMode === 'brand_only' && '🎨 Giữ logo & màu brand. Bạn tự quyết nội dung & bố cục'}
+            {promptMode === 'raw' && '⚡ Chỉ tỉ lệ khung hình + negative prompt. Mọi thứ khác do bạn'}
+          </p>
         </div>
 
         {/* Style Grid with V3 scores — hidden when not in full mode */}
@@ -305,8 +305,8 @@ export function ImageAdvancedOptions({
           </div>
         </div>
 
-        {/* Logo Toggle + Options */}
-        {brandLogoUrl && (
+        {/* Logo Toggle + Options — hidden in raw mode */}
+        {promptMode !== 'raw' && brandLogoUrl && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
@@ -331,8 +331,8 @@ export function ImageAdvancedOptions({
           </div>
         )}
 
-        {/* Text Overlay Toggle */}
-        <div className="space-y-3">
+        {/* Text Overlay Toggle — hidden in raw mode */}
+        {promptMode !== 'raw' && <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -432,10 +432,10 @@ export function ImageAdvancedOptions({
               )}
             </div>
           )}
-        </div>
+        </div>}
 
-        {/* Text Position & Typography (only when has text) */}
-        {hasText && textPosition && onTextPositionChange && typographyStyle && onTypographyStyleChange && (
+        {/* Text Position & Typography (only when has text, hidden in raw mode) */}
+        {promptMode !== 'raw' && hasText && textPosition && onTextPositionChange && typographyStyle && onTypographyStyleChange && (
           <VisualTextPositionPreview
             textPosition={textPosition}
             typographyStyle={typographyStyle}
@@ -457,8 +457,8 @@ export function ImageAdvancedOptions({
           />
         </div>
 
-        {/* Strategic Context */}
-        {(contentRole || contentAngle || (selectedChannels && hookMessages && selectedChannels.some(ch => hookMessages[ch]?.hookMessage))) && (
+        {/* Strategic Context — only in full mode */}
+        {promptMode === 'full' && (contentRole || contentAngle || (selectedChannels && hookMessages && selectedChannels.some(ch => hookMessages[ch]?.hookMessage))) && (
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
               Ngữ cảnh chiến lược

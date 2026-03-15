@@ -1,41 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Phân biệt UI theo từng Mode kiểm soát AI
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-### Hiện trạng
-Hiện tại, khi chuyển mode chỉ có 2 thay đổi UI:
-- **Full mode**: Hiện thêm "Phong cách ảnh" + "Lý do gợi ý V3"
-- **Brand_only / Raw**: Ẩn 2 section trên + hiện hint text nhỏ
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-Các section còn lại (Tỉ lệ khung hình, Logo, Text overlay, Text position, Negative prompt, Ngữ cảnh chiến lược) **luôn hiện giống nhau** cho cả 3 mode → user không cảm nhận được sự khác biệt.
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-### Giải pháp: Ẩn/hiện options theo đúng chức năng từng mode
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-**File: `src/components/multichannel/ImageAdvancedOptions.tsx`**
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-| Section | Full (AI lo) | Brand Only (Giữ brand) | Raw (Toàn quyền) |
-|---------|:---:|:---:|:---:|
-| Phong cách ảnh | ✅ | ❌ | ❌ |
-| V3 Suggestions | ✅ | ❌ | ❌ |
-| Tỉ lệ khung hình | ✅ | ✅ | ✅ |
-| Logo overlay | ✅ | ✅ | ❌ |
-| Text lên ảnh | ✅ | ✅ | ❌ |
-| Text position/Typography | ✅ | ✅ | ❌ |
-| Negative prompt | ✅ | ✅ | ✅ |
-| Ngữ cảnh chiến lược | ✅ | ❌ | ❌ |
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
 
-Logic:
-- **Raw**: Chỉ giữ Tỉ lệ khung hình + Negative prompt (đúng với "bạn kiểm soát 100%")
-- **Brand Only**: Giữ Tỉ lệ + Logo + Text + Negative prompt (brand elements), ẩn Style/V3/Strategic context (đó là AI optimization)
-- **Full**: Hiện tất cả
+### Chi tiet ky thuat
 
-Thêm một summary text ngắn dưới mode selector để user thấy rõ mode đang bật những gì:
-- Full: "AI tối ưu phong cách, bố cục, brand + chiến lược marketing"
-- Brand Only: "Giữ logo & màu brand. Bạn tự quyết nội dung & bố cục"
-- Raw: "Chỉ tỉ lệ khung hình + negative prompt. Mọi thứ khác do bạn"
+```typescript
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
+```
 
-### Phạm vi
-- 1 file: `src/components/multichannel/ImageAdvancedOptions.tsx`
-- Wrap các section hiện có trong điều kiện `promptMode` check
-- Cập nhật hint text cho mỗi mode
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
+```
 
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
