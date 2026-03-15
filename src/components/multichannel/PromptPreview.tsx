@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, Palette, Ratio, Users, Target, MessageSquare, Type, Globe, Sparkles, Shield, SlidersHorizontal, EyeOff } from 'lucide-react';
+import { ChevronDown, Palette, Ratio, Users, Target, MessageSquare, Type, Globe, Sparkles, Shield, SlidersHorizontal, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { Channel } from '@/types/multichannel';
@@ -42,7 +42,6 @@ const ANGLE_LABELS: Record<string, string> = {
   social_proof: 'Bằng chứng xã hội', behind_the_scenes: 'Hậu trường', qa_faq: 'Hỏi đáp',
 };
 
-// Channel-specific text layout labels (mirrors CHANNEL_TEXT_LAYOUTS in backend)
 const CHANNEL_LAYOUT_LABELS: Partial<Record<Channel, string>> = {
   tiktok: 'Vertical storytelling',
   instagram: 'Visual-first, text tối thiểu',
@@ -51,11 +50,13 @@ const CHANNEL_LAYOUT_LABELS: Partial<Record<Channel, string>> = {
   email: 'Hero banner',
 };
 
+type RowState = 'active' | 'partial' | 'inactive';
+
 interface InfoRow {
   icon: React.ReactNode;
   label: string;
   value: string;
-  inactive?: boolean; // true = this param is skipped in current mode
+  state: RowState;
 }
 
 export function PromptPreview({
@@ -67,69 +68,60 @@ export function PromptPreview({
 
   const mode = MODE_META[promptMode];
   const isFullMode = promptMode === 'full';
+  const isBrandOnly = promptMode === 'brand_only';
   const isRawMode = promptMode === 'raw';
-  const INACTIVE_TEXT = 'Không áp dụng ở chế độ này';
 
   // Build info rows
   const rows: InfoRow[] = [];
+  const inactiveLabels: string[] = [];
 
   // Channels + aspect ratios
   const channelInfo = channels.map(ch => {
     const ar = CHANNEL_OPTIMAL_ASPECT_RATIO[ch] || '1:1';
     return `${ch} (${ar})`;
   }).join(', ');
-  rows.push({ icon: <Ratio className="w-3.5 h-3.5" />, label: 'Kênh', value: channelInfo });
+  rows.push({ icon: <Ratio className="w-3.5 h-3.5" />, label: 'Kênh', value: channelInfo, state: 'active' });
 
   // Style
-  rows.push({ icon: <Palette className="w-3.5 h-3.5" />, label: 'Phong cách', value: STYLE_LABELS[imageStyle] || imageStyle });
+  rows.push({ icon: <Palette className="w-3.5 h-3.5" />, label: 'Phong cách', value: STYLE_LABELS[imageStyle] || imageStyle, state: 'active' });
 
-  // Brand color usage — inactive for raw mode
+  // Brand color usage
   if (isRawMode) {
-    rows.push({ icon: <Palette className="w-3.5 h-3.5" />, label: 'Brand color', value: INACTIVE_TEXT, inactive: true });
+    inactiveLabels.push('Brand color');
   } else if (brandPrimaryColor) {
-    rows.push({ icon: <Palette className="w-3.5 h-3.5" />, label: 'Brand color', value: `${brandPrimaryColor} (${mode.colorBrand})` });
+    rows.push({ icon: <Palette className="w-3.5 h-3.5" />, label: 'Brand color', value: `${brandPrimaryColor} (${mode.colorBrand})`, state: 'active' });
   }
 
-  // Persona — active only in full mode, show inactive for others
+  // Persona — full in full mode, partial in brand_only, inactive in raw
   if (isFullMode) {
-    rows.push({
-      icon: <Users className="w-3.5 h-3.5" />,
-      label: 'Đối tượng',
-      value: personaName || 'Chưa chọn',
-    });
+    rows.push({ icon: <Users className="w-3.5 h-3.5" />, label: 'Đối tượng', value: personaName || 'Chưa chọn', state: 'active' });
+  } else if (isBrandOnly) {
+    rows.push({ icon: <Users className="w-3.5 h-3.5" />, label: 'Đối tượng', value: personaName ? `${personaName} — Áp dụng nhẹ` : 'Chưa chọn', state: 'partial' });
   } else {
-    rows.push({ icon: <Users className="w-3.5 h-3.5" />, label: 'Đối tượng', value: INACTIVE_TEXT, inactive: true });
+    inactiveLabels.push('đối tượng');
   }
 
-  // Content role — active only in full mode
+  // Content role — full mode only
   if (isFullMode) {
-    rows.push({
-      icon: <Target className="w-3.5 h-3.5" />,
-      label: 'Vai trò',
-      value: contentRole ? (ROLE_LABELS[contentRole] || contentRole) : 'Chưa chọn',
-    });
+    rows.push({ icon: <Target className="w-3.5 h-3.5" />, label: 'Vai trò', value: contentRole ? (ROLE_LABELS[contentRole] || contentRole) : 'Chưa chọn', state: 'active' });
   } else {
-    rows.push({ icon: <Target className="w-3.5 h-3.5" />, label: 'Vai trò', value: INACTIVE_TEXT, inactive: true });
+    inactiveLabels.push('vai trò');
   }
 
-  // Content angle — active only in full mode
+  // Content angle — full mode only
   if (isFullMode) {
-    rows.push({
-      icon: <Target className="w-3.5 h-3.5" />,
-      label: 'Góc tiếp cận',
-      value: contentAngle ? (ANGLE_LABELS[contentAngle] || contentAngle) : 'Chưa chọn',
-    });
+    rows.push({ icon: <Target className="w-3.5 h-3.5" />, label: 'Góc tiếp cận', value: contentAngle ? (ANGLE_LABELS[contentAngle] || contentAngle) : 'Chưa chọn', state: 'active' });
   } else {
-    rows.push({ icon: <Target className="w-3.5 h-3.5" />, label: 'Góc tiếp cận', value: INACTIVE_TEXT, inactive: true });
+    inactiveLabels.push('góc tiếp cận');
   }
 
-  // Hook type — active only in full mode
+  // Hook type — full mode only
   if (isFullMode) {
     if (hookType) {
-      rows.push({ icon: <MessageSquare className="w-3.5 h-3.5" />, label: 'Hook', value: hookType });
+      rows.push({ icon: <MessageSquare className="w-3.5 h-3.5" />, label: 'Hook', value: hookType, state: 'active' });
     }
   } else {
-    rows.push({ icon: <MessageSquare className="w-3.5 h-3.5" />, label: 'Hook', value: INACTIVE_TEXT, inactive: true });
+    inactiveLabels.push('hook');
   }
 
   // Text overlay + layout type per channel
@@ -138,22 +130,14 @@ export function PromptPreview({
       const layoutLabel = CHANNEL_LAYOUT_LABELS[ch];
       return layoutLabel ? `${ch}: ${layoutLabel}` : `${ch}: Poster 3 phần`;
     });
-    rows.push({
-      icon: <Type className="w-3.5 h-3.5" />,
-      label: 'Text overlay',
-      value: `Có — ${layoutDetails.join(', ')}`,
-    });
+    rows.push({ icon: <Type className="w-3.5 h-3.5" />, label: 'Text overlay', value: `Có — ${layoutDetails.join(', ')}`, state: 'active' });
   } else {
-    rows.push({
-      icon: <Type className="w-3.5 h-3.5" />,
-      label: 'Text overlay',
-      value: 'Không',
-    });
+    rows.push({ icon: <Type className="w-3.5 h-3.5" />, label: 'Text overlay', value: 'Không', state: 'active' });
   }
 
   // Country
   if (countryCode) {
-    rows.push({ icon: <Globe className="w-3.5 h-3.5" />, label: 'Thị trường', value: countryCode });
+    rows.push({ icon: <Globe className="w-3.5 h-3.5" />, label: 'Thị trường', value: countryCode, state: 'active' });
   }
 
   return (
@@ -178,20 +162,30 @@ export function PromptPreview({
           {rows.map((row, i) => (
             <div key={i} className={cn(
               "flex items-start gap-2 text-xs",
-              row.inactive && "opacity-40"
+              row.state === 'partial' && "opacity-60"
             )}>
               <span className="text-muted-foreground mt-0.5 shrink-0">
-                {row.inactive ? <EyeOff className="w-3.5 h-3.5" /> : row.icon}
+                {row.state === 'partial' ? <span className="text-xs">~</span> : row.icon}
               </span>
               <span className="text-muted-foreground shrink-0 w-20">{row.label}:</span>
               <span className={cn(
                 "font-medium",
-                row.inactive ? "text-muted-foreground italic" : "text-foreground"
+                row.state === 'partial' ? "text-muted-foreground italic" : "text-foreground"
               )}>
                 {row.value}
               </span>
             </div>
           ))}
+
+          {inactiveLabels.length > 0 && (
+            <p className="text-xs text-muted-foreground/60 italic pt-1 flex items-start gap-1.5">
+              <Info className="w-3 h-3 mt-0.5 shrink-0" />
+              <span>
+                {inactiveLabels.join(', ')} không áp dụng ở chế độ này.
+                {!isFullMode && <span className="ml-1 text-primary/60">Chuyển "Để AI lo" để bật.</span>}
+              </span>
+            </p>
+          )}
         </div>
       </CollapsibleContent>
     </Collapsible>
