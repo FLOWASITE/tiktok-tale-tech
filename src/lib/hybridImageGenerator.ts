@@ -262,3 +262,72 @@ export function decomposeRequest(
 
   return { backgroundPrompt, overlayConfig };
 }
+
+/**
+ * Apply a template preset to AI-decomposed content.
+ * Keeps AI-generated text but overrides layout and ensures required slots exist.
+ */
+export function applyTemplate(
+  templateId: string,
+  decomposed: DecomposedRequest,
+  description: string,
+  primaryColor: string = '#DC2626'
+): DecomposedRequest {
+  if (templateId === 'auto') return decomposed;
+
+  const template = getTemplateById(templateId);
+  if (!template) return decomposed;
+
+  const overlay = { ...decomposed.overlayConfig };
+
+  // Ensure required banner slot
+  if (template.requiredSlots.includes('banner') && !overlay.banner) {
+    const words = description.split(/\s+/).slice(0, 4).join(' ');
+    overlay.banner = {
+      text: words.toUpperCase().slice(0, 30),
+      bgColor: primaryColor,
+      position: template.defaults.banner?.position || 'top',
+    };
+  } else if (overlay.banner && template.defaults.banner) {
+    overlay.banner.position = template.defaults.banner.position;
+  }
+
+  // Ensure required heroText slot
+  if (template.requiredSlots.includes('heroText') && !overlay.heroText) {
+    const numMatch = description.match(/(\d+[\.,]?\d*\s*(%|triệu|tỷ|nghìn|k|K|M)?)/);
+    overlay.heroText = {
+      text: numMatch ? numMatch[0].trim().slice(0, 20) : description.split(/[.!?\n]/)[0]?.slice(0, 40) || 'Highlight',
+      fontSize: template.defaults.heroText?.fontSize || '3xl',
+      effect: template.defaults.heroText?.effect || 'gradient',
+    };
+  }
+
+  // Ensure required headline slot
+  if (template.requiredSlots.includes('headline') && !overlay.headline) {
+    overlay.headline = description.split(/[.!?\n]/)[0]?.slice(0, 60) || 'Tiêu đề';
+  }
+
+  // Ensure required cards slot
+  if (template.requiredSlots.includes('cards') && !overlay.cards) {
+    const sentences = description.split(/[.!?\n]/).map(s => s.trim()).filter(s => s.length > 5);
+    const minCount = template.defaults.cards?.minCount || 3;
+    const items = sentences.slice(0, Math.max(minCount, 2)).map(s => ({ label: s.slice(0, 50) }));
+    while (items.length < minCount) items.push({ label: `Điểm ${items.length + 1}` });
+    overlay.cards = {
+      items,
+      layout: template.defaults.cards?.layout || 'grid-2x2',
+    };
+  } else if (overlay.cards && template.defaults.cards) {
+    overlay.cards.layout = template.defaults.cards.layout;
+  }
+
+  // Ensure required CTA slot
+  if (template.requiredSlots.includes('cta') && !overlay.cta) {
+    overlay.cta = 'Tìm hiểu thêm';
+  }
+
+  return {
+    backgroundPrompt: decomposed.backgroundPrompt,
+    overlayConfig: overlay,
+  };
+}
