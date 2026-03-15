@@ -675,6 +675,135 @@ function buildStructuredElement(
     });
   }
 
+  // Footer contact bar
+  if (elements.footer && elements.footer.items.length > 0) {
+    const footerFontSize = Math.round(imageWidth * 0.018);
+    const footerItems = elements.footer.items.map(item => ({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+        },
+        children: [
+          ...(item.icon ? [{
+            type: 'span',
+            props: { style: { fontSize: footerFontSize * 1.1 }, children: item.icon },
+          }] : []),
+          {
+            type: 'span',
+            props: {
+              style: {
+                color: bannerTextColor,
+                fontSize: footerFontSize,
+                fontFamily,
+                fontWeight: 400,
+              },
+              children: item.text,
+            },
+          },
+        ],
+      },
+    }));
+
+    children.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 16,
+          backgroundColor: theme.bannerBg,
+          padding: '8px 24px',
+          width: '100%',
+          borderRadius: theme.borderRadius > 0 ? `0 0 ${theme.borderRadius}px ${theme.borderRadius}px` : '0',
+          marginTop: 'auto',
+        },
+        children: footerItems,
+      },
+    });
+  }
+
+  // === Build final layout ===
+  // If split layout: banner top, [hero left | cards right], footer bottom
+  if (isSplit && (elements.heroText || elements.headline) && elements.cards) {
+    // Extract banner and footer from children (they stay full-width)
+    const bannerEl = elements.banner ? children.shift() : null;
+    const footerEl = elements.footer ? children.pop() : null;
+
+    // Left column: hero/headline + CTA
+    const leftChildren: any[] = [];
+    const rightChildren: any[] = [];
+
+    // Separate hero/headline (left) from cards (right)
+    for (const child of children) {
+      // Heuristic: cards container has flexWrap or gap:8 + multiple children
+      // We tag by checking if it's the cards section
+      rightChildren.length === 0 && leftChildren.length < 3
+        ? leftChildren.push(child)
+        : rightChildren.push(child);
+    }
+
+    // If we have cards, move last element from left if it looks like cards
+    if (rightChildren.length === 0 && leftChildren.length > 1) {
+      rightChildren.push(leftChildren.pop());
+    }
+
+    const splitRow = {
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          flexDirection: 'row',
+          flexGrow: 1,
+          width: '100%',
+          gap: 12,
+          padding: '12px 24px',
+          alignItems: 'center',
+        },
+        children: [
+          {
+            type: 'div',
+            props: {
+              style: { display: 'flex', flexDirection: 'column', width: '55%', gap: 12, justifyContent: 'center' },
+              children: leftChildren.length === 1 ? leftChildren[0] : leftChildren,
+            },
+          },
+          {
+            type: 'div',
+            props: {
+              style: { display: 'flex', flexDirection: 'column', width: '45%', gap: 8, justifyContent: 'center' },
+              children: rightChildren.length === 1 ? rightChildren[0] : rightChildren,
+            },
+          },
+        ],
+      },
+    };
+
+    const finalChildren: any[] = [];
+    if (bannerEl) finalChildren.push(bannerEl);
+    finalChildren.push(splitRow);
+    if (footerEl) finalChildren.push(footerEl);
+
+    return {
+      type: 'div',
+      props: {
+        style: {
+          width: imageWidth,
+          height: imageHeight,
+          display: 'flex',
+          flexDirection: 'column',
+          backgroundImage: `url(${baseImageUrl})`,
+          backgroundSize: `${imageWidth}px ${imageHeight}px`,
+          backgroundPosition: 'center',
+        },
+        children: finalChildren.length === 1 ? finalChildren[0] : finalChildren,
+      },
+    };
+  }
+
   return {
     type: 'div',
     props: {
