@@ -611,46 +611,56 @@ function buildStructuredElement(
     const isGrid = elements.cards.layout === 'grid-2x2';
     const cardFontSize = Math.round(imageWidth * 0.02);
     
-    const cardElements = elements.cards.items.map(item => ({
-      type: 'div',
-      props: {
-        style: {
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          backgroundColor: theme.cardBg,
-          borderRadius: theme.borderRadius,
-          padding: '10px 16px',
-          ...(isGrid ? { width: '48%' } : { flex: '1' }),
-        },
-        children: [
-          ...(item.icon ? [{
-            type: 'span',
-            props: { style: { fontSize: cardFontSize * 1.2 }, children: item.icon },
-          }] : [{
-            type: 'div',
-            props: {
-              style: {
-                width: 8, height: 8, borderRadius: 4,
-                backgroundColor: colors.primary,
-              },
-            },
-          }]),
-          {
-            type: 'span',
-            props: {
-              style: {
-                color: theme.cardTextColor,
-                fontSize: cardFontSize,
-                fontFamily,
-                fontWeight: theme.fontWeight >= 600 ? 500 : theme.fontWeight,
-              },
-              children: item.label,
-            },
+    const cardElements = elements.cards.items.map((item, idx) => {
+      // Alternate subtle gradient directions for visual variety
+      const gradientAngle = idx % 2 === 0 ? '135deg' : '225deg';
+      const isLightCard = theme.cardBg.includes('255,255,255');
+      const cardGradient = isLightCard
+        ? `linear-gradient(${gradientAngle}, rgba(255,255,255,0.92), rgba(240,240,255,0.85))`
+        : `linear-gradient(${gradientAngle}, ${theme.cardBg}, rgba(0,0,0,0.5))`;
+
+      return {
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: cardGradient,
+            borderRadius: theme.borderRadius,
+            padding: '10px 16px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)',
+            ...(isGrid ? { width: '48%' } : { flex: '1' }),
           },
-        ],
-      },
-    }));
+          children: [
+            ...(item.icon ? [{
+              type: 'span',
+              props: { style: { fontSize: cardFontSize * 1.2 }, children: item.icon },
+            }] : [{
+              type: 'div',
+              props: {
+                style: {
+                  width: 8, height: 8, borderRadius: 4,
+                  backgroundColor: colors.primary,
+                },
+              },
+            }]),
+            {
+              type: 'span',
+              props: {
+                style: {
+                  color: theme.cardTextColor,
+                  fontSize: cardFontSize,
+                  fontFamily,
+                  fontWeight: theme.fontWeight >= 600 ? 500 : theme.fontWeight,
+                },
+                children: item.label,
+              },
+            },
+          ],
+        },
+      };
+    });
 
     children.push({
       type: 'div',
