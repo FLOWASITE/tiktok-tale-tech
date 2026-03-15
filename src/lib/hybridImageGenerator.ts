@@ -113,11 +113,12 @@ export function decomposeRequest(
   }
 
   // Build background prompt (clean, no text, no structured elements)
+  const visualDesc = visualKeywords.join('. ') || description.slice(0, 200);
   const backgroundPrompt: BackgroundPrompt = {
-    description: visualKeywords.join('. ') || description.slice(0, 200),
+    description: `Clean visual background for infographic: ${visualDesc}. Color scheme: primary ${primaryColor}, secondary ${secondaryColor}. IMPORTANT: Do NOT include any text, numbers, letters, words, labels, UI elements, cards, or buttons in the image. Generate ONLY the visual background scene with atmosphere and illustrations.`,
     colorScheme: `Primary: ${primaryColor}, Secondary: ${secondaryColor}`,
     mood: 'professional, modern, corporate',
-    elements: ['Clean background without any text or UI elements'],
+    elements: ['Clean background without any text, numbers, or UI elements'],
   };
 
   // Build overlay config
