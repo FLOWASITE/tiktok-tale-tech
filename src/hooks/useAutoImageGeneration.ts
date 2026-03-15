@@ -86,10 +86,11 @@ export function useAutoImageGeneration() {
   }, []);
 
   // Generate with retry logic and exponential backoff
+  // OPTIMIZATION: Reduced maxRetries from 2 to 1 (server already retries internally)
   const generateWithRetry = useCallback(async (
     channel: Channel,
     options: AutoGenerateOptions,
-    maxRetries = 2
+    maxRetries = 1
   ): Promise<GeneratedImage | null> => {
     const { 
       contentId, brandTemplateId, contentSummaries, includeLogo, logoPosition, logoUrl,
