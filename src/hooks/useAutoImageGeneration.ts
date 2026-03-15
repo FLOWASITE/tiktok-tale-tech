@@ -47,6 +47,18 @@ export interface AutoGenerateOptions {
   useCanvasFallback?: boolean;
   // Prompt mode: full | brand_only | raw
   promptMode?: 'full' | 'brand_only' | 'raw';
+  // Structured overlay for complex infographic layouts
+  structuredOverlay?: {
+    layout: 'banner_cards' | 'hero_text' | 'simple';
+    elements: {
+      banner?: { text: string; bgColor: string; position: 'top' | 'bottom' };
+      heroText?: { text: string; fontSize: 'xl' | '2xl' | '3xl'; effect: 'none' | 'gradient' };
+      cards?: { items: { icon?: string; label: string }[]; layout: 'grid-2x2' | 'horizontal' | 'vertical' };
+      headline?: string;
+      cta?: string;
+    };
+    colors: { primary: string; secondary: string; text: string };
+  };
 }
 
 export interface GeneratedImage {
