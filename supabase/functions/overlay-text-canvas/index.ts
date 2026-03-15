@@ -174,6 +174,12 @@ function resolveTheme(imageStyle: string | undefined, colors: { primary: string;
 }
 
 // === Structured Multi-block Overlay (V2) ===
+interface LogoMeta {
+  position: string;    // e.g. 'top-left', 'bottom-right'
+  sizePercent: number; // e.g. 15
+  padding: number;     // e.g. 20
+}
+
 interface StructuredOverlayRequest {
   baseImageUrl: string;
   layout: 'banner_cards' | 'hero_text' | 'simple' | 'split';
@@ -192,6 +198,7 @@ interface StructuredOverlayRequest {
   contentId?: string;
   channel?: string;
   organizationId?: string;
+  logoMeta?: LogoMeta; // Logo position info for safe-area logic
 }
 
 function isStructuredRequest(body: any): body is StructuredOverlayRequest {
