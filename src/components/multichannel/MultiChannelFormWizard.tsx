@@ -142,7 +142,7 @@ interface MultiChannelFormWizardProps {
   onFormDataChange?: (data: Partial<MultiChannelFormData>) => void;
   onGenerate: (data: MultiChannelFormData) => Promise<void>;
   // Step 5: Image generation
-  onStartImagePipeline?: (channels: Channel[], channelTexts: Record<string, string>, contentMeta: { contentGoal?: string; contentRole?: string; contentAngle?: string; topic?: string }) => void;
+  onStartImagePipeline?: (channels: Channel[], channelTexts: Record<string, string>, contentMeta: { contentGoal?: string; contentRole?: string; contentAngle?: string; topic?: string; promptMode?: 'full' | 'brand_only' | 'raw' }) => void;
   imagePhase?: string;
   imageProgress?: Record<string, string>;
   imageProgressTimes?: Record<string, number>;
