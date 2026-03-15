@@ -220,6 +220,7 @@ export function SimpleImageGenerator({
   const [regeneratingChannel, setRegeneratingChannel] = useState<Channel | null>(null);
   const [useHybridMode, setUseHybridMode] = useState(false);
   const [overlayMode, setOverlayMode] = useState<'satori' | 'ai_render'>('satori');
+  const [overlayTemplate, setOverlayTemplate] = useState<string>('auto');
 
   // Hooks
   const batchGen = useAutoImageGeneration();
