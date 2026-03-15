@@ -367,6 +367,37 @@ export function SimpleImageGenerator({
   }, [content, selectedChannels]);
 
 
+  // Complexity analysis for hybrid mode auto-detection
+  const complexityAnalysis = useMemo(() => {
+    const summaryText = Object.values(contentSummaries).join(' ');
+    return analyzeContentComplexity(summaryText + ' ' + textToInclude);
+  }, [contentSummaries, textToInclude]);
+
+  // Auto-enable hybrid mode when complexity is high
+  useEffect(() => {
+    if (complexityAnalysis.score === 'complex') {
+      setUseHybridMode(true);
+    }
+  }, [complexityAnalysis.score]);
+
+  // Build structured overlay from content when hybrid mode is active
+  const hybridOverlay = useMemo(() => {
+    if (!useHybridMode) return undefined;
+    const summaryText = Object.values(contentSummaries).join(' ') + ' ' + textToInclude;
+    const { overlayConfig } = decomposeRequest(summaryText, brandPrimaryColor || '#DC2626');
+    return {
+      layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
+      elements: {
+        banner: overlayConfig.banner,
+        heroText: overlayConfig.heroText,
+        cards: overlayConfig.cards,
+        headline: overlayConfig.headline,
+        cta: overlayConfig.cta,
+      },
+      colors: overlayConfig.colors,
+    };
+  }, [useHybridMode, contentSummaries, textToInclude, brandPrimaryColor]);
+
   const batchOptions = useMemo(() => ({
     contentId: content?.id ?? '',
     brandTemplateId: content?.brand_template_id || '',
@@ -389,10 +420,11 @@ export function SimpleImageGenerator({
     typographyStyle: imageContentType === 'with_text' ? typographyStyle : undefined,
     useCanvasFallback: imageContentType === 'with_text' ? true : undefined,
     promptMode,
+    structuredOverlay: hybridOverlay,
   }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries,
     includeLogo, brandLogoUrl, logoPosition, logoStyle, logoSize, logoOpacity,
     aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages,
-    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode]);
+    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode, hybridOverlay]);
 
   // ─── Handlers ─────────────────────
   const handleGenerate = async () => {
