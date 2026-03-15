@@ -476,6 +476,7 @@ export function SimpleImageGenerator({
   const handleDownloadImage = (channel: Channel) => {
     const img = batchGen.generatedImages[channel];
     if (!img) return;
+    signals.markAccepted();
     const link = document.createElement('a');
     link.href = img.imageUrl;
     link.download = `${content.title.replace(/[^a-zA-Z0-9]/g, '_')}-${channel}.png`;
@@ -486,6 +487,7 @@ export function SimpleImageGenerator({
   const handleEditBackground = (channel: Channel) => {
     const img = batchGen.generatedImages[channel];
     if (!img?.imageUrl) { toast.error('Không có ảnh để chỉnh sửa'); return; }
+    signals.markEditedBackground();
     setEditingChannel(channel);
     setBgEditorOpen(true);
   };
