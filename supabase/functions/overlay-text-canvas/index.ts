@@ -519,6 +519,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  try {
+    const body = await req.json();
+
     // === Dispatch: Structured vs Simple ===
     if (isStructuredRequest(body)) {
       console.log(`[overlay-text-canvas] === STRUCTURED MULTI-BLOCK OVERLAY ===`);
