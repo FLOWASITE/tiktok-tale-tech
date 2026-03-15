@@ -102,6 +102,7 @@ import { CoreContentPreviewPopup } from '@/components/multichannel/CoreContentPr
 import { ActiveTasksIndicator, PendingQueueItem } from '@/components/multichannel/ActiveTasksIndicator';
 import { StrategyOverviewCard } from '@/components/multichannel/StrategyOverviewCard';
 import { useBackgroundGeneration, GenerationTask } from '@/hooks/useBackgroundGeneration';
+import type { PromptMode } from '@/hooks/useSocialImageGeneration';
 import { cn } from '@/lib/utils';
 import { 
   MultiChannelFormData, 
@@ -155,13 +156,14 @@ interface MultiChannelFormWizardProps {
   getChannelText?: (channel: Channel) => string;
 }
 
-// 5-step flow with image generation
+// 6-step flow with AI control level + image generation
 const STEPS: Step[] = [
   { id: 1, title: 'Chủ đề', icon: <FileText className="w-4 h-4" /> },
   { id: 2, title: 'Core Content', icon: <BookOpen className="w-4 h-4" /> },
   { id: 3, title: 'Vai trò', icon: <Compass className="w-4 h-4" /> },
   { id: 4, title: 'Đa kênh', icon: <Layers className="w-4 h-4" /> },
-  { id: 5, title: 'Tạo ảnh', icon: <Image className="w-4 h-4" /> },
+  { id: 5, title: 'Kiểm soát AI', icon: <Settings2 className="w-4 h-4" /> },
+  { id: 6, title: 'Tạo ảnh', icon: <Image className="w-4 h-4" /> },
 ];
 
 const channelIcons: Record<Channel, React.ReactNode> = {
@@ -302,6 +304,9 @@ export function MultiChannelFormWizard({
   const [coreContentLengthMode, setCoreContentLengthMode] = useState<CoreContentLengthMode>('medium');
   const [enableResearch, setEnableResearch] = useState(true); // Auto research toggle - default ON
   const [brandPersonasCount, setBrandPersonasCount] = useState<number | null>(null); // Track personas availability
+  
+  // AI Control Level state
+  const [promptMode, setPromptMode] = useState<PromptMode>('full');
 
   // Background generation tracking - for tasks that continue when user navigates away
   const { activeTasks, completedTasks, getTaskResult, dismissTask, isChecking: isCheckingTasks } = useBackgroundGeneration({
@@ -651,7 +656,7 @@ export function MultiChannelFormWizard({
     }
   }, [formData.topic, formData.contentGoal, coreContentAngle, coreContentAudience, coreContentPersonaId, coreContentLengthMode, brandTemplateId, organizationId, generateCoreContentStreaming, enableResearch]);
 
-  // Can proceed logic - 5-step flow
+  // Can proceed logic - 6-step flow
   const canProceed = useMemo(() => {
     switch (currentStep) {
       case 1:
@@ -667,7 +672,10 @@ export function MultiChannelFormWizard({
         // Step 4: At least 1 channel
         return formData.channels.length > 0;
       case 5:
-        // Step 5: Always can proceed (skip or finish)
+        // Step 5: AI control level - always can proceed (has default)
+        return true;
+      case 6:
+        // Step 6: Always can proceed (skip or finish)
         return true;
       default:
         return false;
@@ -681,7 +689,7 @@ export function MultiChannelFormWizard({
       return;
     }
     
-    if (currentStep < 5 && canProceed) {
+    if (currentStep < 6 && canProceed) {
       setCompletedSteps(prev => [...prev.filter(s => s !== currentStep), currentStep]);
       setCurrentStep(prev => prev + 1);
     }
@@ -695,8 +703,8 @@ export function MultiChannelFormWizard({
 
   const handleStepClick = (step: number) => {
     // Allow navigating to any previous/current step, or next step if previous is completed
-    // Special case: Step 5 is always accessible from Step 4
-    if (step <= currentStep || completedSteps.includes(step - 1) || (step === 5 && currentStep === 4)) {
+    // Special case: Step 6 is always accessible from Step 5
+    if (step <= currentStep || completedSteps.includes(step - 1) || (step === 6 && currentStep === 5)) {
       setCurrentStep(step);
     }
   };
@@ -843,7 +851,7 @@ export function MultiChannelFormWizard({
     }
   }, [coreContentData?.id, formData.coreContentId, pendingMultiChannelGeneration, isGenerating, isGeneratingCoreContent]);
 
-  // Auto-advance to Step 5 when multichannel generation completes
+  // Auto-advance to Step 5 (AI Control) when multichannel generation completes
   useEffect(() => {
     if (generationComplete && currentStep === 4) {
       setCompletedSteps(prev => [...prev.filter(s => s !== 4), 4]);
@@ -1774,8 +1782,98 @@ export function MultiChannelFormWizard({
           )}
         </div>
 
-        {/* ========== STEP 5: TẠO ẢNH ========== */}
+        {/* ========== STEP 5: MỨC ĐỘ KIỂM SOÁT AI ========== */}
         {currentStep === 5 && (
+          <div className="space-y-5 animate-fade-in">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Settings2 className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">Mức độ kiểm soát AI</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Chọn mức độ AI can thiệp vào việc tạo ảnh cho {formData.channels.length} kênh
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {([
+                { 
+                  value: 'full' as PromptMode, 
+                  label: 'Để AI lo', 
+                  icon: <Sparkles className="w-5 h-5" />,
+                  desc: 'AI tự chọn phong cách, bố cục, vị trí text. Bạn chỉ cần duyệt.',
+                  color: 'primary',
+                },
+                { 
+                  value: 'brand_only' as PromptMode, 
+                  label: 'Giữ brand', 
+                  icon: <Eye className="w-5 h-5" />,
+                  desc: 'Giữ logo & màu brand. Bạn tự chọn bố cục text & vị trí.',
+                  color: 'amber',
+                },
+                { 
+                  value: 'raw' as PromptMode, 
+                  label: 'Toàn quyền', 
+                  icon: <Pencil className="w-5 h-5" />,
+                  desc: 'Bạn kiểm soát mọi thứ: phong cách, logo, text, bố cục.',
+                  color: 'violet',
+                },
+              ]).map(mode => (
+                <button
+                  key={mode.value}
+                  type="button"
+                  onClick={() => setPromptMode(mode.value)}
+                  className={cn(
+                    "flex flex-col items-center gap-3 rounded-xl border-2 p-5 text-center transition-all",
+                    promptMode === mode.value
+                      ? "border-primary bg-primary/10 shadow-md"
+                      : "border-border/50 hover:border-border hover:bg-muted/40"
+                  )}
+                >
+                  <div className={cn(
+                    "w-12 h-12 rounded-xl flex items-center justify-center",
+                    promptMode === mode.value ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                  )}>
+                    {mode.icon}
+                  </div>
+                  <div>
+                    <span className={cn(
+                      "text-sm font-semibold block",
+                      promptMode === mode.value ? "text-primary" : "text-foreground"
+                    )}>{mode.label}</span>
+                    <span className="text-xs text-muted-foreground mt-1 block leading-relaxed">{mode.desc}</span>
+                  </div>
+                  {promptMode === mode.value && (
+                    <CheckCircle2 className="w-5 h-5 text-primary" />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Context hint */}
+            <Card className={cn(
+              "border",
+              promptMode === 'full' && "bg-primary/5 border-primary/20",
+              promptMode === 'brand_only' && "bg-amber-500/5 border-amber-500/20",
+              promptMode === 'raw' && "bg-violet-500/5 border-violet-500/20",
+            )}>
+              <CardContent className="p-4">
+                <p className="text-sm">
+                  {promptMode === 'full' && '✨ AI sẽ tự động tối ưu phong cách, bố cục và vị trí text cho từng kênh. Bạn chỉ cần duyệt kết quả.'}
+                  {promptMode === 'brand_only' && '🎨 AI giữ nguyên logo, màu sắc thương hiệu. Bạn có thể tùy chỉnh bố cục text và vị trí trong bước tạo ảnh.'}
+                  {promptMode === 'raw' && '⚡ Bạn toàn quyền kiểm soát: chọn phong cách ảnh, logo, text, typography và bố cục trong bước tạo ảnh.'}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* ========== STEP 6: TẠO ẢNH ========== */}
+        {currentStep === 6 && (
           <div className="space-y-5 animate-fade-in">
             {/* Header */}
             <div className="space-y-2">
@@ -1931,7 +2029,7 @@ export function MultiChannelFormWizard({
             </Button>
 
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>{currentStep}/5</span>
+              <span>{currentStep}/6</span>
             </div>
 
             {currentStep < 4 ? (
@@ -1996,8 +2094,20 @@ export function MultiChannelFormWizard({
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Button>
               </div>
+            ) : currentStep === 5 ? (
+              <Button
+                type="button"
+                onClick={() => {
+                  setCompletedSteps(prev => [...prev.filter(s => s !== 5), 5]);
+                  setCurrentStep(6);
+                }}
+                className="gap-2 gradient-primary glow-primary"
+              >
+                Tiếp tục tạo ảnh
+                <ArrowRight className="w-4 h-4" />
+              </Button>
             ) : (
-              // Step 5: Footer hidden when image phase is active
+              // Step 6: Footer hidden when image phase is active
               imagePhase && imagePhase !== 'idle' ? null : (
                 <div className="flex gap-2">
                   <Button
