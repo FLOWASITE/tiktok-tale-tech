@@ -588,7 +588,13 @@ export function SimpleImageGenerator({
             <button
               key={mode.value}
               type="button"
-              onClick={() => setPromptMode(mode.value)}
+              onClick={() => {
+                setPromptMode(mode.value);
+                // Auto-enable logo for brand_only mode
+                if (mode.value === 'brand_only' && brandLogoUrl) {
+                  setIncludeLogo(true);
+                }
+              }}
               className={cn(
                 "flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 text-center transition-all",
                 promptMode === mode.value
