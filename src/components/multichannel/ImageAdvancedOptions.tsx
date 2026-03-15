@@ -155,6 +155,7 @@ export function ImageAdvancedOptions({
 
       <CollapsibleContent className="mt-3 space-y-5 px-1">
         {/* Prompt Mode Selector */}
+        {!hidePromptModeSelector && (
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
             Mức độ kiểm soát AI
@@ -203,6 +204,7 @@ export function ImageAdvancedOptions({
             {promptMode === 'raw' && '⚡ Bạn kiểm soát mọi thứ: phong cách, logo, text, bố cục.'}
           </p>
         </div>
+        )}
 
         {/* Style Grid — only in raw mode (user picks manually) */}
         {promptMode === 'raw' && (
