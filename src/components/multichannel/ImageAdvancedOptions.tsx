@@ -207,7 +207,7 @@ export function ImageAdvancedOptions({
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Phong cách ảnh</Label>
             <p className="text-[10px] text-muted-foreground/70 -mt-1">
-              AI gợi ý phong cách phù hợp nhất. Bạn có thể chọn khác nếu muốn.
+              Chọn phong cách ảnh bạn muốn. Toàn quyền quyết định.
             </p>
             {topSuggestion && (
               <p className="text-[10px] text-muted-foreground/70 -mt-1">
