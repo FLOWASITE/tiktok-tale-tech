@@ -244,6 +244,24 @@ Secondary color: ${secondaryColor}`;
                         required: ["items", "layout"],
                       },
                       cta: { type: "string", description: "Call-to-action text" },
+                      footer: {
+                        type: "object",
+                        properties: {
+                          items: {
+                            type: "array",
+                            items: {
+                              type: "object",
+                              properties: {
+                                icon: { type: "string", description: "Emoji icon for this contact item (📞📍🌐📧)" },
+                                text: { type: "string", description: "Contact info text (phone, address, website, email)" },
+                              },
+                              required: ["text"],
+                            },
+                            description: "Contact info items for footer bar. Only include when content has contact details.",
+                          },
+                        },
+                        required: ["items"],
+                      },
                     },
                   },
                 },
