@@ -116,6 +116,8 @@ export function useAutoImageGeneration() {
       useCanvasFallback,
       // Prompt mode
       promptMode,
+      // Structured overlay for complex layouts
+      structuredOverlay,
     } = options;
     
     const channelAspectRatio = getAspectRatioForChannel(channel, aspectRatio);
