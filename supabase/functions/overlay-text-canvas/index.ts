@@ -470,11 +470,18 @@ function buildStructuredElement(
     const maxCards = isSquareOrTall ? 3 : 4;
     elements.cards.items = elements.cards.items.slice(0, maxCards);
   }
+  // Limit footer items to max 4
+  if (elements.footer?.items) {
+    elements.footer.items = elements.footer.items.slice(0, 4);
+  }
   // If 5+ elements remain, drop CTA to reduce density
-  const elementCount = [elements.banner, elements.heroText, elements.headline, elements.cards, elements.cta].filter(Boolean).length;
+  const elementCount = [elements.banner, elements.heroText, elements.headline, elements.cards, elements.cta, elements.footer].filter(Boolean).length;
   if (elementCount >= 5 && elements.cta) {
     delete elements.cta;
   }
+
+  // Determine if split layout
+  const isSplit = request.layout === 'split';
 
   // Determine banner text color based on banner bg brightness
   const bannerTextColor = theme.bannerBg.includes('255,255,255') ? '#1a1a1a' : '#FFFFFF';
