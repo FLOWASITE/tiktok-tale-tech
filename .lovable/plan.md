@@ -1,42 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Fix: Banner che mất Logo — Đổi thứ tự pipeline
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-### Nguyên nhân
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-Pipeline hiện tại chạy theo thứ tự:
-1. Generate background
-2. **Logo overlay** (top-left, padding 20px)
-3. Canvas text overlay (skipped nếu có structured)
-4. **Structured text overlay** — render banner full-width ở top → **che mất logo**
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-Banner trong `overlay-text-canvas` (line 482-511) render full-width ở top với `padding: 12px 24px`, không biết logo đã được đặt ở đó.
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-### Giải pháp: Đổi thứ tự — Text overlay TRƯỚC, Logo overlay SAU
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-Thay vì cố tính offset phức tạp cho banner, đơn giản đổi thứ tự trong pipeline:
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
 
+### Chi tiet ky thuat
+
+```typescript
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
 ```
-Background → Text/Structured overlay → Logo overlay
+
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
 ```
 
-Logo sẽ luôn render **trên cùng** (on top of everything), không bao giờ bị che.
-
-### Thay đổi code
-
-**File: `src/hooks/useAutoImageGeneration.ts`**
-
-Sắp xếp lại thứ tự các bước (lines 200-303):
-
-1. **Step 2 (mới)**: Canvas text overlay (cũ Step 3) — nếu `useCanvasFallback && !structuredOverlay`
-2. **Step 3 (mới)**: Structured overlay (cũ Step 4) — nếu `structuredOverlay`  
-3. **Step 4 (mới)**: Logo overlay (cũ Step 2) — nếu `includeLogo && logoUrl`
-
-Chỉ di chuyển block code, không thay đổi logic bên trong từng step.
-
-### Kết quả
-
-- Logo luôn hiển thị trên cùng, không bị banner hay text nào che
-- Không ảnh hưởng đến các mode khác (brand_only, raw)
-- Không cần sửa edge function
-
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
