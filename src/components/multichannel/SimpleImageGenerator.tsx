@@ -840,8 +840,8 @@ export function SimpleImageGenerator({
               </div>
             )}
 
-            {/* Template picker — only when hybrid mode is active and not ai_render */}
-            {useHybridMode && overlayMode === 'satori' && (
+            {/* Template picker — shown for both satori and ai_render modes */}
+            {useHybridMode && (
               <OverlayTemplatePicker
                 value={overlayTemplate}
                 onChange={setOverlayTemplate}
