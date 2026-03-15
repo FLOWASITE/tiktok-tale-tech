@@ -282,7 +282,8 @@ export function useAutoImageGeneration() {
 
         // Step 4: Structured multi-block overlay (for complex infographics)
         // This is the FINAL step — outputs SVG, no further raster processing needed
-        if (structuredOverlay) {
+        // Skip in ai_render mode (AI already rendered text directly)
+        if (structuredOverlay && !isAiRenderMode) {
           console.log(`[useAutoImageGeneration] Applying structured overlay for ${channel}`);
           
           const channelConfig = CHANNEL_IMAGE_CONFIG[channel];
