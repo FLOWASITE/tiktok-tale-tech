@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, Palette, Ratio, Users, Target, MessageSquare, Type, Globe, Sparkles, Shield, SlidersHorizontal } from 'lucide-react';
+import { ChevronDown, Palette, Ratio, Users, Target, MessageSquare, Type, Globe, Sparkles, Shield, SlidersHorizontal, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { Channel } from '@/types/multichannel';
@@ -42,6 +42,22 @@ const ANGLE_LABELS: Record<string, string> = {
   social_proof: 'Bằng chứng xã hội', behind_the_scenes: 'Hậu trường', qa_faq: 'Hỏi đáp',
 };
 
+// Channel-specific text layout labels (mirrors CHANNEL_TEXT_LAYOUTS in backend)
+const CHANNEL_LAYOUT_LABELS: Partial<Record<Channel, string>> = {
+  tiktok: 'Vertical storytelling',
+  instagram: 'Visual-first, text tối thiểu',
+  youtube: 'Thumbnail style',
+  linkedin: 'Professional layout',
+  email: 'Hero banner',
+};
+
+interface InfoRow {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  inactive?: boolean; // true = this param is skipped in current mode
+}
+
 export function PromptPreview({
   channels, promptMode, imageStyle, brandPrimaryColor,
   contentRole, contentAngle, hookType, imageContentType,
@@ -50,9 +66,12 @@ export function PromptPreview({
   const [isOpen, setIsOpen] = useState(false);
 
   const mode = MODE_META[promptMode];
+  const isFullMode = promptMode === 'full';
+  const isRawMode = promptMode === 'raw';
+  const INACTIVE_TEXT = 'Không áp dụng ở chế độ này';
 
   // Build info rows
-  const rows: { icon: React.ReactNode; label: string; value: string }[] = [];
+  const rows: InfoRow[] = [];
 
   // Channels + aspect ratios
   const channelInfo = channels.map(ch => {
@@ -64,37 +83,73 @@ export function PromptPreview({
   // Style
   rows.push({ icon: <Palette className="w-3.5 h-3.5" />, label: 'Phong cách', value: STYLE_LABELS[imageStyle] || imageStyle });
 
-  // Brand color usage
-  if (brandPrimaryColor && promptMode !== 'raw') {
+  // Brand color usage — inactive for raw mode
+  if (isRawMode) {
+    rows.push({ icon: <Palette className="w-3.5 h-3.5" />, label: 'Brand color', value: INACTIVE_TEXT, inactive: true });
+  } else if (brandPrimaryColor) {
     rows.push({ icon: <Palette className="w-3.5 h-3.5" />, label: 'Brand color', value: `${brandPrimaryColor} (${mode.colorBrand})` });
   }
 
-  // Persona
-  if (personaName && promptMode === 'full') {
-    rows.push({ icon: <Users className="w-3.5 h-3.5" />, label: 'Đối tượng', value: personaName });
+  // Persona — active only in full mode, show inactive for others
+  if (isFullMode) {
+    rows.push({
+      icon: <Users className="w-3.5 h-3.5" />,
+      label: 'Đối tượng',
+      value: personaName || 'Chưa chọn',
+    });
+  } else {
+    rows.push({ icon: <Users className="w-3.5 h-3.5" />, label: 'Đối tượng', value: INACTIVE_TEXT, inactive: true });
   }
 
-  // Content role
-  if (contentRole && promptMode === 'full') {
-    rows.push({ icon: <Target className="w-3.5 h-3.5" />, label: 'Vai trò', value: ROLE_LABELS[contentRole] || contentRole });
+  // Content role — active only in full mode
+  if (isFullMode) {
+    rows.push({
+      icon: <Target className="w-3.5 h-3.5" />,
+      label: 'Vai trò',
+      value: contentRole ? (ROLE_LABELS[contentRole] || contentRole) : 'Chưa chọn',
+    });
+  } else {
+    rows.push({ icon: <Target className="w-3.5 h-3.5" />, label: 'Vai trò', value: INACTIVE_TEXT, inactive: true });
   }
 
-  // Content angle
-  if (contentAngle && promptMode === 'full') {
-    rows.push({ icon: <Target className="w-3.5 h-3.5" />, label: 'Góc tiếp cận', value: ANGLE_LABELS[contentAngle] || contentAngle });
+  // Content angle — active only in full mode
+  if (isFullMode) {
+    rows.push({
+      icon: <Target className="w-3.5 h-3.5" />,
+      label: 'Góc tiếp cận',
+      value: contentAngle ? (ANGLE_LABELS[contentAngle] || contentAngle) : 'Chưa chọn',
+    });
+  } else {
+    rows.push({ icon: <Target className="w-3.5 h-3.5" />, label: 'Góc tiếp cận', value: INACTIVE_TEXT, inactive: true });
   }
 
-  // Hook type
-  if (hookType && promptMode === 'full') {
-    rows.push({ icon: <MessageSquare className="w-3.5 h-3.5" />, label: 'Hook', value: hookType });
+  // Hook type — active only in full mode
+  if (isFullMode) {
+    if (hookType) {
+      rows.push({ icon: <MessageSquare className="w-3.5 h-3.5" />, label: 'Hook', value: hookType });
+    }
+  } else {
+    rows.push({ icon: <MessageSquare className="w-3.5 h-3.5" />, label: 'Hook', value: INACTIVE_TEXT, inactive: true });
   }
 
-  // Text overlay
-  rows.push({
-    icon: <Type className="w-3.5 h-3.5" />,
-    label: 'Text overlay',
-    value: imageContentType === 'with_text' ? 'Có' : 'Không',
-  });
+  // Text overlay + layout type per channel
+  if (imageContentType === 'with_text') {
+    const layoutDetails = channels.map(ch => {
+      const layoutLabel = CHANNEL_LAYOUT_LABELS[ch];
+      return layoutLabel ? `${ch}: ${layoutLabel}` : `${ch}: Poster 3 phần`;
+    });
+    rows.push({
+      icon: <Type className="w-3.5 h-3.5" />,
+      label: 'Text overlay',
+      value: `Có — ${layoutDetails.join(', ')}`,
+    });
+  } else {
+    rows.push({
+      icon: <Type className="w-3.5 h-3.5" />,
+      label: 'Text overlay',
+      value: 'Không',
+    });
+  }
 
   // Country
   if (countryCode) {
@@ -121,10 +176,20 @@ export function PromptPreview({
       <CollapsibleContent>
         <div className="mt-1.5 rounded-lg border border-border/40 bg-card/50 p-3 space-y-1.5">
           {rows.map((row, i) => (
-            <div key={i} className="flex items-start gap-2 text-xs">
-              <span className="text-muted-foreground mt-0.5 shrink-0">{row.icon}</span>
+            <div key={i} className={cn(
+              "flex items-start gap-2 text-xs",
+              row.inactive && "opacity-40"
+            )}>
+              <span className="text-muted-foreground mt-0.5 shrink-0">
+                {row.inactive ? <EyeOff className="w-3.5 h-3.5" /> : row.icon}
+              </span>
               <span className="text-muted-foreground shrink-0 w-20">{row.label}:</span>
-              <span className="text-foreground font-medium">{row.value}</span>
+              <span className={cn(
+                "font-medium",
+                row.inactive ? "text-muted-foreground italic" : "text-foreground"
+              )}>
+                {row.value}
+              </span>
             </div>
           ))}
         </div>
