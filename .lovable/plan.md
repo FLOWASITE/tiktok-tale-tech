@@ -1,29 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Nâng cấp vị trí nút "Tạo ảnh" — nổi bật và dễ thấy hơn
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-### Hiện trạng
-Nút "Tạo ảnh AI" ở Step 6 nằm trong một Card dashed border giữa content area — dễ bị lẫn với các phần khác, đặc biệt trên viewport nhỏ (707px) phải scroll mới thấy.
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-### Giải pháp: Sticky CTA bar ở cuối Step 6
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-**File: `src/components/multichannel/MultiChannelFormWizard.tsx`**
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-1. **Khi `imagePhase === 'idle'` ở Step 6**: Thay thế Card dashed hiện tại bằng một **sticky bottom bar** nổi bật:
-   - `sticky bottom-0` với gradient background (`bg-gradient-to-t from-background via-background to-transparent`)
-   - Nút "Tạo ảnh AI" kích thước `lg`, full-width trên mobile, với hiệu ứng `glow-primary` + `animate-pulse` nhẹ
-   - Kèm icon Sparkles lớn hơn và badge hiện số kênh
-   - Nút "Bỏ qua" thu nhỏ thành text link bên dưới
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-2. **Visual hierarchy**: Nút tạo ảnh sẽ có:
-   - Background gradient nổi bật (gradient-primary)
-   - Shadow lớn (`shadow-lg shadow-primary/25`)
-   - Padding generous, font size lớn hơn
-   - Một dòng text phụ phía trên: "🎨 Mọi thứ đã sẵn sàng!"
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
 
-3. **Giữ nguyên Card info phía trên** (danh sách kênh, mode AI) nhưng bỏ nút khỏi Card — chuyển nút xuống sticky bar.
+### Chi tiet ky thuat
 
-### Phạm vi
-- 1 file: `src/components/multichannel/MultiChannelFormWizard.tsx`
-- Chỉ thay đổi UI layout của phần `imagePhase === 'idle'` trong Step 6
+```typescript
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
+```
 
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
+```
+
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)

@@ -1913,18 +1913,29 @@ export function MultiChannelFormWizard({
 
             {/* Image generation status */}
             {imagePhase === 'idle' || !imagePhase ? (
-              <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
-                <CardContent className="p-8 text-center space-y-4">
-                  <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
-                    <Image className="w-8 h-8 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-1">Sẵn sàng tạo ảnh</h3>
-                    <p className="text-sm text-muted-foreground">
-                      AI sẽ tự động tạo ảnh phù hợp với nội dung từng kênh
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-center gap-3">
+              <div className="space-y-4">
+                {/* Info card - no button here */}
+                <Card className="border border-border/50 bg-card/50">
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <Image className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-foreground text-sm">Sẵn sàng tạo ảnh</h3>
+                        <p className="text-xs text-muted-foreground">
+                          AI sẽ tự động tạo ảnh phù hợp với nội dung từng kênh
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Sticky CTA bar */}
+                <div className="sticky bottom-0 z-20 pt-6 pb-2">
+                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none" />
+                  <div className="relative flex flex-col items-center gap-3">
+                    <p className="text-sm font-medium text-muted-foreground">🎨 Mọi thứ đã sẵn sàng!</p>
                     <Button
                       onClick={() => {
                         if (onStartImagePipeline && getChannelText) {
@@ -1941,23 +1952,24 @@ export function MultiChannelFormWizard({
                         }
                       }}
                       disabled={!onStartImagePipeline}
-                      className="gap-2 gradient-primary glow-primary"
+                      className="w-full gap-3 gradient-primary glow-primary text-base font-semibold shadow-lg shadow-primary/25 animate-pulse hover:animate-none"
                       size="lg"
                     >
-                      <Sparkles className="w-5 h-5" />
-                      Tạo ảnh AI ({formData.channels.length} kênh)
+                      <Sparkles className="w-6 h-6" />
+                      Tạo ảnh AI
+                      <span className="inline-flex items-center justify-center rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs font-bold">
+                        {formData.channels.length} kênh
+                      </span>
                     </Button>
-                    <Button
-                      variant="outline"
+                    <button
                       onClick={() => navigate('/multichannel')}
-                      className="gap-2"
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
                     >
-                      <SkipForward className="w-4 h-4" />
-                      Bỏ qua
-                    </Button>
+                      Bỏ qua bước này →
+                    </button>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ) : (
               <div className="space-y-4">
                 {/* Show ImageStreamingGrid when generating/complete */}
