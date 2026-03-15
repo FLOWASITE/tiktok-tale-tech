@@ -309,3 +309,6 @@ verify_jwt = false
 
 [functions.generate-video]
 verify_jwt = false
+
+[functions.decompose-image-request]
+verify_jwt = false

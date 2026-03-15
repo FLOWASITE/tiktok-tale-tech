@@ -3,7 +3,11 @@
  * Decomposes complex image requests into:
  *   1. Background prompt (visual/atmosphere) → AI generation
  *   2. Overlay config (text, cards, structured elements) → Satori rendering
+ * 
+ * V2: AI-powered decomposition via Gemini Flash with regex fallback
  */
+
+import { supabase } from '@/integrations/supabase/client';
 
 export interface BackgroundPrompt {
   description: string;
@@ -53,11 +57,66 @@ export interface DecomposedRequest {
 }
 
 /**
- * Simple heuristic decomposition of a complex image description
- * into background (visual) and overlay (text/structured) parts.
- * 
- * For V1, this uses regex-based extraction.
- * Future versions can use AI (Gemini Flash) for smarter decomposition.
+ * AI-powered decomposition using Gemini Flash via edge function.
+ * Falls back to regex-based decomposition on failure.
+ */
+export async function decomposeRequestWithAI(
+  description: string,
+  primaryColor: string = '#DC2626',
+  secondaryColor: string = '#FFFFFF'
+): Promise<DecomposedRequest> {
+  try {
+    console.log('[HybridImageGen] Using AI decomposition via Gemini Flash...');
+    
+    const { data, error } = await supabase.functions.invoke('decompose-image-request', {
+      body: { description, primaryColor, secondaryColor },
+    });
+
+    if (error) {
+      console.warn('[HybridImageGen] AI decomposition failed, falling back to regex:', error.message);
+      return decomposeRequest(description, primaryColor, secondaryColor);
+    }
+
+    // Validate required fields
+    if (!data?.backgroundPrompt?.description || !data?.overlayConfig) {
+      console.warn('[HybridImageGen] AI returned incomplete data, falling back to regex');
+      return decomposeRequest(description, primaryColor, secondaryColor);
+    }
+
+    const result: DecomposedRequest = {
+      backgroundPrompt: {
+        description: data.backgroundPrompt.description,
+        colorScheme: data.backgroundPrompt.colorScheme || `Primary: ${primaryColor}, Secondary: ${secondaryColor}`,
+        mood: data.backgroundPrompt.mood || 'professional, modern',
+        elements: data.backgroundPrompt.elements || [],
+      },
+      overlayConfig: {
+        colors: data.overlayConfig.colors || { primary: primaryColor, secondary: secondaryColor, text: '#FFFFFF' },
+        ...(data.overlayConfig.banner ? { banner: data.overlayConfig.banner } : {}),
+        ...(data.overlayConfig.heroText ? { heroText: data.overlayConfig.heroText } : {}),
+        ...(data.overlayConfig.headline ? { headline: data.overlayConfig.headline } : {}),
+        ...(data.overlayConfig.cards ? { cards: data.overlayConfig.cards } : {}),
+        ...(data.overlayConfig.cta ? { cta: data.overlayConfig.cta } : {}),
+      },
+    };
+
+    console.log('[HybridImageGen] AI decomposition successful:', {
+      bgElements: result.backgroundPrompt.elements.length,
+      hasOverlayBanner: !!result.overlayConfig.banner,
+      hasHeroText: !!result.overlayConfig.heroText,
+      cardCount: result.overlayConfig.cards?.items?.length || 0,
+    });
+
+    return result;
+  } catch (err) {
+    console.warn('[HybridImageGen] AI decomposition error, falling back to regex:', err);
+    return decomposeRequest(description, primaryColor, secondaryColor);
+  }
+}
+
+/**
+ * Regex-based decomposition (V1 fallback).
+ * Used when AI decomposition fails or for quick local processing.
  */
 export function decomposeRequest(
   description: string,
@@ -66,7 +125,6 @@ export function decomposeRequest(
 ): DecomposedRequest {
   const lines = description.split('\n').map(l => l.trim()).filter(Boolean);
   
-  // Extract visual/atmosphere keywords for background
   const visualKeywords: string[] = [];
   const textElements: string[] = [];
   const cardItems: OverlayCardItem[] = [];
@@ -76,22 +134,18 @@ export function decomposeRequest(
   for (const line of lines) {
     const lower = line.toLowerCase();
     
-    // Detect banner text (breaking news style, "DỰ KIẾN", etc.)
     if (lower.includes('banner') || lower.includes('tin nóng') || lower.includes('breaking')) {
-      const quoted = line.match(/[""]([^""]+)[""]|"([^"]+)"/);
+      const quoted = line.match(/[""\u201C]([^""\u201D]+)[""\u201D]|"([^"]+)"/);
       if (quoted) bannerText = quoted[1] || quoted[2] || '';
     }
-    // Detect hero number/text (e.g., "100%", large text)
     else if (lower.includes('số') && lower.includes('lớn') || lower.includes('hero') || lower.match(/"\d+%"/)) {
-      const quoted = line.match(/[""]([^""]+)[""]|"([^"]+)"/);
+      const quoted = line.match(/[""\u201C]([^""\u201D]+)[""\u201D]|"([^"]+)"/);
       if (quoted) heroText = quoted[1] || quoted[2] || '';
     }
-    // Detect card/list items (bullet points with icons)
     else if (line.match(/^[•\-\*►]\s/) || line.match(/^\d+[\.\)]\s/)) {
       const label = line.replace(/^[•\-\*►\d\.\)]\s*/, '').trim();
       if (label) cardItems.push({ label });
     }
-    // Visual/atmosphere descriptions
     else if (
       lower.includes('nền') || lower.includes('background') ||
       lower.includes('skyline') || lower.includes('tông màu') ||
@@ -101,9 +155,8 @@ export function decomposeRequest(
     ) {
       visualKeywords.push(line);
     }
-    // Default: try to extract quoted text as overlay, rest as visual
     else {
-      const quoted = line.match(/[""]([^""]+)[""]|"([^"]+)"/);
+      const quoted = line.match(/[""\u201C]([^""\u201D]+)[""\u201D]|"([^"]+)"/);
       if (quoted) {
         textElements.push(quoted[1] || quoted[2] || '');
       } else {
@@ -112,7 +165,6 @@ export function decomposeRequest(
     }
   }
 
-  // Build background prompt (clean, no text, no structured elements)
   const visualDesc = visualKeywords.join('. ') || description.slice(0, 200);
   const backgroundPrompt: BackgroundPrompt = {
     description: `Clean visual background for infographic: ${visualDesc}. Color scheme: primary ${primaryColor}, secondary ${secondaryColor}. IMPORTANT: Do NOT include any text, numbers, letters, words, labels, UI elements, cards, or buttons in the image. Generate ONLY the visual background scene with atmosphere and illustrations.`,
@@ -121,7 +173,6 @@ export function decomposeRequest(
     elements: ['Clean background without any text, numbers, or UI elements'],
   };
 
-  // Build overlay config
   const overlayConfig: StructuredOverlayConfig = {
     colors: {
       primary: primaryColor,
