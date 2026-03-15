@@ -4341,6 +4341,62 @@ export type Database = {
           },
         ]
       }
+      generation_signals: {
+        Row: {
+          accepted: boolean | null
+          brand_id: string | null
+          channel: string
+          created_at: string | null
+          edited_background: boolean | null
+          edited_text: boolean | null
+          id: string
+          image_style: string | null
+          prompt_mode: string
+          regenerated: boolean | null
+          switched_mode: boolean | null
+          time_to_accept_ms: number | null
+          user_id: string
+        }
+        Insert: {
+          accepted?: boolean | null
+          brand_id?: string | null
+          channel: string
+          created_at?: string | null
+          edited_background?: boolean | null
+          edited_text?: boolean | null
+          id?: string
+          image_style?: string | null
+          prompt_mode: string
+          regenerated?: boolean | null
+          switched_mode?: boolean | null
+          time_to_accept_ms?: number | null
+          user_id: string
+        }
+        Update: {
+          accepted?: boolean | null
+          brand_id?: string | null
+          channel?: string
+          created_at?: string | null
+          edited_background?: boolean | null
+          edited_text?: boolean | null
+          id?: string
+          image_style?: string | null
+          prompt_mode?: string
+          regenerated?: boolean | null
+          switched_mode?: boolean | null
+          time_to_accept_ms?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generation_signals_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generation_tasks: {
         Row: {
           completed_at: string | null

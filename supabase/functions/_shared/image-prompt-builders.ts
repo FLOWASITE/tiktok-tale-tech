@@ -364,6 +364,29 @@ ${contactLines.map(l => `  ${l}`).join('\n')}
 
 export const buildStrategicContext: PromptBuilder = (ctx) => {
   const { params } = ctx;
+
+  // brand_only: inject lightweight persona + journey hint (not full directives)
+  if (params.promptMode === 'brand_only') {
+    const hints: string[] = [];
+    if (params.persona) {
+      const p = params.persona;
+      let hint = `Hint: This content targets ${p.name}`;
+      if (p.ageRange) hint += ` (${p.ageRange})`;
+      if (p.occupation) hint += `, ${p.occupation}`;
+      hints.push(hint + '.');
+    }
+    if (params.journeyStage) {
+      const stageLabels: Record<string, string> = { awareness: 'awareness', consideration: 'consideration', decision: 'decision', retention: 'retention' };
+      hints.push(`Content stage: ${stageLabels[params.journeyStage] || params.journeyStage}. Consider this for emotional tone.`);
+    }
+    if (hints.length === 0) return null;
+    return {
+      id: 'strategic_context', position: 'core' as const, priority: 80,
+      content: `## CONTEXT HINTS (Informational — prioritize user description):\n${hints.join('\n')}`,
+    };
+  }
+
+  // raw mode: no strategic context
   if (params.promptMode !== 'full' && params.promptMode !== undefined) return null;
 
   const sections: string[] = [];
