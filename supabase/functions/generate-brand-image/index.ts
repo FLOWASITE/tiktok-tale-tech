@@ -58,6 +58,8 @@ interface GenerateImageRequest {
     cta?: string;
   };
   structuredColors?: { primary: string; secondary: string; text: string };
+  // Template ID for layout guidance in AI render mode
+  structuredTemplate?: string;
 }
 
 // Default model fallback (used when config not available)
