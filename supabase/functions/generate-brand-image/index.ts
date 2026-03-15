@@ -225,8 +225,57 @@ async function generateImageWithRetry(
   
   throw lastError || new Error("All generation attempts failed");
 }
+/**
+ * Convert structured overlay elements into natural language prompt text
+ * for AI to render text directly in the generated image.
+ */
+function structuredElementsToPromptText(
+  elements: GenerateImageRequest['structuredElements'],
+  colors?: GenerateImageRequest['structuredColors']
+): string {
+  if (!elements) return '';
 
-serve(async (req) => {
+  const parts: string[] = [];
+  parts.push('\n\nIMPORTANT — Render the following text elements DIRECTLY in the image with professional typography:');
+
+  if (elements.banner) {
+    const pos = elements.banner.position === 'top' ? 'top of the image' : 'bottom of the image';
+    parts.push(`- A bold banner bar at the ${pos} with background color ${elements.banner.bgColor || colors?.primary || '#DC2626'}: "${elements.banner.text}"`);
+  }
+
+  if (elements.heroText) {
+    const size = elements.heroText.fontSize === '3xl' ? 'very large' : elements.heroText.fontSize === '2xl' ? 'large' : 'medium-large';
+    parts.push(`- A ${size} hero number/text displayed prominently: "${elements.heroText.text}"`);
+  }
+
+  if (elements.headline) {
+    parts.push(`- A clear headline: "${elements.headline}"`);
+  }
+
+  if (elements.cards && elements.cards.items.length > 0) {
+    const layout = elements.cards.layout === 'grid-2x2' ? 'arranged in a 2×2 grid' : elements.cards.layout === 'horizontal' ? 'arranged horizontally' : 'arranged vertically';
+    const cardDescs = elements.cards.items.map(c => `${c.icon ? c.icon + ' ' : ''}${c.label}`).join('; ');
+    parts.push(`- ${elements.cards.items.length} info cards ${layout}: ${cardDescs}`);
+  }
+
+  if (elements.cta) {
+    parts.push(`- A call-to-action button or text: "${elements.cta}"`);
+  }
+
+  if (colors) {
+    parts.push(`\nColor scheme: primary ${colors.primary}, secondary ${colors.secondary}, text color ${colors.text}.`);
+  }
+
+  parts.push('\nCRITICAL TEXT RENDERING RULES:');
+  parts.push('- Vietnamese diacritics (sắc, huyền, hỏi, ngã, nặng) MUST be rendered PERFECTLY — every accent mark matters');
+  parts.push('- Text must be crisp, high-contrast, and fully readable');
+  parts.push('- Use clean sans-serif typography with proper spacing');
+  parts.push('- Cards should have subtle background (semi-transparent or frosted glass effect)');
+
+  return parts.join('\n');
+}
+
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
