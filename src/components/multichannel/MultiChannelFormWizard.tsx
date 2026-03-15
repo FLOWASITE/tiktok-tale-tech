@@ -2241,38 +2241,39 @@ export function MultiChannelFormWizard({
           }}
         />
 
-        {/* Background Tasks Indicator - shows tasks that continue when user navigates away */}
-        <ActiveTasksIndicator
-          tasks={
-            isGeneratingCoreContent
-              ? activeTasks.filter(t => t.task_type !== 'core_content')
-              : activeTasks
-          }
-          pendingQueue={pendingQueueItems}
-          onDismiss={dismissTask}
-          onTaskClick={handleTaskClick}
-          onCancelPending={handleCancelPending}
-        />
-
-        {/* Core Content Preview Popup */}
-        {coreContentData && (
-          <CoreContentPreviewPopup
-            isOpen={showPreviewPopup}
-            onClose={() => setShowPreviewPopup(false)}
-            onViewFull={() => setShowCoreContentPreview(true)}
-            onContinue={() => {
-              if (currentStep < 4) {
-                setCompletedSteps(prev => [...prev.filter(s => s !== currentStep), currentStep]);
-                setCurrentStep(prev => prev + 1);
-              }
-            }}
-            title={coreContentData.title}
-            wordCount={coreContentData.wordCount}
-            qualityScore={coreContentData.qualityScore}
-            keyMessages={coreContentData.keyMessages}
-            contentGoal={coreContentData.contentGoal}
+        {/* Floating Status Stack - prevents overlapping on mobile */}
+        <FloatingStatusStack>
+          <ActiveTasksIndicator
+            tasks={
+              isGeneratingCoreContent
+                ? activeTasks.filter(t => t.task_type !== 'core_content')
+                : activeTasks
+            }
+            pendingQueue={pendingQueueItems}
+            onDismiss={dismissTask}
+            onTaskClick={handleTaskClick}
+            onCancelPending={handleCancelPending}
           />
-        )}
+
+          {coreContentData && (
+            <CoreContentPreviewPopup
+              isOpen={showPreviewPopup}
+              onClose={() => setShowPreviewPopup(false)}
+              onViewFull={() => setShowCoreContentPreview(true)}
+              onContinue={() => {
+                if (currentStep < 4) {
+                  setCompletedSteps(prev => [...prev.filter(s => s !== currentStep), currentStep]);
+                  setCurrentStep(prev => prev + 1);
+                }
+              }}
+              title={coreContentData.title}
+              wordCount={coreContentData.wordCount}
+              qualityScore={coreContentData.qualityScore}
+              keyMessages={coreContentData.keyMessages}
+              contentGoal={coreContentData.contentGoal}
+            />
+          )}
+        </FloatingStatusStack>
       </div>
     </TooltipProvider>
   );

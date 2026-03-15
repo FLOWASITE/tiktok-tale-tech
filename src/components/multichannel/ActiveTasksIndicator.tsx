@@ -283,8 +283,7 @@ export const ActiveTasksIndicator = memo(function ActiveTasksIndicator({
 
   return (
     <div className={cn(
-      "fixed bottom-20 right-4 z-50",
-      "flex flex-col gap-2 max-h-[calc(100vh-12rem)] overflow-y-auto",
+      "flex flex-col gap-2 max-h-[calc(100vh-12rem)] overflow-y-auto w-full",
       className
     )}>
       <AnimatePresence mode="popLayout">

@@ -76,7 +76,7 @@ export function CoreContentPreviewPopup({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="fixed bottom-36 right-4 z-50 max-w-sm w-full"
+          className="w-full"
         >
           <Card className="bg-card/95 backdrop-blur-md shadow-2xl border-green-500/30 overflow-hidden">
             {/* Success Header */}
