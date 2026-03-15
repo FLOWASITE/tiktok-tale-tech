@@ -381,24 +381,62 @@ export function SimpleImageGenerator({
   }, [complexityAnalysis.score]);
 
   // Build structured overlay AND background prompt from content when hybrid mode is active
-  const { hybridOverlay, hybridBackgroundPrompt } = useMemo(() => {
-    if (!useHybridMode) return { hybridOverlay: undefined, hybridBackgroundPrompt: undefined };
+  // V2: Uses AI decomposition (Gemini Flash) with regex fallback
+  const [hybridOverlay, setHybridOverlay] = useState<any>(undefined);
+  const [hybridBackgroundPrompt, setHybridBackgroundPrompt] = useState<string | undefined>(undefined);
+  const [isDecomposing, setIsDecomposing] = useState(false);
+
+  useEffect(() => {
+    if (!useHybridMode) {
+      setHybridOverlay(undefined);
+      setHybridBackgroundPrompt(undefined);
+      return;
+    }
+
     const summaryText = Object.values(contentSummaries).join(' ') + ' ' + textToInclude;
-    const { backgroundPrompt, overlayConfig } = decomposeRequest(summaryText, brandPrimaryColor || '#DC2626');
-    return {
-      hybridOverlay: {
-        layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
-        elements: {
-          banner: overlayConfig.banner,
-          heroText: overlayConfig.heroText,
-          cards: overlayConfig.cards,
-          headline: overlayConfig.headline,
-          cta: overlayConfig.cta,
-        },
-        colors: overlayConfig.colors,
-      },
-      hybridBackgroundPrompt: backgroundPrompt.description,
-    };
+    if (!summaryText.trim()) return;
+
+    let cancelled = false;
+    setIsDecomposing(true);
+
+    decomposeRequestWithAI(summaryText, brandPrimaryColor || '#DC2626')
+      .then(({ backgroundPrompt, overlayConfig }) => {
+        if (cancelled) return;
+        setHybridOverlay({
+          layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
+          elements: {
+            banner: overlayConfig.banner,
+            heroText: overlayConfig.heroText,
+            cards: overlayConfig.cards,
+            headline: overlayConfig.headline,
+            cta: overlayConfig.cta,
+          },
+          colors: overlayConfig.colors,
+        });
+        setHybridBackgroundPrompt(backgroundPrompt.description);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Fallback to regex
+        const { backgroundPrompt, overlayConfig } = decomposeRequest(summaryText, brandPrimaryColor || '#DC2626');
+        setHybridOverlay({
+          layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
+          elements: {
+            banner: overlayConfig.banner,
+            heroText: overlayConfig.heroText,
+            cards: overlayConfig.cards,
+            headline: overlayConfig.headline,
+            cta: overlayConfig.cta,
+          },
+          colors: overlayConfig.colors,
+        });
+        setHybridBackgroundPrompt(backgroundPrompt.description);
+      })
+      .finally(() => {
+        if (!cancelled) setIsDecomposing(false);
+      });
+
+    return () => { cancelled = true; };
   }, [useHybridMode, contentSummaries, textToInclude, brandPrimaryColor]);
 
   const batchOptions = useMemo(() => ({
