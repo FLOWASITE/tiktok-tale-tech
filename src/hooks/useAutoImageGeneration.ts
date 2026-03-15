@@ -283,6 +283,7 @@ export function useAutoImageGeneration() {
               layout: structuredOverlay.layout,
               elements: structuredOverlay.elements,
               colors: structuredOverlay.colors,
+              imageStyle: imageStylePreset,
               imageWidth: imgW,
               imageHeight: imgH,
               contentId,

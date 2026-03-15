@@ -404,8 +404,12 @@ function buildStructuredElement(
   imageHeight: number,
 ) {
   const { elements, colors } = request;
+  const theme = resolveTheme(request.imageStyle, colors);
   const children: any[] = [];
   const fontFamily = hasCustomFont ? 'Be Vietnam Pro' : 'sans-serif';
+
+  // Determine banner text color based on banner bg brightness
+  const bannerTextColor = theme.bannerBg.includes('255,255,255') ? '#1a1a1a' : '#FFFFFF';
 
   // Banner (top or bottom)
   if (elements.banner) {
@@ -416,20 +420,22 @@ function buildStructuredElement(
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: elements.banner.bgColor || colors.primary,
+          backgroundColor: theme.bannerBg,
           padding: '12px 24px',
           width: '100%',
+          borderRadius: theme.borderRadius > 0 ? `${theme.borderRadius}px ${theme.borderRadius}px 0 0` : '0',
         },
         children: {
           type: 'span',
           props: {
             style: {
-              color: '#FFFFFF',
+              color: bannerTextColor,
               fontSize: Math.round(imageWidth * 0.03),
               fontFamily,
-              fontWeight: 700,
+              fontWeight: theme.fontWeight,
               letterSpacing: '0.05em',
               textTransform: 'uppercase',
+              textShadow: theme.textShadow,
             },
             children: elements.banner.text,
           },
@@ -459,8 +465,8 @@ function buildStructuredElement(
               color: colors.primary,
               fontSize,
               fontFamily,
-              fontWeight: 700,
-              textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+              fontWeight: theme.fontWeight >= 600 ? 700 : 600,
+              textShadow: theme.heroTextShadow,
             },
             children: elements.heroText.text,
           },
@@ -479,8 +485,8 @@ function buildStructuredElement(
           alignItems: 'center',
           justifyContent: 'center',
           padding: '16px 32px',
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          borderRadius: 12,
+          backgroundColor: theme.headlineBg,
+          borderRadius: theme.borderRadius,
           maxWidth: '85%',
         },
         children: {
@@ -490,9 +496,10 @@ function buildStructuredElement(
               color: colors.text || '#FFFFFF',
               fontSize: Math.round(imageWidth * 0.035),
               fontFamily,
-              fontWeight: 600,
+              fontWeight: theme.fontWeight,
               textAlign: 'center',
               lineHeight: 1.4,
+              textShadow: theme.textShadow,
             },
             children: elements.headline,
           },
@@ -513,8 +520,8 @@ function buildStructuredElement(
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          backgroundColor: 'rgba(255,255,255,0.9)',
-          borderRadius: 8,
+          backgroundColor: theme.cardBg,
+          borderRadius: theme.borderRadius,
           padding: '10px 16px',
           ...(isGrid ? { width: '48%' } : { flex: '1' }),
         },
@@ -535,10 +542,10 @@ function buildStructuredElement(
             type: 'span',
             props: {
               style: {
-                color: '#1a1a1a',
+                color: theme.cardTextColor,
                 fontSize: cardFontSize,
                 fontFamily,
-                fontWeight: 500,
+                fontWeight: theme.fontWeight >= 600 ? 500 : theme.fontWeight,
               },
               children: item.label,
             },
@@ -574,7 +581,7 @@ function buildStructuredElement(
           justifyContent: 'center',
           padding: '12px 32px',
           backgroundColor: colors.primary,
-          borderRadius: 24,
+          borderRadius: theme.borderRadius > 8 ? 24 : theme.borderRadius > 0 ? 12 : 0,
           marginTop: 8,
         },
         children: {
@@ -584,7 +591,7 @@ function buildStructuredElement(
               color: '#FFFFFF',
               fontSize: Math.round(imageWidth * 0.025),
               fontFamily,
-              fontWeight: 600,
+              fontWeight: theme.fontWeight,
             },
             children: elements.cta,
           },
