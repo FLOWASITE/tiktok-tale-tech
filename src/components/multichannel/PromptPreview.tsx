@@ -138,15 +138,18 @@ export function PromptPreview({
       const layoutLabel = CHANNEL_LAYOUT_LABELS[ch];
       return layoutLabel ? `${ch}: ${layoutLabel}` : `${ch}: Poster 3 phần`;
     });
+    rows.push({ icon: <Type className="w-3.5 h-3.5" />, label: 'Vị trí text', value: isFullMode ? 'Channel-optimized auto' : 'Bạn chọn', state: 'active' });
+    const layoutDetails = channels.map(ch => {
+      const layoutLabel = CHANNEL_LAYOUT_LABELS[ch];
+      return layoutLabel ? `${ch}: ${layoutLabel}` : `${ch}: Poster 3 phần`;
+    });
     rows.push({ icon: <Type className="w-3.5 h-3.5" />, label: 'Text overlay', value: `Có — ${layoutDetails.join(', ')}`, state: 'active' });
   } else {
     rows.push({ icon: <Type className="w-3.5 h-3.5" />, label: 'Text overlay', value: 'Không', state: 'active' });
   }
 
-  // Country
-  if (countryCode) {
-    rows.push({ icon: <Globe className="w-3.5 h-3.5" />, label: 'Thị trường', value: countryCode, state: 'active' });
-  }
+  // Localization — always active for all modes
+  rows.push({ icon: <Globe className="w-3.5 h-3.5" />, label: 'Bản địa hóa', value: countryCode || 'Auto', state: 'active' });
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className={className}>
