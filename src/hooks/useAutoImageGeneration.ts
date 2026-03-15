@@ -178,6 +178,9 @@ export function useAutoImageGeneration() {
             textPosition: effectiveContentType === 'with_text' ? textPosition : undefined,
             typographyStyle: effectiveContentType === 'with_text' ? typographyStyle : undefined,
             promptMode,
+            // AI Render mode: pass structured elements for AI to render text directly
+            structuredElements: isAiRenderMode ? structuredOverlay.elements : undefined,
+            structuredColors: isAiRenderMode ? structuredOverlay.colors : undefined,
           },
           timeoutMs: 120_000,
         });
