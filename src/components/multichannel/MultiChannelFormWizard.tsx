@@ -2029,7 +2029,7 @@ export function MultiChannelFormWizard({
             </Button>
 
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>{currentStep}/5</span>
+              <span>{currentStep}/6</span>
             </div>
 
             {currentStep < 4 ? (
