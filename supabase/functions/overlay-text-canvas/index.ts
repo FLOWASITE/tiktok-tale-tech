@@ -586,12 +586,14 @@ serve(async (req) => {
       imageHeight = 630,
     } = body;
 
-    console.log(`[overlay-text-canvas] === SATORI TEXT OVERLAY ===`);
-    console.log(`[overlay-text-canvas] Text: "${text.substring(0, 50)}..."`);
-    console.log(`[overlay-text-canvas] Position: ${position}, Style: ${typographyStyle}`);
-    console.log(`[overlay-text-canvas] Dimensions: ${imageWidth}x${imageHeight}`);
+    // Validate inputs first before logging
+    if (!text || (typeof text === 'string' && text.trim().length === 0)) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Text is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    // Validate inputs
     if (!baseImageUrl) {
       return new Response(
         JSON.stringify({ success: false, error: "Base image URL is required" }),
@@ -599,12 +601,10 @@ serve(async (req) => {
       );
     }
 
-    if (!text || text.trim().length === 0) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Text is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    console.log(`[overlay-text-canvas] === SATORI TEXT OVERLAY ===`);
+    console.log(`[overlay-text-canvas] Text: "${text.substring(0, 50)}..."`);
+    console.log(`[overlay-text-canvas] Position: ${position}, Style: ${typographyStyle}`);
+    console.log(`[overlay-text-canvas] Dimensions: ${imageWidth}x${imageHeight}`);
 
     const cleanText = text.trim();
     const typographyConfig = getTypographyStyles(typographyStyle);
