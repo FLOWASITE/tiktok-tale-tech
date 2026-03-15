@@ -102,6 +102,7 @@ import { analyzeContentComplexity } from '@/lib/contentComplexityAnalyzer';
 import { ComplexityWarning } from '@/components/multichannel/ComplexityWarning';
 import { CoreContentPreviewPopup } from '@/components/multichannel/CoreContentPreviewPopup';
 import { ActiveTasksIndicator, PendingQueueItem } from '@/components/multichannel/ActiveTasksIndicator';
+import { FloatingStatusStack } from '@/components/multichannel/FloatingStatusStack';
 import { StrategyOverviewCard } from '@/components/multichannel/StrategyOverviewCard';
 import { PromptPreview } from '@/components/multichannel/PromptPreview';
 import { useBackgroundGeneration, GenerationTask } from '@/hooks/useBackgroundGeneration';
