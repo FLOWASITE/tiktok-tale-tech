@@ -316,6 +316,8 @@ function structuredElementsToPromptText(
       // AI Render mode: structured elements
       structuredElements,
       structuredColors,
+      // Template ID for layout guidance
+      structuredTemplate,
     }: GenerateImageRequest = await req.json();
 
     console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}, promptMode: ${promptMode || 'full (default)'}`);
