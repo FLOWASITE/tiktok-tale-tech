@@ -519,8 +519,58 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const body = await req.json();
+    // === Dispatch: Structured vs Simple ===
+    if (isStructuredRequest(body)) {
+      console.log(`[overlay-text-canvas] === STRUCTURED MULTI-BLOCK OVERLAY ===`);
+      const sr = body as StructuredOverlayRequest;
+      const { baseImageUrl, elements, imageWidth = 1200, imageHeight = 630, contentId, channel, organizationId } = sr;
+
+      if (!baseImageUrl) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Base image URL is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const allTexts: string[] = [];
+      if (elements.banner?.text) allTexts.push(elements.banner.text);
+      if (elements.heroText?.text) allTexts.push(elements.heroText.text);
+      if (elements.headline) allTexts.push(elements.headline);
+      if (elements.cta) allTexts.push(elements.cta);
+      if (elements.cards?.items) allTexts.push(...elements.cards.items.map(c => c.label));
+      const combinedText = allTexts.join(' ') || 'Default';
+
+      console.log(`[overlay-text-canvas] Elements: banner=${!!elements.banner}, hero=${!!elements.heroText}, cards=${elements.cards?.items?.length || 0}`);
+
+      const fontData2 = await loadGoogleFont(combinedText, 600);
+      type Weight2 = 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
+      const fonts2 = fontData2 ? [{ name: 'Be Vietnam Pro', data: fontData2, weight: 600 as Weight2, style: 'normal' as const }] : [];
+      if (fonts2.length === 0) {
+        const fb = await loadGoogleFont(combinedText, 400);
+        if (fb) fonts2.push({ name: 'Be Vietnam Pro', data: fb, weight: 400 as Weight2, style: 'normal' as const });
+      }
+      if (fonts2.length === 0) throw new Error('Could not load any fonts');
+
+      const element2 = buildStructuredElement(baseImageUrl, sr, true, imageWidth, imageHeight);
+      const svg2 = await satori(element2 as any, { width: imageWidth, height: imageHeight, fonts: fonts2 });
+
+      const encoder2 = new TextEncoder();
+      const svgBytes2 = encoder2.encode(svg2);
+      let finalUrl2: string;
+      if (contentId && channel) {
+        finalUrl2 = await uploadToStorage(svgBytes2, contentId, channel, organizationId);
+      } else {
+        finalUrl2 = `data:image/svg+xml;base64,${btoa(svg2)}`;
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, imageUrl: finalUrl2, format: 'svg', layout: sr.layout, dimensions: { width: imageWidth, height: imageHeight } }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // === Simple (legacy) text overlay ===
+    const body2 = body as OverlayTextRequest;
     const {
       baseImageUrl,
       text,
