@@ -61,6 +61,8 @@ export interface AutoGenerateOptions {
   };
   // Overlay mode: 'satori' (default, programmatic) or 'ai_render' (AI renders text directly)
   overlayMode?: 'satori' | 'ai_render';
+  // Template ID for AI layout guidance in ai_render mode
+  structuredTemplate?: string;
 }
 
 export interface GeneratedImage {
