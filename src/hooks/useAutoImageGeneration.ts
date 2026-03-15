@@ -59,6 +59,8 @@ export interface AutoGenerateOptions {
     };
     colors: { primary: string; secondary: string; text: string };
   };
+  // Overlay mode: 'satori' (default, programmatic) or 'ai_render' (AI renders text directly)
+  overlayMode?: 'satori' | 'ai_render';
 }
 
 export interface GeneratedImage {
@@ -142,9 +144,13 @@ export function useAutoImageGeneration() {
         console.log(`[useAutoImageGeneration] Generating image for ${channel} with aspect ratio ${channelAspectRatio}, style: ${imageStylePreset || 'default'}, role: ${contentRole || 'none'}`);
 
         // Step 1: Generate base image with brand colors, style preset, and strategic context
-        // Force background_only when structured overlay is present (all text comes from overlay step)
-        // Also force background_only when canvas fallback is active
-        const effectiveContentType = structuredOverlay ? 'background_only' : (useCanvasFallback ? 'background_only' : imageContentType);
+        // Force background_only when structured overlay is present AND using satori mode
+        // When ai_render mode: pass structuredElements to AI so it renders text directly
+        const overlayMode = options.overlayMode || 'satori';
+        const isAiRenderMode = overlayMode === 'ai_render' && !!structuredOverlay;
+        const effectiveContentType = isAiRenderMode 
+          ? 'with_text'  // AI renders text directly
+          : (structuredOverlay ? 'background_only' : (useCanvasFallback ? 'background_only' : imageContentType));
         
         // OPTIMIZATION: Early timeout warning — notify user if AI is slow
         const slowWarningTimer = setTimeout(() => {
@@ -172,6 +178,9 @@ export function useAutoImageGeneration() {
             textPosition: effectiveContentType === 'with_text' ? textPosition : undefined,
             typographyStyle: effectiveContentType === 'with_text' ? typographyStyle : undefined,
             promptMode,
+            // AI Render mode: pass structured elements for AI to render text directly
+            structuredElements: isAiRenderMode ? structuredOverlay.elements : undefined,
+            structuredColors: isAiRenderMode ? structuredOverlay.colors : undefined,
           },
           timeoutMs: 120_000,
         });
@@ -232,7 +241,8 @@ export function useAutoImageGeneration() {
 
         // Step 3: Overlay text using canvas if useCanvasFallback is enabled
         // Skip if structuredOverlay is active (Step 4 handles text rendering)
-        if (useCanvasFallback && imageContentType === 'with_text' && channelText && !structuredOverlay) {
+        // Skip entirely in ai_render mode (AI already rendered text)
+        if (useCanvasFallback && imageContentType === 'with_text' && channelText && !structuredOverlay && !isAiRenderMode) {
           console.log(`[useAutoImageGeneration] Applying canvas text overlay for ${channel}`);
           
           // Parse dimensions from channel config
@@ -272,7 +282,8 @@ export function useAutoImageGeneration() {
 
         // Step 4: Structured multi-block overlay (for complex infographics)
         // This is the FINAL step — outputs SVG, no further raster processing needed
-        if (structuredOverlay) {
+        // Skip in ai_render mode (AI already rendered text directly)
+        if (structuredOverlay && !isAiRenderMode) {
           console.log(`[useAutoImageGeneration] Applying structured overlay for ${channel}`);
           
           const channelConfig = CHANNEL_IMAGE_CONFIG[channel];
