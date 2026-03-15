@@ -432,10 +432,10 @@ export function ImageAdvancedOptions({
               )}
             </div>
           )}
-        </div>
+        </div>}
 
-        {/* Text Position & Typography (only when has text) */}
-        {hasText && textPosition && onTextPositionChange && typographyStyle && onTypographyStyleChange && (
+        {/* Text Position & Typography (only when has text, hidden in raw mode) */}
+        {promptMode !== 'raw' && hasText && textPosition && onTextPositionChange && typographyStyle && onTypographyStyleChange && (
           <VisualTextPositionPreview
             textPosition={textPosition}
             typographyStyle={typographyStyle}
