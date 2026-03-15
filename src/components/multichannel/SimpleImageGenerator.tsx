@@ -380,21 +380,24 @@ export function SimpleImageGenerator({
     }
   }, [complexityAnalysis.score]);
 
-  // Build structured overlay from content when hybrid mode is active
-  const hybridOverlay = useMemo(() => {
-    if (!useHybridMode) return undefined;
+  // Build structured overlay AND background prompt from content when hybrid mode is active
+  const { hybridOverlay, hybridBackgroundPrompt } = useMemo(() => {
+    if (!useHybridMode) return { hybridOverlay: undefined, hybridBackgroundPrompt: undefined };
     const summaryText = Object.values(contentSummaries).join(' ') + ' ' + textToInclude;
-    const { overlayConfig } = decomposeRequest(summaryText, brandPrimaryColor || '#DC2626');
+    const { backgroundPrompt, overlayConfig } = decomposeRequest(summaryText, brandPrimaryColor || '#DC2626');
     return {
-      layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
-      elements: {
-        banner: overlayConfig.banner,
-        heroText: overlayConfig.heroText,
-        cards: overlayConfig.cards,
-        headline: overlayConfig.headline,
-        cta: overlayConfig.cta,
+      hybridOverlay: {
+        layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
+        elements: {
+          banner: overlayConfig.banner,
+          heroText: overlayConfig.heroText,
+          cards: overlayConfig.cards,
+          headline: overlayConfig.headline,
+          cta: overlayConfig.cta,
+        },
+        colors: overlayConfig.colors,
       },
-      colors: overlayConfig.colors,
+      hybridBackgroundPrompt: backgroundPrompt.description,
     };
   }, [useHybridMode, contentSummaries, textToInclude, brandPrimaryColor]);
 
