@@ -458,6 +458,23 @@ function buildStructuredElement(
   const children: any[] = [];
   const fontFamily = hasCustomFont ? 'Be Vietnam Pro' : 'sans-serif';
 
+  // === Smart Density: reduce visual clutter ===
+  // If both heroText and headline exist, drop headline (heroText is more prominent)
+  if (elements.heroText && elements.headline) {
+    delete elements.headline;
+  }
+  // Limit cards: max 3 for square images (≤1:1), max 4 otherwise
+  if (elements.cards?.items) {
+    const isSquareOrTall = imageWidth <= imageHeight;
+    const maxCards = isSquareOrTall ? 3 : 4;
+    elements.cards.items = elements.cards.items.slice(0, maxCards);
+  }
+  // If 5+ elements remain, drop CTA to reduce density
+  const elementCount = [elements.banner, elements.heroText, elements.headline, elements.cards, elements.cta].filter(Boolean).length;
+  if (elementCount >= 5 && elements.cta) {
+    delete elements.cta;
+  }
+
   // Determine banner text color based on banner bg brightness
   const bannerTextColor = theme.bannerBg.includes('255,255,255') ? '#1a1a1a' : '#FFFFFF';
 
