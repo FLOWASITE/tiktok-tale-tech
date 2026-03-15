@@ -312,6 +312,7 @@ Secondary color: ${secondaryColor}`;
 
     // Validate and fix overlay fields
     const validatedOverlay = validateOverlay(parsed.overlayConfig || {}, primaryColor);
+    const layout = determineLayout(validatedOverlay);
 
     const result = {
       backgroundPrompt: {
@@ -320,6 +321,7 @@ Secondary color: ${secondaryColor}`;
       },
       overlayConfig: {
         ...validatedOverlay,
+        layout,
         colors: {
           primary: primaryColor,
           secondary: secondaryColor,
