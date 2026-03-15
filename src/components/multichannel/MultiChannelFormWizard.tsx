@@ -155,13 +155,14 @@ interface MultiChannelFormWizardProps {
   getChannelText?: (channel: Channel) => string;
 }
 
-// 5-step flow with image generation
+// 6-step flow with AI control level + image generation
 const STEPS: Step[] = [
   { id: 1, title: 'Chủ đề', icon: <FileText className="w-4 h-4" /> },
   { id: 2, title: 'Core Content', icon: <BookOpen className="w-4 h-4" /> },
   { id: 3, title: 'Vai trò', icon: <Compass className="w-4 h-4" /> },
   { id: 4, title: 'Đa kênh', icon: <Layers className="w-4 h-4" /> },
-  { id: 5, title: 'Tạo ảnh', icon: <Image className="w-4 h-4" /> },
+  { id: 5, title: 'Kiểm soát AI', icon: <Settings2 className="w-4 h-4" /> },
+  { id: 6, title: 'Tạo ảnh', icon: <Image className="w-4 h-4" /> },
 ];
 
 const channelIcons: Record<Channel, React.ReactNode> = {
