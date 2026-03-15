@@ -264,6 +264,9 @@ serve(async (req) => {
       typographyStyle,
       // Prompt mode
       promptMode,
+      // AI Render mode: structured elements
+      structuredElements,
+      structuredColors,
     }: GenerateImageRequest = await req.json();
 
     console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}, promptMode: ${promptMode || 'full (default)'}`);
