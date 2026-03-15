@@ -267,7 +267,39 @@ export function useAutoImageGeneration() {
           }
         }
 
-        const result: GeneratedImage = {
+        // Step 4: Structured multi-block overlay (for complex infographics)
+        if (structuredOverlay) {
+          console.log(`[useAutoImageGeneration] Applying structured overlay for ${channel}`);
+          
+          const channelConfig = CHANNEL_IMAGE_CONFIG[channel];
+          const [widthStr, heightStr] = channelConfig.size.split('x');
+          const imgW = parseInt(widthStr, 10) || 1200;
+          const imgH = parseInt(heightStr, 10) || 630;
+
+          const { data: structData, error: structError } = await invokeWithTimeout<any>('overlay-text-canvas', {
+            body: {
+              baseImageUrl: finalImageUrl,
+              layout: structuredOverlay.layout,
+              elements: structuredOverlay.elements,
+              colors: structuredOverlay.colors,
+              imageWidth: imgW,
+              imageHeight: imgH,
+              contentId,
+              channel,
+            },
+            timeoutMs: 30_000,
+          });
+
+          if (structError || !structData?.success) {
+            console.warn(`[useAutoImageGeneration] Structured overlay failed for ${channel}:`, structError?.message || structData?.error);
+            toast.warning(`${channel}: Structured overlay thất bại`, { duration: 5000 });
+          } else {
+            finalImageUrl = structData.imageUrl;
+            console.log(`[useAutoImageGeneration] Structured overlay success for ${channel}`);
+          }
+        }
+
+
           channel,
           imageUrl: finalImageUrl,
           prompt: imageData.prompt,
