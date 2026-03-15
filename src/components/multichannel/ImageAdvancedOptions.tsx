@@ -301,8 +301,8 @@ export function ImageAdvancedOptions({
           </div>
         </div>
 
-        {/* Logo Toggle + Options — hidden in raw mode */}
-        {promptMode !== 'raw' && brandLogoUrl && (
+        {/* Logo Toggle + Options — all 3 modes */}
+        {brandLogoUrl && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
