@@ -652,7 +652,7 @@ export function MultiChannelFormWizard({
     }
   }, [formData.topic, formData.contentGoal, coreContentAngle, coreContentAudience, coreContentPersonaId, coreContentLengthMode, brandTemplateId, organizationId, generateCoreContentStreaming, enableResearch]);
 
-  // Can proceed logic - 5-step flow
+  // Can proceed logic - 6-step flow
   const canProceed = useMemo(() => {
     switch (currentStep) {
       case 1:
@@ -668,7 +668,10 @@ export function MultiChannelFormWizard({
         // Step 4: At least 1 channel
         return formData.channels.length > 0;
       case 5:
-        // Step 5: Always can proceed (skip or finish)
+        // Step 5: AI control level - always can proceed (has default)
+        return true;
+      case 6:
+        // Step 6: Always can proceed (skip or finish)
         return true;
       default:
         return false;
