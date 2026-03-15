@@ -176,13 +176,14 @@ function resolveTheme(imageStyle: string | undefined, colors: { primary: string;
 // === Structured Multi-block Overlay (V2) ===
 interface StructuredOverlayRequest {
   baseImageUrl: string;
-  layout: 'banner_cards' | 'hero_text' | 'simple';
+  layout: 'banner_cards' | 'hero_text' | 'simple' | 'split';
   elements: {
     banner?: { text: string; bgColor: string; position: 'top' | 'bottom' };
     heroText?: { text: string; fontSize: 'xl' | '2xl' | '3xl'; effect: 'none' | 'gradient' };
     cards?: { items: { icon?: string; label: string }[]; layout: 'grid-2x2' | 'horizontal' | 'vertical' };
     headline?: string;
     cta?: string;
+    footer?: { items: Array<{ icon?: string; text: string }> };
   };
   colors: { primary: string; secondary: string; text: string };
   imageStyle?: string;
