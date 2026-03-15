@@ -279,7 +279,7 @@ export function useAutoImageGeneration() {
     channel: Channel,
     options: AutoGenerateOptions
   ): Promise<GeneratedImage | null> => {
-    return generateWithRetry(channel, options, 2);
+    return generateWithRetry(channel, options, 1);
   }, [generateWithRetry]);
 
   // Dynamic batch size based on number of channels
