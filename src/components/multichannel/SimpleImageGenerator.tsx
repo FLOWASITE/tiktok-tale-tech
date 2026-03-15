@@ -452,6 +452,15 @@ export function SimpleImageGenerator({
 
     setViewMode('streaming');
     const result = await batchGen.generateAllImages(batchOptions, onImageGenerated, true);
+    
+    // Record generation signal
+    signals.recordGeneration({
+      brandId: content?.brand_template_id || undefined,
+      promptMode,
+      channel: selectedChannels[0] || 'instagram',
+      imageStyle: imageStyle !== 'auto' ? imageStyle : undefined,
+    });
+    
     if (result.successful.length > 0) setViewMode('preview');
   };
 
