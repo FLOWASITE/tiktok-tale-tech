@@ -207,7 +207,14 @@ export const buildTextLayout: PromptBuilder = (ctx) => {
 
   // Structured layout (full mode only)
   if (params.promptMode === 'full' || !params.promptMode) {
-    parts.push(buildStructuredLayoutContent(params.footerInfo, params.brand.brandColors));
+    // Check for channel-specific layout first
+    const channelLayout = CHANNEL_TEXT_LAYOUTS[params.channel];
+    if (channelLayout) {
+      parts.push(`\n## CHANNEL-OPTIMIZED TEXT LAYOUT (${params.channel.toUpperCase()}):\n${channelLayout}`);
+    } else {
+      // Fallback to generic structured 3-part layout for channels without specific layout
+      parts.push(buildStructuredLayoutContent(params.footerInfo, params.brand.brandColors));
+    }
   }
 
   return { id: 'text_layout', position: 'core', priority: 85, content: parts.join('\n') };
