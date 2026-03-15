@@ -59,6 +59,8 @@ export interface AutoGenerateOptions {
     };
     colors: { primary: string; secondary: string; text: string };
   };
+  // Overlay mode: 'satori' (default, programmatic) or 'ai_render' (AI renders text directly)
+  overlayMode?: 'satori' | 'ai_render';
 }
 
 export interface GeneratedImage {
