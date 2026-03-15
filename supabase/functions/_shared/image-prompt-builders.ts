@@ -25,7 +25,7 @@ export const buildCreativeMode: PromptBuilder = (ctx) => {
   const { brand, contentSummary, channel, promptMode = 'full' } = params;
 
   if (promptMode === 'raw') {
-    let content = `Generate an image based EXACTLY on this description, with NO additional brand styling or optimization:
+    let content = `Generate an image based on this description, with NO brand styling applied:
 
 ${contentSummary}
 
@@ -34,30 +34,30 @@ Aspect Ratio: ${finalAspectRatio}
 INSTRUCTIONS:
 - Generate freely without any brand constraints
 - Do NOT add brand colors, logos, or corporate styling
-- Follow the description literally — do not add artistic interpretations
-- Keep the image simple and focused on what is described`;
+- Follow the description closely — do not add artistic interpretations
+- Ensure output has clean composition suitable for ${channel} usage`;
     return { id: 'creative_mode', position: 'prefix', priority: 100, content };
   }
 
   if (promptMode === 'brand_only') {
-    let content = `Create an image for ${brand.brandName} that follows the user's description LITERALLY.
+    let content = `Create an image for ${brand.brandName} based closely on the user's description.
 
-## CONTENT (FOLLOW EXACTLY — DO NOT REINTERPRET):
+## CONTENT (FOLLOW CLOSELY FOR SUBJECT AND SCENE):
 ${contentSummary}
 
-⚠️ IMPORTANT: DO NOT add artistic interpretations. Follow the user's description literally.
-Do NOT optimize composition, do NOT add creative elements not mentioned in the description.
-Only apply brand colors and identity — everything else comes from the user's description.
+Optimize composition and framing for ${channel} (${finalAspectRatio}).
+Apply brand colors as accents — do not let them overpower the image.
+Do NOT add creative elements not mentioned in the description.
 
 ## ASPECT RATIO: ${finalAspectRatio}`;
     return { id: 'creative_mode', position: 'prefix', priority: 100, content };
   }
 
-  // full mode
-  const content = `Create a professional, brand-aligned ${isWithText ? 'SOCIAL GRAPHIC WITH TEXT' : 'image'} for ${brand.brandName}.
+  // full mode — GUIDED CREATIVE (clear separation of constraints vs creative latitude)
+  const content = `Create a visually compelling, brand-aligned ${isWithText ? 'SOCIAL GRAPHIC WITH TEXT' : 'image'} for ${brand.brandName}, optimized for ${channel}.
 
-You have FULL CREATIVE FREEDOM to interpret and enhance the visual concept.
-Optimize composition, color grading, lighting, and layout for maximum visual impact on ${channel}.
+Required constraints: brand colors, channel-appropriate composition, target audience relevance.
+Creative latitude: lighting, subject posing, background elements, color harmony beyond brand palette, artistic interpretation of the concept.
 
 ## ARTICLE CONTENT CONTEXT (HIGHEST PRIORITY):
 ${contentSummary}
