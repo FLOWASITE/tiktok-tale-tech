@@ -86,10 +86,11 @@ export function useAutoImageGeneration() {
   }, []);
 
   // Generate with retry logic and exponential backoff
+  // OPTIMIZATION: Reduced maxRetries from 2 to 1 (server already retries internally)
   const generateWithRetry = useCallback(async (
     channel: Channel,
     options: AutoGenerateOptions,
-    maxRetries = 2
+    maxRetries = 1
   ): Promise<GeneratedImage | null> => {
     const { 
       contentId, brandTemplateId, contentSummaries, includeLogo, logoPosition, logoUrl,
@@ -130,6 +131,14 @@ export function useAutoImageGeneration() {
         // If using canvas fallback, always generate background_only and add text later
         const effectiveContentType = useCanvasFallback ? 'background_only' : imageContentType;
         
+        // OPTIMIZATION: Early timeout warning — notify user if AI is slow
+        const slowWarningTimer = setTimeout(() => {
+          toast.info(`${channel}: AI đang xử lý lâu hơn bình thường...`, {
+            description: 'Vui lòng đợi thêm, không cần tải lại trang',
+            duration: 15000,
+          });
+        }, 60_000);
+
         const { data: imageData, error: imageError } = await invokeWithTimeout<any>('generate-brand-image', {
           body: {
             contentId,
@@ -151,6 +160,8 @@ export function useAutoImageGeneration() {
           },
           timeoutMs: 120_000,
         });
+
+        clearTimeout(slowWarningTimer);
 
         if (imageError || !imageData?.success) {
           console.error(`[useAutoImageGeneration] Generate error for ${channel}:`, imageError || imageData?.error);
@@ -278,25 +289,26 @@ export function useAutoImageGeneration() {
     channel: Channel,
     options: AutoGenerateOptions
   ): Promise<GeneratedImage | null> => {
-    return generateWithRetry(channel, options, 2);
+    return generateWithRetry(channel, options, 1);
   }, [generateWithRetry]);
 
-  // Dynamic batch size based on number of channels
+  // OPTIMIZATION: Increased batch sizes for better parallelism
   const getBatchSize = useCallback((totalChannels: number): number => {
-    // 1-3 channels: sequential (batch of 1) for better reliability
-    if (totalChannels <= 3) return 1;
-    // 4-6 channels: batch of 2
-    if (totalChannels <= 6) return 2;
-    // 7+ channels: batch of 3 (more aggressive batching)
+    // 1 channel: sequential
+    if (totalChannels <= 1) return 1;
+    // 2-3 channels: batch of 2 (was 1, saves ~30-40% time)
+    if (totalChannels <= 3) return 2;
+    // 4-6 channels: batch of 3 (was 2)
+    if (totalChannels <= 6) return 3;
+    // 7+ channels: batch of 3
     return 3;
   }, []);
 
   // Get delay between batches based on batch size
   const getBatchDelay = useCallback((batchSize: number): number => {
-    // Larger batches need longer delays to avoid rate limits
-    if (batchSize === 1) return 500;
-    if (batchSize === 2) return 1000;
-    return 1500;
+    if (batchSize <= 1) return 300;
+    if (batchSize === 2) return 500;
+    return 1000;
   }, []);
 
   const generateAllImages = useCallback(async (
