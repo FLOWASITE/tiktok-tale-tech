@@ -847,7 +847,7 @@ export function MultiChannelFormWizard({
     }
   }, [coreContentData?.id, formData.coreContentId, pendingMultiChannelGeneration, isGenerating, isGeneratingCoreContent]);
 
-  // Auto-advance to Step 5 when multichannel generation completes
+  // Auto-advance to Step 5 (AI Control) when multichannel generation completes
   useEffect(() => {
     if (generationComplete && currentStep === 4) {
       setCompletedSteps(prev => [...prev.filter(s => s !== 4), 4]);
