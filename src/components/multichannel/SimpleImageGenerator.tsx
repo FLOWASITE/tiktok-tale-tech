@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { analyzeContentComplexity } from '@/lib/contentComplexityAnalyzer';
 import { ComplexityWarning } from './ComplexityWarning';
-import { decomposeRequest, decomposeRequestWithAI } from '@/lib/hybridImageGenerator';
+import { decomposeRequest, decomposeRequestWithAI, applyTemplate } from '@/lib/hybridImageGenerator';
+import { OverlayTemplatePicker } from './OverlayTemplatePicker';
 import { useGenerationSignals } from '@/hooks/useGenerationSignals';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
@@ -219,6 +220,7 @@ export function SimpleImageGenerator({
   const [regeneratingChannel, setRegeneratingChannel] = useState<Channel | null>(null);
   const [useHybridMode, setUseHybridMode] = useState(false);
   const [overlayMode, setOverlayMode] = useState<'satori' | 'ai_render'>('satori');
+  const [overlayTemplate, setOverlayTemplate] = useState<string>('auto');
 
   // Hooks
   const batchGen = useAutoImageGeneration();
@@ -402,8 +404,11 @@ export function SimpleImageGenerator({
     setIsDecomposing(true);
 
     decomposeRequestWithAI(summaryText, brandPrimaryColor || '#DC2626')
-      .then(({ backgroundPrompt, overlayConfig }) => {
+      .then((decomposed) => {
         if (cancelled) return;
+        const { backgroundPrompt, overlayConfig } = overlayTemplate !== 'auto'
+          ? applyTemplate(overlayTemplate, decomposed, summaryText, brandPrimaryColor || '#DC2626')
+          : decomposed;
         setHybridOverlay({
           layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
           elements: {
@@ -419,8 +424,10 @@ export function SimpleImageGenerator({
       })
       .catch(() => {
         if (cancelled) return;
-        // Fallback to regex
-        const { backgroundPrompt, overlayConfig } = decomposeRequest(summaryText, brandPrimaryColor || '#DC2626');
+        const rawDecomposed = decomposeRequest(summaryText, brandPrimaryColor || '#DC2626');
+        const { backgroundPrompt, overlayConfig } = overlayTemplate !== 'auto'
+          ? applyTemplate(overlayTemplate, rawDecomposed, summaryText, brandPrimaryColor || '#DC2626')
+          : rawDecomposed;
         setHybridOverlay({
           layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
           elements: {
@@ -439,7 +446,7 @@ export function SimpleImageGenerator({
       });
 
     return () => { cancelled = true; };
-  }, [useHybridMode, contentSummaries, textToInclude, brandPrimaryColor]);
+  }, [useHybridMode, contentSummaries, textToInclude, brandPrimaryColor, overlayTemplate]);
 
   const batchOptions = useMemo(() => ({
     contentId: content?.id ?? '',
@@ -831,6 +838,14 @@ export function SimpleImageGenerator({
                   onCheckedChange={(checked) => setOverlayMode(checked ? 'ai_render' : 'satori')}
                 />
               </div>
+            )}
+
+            {/* Template picker — only when hybrid mode is active and not ai_render */}
+            {useHybridMode && overlayMode === 'satori' && (
+              <OverlayTemplatePicker
+                value={overlayTemplate}
+                onChange={setOverlayTemplate}
+              />
             )}
           </div>
         )}
