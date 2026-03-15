@@ -101,6 +101,7 @@ import { ImageStreamingGrid } from '@/components/multichannel/streaming/ImageStr
 import { CoreContentPreviewPopup } from '@/components/multichannel/CoreContentPreviewPopup';
 import { ActiveTasksIndicator, PendingQueueItem } from '@/components/multichannel/ActiveTasksIndicator';
 import { StrategyOverviewCard } from '@/components/multichannel/StrategyOverviewCard';
+import { PromptPreview } from '@/components/multichannel/PromptPreview';
 import { useBackgroundGeneration, GenerationTask } from '@/hooks/useBackgroundGeneration';
 import type { PromptMode } from '@/hooks/useSocialImageGeneration';
 import { cn } from '@/lib/utils';
