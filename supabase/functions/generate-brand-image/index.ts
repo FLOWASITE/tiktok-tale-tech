@@ -278,25 +278,29 @@ serve(async (req) => {
           .single()
       : Promise.resolve({ data: null, error: null });
 
-    const personaQueryPromise = supabase
-      .from("product_persona_mappings")
-      .select(`
-        customer_personas (
-          name, age_range, gender, occupation, interests, communication_style
-        )
-      `)
-      .eq("brand_template_id", brandTemplateId)
-      .eq("is_primary", true)
-      .limit(1)
-      .maybeSingle();
+    const personaQueryPromise = (async () => {
+      try {
+        const result = await supabase
+          .from("product_persona_mappings")
+          .select(`
+            customer_personas (
+              name, age_range, gender, occupation, interests, communication_style
+            )
+          `)
+          .eq("brand_template_id", brandTemplateId)
+          .limit(1)
+          .maybeSingle();
+        return result;
+      } catch (err) {
+        console.warn("[generate-brand-image] Persona query failed, continuing without:", err);
+        return { data: null, error: null };
+      }
+    })();
 
     const [brandResult, contentResult, personaResult] = await Promise.all([
       brandQueryPromise,
       contentQueryPromise,
-      personaQueryPromise.catch(err => {
-        console.warn("[generate-brand-image] Persona query failed, continuing without:", err);
-        return { data: null };
-      }),
+      personaQueryPromise,
     ]);
 
     const { data: brandTemplate, error: brandError } = brandResult;
