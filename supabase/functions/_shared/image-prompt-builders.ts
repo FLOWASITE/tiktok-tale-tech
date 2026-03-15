@@ -195,6 +195,38 @@ export const buildStylePreset: PromptBuilder = (ctx) => {
 // ============================================
 // 6. Text Layout (core) — text-in-image + structured layout
 // ============================================
+// Channel-specific text layouts — replaces generic 3-part layout for supported channels
+const CHANNEL_TEXT_LAYOUTS: Partial<Record<Channel, string>> = {
+  tiktok: `Vertical storytelling layout:
+- Bold text top 20% — large, attention-grabbing headline
+- Face/product center 60% — main visual focus
+- Subtle CTA bottom 20% — but leave space clear for platform captions
+- IMPORTANT: Leave bottom 15-20% relatively clear for TikTok's built-in caption overlay zone`,
+
+  instagram: `Visual-first layout:
+- Minimal text overlay — 2-3 words maximum
+- Image is the star, text is an accent element
+- Clean, uncluttered composition — let the visual tell the story
+- If text is included, use bold typography with high contrast`,
+
+  youtube: `Thumbnail-optimized layout:
+- Expressive face or key visual on left 40%
+- Bold 3-5 word text on right 60% — maximum readability at small sizes
+- HIGH CONTRAST is critical — thumbnails are viewed at very small sizes
+- Use dramatic, attention-grabbing composition`,
+
+  linkedin: `Professional layout:
+- Insight-driven headline at top — thought leadership style
+- Clean, professional visual center — business context
+- Subtle branding bottom — understated and credible
+- Maintain corporate professionalism throughout`,
+
+  email: `Hero banner layout:
+- Single centered message — clear and direct
+- Clean background with focused subject
+- CTA-friendly composition — leave space for button below
+- Optimized for email client rendering — simple, high-impact`,
+};
 
 export const buildTextLayout: PromptBuilder = (ctx) => {
   const { params, isWithText } = ctx;
