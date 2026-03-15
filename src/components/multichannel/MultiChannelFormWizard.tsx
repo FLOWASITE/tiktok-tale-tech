@@ -98,6 +98,8 @@ import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarn
 import { RoleSelectorCard } from '@/components/core-content/RoleSelectorCard';
 import { CoreContentStreamingCard } from '@/components/multichannel/streaming/CoreContentStreamingCard';
 import { ImageStreamingGrid } from '@/components/multichannel/streaming/ImageStreamingGrid';
+import { analyzeContentComplexity } from '@/lib/contentComplexityAnalyzer';
+import { ComplexityWarning } from '@/components/multichannel/ComplexityWarning';
 import { CoreContentPreviewPopup } from '@/components/multichannel/CoreContentPreviewPopup';
 import { ActiveTasksIndicator, PendingQueueItem } from '@/components/multichannel/ActiveTasksIndicator';
 import { StrategyOverviewCard } from '@/components/multichannel/StrategyOverviewCard';
@@ -2005,6 +2007,13 @@ export function MultiChannelFormWizard({
                   brandPrimaryColor={brandTemplate?.tone_of_voice?.[0] ? undefined : undefined}
                   personaName={formData.personaId ? 'Đã chọn persona' : undefined}
                 />
+
+                {/* Complexity Warning for complex content descriptions */}
+                {(() => {
+                  const channelTexts = formData.channels.map(ch => getChannelText?.(ch) || '').join(' ');
+                  const analysis = analyzeContentComplexity(channelTexts + ' ' + (formData.topic || ''));
+                  return <ComplexityWarning analysis={analysis} />;
+                })()}
 
                 {/* Sticky CTA bar */}
                 <div className="sticky bottom-0 z-20 pt-6 pb-2">

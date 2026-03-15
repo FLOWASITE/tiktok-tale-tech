@@ -1,6 +1,9 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { analyzeContentComplexity } from '@/lib/contentComplexityAnalyzer';
 import { ComplexityWarning } from './ComplexityWarning';
+import { decomposeRequest } from '@/lib/hybridImageGenerator';
+import { useGenerationSignals } from '@/hooks/useGenerationSignals';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Sparkles, Loader2, ArrowLeft, AlertTriangle, Image as ImageIcon, Minimize2, Shield, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -213,10 +216,12 @@ export function SimpleImageGenerator({
   const [bgEditorOpen, setBgEditorOpen] = useState(false);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [regeneratingChannel, setRegeneratingChannel] = useState<Channel | null>(null);
+  const [useHybridMode, setUseHybridMode] = useState(false);
 
   // Hooks
   const batchGen = useAutoImageGeneration();
   const refineTextEditor = useBackgroundEditor();
+  const signals = useGenerationSignals();
 
   // Report progress to parent for floating indicator
   useEffect(() => {
@@ -362,6 +367,37 @@ export function SimpleImageGenerator({
   }, [content, selectedChannels]);
 
 
+  // Complexity analysis for hybrid mode auto-detection
+  const complexityAnalysis = useMemo(() => {
+    const summaryText = Object.values(contentSummaries).join(' ');
+    return analyzeContentComplexity(summaryText + ' ' + textToInclude);
+  }, [contentSummaries, textToInclude]);
+
+  // Auto-enable hybrid mode when complexity is high
+  useEffect(() => {
+    if (complexityAnalysis.score === 'complex') {
+      setUseHybridMode(true);
+    }
+  }, [complexityAnalysis.score]);
+
+  // Build structured overlay from content when hybrid mode is active
+  const hybridOverlay = useMemo(() => {
+    if (!useHybridMode) return undefined;
+    const summaryText = Object.values(contentSummaries).join(' ') + ' ' + textToInclude;
+    const { overlayConfig } = decomposeRequest(summaryText, brandPrimaryColor || '#DC2626');
+    return {
+      layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
+      elements: {
+        banner: overlayConfig.banner,
+        heroText: overlayConfig.heroText,
+        cards: overlayConfig.cards,
+        headline: overlayConfig.headline,
+        cta: overlayConfig.cta,
+      },
+      colors: overlayConfig.colors,
+    };
+  }, [useHybridMode, contentSummaries, textToInclude, brandPrimaryColor]);
+
   const batchOptions = useMemo(() => ({
     contentId: content?.id ?? '',
     brandTemplateId: content?.brand_template_id || '',
@@ -384,10 +420,11 @@ export function SimpleImageGenerator({
     typographyStyle: imageContentType === 'with_text' ? typographyStyle : undefined,
     useCanvasFallback: imageContentType === 'with_text' ? true : undefined,
     promptMode,
+    structuredOverlay: hybridOverlay,
   }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries,
     includeLogo, brandLogoUrl, logoPosition, logoStyle, logoSize, logoOpacity,
     aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages,
-    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode]);
+    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode, hybridOverlay]);
 
   // ─── Handlers ─────────────────────
   const handleGenerate = async () => {
@@ -415,6 +452,15 @@ export function SimpleImageGenerator({
 
     setViewMode('streaming');
     const result = await batchGen.generateAllImages(batchOptions, onImageGenerated, true);
+    
+    // Record generation signal
+    signals.recordGeneration({
+      brandId: content?.brand_template_id || undefined,
+      promptMode,
+      channel: selectedChannels[0] || 'instagram',
+      imageStyle: imageStyle !== 'auto' ? imageStyle : undefined,
+    });
+    
     if (result.successful.length > 0) setViewMode('preview');
   };
 
@@ -422,6 +468,7 @@ export function SimpleImageGenerator({
 
   const handleRegenerateChannel = async (channel: Channel) => {
     setRegeneratingChannel(channel);
+    signals.markRegenerated();
     await batchGen.regenerateForChannel(channel, batchOptions);
     setRegeneratingChannel(null);
   };
@@ -429,6 +476,7 @@ export function SimpleImageGenerator({
   const handleDownloadImage = (channel: Channel) => {
     const img = batchGen.generatedImages[channel];
     if (!img) return;
+    signals.markAccepted();
     const link = document.createElement('a');
     link.href = img.imageUrl;
     link.download = `${content.title.replace(/[^a-zA-Z0-9]/g, '_')}-${channel}.png`;
@@ -439,6 +487,7 @@ export function SimpleImageGenerator({
   const handleEditBackground = (channel: Channel) => {
     const img = batchGen.generatedImages[channel];
     if (!img?.imageUrl) { toast.error('Không có ảnh để chỉnh sửa'); return; }
+    signals.markEditedBackground();
     setEditingChannel(channel);
     setBgEditorOpen(true);
   };
@@ -452,6 +501,7 @@ export function SimpleImageGenerator({
   const handleRefineText = async (channel: Channel) => {
     const img = batchGen.generatedImages[channel];
     if (!img?.imageUrl) { toast.error('Không có ảnh để sửa chữ'); return; }
+    signals.markEditedText();
     toast.info('Đang sửa chữ trên ảnh...', { duration: 2000 });
     const result = await refineTextEditor.editBackground({
       imageUrl: img.imageUrl,
@@ -697,11 +747,24 @@ export function SimpleImageGenerator({
           v3TopSuggestion={v3Suggestions.find(s => s.style === imageStyle)}
         />
         {/* Complexity Warning — detect complex infographic-like requests */}
-        {(() => {
-          const summaryText = Object.values(contentSummaries).join(' ');
-          const analysis = analyzeContentComplexity(summaryText + ' ' + textToInclude);
-          return <ComplexityWarning analysis={analysis} />;
-        })()}
+        <ComplexityWarning analysis={complexityAnalysis} />
+
+        {/* Hybrid mode toggle — shown when complexity is moderate or complex */}
+        {complexityAnalysis.score !== 'simple' && (
+          <label className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-muted/30 cursor-pointer">
+            <Checkbox
+              checked={useHybridMode}
+              onCheckedChange={(checked) => setUseHybridMode(checked === true)}
+              className="mt-0.5"
+            />
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium text-foreground">Chế độ Hybrid (AI nền + text chính xác)</p>
+              <p className="text-xs text-muted-foreground">
+                AI tạo nền visual, text/cards được render chính xác bằng engine riêng
+              </p>
+            </div>
+          </label>
+        )}
 
         <Button
           onClick={handleGenerate}
