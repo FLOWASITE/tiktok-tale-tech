@@ -117,22 +117,26 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
       // Step 3: Start parallel image generation
       setPhase('generating_images');
 
+      const mode = contentMeta.promptMode || 'full';
+
       const genOptions: AutoGenerateOptions = {
         contentId,
         brandTemplateId,
         channels,
         contentSummaries,
-        aspectRatio: 'auto', // Let each channel use optimal ratio
+        aspectRatio: 'auto',
         imageStylePreset: imageStylePreset as any,
         contentRole: (contentMeta.contentRole || 'seed') as any,
         contentAngle: contentMeta.contentAngle,
-        // Default: logo top-left when brand has logo
-        includeLogo: !!brandLogoUrl,
+        // Adjust based on promptMode
+        includeLogo: mode === 'brand_only' ? true : !!brandLogoUrl,
         logoPosition: 'top-left',
         logoUrl: brandLogoUrl || undefined,
-        // Default: with text + canvas fallback
-        imageContentType: 'with_text',
+        imageContentType: mode === 'full' ? 'with_text' : 'with_text',
         useCanvasFallback: true,
+        // For 'raw' mode, user settings override V3 auto-select (handled by caller passing explicit style)
+        // For 'brand_only', keep brand visual identity
+        // For 'full', AI decides everything (default behavior)
       };
 
       // Save callback - persists image to multi_channel_contents.channel_images

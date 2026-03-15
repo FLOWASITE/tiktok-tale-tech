@@ -1948,6 +1948,7 @@ export function MultiChannelFormWizard({
                             contentRole: formData.contentRole,
                             contentAngle: formData.contentAngle,
                             topic: formData.topic,
+                            promptMode,
                           });
                         }
                       }}
