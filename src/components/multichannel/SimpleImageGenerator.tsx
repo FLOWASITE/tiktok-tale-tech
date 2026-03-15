@@ -743,11 +743,24 @@ export function SimpleImageGenerator({
           v3TopSuggestion={v3Suggestions.find(s => s.style === imageStyle)}
         />
         {/* Complexity Warning — detect complex infographic-like requests */}
-        {(() => {
-          const summaryText = Object.values(contentSummaries).join(' ');
-          const analysis = analyzeContentComplexity(summaryText + ' ' + textToInclude);
-          return <ComplexityWarning analysis={analysis} />;
-        })()}
+        <ComplexityWarning analysis={complexityAnalysis} />
+
+        {/* Hybrid mode toggle — shown when complexity is moderate or complex */}
+        {complexityAnalysis.score !== 'simple' && (
+          <label className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-muted/30 cursor-pointer">
+            <Checkbox
+              checked={useHybridMode}
+              onCheckedChange={(checked) => setUseHybridMode(checked === true)}
+              className="mt-0.5"
+            />
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium text-foreground">Chế độ Hybrid (AI nền + text chính xác)</p>
+              <p className="text-xs text-muted-foreground">
+                AI tạo nền visual, text/cards được render chính xác bằng engine riêng
+              </p>
+            </div>
+          </label>
+        )}
 
         <Button
           onClick={handleGenerate}

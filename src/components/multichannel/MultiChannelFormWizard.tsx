@@ -2008,6 +2008,13 @@ export function MultiChannelFormWizard({
                   personaName={formData.personaId ? 'Đã chọn persona' : undefined}
                 />
 
+                {/* Complexity Warning for complex content descriptions */}
+                {(() => {
+                  const channelTexts = formData.channels.map(ch => getChannelText?.(ch) || '').join(' ');
+                  const analysis = analyzeContentComplexity(channelTexts + ' ' + (formData.topic || ''));
+                  return <ComplexityWarning analysis={analysis} />;
+                })()}
+
                 {/* Sticky CTA bar */}
                 <div className="sticky bottom-0 z-20 pt-6 pb-2">
                   <div className="absolute inset-0 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none" />
