@@ -26,6 +26,29 @@ interface OverlayTextRequest {
   imageHeight?: number;
 }
 
+// === Structured Multi-block Overlay (V2) ===
+interface StructuredOverlayRequest {
+  baseImageUrl: string;
+  layout: 'banner_cards' | 'hero_text' | 'simple';
+  elements: {
+    banner?: { text: string; bgColor: string; position: 'top' | 'bottom' };
+    heroText?: { text: string; fontSize: 'xl' | '2xl' | '3xl'; effect: 'none' | 'gradient' };
+    cards?: { items: { icon?: string; label: string }[]; layout: 'grid-2x2' | 'horizontal' | 'vertical' };
+    headline?: string;
+    cta?: string;
+  };
+  colors: { primary: string; secondary: string; text: string };
+  imageWidth?: number;
+  imageHeight?: number;
+  contentId?: string;
+  channel?: string;
+  organizationId?: string;
+}
+
+function isStructuredRequest(body: any): body is StructuredOverlayRequest {
+  return body.layout && body.elements;
+}
+
 // Position styles mapping (Flexbox)
 function getPositionStyles(position: TextPosition): Record<string, string | number> {
   switch (position) {
