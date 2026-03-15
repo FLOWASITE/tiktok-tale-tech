@@ -1,44 +1,64 @@
 
-## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-### Van de
-Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
+## Plan: Hybrid Mode End-to-End Fix
 
-### Giai phap
-Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
+### Problem
+The Hybrid Mode pipeline has a critical gap: `decomposeRequest()` splits the description into `backgroundPrompt` (clean visual) and `overlayConfig` (structured text), but **the background prompt is never passed to the AI generation step**. The `generate-brand-image` call still receives the full `contentSummaries[channel]` with all text/structured content, defeating the purpose of decomposition.
 
-**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
-
-1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
-
-2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
-
-Cu the:
-- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
-- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
-- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
-
-### Chi tiet ky thuat
-
-```typescript
-// bodyContent - thay doi:
-const bodyContent = (
-  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-    {viewMode === 'setup' && setupFields}
-    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
-  </div>
-);
+### Current Flow (Broken)
+```text
+User description → decomposeRequest()
+  ├─ backgroundPrompt  → ❌ UNUSED (discarded)
+  └─ overlayConfig     → ✅ Passed as structuredOverlay → overlay-text-canvas
+                          
+generate-brand-image receives: contentSummaries[channel] (full text, not cleaned)
 ```
 
-Va DialogContent:
-```typescript
-className={cn(
-  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
-  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
-)}
+### Target Flow (Fixed)
+```text
+User description → decomposeRequest()
+  ├─ backgroundPrompt  → ✅ Replaces contentSummary for AI generation
+  └─ overlayConfig     → ✅ Passed as structuredOverlay → overlay-text-canvas
+                          
+generate-brand-image receives: "Clean background: city skyline, red-white tones, no text"
 ```
 
-### Pham vi thay doi
-- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
-- Thay doi ~10 dong code
-- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
+### Changes
+
+**1. `SimpleImageGenerator.tsx` — Pass background prompt to batch options**
+
+Expand `hybridOverlay` memo to also produce a `hybridBackgroundPrompts` map (per-channel override of `contentSummaries`). When hybrid mode is active, replace each channel's content summary with the decomposed background description.
+
+```typescript
+// In hybridOverlay useMemo, also return backgroundDescription
+const { backgroundPrompt, overlayConfig } = decomposeRequest(summaryText, primaryColor);
+
+// In batchOptions, add:
+contentSummaries: useHybridMode && hybridBackgroundPrompt 
+  ? Object.fromEntries(selectedChannels.map(ch => [ch, hybridBackgroundPrompt]))
+  : contentSummaries,
+```
+
+~15 lines changed.
+
+**2. `useAutoImageGeneration.ts` — Force background_only when structured overlay is present**
+
+When `structuredOverlay` is provided, force `imageContentType` to `background_only` regardless of user setting, since all text will come from the overlay step.
+
+```typescript
+// Before Step 1:
+const effectiveContentType = structuredOverlay 
+  ? 'background_only' 
+  : (useCanvasFallback ? 'background_only' : imageContentType);
+```
+
+~3 lines changed.
+
+**3. `hybridImageGenerator.ts` — Improve background prompt output**
+
+Current `backgroundPrompt.description` is just raw visual lines joined. Enhance it to produce a proper AI-generation-ready prompt string that explicitly says "no text, no UI elements, clean background".
+
+~10 lines changed.
+
+### Total: ~28 lines across 3 files. No new files. No breaking changes.
+
