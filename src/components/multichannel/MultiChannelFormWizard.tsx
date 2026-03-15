@@ -304,6 +304,9 @@ export function MultiChannelFormWizard({
   const [coreContentLengthMode, setCoreContentLengthMode] = useState<CoreContentLengthMode>('medium');
   const [enableResearch, setEnableResearch] = useState(true); // Auto research toggle - default ON
   const [brandPersonasCount, setBrandPersonasCount] = useState<number | null>(null); // Track personas availability
+  
+  // AI Control Level state
+  const [promptMode, setPromptMode] = useState<PromptMode>('full');
 
   // Background generation tracking - for tasks that continue when user navigates away
   const { activeTasks, completedTasks, getTaskResult, dismissTask, isChecking: isCheckingTasks } = useBackgroundGeneration({
