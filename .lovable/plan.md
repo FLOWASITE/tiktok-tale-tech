@@ -1,38 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Chuyển "Kiểm soát AI" thành Bước 2 trong SimpleImageGenerator
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-### Hiện trạng
-Trong `SimpleImageGenerator.tsx`, phần `setupFields` có 3 bước:
-- **Bước 1** (line 556-570): Chọn kênh
-- **Bước 2** (line 572-637): Xem trước & Tạo ảnh (gồm V3 suggestions, keywords, settings summary, nút Tạo)
-- **Bước 3** (line 639-692): Tùy chỉnh nâng cao (ImageAdvancedOptions — chứa cả phần chọn promptMode)
-
-### Thay đổi
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
 **File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-Sắp xếp lại `setupFields` thành 3 bước mới:
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-| Bước | Nội dung |
-|------|----------|
-| **1** | Chọn kênh (giữ nguyên) |
-| **2** | Kiểm soát AI — trích phần chọn `promptMode` từ ImageAdvancedOptions ra thành UI riêng: 3 card chọn mode (Để AI lo / Giữ Brand / Toàn quyền) + hint text tương tự như đã làm ở MultiChannelFormWizard Step 5 |
-| **3** | Xem trước & Tạo ảnh — gộp V3 suggestions, keywords preview, settings summary, nút Tạo ảnh, và phần Tùy chỉnh nâng cao (ImageAdvancedOptions nhưng ẩn phần promptMode selector vì đã chọn ở Bước 2) |
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-### Chi tiết kỹ thuật
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
 
-1. **Bước 2 mới** — Tạo UI inline (không cần component mới) với 3 card chọn mode:
-   - Reuse logic tương tự `MultiChannelFormWizard` Step 5: icon `Sparkles`/`Shield`/`SlidersHorizontal`, mô tả ngắn, border highlight khi selected
-   - Hiện summary box nhỏ cho biết mode đang chọn ảnh hưởng gì
+### Chi tiet ky thuat
 
-2. **Bước 3 mới** — Gộp nội dung Bước 2 + 3 cũ:
-   - V3 suggestions, keywords, settings summary, nút Tạo ảnh
-   - ImageAdvancedOptions (ẩn phần prompt mode selector bên trong — cần thêm prop `hidePromptModeSelector` vào `ImageAdvancedOptions`)
+```typescript
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
+```
 
-3. **ImageAdvancedOptions.tsx** — Thêm prop `hidePromptModeSelector?: boolean` để ẩn phần chọn mode khi đã chọn ở Bước 2
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
+```
 
-### Phạm vi
-- 2 file: `SimpleImageGenerator.tsx` (layout), `ImageAdvancedOptions.tsx` (thêm 1 prop)
-- Không thay đổi logic generate hay state management
-
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)

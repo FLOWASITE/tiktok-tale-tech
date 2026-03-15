@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Sparkles, Loader2, ArrowLeft, AlertTriangle, Image as ImageIcon, Minimize2 } from 'lucide-react';
+import { Sparkles, Loader2, ArrowLeft, AlertTriangle, Image as ImageIcon, Minimize2, Shield, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -569,10 +569,62 @@ export function SimpleImageGenerator({
         />
       </div>
 
-      {/* Step 2: Preview & Create */}
+      {/* Step 2: AI Control Level */}
       <div className="space-y-3">
         <div className="flex items-center gap-2.5">
           <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">2</span>
+          <div>
+            <p className="text-sm font-medium text-foreground">Kiểm soát AI</p>
+            <p className="text-[11px] text-muted-foreground">Chọn mức độ AI can thiệp vào quá trình tạo ảnh.</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { value: 'full' as const, label: 'Để AI lo', icon: <Sparkles className="w-5 h-5" />, desc: 'AI tự tối ưu phong cách, bố cục và text', hint: '✨ Phù hợp cho hầu hết trường hợp' },
+            { value: 'brand_only' as const, label: 'Giữ Brand', icon: <Shield className="w-5 h-5" />, desc: 'Giữ logo & màu brand, bạn tự chọn bố cục', hint: '🎨 Khi cần nhất quán thương hiệu' },
+            { value: 'raw' as const, label: 'Toàn quyền', icon: <SlidersHorizontal className="w-5 h-5" />, desc: 'Bạn kiểm soát 100% mọi tùy chọn', hint: '⚡ Cho người dùng nâng cao' },
+          ]).map(mode => (
+            <button
+              key={mode.value}
+              type="button"
+              onClick={() => setPromptMode(mode.value)}
+              className={cn(
+                "flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 text-center transition-all",
+                promptMode === mode.value
+                  ? "border-primary bg-primary/10 text-primary shadow-md"
+                  : "border-border/40 hover:border-primary/30 hover:bg-muted/30 text-muted-foreground"
+              )}
+            >
+              <div className={cn(
+                "flex items-center justify-center w-10 h-10 rounded-lg transition-colors",
+                promptMode === mode.value ? "bg-primary/15" : "bg-muted/60"
+              )}>
+                {mode.icon}
+              </div>
+              <span className="text-xs font-semibold leading-tight">{mode.label}</span>
+              <span className="text-[10px] opacity-70 leading-tight">{mode.desc}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Mode hint */}
+        <div className={cn(
+          "text-xs rounded-lg px-3 py-2 border",
+          promptMode === 'full' && "text-primary/80 bg-primary/5 border-primary/15",
+          promptMode === 'brand_only' && "text-amber-700 dark:text-amber-400 bg-amber-500/5 border-amber-500/15",
+          promptMode === 'raw' && "text-violet-700 dark:text-violet-400 bg-violet-500/5 border-violet-500/15",
+        )}>
+          {promptMode === 'full' && '✨ AI tự chọn phong cách, bố cục, vị trí text. Bạn chỉ cần duyệt kết quả.'}
+          {promptMode === 'brand_only' && '🎨 Giữ logo & màu brand. Bạn tự chọn bố cục text & vị trí.'}
+          {promptMode === 'raw' && '⚡ Bạn kiểm soát mọi thứ: phong cách, logo, text, bố cục.'}
+        </div>
+      </div>{/* end Step 2 */}
+
+      {/* Step 3: Preview & Create */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2.5">
+          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">3</span>
           <div>
             <p className="text-sm font-medium text-foreground">Xem trước & Tạo ảnh</p>
             <p className="text-[11px] text-muted-foreground">AI phân tích nội dung và gợi ý phong cách phù hợp nhất.</p>
@@ -634,20 +686,8 @@ export function SimpleImageGenerator({
           )}
         </Button>
       </div>
-      </div>{/* end Step 2 */}
 
-      {/* Step 3: Advanced Options (optional) */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2.5">
-          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-bold shrink-0">3</span>
-          <div>
-            <p className="text-sm font-medium text-foreground">Tùy chỉnh <span className="text-muted-foreground font-normal">(tùy chọn)</span></p>
-            <p className="text-[11px] text-muted-foreground">Điều chỉnh phong cách, logo, text overlay nếu cần.</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Advanced Options */}
+      {/* Advanced Options (hidden prompt mode since already in Step 2) */}
       <ImageAdvancedOptions
         imageStyle={imageStyle}
         onImageStyleChange={setImageStyle}
@@ -689,7 +729,9 @@ export function SimpleImageGenerator({
         onPromptModeChange={setPromptMode}
         onRefineTextContent={() => handleOptimizeText()}
         isRefiningText={isOptimizingText}
+        hidePromptModeSelector
       />
+      </div>{/* end Step 3 */}
     </div>
   );
 
