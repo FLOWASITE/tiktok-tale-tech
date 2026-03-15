@@ -1994,6 +1994,16 @@ export function MultiChannelFormWizard({
                   </CardContent>
                 </Card>
 
+                {/* Prompt Preview */}
+                <PromptPreview
+                  channels={formData.channels}
+                  promptMode={promptMode}
+                  imageStyle="auto"
+                  contentRole={formData.contentRole as any}
+                  contentAngle={formData.contentAngle as any}
+                  imageContentType="with_text"
+                />
+
                 {/* Sticky CTA bar */}
                 <div className="sticky bottom-0 z-20 pt-6 pb-2">
                   <div className="absolute inset-0 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none" />
