@@ -131,6 +131,14 @@ export function useAutoImageGeneration() {
         // If using canvas fallback, always generate background_only and add text later
         const effectiveContentType = useCanvasFallback ? 'background_only' : imageContentType;
         
+        // OPTIMIZATION: Early timeout warning — notify user if AI is slow
+        const slowWarningTimer = setTimeout(() => {
+          toast.info(`${channel}: AI đang xử lý lâu hơn bình thường...`, {
+            description: 'Vui lòng đợi thêm, không cần tải lại trang',
+            duration: 15000,
+          });
+        }, 60_000);
+
         const { data: imageData, error: imageError } = await invokeWithTimeout<any>('generate-brand-image', {
           body: {
             contentId,
@@ -152,6 +160,8 @@ export function useAutoImageGeneration() {
           },
           timeoutMs: 120_000,
         });
+
+        clearTimeout(slowWarningTimer);
 
         if (imageError || !imageData?.success) {
           console.error(`[useAutoImageGeneration] Generate error for ${channel}:`, imageError || imageData?.error);
