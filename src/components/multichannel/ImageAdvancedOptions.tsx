@@ -190,16 +190,16 @@ export function ImageAdvancedOptions({
               </button>
             ))}
           </div>
-          {promptMode === 'brand_only' && (
-            <p className="text-[10px] text-muted-foreground/80 bg-muted/30 rounded-md px-2 py-1.5">
-              💡 Phù hợp khi bạn tự viết prompt chi tiết (infographic, layout cụ thể). AI giữ nguyên prompt + thêm brand colors/logo.
-            </p>
-          )}
-          {promptMode === 'raw' && (
-            <p className="text-[10px] text-muted-foreground/80 bg-muted/30 rounded-md px-2 py-1.5">
-              ⚡ Gửi prompt nguyên vẹn đến AI, chỉ thêm aspect ratio. Dùng khi bạn muốn kiểm soát 100%.
-            </p>
-          )}
+          <p className={cn(
+            "text-[10px] rounded-md px-2.5 py-1.5 border",
+            promptMode === 'full' && "text-primary/80 bg-primary/5 border-primary/15",
+            promptMode === 'brand_only' && "text-amber-700 dark:text-amber-400 bg-amber-500/5 border-amber-500/15",
+            promptMode === 'raw' && "text-violet-700 dark:text-violet-400 bg-violet-500/5 border-violet-500/15",
+          )}>
+            {promptMode === 'full' && '✨ AI tối ưu phong cách, bố cục, brand + chiến lược marketing'}
+            {promptMode === 'brand_only' && '🎨 Giữ logo & màu brand. Bạn tự quyết nội dung & bố cục'}
+            {promptMode === 'raw' && '⚡ Chỉ tỉ lệ khung hình + negative prompt. Mọi thứ khác do bạn'}
+          </p>
         </div>
 
         {/* Style Grid with V3 scores — hidden when not in full mode */}
