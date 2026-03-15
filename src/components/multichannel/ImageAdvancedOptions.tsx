@@ -202,8 +202,8 @@ export function ImageAdvancedOptions({
           </p>
         </div>
 
-        {/* Style Grid with V3 scores — hidden when not in full mode */}
-        {promptMode === 'full' && (
+        {/* Style Grid — only in raw mode (user picks manually) */}
+        {promptMode === 'raw' && (
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Phong cách ảnh</Label>
             <p className="text-[10px] text-muted-foreground/70 -mt-1">
