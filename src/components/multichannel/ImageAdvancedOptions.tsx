@@ -331,8 +331,8 @@ export function ImageAdvancedOptions({
           </div>
         )}
 
-        {/* Text Overlay Toggle */}
-        <div className="space-y-3">
+        {/* Text Overlay Toggle — hidden in raw mode */}
+        {promptMode !== 'raw' && <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
