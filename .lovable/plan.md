@@ -1,44 +1,36 @@
 
-## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-### Van de
-Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
+## Plan: Template System cho AI Render Mode
 
-### Giai phap
-Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
+### Hiện trạng
+- Template picker (`OverlayTemplatePicker`) chỉ hiển thị khi `overlayMode === 'satori'` — bị ẩn hoàn toàn khi AI render mode
+- Hàm `structuredElementsToPromptText()` trong `generate-brand-image` chuyển elements thành prompt text nhưng không có thông tin layout (poster, split, grid...)
+- AI render mode chỉ mô tả từng element riêng lẻ, không hướng dẫn AI về bố cục tổng thể
 
-**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
+### Thay đổi
 
-1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
+**1. UI — Hiển thị template picker cho cả AI render mode**
+- `SimpleImageGenerator.tsx`: Bỏ điều kiện `overlayMode === 'satori'` — show picker khi `useHybridMode === true` (cả 2 mode)
+- Truyền `overlayTemplate` vào `batchOptions` khi `ai_render` mode
 
-2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
+**2. Client — Truyền template ID sang edge function**
+- `useAutoImageGeneration.ts`: Khi `isAiRenderMode`, thêm `structuredTemplate: overlayTemplate` vào body request gửi `generate-brand-image`
 
-Cu the:
-- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
-- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
-- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
+**3. Edge function — Dùng template để hướng dẫn layout cho AI**
+- `generate-brand-image/index.ts`:
+  - Nhận thêm field `structuredTemplate` từ request
+  - Cập nhật `structuredElementsToPromptText()` — thêm param `templateId`
+  - Map mỗi template sang mô tả layout bằng ngôn ngữ tự nhiên:
+    - `poster` → "Stack layout: banner bar at top, large headline centered, CTA button at bottom"
+    - `infographic` → "Split layout: left 55% for hero text, right 45% for 2x2 card grid, banner at top"
+    - `quote_card` → "Centered large quote text with gradient effect, banner bar at bottom"
+    - `feature_list` → "Banner at top, vertical list of feature cards below"
+    - `contact_card` → "Headline at top, contact info footer at bottom"
+    - `auto` → no layout instruction (AI decides)
+  - Prepend layout instruction trước element descriptions
 
-### Chi tiet ky thuat
+### Files
+- `src/components/multichannel/SimpleImageGenerator.tsx` — show picker for both modes, pass template
+- `src/hooks/useAutoImageGeneration.ts` — pass `structuredTemplate` in request body
+- `supabase/functions/generate-brand-image/index.ts` — use template in prompt generation
 
-```typescript
-// bodyContent - thay doi:
-const bodyContent = (
-  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-    {viewMode === 'setup' && setupFields}
-    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
-  </div>
-);
-```
-
-Va DialogContent:
-```typescript
-className={cn(
-  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
-  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
-)}
-```
-
-### Pham vi thay doi
-- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
-- Thay doi ~10 dong code
-- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
