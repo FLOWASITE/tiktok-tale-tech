@@ -74,6 +74,7 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
       contentRole?: string;
       contentAngle?: string;
       topic?: string;
+      promptMode?: 'full' | 'brand_only' | 'raw';
     }
   ) => {
     if (!brandTemplateId || channels.length === 0) {
