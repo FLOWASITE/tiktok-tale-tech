@@ -85,6 +85,7 @@ interface ImageAdvancedOptionsProps {
   onRefineTextContent?: (text: string) => void;
   isRefiningText?: boolean;
   hidePromptModeSelector?: boolean;
+  hideStyleGrid?: boolean;
   className?: string;
 }
 
