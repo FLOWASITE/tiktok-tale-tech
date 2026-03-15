@@ -126,6 +126,7 @@ export function ImageAdvancedOptions({
   textsPerChannel, onTextsPerChannelChange,
   promptMode, onPromptModeChange,
   onRefineTextContent, isRefiningText,
+  hidePromptModeSelector,
   className,
 }: ImageAdvancedOptionsProps) {
   const [isOpen, setIsOpen] = useState(true);
