@@ -1,44 +1,98 @@
 
-## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-### Van de
-Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
+## Hệ thống xử lý yêu cầu Infographic phức tạp — Phân tích & Kế hoạch cải thiện
 
-### Giai phap
-Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
+### Phân tích hiện trạng
 
-**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
+Sau khi rà soát kỹ code, hệ thống hiện tại có:
 
-1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
+1. **`generate-brand-image`** — gửi 1 prompt duy nhất tới AI model (Gemini/PoYo/KIE), nhận về 1 ảnh
+2. **`overlay-text-canvas`** — Satori overlay **1 text block duy nhất** (headline hoặc CTA) lên ảnh nền, chỉ hỗ trợ 1 `<span>` trong 1 `<div>`
+3. **Pipeline** — tuần tự: generate ảnh → overlay logo → overlay text → done
 
-2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
+**Kết luận:** Với yêu cầu infographic phức tạp (6+ text blocks, 4 info cards, icons, banner, structured layout), hệ thống sẽ tạo ra ảnh "giống infographic từ xa" nhưng không usable. Đây là use case chưa được cover.
 
-Cu the:
-- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
-- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
-- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
+---
 
-### Chi tiet ky thuat
+### Kế hoạch: 3 cải tiến theo thứ tự impact/effort
+
+#### 1. Content Complexity Detection + UX Warning
+
+**Mục tiêu:** Phát hiện yêu cầu phức tạp trước khi generate, cảnh báo user về limitations.
+
+**File mới:** `src/lib/contentComplexityAnalyzer.ts`
+
+Phân tích mô tả user bằng regex/keyword counting:
+- `textBlocks`: đếm cụm text riêng biệt (tiêu đề, label, CTA)
+- `structuredElements`: cards, lists, grids, tables
+- `spatialConstraints`: "bên trái", "bên phải", "phía trên", "giữa"
+- `iconRequirements`: icon, biểu tượng cụ thể
+- Score → `simple` | `moderate` | `complex`
+
+**Tích hợp UI:** Trong `SimpleImageGenerator` Step 3 và `MultiChannelFormWizard` Step 6:
+- Khi score = `complex`, hiện alert card trước nút "Tạo ảnh AI":
+  - Cảnh báo yêu cầu có bố cục phức tạp
+  - Gợi ý: "AI sẽ tạo ảnh minh họa tổng thể. Để có text/layout chính xác, hãy dùng chế độ Hybrid."
+  - Cho phép user vẫn bấm generate (không block)
+
+#### 2. Mở rộng Satori Overlay — Structured Multi-block Layout
+
+**Mục tiêu:** Extend `overlay-text-canvas` để render nhiều text blocks + info cards thay vì chỉ 1 span.
+
+**File sửa:** `supabase/functions/overlay-text-canvas/index.ts`
+
+Thêm interface mới `StructuredOverlayRequest` bên cạnh `OverlayTextRequest` hiện tại (backward compatible):
 
 ```typescript
-// bodyContent - thay doi:
-const bodyContent = (
-  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-    {viewMode === 'setup' && setupFields}
-    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
-  </div>
-);
+interface StructuredOverlayRequest {
+  baseImageUrl: string;
+  layout: 'banner_cards' | 'hero_text' | 'simple'; // template type
+  elements: {
+    banner?: { text: string; bgColor: string; position: 'top' | 'bottom' };
+    heroText?: { text: string; fontSize: 'xl' | '2xl' | '3xl'; effect: 'none' | 'gradient' };
+    cards?: { items: { icon?: string; label: string }[]; layout: 'grid-2x2' | 'horizontal' | 'vertical' };
+    headline?: string;
+    cta?: string;
+  };
+  colors: { primary: string; secondary: string; text: string };
+  imageWidth?: number;
+  imageHeight?: number;
+  contentId?: string;
+  channel?: string;
+  organizationId?: string;
+}
 ```
 
-Va DialogContent:
-```typescript
-className={cn(
-  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
-  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
-)}
-```
+`buildElement()` sẽ dispatch theo `layout` type, tạo Satori element tree phức tạp hơn (multiple children div). Text tiếng Việt render 100% chính xác vì dùng font Be Vietnam Pro.
 
-### Pham vi thay doi
-- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
-- Thay doi ~10 dong code
-- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
+**File sửa:** `src/hooks/useAutoImageGeneration.ts` — thêm option `structuredOverlay` bên cạnh `useCanvasFallback` hiện tại.
+
+#### 3. Hybrid Generation Mode — AI nền + Programmatic overlay
+
+**Mục tiêu:** Cho yêu cầu phức tạp, tách thành 2 bước: AI tạo nền visual → Satori render structured elements lên.
+
+**Flow:**
+1. Complexity analyzer detect `complex` → suggest Hybrid
+2. Tự động simplify prompt gửi AI: chỉ yêu cầu background/atmosphere (tông màu, skyline, mood) — bỏ text, cards, icons
+3. AI trả về ảnh nền clean
+4. Gọi extended `overlay-text-canvas` với structured layout (banner + hero text + cards)
+5. Composite → kết quả cuối
+
+**File mới:** `src/lib/hybridImageGenerator.ts`
+- `decomposeRequest()`: tách mô tả user thành `backgroundPrompt` (visual elements) + `overlayConfig` (text, cards, structured elements)
+- Dùng AI (Gemini Flash) để phân tích mô tả và tự động tách
+
+**File sửa:** `src/hooks/useAutoImageGeneration.ts` — thêm hybrid path khi complexity = `complex` và user opt-in.
+
+---
+
+### Tóm tắt
+
+| # | Thay đổi | Files | Effort |
+|---|----------|-------|--------|
+| 1 | Complexity Detection + UX warning | 1 file mới + 2 UI files | ~100 dòng |
+| 2 | Extend Satori overlay cho multi-block | `overlay-text-canvas` + types | ~200 dòng |
+| 3 | Hybrid generation mode | 1 file mới + hook update | ~150 dòng |
+
+Tổng ~450 dòng. Không breaking change — tất cả là additive. Use case đơn giản vẫn chạy như cũ, use case phức tạp được route sang hybrid path.
+
