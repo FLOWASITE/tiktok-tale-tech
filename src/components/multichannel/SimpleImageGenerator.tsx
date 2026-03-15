@@ -479,6 +479,7 @@ export function SimpleImageGenerator({
     promptMode,
     structuredOverlay: hybridOverlay,
     overlayMode: useHybridMode ? overlayMode : undefined,
+    structuredTemplate: useHybridMode ? overlayTemplate : undefined,
   }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, hybridBackgroundPrompt, useHybridMode,
     includeLogo, brandLogoUrl, logoPosition, logoStyle, logoSize, logoOpacity,
     aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages,
