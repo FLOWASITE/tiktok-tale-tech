@@ -5,9 +5,11 @@
  *   2. Overlay config (text, cards, structured elements) → Satori rendering
  * 
  * V2: AI-powered decomposition via Gemini Flash with regex fallback
+ * V3: Template system — user picks a layout preset, AI fills content slots
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { getTemplateById, type OverlayTemplate } from '@/config/overlayTemplates';
 
 export interface BackgroundPrompt {
   description: string;
