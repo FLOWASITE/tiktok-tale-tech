@@ -124,6 +124,14 @@ export function PromptPreview({
     inactiveLabels.push('hook');
   }
 
+  // Content source — differs by mode
+  rows.push({
+    icon: <MessageSquare className="w-3.5 h-3.5" />,
+    label: 'Nguồn nội dung',
+    value: isFullMode ? 'AI từ tóm tắt' : 'Mô tả của bạn',
+    state: 'active',
+  });
+
   // Text overlay + layout type per channel
   if (imageContentType === 'with_text') {
     const layoutDetails = channels.map(ch => {

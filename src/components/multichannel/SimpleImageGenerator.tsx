@@ -451,7 +451,7 @@ export function SimpleImageGenerator({
     logoUrl: brandLogoUrl || undefined,
     logoStyle, logoSizePercent: logoSize, logoOpacity,
     aspectRatio,
-    imageStylePreset: promptMode === 'full' ? undefined : (promptMode === 'raw' && imageStyle !== 'auto' ? imageStyle : undefined),
+    imageStylePreset: promptMode === 'full' ? undefined : (imageStyle !== 'auto' ? imageStyle : undefined),
     negativePrompt: negativePrompt.trim() || undefined,
     contentRole: promptMode === 'full' ? contentRole : undefined,
     contentAngle: promptMode === 'full' ? contentAngle : undefined,

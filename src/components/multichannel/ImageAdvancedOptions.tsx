@@ -208,12 +208,14 @@ export function ImageAdvancedOptions({
         </div>
         )}
 
-        {/* Style Grid — only in raw mode (user picks manually), hidden if parent shows V3StylePreview */}
-        {promptMode === 'raw' && !hideStyleGrid && (
+        {/* Style Grid — available in raw + brand_only modes, hidden if parent shows V3StylePreview */}
+        {promptMode !== 'full' && !hideStyleGrid && (
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Phong cách ảnh</Label>
             <p className="text-[10px] text-muted-foreground/70 -mt-1">
-              Chọn phong cách ảnh bạn muốn. Toàn quyền quyết định.
+              {promptMode === 'raw'
+                ? 'Chọn phong cách ảnh bạn muốn. Toàn quyền quyết định.'
+                : 'Chọn phong cách hoặc để "Tự động" — AI tính từ ngành + tone của brand.'}
             </p>
             {topSuggestion && (
               <p className="text-[10px] text-muted-foreground/70 -mt-1">
