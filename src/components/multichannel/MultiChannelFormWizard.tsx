@@ -102,6 +102,7 @@ import { CoreContentPreviewPopup } from '@/components/multichannel/CoreContentPr
 import { ActiveTasksIndicator, PendingQueueItem } from '@/components/multichannel/ActiveTasksIndicator';
 import { StrategyOverviewCard } from '@/components/multichannel/StrategyOverviewCard';
 import { useBackgroundGeneration, GenerationTask } from '@/hooks/useBackgroundGeneration';
+import type { PromptMode } from '@/hooks/useSocialImageGeneration';
 import { cn } from '@/lib/utils';
 import { 
   MultiChannelFormData, 
