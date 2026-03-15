@@ -586,37 +586,36 @@ serve(async (req) => {
       console.log("[generate-brand-image] Image uploaded:", imageUrl);
     }
 
-    // Save to channel_image_history
-    try {
-      // First, unselect any previously selected images for this content/channel
-      await supabase
-        .from("channel_image_history")
-        .update({ is_selected: false })
-        .eq("content_id", contentId)
-        .eq("channel", channel);
+    // === OPTIMIZATION: Non-blocking history save (fire-and-forget, saves ~300ms) ===
+    // History is non-critical; don't block response on it
+    const historySavePromise = (async () => {
+      try {
+        await supabase
+          .from("channel_image_history")
+          .update({ is_selected: false })
+          .eq("content_id", contentId)
+          .eq("channel", channel);
 
-      // Insert new image as selected
-      const { error: historyError } = await supabase
-        .from("channel_image_history")
-        .insert({
-          content_id: contentId,
-          channel: channel,
-          image_url: imageUrl,
-          prompt: enhancedPrompt,
-          aspect_ratio: finalAspectRatio,
-          is_selected: true,
-          organization_id: brandTemplate.organization_id,
-        });
-
-      if (historyError) {
-        console.error("[generate-brand-image] Failed to save to history:", historyError);
-        // Don't throw - history save is non-critical
-      } else {
+        await supabase
+          .from("channel_image_history")
+          .insert({
+            content_id: contentId,
+            channel: channel,
+            image_url: imageUrl,
+            prompt: enhancedPrompt,
+            aspect_ratio: finalAspectRatio,
+            is_selected: true,
+            organization_id: brandTemplate.organization_id,
+          });
         console.log("[generate-brand-image] Saved to channel_image_history");
+      } catch (historyErr) {
+        console.error("[generate-brand-image] History save error:", historyErr);
       }
-    } catch (historyErr) {
-      console.error("[generate-brand-image] History save error:", historyErr);
-    }
+    })();
+
+    // Use waitUntil pattern: respond immediately, let history save finish in background
+    // Deno edge functions keep running after response is sent
+    historySavePromise.catch(() => {});
 
     return new Response(
       JSON.stringify({
