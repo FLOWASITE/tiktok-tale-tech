@@ -128,6 +128,7 @@ export function ImageAdvancedOptions({
   promptMode, onPromptModeChange,
   onRefineTextContent, isRefiningText,
   hidePromptModeSelector,
+  hideStyleGrid,
   className,
 }: ImageAdvancedOptionsProps) {
   const [isOpen, setIsOpen] = useState(true);
