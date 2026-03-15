@@ -451,10 +451,15 @@ export function SimpleImageGenerator({
     logoUrl: brandLogoUrl || undefined,
     logoStyle, logoSizePercent: logoSize, logoOpacity,
     aspectRatio,
-    imageStylePreset: promptMode === 'full' ? undefined : (imageStyle !== 'auto' ? imageStyle : undefined),
+    // Full mode: pass V3-auto-selected style (stored in imageStyle after auto-apply)
+    // brand_only/raw: pass user-selected style if not 'auto'
+    imageStylePreset: promptMode === 'full'
+      ? (imageStyle !== 'auto' ? imageStyle : (v3Suggestions[0]?.style as ImageStylePreset | undefined))
+      : (imageStyle !== 'auto' ? imageStyle : undefined),
     negativePrompt: negativePrompt.trim() || undefined,
-    contentRole: promptMode === 'full' ? contentRole : undefined,
-    contentAngle: promptMode === 'full' ? contentAngle : undefined,
+    // Full mode: pass contentRole from content record, fallback to V3 default 'sprout'
+    contentRole: promptMode === 'full' ? (contentRole || 'sprout') : undefined,
+    contentAngle: promptMode === 'full' ? (contentAngle || 'educational') : undefined,
     hookMessages: promptMode === 'full' ? hookMessages : undefined,
     imageContentType,
     textToInclude: imageContentType === 'with_text' && useSharedText ? textToInclude : undefined,
