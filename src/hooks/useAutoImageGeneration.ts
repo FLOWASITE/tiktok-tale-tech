@@ -230,7 +230,8 @@ export function useAutoImageGeneration() {
         }
 
         // Step 3: Overlay text using canvas if useCanvasFallback is enabled
-        if (useCanvasFallback && imageContentType === 'with_text' && channelText) {
+        // Skip if structuredOverlay is active (Step 4 handles text rendering)
+        if (useCanvasFallback && imageContentType === 'with_text' && channelText && !structuredOverlay) {
           console.log(`[useAutoImageGeneration] Applying canvas text overlay for ${channel}`);
           
           // Parse dimensions from channel config

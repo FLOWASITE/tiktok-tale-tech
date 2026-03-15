@@ -115,6 +115,8 @@ QUY TẮC:
 - LUÔN sáng tạo nội dung overlay có ý nghĩa, KHÔNG chỉ copy nguyên văn
 - Banner phải IN HOA, 2-4 từ
 - Hero text phải nổi bật (số liệu hoặc keyword mạnh)
+- KHÔNG tạo cả headline lẫn heroText cùng lúc — chọn 1 trong 2. Ưu tiên heroText nếu có số liệu/keyword mạnh
+- CTA chỉ tạo khi nội dung THỰC SỰ mang tính quảng bá (bán hàng, đăng ký). Nội dung giáo dục/tin tức KHÔNG cần CTA
 - Cards LUÔN có đúng 4 items, mỗi item 3-8 từ tiếng Việt rõ ràng
 - backgroundPrompt phải KẾT THÚC bằng "IMPORTANT: Do NOT include any text, numbers, letters, words, labels, UI elements in the image."
 - Mọi text tiếng Việt phải chính xác ngữ pháp và dấu`;
