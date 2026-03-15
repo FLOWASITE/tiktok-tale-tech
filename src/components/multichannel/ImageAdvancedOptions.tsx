@@ -208,8 +208,8 @@ export function ImageAdvancedOptions({
         </div>
         )}
 
-        {/* Style Grid — only in raw mode (user picks manually) */}
-        {promptMode === 'raw' && (
+        {/* Style Grid — only in raw mode (user picks manually), hidden if parent shows V3StylePreview */}
+        {promptMode === 'raw' && !hideStyleGrid && (
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Phong cách ảnh</Label>
             <p className="text-[10px] text-muted-foreground/70 -mt-1">

@@ -2043,6 +2043,8 @@ export function MultiChannelFormWizard({
                   generatedImages={(generatedImages || {}) as Record<Channel, any>}
                   onRetryChannel={onRetryImageChannel}
                   onDownloadImage={onDownloadImage}
+                  onEditBackground={undefined}
+                  onRefineText={undefined}
                 />
 
                 {/* Completion actions */}
