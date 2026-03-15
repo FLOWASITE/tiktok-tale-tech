@@ -49,6 +49,15 @@ interface GenerateImageRequest {
   typographyStyle?: TypographyStyle;
   // Prompt mode: full | brand_only | raw
   promptMode?: PromptMode;
+  // AI Render mode: structured elements for AI to render text directly in image
+  structuredElements?: {
+    banner?: { text: string; bgColor: string; position: 'top' | 'bottom' };
+    heroText?: { text: string; fontSize: string; effect: string };
+    cards?: { items: { icon?: string; label: string }[]; layout: string };
+    headline?: string;
+    cta?: string;
+  };
+  structuredColors?: { primary: string; secondary: string; text: string };
 }
 
 // Default model fallback (used when config not available)
