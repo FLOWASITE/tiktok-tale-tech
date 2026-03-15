@@ -61,7 +61,7 @@ const DEFAULT_IMAGE_MODELS = {
 const QUALITY_THRESHOLDS = {
   minFileSizeBytes: 10000,    // 10KB minimum
   minDimensionPixels: 256,    // Minimum dimension
-  maxRetries: 2,
+  maxRetries: 1, // Reduced from 2: combined with client retry = fewer wasted attempts
 } as const;
 
 // Map content_goal to journey stage
