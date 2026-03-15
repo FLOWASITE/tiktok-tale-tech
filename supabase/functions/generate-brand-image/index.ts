@@ -453,7 +453,7 @@ function structuredElementsToPromptText(
       : undefined;
 
     // Build enhanced prompt using the shared utility
-    const enhancedPrompt = buildImagePrompt({
+    let enhancedPrompt = buildImagePrompt({
       channel: channel as Channel,
       contentSummary,
       brand: brandContext,
@@ -480,6 +480,13 @@ function structuredElementsToPromptText(
       // Prompt mode (3-layer architecture)
       promptMode,
     });
+
+    // AI Render mode: append structured text instructions to prompt
+    if (structuredElements) {
+      const structuredText = structuredElementsToPromptText(structuredElements, structuredColors);
+      enhancedPrompt += structuredText;
+      console.log(`[generate-brand-image] AI Render mode: appended structured text instructions (${structuredText.length} chars)`);
+    }
 
     console.log("[generate-brand-image] Starting image generation...");
 
