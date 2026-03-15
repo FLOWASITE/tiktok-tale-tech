@@ -2002,6 +2002,8 @@ export function MultiChannelFormWizard({
                   contentRole={formData.contentRole as any}
                   contentAngle={formData.contentAngle as any}
                   imageContentType="with_text"
+                  brandPrimaryColor={brandTemplate?.tone_of_voice?.[0] ? undefined : undefined}
+                  personaName={formData.personaId ? 'Đã chọn persona' : undefined}
                 />
 
                 {/* Sticky CTA bar */}
