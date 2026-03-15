@@ -446,7 +446,7 @@ export function SimpleImageGenerator({
       });
 
     return () => { cancelled = true; };
-  }, [useHybridMode, contentSummaries, textToInclude, brandPrimaryColor]);
+  }, [useHybridMode, contentSummaries, textToInclude, brandPrimaryColor, overlayTemplate]);
 
   const batchOptions = useMemo(() => ({
     contentId: content?.id ?? '',
