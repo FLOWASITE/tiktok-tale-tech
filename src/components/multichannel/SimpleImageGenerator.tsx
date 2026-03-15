@@ -1,4 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { analyzeContentComplexity } from '@/lib/contentComplexityAnalyzer';
+import { ComplexityWarning } from './ComplexityWarning';
 import { Sparkles, Loader2, ArrowLeft, AlertTriangle, Image as ImageIcon, Minimize2, Shield, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -694,6 +696,13 @@ export function SimpleImageGenerator({
           imageContentType={imageContentType}
           v3TopSuggestion={v3Suggestions.find(s => s.style === imageStyle)}
         />
+        {/* Complexity Warning — detect complex infographic-like requests */}
+        {(() => {
+          const summaryText = Object.values(contentSummaries).join(' ');
+          const analysis = analyzeContentComplexity(summaryText + ' ' + textToInclude);
+          return <ComplexityWarning analysis={analysis} />;
+        })()}
+
         <Button
           onClick={handleGenerate}
           disabled={batchGen.isGenerating || selectedChannels.length === 0}

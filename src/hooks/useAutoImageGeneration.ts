@@ -47,6 +47,18 @@ export interface AutoGenerateOptions {
   useCanvasFallback?: boolean;
   // Prompt mode: full | brand_only | raw
   promptMode?: 'full' | 'brand_only' | 'raw';
+  // Structured overlay for complex infographic layouts
+  structuredOverlay?: {
+    layout: 'banner_cards' | 'hero_text' | 'simple';
+    elements: {
+      banner?: { text: string; bgColor: string; position: 'top' | 'bottom' };
+      heroText?: { text: string; fontSize: 'xl' | '2xl' | '3xl'; effect: 'none' | 'gradient' };
+      cards?: { items: { icon?: string; label: string }[]; layout: 'grid-2x2' | 'horizontal' | 'vertical' };
+      headline?: string;
+      cta?: string;
+    };
+    colors: { primary: string; secondary: string; text: string };
+  };
 }
 
 export interface GeneratedImage {
@@ -104,6 +116,8 @@ export function useAutoImageGeneration() {
       useCanvasFallback,
       // Prompt mode
       promptMode,
+      // Structured overlay for complex layouts
+      structuredOverlay,
     } = options;
     
     const channelAspectRatio = getAspectRatioForChannel(channel, aspectRatio);
@@ -250,6 +264,38 @@ export function useAutoImageGeneration() {
           } else {
             finalImageUrl = textData.imageUrl;
             console.log(`[useAutoImageGeneration] Canvas text overlay success for ${channel}`);
+          }
+        }
+
+        // Step 4: Structured multi-block overlay (for complex infographics)
+        if (structuredOverlay) {
+          console.log(`[useAutoImageGeneration] Applying structured overlay for ${channel}`);
+          
+          const channelConfig = CHANNEL_IMAGE_CONFIG[channel];
+          const [widthStr, heightStr] = channelConfig.size.split('x');
+          const imgW = parseInt(widthStr, 10) || 1200;
+          const imgH = parseInt(heightStr, 10) || 630;
+
+          const { data: structData, error: structError } = await invokeWithTimeout<any>('overlay-text-canvas', {
+            body: {
+              baseImageUrl: finalImageUrl,
+              layout: structuredOverlay.layout,
+              elements: structuredOverlay.elements,
+              colors: structuredOverlay.colors,
+              imageWidth: imgW,
+              imageHeight: imgH,
+              contentId,
+              channel,
+            },
+            timeoutMs: 30_000,
+          });
+
+          if (structError || !structData?.success) {
+            console.warn(`[useAutoImageGeneration] Structured overlay failed for ${channel}:`, structError?.message || structData?.error);
+            toast.warning(`${channel}: Structured overlay thất bại`, { duration: 5000 });
+          } else {
+            finalImageUrl = structData.imageUrl;
+            console.log(`[useAutoImageGeneration] Structured overlay success for ${channel}`);
           }
         }
 

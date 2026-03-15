@@ -26,6 +26,29 @@ interface OverlayTextRequest {
   imageHeight?: number;
 }
 
+// === Structured Multi-block Overlay (V2) ===
+interface StructuredOverlayRequest {
+  baseImageUrl: string;
+  layout: 'banner_cards' | 'hero_text' | 'simple';
+  elements: {
+    banner?: { text: string; bgColor: string; position: 'top' | 'bottom' };
+    heroText?: { text: string; fontSize: 'xl' | '2xl' | '3xl'; effect: 'none' | 'gradient' };
+    cards?: { items: { icon?: string; label: string }[]; layout: 'grid-2x2' | 'horizontal' | 'vertical' };
+    headline?: string;
+    cta?: string;
+  };
+  colors: { primary: string; secondary: string; text: string };
+  imageWidth?: number;
+  imageHeight?: number;
+  contentId?: string;
+  channel?: string;
+  organizationId?: string;
+}
+
+function isStructuredRequest(body: any): body is StructuredOverlayRequest {
+  return body.layout && body.elements;
+}
+
 // Position styles mapping (Flexbox)
 function getPositionStyles(position: TextPosition): Record<string, string | number> {
   switch (position) {
@@ -272,13 +295,282 @@ function buildElement(
   };
 }
 
+/**
+ * Build structured multi-block element tree for Satori
+ */
+function buildStructuredElement(
+  baseImageUrl: string,
+  request: StructuredOverlayRequest,
+  hasCustomFont: boolean,
+  imageWidth: number,
+  imageHeight: number,
+) {
+  const { elements, colors } = request;
+  const children: any[] = [];
+  const fontFamily = hasCustomFont ? 'Be Vietnam Pro' : 'sans-serif';
+
+  // Banner (top or bottom)
+  if (elements.banner) {
+    children.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: elements.banner.bgColor || colors.primary,
+          padding: '12px 24px',
+          width: '100%',
+        },
+        children: {
+          type: 'span',
+          props: {
+            style: {
+              color: '#FFFFFF',
+              fontSize: Math.round(imageWidth * 0.03),
+              fontFamily,
+              fontWeight: 700,
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+            },
+            children: elements.banner.text,
+          },
+        },
+      },
+    });
+  }
+
+  // Hero text (large centered text)
+  if (elements.heroText) {
+    const sizeMap = { xl: 0.06, '2xl': 0.08, '3xl': 0.12 };
+    const fontSize = Math.round(imageWidth * (sizeMap[elements.heroText.fontSize] || 0.08));
+    children.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          flexGrow: 1,
+        },
+        children: {
+          type: 'span',
+          props: {
+            style: {
+              color: colors.primary,
+              fontSize,
+              fontFamily,
+              fontWeight: 700,
+              textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+            },
+            children: elements.heroText.text,
+          },
+        },
+      },
+    });
+  }
+
+  // Headline
+  if (elements.headline) {
+    children.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px 32px',
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          borderRadius: 12,
+          maxWidth: '85%',
+        },
+        children: {
+          type: 'span',
+          props: {
+            style: {
+              color: colors.text || '#FFFFFF',
+              fontSize: Math.round(imageWidth * 0.035),
+              fontFamily,
+              fontWeight: 600,
+              textAlign: 'center',
+              lineHeight: 1.4,
+            },
+            children: elements.headline,
+          },
+        },
+      },
+    });
+  }
+
+  // Cards grid
+  if (elements.cards && elements.cards.items.length > 0) {
+    const isGrid = elements.cards.layout === 'grid-2x2';
+    const cardFontSize = Math.round(imageWidth * 0.02);
+    
+    const cardElements = elements.cards.items.map(item => ({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          backgroundColor: 'rgba(255,255,255,0.9)',
+          borderRadius: 8,
+          padding: '10px 16px',
+          ...(isGrid ? { width: '48%' } : { flex: '1' }),
+        },
+        children: [
+          ...(item.icon ? [{
+            type: 'span',
+            props: { style: { fontSize: cardFontSize * 1.2 }, children: item.icon },
+          }] : [{
+            type: 'div',
+            props: {
+              style: {
+                width: 8, height: 8, borderRadius: 4,
+                backgroundColor: colors.primary,
+              },
+            },
+          }]),
+          {
+            type: 'span',
+            props: {
+              style: {
+                color: '#1a1a1a',
+                fontSize: cardFontSize,
+                fontFamily,
+                fontWeight: 500,
+              },
+              children: item.label,
+            },
+          },
+        ],
+      },
+    }));
+
+    children.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          flexWrap: isGrid ? 'wrap' : 'nowrap',
+          gap: 8,
+          padding: '12px 24px',
+          justifyContent: 'center',
+          ...(isGrid ? { maxWidth: '80%' } : {}),
+        },
+        children: cardElements,
+      },
+    });
+  }
+
+  // CTA button
+  if (elements.cta) {
+    children.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '12px 32px',
+          backgroundColor: colors.primary,
+          borderRadius: 24,
+          marginTop: 8,
+        },
+        children: {
+          type: 'span',
+          props: {
+            style: {
+              color: '#FFFFFF',
+              fontSize: Math.round(imageWidth * 0.025),
+              fontFamily,
+              fontWeight: 600,
+            },
+            children: elements.cta,
+          },
+        },
+      },
+    });
+  }
+
+  return {
+    type: 'div',
+    props: {
+      style: {
+        width: imageWidth,
+        height: imageHeight,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: elements.banner ? 'flex-start' : 'center',
+        backgroundImage: `url(${baseImageUrl})`,
+        backgroundSize: `${imageWidth}px ${imageHeight}px`,
+        backgroundPosition: 'center',
+      },
+      children: children.length === 1 ? children[0] : children,
+    },
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const body: OverlayTextRequest = await req.json();
+    // === Dispatch: Structured vs Simple ===
+    if (isStructuredRequest(body)) {
+      console.log(`[overlay-text-canvas] === STRUCTURED MULTI-BLOCK OVERLAY ===`);
+      const sr = body as StructuredOverlayRequest;
+      const { baseImageUrl, elements, imageWidth = 1200, imageHeight = 630, contentId, channel, organizationId } = sr;
+
+      if (!baseImageUrl) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Base image URL is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const allTexts: string[] = [];
+      if (elements.banner?.text) allTexts.push(elements.banner.text);
+      if (elements.heroText?.text) allTexts.push(elements.heroText.text);
+      if (elements.headline) allTexts.push(elements.headline);
+      if (elements.cta) allTexts.push(elements.cta);
+      if (elements.cards?.items) allTexts.push(...elements.cards.items.map(c => c.label));
+      const combinedText = allTexts.join(' ') || 'Default';
+
+      console.log(`[overlay-text-canvas] Elements: banner=${!!elements.banner}, hero=${!!elements.heroText}, cards=${elements.cards?.items?.length || 0}`);
+
+      const fontData2 = await loadGoogleFont(combinedText, 600);
+      type Weight2 = 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
+      const fonts2 = fontData2 ? [{ name: 'Be Vietnam Pro', data: fontData2, weight: 600 as Weight2, style: 'normal' as const }] : [];
+      if (fonts2.length === 0) {
+        const fb = await loadGoogleFont(combinedText, 400);
+        if (fb) fonts2.push({ name: 'Be Vietnam Pro', data: fb, weight: 400 as Weight2, style: 'normal' as const });
+      }
+      if (fonts2.length === 0) throw new Error('Could not load any fonts');
+
+      const element2 = buildStructuredElement(baseImageUrl, sr, true, imageWidth, imageHeight);
+      const svg2 = await satori(element2 as any, { width: imageWidth, height: imageHeight, fonts: fonts2 });
+
+      const encoder2 = new TextEncoder();
+      const svgBytes2 = encoder2.encode(svg2);
+      let finalUrl2: string;
+      if (contentId && channel) {
+        finalUrl2 = await uploadToStorage(svgBytes2, contentId, channel, organizationId);
+      } else {
+        finalUrl2 = `data:image/svg+xml;base64,${btoa(svg2)}`;
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, imageUrl: finalUrl2, format: 'svg', layout: sr.layout, dimensions: { width: imageWidth, height: imageHeight } }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // === Simple (legacy) text overlay ===
+    const body2 = body as OverlayTextRequest;
     const {
       baseImageUrl,
       text,
