@@ -521,6 +521,7 @@ function buildStructuredElement(
           padding: `12px ${bannerPaddingRight}px 12px ${bannerPaddingLeft}px`,
           width: '100%',
           borderRadius: theme.borderRadius > 0 ? `${theme.borderRadius}px ${theme.borderRadius}px 0 0` : '0',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
         },
         children: {
           type: 'span',
@@ -532,7 +533,7 @@ function buildStructuredElement(
               fontWeight: theme.fontWeight,
               letterSpacing: '0.05em',
               textTransform: 'uppercase',
-              textShadow: theme.textShadow,
+              textShadow: `${theme.textShadow}, 0 2px 8px rgba(0,0,0,0.5)`,
             },
             children: elements.banner.text,
           },
