@@ -142,8 +142,9 @@ export function useAutoImageGeneration() {
         console.log(`[useAutoImageGeneration] Generating image for ${channel} with aspect ratio ${channelAspectRatio}, style: ${imageStylePreset || 'default'}, role: ${contentRole || 'none'}`);
 
         // Step 1: Generate base image with brand colors, style preset, and strategic context
-        // If using canvas fallback, always generate background_only and add text later
-        const effectiveContentType = useCanvasFallback ? 'background_only' : imageContentType;
+        // Force background_only when structured overlay is present (all text comes from overlay step)
+        // Also force background_only when canvas fallback is active
+        const effectiveContentType = structuredOverlay ? 'background_only' : (useCanvasFallback ? 'background_only' : imageContentType);
         
         // OPTIMIZATION: Early timeout warning — notify user if AI is slow
         const slowWarningTimer = setTimeout(() => {

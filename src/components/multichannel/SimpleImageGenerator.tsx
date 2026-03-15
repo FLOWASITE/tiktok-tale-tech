@@ -405,7 +405,9 @@ export function SimpleImageGenerator({
     contentId: content?.id ?? '',
     brandTemplateId: content?.brand_template_id || '',
     channels: selectedChannels,
-    contentSummaries,
+    contentSummaries: useHybridMode && hybridBackgroundPrompt
+      ? Object.fromEntries(selectedChannels.map(ch => [ch, hybridBackgroundPrompt])) as Record<string, string>
+      : contentSummaries,
     includeLogo: includeLogo && !!brandLogoUrl,
     logoPosition,
     logoUrl: brandLogoUrl || undefined,
