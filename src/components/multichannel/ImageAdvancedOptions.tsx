@@ -260,22 +260,18 @@ export function ImageAdvancedOptions({
           </div>
         )}
 
-        {/* V3 Top 3 Reasons — only in full mode */}
+        {/* V3 Compact Read-only — only in full mode */}
         {promptMode === 'full' && v3Suggestions && v3Suggestions.length > 0 && (
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Lý do gợi ý (V3)</Label>
-            <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">AI đã chọn phong cách</Label>
+            <div className="flex flex-wrap gap-1.5">
               {v3Suggestions.slice(0, 3).map((s, i) => (
-                <div key={s.id} className={cn(
-                  "text-[10px] px-2.5 py-1.5 rounded-md border",
-                  i === 0 ? "bg-primary/5 border-primary/20 text-foreground" : "bg-muted/30 border-border/30 text-muted-foreground"
+                <span key={s.id} className={cn(
+                  "inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full border",
+                  i === 0 ? "bg-primary/10 border-primary/25 text-primary" : "bg-muted/40 border-border/40 text-muted-foreground"
                 )}>
-                  <span className="font-medium">{i + 1}. {s.style}</span>
-                  <span className="mx-1">·</span>
-                  <span>{s.matchPercentage}%</span>
-                  <span className="mx-1">·</span>
-                  <span className="italic">{s.reason.split(' | ')[0]}</span>
-                </div>
+                  {i === 0 && '★ '}{s.style} · {s.matchPercentage}%
+                </span>
               ))}
             </div>
           </div>
