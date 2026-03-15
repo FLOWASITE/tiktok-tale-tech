@@ -468,6 +468,7 @@ export function SimpleImageGenerator({
 
   const handleRegenerateChannel = async (channel: Channel) => {
     setRegeneratingChannel(channel);
+    signals.markRegenerated();
     await batchGen.regenerateForChannel(channel, batchOptions);
     setRegeneratingChannel(null);
   };
