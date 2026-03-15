@@ -472,7 +472,7 @@ export function SimpleImageGenerator({
   }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, hybridBackgroundPrompt, useHybridMode,
     includeLogo, brandLogoUrl, logoPosition, logoStyle, logoSize, logoOpacity,
     aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages,
-    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode, hybridOverlay]);
+    imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode, hybridOverlay, v3Suggestions]);
 
   // ─── Handlers ─────────────────────
   const handleGenerate = async () => {
