@@ -811,7 +811,7 @@ export function SimpleImageGenerator({
 
         <Button
           onClick={handleGenerate}
-          disabled={batchGen.isGenerating || selectedChannels.length === 0}
+          disabled={batchGen.isGenerating || selectedChannels.length === 0 || isDecomposing}
           className="w-full h-11 gap-2 text-base"
           size="lg"
         >
