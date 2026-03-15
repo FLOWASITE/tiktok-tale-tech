@@ -802,19 +802,37 @@ export function SimpleImageGenerator({
 
         {/* Hybrid mode toggle — shown when complexity is moderate or complex */}
         {complexityAnalysis.score !== 'simple' && (
-          <label className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-muted/30 cursor-pointer">
-            <Checkbox
-              checked={useHybridMode}
-              onCheckedChange={(checked) => setUseHybridMode(checked === true)}
-              className="mt-0.5"
-            />
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium text-foreground">Chế độ Hybrid (AI nền + text chính xác)</p>
-              <p className="text-xs text-muted-foreground">
-                AI tạo nền visual, text/cards được render chính xác bằng engine riêng
-              </p>
-            </div>
-          </label>
+          <div className="space-y-2">
+            <label className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-muted/30 cursor-pointer">
+              <Checkbox
+                checked={useHybridMode}
+                onCheckedChange={(checked) => setUseHybridMode(checked === true)}
+                className="mt-0.5"
+              />
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium text-foreground">Chế độ Hybrid (AI nền + text chính xác)</p>
+                <p className="text-xs text-muted-foreground">
+                  AI tạo nền visual, text/cards được render chính xác bằng engine riêng
+                </p>
+              </div>
+            </label>
+
+            {/* AI Render toggle — only when hybrid mode is active */}
+            {useHybridMode && (
+              <div className="flex items-center justify-between p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium text-foreground">🧪 AI tự render text</p>
+                  <p className="text-xs text-muted-foreground">
+                    AI vẽ text trực tiếp trong ảnh (thử nghiệm — chữ Việt có thể bị sai)
+                  </p>
+                </div>
+                <Switch
+                  checked={overlayMode === 'ai_render'}
+                  onCheckedChange={(checked) => setOverlayMode(checked ? 'ai_render' : 'satori')}
+                />
+              </div>
+            )}
+          </div>
         )}
 
         <Button
