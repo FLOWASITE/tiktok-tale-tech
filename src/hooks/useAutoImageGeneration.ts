@@ -197,8 +197,41 @@ export function useAutoImageGeneration() {
             });
           }
         }
-        // Step 2: Overlay text using canvas if useCanvasFallback is enabled
-        // Skip if structuredOverlay is active (Step 3 handles text rendering)
+        // Step 2: Logo overlay EARLY — logo becomes part of background before text/SVG overlay
+        // This avoids the "Unsupported image type" error when overlay-logo-canvas receives SVG
+        if (includeLogo && logoUrl) {
+          setProgress(prev => ({ ...prev, [channel]: 'overlaying' }));
+          
+          const { data: overlayData, error: overlayError } = await invokeWithTimeout<any>('overlay-logo-canvas', {
+            body: {
+              baseImageUrl: finalImageUrl,
+              logoUrl,
+              position: logoPosition || 'bottom-right',
+              logoStyle: logoStyle || 'shadow',
+              logoSizePercent: logoSizePercent || 15,
+              logoOpacity: logoOpacity || 100,
+              padding: 20,
+              contentId,
+              channel,
+            },
+            timeoutMs: 30_000,
+          });
+
+          if (overlayError || !overlayData?.success) {
+            console.warn(`[useAutoImageGeneration] Logo overlay failed for ${channel}, using base image:`, overlayError?.message || overlayData?.error);
+            logoFailed = true;
+            setLogoOverlayFailures(prev => ({ ...prev, [channel]: true }));
+            toast.warning(`${channel}: Không thể thêm logo, sử dụng ảnh gốc`, {
+              description: 'Bạn có thể thử tạo lại để thêm logo',
+              duration: 5000,
+            });
+          } else {
+            finalImageUrl = overlayData.imageUrl;
+          }
+        }
+
+        // Step 3: Overlay text using canvas if useCanvasFallback is enabled
+        // Skip if structuredOverlay is active (Step 4 handles text rendering)
         if (useCanvasFallback && imageContentType === 'with_text' && channelText && !structuredOverlay) {
           console.log(`[useAutoImageGeneration] Applying canvas text overlay for ${channel}`);
           
@@ -237,7 +270,8 @@ export function useAutoImageGeneration() {
           }
         }
 
-        // Step 3: Structured multi-block overlay (for complex infographics)
+        // Step 4: Structured multi-block overlay (for complex infographics)
+        // This is the FINAL step — outputs SVG, no further raster processing needed
         if (structuredOverlay) {
           console.log(`[useAutoImageGeneration] Applying structured overlay for ${channel}`);
           
@@ -257,6 +291,12 @@ export function useAutoImageGeneration() {
               imageHeight: imgH,
               contentId,
               channel,
+              // Pass logo metadata so banner can apply safe-area logic
+              logoMeta: (includeLogo && logoUrl && !logoFailed) ? {
+                position: logoPosition || 'bottom-right',
+                sizePercent: logoSizePercent || 15,
+                padding: 20,
+              } : undefined,
             },
             timeoutMs: 30_000,
           });
@@ -267,38 +307,6 @@ export function useAutoImageGeneration() {
           } else {
             finalImageUrl = structData.imageUrl;
             console.log(`[useAutoImageGeneration] Structured overlay success for ${channel}`);
-          }
-        }
-
-        // Step 4: Logo overlay LAST — ensures logo is always on top of banners/text
-        if (includeLogo && logoUrl) {
-          setProgress(prev => ({ ...prev, [channel]: 'overlaying' }));
-          
-          const { data: overlayData, error: overlayError } = await invokeWithTimeout<any>('overlay-logo-canvas', {
-            body: {
-              baseImageUrl: finalImageUrl,
-              logoUrl,
-              position: logoPosition || 'bottom-right',
-              logoStyle: logoStyle || 'shadow',
-              logoSizePercent: logoSizePercent || 15,
-              logoOpacity: logoOpacity || 100,
-              padding: 20,
-              contentId,
-              channel,
-            },
-            timeoutMs: 30_000,
-          });
-
-          if (overlayError || !overlayData?.success) {
-            console.warn(`[useAutoImageGeneration] Logo overlay failed for ${channel}, using base image:`, overlayError?.message || overlayData?.error);
-            logoFailed = true;
-            setLogoOverlayFailures(prev => ({ ...prev, [channel]: true }));
-            toast.warning(`${channel}: Không thể thêm logo, sử dụng ảnh gốc`, {
-              description: 'Bạn có thể thử tạo lại để thêm logo',
-              duration: 5000,
-            });
-          } else {
-            finalImageUrl = overlayData.imageUrl;
           }
         }
 

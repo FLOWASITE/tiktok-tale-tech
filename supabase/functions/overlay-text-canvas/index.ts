@@ -174,6 +174,12 @@ function resolveTheme(imageStyle: string | undefined, colors: { primary: string;
 }
 
 // === Structured Multi-block Overlay (V2) ===
+interface LogoMeta {
+  position: string;    // e.g. 'top-left', 'bottom-right'
+  sizePercent: number; // e.g. 15
+  padding: number;     // e.g. 20
+}
+
 interface StructuredOverlayRequest {
   baseImageUrl: string;
   layout: 'banner_cards' | 'hero_text' | 'simple' | 'split';
@@ -192,6 +198,7 @@ interface StructuredOverlayRequest {
   contentId?: string;
   channel?: string;
   organizationId?: string;
+  logoMeta?: LogoMeta; // Logo position info for safe-area logic
 }
 
 function isStructuredRequest(body: any): body is StructuredOverlayRequest {
@@ -454,27 +461,23 @@ function buildStructuredElement(
   imageWidth: number,
   imageHeight: number,
 ) {
-  const { elements, colors } = request;
+  const { elements, colors, logoMeta } = request;
   const theme = resolveTheme(request.imageStyle, colors);
   const children: any[] = [];
   const fontFamily = hasCustomFont ? 'Be Vietnam Pro' : 'sans-serif';
 
   // === Smart Density: reduce visual clutter ===
-  // If both heroText and headline exist, drop headline (heroText is more prominent)
   if (elements.heroText && elements.headline) {
     delete elements.headline;
   }
-  // Limit cards: max 3 for square images (≤1:1), max 4 otherwise
   if (elements.cards?.items) {
     const isSquareOrTall = imageWidth <= imageHeight;
     const maxCards = isSquareOrTall ? 3 : 4;
     elements.cards.items = elements.cards.items.slice(0, maxCards);
   }
-  // Limit footer items to max 4
   if (elements.footer?.items) {
     elements.footer.items = elements.footer.items.slice(0, 4);
   }
-  // If 5+ elements remain, drop CTA to reduce density
   const elementCount = [elements.banner, elements.heroText, elements.headline, elements.cards, elements.cta, elements.footer].filter(Boolean).length;
   if (elementCount >= 5 && elements.cta) {
     delete elements.cta;
@@ -486,8 +489,27 @@ function buildStructuredElement(
   // Determine banner text color based on banner bg brightness
   const bannerTextColor = theme.bannerBg.includes('255,255,255') ? '#1a1a1a' : '#FFFFFF';
 
+  // === Safe-area logic: if logo is in a top corner, add padding so banner text avoids it ===
+  const logoInTopArea = logoMeta && (logoMeta.position === 'top-left' || logoMeta.position === 'top-right' || logoMeta.position === 'top-center');
+  const logoInBottomArea = logoMeta && (logoMeta.position === 'bottom-left' || logoMeta.position === 'bottom-right' || logoMeta.position === 'bottom-center');
+  const logoSafeWidth = logoMeta ? Math.ceil(imageWidth * (logoMeta.sizePercent / 100)) + (logoMeta.padding * 2) : 0;
+
   // Banner (top or bottom)
   if (elements.banner) {
+    // Determine banner safe-area padding based on logo position
+    let bannerPaddingLeft = 24;
+    let bannerPaddingRight = 24;
+    const bannerIsTop = elements.banner.position !== 'bottom';
+
+    if (bannerIsTop && logoInTopArea && logoMeta) {
+      if (logoMeta.position === 'top-left') bannerPaddingLeft = logoSafeWidth;
+      if (logoMeta.position === 'top-right') bannerPaddingRight = logoSafeWidth;
+    }
+    if (!bannerIsTop && logoInBottomArea && logoMeta) {
+      if (logoMeta.position === 'bottom-left') bannerPaddingLeft = logoSafeWidth;
+      if (logoMeta.position === 'bottom-right') bannerPaddingRight = logoSafeWidth;
+    }
+
     children.push({
       type: 'div',
       props: {
@@ -496,7 +518,7 @@ function buildStructuredElement(
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: theme.bannerBg,
-          padding: '12px 24px',
+          padding: `12px ${bannerPaddingRight}px 12px ${bannerPaddingLeft}px`,
           width: '100%',
           borderRadius: theme.borderRadius > 0 ? `${theme.borderRadius}px ${theme.borderRadius}px 0 0` : '0',
         },
