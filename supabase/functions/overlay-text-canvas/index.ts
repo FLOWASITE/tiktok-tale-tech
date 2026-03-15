@@ -295,13 +295,232 @@ function buildElement(
   };
 }
 
+/**
+ * Build structured multi-block element tree for Satori
+ */
+function buildStructuredElement(
+  baseImageUrl: string,
+  request: StructuredOverlayRequest,
+  hasCustomFont: boolean,
+  imageWidth: number,
+  imageHeight: number,
+) {
+  const { elements, colors } = request;
+  const children: any[] = [];
+  const fontFamily = hasCustomFont ? 'Be Vietnam Pro' : 'sans-serif';
+
+  // Banner (top or bottom)
+  if (elements.banner) {
+    children.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: elements.banner.bgColor || colors.primary,
+          padding: '12px 24px',
+          width: '100%',
+        },
+        children: {
+          type: 'span',
+          props: {
+            style: {
+              color: '#FFFFFF',
+              fontSize: Math.round(imageWidth * 0.03),
+              fontFamily,
+              fontWeight: 700,
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+            },
+            children: elements.banner.text,
+          },
+        },
+      },
+    });
+  }
+
+  // Hero text (large centered text)
+  if (elements.heroText) {
+    const sizeMap = { xl: 0.06, '2xl': 0.08, '3xl': 0.12 };
+    const fontSize = Math.round(imageWidth * (sizeMap[elements.heroText.fontSize] || 0.08));
+    children.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          flexGrow: 1,
+        },
+        children: {
+          type: 'span',
+          props: {
+            style: {
+              color: colors.primary,
+              fontSize,
+              fontFamily,
+              fontWeight: 700,
+              textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+            },
+            children: elements.heroText.text,
+          },
+        },
+      },
+    });
+  }
+
+  // Headline
+  if (elements.headline) {
+    children.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px 32px',
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          borderRadius: 12,
+          maxWidth: '85%',
+        },
+        children: {
+          type: 'span',
+          props: {
+            style: {
+              color: colors.text || '#FFFFFF',
+              fontSize: Math.round(imageWidth * 0.035),
+              fontFamily,
+              fontWeight: 600,
+              textAlign: 'center',
+              lineHeight: 1.4,
+            },
+            children: elements.headline,
+          },
+        },
+      },
+    });
+  }
+
+  // Cards grid
+  if (elements.cards && elements.cards.items.length > 0) {
+    const isGrid = elements.cards.layout === 'grid-2x2';
+    const cardFontSize = Math.round(imageWidth * 0.02);
+    
+    const cardElements = elements.cards.items.map(item => ({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          backgroundColor: 'rgba(255,255,255,0.9)',
+          borderRadius: 8,
+          padding: '10px 16px',
+          ...(isGrid ? { width: '48%' } : { flex: '1' }),
+        },
+        children: [
+          ...(item.icon ? [{
+            type: 'span',
+            props: { style: { fontSize: cardFontSize * 1.2 }, children: item.icon },
+          }] : [{
+            type: 'div',
+            props: {
+              style: {
+                width: 8, height: 8, borderRadius: 4,
+                backgroundColor: colors.primary,
+              },
+            },
+          }]),
+          {
+            type: 'span',
+            props: {
+              style: {
+                color: '#1a1a1a',
+                fontSize: cardFontSize,
+                fontFamily,
+                fontWeight: 500,
+              },
+              children: item.label,
+            },
+          },
+        ],
+      },
+    }));
+
+    children.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          flexWrap: isGrid ? 'wrap' : 'nowrap',
+          gap: 8,
+          padding: '12px 24px',
+          justifyContent: 'center',
+          ...(isGrid ? { maxWidth: '80%' } : {}),
+        },
+        children: cardElements,
+      },
+    });
+  }
+
+  // CTA button
+  if (elements.cta) {
+    children.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '12px 32px',
+          backgroundColor: colors.primary,
+          borderRadius: 24,
+          marginTop: 8,
+        },
+        children: {
+          type: 'span',
+          props: {
+            style: {
+              color: '#FFFFFF',
+              fontSize: Math.round(imageWidth * 0.025),
+              fontFamily,
+              fontWeight: 600,
+            },
+            children: elements.cta,
+          },
+        },
+      },
+    });
+  }
+
+  return {
+    type: 'div',
+    props: {
+      style: {
+        width: imageWidth,
+        height: imageHeight,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: elements.banner ? 'flex-start' : 'center',
+        backgroundImage: `url(${baseImageUrl})`,
+        backgroundSize: `${imageWidth}px ${imageHeight}px`,
+        backgroundPosition: 'center',
+      },
+      children: children.length === 1 ? children[0] : children,
+    },
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const body: OverlayTextRequest = await req.json();
+    const body = await req.json();
     const {
       baseImageUrl,
       text,
