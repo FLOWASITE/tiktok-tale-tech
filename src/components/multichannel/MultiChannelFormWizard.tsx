@@ -685,7 +685,7 @@ export function MultiChannelFormWizard({
       return;
     }
     
-    if (currentStep < 5 && canProceed) {
+    if (currentStep < 6 && canProceed) {
       setCompletedSteps(prev => [...prev.filter(s => s !== currentStep), currentStep]);
       setCurrentStep(prev => prev + 1);
     }
