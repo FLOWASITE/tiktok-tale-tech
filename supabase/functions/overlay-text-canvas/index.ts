@@ -26,6 +26,103 @@ interface OverlayTextRequest {
   imageHeight?: number;
 }
 
+// === Style-Adaptive Overlay Themes ===
+interface OverlayStyleTheme {
+  bannerBg: string;       // Banner background (rgba or 'primary')
+  cardBg: string;         // Card background
+  cardTextColor: string;  // Card label color
+  borderRadius: number;
+  fontWeight: number;
+  textShadow: string;
+  heroTextShadow: string;
+  headlineBg: string;     // Headline container bg
+}
+
+const OVERLAY_STYLE_THEMES: Record<string, OverlayStyleTheme> = {
+  photorealistic: {
+    bannerBg: 'rgba(0,0,0,0.7)',
+    cardBg: 'rgba(255,255,255,0.85)',
+    cardTextColor: '#1a1a1a',
+    borderRadius: 8,
+    fontWeight: 600,
+    textShadow: '1px 1px 3px rgba(0,0,0,0.4)',
+    heroTextShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+    headlineBg: 'rgba(0,0,0,0.5)',
+  },
+  cinematic: {
+    bannerBg: 'rgba(0,0,0,0.8)',
+    cardBg: 'rgba(0,0,0,0.6)',
+    cardTextColor: '#f0f0f0',
+    borderRadius: 4,
+    fontWeight: 700,
+    textShadow: '0 0 12px rgba(255,200,100,0.6), 2px 2px 6px rgba(0,0,0,0.8)',
+    heroTextShadow: '0 0 20px rgba(255,180,80,0.5), 3px 3px 8px rgba(0,0,0,0.7)',
+    headlineBg: 'rgba(0,0,0,0.7)',
+  },
+  watercolor: {
+    bannerBg: 'rgba(255,255,255,0.45)',
+    cardBg: 'rgba(255,255,255,0.5)',
+    cardTextColor: '#2d2d2d',
+    borderRadius: 16,
+    fontWeight: 500,
+    textShadow: '1px 1px 2px rgba(255,255,255,0.6)',
+    heroTextShadow: '1px 1px 3px rgba(255,255,255,0.5)',
+    headlineBg: 'rgba(255,255,255,0.4)',
+  },
+  minimalist: {
+    bannerBg: 'primary',
+    cardBg: 'rgba(255,255,255,0.95)',
+    cardTextColor: '#1a1a1a',
+    borderRadius: 2,
+    fontWeight: 400,
+    textShadow: 'none',
+    heroTextShadow: 'none',
+    headlineBg: 'rgba(255,255,255,0.9)',
+  },
+  illustration: {
+    bannerBg: 'primary',
+    cardBg: 'rgba(255,255,255,0.9)',
+    cardTextColor: '#1a1a1a',
+    borderRadius: 12,
+    fontWeight: 600,
+    textShadow: '1px 1px 2px rgba(0,0,0,0.2)',
+    heroTextShadow: '1px 1px 3px rgba(0,0,0,0.2)',
+    headlineBg: 'rgba(0,0,0,0.4)',
+  },
+  '3d_render': {
+    bannerBg: 'rgba(0,0,0,0.7)',
+    cardBg: 'rgba(255,255,255,0.8)',
+    cardTextColor: '#1a1a1a',
+    borderRadius: 12,
+    fontWeight: 700,
+    textShadow: '2px 3px 6px rgba(0,0,0,0.5)',
+    heroTextShadow: '3px 4px 8px rgba(0,0,0,0.5)',
+    headlineBg: 'rgba(0,0,0,0.6)',
+  },
+  flat_design: {
+    bannerBg: 'primary',
+    cardBg: 'secondary',
+    cardTextColor: '#1a1a1a',
+    borderRadius: 0,
+    fontWeight: 700,
+    textShadow: 'none',
+    heroTextShadow: 'none',
+    headlineBg: 'rgba(0,0,0,0.4)',
+  },
+};
+
+const DEFAULT_THEME: OverlayStyleTheme = OVERLAY_STYLE_THEMES.photorealistic;
+
+function resolveTheme(imageStyle: string | undefined, colors: { primary: string; secondary: string }): OverlayStyleTheme {
+  const theme = (imageStyle && OVERLAY_STYLE_THEMES[imageStyle]) || DEFAULT_THEME;
+  // Resolve 'primary'/'secondary' placeholders to actual colors
+  return {
+    ...theme,
+    bannerBg: theme.bannerBg === 'primary' ? colors.primary : theme.bannerBg,
+    cardBg: theme.cardBg === 'secondary' ? colors.secondary : theme.cardBg,
+  };
+}
+
 // === Structured Multi-block Overlay (V2) ===
 interface StructuredOverlayRequest {
   baseImageUrl: string;
@@ -38,6 +135,7 @@ interface StructuredOverlayRequest {
     cta?: string;
   };
   colors: { primary: string; secondary: string; text: string };
+  imageStyle?: string;
   imageWidth?: number;
   imageHeight?: number;
   contentId?: string;
