@@ -299,7 +299,7 @@ export function useAutoImageGeneration() {
           }
         }
 
-
+        const result: GeneratedImage = {
           channel,
           imageUrl: finalImageUrl,
           prompt: imageData.prompt,
