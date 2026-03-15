@@ -501,6 +501,7 @@ export function SimpleImageGenerator({
   const handleRefineText = async (channel: Channel) => {
     const img = batchGen.generatedImages[channel];
     if (!img?.imageUrl) { toast.error('Không có ảnh để sửa chữ'); return; }
+    signals.markEditedText();
     toast.info('Đang sửa chữ trên ảnh...', { duration: 2000 });
     const result = await refineTextEditor.editBackground({
       imageUrl: img.imageUrl,
