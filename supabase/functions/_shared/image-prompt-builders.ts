@@ -98,8 +98,19 @@ ALL human characters in this image MUST be ${directive.ethnicity}.
 
 export const buildChannelSpec: PromptBuilder = (ctx) => {
   const { params, channelSpec, finalAspectRatio } = ctx;
-  if (params.promptMode === 'raw' || params.promptMode === 'brand_only') return null;
 
+  // raw mode: skip channel spec entirely
+  if (params.promptMode === 'raw') return null;
+
+  // brand_only mode: lightweight channel hints (aspect ratio + composition only)
+  if (params.promptMode === 'brand_only') {
+    const content = `## CHANNEL: ${params.channel.toUpperCase()}
+- Aspect Ratio: ${finalAspectRatio}
+- Composition: ${channelSpec.composition}`;
+    return { id: 'channel_spec', position: 'core', priority: 100, content };
+  }
+
+  // full mode: complete channel spec
   const content = `## CHANNEL: ${params.channel.toUpperCase()}
 - Aspect Ratio: ${finalAspectRatio}
 - Platform Style: ${channelSpec.style}
