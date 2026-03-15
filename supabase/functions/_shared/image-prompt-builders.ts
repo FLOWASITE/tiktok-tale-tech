@@ -4,7 +4,7 @@
 // ============================================
 
 import type {
-  PromptContext, PromptSegment, PromptBuilder,
+  PromptContext, PromptSegment, PromptBuilder, Channel,
   ContentRole, ContentAngle, TextPosition, TypographyStyle,
 } from './image-prompt-types.ts';
 import {
