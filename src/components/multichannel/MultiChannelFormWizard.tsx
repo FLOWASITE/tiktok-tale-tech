@@ -2094,8 +2094,20 @@ export function MultiChannelFormWizard({
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Button>
               </div>
+            ) : currentStep === 5 ? (
+              <Button
+                type="button"
+                onClick={() => {
+                  setCompletedSteps(prev => [...prev.filter(s => s !== 5), 5]);
+                  setCurrentStep(6);
+                }}
+                className="gap-2 gradient-primary glow-primary"
+              >
+                Tiếp tục tạo ảnh
+                <ArrowRight className="w-4 h-4" />
+              </Button>
             ) : (
-              // Step 5: Footer hidden when image phase is active
+              // Step 6: Footer hidden when image phase is active
               imagePhase && imagePhase !== 'idle' ? null : (
                 <div className="flex gap-2">
                   <Button
