@@ -4,7 +4,7 @@
 // ============================================
 
 import type {
-  PromptContext, PromptSegment, PromptBuilder,
+  PromptContext, PromptSegment, PromptBuilder, Channel,
   ContentRole, ContentAngle, TextPosition, TypographyStyle,
 } from './image-prompt-types.ts';
 import {
@@ -25,7 +25,7 @@ export const buildCreativeMode: PromptBuilder = (ctx) => {
   const { brand, contentSummary, channel, promptMode = 'full' } = params;
 
   if (promptMode === 'raw') {
-    let content = `Generate an image based EXACTLY on this description, with NO additional brand styling or optimization:
+    let content = `Generate an image based on this description, with NO brand styling applied:
 
 ${contentSummary}
 
@@ -34,30 +34,30 @@ Aspect Ratio: ${finalAspectRatio}
 INSTRUCTIONS:
 - Generate freely without any brand constraints
 - Do NOT add brand colors, logos, or corporate styling
-- Follow the description literally — do not add artistic interpretations
-- Keep the image simple and focused on what is described`;
+- Follow the description closely — do not add artistic interpretations
+- Ensure output has clean composition suitable for ${channel} usage`;
     return { id: 'creative_mode', position: 'prefix', priority: 100, content };
   }
 
   if (promptMode === 'brand_only') {
-    let content = `Create an image for ${brand.brandName} that follows the user's description LITERALLY.
+    let content = `Create an image for ${brand.brandName} based closely on the user's description.
 
-## CONTENT (FOLLOW EXACTLY — DO NOT REINTERPRET):
+## CONTENT (FOLLOW CLOSELY FOR SUBJECT AND SCENE):
 ${contentSummary}
 
-⚠️ IMPORTANT: DO NOT add artistic interpretations. Follow the user's description literally.
-Do NOT optimize composition, do NOT add creative elements not mentioned in the description.
-Only apply brand colors and identity — everything else comes from the user's description.
+Optimize composition and framing for ${channel} (${finalAspectRatio}).
+Apply brand colors as accents — do not let them overpower the image.
+Do NOT add creative elements not mentioned in the description.
 
 ## ASPECT RATIO: ${finalAspectRatio}`;
     return { id: 'creative_mode', position: 'prefix', priority: 100, content };
   }
 
-  // full mode
-  const content = `Create a professional, brand-aligned ${isWithText ? 'SOCIAL GRAPHIC WITH TEXT' : 'image'} for ${brand.brandName}.
+  // full mode — GUIDED CREATIVE (clear separation of constraints vs creative latitude)
+  const content = `Create a visually compelling, brand-aligned ${isWithText ? 'SOCIAL GRAPHIC WITH TEXT' : 'image'} for ${brand.brandName}, optimized for ${channel}.
 
-You have FULL CREATIVE FREEDOM to interpret and enhance the visual concept.
-Optimize composition, color grading, lighting, and layout for maximum visual impact on ${channel}.
+Required constraints: brand colors, channel-appropriate composition, target audience relevance.
+Creative latitude: lighting, subject posing, background elements, color harmony beyond brand palette, artistic interpretation of the concept.
 
 ## ARTICLE CONTENT CONTEXT (HIGHEST PRIORITY):
 ${contentSummary}
@@ -98,8 +98,19 @@ ALL human characters in this image MUST be ${directive.ethnicity}.
 
 export const buildChannelSpec: PromptBuilder = (ctx) => {
   const { params, channelSpec, finalAspectRatio } = ctx;
-  if (params.promptMode === 'raw' || params.promptMode === 'brand_only') return null;
 
+  // raw mode: skip channel spec entirely
+  if (params.promptMode === 'raw') return null;
+
+  // brand_only mode: lightweight channel hints (aspect ratio + composition only)
+  if (params.promptMode === 'brand_only') {
+    const content = `## CHANNEL: ${params.channel.toUpperCase()}
+- Aspect Ratio: ${finalAspectRatio}
+- Composition: ${channelSpec.composition}`;
+    return { id: 'channel_spec', position: 'core', priority: 100, content };
+  }
+
+  // full mode: complete channel spec
   const content = `## CHANNEL: ${params.channel.toUpperCase()}
 - Aspect Ratio: ${finalAspectRatio}
 - Platform Style: ${channelSpec.style}
@@ -184,6 +195,38 @@ export const buildStylePreset: PromptBuilder = (ctx) => {
 // ============================================
 // 6. Text Layout (core) — text-in-image + structured layout
 // ============================================
+// Channel-specific text layouts — replaces generic 3-part layout for supported channels
+const CHANNEL_TEXT_LAYOUTS: Partial<Record<Channel, string>> = {
+  tiktok: `Vertical storytelling layout:
+- Bold text top 20% — large, attention-grabbing headline
+- Face/product center 60% — main visual focus
+- Subtle CTA bottom 20% — but leave space clear for platform captions
+- IMPORTANT: Leave bottom 15-20% relatively clear for TikTok's built-in caption overlay zone`,
+
+  instagram: `Visual-first layout:
+- Minimal text overlay — 2-3 words maximum
+- Image is the star, text is an accent element
+- Clean, uncluttered composition — let the visual tell the story
+- If text is included, use bold typography with high contrast`,
+
+  youtube: `Thumbnail-optimized layout:
+- Expressive face or key visual on left 40%
+- Bold 3-5 word text on right 60% — maximum readability at small sizes
+- HIGH CONTRAST is critical — thumbnails are viewed at very small sizes
+- Use dramatic, attention-grabbing composition`,
+
+  linkedin: `Professional layout:
+- Insight-driven headline at top — thought leadership style
+- Clean, professional visual center — business context
+- Subtle branding bottom — understated and credible
+- Maintain corporate professionalism throughout`,
+
+  email: `Hero banner layout:
+- Single centered message — clear and direct
+- Clean background with focused subject
+- CTA-friendly composition — leave space for button below
+- Optimized for email client rendering — simple, high-impact`,
+};
 
 export const buildTextLayout: PromptBuilder = (ctx) => {
   const { params, isWithText } = ctx;
@@ -196,7 +239,14 @@ export const buildTextLayout: PromptBuilder = (ctx) => {
 
   // Structured layout (full mode only)
   if (params.promptMode === 'full' || !params.promptMode) {
-    parts.push(buildStructuredLayoutContent(params.footerInfo, params.brand.brandColors));
+    // Check for channel-specific layout first
+    const channelLayout = CHANNEL_TEXT_LAYOUTS[params.channel];
+    if (channelLayout) {
+      parts.push(`\n## CHANNEL-OPTIMIZED TEXT LAYOUT (${params.channel.toUpperCase()}):\n${channelLayout}`);
+    } else {
+      // Fallback to generic structured 3-part layout for channels without specific layout
+      parts.push(buildStructuredLayoutContent(params.footerInfo, params.brand.brandColors));
+    }
   }
 
   return { id: 'text_layout', position: 'core', priority: 85, content: parts.join('\n') };

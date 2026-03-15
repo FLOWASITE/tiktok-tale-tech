@@ -30,6 +30,7 @@ import { ImageStreamingGrid } from './streaming/ImageStreamingGrid';
 import { ImageChannelPicker } from './ImageChannelPicker';
 import { ImageAdvancedOptions } from './ImageAdvancedOptions';
 import { ImageSettingsSummary } from './ImageSettingsSummary';
+import { PromptPreview } from './PromptPreview';
 import { BackgroundEditor } from './BackgroundEditor';
 import { useBackgroundEditor } from '@/hooks/useBackgroundEditor';
 import { V3StylePreview } from './V3StylePreview';
@@ -667,6 +668,20 @@ export function SimpleImageGenerator({
           )}
         </div>
       )}
+
+      {/* Prompt Preview — collapsible summary of what AI will use */}
+      <PromptPreview
+        channels={selectedChannels}
+        promptMode={promptMode}
+        imageStyle={imageStyle === 'auto' ? 'auto' : imageStyle}
+        brandPrimaryColor={brandPrimaryColor}
+        contentRole={contentRole}
+        contentAngle={contentAngle}
+        hookType={hookMessages[selectedChannels[0]]?.hookType}
+        imageContentType={imageContentType}
+        countryCode={(content as any).country_code}
+        personaName={(content as any).persona_name}
+      />
 
       {/* Settings Summary + CTA */}
       <div className="space-y-2">
