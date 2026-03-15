@@ -196,18 +196,18 @@ export function ImageAdvancedOptions({
             promptMode === 'brand_only' && "text-amber-700 dark:text-amber-400 bg-amber-500/5 border-amber-500/15",
             promptMode === 'raw' && "text-violet-700 dark:text-violet-400 bg-violet-500/5 border-violet-500/15",
           )}>
-            {promptMode === 'full' && '✨ AI tối ưu phong cách, bố cục, brand + chiến lược marketing'}
-            {promptMode === 'brand_only' && '🎨 Giữ logo & màu brand. Bạn tự quyết nội dung & bố cục'}
-            {promptMode === 'raw' && '⚡ Chỉ tỉ lệ khung hình + negative prompt. Mọi thứ khác do bạn'}
+            {promptMode === 'full' && '✨ AI tự chọn phong cách, bố cục, vị trí text. Bạn chỉ cần duyệt.'}
+            {promptMode === 'brand_only' && '🎨 Giữ logo & màu brand. Bạn tự chọn bố cục text & vị trí.'}
+            {promptMode === 'raw' && '⚡ Bạn kiểm soát mọi thứ: phong cách, logo, text, bố cục.'}
           </p>
         </div>
 
-        {/* Style Grid with V3 scores — hidden when not in full mode */}
-        {promptMode === 'full' && (
+        {/* Style Grid — only in raw mode (user picks manually) */}
+        {promptMode === 'raw' && (
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Phong cách ảnh</Label>
             <p className="text-[10px] text-muted-foreground/70 -mt-1">
-              AI gợi ý phong cách phù hợp nhất. Bạn có thể chọn khác nếu muốn.
+              Chọn phong cách ảnh bạn muốn. Toàn quyền quyết định.
             </p>
             {topSuggestion && (
               <p className="text-[10px] text-muted-foreground/70 -mt-1">
@@ -260,22 +260,18 @@ export function ImageAdvancedOptions({
           </div>
         )}
 
-        {/* V3 Top 3 Reasons — only in full mode */}
+        {/* V3 Compact Read-only — only in full mode */}
         {promptMode === 'full' && v3Suggestions && v3Suggestions.length > 0 && (
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Lý do gợi ý (V3)</Label>
-            <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">AI đã chọn phong cách</Label>
+            <div className="flex flex-wrap gap-1.5">
               {v3Suggestions.slice(0, 3).map((s, i) => (
-                <div key={s.id} className={cn(
-                  "text-[10px] px-2.5 py-1.5 rounded-md border",
-                  i === 0 ? "bg-primary/5 border-primary/20 text-foreground" : "bg-muted/30 border-border/30 text-muted-foreground"
+                <span key={s.id} className={cn(
+                  "inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full border",
+                  i === 0 ? "bg-primary/10 border-primary/25 text-primary" : "bg-muted/40 border-border/40 text-muted-foreground"
                 )}>
-                  <span className="font-medium">{i + 1}. {s.style}</span>
-                  <span className="mx-1">·</span>
-                  <span>{s.matchPercentage}%</span>
-                  <span className="mx-1">·</span>
-                  <span className="italic">{s.reason.split(' | ')[0]}</span>
-                </div>
+                  {i === 0 && '★ '}{s.style} · {s.matchPercentage}%
+                </span>
               ))}
             </div>
           </div>
@@ -305,8 +301,8 @@ export function ImageAdvancedOptions({
           </div>
         </div>
 
-        {/* Logo Toggle + Options — hidden in raw mode */}
-        {promptMode !== 'raw' && brandLogoUrl && (
+        {/* Logo Toggle + Options — all 3 modes */}
+        {brandLogoUrl && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div>
@@ -331,8 +327,8 @@ export function ImageAdvancedOptions({
           </div>
         )}
 
-        {/* Text Overlay Toggle — hidden in raw mode */}
-        {promptMode !== 'raw' && <div className="space-y-3">
+        {/* Text Overlay Toggle — all 3 modes */}
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -432,10 +428,10 @@ export function ImageAdvancedOptions({
               )}
             </div>
           )}
-        </div>}
+        </div>
 
-        {/* Text Position & Typography (only when has text, hidden in raw mode) */}
-        {promptMode !== 'raw' && hasText && textPosition && onTextPositionChange && typographyStyle && onTypographyStyleChange && (
+        {/* Text Position & Typography — hidden in full mode (AI handles layout) */}
+        {promptMode !== 'full' && hasText && textPosition && onTextPositionChange && typographyStyle && onTypographyStyleChange && (
           <VisualTextPositionPreview
             textPosition={textPosition}
             typographyStyle={typographyStyle}
