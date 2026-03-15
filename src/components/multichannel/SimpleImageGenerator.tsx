@@ -404,8 +404,11 @@ export function SimpleImageGenerator({
     setIsDecomposing(true);
 
     decomposeRequestWithAI(summaryText, brandPrimaryColor || '#DC2626')
-      .then(({ backgroundPrompt, overlayConfig }) => {
+      .then((decomposed) => {
         if (cancelled) return;
+        const { backgroundPrompt, overlayConfig } = overlayTemplate !== 'auto'
+          ? applyTemplate(overlayTemplate, decomposed, summaryText, brandPrimaryColor || '#DC2626')
+          : decomposed;
         setHybridOverlay({
           layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
           elements: {
@@ -421,8 +424,10 @@ export function SimpleImageGenerator({
       })
       .catch(() => {
         if (cancelled) return;
-        // Fallback to regex
-        const { backgroundPrompt, overlayConfig } = decomposeRequest(summaryText, brandPrimaryColor || '#DC2626');
+        const rawDecomposed = decomposeRequest(summaryText, brandPrimaryColor || '#DC2626');
+        const { backgroundPrompt, overlayConfig } = overlayTemplate !== 'auto'
+          ? applyTemplate(overlayTemplate, rawDecomposed, summaryText, brandPrimaryColor || '#DC2626')
+          : rawDecomposed;
         setHybridOverlay({
           layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
           elements: {
