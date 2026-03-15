@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { analyzeContentComplexity } from '@/lib/contentComplexityAnalyzer';
 import { ComplexityWarning } from './ComplexityWarning';
-import { decomposeRequest } from '@/lib/hybridImageGenerator';
+import { decomposeRequest, decomposeRequestWithAI } from '@/lib/hybridImageGenerator';
 import { useGenerationSignals } from '@/hooks/useGenerationSignals';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Sparkles, Loader2, ArrowLeft, AlertTriangle, Image as ImageIcon, Minimize2, Shield, SlidersHorizontal } from 'lucide-react';
