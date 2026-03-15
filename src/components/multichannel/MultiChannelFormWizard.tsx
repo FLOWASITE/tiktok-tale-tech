@@ -142,7 +142,7 @@ interface MultiChannelFormWizardProps {
   onFormDataChange?: (data: Partial<MultiChannelFormData>) => void;
   onGenerate: (data: MultiChannelFormData) => Promise<void>;
   // Step 5: Image generation
-  onStartImagePipeline?: (channels: Channel[], channelTexts: Record<string, string>, contentMeta: { contentGoal?: string; contentRole?: string; contentAngle?: string; topic?: string }) => void;
+  onStartImagePipeline?: (channels: Channel[], channelTexts: Record<string, string>, contentMeta: { contentGoal?: string; contentRole?: string; contentAngle?: string; topic?: string; promptMode?: 'full' | 'brand_only' | 'raw' }) => void;
   imagePhase?: string;
   imageProgress?: Record<string, string>;
   imageProgressTimes?: Record<string, number>;
@@ -1914,7 +1914,42 @@ export function MultiChannelFormWizard({
             {/* Image generation status */}
             {imagePhase === 'idle' || !imagePhase ? (
               <div className="space-y-4">
-                {/* Info card - no button here */}
+                {/* Mode summary from Step 5 */}
+                <Card className={cn(
+                  "border",
+                  promptMode === 'full' && "bg-primary/5 border-primary/20",
+                  promptMode === 'brand_only' && "bg-amber-500/5 border-amber-500/20",
+                  promptMode === 'raw' && "bg-violet-500/5 border-violet-500/20",
+                )}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-8 h-8 rounded-lg flex items-center justify-center",
+                        promptMode === 'full' && "bg-primary/15 text-primary",
+                        promptMode === 'brand_only' && "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+                        promptMode === 'raw' && "bg-violet-500/15 text-violet-600 dark:text-violet-400",
+                      )}>
+                        {promptMode === 'full' && <Sparkles className="w-4 h-4" />}
+                        {promptMode === 'brand_only' && <Eye className="w-4 h-4" />}
+                        {promptMode === 'raw' && <Pencil className="w-4 h-4" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">
+                          {promptMode === 'full' && 'Chế độ: Để AI lo'}
+                          {promptMode === 'brand_only' && 'Chế độ: Giữ Brand'}
+                          {promptMode === 'raw' && 'Chế độ: Toàn quyền'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {promptMode === 'full' && 'AI tự tối ưu phong cách, bố cục, text'}
+                          {promptMode === 'brand_only' && 'Giữ logo & màu brand, AI lo phần còn lại'}
+                          {promptMode === 'raw' && 'Bạn kiểm soát 100% — tùy chỉnh qua trang chi tiết'}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Info card */}
                 <Card className="border border-border/50 bg-card/50">
                   <CardContent className="p-5">
                     <div className="flex items-center gap-3 mb-3">
@@ -1948,6 +1983,7 @@ export function MultiChannelFormWizard({
                             contentRole: formData.contentRole,
                             contentAngle: formData.contentAngle,
                             topic: formData.topic,
+                            promptMode,
                           });
                         }
                       }}

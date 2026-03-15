@@ -1,57 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Rà soát Mode Kiểm soát AI — Các vấn đề phát hiện
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-### Tổng kết: 3 vấn đề cần sửa
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
----
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-### Vấn đề 1: `promptMode` không được truyền xuống image pipeline (MultiChannelFormWizard)
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-**Nghiêm trọng: CAO** — User chọn mode ở Step 5 nhưng nó không có tác dụng gì khi tạo ảnh.
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-Trong `MultiChannelFormWizard.tsx`, `promptMode` state được quản lý ở Step 5 nhưng **không bao giờ được truyền** vào `onStartImagePipeline()` ở Step 6. Pipeline (`useAutoImagePipeline.ts`) luôn dùng hardcoded defaults (style = V3 auto, imageContentType = 'with_text', logo = auto).
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
 
-**Sửa:**
-- Thêm `promptMode` vào signature của `onStartImagePipeline` callback
-- Trong `useAutoImagePipeline.ts`, nhận `promptMode` và điều chỉnh `genOptions` theo mode:
-  - `full`: giữ nguyên (AI tự chọn style, text, layout)
-  - `brand_only`: force `includeLogo: true`, giữ brand colors, nhưng skip AI style optimization
-  - `raw`: dùng user-selected style/settings thay vì V3 auto
-- Cập nhật `MultiChannelCreate.tsx` để pass `promptMode` qua
+### Chi tiet ky thuat
 
-### Vấn đề 2: V3StylePreview cho phép click chọn style ở mọi mode (SimpleImageGenerator)
+```typescript
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
+```
 
-**Nghiêm trọng: TRUNG BÌNH** — Trong Step 3 của SimpleImageGenerator, `V3StylePreview` luôn hiện dưới dạng **clickable buttons** cho phép user chọn style, kể cả khi `promptMode === 'full'` (Để AI lo).
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
+```
 
-Theo logic đã thiết kế: ở mode `full`, user không nên chọn style thủ công — AI tự quyết.
-
-**Sửa:**
-- Khi `promptMode === 'full'`: ẩn `V3StylePreview` ở Step 3 (vì đã hiện dạng read-only trong ImageAdvancedOptions)
-- Khi `promptMode === 'brand_only'`: cũng ẩn (brand giữ nguyên visual identity)
-- Khi `promptMode === 'raw'`: hiện V3StylePreview cho user chọn
-
-### Vấn đề 3: Step 6 (Wizard) không có Advanced Options
-
-**Nghiêm trọng: THẤP** — Trong MultiChannelFormWizard Step 6, không có `ImageAdvancedOptions` component. User chọn `raw` (toàn quyền) ở Step 5 nhưng Step 6 không hiện bất kỳ tùy chọn nâng cao nào (style picker, logo, text overlay, aspect ratio...).
-
-Điều này làm mode `raw` vô nghĩa trong wizard — user chọn "toàn quyền" nhưng không có gì để kiểm soát.
-
-**Sửa:**
-- Thêm `ImageAdvancedOptions` vào Step 6 khi `promptMode !== 'full'` (hoặc ít nhất khi `raw`)
-- Pass `hidePromptModeSelector` để tránh duplicate UI
-- Hoặc: hiện một phiên bản rút gọn với các tùy chọn quan trọng nhất (style, aspect ratio, logo, text)
-
----
-
-### Tóm tắt thay đổi
-
-| File | Thay đổi |
-|------|----------|
-| `MultiChannelFormWizard.tsx` | Pass `promptMode` vào `onStartImagePipeline`; thêm ImageAdvancedOptions vào Step 6 |
-| `MultiChannelCreate.tsx` | Nhận và forward `promptMode` |
-| `useAutoImagePipeline.ts` | Nhận `promptMode`, điều chỉnh genOptions theo mode |
-| `SimpleImageGenerator.tsx` | Ẩn V3StylePreview khi mode !== 'raw' |
-
-### Phạm vi: 4 file, ~50-70 dòng thay đổi
-
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
