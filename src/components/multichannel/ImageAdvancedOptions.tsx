@@ -457,8 +457,8 @@ export function ImageAdvancedOptions({
           />
         </div>
 
-        {/* Strategic Context */}
-        {(contentRole || contentAngle || (selectedChannels && hookMessages && selectedChannels.some(ch => hookMessages[ch]?.hookMessage))) && (
+        {/* Strategic Context — only in full mode */}
+        {promptMode === 'full' && (contentRole || contentAngle || (selectedChannels && hookMessages && selectedChannels.some(ch => hookMessages[ch]?.hookMessage))) && (
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
               Ngữ cảnh chiến lược
