@@ -1,44 +1,37 @@
 
-## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-### Van de
-Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
+## Kết quả rà soát: Gaps chưa implement đầy đủ
 
-### Giai phap
-Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
+### Đã implement ✅
 
-**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
+| # | Component | Status |
+|---|-----------|--------|
+| 1 | `contentComplexityAnalyzer.ts` — logic phân tích | ✅ Đầy đủ |
+| 2 | `ComplexityWarning.tsx` — UI component | ✅ Đầy đủ |
+| 3 | `ComplexityWarning` tích hợp trong `SimpleImageGenerator` | ✅ Đã gọi ở Step 3 |
+| 4 | `hybridImageGenerator.ts` — `decomposeRequest()` logic | ✅ File tồn tại, logic đầy đủ |
+| 5 | `overlay-text-canvas` — `StructuredOverlayRequest` + `buildStructuredElement()` | ✅ Backend edge function đã extend |
+| 6 | `useAutoImageGeneration.ts` — `structuredOverlay` option trong pipeline | ✅ Path có sẵn |
+| 7 | `useGenerationSignals.ts` — hook tracking | ✅ File tồn tại |
+| 8 | `generation_signals` DB table + RLS | ✅ Migration đã tạo |
 
-1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
+### Chưa implement / Thiếu tích hợp ❌
 
-2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
+| # | Gap | Mức độ |
+|---|-----|--------|
+| 1 | **`MultiChannelFormWizard` thiếu ComplexityWarning** — Plan yêu cầu tích hợp ở cả Step 6 wizard, nhưng chỉ có trong SimpleImageGenerator | Quan trọng |
+| 2 | **`decomposeRequest()` chưa được gọi từ đâu** — Utility function tồn tại nhưng không component/hook nào import hoặc sử dụng nó | Quan trọng |
+| 3 | **`useGenerationSignals` chưa được gọi từ component nào** — Hook tồn tại nhưng không được import vào SimpleImageGenerator hay MultiChannelFormWizard | Quan trọng |
+| 4 | **Hybrid mode chưa có UI trigger** — `structuredOverlay` option tồn tại trong pipeline nhưng không có UI nào cho phép user kích hoạt hoặc tự động kích hoạt khi complexity = complex | Quan trọng |
 
-Cu the:
-- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
-- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
-- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
+### Kế hoạch fix
 
-### Chi tiet ky thuat
+| # | Thay đổi | File | Effort |
+|---|----------|------|--------|
+| 1 | Thêm `ComplexityWarning` vào Step 6 của MultiChannelFormWizard | `MultiChannelFormWizard.tsx` | ~10 dòng |
+| 2 | Tích hợp `useGenerationSignals` vào SimpleImageGenerator và MultiChannelFormWizard — gọi `recordSignal` khi generate xong, `updateSignal` khi user accept/regenerate/edit | `SimpleImageGenerator.tsx`, `MultiChannelFormWizard.tsx` | ~30 dòng mỗi file |
+| 3 | Khi complexity = `complex`, tự động gọi `decomposeRequest()` để tách background prompt vs overlay config, rồi truyền `structuredOverlay` vào pipeline | `SimpleImageGenerator.tsx` hoặc hook wrapper | ~25 dòng |
+| 4 | Thêm UI toggle hoặc auto-detect: khi ComplexityWarning hiện `complex`, hiện thêm checkbox "Dùng chế độ Hybrid (AI nền + text chính xác)" — nếu bật, pipeline dùng decomposed request | `SimpleImageGenerator.tsx`, `MultiChannelFormWizard.tsx` | ~20 dòng mỗi file |
 
-```typescript
-// bodyContent - thay doi:
-const bodyContent = (
-  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-    {viewMode === 'setup' && setupFields}
-    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
-  </div>
-);
-```
+Tổng: ~135 dòng thay đổi, 2-3 files. Không breaking change — chỉ wire up các components đã tạo sẵn.
 
-Va DialogContent:
-```typescript
-className={cn(
-  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
-  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
-)}
-```
-
-### Pham vi thay doi
-- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
-- Thay doi ~10 dong code
-- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
