@@ -1,51 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Plan: Optimize Overlay Text Quality for Hybrid Mode
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-### Problem
-The current AI decomposition prompt only **extracts** text fragments from the user's description. When the input is a content summary (e.g., a blog about tax policy), the banner, hero text, and cards end up with raw/meaningless fragments or are left empty — instead of being contextually crafted infographic elements.
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-### Root Cause
-The system prompt in `decompose-image-request` tells Gemini to "split the description" but doesn't instruct it to **generate meaningful, concise infographic content** when the source text is narrative rather than structured.
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-### Changes
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-**1. `supabase/functions/decompose-image-request/index.ts` — Enhanced system prompt**
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-Upgrade the system prompt to instruct Gemini to:
-- **Generate** (not just extract) meaningful overlay content from the narrative
-- Create a punchy banner label (2-4 words, e.g., "CHÍNH SÁCH MỚI", "CẬP NHẬT QUAN TRỌNG")
-- Create a compelling hero text (key statistic or headline number/phrase)
-- Generate exactly 4 meaningful card labels that summarize key points from the content
-- Generate a CTA if the content is promotional
-- Always produce Vietnamese text that is grammatically correct and contextually relevant
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
 
-Add explicit examples in the prompt showing input narrative → expected structured output.
+### Chi tiet ky thuat
 
-Also add validation: if `cards.items` has fewer than 4 items for infographic layouts, pad with contextually relevant items.
+```typescript
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
+```
 
-~30 lines changed in system prompt.
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
+```
 
-**2. `supabase/functions/decompose-image-request/index.ts` — Post-processing validation**
-
-After parsing Gemini's tool call response, add a validation layer:
-- Ensure `banner.text` is non-empty and ≤ 30 chars
-- Ensure `heroText.text` is non-empty and ≤ 20 chars
-- Ensure cards have at least 2 items, each label ≤ 50 chars
-- Trim excessive whitespace
-- Fallback defaults if any element is empty
-
-~20 lines added.
-
-**3. `src/lib/hybridImageGenerator.ts` — Improve regex fallback quality**
-
-Update the regex-based `decomposeRequest()` fallback to also generate meaningful defaults:
-- If no banner detected, generate a default banner from the first meaningful keyword
-- If no hero text, extract the first number or key phrase
-- If fewer than 2 cards, generate summary bullets from the content
-- Add a `generateDefaultOverlayFromSummary()` helper that creates sensible defaults
-
-~25 lines changed.
-
-### Total: ~75 lines across 2 files. No new files. No breaking changes.
-
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)

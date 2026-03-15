@@ -6,6 +6,65 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+/** Post-processing: validate and fix overlay fields */
+function validateOverlay(overlay: any, primaryColor: string): any {
+  const result = { ...overlay };
+
+  // Banner: ensure non-empty, ≤ 30 chars
+  if (result.banner) {
+    if (!result.banner.text || result.banner.text.trim().length === 0) {
+      delete result.banner;
+    } else {
+      result.banner.text = result.banner.text.trim().slice(0, 30);
+      result.banner.bgColor = primaryColor;
+      result.banner.position = result.banner.position || "top";
+    }
+  }
+
+  // Hero text: ensure non-empty, ≤ 20 chars
+  if (result.heroText) {
+    if (!result.heroText.text || result.heroText.text.trim().length === 0) {
+      delete result.heroText;
+    } else {
+      result.heroText.text = result.heroText.text.trim().slice(0, 20);
+      result.heroText.fontSize = result.heroText.fontSize || "3xl";
+      result.heroText.effect = result.heroText.effect || "gradient";
+    }
+  }
+
+  // Headline: trim
+  if (result.headline) {
+    result.headline = result.headline.trim();
+    if (result.headline.length === 0) delete result.headline;
+  }
+
+  // Cards: ensure at least 2 items, each ≤ 50 chars
+  if (result.cards) {
+    if (!result.cards.items || !Array.isArray(result.cards.items)) {
+      delete result.cards;
+    } else {
+      result.cards.items = result.cards.items
+        .filter((c: any) => c.label && c.label.trim().length > 0)
+        .map((c: any) => ({ ...c, label: c.label.trim().slice(0, 50) }));
+
+      if (result.cards.items.length < 2) {
+        delete result.cards;
+      } else {
+        const count = result.cards.items.length;
+        result.cards.layout = result.cards.layout || (count <= 2 ? "horizontal" : count <= 4 ? "grid-2x2" : "vertical");
+      }
+    }
+  }
+
+  // CTA: trim
+  if (result.cta) {
+    result.cta = result.cta.trim();
+    if (result.cta.length === 0) delete result.cta;
+  }
+
+  return result;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -27,24 +86,40 @@ serve(async (req) => {
       });
     }
 
-    const systemPrompt = `Bạn là chuyên gia phân tích yêu cầu thiết kế hình ảnh. Nhiệm vụ: tách mô tả hình ảnh phức tạp thành 2 phần:
+    const systemPrompt = `Bạn là chuyên gia thiết kế infographic. Nhiệm vụ: từ mô tả nội dung (có thể là narrative, blog, hoặc tóm tắt), bạn phải SÁNG TẠO nội dung infographic có ý nghĩa gồm 2 phần:
 
-1. **backgroundPrompt**: Mô tả CHÍNH XÁC phần hình ảnh nền (visual, atmosphere, illustration, nhân vật, phong cảnh). KHÔNG bao gồm text, số liệu, thẻ thông tin, nút bấm. Prompt này sẽ được gửi cho AI tạo ảnh nền.
+1. **backgroundPrompt**: Mô tả hình ảnh nền (visual, atmosphere, illustration). KHÔNG bao gồm text, số, UI.
 
-2. **overlayConfig**: Cấu hình các thành phần text/layout sẽ được render bằng code (Satori) lên trên ảnh nền. Bao gồm:
-   - banner: text hiển thị trên banner (ví dụ: "DỰ KIẾN", "TIN NÓNG")
-   - heroText: text/số lớn nổi bật (ví dụ: "100%", "50 triệu")
-   - headline: tiêu đề chính
-   - cards: danh sách thẻ thông tin với label
-   - cta: call-to-action text
+2. **overlayConfig**: SÁNG TẠO các thành phần text overlay có ý nghĩa từ nội dung:
+   - **banner**: Nhãn ngắn gọn 2-4 từ IN HOA tóm tắt chủ đề (VD: "CHÍNH SÁCH MỚI", "CẬP NHẬT THUẾ", "TIN NÓNG", "KIẾN THỨC HAY")
+   - **heroText**: Số liệu nổi bật hoặc keyword mạnh ≤ 20 ký tự (VD: "100%", "50 TRIỆU", "GIẢM 30%", "TOP 5")
+   - **headline**: Tiêu đề chính 1 dòng nếu cần
+   - **cards**: LUÔN tạo đúng 4 thẻ tóm tắt các điểm chính. Mỗi label ngắn gọn 3-8 từ, có ý nghĩa cụ thể
+   - **cta**: Call-to-action nếu nội dung mang tính quảng bá
 
-Quy tắc:
+VÍ DỤ:
+Input: "Bài viết về 5 thay đổi chính sách thuế TNCN 2025: tăng giảm trừ gia cảnh, giảm thuế suất bậc 1, miễn thuế thu nhập dưới 15 triệu, hỗ trợ startup, số hóa kê khai"
+Output:
+- banner: "THUẾ TNCN 2025"
+- heroText: "5 THAY ĐỔI"  
+- cards: ["Tăng giảm trừ gia cảnh", "Giảm thuế suất bậc 1", "Miễn thuế dưới 15 triệu", "Hỗ trợ startup"]
+
+VÍ DỤ 2:
+Input: "Tổng hợp xu hướng marketing digital 2025: AI content, short-form video, social commerce"
+Output:
+- banner: "XU HƯỚNG 2025"
+- heroText: "TOP 3"
+- cards: ["AI tạo nội dung", "Video ngắn bùng nổ", "Social commerce", "Cá nhân hóa trải nghiệm"]
+
+QUY TẮC:
+- LUÔN sáng tạo nội dung overlay có ý nghĩa, KHÔNG chỉ copy nguyên văn
+- Banner phải IN HOA, 2-4 từ
+- Hero text phải nổi bật (số liệu hoặc keyword mạnh)
+- Cards LUÔN có đúng 4 items, mỗi item 3-8 từ tiếng Việt rõ ràng
 - backgroundPrompt phải KẾT THÚC bằng "IMPORTANT: Do NOT include any text, numbers, letters, words, labels, UI elements in the image."
-- Mọi text tiếng Việt, số liệu, thẻ card phải nằm trong overlayConfig
-- Nếu mô tả có nhân vật, giữ trong backgroundPrompt
-- Nếu mô tả có skyline/phong cảnh, giữ trong backgroundPrompt`;
+- Mọi text tiếng Việt phải chính xác ngữ pháp và dấu`;
 
-    const userPrompt = `Phân tích mô tả sau và tách thành backgroundPrompt và overlayConfig:
+    const userPrompt = `Phân tích và SÁNG TẠO nội dung infographic từ mô tả sau:
 
 ---
 ${description}
@@ -99,7 +174,7 @@ Secondary color: ${secondaryColor}`;
                       banner: {
                         type: "object",
                         properties: {
-                          text: { type: "string" },
+                          text: { type: "string", description: "2-4 word UPPERCASE label summarizing the topic" },
                           position: { type: "string", enum: ["top", "bottom"] },
                         },
                         required: ["text", "position"],
@@ -107,7 +182,7 @@ Secondary color: ${secondaryColor}`;
                       heroText: {
                         type: "object",
                         properties: {
-                          text: { type: "string" },
+                          text: { type: "string", description: "Key statistic or powerful keyword, max 20 chars" },
                           fontSize: { type: "string", enum: ["xl", "2xl", "3xl"] },
                           effect: { type: "string", enum: ["none", "gradient"] },
                         },
@@ -123,10 +198,11 @@ Secondary color: ${secondaryColor}`;
                               type: "object",
                               properties: {
                                 icon: { type: "string" },
-                                label: { type: "string" },
+                                label: { type: "string", description: "3-8 word meaningful summary point" },
                               },
                               required: ["label"],
                             },
+                            description: "Exactly 4 summary cards with meaningful labels",
                           },
                           layout: { type: "string", enum: ["grid-2x2", "horizontal", "vertical"] },
                         },
@@ -181,28 +257,21 @@ Secondary color: ${secondaryColor}`;
 
     const parsed = JSON.parse(toolCall.function.arguments);
 
-    // Inject colors into overlayConfig
+    // Validate and fix overlay fields
+    const validatedOverlay = validateOverlay(parsed.overlayConfig || {}, primaryColor);
+
     const result = {
       backgroundPrompt: {
         ...parsed.backgroundPrompt,
         colorScheme: `Primary: ${primaryColor}, Secondary: ${secondaryColor}`,
       },
       overlayConfig: {
-        ...parsed.overlayConfig,
+        ...validatedOverlay,
         colors: {
           primary: primaryColor,
           secondary: secondaryColor,
           text: "#FFFFFF",
         },
-        // Inject banner color
-        ...(parsed.overlayConfig.banner
-          ? {
-              banner: {
-                ...parsed.overlayConfig.banner,
-                bgColor: primaryColor,
-              },
-            }
-          : {}),
       },
     };
 

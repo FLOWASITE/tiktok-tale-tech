@@ -118,6 +118,57 @@ export async function decomposeRequestWithAI(
  * Regex-based decomposition (V1 fallback).
  * Used when AI decomposition fails or for quick local processing.
  */
+/**
+ * Generate meaningful default overlay content from a narrative description.
+ */
+function generateDefaultOverlayFromSummary(
+  description: string,
+  primaryColor: string
+): Partial<StructuredOverlayConfig> {
+  const result: Partial<StructuredOverlayConfig> = {};
+  const text = description.trim();
+
+  // Extract a banner from first meaningful phrase (2-4 words uppercase)
+  const sentences = text.split(/[.!?\n]/).map(s => s.trim()).filter(Boolean);
+  if (sentences.length > 0) {
+    const words = sentences[0].split(/\s+/).slice(0, 4).join(' ');
+    result.banner = { text: words.toUpperCase().slice(0, 30), bgColor: primaryColor, position: 'top' };
+  }
+
+  // Extract hero text: first number/percentage found, or a strong keyword
+  const numberMatch = text.match(/(\d+[\.,]?\d*\s*(%|triệu|tỷ|nghìn|k|K|M)?)/);
+  if (numberMatch) {
+    result.heroText = { text: numberMatch[0].trim().slice(0, 20), fontSize: '3xl', effect: 'gradient' };
+  }
+
+  // Generate cards from bullet points or sentences
+  const bulletItems = text.match(/(?:^|\n)\s*[•\-\*►]\s*(.+)/gm);
+  const numberedItems = text.match(/(?:^|\n)\s*\d+[\.\)]\s*(.+)/gm);
+  
+  let cardLabels: string[] = [];
+  if (bulletItems && bulletItems.length >= 2) {
+    cardLabels = bulletItems.map(b => b.replace(/^[\s•\-\*►]+/, '').trim());
+  } else if (numberedItems && numberedItems.length >= 2) {
+    cardLabels = numberedItems.map(b => b.replace(/^[\s\d\.\)]+/, '').trim());
+  } else if (sentences.length >= 3) {
+    // Use sentences as card content, skip the first (used as banner)
+    cardLabels = sentences.slice(1, 5);
+  }
+
+  if (cardLabels.length >= 2) {
+    result.cards = {
+      items: cardLabels.slice(0, 4).map(label => ({ label: label.slice(0, 50) })),
+      layout: cardLabels.length <= 2 ? 'horizontal' : 'grid-2x2',
+    };
+  }
+
+  return result;
+}
+
+/**
+ * Regex-based decomposition (V1 fallback).
+ * Now generates meaningful defaults when structured elements are not detected.
+ */
 export function decomposeRequest(
   description: string,
   primaryColor: string = '#DC2626',
@@ -196,6 +247,15 @@ export function decomposeRequest(
       items: cardItems.slice(0, 6),
       layout: cardItems.length <= 2 ? 'horizontal' : cardItems.length <= 4 ? 'grid-2x2' : 'vertical',
     };
+  }
+
+  // If regex didn't find structured overlay elements, generate meaningful defaults
+  const hasOverlay = overlayConfig.banner || overlayConfig.heroText || overlayConfig.headline || overlayConfig.cards;
+  if (!hasOverlay) {
+    const defaults = generateDefaultOverlayFromSummary(description, primaryColor);
+    if (defaults.banner) overlayConfig.banner = defaults.banner;
+    if (defaults.heroText) overlayConfig.heroText = defaults.heroText;
+    if (defaults.cards) overlayConfig.cards = defaults.cards;
   }
 
   return { backgroundPrompt, overlayConfig };
