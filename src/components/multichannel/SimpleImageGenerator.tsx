@@ -30,6 +30,7 @@ import { ImageStreamingGrid } from './streaming/ImageStreamingGrid';
 import { ImageChannelPicker } from './ImageChannelPicker';
 import { ImageAdvancedOptions } from './ImageAdvancedOptions';
 import { ImageSettingsSummary } from './ImageSettingsSummary';
+import { PromptPreview } from './PromptPreview';
 import { BackgroundEditor } from './BackgroundEditor';
 import { useBackgroundEditor } from '@/hooks/useBackgroundEditor';
 import { V3StylePreview } from './V3StylePreview';
