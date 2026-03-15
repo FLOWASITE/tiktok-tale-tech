@@ -1,44 +1,57 @@
 
-## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-### Van de
-Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
+## Plan: Template System cho Overlay Layout
 
-### Giai phap
-Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
+### Ý tưởng
+Thêm một bộ template có sẵn (poster, infographic, quote card, v.v.) để user chọn trước khi tạo ảnh, thay vì để AI tự quyết định layout. Template sẽ map trực tiếp sang `StructuredOverlayRequest.layout` + preset elements.
 
-**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
+### Thay đổi
 
-1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
+**1. Định nghĩa templates — `src/config/overlayTemplates.ts` (file mới)**
 
-2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
+Tạo config với ~5 template presets:
 
-Cu the:
-- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
-- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
-- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
+| Template | Layout | Elements mặc định |
+|----------|--------|-------------------|
+| `poster` | `stack` | Banner top + Headline + CTA |
+| `infographic` | `split` | Banner + Hero text trái + Cards (2x2) phải + Footer |
+| `quote_card` | `stack` | Hero text (3xl, gradient) + Banner bottom |
+| `feature_list` | `banner_cards` | Banner top + Cards (vertical) |
+| `contact_card` | `stack` | Headline + Footer (phone/web/address) |
 
-### Chi tiet ky thuat
+Mỗi template có: `id`, `name`, `description`, `icon` (emoji), `layout`, `defaultElements` (partial — AI sẽ fill content vào các slot này).
 
-```typescript
-// bodyContent - thay doi:
-const bodyContent = (
-  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-    {viewMode === 'setup' && setupFields}
-    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
-  </div>
-);
-```
+**2. UI chọn template — `src/components/multichannel/OverlayTemplatePicker.tsx` (file mới)**
 
-Va DialogContent:
-```typescript
-className={cn(
-  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
-  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
-)}
-```
+- Grid 2-3 cột với card cho mỗi template (icon + name + mô tả ngắn)
+- Thêm option "🤖 AI tự chọn" (default, giữ behavior hiện tại)
+- Hiển thị trong Step 3 của `SimpleImageGenerator.tsx`, ngay dưới Hybrid mode toggle, chỉ khi `useHybridMode === true`
 
-### Pham vi thay doi
-- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
-- Thay doi ~10 dong code
-- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
+**3. Tích hợp vào pipeline — `src/components/multichannel/SimpleImageGenerator.tsx`**
+
+- Thêm state `overlayTemplate: string | 'auto'` (default `'auto'`)
+- Khi user chọn template khác `'auto'`:
+  - Vẫn gọi `decomposeRequestWithAI()` để AI sinh **content** (text banner, card labels, v.v.)
+  - Nhưng **override** `layout` và `elements structure` từ template config
+  - Ví dụ: template `infographic` → force `layout: 'split'`, đảm bảo có banner + cards + footer
+- Truyền template info vào `batchOptions.structuredOverlay`
+
+**4. Logic merge template + AI content — `src/lib/hybridImageGenerator.ts`**
+
+- Thêm hàm `applyTemplate(templateId, aiDecomposed)`:
+  - Lấy template config từ `overlayTemplates`
+  - Override `layout` từ template
+  - Giữ AI-generated text content nhưng đảm bảo các slot bắt buộc của template có mặt
+  - Ví dụ: template `infographic` yêu cầu `cards` → nếu AI không sinh cards, tạo placeholder từ content
+
+### Files
+
+- `src/config/overlayTemplates.ts` — **mới** — template definitions
+- `src/components/multichannel/OverlayTemplatePicker.tsx` — **mới** — picker UI
+- `src/components/multichannel/SimpleImageGenerator.tsx` — thêm state + render picker
+- `src/lib/hybridImageGenerator.ts` — thêm `applyTemplate()` merge logic
+
+### Không thay đổi
+- Edge functions (`overlay-text-canvas`, `generate-brand-image`) — không cần sửa vì chúng đã hỗ trợ tất cả layout types
+- AI decomposition prompt — không cần sửa vì template chỉ override layout, không thay đổi cách AI sinh content
+
