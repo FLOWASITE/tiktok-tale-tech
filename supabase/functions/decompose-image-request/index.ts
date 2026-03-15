@@ -124,22 +124,24 @@ serve(async (req) => {
    - **banner**: Nhãn ngắn gọn 2-4 từ IN HOA tóm tắt chủ đề (VD: "CHÍNH SÁCH MỚI", "CẬP NHẬT THUẾ", "TIN NÓNG", "KIẾN THỨC HAY")
    - **heroText**: Số liệu nổi bật hoặc keyword mạnh ≤ 20 ký tự (VD: "100%", "50 TRIỆU", "GIẢM 30%", "TOP 5")
    - **headline**: Tiêu đề chính 1 dòng nếu cần
-   - **cards**: LUÔN tạo đúng 4 thẻ tóm tắt các điểm chính. Mỗi label ngắn gọn 3-8 từ, có ý nghĩa cụ thể
+   - **cards**: LUÔN tạo đúng 4 thẻ tóm tắt các điểm chính. Mỗi label ngắn gọn 3-8 từ. LUÔN thêm icon emoji phù hợp cho mỗi card (VD: 📊, 💰, 🏠, ✅, 📈, 🎯, 💡, 🔑)
    - **cta**: Call-to-action nếu nội dung mang tính quảng bá
+   - **footer**: Thanh thông tin liên hệ ở cuối. Chỉ tạo khi nội dung có thông tin liên hệ (SĐT, website, email, địa chỉ). Mỗi item gồm icon emoji + text ngắn
 
 VÍ DỤ:
 Input: "Bài viết về 5 thay đổi chính sách thuế TNCN 2025: tăng giảm trừ gia cảnh, giảm thuế suất bậc 1, miễn thuế thu nhập dưới 15 triệu, hỗ trợ startup, số hóa kê khai"
 Output:
 - banner: "THUẾ TNCN 2025"
 - heroText: "5 THAY ĐỔI"  
-- cards: ["Tăng giảm trừ gia cảnh", "Giảm thuế suất bậc 1", "Miễn thuế dưới 15 triệu", "Hỗ trợ startup"]
+- cards: [{icon: "📊", label: "Tăng giảm trừ gia cảnh"}, {icon: "💰", label: "Giảm thuế suất bậc 1"}, {icon: "✅", label: "Miễn thuế dưới 15 triệu"}, {icon: "🚀", label: "Hỗ trợ startup"}]
 
 VÍ DỤ 2:
-Input: "Tổng hợp xu hướng marketing digital 2025: AI content, short-form video, social commerce"
+Input: "Dịch vụ kế toán ABC - hotline 0901234567 - web ketoanabc.vn - 123 Nguyễn Huệ Q1"
 Output:
-- banner: "XU HƯỚNG 2025"
-- heroText: "TOP 3"
-- cards: ["AI tạo nội dung", "Video ngắn bùng nổ", "Social commerce", "Cá nhân hóa trải nghiệm"]
+- banner: "DỊCH VỤ KẾ TOÁN"
+- heroText: "ABC"
+- cards: [{icon: "📋", label: "Báo cáo thuế"}, ...]
+- footer: [{icon: "📞", text: "0901234567"}, {icon: "🌐", text: "ketoanabc.vn"}, {icon: "📍", text: "123 Nguyễn Huệ, Q1"}]
 
 QUY TẮC:
 - LUÔN sáng tạo nội dung overlay có ý nghĩa, KHÔNG chỉ copy nguyên văn
@@ -147,7 +149,8 @@ QUY TẮC:
 - Hero text phải nổi bật (số liệu hoặc keyword mạnh)
 - KHÔNG tạo cả headline lẫn heroText cùng lúc — chọn 1 trong 2. Ưu tiên heroText nếu có số liệu/keyword mạnh
 - CTA chỉ tạo khi nội dung THỰC SỰ mang tính quảng bá (bán hàng, đăng ký). Nội dung giáo dục/tin tức KHÔNG cần CTA
-- Cards LUÔN có đúng 4 items, mỗi item 3-8 từ tiếng Việt rõ ràng
+- Cards LUÔN có đúng 4 items, mỗi item 3-8 từ tiếng Việt rõ ràng, LUÔN có emoji icon
+- Footer chỉ tạo khi nội dung CÓ thông tin liên hệ cụ thể (SĐT, email, website, địa chỉ)
 - backgroundPrompt phải KẾT THÚC bằng "IMPORTANT: Do NOT include any text, numbers, letters, words, labels, UI elements in the image."
 - Mọi text tiếng Việt phải chính xác ngữ pháp và dấu`;
 
