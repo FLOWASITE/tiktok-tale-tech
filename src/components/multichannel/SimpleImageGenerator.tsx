@@ -426,7 +426,7 @@ export function SimpleImageGenerator({
     useCanvasFallback: imageContentType === 'with_text' ? true : undefined,
     promptMode,
     structuredOverlay: hybridOverlay,
-  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries,
+  }), [content?.id, content?.brand_template_id, selectedChannels, contentSummaries, hybridBackgroundPrompt, useHybridMode,
     includeLogo, brandLogoUrl, logoPosition, logoStyle, logoSize, logoOpacity,
     aspectRatio, imageStyle, negativePrompt, contentRole, contentAngle, hookMessages,
     imageContentType, textToInclude, textsPerChannel, useSharedText, textPosition, typographyStyle, promptMode, hybridOverlay]);
