@@ -216,10 +216,12 @@ export function SimpleImageGenerator({
   const [bgEditorOpen, setBgEditorOpen] = useState(false);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [regeneratingChannel, setRegeneratingChannel] = useState<Channel | null>(null);
+  const [useHybridMode, setUseHybridMode] = useState(false);
 
   // Hooks
   const batchGen = useAutoImageGeneration();
   const refineTextEditor = useBackgroundEditor();
+  const signals = useGenerationSignals();
 
   // Report progress to parent for floating indicator
   useEffect(() => {
