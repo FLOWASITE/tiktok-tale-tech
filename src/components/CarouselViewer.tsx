@@ -203,7 +203,14 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
   };
 
   const handleGenerateImage = async (slideNumber: number, prompt: string) => {
-    await generateImage(prompt, carousel.id, slideNumber);
+    const slide = carousel.slides_content.find(s => s.slideNumber === slideNumber);
+    const imageUrl = await generateImage(prompt, carousel.id, slideNumber, {
+      textContent: slide?.textContent,
+      platform: carousel.platform,
+    });
+    if (imageUrl) {
+      await saveImage(slideNumber, imageUrl, prompt);
+    }
   };
 
   const handleGenerateAllImages = async () => {
@@ -211,8 +218,13 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
     toast.info(`Bắt đầu tạo ${carousel.slides_content.length} ảnh...`);
 
     for (const slide of carousel.slides_content) {
-      await generateImage(slide.fullPrompt, carousel.id, slide.slideNumber);
-      // Small delay between requests to avoid rate limiting
+      const imageUrl = await generateImage(slide.fullPrompt, carousel.id, slide.slideNumber, {
+        textContent: slide.textContent,
+        platform: carousel.platform,
+      });
+      if (imageUrl) {
+        await saveImage(slide.slideNumber, imageUrl, slide.fullPrompt);
+      }
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
