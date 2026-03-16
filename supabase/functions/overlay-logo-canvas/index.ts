@@ -77,6 +77,25 @@ function calculatePosition(
 }
 
 /**
+ * Draw a semi-transparent backdrop behind the logo for visibility
+ */
+function drawLogoBackdrop(
+  baseImg: Image,
+  x: number, y: number,
+  width: number, height: number,
+  backdropPadding: number = 8
+): void {
+  const bx = Math.max(0, x - backdropPadding);
+  const by = Math.max(0, y - backdropPadding);
+  const bw = Math.min(baseImg.width - bx, width + backdropPadding * 2);
+  const bh = Math.min(baseImg.height - by, height + backdropPadding * 2);
+
+  const backdrop = new Image(bw, bh);
+  backdrop.fill(0x00000066); // ~40% opacity black
+  baseImg.composite(backdrop, bx, by);
+}
+
+/**
  * Apply logo style effects using ImageScript's opacity method
  */
 async function applyLogoStyle(
@@ -167,6 +186,9 @@ async function compositeImages(
   
   console.log(`[overlay-logo-canvas] Compositing at position (${x}, ${y})`);
   
+  // Draw semi-transparent backdrop behind logo for visibility
+  drawLogoBackdrop(baseImg, x, y, targetLogoWidth, targetLogoHeight);
+  
   // Composite logo onto base image
   baseImg.composite(logoImg, x, y);
   
@@ -227,14 +249,17 @@ serve(async (req) => {
       position = 'bottom-right',
       logoStyle = 'clean',
       logoSizePercent = 15,
-      logoOpacity = 100,
+      logoOpacity: rawLogoOpacity = 100,
       padding = 20,
       contentId,
       channel,
       organizationId,
     } = body;
 
-    console.log(`[overlay-logo-canvas] Request - Position: ${position}, Style: ${logoStyle}, Size: ${logoSizePercent}%, Opacity: ${logoOpacity}%`);
+    // Enforce minimum opacity of 50% for visibility on complex backgrounds
+    const logoOpacity = Math.max(rawLogoOpacity, 50);
+
+    console.log(`[overlay-logo-canvas] Request - Position: ${position}, Style: ${logoStyle}, Size: ${logoSizePercent}%, Opacity: ${rawLogoOpacity}% → effective: ${logoOpacity}%`);
 
     // Validate required fields
     if (!baseImageUrl) {
