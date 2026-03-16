@@ -1,62 +1,54 @@
-## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-### Vấn đề
-Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-### Đã sửa (3 files)
-1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
-2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
+# Cải thiện giao diện quản lý thành viên tổ chức
 
----
+## Phân tích hiện trạng
 
-## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
+Component `OrganizationMembersList.tsx` **đã có sẵn**:
+- Tìm kiếm theo tên/email
+- Lọc theo role (owner/admin/member/viewer)
+- Hiển thị trạng thái online (qua `usePresence` + `MemberAvatar`)
+- Thêm thành viên từng người (tạo mới hoặc mời)
 
-### Vấn đề
-AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
+**Thiếu**: Bulk invite (thêm nhiều thành viên cùng lúc)
 
-### Đã sửa (3 files)
-1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
-2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
+## Thay đổi
 
----
+### Sửa: `src/components/OrganizationMembersList.tsx`
 
-## Feature: Regenerate sử dụng Core Content — đã sửa
+**1. Thêm Bulk Invite tab** trong Dialog "Thêm thành viên":
+- Tab thứ 3: "Thêm hàng loạt" với textarea nhập nhiều email (mỗi dòng 1 email)
+- Chọn role chung cho tất cả
+- Chọn password chung (mặc định `abc123`)
+- Hiển thị progress khi đang tạo (ví dụ: "3/5 đã tạo")
+- Hiển thị kết quả: thành công/thất bại cho từng email
 
-### Vấn đề
-Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
+**2. Cải thiện hiển thị online status**:
+- Thêm filter "Đang hoạt động" bên cạnh filter role
+- Hiển thị badge số lượng online/offline trong filter
+- Sắp xếp: online users hiện trước offline users (tùy chọn)
 
-### Đã sửa (1 file)
-1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
+**3. Cải thiện filter role**:
+- Hiển thị số lượng thành viên cho mỗi role trong dropdown (ví dụ: "Thành viên (5)")
+- Thêm filter chips phía trên danh sách để nhanh chóng lọc
 
----
+### Sửa: `src/hooks/useOrganizationMembers.ts`
 
-## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
+Thêm function `bulkCreateMembers`:
+```typescript
+const bulkCreateMembers = async (
+  emails: string[], 
+  role: OrgRole, 
+  password: string,
+  onProgress?: (completed: number, total: number) => void
+): Promise<{ success: string[]; failed: { email: string; error: string }[] }>
+```
+- Gọi `create-org-member` edge function cho từng email tuần tự
+- Callback progress sau mỗi lần tạo
+- Trả về danh sách thành công/thất bại
+- Gọi `fetchMembers()` một lần sau khi hoàn thành
 
-### Vấn đề
-1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
-2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
-3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
+### Scope
+- **2 file sửa**: `OrganizationMembersList.tsx`, `useOrganizationMembers.ts`
+- Không cần migration hay edge function mới (tái sử dụng `create-org-member`)
 
-### Đã sửa (4 files)
-1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
-2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
-3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
-4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
-
----
-
-## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
-
-### Vấn đề
-Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
-
-### Đã sửa (6 files + 2 edge functions)
-1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
-2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
-3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
-4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
-5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
-6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
-7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
