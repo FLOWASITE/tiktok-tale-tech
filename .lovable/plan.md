@@ -1,61 +1,32 @@
 
-
-## Plan: Regenerate sử dụng Core Content làm nguồn ngữ cảnh
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
 ### Vấn đề
-Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược. Core Content (800-2000 từ) đã có sẵn nhưng không được sử dụng.
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-### Giải pháp
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-**File duy nhất cần sửa:** `supabase/functions/generate-multichannel/index.ts`
+---
 
-#### 1. Fetch Core Content khi regenerate (sau line ~1700)
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-```typescript
-// Fetch Core Content if linked
-let coreContentText = '';
-let coreKeyMessages: string[] = [];
-if (existingContent.core_content_id) {
-  const { data: coreContent } = await supabase
-    .from('core_contents')
-    .select('content, key_messages, content_role, content_angle')
-    .eq('id', existingContent.core_content_id)
-    .single();
-  if (coreContent) {
-    coreContentText = coreContent.content?.substring(0, 3000) || '';
-    coreKeyMessages = coreContent.key_messages || [];
-    // Also pass content_role for strategic context
-    formData.contentRole = coreContent.content_role;
-  }
-}
-```
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-#### 2. Inject Core Content vào prompt (line ~2073-2114)
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-Thêm vào **system prompt** (sau "MỤC TIÊU NỘI DUNG"):
-```
-## NỘI DUNG GỐC (CORE CONTENT)
-Đây là bài viết gốc đầy đủ. Hãy dựa vào đây để viết lại, KHÔNG bịa thêm thông tin ngoài.
+---
 
-{coreContentText}
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-## THÔNG ĐIỆP CHÍNH (bắt buộc giữ lại)
-{keyMessages joined by \n}
-```
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-Cập nhật **user prompt** từ:
-> "Viết lại nội dung cho kênh X với chủ đề Y"
-
-Thành:
-> "Dựa trên NỘI DUNG GỐC ở trên, viết lại cho kênh X. Giữ nguyên thông điệp chính, thay đổi cách diễn đạt và cấu trúc."
-
-#### 3. Fallback khi không có Core Content
-
-Nếu `core_content_id` null hoặc fetch thất bại → giữ nguyên behavior hiện tại (chỉ dùng topic). Không breaking change.
-
-### Tác động
-- **1 file sửa**: `supabase/functions/generate-multichannel/index.ts`
-- **~25 dòng thêm/sửa**: fetch core content + inject vào prompt
-- **Không breaking**: fallback về logic cũ khi không có core content
-- **Kết quả**: Regenerate sẽ tạo nội dung bám sát bài gốc, giữ key messages, không bịa thông tin
-
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content

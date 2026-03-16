@@ -1699,7 +1699,30 @@ Mục tiêu nội dung: ${goalLabel}`;
       formData.contentGoal = existingContent.content_goal;
       organizationId = existingContent.organization_id;
 
-      console.log(`[regenerate-mode] Using context: topic="${formData.topic}", channel=${formData.channel}`);
+      // Fetch Core Content if linked - provides full article context for better regeneration
+      let coreContentText = '';
+      let coreKeyMessages: string[] = [];
+      if (existingContent.core_content_id) {
+        try {
+          const { data: coreContent } = await supabase
+            .from('core_contents')
+            .select('content, key_messages, content_role, content_angle')
+            .eq('id', existingContent.core_content_id)
+            .single();
+          if (coreContent) {
+            coreContentText = coreContent.content?.substring(0, 3000) || '';
+            coreKeyMessages = Array.isArray(coreContent.key_messages) ? coreContent.key_messages : [];
+            if (coreContent.content_role) {
+              formData.contentRole = coreContent.content_role;
+            }
+            console.log(`[regenerate-mode] Core Content loaded: ${coreContentText.length} chars, ${coreKeyMessages.length} key messages`);
+          }
+        } catch (err) {
+          console.warn('[regenerate-mode] Failed to fetch core content, falling back to topic-only:', err);
+        }
+      }
+
+      console.log(`[regenerate-mode] Using context: topic="${formData.topic}", channel=${formData.channel}, hasCoreContent=${!!coreContentText}`);
       // Continue to brand loading, then branch to lightweight regenerate path
     }
 
@@ -2084,7 +2107,15 @@ Target Audience: ${targetAudience}
 
 ## MỤC TIÊU NỘI DUNG
 ${goalDescriptions[contentGoal] || contentGoal}
+${coreContentText ? `
+## NỘI DUNG GỐC (CORE CONTENT)
+Đây là bài viết gốc đầy đủ. Hãy dựa vào đây để viết lại, KHÔNG bịa thêm thông tin ngoài nội dung gốc.
 
+${coreContentText}
+${coreKeyMessages.length > 0 ? `
+## THÔNG ĐIỆP CHÍNH (bắt buộc giữ lại)
+${coreKeyMessages.map((m: string, i: number) => `${i + 1}. ${m}`).join('\n')}` : ''}
+` : ''}
 ## QUY ƯỚC CHO KÊNH (SOCIAL CHANNEL SETTINGS)
 Brand Voice là LUẬT NỀN. Channel Settings là LUẬT TRIỂN KHAI.
 
@@ -2096,16 +2127,23 @@ ${channelRulesPrompt}
 3. Emoji/hashtag sai? → TỰ ĐIỀU CHỈNH
 
 ## NGUYÊN TẮC BẮT BUỘC
-1. Tạo nội dung MỚI HOÀN TOÀN, khác với phiên bản trước
+1. ${coreContentText ? 'Dựa trên NỘI DUNG GỐC, viết lại với cách diễn đạt và cấu trúc MỚI' : 'Tạo nội dung MỚI HOÀN TOÀN, khác với phiên bản trước'}
 2. Giữ cùng thông điệp lõi nhưng thay đổi cách diễn đạt
 3. Giọng văn: Chuyên nghiệp, rõ ràng, phù hợp ${targetAudience}
 4. Tuân thủ chính xác format của kênh
+${coreContentText ? '5. KHÔNG bịa thêm thông tin ngoài nội dung gốc' : ''}
 
 ## ĐIỀU TUYỆT ĐỐI KHÔNG LÀM
 - Không giải thích vì sao viết như vậy
 - Không bình luận ngoài nội dung${brandVoice && !brandVoice.allow_emoji ? "\n- KHÔNG dùng emoji (Brand Voice yêu cầu)" : ""}`;
 
-      const userPrompt = `Viết lại nội dung cho kênh ${channel.toUpperCase()} với chủ đề:
+      const userPrompt = coreContentText 
+        ? `Dựa trên NỘI DUNG GỐC ở trên, viết lại cho kênh ${channel.toUpperCase()}.
+Chủ đề: "${formData.topic}"
+${industry ? `Ngành/Bối cảnh: ${industry}` : ""}
+
+Giữ nguyên thông điệp chính, thay đổi cách diễn đạt và cấu trúc. Nội dung sẵn sàng đăng ngay.`
+        : `Viết lại nội dung cho kênh ${channel.toUpperCase()} với chủ đề:
 "${formData.topic}"
 
 ${industry ? `Ngành/Bối cảnh: ${industry}` : ""}
