@@ -736,6 +736,43 @@ function buildStructuredElement(
     });
   }
 
+  // Summary ribbon (between cards and CTA)
+  if (elements.summaryRibbon) {
+    const ribbonFontSize = Math.round(imageWidth * 0.022);
+    const ribbonBg = elements.summaryRibbon.bgColor || colors.primary;
+    children.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: `linear-gradient(90deg, ${ribbonBg}, ${ribbonBg}dd)`,
+          padding: '10px 28px',
+          width: '90%',
+          borderRadius: theme.borderRadius > 0 ? theme.borderRadius : 4,
+          marginTop: 8,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+        },
+        children: {
+          type: 'span',
+          props: {
+            style: {
+              color: '#FFFFFF',
+              fontSize: ribbonFontSize,
+              fontFamily,
+              fontWeight: 600,
+              textAlign: 'center',
+              lineHeight: 1.4,
+              textShadow: '1px 1px 3px rgba(0,0,0,0.4)',
+            },
+            children: elements.summaryRibbon.text,
+          },
+        },
+      },
+    });
+  }
+
   // CTA button
   if (elements.cta) {
     // CTA safe-area: avoid logo at bottom-center
