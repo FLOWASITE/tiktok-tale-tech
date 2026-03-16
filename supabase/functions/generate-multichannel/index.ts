@@ -4960,22 +4960,45 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         products: formData.targetProductId ? [{ id: formData.targetProductId }] : undefined,
       });
       
-      // Estimate tokens and cost from channel data
-      const channelCount = formData.channels.length;
-      const avgTokensPerChannel = 800;
-      const inputTokensEstimated = 2000 + (channelCount * 500); // Base prompt + per-channel context
-      const outputTokensEstimated = channelCount * avgTokensPerChannel;
+      // Use actual token usage from AI responses (attached by generateChannelsInParallel / generateWithMultipleModels)
+      const usageMetadata = generatedData?._usageMetadata;
       
-      // Build models used map - default model for all channels
-      const modelsUsed: Record<string, string> = {};
-      formData.channels.forEach(ch => {
-        modelsUsed[ch] = 'google/gemini-2.5-flash'; // Default model
-      });
+      let inputTokensEstimated: number;
+      let outputTokensEstimated: number;
+      let modelsUsed: Record<string, string>;
+      let estimatedCostUsd: number;
+      const requestDurationMs = Date.now() - requestStartTime;
       
-      // Calculate estimated cost
-      const estimatedCostUsd = estimateTotalCost(modelsUsed, 
-        Object.fromEntries(formData.channels.map(ch => [ch, { input: inputTokensEstimated / channelCount, output: outputTokensEstimated / channelCount }]))
-      );
+      if (usageMetadata && Object.keys(usageMetadata.tokenUsage).length > 0) {
+        // ACTUAL USAGE from API responses
+        inputTokensEstimated = Object.values(usageMetadata.tokenUsage as Record<string, { input: number; output: number }>).reduce((sum, u) => sum + u.input, 0);
+        outputTokensEstimated = Object.values(usageMetadata.tokenUsage as Record<string, { input: number; output: number }>).reduce((sum, u) => sum + u.output, 0);
+        modelsUsed = usageMetadata.modelsUsed;
+        
+        // Prefer upstream cost from provider if available, otherwise estimate
+        if (usageMetadata.totalUpstreamCost > 0) {
+          estimatedCostUsd = usageMetadata.totalUpstreamCost;
+          console.log(`[metrics] Using actual upstream cost: $${estimatedCostUsd.toFixed(6)}`);
+        } else {
+          estimatedCostUsd = estimateTotalCost(modelsUsed, usageMetadata.tokenUsage);
+        }
+        
+        console.log(`[metrics] Actual usage: ${inputTokensEstimated} input + ${outputTokensEstimated} output tokens, ${Object.keys(modelsUsed).length} models`);
+      } else {
+        // FALLBACK: estimate if no usage data (e.g., cache hit)
+        const channelCount = formData.channels.length;
+        inputTokensEstimated = 2000 + (channelCount * 500);
+        outputTokensEstimated = channelCount * 800;
+        modelsUsed = {};
+        formData.channels.forEach(ch => {
+          const channelConfig = channelModelConfigs.get(ch);
+          modelsUsed[ch] = channelConfig?.model || aiConfig.model;
+        });
+        estimatedCostUsd = estimateTotalCost(modelsUsed, 
+          Object.fromEntries(formData.channels.map(ch => [ch, { input: inputTokensEstimated / channelCount, output: outputTokensEstimated / channelCount }]))
+        );
+        console.log(`[metrics] Using estimated usage (cache hit or no usage data)`);
+      }
       
       await saveMetrics(supabase, {
         traceId: metricsTraceId,
