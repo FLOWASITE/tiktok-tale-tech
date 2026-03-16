@@ -361,6 +361,40 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
 
           <Separator />
 
+          {/* Reset Password */}
+          <div>
+            <h4 className="font-medium flex items-center gap-2 mb-3">
+              <KeyRound className="h-4 w-4" />
+              Đặt lại mật khẩu
+            </h4>
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                placeholder="Nhập password mới (tối thiểu 6 ký tự)"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={actionLoading || newPassword.length < 6}
+                onClick={async () => {
+                  await handleAdminAction("reset_password", { new_password: newPassword });
+                  setNewPassword("");
+                }}
+              >
+                <KeyRound className="h-3 w-3 mr-1" />
+                Đặt lại
+              </Button>
+            </div>
+            {newPassword.length > 0 && newPassword.length < 6 && (
+              <p className="text-xs text-destructive mt-1">Tối thiểu 6 ký tự</p>
+            )}
+          </div>
+
+          <Separator />
+
           {/* Admin Actions */}
           <div>
             <h4 className="font-medium flex items-center gap-2 mb-3">
