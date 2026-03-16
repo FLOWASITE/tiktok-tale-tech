@@ -589,6 +589,7 @@ What should we learn from this to improve future recommendations? Respond in Vie
   const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    userId: params._userId,
     brandTemplateId,
     actionType: action,
     messages: [
