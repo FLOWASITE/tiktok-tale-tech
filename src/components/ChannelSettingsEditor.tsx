@@ -503,54 +503,6 @@ function ChannelSettingRow({
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="p-3 border border-t-0 border-border/50 rounded-b-lg space-y-3 bg-muted/20">
-          {/* Length Settings */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs flex items-center gap-1">
-                Min
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="w-3 h-3 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Mặc định: {defaults.min_length ?? 0}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </Label>
-              <Input
-                type="number"
-                min={0}
-                value={currentMinLength}
-                onChange={(e) => onUpdate({ min_length: parseInt(e.target.value) || 0 })}
-                className="h-8"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs flex items-center gap-1">
-                Max
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="w-3 h-3 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Mặc định: {defaults.max_length}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </Label>
-              <Input
-                type="number"
-                min={1}
-                value={currentMaxLength}
-                onChange={(e) => onUpdate({ max_length: parseInt(e.target.value) || defaults.max_length })}
-                className="h-8"
-              />
-            </div>
-          </div>
-
           {/* Hook & CTA */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
