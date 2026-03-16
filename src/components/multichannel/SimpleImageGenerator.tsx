@@ -584,6 +584,25 @@ export function SimpleImageGenerator({
       }
     }
 
+    // Auto-optimize long text before generation (>80 chars)
+    if (imageContentType === 'with_text' && useSharedText && textToInclude.trim().length > 80) {
+      try {
+        toast.info('Đang tối ưu text cho ảnh...', { duration: 2000 });
+        const { data, error } = await supabase.functions.invoke('optimize-social-text', {
+          body: { text: textToInclude, maxLength: 60, style: 'punchy' },
+        });
+        if (!error && data?.optimizedText && data?.wasOptimized) {
+          setTextToInclude(data.optimizedText);
+          toast.success(`Text đã rút gọn: ${data.originalLength} → ${data.optimizedLength} ký tự`);
+          // Wait a tick for state to propagate
+          await new Promise(r => setTimeout(r, 100));
+        }
+      } catch {
+        // Silently continue with original text if optimization fails
+        console.warn('[SimpleImageGenerator] Auto-optimize failed, using original text');
+      }
+    }
+
     setViewMode('streaming');
     const result = await batchGen.generateAllImages(batchOptions, onImageGenerated, true);
     

@@ -10,12 +10,19 @@ const corsHeaders = {
 function validateOverlay(overlay: any, primaryColor: string): any {
   const result = { ...overlay };
 
-  // Banner: ensure non-empty, ≤ 30 chars
+  // Banner: ensure non-empty, ≤ 40 chars (raised for Vietnamese)
   if (result.banner) {
     if (!result.banner.text || result.banner.text.trim().length === 0) {
       delete result.banner;
     } else {
-      result.banner.text = result.banner.text.trim().slice(0, 30);
+      // Smart truncate at word boundary
+      let bannerText = result.banner.text.trim();
+      if (bannerText.length > 40) {
+        const truncated = bannerText.slice(0, 40);
+        const lastSpace = truncated.lastIndexOf(' ');
+        bannerText = lastSpace > 20 ? truncated.slice(0, lastSpace) : truncated;
+      }
+      result.banner.text = bannerText;
       result.banner.bgColor = primaryColor;
       result.banner.position = result.banner.position || "top";
     }
@@ -47,8 +54,8 @@ function validateOverlay(overlay: any, primaryColor: string): any {
         .filter((c: any) => c.label && c.label.trim().length > 0)
         .map((c: any) => ({
           icon: c.icon || undefined,
-          label: c.label.trim().slice(0, 50),
-          ...(c.description ? { description: c.description.trim().slice(0, 60) } : {}),
+          label: c.label.trim().slice(0, 60),
+          ...(c.description ? { description: c.description.trim().slice(0, 80) } : {}),
           ...(c.number != null ? { number: c.number } : {}),
         }));
 
@@ -157,13 +164,19 @@ CHIẾN LƯỢC CHỌN LAYOUT (suggestedLayout):
 3. **overlayConfig**: SÁNG TẠO các thành phần text overlay có ý nghĩa, RÚT GỌN từ nội dung gốc
 ${strategicContext}
 OVERLAY ELEMENTS:
-   - **banner**: Nhãn ngắn gọn 2-4 từ IN HOA tóm tắt chủ đề (VD: "CHÍNH SÁCH MỚI", "CẬP NHẬT THUẾ", "TIN NÓNG", "KIẾN THỨC HAY")
-   - **heroText**: Số liệu nổi bật hoặc keyword mạnh ≤ 20 ký tự (VD: "100%", "50 TRIỆU", "GIẢM 30%", "TOP 5")
+   - **banner**: Nhãn ngắn gọn 2-5 từ IN HOA tóm tắt chủ đề, TỐI ĐA 40 ký tự (VD: "CHÍNH SÁCH MỚI", "CẬP NHẬT THUẾ", "TIN NÓNG", "KIẾN THỨC HAY")
+   - **heroText**: Số liệu nổi bật hoặc keyword mạnh ≤ 20 ký tự. PHẢI là keyword/số liệu NỔI BẬT NHẤT, KHÔNG phải câu dài. Ưu tiên: số + đơn vị (VD: "30%", "5 THAY ĐỔI"), keyword ngắn gọn. NẾU nội dung có số + text ngắn (VD: "3 bước"), LUÔN dùng format "3 BƯỚC" (số + text IN HOA)
    - **headline**: Tiêu đề chính 1 dòng nếu cần
-    - **cards**: Tạo 3-5 thẻ CHỈ KHI nội dung có nhiều điểm chính (giáo dục, liệt kê, so sánh). KHÔNG tạo cards cho nội dung cảm xúc/storytelling/quote/awareness. Mỗi label ngắn gọn 3-8 từ, LUÔN thêm icon emoji phù hợp. Thêm field "number" (1,2,3...) khi layout là education_infographic. Thêm field "description" (mô tả ngắn ≤60 ký tự) khi education_infographic hoặc nội dung cần giải thích chi tiết
+    - **cards**: Tạo 3-5 thẻ CHỈ KHI nội dung có nhiều điểm chính (giáo dục, liệt kê, so sánh). KHÔNG tạo cards cho nội dung cảm xúc/storytelling/quote/awareness. Mỗi label ngắn gọn 3-10 từ (TỐI ĐA 60 ký tự cho tiếng Việt), LUÔN thêm icon emoji phù hợp. Thêm field "number" (1,2,3...) khi layout là education_infographic. Thêm field "description" (mô tả ngắn ≤80 ký tự) khi education_infographic hoặc nội dung cần giải thích chi tiết
     - **cta**: Call-to-action (chỉ khi conversion/harvest/promotional hoặc education_infographic)
     - **summaryRibbon**: Dải ribbon tóm tắt 1 câu ngắn gọn giữa cards và CTA (chỉ cho education_infographic)
     - **footer**: Thanh thông tin liên hệ ở cuối (chỉ khi có SĐT/email/website/địa chỉ trong nội dung)
+
+QUY TẮC TEXT QUALITY:
+- Ưu tiên giữ nguyên SỐ LIỆU CỤ THỂ, TÊN RIÊNG. Chỉ rút gọn phần mô tả
+- Tiếng Việt dài hơn tiếng Anh ~30%, nên cho phép nhiều ký tự hơn
+- Hero text PHẢI là keyword/số liệu nổi bật nhất, KHÔNG phải câu dài
+- Cards label: tóm tắt ĐIỂM CHÍNH, dùng từ ngắn gọn nhưng có nghĩa
 
 VÍ DỤ:
 Input: "Bài viết về 5 thay đổi chính sách thuế TNCN 2025: tăng giảm trừ gia cảnh, giảm thuế suất bậc 1, miễn thuế thu nhập dưới 15 triệu, hỗ trợ startup, số hóa kê khai" (Goal: education, Role: sprout, Angle: educational)

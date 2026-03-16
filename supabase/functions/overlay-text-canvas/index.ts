@@ -381,6 +381,23 @@ function getContrastTextColor(bgColor: string): string {
 }
 
 /**
+ * Smart text fitting: auto-scale font size down when text is too long for available width.
+ * Returns a clamped font size that prevents text overflow.
+ */
+function fitTextToWidth(text: string, maxWidthPx: number, baseFontSize: number, minFontSize: number = 12): number {
+  // Approximate: Vietnamese chars are ~0.55em wide on average
+  const avgCharWidth = baseFontSize * 0.55;
+  const estimatedTextWidth = text.length * avgCharWidth;
+  
+  if (estimatedTextWidth <= maxWidthPx) return baseFontSize;
+  
+  // Scale down proportionally
+  const scaleFactor = maxWidthPx / estimatedTextWidth;
+  const scaled = Math.round(baseFontSize * scaleFactor);
+  return Math.max(scaled, minFontSize);
+}
+
+/**
  * Calculate dynamic font size based on text length and image dimensions
  */
 function calculateFontSize(textLength: number, imageWidth: number, imageHeight: number): number {
@@ -591,7 +608,7 @@ function buildStructuredElement(
           props: {
             style: {
               color: bannerTextColor,
-              fontSize: Math.round(imageWidth * (isEducationInfographic ? 0.04 : 0.03)),
+              fontSize: fitTextToWidth(elements.banner.text, imageWidth - bannerPaddingLeft - bannerPaddingRight - 48, Math.round(imageWidth * (isEducationInfographic ? 0.04 : 0.03)), 14),
               fontFamily,
               fontWeight: theme.fontWeight,
               letterSpacing: '0.05em',
@@ -608,12 +625,18 @@ function buildStructuredElement(
   // Hero text (large centered text or number circle)
   if (elements.heroText) {
     const sizeMap = { xl: 0.06, '2xl': 0.08, '3xl': 0.12 };
-    const fontSize = Math.round(imageWidth * (sizeMap[elements.heroText.fontSize] || 0.08));
-    const isNumericHero = /^\d+$/.test(elements.heroText.text.trim());
+    const baseFontSize = Math.round(imageWidth * (sizeMap[elements.heroText.fontSize] || 0.08));
+    const fontSize = fitTextToWidth(elements.heroText.text.trim(), imageWidth * 0.75, baseFontSize, 18);
+    const heroTrimmed = elements.heroText.text.trim();
+    // Expanded hero matching: pure numbers, numbers with % or +, decimal numbers
+    const isNumericHero = /^\d+(\.\d+)?[%+]?$/.test(heroTrimmed);
+    // Split hero: "3 THAY ĐỔI" → number in circle + side label
+    const splitHeroMatch = heroTrimmed.match(/^(\d+)\s+(.+)$/);
     
     if (isNumericHero) {
       // Hero Number Circle: large styled circle with number inside
       const circleDiameter = Math.round(imageWidth * 0.15);
+      const circleTextColor = getContrastTextColor(colors.primary);
       children.push({
         type: 'div',
         props: {
@@ -642,17 +665,83 @@ function buildStructuredElement(
                 type: 'span',
                 props: {
                   style: {
-                    color: '#FFFFFF',
-                    fontSize: Math.round(circleDiameter * 0.6),
+                    color: circleTextColor,
+                    fontSize: fitTextToWidth(heroTrimmed, circleDiameter * 0.7, Math.round(circleDiameter * 0.6), 16),
                     fontFamily,
                     fontWeight: 700,
                     textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
                   },
-                  children: elements.heroText.text.trim(),
+                  children: heroTrimmed,
                 },
               },
             },
           },
+        },
+      });
+    } else if (splitHeroMatch) {
+      // Split hero: number in circle + side label (e.g. "3 THAY ĐỔI")
+      const circleNum = splitHeroMatch[1];
+      const sideLabel = splitHeroMatch[2];
+      const circleDiameter = Math.round(imageWidth * 0.12);
+      const circleTextColor = getContrastTextColor(colors.primary);
+      const sideFontSize = fitTextToWidth(sideLabel, imageWidth * 0.45, Math.round(imageWidth * 0.05), 16);
+      children.push({
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 16,
+            padding: '20px',
+            flexGrow: 1,
+          },
+          children: [
+            {
+              type: 'div',
+              props: {
+                style: {
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: circleDiameter,
+                  height: circleDiameter,
+                  borderRadius: circleDiameter / 2,
+                  background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary || colors.primary}cc)`,
+                  boxShadow: `0 8px 32px ${colors.primary}88, 0 4px 16px rgba(0,0,0,0.3)`,
+                  border: `3px solid rgba(255,255,255,0.3)`,
+                  flexShrink: 0,
+                },
+                children: {
+                  type: 'span',
+                  props: {
+                    style: {
+                      color: circleTextColor,
+                      fontSize: Math.round(circleDiameter * 0.55),
+                      fontFamily,
+                      fontWeight: 700,
+                    },
+                    children: circleNum,
+                  },
+                },
+              },
+            },
+            {
+              type: 'span',
+              props: {
+                style: {
+                  color: colors.primary,
+                  fontSize: sideFontSize,
+                  fontFamily,
+                  fontWeight: 700,
+                  textShadow: theme.heroTextShadow,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.02em',
+                },
+                children: sideLabel,
+              },
+            },
+          ],
         },
       });
     } else {
@@ -728,8 +817,8 @@ function buildStructuredElement(
     const effectiveCardLayout = isPortraitOrSquare ? 'vertical' : elements.cards.layout;
     const isGrid = effectiveCardLayout === 'grid-2x2';
     const fontBase = Math.min(imageWidth, imageHeight); // scale by smaller dimension
-    const cardFontSize = Math.round(fontBase * (isEducationInfographic && elementCount >= 5 ? 0.022 : 0.025));
-    const cardDescFontSize = Math.round(imageWidth * 0.015);
+    const cardFontSize = Math.max(Math.round(fontBase * (isEducationInfographic && elementCount >= 5 ? 0.022 : 0.025)), 14);
+    const cardDescFontSize = Math.max(Math.round(imageWidth * 0.015), 12);
     const hasNumberedCards = elements.cards.items.some(item => item.number != null);
     
     const cardElements = elements.cards.items.map((item, idx) => {
@@ -790,12 +879,21 @@ function buildStructuredElement(
       }
 
       // Card text: label + optional description (2-line rendering)
+      // Dynamic contrast: validate card text color against actual card background
+      const resolvedCardBg = theme.cardBg;
+      const effectiveCardTextColor = getContrastTextColor(
+        resolvedCardBg.startsWith('rgba') || resolvedCardBg.startsWith('#') ? resolvedCardBg : theme.cardTextColor
+      );
+      // Fit label font to available card width (approx 70% of card width)
+      const cardAvailWidth = isGrid ? imageWidth * 0.35 : imageWidth * 0.6;
+      const fittedCardFontSize = fitTextToWidth(item.label, cardAvailWidth, cardFontSize, 12);
+      
       const textChildren: any[] = [{
         type: 'span',
         props: {
           style: {
-            color: theme.cardTextColor,
-            fontSize: cardFontSize,
+            color: effectiveCardTextColor,
+            fontSize: fittedCardFontSize,
             fontFamily,
             fontWeight: theme.fontWeight >= 600 ? 600 : theme.fontWeight,
             flex: 1,
