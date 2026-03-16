@@ -131,6 +131,9 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Resolve userId from auth header for cost tracking
+    const userId = await resolveUserId(req, supabase);
+
     // Fetch shared brand context once (used by most actions)
     let brandContext: TopicBrandContext | null = null;
     if (params.brandTemplateId) {
