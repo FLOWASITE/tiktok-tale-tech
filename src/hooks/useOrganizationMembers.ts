@@ -230,12 +230,65 @@ export function useOrganizationMembers(organizationId?: string) {
     }
   };
 
+  // Bulk create members
+  const bulkCreateMembers = async (
+    emails: string[],
+    role: OrgRole = 'member',
+    password: string = 'abc123',
+    onProgress?: (completed: number, total: number, results: { success: string[]; failed: { email: string; error: string }[] }) => void
+  ): Promise<{ success: string[]; failed: { email: string; error: string }[] }> => {
+    if (!orgId) return { success: [], failed: [] };
+
+    const results: { success: string[]; failed: { email: string; error: string }[] } = {
+      success: [],
+      failed: [],
+    };
+
+    setUpdating(true);
+
+    for (let i = 0; i < emails.length; i++) {
+      const email = emails[i].trim();
+      if (!email) continue;
+
+      try {
+        const { data, error } = await supabase.functions.invoke('create-org-member', {
+          body: { email, password, organizationId: orgId, role },
+        });
+
+        if (error) {
+          results.failed.push({ email, error: error.message });
+        } else if (data?.error) {
+          results.failed.push({ email, error: data.error });
+        } else {
+          results.success.push(email);
+        }
+      } catch (err: any) {
+        results.failed.push({ email, error: err.message });
+      }
+
+      onProgress?.(i + 1, emails.length, results);
+    }
+
+    await fetchMembers();
+    setUpdating(false);
+
+    if (results.success.length > 0) {
+      toast.success(`Đã thêm ${results.success.length} thành viên thành công`);
+    }
+    if (results.failed.length > 0) {
+      toast.error(`${results.failed.length} thành viên thêm thất bại`);
+    }
+
+    return results;
+  };
+
   return {
     members,
     loading,
     updating,
     inviteMember,
     createMember,
+    bulkCreateMembers,
     updateMemberRole,
     removeMember,
     refreshMembers: fetchMembers,
