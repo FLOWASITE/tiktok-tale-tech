@@ -377,12 +377,21 @@ export function SimpleImageGenerator({
     return analyzeContentComplexity(summaryText + ' ' + textToInclude);
   }, [contentSummaries, textToInclude]);
 
-  // Auto-enable hybrid mode when complexity is high
+  // Auto-enable hybrid mode when complexity is high OR when "Để AI lo" mode
   useEffect(() => {
     if (complexityAnalysis.score === 'complex') {
       setUseHybridMode(true);
     }
   }, [complexityAnalysis.score]);
+
+  useEffect(() => {
+    if (promptMode === 'full') {
+      setUseHybridMode(true);
+      setOverlayMode('ai_render');
+    } else {
+      setOverlayMode('satori');
+    }
+  }, [promptMode]);
 
   // Build structured overlay AND background prompt from content when hybrid mode is active
   // V2: Uses AI decomposition (Gemini Flash) with regex fallback
