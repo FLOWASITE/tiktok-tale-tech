@@ -818,9 +818,10 @@ serve(async (req: Request) => {
             },
           };
           
-          const inputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.4);
-          const outputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.6);
-          const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
+          const actualUsage = result.metadata.actualUsage;
+          const inputTokensEstimated = actualUsage?.prompt_tokens || Math.round(result.metadata.totalTokensEstimated * 0.4);
+          const outputTokensEstimated = actualUsage?.completion_tokens || Math.round(result.metadata.totalTokensEstimated * 0.6);
+          const estimatedCostUsd = actualUsage?.upstream_cost || estimateCost(model, inputTokensEstimated, outputTokensEstimated);
           
           const [insertResult, _metricsResult] = await Promise.allSettled([
             supabase.from('core_contents').insert(insertData).select('id').single(),
