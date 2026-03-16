@@ -132,4 +132,6 @@ export function FloatingImageProgress({
       )}
     </AnimatePresence>
   );
+
+  return createPortal(content, document.body);
 }
