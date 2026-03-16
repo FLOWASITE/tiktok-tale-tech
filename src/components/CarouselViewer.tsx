@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { formatAllSlidesPrompt } from '@/utils/parseCarouselSlides';
 import { GeneratedImagesGallery } from './GeneratedImagesGallery';
 import { useImageGeneration } from '@/hooks/useImageGeneration';
+import { useCarouselImages } from '@/hooks/useCarouselImages';
 import { StatusSelector, ContentStatus } from '@/components/StatusSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
