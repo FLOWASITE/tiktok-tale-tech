@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { analyzeContentComplexity } from '@/lib/contentComplexityAnalyzer';
 import { ComplexityWarning } from './ComplexityWarning';
-import { decomposeRequest, decomposeRequestWithAI, applyTemplate } from '@/lib/hybridImageGenerator';
+import { decomposeRequest, decomposeRequestWithAI, applyTemplate, autoSelectTemplate } from '@/lib/hybridImageGenerator';
 import { OverlayTemplatePicker } from './OverlayTemplatePicker';
 import { useGenerationSignals } from '@/hooks/useGenerationSignals';
 import { Checkbox } from '@/components/ui/checkbox';
