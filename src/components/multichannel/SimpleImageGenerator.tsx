@@ -6,7 +6,7 @@ import { OverlayTemplatePicker } from './OverlayTemplatePicker';
 import { useGenerationSignals } from '@/hooks/useGenerationSignals';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
-import { Sparkles, Loader2, ArrowLeft, AlertTriangle, Image as ImageIcon, Minimize2, Shield, SlidersHorizontal } from 'lucide-react';
+import { Sparkles, Loader2, ArrowLeft, AlertTriangle, Image as ImageIcon, Minimize2, Shield, SlidersHorizontal, Camera, Brush, LayoutGrid, Box, Layers, Droplets, Film } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -772,13 +772,49 @@ export function SimpleImageGenerator({
           </div>
         </div>
 
-      {/* V3 Style Suggestions Preview — raw + brand_only modes */}
-      {promptMode !== 'full' && v3Suggestions.length > 0 && (
+      {/* V3 Style Suggestions Preview — brand_only only (AI gợi ý) */}
+      {promptMode === 'brand_only' && v3Suggestions.length > 0 && (
         <V3StylePreview
           suggestions={v3Suggestions}
           selectedStyle={imageStyle}
           onStyleSelect={(style) => setImageStyle(style)}
         />
+      )}
+
+      {/* Inline Style Grid — raw mode (user tự chọn 100%) */}
+      {promptMode === 'raw' && (
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Phong cách ảnh</Label>
+          <div className="grid grid-cols-4 gap-1.5">
+            {([
+              { value: 'auto' as const, label: 'Tự động', icon: <Sparkles className="w-3.5 h-3.5" /> },
+              { value: 'photorealistic' as const, label: 'Chân thực', icon: <Camera className="w-3.5 h-3.5" /> },
+              { value: 'illustration' as const, label: 'Minh họa', icon: <Brush className="w-3.5 h-3.5" /> },
+              { value: 'minimalist' as const, label: 'Tối giản', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
+              { value: '3d_render' as const, label: '3D', icon: <Box className="w-3.5 h-3.5" /> },
+              { value: 'flat_design' as const, label: 'Flat', icon: <Layers className="w-3.5 h-3.5" /> },
+              { value: 'watercolor' as const, label: 'Màu nước', icon: <Droplets className="w-3.5 h-3.5" /> },
+              { value: 'cinematic' as const, label: 'Điện ảnh', icon: <Film className="w-3.5 h-3.5" /> },
+            ]).map(s => {
+              const isSelected = imageStyle === s.value;
+              return (
+                <button
+                  key={s.value}
+                  onClick={() => setImageStyle(s.value)}
+                  className={cn(
+                    "flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all text-xs",
+                    isSelected
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border/50 hover:border-primary/30 text-muted-foreground"
+                  )}
+                >
+                  {s.icon}
+                  <span className="font-medium">{s.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {/* Content Context Preview */}
@@ -938,7 +974,7 @@ export function SimpleImageGenerator({
         onRefineTextContent={() => handleOptimizeText()}
         isRefiningText={isOptimizingText}
         hidePromptModeSelector
-        hideStyleGrid={promptMode !== 'full'}
+        hideStyleGrid={promptMode === 'full' || promptMode === 'raw'}
       />
       </div>{/* end Step 3 */}
     </div>
