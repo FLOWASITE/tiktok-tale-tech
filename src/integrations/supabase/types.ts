@@ -2914,6 +2914,60 @@ export type Database = {
           },
         ]
       }
+      carousel_images: {
+        Row: {
+          carousel_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          image_url: string
+          is_selected: boolean | null
+          organization_id: string | null
+          prompt: string | null
+          slide_number: number
+          version: number
+        }
+        Insert: {
+          carousel_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          image_url: string
+          is_selected?: boolean | null
+          organization_id?: string | null
+          prompt?: string | null
+          slide_number: number
+          version?: number
+        }
+        Update: {
+          carousel_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          image_url?: string
+          is_selected?: boolean | null
+          organization_id?: string | null
+          prompt?: string | null
+          slide_number?: number
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carousel_images_carousel_id_fkey"
+            columns: ["carousel_id"]
+            isOneToOne: false
+            referencedRelation: "carousels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carousel_images_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       carousels: {
         Row: {
           ai_tool: Database["public"]["Enums"]["carousel_ai_tool"]

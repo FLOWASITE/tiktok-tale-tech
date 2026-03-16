@@ -15,7 +15,12 @@ export function useImageGeneration() {
   const generateImage = async (
     prompt: string,
     carouselId: string,
-    slideNumber: number
+    slideNumber: number,
+    options?: {
+      textContent?: string;
+      platform?: string;
+      brandColors?: { textColor?: string; backgroundColor?: string };
+    }
   ): Promise<string | null> => {
     setGenerating(slideNumber);
     
@@ -25,6 +30,9 @@ export function useImageGeneration() {
           prompt,
           carouselId,
           slideNumber,
+          textContent: options?.textContent,
+          platform: options?.platform,
+          brandColors: options?.brandColors,
         },
       });
 

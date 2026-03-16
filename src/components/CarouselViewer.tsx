@@ -12,11 +12,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Copy, Check, Images, MessageSquare, Megaphone, Download, Sparkles, Loader2, ImageIcon, TrendingUp } from 'lucide-react';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { formatAllSlidesPrompt } from '@/utils/parseCarouselSlides';
 import { GeneratedImagesGallery } from './GeneratedImagesGallery';
 import { useImageGeneration } from '@/hooks/useImageGeneration';
+import { useCarouselImages } from '@/hooks/useCarouselImages';
 import { StatusSelector, ContentStatus } from '@/components/StatusSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
@@ -117,8 +118,24 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
   const [copiedCta, setCopiedCta] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
 
-  const { generating, generatedImages, generateImage, getImageForSlide, deleteImage } = useImageGeneration();
+  const { generating, generatedImages, generateImage, getImageForSlide: getGeneratedImage, deleteImage, setImages } = useImageGeneration();
+  const { images: savedImages, loading: loadingImages, saveImage, deleteImage: deleteSavedImage, getImageForSlide: getSavedImage } = useCarouselImages(carousel?.id || null);
+
+  // Sync saved images into generatedImages state on load
+  const [syncedCarouselId, setSyncedCarouselId] = useState<string | null>(null);
   
+  useEffect(() => {
+    if (!loadingImages && savedImages.length > 0 && carousel?.id && syncedCarouselId !== carousel.id) {
+      const mapped = savedImages.map(img => ({
+        slideNumber: img.slide_number,
+        imageUrl: img.image_url,
+        generatedAt: img.created_at || new Date().toISOString(),
+      }));
+      setImages(mapped);
+      setSyncedCarouselId(carousel.id);
+    }
+  }, [loadingImages, savedImages, carousel?.id, syncedCarouselId, setImages]);
+
   // Fetch creator profile
   const { profiles, isLoading: isLoadingProfile } = useCreatorProfiles([carousel?.user_id]);
   const creatorProfile = carousel?.user_id ? profiles[carousel.user_id] : undefined;
@@ -130,6 +147,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
 
   const handleDeleteImage = async (slideNumber: number) => {
     await deleteImage(slideNumber, carousel.id);
+    await deleteSavedImage(slideNumber);
   };
 
   const handleCopyAll = async () => {
@@ -183,7 +201,14 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
   };
 
   const handleGenerateImage = async (slideNumber: number, prompt: string) => {
-    await generateImage(prompt, carousel.id, slideNumber);
+    const slide = carousel.slides_content.find(s => s.slideNumber === slideNumber);
+    const imageUrl = await generateImage(prompt, carousel.id, slideNumber, {
+      textContent: slide?.textContent,
+      platform: carousel.platform,
+    });
+    if (imageUrl) {
+      await saveImage(slideNumber, imageUrl, prompt);
+    }
   };
 
   const handleGenerateAllImages = async () => {
@@ -191,8 +216,13 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
     toast.info(`Bắt đầu tạo ${carousel.slides_content.length} ảnh...`);
 
     for (const slide of carousel.slides_content) {
-      await generateImage(slide.fullPrompt, carousel.id, slide.slideNumber);
-      // Small delay between requests to avoid rate limiting
+      const imageUrl = await generateImage(slide.fullPrompt, carousel.id, slide.slideNumber, {
+        textContent: slide.textContent,
+        platform: carousel.platform,
+      });
+      if (imageUrl) {
+        await saveImage(slide.slideNumber, imageUrl, slide.fullPrompt);
+      }
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
@@ -358,7 +388,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                   key={slide.slideNumber}
                   slide={slide}
                   totalSlides={carousel.slide_count}
-                  generatedImage={getImageForSlide(slide.slideNumber)}
+                  generatedImage={getGeneratedImage(slide.slideNumber)}
                   isGenerating={generating === slide.slideNumber}
                   onGenerateImage={() => handleGenerateImage(slide.slideNumber, slide.fullPrompt)}
                   canGenerateImage={generating === null && !generatingAll}
