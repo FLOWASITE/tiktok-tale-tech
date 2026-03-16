@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callAI, callAIWithMetrics } from "../_shared/ai-provider.ts";
+import { resolveUserId } from "../_shared/logger.ts";
 import { evaluateHook, type HookEvaluation } from "../_shared/ai-hook-evaluator.ts";
 import { 
   getChannelOptimization, 
