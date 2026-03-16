@@ -33,7 +33,7 @@ import { ApprovalSettingsCard } from "@/components/ApprovalSettingsCard";
 
 export default function OrganizationSettings() {
   const { currentOrganization, currentRole, updateOrganization, deleteOrganization, updating } = useOrganization();
-  const { members, loading: membersLoading, inviteMember, createMember, updateMemberRole, removeMember, updating: membersUpdating } = useOrganizationMembers();
+  const { members, loading: membersLoading, inviteMember, createMember, bulkCreateMembers, updateMemberRole, removeMember, updating: membersUpdating } = useOrganizationMembers();
   const { contents } = useMultiChannelContents();
   
   const [orgName, setOrgName] = useState(currentOrganization?.name || "");
