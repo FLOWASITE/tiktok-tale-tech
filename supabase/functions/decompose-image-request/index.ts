@@ -99,7 +99,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { description, primaryColor = "#DC2626", secondaryColor = "#FFFFFF" } = await req.json();
+    const { description, primaryColor = "#DC2626", secondaryColor = "#FFFFFF", context } = await req.json();
 
     if (!description || typeof description !== "string") {
       return new Response(JSON.stringify({ error: "Missing description" }), {
@@ -116,48 +116,82 @@ serve(async (req) => {
       });
     }
 
-    const systemPrompt = `Bạn là chuyên gia thiết kế infographic. Nhiệm vụ: từ mô tả nội dung (có thể là narrative, blog, hoặc tóm tắt), bạn phải SÁNG TẠO nội dung infographic có ý nghĩa gồm 2 phần:
+    // Build strategic context section if provided
+    const contentRole = context?.contentRole || '';
+    const contentGoal = context?.contentGoal || '';
+    const contentAngle = context?.contentAngle || '';
+    const topic = context?.topic || '';
 
-1. **backgroundPrompt**: Mô tả hình ảnh nền (visual, atmosphere, illustration). KHÔNG bao gồm text, số, UI.
+    const strategicContext = (contentRole || contentGoal || contentAngle) ? `
+BỐI CẢNH CHIẾN LƯỢC:
+${contentGoal ? `- Mục tiêu nội dung (Content Goal): ${contentGoal}` : ''}
+${contentRole ? `- Vai trò nội dung (Content Role): ${contentRole} ${contentRole === 'seed' ? '(Awareness - thu hút, không bán hàng)' : contentRole === 'sprout' ? '(Trust - xây dựng niềm tin, phân tích sâu)' : '(Conversion - CTA mạnh, bán hàng)'}` : ''}
+${contentAngle ? `- Góc tiếp cận: ${contentAngle}` : ''}
+${topic ? `- Chủ đề gốc: ${topic}` : ''}
 
-2. **overlayConfig**: SÁNG TẠO các thành phần text overlay có ý nghĩa từ nội dung:
+CHIẾN LƯỢC CHỌN LAYOUT (suggestedLayout):
+- Nội dung giáo dục/kiến thức có nhiều điểm (education, sprout, educational) → "infographic" (chia đôi: hero trái + cards phải)
+- Nội dung cảm xúc/nhận diện thương hiệu (awareness, seed, storytelling) → "quote_card" (hero text lớn, cảm xúc)
+- Nội dung bán hàng/chuyển đổi (conversion, harvest, promotional) → "poster" (CTA nổi bật) hoặc "contact_card" (nếu có thông tin liên hệ)
+- Nội dung có số liệu nổi bật → "quote_card" với heroText là số liệu
+- Nội dung liệt kê tính năng/lợi ích → "feature_list" (banner + danh sách dọc)
+- Nội dung Q&A, behind_the_scenes → "poster" (đơn giản, headline + CTA)
+` : '';
+
+    const systemPrompt = `Bạn là chuyên gia thiết kế infographic. Nhiệm vụ: từ nội dung bài viết (có thể dài, narrative), bạn phải PHÂN TÍCH SÂU nội dung và SÁNG TẠO infographic gồm 3 phần:
+
+1. **suggestedLayout**: Chọn layout phù hợp nhất dựa trên phân tích nội dung và bối cảnh chiến lược
+2. **backgroundPrompt**: Mô tả hình ảnh nền (visual, atmosphere). KHÔNG bao gồm text, số, UI
+3. **overlayConfig**: SÁNG TẠO các thành phần text overlay có ý nghĩa, RÚT GỌN từ nội dung gốc
+${strategicContext}
+OVERLAY ELEMENTS:
    - **banner**: Nhãn ngắn gọn 2-4 từ IN HOA tóm tắt chủ đề (VD: "CHÍNH SÁCH MỚI", "CẬP NHẬT THUẾ", "TIN NÓNG", "KIẾN THỨC HAY")
    - **heroText**: Số liệu nổi bật hoặc keyword mạnh ≤ 20 ký tự (VD: "100%", "50 TRIỆU", "GIẢM 30%", "TOP 5")
    - **headline**: Tiêu đề chính 1 dòng nếu cần
-   - **cards**: LUÔN tạo đúng 4 thẻ tóm tắt các điểm chính. Mỗi label ngắn gọn 3-8 từ. LUÔN thêm icon emoji phù hợp cho mỗi card (VD: 📊, 💰, 🏠, ✅, 📈, 🎯, 💡, 🔑)
-   - **cta**: Call-to-action nếu nội dung mang tính quảng bá
-   - **footer**: Thanh thông tin liên hệ ở cuối. Chỉ tạo khi nội dung có thông tin liên hệ (SĐT, website, email, địa chỉ). Mỗi item gồm icon emoji + text ngắn
+   - **cards**: LUÔN tạo đúng 4 thẻ tóm tắt các điểm chính từ NỘI DUNG THỰC. Mỗi label ngắn gọn 3-8 từ. LUÔN thêm icon emoji phù hợp
+   - **cta**: Call-to-action (chỉ khi conversion/harvest/promotional)
+   - **footer**: Thanh thông tin liên hệ ở cuối (chỉ khi có SĐT/email/website/địa chỉ trong nội dung)
 
 VÍ DỤ:
-Input: "Bài viết về 5 thay đổi chính sách thuế TNCN 2025: tăng giảm trừ gia cảnh, giảm thuế suất bậc 1, miễn thuế thu nhập dưới 15 triệu, hỗ trợ startup, số hóa kê khai"
+Input: "Bài viết về 5 thay đổi chính sách thuế TNCN 2025: tăng giảm trừ gia cảnh, giảm thuế suất bậc 1, miễn thuế thu nhập dưới 15 triệu, hỗ trợ startup, số hóa kê khai" (Goal: education, Role: sprout, Angle: educational)
 Output:
+- suggestedLayout: "infographic"
 - banner: "THUẾ TNCN 2025"
 - heroText: "5 THAY ĐỔI"  
 - cards: [{icon: "📊", label: "Tăng giảm trừ gia cảnh"}, {icon: "💰", label: "Giảm thuế suất bậc 1"}, {icon: "✅", label: "Miễn thuế dưới 15 triệu"}, {icon: "🚀", label: "Hỗ trợ startup"}]
 
 VÍ DỤ 2:
-Input: "Dịch vụ kế toán ABC - hotline 0901234567 - web ketoanabc.vn - 123 Nguyễn Huệ Q1"
+Input: "Câu chuyện cảm hứng về người sáng lập startup vượt khó" (Goal: awareness, Role: seed, Angle: storytelling)
 Output:
-- banner: "DỊCH VỤ KẾ TOÁN"
-- heroText: "ABC"
-- cards: [{icon: "📋", label: "Báo cáo thuế"}, ...]
-- footer: [{icon: "📞", text: "0901234567"}, {icon: "🌐", text: "ketoanabc.vn"}, {icon: "📍", text: "123 Nguyễn Huệ, Q1"}]
+- suggestedLayout: "quote_card"
+- banner: "CÂU CHUYỆN KHỞI NGHIỆP"
+- heroText: "VƯỢT KHÓ"
+- (KHÔNG có cards vì storytelling cần hero text lớn, cảm xúc)
+
+VÍ DỤ 3:
+Input: "Dịch vụ kế toán ABC - giảm 30% tháng này - hotline 0901234567" (Goal: conversion, Role: harvest, Angle: promotional)
+Output:
+- suggestedLayout: "poster"
+- banner: "ƯU ĐÃI ĐẶC BIỆT"
+- heroText: "GIẢM 30%"
+- cta: "Gọi ngay 0901234567"
+- footer: [{icon: "📞", text: "0901234567"}]
 
 QUY TẮC:
-- LUÔN sáng tạo nội dung overlay có ý nghĩa, KHÔNG chỉ copy nguyên văn
-- Banner phải IN HOA, 2-4 từ
-- Hero text phải nổi bật (số liệu hoặc keyword mạnh)
-- KHÔNG tạo cả headline lẫn heroText cùng lúc — chọn 1 trong 2. Ưu tiên heroText nếu có số liệu/keyword mạnh
-- CTA chỉ tạo khi nội dung THỰC SỰ mang tính quảng bá (bán hàng, đăng ký). Nội dung giáo dục/tin tức KHÔNG cần CTA
-- Cards LUÔN có đúng 4 items, mỗi item 3-8 từ tiếng Việt rõ ràng, LUÔN có emoji icon
-- Footer chỉ tạo khi nội dung CÓ thông tin liên hệ cụ thể (SĐT, email, website, địa chỉ)
+- ĐỌC KỸ nội dung bài viết để hiểu ý chính, KHÔNG chỉ copy nguyên văn
+- Banner phải IN HOA, 2-4 từ, phản ánh ĐÚNG chủ đề
+- Hero text phải nổi bật — lấy từ nội dung thực (số liệu, keyword mạnh nhất)
+- KHÔNG tạo cả headline lẫn heroText cùng lúc — chọn 1 trong 2
+- Cards phải tóm tắt CÁC ĐIỂM CHÍNH thực sự trong bài, KHÔNG generic
+- CTA chỉ tạo khi conversion/harvest/promotional. Nội dung giáo dục/tin tức KHÔNG cần CTA
+- Footer chỉ tạo khi có thông tin liên hệ CỤ THỂ
 - backgroundPrompt phải KẾT THÚC bằng "IMPORTANT: Do NOT include any text, numbers, letters, words, labels, UI elements in the image."
 - Mọi text tiếng Việt phải chính xác ngữ pháp và dấu`;
 
-    const userPrompt = `Phân tích và SÁNG TẠO nội dung infographic từ mô tả sau:
+    const userPrompt = `Phân tích và SÁNG TẠO nội dung infographic từ bài viết sau:
 
 ---
-${description}
+${description.slice(0, 3000)}
 ---
 
 Primary color: ${primaryColor}
@@ -180,10 +214,15 @@ Secondary color: ${secondaryColor}`;
             type: "function",
             function: {
               name: "decompose_image_request",
-              description: "Decompose a complex image description into background prompt and overlay config",
+              description: "Decompose content into background prompt, overlay config, and suggested layout",
               parameters: {
                 type: "object",
                 properties: {
+                  suggestedLayout: {
+                    type: "string",
+                    enum: ["poster", "infographic", "quote_card", "feature_list", "contact_card"],
+                    description: "Best layout template based on content analysis and strategic context",
+                  },
                   backgroundPrompt: {
                     type: "object",
                     properties: {
@@ -233,17 +272,17 @@ Secondary color: ${secondaryColor}`;
                               type: "object",
                               properties: {
                                 icon: { type: "string" },
-                                label: { type: "string", description: "3-8 word meaningful summary point" },
+                                label: { type: "string", description: "3-8 word meaningful summary point from actual content" },
                               },
                               required: ["label"],
                             },
-                            description: "Exactly 4 summary cards with meaningful labels",
+                            description: "Exactly 4 summary cards with meaningful labels extracted from content",
                           },
                           layout: { type: "string", enum: ["grid-2x2", "horizontal", "vertical"] },
                         },
                         required: ["items", "layout"],
                       },
-                      cta: { type: "string", description: "Call-to-action text" },
+                      cta: { type: "string", description: "Call-to-action text (only for conversion/harvest content)" },
                       footer: {
                         type: "object",
                         properties: {
@@ -265,7 +304,7 @@ Secondary color: ${secondaryColor}`;
                     },
                   },
                 },
-                required: ["backgroundPrompt", "overlayConfig"],
+                required: ["suggestedLayout", "backgroundPrompt", "overlayConfig"],
                 additionalProperties: false,
               },
             },
@@ -315,6 +354,7 @@ Secondary color: ${secondaryColor}`;
     const layout = determineLayout(validatedOverlay);
 
     const result = {
+      suggestedLayout: parsed.suggestedLayout || null,
       backgroundPrompt: {
         ...parsed.backgroundPrompt,
         colorScheme: `Primary: ${primaryColor}, Secondary: ${secondaryColor}`,
@@ -329,6 +369,8 @@ Secondary color: ${secondaryColor}`;
         },
       },
     };
+
+    console.log('[decompose-image-request] suggestedLayout:', result.suggestedLayout, 'detectedLayout:', layout);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

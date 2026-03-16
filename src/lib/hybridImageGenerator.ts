@@ -129,6 +129,7 @@ export async function decomposeRequestWithAI(
         ...(data.overlayConfig.cta ? { cta: data.overlayConfig.cta } : {}),
         ...(data.overlayConfig.footer ? { footer: data.overlayConfig.footer } : {}),
       },
+      suggestedLayout: data.suggestedLayout || undefined,
     };
 
     console.log('[HybridImageGen] AI decomposition successful:', {
