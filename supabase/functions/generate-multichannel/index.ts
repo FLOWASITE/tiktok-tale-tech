@@ -1659,6 +1659,9 @@ Mục tiêu nội dung: ${goalLabel}`;
     // REGENERATE MODE HANDLER
     // Regenerates content for a single channel (lightweight path)
     // ============================================
+    let coreContentText = '';
+    let coreKeyMessages: string[] = [];
+    
     if (formData.action === 'regenerate') {
       console.log(`[regenerate-mode] Regenerating ${formData.channel} for content ${formData.contentId}`);
       
@@ -1700,7 +1703,6 @@ Mục tiêu nội dung: ${goalLabel}`;
       organizationId = existingContent.organization_id;
 
       // Fetch Core Content if linked - provides full article context for better regeneration
-      let coreContentText = '';
       let coreKeyMessages: string[] = [];
       if (existingContent.core_content_id) {
         try {
