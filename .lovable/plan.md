@@ -1,44 +1,54 @@
 
-## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-### Van de
-Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
+## Plan: Smart Negative Prompt Defaults theo Mode
 
-### Giai phap
-Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
+### Vấn đề
+Negative prompt hiện tại luôn trống (`''`), user phải tự gõ. Cần tự động điền defaults hợp lý theo `promptMode`.
 
-**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
+### Thay đổi — 2 files
 
-1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
-
-2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
-
-Cu the:
-- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
-- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
-- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
-
-### Chi tiet ky thuat
+**1. Tạo hằng số defaults (`src/lib/imagePromptDefaults.ts` — file mới)**
 
 ```typescript
-// bodyContent - thay doi:
-const bodyContent = (
-  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-    {viewMode === 'setup' && setupFields}
-    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
-  </div>
-);
+export const NEGATIVE_PROMPT_DEFAULTS: Record<PromptMode, string> = {
+  full: 'watermark, blurry, low quality, distorted face, extra fingers, deformed hands, ugly, amateur',
+  brand_only: 'watermark, blurry, low quality, distorted face, extra fingers, deformed hands, ugly, text artifacts',
+  raw: 'watermark, blurry, low quality, distorted face, extra fingers, deformed hands',
+};
 ```
 
-Va DialogContent:
+Logic:
+- **full**: Thêm `amateur` vì mode này cần chất lượng cao nhất
+- **brand_only**: Thêm `text artifacts` vì có thể có text overlay
+- **raw**: Chỉ giữ cơ bản — user toàn quyền tùy chỉnh thêm
+
+**2. Cập nhật `SimpleImageGenerator.tsx`**
+
+- Import `NEGATIVE_PROMPT_DEFAULTS`
+- Thêm `useEffect` trên `promptMode`: khi mode thay đổi, nếu negative prompt đang trống hoặc là default cũ → tự động set default mới
+- Khởi tạo `negativePrompt` state với `NEGATIVE_PROMPT_DEFAULTS['full']` thay vì `''`
+
 ```typescript
-className={cn(
-  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
-  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
-)}
+// Track if user has customized the negative prompt
+const [isNegativePromptCustomized, setIsNegativePromptCustomized] = useState(false);
+
+useEffect(() => {
+  if (!isNegativePromptCustomized) {
+    setNegativePrompt(NEGATIVE_PROMPT_DEFAULTS[promptMode]);
+  }
+}, [promptMode, isNegativePromptCustomized]);
+
+// In onNegativePromptChange handler:
+const handleNegativePromptChange = (value: string) => {
+  setNegativePrompt(value);
+  setIsNegativePromptCustomized(true);
+};
 ```
 
-### Pham vi thay doi
-- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
-- Thay doi ~10 dong code
-- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
+Logic: Nếu user chưa tự sửa → auto-fill theo mode. Nếu user đã sửa → giữ nguyên.
+
+### Scope
+- 1 file mới: `src/lib/imagePromptDefaults.ts` (~10 dòng)
+- 1 file sửa: `SimpleImageGenerator.tsx` (~15 dòng)
+- Không ảnh hưởng backend — negative prompt vẫn truyền qua pipeline như cũ
+
