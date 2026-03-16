@@ -1,47 +1,67 @@
 
-## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-### Vấn đề
-Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
+## Refactor UI/UX cho chế độ "Để AI lo" — Trải nghiệm đặc biệt hơn
 
-### Đã sửa (3 files)
-1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
-2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
+### Vấn đề hiện tại
 
----
+Chế độ "Để AI lo" (full) chỉ đơn giản là **ẩn bớt tùy chọn** của các mode khác và thay bằng nhãn read-only nhỏ. Không có gì đặc biệt về mặt visual. User vẫn thấy:
+- Step 3 trống trải với vài info labels rời rạc
+- Advanced Options vẫn hiển thị (dù hầu hết bị ẩn)
+- Nút "Tạo ảnh" giống hệt các mode khác
+- Không có cảm giác "premium" hay "AI đang lo hết"
 
-## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
+### Thiết kế mới
 
-### Vấn đề
-AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
+Khi `promptMode === 'full'`, thay thế Step 3 bằng một **AI Summary Card** thống nhất và loại bỏ Advanced Options.
 
-### Đã sửa (3 files)
-1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
-2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
+```text
+┌─────────────────────────────────────┐
+│  Step 1: Chọn kênh  [channel grid] │
+├─────────────────────────────────────┤
+│  Step 2: Kiểm soát AI [3 cards]    │
+├─────────────────────────────────────┤
+│  ╔═══════════════════════════════╗  │
+│  ║  ✨ AI đã sẵn sàng tạo ảnh   ║  │
+│  ║                               ║  │
+│  ║  🎨 Phong cách: Cinematic 92% ║  │
+│  ║  📐 Tỉ lệ: Tự động theo kênh ║  │
+│  ║  📍 Logo: Tự động theo kênh   ║  │
+│  ║  📝 Text: AI tự quyết định    ║  │
+│  ║  🧩 Layout: AI chọn tối ưu   ║  │
+│  ║                               ║  │
+│  ║  Keywords: [tag] [tag] [tag]   ║  │
+│  ║                               ║  │
+│  ║  ┌─────────────────────────┐  ║  │
+│  ║  │  ✨ Tạo {n} ảnh AI      │  ║  │
+│  ║  │     (gradient + glow)   │  ║  │
+│  ║  └─────────────────────────┘  ║  │
+│  ╚═══════════════════════════════╝  │
+│                                     │
+│  [NO Advanced Options in full mode] │
+└─────────────────────────────────────┘
+```
 
----
+### Chi tiết kỹ thuật
 
-## Feature: Regenerate sử dụng Core Content — đã sửa
+#### 1. Tạo component `AIReadyCard` (file mới)
+**File: `src/components/multichannel/AIReadyCard.tsx`**
 
-### Vấn đề
-Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
+Component card gradient đặc biệt chỉ hiển thị trong `full` mode, gồm:
+- Header gradient (`from-primary/10 via-purple-500/5 to-blue-500/10`) với icon sparkle animated
+- Checklist icon-based: phong cách (V3 top pick + score), tỉ lệ, logo, text, layout — mỗi item 1 dòng gọn
+- Keywords tags (từ `previewKeywords`)
+- Nút CTA gradient nổi bật với hiệu ứng glow pulse
+- Strategic context badges inline (role + angle) — compact
 
-### Đã sửa (1 file)
-1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
+#### 2. Cập nhật `SimpleImageGenerator.tsx`
+- Khi `promptMode === 'full'`: render `<AIReadyCard>` thay vì các block rời rạc (V3 compact, Content keywords, PromptPreview, Settings Summary, Complexity Warning, info note, generate button)
+- Ẩn hoàn toàn `<ImageAdvancedOptions>` khi `promptMode === 'full'` — không cần vì mọi thứ đã auto
+- CTA button nằm trong `AIReadyCard` thay vì bên ngoài
 
----
+#### 3. Validation fix
+- Trong `handleGenerate`: skip text validation khi `promptMode === 'full'` (đã phân tích ở message trước)
 
-## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
+### Tổng kết: 2 files
+1. **`src/components/multichannel/AIReadyCard.tsx`** — Component mới, card tổng hợp AI
+2. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thay block Step 3 + ẩn Advanced Options cho full mode + fix validation
 
-### Vấn đề
-1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
-2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
-3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
-
-### Đã sửa (4 files)
-1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
-2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
-3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
-4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
