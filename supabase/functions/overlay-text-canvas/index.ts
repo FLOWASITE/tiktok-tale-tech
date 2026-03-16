@@ -997,6 +997,7 @@ serve(async (req) => {
       if (elements.cta) allTexts.push(elements.cta);
       if (elements.cards?.items) allTexts.push(...elements.cards.items.map(c => c.label));
       if (elements.footer?.items) allTexts.push(...elements.footer.items.map(f => f.text));
+      if (elements.summaryRibbon?.text) allTexts.push(elements.summaryRibbon.text);
       const combinedText = allTexts.join(' ') || 'Default';
 
       console.log(`[overlay-text-canvas] Elements: banner=${!!elements.banner}, hero=${!!elements.heroText}, cards=${elements.cards?.items?.length || 0}`);
