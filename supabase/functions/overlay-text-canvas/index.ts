@@ -694,6 +694,9 @@ function buildStructuredElement(
 
   // CTA button
   if (elements.cta) {
+    // CTA safe-area: avoid logo at bottom-center
+    const ctaMarginBottom = (logoMeta && logoMeta.position === 'bottom-center') ? logoSafeHeight : 0;
+
     children.push({
       type: 'div',
       props: {
@@ -705,6 +708,7 @@ function buildStructuredElement(
           backgroundColor: colors.primary,
           borderRadius: theme.borderRadius > 8 ? 24 : theme.borderRadius > 0 ? 12 : 0,
           marginTop: 8,
+          ...(ctaMarginBottom > 0 ? { marginBottom: ctaMarginBottom } : {}),
         },
         children: {
           type: 'span',
