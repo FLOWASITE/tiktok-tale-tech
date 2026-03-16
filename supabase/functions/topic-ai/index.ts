@@ -776,6 +776,7 @@ Analyze and generate a list of NEW trending topics.`;
   const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    userId: params._userId,
     actionType: 'trending',
     messages: [
       { role: 'system', content: systemPrompt },
