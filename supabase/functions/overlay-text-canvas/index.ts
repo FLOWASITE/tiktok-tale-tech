@@ -821,9 +821,9 @@ function buildStructuredElement(
     });
   }
 
-  // Summary ribbon (between cards and CTA)
+  // Summary ribbon (between cards and CTA) — enhanced visual
   if (elements.summaryRibbon) {
-    const ribbonFontSize = Math.round(imageWidth * 0.022);
+    const ribbonFontSize = Math.round(imageWidth * 0.024);
     const ribbonBg = elements.summaryRibbon.bgColor || colors.primary;
     children.push({
       type: 'div',
@@ -832,28 +832,38 @@ function buildStructuredElement(
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: `linear-gradient(90deg, ${ribbonBg}, ${ribbonBg}dd)`,
-          padding: '10px 28px',
+          background: `linear-gradient(135deg, ${ribbonBg}, ${ribbonBg}bb)`,
+          padding: '14px 32px',
           width: '90%',
-          borderRadius: theme.borderRadius > 0 ? theme.borderRadius : 4,
-          marginTop: 8,
+          borderRadius: theme.borderRadius > 0 ? theme.borderRadius : 6,
+          marginTop: 10,
           boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+          borderLeft: `5px solid ${colors.secondary || '#FFFFFF'}`,
         },
-        children: {
-          type: 'span',
-          props: {
-            style: {
-              color: '#FFFFFF',
-              fontSize: ribbonFontSize,
-              fontFamily,
-              fontWeight: 600,
-              textAlign: 'center',
-              lineHeight: 1.4,
-              textShadow: '1px 1px 3px rgba(0,0,0,0.4)',
+        children: [
+          {
+            type: 'span',
+            props: {
+              style: { fontSize: ribbonFontSize * 1.1, marginRight: 8 },
+              children: '📌',
             },
-            children: elements.summaryRibbon.text,
           },
-        },
+          {
+            type: 'span',
+            props: {
+              style: {
+                color: '#FFFFFF',
+                fontSize: ribbonFontSize,
+                fontFamily,
+                fontWeight: 700,
+                textAlign: 'center',
+                lineHeight: 1.4,
+                textShadow: '1px 1px 3px rgba(0,0,0,0.4)',
+              },
+              children: elements.summaryRibbon.text,
+            },
+          },
+        ],
       },
     });
   }
