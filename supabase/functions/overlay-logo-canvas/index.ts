@@ -256,7 +256,10 @@ serve(async (req) => {
       organizationId,
     } = body;
 
-    console.log(`[overlay-logo-canvas] Request - Position: ${position}, Style: ${logoStyle}, Size: ${logoSizePercent}%, Opacity: ${logoOpacity}%`);
+    // Enforce minimum opacity of 50% for visibility on complex backgrounds
+    const logoOpacity = Math.max(rawLogoOpacity, 50);
+
+    console.log(`[overlay-logo-canvas] Request - Position: ${position}, Style: ${logoStyle}, Size: ${logoSizePercent}%, Opacity: ${rawLogoOpacity}% → effective: ${logoOpacity}%`);
 
     // Validate required fields
     if (!baseImageUrl) {
