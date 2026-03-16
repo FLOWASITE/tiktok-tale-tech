@@ -423,8 +423,24 @@ export function ImageAdvancedOptions({
                     value={textToInclude}
                     onChange={e => onTextToIncludeChange(e.target.value)}
                     placeholder="Nhập text hiển thị trên ảnh..."
-                    className="h-20 text-sm resize-none"
+                    className={cn(
+                      "h-20 text-sm resize-none",
+                      textToInclude.length > 150 && "border-destructive focus-visible:ring-destructive"
+                    )}
                   />
+                  <div className="flex items-center justify-between">
+                    <span className={cn(
+                      "text-[10px]",
+                      textToInclude.length <= 80 && "text-muted-foreground/60",
+                      textToInclude.length > 80 && textToInclude.length <= 120 && "text-amber-600 dark:text-amber-400",
+                      textToInclude.length > 120 && textToInclude.length <= 150 && "text-orange-600 dark:text-orange-400",
+                      textToInclude.length > 150 && "text-destructive font-medium",
+                    )}>
+                      {textToInclude.length}/120
+                      {textToInclude.length > 120 && textToInclude.length <= 150 && ' · Text dài có thể bị cắt trên ảnh'}
+                      {textToInclude.length > 150 && ' · ⚠️ Text quá dài, nên rút gọn'}
+                    </span>
+                  </div>
                 </div>
               ) : (
                 selectedChannels && selectedChannels.length > 0 && (
