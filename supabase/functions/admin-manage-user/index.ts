@@ -155,6 +155,8 @@ Deno.serve(async (req) => {
           });
         }
 
+        await auditLog(ban ? "ban_user" : "unban_user", user_id, { ban });
+
         return new Response(
           JSON.stringify({ success: true, banned: ban }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
