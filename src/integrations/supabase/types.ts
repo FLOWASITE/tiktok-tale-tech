@@ -1517,10 +1517,12 @@ export type Database = {
           models_used: Json | null
           organization_id: string | null
           output_tokens_estimated: number | null
+          parent_span_id: string | null
           prompt_id: string | null
           prompt_version: number | null
           quality_mode: string | null
           retry_count: number | null
+          span_id: string | null
           tools_executed: string[] | null
           total_duration_ms: number
           total_turns: number | null
@@ -1554,10 +1556,12 @@ export type Database = {
           models_used?: Json | null
           organization_id?: string | null
           output_tokens_estimated?: number | null
+          parent_span_id?: string | null
           prompt_id?: string | null
           prompt_version?: number | null
           quality_mode?: string | null
           retry_count?: number | null
+          span_id?: string | null
           tools_executed?: string[] | null
           total_duration_ms: number
           total_turns?: number | null
@@ -1591,10 +1595,12 @@ export type Database = {
           models_used?: Json | null
           organization_id?: string | null
           output_tokens_estimated?: number | null
+          parent_span_id?: string | null
           prompt_id?: string | null
           prompt_version?: number | null
           quality_mode?: string | null
           retry_count?: number | null
+          span_id?: string | null
           tools_executed?: string[] | null
           total_duration_ms?: number
           total_turns?: number | null
