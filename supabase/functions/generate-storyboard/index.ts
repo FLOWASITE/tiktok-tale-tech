@@ -284,17 +284,34 @@ ${L.returnJson}`;
 
     console.log(`[generate-storyboard] Generated ${scenes.length} scenes, total duration: ${totalDuration}s, took ${durationMs}ms`);
 
+    // Save AI metrics (non-blocking)
+    const model = "google/gemini-2.5-flash";
+    const inputTokens = data.usage?.prompt_tokens || estimateTokens(systemPrompt + userPrompt);
+    const outputTokens = data.usage?.completion_tokens || estimateTokens(content || '');
+    saveMetrics(supabase, {
+      traceId,
+      functionName: 'generate-storyboard',
+      totalDurationMs: durationMs,
+      aiCallDurationMs: durationMs,
+      inputTokensEstimated: inputTokens,
+      outputTokensEstimated: outputTokens,
+      estimatedCostUsd: estimateCost(model, inputTokens, outputTokens),
+      modelsUsed: { text: model },
+      hadError: false,
+      contextSources: [],
+      actionType: 'content_generation',
+    }).catch(() => {});
+
     // Track prompt usage
     try {
       await pm.trackAll({
-        qualityScore: 85, // Default score for storyboard
+        qualityScore: 85,
         generationTimeMs: durationMs,
       });
     } catch (err) {
       console.warn('[generate-storyboard] Failed to track prompt usage:', err);
     }
 
-    // Log prompt info for debugging
     console.log('[generate-storyboard] Prompts used:', pm.getPromptInfo());
 
     return new Response(

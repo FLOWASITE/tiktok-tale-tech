@@ -385,6 +385,10 @@ Return a JSON object with channel names as keys and the generated content as val
 Example format: {"facebook": "content here...", "linkedin": "content here..."}
 Only return the JSON, no other text.`;
 
+  const aiStartTime = performance.now();
+  const traceId = generateTraceId();
+  const model = "google/gemini-2.5-flash";
+
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -392,7 +396,7 @@ Only return the JSON, no other text.`;
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -417,6 +421,30 @@ Only return the JSON, no other text.`;
 
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content;
+
+  // Non-blocking metrics save
+  const aiDurationMs = Math.round(performance.now() - aiStartTime);
+  const inputTokens = data.usage?.prompt_tokens || estimateTokens(systemPrompt + userPrompt);
+  const outputTokens = data.usage?.completion_tokens || estimateTokens(content || '');
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    saveMetrics(supabase, {
+      traceId,
+      functionName: 'generate-sample-text',
+      totalDurationMs: aiDurationMs,
+      aiCallDurationMs: aiDurationMs,
+      inputTokensEstimated: inputTokens,
+      outputTokensEstimated: outputTokens,
+      estimatedCostUsd: estimateCost(model, inputTokens, outputTokens),
+      modelsUsed: { text: model },
+      hadError: false,
+      contextSources: [],
+      actionType: 'content_generation',
+    }).catch(() => {});
+  } catch {}
+
 
   if (!content) {
     throw new Error("No content returned from AI");
