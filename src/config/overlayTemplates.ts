@@ -14,12 +14,12 @@ export interface OverlayTemplate {
   /** Maps to StructuredOverlayRequest.layout */
   layout: 'stack' | 'split' | 'banner_cards' | 'hero_text' | 'simple';
   /** Which element slots this template requires */
-  requiredSlots: Array<'banner' | 'heroText' | 'headline' | 'cards' | 'cta' | 'footer'>;
+  requiredSlots: Array<'banner' | 'heroText' | 'headline' | 'cards' | 'cta' | 'footer' | 'summaryRibbon'>;
   /** Default element overrides when AI doesn't provide required slots */
   defaults: {
     banner?: { position: 'top' | 'bottom' };
     heroText?: { fontSize: 'xl' | '2xl' | '3xl'; effect: 'none' | 'gradient' };
-    cards?: { layout: 'grid-2x2' | 'horizontal' | 'vertical'; minCount: number };
+    cards?: { layout: 'grid-2x2' | 'horizontal' | 'vertical'; minCount: number; numbered?: boolean };
   };
 }
 

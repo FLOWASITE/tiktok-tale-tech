@@ -51,6 +51,11 @@ export interface OverlayFooter {
   items: OverlayFooterItem[];
 }
 
+export interface OverlaySummaryRibbon {
+  text: string;
+  bgColor?: string;
+}
+
 export interface StructuredOverlayConfig {
   banner?: OverlayBanner;
   heroText?: OverlayHeroText;
@@ -58,6 +63,8 @@ export interface StructuredOverlayConfig {
   headline?: string;
   cta?: string;
   footer?: OverlayFooter;
+  /** Summary ribbon displayed between cards and CTA/footer */
+  summaryRibbon?: OverlaySummaryRibbon;
   colors: {
     primary: string;
     secondary: string;
