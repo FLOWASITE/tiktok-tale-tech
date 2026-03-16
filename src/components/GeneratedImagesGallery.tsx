@@ -246,26 +246,6 @@ export function GeneratedImagesGallery({
         </div>
       )}
 
-      {/* Grid fallback */}
-      <div className="grid grid-cols-3 xs:grid-cols-4 gap-2">
-        {images.map((image) => (
-          <Card key={image.slideNumber} className="overflow-hidden group">
-            <CardContent className="p-0 relative">
-              <div className="aspect-square relative">
-                <img
-                  src={image.imageUrl}
-                  alt={`Slide ${image.slideNumber}`}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-                <Badge className="absolute top-1 left-1 bg-black/70 text-white text-[9px] xs:text-[10px] px-1 py-0">
-                  {image.slideNumber}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
 
       {/* Missing slides info */}
       {images.length < totalSlides && (
