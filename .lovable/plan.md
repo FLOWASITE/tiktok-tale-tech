@@ -1,62 +1,87 @@
-## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-### Vấn đề
-Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-### Đã sửa (3 files)
-1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
-2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
+# Tích hợp AI Cost Tracking cho tất cả Edge Functions còn thiếu
 
----
+## Hiện trạng
 
-## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
+Hệ thống đã có cơ sở hạ tầng cost tracking hoàn chỉnh:
+- Bảng `ai_metrics` lưu trace_id, function_name, model, tokens, estimated_cost_usd
+- Utility `cost-estimator.ts` với pricing cho 50+ models
+- Helper `saveMetrics()` trong `logger.ts`
+- Dashboard hiển thị chi phí (useCostAnalytics, useAIMetrics)
 
-### Vấn đề
-AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
+Tuy nhiên, chỉ ~30-40% edge functions thực sự ghi cost. Đặc biệt **toàn bộ pipeline tạo ảnh** -- tính năng tốn chi phí nhất -- chưa được tracking.
 
-### Đã sửa (3 files)
-1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
-2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
+## Functions cần thêm cost tracking
 
----
+### Priority 1 -- Image Pipeline (chi phí cao nhất)
+| Function | Mô tả | Model dự kiến |
+|----------|--------|---------------|
+| `generate-brand-image` | Tạo ảnh AI cho brand | gemini-3-pro-image / gemini-3.1-flash-image |
+| `generate-carousel-image` | Tạo ảnh carousel | gemini image models |
+| `generate-scene-thumbnail` | Ảnh scene kịch bản | gemini image models |
+| `edit-image-background` | Chỉnh sửa nền ảnh | gemini image models |
+| `decompose-image-request` | Phân tích prompt ảnh | text model |
+| `overlay-brand-logo` | Overlay logo (nếu dùng AI) | -- |
 
-## Feature: Regenerate sử dụng Core Content — đã sửa
+### Priority 2 -- Content Editing & Analysis
+| Function | Mô tả |
+|----------|--------|
+| `ai-edit-channel` | Chỉnh sửa nội dung kênh |
+| `topic-ai` | Gợi ý chủ đề |
+| `generate-hooks` | Tạo hook câu dẫn |
+| `analyze-script` | Phân tích kịch bản |
+| `analyze-dashboard-insights` | Phân tích dashboard |
+| `learn-from-edits` | Học từ chỉnh sửa user |
 
-### Vấn đề
-Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
+### Priority 3 -- Brand & Ad Optimization
+| Function | Mô tả |
+|----------|--------|
+| `generate-brand-voice` | Tạo giọng brand |
+| `generate-brand-guideline` | Tạo guideline |
+| `optimize-ad-copy` | Tối ưu quảng cáo |
+| `score-ad-creative` | Chấm điểm creative |
+| `suggest-ad-fix` | Gợi ý sửa quảng cáo |
+| `predict-ad-performance` | Dự đoán hiệu suất |
 
-### Đã sửa (1 file)
-1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
+### Priority 4 -- Misc AI Functions
+| Function | Mô tả |
+|----------|--------|
+| `generate-sample-text` | Tạo text mẫu |
+| `generate-storyboard` | Tạo storyboard |
+| `generate-journey-messaging` | Tạo messaging theo journey |
+| `suggest-prompt-rewrite` | Gợi ý viết lại prompt |
+| `summarize-conversation` | Tóm tắt hội thoại |
+| `enrich-personas` | Làm giàu persona |
+| `kpi-ai` | Phân tích KPI |
 
----
+## Cách triển khai
 
-## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
+Mỗi function sẽ được thêm pattern giống nhau:
 
-### Vấn đề
-1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
-2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
-3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
+```text
+1. Import: estimateCost, saveMetrics, generateTraceId
+2. Tạo traceId ở đầu request
+3. Sau khi gọi AI xong, tính tokens + cost
+4. Gọi saveMetrics() (non-blocking) ghi vào ai_metrics
+```
 
-### Đã sửa (4 files)
-1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
-2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
-3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
-4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
+Với các function đã dùng `callAIWithMetrics()` từ `ai-provider.ts`, metrics đã tự động được ghi -- cần verify từng function xem đã dùng helper này chưa.
 
----
+Với image generation functions, cần ước lượng cost khác vì image models tính theo request chứ không chỉ tokens.
 
-## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
+## Phạm vi thay đổi
 
-### Vấn đề
-Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
+- ~20 edge function files cần sửa
+- Không cần migration database (bảng `ai_metrics` đã có đủ fields)
+- Không thay đổi UI (dashboard cost analytics đã hiển thị từ `ai_metrics`)
+- Cần cập nhật `cost-estimator.ts` thêm pricing cho image generation models nếu chưa có
 
-### Đã sửa (6 files + 2 edge functions)
-1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
-2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
-3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
-4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
-5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
-6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
-7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
+## Kết quả mong đợi
+
+Sau khi hoàn thành:
+- 100% AI calls được ghi nhận chi phí
+- Dashboard cost analytics phản ánh đúng tổng chi phí thực tế
+- Có thể tính toán chi phí per-user để inform pricing decisions
+- Phát hiện sớm chi phí bất thường (anomaly detection)
+
