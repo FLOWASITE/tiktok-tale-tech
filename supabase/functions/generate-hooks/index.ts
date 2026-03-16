@@ -227,6 +227,9 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Resolve userId from auth header for cost tracking
+    const userId = await resolveUserId(req, supabase);
+
     // =====================================================
     // MODE 1: Multi-platform - tạo hook riêng cho từng platform
     // =====================================================
