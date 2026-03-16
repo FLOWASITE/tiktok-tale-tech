@@ -149,6 +149,22 @@ function getContentSummary(content: MultiChannelContent, channel: Channel): stri
   return summary.slice(0, 600);
 }
 
+/** Get full channel content for deep AI analysis (up to 2000 chars) */
+function getFullChannelContent(content: MultiChannelContent, channel: Channel): string {
+  const fieldMap: Partial<Record<Channel, string | null>> = {
+    website: content.website_content, facebook: content.facebook_content,
+    instagram: content.instagram_content, twitter: content.twitter_content,
+    linkedin: content.linkedin_content, youtube: content.youtube_content,
+    tiktok: content.tiktok_content, threads: content.threads_content,
+    zalo_oa: (content as any).zalo_oa_content, telegram: (content as any).telegram_content,
+    email: content.email_content, google_maps: content.google_maps_content,
+  };
+  const rawText = (fieldMap[channel] ?? content.topic ?? '')
+    .replace(/#{1,6}\s?/g, '').replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  return rawText.slice(0, 2000);
+}
+
 function getHookForChannel(content: MultiChannelContent, channel: Channel) {
   const ch = content.selected_hooks?.find(h => h.channel === channel);
   if (ch?.opening_line) return { hookMessage: ch.opening_line, hookType: ch.hook_type };
@@ -417,16 +433,31 @@ export function SimpleImageGenerator({
     const summaryText = Object.values(contentSummaries).join(' ') + ' ' + textToInclude;
     if (!summaryText.trim()) return;
 
+    // Get full channel content for deeper AI analysis (up to 2000 chars)
+    const firstChannel = selectedChannels[0] || 'instagram';
+    const fullContent = getFullChannelContent(content, firstChannel);
+    const aiInput = fullContent || summaryText;
+
+    // Build strategic context for AI layout selection
+    const decomposeContext = {
+      contentRole: contentRole || undefined,
+      contentGoal: contentGoal || undefined,
+      contentAngle: contentAngle || undefined,
+      topic: content?.topic || undefined,
+      textToInclude: textToInclude || undefined,
+    };
+
     let cancelled = false;
     setIsDecomposing(true);
 
-    decomposeRequestWithAI(summaryText, brandPrimaryColor || '#DC2626')
+    decomposeRequestWithAI(aiInput, brandPrimaryColor || '#DC2626', '#FFFFFF', decomposeContext)
       .then((decomposed) => {
         if (cancelled) return;
+        // Use AI-suggested layout when in auto mode, fallback to heuristic
         const selectedTemplate = overlayTemplate !== 'auto'
           ? overlayTemplate
-          : autoSelectTemplate(summaryText, decomposed.overlayConfig);
-        console.log('[AutoTemplate] Selected:', selectedTemplate, 'from overlayTemplate:', overlayTemplate);
+          : decomposed.suggestedLayout || autoSelectTemplate(summaryText, decomposed.overlayConfig);
+        console.log('[AutoTemplate] Selected:', selectedTemplate, 'suggestedLayout:', decomposed.suggestedLayout, 'from overlayTemplate:', overlayTemplate);
         const applyResult = applyTemplate(selectedTemplate, decomposed, summaryText, brandPrimaryColor || '#DC2626');
         const { backgroundPrompt, overlayConfig } = applyResult;
         const resolvedLayout = applyResult.layout || (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple');
@@ -473,7 +504,7 @@ export function SimpleImageGenerator({
       });
 
     return () => { cancelled = true; };
-  }, [useHybridMode, contentSummaries, textToInclude, brandPrimaryColor, overlayTemplate]);
+  }, [useHybridMode, contentSummaries, textToInclude, brandPrimaryColor, overlayTemplate, selectedChannels, content, contentRole, contentGoal, contentAngle]);
 
   const batchOptions = useMemo(() => ({
     contentId: content?.id ?? '',

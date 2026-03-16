@@ -67,6 +67,17 @@ export interface DecomposedRequest {
   backgroundPrompt: BackgroundPrompt;
   overlayConfig: StructuredOverlayConfig;
   layout?: 'stack' | 'split' | 'banner_cards' | 'hero_text' | 'simple';
+  /** AI-suggested template ID based on content analysis */
+  suggestedLayout?: 'poster' | 'infographic' | 'quote_card' | 'feature_list' | 'contact_card';
+}
+
+/** Strategic context passed to AI decomposition for smarter layout selection */
+export interface DecomposeContext {
+  contentRole?: string;
+  contentGoal?: string;
+  contentAngle?: string;
+  topic?: string;
+  textToInclude?: string;
 }
 
 /**
@@ -76,13 +87,19 @@ export interface DecomposedRequest {
 export async function decomposeRequestWithAI(
   description: string,
   primaryColor: string = '#DC2626',
-  secondaryColor: string = '#FFFFFF'
+  secondaryColor: string = '#FFFFFF',
+  context?: DecomposeContext
 ): Promise<DecomposedRequest> {
   try {
-    console.log('[HybridImageGen] Using AI decomposition via Gemini Flash...');
+    console.log('[HybridImageGen] Using AI decomposition via Gemini Flash...', {
+      descLength: description.length,
+      hasContext: !!context,
+      contentRole: context?.contentRole,
+      contentGoal: context?.contentGoal,
+    });
     
     const { data, error } = await supabase.functions.invoke('decompose-image-request', {
-      body: { description, primaryColor, secondaryColor },
+      body: { description, primaryColor, secondaryColor, context },
     });
 
     if (error) {
@@ -112,6 +129,7 @@ export async function decomposeRequestWithAI(
         ...(data.overlayConfig.cta ? { cta: data.overlayConfig.cta } : {}),
         ...(data.overlayConfig.footer ? { footer: data.overlayConfig.footer } : {}),
       },
+      suggestedLayout: data.suggestedLayout || undefined,
     };
 
     console.log('[HybridImageGen] AI decomposition successful:', {
