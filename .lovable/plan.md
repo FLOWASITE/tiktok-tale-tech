@@ -1,47 +1,24 @@
 
-## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-### Vấn đề
-Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
+## Vấn đề: "Text trên ảnh" vẫn hiện trong chế độ "AI tự lo"
 
-### Đã sửa (3 files)
-1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
-2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
+### Nguyên nhân
 
----
+Trong `ImageAdvancedOptions.tsx`:
+- Line 340-344: Chế độ `full` thay toggle bằng nhãn "AI tự quyết định nội dung text trên ảnh" — đúng
+- Line 361: `{enableTextOverlay && (` — block hiển thị ô nhập text **không kiểm tra `promptMode`**, nên khi `enableTextOverlay = true` (được auto-bật cho `full` mode), ô text vẫn hiện ra
 
-## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
+### Kế hoạch sửa
 
-### Vấn đề
-AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
+**File:** `src/components/multichannel/ImageAdvancedOptions.tsx`
 
-### Đã sửa (3 files)
-1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
-2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
+Thêm điều kiện `promptMode !== 'full'` vào line 361:
 
----
+```typescript
+{enableTextOverlay && promptMode !== 'full' && (
+```
 
-## Feature: Regenerate sử dụng Core Content — đã sửa
+Khi ở chế độ "AI tự lo", chỉ hiện nhãn thông tin, ẩn toàn bộ phần nhập text (Chung/Theo kênh, Textarea, AI sửa chữ). AI sẽ tự quyết định nội dung text dựa trên context có sẵn.
 
-### Vấn đề
-Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
+Thay đổi 1 dòng, 1 file.
 
-### Đã sửa (1 file)
-1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
-
----
-
-## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
-
-### Vấn đề
-1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
-2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
-3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
-
-### Đã sửa (4 files)
-1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
-2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
-3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
-4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
