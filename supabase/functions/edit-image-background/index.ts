@@ -1,7 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared/kie-image-generator.ts";
 import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_shared/poyo-image-generator.ts";
+import { generateTraceId, saveMetrics, estimateTokens } from "../_shared/logger.ts";
+import { estimateCost } from "../_shared/cost-estimator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,6 +100,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const traceId = generateTraceId();
+  const startTime = performance.now();
 
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -282,6 +288,30 @@ serve(async (req) => {
 
     console.log(`[edit-image-background] Success - generated ${request.editType} background edit`);
 
+    // Non-blocking metrics save
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    const inputTokens = estimateTokens(editPrompt);
+    const estimatedCostUsd = estimateCost(modelToUse, inputTokens, 0);
+    try {
+      const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      saveMetrics(sb, {
+        traceId,
+        functionName: 'edit-image-background',
+        organizationId: request.organizationId,
+        totalDurationMs,
+        aiCallDurationMs: totalDurationMs,
+        inputTokensEstimated: inputTokens,
+        outputTokensEstimated: 0,
+        estimatedCostUsd,
+        modelsUsed: { image: modelToUse },
+        hadError: false,
+        contextSources: [],
+        channels: request.channel ? [request.channel] : [],
+        contentId: request.contentId,
+        actionType: 'image_edit',
+      }).catch(() => {});
+    } catch {}
+
     return new Response(
       JSON.stringify({ 
         success: true, 
@@ -294,6 +324,22 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("[edit-image-background] Error:", error);
+
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    try {
+      const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      saveMetrics(sb, {
+        traceId,
+        functionName: 'edit-image-background',
+        totalDurationMs,
+        hadError: true,
+        errorType: error instanceof Error ? error.name : 'Unknown',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        contextSources: [],
+        actionType: 'image_edit',
+      }).catch(() => {});
+    } catch {}
+
     return new Response(
       JSON.stringify({ 
         success: false, 

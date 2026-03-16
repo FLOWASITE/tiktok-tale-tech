@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
+import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
 
@@ -125,8 +125,8 @@ Return JSON only, no other text.`;
     const aiConfig = await getAIConfig('optimize-ad-copy');
     const adminModel = aiConfig?.model || undefined;
 
-    // Use multi-provider system
-    const aiResult = await callAIProvider({
+    // Use multi-provider system with auto metrics
+    const aiResult = await callAIWithMetrics(supabase, {
       functionName: 'optimize-ad-copy',
       messages: [
         { role: "system", content: finalSystemPrompt },

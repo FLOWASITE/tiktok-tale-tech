@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { generateTraceId, saveMetrics, estimateTokens } from "../_shared/logger.ts";
+import { estimateCost } from "../_shared/cost-estimator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -176,6 +178,26 @@ serve(async (req) => {
 
     console.log("[overlay-brand-logo] Final image uploaded:", publicUrlData.publicUrl);
 
+    // Non-blocking metrics save
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    const model = "google/gemini-3-pro-image-preview";
+    const estimatedCostUsd = estimateCost(model, 500, 0); // Image edit is ~500 tokens input
+    saveMetrics(supabase, {
+      traceId,
+      functionName: 'overlay-brand-logo',
+      totalDurationMs,
+      aiCallDurationMs: totalDurationMs,
+      inputTokensEstimated: 500,
+      outputTokensEstimated: 0,
+      estimatedCostUsd,
+      modelsUsed: { image: model },
+      hadError: false,
+      contextSources: [],
+      channels: [channel],
+      contentId,
+      actionType: 'image_edit',
+    }).catch(() => {});
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -186,6 +208,26 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("[overlay-brand-logo] Error:", error);
+
+    // Save error metrics
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      saveMetrics(supabase, {
+        traceId,
+        functionName: 'overlay-brand-logo',
+        totalDurationMs,
+        hadError: true,
+        errorType: error instanceof Error ? error.name : 'Unknown',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        contextSources: [],
+        actionType: 'image_edit',
+      }).catch(() => {});
+    } catch {}
+
     return new Response(
       JSON.stringify({
         success: false,

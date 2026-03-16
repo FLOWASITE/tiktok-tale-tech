@@ -1,4 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { generateTraceId, saveMetrics, estimateTokens } from "../_shared/logger.ts";
+import { estimateCost } from "../_shared/cost-estimator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,6 +27,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const traceId = generateTraceId();
+  const startTime = performance.now();
 
   try {
     const { scene } = await req.json() as { scene: SceneData };
@@ -99,6 +105,31 @@ serve(async (req) => {
       );
     }
 
+    // Non-blocking metrics save
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    const model = "google/gemini-3-pro-image-preview";
+    const inputTokens = estimateTokens(imagePrompt);
+    const estimatedCostUsd = estimateCost(model, inputTokens, 0);
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    saveMetrics(supabase, {
+      traceId,
+      functionName: 'generate-scene-thumbnail',
+      totalDurationMs,
+      aiCallDurationMs: totalDurationMs,
+      inputTokensEstimated: inputTokens,
+      outputTokensEstimated: 0,
+      estimatedCostUsd,
+      modelsUsed: { image: model },
+      hadError: false,
+      contextSources: [],
+      actionType: 'image_generation',
+    }).catch(() => {});
+
     return new Response(
       JSON.stringify({
         imageUrl,
@@ -109,6 +140,26 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Error generating scene thumbnail:", error);
+
+    // Save error metrics
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      saveMetrics(supabase, {
+        traceId,
+        functionName: 'generate-scene-thumbnail',
+        totalDurationMs,
+        hadError: true,
+        errorType: error instanceof Error ? error.name : 'Unknown',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        contextSources: [],
+        actionType: 'image_generation',
+      }).catch(() => {});
+    } catch {}
+
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : "Unknown error",

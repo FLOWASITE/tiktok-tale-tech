@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
 import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext, getLocalizedPromptLabels } from "../_shared/country-language-map.ts";
+import { generateTraceId, saveMetrics, estimateTokens } from "../_shared/logger.ts";
+import { estimateCost } from "../_shared/cost-estimator.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
@@ -214,6 +216,23 @@ ${jsonFormatInstruction}`;
     }
 
     const scoreResult = JSON.parse(jsonMatch[0]);
+
+    // Non-blocking metrics
+    const model = "google/gemini-2.5-flash";
+    const inputTokens = estimateTokens(finalSystemPrompt + prompt);
+    const outputTokens = estimateTokens(text);
+    saveMetrics(supabase, {
+      traceId: generateTraceId(),
+      functionName: 'score-ad-creative',
+      totalDurationMs: 0,
+      inputTokensEstimated: inputTokens,
+      outputTokensEstimated: outputTokens,
+      estimatedCostUsd: estimateCost(model, inputTokens, outputTokens),
+      modelsUsed: { text: model },
+      hadError: false,
+      contextSources: [],
+      actionType: 'content_analysis',
+    }).catch(() => {});
 
     return new Response(
       JSON.stringify(scoreResult),

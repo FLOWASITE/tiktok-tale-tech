@@ -2,6 +2,8 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
+import { generateTraceId, saveMetrics, estimateTokens } from "../_shared/logger.ts";
+import { estimateCost } from "../_shared/cost-estimator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -436,7 +438,25 @@ Hãy chỉnh sửa nội dung theo yêu cầu trên, giữ đúng format kênh $
 
     console.log("Edited content generated successfully");
 
-    // Return the edited content (not saved yet - let user preview)
+    // Non-blocking metrics
+    const model = "google/gemini-2.5-flash";
+    const inputTokens = estimateTokens(systemPrompt + userPrompt);
+    const outputTokens = estimateTokens(editedContent);
+    saveMetrics(supabase, {
+      traceId: generateTraceId(),
+      functionName: 'ai-edit-channel',
+      totalDurationMs: 0,
+      inputTokensEstimated: inputTokens,
+      outputTokensEstimated: outputTokens,
+      estimatedCostUsd: estimateCost(model, inputTokens, outputTokens),
+      modelsUsed: { text: model },
+      hadError: false,
+      contextSources: ['brand'],
+      channels: [channel],
+      contentId,
+      actionType: 'content_edit',
+    }).catch(() => {});
+
     return new Response(JSON.stringify({ editedContent }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

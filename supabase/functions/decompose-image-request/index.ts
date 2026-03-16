@@ -1,4 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { generateTraceId, saveMetrics, estimateTokens } from "../_shared/logger.ts";
+import { estimateCost } from "../_shared/cost-estimator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -115,6 +118,9 @@ function determineLayout(overlay: any): string {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const traceId = generateTraceId();
+  const startTime = performance.now();
 
   try {
     const { description, primaryColor = "#DC2626", secondaryColor = "#FFFFFF", context } = await req.json();
@@ -408,11 +414,50 @@ Secondary color: ${secondaryColor}`;
 
     console.log('[decompose-image-request] suggestedLayout:', result.suggestedLayout, 'detectedLayout:', layout);
 
+    // Non-blocking metrics save
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    const model = "google/gemini-2.5-flash";
+    const inputTokens = estimateTokens(description);
+    const outputTokens = estimateTokens(JSON.stringify(result));
+    const estimatedCostUsd = estimateCost(model, inputTokens, outputTokens);
+    try {
+      const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      saveMetrics(sb, {
+        traceId,
+        functionName: 'decompose-image-request',
+        totalDurationMs,
+        aiCallDurationMs: totalDurationMs,
+        inputTokensEstimated: inputTokens,
+        outputTokensEstimated: outputTokens,
+        estimatedCostUsd,
+        modelsUsed: { text: model },
+        hadError: false,
+        contextSources: [],
+        actionType: 'content_analysis',
+      }).catch(() => {});
+    } catch {}
+
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("decompose-image-request error:", err);
+
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    try {
+      const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      saveMetrics(sb, {
+        traceId,
+        functionName: 'decompose-image-request',
+        totalDurationMs,
+        hadError: true,
+        errorType: err instanceof Error ? err.name : 'Unknown',
+        errorMessage: err instanceof Error ? err.message : 'Unknown error',
+        contextSources: [],
+        actionType: 'content_analysis',
+      }).catch(() => {});
+    } catch {}
+
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

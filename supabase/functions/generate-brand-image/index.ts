@@ -3,6 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared/kie-image-generator.ts";
 import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_shared/poyo-image-generator.ts";
+import { generateTraceId, saveMetrics, estimateTokens } from "../_shared/logger.ts";
+import { estimateCost } from "../_shared/cost-estimator.ts";
 import { 
   buildImagePrompt,
   buildSimpleImagePrompt,
@@ -328,6 +330,9 @@ function structuredElementsToPromptText(
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const traceId = generateTraceId();
+  const startTime = performance.now();
 
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -742,6 +747,28 @@ function structuredElementsToPromptText(
     // Deno edge functions keep running after response is sent
     historySavePromise.catch(() => {});
 
+    // Non-blocking metrics save
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    const inputTokens = estimateTokens(enhancedPrompt);
+    const estimatedCostUsd = estimateCost(modelUsed.split(' ')[0], inputTokens, 0);
+    saveMetrics(supabase, {
+      traceId,
+      functionName: 'generate-brand-image',
+      organizationId: brandTemplate.organization_id,
+      totalDurationMs,
+      aiCallDurationMs: totalDurationMs,
+      inputTokensEstimated: inputTokens,
+      outputTokensEstimated: 0,
+      estimatedCostUsd,
+      modelsUsed: { image: modelUsed },
+      hadError: false,
+      contextSources: personaContext ? ['persona', 'brand'] : ['brand'],
+      channels: [channel],
+      contentId,
+      actionType: 'image_generation',
+      retryCount: totalAttempts - 1,
+    }).catch(() => {});
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -759,6 +786,23 @@ function structuredElementsToPromptText(
     );
   } catch (error) {
     console.error("[generate-brand-image] Error:", error);
+
+    // Save error metrics
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    try {
+      const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      saveMetrics(sb, {
+        traceId,
+        functionName: 'generate-brand-image',
+        totalDurationMs,
+        hadError: true,
+        errorType: error instanceof Error ? error.name : 'Unknown',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        contextSources: [],
+        actionType: 'image_generation',
+      }).catch(() => {});
+    } catch {}
+
     return new Response(
       JSON.stringify({
         success: false,

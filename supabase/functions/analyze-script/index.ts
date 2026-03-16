@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
+import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
 import { buildLocalizedDateContext } from "../_shared/country-language-map.ts";
@@ -106,8 +106,13 @@ ${scriptContent}`;
     const aiConfig = await getAIConfig('analyze-script');
     const adminModel = aiConfig?.model || undefined;
 
-    // Use multi-provider system
-    const aiResult = await callAIProvider({
+    // Use multi-provider system with auto metrics
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    const aiResult = await callAIWithMetrics(supabase, {
       functionName: 'analyze-script',
       messages: [
         { role: 'system', content: systemPrompt },
