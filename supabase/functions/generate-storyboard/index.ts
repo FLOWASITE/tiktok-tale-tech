@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
-import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
+import { saveMetrics, generateTraceId, estimateTokens } from "../_shared/logger.ts";
+import { estimateCost } from "../_shared/cost-estimator.ts";
 import { getLanguageForCountry, getLanguageConfig } from "../_shared/country-language-map.ts";
 
 const corsHeaders = {
@@ -283,17 +284,34 @@ ${L.returnJson}`;
 
     console.log(`[generate-storyboard] Generated ${scenes.length} scenes, total duration: ${totalDuration}s, took ${durationMs}ms`);
 
+    // Save AI metrics (non-blocking)
+    const model = "google/gemini-2.5-flash";
+    const inputTokens = data.usage?.prompt_tokens || estimateTokens(systemPrompt + userPrompt);
+    const outputTokens = data.usage?.completion_tokens || estimateTokens(content || '');
+    saveMetrics(supabase, {
+      traceId,
+      functionName: 'generate-storyboard',
+      totalDurationMs: durationMs,
+      aiCallDurationMs: durationMs,
+      inputTokensEstimated: inputTokens,
+      outputTokensEstimated: outputTokens,
+      estimatedCostUsd: estimateCost(model, inputTokens, outputTokens),
+      modelsUsed: { text: model },
+      hadError: false,
+      contextSources: [],
+      actionType: 'content_generation',
+    }).catch(() => {});
+
     // Track prompt usage
     try {
       await pm.trackAll({
-        qualityScore: 85, // Default score for storyboard
+        qualityScore: 85,
         generationTimeMs: durationMs,
       });
     } catch (err) {
       console.warn('[generate-storyboard] Failed to track prompt usage:', err);
     }
 
-    // Log prompt info for debugging
     console.log('[generate-storyboard] Prompts used:', pm.getPromptInfo());
 
     return new Response(
