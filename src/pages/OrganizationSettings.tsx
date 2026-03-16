@@ -208,6 +208,7 @@ export default function OrganizationSettings() {
               currentRole={currentRole}
               onInviteMember={inviteMember}
               onCreateMember={createMember}
+              onBulkCreateMembers={bulkCreateMembers}
               onUpdateRole={updateMemberRole}
               onRemoveMember={removeMember}
               updating={membersUpdating}
