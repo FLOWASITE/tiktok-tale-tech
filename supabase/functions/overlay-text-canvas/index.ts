@@ -817,8 +817,8 @@ function buildStructuredElement(
     const effectiveCardLayout = isPortraitOrSquare ? 'vertical' : elements.cards.layout;
     const isGrid = effectiveCardLayout === 'grid-2x2';
     const fontBase = Math.min(imageWidth, imageHeight); // scale by smaller dimension
-    const cardFontSize = Math.round(fontBase * (isEducationInfographic && elementCount >= 5 ? 0.022 : 0.025));
-    const cardDescFontSize = Math.round(imageWidth * 0.015);
+    const cardFontSize = Math.max(Math.round(fontBase * (isEducationInfographic && elementCount >= 5 ? 0.022 : 0.025)), 14);
+    const cardDescFontSize = Math.max(Math.round(imageWidth * 0.015), 12);
     const hasNumberedCards = elements.cards.items.some(item => item.number != null);
     
     const cardElements = elements.cards.items.map((item, idx) => {
