@@ -48,6 +48,7 @@ function validateOverlay(overlay: any, primaryColor: string): any {
         .map((c: any) => ({
           icon: c.icon || undefined,
           label: c.label.trim().slice(0, 50),
+          ...(c.description ? { description: c.description.trim().slice(0, 60) } : {}),
           ...(c.number != null ? { number: c.number } : {}),
         }));
 
@@ -159,7 +160,7 @@ OVERLAY ELEMENTS:
    - **banner**: Nhãn ngắn gọn 2-4 từ IN HOA tóm tắt chủ đề (VD: "CHÍNH SÁCH MỚI", "CẬP NHẬT THUẾ", "TIN NÓNG", "KIẾN THỨC HAY")
    - **heroText**: Số liệu nổi bật hoặc keyword mạnh ≤ 20 ký tự (VD: "100%", "50 TRIỆU", "GIẢM 30%", "TOP 5")
    - **headline**: Tiêu đề chính 1 dòng nếu cần
-    - **cards**: Tạo 3-4 thẻ CHỈ KHI nội dung có nhiều điểm chính (giáo dục, liệt kê, so sánh). KHÔNG tạo cards cho nội dung cảm xúc/storytelling/quote/awareness. Mỗi label ngắn gọn 3-8 từ, LUÔN thêm icon emoji phù hợp. Thêm field "number" (1,2,3...) khi layout là education_infographic
+    - **cards**: Tạo 3-5 thẻ CHỈ KHI nội dung có nhiều điểm chính (giáo dục, liệt kê, so sánh). KHÔNG tạo cards cho nội dung cảm xúc/storytelling/quote/awareness. Mỗi label ngắn gọn 3-8 từ, LUÔN thêm icon emoji phù hợp. Thêm field "number" (1,2,3...) khi layout là education_infographic. Thêm field "description" (mô tả ngắn ≤60 ký tự) khi education_infographic hoặc nội dung cần giải thích chi tiết
     - **cta**: Call-to-action (chỉ khi conversion/harvest/promotional hoặc education_infographic)
     - **summaryRibbon**: Dải ribbon tóm tắt 1 câu ngắn gọn giữa cards và CTA (chỉ cho education_infographic)
     - **footer**: Thanh thông tin liên hệ ở cuối (chỉ khi có SĐT/email/website/địa chỉ trong nội dung)
@@ -170,7 +171,7 @@ Output:
 - suggestedLayout: "infographic"
 - banner: "THUẾ TNCN 2025"
 - heroText: "5 THAY ĐỔI"  
-- cards: [{icon: "📊", label: "Tăng giảm trừ gia cảnh"}, {icon: "💰", label: "Giảm thuế suất bậc 1"}, {icon: "✅", label: "Miễn thuế dưới 15 triệu"}, {icon: "🚀", label: "Hỗ trợ startup"}]
+- cards: [{icon: "📊", label: "Tăng giảm trừ gia cảnh", description: "Mức giảm trừ tăng lên 13.5 triệu/tháng"}, {icon: "💰", label: "Giảm thuế suất bậc 1", description: "Thuế suất 5% áp dụng đến 7 triệu"}, {icon: "✅", label: "Miễn thuế dưới 15 triệu", description: "Thu nhập chịu thuế dưới 15 triệu được miễn"}, {icon: "🚀", label: "Hỗ trợ startup", description: "Giảm 50% thuế TNCN cho startup"}]
 
 VÍ DỤ 2:
 Input: "Câu chuyện cảm hứng về người sáng lập startup vượt khó" (Goal: awareness, Role: seed, Angle: storytelling)
@@ -285,6 +286,7 @@ Secondary color: ${secondaryColor}`;
                               properties: {
                                 icon: { type: "string" },
                                 label: { type: "string", description: "3-8 word meaningful summary point from actual content" },
+                                description: { type: "string", description: "Optional subtitle/detail for this card, max 60 chars. Use for education_infographic or detailed content" },
                                 number: { type: "number", description: "Numbered index (1,2,3...) for education_infographic layout" },
                               },
                               required: ["label"],

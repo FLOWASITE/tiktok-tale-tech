@@ -186,7 +186,7 @@ interface StructuredOverlayRequest {
   elements: {
     banner?: { text: string; bgColor: string; position: 'top' | 'bottom' };
     heroText?: { text: string; fontSize: 'xl' | '2xl' | '3xl'; effect: 'none' | 'gradient' };
-    cards?: { items: { icon?: string; label: string; number?: number }[]; layout: 'grid-2x2' | 'horizontal' | 'vertical' };
+    cards?: { items: { icon?: string; label: string; description?: string; number?: number }[]; layout: 'grid-2x2' | 'horizontal' | 'vertical' };
     headline?: string;
     cta?: string;
     footer?: { items: Array<{ icon?: string; text: string }> };
@@ -468,19 +468,24 @@ function buildStructuredElement(
   const fontFamily = hasCustomFont ? 'Be Vietnam Pro' : 'sans-serif';
 
   // === Smart Density: reduce visual clutter ===
+  // Detect education_infographic mode (has summaryRibbon = dense layout designed for it)
+  const isEducationInfographic = !!elements.summaryRibbon;
+  
   if (elements.heroText && elements.headline) {
     delete elements.headline;
   }
   if (elements.cards?.items) {
     const isSquareOrTall = imageWidth <= imageHeight;
-    const maxCards = isSquareOrTall ? 3 : 4;
+    // Education infographic allows more cards (up to 5)
+    const maxCards = isEducationInfographic ? 5 : (isSquareOrTall ? 3 : 4);
     elements.cards.items = elements.cards.items.slice(0, maxCards);
   }
   if (elements.footer?.items) {
     elements.footer.items = elements.footer.items.slice(0, 4);
   }
   const elementCount = [elements.banner, elements.heroText, elements.headline, elements.cards, elements.cta, elements.footer, elements.summaryRibbon].filter(Boolean).length;
-  if (elementCount >= 6 && elements.cta) {
+  // Don't strip CTA for education_infographic — it's designed for dense layouts
+  if (elementCount >= 6 && elements.cta && !isEducationInfographic) {
     delete elements.cta;
   }
 
@@ -531,7 +536,7 @@ function buildStructuredElement(
           props: {
             style: {
               color: bannerTextColor,
-              fontSize: Math.round(imageWidth * 0.03),
+              fontSize: Math.round(imageWidth * (isEducationInfographic ? 0.04 : 0.03)),
               fontFamily,
               fontWeight: theme.fontWeight,
               letterSpacing: '0.05em',
@@ -545,39 +550,88 @@ function buildStructuredElement(
     });
   }
 
-  // Hero text (large centered text)
+  // Hero text (large centered text or number circle)
   if (elements.heroText) {
     const sizeMap = { xl: 0.06, '2xl': 0.08, '3xl': 0.12 };
     const fontSize = Math.round(imageWidth * (sizeMap[elements.heroText.fontSize] || 0.08));
-    children.push({
-      type: 'div',
-      props: {
-        style: {
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
-          flexGrow: 1,
-          ...(logoInCenterArea && logoMeta ? {
-            paddingLeft: logoMeta.position === 'center-left' || logoMeta.position === 'center' ? logoSafeWidth : 20,
-            paddingRight: logoMeta.position === 'center-right' || logoMeta.position === 'center' ? logoSafeWidth : 20,
-          } : {}),
-        },
-        children: {
-          type: 'span',
-          props: {
-            style: {
-              color: colors.primary,
-              fontSize,
-              fontFamily,
-              fontWeight: theme.fontWeight >= 600 ? 700 : 600,
-              textShadow: theme.heroTextShadow,
+    const isNumericHero = /^\d+$/.test(elements.heroText.text.trim());
+    
+    if (isNumericHero) {
+      // Hero Number Circle: large styled circle with number inside
+      const circleDiameter = Math.round(imageWidth * 0.15);
+      children.push({
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            flexGrow: 1,
+          },
+          children: {
+            type: 'div',
+            props: {
+              style: {
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: circleDiameter,
+                height: circleDiameter,
+                borderRadius: circleDiameter / 2,
+                background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary || colors.primary}cc)`,
+                boxShadow: `0 8px 32px ${colors.primary}88, 0 4px 16px rgba(0,0,0,0.3)`,
+                border: `4px solid rgba(255,255,255,0.3)`,
+              },
+              children: {
+                type: 'span',
+                props: {
+                  style: {
+                    color: '#FFFFFF',
+                    fontSize: Math.round(circleDiameter * 0.6),
+                    fontFamily,
+                    fontWeight: 700,
+                    textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+                  },
+                  children: elements.heroText.text.trim(),
+                },
+              },
             },
-            children: elements.heroText.text,
           },
         },
-      },
-    });
+      });
+    } else {
+      // Regular hero text
+      children.push({
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            flexGrow: 1,
+            ...(logoInCenterArea && logoMeta ? {
+              paddingLeft: logoMeta.position === 'center-left' || logoMeta.position === 'center' ? logoSafeWidth : 20,
+              paddingRight: logoMeta.position === 'center-right' || logoMeta.position === 'center' ? logoSafeWidth : 20,
+            } : {}),
+          },
+          children: {
+            type: 'span',
+            props: {
+              style: {
+                color: colors.primary,
+                fontSize,
+                fontFamily,
+                fontWeight: theme.fontWeight >= 600 ? 700 : 600,
+                textShadow: theme.heroTextShadow,
+              },
+              children: elements.heroText.text,
+            },
+          },
+        },
+      });
+    }
   }
 
   // Headline
@@ -616,7 +670,8 @@ function buildStructuredElement(
   // Cards grid
   if (elements.cards && elements.cards.items.length > 0) {
     const isGrid = elements.cards.layout === 'grid-2x2';
-    const cardFontSize = Math.round(imageWidth * 0.02);
+    const cardFontSize = Math.round(imageWidth * (isEducationInfographic && elementCount >= 5 ? 0.018 : 0.02));
+    const cardDescFontSize = Math.round(imageWidth * 0.015);
     const hasNumberedCards = elements.cards.items.some(item => item.number != null);
     
     const cardElements = elements.cards.items.map((item, idx) => {
@@ -676,17 +731,47 @@ function buildStructuredElement(
         });
       }
 
-      cardChildren.push({
+      // Card text: label + optional description (2-line rendering)
+      const textChildren: any[] = [{
         type: 'span',
         props: {
           style: {
             color: theme.cardTextColor,
             fontSize: cardFontSize,
             fontFamily,
-            fontWeight: theme.fontWeight >= 600 ? 500 : theme.fontWeight,
+            fontWeight: theme.fontWeight >= 600 ? 600 : theme.fontWeight,
             flex: 1,
           },
           children: item.label,
+        },
+      }];
+
+      if (item.description) {
+        textChildren.push({
+          type: 'span',
+          props: {
+            style: {
+              color: theme.cardTextColor,
+              fontSize: cardDescFontSize,
+              fontFamily,
+              fontWeight: 400,
+              opacity: 0.75,
+              marginTop: 2,
+            },
+            children: item.description,
+          },
+        });
+      }
+
+      cardChildren.push({
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+          },
+          children: textChildren.length === 1 ? textChildren[0] : textChildren,
         },
       });
 
@@ -699,7 +784,7 @@ function buildStructuredElement(
             gap: hasNumberedCards ? 12 : 8,
             background: cardGradient,
             borderRadius: theme.borderRadius,
-            padding: hasNumberedCards ? '12px 16px' : '10px 16px',
+            padding: hasNumberedCards ? '14px 20px' : '10px 16px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)',
             ...(isGrid ? { width: '48%' } : { flex: '1' }),
           },
@@ -736,9 +821,9 @@ function buildStructuredElement(
     });
   }
 
-  // Summary ribbon (between cards and CTA)
+  // Summary ribbon (between cards and CTA) — enhanced visual
   if (elements.summaryRibbon) {
-    const ribbonFontSize = Math.round(imageWidth * 0.022);
+    const ribbonFontSize = Math.round(imageWidth * 0.024);
     const ribbonBg = elements.summaryRibbon.bgColor || colors.primary;
     children.push({
       type: 'div',
@@ -747,28 +832,38 @@ function buildStructuredElement(
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: `linear-gradient(90deg, ${ribbonBg}, ${ribbonBg}dd)`,
-          padding: '10px 28px',
+          background: `linear-gradient(135deg, ${ribbonBg}, ${ribbonBg}bb)`,
+          padding: '14px 32px',
           width: '90%',
-          borderRadius: theme.borderRadius > 0 ? theme.borderRadius : 4,
-          marginTop: 8,
+          borderRadius: theme.borderRadius > 0 ? theme.borderRadius : 6,
+          marginTop: 10,
           boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+          borderLeft: `5px solid ${colors.secondary || '#FFFFFF'}`,
         },
-        children: {
-          type: 'span',
-          props: {
-            style: {
-              color: '#FFFFFF',
-              fontSize: ribbonFontSize,
-              fontFamily,
-              fontWeight: 600,
-              textAlign: 'center',
-              lineHeight: 1.4,
-              textShadow: '1px 1px 3px rgba(0,0,0,0.4)',
+        children: [
+          {
+            type: 'span',
+            props: {
+              style: { fontSize: ribbonFontSize * 1.1, marginRight: 8 },
+              children: '📌',
             },
-            children: elements.summaryRibbon.text,
           },
-        },
+          {
+            type: 'span',
+            props: {
+              style: {
+                color: '#FFFFFF',
+                fontSize: ribbonFontSize,
+                fontFamily,
+                fontWeight: 700,
+                textAlign: 'center',
+                lineHeight: 1.4,
+                textShadow: '1px 1px 3px rgba(0,0,0,0.4)',
+              },
+              children: elements.summaryRibbon.text,
+            },
+          },
+        ],
       },
     });
   }
@@ -809,7 +904,7 @@ function buildStructuredElement(
 
   // Footer contact bar
   if (elements.footer && elements.footer.items.length > 0) {
-    const footerFontSize = Math.round(imageWidth * 0.018);
+    const footerFontSize = Math.round(imageWidth * (isEducationInfographic ? 0.022 : 0.018));
     const footerItems = elements.footer.items.map(item => ({
       type: 'div',
       props: {
@@ -995,7 +1090,10 @@ serve(async (req) => {
       if (elements.heroText?.text) allTexts.push(elements.heroText.text);
       if (elements.headline) allTexts.push(elements.headline);
       if (elements.cta) allTexts.push(elements.cta);
-      if (elements.cards?.items) allTexts.push(...elements.cards.items.map(c => c.label));
+      if (elements.cards?.items) {
+        allTexts.push(...elements.cards.items.map(c => c.label));
+        allTexts.push(...elements.cards.items.filter(c => c.description).map(c => c.description!));
+      }
       if (elements.footer?.items) allTexts.push(...elements.footer.items.map(f => f.text));
       if (elements.summaryRibbon?.text) allTexts.push(elements.summaryRibbon.text);
       const combinedText = allTexts.join(' ') || 'Default';
