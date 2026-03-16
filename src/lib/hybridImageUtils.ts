@@ -27,6 +27,8 @@ export interface OverlayHeroText {
 export interface OverlayCardItem {
   icon?: string;
   label: string;
+  /** Optional number for numbered card styling (e.g. 1, 2, 3) */
+  number?: number;
 }
 
 export interface OverlayCards {
