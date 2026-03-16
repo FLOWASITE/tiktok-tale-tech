@@ -1,4 +1,4 @@
-import { Carousel, CarouselStatus } from '@/types/carousel';
+import { Carousel, CarouselStatus, CarouselSlide } from '@/types/carousel';
 import { SlidePromptCard } from './SlidePromptCard';
 import {
   Dialog,
