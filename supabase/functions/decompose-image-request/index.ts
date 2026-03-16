@@ -170,7 +170,7 @@ Output:
 - suggestedLayout: "infographic"
 - banner: "THUẾ TNCN 2025"
 - heroText: "5 THAY ĐỔI"  
-- cards: [{icon: "📊", label: "Tăng giảm trừ gia cảnh"}, {icon: "💰", label: "Giảm thuế suất bậc 1"}, {icon: "✅", label: "Miễn thuế dưới 15 triệu"}, {icon: "🚀", label: "Hỗ trợ startup"}]
+- cards: [{icon: "📊", label: "Tăng giảm trừ gia cảnh", description: "Mức giảm trừ tăng lên 13.5 triệu/tháng"}, {icon: "💰", label: "Giảm thuế suất bậc 1", description: "Thuế suất 5% áp dụng đến 7 triệu"}, {icon: "✅", label: "Miễn thuế dưới 15 triệu", description: "Thu nhập chịu thuế dưới 15 triệu được miễn"}, {icon: "🚀", label: "Hỗ trợ startup", description: "Giảm 50% thuế TNCN cho startup"}]
 
 VÍ DỤ 2:
 Input: "Câu chuyện cảm hứng về người sáng lập startup vượt khó" (Goal: awareness, Role: seed, Angle: storytelling)
