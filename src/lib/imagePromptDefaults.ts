@@ -1,4 +1,4 @@
-import type { PromptMode } from '@/types/simpleImageGenerator';
+import type { PromptMode } from '@/hooks/useSocialImageGeneration';
 
 export const NEGATIVE_PROMPT_DEFAULTS: Record<PromptMode, string> = {
   full: 'watermark, blurry, low quality, distorted face, extra fingers, deformed hands, ugly, amateur',
