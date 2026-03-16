@@ -670,7 +670,8 @@ function buildStructuredElement(
   // Cards grid
   if (elements.cards && elements.cards.items.length > 0) {
     const isGrid = elements.cards.layout === 'grid-2x2';
-    const cardFontSize = Math.round(imageWidth * 0.02);
+    const cardFontSize = Math.round(imageWidth * (isEducationInfographic && elementCount >= 5 ? 0.018 : 0.02));
+    const cardDescFontSize = Math.round(imageWidth * 0.015);
     const hasNumberedCards = elements.cards.items.some(item => item.number != null);
     
     const cardElements = elements.cards.items.map((item, idx) => {
