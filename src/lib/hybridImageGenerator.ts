@@ -33,6 +33,8 @@ export interface OverlayHeroText {
 export interface OverlayCardItem {
   icon?: string;
   label: string;
+  /** Optional number for numbered card styling */
+  number?: number;
 }
 
 export interface OverlayCards {
@@ -49,6 +51,11 @@ export interface OverlayFooter {
   items: OverlayFooterItem[];
 }
 
+export interface OverlaySummaryRibbon {
+  text: string;
+  bgColor?: string;
+}
+
 export interface StructuredOverlayConfig {
   banner?: OverlayBanner;
   heroText?: OverlayHeroText;
@@ -56,6 +63,8 @@ export interface StructuredOverlayConfig {
   headline?: string;
   cta?: string;
   footer?: OverlayFooter;
+  /** Summary ribbon displayed between cards and CTA/footer */
+  summaryRibbon?: OverlaySummaryRibbon;
   colors: {
     primary: string;
     secondary: string;
@@ -68,7 +77,7 @@ export interface DecomposedRequest {
   overlayConfig: StructuredOverlayConfig;
   layout?: 'stack' | 'split' | 'banner_cards' | 'hero_text' | 'simple';
   /** AI-suggested template ID based on content analysis */
-  suggestedLayout?: 'poster' | 'infographic' | 'quote_card' | 'feature_list' | 'contact_card';
+  suggestedLayout?: 'poster' | 'infographic' | 'quote_card' | 'feature_list' | 'contact_card' | 'education_infographic';
 }
 
 /** Strategic context passed to AI decomposition for smarter layout selection */
@@ -128,6 +137,7 @@ export async function decomposeRequestWithAI(
         ...(data.overlayConfig.cards ? { cards: data.overlayConfig.cards } : {}),
         ...(data.overlayConfig.cta ? { cta: data.overlayConfig.cta } : {}),
         ...(data.overlayConfig.footer ? { footer: data.overlayConfig.footer } : {}),
+        ...(data.overlayConfig.summaryRibbon ? { summaryRibbon: data.overlayConfig.summaryRibbon } : {}),
       },
       suggestedLayout: data.suggestedLayout || undefined,
     };
@@ -359,8 +369,11 @@ export function autoSelectTemplate(
   description: string,
   overlayConfig: StructuredOverlayConfig
 ): string {
-  // Has contact info (phone/email/address) + no cards → contact_card
+  // Has contact info (phone/email/address) + cards → education_infographic
   const hasContactInfo = extractFooterItemsFromText(description).length >= 2;
+  if (hasContactInfo && overlayConfig.cards && overlayConfig.cards.items.length >= 3) return 'education_infographic';
+
+  // Has contact info + no cards → contact_card
   if (hasContactInfo && !overlayConfig.cards) return 'contact_card';
 
   // Has 4+ cards → infographic (split layout, grid 2x2)
@@ -440,6 +453,23 @@ export function applyTemplate(
   // Ensure required CTA slot
   if (template.requiredSlots.includes('cta') && !overlay.cta) {
     overlay.cta = 'Tìm hiểu thêm';
+  }
+
+  // Ensure required summaryRibbon slot
+  if (template.requiredSlots.includes('summaryRibbon') && !overlay.summaryRibbon) {
+    const sentences = description.split(/[.!?\n]/).map(s => s.trim()).filter(s => s.length > 10);
+    overlay.summaryRibbon = {
+      text: sentences[sentences.length - 1]?.slice(0, 80) || 'Liên hệ ngay để được tư vấn',
+      bgColor: overlay.colors.primary,
+    };
+  }
+
+  // Add numbered styling to cards when template requires it
+  if (template.defaults.cards?.numbered && overlay.cards) {
+    overlay.cards.items = overlay.cards.items.map((item, idx) => ({
+      ...item,
+      number: idx + 1,
+    }));
   }
 
   // Ensure required footer slot

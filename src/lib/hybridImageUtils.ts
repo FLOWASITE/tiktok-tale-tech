@@ -27,6 +27,8 @@ export interface OverlayHeroText {
 export interface OverlayCardItem {
   icon?: string;
   label: string;
+  /** Optional number for numbered card styling (e.g. 1, 2, 3) */
+  number?: number;
 }
 
 export interface OverlayCards {
@@ -43,6 +45,11 @@ export interface OverlayFooter {
   items: OverlayFooterItem[];
 }
 
+export interface OverlaySummaryRibbon {
+  text: string;
+  bgColor?: string;
+}
+
 export interface StructuredOverlayConfig {
   banner?: OverlayBanner;
   heroText?: OverlayHeroText;
@@ -50,6 +57,8 @@ export interface StructuredOverlayConfig {
   headline?: string;
   cta?: string;
   footer?: OverlayFooter;
+  /** Summary ribbon displayed between cards and CTA/footer */
+  summaryRibbon?: OverlaySummaryRibbon;
   colors: {
     primary: string;
     secondary: string;
@@ -258,6 +267,7 @@ export function autoSelectTemplate(
   overlayConfig: StructuredOverlayConfig
 ): string {
   const hasContactInfo = extractFooterItemsFromText(description).length >= 2;
+  if (hasContactInfo && overlayConfig.cards && overlayConfig.cards.items.length >= 3) return 'education_infographic';
   if (hasContactInfo && !overlayConfig.cards) return 'contact_card';
   if (overlayConfig.cards && overlayConfig.cards.items.length >= 4) return 'infographic';
   if (overlayConfig.cards && overlayConfig.cards.items.length >= 2) return 'feature_list';
@@ -321,6 +331,23 @@ export function applyTemplate(
 
   if (template.requiredSlots.includes('cta') && !overlay.cta) {
     overlay.cta = 'Tìm hiểu thêm';
+  }
+
+  // Ensure required summaryRibbon slot
+  if (template.requiredSlots.includes('summaryRibbon') && !overlay.summaryRibbon) {
+    const sentences = description.split(/[.!?\n]/).map(s => s.trim()).filter(s => s.length > 10);
+    overlay.summaryRibbon = {
+      text: sentences[sentences.length - 1]?.slice(0, 80) || 'Liên hệ ngay để được tư vấn',
+      bgColor: overlay.colors.primary,
+    };
+  }
+
+  // Add numbered styling to cards when template requires it
+  if (template.defaults.cards?.numbered && overlay.cards) {
+    overlay.cards.items = overlay.cards.items.map((item, idx) => ({
+      ...item,
+      number: idx + 1,
+    }));
   }
 
   if (template.requiredSlots.includes('footer') && !overlay.footer) {

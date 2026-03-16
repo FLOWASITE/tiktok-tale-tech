@@ -48,6 +48,7 @@ function validateOverlay(overlay: any, primaryColor: string): any {
         .map((c: any) => ({
           icon: c.icon || undefined,
           label: c.label.trim().slice(0, 50),
+          ...(c.number != null ? { number: c.number } : {}),
         }));
 
       if (result.cards.items.length < 2) {
@@ -78,6 +79,15 @@ function validateOverlay(overlay: any, primaryColor: string): any {
         }))
         .slice(0, 4);
       if (result.footer.items.length === 0) delete result.footer;
+    }
+  }
+
+  // SummaryRibbon: validate
+  if (result.summaryRibbon) {
+    if (!result.summaryRibbon.text || result.summaryRibbon.text.trim().length === 0) {
+      delete result.summaryRibbon;
+    } else {
+      result.summaryRibbon.text = result.summaryRibbon.text.trim().slice(0, 80);
     }
   }
 
@@ -130,6 +140,7 @@ ${contentAngle ? `- Góc tiếp cận: ${contentAngle}` : ''}
 ${topic ? `- Chủ đề gốc: ${topic}` : ''}
 
 CHIẾN LƯỢC CHỌN LAYOUT (suggestedLayout):
+- Nội dung giáo dục/kiến thức có nhiều điểm + có thông tin liên hệ → "education_infographic" (banner + cards đánh số + ribbon tóm tắt + CTA + footer liên hệ)
 - Nội dung giáo dục/kiến thức có nhiều điểm (education, sprout, educational) → "infographic" (chia đôi: hero trái + cards phải)
 - Nội dung cảm xúc/nhận diện thương hiệu (awareness, seed, storytelling) → "quote_card" (hero text lớn, cảm xúc)
 - Nội dung bán hàng/chuyển đổi (conversion, harvest, promotional) → "poster" (CTA nổi bật) hoặc "contact_card" (nếu có thông tin liên hệ)
@@ -148,9 +159,10 @@ OVERLAY ELEMENTS:
    - **banner**: Nhãn ngắn gọn 2-4 từ IN HOA tóm tắt chủ đề (VD: "CHÍNH SÁCH MỚI", "CẬP NHẬT THUẾ", "TIN NÓNG", "KIẾN THỨC HAY")
    - **heroText**: Số liệu nổi bật hoặc keyword mạnh ≤ 20 ký tự (VD: "100%", "50 TRIỆU", "GIẢM 30%", "TOP 5")
    - **headline**: Tiêu đề chính 1 dòng nếu cần
-   - **cards**: Tạo 3-4 thẻ CHỈ KHI nội dung có nhiều điểm chính (giáo dục, liệt kê, so sánh). KHÔNG tạo cards cho nội dung cảm xúc/storytelling/quote/awareness. Mỗi label ngắn gọn 3-8 từ, LUÔN thêm icon emoji phù hợp
-   - **cta**: Call-to-action (chỉ khi conversion/harvest/promotional)
-   - **footer**: Thanh thông tin liên hệ ở cuối (chỉ khi có SĐT/email/website/địa chỉ trong nội dung)
+    - **cards**: Tạo 3-4 thẻ CHỈ KHI nội dung có nhiều điểm chính (giáo dục, liệt kê, so sánh). KHÔNG tạo cards cho nội dung cảm xúc/storytelling/quote/awareness. Mỗi label ngắn gọn 3-8 từ, LUÔN thêm icon emoji phù hợp. Thêm field "number" (1,2,3...) khi layout là education_infographic
+    - **cta**: Call-to-action (chỉ khi conversion/harvest/promotional hoặc education_infographic)
+    - **summaryRibbon**: Dải ribbon tóm tắt 1 câu ngắn gọn giữa cards và CTA (chỉ cho education_infographic)
+    - **footer**: Thanh thông tin liên hệ ở cuối (chỉ khi có SĐT/email/website/địa chỉ trong nội dung)
 
 VÍ DỤ:
 Input: "Bài viết về 5 thay đổi chính sách thuế TNCN 2025: tăng giảm trừ gia cảnh, giảm thuế suất bậc 1, miễn thuế thu nhập dưới 15 triệu, hỗ trợ startup, số hóa kê khai" (Goal: education, Role: sprout, Angle: educational)
@@ -220,7 +232,7 @@ Secondary color: ${secondaryColor}`;
                 properties: {
                   suggestedLayout: {
                     type: "string",
-                    enum: ["poster", "infographic", "quote_card", "feature_list", "contact_card"],
+                    enum: ["poster", "infographic", "quote_card", "feature_list", "contact_card", "education_infographic"],
                     description: "Best layout template based on content analysis and strategic context",
                   },
                   backgroundPrompt: {
@@ -273,16 +285,25 @@ Secondary color: ${secondaryColor}`;
                               properties: {
                                 icon: { type: "string" },
                                 label: { type: "string", description: "3-8 word meaningful summary point from actual content" },
+                                number: { type: "number", description: "Numbered index (1,2,3...) for education_infographic layout" },
                               },
                               required: ["label"],
                             },
-                            description: "Exactly 4 summary cards with meaningful labels extracted from content",
+                            description: "Summary cards with meaningful labels extracted from content. Add 'number' field for education_infographic.",
                           },
                           layout: { type: "string", enum: ["grid-2x2", "horizontal", "vertical"] },
                         },
                         required: ["items", "layout"],
                       },
-                      cta: { type: "string", description: "Call-to-action text (only for conversion/harvest content)" },
+                      cta: { type: "string", description: "Call-to-action text (for conversion/harvest content or education_infographic)" },
+                      summaryRibbon: {
+                        type: "object",
+                        properties: {
+                          text: { type: "string", description: "1-sentence summary ribbon text (for education_infographic)" },
+                          bgColor: { type: "string", description: "Optional background color for ribbon" },
+                        },
+                        required: ["text"],
+                      },
                       footer: {
                         type: "object",
                         properties: {
