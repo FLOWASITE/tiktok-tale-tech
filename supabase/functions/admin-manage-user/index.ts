@@ -195,6 +195,9 @@ Deno.serve(async (req) => {
           JSON.stringify({ success: true }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      case "reset_password": {
         const { user_id, new_password } = body;
         if (!user_id || !new_password) {
           return new Response(
@@ -219,6 +222,8 @@ Deno.serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
+
+        await auditLog("reset_password", user_id, {});
 
         return new Response(
           JSON.stringify({ success: true }),
