@@ -243,6 +243,27 @@ Deno.serve(async (req) => {
         );
       }
 
+      case "list_banned_users": {
+        const { data: authUsers, error: listError } =
+          await serviceClient.auth.admin.listUsers({ perPage: 1000 });
+
+        if (listError) {
+          return new Response(JSON.stringify({ error: listError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const bannedIds = (authUsers?.users || [])
+          .filter((u) => u.banned_until && new Date(u.banned_until) > new Date())
+          .map((u) => u.id);
+
+        return new Response(
+          JSON.stringify({ banned_ids: bannedIds }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       default:
         return new Response(
           JSON.stringify({ error: "Unknown action: " + action }),

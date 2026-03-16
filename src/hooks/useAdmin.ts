@@ -13,6 +13,7 @@ export interface AdminUser {
   avatar_url: string | null;
   created_at: string;
   role: AppRole;
+  is_banned: boolean;
   subscription: {
     plan_type: "free" | "starter" | "pro" | "enterprise";
     status: "active" | "cancelled" | "expired" | "pending" | "trial";
@@ -56,28 +57,24 @@ export function useAdmin() {
   const usersQuery = useQuery({
     queryKey: ["admin_users"],
     queryFn: async (): Promise<AdminUser[]> => {
-      const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const [profilesRes, rolesRes, subsRes, bannedRes] = await Promise.all([
+        supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+        supabase.from("user_roles").select("*"),
+        supabase.from("subscriptions").select("*"),
+        supabase.functions.invoke("admin-manage-user", {
+          body: { action: "list_banned_users" },
+        }),
+      ]);
 
-      if (profilesError) throw profilesError;
+      if (profilesRes.error) throw profilesRes.error;
+      if (rolesRes.error) throw rolesRes.error;
+      if (subsRes.error) throw subsRes.error;
 
-      const { data: roles, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("*");
+      const bannedIds: string[] = bannedRes.data?.banned_ids || [];
 
-      if (rolesError) throw rolesError;
-
-      const { data: subs, error: subsError } = await supabase
-        .from("subscriptions")
-        .select("*");
-
-      if (subsError) throw subsError;
-
-      return profiles.map((profile) => {
-        const userRole = roles.find((r) => r.user_id === profile.id);
-        const userSub = subs.find((s) => s.user_id === profile.id);
+      return profilesRes.data.map((profile) => {
+        const userRole = rolesRes.data.find((r) => r.user_id === profile.id);
+        const userSub = subsRes.data.find((s) => s.user_id === profile.id);
 
         return {
           id: profile.id,
@@ -86,6 +83,7 @@ export function useAdmin() {
           avatar_url: profile.avatar_url,
           created_at: profile.created_at,
           role: (userRole?.role as AppRole) || "user",
+          is_banned: bannedIds.includes(profile.id),
           subscription: userSub
             ? {
                 plan_type: userSub.plan_type as "free" | "starter" | "pro" | "enterprise",
