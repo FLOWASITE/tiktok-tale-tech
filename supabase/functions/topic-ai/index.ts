@@ -140,28 +140,31 @@ serve(async (req) => {
       brandContext = await fetchTopicBrandContext(supabase, params.brandTemplateId);
     }
 
+    // Inject userId into params for metrics tracking
+    const paramsWithUser = { ...params, _userId: userId };
+
     // Route to appropriate handler
     switch (action) {
       case 'suggest':
-        return await handleSuggest(supabase, brandContext, params, startTime);
+        return await handleSuggest(supabase, brandContext, paramsWithUser, startTime);
       case 'refine':
-        return await handleRefine(supabase, brandContext, params, startTime);
+        return await handleRefine(supabase, brandContext, paramsWithUser, startTime);
       case 'next_best':
       case 'weekly_plan':
       case 'conflict_check':
       case 'learning':
-        return await handleRecommendation(action, supabase, brandContext, params, startTime);
+        return await handleRecommendation(action, supabase, brandContext, paramsWithUser, startTime);
       case 'trending':
-        return await handleTrending(supabase, brandContext, params, startTime);
+        return await handleTrending(supabase, brandContext, paramsWithUser, startTime);
       case 'gap_analysis':
       case 'cluster':
       case 'keywords':
       case 'refine_intel':
-        return await handleAnalysis(action, supabase, brandContext, params, startTime);
+        return await handleAnalysis(action, supabase, brandContext, paramsWithUser, startTime);
       case 'suggest_compliant':
-        return await handleSuggestCompliant(supabase, brandContext, params, startTime);
+        return await handleSuggestCompliant(supabase, brandContext, paramsWithUser, startTime);
       case 'suggest_audience':
-        return await handleSuggestAudience(supabase, brandContext, params, startTime);
+        return await handleSuggestAudience(supabase, brandContext, paramsWithUser, startTime);
       default:
         return createErrorResponse(`Invalid action: ${action}`, 400);
     }
