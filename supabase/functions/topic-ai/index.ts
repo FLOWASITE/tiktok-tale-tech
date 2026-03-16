@@ -1022,6 +1022,7 @@ CHỈ TRẢ VỀ TOPIC MỚI, KHÔNG GIẢI THÍCH.`;
   const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    userId: params._userId,
     actionType: 'suggest_compliant',
     messages: [
       { 
