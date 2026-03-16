@@ -5,9 +5,27 @@ import { toast } from 'sonner';
 
 export type ImageGenerationStatus = 'pending' | 'generating' | 'overlaying' | 'done' | 'error';
 export type LogoPosition = 
+  | 'auto'
   | 'top-left' | 'top-center' | 'top-right'
   | 'center-left' | 'center' | 'center-right'
   | 'bottom-left' | 'bottom-center' | 'bottom-right';
+
+// Auto-select optimal logo position based on channel & aspect ratio
+export function autoSelectLogoPosition(
+  channel: Channel,
+  aspectRatio?: AspectRatioOption
+): Exclude<LogoPosition, 'auto'> {
+  // TikTok 9:16: top-right (avoid avatar on left, safe zone at bottom)
+  if (channel === 'tiktok') return 'top-right';
+  // YouTube 16:9: top-left (traditional placement)
+  if (channel === 'youtube') return 'top-left';
+  // Instagram/Threads/Zalo (1:1): bottom-right
+  if (channel === 'instagram' || channel === 'threads' || channel === 'zalo') return 'bottom-right';
+  // Facebook/LinkedIn (16:9): bottom-right
+  if (channel === 'facebook' || channel === 'linkedin') return 'bottom-right';
+  // Default
+  return 'bottom-right';
+}
 export type AspectRatioOption = '16:9' | '1:1' | '9:16' | '4:5' | 'auto';
 export type LogoStyle = 'clean' | 'shadow' | 'glass' | 'pill' | 'outline' | 'subtle';
 

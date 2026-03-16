@@ -150,7 +150,7 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
         contentAngle: mode === 'full' ? contentMeta.contentAngle : undefined,
         // Logo: force on for brand_only when URL exists
         includeLogo: mode === 'brand_only' ? !!brandLogoUrl : !!brandLogoUrl,
-        logoPosition: 'top-left',
+        logoPosition: 'auto',
         logoUrl: brandLogoUrl || undefined,
         // Content type: full mode defaults to with_text, others should receive from caller
         imageContentType: contentMeta.imageContentType || 'with_text',
