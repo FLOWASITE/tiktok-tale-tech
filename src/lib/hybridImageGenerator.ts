@@ -137,6 +137,7 @@ export async function decomposeRequestWithAI(
         ...(data.overlayConfig.cards ? { cards: data.overlayConfig.cards } : {}),
         ...(data.overlayConfig.cta ? { cta: data.overlayConfig.cta } : {}),
         ...(data.overlayConfig.footer ? { footer: data.overlayConfig.footer } : {}),
+        ...(data.overlayConfig.summaryRibbon ? { summaryRibbon: data.overlayConfig.summaryRibbon } : {}),
       },
       suggestedLayout: data.suggestedLayout || undefined,
     };
