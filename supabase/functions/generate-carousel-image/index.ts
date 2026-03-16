@@ -184,7 +184,26 @@ serve(async (req) => {
       }
     }
 
-    // Fallback: return background-only image
+    // Non-blocking metrics save
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    const model = "google/gemini-3-pro-image-preview";
+    const inputTokens = estimateTokens(backgroundPrompt);
+    const estimatedCostUsd = estimateCost(model, inputTokens, 0);
+    saveMetrics(supabase, {
+      traceId,
+      functionName: 'generate-carousel-image',
+      totalDurationMs,
+      aiCallDurationMs: totalDurationMs,
+      inputTokensEstimated: inputTokens,
+      outputTokensEstimated: 0,
+      estimatedCostUsd,
+      modelsUsed: { image: model },
+      hadError: false,
+      contextSources: [],
+      contentId: carouselId,
+      actionType: 'image_generation',
+    }).catch(() => {});
+
     console.log(`[generate-carousel-image] Returning background image: ${backgroundUrl}`);
     return new Response(
       JSON.stringify({
@@ -199,6 +218,22 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("[generate-carousel-image] Unexpected error:", error);
+
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    try {
+      const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      saveMetrics(sb, {
+        traceId,
+        functionName: 'generate-carousel-image',
+        totalDurationMs,
+        hadError: true,
+        errorType: error instanceof Error ? error.name : 'Unknown',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        contextSources: [],
+        actionType: 'image_generation',
+      }).catch(() => {});
+    } catch {}
+
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
