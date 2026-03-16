@@ -395,6 +395,7 @@ QUAN TRỌNG: Return JSON với format CHÍNH XÁC như sau (không thêm markdo
   const aiResult = await callAIWithMetrics(supabase, {
     functionName: 'kpi-ai',
     organizationId,
+    userId,
     actionType: 'suggest',
     messages: [
       { role: "system", content: systemPrompt },
