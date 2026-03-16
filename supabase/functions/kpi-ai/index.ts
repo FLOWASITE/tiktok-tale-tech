@@ -743,7 +743,7 @@ serve(async (req) => {
         return await handleSuggest(supabase, data as SuggestRequest, userId);
       
       case 'adjust':
-        return await handleAdjust(supabase, data as AdjustRequest);
+        return await handleAdjust(supabase, data as AdjustRequest, userId);
       
       default:
         return new Response(
