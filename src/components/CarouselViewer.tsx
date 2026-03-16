@@ -149,6 +149,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
 
   const handleDeleteImage = async (slideNumber: number) => {
     await deleteImage(slideNumber, carousel.id);
+    await deleteSavedImage(slideNumber);
   };
 
   const handleCopyAll = async () => {
