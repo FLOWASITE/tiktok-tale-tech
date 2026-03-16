@@ -345,6 +345,9 @@ function structuredElementsToPromptText(
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
+    // Resolve userId for cost tracking
+    const userId = await resolveUserId(req, supabase);
+
     const {
       contentId,
       channel,
