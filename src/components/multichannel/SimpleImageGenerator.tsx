@@ -823,8 +823,15 @@ export function SimpleImageGenerator({
         {/* Complexity Warning — detect complex infographic-like requests */}
         <ComplexityWarning analysis={complexityAnalysis} />
 
-        {/* Hybrid mode toggle — shown when complexity is moderate or complex */}
-        {complexityAnalysis.score !== 'simple' && (
+        {/* Full mode: AI info note */}
+        {promptMode === 'full' && (
+          <p className="text-xs text-primary/70 bg-primary/5 border border-primary/15 rounded-lg px-3 py-2">
+            🤖 AI tự động chọn layout + render text trực tiếp trong ảnh
+          </p>
+        )}
+
+        {/* Hybrid mode toggle — shown when complexity is moderate or complex, hidden in full mode */}
+        {promptMode !== 'full' && complexityAnalysis.score !== 'simple' && (
           <div className="space-y-2">
             <label className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-muted/30 cursor-pointer">
               <Checkbox
