@@ -536,7 +536,7 @@ function buildStructuredElement(
           props: {
             style: {
               color: bannerTextColor,
-              fontSize: Math.round(imageWidth * 0.03),
+              fontSize: Math.round(imageWidth * (isEducationInfographic ? 0.04 : 0.03)),
               fontFamily,
               fontWeight: theme.fontWeight,
               letterSpacing: '0.05em',
