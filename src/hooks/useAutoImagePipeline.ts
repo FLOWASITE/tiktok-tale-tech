@@ -192,7 +192,7 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
         );
       }
     } catch (err) {
-      console.error('[AutoImagePipeline] Pipeline error:', err);
+      console.error('[AutoImagePipeline] ❌ PIPELINE ERROR:', err instanceof Error ? err.message : err);
       setPhase('error');
       toast.error('Lỗi tự động tạo ảnh');
     }
