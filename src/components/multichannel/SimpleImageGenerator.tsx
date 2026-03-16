@@ -274,10 +274,9 @@ export function SimpleImageGenerator({
   });
 
   // Extract content context
-  const contentAny = content as any;
-  const contentGoal = contentAny.content_goal as ContentGoal | undefined;
-  const contentRole = contentAny.content_role as ContentRole | undefined;
-  const contentAngle = contentAny.content_angle as ContentAngle | undefined;
+  const contentGoal = content.content_goal as ContentGoal | undefined;
+  const contentRole = content.content_role as ContentRole | undefined;
+  const contentAngle = content.content_angle as ContentAngle | undefined;
 
   // Build content summary for V3 engine
   const currentChannelSummary = useMemo(() => {
