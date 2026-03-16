@@ -264,7 +264,7 @@ export function useAutoImageGeneration() {
             body: {
               baseImageUrl: finalImageUrl,
               logoUrl,
-              position: logoPosition || 'bottom-right',
+              position: resolvedLogoPosition,
               logoStyle: logoStyle || 'shadow',
               logoSizePercent: logoSizePercent || 15,
               logoOpacity: logoOpacity || 100,
