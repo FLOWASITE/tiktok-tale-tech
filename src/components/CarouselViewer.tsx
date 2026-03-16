@@ -1,4 +1,4 @@
-import { Carousel, CarouselStatus } from '@/types/carousel';
+import { Carousel, CarouselStatus, CarouselSlide } from '@/types/carousel';
 import { SlidePromptCard } from './SlidePromptCard';
 import {
   Dialog,
@@ -230,6 +230,32 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
     toast.success('Đã tạo xong tất cả ảnh!');
   };
 
+  const handleSlideUpdate = async (updatedSlide: CarouselSlide) => {
+    if (!carousel) return;
+
+    const updatedSlides = carousel.slides_content.map(s =>
+      s.slideNumber === updatedSlide.slideNumber ? updatedSlide : s
+    );
+
+    try {
+      const { error } = await supabase
+        .from('carousels')
+        .update({
+          slides_content: JSON.parse(JSON.stringify(updatedSlides)),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', carousel.id);
+
+      if (error) throw error;
+
+      const updatedCarousel = { ...carousel, slides_content: updatedSlides, updated_at: new Date().toISOString() };
+      onCarouselUpdate?.(updatedCarousel);
+    } catch (error) {
+      console.error('Error updating slide:', error);
+      throw error;
+    }
+  };
+
   const handleStatusChange = async (newStatus: ContentStatus) => {
     if (!carousel) return;
 
@@ -392,6 +418,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                   isGenerating={generating === slide.slideNumber}
                   onGenerateImage={() => handleGenerateImage(slide.slideNumber, slide.fullPrompt)}
                   canGenerateImage={generating === null && !generatingAll}
+                  onSlideUpdate={handleSlideUpdate}
                 />
               ))}
             </TabsContent>
