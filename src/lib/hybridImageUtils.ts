@@ -267,6 +267,7 @@ export function autoSelectTemplate(
   overlayConfig: StructuredOverlayConfig
 ): string {
   const hasContactInfo = extractFooterItemsFromText(description).length >= 2;
+  if (hasContactInfo && overlayConfig.cards && overlayConfig.cards.items.length >= 3) return 'education_infographic';
   if (hasContactInfo && !overlayConfig.cards) return 'contact_card';
   if (overlayConfig.cards && overlayConfig.cards.items.length >= 4) return 'infographic';
   if (overlayConfig.cards && overlayConfig.cards.items.length >= 2) return 'feature_list';

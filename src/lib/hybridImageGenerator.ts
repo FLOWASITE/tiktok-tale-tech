@@ -369,8 +369,11 @@ export function autoSelectTemplate(
   description: string,
   overlayConfig: StructuredOverlayConfig
 ): string {
-  // Has contact info (phone/email/address) + no cards → contact_card
+  // Has contact info (phone/email/address) + cards → education_infographic
   const hasContactInfo = extractFooterItemsFromText(description).length >= 2;
+  if (hasContactInfo && overlayConfig.cards && overlayConfig.cards.items.length >= 3) return 'education_infographic';
+
+  // Has contact info + no cards → contact_card
   if (hasContactInfo && !overlayConfig.cards) return 'contact_card';
 
   // Has 4+ cards → infographic (split layout, grid 2x2)

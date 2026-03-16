@@ -485,6 +485,7 @@ export function SimpleImageGenerator({
             headline: overlayConfig.headline,
             cta: overlayConfig.cta,
             footer: overlayConfig.footer,
+            summaryRibbon: overlayConfig.summaryRibbon,
           },
           colors: overlayConfig.colors,
         });
