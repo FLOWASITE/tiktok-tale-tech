@@ -82,6 +82,15 @@ function validateOverlay(overlay: any, primaryColor: string): any {
     }
   }
 
+  // SummaryRibbon: validate
+  if (result.summaryRibbon) {
+    if (!result.summaryRibbon.text || result.summaryRibbon.text.trim().length === 0) {
+      delete result.summaryRibbon;
+    } else {
+      result.summaryRibbon.text = result.summaryRibbon.text.trim().slice(0, 80);
+    }
+  }
+
   return result;
 }
 
