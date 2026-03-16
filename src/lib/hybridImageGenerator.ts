@@ -33,6 +33,8 @@ export interface OverlayHeroText {
 export interface OverlayCardItem {
   icon?: string;
   label: string;
+  /** Optional number for numbered card styling */
+  number?: number;
 }
 
 export interface OverlayCards {
