@@ -367,6 +367,8 @@ function structuredElementsToPromptText(
       structuredColors,
       // Template ID for layout guidance
       structuredTemplate,
+      // Logo safe zone for AI render mode
+      logoSafeZone,
     }: GenerateImageRequest = await req.json();
 
     console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}, promptMode: ${promptMode || 'full (default)'}`);

@@ -193,6 +193,11 @@ export function useAutoImageGeneration() {
             structuredColors: isAiRenderMode ? structuredOverlay.colors : undefined,
             // Template ID for AI layout guidance
             structuredTemplate: isAiRenderMode ? options.structuredTemplate : undefined,
+            // Logo safe zone: tell AI to keep logo area clear in ai_render mode
+            logoSafeZone: isAiRenderMode && includeLogo && logoUrl ? {
+              position: logoPosition || 'bottom-right',
+              sizePercent: logoSizePercent || 15,
+            } : undefined,
           },
           timeoutMs: 120_000,
         });
