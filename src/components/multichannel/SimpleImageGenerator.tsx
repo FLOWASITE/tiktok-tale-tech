@@ -974,7 +974,7 @@ export function SimpleImageGenerator({
         onRefineTextContent={() => handleOptimizeText()}
         isRefiningText={isOptimizingText}
         hidePromptModeSelector
-        hideStyleGrid={promptMode !== 'full'}
+        hideStyleGrid={promptMode === 'full' || promptMode === 'raw'}
       />
       </div>{/* end Step 3 */}
     </div>

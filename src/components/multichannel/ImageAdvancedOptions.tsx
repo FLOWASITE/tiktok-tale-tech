@@ -215,7 +215,7 @@ export function ImageAdvancedOptions({
             <p className="text-[10px] text-muted-foreground/70 -mt-1">
               {promptMode === 'raw'
                 ? 'Chọn phong cách ảnh bạn muốn. Toàn quyền quyết định.'
-                : 'Chọn phong cách hoặc để "Tự động" — AI tính từ ngành + tone của brand.'}
+                : 'Ghi đè gợi ý AI ở trên. Chọn "Tự động" để dùng phong cách AI đề xuất.'}
             </p>
             {topSuggestion && (
               <p className="text-[10px] text-muted-foreground/70 -mt-1">
