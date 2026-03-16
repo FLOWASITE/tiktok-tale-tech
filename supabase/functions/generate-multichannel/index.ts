@@ -1699,7 +1699,30 @@ Mục tiêu nội dung: ${goalLabel}`;
       formData.contentGoal = existingContent.content_goal;
       organizationId = existingContent.organization_id;
 
-      console.log(`[regenerate-mode] Using context: topic="${formData.topic}", channel=${formData.channel}`);
+      // Fetch Core Content if linked - provides full article context for better regeneration
+      let coreContentText = '';
+      let coreKeyMessages: string[] = [];
+      if (existingContent.core_content_id) {
+        try {
+          const { data: coreContent } = await supabase
+            .from('core_contents')
+            .select('content, key_messages, content_role, content_angle')
+            .eq('id', existingContent.core_content_id)
+            .single();
+          if (coreContent) {
+            coreContentText = coreContent.content?.substring(0, 3000) || '';
+            coreKeyMessages = Array.isArray(coreContent.key_messages) ? coreContent.key_messages : [];
+            if (coreContent.content_role) {
+              formData.contentRole = coreContent.content_role;
+            }
+            console.log(`[regenerate-mode] Core Content loaded: ${coreContentText.length} chars, ${coreKeyMessages.length} key messages`);
+          }
+        } catch (err) {
+          console.warn('[regenerate-mode] Failed to fetch core content, falling back to topic-only:', err);
+        }
+      }
+
+      console.log(`[regenerate-mode] Using context: topic="${formData.topic}", channel=${formData.channel}, hasCoreContent=${!!coreContentText}`);
       // Continue to brand loading, then branch to lightweight regenerate path
     }
 
