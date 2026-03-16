@@ -395,6 +395,12 @@ export function SimpleImageGenerator({
     }
   }, [promptMode]);
 
+  useEffect(() => {
+    if (!isNegativePromptCustomized) {
+      setNegativePrompt(NEGATIVE_PROMPT_DEFAULTS[promptMode]);
+    }
+  }, [promptMode, isNegativePromptCustomized]);
+
   // Build structured overlay AND background prompt from content when hybrid mode is active
   // V2: Uses AI decomposition (Gemini Flash) with regex fallback
   const [hybridOverlay, setHybridOverlay] = useState<any>(undefined);
