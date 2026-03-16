@@ -428,9 +428,11 @@ export function SimpleImageGenerator({
       .catch(() => {
         if (cancelled) return;
         const rawDecomposed = decomposeRequest(summaryText, brandPrimaryColor || '#DC2626');
-        const { backgroundPrompt, overlayConfig } = overlayTemplate !== 'auto'
-          ? applyTemplate(overlayTemplate, rawDecomposed, summaryText, brandPrimaryColor || '#DC2626')
-          : rawDecomposed;
+        const selectedTemplate = overlayTemplate !== 'auto'
+          ? overlayTemplate
+          : autoSelectTemplate(summaryText, rawDecomposed.overlayConfig);
+        console.log('[AutoTemplate] Fallback selected:', selectedTemplate);
+        const { backgroundPrompt, overlayConfig } = applyTemplate(selectedTemplate, rawDecomposed, summaryText, brandPrimaryColor || '#DC2626');
         setHybridOverlay({
           layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
           elements: {
