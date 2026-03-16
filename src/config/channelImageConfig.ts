@@ -80,8 +80,8 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
     avoidElements: ['small text', 'complex details that get lost at small sizes'],
   },
   instagram: {
-    size: '1080x1080',
-    aspectRatio: '1:1',
+    size: '1080x1350',
+    aspectRatio: '4:5',
     style: 'aesthetically pleasing, visually striking, Instagram-worthy',
     tips: 'Clean composition, cohesive filter, lifestyle feel',
     mood: 'modern, trendy, aspirational',
@@ -238,7 +238,7 @@ export function getChannelImageSpec(channel: Channel): ChannelImageSpec {
  * Aspect ratio options for UI selectors
  */
 export const ASPECT_RATIO_OPTIONS = [
-  { value: '1:1', label: '1:1 (Vuông)', description: 'Instagram, Facebook, Zalo' },
+  { value: '1:1', label: '1:1 (Vuông)', description: 'Facebook, Zalo, Telegram' },
   { value: '16:9', label: '16:9 (Ngang)', description: 'YouTube, LinkedIn, Twitter, Website' },
   { value: '9:16', label: '9:16 (Dọc)', description: 'TikTok, Reels, Stories' },
   { value: '4:5', label: '4:5 (Portrait)', description: 'Instagram Feed Portrait' },
@@ -251,7 +251,7 @@ export const CHANNEL_OPTIMAL_ASPECT_RATIO: Record<Channel, string> = {
   website: '16:9',
   youtube: '16:9',
   facebook: '16:9',
-  instagram: '1:1',
+  instagram: '4:5',
   tiktok: '9:16',
   threads: '1:1',
   twitter: '16:9',

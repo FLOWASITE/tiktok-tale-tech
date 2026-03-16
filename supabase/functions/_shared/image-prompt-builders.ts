@@ -465,14 +465,21 @@ export const buildStrategicContext: PromptBuilder = (ctx) => {
 // ============================================
 
 export const buildNegativePrompt: PromptBuilder = (ctx) => {
-  const { negativePrompt } = ctx.params;
-  if (!negativePrompt) return null;
+  const { negativePrompt, imageContentType } = ctx.params;
+
+  // Default negative prompt for background mode (no text on image)
+  const DEFAULT_BG_NEGATIVE = 'text, words, letters, numbers, watermark, logo, UI elements, blurry, low quality, distorted face, extra fingers, deformed hands';
+  
+  const effectiveNegative = negativePrompt
+    || (imageContentType !== 'with_text' ? DEFAULT_BG_NEGATIVE : null);
+
+  if (!effectiveNegative) return null;
 
   return {
     id: 'negative_prompt',
     position: 'suffix',
     priority: 50,
-    content: `## ELEMENTS TO AVOID:\n${negativePrompt}`,
+    content: `## ELEMENTS TO AVOID:\n${effectiveNegative}`,
   };
 };
 
@@ -535,12 +542,13 @@ export const buildCriticalRules: PromptBuilder = (ctx) => {
 2. DO NOT include any logos or brand marks
 3. Image must be photorealistic OR stylized illustration based on brand style
 4. Ensure the image works well as a background for text overlay
-5. Main subject should be clearly visible and not cropped
-6. Use natural, professional lighting
-7. Maintain brand-appropriate color temperature
-8. NEVER create blank, white, or empty images - always include clear visual content
-9. Background must have visible color, texture, or gradient - NEVER pure white (#FFFFFF)
-10. Image must have at least one clear focal point or subject`,
+5. SPATIAL OVERLAY GUIDELINE: Keep top 15% and bottom 20% of the image with lower visual complexity (softer colors, less detail) to ensure text overlay readability
+6. Main subject should be clearly visible and not cropped
+7. Use natural, professional lighting
+8. Maintain brand-appropriate color temperature
+9. NEVER create blank, white, or empty images - always include clear visual content
+10. Background must have visible color, texture, or gradient - NEVER pure white (#FFFFFF)
+11. Image must have at least one clear focal point or subject`,
   };
 };
 
