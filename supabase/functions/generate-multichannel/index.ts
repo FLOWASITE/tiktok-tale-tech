@@ -3903,14 +3903,14 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       channel: string, 
       config: { model: string; temperature: number; maxTokens: number | null },
       onChannelComplete?: (result: { channel: string; content: string; wordCount: number }) => void
-    ): Promise<{ channel: string; data: any; success: boolean; error?: any; durationMs: number }> => {
+    ): Promise<{ channel: string; data: any; success: boolean; error?: any; durationMs: number; usage?: { prompt_tokens: number; completion_tokens: number; upstream_cost?: number } | null; modelUsed?: string }> => {
       const startTime = Date.now();
       console.log(`[parallel] Starting ${channel} with model ${config.model}`);
       
       try {
-        const data = await generateAIContentForChannels(currentPrompt, [channel], config);
+        const { parsed: data, usage, modelUsed } = await generateAIContentForChannels(currentPrompt, [channel], config);
         const durationMs = Date.now() - startTime;
-        console.log(`[parallel] ✅ ${channel} completed in ${(durationMs / 1000).toFixed(1)}s`);
+        console.log(`[parallel] ✅ ${channel} completed in ${(durationMs / 1000).toFixed(1)}s${usage ? ` (${usage.prompt_tokens}+${usage.completion_tokens} tokens)` : ''}`);
         
         // Call streaming callback if provided
         if (onChannelComplete) {
@@ -3932,7 +3932,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
           onChannelComplete({ channel, content: textContent, wordCount });
         }
         
-        return { channel, data, success: true, durationMs };
+        return { channel, data, success: true, durationMs, usage, modelUsed };
       } catch (error: any) {
         const durationMs = Date.now() - startTime;
         console.error(`[parallel] ❌ ${channel} failed after ${(durationMs / 1000).toFixed(1)}s:`, error?.message || error);
