@@ -299,6 +299,7 @@ serve(async (req) => {
         traceId,
         functionName: 'edit-image-background',
         organizationId: request.organizationId,
+        userId,
         totalDurationMs,
         aiCallDurationMs: totalDurationMs,
         inputTokensEstimated: inputTokens,

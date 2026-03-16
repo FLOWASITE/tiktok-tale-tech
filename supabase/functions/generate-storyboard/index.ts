@@ -293,6 +293,7 @@ ${L.returnJson}`;
     saveMetrics(supabase, {
       traceId,
       functionName: 'generate-storyboard',
+      userId,
       totalDurationMs: durationMs,
       aiCallDurationMs: durationMs,
       inputTokensEstimated: inputTokens,

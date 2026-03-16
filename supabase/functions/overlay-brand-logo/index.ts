@@ -186,6 +186,7 @@ serve(async (req) => {
     saveMetrics(supabase, {
       traceId,
       functionName: 'overlay-brand-logo',
+      userId,
       totalDurationMs,
       aiCallDurationMs: totalDurationMs,
       inputTokensEstimated: 500,

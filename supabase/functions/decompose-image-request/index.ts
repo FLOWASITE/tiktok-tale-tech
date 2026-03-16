@@ -422,9 +422,11 @@ Secondary color: ${secondaryColor}`;
     const estimatedCostUsd = estimateCost(model, inputTokens, outputTokens);
     try {
       const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const userId = await resolveUserId(req, sb);
       saveMetrics(sb, {
         traceId,
         functionName: 'decompose-image-request',
+        userId,
         totalDurationMs,
         aiCallDurationMs: totalDurationMs,
         inputTokensEstimated: inputTokens,

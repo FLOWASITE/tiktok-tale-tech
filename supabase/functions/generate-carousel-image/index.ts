@@ -194,6 +194,7 @@ serve(async (req) => {
     saveMetrics(supabase, {
       traceId,
       functionName: 'generate-carousel-image',
+      userId,
       totalDurationMs,
       aiCallDurationMs: totalDurationMs,
       inputTokensEstimated: inputTokens,
