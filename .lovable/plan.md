@@ -1,62 +1,73 @@
-## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-### Vấn đề
-Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-### Đã sửa (3 files)
-1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
-2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
+## Rà soát & Kế hoạch phát triển Carousel
 
----
+### Hiện trạng
 
-## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
+Carousel hiện có:
+- **Form tạo**: Topic, platform (FB/TikTok), slide count (5-10), AI tool, brand, campaign
+- **AI Generation**: Edge function `generate-carousel` dùng Gemini 2.5 Flash, có self-critique loop, brand voice, cache
+- **Viewer**: Dialog 4 tabs (Prompts, Ảnh, Caption, CTA), copy/export TXT
+- **Image Gen**: `generate-carousel-image` gọi Gemini 3 Pro Image → upload storage → hiển thị raw AI output
+- **Quản lý**: Grid/List view, filters, bulk select, delete, status change, creator tracking
 
-### Vấn đề
-AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
+### Gap so với MultiChannel (hệ thống trưởng thành hơn)
 
-### Đã sửa (3 files)
-1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
-2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
+| Tính năng | MultiChannel | Carousel |
+|---|---|---|
+| Overlay text lên ảnh (Satori) | Co | Không — ảnh raw, text bị AI render xấu |
+| Lưu ảnh vào DB (image history) | Co | Không — chỉ lưu state, mất khi reload |
+| Edit nội dung slide | Co (inline edit) | Không — chỉ xem read-only |
+| Drag reorder slides | Không | Không |
+| Preview mockup (phone frame) | Co | Không |
+| Schedule/Publish | Co | Không |
+| Content validation | Co | Không |
 
----
+### Kế hoạch phát triển (theo thứ tự ưu tiên)
 
-## Feature: Regenerate sử dụng Core Content — đã sửa
+#### P0 — Ảnh hưởng trực tiếp chất lượng
 
-### Vấn đề
-Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
+**1. Tích hợp overlay-text-canvas cho Carousel slides**
+- Thay vì gọi `generate-carousel-image` (raw AI), carousel sẽ dùng pipeline: AI background → overlay-text-canvas (Satori SVG)
+- Tái sử dụng `overlay-text-canvas` edge function đã có, truyền slide `textContent` + brand colors
+- Kết quả: text sắc nét, đúng font, đúng brand — không phụ thuộc AI render text
 
-### Đã sửa (1 file)
-1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
+**2. Lưu ảnh carousel vào DB (persistent)**
+- Tạo bảng `carousel_images` (carousel_id, slide_number, image_url, created_at)
+- Load lại ảnh khi mở viewer thay vì mất khi reload
+- Tái sử dụng pattern từ `channel_images` table của MultiChannel
 
----
+**3. Inline edit nội dung slide**
+- Cho phép sửa `textContent`, `objective`, `fullPrompt` trực tiếp trong SlidePromptCard
+- Save changes vào `slides_content` JSON trong bảng `carousels`
+- Undo/redo cơ bản
 
-## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
+#### P1 — Nâng cao trải nghiệm
 
-### Vấn đề
-1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
-2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
-3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
+**4. Slide preview mockup**
+- Render mini preview từng slide với text overlay lên placeholder/generated background
+- Hiển thị dạng carousel swipe (dùng embla-carousel đã có)
 
-### Đã sửa (4 files)
-1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
-2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
-3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
-4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
+**5. Drag & reorder slides**
+- Kéo thả đổi thứ tự slides trong viewer
+- Cập nhật `slideNumber` và save
 
----
+**6. Bulk export ảnh (ZIP)**
+- Thay vì download từng ảnh, cho phép tải ZIP toàn bộ slides
 
-## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
+### Files cần tạo/sửa
 
-### Vấn đề
-Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
+| File | Thay đổi |
+|---|---|
+| Migration SQL | Tạo bảng `carousel_images` |
+| `src/hooks/useCarouselImages.ts` | Hook CRUD ảnh carousel (persistent) |
+| `src/components/SlidePromptCard.tsx` | Thêm inline edit mode |
+| `src/components/CarouselViewer.tsx` | Tích hợp overlay pipeline, load saved images, edit mode |
+| `src/hooks/useImageGeneration.ts` | Thêm overlay-text-canvas call sau khi gen background |
+| `src/components/GeneratedImagesGallery.tsx` | Carousel swipe preview |
 
-### Đã sửa (6 files + 2 edge functions)
-1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
-2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
-3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
-4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
-5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
-6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
-7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
+### Ước tính: 3 lần triển khai
+- Lần 1: P0.1 + P0.2 (overlay + persistent images)
+- Lần 2: P0.3 (inline edit)
+- Lần 3: P1 (preview mockup, reorder, ZIP export)
+
