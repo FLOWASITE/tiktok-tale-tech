@@ -228,7 +228,8 @@ function calculateMetricAnalysis(
 
 async function handleSuggest(
   supabase: AnySupabaseClient,
-  data: SuggestRequest
+  data: SuggestRequest,
+  userId?: string
 ): Promise<Response> {
   const { campaignType, budget, startDate, endDate, targetChannels, industries, organizationId } = data;
 
