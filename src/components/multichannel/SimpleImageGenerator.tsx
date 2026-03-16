@@ -568,7 +568,7 @@ export function SimpleImageGenerator({
       toast.error('Vui lòng chọn ít nhất 1 kênh');
       return;
     }
-    if (imageContentType === 'with_text') {
+    if (promptMode !== 'full' && imageContentType === 'with_text') {
       if (useSharedText && !textToInclude.trim()) {
         toast.error('Vui lòng nhập text để hiển thị trên ảnh');
         return;
