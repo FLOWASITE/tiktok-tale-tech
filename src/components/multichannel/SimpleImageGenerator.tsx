@@ -510,6 +510,7 @@ export function SimpleImageGenerator({
             headline: fbOverlay.headline,
             cta: fbOverlay.cta,
             footer: fbOverlay.footer,
+            summaryRibbon: fbOverlay.summaryRibbon,
           },
           colors: fbOverlay.colors,
         });
