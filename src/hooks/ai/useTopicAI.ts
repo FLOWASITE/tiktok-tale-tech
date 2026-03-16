@@ -741,7 +741,9 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
       });
 
       if (fnError) {
-        throw new Error(fnError.message);
+        const wrappedErr: any = new Error(fnError.message);
+        wrappedErr.context = (fnError as any).context;
+        throw wrappedErr;
       }
 
       if (!data.success) {
