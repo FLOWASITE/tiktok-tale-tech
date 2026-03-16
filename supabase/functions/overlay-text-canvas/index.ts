@@ -479,8 +479,8 @@ function buildStructuredElement(
   if (elements.footer?.items) {
     elements.footer.items = elements.footer.items.slice(0, 4);
   }
-  const elementCount = [elements.banner, elements.heroText, elements.headline, elements.cards, elements.cta, elements.footer].filter(Boolean).length;
-  if (elementCount >= 5 && elements.cta) {
+  const elementCount = [elements.banner, elements.heroText, elements.headline, elements.cards, elements.cta, elements.footer, elements.summaryRibbon].filter(Boolean).length;
+  if (elementCount >= 6 && elements.cta) {
     delete elements.cta;
   }
 
