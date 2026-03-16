@@ -255,6 +255,8 @@ Deno.serve(async (req) => {
             .lte("created_at", sub.current_period_end);
         }
 
+        await auditLog("reset_usage", user_id, {});
+
         return new Response(
           JSON.stringify({ success: true }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
