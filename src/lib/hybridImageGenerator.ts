@@ -333,6 +333,34 @@ export function decomposeRequest(
 }
 
 /**
+ * Auto-select the best template based on content analysis.
+ * Analyzes decomposed overlay config to pick the most suitable layout.
+ */
+export function autoSelectTemplate(
+  description: string,
+  overlayConfig: StructuredOverlayConfig
+): string {
+  // Has contact info (phone/email/address) + no cards → contact_card
+  const hasContactInfo = extractFooterItemsFromText(description).length >= 2;
+  if (hasContactInfo && !overlayConfig.cards) return 'contact_card';
+
+  // Has 4+ cards → infographic (split layout, grid 2x2)
+  if (overlayConfig.cards && overlayConfig.cards.items.length >= 4) return 'infographic';
+
+  // Has 2-3 cards → feature_list (banner + vertical list)
+  if (overlayConfig.cards && overlayConfig.cards.items.length >= 2) return 'feature_list';
+
+  // Has heroText (big number/stat) + no cards → quote_card
+  if (overlayConfig.heroText && !overlayConfig.cards) return 'quote_card';
+
+  // Has headline or CTA → poster
+  if (overlayConfig.headline || overlayConfig.cta) return 'poster';
+
+  // Default: poster (most versatile)
+  return 'poster';
+}
+
+/**
  * Apply a template preset to AI-decomposed content.
  * Keeps AI-generated text but overrides layout and ensures required slots exist.
  */
