@@ -20,27 +20,31 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify caller is admin
+    // Service role client for all admin operations
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Get caller identity via anon client with user's token
     const anonClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(
-      authHeader.replace("Bearer ", "")
-    );
-    if (claimsError || !claimsData?.claims) {
+    const { data: userData, error: userError } = await anonClient.auth.getUser();
+    if (userError || !userData?.user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const callerId = claimsData.claims.sub as string;
+    const callerId = userData.user.id;
 
-    // Check admin role
-    const { data: adminRole } = await anonClient
+    // Check admin role using serviceClient (bypasses RLS)
+    const { data: adminRole } = await serviceClient
       .from("user_roles")
       .select("role")
       .eq("user_id", callerId)
@@ -53,12 +57,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Service role client for admin operations
-    const serviceClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
 
     const body = await req.json();
     const { action } = body;
@@ -88,7 +86,6 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Update role if not default user
         if (role && role !== "user" && newUser.user) {
           await serviceClient
             .from("user_roles")
@@ -96,7 +93,6 @@ Deno.serve(async (req) => {
             .eq("user_id", newUser.user.id);
         }
 
-        // Update plan if not free
         if (plan_type && plan_type !== "free" && newUser.user) {
           const periodEnd = new Date();
           periodEnd.setDate(periodEnd.getDate() + 30);
@@ -126,7 +122,6 @@ Deno.serve(async (req) => {
           );
         }
 
-        // Prevent self-ban
         if (user_id === callerId) {
           return new Response(
             JSON.stringify({ error: "Cannot ban yourself" }),
@@ -135,7 +130,7 @@ Deno.serve(async (req) => {
         }
 
         const banOptions = ban
-          ? { ban_duration: "876000h" } // ~100 years = permanent
+          ? { ban_duration: "876000h" }
           : { ban_duration: "none" };
 
         const { error: banError } =
