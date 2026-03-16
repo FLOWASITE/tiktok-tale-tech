@@ -492,7 +492,9 @@ function buildStructuredElement(
   // === Safe-area logic: if logo is in a top corner, add padding so banner text avoids it ===
   const logoInTopArea = logoMeta && (logoMeta.position === 'top-left' || logoMeta.position === 'top-right' || logoMeta.position === 'top-center');
   const logoInBottomArea = logoMeta && (logoMeta.position === 'bottom-left' || logoMeta.position === 'bottom-right' || logoMeta.position === 'bottom-center');
+  const logoInCenterArea = logoMeta && (logoMeta.position === 'center-left' || logoMeta.position === 'center-right' || logoMeta.position === 'center');
   const logoSafeWidth = logoMeta ? Math.ceil(imageWidth * (logoMeta.sizePercent / 100)) + (logoMeta.padding * 2) : 0;
+  const logoSafeHeight = logoMeta ? Math.ceil(imageWidth * (logoMeta.sizePercent / 100) * 0.75) + (logoMeta.padding * 2) : 0;
 
   // Banner (top or bottom)
   if (elements.banner) {
