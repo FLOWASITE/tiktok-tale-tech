@@ -457,16 +457,16 @@ export function SimpleImageGenerator({
         setHybridOverlay({
           layout: fbLayout as 'banner_cards' | 'hero_text' | 'simple' | 'split' | 'stack',
           elements: {
-            banner: overlayConfig.banner,
-            heroText: overlayConfig.heroText,
-            cards: overlayConfig.cards,
-            headline: overlayConfig.headline,
-            cta: overlayConfig.cta,
-            footer: overlayConfig.footer,
+            banner: fbOverlay.banner,
+            heroText: fbOverlay.heroText,
+            cards: fbOverlay.cards,
+            headline: fbOverlay.headline,
+            cta: fbOverlay.cta,
+            footer: fbOverlay.footer,
           },
-          colors: overlayConfig.colors,
+          colors: fbOverlay.colors,
         });
-        setHybridBackgroundPrompt(backgroundPrompt.description);
+        setHybridBackgroundPrompt(fbBgPrompt.description);
       })
       .finally(() => {
         if (!cancelled) setIsDecomposing(false);
