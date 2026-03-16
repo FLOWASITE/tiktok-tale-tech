@@ -433,16 +433,31 @@ export function SimpleImageGenerator({
     const summaryText = Object.values(contentSummaries).join(' ') + ' ' + textToInclude;
     if (!summaryText.trim()) return;
 
+    // Get full channel content for deeper AI analysis (up to 2000 chars)
+    const firstChannel = selectedChannels[0] || 'instagram';
+    const fullContent = getFullChannelContent(content, firstChannel);
+    const aiInput = fullContent || summaryText;
+
+    // Build strategic context for AI layout selection
+    const decomposeContext = {
+      contentRole: contentRole || undefined,
+      contentGoal: contentGoal || undefined,
+      contentAngle: contentAngle || undefined,
+      topic: content?.topic || undefined,
+      textToInclude: textToInclude || undefined,
+    };
+
     let cancelled = false;
     setIsDecomposing(true);
 
-    decomposeRequestWithAI(summaryText, brandPrimaryColor || '#DC2626')
+    decomposeRequestWithAI(aiInput, brandPrimaryColor || '#DC2626', '#FFFFFF', decomposeContext)
       .then((decomposed) => {
         if (cancelled) return;
+        // Use AI-suggested layout when in auto mode, fallback to heuristic
         const selectedTemplate = overlayTemplate !== 'auto'
           ? overlayTemplate
-          : autoSelectTemplate(summaryText, decomposed.overlayConfig);
-        console.log('[AutoTemplate] Selected:', selectedTemplate, 'from overlayTemplate:', overlayTemplate);
+          : decomposed.suggestedLayout || autoSelectTemplate(summaryText, decomposed.overlayConfig);
+        console.log('[AutoTemplate] Selected:', selectedTemplate, 'suggestedLayout:', decomposed.suggestedLayout, 'from overlayTemplate:', overlayTemplate);
         const applyResult = applyTemplate(selectedTemplate, decomposed, summaryText, brandPrimaryColor || '#DC2626');
         const { backgroundPrompt, overlayConfig } = applyResult;
         const resolvedLayout = applyResult.layout || (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple');
@@ -489,7 +504,7 @@ export function SimpleImageGenerator({
       });
 
     return () => { cancelled = true; };
-  }, [useHybridMode, contentSummaries, textToInclude, brandPrimaryColor, overlayTemplate]);
+  }, [useHybridMode, contentSummaries, textToInclude, brandPrimaryColor, overlayTemplate, selectedChannels, content, contentRole, contentGoal, contentAngle]);
 
   const batchOptions = useMemo(() => ({
     contentId: content?.id ?? '',
