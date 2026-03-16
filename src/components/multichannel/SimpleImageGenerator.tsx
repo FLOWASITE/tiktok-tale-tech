@@ -772,8 +772,8 @@ export function SimpleImageGenerator({
           </div>
         </div>
 
-      {/* V3 Style Suggestions Preview — only in 'raw' mode */}
-      {promptMode === 'raw' && v3Suggestions.length > 0 && (
+      {/* V3 Style Suggestions Preview — raw + brand_only modes */}
+      {promptMode !== 'full' && v3Suggestions.length > 0 && (
         <V3StylePreview
           suggestions={v3Suggestions}
           selectedStyle={imageStyle}
