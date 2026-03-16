@@ -105,6 +105,31 @@ serve(async (req) => {
       );
     }
 
+    // Non-blocking metrics save
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    const model = "google/gemini-3-pro-image-preview";
+    const inputTokens = estimateTokens(imagePrompt);
+    const estimatedCostUsd = estimateCost(model, inputTokens, 0);
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    saveMetrics(supabase, {
+      traceId,
+      functionName: 'generate-scene-thumbnail',
+      totalDurationMs,
+      aiCallDurationMs: totalDurationMs,
+      inputTokensEstimated: inputTokens,
+      outputTokensEstimated: 0,
+      estimatedCostUsd,
+      modelsUsed: { image: model },
+      hadError: false,
+      contextSources: [],
+      actionType: 'image_generation',
+    }).catch(() => {});
+
     return new Response(
       JSON.stringify({
         imageUrl,
@@ -115,6 +140,26 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Error generating scene thumbnail:", error);
+
+    // Save error metrics
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      saveMetrics(supabase, {
+        traceId,
+        functionName: 'generate-scene-thumbnail',
+        totalDurationMs,
+        hadError: true,
+        errorType: error instanceof Error ? error.name : 'Unknown',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        contextSources: [],
+        actionType: 'image_generation',
+      }).catch(() => {});
+    } catch {}
+
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : "Unknown error",
