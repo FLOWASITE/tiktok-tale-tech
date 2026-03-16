@@ -427,6 +427,8 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
               <GeneratedImagesGallery
                 images={generatedImages}
                 totalSlides={carousel.slide_count}
+                slides={carousel.slides_content}
+                carouselTitle={carousel.title}
                 onDeleteImage={handleDeleteImage}
               />
             </TabsContent>
