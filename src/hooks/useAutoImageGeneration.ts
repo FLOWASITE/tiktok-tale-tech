@@ -142,6 +142,9 @@ export function useAutoImageGeneration() {
       structuredOverlay,
     } = options;
     
+    // Resolve 'auto' logo position to channel-specific optimal position
+    const resolvedLogoPosition = logoPosition === 'auto' ? autoSelectLogoPosition(channel, aspectRatio) : (logoPosition || 'bottom-right');
+    
     const channelAspectRatio = getAspectRatioForChannel(channel, aspectRatio);
     
     // Get hook for this specific channel
