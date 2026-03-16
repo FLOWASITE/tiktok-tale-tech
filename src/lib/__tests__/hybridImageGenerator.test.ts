@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import {
   decomposeRequest,
@@ -6,7 +5,7 @@ import {
   autoSelectTemplate,
   type StructuredOverlayConfig,
   type DecomposedRequest,
-} from '../hybridImageGenerator';
+} from '../hybridImageUtils';
 
 // Helper: minimal overlay config
 function makeConfig(overrides: Partial<StructuredOverlayConfig> = {}): StructuredOverlayConfig {
