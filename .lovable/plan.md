@@ -1,57 +1,47 @@
 
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-## Phân tích: Tại sao 1 bài viết tạo nội dung 2 lần
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-### Bằng chứng từ logs
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-Edge Function `generate-multichannel` được gọi **2 lần riêng biệt** cho cùng 1 bài viết:
+---
 
-```text
-03:59:45 → Saved content ID: 87562d06 (Task: e76b4b62)
-04:00:18 → Saved content ID: 4ed92630 (Task: 469c96f2)
-```
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-Cùng tiêu đề, cùng topic, cùng thời điểm boot (03:59:46). Hai task ID khác nhau = hai request riêng biệt từ frontend.
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-### Nguyên nhân gốc
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-File `MultiChannelFormWizard.tsx` có **2 code path** đều gọi `onGenerate`:
+---
 
-1. **Path trực tiếp** (line 830-837): `handleSubmit` → kiểm tra `hasCoreContent` = true → `onGenerate()`
-2. **Path useEffect** (line 841-856): Auto-trigger khi `pendingMultiChannelGeneration = true` VÀ `hasCoreContent` trở thành true
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-**Race condition xảy ra khi:**
-- User nhấn submit lần đầu → Core Content chưa sẵn sàng → `setPendingMultiChannelGeneration(true)` → return early
-- Core Content hoàn tất → `useEffect` fire → gọi `onGenerate` (lần 1)
-- Nhưng `useEffect` deps gồm cả `coreContentData?.id` VÀ `formData.coreContentId` — cả hai có thể thay đổi gần nhau → **useEffect fire 2 lần**
-- Hoặc: user double-click nhanh, `submittingRef` check chỉ có trong `handleSubmit` nhưng **KHÔNG có trong useEffect**
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-Quan trọng: `useEffect` ở line 844 kiểm tra `!isGenerating` — nhưng `isGenerating` state update là async, nên lần gọi thứ 2 có thể chạy trước khi `isGenerating` được set thành true.
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-### Kế hoạch sửa
+---
 
-**File:** `src/components/multichannel/MultiChannelFormWizard.tsx`
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
-1. **Thêm `submittingRef` guard vào useEffect** (line 844):
-   ```typescript
-   if (pendingMultiChannelGeneration && hasCoreContent && !isGenerating 
-       && !isGeneratingCoreContent && !submittingRef.current) {
-     submittingRef.current = true;
-     // ...
-   }
-   ```
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
 
-2. **Thêm `setPendingMultiChannelGeneration(false)` NGAY TRƯỚC khi gọi onGenerate** trong useEffect để ngăn effect fire lần 2:
-   ```typescript
-   setPendingMultiChannelGeneration(false); // Clear flag TRƯỚC khi gọi
-   submittingRef.current = true;
-   onGenerate(...)
-   ```
-
-3. **Thêm guard trong `useStreamingGeneration.ts`** — `generatingRef` đã có nhưng cần verify nó hoạt động đúng khi 2 request gửi gần nhau (hiện tại task ID khác nhau cho thấy cả 2 request đều pass qua guard).
-
-### Tác động
-- 1 file sửa chính (`MultiChannelFormWizard.tsx`)
-- 1 file verify (`useStreamingGeneration.ts`) 
-- Không breaking change — chỉ thêm guard logic
-
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
