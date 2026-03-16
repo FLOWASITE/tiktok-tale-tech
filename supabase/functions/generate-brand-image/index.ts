@@ -61,6 +61,8 @@ interface GenerateImageRequest {
   structuredColors?: { primary: string; secondary: string; text: string };
   // Template ID for layout guidance in AI render mode
   structuredTemplate?: string;
+  // Logo safe zone for AI render mode — tells AI to keep area clear
+  logoSafeZone?: { position: string; sizePercent: number };
 }
 
 // Default model fallback (used when config not available)
