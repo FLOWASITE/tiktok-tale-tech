@@ -280,6 +280,13 @@ function structuredElementsToPromptText(
     parts.push(`- A call-to-action button or text: "${elements.cta}"`);
   }
 
+  if (elements.footer && elements.footer.items.length > 0) {
+    const footerItems = elements.footer.items
+      .map((item) => `${item.icon ? item.icon + ' ' : ''}${item.text}`)
+      .join('; ');
+    parts.push(`- A bottom footer contact bar with concise contact details: ${footerItems}`);
+  }
+
   if (colors) {
     parts.push(`\nColor scheme: primary ${colors.primary}, secondary ${colors.secondary}, text color ${colors.text}.`);
   }
