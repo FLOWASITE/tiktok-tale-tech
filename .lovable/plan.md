@@ -1,48 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Plan: Ẩn manual toggles khi "Để AI lo" + Auto-enable hybrid/ai_render
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-### Vấn đề
-Khi `promptMode === 'full'`, user vẫn thấy 3 controls thủ công: Hybrid checkbox, AI Render toggle, Template Picker. Theo logic đã approved, "Để AI lo" phải tự động bật hybrid + ai_render và ẩn các controls này.
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-### Thay đổi — 1 file: `SimpleImageGenerator.tsx`
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-**1. Thêm `useEffect` auto-enable khi full mode**
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
+
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
+
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
+
+### Chi tiet ky thuat
+
 ```typescript
-useEffect(() => {
-  if (promptMode === 'full') {
-    setUseHybridMode(true);
-    setOverlayMode('ai_render');
-  } else {
-    setOverlayMode('satori');
-  }
-}, [promptMode]);
-```
-
-**2. Ẩn manual controls khi full mode**
-
-Wrap block hybrid toggle (dòng ~818-858) với điều kiện `promptMode !== 'full'`:
-```typescript
-{promptMode !== 'full' && complexityAnalysis.score !== 'simple' && (
-  <div className="space-y-2">
-    {/* Hybrid checkbox, AI Render toggle, Template Picker — chỉ hiện khi brand_only/raw */}
-    ...
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
   </div>
-)}
+);
 ```
 
-**3. Thêm info note khi full mode**
-
-Hiển thị note nhỏ thay thế controls:
+Va DialogContent:
 ```typescript
-{promptMode === 'full' && (
-  <p className="text-xs text-primary/70 bg-primary/5 border border-primary/15 rounded-lg px-3 py-2">
-    🤖 AI tự động chọn layout + render text trực tiếp trong ảnh
-  </p>
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
 )}
 ```
 
-### Scope
-- ~15 dòng thay đổi, 1 file
-- Không ảnh hưởng pipeline — chỉ thay đổi UI visibility + default state
-
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
