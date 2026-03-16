@@ -1,21 +1,55 @@
+import { useState, useCallback } from 'react';
+import useEmblaCarousel from 'embla-carousel-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Download, ExternalLink, Trash2, ImageIcon, Package } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Download, ExternalLink, Trash2, ImageIcon, Package, ChevronLeft, ChevronRight, FileArchive } from 'lucide-react';
 import { GeneratedImage } from '@/hooks/useImageGeneration';
+import { CarouselSlide } from '@/types/carousel';
 import { toast } from 'sonner';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 interface GeneratedImagesGalleryProps {
   images: GeneratedImage[];
   totalSlides: number;
+  slides?: CarouselSlide[];
+  carouselTitle?: string;
   onDeleteImage?: (slideNumber: number) => void;
 }
 
 export function GeneratedImagesGallery({
   images,
   totalSlides,
+  slides,
+  carouselTitle,
   onDeleteImage,
 }: GeneratedImagesGalleryProps) {
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false, align: 'center' });
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [downloadingZip, setDownloadingZip] = useState(false);
+
+  const scrollPrev = useCallback(() => {
+    if (emblaApi) {
+      emblaApi.scrollPrev();
+      setSelectedIndex(emblaApi.selectedScrollSnap());
+    }
+  }, [emblaApi]);
+
+  const scrollNext = useCallback(() => {
+    if (emblaApi) {
+      emblaApi.scrollNext();
+      setSelectedIndex(emblaApi.selectedScrollSnap());
+    }
+  }, [emblaApi]);
+
+  const scrollTo = useCallback((index: number) => {
+    if (emblaApi) {
+      emblaApi.scrollTo(index);
+      setSelectedIndex(index);
+    }
+  }, [emblaApi]);
+
   const handleDownloadSingle = async (image: GeneratedImage) => {
     try {
       const response = await fetch(image.imageUrl);
@@ -35,21 +69,42 @@ export function GeneratedImagesGallery({
     }
   };
 
-  const handleDownloadAll = async () => {
+  const handleDownloadZip = async () => {
     if (images.length === 0) {
       toast.error('Chưa có ảnh nào để tải');
       return;
     }
 
-    toast.info('Đang tải tất cả ảnh...');
-    
-    for (const image of images) {
-      await handleDownloadSingle(image);
-      // Small delay between downloads
-      await new Promise((resolve) => setTimeout(resolve, 500));
+    setDownloadingZip(true);
+    toast.info('Đang đóng gói ảnh...');
+
+    try {
+      const zip = new JSZip();
+      const folder = zip.folder('carousel-slides');
+
+      for (const image of images) {
+        try {
+          const response = await fetch(image.imageUrl);
+          const blob = await response.blob();
+          const ext = blob.type.includes('svg') ? 'svg' : 'png';
+          folder?.file(`slide-${image.slideNumber}.${ext}`, blob);
+        } catch (err) {
+          console.error(`Failed to fetch slide ${image.slideNumber}:`, err);
+        }
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const fileName = carouselTitle
+        ? `carousel-${carouselTitle.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}.zip`
+        : 'carousel-slides.zip';
+      saveAs(zipBlob, fileName);
+      toast.success('Đã tải ZIP thành công!');
+    } catch (error) {
+      console.error('ZIP error:', error);
+      toast.error('Không thể tạo file ZIP');
+    } finally {
+      setDownloadingZip(false);
     }
-    
-    toast.success('Đã tải tất cả ảnh!');
   };
 
   const handleOpenInNewTab = (imageUrl: string) => {
@@ -79,14 +134,130 @@ export function GeneratedImagesGallery({
             {images.length}/{totalSlides} ảnh
           </Badge>
         </div>
-        <Button onClick={handleDownloadAll} size="sm" variant="outline">
-          <Package className="w-4 h-4 mr-2" />
-          Tải tất cả
-        </Button>
+        <div className="flex gap-1.5">
+          <Button
+            onClick={handleDownloadZip}
+            size="sm"
+            variant="outline"
+            disabled={downloadingZip}
+            className="gap-1.5"
+          >
+            <FileArchive className="w-4 h-4" />
+            <span className="hidden xs:inline">{downloadingZip ? 'Đang nén...' : 'Tải ZIP'}</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Gallery Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      {/* Carousel Swipe Preview */}
+      {images.length > 0 && (
+        <div className="relative">
+          <div className="overflow-hidden rounded-xl border border-border" ref={emblaRef}>
+            <div className="flex">
+              {images.map((image) => (
+                <div key={image.slideNumber} className="flex-[0_0_100%] min-w-0 relative">
+                  <div className="aspect-square xs:aspect-[4/5] relative bg-muted/20">
+                    <img
+                      src={image.imageUrl}
+                      alt={`Slide ${image.slideNumber}`}
+                      className="w-full h-full object-contain"
+                      loading="lazy"
+                    />
+                    {/* Overlay with slide text */}
+                    {slides && slides[image.slideNumber - 1] && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 xs:p-4">
+                        <p className="text-white text-xs xs:text-sm font-medium line-clamp-2">
+                          {slides[image.slideNumber - 1].textContent}
+                        </p>
+                      </div>
+                    )}
+                    <Badge className="absolute top-2 left-2 bg-black/70 text-white text-[10px] xs:text-xs">
+                      Slide {image.slideNumber}/{totalSlides}
+                    </Badge>
+                    {/* Action buttons */}
+                    <div className="absolute top-2 right-2 flex gap-1">
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        onClick={() => handleOpenInNewTab(image.imageUrl)}
+                        className="h-7 w-7 xs:h-8 xs:w-8 bg-black/50 hover:bg-black/70 text-white border-0"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        onClick={() => handleDownloadSingle(image)}
+                        className="h-7 w-7 xs:h-8 xs:w-8 bg-black/50 hover:bg-black/70 text-white border-0"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </Button>
+                      {onDeleteImage && (
+                        <Button
+                          size="icon"
+                          variant="destructive"
+                          onClick={() => onDeleteImage(image.slideNumber)}
+                          className="h-7 w-7 xs:h-8 xs:w-8"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Navigation arrows */}
+          {images.length > 1 && (
+            <>
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={scrollPrev}
+                className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 shadow-lg z-10"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="secondary"
+                onClick={scrollNext}
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-background/80 shadow-lg z-10"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Thumbnail strip */}
+      {images.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {images.map((image, index) => (
+            <button
+              key={image.slideNumber}
+              onClick={() => scrollTo(index)}
+              className={`flex-shrink-0 w-14 h-14 xs:w-16 xs:h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                selectedIndex === index
+                  ? 'border-primary ring-2 ring-primary/30'
+                  : 'border-border hover:border-primary/50'
+              }`}
+            >
+              <img
+                src={image.imageUrl}
+                alt={`Slide ${image.slideNumber}`}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Grid fallback */}
+      <div className="grid grid-cols-3 xs:grid-cols-4 gap-2">
         {images.map((image) => (
           <Card key={image.slideNumber} className="overflow-hidden group">
             <CardContent className="p-0 relative">
@@ -97,36 +268,8 @@ export function GeneratedImagesGallery({
                   className="w-full h-full object-cover"
                   loading="lazy"
                 />
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    onClick={() => handleOpenInNewTab(image.imageUrl)}
-                    className="h-8 w-8"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    onClick={() => handleDownloadSingle(image)}
-                    className="h-8 w-8"
-                  >
-                    <Download className="w-4 h-4" />
-                  </Button>
-                  {onDeleteImage && (
-                    <Button
-                      size="icon"
-                      variant="destructive"
-                      onClick={() => onDeleteImage(image.slideNumber)}
-                      className="h-8 w-8"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-                <Badge className="absolute top-2 left-2 bg-black/70 text-white">
-                  Slide {image.slideNumber}
+                <Badge className="absolute top-1 left-1 bg-black/70 text-white text-[9px] xs:text-[10px] px-1 py-0">
+                  {image.slideNumber}
                 </Badge>
               </div>
             </CardContent>

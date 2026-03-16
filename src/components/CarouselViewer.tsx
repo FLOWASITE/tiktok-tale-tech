@@ -1,5 +1,6 @@
 import { Carousel, CarouselStatus, CarouselSlide } from '@/types/carousel';
 import { SlidePromptCard } from './SlidePromptCard';
+import { SortableSlideCard } from './SortableSlideCard';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,21 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Copy, Check, Images, MessageSquare, Megaphone, Download, Sparkles, Loader2, ImageIcon, TrendingUp } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -117,6 +133,11 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [copiedCta, setCopiedCta] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const { generating, generatedImages, generateImage, getImageForSlide: getGeneratedImage, deleteImage, setImages } = useImageGeneration();
   const { images: savedImages, loading: loadingImages, saveImage, deleteImage: deleteSavedImage, getImageForSlide: getSavedImage } = useCarouselImages(carousel?.id || null);
@@ -253,6 +274,39 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
     } catch (error) {
       console.error('Error updating slide:', error);
       throw error;
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !carousel) return;
+
+    const oldIndex = carousel.slides_content.findIndex(s => `slide-${s.slideNumber}` === active.id);
+    const newIndex = carousel.slides_content.findIndex(s => `slide-${s.slideNumber}` === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove([...carousel.slides_content], oldIndex, newIndex);
+    // Re-assign slideNumbers
+    const renumbered = reordered.map((slide, i) => ({ ...slide, slideNumber: i + 1 }));
+
+    try {
+      const { error } = await supabase
+        .from('carousels')
+        .update({
+          slides_content: JSON.parse(JSON.stringify(renumbered)),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', carousel.id);
+
+      if (error) throw error;
+
+      const updatedCarousel = { ...carousel, slides_content: renumbered, updated_at: new Date().toISOString() };
+      onCarouselUpdate?.(updatedCarousel);
+      toast.success('Đã sắp xếp lại slides!');
+    } catch (error) {
+      console.error('Error reordering slides:', error);
+      toast.error('Không thể sắp xếp lại');
     }
   };
 
@@ -409,24 +463,33 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                 </Button>
               </div>
 
-              {carousel.slides_content.map((slide) => (
-                <SlidePromptCard
-                  key={slide.slideNumber}
-                  slide={slide}
-                  totalSlides={carousel.slide_count}
-                  generatedImage={getGeneratedImage(slide.slideNumber)}
-                  isGenerating={generating === slide.slideNumber}
-                  onGenerateImage={() => handleGenerateImage(slide.slideNumber, slide.fullPrompt)}
-                  canGenerateImage={generating === null && !generatingAll}
-                  onSlideUpdate={handleSlideUpdate}
-                />
-              ))}
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext
+                  items={carousel.slides_content.map(s => `slide-${s.slideNumber}`)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {carousel.slides_content.map((slide) => (
+                    <SortableSlideCard
+                      key={slide.slideNumber}
+                      slide={slide}
+                      totalSlides={carousel.slide_count}
+                      generatedImage={getGeneratedImage(slide.slideNumber)}
+                      isGenerating={generating === slide.slideNumber}
+                      onGenerateImage={() => handleGenerateImage(slide.slideNumber, slide.fullPrompt)}
+                      canGenerateImage={generating === null && !generatingAll}
+                      onSlideUpdate={handleSlideUpdate}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
             </TabsContent>
 
             <TabsContent value="images" className="mt-0">
               <GeneratedImagesGallery
                 images={generatedImages}
                 totalSlides={carousel.slide_count}
+                slides={carousel.slides_content}
+                carouselTitle={carousel.title}
                 onDeleteImage={handleDeleteImage}
               />
             </TabsContent>
