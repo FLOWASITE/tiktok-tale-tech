@@ -1,5 +1,6 @@
 import { Carousel, CarouselStatus, CarouselSlide } from '@/types/carousel';
 import { SlidePromptCard } from './SlidePromptCard';
+import { SortableSlideCard } from './SortableSlideCard';
 import {
   Dialog,
   DialogContent,
