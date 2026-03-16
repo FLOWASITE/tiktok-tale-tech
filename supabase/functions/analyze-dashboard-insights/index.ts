@@ -594,6 +594,7 @@ serve(async (req) => {
         const aiResult = await callAIWithMetrics(supabase, {
           functionName: 'analyze-dashboard-insights',
           organizationId,
+          userId,
           messages: [
             { role: "system", content: prompt },
             { role: "user", content: "Analyze dữ liệu và generate insights cho user này." }

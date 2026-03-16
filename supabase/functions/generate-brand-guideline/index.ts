@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
+import { resolveUserId } from "../_shared/logger.ts";
 import {
   detectTargetAudience,
   getColorToneSuggestion,
@@ -477,15 +478,19 @@ Tạo guideline CHI TIẾT với:
       }
     }];
 
+    const userId = await resolveUserId(req, supabase);
+
     const aiResponse = await callAIWithMetrics(supabase, {
       functionName: 'generate-brand-guideline',
       brandTemplateId: brand_template_id,
+      userId,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
       tools,
       toolChoice: { type: 'function', function: { name: 'generate_brand_guideline' } },
+      actionType: 'content_generation',
     });
 
     if (!aiResponse.success) {

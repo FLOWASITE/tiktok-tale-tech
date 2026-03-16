@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAI, callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
+import { resolveUserId } from "../_shared/logger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -227,7 +228,8 @@ function calculateMetricAnalysis(
 
 async function handleSuggest(
   supabase: AnySupabaseClient,
-  data: SuggestRequest
+  data: SuggestRequest,
+  userId?: string
 ): Promise<Response> {
   const { campaignType, budget, startDate, endDate, targetChannels, industries, organizationId } = data;
 
@@ -393,6 +395,7 @@ QUAN TRỌNG: Return JSON với format CHÍNH XÁC như sau (không thêm markdo
   const aiResult = await callAIWithMetrics(supabase, {
     functionName: 'kpi-ai',
     organizationId,
+    userId,
     actionType: 'suggest',
     messages: [
       { role: "system", content: systemPrompt },
@@ -485,7 +488,8 @@ QUAN TRỌNG: Return JSON với format CHÍNH XÁC như sau (không thêm markdo
 
 async function handleAdjust(
   supabase: AnySupabaseClient,
-  data: AdjustRequest
+  data: AdjustRequest,
+  userId?: string
 ): Promise<Response> {
   const { campaignId, organizationId, currentGoals, kpiLogs, startDate, endDate, campaignType, campaignName } = data;
 
@@ -602,6 +606,7 @@ Hãy đưa ra đề xuất điều chỉnh phù hợp.`;
   const aiResult = await callAIWithMetrics(supabase, {
     functionName: 'kpi-ai',
     organizationId,
+    userId,
     actionType: 'adjust',
     messages: [
       { role: "system", content: systemPrompt },
@@ -728,14 +733,17 @@ serve(async (req) => {
     const body = await req.json();
     const { action, ...data } = body;
 
+    // Resolve userId for cost tracking
+    const userId = await resolveUserId(req, supabase);
+
     console.log('KPI-AI request:', { action });
 
     switch (action) {
       case 'suggest':
-        return await handleSuggest(supabase, data as SuggestRequest);
+        return await handleSuggest(supabase, data as SuggestRequest, userId);
       
       case 'adjust':
-        return await handleAdjust(supabase, data as AdjustRequest);
+        return await handleAdjust(supabase, data as AdjustRequest, userId);
       
       default:
         return new Response(

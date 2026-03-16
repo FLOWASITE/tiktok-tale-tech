@@ -184,15 +184,22 @@ CHỈ trả về JSON hợp lệ, không có markdown hay giải thích.`;
     const adminModel = aiConfig?.model || undefined;
 
     // Use multi-provider system with auto metrics
+    // Extract userId from auth header
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user: authUser } } = await supabaseService.auth.getUser(token);
+    const userId = authUser?.id;
+
     const aiResult = await callAIWithMetrics(supabaseService, {
       functionName: 'predict-ad-performance',
       organizationId: adCopy.organization_id,
+      userId,
       messages: [
         { role: 'system', content: finalSystemPrompt },
         { role: 'user', content: `Phân tích và dự đoán hiệu suất cho ad copy sau:\n\n${contentSummary}` },
       ],
       modelOverride: adminModel,
       temperatureOverride: aiConfig?.temperature,
+      actionType: 'content_analysis',
     });
 
     if (!aiResult.success) {

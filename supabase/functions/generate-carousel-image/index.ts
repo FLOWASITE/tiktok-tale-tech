@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { generateTraceId, saveMetrics, estimateTokens } from "../_shared/logger.ts";
-import { estimateCost } from "../_shared/cost-estimator.ts";
+import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
+import { estimateCost, estimateImageCost, isImageModel } from "../_shared/cost-estimator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -104,6 +104,8 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const userId = await resolveUserId(req, supabase);
+
 
     const binaryString = atob(imageBase64);
     const bytes = new Uint8Array(binaryString.length);
@@ -188,10 +190,11 @@ serve(async (req) => {
     const totalDurationMs = Math.round(performance.now() - startTime);
     const model = "google/gemini-3-pro-image-preview";
     const inputTokens = estimateTokens(backgroundPrompt);
-    const estimatedCostUsd = estimateCost(model, inputTokens, 0);
+    const estimatedCostUsd = isImageModel(model) ? estimateImageCost(model) : estimateCost(model, inputTokens, 0);
     saveMetrics(supabase, {
       traceId,
       functionName: 'generate-carousel-image',
+      userId,
       totalDurationMs,
       aiCallDurationMs: totalDurationMs,
       inputTokensEstimated: inputTokens,

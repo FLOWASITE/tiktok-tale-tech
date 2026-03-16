@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
-import { saveMetrics, generateTraceId, estimateTokens } from "../_shared/logger.ts";
+import { saveMetrics, generateTraceId, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
 import { getLanguageForCountry, getLanguageConfig } from "../_shared/country-language-map.ts";
 
@@ -124,6 +124,8 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const userId = await resolveUserId(req, supabase);
+
 
     // Create PromptManager for this function
     const pm = createPromptManager(supabase, 'generate-storyboard', organizationId);
@@ -291,6 +293,7 @@ ${L.returnJson}`;
     saveMetrics(supabase, {
       traceId,
       functionName: 'generate-storyboard',
+      userId,
       totalDurationMs: durationMs,
       aiCallDurationMs: durationMs,
       inputTokensEstimated: inputTokens,

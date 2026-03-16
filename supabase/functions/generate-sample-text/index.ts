@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
-import { generateTraceId, saveMetrics, estimateTokens } from "../_shared/logger.ts";
+import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
 
 const corsHeaders = {
@@ -430,9 +430,11 @@ Only return the JSON, no other text.`;
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const userId = await resolveUserId(req, supabase);
     saveMetrics(supabase, {
       traceId,
       functionName: 'generate-sample-text',
+      userId,
       totalDurationMs: aiDurationMs,
       aiCallDurationMs: aiDurationMs,
       inputTokensEstimated: inputTokens,

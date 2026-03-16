@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { generateTraceId, saveMetrics, estimateTokens } from "../_shared/logger.ts";
+import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
 
 const corsHeaders = {
@@ -422,9 +422,11 @@ Secondary color: ${secondaryColor}`;
     const estimatedCostUsd = estimateCost(model, inputTokens, outputTokens);
     try {
       const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const userId = await resolveUserId(req, sb);
       saveMetrics(sb, {
         traceId,
         functionName: 'decompose-image-request',
+        userId,
         totalDurationMs,
         aiCallDurationMs: totalDurationMs,
         inputTokensEstimated: inputTokens,

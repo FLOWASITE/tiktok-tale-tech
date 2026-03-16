@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
+import { resolveUserId } from "../_shared/logger.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -70,6 +71,10 @@ Respond in the same language as the ad copy provided.`;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Resolve userId for cost tracking
+    const userId = await resolveUserId(req, supabase);
+
+
     let systemPrompt = '';
     try {
       const promptManager = createPromptManager(supabase, 'optimize-ad-copy');
@@ -128,12 +133,14 @@ Return JSON only, no other text.`;
     // Use multi-provider system with auto metrics
     const aiResult = await callAIWithMetrics(supabase, {
       functionName: 'optimize-ad-copy',
+      userId,
       messages: [
         { role: "system", content: finalSystemPrompt },
         { role: "user", content: prompt }
       ],
       modelOverride: adminModel,
       temperatureOverride: aiConfig?.temperature,
+      actionType: 'content_optimization',
     });
 
     if (!aiResult.success) {

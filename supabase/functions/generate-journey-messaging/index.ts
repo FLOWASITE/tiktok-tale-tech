@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
+import { resolveUserId } from "../_shared/logger.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -41,6 +42,8 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const userId = await resolveUserId(req, supabase);
+
 
     const body: RequestBody = await req.json();
     const { mappingId, productId, personaId, brandTemplateId, organizationId, targetStages } = body;
@@ -272,12 +275,14 @@ Lưu ý:
       functionName: 'generate-journey-messaging',
       organizationId,
       brandTemplateId,
+      userId,
       messages: [
         { role: "system", content: contextPrompt },
         { role: "user", content: userPrompt }
       ],
       tools,
       toolChoice: { type: "function", function: { name: "generate_journey_messaging" } },
+      actionType: 'content_generation',
     });
 
     if (!aiResponse.success) {

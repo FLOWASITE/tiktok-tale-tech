@@ -3,8 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared/kie-image-generator.ts";
 import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_shared/poyo-image-generator.ts";
-import { generateTraceId, saveMetrics, estimateTokens } from "../_shared/logger.ts";
-import { estimateCost } from "../_shared/cost-estimator.ts";
+import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
+import { estimateCost, estimateImageCost, isImageModel } from "../_shared/cost-estimator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -291,13 +291,15 @@ serve(async (req) => {
     // Non-blocking metrics save
     const totalDurationMs = Math.round(performance.now() - startTime);
     const inputTokens = estimateTokens(editPrompt);
-    const estimatedCostUsd = estimateCost(modelToUse, inputTokens, 0);
+    const estimatedCostUsd = isImageModel(modelToUse) ? estimateImageCost(modelToUse) : estimateCost(modelToUse, inputTokens, 0);
+    const userId = await resolveUserId(req, createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!));
     try {
       const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
       saveMetrics(sb, {
         traceId,
         functionName: 'edit-image-background',
         organizationId: request.organizationId,
+        userId,
         totalDurationMs,
         aiCallDurationMs: totalDurationMs,
         inputTokensEstimated: inputTokens,

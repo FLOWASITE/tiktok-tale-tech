@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
 import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext, getLocalizedPromptLabels } from "../_shared/country-language-map.ts";
-import { generateTraceId, saveMetrics, estimateTokens } from "../_shared/logger.ts";
+import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -142,6 +142,8 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const userId = await resolveUserId(req, supabase);
+
 
     let systemPrompt = '';
     try {
@@ -224,6 +226,7 @@ ${jsonFormatInstruction}`;
     saveMetrics(supabase, {
       traceId: generateTraceId(),
       functionName: 'score-ad-creative',
+      userId,
       totalDurationMs: 0,
       inputTokensEstimated: inputTokens,
       outputTokensEstimated: outputTokens,

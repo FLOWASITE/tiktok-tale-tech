@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { generateTraceId, saveMetrics, estimateTokens } from "../_shared/logger.ts";
-import { estimateCost } from "../_shared/cost-estimator.ts";
+import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
+import { estimateCost, estimateImageCost, isImageModel } from "../_shared/cost-estimator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,6 +30,7 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+    const userId = await resolveUserId(req, supabase);
 
     const {
       imageUrl,
@@ -181,10 +182,11 @@ serve(async (req) => {
     // Non-blocking metrics save
     const totalDurationMs = Math.round(performance.now() - startTime);
     const model = "google/gemini-3-pro-image-preview";
-    const estimatedCostUsd = estimateCost(model, 500, 0); // Image edit is ~500 tokens input
+    const estimatedCostUsd = isImageModel(model) ? estimateImageCost(model) : estimateCost(model, 500, 0);
     saveMetrics(supabase, {
       traceId,
       functionName: 'overlay-brand-logo',
+      userId,
       totalDurationMs,
       aiCallDurationMs: totalDurationMs,
       inputTokensEstimated: 500,
