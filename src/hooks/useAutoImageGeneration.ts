@@ -254,7 +254,7 @@ export function useAutoImageGeneration() {
         if (includeLogo && logoUrl) {
           const step2Start = Date.now();
           console.log(`[Pipeline:${channel}] ▶ STEP 2/4 — Logo overlay`, {
-            position: logoPosition || 'bottom-right',
+            position: resolvedLogoPosition,
             style: logoStyle || 'shadow',
             sizePercent: logoSizePercent || 15,
           });
