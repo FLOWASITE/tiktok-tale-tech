@@ -237,7 +237,8 @@ async function generateImageWithRetry(
 function structuredElementsToPromptText(
   elements: GenerateImageRequest['structuredElements'],
   colors?: GenerateImageRequest['structuredColors'],
-  templateId?: string
+  templateId?: string,
+  logoSafeZone?: GenerateImageRequest['logoSafeZone']
 ): string {
   if (!elements) return '';
 
