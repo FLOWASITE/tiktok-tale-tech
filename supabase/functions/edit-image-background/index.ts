@@ -291,7 +291,8 @@ serve(async (req) => {
     // Non-blocking metrics save
     const totalDurationMs = Math.round(performance.now() - startTime);
     const inputTokens = estimateTokens(editPrompt);
-    const estimatedCostUsd = estimateCost(modelToUse, inputTokens, 0);
+    const estimatedCostUsd = isImageModel(modelToUse) ? estimateImageCost(modelToUse) : estimateCost(modelToUse, inputTokens, 0);
+    const userId = await resolveUserId(req, createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!));
     try {
       const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
       saveMetrics(sb, {
