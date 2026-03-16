@@ -625,8 +625,13 @@ function buildStructuredElement(
   // Hero text (large centered text or number circle)
   if (elements.heroText) {
     const sizeMap = { xl: 0.06, '2xl': 0.08, '3xl': 0.12 };
-    const fontSize = Math.round(imageWidth * (sizeMap[elements.heroText.fontSize] || 0.08));
-    const isNumericHero = /^\d+$/.test(elements.heroText.text.trim());
+    const baseFontSize = Math.round(imageWidth * (sizeMap[elements.heroText.fontSize] || 0.08));
+    const fontSize = fitTextToWidth(elements.heroText.text.trim(), imageWidth * 0.75, baseFontSize, 18);
+    const heroTrimmed = elements.heroText.text.trim();
+    // Expanded hero matching: pure numbers, numbers with % or +, decimal numbers
+    const isNumericHero = /^\d+(\.\d+)?[%+]?$/.test(heroTrimmed);
+    // Split hero: "3 THAY ĐỔI" → number in circle + side label
+    const splitHeroMatch = heroTrimmed.match(/^(\d+)\s+(.+)$/);
     
     if (isNumericHero) {
       // Hero Number Circle: large styled circle with number inside
