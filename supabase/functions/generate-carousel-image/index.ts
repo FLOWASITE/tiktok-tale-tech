@@ -190,7 +190,7 @@ serve(async (req) => {
     const totalDurationMs = Math.round(performance.now() - startTime);
     const model = "google/gemini-3-pro-image-preview";
     const inputTokens = estimateTokens(backgroundPrompt);
-    const estimatedCostUsd = estimateCost(model, inputTokens, 0);
+    const estimatedCostUsd = isImageModel(model) ? estimateImageCost(model) : estimateCost(model, inputTokens, 0);
     saveMetrics(supabase, {
       traceId,
       functionName: 'generate-carousel-image',
