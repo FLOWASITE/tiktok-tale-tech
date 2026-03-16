@@ -285,7 +285,15 @@ Secondary color: ${secondaryColor}`;
                         },
                         required: ["items", "layout"],
                       },
-                      cta: { type: "string", description: "Call-to-action text (only for conversion/harvest content)" },
+                      cta: { type: "string", description: "Call-to-action text (for conversion/harvest content or education_infographic)" },
+                      summaryRibbon: {
+                        type: "object",
+                        properties: {
+                          text: { type: "string", description: "1-sentence summary ribbon text (for education_infographic)" },
+                          bgColor: { type: "string", description: "Optional background color for ribbon" },
+                        },
+                        required: ["text"],
+                      },
                       footer: {
                         type: "object",
                         properties: {
