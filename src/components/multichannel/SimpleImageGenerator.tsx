@@ -41,6 +41,7 @@ import { PromptPreview } from './PromptPreview';
 import { BackgroundEditor } from './BackgroundEditor';
 import { useBackgroundEditor } from '@/hooks/useBackgroundEditor';
 import { V3StylePreview } from './V3StylePreview';
+import { AIReadyCard } from './AIReadyCard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 import { toast } from 'sonner';
