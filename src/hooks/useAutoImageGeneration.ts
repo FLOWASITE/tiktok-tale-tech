@@ -371,7 +371,7 @@ export function useAutoImageGeneration() {
               contentId,
               channel,
               logoMeta: (includeLogo && logoUrl && !logoFailed) ? {
-                position: logoPosition || 'bottom-right',
+                position: resolvedLogoPosition,
                 sizePercent: logoSizePercent || 15,
                 padding: 20,
               } : undefined,
