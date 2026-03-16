@@ -295,7 +295,7 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
                 </div>
                 <div>
                   <Label className="text-xs">Status</Label>
-                  <Select value={editStatus} onValueChange={setEditStatus}>
+                  <Select value={editStatus} onValueChange={(v) => setEditStatus(v as typeof editStatus)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
