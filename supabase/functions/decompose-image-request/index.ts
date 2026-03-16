@@ -10,12 +10,19 @@ const corsHeaders = {
 function validateOverlay(overlay: any, primaryColor: string): any {
   const result = { ...overlay };
 
-  // Banner: ensure non-empty, ≤ 30 chars
+  // Banner: ensure non-empty, ≤ 40 chars (raised for Vietnamese)
   if (result.banner) {
     if (!result.banner.text || result.banner.text.trim().length === 0) {
       delete result.banner;
     } else {
-      result.banner.text = result.banner.text.trim().slice(0, 30);
+      // Smart truncate at word boundary
+      let bannerText = result.banner.text.trim();
+      if (bannerText.length > 40) {
+        const truncated = bannerText.slice(0, 40);
+        const lastSpace = truncated.lastIndexOf(' ');
+        bannerText = lastSpace > 20 ? truncated.slice(0, lastSpace) : truncated;
+      }
+      result.banner.text = bannerText;
       result.banner.bgColor = primaryColor;
       result.banner.position = result.banner.position || "top";
     }
