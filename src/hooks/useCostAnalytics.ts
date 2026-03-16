@@ -34,6 +34,23 @@ export interface CostByFunction {
   avgCostPerRequest: number;
 }
 
+export interface CostByUser {
+  userId: string;
+  email: string | null;
+  fullName: string | null;
+  totalCost: number;
+  requestCount: number;
+  avgCostPerRequest: number;
+}
+
+export interface CostByOrganization {
+  organizationId: string;
+  organizationName: string | null;
+  totalCost: number;
+  requestCount: number;
+  avgCostPerRequest: number;
+}
+
 export interface RecentCostEntry {
   id: string;
   createdAt: string;
@@ -52,11 +69,10 @@ export function useCostAnalytics(days: number = 30) {
   const monthStart = startOfMonth(now);
   const rangeStart = subDays(now, days);
 
-  // Summary query - optimized with staleTime to prevent continuous refetching
+  // Summary query
   const summaryQuery = useQuery({
     queryKey: ["cost-analytics-summary", days],
     queryFn: async (): Promise<CostSummary> => {
-      // Get all metrics with costs
       const { data: allMetrics, error } = await supabase
         .from("ai_metrics")
         .select("estimated_cost_usd, created_at")
@@ -66,26 +82,17 @@ export function useCostAnalytics(days: number = 30) {
       if (error) throw error;
 
       const metrics = allMetrics || [];
-      
       const totalCostUsd = metrics.reduce((sum, m) => sum + (m.estimated_cost_usd || 0), 0);
       const totalRequests = metrics.length;
-      
-      const todayMetrics = metrics.filter(m => new Date(m.created_at) >= todayStart);
-      const totalCostToday = todayMetrics.reduce((sum, m) => sum + (m.estimated_cost_usd || 0), 0);
-      
-      const weekMetrics = metrics.filter(m => new Date(m.created_at) >= weekStart);
-      const totalCostWeek = weekMetrics.reduce((sum, m) => sum + (m.estimated_cost_usd || 0), 0);
-      
-      const monthMetrics = metrics.filter(m => new Date(m.created_at) >= monthStart);
-      const totalCostMonth = monthMetrics.reduce((sum, m) => sum + (m.estimated_cost_usd || 0), 0);
+      const totalCostToday = metrics.filter(m => new Date(m.created_at) >= todayStart).reduce((sum, m) => sum + (m.estimated_cost_usd || 0), 0);
+      const totalCostWeek = metrics.filter(m => new Date(m.created_at) >= weekStart).reduce((sum, m) => sum + (m.estimated_cost_usd || 0), 0);
+      const totalCostMonth = metrics.filter(m => new Date(m.created_at) >= monthStart).reduce((sum, m) => sum + (m.estimated_cost_usd || 0), 0);
 
-      // Calculate trend (compare this week vs last week)
       const lastWeekStart = subDays(weekStart, 7);
-      const lastWeekMetrics = metrics.filter(m => {
-        const date = new Date(m.created_at);
-        return date >= lastWeekStart && date < weekStart;
-      });
-      const lastWeekCost = lastWeekMetrics.reduce((sum, m) => sum + (m.estimated_cost_usd || 0), 0);
+      const lastWeekCost = metrics.filter(m => {
+        const d = new Date(m.created_at);
+        return d >= lastWeekStart && d < weekStart;
+      }).reduce((sum, m) => sum + (m.estimated_cost_usd || 0), 0);
       const costTrend = lastWeekCost > 0 ? ((totalCostWeek - lastWeekCost) / lastWeekCost) * 100 : 0;
 
       return {
@@ -98,12 +105,12 @@ export function useCostAnalytics(days: number = 30) {
         costTrend,
       };
     },
-    staleTime: 60_000, // 60 seconds - prevent refetch if data is less than 1 minute old
+    staleTime: 60_000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
 
-  // Daily costs query - optimized with staleTime
+  // Daily costs query
   const dailyCostsQuery = useQuery({
     queryKey: ["cost-analytics-daily", days],
     queryFn: async (): Promise<DailyCost[]> => {
@@ -116,40 +123,22 @@ export function useCostAnalytics(days: number = 30) {
 
       if (error) throw error;
 
-      // Group by date
       const dailyMap = new Map<string, DailyCost>();
-      
       (data || []).forEach((m) => {
         const date = format(new Date(m.created_at), "yyyy-MM-dd");
-        const existing = dailyMap.get(date) || {
-          date,
-          cost: 0,
-          requestCount: 0,
-          inputTokens: 0,
-          outputTokens: 0,
-        };
-        
+        const existing = dailyMap.get(date) || { date, cost: 0, requestCount: 0, inputTokens: 0, outputTokens: 0 };
         existing.cost += m.estimated_cost_usd || 0;
         existing.requestCount += 1;
         existing.inputTokens += m.input_tokens_estimated || 0;
         existing.outputTokens += m.output_tokens_estimated || 0;
-        
         dailyMap.set(date, existing);
       });
 
-      // Fill missing dates
       const result: DailyCost[] = [];
       for (let i = days - 1; i >= 0; i--) {
         const date = format(subDays(now, i), "yyyy-MM-dd");
-        result.push(dailyMap.get(date) || {
-          date,
-          cost: 0,
-          requestCount: 0,
-          inputTokens: 0,
-          outputTokens: 0,
-        });
+        result.push(dailyMap.get(date) || { date, cost: 0, requestCount: 0, inputTokens: 0, outputTokens: 0 });
       }
-
       return result;
     },
     staleTime: 60_000,
@@ -157,7 +146,7 @@ export function useCostAnalytics(days: number = 30) {
     refetchOnMount: false,
   });
 
-  // Cost by model query - optimized with staleTime
+  // Cost by model query
   const costByModelQuery = useQuery({
     queryKey: ["cost-analytics-by-model", days],
     queryFn: async (): Promise<CostByModel[]> => {
@@ -169,20 +158,16 @@ export function useCostAnalytics(days: number = 30) {
 
       if (error) throw error;
 
-      // Aggregate by model
       const modelMap = new Map<string, { cost: number; count: number }>();
       let totalCost = 0;
 
       (data || []).forEach((m) => {
         const cost = m.estimated_cost_usd || 0;
         totalCost += cost;
-        
-        // models_used is a JSON object like { "facebook": "google/gemini-2.5-flash", ... }
         const models = m.models_used as Record<string, string> | null;
         if (models) {
           const uniqueModels = new Set(Object.values(models));
           const costPerModel = cost / uniqueModels.size;
-          
           uniqueModels.forEach((model) => {
             const existing = modelMap.get(model) || { cost: 0, count: 0 };
             existing.cost += costPerModel;
@@ -206,7 +191,7 @@ export function useCostAnalytics(days: number = 30) {
     refetchOnMount: false,
   });
 
-  // Cost by function query - optimized with staleTime
+  // Cost by function query
   const costByFunctionQuery = useQuery({
     queryKey: ["cost-analytics-by-function", days],
     queryFn: async (): Promise<CostByFunction[]> => {
@@ -218,9 +203,7 @@ export function useCostAnalytics(days: number = 30) {
 
       if (error) throw error;
 
-      // Aggregate by function
       const funcMap = new Map<string, { cost: number; count: number }>();
-
       (data || []).forEach((m) => {
         const existing = funcMap.get(m.function_name) || { cost: 0, count: 0 };
         existing.cost += m.estimated_cost_usd || 0;
@@ -242,7 +225,111 @@ export function useCostAnalytics(days: number = 30) {
     refetchOnMount: false,
   });
 
-  // Recent entries query - shorter staleTime for more recent data
+  // Cost by user query
+  const costByUserQuery = useQuery({
+    queryKey: ["cost-analytics-by-user", days],
+    queryFn: async (): Promise<CostByUser[]> => {
+      const { data, error } = await supabase
+        .from("ai_metrics")
+        .select("user_id, estimated_cost_usd")
+        .not("estimated_cost_usd", "is", null)
+        .not("user_id", "is", null)
+        .gte("created_at", rangeStart.toISOString());
+
+      if (error) throw error;
+
+      // Group by user_id
+      const userMap = new Map<string, { cost: number; count: number }>();
+      (data || []).forEach((m) => {
+        if (!m.user_id) return;
+        const existing = userMap.get(m.user_id) || { cost: 0, count: 0 };
+        existing.cost += m.estimated_cost_usd || 0;
+        existing.count += 1;
+        userMap.set(m.user_id, existing);
+      });
+
+      // Fetch profiles for user names
+      const userIds = Array.from(userMap.keys());
+      let profiles: Record<string, { email: string | null; full_name: string | null }> = {};
+      if (userIds.length > 0) {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("id, email, full_name")
+          .in("id", userIds);
+        
+        (profileData || []).forEach((p: any) => {
+          profiles[p.id] = { email: p.email, full_name: p.full_name };
+        });
+      }
+
+      return Array.from(userMap.entries())
+        .map(([userId, data]) => ({
+          userId,
+          email: profiles[userId]?.email || null,
+          fullName: profiles[userId]?.full_name || null,
+          totalCost: data.cost,
+          requestCount: data.count,
+          avgCostPerRequest: data.count > 0 ? data.cost / data.count : 0,
+        }))
+        .sort((a, b) => b.totalCost - a.totalCost);
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+
+  // Cost by organization query
+  const costByOrgQuery = useQuery({
+    queryKey: ["cost-analytics-by-org", days],
+    queryFn: async (): Promise<CostByOrganization[]> => {
+      const { data, error } = await supabase
+        .from("ai_metrics")
+        .select("organization_id, estimated_cost_usd")
+        .not("estimated_cost_usd", "is", null)
+        .not("organization_id", "is", null)
+        .gte("created_at", rangeStart.toISOString());
+
+      if (error) throw error;
+
+      const orgMap = new Map<string, { cost: number; count: number }>();
+      (data || []).forEach((m) => {
+        if (!m.organization_id) return;
+        const existing = orgMap.get(m.organization_id) || { cost: 0, count: 0 };
+        existing.cost += m.estimated_cost_usd || 0;
+        existing.count += 1;
+        orgMap.set(m.organization_id, existing);
+      });
+
+      // Fetch org names
+      const orgIds = Array.from(orgMap.keys());
+      let orgs: Record<string, string> = {};
+      if (orgIds.length > 0) {
+        const { data: orgData } = await supabase
+          .from("organizations")
+          .select("id, name")
+          .in("id", orgIds);
+        
+        (orgData || []).forEach((o: any) => {
+          orgs[o.id] = o.name;
+        });
+      }
+
+      return Array.from(orgMap.entries())
+        .map(([orgId, data]) => ({
+          organizationId: orgId,
+          organizationName: orgs[orgId] || null,
+          totalCost: data.cost,
+          requestCount: data.count,
+          avgCostPerRequest: data.count > 0 ? data.cost / data.count : 0,
+        }))
+        .sort((a, b) => b.totalCost - a.totalCost);
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+
+  // Recent entries query
   const recentEntriesQuery = useQuery({
     queryKey: ["cost-analytics-recent"],
     queryFn: async (): Promise<RecentCostEntry[]> => {
@@ -257,13 +344,10 @@ export function useCostAnalytics(days: number = 30) {
 
       return (data || []).map((m) => {
         const models = m.models_used as Record<string, string> | null;
-        // Show all unique models used in this request
         let modelDisplay = "unknown";
         if (models) {
           const uniqueModels = [...new Set(Object.values(models))];
-          modelDisplay = uniqueModels
-            .map(model => model?.split("/").pop() || model)
-            .join(", ");
+          modelDisplay = uniqueModels.map(model => model?.split("/").pop() || model).join(", ");
         }
         
         return {
@@ -278,7 +362,7 @@ export function useCostAnalytics(days: number = 30) {
         };
       });
     },
-    staleTime: 30_000, // 30 seconds for recent entries - more frequent updates
+    staleTime: 30_000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
   });
@@ -288,18 +372,21 @@ export function useCostAnalytics(days: number = 30) {
     dailyCosts: dailyCostsQuery.data,
     costByModel: costByModelQuery.data,
     costByFunction: costByFunctionQuery.data,
+    costByUser: costByUserQuery.data,
+    costByOrg: costByOrgQuery.data,
     recentEntries: recentEntriesQuery.data,
     isLoading:
       summaryQuery.isLoading ||
       dailyCostsQuery.isLoading ||
       costByModelQuery.isLoading ||
-      costByFunctionQuery.isLoading ||
-      recentEntriesQuery.isLoading,
+      costByFunctionQuery.isLoading,
     refetch: () => {
       summaryQuery.refetch();
       dailyCostsQuery.refetch();
       costByModelQuery.refetch();
       costByFunctionQuery.refetch();
+      costByUserQuery.refetch();
+      costByOrgQuery.refetch();
       recentEntriesQuery.refetch();
     },
   };
