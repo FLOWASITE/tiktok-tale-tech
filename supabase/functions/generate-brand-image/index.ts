@@ -752,15 +752,16 @@ function structuredElementsToPromptText(
 
     // Non-blocking metrics save
     const totalDurationMs = Math.round(performance.now() - startTime);
-    const inputTokens = estimateTokens(enhancedPrompt);
-    const estimatedCostUsd = estimateCost(modelUsed.split(' ')[0], inputTokens, 0);
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    const estimatedCostUsd = estimateImageCost(modelUsed.split(' ')[0]);
     saveMetrics(supabase, {
       traceId,
       functionName: 'generate-brand-image',
       organizationId: brandTemplate.organization_id,
+      userId,
       totalDurationMs,
       aiCallDurationMs: totalDurationMs,
-      inputTokensEstimated: inputTokens,
+      inputTokensEstimated: estimateTokens(enhancedPrompt),
       outputTokensEstimated: 0,
       estimatedCostUsd,
       modelsUsed: { image: modelUsed },
