@@ -390,7 +390,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                   key={slide.slideNumber}
                   slide={slide}
                   totalSlides={carousel.slide_count}
-                  generatedImage={getImageForSlide(slide.slideNumber)}
+                  generatedImage={getGeneratedImage(slide.slideNumber)}
                   isGenerating={generating === slide.slideNumber}
                   onGenerateImage={() => handleGenerateImage(slide.slideNumber, slide.fullPrompt)}
                   canGenerateImage={generating === null && !generatingAll}
