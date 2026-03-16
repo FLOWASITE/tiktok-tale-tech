@@ -226,6 +226,7 @@ ${jsonFormatInstruction}`;
     saveMetrics(supabase, {
       traceId: generateTraceId(),
       functionName: 'score-ad-creative',
+      userId,
       totalDurationMs: 0,
       inputTokensEstimated: inputTokens,
       outputTokensEstimated: outputTokens,

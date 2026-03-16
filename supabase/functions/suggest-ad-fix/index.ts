@@ -245,6 +245,7 @@ serve(async (req) => {
     saveMetrics(supabase, {
       traceId: generateTraceId(),
       functionName: 'suggest-ad-fix',
+      userId,
       totalDurationMs: 0,
       inputTokensEstimated: inputTokens,
       outputTokensEstimated: outputTokens,

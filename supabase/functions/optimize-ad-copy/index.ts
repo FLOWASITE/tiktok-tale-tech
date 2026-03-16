@@ -133,12 +133,14 @@ Return JSON only, no other text.`;
     // Use multi-provider system with auto metrics
     const aiResult = await callAIWithMetrics(supabase, {
       functionName: 'optimize-ad-copy',
+      userId,
       messages: [
         { role: "system", content: finalSystemPrompt },
         { role: "user", content: prompt }
       ],
       modelOverride: adminModel,
       temperatureOverride: aiConfig?.temperature,
+      actionType: 'content_optimization',
     });
 
     if (!aiResult.success) {
