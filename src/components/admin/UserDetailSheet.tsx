@@ -68,8 +68,8 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
   const [actionLoading, setActionLoading] = useState(false);
 
   // Subscription edit state
-  const [editPlan, setEditPlan] = useState("");
-  const [editStatus, setEditStatus] = useState("");
+  const [editPlan, setEditPlan] = useState<"free" | "starter" | "pro" | "enterprise">("free");
+  const [editStatus, setEditStatus] = useState<"active" | "cancelled" | "expired" | "pending" | "trial">("active");
   const [editEndDate, setEditEndDate] = useState("");
 
   useEffect(() => {
