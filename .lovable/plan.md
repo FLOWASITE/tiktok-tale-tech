@@ -1,62 +1,75 @@
-## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-### Vấn đề
-Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-### Đã sửa (3 files)
-1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
-2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
+## Phương án tối ưu Text cho hệ thống tạo ảnh Social
 
----
+### Phân tích hiện trạng
 
-## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
+Hệ thống xử lý text qua 3 lớp:
+1. **`getBestOverlayText()`** — lấy text từ hook/content, cắt thô ≤100 ký tự
+2. **`optimize-social-text`** — edge function dùng AI rút gọn text (user bấm nút thủ công)
+3. **`decompose-image-request`** — AI phân tích nội dung → overlay elements (banner ≤30, hero ≤20, cards ≤50, description ≤60)
 
-### Vấn đề
-AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
+### Các vấn đề phát hiện
 
-### Đã sửa (3 files)
-1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
-2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
+```text
+Vấn đề                              Hệ quả
+───────────────────────              ──────────────────────
+1. optimize-social-text là thủ công  User phải bấm nút → hay quên → text dài tràn
+2. Không có char limit trên UI       User nhập text 200+ chars, overlay bị tràn
+3. decompose nhận text ≤3000 chars   Nhưng banner/hero/cards limits quá chặt 
+   và AI tự cắt, không nhất quán     (banner 30, hero 20) → mất ý nghĩa
+4. Card label cứng ≤50 chars         Tiếng Việt dài hơn tiếng Anh ~30%
+5. Không có text fitting logic       Font size cố định → text dài bị tràn khỏi card
+6. Không validate line-break          Text 1 dòng nhưng rất dài → không wrap đúng
+7. Hero number circle chỉ match      "3 THAY ĐỔI" không match /^\d+$/ → miss
+   regex số thuần
+```
 
----
+### Kế hoạch 5 nâng cấp
 
-## Feature: Regenerate sử dụng Core Content — đã sửa
+#### 1. Auto-optimize text trước khi gửi pipeline
+**Files**: `SimpleImageGenerator.tsx`, `useAutoImageGeneration.ts`
 
-### Vấn đề
-Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
+- Tự động gọi `optimize-social-text` khi `textToInclude.length > 80` trước khi bắt đầu generation
+- Không cần user bấm nút — tích hợp vào flow `handleGenerateImages`
+- Giữ nút thủ công cho user muốn preview trước
 
-### Đã sửa (1 file)
-1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
+#### 2. Smart text fitting trong overlay-text-canvas
+**File**: `overlay-text-canvas/index.ts`
 
----
+- Thêm hàm `fitTextToWidth(text, maxWidth, baseFontSize)` → auto-scale font size xuống khi text quá dài
+- Áp dụng cho: banner (auto-shrink nếu >20 chars), cards (auto-shrink nếu label >30 chars), CTA
+- Thêm `Math.max()` guard cho tất cả font sizes (min 10px cho description, 14px cho label, 16px cho banner)
+- Card description font: `Math.max(cardDescFontSize, 12)` (đã identify từ đánh giá trước)
 
-## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
+#### 3. Nâng cấp hero text matching
+**File**: `overlay-text-canvas/index.ts`
 
-### Vấn đề
-1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
-2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
-3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
+- Mở rộng regex hero circle: `/^\d+$/` → `/^\d+(\.\d+)?[%+]?$/` để match "30%", "200+", "3.5"
+- Thêm variant: hero text bắt đầu bằng số + text ngắn (VD: "3 THAY ĐỔI") → render số trong circle + text bên cạnh
+- Logic: nếu `heroText` match `/^(\d+)\s+(.+)$/` → split thành circleNumber + sideLabel
 
-### Đã sửa (4 files)
-1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
-2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
-3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
-4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
+#### 4. Tối ưu decompose AI prompt cho text quality
+**File**: `decompose-image-request/index.ts`
 
----
+- Nâng limit: banner 30→40 chars, card label 50→60 chars (tiếng Việt cần nhiều space hơn)
+- Thêm quy tắc vào system prompt: "Ưu tiên giữ nguyên số liệu cụ thể, tên riêng. Chỉ rút gọn phần mô tả"
+- Thêm instruction: "Hero text PHẢI là keyword/số liệu nổi bật nhất, KHÔNG phải câu dài"
+- Thêm validation: nếu AI trả banner text >40 chars → auto-truncate thông minh (cắt tại word boundary)
 
-## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
+#### 5. UI text counter + warning
+**File**: `ImageAdvancedOptions.tsx`
 
-### Vấn đề
-Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
+- Thêm character counter dưới textarea "Text trên ảnh": `{textToInclude.length}/120`
+- Hiển thị warning khi >120 chars: "Text dài có thể bị cắt trên ảnh"
+- Thêm visual indicator (đỏ khi >150 chars)
 
-### Đã sửa (6 files + 2 edge functions)
-1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
-2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
-3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
-4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
-5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
-6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
-7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
+### Files cần sửa
+
+| File | Thay đổi |
+|---|---|
+| `supabase/functions/overlay-text-canvas/index.ts` | Text fitting, font min guards, hero number expanded matching |
+| `supabase/functions/decompose-image-request/index.ts` | Nâng char limits, prompt quality rules |
+| `src/components/multichannel/SimpleImageGenerator.tsx` | Auto-optimize trước generation |
+| `src/components/multichannel/ImageAdvancedOptions.tsx` | Char counter + warning UI |
+
