@@ -275,10 +275,11 @@ Secondary color: ${secondaryColor}`;
                               properties: {
                                 icon: { type: "string" },
                                 label: { type: "string", description: "3-8 word meaningful summary point from actual content" },
+                                number: { type: "number", description: "Numbered index (1,2,3...) for education_infographic layout" },
                               },
                               required: ["label"],
                             },
-                            description: "Exactly 4 summary cards with meaningful labels extracted from content",
+                            description: "Summary cards with meaningful labels extracted from content. Add 'number' field for education_infographic.",
                           },
                           layout: { type: "string", enum: ["grid-2x2", "horizontal", "vertical"] },
                         },
