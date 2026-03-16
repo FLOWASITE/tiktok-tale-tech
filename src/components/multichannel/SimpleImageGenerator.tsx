@@ -817,215 +817,226 @@ export function SimpleImageGenerator({
         <div className="flex items-center gap-2.5">
           <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">3</span>
           <div>
-            <p className="text-sm font-medium text-foreground">Xem trước & Tạo ảnh</p>
-            <p className="text-[11px] text-muted-foreground">AI phân tích nội dung và gợi ý phong cách phù hợp nhất.</p>
-          </div>
-        </div>
-
-      {/* V3 Style Suggestions Preview — brand_only only (AI gợi ý) */}
-      {promptMode === 'brand_only' && v3Suggestions.length > 0 && (
-        <V3StylePreview
-          suggestions={v3Suggestions}
-          selectedStyle={imageStyle}
-          onStyleSelect={(style) => setImageStyle(style)}
-        />
-      )}
-
-      {/* Inline Style Grid — raw mode (user tự chọn 100%) */}
-      {promptMode === 'raw' && (
-        <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Phong cách ảnh</Label>
-          <div className="grid grid-cols-4 gap-1.5">
-            {([
-              { value: 'auto' as const, label: 'Tự động', icon: <Sparkles className="w-3.5 h-3.5" /> },
-              { value: 'photorealistic' as const, label: 'Chân thực', icon: <Camera className="w-3.5 h-3.5" /> },
-              { value: 'illustration' as const, label: 'Minh họa', icon: <Brush className="w-3.5 h-3.5" /> },
-              { value: 'minimalist' as const, label: 'Tối giản', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
-              { value: '3d_render' as const, label: '3D', icon: <Box className="w-3.5 h-3.5" /> },
-              { value: 'flat_design' as const, label: 'Flat', icon: <Layers className="w-3.5 h-3.5" /> },
-              { value: 'watercolor' as const, label: 'Màu nước', icon: <Droplets className="w-3.5 h-3.5" /> },
-              { value: 'cinematic' as const, label: 'Điện ảnh', icon: <Film className="w-3.5 h-3.5" /> },
-            ]).map(s => {
-              const isSelected = imageStyle === s.value;
-              return (
-                <button
-                  key={s.value}
-                  onClick={() => setImageStyle(s.value)}
-                  className={cn(
-                    "flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all text-xs",
-                    isSelected
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border/50 hover:border-primary/30 text-muted-foreground"
-                  )}
-                >
-                  {s.icon}
-                  <span className="font-medium">{s.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Content Context Preview */}
-      {previewKeywords.length > 0 && (
-        <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-            <ImageIcon className="w-3.5 h-3.5" />
-            AI sẽ tạo ảnh liên quan đến:
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {previewKeywords.map((kw, i) => (
-              <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                {kw}
-              </span>
-            ))}
-          </div>
-          {content.topic && (
-            <p className="text-xs text-muted-foreground/80 truncate">
-              Chủ đề: {content.topic}
+            <p className="text-sm font-medium text-foreground">
+              {promptMode === 'full' ? 'AI sẵn sàng' : 'Xem trước & Tạo ảnh'}
             </p>
-          )}
-        </div>
-      )}
-
-      {/* Prompt Preview — collapsible summary of what AI will use */}
-      <PromptPreview
-        channels={selectedChannels}
-        promptMode={promptMode}
-        imageStyle={imageStyle === 'auto' ? 'auto' : imageStyle}
-        brandPrimaryColor={brandPrimaryColor}
-        contentRole={contentRole}
-        contentAngle={contentAngle}
-        hookType={hookMessages[selectedChannels[0]]?.hookType}
-        imageContentType={imageContentType}
-        countryCode={(content as any).country_code}
-        personaName={(content as any).persona_name}
-      />
-
-      {/* Settings Summary + CTA */}
-      <div className="space-y-2">
-        <ImageSettingsSummary
-          imageStyle={imageStyle}
-          aspectRatio={aspectRatio}
-          includeLogo={includeLogo}
-          logoPosition={logoPosition}
-          hasBrandLogo={!!brandLogoUrl}
-          imageContentType={imageContentType}
-          v3TopSuggestion={v3Suggestions.find(s => s.style === imageStyle)}
-        />
-        {/* Complexity Warning — detect complex infographic-like requests */}
-        <ComplexityWarning analysis={complexityAnalysis} />
-
-        {/* Full mode: AI info note */}
-        {promptMode === 'full' && (
-          <p className="text-xs text-primary/70 bg-primary/5 border border-primary/15 rounded-lg px-3 py-2">
-            🤖 AI tự động chọn layout + render text trực tiếp trong ảnh
-          </p>
-        )}
-
-        {/* Hybrid mode toggle — shown when complexity is moderate or complex, hidden in full mode */}
-        {promptMode !== 'full' && complexityAnalysis.score !== 'simple' && (
-          <div className="space-y-2">
-            <label className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-muted/30 cursor-pointer">
-              <Checkbox
-                checked={useHybridMode}
-                onCheckedChange={(checked) => setUseHybridMode(checked === true)}
-                className="mt-0.5"
-              />
-              <div className="space-y-0.5">
-                <p className="text-sm font-medium text-foreground">Chế độ Hybrid (AI nền + text chính xác)</p>
-                <p className="text-xs text-muted-foreground">
-                  AI tạo nền visual, text/cards được render chính xác bằng engine riêng
-                </p>
-              </div>
-            </label>
-
-            {/* AI Render toggle — only when hybrid mode is active */}
-            {useHybridMode && (
-              <div className="flex items-center justify-between p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
-                <div className="space-y-0.5">
-                  <p className="text-sm font-medium text-foreground">🧪 AI tự render text</p>
-                  <p className="text-xs text-muted-foreground">
-                    AI vẽ text trực tiếp trong ảnh (thử nghiệm — chữ Việt có thể bị sai)
-                  </p>
-                </div>
-                <Switch
-                  checked={overlayMode === 'ai_render'}
-                  onCheckedChange={(checked) => setOverlayMode(checked ? 'ai_render' : 'satori')}
-                />
-              </div>
-            )}
-
-            {/* Template picker — shown for both satori and ai_render modes */}
-            {useHybridMode && (
-              <OverlayTemplatePicker
-                value={overlayTemplate}
-                onChange={setOverlayTemplate}
-              />
-            )}
+            <p className="text-[11px] text-muted-foreground">
+              {promptMode === 'full'
+                ? 'Mọi thông số đã được AI tối ưu. Nhấn tạo ảnh để bắt đầu.'
+                : 'AI phân tích nội dung và gợi ý phong cách phù hợp nhất.'}
+            </p>
           </div>
-        )}
+        </div>
 
-        <Button
-          onClick={handleGenerate}
-          disabled={batchGen.isGenerating || selectedChannels.length === 0 || isDecomposing}
-          className="w-full h-11 gap-2 text-base"
-          size="lg"
-        >
-          {batchGen.isGenerating ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Đang tạo...</>
-          ) : (
-            <><Sparkles className="w-4 h-4" /> Tạo {selectedChannels.length} ảnh</>
+      {/* ── FULL MODE: Premium AIReadyCard ── */}
+      {promptMode === 'full' ? (
+        <AIReadyCard
+          selectedChannels={selectedChannels}
+          v3TopSuggestion={v3Suggestions[0]}
+          previewKeywords={previewKeywords}
+          topic={content.topic}
+          isGenerating={batchGen.isGenerating}
+          isDecomposing={isDecomposing}
+          onGenerate={handleGenerate}
+        />
+      ) : (
+        <>
+          {/* V3 Style Suggestions Preview — brand_only only (AI gợi ý) */}
+          {promptMode === 'brand_only' && v3Suggestions.length > 0 && (
+            <V3StylePreview
+              suggestions={v3Suggestions}
+              selectedStyle={imageStyle}
+              onStyleSelect={(style) => setImageStyle(style)}
+            />
           )}
-        </Button>
-      </div>
 
-      {/* Advanced Options (hidden prompt mode since already in Step 2) */}
-      <ImageAdvancedOptions
-        imageStyle={imageStyle}
-        onImageStyleChange={setImageStyle}
-        v3Suggestions={v3Suggestions}
-        aspectRatio={aspectRatio}
-        onAspectRatioChange={setAspectRatio}
-        includeLogo={includeLogo}
-        onIncludeLogoChange={setIncludeLogo}
-        logoPosition={logoPosition}
-        onLogoPositionChange={setLogoPosition}
-        logoStyle={logoStyle}
-        onLogoStyleChange={setLogoStyle}
-        logoSize={logoSize}
-        onLogoSizeChange={setLogoSize}
-        logoOpacity={logoOpacity}
-        onLogoOpacityChange={setLogoOpacity}
-        brandLogoUrl={brandLogoUrl}
-        hasText={imageContentType === 'with_text'}
-        textPosition={textPosition}
-        onTextPositionChange={setTextPosition}
-        typographyStyle={typographyStyle}
-        onTypographyStyleChange={setTypographyStyle}
-        textPreview={textToInclude}
-        negativePrompt={negativePrompt}
-        onNegativePromptChange={(val) => { setNegativePrompt(val); setIsNegativePromptCustomized(true); }}
-        contentRole={contentRole}
-        contentAngle={contentAngle}
-        selectedChannels={selectedChannels}
-        hookMessages={hookMessages}
-        imageContentType={imageContentType}
-        onImageContentTypeChange={setImageContentType}
-        useSharedText={useSharedText}
-        onUseSharedTextChange={setUseSharedText}
-        textToInclude={textToInclude}
-        onTextToIncludeChange={setTextToInclude}
-        textsPerChannel={textsPerChannel}
-        onTextsPerChannelChange={setTextsPerChannel}
-        promptMode={promptMode}
-        onPromptModeChange={setPromptMode}
-        onRefineTextContent={() => handleOptimizeText()}
-        isRefiningText={isOptimizingText}
-        hidePromptModeSelector
-        hideStyleGrid={promptMode === 'full' || promptMode === 'raw'}
-      />
+          {/* Inline Style Grid — raw mode (user tự chọn 100%) */}
+          {promptMode === 'raw' && (
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Phong cách ảnh</Label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {([
+                  { value: 'auto' as const, label: 'Tự động', icon: <Sparkles className="w-3.5 h-3.5" /> },
+                  { value: 'photorealistic' as const, label: 'Chân thực', icon: <Camera className="w-3.5 h-3.5" /> },
+                  { value: 'illustration' as const, label: 'Minh họa', icon: <Brush className="w-3.5 h-3.5" /> },
+                  { value: 'minimalist' as const, label: 'Tối giản', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
+                  { value: '3d_render' as const, label: '3D', icon: <Box className="w-3.5 h-3.5" /> },
+                  { value: 'flat_design' as const, label: 'Flat', icon: <Layers className="w-3.5 h-3.5" /> },
+                  { value: 'watercolor' as const, label: 'Màu nước', icon: <Droplets className="w-3.5 h-3.5" /> },
+                  { value: 'cinematic' as const, label: 'Điện ảnh', icon: <Film className="w-3.5 h-3.5" /> },
+                ]).map(s => {
+                  const isSelected = imageStyle === s.value;
+                  return (
+                    <button
+                      key={s.value}
+                      onClick={() => setImageStyle(s.value)}
+                      className={cn(
+                        "flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all text-xs",
+                        isSelected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border/50 hover:border-primary/30 text-muted-foreground"
+                      )}
+                    >
+                      {s.icon}
+                      <span className="font-medium">{s.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Content Context Preview */}
+          {previewKeywords.length > 0 && (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5" />
+                AI sẽ tạo ảnh liên quan đến:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {previewKeywords.map((kw, i) => (
+                  <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                    {kw}
+                  </span>
+                ))}
+              </div>
+              {content.topic && (
+                <p className="text-xs text-muted-foreground/80 truncate">
+                  Chủ đề: {content.topic}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Prompt Preview — collapsible summary of what AI will use */}
+          <PromptPreview
+            channels={selectedChannels}
+            promptMode={promptMode}
+            imageStyle={imageStyle === 'auto' ? 'auto' : imageStyle}
+            brandPrimaryColor={brandPrimaryColor}
+            contentRole={contentRole}
+            contentAngle={contentAngle}
+            hookType={hookMessages[selectedChannels[0]]?.hookType}
+            imageContentType={imageContentType}
+            countryCode={(content as any).country_code}
+            personaName={(content as any).persona_name}
+          />
+
+          {/* Settings Summary + CTA */}
+          <div className="space-y-2">
+            <ImageSettingsSummary
+              imageStyle={imageStyle}
+              aspectRatio={aspectRatio}
+              includeLogo={includeLogo}
+              logoPosition={logoPosition}
+              hasBrandLogo={!!brandLogoUrl}
+              imageContentType={imageContentType}
+              v3TopSuggestion={v3Suggestions.find(s => s.style === imageStyle)}
+            />
+            <ComplexityWarning analysis={complexityAnalysis} />
+
+            {/* Hybrid mode toggle — shown when complexity is moderate or complex */}
+            {complexityAnalysis.score !== 'simple' && (
+              <div className="space-y-2">
+                <label className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-muted/30 cursor-pointer">
+                  <Checkbox
+                    checked={useHybridMode}
+                    onCheckedChange={(checked) => setUseHybridMode(checked === true)}
+                    className="mt-0.5"
+                  />
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium text-foreground">Chế độ Hybrid (AI nền + text chính xác)</p>
+                    <p className="text-xs text-muted-foreground">
+                      AI tạo nền visual, text/cards được render chính xác bằng engine riêng
+                    </p>
+                  </div>
+                </label>
+
+                {useHybridMode && (
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-medium text-foreground">🧪 AI tự render text</p>
+                      <p className="text-xs text-muted-foreground">
+                        AI vẽ text trực tiếp trong ảnh (thử nghiệm — chữ Việt có thể bị sai)
+                      </p>
+                    </div>
+                    <Switch
+                      checked={overlayMode === 'ai_render'}
+                      onCheckedChange={(checked) => setOverlayMode(checked ? 'ai_render' : 'satori')}
+                    />
+                  </div>
+                )}
+
+                {useHybridMode && (
+                  <OverlayTemplatePicker
+                    value={overlayTemplate}
+                    onChange={setOverlayTemplate}
+                  />
+                )}
+              </div>
+            )}
+
+            <Button
+              onClick={handleGenerate}
+              disabled={batchGen.isGenerating || selectedChannels.length === 0 || isDecomposing}
+              className="w-full h-11 gap-2 text-base"
+              size="lg"
+            >
+              {batchGen.isGenerating ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Đang tạo...</>
+              ) : (
+                <><Sparkles className="w-4 h-4" /> Tạo {selectedChannels.length} ảnh</>
+              )}
+            </Button>
+          </div>
+
+          {/* Advanced Options — hidden in full mode */}
+          <ImageAdvancedOptions
+            imageStyle={imageStyle}
+            onImageStyleChange={setImageStyle}
+            v3Suggestions={v3Suggestions}
+            aspectRatio={aspectRatio}
+            onAspectRatioChange={setAspectRatio}
+            includeLogo={includeLogo}
+            onIncludeLogoChange={setIncludeLogo}
+            logoPosition={logoPosition}
+            onLogoPositionChange={setLogoPosition}
+            logoStyle={logoStyle}
+            onLogoStyleChange={setLogoStyle}
+            logoSize={logoSize}
+            onLogoSizeChange={setLogoSize}
+            logoOpacity={logoOpacity}
+            onLogoOpacityChange={setLogoOpacity}
+            brandLogoUrl={brandLogoUrl}
+            hasText={imageContentType === 'with_text'}
+            textPosition={textPosition}
+            onTextPositionChange={setTextPosition}
+            typographyStyle={typographyStyle}
+            onTypographyStyleChange={setTypographyStyle}
+            textPreview={textToInclude}
+            negativePrompt={negativePrompt}
+            onNegativePromptChange={(val) => { setNegativePrompt(val); setIsNegativePromptCustomized(true); }}
+            contentRole={contentRole}
+            contentAngle={contentAngle}
+            selectedChannels={selectedChannels}
+            hookMessages={hookMessages}
+            imageContentType={imageContentType}
+            onImageContentTypeChange={setImageContentType}
+            useSharedText={useSharedText}
+            onUseSharedTextChange={setUseSharedText}
+            textToInclude={textToInclude}
+            onTextToIncludeChange={setTextToInclude}
+            textsPerChannel={textsPerChannel}
+            onTextsPerChannelChange={setTextsPerChannel}
+            promptMode={promptMode}
+            onPromptModeChange={setPromptMode}
+            onRefineTextContent={() => handleOptimizeText()}
+            isRefiningText={isOptimizingText}
+            hidePromptModeSelector
+            hideStyleGrid={promptMode === 'raw'}
+          />
+        </>
+      )}
       </div>{/* end Step 3 */}
     </div>
   );
