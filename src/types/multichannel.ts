@@ -166,6 +166,9 @@ export interface MultiChannelContent {
   industry_template_version: string | null;
   // Core Content source link
   core_content_id: string | null;
+  // Content Role & Angle for strategic context (seed/sprout/harvest)
+  content_role: string | null;
+  content_angle: string | null;
   // Self-Critique fields
   critique_score: number | null;
   critique_details: CritiqueDetails | null;

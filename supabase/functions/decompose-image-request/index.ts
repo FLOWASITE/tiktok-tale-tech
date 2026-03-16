@@ -148,7 +148,7 @@ OVERLAY ELEMENTS:
    - **banner**: Nhãn ngắn gọn 2-4 từ IN HOA tóm tắt chủ đề (VD: "CHÍNH SÁCH MỚI", "CẬP NHẬT THUẾ", "TIN NÓNG", "KIẾN THỨC HAY")
    - **heroText**: Số liệu nổi bật hoặc keyword mạnh ≤ 20 ký tự (VD: "100%", "50 TRIỆU", "GIẢM 30%", "TOP 5")
    - **headline**: Tiêu đề chính 1 dòng nếu cần
-   - **cards**: LUÔN tạo đúng 4 thẻ tóm tắt các điểm chính từ NỘI DUNG THỰC. Mỗi label ngắn gọn 3-8 từ. LUÔN thêm icon emoji phù hợp
+   - **cards**: Tạo 3-4 thẻ CHỈ KHI nội dung có nhiều điểm chính (giáo dục, liệt kê, so sánh). KHÔNG tạo cards cho nội dung cảm xúc/storytelling/quote/awareness. Mỗi label ngắn gọn 3-8 từ, LUÔN thêm icon emoji phù hợp
    - **cta**: Call-to-action (chỉ khi conversion/harvest/promotional)
    - **footer**: Thanh thông tin liên hệ ở cuối (chỉ khi có SĐT/email/website/địa chỉ trong nội dung)
 
