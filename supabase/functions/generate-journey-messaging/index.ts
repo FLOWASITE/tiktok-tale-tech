@@ -42,6 +42,8 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const userId = await resolveUserId(req, supabase);
+
 
     const body: RequestBody = await req.json();
     const { mappingId, productId, personaId, brandTemplateId, organizationId, targetStages } = body;
