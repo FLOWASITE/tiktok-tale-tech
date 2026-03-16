@@ -550,39 +550,88 @@ function buildStructuredElement(
     });
   }
 
-  // Hero text (large centered text)
+  // Hero text (large centered text or number circle)
   if (elements.heroText) {
     const sizeMap = { xl: 0.06, '2xl': 0.08, '3xl': 0.12 };
     const fontSize = Math.round(imageWidth * (sizeMap[elements.heroText.fontSize] || 0.08));
-    children.push({
-      type: 'div',
-      props: {
-        style: {
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
-          flexGrow: 1,
-          ...(logoInCenterArea && logoMeta ? {
-            paddingLeft: logoMeta.position === 'center-left' || logoMeta.position === 'center' ? logoSafeWidth : 20,
-            paddingRight: logoMeta.position === 'center-right' || logoMeta.position === 'center' ? logoSafeWidth : 20,
-          } : {}),
-        },
-        children: {
-          type: 'span',
-          props: {
-            style: {
-              color: colors.primary,
-              fontSize,
-              fontFamily,
-              fontWeight: theme.fontWeight >= 600 ? 700 : 600,
-              textShadow: theme.heroTextShadow,
+    const isNumericHero = /^\d+$/.test(elements.heroText.text.trim());
+    
+    if (isNumericHero) {
+      // Hero Number Circle: large styled circle with number inside
+      const circleDiameter = Math.round(imageWidth * 0.15);
+      children.push({
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            flexGrow: 1,
+          },
+          children: {
+            type: 'div',
+            props: {
+              style: {
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: circleDiameter,
+                height: circleDiameter,
+                borderRadius: circleDiameter / 2,
+                background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary || colors.primary}cc)`,
+                boxShadow: `0 8px 32px ${colors.primary}88, 0 4px 16px rgba(0,0,0,0.3)`,
+                border: `4px solid rgba(255,255,255,0.3)`,
+              },
+              children: {
+                type: 'span',
+                props: {
+                  style: {
+                    color: '#FFFFFF',
+                    fontSize: Math.round(circleDiameter * 0.6),
+                    fontFamily,
+                    fontWeight: 700,
+                    textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+                  },
+                  children: elements.heroText.text.trim(),
+                },
+              },
             },
-            children: elements.heroText.text,
           },
         },
-      },
-    });
+      });
+    } else {
+      // Regular hero text
+      children.push({
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            flexGrow: 1,
+            ...(logoInCenterArea && logoMeta ? {
+              paddingLeft: logoMeta.position === 'center-left' || logoMeta.position === 'center' ? logoSafeWidth : 20,
+              paddingRight: logoMeta.position === 'center-right' || logoMeta.position === 'center' ? logoSafeWidth : 20,
+            } : {}),
+          },
+          children: {
+            type: 'span',
+            props: {
+              style: {
+                color: colors.primary,
+                fontSize,
+                fontFamily,
+                fontWeight: theme.fontWeight >= 600 ? 700 : 600,
+                textShadow: theme.heroTextShadow,
+              },
+              children: elements.heroText.text,
+            },
+          },
+        },
+      });
+    }
   }
 
   // Headline
