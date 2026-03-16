@@ -149,6 +149,22 @@ function getContentSummary(content: MultiChannelContent, channel: Channel): stri
   return summary.slice(0, 600);
 }
 
+/** Get full channel content for deep AI analysis (up to 2000 chars) */
+function getFullChannelContent(content: MultiChannelContent, channel: Channel): string {
+  const fieldMap: Partial<Record<Channel, string | null>> = {
+    website: content.website_content, facebook: content.facebook_content,
+    instagram: content.instagram_content, twitter: content.twitter_content,
+    linkedin: content.linkedin_content, youtube: content.youtube_content,
+    tiktok: content.tiktok_content, threads: content.threads_content,
+    zalo_oa: (content as any).zalo_oa_content, telegram: (content as any).telegram_content,
+    email: content.email_content, google_maps: content.google_maps_content,
+  };
+  const rawText = (fieldMap[channel] ?? content.topic ?? '')
+    .replace(/#{1,6}\s?/g, '').replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  return rawText.slice(0, 2000);
+}
+
 function getHookForChannel(content: MultiChannelContent, channel: Channel) {
   const ch = content.selected_hooks?.find(h => h.channel === channel);
   if (ch?.opening_line) return { hookMessage: ch.opening_line, hookType: ch.hook_type };
