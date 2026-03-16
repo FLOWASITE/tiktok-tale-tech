@@ -478,15 +478,19 @@ Tạo guideline CHI TIẾT với:
       }
     }];
 
+    const userId = await resolveUserId(req, supabase);
+
     const aiResponse = await callAIWithMetrics(supabase, {
       functionName: 'generate-brand-guideline',
       brandTemplateId: brand_template_id,
+      userId,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
       tools,
       toolChoice: { type: 'function', function: { name: 'generate_brand_guideline' } },
+      actionType: 'content_generation',
     });
 
     if (!aiResponse.success) {

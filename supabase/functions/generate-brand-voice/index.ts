@@ -176,14 +176,18 @@ Hãy sử dụng function suggest_brand_voice để trả về kết quả bổ 
       }
     ];
 
+    const userId = await resolveUserId(req, supabase);
+
     const aiResponse = await callAIWithMetrics(supabase, {
       functionName: 'generate-brand-voice',
+      userId,
       messages: [
         { role: 'system', content: finalSystemPrompt },
         { role: 'user', content: userPrompt }
       ],
       tools,
       toolChoice: { type: 'function', function: { name: 'suggest_brand_voice' } },
+      actionType: 'content_generation',
     });
 
     if (!aiResponse.success) {

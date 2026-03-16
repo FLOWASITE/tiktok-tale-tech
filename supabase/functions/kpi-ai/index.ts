@@ -738,7 +738,7 @@ serve(async (req) => {
 
     switch (action) {
       case 'suggest':
-        return await handleSuggest(supabase, data as SuggestRequest);
+        return await handleSuggest(supabase, data as SuggestRequest, userId);
       
       case 'adjust':
         return await handleAdjust(supabase, data as AdjustRequest);
