@@ -510,6 +510,13 @@ export function useAutoImageGeneration() {
     }
 
     setGeneratingChannels([]);
+    const pipelineDuration = Date.now() - pipelineStart;
+
+    console.log(`[Pipeline] 🏁 FINISHED (${pipelineDuration}ms total)`, {
+      successful: successful.length,
+      failed: failed.length,
+      channels: { successful, failed },
+    });
 
     if (failed.length > 0) {
       toast.error(`Không thể tạo ảnh cho ${failed.length} kênh`);
