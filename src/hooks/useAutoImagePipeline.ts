@@ -87,9 +87,21 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
     setPhase('preparing');
     setImageResults(null);
 
+    console.log(`[AutoImagePipeline] 🎬 PIPELINE INIT`, {
+      contentId,
+      channels,
+      brandTemplateId,
+      promptMode: contentMeta.promptMode || 'full',
+      contentGoal: contentMeta.contentGoal,
+      contentRole: contentMeta.contentRole,
+      contentAngle: contentMeta.contentAngle,
+      imageContentType: contentMeta.imageContentType,
+      hasBrandLogo: !!brandLogoUrl,
+      autoSave,
+    });
+
     try {
       // Step 1: Use V3 Suggestion Engine to pick best style for the first channel
-      // (Use same style for all channels for visual consistency)
       const firstChannel = channels[0];
       const industry = (brandIndustry?.[0] || 'general') as Industry;
       
@@ -105,7 +117,11 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
       const topSuggestion = suggestions[0];
       const imageStylePreset = topSuggestion?.style || 'photorealistic';
 
-      console.log(`[AutoImagePipeline] V3 selected style: ${imageStylePreset} (score: ${topSuggestion?.score || 0})`);
+      console.log(`[AutoImagePipeline] ✓ V3 style selected: ${imageStylePreset}`, {
+        score: topSuggestion?.score || 0,
+        top3: suggestions.slice(0, 3).map(s => `${s.style}(${s.score})`),
+        industry,
+      });
 
       // Step 2: Build content summaries per channel
       const contentSummaries: Record<Channel, string> = {} as Record<Channel, string>;
