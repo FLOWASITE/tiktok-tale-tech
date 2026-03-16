@@ -87,13 +87,19 @@ export interface DecomposeContext {
 export async function decomposeRequestWithAI(
   description: string,
   primaryColor: string = '#DC2626',
-  secondaryColor: string = '#FFFFFF'
+  secondaryColor: string = '#FFFFFF',
+  context?: DecomposeContext
 ): Promise<DecomposedRequest> {
   try {
-    console.log('[HybridImageGen] Using AI decomposition via Gemini Flash...');
+    console.log('[HybridImageGen] Using AI decomposition via Gemini Flash...', {
+      descLength: description.length,
+      hasContext: !!context,
+      contentRole: context?.contentRole,
+      contentGoal: context?.contentGoal,
+    });
     
     const { data, error } = await supabase.functions.invoke('decompose-image-request', {
-      body: { description, primaryColor, secondaryColor },
+      body: { description, primaryColor, secondaryColor, context },
     });
 
     if (error) {
