@@ -58,6 +58,16 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Helper to log admin actions
+    async function auditLog(actionName: string, targetUserId: string | null, details: Record<string, unknown> = {}) {
+      await serviceClient.from("admin_audit_logs").insert({
+        admin_id: callerId,
+        action: actionName,
+        target_user_id: targetUserId,
+        details,
+      });
+    }
+
     const body = await req.json();
     const { action } = body;
 
