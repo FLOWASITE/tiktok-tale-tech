@@ -418,6 +418,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                   isGenerating={generating === slide.slideNumber}
                   onGenerateImage={() => handleGenerateImage(slide.slideNumber, slide.fullPrompt)}
                   canGenerateImage={generating === null && !generatingAll}
+                  onSlideUpdate={handleSlideUpdate}
                 />
               ))}
             </TabsContent>
