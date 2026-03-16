@@ -958,9 +958,28 @@ serve(async (req: Request) => {
       },
     };
     
-    const inputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.4);
-    const outputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.6);
-    const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
+    // Use actual usage from AI response if available, otherwise estimate
+    const actualUsage = result.metadata.actualUsage;
+    let inputTokensEstimated: number;
+    let outputTokensEstimated: number;
+    let estimatedCostUsd: number;
+    
+    if (actualUsage) {
+      inputTokensEstimated = actualUsage.prompt_tokens;
+      outputTokensEstimated = actualUsage.completion_tokens;
+      // Prefer upstream cost from provider if available
+      if (actualUsage.upstream_cost) {
+        estimatedCostUsd = actualUsage.upstream_cost;
+        console.log(`[generate-core-content] Actual cost from provider: $${estimatedCostUsd.toFixed(6)}`);
+      } else {
+        estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
+      }
+      console.log(`[generate-core-content] Actual tokens: ${inputTokensEstimated} input + ${outputTokensEstimated} output`);
+    } else {
+      inputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.4);
+      outputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.6);
+      estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
+    }
     
     const [insertResult, _metricsResult] = await Promise.allSettled([
       supabase.from('core_contents').insert(insertData).select('id').single(),
