@@ -56,6 +56,7 @@ interface GenerateImageRequest {
     cards?: { items: { icon?: string; label: string }[]; layout: string };
     headline?: string;
     cta?: string;
+    footer?: { items: { icon?: string; text: string }[] };
   };
   structuredColors?: { primary: string; secondary: string; text: string };
   // Template ID for layout guidance in AI render mode
