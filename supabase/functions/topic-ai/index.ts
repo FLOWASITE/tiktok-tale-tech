@@ -273,6 +273,7 @@ async function handleSuggest(
   const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    userId: params._userId,
     brandTemplateId,
     actionType: 'suggest',
     messages: [
