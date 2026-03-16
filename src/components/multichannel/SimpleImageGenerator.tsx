@@ -756,9 +756,9 @@ export function SimpleImageGenerator({
           promptMode === 'brand_only' && "text-amber-700 dark:text-amber-400 bg-amber-500/5 border-amber-500/15",
           promptMode === 'raw' && "text-violet-700 dark:text-violet-400 bg-violet-500/5 border-violet-500/15",
         )}>
-          {promptMode === 'full' && '✨ AI tự chọn phong cách, bố cục, vị trí text. Bạn chỉ cần duyệt kết quả.'}
-          {promptMode === 'brand_only' && '🎨 Giữ logo & màu brand. Bạn tự chọn bố cục text & vị trí.'}
-          {promptMode === 'raw' && '⚡ Bạn kiểm soát mọi thứ: phong cách, logo, text, bố cục.'}
+          {promptMode === 'full' && '✨ AI tự tối ưu phong cách, bố cục và text. Bạn chỉ cần duyệt.'}
+          {promptMode === 'brand_only' && '🎨 Giữ logo & màu brand. Bạn chọn phong cách và bố cục text.'}
+          {promptMode === 'raw' && '⚡ Bạn kiểm soát 100%: phong cách, logo, text, bố cục.'}
         </div>
       </div>{/* end Step 2 */}
 
