@@ -600,7 +600,7 @@ const getBrandVoicePrompt = (
   if (forbidden.length) parts.push(`TỪ CẤM: ${forbidden.join(", ")}`);
   
   const allowEmoji = mergedRules?.allow_emoji ?? voice.allow_emoji ?? true;
-  parts.push(`EMOJI: ${allowEmoji ? 'Tiết chế theo kênh (Website/GMaps/Zalo/Telegram: KHÔNG)' : 'TUYỆT ĐỐI KHÔNG'}`);
+  parts.push(`EMOJI: ${allowEmoji ? 'Cho phép theo kênh (Website/GMaps/Zalo/Telegram: KHÔNG). ⚠️ QUAN TRỌNG: Chọn emoji ĐA DẠNG, PHÙ HỢP với chủ đề cụ thể của bài viết. TUYỆT ĐỐI KHÔNG lặp lại bộ emoji mặc định (🎯⚡💡🔥✅). Mỗi bài phải có emoji riêng biệt liên quan trực tiếp đến nội dung.' : 'TUYỆT ĐỐI KHÔNG'}`);
   
   if (!mergedRules && voice.compliance_rules?.length) {
     parts.push(`COMPLIANCE: ${voice.compliance_rules.slice(0, 3).join("; ")}`);
@@ -748,19 +748,19 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
   },
   facebook: {
     min_length: 250, max_length: 500, length_unit: 'words',
-    hook_required: true, hook_style: 'Hook mạnh + emoji (🎯⚡💡🔥)',
+    hook_required: true, hook_style: 'Hook mạnh + 1 emoji PHÙ HỢP chủ đề (không lặp lại emoji giữa các bài)',
     bullet_allowed: true, cta_policy: 'optional',
     emoji_allowed: true, emoji_limit: 5, hashtag_limit: 3, hashtag_position: 'end',
     line_break_style: 'short', link_position: 'body',
-    format_description: 'Hook emoji+**bold**, body emoji bullets (✅💡⚡), đoạn ngắn, CTA cuối',
+    format_description: 'Hook emoji+**bold**, body emoji bullets (chọn emoji đa dạng theo ngữ cảnh nội dung), đoạn ngắn, CTA cuối',
   },
   instagram: {
     min_length: 50, max_length: 150, length_unit: 'words',
-    hook_required: true, hook_style: 'Hook ngắn + emoji (🔥✨💫)',
+    hook_required: true, hook_style: 'Hook ngắn + 1 emoji sáng tạo phù hợp chủ đề',
     bullet_allowed: false, cta_policy: 'optional',
     emoji_allowed: true, emoji_limit: 5, hashtag_limit: 5, hashtag_position: 'end',
     line_break_style: 'many', link_position: 'none',
-    format_description: 'Hook emoji, nhiều xuống dòng, emoji điểm nhấn, hashtag cuối bài, CTA nhẹ',
+    format_description: 'Hook emoji sáng tạo, nhiều xuống dòng, emoji điểm nhấn đa dạng theo nội dung, hashtag cuối bài, CTA nhẹ',
   },
   twitter: {
     min_length: 0, max_length: 280, length_unit: 'chars',
@@ -799,7 +799,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     bullet_allowed: true, cta_policy: 'required',
     emoji_allowed: true, emoji_limit: 5, hashtag_limit: 5, hashtag_position: 'end',
     line_break_style: 'normal', link_position: 'body',
-    format_description: 'HOOK(0-5s), INTRO(5-15s), 3-5 segments, emoji bullets, CTA Sub+Like, OUTRO teaser',
+    format_description: 'HOOK(0-5s), INTRO(5-15s), 3-5 segments, emoji bullets đa dạng theo nội dung, CTA Sub+Like, OUTRO teaser',
   },
   zalo_oa: {
     min_length: 60, max_length: 150, length_unit: 'words',
@@ -845,12 +845,12 @@ function getAdaptiveFormatDescription(channel: string, brandAllowEmoji: boolean)
   
   // EMOJI MODE: Standard format
   const emojiFormats: Record<string, string> = {
-    facebook: 'Hook emoji+**bold**, emoji bullets (✅💡⚡📌➡️), đoạn ngắn, CTA cuối',
-    instagram: 'Hook emoji (🔥✨💫), xuống dòng, emoji điểm nhấn (≤5), hashtag cuối, CTA nhẹ',
-    linkedin: 'Hook insight, đoạn 2-3 dòng, bullets →/•, **bold**, emoji tiết chế (1-2), 3 hashtag',
-    youtube: 'HOOK(0-5s)-INTRO(5-15s)-CONTENT(3-5 segments)-CTA(Sub+Like)-OUTRO, emoji bullets',
-    tiktok: 'Hook 3s (❓🔥💥), 3-5 điểm, emoji bullets, **bold** action, CTA📲',
-    threads: 'Quan điểm rõ, 2-3 đoạn, emoji tiết chế, câu hỏi kết',
+    facebook: 'Hook emoji+**bold**, emoji bullets ĐA DẠNG theo chủ đề (KHÔNG lặp 🎯⚡💡🔥 - chọn emoji liên quan nội dung), đoạn ngắn, CTA cuối',
+    instagram: 'Hook emoji sáng tạo theo chủ đề, xuống dòng, emoji điểm nhấn đa dạng (≤5, KHÔNG lặp lại), hashtag cuối, CTA nhẹ',
+    linkedin: 'Hook insight, đoạn 2-3 dòng, bullets →/•, **bold**, emoji tiết chế (1-2, phù hợp ngữ cảnh), 3 hashtag',
+    youtube: 'HOOK(0-5s)-INTRO(5-15s)-CONTENT(3-5 segments)-CTA(Sub+Like)-OUTRO, emoji bullets đa dạng theo nội dung',
+    tiktok: 'Hook 3s + emoji phù hợp chủ đề, 3-5 điểm, emoji bullets sáng tạo, **bold** action, CTA',
+    threads: 'Quan điểm rõ, 2-3 đoạn, emoji tiết chế phù hợp ngữ cảnh, câu hỏi kết',
   };
   return emojiFormats[channel] || DEFAULT_CHANNEL_SETTINGS[channel]?.format_description || '';
 }
