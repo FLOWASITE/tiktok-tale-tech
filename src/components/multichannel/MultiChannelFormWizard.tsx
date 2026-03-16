@@ -841,16 +841,18 @@ export function MultiChannelFormWizard({
   useEffect(() => {
     const hasCoreContent = !!coreContentData?.id || !!formData.coreContentId;
 
-    if (pendingMultiChannelGeneration && hasCoreContent && !isGenerating && !isGeneratingCoreContent) {
+    if (pendingMultiChannelGeneration && hasCoreContent && !isGenerating && !isGeneratingCoreContent && !submittingRef.current) {
+      // Clear flag IMMEDIATELY to prevent useEffect firing again on next render
+      setPendingMultiChannelGeneration(false);
+      submittingRef.current = true;
+      
       // Core Content just completed and we have pending generation
       toast.success('Core Content sẵn sàng! Đang tạo nội dung đa kênh...');
       
       // Trigger generation
-      submittingRef.current = true;
       onGenerate({ ...formData, topicHistoryId })
         .finally(() => {
           submittingRef.current = false;
-          setPendingMultiChannelGeneration(false);
         });
     }
   }, [coreContentData?.id, formData.coreContentId, pendingMultiChannelGeneration, isGenerating, isGeneratingCoreContent]);
