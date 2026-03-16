@@ -135,9 +135,9 @@ function getContentSummary(content: MultiChannelContent, channel: Channel): stri
 
   const keywords = extractContentKeywords(rawText);
   const hookInfo = getHookForChannel(content, channel);
-  const goal = (content as any).content_goal || '';
-  const role = (content as any).content_role || '';
-  const angle = (content as any).content_angle || '';
+  const goal = content.content_goal || '';
+  const role = content.content_role || '';
+  const angle = content.content_angle || '';
 
   let summary = `Topic: ${content.topic}.`;
   if (goal) summary += ` Goal: ${goal}.`;
