@@ -285,6 +285,7 @@ Secondary color: ${secondaryColor}`;
                               properties: {
                                 icon: { type: "string" },
                                 label: { type: "string", description: "3-8 word meaningful summary point from actual content" },
+                                description: { type: "string", description: "Optional subtitle/detail for this card, max 60 chars. Use for education_infographic or detailed content" },
                                 number: { type: "number", description: "Numbered index (1,2,3...) for education_infographic layout" },
                               },
                               required: ["label"],
