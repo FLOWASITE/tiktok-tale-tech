@@ -1,77 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Plan: Thêm Logo Safe-Area vào AI Render Prompt
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-### Nguyên nhân gốc
-Khi "Để AI lo" (full mode), hệ thống dùng `ai_render` mode — AI tạo ảnh kèm text/cards/banner trực tiếp. Sau đó logo được overlay lên. Nhưng AI **không biết** logo sẽ nằm ở đâu, nên nó render nội dung đè lên vùng logo.
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-Safe-area logic hiện tại trong `overlay-text-canvas` (Step 4 - Satori) **không được chạy** trong `ai_render` mode vì Step 4 bị skip.
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-### Giải pháp
-Thêm chỉ dẫn logo safe-area vào prompt gửi cho AI trong `structuredElementsToPromptText()`, để AI biết **chừa vùng trống** cho logo.
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-### Thay đổi — 1 file
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-**`supabase/functions/generate-brand-image/index.ts`**
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
 
-1. Thêm `logoPosition` và `logoSizePercent` vào `GenerateImageRequest` interface
-2. Truyền thêm logo info vào `structuredElementsToPromptText()`
-3. Trong hàm `structuredElementsToPromptText()`, thêm đoạn prompt:
-
-```text
-## LOGO SAFE ZONE (CRITICAL — DO NOT place any text/cards/elements here):
-- A logo will be overlaid at the TOP-LEFT corner
-- Keep the top-left area (~15% width, ~12% height) COMPLETELY CLEAR
-- No banner text, cards, hero text, or CTA should overlap this zone
-```
-
-**`src/hooks/useAutoImageGeneration.ts`**
-
-4. Truyền `logoPosition` và `logoSizePercent` vào request body của `generate-brand-image` khi `isAiRenderMode` và logo được bật:
+### Chi tiet ky thuat
 
 ```typescript
-// In Step 1 body:
-logoSafeZone: isAiRenderMode && includeLogo && logoUrl ? {
-  position: logoPosition || 'bottom-right',
-  sizePercent: logoSizePercent || 15,
-} : undefined,
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
 ```
 
-### Logic chi tiết
-
-Hàm `structuredElementsToPromptText()` sẽ nhận thêm param `logoSafeZone`:
-
+Va DialogContent:
 ```typescript
-function structuredElementsToPromptText(
-  elements, colors, templateId,
-  logoSafeZone?: { position: string; sizePercent: number }
-): string {
-  // ... existing code ...
-  
-  if (logoSafeZone) {
-    const posLabels = {
-      'top-left': 'top-left corner',
-      'top-right': 'top-right corner',
-      'bottom-left': 'bottom-left corner',
-      'bottom-right': 'bottom-right corner',
-      'top-center': 'top-center edge',
-      'bottom-center': 'bottom-center edge',
-      'center-left': 'center-left edge',
-      'center-right': 'center-right edge',
-      'center': 'center of the image',
-    };
-    parts.push(`\n## LOGO SAFE ZONE (CRITICAL):
-- A brand logo will be placed at the ${posLabels[logoSafeZone.position]} after generation
-- Keep that area (~${logoSafeZone.sizePercent}% of image width) COMPLETELY CLEAR of text, cards, banners
-- Shift overlapping elements away from the logo zone`);
-  }
-}
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
 ```
 
-### Scope
-- 2 files sửa:
-  - `supabase/functions/generate-brand-image/index.ts` (~20 dòng)
-  - `src/hooks/useAutoImageGeneration.ts` (~5 dòng)
-- Không thay đổi overlay-text-canvas (Satori safe-area vẫn giữ nguyên cho non-ai_render mode)
-- AI prompt-based approach — không đảm bảo 100% nhưng cải thiện đáng kể so với hiện tại (0% awareness)
-
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)

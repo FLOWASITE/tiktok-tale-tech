@@ -61,6 +61,8 @@ interface GenerateImageRequest {
   structuredColors?: { primary: string; secondary: string; text: string };
   // Template ID for layout guidance in AI render mode
   structuredTemplate?: string;
+  // Logo safe zone for AI render mode — tells AI to keep area clear
+  logoSafeZone?: { position: string; sizePercent: number };
 }
 
 // Default model fallback (used when config not available)
@@ -235,7 +237,8 @@ async function generateImageWithRetry(
 function structuredElementsToPromptText(
   elements: GenerateImageRequest['structuredElements'],
   colors?: GenerateImageRequest['structuredColors'],
-  templateId?: string
+  templateId?: string,
+  logoSafeZone?: GenerateImageRequest['logoSafeZone']
 ): string {
   if (!elements) return '';
 
@@ -297,6 +300,27 @@ function structuredElementsToPromptText(
   parts.push('- Use clean sans-serif typography with proper spacing');
   parts.push('- Cards should have subtle background (semi-transparent or frosted glass effect)');
 
+  // Logo safe zone instruction
+  if (logoSafeZone) {
+    const posLabels: Record<string, string> = {
+      'top-left': 'top-left corner',
+      'top-right': 'top-right corner',
+      'bottom-left': 'bottom-left corner',
+      'bottom-right': 'bottom-right corner',
+      'top-center': 'top-center edge',
+      'bottom-center': 'bottom-center edge',
+      'center-left': 'center-left edge',
+      'center-right': 'center-right edge',
+      'center': 'center of the image',
+    };
+    const posLabel = posLabels[logoSafeZone.position] || logoSafeZone.position;
+    const pct = logoSafeZone.sizePercent || 15;
+    parts.push(`\n## LOGO SAFE ZONE (CRITICAL — DO NOT place any text, cards, banners, or elements here):`);
+    parts.push(`- A brand logo will be overlaid at the ${posLabel} after generation`);
+    parts.push(`- Keep that area (~${pct}% of image width/height) COMPLETELY CLEAR`);
+    parts.push(`- Shift any overlapping text/cards/CTA AWAY from the logo zone`);
+  }
+
   return parts.join('\n');
 }
 
@@ -343,6 +367,8 @@ function structuredElementsToPromptText(
       structuredColors,
       // Template ID for layout guidance
       structuredTemplate,
+      // Logo safe zone for AI render mode
+      logoSafeZone,
     }: GenerateImageRequest = await req.json();
 
     console.log(`[generate-brand-image] Generating for channel: ${channel}, content: ${contentId}, promptMode: ${promptMode || 'full (default)'}`);
@@ -510,7 +536,7 @@ function structuredElementsToPromptText(
 
     // AI Render mode: append structured text instructions to prompt
     if (structuredElements) {
-      const structuredText = structuredElementsToPromptText(structuredElements, structuredColors, structuredTemplate);
+      const structuredText = structuredElementsToPromptText(structuredElements, structuredColors, structuredTemplate, logoSafeZone);
       enhancedPrompt += structuredText;
       console.log(`[generate-brand-image] AI Render mode: appended structured text instructions (${structuredText.length} chars)`);
     }
