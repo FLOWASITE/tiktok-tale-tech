@@ -784,7 +784,7 @@ function buildStructuredElement(
             gap: hasNumberedCards ? 12 : 8,
             background: cardGradient,
             borderRadius: theme.borderRadius,
-            padding: hasNumberedCards ? '12px 16px' : '10px 16px',
+            padding: hasNumberedCards ? '14px 20px' : '10px 16px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)',
             ...(isGrid ? { width: '48%' } : { flex: '1' }),
           },
