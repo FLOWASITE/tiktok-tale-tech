@@ -207,6 +207,11 @@ let currentOrganizationId: string | undefined;
 // AI CALL HELPER - SIMPLIFIED SINGLE-PASS
 // ============================================
 
+interface AICallWithUsage {
+  content: string;
+  usage: { prompt_tokens: number; completion_tokens: number; upstream_cost?: number } | null;
+}
+
 async function callAI(
   model: string,
   systemPrompt: string,
@@ -214,6 +219,17 @@ async function callAI(
   maxTokens: number = 4000,
   temperature: number = 0.7
 ): Promise<string> {
+  const result = await callAIWithUsage(model, systemPrompt, userPrompt, maxTokens, temperature);
+  return result.content;
+}
+
+async function callAIWithUsage(
+  model: string,
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number = 4000,
+  temperature: number = 0.7
+): Promise<AICallWithUsage> {
   console.log(`[callAI] Model: ${model}, MaxTokens: ${maxTokens}, OrgId: ${currentOrganizationId || 'none'}`);
   
   const result = await callAIProvider({
@@ -234,8 +250,16 @@ async function callAI(
   }
   
   const content = result.data?.choices?.[0]?.message?.content || '';
-  console.log(`[callAI] Success via ${result.provider}, content length: ${content.length}`);
-  return content;
+  
+  // Extract actual token usage from API response
+  const usage = result.data?.usage ? {
+    prompt_tokens: result.data.usage.prompt_tokens || 0,
+    completion_tokens: result.data.usage.completion_tokens || 0,
+    upstream_cost: result.data.usage.cost_details?.upstream_inference_cost,
+  } : null;
+  
+  console.log(`[callAI] Success via ${result.provider}, content length: ${content.length}${usage ? `, tokens: ${usage.prompt_tokens}+${usage.completion_tokens}` : ''}`);
+  return { content, usage };
 }
 
 // AI Call with Streaming support
