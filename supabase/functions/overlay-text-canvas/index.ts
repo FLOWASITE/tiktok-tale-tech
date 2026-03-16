@@ -907,11 +907,11 @@ function buildStructuredElement(
           type: 'span',
           props: {
             style: {
-              color: theme.cardTextColor,
+              color: effectiveCardTextColor,
               fontSize: cardDescFontSize,
               fontFamily,
               fontWeight: 400,
-              opacity: 0.75,
+              opacity: 0.7,
               marginTop: 2,
             },
             children: item.description,
