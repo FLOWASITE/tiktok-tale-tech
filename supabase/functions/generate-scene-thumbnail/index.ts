@@ -28,6 +28,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const traceId = generateTraceId();
+  const startTime = performance.now();
+
   try {
     const { scene } = await req.json() as { scene: SceneData };
 
