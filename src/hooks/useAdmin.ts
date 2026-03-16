@@ -13,6 +13,7 @@ export interface AdminUser {
   avatar_url: string | null;
   created_at: string;
   role: AppRole;
+  is_banned: boolean;
   subscription: {
     plan_type: "free" | "starter" | "pro" | "enterprise";
     status: "active" | "cancelled" | "expired" | "pending" | "trial";
