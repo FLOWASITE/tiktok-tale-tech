@@ -1090,7 +1090,10 @@ serve(async (req) => {
       if (elements.heroText?.text) allTexts.push(elements.heroText.text);
       if (elements.headline) allTexts.push(elements.headline);
       if (elements.cta) allTexts.push(elements.cta);
-      if (elements.cards?.items) allTexts.push(...elements.cards.items.map(c => c.label));
+      if (elements.cards?.items) {
+        allTexts.push(...elements.cards.items.map(c => c.label));
+        allTexts.push(...elements.cards.items.filter(c => c.description).map(c => c.description!));
+      }
       if (elements.footer?.items) allTexts.push(...elements.footer.items.map(f => f.text));
       if (elements.summaryRibbon?.text) allTexts.push(elements.summaryRibbon.text);
       const combinedText = allTexts.join(' ') || 'Default';
