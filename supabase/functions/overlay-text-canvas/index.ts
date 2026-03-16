@@ -543,11 +543,12 @@ function buildStructuredElement(
     delete elements.cta;
   }
 
-  // Determine if split layout
-  const isSplit = request.layout === 'split';
+  // Determine if split layout — auto-convert to stack for portrait/square
+  const isPortraitOrSquare = imageWidth <= imageHeight;
+  const isSplit = request.layout === 'split' && !isPortraitOrSquare; // fallback to stack on portrait
 
-  // Determine banner text color based on banner bg brightness
-  const bannerTextColor = theme.bannerBg.includes('255,255,255') ? '#1a1a1a' : '#FFFFFF';
+  // Determine banner text color based on contrast validation
+  const bannerTextColor = getContrastTextColor(theme.bannerBg);
 
   // === Safe-area logic: if logo is in a top corner, add padding so banner text avoids it ===
   const logoInTopArea = logoMeta && (logoMeta.position === 'top-left' || logoMeta.position === 'top-right' || logoMeta.position === 'top-center');
