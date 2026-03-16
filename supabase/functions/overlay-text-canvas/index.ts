@@ -826,14 +826,20 @@ function buildStructuredElement(
           {
             type: 'div',
             props: {
-              style: { display: 'flex', flexDirection: 'column', width: '55%', gap: 12, justifyContent: 'center' },
+              style: {
+                display: 'flex', flexDirection: 'column', width: '55%', gap: 12, justifyContent: 'center',
+                ...(logoMeta && logoMeta.position === 'center-left' ? { paddingLeft: logoSafeWidth } : {}),
+              },
               children: leftChildren.length === 1 ? leftChildren[0] : leftChildren,
             },
           },
           {
             type: 'div',
             props: {
-              style: { display: 'flex', flexDirection: 'column', width: '45%', gap: 8, justifyContent: 'center' },
+              style: {
+                display: 'flex', flexDirection: 'column', width: '45%', gap: 8, justifyContent: 'center',
+                ...(logoMeta && logoMeta.position === 'center-right' ? { paddingRight: logoSafeWidth } : {}),
+              },
               children: rightChildren.length === 1 ? rightChildren[0] : rightChildren,
             },
           },
