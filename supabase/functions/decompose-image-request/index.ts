@@ -149,9 +149,10 @@ OVERLAY ELEMENTS:
    - **banner**: Nhãn ngắn gọn 2-4 từ IN HOA tóm tắt chủ đề (VD: "CHÍNH SÁCH MỚI", "CẬP NHẬT THUẾ", "TIN NÓNG", "KIẾN THỨC HAY")
    - **heroText**: Số liệu nổi bật hoặc keyword mạnh ≤ 20 ký tự (VD: "100%", "50 TRIỆU", "GIẢM 30%", "TOP 5")
    - **headline**: Tiêu đề chính 1 dòng nếu cần
-   - **cards**: Tạo 3-4 thẻ CHỈ KHI nội dung có nhiều điểm chính (giáo dục, liệt kê, so sánh). KHÔNG tạo cards cho nội dung cảm xúc/storytelling/quote/awareness. Mỗi label ngắn gọn 3-8 từ, LUÔN thêm icon emoji phù hợp
-   - **cta**: Call-to-action (chỉ khi conversion/harvest/promotional)
-   - **footer**: Thanh thông tin liên hệ ở cuối (chỉ khi có SĐT/email/website/địa chỉ trong nội dung)
+    - **cards**: Tạo 3-4 thẻ CHỈ KHI nội dung có nhiều điểm chính (giáo dục, liệt kê, so sánh). KHÔNG tạo cards cho nội dung cảm xúc/storytelling/quote/awareness. Mỗi label ngắn gọn 3-8 từ, LUÔN thêm icon emoji phù hợp. Thêm field "number" (1,2,3...) khi layout là education_infographic
+    - **cta**: Call-to-action (chỉ khi conversion/harvest/promotional hoặc education_infographic)
+    - **summaryRibbon**: Dải ribbon tóm tắt 1 câu ngắn gọn giữa cards và CTA (chỉ cho education_infographic)
+    - **footer**: Thanh thông tin liên hệ ở cuối (chỉ khi có SĐT/email/website/địa chỉ trong nội dung)
 
 VÍ DỤ:
 Input: "Bài viết về 5 thay đổi chính sách thuế TNCN 2025: tăng giảm trừ gia cảnh, giảm thuế suất bậc 1, miễn thuế thu nhập dưới 15 triệu, hỗ trợ startup, số hóa kê khai" (Goal: education, Role: sprout, Angle: educational)
