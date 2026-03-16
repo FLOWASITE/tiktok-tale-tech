@@ -388,14 +388,15 @@ export function useAutoImageGeneration() {
 
         return result;
       } catch (err) {
-        console.error(`[useAutoImageGeneration] Attempt ${attempt + 1} error for ${channel}:`, err);
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.error(`[Pipeline:${channel}] ✗ Attempt ${attempt + 1}/${maxRetries + 1} FAILED:`, errMsg);
         
         if (attempt < maxRetries) {
-          // Exponential backoff: 1s, 2s, 4s
           const delay = 1000 * Math.pow(2, attempt);
-          console.log(`[useAutoImageGeneration] Waiting ${delay}ms before retry...`);
+          console.log(`[Pipeline:${channel}] ⏳ Waiting ${delay}ms before retry...`);
           await new Promise(r => setTimeout(r, delay));
         } else {
+          console.error(`[Pipeline:${channel}] ❌ ALL ATTEMPTS EXHAUSTED — marking as error`);
           setProgress(prev => ({ ...prev, [channel]: 'error' }));
           return null;
         }
