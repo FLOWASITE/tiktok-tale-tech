@@ -119,6 +119,9 @@ function determineLayout(overlay: any): string {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const traceId = generateTraceId();
+  const startTime = performance.now();
+
   try {
     const { description, primaryColor = "#DC2626", secondaryColor = "#FFFFFF", context } = await req.json();
 
