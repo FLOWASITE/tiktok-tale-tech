@@ -210,7 +210,8 @@ export function SimpleImageGenerator({
   const [logoOpacity, setLogoOpacity] = useState(100);
   const [textPosition, setTextPosition] = useState<TextPosition>('center');
   const [typographyStyle, setTypographyStyle] = useState<TypographyStyle>('modern');
-  const [negativePrompt, setNegativePrompt] = useState('');
+  const [negativePrompt, setNegativePrompt] = useState(NEGATIVE_PROMPT_DEFAULTS['full']);
+  const [isNegativePromptCustomized, setIsNegativePromptCustomized] = useState(false);
   const [promptMode, setPromptMode] = useState<PromptMode>('full');
   const [v3Suggestions, setV3Suggestions] = useState<SuggestionV3[]>([]);
 
