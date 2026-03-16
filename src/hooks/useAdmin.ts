@@ -208,6 +208,14 @@ export function useAdmin() {
         .eq("user_id", userId);
 
       if (error) throw error;
+
+      // Audit log
+      await supabase.from("admin_audit_logs").insert({
+        admin_id: user!.id,
+        action: "change_subscription",
+        target_user_id: userId,
+        details: { plan_type: planType, status: status || "active" },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin_users"] });
