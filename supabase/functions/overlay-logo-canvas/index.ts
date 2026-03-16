@@ -249,7 +249,7 @@ serve(async (req) => {
       position = 'bottom-right',
       logoStyle = 'clean',
       logoSizePercent = 15,
-      logoOpacity = 100,
+      logoOpacity: rawLogoOpacity = 100,
       padding = 20,
       contentId,
       channel,
