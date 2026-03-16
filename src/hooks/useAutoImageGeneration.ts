@@ -49,7 +49,7 @@ export interface AutoGenerateOptions {
   promptMode?: 'full' | 'brand_only' | 'raw';
   // Structured overlay for complex infographic layouts
   structuredOverlay?: {
-    layout: 'banner_cards' | 'hero_text' | 'simple';
+    layout: 'banner_cards' | 'hero_text' | 'simple' | 'split' | 'stack';
     elements: {
       banner?: { text: string; bgColor: string; position: 'top' | 'bottom' };
       heroText?: { text: string; fontSize: 'xl' | '2xl' | '3xl'; effect: 'none' | 'gradient' };

@@ -434,5 +434,6 @@ export function applyTemplate(
   return {
     backgroundPrompt: decomposed.backgroundPrompt,
     overlayConfig: overlay,
+    layout: template.layout,
   };
 }
