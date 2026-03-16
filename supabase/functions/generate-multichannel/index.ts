@@ -4011,16 +4011,43 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       const firstSuccess = allResults.find(r => r.success && r.data?.title);
       const mergedData: any = { title: firstSuccess?.data?.title || formData.topic };
       
+      // Accumulate actual usage data per channel
+      const _actualUsage: Record<string, { input: number; output: number }> = {};
+      const _actualModels: Record<string, string> = {};
+      let _totalUpstreamCost = 0;
+      
       for (const result of allResults) {
         if (result.success && result.data) {
           const contentKey = `${result.channel}_content`;
           if (result.data[contentKey]) {
             mergedData[contentKey] = result.data[contentKey];
           }
+          // Track actual usage per channel
+          if (result.usage) {
+            _actualUsage[result.channel] = { 
+              input: result.usage.prompt_tokens, 
+              output: result.usage.completion_tokens 
+            };
+            if ((result.usage as any).upstream_cost) {
+              _totalUpstreamCost += (result.usage as any).upstream_cost;
+            }
+          }
+          if (result.modelUsed) {
+            _actualModels[result.channel] = result.modelUsed;
+          }
         }
       }
       
-      console.log(`[parallel] ✅ Merged ${Object.keys(mergedData).length - 1} channel contents`);
+      // Attach usage metadata to mergedData for metrics
+      mergedData._usageMetadata = {
+        tokenUsage: _actualUsage,
+        modelsUsed: _actualModels,
+        totalUpstreamCost: _totalUpstreamCost,
+        totalDurationMs: totalDuration,
+        channelDurations: Object.fromEntries(allResults.filter(r => r.success).map(r => [r.channel, r.durationMs])),
+      };
+      
+      console.log(`[parallel] ✅ Merged ${Object.keys(mergedData).length - 2} channel contents, tracked usage for ${Object.keys(_actualUsage).length} channels`);
       return mergedData;
     };
 
