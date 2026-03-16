@@ -277,6 +277,39 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
     }
   };
 
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !carousel) return;
+
+    const oldIndex = carousel.slides_content.findIndex(s => `slide-${s.slideNumber}` === active.id);
+    const newIndex = carousel.slides_content.findIndex(s => `slide-${s.slideNumber}` === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove([...carousel.slides_content], oldIndex, newIndex);
+    // Re-assign slideNumbers
+    const renumbered = reordered.map((slide, i) => ({ ...slide, slideNumber: i + 1 }));
+
+    try {
+      const { error } = await supabase
+        .from('carousels')
+        .update({
+          slides_content: JSON.parse(JSON.stringify(renumbered)),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', carousel.id);
+
+      if (error) throw error;
+
+      const updatedCarousel = { ...carousel, slides_content: renumbered, updated_at: new Date().toISOString() };
+      onCarouselUpdate?.(updatedCarousel);
+      toast.success('Đã sắp xếp lại slides!');
+    } catch (error) {
+      console.error('Error reordering slides:', error);
+      toast.error('Không thể sắp xếp lại');
+    }
+  };
+
   const handleStatusChange = async (newStatus: ContentStatus) => {
     if (!carousel) return;
 
