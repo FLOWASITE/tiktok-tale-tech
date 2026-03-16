@@ -465,14 +465,21 @@ export const buildStrategicContext: PromptBuilder = (ctx) => {
 // ============================================
 
 export const buildNegativePrompt: PromptBuilder = (ctx) => {
-  const { negativePrompt } = ctx.params;
-  if (!negativePrompt) return null;
+  const { negativePrompt, imageContentType } = ctx.params;
+
+  // Default negative prompt for background mode (no text on image)
+  const DEFAULT_BG_NEGATIVE = 'text, words, letters, numbers, watermark, logo, UI elements, blurry, low quality, distorted face, extra fingers, deformed hands';
+  
+  const effectiveNegative = negativePrompt
+    || (imageContentType !== 'with_text' ? DEFAULT_BG_NEGATIVE : null);
+
+  if (!effectiveNegative) return null;
 
   return {
     id: 'negative_prompt',
     position: 'suffix',
     priority: 50,
-    content: `## ELEMENTS TO AVOID:\n${negativePrompt}`,
+    content: `## ELEMENTS TO AVOID:\n${effectiveNegative}`,
   };
 };
 
