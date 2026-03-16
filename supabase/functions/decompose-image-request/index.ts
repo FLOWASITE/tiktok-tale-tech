@@ -130,6 +130,7 @@ ${contentAngle ? `- Góc tiếp cận: ${contentAngle}` : ''}
 ${topic ? `- Chủ đề gốc: ${topic}` : ''}
 
 CHIẾN LƯỢC CHỌN LAYOUT (suggestedLayout):
+- Nội dung giáo dục/kiến thức có nhiều điểm + có thông tin liên hệ → "education_infographic" (banner + cards đánh số + ribbon tóm tắt + CTA + footer liên hệ)
 - Nội dung giáo dục/kiến thức có nhiều điểm (education, sprout, educational) → "infographic" (chia đôi: hero trái + cards phải)
 - Nội dung cảm xúc/nhận diện thương hiệu (awareness, seed, storytelling) → "quote_card" (hero text lớn, cảm xúc)
 - Nội dung bán hàng/chuyển đổi (conversion, harvest, promotional) → "poster" (CTA nổi bật) hoặc "contact_card" (nếu có thông tin liên hệ)
