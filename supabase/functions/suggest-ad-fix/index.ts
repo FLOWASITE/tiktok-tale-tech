@@ -236,6 +236,23 @@ serve(async (req) => {
       suggestion: result.suggestion.slice(0, 50) 
     });
 
+    // Non-blocking metrics
+    const model = "google/gemini-2.5-flash";
+    const inputTokens = estimateTokens(finalSystemPrompt + userPrompt);
+    const outputTokens = estimateTokens(JSON.stringify(result));
+    saveMetrics(supabase, {
+      traceId: generateTraceId(),
+      functionName: 'suggest-ad-fix',
+      totalDurationMs: 0,
+      inputTokensEstimated: inputTokens,
+      outputTokensEstimated: outputTokens,
+      estimatedCostUsd: estimateCost(model, inputTokens, outputTokens),
+      modelsUsed: { text: model },
+      hadError: false,
+      contextSources: [],
+      actionType: 'content_edit',
+    }).catch(() => {});
+
     return new Response(
       JSON.stringify(result),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

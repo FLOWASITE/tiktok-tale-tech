@@ -438,7 +438,25 @@ Hãy chỉnh sửa nội dung theo yêu cầu trên, giữ đúng format kênh $
 
     console.log("Edited content generated successfully");
 
-    // Return the edited content (not saved yet - let user preview)
+    // Non-blocking metrics
+    const model = "google/gemini-2.5-flash";
+    const inputTokens = estimateTokens(systemPrompt + userPrompt);
+    const outputTokens = estimateTokens(editedContent);
+    saveMetrics(supabase, {
+      traceId: generateTraceId(),
+      functionName: 'ai-edit-channel',
+      totalDurationMs: 0,
+      inputTokensEstimated: inputTokens,
+      outputTokensEstimated: outputTokens,
+      estimatedCostUsd: estimateCost(model, inputTokens, outputTokens),
+      modelsUsed: { text: model },
+      hadError: false,
+      contextSources: ['brand'],
+      channels: [channel],
+      contentId,
+      actionType: 'content_edit',
+    }).catch(() => {});
+
     return new Response(JSON.stringify({ editedContent }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

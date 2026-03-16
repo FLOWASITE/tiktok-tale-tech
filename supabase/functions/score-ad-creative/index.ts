@@ -217,6 +217,23 @@ ${jsonFormatInstruction}`;
 
     const scoreResult = JSON.parse(jsonMatch[0]);
 
+    // Non-blocking metrics
+    const model = "google/gemini-2.5-flash";
+    const inputTokens = estimateTokens(finalSystemPrompt + prompt);
+    const outputTokens = estimateTokens(text);
+    saveMetrics(supabase, {
+      traceId: generateTraceId(),
+      functionName: 'score-ad-creative',
+      totalDurationMs: 0,
+      inputTokensEstimated: inputTokens,
+      outputTokensEstimated: outputTokens,
+      estimatedCostUsd: estimateCost(model, inputTokens, outputTokens),
+      modelsUsed: { text: model },
+      hadError: false,
+      contextSources: [],
+      actionType: 'content_analysis',
+    }).catch(() => {});
+
     return new Response(
       JSON.stringify(scoreResult),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
