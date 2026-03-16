@@ -225,8 +225,13 @@ export function useAutoImageGeneration() {
           }
         }
         // Step 2: Logo overlay EARLY — logo becomes part of background before text/SVG overlay
-        // This avoids the "Unsupported image type" error when overlay-logo-canvas receives SVG
         if (includeLogo && logoUrl) {
+          const step2Start = Date.now();
+          console.log(`[Pipeline:${channel}] ▶ STEP 2/4 — Logo overlay`, {
+            position: logoPosition || 'bottom-right',
+            style: logoStyle || 'shadow',
+            sizePercent: logoSizePercent || 15,
+          });
           setProgress(prev => ({ ...prev, [channel]: 'overlaying' }));
           
           const { data: overlayData, error: overlayError } = await invokeWithTimeout<any>('overlay-logo-canvas', {
@@ -244,8 +249,9 @@ export function useAutoImageGeneration() {
             timeoutMs: 30_000,
           });
 
+          const step2Duration = Date.now() - step2Start;
           if (overlayError || !overlayData?.success) {
-            console.warn(`[useAutoImageGeneration] Logo overlay failed for ${channel}, using base image:`, overlayError?.message || overlayData?.error);
+            console.warn(`[Pipeline:${channel}] ✗ STEP 2 FAILED (${step2Duration}ms):`, overlayError?.message || overlayData?.error);
             logoFailed = true;
             setLogoOverlayFailures(prev => ({ ...prev, [channel]: true }));
             toast.warning(`${channel}: Không thể thêm logo, sử dụng ảnh gốc`, {
@@ -254,7 +260,10 @@ export function useAutoImageGeneration() {
             });
           } else {
             finalImageUrl = overlayData.imageUrl;
+            console.log(`[Pipeline:${channel}] ✓ STEP 2 OK (${step2Duration}ms)`);
           }
+        } else {
+          console.log(`[Pipeline:${channel}] ⏭ STEP 2 SKIPPED — no logo configured`);
         }
 
         // Step 3: Overlay text using canvas if useCanvasFallback is enabled
