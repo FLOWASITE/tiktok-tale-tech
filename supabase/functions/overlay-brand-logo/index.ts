@@ -182,7 +182,7 @@ serve(async (req) => {
     // Non-blocking metrics save
     const totalDurationMs = Math.round(performance.now() - startTime);
     const model = "google/gemini-3-pro-image-preview";
-    const estimatedCostUsd = estimateCost(model, 500, 0); // Image edit is ~500 tokens input
+    const estimatedCostUsd = isImageModel(model) ? estimateImageCost(model) : estimateCost(model, 500, 0);
     saveMetrics(supabase, {
       traceId,
       functionName: 'overlay-brand-logo',
