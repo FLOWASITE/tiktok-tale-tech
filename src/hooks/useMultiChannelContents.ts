@@ -912,7 +912,7 @@ export function useMultiChannelContents() {
 
   useEffect(() => {
     fetchContents();
-  }, [user]);
+  }, [user, currentOrganization?.id]);
 
   // Expand channels - add new channels to existing content
   const [expandingChannels, setExpandingChannels] = useState(false);
