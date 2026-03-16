@@ -6,7 +6,7 @@ import { OverlayTemplatePicker } from './OverlayTemplatePicker';
 import { useGenerationSignals } from '@/hooks/useGenerationSignals';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
-import { Sparkles, Loader2, ArrowLeft, AlertTriangle, Image as ImageIcon, Minimize2, Shield, SlidersHorizontal } from 'lucide-react';
+import { Sparkles, Loader2, ArrowLeft, AlertTriangle, Image as ImageIcon, Minimize2, Shield, SlidersHorizontal, Camera, Brush, LayoutGrid, Box, Layers, Droplets, Film } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
