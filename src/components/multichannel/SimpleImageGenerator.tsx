@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { analyzeContentComplexity } from '@/lib/contentComplexityAnalyzer';
 import { ComplexityWarning } from './ComplexityWarning';
-import { decomposeRequest, decomposeRequestWithAI, applyTemplate } from '@/lib/hybridImageGenerator';
+import { decomposeRequest, decomposeRequestWithAI, applyTemplate, autoSelectTemplate } from '@/lib/hybridImageGenerator';
 import { OverlayTemplatePicker } from './OverlayTemplatePicker';
 import { useGenerationSignals } from '@/hooks/useGenerationSignals';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -406,9 +406,11 @@ export function SimpleImageGenerator({
     decomposeRequestWithAI(summaryText, brandPrimaryColor || '#DC2626')
       .then((decomposed) => {
         if (cancelled) return;
-        const { backgroundPrompt, overlayConfig } = overlayTemplate !== 'auto'
-          ? applyTemplate(overlayTemplate, decomposed, summaryText, brandPrimaryColor || '#DC2626')
-          : decomposed;
+        const selectedTemplate = overlayTemplate !== 'auto'
+          ? overlayTemplate
+          : autoSelectTemplate(summaryText, decomposed.overlayConfig);
+        console.log('[AutoTemplate] Selected:', selectedTemplate, 'from overlayTemplate:', overlayTemplate);
+        const { backgroundPrompt, overlayConfig } = applyTemplate(selectedTemplate, decomposed, summaryText, brandPrimaryColor || '#DC2626');
         setHybridOverlay({
           layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
           elements: {
@@ -426,9 +428,11 @@ export function SimpleImageGenerator({
       .catch(() => {
         if (cancelled) return;
         const rawDecomposed = decomposeRequest(summaryText, brandPrimaryColor || '#DC2626');
-        const { backgroundPrompt, overlayConfig } = overlayTemplate !== 'auto'
-          ? applyTemplate(overlayTemplate, rawDecomposed, summaryText, brandPrimaryColor || '#DC2626')
-          : rawDecomposed;
+        const selectedTemplate = overlayTemplate !== 'auto'
+          ? overlayTemplate
+          : autoSelectTemplate(summaryText, rawDecomposed.overlayConfig);
+        console.log('[AutoTemplate] Fallback selected:', selectedTemplate);
+        const { backgroundPrompt, overlayConfig } = applyTemplate(selectedTemplate, rawDecomposed, summaryText, brandPrimaryColor || '#DC2626');
         setHybridOverlay({
           layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
           elements: {
