@@ -1158,13 +1158,8 @@ serve(async (req) => {
 
       console.log(`[overlay-text-canvas] Elements: banner=${!!elements.banner}, hero=${!!elements.heroText}, cards=${elements.cards?.items?.length || 0}`);
 
-      const fontData2 = await loadGoogleFont(combinedText, 600);
-      type Weight2 = 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
-      const fonts2 = fontData2 ? [{ name: 'Be Vietnam Pro', data: fontData2, weight: 600 as Weight2, style: 'normal' as const }] : [];
-      if (fonts2.length === 0) {
-        const fb = await loadGoogleFont(combinedText, 400);
-        if (fb) fonts2.push({ name: 'Be Vietnam Pro', data: fb, weight: 400 as Weight2, style: 'normal' as const });
-      }
+      // Load multiple font weights for professional typography
+      const fonts2 = await loadMultipleFontWeights(combinedText);
       if (fonts2.length === 0) throw new Error('Could not load any fonts');
 
       const element2 = buildStructuredElement(baseImageUrl, sr, true, imageWidth, imageHeight);
