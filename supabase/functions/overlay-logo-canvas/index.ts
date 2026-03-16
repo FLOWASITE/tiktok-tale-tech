@@ -77,6 +77,25 @@ function calculatePosition(
 }
 
 /**
+ * Draw a semi-transparent backdrop behind the logo for visibility
+ */
+function drawLogoBackdrop(
+  baseImg: Image,
+  x: number, y: number,
+  width: number, height: number,
+  backdropPadding: number = 8
+): void {
+  const bx = Math.max(0, x - backdropPadding);
+  const by = Math.max(0, y - backdropPadding);
+  const bw = Math.min(baseImg.width - bx, width + backdropPadding * 2);
+  const bh = Math.min(baseImg.height - by, height + backdropPadding * 2);
+
+  const backdrop = new Image(bw, bh);
+  backdrop.fill(0x00000066); // ~40% opacity black
+  baseImg.composite(backdrop, bx, by);
+}
+
+/**
  * Apply logo style effects using ImageScript's opacity method
  */
 async function applyLogoStyle(
