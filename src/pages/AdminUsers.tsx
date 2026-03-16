@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAdmin } from "@/hooks/useAdmin";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -29,9 +30,18 @@ import {
   Crown,
   UserCheck,
   Calendar,
+  UserPlus,
+  Download,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { UserDetailSheet } from "@/components/admin/UserDetailSheet";
+import { CreateUserDialog } from "@/components/admin/CreateUserDialog";
+import type { AdminUser } from "@/hooks/useAdmin";
+
+const PAGE_SIZE = 20;
 
 export default function AdminUsers() {
   const {
@@ -41,25 +51,64 @@ export default function AdminUsers() {
     updateRole,
     updateSubscription,
     isUpdating,
+    refetch,
   } = useAdmin();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [planFilter, setPlanFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
   };
 
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch =
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (user.full_name?.toLowerCase() || "").includes(searchQuery.toLowerCase());
-    const matchesRole = roleFilter === "all" || user.role === roleFilter;
-    const matchesPlan =
-      planFilter === "all" || user.subscription?.plan_type === planFilter;
-    return matchesSearch && matchesRole && matchesPlan;
-  });
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      const matchesSearch =
+        user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (user.full_name?.toLowerCase() || "").includes(searchQuery.toLowerCase());
+      const matchesRole = roleFilter === "all" || user.role === roleFilter;
+      const matchesPlan =
+        planFilter === "all" || user.subscription?.plan_type === planFilter;
+      return matchesSearch && matchesRole && matchesPlan;
+    });
+  }, [users, searchQuery, roleFilter, planFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  // Reset page when filters change
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  function exportCSV() {
+    const headers = ["Email", "Name", "Role", "Plan", "Status", "Created At"];
+    const rows = filteredUsers.map((u) => [
+      u.email,
+      u.full_name || "",
+      u.role,
+      u.subscription?.plan_type || "free",
+      u.subscription?.status || "",
+      u.created_at,
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `users-export-${format(new Date(), "yyyyMMdd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   const planColors: Record<string, string> = {
     free: "bg-muted text-muted-foreground",
@@ -84,13 +133,25 @@ export default function AdminUsers() {
 
   return (
     <div className="container py-8 space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-blue-500/10">
-          <Users className="h-6 w-6 text-blue-500" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-blue-500/10">
+            <Users className="h-6 w-6 text-blue-500" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold">User Management</h1>
+            <p className="text-muted-foreground">Quản lý users, roles và subscriptions</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-3xl font-bold">User Management</h1>
-          <p className="text-muted-foreground">Quản lý users, roles và subscriptions</p>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportCSV}>
+            <Download className="h-4 w-4 mr-1" />
+            Export CSV
+          </Button>
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <UserPlus className="h-4 w-4 mr-1" />
+            Thêm User
+          </Button>
         </div>
       </div>
 
@@ -184,11 +245,11 @@ export default function AdminUsers() {
               <Input
                 placeholder="Tìm kiếm email hoặc tên..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-9"
               />
             </div>
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); setCurrentPage(1); }}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
@@ -199,7 +260,7 @@ export default function AdminUsers() {
                 <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={planFilter} onValueChange={setPlanFilter}>
+            <Select value={planFilter} onValueChange={(v) => { setPlanFilter(v); setCurrentPage(1); }}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Plan" />
               </SelectTrigger>
@@ -234,15 +295,19 @@ export default function AdminUsers() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.length === 0 ? (
+                  {paginatedUsers.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         Không tìm thấy user nào
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredUsers.map((user) => (
-                      <TableRow key={user.id}>
+                    paginatedUsers.map((user) => (
+                      <TableRow
+                        key={user.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => { setSelectedUser(user); setDetailOpen(true); }}
+                      >
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <Avatar className="h-8 w-8">
@@ -257,7 +322,7 @@ export default function AdminUsers() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <Select
                             value={user.role}
                             onValueChange={(value) =>
@@ -278,7 +343,7 @@ export default function AdminUsers() {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <Select
                             value={user.subscription?.plan_type || "free"}
                             onValueChange={(value) =>
@@ -330,11 +395,48 @@ export default function AdminUsers() {
             </div>
           )}
 
-          <div className="mt-4 text-sm text-muted-foreground">
-            Hiển thị {filteredUsers.length} / {users.length} users
+          {/* Pagination */}
+          <div className="mt-4 flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredUsers.length)} / {filteredUsers.length} users
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-medium">
+                {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Dialogs */}
+      <UserDetailSheet
+        user={selectedUser}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        onAction={refetch}
+      />
+      <CreateUserDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={refetch}
+      />
     </div>
   );
 }
