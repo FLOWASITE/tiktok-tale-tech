@@ -3971,7 +3971,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       
       // Chunk channels to avoid rate limiting
       const chunks = chunkArray(channels, MAX_CONCURRENT_CHANNELS);
-      const allResults: { channel: string; data: any; success: boolean; error?: any; durationMs: number }[] = [];
+      const allResults: { channel: string; data: any; success: boolean; error?: any; durationMs: number; usage?: { prompt_tokens: number; completion_tokens: number; upstream_cost?: number } | null; modelUsed?: string }[] = [];
       
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
