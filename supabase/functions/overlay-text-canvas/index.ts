@@ -758,6 +758,14 @@ function buildStructuredElement(
       },
     }));
 
+    // Footer safe-area: avoid logo at bottom-left/bottom-right
+    let footerPaddingLeft = 24;
+    let footerPaddingRight = 24;
+    if (logoInBottomArea && logoMeta) {
+      if (logoMeta.position === 'bottom-left') footerPaddingLeft = logoSafeWidth;
+      if (logoMeta.position === 'bottom-right') footerPaddingRight = logoSafeWidth;
+    }
+
     children.push({
       type: 'div',
       props: {
@@ -767,7 +775,7 @@ function buildStructuredElement(
           justifyContent: 'center',
           gap: 16,
           backgroundColor: theme.bannerBg,
-          padding: '8px 24px',
+          padding: `8px ${footerPaddingRight}px 8px ${footerPaddingLeft}px`,
           width: '100%',
           borderRadius: theme.borderRadius > 0 ? `0 0 ${theme.borderRadius}px ${theme.borderRadius}px` : '0',
           marginTop: 'auto',
