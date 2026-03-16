@@ -1,116 +1,62 @@
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-## Đánh giá Chuyên gia: Hệ thống Tạo ảnh Social Media
-
-### Tổng quan kiến trúc
-
-Hệ thống sử dụng pipeline 4 bước: **AI Background → Logo Overlay → Canvas Text → Structured Overlay (Satori)**. Kiến trúc tách biệt giữa nền AI và text programmatic là quyết định đúng đắn, đảm bảo typography chính xác 100% cho tiếng Việt.
-
----
-
-### ĐIỂM MẠNH (đã cover tốt)
-
-| Khía cạnh | Đánh giá |
-|---|---|
-| **12 kênh** với spec riêng biệt | Tốt — mỗi kênh có aspect ratio, mood, composition, avoidElements riêng |
-| **Style-Adaptive Overlay** | Xuất sắc — 12 theme (photorealistic → product_only) với borderRadius, shadow, bg riêng |
-| **Logo Safe Zone** | Tốt — tự động tính safe area dựa trên logoMeta cho banner/cards/footer/CTA |
-| **Smart Density** | Tốt — tự động cắt giảm elements khi quá đông, nới cho education_infographic |
-| **AI Decompose** | Tốt — Gemini phân tích nội dung → suggestedLayout với strategic context |
-| **Fallback chain** | Tốt — AI → regex fallback, model fallback, retry với backoff |
-| **3 Prompt Modes** | Tốt — full/brand_only/raw cover 3 use case khác nhau |
-| **Country localization** | Tốt — VN, US, TH, SG, MY, ID, PH, JP, KR |
-| **Content taxonomy** | Tốt — Goal × Angle × Role tạo ma trận chiến lược phong phú |
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
 ---
 
-### GAPS VÀ KHUYẾN NGHỊ NÂNG CẤP
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-#### 1. **Thiếu tỉ lệ 4:5 trong channel config** (Critical)
-Instagram Feed thực tế ưu tiên **4:5** (1080×1350) hơn 1:1 vì chiếm nhiều diện tích feed hơn 23%. Hiện tại `CHANNEL_OPTIMAL_ASPECT_RATIO.instagram = '1:1'` nhưng type system hỗ trợ 4:5. Cần thêm option auto-select 4:5 cho Instagram Feed.
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-**File**: `src/config/channelImageConfig.ts`
-- Thêm variant `instagram_feed_portrait` hoặc thay `instagram: '4:5'`
-- Cập nhật `CHANNEL_IMAGE_CONFIG.instagram.size` → `'1080x1350'`
-
-#### 2. **Thiếu Stories/Reels variant** (Critical)
-Instagram Stories, Facebook Stories, YouTube Shorts đều 9:16 nhưng không có channel riêng. Hiện chỉ TikTok có 9:16. Cần ít nhất support "instagram_stories" hoặc cho phép user chọn variant per channel.
-
-**File**: `src/config/channelImageConfig.ts`, `src/types/multichannel.ts`
-- Thêm channel variant hoặc sub-format selector
-
-#### 3. **Font chỉ load 1 weight** (Medium)
-Hiện tại `loadGoogleFont` chỉ load weight 600 (hoặc fallback 400). Nhưng cards cần weight 400 cho description, banner cần 700 cho bold. Satori sẽ **fake bold/light** khi chỉ có 1 weight → kém chuyên nghiệp.
-
-**File**: `supabase/functions/overlay-text-canvas/index.ts`
-- Load 2-3 weights: 400 (description), 600 (body), 700 (banner/hero)
-- Truyền array fonts vào Satori
-
-#### 4. **Thiếu color contrast validation** (Medium)
-Không kiểm tra contrast ratio giữa text color vs background. Khi brand primary color nhạt (vd: `#FFD700` vàng), banner text trắng sẽ không đọc được.
-
-**File**: `supabase/functions/overlay-text-canvas/index.ts`
-- Thêm function `getContrastColor(bgColor)` → auto-switch text sang đen/trắng
-- Áp dụng cho banner, CTA, ribbon
-
-#### 5. **Card layout không responsive theo aspect ratio** (Medium)
-Cards luôn dùng cùng styling bất kể ảnh 16:9 hay 9:16. Trên 9:16 (TikTok), cards grid-2x2 sẽ rất bé vì width hẹp (1080px nhưng height 1920px).
-
-**File**: `supabase/functions/overlay-text-canvas/index.ts`
-- 9:16: ép cards layout = 'vertical', font size lớn hơn
-- 16:9: cho phép 'horizontal' hoặc 'grid-2x2'
-- Tỉ lệ font theo min(width, height) thay vì chỉ width
-
-#### 6. **Split layout chỉ hoạt động trên landscape** (Low-Medium)
-Split layout (55% trái / 45% phải) trên ảnh 1:1 hoặc 9:16 sẽ bị chật. Cần auto-convert sang stack layout khi aspect ratio là portrait/square.
-
-**File**: `supabase/functions/overlay-text-canvas/index.ts`
-- Khi `imageWidth <= imageHeight && isSplit` → fallback sang stack (column) layout
-
-#### 7. **Thiếu "Carousel/Multi-slide" support** (Low-Medium)
-Instagram carousel (tối đa 10 slides) là format engagement cao nhất. Hệ thống hiện chỉ tạo 1 ảnh/kênh. Cần support tạo series ảnh cho cùng 1 nội dung (slide 1: hook, slide 2-4: content, slide 5: CTA).
-
-#### 8. **Background prompt thiếu negative prompt mặc định** (Low)
-Hiện `negativePrompt` là optional và thường trống. Cần inject mặc định: `"text, words, letters, numbers, watermark, logo, UI elements, blurry, low quality"` để AI background luôn sạch text.
-
-#### 9. **Overlay SVG output — không rasterize** (Low)
-Output cuối cùng là SVG (Satori) overlay trên base image URL. Trên một số platform (Zalo, email), SVG có thể không render đúng. Cần option rasterize SVG → PNG trước khi upload.
-
-#### 10. **Thiếu A/B variant generation** (Nice-to-have)
-Chuyên gia thiết kế luôn tạo 2-3 variants. Hệ thống chỉ tạo 1 ảnh/kênh. Có thể thêm option "tạo 2 variants" với style khác nhau cho cùng nội dung.
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
 ---
 
-### ĐỘ ƯU TIÊN TRIỂN KHAI
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-```text
-P0 (Critical - ảnh hưởng chất lượng output):
-  1. Load multiple font weights (400, 600, 700)
-  2. Color contrast validation
-  3. Card layout responsive theo aspect ratio
-  4. Split → stack fallback cho portrait
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-P1 (Important - mở rộng coverage):
-  5. Instagram 4:5 support
-  6. Stories/Reels 9:16 variant
-  7. Default negative prompt injection
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-P2 (Nice-to-have):
-  8. Carousel/multi-slide
-  9. SVG → PNG rasterization
-  10. A/B variant generation
-```
+---
 
-### KẾ HOẠCH TRIỂN KHAI ĐỀ XUẤT
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
-Tập trung **P0 (4 items)** trước — tất cả nằm trong 2 files:
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
 
-| File | Thay đổi |
-|---|---|
-| `supabase/functions/overlay-text-canvas/index.ts` | Multi-weight font loading, contrast validation, responsive cards, split→stack fallback |
-| `src/config/channelImageConfig.ts` | Instagram 4:5 option (P1) |
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
 
-**Ước tính**: P0 = 1 lần triển khai, P1 = 1 lần triển khai riêng.
+---
 
-Bạn muốn tôi triển khai nhóm P0 trước không?
+## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
 
+### Vấn đề
+Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
+
+### Đã sửa (6 files + 2 edge functions)
+1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
+2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
+3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
+4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
+5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
+6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
+7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon

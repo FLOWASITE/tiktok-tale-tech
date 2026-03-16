@@ -284,8 +284,6 @@ async function loadGoogleFont(text: string, weight: number = 600): Promise<Array
     const encodedText = encodeURIComponent(text);
     const url = `https://fonts.googleapis.com/css2?family=${fontFamily}:wght@${weight}&text=${encodedText}`;
     
-    console.log(`[overlay-text-canvas] Loading font...`);
-    
     const cssResponse = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -299,7 +297,6 @@ async function loadGoogleFont(text: string, weight: number = 600): Promise<Array
     
     const css = await cssResponse.text();
     
-    // Extract font URL from CSS
     const fontUrlMatch = css.match(/url\((https:\/\/fonts\.gstatic\.com[^)]+\.woff2[^)]*)\)/) ||
                          css.match(/url\((https:\/\/fonts\.gstatic\.com[^)]+)\)/);
     
@@ -309,8 +306,6 @@ async function loadGoogleFont(text: string, weight: number = 600): Promise<Array
     }
     
     const fontUrl = fontUrlMatch[1];
-    console.log(`[overlay-text-canvas] Fetching font...`);
-    
     const fontResponse = await fetch(fontUrl);
     if (!fontResponse.ok) {
       console.error(`[overlay-text-canvas] Font fetch failed: ${fontResponse.status}`);
@@ -318,12 +313,71 @@ async function loadGoogleFont(text: string, weight: number = 600): Promise<Array
     }
     
     const fontData = await fontResponse.arrayBuffer();
-    console.log(`[overlay-text-canvas] Font loaded: ${fontData.byteLength} bytes`);
+    console.log(`[overlay-text-canvas] Font wt=${weight} loaded: ${fontData.byteLength} bytes`);
     return fontData;
   } catch (error) {
     console.error(`[overlay-text-canvas] Font loading error:`, error);
     return null;
   }
+}
+
+/**
+ * Load multiple font weights in parallel for professional typography
+ */
+async function loadMultipleFontWeights(text: string): Promise<Array<{ name: string; data: ArrayBuffer; weight: 100|200|300|400|500|600|700|800|900; style: 'normal' }>> {
+  const weights = [400, 600, 700] as const;
+  const results = await Promise.all(weights.map(w => loadGoogleFont(text, w)));
+  
+  const fonts: Array<{ name: string; data: ArrayBuffer; weight: 100|200|300|400|500|600|700|800|900; style: 'normal' }> = [];
+  for (let i = 0; i < weights.length; i++) {
+    if (results[i]) {
+      fonts.push({ name: 'Be Vietnam Pro', data: results[i]!, weight: weights[i] as any, style: 'normal' });
+    }
+  }
+  
+  // If none loaded, try single fallback
+  if (fonts.length === 0) {
+    const fb = await loadGoogleFont(text, 400);
+    if (fb) fonts.push({ name: 'Be Vietnam Pro', data: fb, weight: 400, style: 'normal' });
+  }
+  
+  console.log(`[overlay-text-canvas] Loaded ${fonts.length} font weights: ${fonts.map(f => f.weight).join(', ')}`);
+  return fonts;
+}
+
+/**
+ * Get relative luminance of a hex color (WCAG formula)
+ */
+function getLuminance(hex: string): number {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16) / 255;
+  const g = parseInt(h.substring(2, 4), 16) / 255;
+  const b = parseInt(h.substring(4, 6), 16) / 255;
+  
+  const toLinear = (c: number) => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+
+/**
+ * Auto-select text color (black or white) for maximum contrast on a given background
+ */
+function getContrastTextColor(bgColor: string): string {
+  // Handle hex colors
+  if (bgColor.startsWith('#')) {
+    return getLuminance(bgColor) > 0.4 ? '#1a1a1a' : '#FFFFFF';
+  }
+  // Handle rgba - extract RGB values
+  const rgbaMatch = bgColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (rgbaMatch) {
+    const r = parseInt(rgbaMatch[1]) / 255;
+    const g = parseInt(rgbaMatch[2]) / 255;
+    const b = parseInt(rgbaMatch[3]) / 255;
+    const toLinear = (c: number) => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    const lum = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+    return lum > 0.4 ? '#1a1a1a' : '#FFFFFF';
+  }
+  // Default to white for unknown formats
+  return '#FFFFFF';
 }
 
 /**
@@ -489,11 +543,12 @@ function buildStructuredElement(
     delete elements.cta;
   }
 
-  // Determine if split layout
-  const isSplit = request.layout === 'split';
+  // Determine if split layout — auto-convert to stack for portrait/square
+  const isPortraitOrSquare = imageWidth <= imageHeight;
+  const isSplit = request.layout === 'split' && !isPortraitOrSquare; // fallback to stack on portrait
 
-  // Determine banner text color based on banner bg brightness
-  const bannerTextColor = theme.bannerBg.includes('255,255,255') ? '#1a1a1a' : '#FFFFFF';
+  // Determine banner text color based on contrast validation
+  const bannerTextColor = getContrastTextColor(theme.bannerBg);
 
   // === Safe-area logic: if logo is in a top corner, add padding so banner text avoids it ===
   const logoInTopArea = logoMeta && (logoMeta.position === 'top-left' || logoMeta.position === 'top-right' || logoMeta.position === 'top-center');
@@ -667,10 +722,13 @@ function buildStructuredElement(
     });
   }
 
-  // Cards grid
+  // Cards grid — responsive: force vertical on portrait, use min(w,h) for font scaling
   if (elements.cards && elements.cards.items.length > 0) {
-    const isGrid = elements.cards.layout === 'grid-2x2';
-    const cardFontSize = Math.round(imageWidth * (isEducationInfographic && elementCount >= 5 ? 0.018 : 0.02));
+    // Auto-override card layout based on aspect ratio
+    const effectiveCardLayout = isPortraitOrSquare ? 'vertical' : elements.cards.layout;
+    const isGrid = effectiveCardLayout === 'grid-2x2';
+    const fontBase = Math.min(imageWidth, imageHeight); // scale by smaller dimension
+    const cardFontSize = Math.round(fontBase * (isEducationInfographic && elementCount >= 5 ? 0.022 : 0.025));
     const cardDescFontSize = Math.round(imageWidth * 0.015);
     const hasNumberedCards = elements.cards.items.some(item => item.number != null);
     
@@ -852,7 +910,7 @@ function buildStructuredElement(
             type: 'span',
             props: {
               style: {
-                color: '#FFFFFF',
+                color: getContrastTextColor(ribbonBg),
                 fontSize: ribbonFontSize,
                 fontFamily,
                 fontWeight: 700,
@@ -890,7 +948,7 @@ function buildStructuredElement(
           type: 'span',
           props: {
             style: {
-              color: '#FFFFFF',
+              color: getContrastTextColor(colors.primary),
               fontSize: Math.round(imageWidth * 0.025),
               fontFamily,
               fontWeight: theme.fontWeight,
@@ -1100,13 +1158,8 @@ serve(async (req) => {
 
       console.log(`[overlay-text-canvas] Elements: banner=${!!elements.banner}, hero=${!!elements.heroText}, cards=${elements.cards?.items?.length || 0}`);
 
-      const fontData2 = await loadGoogleFont(combinedText, 600);
-      type Weight2 = 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
-      const fonts2 = fontData2 ? [{ name: 'Be Vietnam Pro', data: fontData2, weight: 600 as Weight2, style: 'normal' as const }] : [];
-      if (fonts2.length === 0) {
-        const fb = await loadGoogleFont(combinedText, 400);
-        if (fb) fonts2.push({ name: 'Be Vietnam Pro', data: fb, weight: 400 as Weight2, style: 'normal' as const });
-      }
+      // Load multiple font weights for professional typography
+      const fonts2 = await loadMultipleFontWeights(combinedText);
       if (fonts2.length === 0) throw new Error('Could not load any fonts');
 
       const element2 = buildStructuredElement(baseImageUrl, sr, true, imageWidth, imageHeight);
