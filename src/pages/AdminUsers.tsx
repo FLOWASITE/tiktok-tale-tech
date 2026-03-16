@@ -444,7 +444,14 @@ export default function AdminUsers() {
                               </AvatarFallback>
                             </Avatar>
                             <div className="min-w-0">
-                              <p className="font-medium truncate">{user.full_name || "—"}</p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="font-medium truncate">{user.full_name || "—"}</p>
+                                {user.is_banned && (
+                                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 shrink-0">
+                                    Banned
+                                  </Badge>
+                                )}
+                              </div>
                               <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                             </div>
                           </div>
