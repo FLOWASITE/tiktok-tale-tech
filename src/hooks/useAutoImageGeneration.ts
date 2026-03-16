@@ -135,7 +135,7 @@ export function useAutoImageGeneration() {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         if (attempt > 0) {
-          console.log(`[useAutoImageGeneration] Retry attempt ${attempt} for ${channel}`);
+          console.log(`[Pipeline:${channel}] 🔄 Retry attempt ${attempt}/${maxRetries}`);
         }
         
         // Set status and track start time
@@ -143,17 +143,25 @@ export function useAutoImageGeneration() {
         setProgress(prev => ({ ...prev, [channel]: 'generating' }));
         setProgressTimes(prev => ({ ...prev, [channel]: startTime }));
         
-        console.log(`[useAutoImageGeneration] Generating image for ${channel} with aspect ratio ${channelAspectRatio}, style: ${imageStylePreset || 'default'}, role: ${contentRole || 'none'}`);
-
-        // Step 1: Generate base image with brand colors, style preset, and strategic context
-        // Force background_only when structured overlay is present AND using satori mode
-        // When ai_render mode: pass structuredElements to AI so it renders text directly
+        // Determine rendering mode
         const overlayMode = options.overlayMode || 'satori';
         const isAiRenderMode = overlayMode === 'ai_render' && !!structuredOverlay;
         const effectiveContentType = isAiRenderMode 
-          ? 'with_text'  // AI renders text directly
+          ? 'with_text'
           : (structuredOverlay ? 'background_only' : (useCanvasFallback ? 'background_only' : imageContentType));
         
+        console.log(`[Pipeline:${channel}] ▶ STEP 1/4 — Generate base image`, {
+          aspectRatio: channelAspectRatio,
+          style: imageStylePreset || 'default',
+          role: contentRole || 'none',
+          overlayMode,
+          isAiRenderMode,
+          effectiveContentType,
+          promptMode: promptMode || 'full',
+          hasStructuredOverlay: !!structuredOverlay,
+          hasStructuredTemplate: !!options.structuredTemplate,
+        });
+
         // OPTIMIZATION: Early timeout warning — notify user if AI is slow
         const slowWarningTimer = setTimeout(() => {
           toast.info(`${channel}: AI đang xử lý lâu hơn bình thường...`, {
@@ -190,11 +198,17 @@ export function useAutoImageGeneration() {
         });
 
         clearTimeout(slowWarningTimer);
+        const step1Duration = Date.now() - startTime;
 
         if (imageError || !imageData?.success) {
-          console.error(`[useAutoImageGeneration] Generate error for ${channel}:`, imageError || imageData?.error);
+          console.error(`[Pipeline:${channel}] ✗ STEP 1 FAILED (${step1Duration}ms):`, imageError || imageData?.error);
           throw new Error(imageData?.error || imageError?.message || 'Failed to generate image');
         }
+        
+        console.log(`[Pipeline:${channel}] ✓ STEP 1 OK (${step1Duration}ms)`, {
+          model: imageData.modelUsed || 'unknown',
+          imageUrlLength: imageData.imageUrl?.length || 0,
+        });
 
         let finalImageUrl = imageData.imageUrl;
         let logoFailed = false;
@@ -211,8 +225,13 @@ export function useAutoImageGeneration() {
           }
         }
         // Step 2: Logo overlay EARLY — logo becomes part of background before text/SVG overlay
-        // This avoids the "Unsupported image type" error when overlay-logo-canvas receives SVG
         if (includeLogo && logoUrl) {
+          const step2Start = Date.now();
+          console.log(`[Pipeline:${channel}] ▶ STEP 2/4 — Logo overlay`, {
+            position: logoPosition || 'bottom-right',
+            style: logoStyle || 'shadow',
+            sizePercent: logoSizePercent || 15,
+          });
           setProgress(prev => ({ ...prev, [channel]: 'overlaying' }));
           
           const { data: overlayData, error: overlayError } = await invokeWithTimeout<any>('overlay-logo-canvas', {
@@ -230,8 +249,9 @@ export function useAutoImageGeneration() {
             timeoutMs: 30_000,
           });
 
+          const step2Duration = Date.now() - step2Start;
           if (overlayError || !overlayData?.success) {
-            console.warn(`[useAutoImageGeneration] Logo overlay failed for ${channel}, using base image:`, overlayError?.message || overlayData?.error);
+            console.warn(`[Pipeline:${channel}] ✗ STEP 2 FAILED (${step2Duration}ms):`, overlayError?.message || overlayData?.error);
             logoFailed = true;
             setLogoOverlayFailures(prev => ({ ...prev, [channel]: true }));
             toast.warning(`${channel}: Không thể thêm logo, sử dụng ảnh gốc`, {
@@ -240,16 +260,23 @@ export function useAutoImageGeneration() {
             });
           } else {
             finalImageUrl = overlayData.imageUrl;
+            console.log(`[Pipeline:${channel}] ✓ STEP 2 OK (${step2Duration}ms)`);
           }
+        } else {
+          console.log(`[Pipeline:${channel}] ⏭ STEP 2 SKIPPED — no logo configured`);
         }
 
         // Step 3: Overlay text using canvas if useCanvasFallback is enabled
         // Skip if structuredOverlay is active (Step 4 handles text rendering)
         // Skip entirely in ai_render mode (AI already rendered text)
         if (useCanvasFallback && imageContentType === 'with_text' && channelText && !structuredOverlay && !isAiRenderMode) {
-          console.log(`[useAutoImageGeneration] Applying canvas text overlay for ${channel}`);
+          const step3Start = Date.now();
+          console.log(`[Pipeline:${channel}] ▶ STEP 3/4 — Canvas text overlay`, {
+            textLength: channelText.length,
+            position: textPosition || 'center',
+            typography: typographyStyle || 'modern',
+          });
           
-          // Parse dimensions from channel config
           const channelConfig = CHANNEL_IMAGE_CONFIG[channel];
           const [widthStr, heightStr] = channelConfig.size.split('x');
           const imageWidth = parseInt(widthStr, 10) || 1200;
@@ -272,23 +299,34 @@ export function useAutoImageGeneration() {
             timeoutMs: 30_000,
           });
 
+          const step3Duration = Date.now() - step3Start;
           if (textError || !textData?.success) {
-            console.warn(`[useAutoImageGeneration] Canvas text overlay failed for ${channel}:`, textError?.message || textData?.error);
+            console.warn(`[Pipeline:${channel}] ✗ STEP 3 FAILED (${step3Duration}ms):`, textError?.message || textData?.error);
             toast.warning(`${channel}: Text overlay thất bại, sử dụng ảnh gốc`, {
               description: 'AI không thể render text chính xác',
               duration: 5000,
             });
           } else {
             finalImageUrl = textData.imageUrl;
-            console.log(`[useAutoImageGeneration] Canvas text overlay success for ${channel}`);
+            console.log(`[Pipeline:${channel}] ✓ STEP 3 OK (${step3Duration}ms)`);
           }
+        } else {
+          const skipReason = isAiRenderMode ? 'ai_render mode' : structuredOverlay ? 'structured overlay active' : !useCanvasFallback ? 'canvas fallback disabled' : 'no text';
+          console.log(`[Pipeline:${channel}] ⏭ STEP 3 SKIPPED — ${skipReason}`);
         }
 
         // Step 4: Structured multi-block overlay (for complex infographics)
-        // This is the FINAL step — outputs SVG, no further raster processing needed
         // Skip in ai_render mode (AI already rendered text directly)
         if (structuredOverlay && !isAiRenderMode) {
-          console.log(`[useAutoImageGeneration] Applying structured overlay for ${channel}`);
+          const step4Start = Date.now();
+          console.log(`[Pipeline:${channel}] ▶ STEP 4/4 — Structured overlay (Satori)`, {
+            layout: structuredOverlay.layout,
+            hasBanner: !!structuredOverlay.elements.banner,
+            hasHeroText: !!structuredOverlay.elements.heroText,
+            cardCount: structuredOverlay.elements.cards?.items?.length || 0,
+            hasCta: !!structuredOverlay.elements.cta,
+            hasLogoMeta: includeLogo && logoUrl && !logoFailed,
+          });
           
           const channelConfig = CHANNEL_IMAGE_CONFIG[channel];
           const [widthStr, heightStr] = channelConfig.size.split('x');
@@ -306,7 +344,6 @@ export function useAutoImageGeneration() {
               imageHeight: imgH,
               contentId,
               channel,
-              // Pass logo metadata so banner can apply safe-area logic
               logoMeta: (includeLogo && logoUrl && !logoFailed) ? {
                 position: logoPosition || 'bottom-right',
                 sizePercent: logoSizePercent || 15,
@@ -316,14 +353,25 @@ export function useAutoImageGeneration() {
             timeoutMs: 30_000,
           });
 
+          const step4Duration = Date.now() - step4Start;
           if (structError || !structData?.success) {
-            console.warn(`[useAutoImageGeneration] Structured overlay failed for ${channel}:`, structError?.message || structData?.error);
+            console.warn(`[Pipeline:${channel}] ✗ STEP 4 FAILED (${step4Duration}ms):`, structError?.message || structData?.error);
             toast.warning(`${channel}: Structured overlay thất bại`, { duration: 5000 });
           } else {
             finalImageUrl = structData.imageUrl;
-            console.log(`[useAutoImageGeneration] Structured overlay success for ${channel}`);
+            console.log(`[Pipeline:${channel}] ✓ STEP 4 OK (${step4Duration}ms)`);
           }
+        } else {
+          const skipReason = isAiRenderMode ? 'ai_render mode (text baked in)' : 'no structured overlay';
+          console.log(`[Pipeline:${channel}] ⏭ STEP 4 SKIPPED — ${skipReason}`);
         }
+
+        // Finalize
+        const totalDuration = Date.now() - startTime;
+        console.log(`[Pipeline:${channel}] ✅ COMPLETE (${totalDuration}ms total)`, {
+          logoFailed,
+          model: modelUsed,
+        });
 
         const result: GeneratedImage = {
           channel,
@@ -340,14 +388,15 @@ export function useAutoImageGeneration() {
 
         return result;
       } catch (err) {
-        console.error(`[useAutoImageGeneration] Attempt ${attempt + 1} error for ${channel}:`, err);
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.error(`[Pipeline:${channel}] ✗ Attempt ${attempt + 1}/${maxRetries + 1} FAILED:`, errMsg);
         
         if (attempt < maxRetries) {
-          // Exponential backoff: 1s, 2s, 4s
           const delay = 1000 * Math.pow(2, attempt);
-          console.log(`[useAutoImageGeneration] Waiting ${delay}ms before retry...`);
+          console.log(`[Pipeline:${channel}] ⏳ Waiting ${delay}ms before retry...`);
           await new Promise(r => setTimeout(r, delay));
         } else {
+          console.error(`[Pipeline:${channel}] ❌ ALL ATTEMPTS EXHAUSTED — marking as error`);
           setProgress(prev => ({ ...prev, [channel]: 'error' }));
           return null;
         }
@@ -410,8 +459,17 @@ export function useAutoImageGeneration() {
     // Dynamic batch size based on total channels
     const batchSize = getBatchSize(channels.length);
     const batchDelay = getBatchDelay(batchSize);
+    const pipelineStart = Date.now();
     
-    console.log(`[useAutoImageGeneration] Processing ${channels.length} channels with batch size ${batchSize}`);
+    console.log(`[Pipeline] 🚀 START — ${channels.length} channels, batch size ${batchSize}, delay ${batchDelay}ms`, {
+      channels,
+      contentId: options.contentId,
+      promptMode: options.promptMode || 'full',
+      overlayMode: options.overlayMode || 'satori',
+      hasStructuredOverlay: !!options.structuredOverlay,
+      includeLogo: !!options.includeLogo,
+      style: options.imageStylePreset || 'default',
+    });
     
     for (let i = 0; i < channels.length; i += batchSize) {
       const batch = channels.slice(i, i + batchSize);
@@ -452,6 +510,13 @@ export function useAutoImageGeneration() {
     }
 
     setGeneratingChannels([]);
+    const pipelineDuration = Date.now() - pipelineStart;
+
+    console.log(`[Pipeline] 🏁 FINISHED (${pipelineDuration}ms total)`, {
+      successful: successful.length,
+      failed: failed.length,
+      channels: { successful, failed },
+    });
 
     if (failed.length > 0) {
       toast.error(`Không thể tạo ảnh cho ${failed.length} kênh`);
