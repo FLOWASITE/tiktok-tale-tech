@@ -1,9 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { Download, ExternalLink, Trash2, ImageIcon, Package, ChevronLeft, ChevronRight, FileArchive } from 'lucide-react';
+import { Download, ExternalLink, Trash2, ImageIcon, FileArchive, ChevronLeft, ChevronRight } from 'lucide-react';
 import { GeneratedImage } from '@/hooks/useImageGeneration';
 import { CarouselSlide } from '@/types/carousel';
 import { toast } from 'sonner';
@@ -29,26 +28,17 @@ export function GeneratedImagesGallery({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [downloadingZip, setDownloadingZip] = useState(false);
 
-  const scrollPrev = useCallback(() => {
-    if (emblaApi) {
-      emblaApi.scrollPrev();
-      setSelectedIndex(emblaApi.selectedScrollSnap());
-    }
+  // Sync selectedIndex when user swipes manually
+  useEffect(() => {
+    if (!emblaApi) return;
+    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
+    emblaApi.on('select', onSelect);
+    return () => { emblaApi.off('select', onSelect); };
   }, [emblaApi]);
 
-  const scrollNext = useCallback(() => {
-    if (emblaApi) {
-      emblaApi.scrollNext();
-      setSelectedIndex(emblaApi.selectedScrollSnap());
-    }
-  }, [emblaApi]);
-
-  const scrollTo = useCallback((index: number) => {
-    if (emblaApi) {
-      emblaApi.scrollTo(index);
-      setSelectedIndex(index);
-    }
-  }, [emblaApi]);
+  const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi]);
+  const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi]);
+  const scrollTo = useCallback((index: number) => emblaApi?.scrollTo(index), [emblaApi]);
 
   const handleDownloadSingle = async (image: GeneratedImage) => {
     try {
@@ -256,26 +246,6 @@ export function GeneratedImagesGallery({
         </div>
       )}
 
-      {/* Grid fallback */}
-      <div className="grid grid-cols-3 xs:grid-cols-4 gap-2">
-        {images.map((image) => (
-          <Card key={image.slideNumber} className="overflow-hidden group">
-            <CardContent className="p-0 relative">
-              <div className="aspect-square relative">
-                <img
-                  src={image.imageUrl}
-                  alt={`Slide ${image.slideNumber}`}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-                <Badge className="absolute top-1 left-1 bg-black/70 text-white text-[9px] xs:text-[10px] px-1 py-0">
-                  {image.slideNumber}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
 
       {/* Missing slides info */}
       {images.length < totalSlides && (

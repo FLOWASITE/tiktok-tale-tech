@@ -46,7 +46,7 @@ export function SortableSlideCard({
       <div
         {...attributes}
         {...listeners}
-        className="absolute -left-1 top-4 z-10 opacity-0 group-hover/drag:opacity-100 transition-opacity cursor-grab active:cursor-grabbing p-1 rounded bg-muted/80 hover:bg-muted"
+        className="absolute -left-1 top-4 z-10 opacity-100 sm:opacity-0 sm:group-hover/drag:opacity-100 transition-opacity cursor-grab active:cursor-grabbing p-1 rounded bg-muted/80 hover:bg-muted touch-manipulation"
       >
         <GripVertical className="w-4 h-4 text-muted-foreground" />
       </div>
