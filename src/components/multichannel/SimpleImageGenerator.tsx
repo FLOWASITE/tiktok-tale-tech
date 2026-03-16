@@ -725,8 +725,8 @@ export function SimpleImageGenerator({
               type="button"
               onClick={() => {
                 setPromptMode(mode.value);
-                // Auto-enable logo for brand_only mode
-                if (mode.value === 'brand_only' && brandLogoUrl) {
+                // Auto-enable logo for brand_only and full modes
+                if ((mode.value === 'brand_only' || mode.value === 'full') && brandLogoUrl) {
                   setIncludeLogo(true);
                 }
               }}
