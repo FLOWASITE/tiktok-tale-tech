@@ -80,8 +80,8 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
     avoidElements: ['small text', 'complex details that get lost at small sizes'],
   },
   instagram: {
-    size: '1080x1080',
-    aspectRatio: '1:1',
+    size: '1080x1350',
+    aspectRatio: '4:5',
     style: 'aesthetically pleasing, visually striking, Instagram-worthy',
     tips: 'Clean composition, cohesive filter, lifestyle feel',
     mood: 'modern, trendy, aspirational',
