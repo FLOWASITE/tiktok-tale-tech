@@ -1262,6 +1262,7 @@ serve(async (req) => {
   }
 
   try {
+    const requestStartTime = Date.now();
     const formData: FormData = await req.json();
     console.log("Generating multi-channel content for:", formData.topic);
 
@@ -3821,7 +3822,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       currentPrompt: string, 
       channelsToGenerate: string[],
       modelConfig: { model: string; temperature: number; maxTokens: number | null }
-    ) => {
+    ): Promise<{ parsed: any; usage: { prompt_tokens: number; completion_tokens: number } | null; modelUsed: string }> => {
       const channelTools = buildToolsForChannels(channelsToGenerate);
       const includesWebsite = channelsToGenerate.includes('website');
       const effectiveMaxTokens = modelConfig.maxTokens ?? (includesWebsite ? Math.max(aiConfig.max_tokens, 12288) : aiConfig.max_tokens);
@@ -3861,7 +3862,23 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         throw new Error("Invalid AI response format");
       }
 
-      return JSON.parse(toolCall.function.arguments);
+      // Extract actual token usage from API response
+      const usage = result.data?.usage ? {
+        prompt_tokens: result.data.usage.prompt_tokens || 0,
+        completion_tokens: result.data.usage.completion_tokens || 0,
+      } : null;
+      
+      // Extract actual cost from provider (Lovable Gateway returns upstream_inference_cost)
+      const upstreamCost = result.data?.usage?.cost_details?.upstream_inference_cost;
+      if (usage && upstreamCost) {
+        (usage as any).upstream_cost = upstreamCost;
+      }
+
+      return { 
+        parsed: JSON.parse(toolCall.function.arguments), 
+        usage,
+        modelUsed: result.model || modelConfig.model,
+      };
     };
 
     // ============================================
@@ -3887,14 +3904,14 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       channel: string, 
       config: { model: string; temperature: number; maxTokens: number | null },
       onChannelComplete?: (result: { channel: string; content: string; wordCount: number }) => void
-    ): Promise<{ channel: string; data: any; success: boolean; error?: any; durationMs: number }> => {
+    ): Promise<{ channel: string; data: any; success: boolean; error?: any; durationMs: number; usage?: { prompt_tokens: number; completion_tokens: number; upstream_cost?: number } | null; modelUsed?: string }> => {
       const startTime = Date.now();
       console.log(`[parallel] Starting ${channel} with model ${config.model}`);
       
       try {
-        const data = await generateAIContentForChannels(currentPrompt, [channel], config);
+        const { parsed: data, usage, modelUsed } = await generateAIContentForChannels(currentPrompt, [channel], config);
         const durationMs = Date.now() - startTime;
-        console.log(`[parallel] ✅ ${channel} completed in ${(durationMs / 1000).toFixed(1)}s`);
+        console.log(`[parallel] ✅ ${channel} completed in ${(durationMs / 1000).toFixed(1)}s${usage ? ` (${usage.prompt_tokens}+${usage.completion_tokens} tokens)` : ''}`);
         
         // Call streaming callback if provided
         if (onChannelComplete) {
@@ -3916,7 +3933,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
           onChannelComplete({ channel, content: textContent, wordCount });
         }
         
-        return { channel, data, success: true, durationMs };
+        return { channel, data, success: true, durationMs, usage, modelUsed };
       } catch (error: any) {
         const durationMs = Date.now() - startTime;
         console.error(`[parallel] ❌ ${channel} failed after ${(durationMs / 1000).toFixed(1)}s:`, error?.message || error);
@@ -3955,7 +3972,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       
       // Chunk channels to avoid rate limiting
       const chunks = chunkArray(channels, MAX_CONCURRENT_CHANNELS);
-      const allResults: { channel: string; data: any; success: boolean; error?: any; durationMs: number }[] = [];
+      const allResults: { channel: string; data: any; success: boolean; error?: any; durationMs: number; usage?: { prompt_tokens: number; completion_tokens: number; upstream_cost?: number } | null; modelUsed?: string }[] = [];
       
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
@@ -3995,26 +4012,64 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       const firstSuccess = allResults.find(r => r.success && r.data?.title);
       const mergedData: any = { title: firstSuccess?.data?.title || formData.topic };
       
+      // Accumulate actual usage data per channel
+      const _actualUsage: Record<string, { input: number; output: number }> = {};
+      const _actualModels: Record<string, string> = {};
+      let _totalUpstreamCost = 0;
+      
       for (const result of allResults) {
         if (result.success && result.data) {
           const contentKey = `${result.channel}_content`;
           if (result.data[contentKey]) {
             mergedData[contentKey] = result.data[contentKey];
           }
+          // Track actual usage per channel
+          if (result.usage) {
+            _actualUsage[result.channel] = { 
+              input: result.usage.prompt_tokens, 
+              output: result.usage.completion_tokens 
+            };
+            if ((result.usage as any).upstream_cost) {
+              _totalUpstreamCost += (result.usage as any).upstream_cost;
+            }
+          }
+          if (result.modelUsed) {
+            _actualModels[result.channel] = result.modelUsed;
+          }
         }
       }
       
-      console.log(`[parallel] ✅ Merged ${Object.keys(mergedData).length - 1} channel contents`);
+      // Attach usage metadata to mergedData for metrics
+      mergedData._usageMetadata = {
+        tokenUsage: _actualUsage,
+        modelsUsed: _actualModels,
+        totalUpstreamCost: _totalUpstreamCost,
+        totalDurationMs: totalDuration,
+        channelDurations: Object.fromEntries(allResults.filter(r => r.success).map(r => [r.channel, r.durationMs])),
+      };
+      
+      console.log(`[parallel] ✅ Merged ${Object.keys(mergedData).length - 2} channel contents, tracked usage for ${Object.keys(_actualUsage).length} channels`);
       return mergedData;
     };
 
     // Legacy function for backward compatibility (single model for all channels)
     const generateAIContent = async (currentPrompt: string) => {
-      return generateAIContentForChannels(currentPrompt, formData.channels, {
+      const { parsed, usage, modelUsed } = await generateAIContentForChannels(currentPrompt, formData.channels, {
         model: aiConfig.model,
         temperature: aiConfig.temperature,
         maxTokens: null,
       });
+      // Attach usage metadata
+      if (usage) {
+        const _usage: Record<string, { input: number; output: number }> = {};
+        const _models: Record<string, string> = {};
+        for (const ch of formData.channels) {
+          _usage[ch] = { input: Math.round((usage.prompt_tokens || 0) / formData.channels.length), output: Math.round((usage.completion_tokens || 0) / formData.channels.length) };
+          _models[ch] = modelUsed;
+        }
+        parsed._usageMetadata = { tokenUsage: _usage, modelsUsed: _models, totalUpstreamCost: (usage as any).upstream_cost || 0, totalDurationMs: 0, channelDurations: {} };
+      }
+      return parsed;
     };
 
     // Multi-model generation: uses parallel by default for speed
@@ -4038,7 +4093,18 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
           maxTokens: channelConfig?.maxTokens ?? null,
         };
         console.log(`[single] Generating single channel ${channel} with model ${config.model}`);
-        return generateAIContentForChannels(currentPrompt, [channel], config);
+        const { parsed, usage, modelUsed } = await generateAIContentForChannels(currentPrompt, [channel], config);
+        // Attach usage metadata for single channel
+        if (usage) {
+          parsed._usageMetadata = {
+            tokenUsage: { [channel]: { input: usage.prompt_tokens || 0, output: usage.completion_tokens || 0 } },
+            modelsUsed: { [channel]: modelUsed },
+            totalUpstreamCost: (usage as any).upstream_cost || 0,
+            totalDurationMs: 0,
+            channelDurations: {},
+          };
+        }
+        return parsed;
       }
       
       // Legacy: group by model (kept for reference but not used)
@@ -4048,24 +4114,38 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       const groupResults = await Promise.all(
         Array.from(modelGroups.entries()).map(async ([key, group]) => {
           console.log(`[multi-model] Group "${key}": channels=${group.channels.join(',')}, model=${group.config.model}`);
-          return {
-            channels: group.channels,
-            data: await generateAIContentForChannels(currentPrompt, group.channels, group.config),
-          };
+          const { parsed, usage, modelUsed } = await generateAIContentForChannels(currentPrompt, group.channels, group.config);
+          return { channels: group.channels, data: parsed, usage, modelUsed };
         })
       );
       
       const mergedData: any = { title: groupResults[0].data.title };
+      const _usage: Record<string, { input: number; output: number }> = {};
+      const _models: Record<string, string> = {};
+      let _totalUpstreamCost = 0;
+      
       for (const result of groupResults) {
         for (const channel of result.channels) {
           const contentKey = `${channel}_content`;
           if (result.data[contentKey]) {
             mergedData[contentKey] = result.data[contentKey];
           }
+          if (result.usage) {
+            _usage[channel] = { 
+              input: Math.round((result.usage.prompt_tokens || 0) / result.channels.length), 
+              output: Math.round((result.usage.completion_tokens || 0) / result.channels.length) 
+            };
+          }
+          _models[channel] = result.modelUsed;
+        }
+        if (result.usage && (result.usage as any).upstream_cost) {
+          _totalUpstreamCost += (result.usage as any).upstream_cost;
         }
       }
       
-      console.log(`[multi-model] Merged ${Object.keys(mergedData).length - 1} channel contents`);
+      mergedData._usageMetadata = { tokenUsage: _usage, modelsUsed: _models, totalUpstreamCost: _totalUpstreamCost, totalDurationMs: 0, channelDurations: {} };
+      
+      console.log(`[multi-model] Merged ${Object.keys(mergedData).length - 2} channel contents`);
       return mergedData;
     };
 
@@ -4881,22 +4961,45 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         products: formData.targetProductId ? [{ id: formData.targetProductId }] : undefined,
       });
       
-      // Estimate tokens and cost from channel data
-      const channelCount = formData.channels.length;
-      const avgTokensPerChannel = 800;
-      const inputTokensEstimated = 2000 + (channelCount * 500); // Base prompt + per-channel context
-      const outputTokensEstimated = channelCount * avgTokensPerChannel;
+      // Use actual token usage from AI responses (attached by generateChannelsInParallel / generateWithMultipleModels)
+      const usageMetadata = generatedData?._usageMetadata;
       
-      // Build models used map - default model for all channels
-      const modelsUsed: Record<string, string> = {};
-      formData.channels.forEach(ch => {
-        modelsUsed[ch] = 'google/gemini-2.5-flash'; // Default model
-      });
+      let inputTokensEstimated: number;
+      let outputTokensEstimated: number;
+      let modelsUsed: Record<string, string>;
+      let estimatedCostUsd: number;
+      const requestDurationMs = Date.now() - requestStartTime;
       
-      // Calculate estimated cost
-      const estimatedCostUsd = estimateTotalCost(modelsUsed, 
-        Object.fromEntries(formData.channels.map(ch => [ch, { input: inputTokensEstimated / channelCount, output: outputTokensEstimated / channelCount }]))
-      );
+      if (usageMetadata && Object.keys(usageMetadata.tokenUsage).length > 0) {
+        // ACTUAL USAGE from API responses
+        inputTokensEstimated = Object.values(usageMetadata.tokenUsage as Record<string, { input: number; output: number }>).reduce((sum, u) => sum + u.input, 0);
+        outputTokensEstimated = Object.values(usageMetadata.tokenUsage as Record<string, { input: number; output: number }>).reduce((sum, u) => sum + u.output, 0);
+        modelsUsed = usageMetadata.modelsUsed;
+        
+        // Prefer upstream cost from provider if available, otherwise estimate
+        if (usageMetadata.totalUpstreamCost > 0) {
+          estimatedCostUsd = usageMetadata.totalUpstreamCost;
+          console.log(`[metrics] Using actual upstream cost: $${estimatedCostUsd.toFixed(6)}`);
+        } else {
+          estimatedCostUsd = estimateTotalCost(modelsUsed, usageMetadata.tokenUsage);
+        }
+        
+        console.log(`[metrics] Actual usage: ${inputTokensEstimated} input + ${outputTokensEstimated} output tokens, ${Object.keys(modelsUsed).length} models`);
+      } else {
+        // FALLBACK: estimate if no usage data (e.g., cache hit)
+        const channelCount = formData.channels.length;
+        inputTokensEstimated = 2000 + (channelCount * 500);
+        outputTokensEstimated = channelCount * 800;
+        modelsUsed = {};
+        formData.channels.forEach(ch => {
+          const channelConfig = channelModelConfigs.get(ch);
+          modelsUsed[ch] = channelConfig?.model || aiConfig.model;
+        });
+        estimatedCostUsd = estimateTotalCost(modelsUsed, 
+          Object.fromEntries(formData.channels.map(ch => [ch, { input: inputTokensEstimated / channelCount, output: outputTokensEstimated / channelCount }]))
+        );
+        console.log(`[metrics] Using estimated usage (cache hit or no usage data)`);
+      }
       
       await saveMetrics(supabase, {
         traceId: metricsTraceId,
@@ -4904,7 +5007,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         organizationId: organizationId || undefined,
         userId: userId || undefined,
         brandTemplateId: formData.brandTemplateId,
-        totalDurationMs: 0, // TODO: Track full request duration
+        totalDurationMs: usageMetadata?.totalDurationMs || requestDurationMs,
         contextSources,
         hadError: false,
         channels: formData.channels,

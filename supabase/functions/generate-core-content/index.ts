@@ -207,6 +207,11 @@ let currentOrganizationId: string | undefined;
 // AI CALL HELPER - SIMPLIFIED SINGLE-PASS
 // ============================================
 
+interface AICallWithUsage {
+  content: string;
+  usage: { prompt_tokens: number; completion_tokens: number; upstream_cost?: number } | null;
+}
+
 async function callAI(
   model: string,
   systemPrompt: string,
@@ -214,6 +219,17 @@ async function callAI(
   maxTokens: number = 4000,
   temperature: number = 0.7
 ): Promise<string> {
+  const result = await callAIWithUsage(model, systemPrompt, userPrompt, maxTokens, temperature);
+  return result.content;
+}
+
+async function callAIWithUsage(
+  model: string,
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number = 4000,
+  temperature: number = 0.7
+): Promise<AICallWithUsage> {
   console.log(`[callAI] Model: ${model}, MaxTokens: ${maxTokens}, OrgId: ${currentOrganizationId || 'none'}`);
   
   const result = await callAIProvider({
@@ -234,8 +250,16 @@ async function callAI(
   }
   
   const content = result.data?.choices?.[0]?.message?.content || '';
-  console.log(`[callAI] Success via ${result.provider}, content length: ${content.length}`);
-  return content;
+  
+  // Extract actual token usage from API response
+  const usage = result.data?.usage ? {
+    prompt_tokens: result.data.usage.prompt_tokens || 0,
+    completion_tokens: result.data.usage.completion_tokens || 0,
+    upstream_cost: result.data.usage.cost_details?.upstream_inference_cost,
+  } : null;
+  
+  console.log(`[callAI] Success via ${result.provider}, content length: ${content.length}${usage ? `, tokens: ${usage.prompt_tokens}+${usage.completion_tokens}` : ''}`);
+  return { content, usage };
 }
 
 // AI Call with Streaming support
@@ -342,6 +366,7 @@ async function generateSinglePass(
     stepsCompleted: string[];
     modelsUsed: string[];
     totalTokensEstimated: number;
+    actualUsage?: { prompt_tokens: number; completion_tokens: number; upstream_cost?: number } | null;
   };
 }> {
   console.log(`[generateSinglePass] Starting with model: ${model}, maxTokens: ${maxTokens}`);
@@ -352,7 +377,6 @@ async function generateSinglePass(
   const userMsg = `Write high-quality Core Content about: ${config.topic}`;
   
   // --- Soft time-based progress ticker ---
-  // Keeps progress moving even if model hasn't sent tokens yet
   let currentSoftProgress = 10;
   let hasReceivedChunk = false;
   const softProgressInterval = setInterval(() => {
@@ -360,10 +384,11 @@ async function generateSinglePass(
       currentSoftProgress = Math.min(currentSoftProgress + 3, 85);
       onProgress?.('generating', currentSoftProgress, 'AI đang xử lý...');
     }
-  }, 3000); // tick every 3s
+  }, 3000);
   
   const modelsUsed: string[] = [];
   let content = '';
+  let actualUsage: { prompt_tokens: number; completion_tokens: number; upstream_cost?: number } | null = null;
   
   try {
     if (onChunk) {
@@ -381,7 +406,7 @@ async function generateSinglePass(
         
         if (estimatedProgress >= lastProgressSent + 5) {
           lastProgressSent = estimatedProgress;
-          currentSoftProgress = estimatedProgress; // sync soft progress
+          currentSoftProgress = estimatedProgress;
           onProgress?.('generating', Math.min(estimatedProgress, 90), 'AI đang tạo nội dung...');
         }
         
@@ -389,8 +414,15 @@ async function generateSinglePass(
       };
       
       content = await callAIStreaming(model, prompt, userMsg, maxTokens, 0.7, wrappedOnChunk);
+      // Streaming doesn't return usage, estimate from content length
+      actualUsage = {
+        prompt_tokens: Math.ceil((prompt.length + userMsg.length) / 3),
+        completion_tokens: Math.ceil(content.length / 3),
+      };
     } else {
-      content = await callAI(model, prompt, userMsg, maxTokens, 0.7);
+      const result = await callAIWithUsage(model, prompt, userMsg, maxTokens, 0.7);
+      content = result.content;
+      actualUsage = result.usage;
     }
     modelsUsed.push(model);
     
@@ -400,7 +432,9 @@ async function generateSinglePass(
       console.warn(`[generateSinglePass] Primary model returned ${content?.length || 0} chars, falling back to ${FALLBACK_MODEL}`);
       onProgress?.('fallback', 50, `Chuyển sang model dự phòng...`);
       
-      content = await callAI(FALLBACK_MODEL, prompt, userMsg, maxTokens, 0.7);
+      const fallbackResult = await callAIWithUsage(FALLBACK_MODEL, prompt, userMsg, maxTokens, 0.7);
+      content = fallbackResult.content;
+      actualUsage = fallbackResult.usage; // Use fallback usage
       modelsUsed.push(FALLBACK_MODEL);
       
       if (!content || content.length < 300) {
@@ -419,7 +453,8 @@ async function generateSinglePass(
     metadata: {
       stepsCompleted: modelsUsed.length > 1 ? ['single_pass', 'fallback'] : ['single_pass'],
       modelsUsed,
-      totalTokensEstimated: maxTokens,
+      totalTokensEstimated: actualUsage ? (actualUsage.prompt_tokens + actualUsage.completion_tokens) : maxTokens,
+      actualUsage,
     },
   };
 }
@@ -783,9 +818,10 @@ serve(async (req: Request) => {
             },
           };
           
-          const inputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.4);
-          const outputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.6);
-          const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
+          const actualUsage = result.metadata.actualUsage;
+          const inputTokensEstimated = actualUsage?.prompt_tokens || Math.round(result.metadata.totalTokensEstimated * 0.4);
+          const outputTokensEstimated = actualUsage?.completion_tokens || Math.round(result.metadata.totalTokensEstimated * 0.6);
+          const estimatedCostUsd = actualUsage?.upstream_cost || estimateCost(model, inputTokensEstimated, outputTokensEstimated);
           
           const [insertResult, _metricsResult] = await Promise.allSettled([
             supabase.from('core_contents').insert(insertData).select('id').single(),
@@ -923,9 +959,28 @@ serve(async (req: Request) => {
       },
     };
     
-    const inputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.4);
-    const outputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.6);
-    const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
+    // Use actual usage from AI response if available, otherwise estimate
+    const actualUsage = result.metadata.actualUsage;
+    let inputTokensEstimated: number;
+    let outputTokensEstimated: number;
+    let estimatedCostUsd: number;
+    
+    if (actualUsage) {
+      inputTokensEstimated = actualUsage.prompt_tokens;
+      outputTokensEstimated = actualUsage.completion_tokens;
+      // Prefer upstream cost from provider if available
+      if (actualUsage.upstream_cost) {
+        estimatedCostUsd = actualUsage.upstream_cost;
+        console.log(`[generate-core-content] Actual cost from provider: $${estimatedCostUsd.toFixed(6)}`);
+      } else {
+        estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
+      }
+      console.log(`[generate-core-content] Actual tokens: ${inputTokensEstimated} input + ${outputTokensEstimated} output`);
+    } else {
+      inputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.4);
+      outputTokensEstimated = Math.round(result.metadata.totalTokensEstimated * 0.6);
+      estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
+    }
     
     const [insertResult, _metricsResult] = await Promise.allSettled([
       supabase.from('core_contents').insert(insertData).select('id').single(),
