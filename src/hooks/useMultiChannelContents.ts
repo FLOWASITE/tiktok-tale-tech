@@ -53,6 +53,8 @@ const transformContent = (data: any): MultiChannelContent => ({
   user_id: data.user_id,
   industry_template_version: data.industry_template_version || null,
   core_content_id: data.core_content_id || null,
+  content_role: data.content_role || null,
+  content_angle: data.content_angle || null,
   critique_score: data.critique_score ?? null,
   critique_details: data.critique_details ?? null,
   was_refined: data.was_refined ?? null,

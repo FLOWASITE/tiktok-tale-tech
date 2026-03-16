@@ -135,9 +135,9 @@ function getContentSummary(content: MultiChannelContent, channel: Channel): stri
 
   const keywords = extractContentKeywords(rawText);
   const hookInfo = getHookForChannel(content, channel);
-  const goal = (content as any).content_goal || '';
-  const role = (content as any).content_role || '';
-  const angle = (content as any).content_angle || '';
+  const goal = content.content_goal || '';
+  const role = content.content_role || '';
+  const angle = content.content_angle || '';
 
   let summary = `Topic: ${content.topic}.`;
   if (goal) summary += ` Goal: ${goal}.`;
@@ -273,11 +273,25 @@ export function SimpleImageGenerator({
     enabled: !!content?.brand_template_id,
   });
 
-  // Extract content context
-  const contentAny = content as any;
-  const contentGoal = contentAny.content_goal as ContentGoal | undefined;
-  const contentRole = contentAny.content_role as ContentRole | undefined;
-  const contentAngle = contentAny.content_angle as ContentAngle | undefined;
+  // Fetch content_role from core_contents if missing on the record
+  const { data: coreContentMeta } = useQuery({
+    queryKey: ['core-content-role', content?.core_content_id],
+    queryFn: async () => {
+      if (!content?.core_content_id) return null;
+      const { data } = await supabase
+        .from('core_contents')
+        .select('content_role, content_angle')
+        .eq('id', content.core_content_id)
+        .single();
+      return data;
+    },
+    enabled: !!content?.core_content_id && !content?.content_role,
+  });
+
+  // Extract content context — fallback to core_contents if local record is missing
+  const contentGoal = content.content_goal as ContentGoal | undefined;
+  const contentRole = (content.content_role || coreContentMeta?.content_role) as ContentRole | undefined;
+  const contentAngle = (content.content_angle || coreContentMeta?.content_angle) as ContentAngle | undefined;
 
   // Build content summary for V3 engine
   const currentChannelSummary = useMemo(() => {

@@ -1,58 +1,47 @@
 
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-## Phân tích: Tại sao Layout ảnh chỉ có 1 kiểu duy nhất (infographic)
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-### Bằng chứng từ Console Logs
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-```text
-[AutoTemplate] Selected: infographic suggestedLayout: undefined from overlayTemplate: auto
-[HybridImageGen] contentRole: undefined, contentGoal: "engagement"
-[HybridImageGen] contentRole: undefined, contentGoal: "education"
-```
+---
 
-Mọi ảnh đều chọn `infographic` — không phân biệt goal hay nội dung.
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-### 2 nguyên nhân gốc rễ
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-**Bug 1: `contentRole` luôn là `undefined`**
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-Database xác nhận `content_role = NULL` cho tất cả bản ghi `multi_channel_contents`. Edge Function `generate-multichannel` không lưu `content_role` khi tạo bài viết. Kết quả: Edge Function `decompose-image-request` không nhận được context chiến lược → AI không có cơ sở để chọn layout khác nhau.
+---
 
-**Bug 2: System prompt ép AI "LUÔN tạo đúng 4 thẻ"**
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-File `decompose-image-request/index.ts` line 151:
-> `cards: LUÔN tạo đúng 4 thẻ tóm tắt các điểm chính`
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-AI luôn trả về 4 cards → fallback `autoSelectTemplate` luôn match rule `4+ cards → infographic`. Ngay cả khi `suggestedLayout` trả về đúng (ví dụ `quote_card`), AI vẫn tạo 4 cards → `applyTemplate('quote_card')` nhận cards không cần thiết.
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-### Kế hoạch sửa
+---
 
-#### 1. Lưu `content_role` khi tạo bài viết
-**File:** `supabase/functions/generate-multichannel/index.ts`
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
-Khi tạo/lưu multi_channel_contents, thêm `content_role` từ form data vào record.
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
 
-#### 2. Sửa system prompt — không ép 4 cards
-**File:** `supabase/functions/decompose-image-request/index.ts`
-
-Thay:
-> `cards: LUÔN tạo đúng 4 thẻ...`
-
-Thành:
-> `cards: Tạo 3-4 thẻ CHỈ KHI nội dung có nhiều điểm chính (giáo dục, liệt kê). KHÔNG tạo cards cho nội dung cảm xúc/storytelling/quote.`
-
-#### 3. Thêm `content_role` vào TypeScript interface
-**File:** `src/types/multichannel.ts`
-
-Thêm 2 field missing: `content_role: string | null` và `content_angle: string | null` (DB đã có `content_role`, không có `content_angle` nhưng cần cho tương lai).
-
-#### 4. Fetch `content_role` từ Core Content nếu bản ghi chính thiếu
-**File:** `src/components/multichannel/SimpleImageGenerator.tsx`
-
-Khi `content.content_role` là null và `content.core_content_id` tồn tại → fetch `content_role` từ `core_contents` table.
-
-### Tác động
-- 4 files sửa
-- Sau fix: AI sẽ chọn layout đa dạng dựa trên content_role + content_goal thực tế
-- Không breaking change — fallback vẫn hoạt động
-
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
