@@ -3,6 +3,8 @@ import { Image, X, Maximize2, Loader2, CheckCircle2, AlertCircle } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { createPortal } from 'react-dom';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface FloatingImageProgressProps {
   visible: boolean;
