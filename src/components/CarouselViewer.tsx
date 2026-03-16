@@ -463,18 +463,25 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                 </Button>
               </div>
 
-              {carousel.slides_content.map((slide) => (
-                <SlidePromptCard
-                  key={slide.slideNumber}
-                  slide={slide}
-                  totalSlides={carousel.slide_count}
-                  generatedImage={getGeneratedImage(slide.slideNumber)}
-                  isGenerating={generating === slide.slideNumber}
-                  onGenerateImage={() => handleGenerateImage(slide.slideNumber, slide.fullPrompt)}
-                  canGenerateImage={generating === null && !generatingAll}
-                  onSlideUpdate={handleSlideUpdate}
-                />
-              ))}
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext
+                  items={carousel.slides_content.map(s => `slide-${s.slideNumber}`)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {carousel.slides_content.map((slide) => (
+                    <SortableSlideCard
+                      key={slide.slideNumber}
+                      slide={slide}
+                      totalSlides={carousel.slide_count}
+                      generatedImage={getGeneratedImage(slide.slideNumber)}
+                      isGenerating={generating === slide.slideNumber}
+                      onGenerateImage={() => handleGenerateImage(slide.slideNumber, slide.fullPrompt)}
+                      canGenerateImage={generating === null && !generatingAll}
+                      onSlideUpdate={handleSlideUpdate}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
             </TabsContent>
 
             <TabsContent value="images" className="mt-0">
