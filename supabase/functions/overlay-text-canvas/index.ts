@@ -468,19 +468,24 @@ function buildStructuredElement(
   const fontFamily = hasCustomFont ? 'Be Vietnam Pro' : 'sans-serif';
 
   // === Smart Density: reduce visual clutter ===
+  // Detect education_infographic mode (has summaryRibbon = dense layout designed for it)
+  const isEducationInfographic = !!elements.summaryRibbon;
+  
   if (elements.heroText && elements.headline) {
     delete elements.headline;
   }
   if (elements.cards?.items) {
     const isSquareOrTall = imageWidth <= imageHeight;
-    const maxCards = isSquareOrTall ? 3 : 4;
+    // Education infographic allows more cards (up to 5)
+    const maxCards = isEducationInfographic ? 5 : (isSquareOrTall ? 3 : 4);
     elements.cards.items = elements.cards.items.slice(0, maxCards);
   }
   if (elements.footer?.items) {
     elements.footer.items = elements.footer.items.slice(0, 4);
   }
   const elementCount = [elements.banner, elements.heroText, elements.headline, elements.cards, elements.cta, elements.footer, elements.summaryRibbon].filter(Boolean).length;
-  if (elementCount >= 6 && elements.cta) {
+  // Don't strip CTA for education_infographic — it's designed for dense layouts
+  if (elementCount >= 6 && elements.cta && !isEducationInfographic) {
     delete elements.cta;
   }
 
