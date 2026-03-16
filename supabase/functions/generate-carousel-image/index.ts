@@ -7,19 +7,16 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { prompt, carouselId, slideNumber } = await req.json();
+    const { prompt, carouselId, slideNumber, textContent, brandColors, platform } = await req.json();
 
-    console.log(`[generate-carousel-image] Starting generation for carousel ${carouselId}, slide ${slideNumber}`);
+    console.log(`[generate-carousel-image] Starting for carousel ${carouselId}, slide ${slideNumber}`);
 
-    // Validate required fields
     if (!prompt) {
-      console.error("[generate-carousel-image] Missing prompt");
       return new Response(
         JSON.stringify({ error: "Prompt is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -27,18 +24,19 @@ serve(async (req) => {
     }
 
     if (!carouselId || slideNumber === undefined) {
-      console.error("[generate-carousel-image] Missing carouselId or slideNumber");
       return new Response(
         JSON.stringify({ error: "Carousel ID and slide number are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Call Lovable AI Gateway for image generation
-    console.log("[generate-carousel-image] Calling Lovable AI Gateway...");
+    // === STEP 1: Generate background image (no text) ===
+    const backgroundPrompt = buildBackgroundPrompt(prompt, platform);
+    console.log("[generate-carousel-image] Step 1: Generating background...");
+    
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
     
-    const geminiResponse = await fetch(
+    const bgResponse = await fetch(
       "https://ai-gateway.lovable.dev/v1beta/models/google/gemini-3-pro-image-preview:generateContent",
       {
         method: "POST",
@@ -47,51 +45,40 @@ serve(async (req) => {
           "Authorization": `Bearer ${lovableApiKey}`,
         },
         body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: prompt }],
-            },
-          ],
-          generationConfig: {
-            responseModalities: ["TEXT", "IMAGE"],
-          },
+          contents: [{ parts: [{ text: backgroundPrompt }] }],
+          generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
         }),
       }
     );
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error("[generate-carousel-image] Lovable AI Gateway error:", geminiResponse.status, errorText);
+    if (!bgResponse.ok) {
+      const errorText = await bgResponse.text();
+      console.error("[generate-carousel-image] Background gen error:", bgResponse.status, errorText);
       
-      if (geminiResponse.status === 429) {
+      if (bgResponse.status === 429) {
         return new Response(
           JSON.stringify({ error: "Đã vượt giới hạn API. Vui lòng thử lại sau.", errorCode: "RATE_LIMIT" }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
       if (errorText.includes("CREDITS_EXHAUSTED") || errorText.includes("credits")) {
         return new Response(
           JSON.stringify({ error: "Đã hết credits AI. Vui lòng nâng cấp.", errorCode: "CREDITS_EXHAUSTED" }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
       return new Response(
-        JSON.stringify({ error: "Lỗi từ AI Gateway: " + errorText }),
+        JSON.stringify({ error: "Lỗi tạo ảnh nền: " + errorText }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const geminiData = await geminiResponse.json();
-    console.log("[generate-carousel-image] Lovable AI response received");
-
-    // Extract image data from response
+    const bgData = await bgResponse.json();
     let imageBase64: string | null = null;
     let mimeType = "image/png";
 
-    if (geminiData.candidates && geminiData.candidates[0]?.content?.parts) {
-      for (const part of geminiData.candidates[0].content.parts) {
+    if (bgData.candidates && bgData.candidates[0]?.content?.parts) {
+      for (const part of bgData.candidates[0].content.parts) {
         if (part.inlineData) {
           imageBase64 = part.inlineData.data;
           mimeType = part.inlineData.mimeType || "image/png";
@@ -101,61 +88,107 @@ serve(async (req) => {
     }
 
     if (!imageBase64) {
-      console.error("[generate-carousel-image] No image data in response:", JSON.stringify(geminiData));
+      console.error("[generate-carousel-image] No image data in background response");
       return new Response(
-        JSON.stringify({ error: "Không thể tạo ảnh. AI không trả về dữ liệu ảnh." }),
+        JSON.stringify({ error: "Không thể tạo ảnh nền. AI không trả về dữ liệu ảnh." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Create Supabase client
+    // Upload background to storage
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Convert base64 to Uint8Array for upload
     const binaryString = atob(imageBase64);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
 
-    // Generate unique filename
     const extension = mimeType.split("/")[1] || "png";
-    const fileName = `${carouselId}/slide-${slideNumber}-${Date.now()}.${extension}`;
+    const bgFileName = `${carouselId}/slide-${slideNumber}-bg-${Date.now()}.${extension}`;
 
-    console.log(`[generate-carousel-image] Uploading to storage: ${fileName}`);
-
-    // Upload to storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { error: bgUploadError } = await supabase.storage
       .from("carousel-images")
-      .upload(fileName, bytes, {
-        contentType: mimeType,
-        upsert: true,
-      });
+      .upload(bgFileName, bytes, { contentType: mimeType, upsert: true });
 
-    if (uploadError) {
-      console.error("[generate-carousel-image] Storage upload error:", uploadError);
+    if (bgUploadError) {
+      console.error("[generate-carousel-image] Background upload error:", bgUploadError);
       return new Response(
-        JSON.stringify({ error: "Lỗi upload ảnh: " + uploadError.message }),
+        JSON.stringify({ error: "Lỗi upload ảnh nền: " + bgUploadError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from("carousel-images")
-      .getPublicUrl(fileName);
+    const { data: bgUrlData } = supabase.storage.from("carousel-images").getPublicUrl(bgFileName);
+    const backgroundUrl = bgUrlData.publicUrl;
+    console.log(`[generate-carousel-image] Background uploaded: ${backgroundUrl}`);
 
-    const publicUrl = urlData.publicUrl;
-    console.log(`[generate-carousel-image] Image uploaded successfully: ${publicUrl}`);
+    // === STEP 2: Overlay text using overlay-text-canvas ===
+    if (textContent && textContent.trim()) {
+      console.log("[generate-carousel-image] Step 2: Overlaying text via Satori...");
+      
+      const dimensions = getPlatformDimensions(platform);
+      
+      try {
+        const overlayResponse = await fetch(
+          `${supabaseUrl}/functions/v1/overlay-text-canvas`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({
+              baseImageUrl: backgroundUrl,
+              text: textContent,
+              position: "center",
+              typographyStyle: "bold",
+              textColor: brandColors?.textColor || "#FFFFFF",
+              backgroundColor: brandColors?.backgroundColor || "rgba(0,0,0,0.6)",
+              imageWidth: dimensions.width,
+              imageHeight: dimensions.height,
+              contentId: carouselId,
+              channel: `carousel-slide-${slideNumber}`,
+            }),
+          }
+        );
 
+        if (overlayResponse.ok) {
+          const overlayData = await overlayResponse.json();
+          if (overlayData.success && overlayData.imageUrl) {
+            console.log(`[generate-carousel-image] Overlay complete: ${overlayData.imageUrl}`);
+            return new Response(
+              JSON.stringify({
+                success: true,
+                imageUrl: overlayData.imageUrl,
+                backgroundUrl,
+                slideNumber,
+                carouselId,
+                hasOverlay: true,
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+        
+        console.warn("[generate-carousel-image] Overlay failed, returning background only");
+      } catch (overlayError) {
+        console.error("[generate-carousel-image] Overlay error:", overlayError);
+      }
+    }
+
+    // Fallback: return background-only image
+    console.log(`[generate-carousel-image] Returning background image: ${backgroundUrl}`);
     return new Response(
       JSON.stringify({
         success: true,
-        imageUrl: publicUrl,
+        imageUrl: backgroundUrl,
+        backgroundUrl,
         slideNumber,
         carouselId,
+        hasOverlay: false,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -167,3 +200,37 @@ serve(async (req) => {
     );
   }
 });
+
+/**
+ * Build a background-only prompt: strips text rendering instructions,
+ * focuses on visual composition with safe zones for overlay.
+ */
+function buildBackgroundPrompt(originalPrompt: string, platform?: string): string {
+  const safeZoneNote = `
+CRITICAL INSTRUCTIONS:
+- Do NOT render any text, letters, words, or typography on the image.
+- This is a BACKGROUND image only — text will be overlaid programmatically.
+- Leave 15% blank space at top and 20% at bottom for text overlay.
+- Focus on mood, atmosphere, colors, and visual composition.
+- High resolution, professional photography or illustration quality.
+`;
+  
+  // Clean prompt: remove text-rendering directives
+  const cleanedPrompt = originalPrompt
+    .replace(/text\s*[:：].*?(?=\n|$)/gi, '')
+    .replace(/chữ\s*[:：].*?(?=\n|$)/gi, '')
+    .replace(/typography.*?(?=\n|$)/gi, '')
+    .replace(/font.*?(?=\n|$)/gi, '');
+
+  return `${safeZoneNote}\n\nVisual concept:\n${cleanedPrompt}`;
+}
+
+function getPlatformDimensions(platform?: string): { width: number; height: number } {
+  switch (platform) {
+    case 'tiktok':
+      return { width: 1080, height: 1920 }; // 9:16
+    case 'facebook':
+    default:
+      return { width: 1080, height: 1080 }; // 1:1
+  }
+}
