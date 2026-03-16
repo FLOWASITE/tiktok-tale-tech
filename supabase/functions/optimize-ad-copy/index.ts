@@ -125,8 +125,8 @@ Return JSON only, no other text.`;
     const aiConfig = await getAIConfig('optimize-ad-copy');
     const adminModel = aiConfig?.model || undefined;
 
-    // Use multi-provider system
-    const aiResult = await callAIProvider({
+    // Use multi-provider system with auto metrics
+    const aiResult = await callAIWithMetrics(supabase, {
       functionName: 'optimize-ad-copy',
       messages: [
         { role: "system", content: finalSystemPrompt },

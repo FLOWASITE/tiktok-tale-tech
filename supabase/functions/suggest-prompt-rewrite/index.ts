@@ -179,7 +179,13 @@ ${suggestLabel}`;
     const aiConfig = await getAIConfig('suggest-prompt-rewrite');
     const model = aiConfig?.model || 'google/gemini-2.5-flash';
 
-    const aiResult = await callAIProvider({
+    // Need supabase for metrics tracking
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const aiResult = await callAIWithMetrics(supabase, {
       functionName: 'suggest-prompt-rewrite',
       messages: [
         { role: 'system', content: systemPrompt },

@@ -414,11 +414,50 @@ Secondary color: ${secondaryColor}`;
 
     console.log('[decompose-image-request] suggestedLayout:', result.suggestedLayout, 'detectedLayout:', layout);
 
+    // Non-blocking metrics save
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    const model = "google/gemini-2.5-flash";
+    const inputTokens = estimateTokens(description);
+    const outputTokens = estimateTokens(JSON.stringify(result));
+    const estimatedCostUsd = estimateCost(model, inputTokens, outputTokens);
+    try {
+      const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      saveMetrics(sb, {
+        traceId,
+        functionName: 'decompose-image-request',
+        totalDurationMs,
+        aiCallDurationMs: totalDurationMs,
+        inputTokensEstimated: inputTokens,
+        outputTokensEstimated: outputTokens,
+        estimatedCostUsd,
+        modelsUsed: { text: model },
+        hadError: false,
+        contextSources: [],
+        actionType: 'content_analysis',
+      }).catch(() => {});
+    } catch {}
+
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("decompose-image-request error:", err);
+
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    try {
+      const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      saveMetrics(sb, {
+        traceId,
+        functionName: 'decompose-image-request',
+        totalDurationMs,
+        hadError: true,
+        errorType: err instanceof Error ? err.name : 'Unknown',
+        errorMessage: err instanceof Error ? err.message : 'Unknown error',
+        contextSources: [],
+        actionType: 'content_analysis',
+      }).catch(() => {});
+    } catch {}
+
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

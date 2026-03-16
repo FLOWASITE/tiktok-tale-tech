@@ -183,8 +183,8 @@ CHỈ trả về JSON hợp lệ, không có markdown hay giải thích.`;
     const aiConfig = await getAIConfig('predict-ad-performance', adCopy.organization_id);
     const adminModel = aiConfig?.model || undefined;
 
-    // Use multi-provider system
-    const aiResult = await callAIProvider({
+    // Use multi-provider system with auto metrics
+    const aiResult = await callAIWithMetrics(supabaseService, {
       functionName: 'predict-ad-performance',
       organizationId: adCopy.organization_id,
       messages: [

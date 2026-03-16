@@ -106,8 +106,13 @@ ${scriptContent}`;
     const aiConfig = await getAIConfig('analyze-script');
     const adminModel = aiConfig?.model || undefined;
 
-    // Use multi-provider system
-    const aiResult = await callAIProvider({
+    // Use multi-provider system with auto metrics
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    const aiResult = await callAIWithMetrics(supabase, {
       functionName: 'analyze-script',
       messages: [
         { role: 'system', content: systemPrompt },

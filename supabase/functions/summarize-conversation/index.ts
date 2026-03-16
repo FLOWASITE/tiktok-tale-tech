@@ -140,9 +140,14 @@ Provide summary in Vietnamese. Be brief and factual.`;
     const aiConfig = await getAIConfig('summarize-conversation');
     const adminModel = aiConfig?.model || undefined;
 
-    // Use multi-provider system
-    const aiResult = await callAIProvider({
+    // Use multi-provider system with auto metrics
+    const serviceSupabase2 = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+    const aiResult = await callAIWithMetrics(serviceSupabase2, {
       functionName: 'summarize-conversation',
+      userId: user.id,
       messages: [
         { role: 'user', content: summaryPrompt }
       ],
