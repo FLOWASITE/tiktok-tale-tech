@@ -381,6 +381,23 @@ function getContrastTextColor(bgColor: string): string {
 }
 
 /**
+ * Smart text fitting: auto-scale font size down when text is too long for available width.
+ * Returns a clamped font size that prevents text overflow.
+ */
+function fitTextToWidth(text: string, maxWidthPx: number, baseFontSize: number, minFontSize: number = 12): number {
+  // Approximate: Vietnamese chars are ~0.55em wide on average
+  const avgCharWidth = baseFontSize * 0.55;
+  const estimatedTextWidth = text.length * avgCharWidth;
+  
+  if (estimatedTextWidth <= maxWidthPx) return baseFontSize;
+  
+  // Scale down proportionally
+  const scaleFactor = maxWidthPx / estimatedTextWidth;
+  const scaled = Math.round(baseFontSize * scaleFactor);
+  return Math.max(scaled, minFontSize);
+}
+
+/**
  * Calculate dynamic font size based on text length and image dimensions
  */
 function calculateFontSize(textLength: number, imageWidth: number, imageHeight: number): number {
