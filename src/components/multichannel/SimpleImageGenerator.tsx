@@ -273,10 +273,25 @@ export function SimpleImageGenerator({
     enabled: !!content?.brand_template_id,
   });
 
-  // Extract content context
+  // Fetch content_role from core_contents if missing on the record
+  const { data: coreContentMeta } = useQuery({
+    queryKey: ['core-content-role', content?.core_content_id],
+    queryFn: async () => {
+      if (!content?.core_content_id) return null;
+      const { data } = await supabase
+        .from('core_contents')
+        .select('content_role, content_angle')
+        .eq('id', content.core_content_id)
+        .single();
+      return data;
+    },
+    enabled: !!content?.core_content_id && !content?.content_role,
+  });
+
+  // Extract content context — fallback to core_contents if local record is missing
   const contentGoal = content.content_goal as ContentGoal | undefined;
-  const contentRole = content.content_role as ContentRole | undefined;
-  const contentAngle = content.content_angle as ContentAngle | undefined;
+  const contentRole = (content.content_role || coreContentMeta?.content_role) as ContentRole | undefined;
+  const contentAngle = (content.content_angle || coreContentMeta?.content_angle) as ContentAngle | undefined;
 
   // Build content summary for V3 engine
   const currentChannelSummary = useMemo(() => {
