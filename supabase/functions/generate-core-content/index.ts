@@ -366,6 +366,7 @@ async function generateSinglePass(
     stepsCompleted: string[];
     modelsUsed: string[];
     totalTokensEstimated: number;
+    actualUsage?: { prompt_tokens: number; completion_tokens: number; upstream_cost?: number } | null;
   };
 }> {
   console.log(`[generateSinglePass] Starting with model: ${model}, maxTokens: ${maxTokens}`);
@@ -376,7 +377,6 @@ async function generateSinglePass(
   const userMsg = `Write high-quality Core Content about: ${config.topic}`;
   
   // --- Soft time-based progress ticker ---
-  // Keeps progress moving even if model hasn't sent tokens yet
   let currentSoftProgress = 10;
   let hasReceivedChunk = false;
   const softProgressInterval = setInterval(() => {
@@ -384,10 +384,11 @@ async function generateSinglePass(
       currentSoftProgress = Math.min(currentSoftProgress + 3, 85);
       onProgress?.('generating', currentSoftProgress, 'AI đang xử lý...');
     }
-  }, 3000); // tick every 3s
+  }, 3000);
   
   const modelsUsed: string[] = [];
   let content = '';
+  let actualUsage: { prompt_tokens: number; completion_tokens: number; upstream_cost?: number } | null = null;
   
   try {
     if (onChunk) {
@@ -405,7 +406,7 @@ async function generateSinglePass(
         
         if (estimatedProgress >= lastProgressSent + 5) {
           lastProgressSent = estimatedProgress;
-          currentSoftProgress = estimatedProgress; // sync soft progress
+          currentSoftProgress = estimatedProgress;
           onProgress?.('generating', Math.min(estimatedProgress, 90), 'AI đang tạo nội dung...');
         }
         
@@ -413,8 +414,15 @@ async function generateSinglePass(
       };
       
       content = await callAIStreaming(model, prompt, userMsg, maxTokens, 0.7, wrappedOnChunk);
+      // Streaming doesn't return usage, estimate from content length
+      actualUsage = {
+        prompt_tokens: Math.ceil((prompt.length + userMsg.length) / 3),
+        completion_tokens: Math.ceil(content.length / 3),
+      };
     } else {
-      content = await callAI(model, prompt, userMsg, maxTokens, 0.7);
+      const result = await callAIWithUsage(model, prompt, userMsg, maxTokens, 0.7);
+      content = result.content;
+      actualUsage = result.usage;
     }
     modelsUsed.push(model);
     
@@ -424,7 +432,9 @@ async function generateSinglePass(
       console.warn(`[generateSinglePass] Primary model returned ${content?.length || 0} chars, falling back to ${FALLBACK_MODEL}`);
       onProgress?.('fallback', 50, `Chuyển sang model dự phòng...`);
       
-      content = await callAI(FALLBACK_MODEL, prompt, userMsg, maxTokens, 0.7);
+      const fallbackResult = await callAIWithUsage(FALLBACK_MODEL, prompt, userMsg, maxTokens, 0.7);
+      content = fallbackResult.content;
+      actualUsage = fallbackResult.usage; // Use fallback usage
       modelsUsed.push(FALLBACK_MODEL);
       
       if (!content || content.length < 300) {
