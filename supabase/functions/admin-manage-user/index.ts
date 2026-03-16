@@ -58,6 +58,16 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Helper to log admin actions
+    async function auditLog(actionName: string, targetUserId: string | null, details: Record<string, unknown> = {}) {
+      await serviceClient.from("admin_audit_logs").insert({
+        admin_id: callerId,
+        action: actionName,
+        target_user_id: targetUserId,
+        details,
+      });
+    }
+
     const body = await req.json();
     const { action } = body;
 
@@ -107,6 +117,8 @@ Deno.serve(async (req) => {
             .eq("user_id", newUser.user.id);
         }
 
+        await auditLog("create_user", newUser.user?.id || null, { email, full_name, role, plan_type });
+
         return new Response(
           JSON.stringify({ success: true, user: newUser.user }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -143,6 +155,8 @@ Deno.serve(async (req) => {
           });
         }
 
+        await auditLog(ban ? "ban_user" : "unban_user", user_id, { ban });
+
         return new Response(
           JSON.stringify({ success: true, banned: ban }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -174,6 +188,8 @@ Deno.serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
+
+        await auditLog("delete_user", user_id, {});
 
         return new Response(
           JSON.stringify({ success: true }),
@@ -207,6 +223,8 @@ Deno.serve(async (req) => {
           });
         }
 
+        await auditLog("reset_password", user_id, {});
+
         return new Response(
           JSON.stringify({ success: true }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -236,6 +254,8 @@ Deno.serve(async (req) => {
             .gte("created_at", sub.current_period_start)
             .lte("created_at", sub.current_period_end);
         }
+
+        await auditLog("reset_usage", user_id, {});
 
         return new Response(
           JSON.stringify({ success: true }),
