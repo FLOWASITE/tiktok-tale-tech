@@ -600,7 +600,7 @@ const getBrandVoicePrompt = (
   if (forbidden.length) parts.push(`TỪ CẤM: ${forbidden.join(", ")}`);
   
   const allowEmoji = mergedRules?.allow_emoji ?? voice.allow_emoji ?? true;
-  parts.push(`EMOJI: ${allowEmoji ? 'Tiết chế theo kênh (Website/GMaps/Zalo/Telegram: KHÔNG)' : 'TUYỆT ĐỐI KHÔNG'}`);
+  parts.push(`EMOJI: ${allowEmoji ? 'Cho phép theo kênh (Website/GMaps/Zalo/Telegram: KHÔNG). ⚠️ QUAN TRỌNG: Chọn emoji ĐA DẠNG, PHÙ HỢP với chủ đề cụ thể của bài viết. TUYỆT ĐỐI KHÔNG lặp lại bộ emoji mặc định (🎯⚡💡🔥✅). Mỗi bài phải có emoji riêng biệt liên quan trực tiếp đến nội dung.' : 'TUYỆT ĐỐI KHÔNG'}`);
   
   if (!mergedRules && voice.compliance_rules?.length) {
     parts.push(`COMPLIANCE: ${voice.compliance_rules.slice(0, 3).join("; ")}`);
