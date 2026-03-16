@@ -748,19 +748,19 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
   },
   facebook: {
     min_length: 250, max_length: 500, length_unit: 'words',
-    hook_required: true, hook_style: 'Hook mạnh + emoji (🎯⚡💡🔥)',
+    hook_required: true, hook_style: 'Hook mạnh + 1 emoji PHÙ HỢP chủ đề (không lặp lại emoji giữa các bài)',
     bullet_allowed: true, cta_policy: 'optional',
     emoji_allowed: true, emoji_limit: 5, hashtag_limit: 3, hashtag_position: 'end',
     line_break_style: 'short', link_position: 'body',
-    format_description: 'Hook emoji+**bold**, body emoji bullets (✅💡⚡), đoạn ngắn, CTA cuối',
+    format_description: 'Hook emoji+**bold**, body emoji bullets (chọn emoji đa dạng theo ngữ cảnh nội dung), đoạn ngắn, CTA cuối',
   },
   instagram: {
     min_length: 50, max_length: 150, length_unit: 'words',
-    hook_required: true, hook_style: 'Hook ngắn + emoji (🔥✨💫)',
+    hook_required: true, hook_style: 'Hook ngắn + 1 emoji sáng tạo phù hợp chủ đề',
     bullet_allowed: false, cta_policy: 'optional',
     emoji_allowed: true, emoji_limit: 5, hashtag_limit: 5, hashtag_position: 'end',
     line_break_style: 'many', link_position: 'none',
-    format_description: 'Hook emoji, nhiều xuống dòng, emoji điểm nhấn, hashtag cuối bài, CTA nhẹ',
+    format_description: 'Hook emoji sáng tạo, nhiều xuống dòng, emoji điểm nhấn đa dạng theo nội dung, hashtag cuối bài, CTA nhẹ',
   },
   twitter: {
     min_length: 0, max_length: 280, length_unit: 'chars',
