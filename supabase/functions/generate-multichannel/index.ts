@@ -799,7 +799,7 @@ const DEFAULT_CHANNEL_SETTINGS: Record<string, ChannelSettings> = {
     bullet_allowed: true, cta_policy: 'required',
     emoji_allowed: true, emoji_limit: 5, hashtag_limit: 5, hashtag_position: 'end',
     line_break_style: 'normal', link_position: 'body',
-    format_description: 'HOOK(0-5s), INTRO(5-15s), 3-5 segments, emoji bullets, CTA Sub+Like, OUTRO teaser',
+    format_description: 'HOOK(0-5s), INTRO(5-15s), 3-5 segments, emoji bullets đa dạng theo nội dung, CTA Sub+Like, OUTRO teaser',
   },
   zalo_oa: {
     min_length: 60, max_length: 150, length_unit: 'words',
