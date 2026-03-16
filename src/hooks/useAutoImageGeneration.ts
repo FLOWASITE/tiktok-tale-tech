@@ -71,9 +71,10 @@ export interface AutoGenerateOptions {
     elements: {
       banner?: { text: string; bgColor: string; position: 'top' | 'bottom' };
       heroText?: { text: string; fontSize: 'xl' | '2xl' | '3xl'; effect: 'none' | 'gradient' };
-      cards?: { items: { icon?: string; label: string }[]; layout: 'grid-2x2' | 'horizontal' | 'vertical' };
+      cards?: { items: { icon?: string; label: string; number?: number }[]; layout: 'grid-2x2' | 'horizontal' | 'vertical' };
       headline?: string;
       cta?: string;
+      summaryRibbon?: { text: string; bgColor?: string };
     };
     colors: { primary: string; secondary: string; text: string };
   };
