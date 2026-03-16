@@ -722,10 +722,13 @@ function buildStructuredElement(
     });
   }
 
-  // Cards grid
+  // Cards grid — responsive: force vertical on portrait, use min(w,h) for font scaling
   if (elements.cards && elements.cards.items.length > 0) {
-    const isGrid = elements.cards.layout === 'grid-2x2';
-    const cardFontSize = Math.round(imageWidth * (isEducationInfographic && elementCount >= 5 ? 0.018 : 0.02));
+    // Auto-override card layout based on aspect ratio
+    const effectiveCardLayout = isPortraitOrSquare ? 'vertical' : elements.cards.layout;
+    const isGrid = effectiveCardLayout === 'grid-2x2';
+    const fontBase = Math.min(imageWidth, imageHeight); // scale by smaller dimension
+    const cardFontSize = Math.round(fontBase * (isEducationInfographic && elementCount >= 5 ? 0.022 : 0.025));
     const cardDescFontSize = Math.round(imageWidth * 0.015);
     const hasNumberedCards = elements.cards.items.some(item => item.number != null);
     
