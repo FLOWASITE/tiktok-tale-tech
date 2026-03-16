@@ -186,7 +186,7 @@ interface StructuredOverlayRequest {
   elements: {
     banner?: { text: string; bgColor: string; position: 'top' | 'bottom' };
     heroText?: { text: string; fontSize: 'xl' | '2xl' | '3xl'; effect: 'none' | 'gradient' };
-    cards?: { items: { icon?: string; label: string; number?: number }[]; layout: 'grid-2x2' | 'horizontal' | 'vertical' };
+    cards?: { items: { icon?: string; label: string; description?: string; number?: number }[]; layout: 'grid-2x2' | 'horizontal' | 'vertical' };
     headline?: string;
     cta?: string;
     footer?: { items: Array<{ icon?: string; text: string }> };
