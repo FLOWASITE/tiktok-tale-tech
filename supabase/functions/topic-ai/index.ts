@@ -1086,6 +1086,7 @@ Trả về JSON:
     const result = await callAIWithMetrics(supabase, {
       functionName: 'topic-ai',
       organizationId,
+      userId: params._userId,
       brandTemplateId,
       actionType: 'suggest_audience',
       messages: [
