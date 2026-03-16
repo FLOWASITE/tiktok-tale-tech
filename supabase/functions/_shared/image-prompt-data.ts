@@ -97,7 +97,7 @@ export const CHANNEL_IMAGE_SPECS: Record<Channel, ChannelImageSpec> = {
     avoidElements: ['small text', 'complex details that get lost at small sizes'],
   },
   instagram: {
-    aspectRatio: '1:1',
+    aspectRatio: '4:5',
     style: 'aesthetically pleasing, visually striking, Instagram-worthy',
     mood: 'modern, trendy, aspirational',
     composition: 'bold central subject, minimal clutter, grid-friendly',
