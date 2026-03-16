@@ -36,6 +36,7 @@ import AdminCategories from "./pages/AdminCategories";
 import AdminEvents from "./pages/AdminEvents";
 import AdminIndustryNews from "./pages/AdminIndustryNews";
 import AdminKnowledgeGraph from "./pages/AdminKnowledgeGraph";
+import AdminOrganizations from "./pages/AdminOrganizations";
 import OrganizationSettings from "./pages/OrganizationSettings";
 import ContentCalendar from "./pages/ContentCalendar";
 import AccessDenied from "./pages/AccessDenied";
