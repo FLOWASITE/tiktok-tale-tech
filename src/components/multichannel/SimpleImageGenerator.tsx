@@ -49,6 +49,7 @@ import type { ChannelKey, ContentGoal, ContentAngle, ContentRole, Industry } fro
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { LogoPosition, LogoStyle } from './LogoOptionsPanel';
+import { NEGATIVE_PROMPT_DEFAULTS } from '@/lib/imagePromptDefaults';
 
 // Map frontend Channel to V3 ChannelKey
 function toChannelKey(ch: Channel): ChannelKey {
