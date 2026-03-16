@@ -1,62 +1,85 @@
-## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-### Vấn đề
-Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-### Đã sửa (3 files)
-1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
-2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
+# Trang Admin Quản lý Tổ chức
 
----
+## Mục tiêu
+Tạo trang `/admin/organizations` cho phép admin (flowasite@gmail.com) xem và quản lý tất cả tổ chức trong hệ thống — không chỉ "Công ty CP Công nghệ Flowa".
 
-## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
+## Tính năng
 
-### Vấn đề
-AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
+### 1. Danh sách tổ chức
+- Bảng hiển thị tất cả org: tên, slug, owner, số thành viên, ngày tạo
+- Tìm kiếm theo tên
+- Phân trang
 
-### Đã sửa (3 files)
-1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
-2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
+### 2. Chi tiết tổ chức (Sheet/Dialog)
+- Thông tin org (tên, logo, màu chủ đạo)
+- Danh sách thành viên + role
+- Số content đã tạo
+- Chỉnh sửa: đổi tên, thêm/xóa thành viên, đổi role thành viên
+- Xóa tổ chức
 
----
+### 3. Tạo tổ chức mới
+- Dialog tạo org với tên + chọn owner từ danh sách user
 
-## Feature: Regenerate sử dụng Core Content — đã sửa
+## Thay đổi cụ thể
 
-### Vấn đề
-Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
+### File mới: `src/pages/AdminOrganizations.tsx`
+- Fetch tất cả org từ `organizations` table (admin có quyền qua RLS hoặc service role)
+- Join với `organization_members` để đếm thành viên
+- Join với `profiles` để hiển thị owner name
+- Bảng với search, sort, phân trang
+- Sheet chi tiết khi click vào org
 
-### Đã sửa (1 file)
-1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
+### File mới: `src/components/admin/OrgDetailSheet.tsx`
+- Hiển thị chi tiết org + danh sách members
+- Cho phép admin thêm/xóa member, đổi role, đổi tên org
 
----
+### Sửa: `src/components/AppSidebar.tsx`
+- Thêm menu item `{ title: 'Organizations', url: '/admin/organizations', icon: Building2 }` vào `adminItems`
 
-## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
+### Sửa: `src/App.tsx`
+- Thêm route `/admin/organizations` → `AdminOrganizations` (wrapped trong `AdminProtectedRoute`)
 
-### Vấn đề
-1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
-2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
-3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
+### RLS
+- Cần kiểm tra admin có quyền `SELECT` trên bảng `organizations` — hiện RLS chỉ cho phép org members xem. Sẽ thêm policy cho admin: `has_role(auth.uid(), 'admin')` để admin xem tất cả org.
+- Tương tự cho `organization_members` table.
 
-### Đã sửa (4 files)
-1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
-2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
-3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
-4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
+### Migration
+Thêm RLS policies:
+```sql
+-- Admin can view all organizations
+CREATE POLICY "Admin can view all organizations"
+ON public.organizations FOR SELECT
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'));
 
----
+-- Admin can view all organization members  
+CREATE POLICY "Admin can view all org members"
+ON public.organization_members FOR SELECT
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'));
 
-## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
+-- Admin can manage organization members
+CREATE POLICY "Admin can manage org members"
+ON public.organization_members FOR ALL
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'));
 
-### Vấn đề
-Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
+-- Admin can update organizations
+CREATE POLICY "Admin can update organizations"
+ON public.organizations FOR UPDATE
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'));
 
-### Đã sửa (6 files + 2 edge functions)
-1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
-2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
-3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
-4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
-5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
-6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
-7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
+-- Admin can delete organizations
+CREATE POLICY "Admin can delete organizations"
+ON public.organizations FOR DELETE
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'));
+```
+
+## Scope
+- 2 file mới, 2 file sửa, 1 migration
+- UI theo pattern giống `AdminUsers.tsx` (bảng + sheet chi tiết)
+
