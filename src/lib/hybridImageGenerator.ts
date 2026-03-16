@@ -66,6 +66,7 @@ export interface StructuredOverlayConfig {
 export interface DecomposedRequest {
   backgroundPrompt: BackgroundPrompt;
   overlayConfig: StructuredOverlayConfig;
+  layout?: 'stack' | 'split' | 'banner_cards' | 'hero_text' | 'simple';
 }
 
 /**
@@ -434,5 +435,6 @@ export function applyTemplate(
   return {
     backgroundPrompt: decomposed.backgroundPrompt,
     overlayConfig: overlay,
+    layout: template.layout,
   };
 }

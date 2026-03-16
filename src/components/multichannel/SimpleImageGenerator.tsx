@@ -427,9 +427,11 @@ export function SimpleImageGenerator({
           ? overlayTemplate
           : autoSelectTemplate(summaryText, decomposed.overlayConfig);
         console.log('[AutoTemplate] Selected:', selectedTemplate, 'from overlayTemplate:', overlayTemplate);
-        const { backgroundPrompt, overlayConfig } = applyTemplate(selectedTemplate, decomposed, summaryText, brandPrimaryColor || '#DC2626');
+        const applyResult = applyTemplate(selectedTemplate, decomposed, summaryText, brandPrimaryColor || '#DC2626');
+        const { backgroundPrompt, overlayConfig } = applyResult;
+        const resolvedLayout = applyResult.layout || (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple');
         setHybridOverlay({
-          layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
+          layout: resolvedLayout as 'banner_cards' | 'hero_text' | 'simple' | 'split' | 'stack',
           elements: {
             banner: overlayConfig.banner,
             heroText: overlayConfig.heroText,
@@ -449,20 +451,22 @@ export function SimpleImageGenerator({
           ? overlayTemplate
           : autoSelectTemplate(summaryText, rawDecomposed.overlayConfig);
         console.log('[AutoTemplate] Fallback selected:', selectedTemplate);
-        const { backgroundPrompt, overlayConfig } = applyTemplate(selectedTemplate, rawDecomposed, summaryText, brandPrimaryColor || '#DC2626');
+        const fallbackResult = applyTemplate(selectedTemplate, rawDecomposed, summaryText, brandPrimaryColor || '#DC2626');
+        const { backgroundPrompt: fbBgPrompt, overlayConfig: fbOverlay } = fallbackResult;
+        const fbLayout = fallbackResult.layout || (fbOverlay.cards ? 'banner_cards' : fbOverlay.heroText ? 'hero_text' : 'simple');
         setHybridOverlay({
-          layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
+          layout: fbLayout as 'banner_cards' | 'hero_text' | 'simple' | 'split' | 'stack',
           elements: {
-            banner: overlayConfig.banner,
-            heroText: overlayConfig.heroText,
-            cards: overlayConfig.cards,
-            headline: overlayConfig.headline,
-            cta: overlayConfig.cta,
-            footer: overlayConfig.footer,
+            banner: fbOverlay.banner,
+            heroText: fbOverlay.heroText,
+            cards: fbOverlay.cards,
+            headline: fbOverlay.headline,
+            cta: fbOverlay.cta,
+            footer: fbOverlay.footer,
           },
-          colors: overlayConfig.colors,
+          colors: fbOverlay.colors,
         });
-        setHybridBackgroundPrompt(backgroundPrompt.description);
+        setHybridBackgroundPrompt(fbBgPrompt.description);
       })
       .finally(() => {
         if (!cancelled) setIsDecomposing(false);
