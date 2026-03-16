@@ -222,7 +222,7 @@ Secondary color: ${secondaryColor}`;
                 properties: {
                   suggestedLayout: {
                     type: "string",
-                    enum: ["poster", "infographic", "quote_card", "feature_list", "contact_card"],
+                    enum: ["poster", "infographic", "quote_card", "feature_list", "contact_card", "education_infographic"],
                     description: "Best layout template based on content analysis and strategic context",
                   },
                   backgroundPrompt: {
