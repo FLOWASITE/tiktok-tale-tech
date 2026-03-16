@@ -904,7 +904,7 @@ function buildStructuredElement(
 
   // Footer contact bar
   if (elements.footer && elements.footer.items.length > 0) {
-    const footerFontSize = Math.round(imageWidth * 0.018);
+    const footerFontSize = Math.round(imageWidth * (isEducationInfographic ? 0.022 : 0.018));
     const footerItems = elements.footer.items.map(item => ({
       type: 'div',
       props: {
