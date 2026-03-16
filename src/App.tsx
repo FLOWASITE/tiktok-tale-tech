@@ -341,6 +341,18 @@ function AppRoutes() {
                 }
               />
               <Route
+                path="/admin/organizations"
+                element={
+                  <ProtectedRoute>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <AdminOrganizations />
+                      </AppLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/admin/ai"
                 element={
                   <ProtectedRoute>
