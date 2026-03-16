@@ -4053,11 +4053,22 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
 
     // Legacy function for backward compatibility (single model for all channels)
     const generateAIContent = async (currentPrompt: string) => {
-      return generateAIContentForChannels(currentPrompt, formData.channels, {
+      const { parsed, usage, modelUsed } = await generateAIContentForChannels(currentPrompt, formData.channels, {
         model: aiConfig.model,
         temperature: aiConfig.temperature,
         maxTokens: null,
       });
+      // Attach usage metadata
+      if (usage) {
+        const _usage: Record<string, { input: number; output: number }> = {};
+        const _models: Record<string, string> = {};
+        for (const ch of formData.channels) {
+          _usage[ch] = { input: Math.round((usage.prompt_tokens || 0) / formData.channels.length), output: Math.round((usage.completion_tokens || 0) / formData.channels.length) };
+          _models[ch] = modelUsed;
+        }
+        parsed._usageMetadata = { tokenUsage: _usage, modelsUsed: _models, totalUpstreamCost: (usage as any).upstream_cost || 0, totalDurationMs: 0, channelDurations: {} };
+      }
+      return parsed;
     };
 
     // Multi-model generation: uses parallel by default for speed
@@ -4081,7 +4092,18 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
           maxTokens: channelConfig?.maxTokens ?? null,
         };
         console.log(`[single] Generating single channel ${channel} with model ${config.model}`);
-        return generateAIContentForChannels(currentPrompt, [channel], config);
+        const { parsed, usage, modelUsed } = await generateAIContentForChannels(currentPrompt, [channel], config);
+        // Attach usage metadata for single channel
+        if (usage) {
+          parsed._usageMetadata = {
+            tokenUsage: { [channel]: { input: usage.prompt_tokens || 0, output: usage.completion_tokens || 0 } },
+            modelsUsed: { [channel]: modelUsed },
+            totalUpstreamCost: (usage as any).upstream_cost || 0,
+            totalDurationMs: 0,
+            channelDurations: {},
+          };
+        }
+        return parsed;
       }
       
       // Legacy: group by model (kept for reference but not used)
@@ -4091,24 +4113,38 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       const groupResults = await Promise.all(
         Array.from(modelGroups.entries()).map(async ([key, group]) => {
           console.log(`[multi-model] Group "${key}": channels=${group.channels.join(',')}, model=${group.config.model}`);
-          return {
-            channels: group.channels,
-            data: await generateAIContentForChannels(currentPrompt, group.channels, group.config),
-          };
+          const { parsed, usage, modelUsed } = await generateAIContentForChannels(currentPrompt, group.channels, group.config);
+          return { channels: group.channels, data: parsed, usage, modelUsed };
         })
       );
       
       const mergedData: any = { title: groupResults[0].data.title };
+      const _usage: Record<string, { input: number; output: number }> = {};
+      const _models: Record<string, string> = {};
+      let _totalUpstreamCost = 0;
+      
       for (const result of groupResults) {
         for (const channel of result.channels) {
           const contentKey = `${channel}_content`;
           if (result.data[contentKey]) {
             mergedData[contentKey] = result.data[contentKey];
           }
+          if (result.usage) {
+            _usage[channel] = { 
+              input: Math.round((result.usage.prompt_tokens || 0) / result.channels.length), 
+              output: Math.round((result.usage.completion_tokens || 0) / result.channels.length) 
+            };
+          }
+          _models[channel] = result.modelUsed;
+        }
+        if (result.usage && (result.usage as any).upstream_cost) {
+          _totalUpstreamCost += (result.usage as any).upstream_cost;
         }
       }
       
-      console.log(`[multi-model] Merged ${Object.keys(mergedData).length - 1} channel contents`);
+      mergedData._usageMetadata = { tokenUsage: _usage, modelsUsed: _models, totalUpstreamCost: _totalUpstreamCost, totalDurationMs: 0, channelDurations: {} };
+      
+      console.log(`[multi-model] Merged ${Object.keys(mergedData).length - 2} channel contents`);
       return mergedData;
     };
 
