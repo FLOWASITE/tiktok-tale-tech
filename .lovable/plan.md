@@ -1,47 +1,45 @@
 
-## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-### Vấn đề
-Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
+## AI tự chọn vị trí logo trong chế độ "AI tự lo"
 
-### Đã sửa (3 files)
-1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
-2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
+### Hiện trạng
 
----
+- Chế độ "AI tự lo" (full) vẫn hiển thị LogoOptionsPanel cho user chọn vị trí thủ công (line 312-335 trong `ImageAdvancedOptions.tsx`)
+- `useAutoImagePipeline.ts` hardcode `logoPosition: 'top-left'` (line 153) — không hề dùng giá trị user chọn
+- Không có logic tự động chọn vị trí dựa trên nội dung/kênh
 
-## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
+### Đề xuất: Thêm "auto" logo position cho chế độ full
 
-### Vấn đề
-AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
+**1. Thêm giá trị `'auto'` vào LogoPosition type**
+- File: `src/components/multichannel/LogoOptionsPanel.tsx`, `src/hooks/useAutoImageGeneration.ts`
+- Thêm `'auto'` vào union type `LogoPosition`
 
-### Đã sửa (3 files)
-1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
-2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
+**2. Ẩn LogoOptionsPanel trong chế độ full, thay bằng nhãn read-only**
+- File: `src/components/multichannel/ImageAdvancedOptions.tsx`
+- Khi `promptMode === 'full'`, thay LogoOptionsPanel bằng nhãn: *"AI tự chọn vị trí logo phù hợp"*
+- Tương tự cách đã xử lý "Text trên ảnh"
 
----
+**3. Logic auto-select vị trí logo theo kênh + layout**
+- File: `src/hooks/useAutoImageGeneration.ts`
+- Thêm hàm `autoSelectLogoPosition(channel, aspectRatio, hasTextOverlay)`:
+  - TikTok (9:16): `top-right` (tránh vùng avatar + safe zone dưới)
+  - Instagram (1:1): `bottom-right`
+  - Facebook/LinkedIn (16:9): `bottom-right`
+  - YouTube (16:9): `top-left`
+- Khi `logoPosition === 'auto'`, gọi hàm này trước khi truyền vào pipeline
 
-## Feature: Regenerate sử dụng Core Content — đã sửa
+**4. Cập nhật useAutoImagePipeline**
+- File: `src/hooks/useAutoImagePipeline.ts`
+- Thay `logoPosition: 'top-left'` → `logoPosition: 'auto'` để pipeline tự quyết
 
-### Vấn đề
-Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
+**5. Cập nhật UnifiedImageGenerator (nếu có)**
+- File: `src/components/multichannel/UnifiedImageGenerator.tsx`
+- Default `logoPosition` thành `'auto'` khi `promptMode === 'full'`
 
-### Đã sửa (1 file)
-1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
+### Tóm tắt: 5 files cần sửa
+1. `LogoOptionsPanel.tsx` — thêm type `'auto'`
+2. `useAutoImageGeneration.ts` — thêm type + hàm `autoSelectLogoPosition()`
+3. `ImageAdvancedOptions.tsx` — ẩn panel khi full mode
+4. `useAutoImagePipeline.ts` — dùng `'auto'` thay `'top-left'`
+5. `UnifiedImageGenerator.tsx` — default `'auto'` cho full mode
 
----
-
-## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
-
-### Vấn đề
-1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
-2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
-3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
-
-### Đã sửa (4 files)
-1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
-2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
-3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
-4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
