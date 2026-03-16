@@ -731,17 +731,47 @@ function buildStructuredElement(
         });
       }
 
-      cardChildren.push({
+      // Card text: label + optional description (2-line rendering)
+      const textChildren: any[] = [{
         type: 'span',
         props: {
           style: {
             color: theme.cardTextColor,
             fontSize: cardFontSize,
             fontFamily,
-            fontWeight: theme.fontWeight >= 600 ? 500 : theme.fontWeight,
+            fontWeight: theme.fontWeight >= 600 ? 600 : theme.fontWeight,
             flex: 1,
           },
           children: item.label,
+        },
+      }];
+
+      if (item.description) {
+        textChildren.push({
+          type: 'span',
+          props: {
+            style: {
+              color: theme.cardTextColor,
+              fontSize: cardDescFontSize,
+              fontFamily,
+              fontWeight: 400,
+              opacity: 0.75,
+              marginTop: 2,
+            },
+            children: item.description,
+          },
+        });
+      }
+
+      cardChildren.push({
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+          },
+          children: textChildren.length === 1 ? textChildren[0] : textChildren,
         },
       });
 
