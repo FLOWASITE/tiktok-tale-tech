@@ -118,7 +118,25 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
   const [copiedCta, setCopiedCta] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
 
-  const { generating, generatedImages, generateImage, getImageForSlide, deleteImage } = useImageGeneration();
+  const { generating, generatedImages, generateImage, getImageForSlide: getGeneratedImage, deleteImage, setImages } = useImageGeneration();
+  const { images: savedImages, loading: loadingImages, saveImage, deleteImage: deleteSavedImage, getImageForSlide: getSavedImage } = useCarouselImages(carousel?.id || null);
+
+  // Sync saved images into generatedImages state on load
+  const [synced, setSynced] = useState(false);
+  
+  // When saved images load, populate the in-memory state
+  if (!loadingImages && savedImages.length > 0 && !synced) {
+    const mapped = savedImages.map(img => ({
+      slideNumber: img.slide_number,
+      imageUrl: img.image_url,
+      generatedAt: img.created_at || new Date().toISOString(),
+    }));
+    setImages(mapped);
+    setSynced(true);
+  }
+
+  // Reset sync flag when carousel changes
+  const carouselIdRef = carousel?.id;
   
   // Fetch creator profile
   const { profiles, isLoading: isLoadingProfile } = useCreatorProfiles([carousel?.user_id]);
