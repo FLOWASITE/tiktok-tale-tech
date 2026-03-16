@@ -110,7 +110,12 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <AppLayout>
-              <Dashboard />
+              <TopicErrorBoundary
+                fallbackTitle="Không thể tải Dashboard"
+                fallbackDescription="Đã xảy ra lỗi. Vui lòng tải lại trang."
+              >
+                <Dashboard />
+              </TopicErrorBoundary>
             </AppLayout>
           </ProtectedRoute>
         }
