@@ -189,13 +189,12 @@ Deno.serve(async (req) => {
           });
         }
 
+        await auditLog("delete_user", user_id, {});
+
         return new Response(
           JSON.stringify({ success: true }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
-      }
-
-      case "reset_password": {
         const { user_id, new_password } = body;
         if (!user_id || !new_password) {
           return new Response(
