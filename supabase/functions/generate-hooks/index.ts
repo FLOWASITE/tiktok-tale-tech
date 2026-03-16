@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callAI, callAIWithMetrics } from "../_shared/ai-provider.ts";
+import { resolveUserId } from "../_shared/logger.ts";
 import { evaluateHook, type HookEvaluation } from "../_shared/ai-hook-evaluator.ts";
 import { 
   getChannelOptimization, 
@@ -226,6 +227,9 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Resolve userId from auth header for cost tracking
+    const userId = await resolveUserId(req, supabase);
+
     // =====================================================
     // MODE 1: Multi-platform - tạo hook riêng cho từng platform
     // =====================================================
@@ -329,6 +333,7 @@ Trả về CHÍNH XÁC ${count} JSON objects trong array với format sau (KHÔN
     const result = await callAIWithMetrics(supabase, {
       functionName: 'generate-hooks',
       organizationId,
+      userId,
       brandTemplateId,
       channels: platform ? [platform] : undefined,
       messages: [

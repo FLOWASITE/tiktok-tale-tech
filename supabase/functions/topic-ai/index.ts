@@ -13,6 +13,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
 import { buildLocalizedDateContext } from "../_shared/country-language-map.ts";
 import { callAI, callAIWithMetrics } from "../_shared/ai-provider.ts";
+import { resolveUserId } from "../_shared/logger.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import {
   corsHeaders,
@@ -130,34 +131,40 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Resolve userId from auth header for cost tracking
+    const userId = await resolveUserId(req, supabase);
+
     // Fetch shared brand context once (used by most actions)
     let brandContext: TopicBrandContext | null = null;
     if (params.brandTemplateId) {
       brandContext = await fetchTopicBrandContext(supabase, params.brandTemplateId);
     }
 
+    // Inject userId into params for metrics tracking
+    const paramsWithUser = { ...params, _userId: userId };
+
     // Route to appropriate handler
     switch (action) {
       case 'suggest':
-        return await handleSuggest(supabase, brandContext, params, startTime);
+        return await handleSuggest(supabase, brandContext, paramsWithUser, startTime);
       case 'refine':
-        return await handleRefine(supabase, brandContext, params, startTime);
+        return await handleRefine(supabase, brandContext, paramsWithUser, startTime);
       case 'next_best':
       case 'weekly_plan':
       case 'conflict_check':
       case 'learning':
-        return await handleRecommendation(action, supabase, brandContext, params, startTime);
+        return await handleRecommendation(action, supabase, brandContext, paramsWithUser, startTime);
       case 'trending':
-        return await handleTrending(supabase, brandContext, params, startTime);
+        return await handleTrending(supabase, brandContext, paramsWithUser, startTime);
       case 'gap_analysis':
       case 'cluster':
       case 'keywords':
       case 'refine_intel':
-        return await handleAnalysis(action, supabase, brandContext, params, startTime);
+        return await handleAnalysis(action, supabase, brandContext, paramsWithUser, startTime);
       case 'suggest_compliant':
-        return await handleSuggestCompliant(supabase, brandContext, params, startTime);
+        return await handleSuggestCompliant(supabase, brandContext, paramsWithUser, startTime);
       case 'suggest_audience':
-        return await handleSuggestAudience(supabase, brandContext, params, startTime);
+        return await handleSuggestAudience(supabase, brandContext, paramsWithUser, startTime);
       default:
         return createErrorResponse(`Invalid action: ${action}`, 400);
     }
@@ -266,6 +273,7 @@ async function handleSuggest(
   const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    userId: params._userId,
     brandTemplateId,
     actionType: 'suggest',
     messages: [
@@ -452,6 +460,7 @@ RETURN JSON ONLY, NO ADDITIONAL EXPLANATION.
   const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    userId: params._userId,
     brandTemplateId,
     actionType: 'refine',
     modelOverride: 'google/gemini-2.5-pro',
@@ -580,6 +589,7 @@ What should we learn from this to improve future recommendations? Respond in Vie
   const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    userId: params._userId,
     brandTemplateId,
     actionType: action,
     messages: [
@@ -766,6 +776,7 @@ Analyze and generate a list of NEW trending topics.`;
   const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    userId: params._userId,
     actionType: 'trending',
     messages: [
       { role: 'system', content: systemPrompt },
@@ -931,6 +942,7 @@ Trả về JSON: {
   const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    userId: params._userId,
     brandTemplateId,
     actionType: action,
     messages: [
@@ -1010,6 +1022,7 @@ CHỈ TRẢ VỀ TOPIC MỚI, KHÔNG GIẢI THÍCH.`;
   const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    userId: params._userId,
     actionType: 'suggest_compliant',
     messages: [
       { 
@@ -1073,6 +1086,7 @@ Trả về JSON:
     const result = await callAIWithMetrics(supabase, {
       functionName: 'topic-ai',
       organizationId,
+      userId: params._userId,
       brandTemplateId,
       actionType: 'suggest_audience',
       messages: [
@@ -1213,6 +1227,7 @@ Trả về JSON:
   const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    userId: params._userId,
     brandTemplateId,
     actionType: 'suggest_audience',
     messages: [

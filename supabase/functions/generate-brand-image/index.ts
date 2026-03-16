@@ -3,8 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared/kie-image-generator.ts";
 import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_shared/poyo-image-generator.ts";
-import { generateTraceId, saveMetrics, estimateTokens } from "../_shared/logger.ts";
-import { estimateCost } from "../_shared/cost-estimator.ts";
+import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
+import { estimateImageCost } from "../_shared/cost-estimator.ts";
 import { 
   buildImagePrompt,
   buildSimpleImagePrompt,
@@ -344,6 +344,9 @@ function structuredElementsToPromptText(
     }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+    // Resolve userId for cost tracking
+    const userId = await resolveUserId(req, supabase);
 
     const {
       contentId,
@@ -749,15 +752,16 @@ function structuredElementsToPromptText(
 
     // Non-blocking metrics save
     const totalDurationMs = Math.round(performance.now() - startTime);
-    const inputTokens = estimateTokens(enhancedPrompt);
-    const estimatedCostUsd = estimateCost(modelUsed.split(' ')[0], inputTokens, 0);
+    const totalDurationMs = Math.round(performance.now() - startTime);
+    const estimatedCostUsd = estimateImageCost(modelUsed.split(' ')[0]);
     saveMetrics(supabase, {
       traceId,
       functionName: 'generate-brand-image',
       organizationId: brandTemplate.organization_id,
+      userId,
       totalDurationMs,
       aiCallDurationMs: totalDurationMs,
-      inputTokensEstimated: inputTokens,
+      inputTokensEstimated: estimateTokens(enhancedPrompt),
       outputTokensEstimated: 0,
       estimatedCostUsd,
       modelsUsed: { image: modelUsed },

@@ -1,68 +1,62 @@
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-# Rà soát quản lý Cost -- Phát hiện và kế hoạch sửa
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-## Phát hiện từ dữ liệu thực tế
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-### 1. Thiếu user_id nghiêm trọng -- 85% records không có user_id
-- **994 records** trong `ai_metrics`, chỉ **148** (15%) có `user_id`
-- `topic-ai` (785 calls) không truyền `userId` vào metrics -> không thể tính cost per-user
-- Chỉ `generate-multichannel` và `chat-topics` truyền userId đúng
-- **Hậu quả**: Không thể tính chi phí per-user để inform pricing decisions
+---
 
-### 2. Nhiều function chưa thực sự ghi metrics (chỉ có code, chưa có data)
-Mặc dù đã thêm `saveMetrics` vào ~20 functions, chỉ **7 functions** thực sự có data:
-| Function | Records | Cost |
-|----------|---------|------|
-| topic-ai | 785 | $0.48 |
-| generate-multichannel | 71 | $0.19 |
-| generate-core-content | 62 | $0.04 |
-| generate-hooks | 48 | $0.008 |
-| chat-topics | 19 | $0.015 |
-| generate-script | 6 | $0.004 |
-| generate-brand-guideline | 3 | $0.002 |
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
--> Các function image (generate-brand-image, generate-carousel-image, etc.) chưa có record nào -- có thể do chưa được gọi hoặc code metrics lỗi. Cần verify.
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-### 3. Dashboard thiếu tính năng quan trọng
-- **Không có Cost per User** -- cần nhất cho pricing decisions
-- **Không có Cost per Organization** 
-- **Không có alert/budget warning** khi chi phí vượt ngưỡng
-- **Không có export data** cho báo cáo
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-### 4. Image generation cost estimation không chính xác
-- Image models tính theo request, không theo tokens
-- Hiện tại estimate `estimateTokens(prompt)` cho input, `0` cho output -- đánh giá thấp cost thực tế
-- Cần tính cost per-image-request thay vì per-token
+---
 
-## Kế hoạch sửa
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-### Task 1: Fix user_id tracking cho tất cả functions
-Cập nhật các function còn thiếu userId khi gọi `saveMetrics` / `callAIWithMetrics`:
-- `topic-ai`, `generate-hooks`, `generate-core-content`, `generate-brand-guideline`
-- Tất cả image functions, analyze functions, ad optimization functions
-- Pattern: extract userId từ auth header hoặc body, truyền vào metrics
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-### Task 2: Thêm Cost per User section vào CostDashboard
-- Thêm query group by `user_id` JOIN `profiles` lấy email/name
-- Hiển thị bảng: User | Total Cost | Requests | Avg Cost/Request
-- Giúp admin thấy user nào tốn nhiều cost nhất -> inform pricing
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-### Task 3: Thêm Cost per Organization
-- Group by `organization_id` JOIN `organizations`
-- Hiển thị tổng cost theo tổ chức
+---
 
-### Task 4: Fix image cost estimation
-- Thay vì dùng token-based pricing cho image models, dùng per-request pricing
-- Cập nhật `cost-estimator.ts` thêm `estimateImageCost(model)` trả về cost cố định per-request
-- Google Imagen: ~$0.02-0.04/image, Gemini image: ~$0.01-0.02/image
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
-### Task 5: Thêm Budget Alert + Export
-- Card cảnh báo khi chi phí ngày/tuần vượt ngưỡng configurable
-- Nút Export CSV cho cost data
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
 
-## Phạm vi thay đổi
-- ~10 edge functions: thêm userId vào metrics calls
-- `supabase/functions/_shared/cost-estimator.ts`: thêm image pricing
-- `src/hooks/useCostAnalytics.ts`: thêm queries per-user, per-org
-- `src/components/admin/ai/CostDashboard.tsx`: thêm UI sections mới
-- Không cần migration database (ai_metrics đã có `user_id`, `organization_id`)
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
+
+---
+
+## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
+
+### Vấn đề
+Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
+
+### Đã sửa (6 files + 2 edge functions)
+1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
+2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
+3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
+4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
+5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
+6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
+7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon

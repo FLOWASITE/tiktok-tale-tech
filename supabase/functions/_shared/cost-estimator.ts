@@ -84,8 +84,19 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   'bytedance-seed/seed-2.0-lite': { input: 0.25, output: 2.0 },
 };
 
+// Image generation models - fixed cost per request (not token-based)
+const IMAGE_MODEL_PRICING: Record<string, number> = {
+  'google/gemini-3-pro-image-preview': 0.04,
+  'google/gemini-3.1-flash-image-preview': 0.02,
+  'google/gemini-2.5-flash-image': 0.02,
+  'google/gemini-3-pro-image': 0.04,
+  'google/imagen-3': 0.04,
+  'google/imagen-3-fast': 0.02,
+};
+
 // Default pricing for unknown models
 const DEFAULT_PRICING = { input: 0.10, output: 0.40 };
+const DEFAULT_IMAGE_COST = 0.03; // $0.03 per image for unknown image models
 
 /**
  * Estimate cost for a single AI call
@@ -103,6 +114,24 @@ export function estimateCost(
   const inputCost = (inputTokens / 1_000_000) * pricing.input;
   const outputCost = (outputTokens / 1_000_000) * pricing.output;
   return Math.round((inputCost + outputCost) * 1_000_000) / 1_000_000; // Round to 6 decimals
+}
+
+/**
+ * Estimate cost for image generation (fixed per-request pricing)
+ * @param model - Image model identifier
+ * @returns Estimated cost per image in USD
+ */
+export function estimateImageCost(model: string): number {
+  return IMAGE_MODEL_PRICING[model] || DEFAULT_IMAGE_COST;
+}
+
+/**
+ * Check if a model is an image generation model
+ */
+export function isImageModel(model: string): boolean {
+  return model in IMAGE_MODEL_PRICING || 
+    model.includes('image') || 
+    model.includes('imagen');
 }
 
 /**

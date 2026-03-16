@@ -226,6 +226,28 @@ export interface AIMetrics {
 }
 
 /**
+ * Resolve userId from request authorization header
+ * Extracts user ID from JWT token using Supabase auth
+ */
+export async function resolveUserId(req: Request, supabase: any): Promise<string | undefined> {
+  try {
+    const authHeader = req.headers.get('authorization') || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.replace('Bearer ', '') : '';
+    if (!token) return undefined;
+    
+    // Don't try to validate service role key as a user token
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (token === serviceKey) return undefined;
+    
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user?.id) return undefined;
+    return user.id;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Estimate token count from text
  * Rough estimation: 1 token ~ 4 chars for English, ~2 chars for Vietnamese
  */
