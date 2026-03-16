@@ -77,7 +77,7 @@ export interface DecomposedRequest {
   overlayConfig: StructuredOverlayConfig;
   layout?: 'stack' | 'split' | 'banner_cards' | 'hero_text' | 'simple';
   /** AI-suggested template ID based on content analysis */
-  suggestedLayout?: 'poster' | 'infographic' | 'quote_card' | 'feature_list' | 'contact_card';
+  suggestedLayout?: 'poster' | 'infographic' | 'quote_card' | 'feature_list' | 'contact_card' | 'education_infographic';
 }
 
 /** Strategic context passed to AI decomposition for smarter layout selection */
