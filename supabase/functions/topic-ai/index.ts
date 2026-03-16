@@ -460,6 +460,7 @@ RETURN JSON ONLY, NO ADDITIONAL EXPLANATION.
   const result = await callAIWithMetrics(supabase, {
     functionName: 'topic-ai',
     organizationId,
+    userId: params._userId,
     brandTemplateId,
     actionType: 'refine',
     modelOverride: 'google/gemini-2.5-pro',
