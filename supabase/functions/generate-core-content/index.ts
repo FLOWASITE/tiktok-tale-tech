@@ -453,7 +453,8 @@ async function generateSinglePass(
     metadata: {
       stepsCompleted: modelsUsed.length > 1 ? ['single_pass', 'fallback'] : ['single_pass'],
       modelsUsed,
-      totalTokensEstimated: maxTokens,
+      totalTokensEstimated: actualUsage ? (actualUsage.prompt_tokens + actualUsage.completion_tokens) : maxTokens,
+      actualUsage,
     },
   };
 }
