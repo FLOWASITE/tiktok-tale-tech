@@ -201,9 +201,9 @@ export function ImageAdvancedOptions({
             promptMode === 'brand_only' && "text-amber-700 dark:text-amber-400 bg-amber-500/5 border-amber-500/15",
             promptMode === 'raw' && "text-violet-700 dark:text-violet-400 bg-violet-500/5 border-violet-500/15",
           )}>
-            {promptMode === 'full' && '✨ AI tự chọn phong cách, bố cục, vị trí text. Bạn chỉ cần duyệt.'}
-            {promptMode === 'brand_only' && '🎨 Giữ logo & màu brand. Bạn tự chọn bố cục text & vị trí.'}
-            {promptMode === 'raw' && '⚡ Bạn kiểm soát mọi thứ: phong cách, logo, text, bố cục.'}
+            {promptMode === 'full' && '✨ AI tự tối ưu phong cách, bố cục và text. Bạn chỉ cần duyệt.'}
+            {promptMode === 'brand_only' && '🎨 Giữ logo & màu brand. Bạn chọn phong cách và bố cục text.'}
+            {promptMode === 'raw' && '⚡ Bạn kiểm soát 100%: phong cách, logo, text, bố cục.'}
           </p>
         </div>
         )}
@@ -335,21 +335,28 @@ export function ImageAdvancedOptions({
           </div>
         )}
 
-        {/* Text Overlay Toggle — all 3 modes */}
+        {/* Text Overlay Toggle — full mode shows read-only label, others show switch */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <Type className="w-4 h-4 text-muted-foreground" />
-                <Label className="text-xs text-muted-foreground">Thêm text lên ảnh</Label>
-              </div>
-              <p className="text-[10px] text-muted-foreground/60 ml-6">Thêm tiêu đề hoặc hook message trực tiếp lên ảnh.</p>
+          {promptMode === 'full' ? (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/15">
+              <Type className="w-4 h-4 text-primary" />
+              <p className="text-xs text-primary/80">AI tự quyết định nội dung text trên ảnh</p>
             </div>
-            <Switch
-              checked={enableTextOverlay}
-              onCheckedChange={(checked) => onImageContentTypeChange(checked ? 'with_text' : 'background_only')}
-            />
-          </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <Type className="w-4 h-4 text-muted-foreground" />
+                  <Label className="text-xs text-muted-foreground">Thêm text lên ảnh</Label>
+                </div>
+                <p className="text-[10px] text-muted-foreground/60 ml-6">Thêm tiêu đề hoặc hook message trực tiếp lên ảnh.</p>
+              </div>
+              <Switch
+                checked={enableTextOverlay}
+                onCheckedChange={(checked) => onImageContentTypeChange(checked ? 'with_text' : 'background_only')}
+              />
+            </div>
+          )}
 
           {enableTextOverlay && (
             <div className="space-y-3 pl-1">
@@ -463,11 +470,11 @@ export function ImageAdvancedOptions({
           </div>
         )}
 
-        {/* Strategic Context — only in full mode */}
-        {promptMode === 'full' && (contentRole || contentAngle || (selectedChannels && hookMessages && selectedChannels.some(ch => hookMessages[ch]?.hookMessage))) && (
-          <div className="space-y-2">
+        {/* Strategic Context — full + brand_only modes */}
+        {(promptMode === 'full' || promptMode === 'brand_only') && (contentRole || contentAngle || (selectedChannels && hookMessages && selectedChannels.some(ch => hookMessages[ch]?.hookMessage))) && (
+          <div className={cn("space-y-2", promptMode === 'brand_only' && "opacity-60")}>
             <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-              Ngữ cảnh chiến lược
+              {promptMode === 'brand_only' ? 'Ngữ cảnh chiến lược (áp dụng nhẹ)' : 'Ngữ cảnh chiến lược'}
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
