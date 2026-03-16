@@ -124,6 +124,8 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const userId = await resolveUserId(req, supabase);
+
 
     // Create PromptManager for this function
     const pm = createPromptManager(supabase, 'generate-storyboard', organizationId);
