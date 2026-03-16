@@ -335,21 +335,28 @@ export function ImageAdvancedOptions({
           </div>
         )}
 
-        {/* Text Overlay Toggle — all 3 modes */}
+        {/* Text Overlay Toggle — full mode shows read-only label, others show switch */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <Type className="w-4 h-4 text-muted-foreground" />
-                <Label className="text-xs text-muted-foreground">Thêm text lên ảnh</Label>
-              </div>
-              <p className="text-[10px] text-muted-foreground/60 ml-6">Thêm tiêu đề hoặc hook message trực tiếp lên ảnh.</p>
+          {promptMode === 'full' ? (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/15">
+              <Type className="w-4 h-4 text-primary" />
+              <p className="text-xs text-primary/80">AI tự quyết định nội dung text trên ảnh</p>
             </div>
-            <Switch
-              checked={enableTextOverlay}
-              onCheckedChange={(checked) => onImageContentTypeChange(checked ? 'with_text' : 'background_only')}
-            />
-          </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <Type className="w-4 h-4 text-muted-foreground" />
+                  <Label className="text-xs text-muted-foreground">Thêm text lên ảnh</Label>
+                </div>
+                <p className="text-[10px] text-muted-foreground/60 ml-6">Thêm tiêu đề hoặc hook message trực tiếp lên ảnh.</p>
+              </div>
+              <Switch
+                checked={enableTextOverlay}
+                onCheckedChange={(checked) => onImageContentTypeChange(checked ? 'with_text' : 'background_only')}
+              />
+            </div>
+          )}
 
           {enableTextOverlay && (
             <div className="space-y-3 pl-1">
