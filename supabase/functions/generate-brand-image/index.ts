@@ -56,6 +56,7 @@ interface GenerateImageRequest {
     cards?: { items: { icon?: string; label: string }[]; layout: string };
     headline?: string;
     cta?: string;
+    footer?: { items: { icon?: string; text: string }[] };
   };
   structuredColors?: { primary: string; secondary: string; text: string };
   // Template ID for layout guidance in AI render mode
@@ -277,6 +278,13 @@ function structuredElementsToPromptText(
 
   if (elements.cta) {
     parts.push(`- A call-to-action button or text: "${elements.cta}"`);
+  }
+
+  if (elements.footer && elements.footer.items.length > 0) {
+    const footerItems = elements.footer.items
+      .map((item) => `${item.icon ? item.icon + ' ' : ''}${item.text}`)
+      .join('; ');
+    parts.push(`- A bottom footer contact bar with concise contact details: ${footerItems}`);
   }
 
   if (colors) {

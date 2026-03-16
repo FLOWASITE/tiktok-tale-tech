@@ -417,6 +417,7 @@ export function SimpleImageGenerator({
             cards: overlayConfig.cards,
             headline: overlayConfig.headline,
             cta: overlayConfig.cta,
+            footer: overlayConfig.footer,
           },
           colors: overlayConfig.colors,
         });
@@ -436,6 +437,7 @@ export function SimpleImageGenerator({
             cards: overlayConfig.cards,
             headline: overlayConfig.headline,
             cta: overlayConfig.cta,
+            footer: overlayConfig.footer,
           },
           colors: overlayConfig.colors,
         });

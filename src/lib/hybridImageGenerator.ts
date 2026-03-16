@@ -40,12 +40,22 @@ export interface OverlayCards {
   layout: 'grid-2x2' | 'horizontal' | 'vertical';
 }
 
+export interface OverlayFooterItem {
+  icon?: string;
+  text: string;
+}
+
+export interface OverlayFooter {
+  items: OverlayFooterItem[];
+}
+
 export interface StructuredOverlayConfig {
   banner?: OverlayBanner;
   heroText?: OverlayHeroText;
   cards?: OverlayCards;
   headline?: string;
   cta?: string;
+  footer?: OverlayFooter;
   colors: {
     primary: string;
     secondary: string;
@@ -99,6 +109,7 @@ export async function decomposeRequestWithAI(
         ...(data.overlayConfig.headline ? { headline: data.overlayConfig.headline } : {}),
         ...(data.overlayConfig.cards ? { cards: data.overlayConfig.cards } : {}),
         ...(data.overlayConfig.cta ? { cta: data.overlayConfig.cta } : {}),
+        ...(data.overlayConfig.footer ? { footer: data.overlayConfig.footer } : {}),
       },
     };
 
@@ -107,6 +118,7 @@ export async function decomposeRequestWithAI(
       hasOverlayBanner: !!result.overlayConfig.banner,
       hasHeroText: !!result.overlayConfig.heroText,
       cardCount: result.overlayConfig.cards?.items?.length || 0,
+      hasFooter: !!result.overlayConfig.footer,
     });
 
     return result;
@@ -114,6 +126,52 @@ export async function decomposeRequestWithAI(
     console.warn('[HybridImageGen] AI decomposition error, falling back to regex:', err);
     return decomposeRequest(description, primaryColor, secondaryColor);
   }
+}
+
+function extractFooterItemsFromText(description: string): OverlayFooterItem[] {
+  const source = description.trim();
+  if (!source) return [];
+
+  const items: OverlayFooterItem[] = [];
+  const seen = new Set<string>();
+  const pushUnique = (item: OverlayFooterItem) => {
+    const key = item.text.toLowerCase();
+    if (item.text && !seen.has(key)) {
+      seen.add(key);
+      items.push(item);
+    }
+  };
+
+  const phones = source.match(/(?:\+?84|0)\d[\d\s.\-]{7,12}\d/g) || [];
+  for (const raw of phones.slice(0, 2)) {
+    pushUnique({ icon: '📞', text: raw.replace(/\s+/g, ' ').trim() });
+  }
+
+  const emails = source.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+  for (const email of emails.slice(0, 2)) {
+    pushUnique({ icon: '📧', text: email.trim() });
+  }
+
+  const websites = source.match(/\b(?:https?:\/\/)?(?:www\.)?[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+\b/gi) || [];
+  for (const site of websites.slice(0, 2)) {
+    if (!site.includes('@')) {
+      pushUnique({ icon: '🌐', text: site.trim() });
+    }
+  }
+
+  const addressLine = source
+    .split(/\n|\.|;/)
+    .map((line) => line.trim())
+    .find((line) => /(địa chỉ|address|addr|đường|street|phường|quận|district|ward)/i.test(line));
+
+  if (addressLine) {
+    const clean = addressLine.replace(/^(địa chỉ|address|addr)\s*[:\-]?\s*/i, '').trim();
+    if (clean.length >= 6) {
+      pushUnique({ icon: '📍', text: clean.slice(0, 80) });
+    }
+  }
+
+  return items.slice(0, 4);
 }
 
 /**
@@ -162,6 +220,11 @@ function generateDefaultOverlayFromSummary(
       items: cardLabels.slice(0, 4).map(label => ({ label: label.slice(0, 50) })),
       layout: cardLabels.length <= 2 ? 'horizontal' : 'grid-2x2',
     };
+  }
+
+  const footerItems = extractFooterItemsFromText(text);
+  if (footerItems.length > 0) {
+    result.footer = { items: footerItems };
   }
 
   return result;
@@ -251,13 +314,19 @@ export function decomposeRequest(
     };
   }
 
+  const footerItems = extractFooterItemsFromText(description);
+  if (footerItems.length > 0) {
+    overlayConfig.footer = { items: footerItems };
+  }
+
   // If regex didn't find structured overlay elements, generate meaningful defaults
-  const hasOverlay = overlayConfig.banner || overlayConfig.heroText || overlayConfig.headline || overlayConfig.cards;
+  const hasOverlay = overlayConfig.banner || overlayConfig.heroText || overlayConfig.headline || overlayConfig.cards || overlayConfig.footer;
   if (!hasOverlay) {
     const defaults = generateDefaultOverlayFromSummary(description, primaryColor);
     if (defaults.banner) overlayConfig.banner = defaults.banner;
     if (defaults.heroText) overlayConfig.heroText = defaults.heroText;
     if (defaults.cards) overlayConfig.cards = defaults.cards;
+    if (defaults.footer) overlayConfig.footer = defaults.footer;
   }
 
   return { backgroundPrompt, overlayConfig };
@@ -324,6 +393,14 @@ export function applyTemplate(
   // Ensure required CTA slot
   if (template.requiredSlots.includes('cta') && !overlay.cta) {
     overlay.cta = 'Tìm hiểu thêm';
+  }
+
+  // Ensure required footer slot
+  if (template.requiredSlots.includes('footer') && !overlay.footer) {
+    const footerItems = extractFooterItemsFromText(description);
+    overlay.footer = {
+      items: footerItems.length > 0 ? footerItems : [{ icon: '📩', text: 'Liên hệ để được tư vấn' }],
+    };
   }
 
   return {
