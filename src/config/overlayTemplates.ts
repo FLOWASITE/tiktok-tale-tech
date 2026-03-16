@@ -90,6 +90,18 @@ export const OVERLAY_TEMPLATES: OverlayTemplate[] = [
     requiredSlots: ['headline', 'footer'],
     defaults: {},
   },
+  {
+    id: 'education_infographic',
+    name: 'Infographic GD',
+    description: 'Tiêu đề lớn + Cards đánh số + Ribbon tóm tắt + Liên hệ',
+    icon: '🎓',
+    layout: 'stack',
+    requiredSlots: ['banner', 'cards', 'summaryRibbon', 'cta', 'footer'],
+    defaults: {
+      banner: { position: 'top' },
+      cards: { layout: 'vertical', minCount: 3, numbered: true },
+    },
+  },
 ];
 
 export function getTemplateById(id: string): OverlayTemplate | undefined {
