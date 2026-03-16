@@ -879,12 +879,21 @@ function buildStructuredElement(
       }
 
       // Card text: label + optional description (2-line rendering)
+      // Dynamic contrast: validate card text color against actual card background
+      const resolvedCardBg = theme.cardBg;
+      const effectiveCardTextColor = getContrastTextColor(
+        resolvedCardBg.startsWith('rgba') || resolvedCardBg.startsWith('#') ? resolvedCardBg : theme.cardTextColor
+      );
+      // Fit label font to available card width (approx 70% of card width)
+      const cardAvailWidth = isGrid ? imageWidth * 0.35 : imageWidth * 0.6;
+      const fittedCardFontSize = fitTextToWidth(item.label, cardAvailWidth, cardFontSize, 12);
+      
       const textChildren: any[] = [{
         type: 'span',
         props: {
           style: {
-            color: theme.cardTextColor,
-            fontSize: cardFontSize,
+            color: effectiveCardTextColor,
+            fontSize: fittedCardFontSize,
             fontFamily,
             fontWeight: theme.fontWeight >= 600 ? 600 : theme.fontWeight,
             flex: 1,
