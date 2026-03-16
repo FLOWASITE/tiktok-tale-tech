@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Wand2, Palette, PenLine, HelpCircle } from 'lucide-react';
-import { ChevronDown, Settings2, Camera, Brush, LayoutGrid, Box, Layers, Droplets, Film, Sparkles, Leaf, TrendingUp, Wheat, Type } from 'lucide-react';
+import { ChevronDown, Settings2, Camera, Brush, LayoutGrid, Box, Layers, Droplets, Film, Sparkles, Leaf, TrendingUp, Wheat, Type, MapPin } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -309,28 +309,37 @@ export function ImageAdvancedOptions({
           </div>
         </div>
 
-        {/* Logo Toggle + Options — all 3 modes */}
+        {/* Logo Toggle + Options — full mode shows auto label, others show manual panel */}
         {brandLogoUrl && (
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-xs text-muted-foreground">Logo overlay</Label>
-                <p className="text-[10px] text-muted-foreground/60">Logo thương hiệu sẽ được đặt lên ảnh ở vị trí bạn chọn.</p>
+            {promptMode === 'full' ? (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/15">
+                <MapPin className="w-4 h-4 text-primary" />
+                <p className="text-xs text-primary/80">AI tự chọn vị trí logo phù hợp theo từng kênh</p>
               </div>
-              <Switch checked={includeLogo} onCheckedChange={onIncludeLogoChange} />
-            </div>
-            {includeLogo && (
-              <LogoOptionsPanel
-                position={logoPosition}
-                onPositionChange={onLogoPositionChange}
-                style={logoStyle}
-                onStyleChange={onLogoStyleChange}
-                size={logoSize}
-                onSizeChange={onLogoSizeChange}
-                opacity={logoOpacity}
-                onOpacityChange={onLogoOpacityChange}
-                logoPreviewUrl={brandLogoUrl}
-              />
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Logo overlay</Label>
+                    <p className="text-[10px] text-muted-foreground/60">Logo thương hiệu sẽ được đặt lên ảnh ở vị trí bạn chọn.</p>
+                  </div>
+                  <Switch checked={includeLogo} onCheckedChange={onIncludeLogoChange} />
+                </div>
+                {includeLogo && (
+                  <LogoOptionsPanel
+                    position={logoPosition}
+                    onPositionChange={onLogoPositionChange}
+                    style={logoStyle}
+                    onStyleChange={onLogoStyleChange}
+                    size={logoSize}
+                    onSizeChange={onLogoSizeChange}
+                    opacity={logoOpacity}
+                    onOpacityChange={onLogoOpacityChange}
+                    logoPreviewUrl={brandLogoUrl}
+                  />
+                )}
+              </>
             )}
           </div>
         )}
