@@ -117,6 +117,24 @@ export function estimateCost(
 }
 
 /**
+ * Estimate cost for image generation (fixed per-request pricing)
+ * @param model - Image model identifier
+ * @returns Estimated cost per image in USD
+ */
+export function estimateImageCost(model: string): number {
+  return IMAGE_MODEL_PRICING[model] || DEFAULT_IMAGE_COST;
+}
+
+/**
+ * Check if a model is an image generation model
+ */
+export function isImageModel(model: string): boolean {
+  return model in IMAGE_MODEL_PRICING || 
+    model.includes('image') || 
+    model.includes('imagen');
+}
+
+/**
  * Estimate total cost across multiple models/channels
  * @param modelsUsed - Map of channel -> model used
  * @param tokenUsage - Map of channel -> { input, output } token counts
