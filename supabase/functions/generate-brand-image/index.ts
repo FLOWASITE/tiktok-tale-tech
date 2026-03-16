@@ -534,7 +534,7 @@ function structuredElementsToPromptText(
 
     // AI Render mode: append structured text instructions to prompt
     if (structuredElements) {
-      const structuredText = structuredElementsToPromptText(structuredElements, structuredColors, structuredTemplate);
+      const structuredText = structuredElementsToPromptText(structuredElements, structuredColors, structuredTemplate, logoSafeZone);
       enhancedPrompt += structuredText;
       console.log(`[generate-brand-image] AI Render mode: appended structured text instructions (${structuredText.length} chars)`);
     }
