@@ -910,7 +910,7 @@ function buildStructuredElement(
             type: 'span',
             props: {
               style: {
-                color: '#FFFFFF',
+                color: getContrastTextColor(ribbonBg),
                 fontSize: ribbonFontSize,
                 fontFamily,
                 fontWeight: 700,
