@@ -3821,7 +3821,7 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       currentPrompt: string, 
       channelsToGenerate: string[],
       modelConfig: { model: string; temperature: number; maxTokens: number | null }
-    ) => {
+    ): Promise<{ parsed: any; usage: { prompt_tokens: number; completion_tokens: number } | null; modelUsed: string }> => {
       const channelTools = buildToolsForChannels(channelsToGenerate);
       const includesWebsite = channelsToGenerate.includes('website');
       const effectiveMaxTokens = modelConfig.maxTokens ?? (includesWebsite ? Math.max(aiConfig.max_tokens, 12288) : aiConfig.max_tokens);
@@ -3861,7 +3861,23 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         throw new Error("Invalid AI response format");
       }
 
-      return JSON.parse(toolCall.function.arguments);
+      // Extract actual token usage from API response
+      const usage = result.data?.usage ? {
+        prompt_tokens: result.data.usage.prompt_tokens || 0,
+        completion_tokens: result.data.usage.completion_tokens || 0,
+      } : null;
+      
+      // Extract actual cost from provider (Lovable Gateway returns upstream_inference_cost)
+      const upstreamCost = result.data?.usage?.cost_details?.upstream_inference_cost;
+      if (usage && upstreamCost) {
+        (usage as any).upstream_cost = upstreamCost;
+      }
+
+      return { 
+        parsed: JSON.parse(toolCall.function.arguments), 
+        usage,
+        modelUsed: result.model || modelConfig.model,
+      };
     };
 
     // ============================================
