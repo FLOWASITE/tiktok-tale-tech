@@ -333,6 +333,7 @@ Trả về CHÍNH XÁC ${count} JSON objects trong array với format sau (KHÔN
     const result = await callAIWithMetrics(supabase, {
       functionName: 'generate-hooks',
       organizationId,
+      userId,
       brandTemplateId,
       channels: platform ? [platform] : undefined,
       messages: [
