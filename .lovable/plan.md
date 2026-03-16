@@ -1,62 +1,49 @@
-## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-### Vấn đề
-Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-### Đã sửa (3 files)
-1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
-2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
+# Nguyên nhân: duy@gmail.com thấy bài viết của flowasite@gmail.com
 
----
+## Phân tích
 
-## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
+Cả hai tài khoản đều thuộc cùng tổ chức **"Công ty CP Công nghệ Flowa"** (`bccfec38-...`):
+- `flowasite@gmail.com` — role: **owner**
+- `duy@gmail.com` — role: **member**
 
-### Vấn đề
-AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
+RLS policy `Users can view org multi_channel_contents` cho phép **mọi member trong org** xem tất cả content của org đó. Đây là **đúng thiết kế** cho teamwork.
 
-### Đã sửa (3 files)
-1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
-2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
+**Tuy nhiên**, query trong `useMultiChannelContents.ts` (dòng 87-90) **không filter theo organization_id**:
+```typescript
+const { data, error } = await supabase
+  .from('multi_channel_contents')
+  .select('*')
+  .order('created_at', { ascending: false });
+// ← Không có .eq('organization_id', ...)
+```
 
----
+Kết quả: Khi duy@ đang ở org riêng ("Thùy Nguyễn's Workspace"), vẫn thấy content từ org chung "Công ty CP Công nghệ Flowa" — vì RLS cho phép và query không lọc.
 
-## Feature: Regenerate sử dụng Core Content — đã sửa
+## Giải pháp
 
-### Vấn đề
-Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
+**Filter theo `currentOrganization.id`** trong query fetch, giống cách các hook khác đã làm (ví dụ `ContentCalendar.tsx` dòng 334).
 
-### Đã sửa (1 file)
-1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
+### Sửa `src/hooks/useMultiChannelContents.ts`
 
----
+Thêm filter `organization_id` dựa trên org đang chọn:
 
-## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
+```typescript
+// Thêm import useOrganizationContext
+// Trong fetchContents:
+const { data, error } = await supabase
+  .from('multi_channel_contents')
+  .select('*')
+  .eq('organization_id', currentOrganization.id)  // ← Thêm filter
+  .order('created_at', { ascending: false });
+```
 
-### Vấn đề
-1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
-2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
-3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
+Cần thêm `currentOrganization` vào dependency của `useEffect` để refetch khi user switch org.
 
-### Đã sửa (4 files)
-1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
-2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
-3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
-4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
+### Scope thay đổi
+- **1 file**: `src/hooks/useMultiChannelContents.ts`
+- Thêm `useOrganizationContext()` hook
+- Filter query theo `currentOrganization.id`
+- Refetch khi org thay đổi
 
----
-
-## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
-
-### Vấn đề
-Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
-
-### Đã sửa (6 files + 2 edge functions)
-1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
-2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
-3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
-4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
-5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
-6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
-7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
