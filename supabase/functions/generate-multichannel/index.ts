@@ -845,12 +845,12 @@ function getAdaptiveFormatDescription(channel: string, brandAllowEmoji: boolean)
   
   // EMOJI MODE: Standard format
   const emojiFormats: Record<string, string> = {
-    facebook: 'Hook emoji+**bold**, emoji bullets (✅💡⚡📌➡️), đoạn ngắn, CTA cuối',
-    instagram: 'Hook emoji (🔥✨💫), xuống dòng, emoji điểm nhấn (≤5), hashtag cuối, CTA nhẹ',
-    linkedin: 'Hook insight, đoạn 2-3 dòng, bullets →/•, **bold**, emoji tiết chế (1-2), 3 hashtag',
-    youtube: 'HOOK(0-5s)-INTRO(5-15s)-CONTENT(3-5 segments)-CTA(Sub+Like)-OUTRO, emoji bullets',
-    tiktok: 'Hook 3s (❓🔥💥), 3-5 điểm, emoji bullets, **bold** action, CTA📲',
-    threads: 'Quan điểm rõ, 2-3 đoạn, emoji tiết chế, câu hỏi kết',
+    facebook: 'Hook emoji+**bold**, emoji bullets ĐA DẠNG theo chủ đề (KHÔNG lặp 🎯⚡💡🔥 - chọn emoji liên quan nội dung), đoạn ngắn, CTA cuối',
+    instagram: 'Hook emoji sáng tạo theo chủ đề, xuống dòng, emoji điểm nhấn đa dạng (≤5, KHÔNG lặp lại), hashtag cuối, CTA nhẹ',
+    linkedin: 'Hook insight, đoạn 2-3 dòng, bullets →/•, **bold**, emoji tiết chế (1-2, phù hợp ngữ cảnh), 3 hashtag',
+    youtube: 'HOOK(0-5s)-INTRO(5-15s)-CONTENT(3-5 segments)-CTA(Sub+Like)-OUTRO, emoji bullets đa dạng theo nội dung',
+    tiktok: 'Hook 3s + emoji phù hợp chủ đề, 3-5 điểm, emoji bullets sáng tạo, **bold** action, CTA',
+    threads: 'Quan điểm rõ, 2-3 đoạn, emoji tiết chế phù hợp ngữ cảnh, câu hỏi kết',
   };
   return emojiFormats[channel] || DEFAULT_CHANNEL_SETTINGS[channel]?.format_description || '';
 }
