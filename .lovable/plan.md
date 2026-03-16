@@ -1,44 +1,58 @@
 
 
-## Kiểm tra: Gợi ý Layout & Text khi tạo ảnh
+## Phân tích: Tại sao Layout ảnh chỉ có 1 kiểu duy nhất (infographic)
 
-### Kết quả phân tích
-
-Code hiện tại **đã được triển khai đúng** theo cả 3 plan trước đó. Không phát hiện bug logic.
-
-### Flow hoạt động hiện tại
+### Bằng chứng từ Console Logs
 
 ```text
-1. getFullChannelContent() → lấy ~2000 chars nội dung bài viết
-2. decomposeRequestWithAI() gửi đến Edge Function với context:
-   - contentRole (seed/sprout/harvest)
-   - contentGoal (awareness/education/conversion)
-   - contentAngle (educational/storytelling/promotional...)
-   - topic
-3. Edge Function (decompose-image-request):
-   - System prompt chứa CHIẾN LƯỢC CHỌN LAYOUT chi tiết
-   - AI trả về: suggestedLayout + backgroundPrompt + overlayConfig
-   - Ví dụ: education/sprout → "infographic", awareness/seed → "quote_card"
-4. Frontend (SimpleImageGenerator):
-   - Auto mode: ưu tiên AI suggestedLayout → fallback heuristic
-   - applyTemplate() áp dụng layout + đảm bảo required slots
-   - Layout mapping: infographic→split, poster→stack, quote_card→hero_text, feature_list→banner_cards
+[AutoTemplate] Selected: infographic suggestedLayout: undefined from overlayTemplate: auto
+[HybridImageGen] contentRole: undefined, contentGoal: "engagement"
+[HybridImageGen] contentRole: undefined, contentGoal: "education"
 ```
 
-### Không có vấn đề nào trong code
+Mọi ảnh đều chọn `infographic` — không phân biệt goal hay nội dung.
 
-- **Layout selection**: AI suggestedLayout được ưu tiên đúng khi auto mode (line 457-459)
-- **Template application**: `applyTemplate` trả về đúng layout type từ template definition (line 456)
-- **Text content**: AI nhận đủ 2000 chars + strategic context để tạo text phù hợp
-- **Fallback**: Regex decomposition + heuristic `autoSelectTemplate` vẫn hoạt động khi AI fail
+### 2 nguyên nhân gốc rễ
 
-### Khuyến nghị
+**Bug 1: `contentRole` luôn là `undefined`**
 
-Hiện tại chưa có log nào từ Edge Function hoặc Console (chưa trigger tạo ảnh). Để kiểm tra thực tế, bạn cần:
+Database xác nhận `content_role = NULL` cho tất cả bản ghi `multi_channel_contents`. Edge Function `generate-multichannel` không lưu `content_role` khi tạo bài viết. Kết quả: Edge Function `decompose-image-request` không nhận được context chiến lược → AI không có cơ sở để chọn layout khác nhau.
 
-1. **Tạo thử 1 bài giáo dục** (education/sprout) → kiểm tra AI có chọn `infographic` không
-2. **Tạo thử 1 bài bán hàng** (conversion/harvest) → kiểm tra AI có chọn `poster` không
-3. Mở Console (F12) → tìm log `[AutoTemplate]` và `[HybridImageGen]` để xem suggestedLayout
+**Bug 2: System prompt ép AI "LUÔN tạo đúng 4 thẻ"**
 
-Bạn muốn tôi test trực tiếp trên preview không?
+File `decompose-image-request/index.ts` line 151:
+> `cards: LUÔN tạo đúng 4 thẻ tóm tắt các điểm chính`
+
+AI luôn trả về 4 cards → fallback `autoSelectTemplate` luôn match rule `4+ cards → infographic`. Ngay cả khi `suggestedLayout` trả về đúng (ví dụ `quote_card`), AI vẫn tạo 4 cards → `applyTemplate('quote_card')` nhận cards không cần thiết.
+
+### Kế hoạch sửa
+
+#### 1. Lưu `content_role` khi tạo bài viết
+**File:** `supabase/functions/generate-multichannel/index.ts`
+
+Khi tạo/lưu multi_channel_contents, thêm `content_role` từ form data vào record.
+
+#### 2. Sửa system prompt — không ép 4 cards
+**File:** `supabase/functions/decompose-image-request/index.ts`
+
+Thay:
+> `cards: LUÔN tạo đúng 4 thẻ...`
+
+Thành:
+> `cards: Tạo 3-4 thẻ CHỈ KHI nội dung có nhiều điểm chính (giáo dục, liệt kê). KHÔNG tạo cards cho nội dung cảm xúc/storytelling/quote.`
+
+#### 3. Thêm `content_role` vào TypeScript interface
+**File:** `src/types/multichannel.ts`
+
+Thêm 2 field missing: `content_role: string | null` và `content_angle: string | null` (DB đã có `content_role`, không có `content_angle` nhưng cần cho tương lai).
+
+#### 4. Fetch `content_role` từ Core Content nếu bản ghi chính thiếu
+**File:** `src/components/multichannel/SimpleImageGenerator.tsx`
+
+Khi `content.content_role` là null và `content.core_content_id` tồn tại → fetch `content_role` từ `core_contents` table.
+
+### Tác động
+- 4 files sửa
+- Sau fix: AI sẽ chọn layout đa dạng dựa trên content_role + content_goal thực tế
+- Không breaking change — fallback vẫn hoạt động
 
