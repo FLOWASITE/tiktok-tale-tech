@@ -12,6 +12,21 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Copy, Check, Images, MessageSquare, Megaphone, Download, Sparkles, Loader2, ImageIcon, TrendingUp } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
