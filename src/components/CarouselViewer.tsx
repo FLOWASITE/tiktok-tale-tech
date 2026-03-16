@@ -241,7 +241,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
       const { error } = await supabase
         .from('carousels')
         .update({
-          slides_content: updatedSlides as unknown as Record<string, unknown>[],
+          slides_content: JSON.parse(JSON.stringify(updatedSlides)),
           updated_at: new Date().toISOString(),
         })
         .eq('id', carousel.id);
