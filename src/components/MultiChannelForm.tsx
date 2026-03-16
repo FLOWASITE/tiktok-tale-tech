@@ -455,7 +455,7 @@ export function MultiChannelForm({ onSubmit, isLoading, initialTopic, initialGoa
                 id="topic"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value.slice(0, 500))}
-                placeholder="VD: Cách tối ưu thuế cho doanh nghiệp nhỏ trong năm 2024"
+                placeholder="Nhập chủ đề bạn muốn viết, VD: Skincare mùa hè, Mẹo tiết kiệm chi phí... hoặc mô tả ý tưởng để AI hỗ trợ"
                 className="min-h-[80px] xs:min-h-[100px] resize-y text-sm xs:text-base"
                 disabled={isLoading}
               />
