@@ -636,6 +636,7 @@ function buildStructuredElement(
     if (isNumericHero) {
       // Hero Number Circle: large styled circle with number inside
       const circleDiameter = Math.round(imageWidth * 0.15);
+      const circleTextColor = getContrastTextColor(colors.primary);
       children.push({
         type: 'div',
         props: {
@@ -664,17 +665,83 @@ function buildStructuredElement(
                 type: 'span',
                 props: {
                   style: {
-                    color: '#FFFFFF',
-                    fontSize: Math.round(circleDiameter * 0.6),
+                    color: circleTextColor,
+                    fontSize: fitTextToWidth(heroTrimmed, circleDiameter * 0.7, Math.round(circleDiameter * 0.6), 16),
                     fontFamily,
                     fontWeight: 700,
                     textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
                   },
-                  children: elements.heroText.text.trim(),
+                  children: heroTrimmed,
                 },
               },
             },
           },
+        },
+      });
+    } else if (splitHeroMatch) {
+      // Split hero: number in circle + side label (e.g. "3 THAY ĐỔI")
+      const circleNum = splitHeroMatch[1];
+      const sideLabel = splitHeroMatch[2];
+      const circleDiameter = Math.round(imageWidth * 0.12);
+      const circleTextColor = getContrastTextColor(colors.primary);
+      const sideFontSize = fitTextToWidth(sideLabel, imageWidth * 0.45, Math.round(imageWidth * 0.05), 16);
+      children.push({
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 16,
+            padding: '20px',
+            flexGrow: 1,
+          },
+          children: [
+            {
+              type: 'div',
+              props: {
+                style: {
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: circleDiameter,
+                  height: circleDiameter,
+                  borderRadius: circleDiameter / 2,
+                  background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary || colors.primary}cc)`,
+                  boxShadow: `0 8px 32px ${colors.primary}88, 0 4px 16px rgba(0,0,0,0.3)`,
+                  border: `3px solid rgba(255,255,255,0.3)`,
+                  flexShrink: 0,
+                },
+                children: {
+                  type: 'span',
+                  props: {
+                    style: {
+                      color: circleTextColor,
+                      fontSize: Math.round(circleDiameter * 0.55),
+                      fontFamily,
+                      fontWeight: 700,
+                    },
+                    children: circleNum,
+                  },
+                },
+              },
+            },
+            {
+              type: 'span',
+              props: {
+                style: {
+                  color: colors.primary,
+                  fontSize: sideFontSize,
+                  fontFamily,
+                  fontWeight: 700,
+                  textShadow: theme.heroTextShadow,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.02em',
+                },
+                children: sideLabel,
+              },
+            },
+          ],
         },
       });
     } else {
