@@ -13,6 +13,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const traceId = generateTraceId();
+  const startTime = performance.now();
+
   try {
     const { prompt, carouselId, slideNumber, textContent, brandColors, platform } = await req.json();
 
