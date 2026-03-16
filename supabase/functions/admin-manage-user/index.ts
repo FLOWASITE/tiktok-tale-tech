@@ -117,6 +117,8 @@ Deno.serve(async (req) => {
             .eq("user_id", newUser.user.id);
         }
 
+        await auditLog("create_user", newUser.user?.id || null, { email, full_name, role, plan_type });
+
         return new Response(
           JSON.stringify({ success: true, user: newUser.user }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
