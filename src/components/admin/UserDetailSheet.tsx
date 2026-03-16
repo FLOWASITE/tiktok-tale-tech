@@ -39,6 +39,7 @@ import {
   RotateCcw,
   Save,
   ShieldCheck,
+  KeyRound,
 } from "lucide-react";
 import type { AdminUser } from "@/hooks/useAdmin";
 

@@ -181,6 +181,38 @@ Deno.serve(async (req) => {
         );
       }
 
+      case "reset_password": {
+        const { user_id, new_password } = body;
+        if (!user_id || !new_password) {
+          return new Response(
+            JSON.stringify({ error: "user_id and new_password required" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        if (new_password.length < 6) {
+          return new Response(
+            JSON.stringify({ error: "Password must be at least 6 characters" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { error: resetError } =
+          await serviceClient.auth.admin.updateUserById(user_id, { password: new_password });
+
+        if (resetError) {
+          return new Response(JSON.stringify({ error: resetError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       case "reset_usage": {
         const { user_id } = body;
         if (!user_id) {
