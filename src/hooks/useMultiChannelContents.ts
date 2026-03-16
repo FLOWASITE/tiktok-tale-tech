@@ -77,7 +77,7 @@ export function useMultiChannelContents() {
   const [approvingContent, setApprovingContent] = useState(false);
 
   const fetchContents = async () => {
-    if (!user) {
+    if (!user || !currentOrganization) {
       setContents([]);
       setLoading(false);
       return;
@@ -87,6 +87,7 @@ export function useMultiChannelContents() {
       const { data, error } = await supabase
         .from('multi_channel_contents')
         .select('*')
+        .eq('organization_id', currentOrganization.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -911,7 +912,7 @@ export function useMultiChannelContents() {
 
   useEffect(() => {
     fetchContents();
-  }, [user]);
+  }, [user, currentOrganization?.id]);
 
   // Expand channels - add new channels to existing content
   const [expandingChannels, setExpandingChannels] = useState(false);
