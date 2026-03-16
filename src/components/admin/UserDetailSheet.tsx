@@ -67,6 +67,7 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
   const [usage, setUsage] = useState<UsageSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
 
   // Subscription edit state
   const [editPlan, setEditPlan] = useState<"free" | "starter" | "pro" | "enterprise">("free");
