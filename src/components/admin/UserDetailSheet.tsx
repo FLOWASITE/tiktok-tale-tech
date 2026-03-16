@@ -281,7 +281,7 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Plan</Label>
-                  <Select value={editPlan} onValueChange={setEditPlan}>
+                  <Select value={editPlan} onValueChange={(v) => setEditPlan(v as typeof editPlan)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
