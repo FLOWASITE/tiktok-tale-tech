@@ -49,6 +49,7 @@ import type { ChannelKey, ContentGoal, ContentAngle, ContentRole, Industry } fro
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { LogoPosition, LogoStyle } from './LogoOptionsPanel';
+import { NEGATIVE_PROMPT_DEFAULTS } from '@/lib/imagePromptDefaults';
 
 // Map frontend Channel to V3 ChannelKey
 function toChannelKey(ch: Channel): ChannelKey {
@@ -210,7 +211,8 @@ export function SimpleImageGenerator({
   const [logoOpacity, setLogoOpacity] = useState(100);
   const [textPosition, setTextPosition] = useState<TextPosition>('center');
   const [typographyStyle, setTypographyStyle] = useState<TypographyStyle>('modern');
-  const [negativePrompt, setNegativePrompt] = useState('');
+  const [negativePrompt, setNegativePrompt] = useState(NEGATIVE_PROMPT_DEFAULTS['full']);
+  const [isNegativePromptCustomized, setIsNegativePromptCustomized] = useState(false);
   const [promptMode, setPromptMode] = useState<PromptMode>('full');
   const [v3Suggestions, setV3Suggestions] = useState<SuggestionV3[]>([]);
 
@@ -392,6 +394,12 @@ export function SimpleImageGenerator({
       setOverlayMode('satori');
     }
   }, [promptMode]);
+
+  useEffect(() => {
+    if (!isNegativePromptCustomized) {
+      setNegativePrompt(NEGATIVE_PROMPT_DEFAULTS[promptMode]);
+    }
+  }, [promptMode, isNegativePromptCustomized]);
 
   // Build structured overlay AND background prompt from content when hybrid mode is active
   // V2: Uses AI decomposition (Gemini Flash) with regex fallback
@@ -912,7 +920,7 @@ export function SimpleImageGenerator({
         onTypographyStyleChange={setTypographyStyle}
         textPreview={textToInclude}
         negativePrompt={negativePrompt}
-        onNegativePromptChange={setNegativePrompt}
+        onNegativePromptChange={(val) => { setNegativePrompt(val); setIsNegativePromptCustomized(true); }}
         contentRole={contentRole}
         contentAngle={contentAngle}
         selectedChannels={selectedChannels}
