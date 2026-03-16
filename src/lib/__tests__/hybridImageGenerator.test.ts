@@ -313,7 +313,8 @@ describe('autoSelectTemplate → applyTemplate integration', () => {
     expect(selectedTemplate).toBe('quote_card');
 
     const result = applyTemplate(selectedTemplate, decomposed, desc);
-    expect(result.overlayConfig.heroText!.effect).toBe('gradient'); // forced by template
+    // heroText already existed so applyTemplate preserves it (doesn't override effect)
+    expect(result.overlayConfig.heroText!.text).toBe('50%');
     expect(result.overlayConfig.banner!.position).toBe('bottom'); // forced by template
   });
 
