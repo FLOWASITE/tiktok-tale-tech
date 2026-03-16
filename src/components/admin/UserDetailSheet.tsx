@@ -77,23 +77,40 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
     setEditPlan(user.subscription?.plan_type || "free");
     setEditStatus(user.subscription?.status || "active");
     setEditEndDate(user.subscription?.current_period_end?.split("T")[0] || "");
-    fetchDetails(user.id);
+    fetchDetails(user.id, user.subscription);
   }, [user, open]);
 
-  async function fetchDetails(userId: string) {
+  async function fetchDetails(
+    userId: string,
+    subscription: AdminUser["subscription"]
+  ) {
     setLoading(true);
     try {
+      // Build usage query filtered by current subscription period
+      let usageQuery = supabase
+        .from("usage_logs")
+        .select("usage_type")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      if (subscription?.current_period_end) {
+        // Derive period start from subscription or fallback 30 days
+        const periodStart = subscription.current_period_end
+          ? new Date(new Date(subscription.current_period_end).getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+          : undefined;
+        if (periodStart) {
+          usageQuery = usageQuery.gte("created_at", periodStart);
+        }
+        usageQuery = usageQuery.lte("created_at", subscription.current_period_end);
+      }
+
       const [orgRes, usageRes] = await Promise.all([
         supabase
           .from("organization_members")
           .select("organization_id, role, joined_at, organization:organizations(name, slug)")
           .eq("user_id", userId),
-        supabase
-          .from("usage_logs")
-          .select("usage_type")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(500),
+        usageQuery,
       ]);
 
       if (orgRes.data) {

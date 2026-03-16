@@ -1,46 +1,62 @@
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-## Hoàn thiện chức năng quản trị User
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-Sau khi rà soát toàn bộ code, hệ thống admin users đã có nền tảng tốt nhưng cần hoàn thiện các điểm sau:
+---
 
-### Vấn đề hiện tại
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-| # | Vấn đề | Mức độ |
-|---|--------|--------|
-| 1 | **Edge function dùng `getClaims()` không tồn tại** trong Supabase JS client — sẽ lỗi runtime. Cần đổi sang `getUser()` | Critical |
-| 2 | **Admin check trong edge function dùng anonClient** — RLS có thể chặn query `user_roles`. Cần dùng serviceClient để check admin | Critical |
-| 3 | **Không có sort columns** trong bảng users (click header để sort theo email, date, plan) | UX |
-| 4 | **Không hiển thị trạng thái ban** — user bị ban không có indicator nào trên bảng | UX |
-| 5 | **Responsive kém** trên viewport 707px — stats cards 4 cột bị chật, bảng thiếu horizontal scroll | UX |
-| 6 | **Usage trong detail sheet lấy tất cả** thay vì chỉ current period | Data accuracy |
-| 7 | **Thiếu loading/feedback khi export CSV** với dataset lớn | Minor |
-| 8 | **Thiếu bulk actions** — chọn nhiều user để ban/change plan cùng lúc | Feature gap |
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-### Kế hoạch triển khai (1 lần)
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-#### 1. Fix edge function `admin-manage-user`
-- Thay `getClaims()` bằng `getUser()` để lấy caller ID
-- Dùng `serviceClient` thay vì `anonClient` để check admin role (tránh RLS block)
+---
 
-#### 2. Cải thiện bảng users
-- Thêm sortable columns (click header → sort asc/desc) cho Name, Role, Plan, Date
-- Hiển thị badge "Banned" cho user bị ban (cần thêm field vào AdminUser interface — fetch từ edge function hoặc kiểm tra metadata)
-- Responsive: dùng `overflow-x-auto` cho bảng, stats cards `grid-cols-2` trên mobile
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-#### 3. Fix usage query trong UserDetailSheet
-- Lọc usage_logs theo `current_period_start` và `current_period_end` của subscription thay vì lấy toàn bộ
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-#### 4. Thêm bulk actions
-- Checkbox select trên mỗi row + "Select All"
-- Floating action bar khi có items selected: Ban, Change Plan, Export Selected
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-### Files thay đổi
+---
 
-| File | Thay đổi |
-|---|---|
-| `supabase/functions/admin-manage-user/index.ts` | Fix auth (getUser thay getClaims), dùng serviceClient check admin |
-| `src/pages/AdminUsers.tsx` | Sortable columns, responsive, bulk select UI |
-| `src/components/admin/UserDetailSheet.tsx` | Fix usage query theo current period |
-| `src/hooks/useAdmin.ts` | Thêm sort state support |
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
+
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
+
+---
+
+## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
+
+### Vấn đề
+Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
+
+### Đã sửa (6 files + 2 edge functions)
+1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
+2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
+3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
+4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
+5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
+6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
+7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon

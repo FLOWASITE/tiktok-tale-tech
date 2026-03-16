@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useAdmin } from "@/hooks/useAdmin";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -34,14 +35,24 @@ import {
   Download,
   ChevronLeft,
   ChevronRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Ban,
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { UserDetailSheet } from "@/components/admin/UserDetailSheet";
 import { CreateUserDialog } from "@/components/admin/CreateUserDialog";
+import { BrandBulkActionsBar } from "@/components/BrandBulkActionsBar";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import type { AdminUser } from "@/hooks/useAdmin";
 
 const PAGE_SIZE = 20;
+
+type SortField = "name" | "role" | "plan" | "date";
+type SortDir = "asc" | "desc";
 
 export default function AdminUsers() {
   const {
@@ -61,13 +72,32 @@ export default function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [sortField, setSortField] = useState<SortField>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
   };
 
-  const filteredUsers = useMemo(() => {
-    return users.filter((user) => {
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-40" />;
+    return sortDir === "asc"
+      ? <ArrowUp className="h-3 w-3 ml-1" />
+      : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
+
+  const filteredAndSortedUsers = useMemo(() => {
+    const filtered = users.filter((user) => {
       const matchesSearch =
         user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (user.full_name?.toLowerCase() || "").includes(searchQuery.toLowerCase());
@@ -76,23 +106,76 @@ export default function AdminUsers() {
         planFilter === "all" || user.subscription?.plan_type === planFilter;
       return matchesSearch && matchesRole && matchesPlan;
     });
-  }, [users, searchQuery, roleFilter, planFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
-  const paginatedUsers = filteredUsers.slice(
+    filtered.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case "name":
+          cmp = (a.full_name || a.email).localeCompare(b.full_name || b.email);
+          break;
+        case "role":
+          cmp = a.role.localeCompare(b.role);
+          break;
+        case "plan":
+          cmp = (a.subscription?.plan_type || "free").localeCompare(b.subscription?.plan_type || "free");
+          break;
+        case "date":
+          cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return filtered;
+  }, [users, searchQuery, roleFilter, planFilter, sortField, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredAndSortedUsers.length / PAGE_SIZE));
+  const paginatedUsers = filteredAndSortedUsers.slice(
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE
   );
 
-  // Reset page when filters change
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
     setCurrentPage(1);
   };
 
-  function exportCSV() {
+  // Bulk selection
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(filteredAndSortedUsers.map((u) => u.id)));
+  }, [filteredAndSortedUsers]);
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
+  async function bulkBan() {
+    const ids = Array.from(selectedIds);
+    let success = 0;
+    for (const id of ids) {
+      try {
+        const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+          body: { action: "ban_user", user_id: id, ban: true },
+        });
+        if (!error && !data?.error) success++;
+      } catch {}
+    }
+    toast.success(`Đã ban ${success}/${ids.length} users`);
+    clearSelection();
+    refetch();
+  }
+
+  function exportCSV(subset?: AdminUser[]) {
+    const data = subset || filteredAndSortedUsers;
     const headers = ["Email", "Name", "Role", "Plan", "Status", "Created At"];
-    const rows = filteredUsers.map((u) => [
+    const rows = data.map((u) => [
       u.email,
       u.full_name || "",
       u.role,
@@ -108,6 +191,7 @@ export default function AdminUsers() {
     a.download = `users-export-${format(new Date(), "yyyyMMdd")}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+    toast.success(`Đã export ${data.length} users`);
   }
 
   const planColors: Record<string, string> = {
@@ -133,18 +217,18 @@ export default function AdminUsers() {
 
   return (
     <div className="container py-8 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-blue-500/10">
             <Users className="h-6 w-6 text-blue-500" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold">User Management</h1>
-            <p className="text-muted-foreground">Quản lý users, roles và subscriptions</p>
+            <h1 className="text-2xl sm:text-3xl font-bold">User Management</h1>
+            <p className="text-muted-foreground text-sm">Quản lý users, roles và subscriptions</p>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={exportCSV}>
+          <Button variant="outline" size="sm" onClick={() => exportCSV()}>
             <Download className="h-4 w-4 mr-1" />
             Export CSV
           </Button>
@@ -156,7 +240,7 @@ export default function AdminUsers() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Tổng Users</CardTitle>
@@ -172,7 +256,7 @@ export default function AdminUsers() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Subscriptions Active</CardTitle>
+            <CardTitle className="text-sm font-medium">Subs Active</CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -215,7 +299,7 @@ export default function AdminUsers() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {Object.entries(stats?.usersByPlan || {}).map(([plan, count]) => (
               <div key={plan} className="text-center p-4 rounded-lg bg-muted/50">
                 <div className="text-2xl font-bold">{count as number}</div>
@@ -282,22 +366,58 @@ export default function AdminUsers() {
               ))}
             </div>
           ) : (
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Plan</TableHead>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={paginatedUsers.length > 0 && paginatedUsers.every((u) => selectedIds.has(u.id))}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              paginatedUsers.forEach((u) => next.add(u.id));
+                              return next;
+                            });
+                          } else {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              paginatedUsers.forEach((u) => next.delete(u.id));
+                              return next;
+                            });
+                          }
+                        }}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <button className="flex items-center hover:text-foreground transition-colors" onClick={() => handleSort("name")}>
+                        User <SortIcon field="name" />
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button className="flex items-center hover:text-foreground transition-colors" onClick={() => handleSort("role")}>
+                        Role <SortIcon field="role" />
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button className="flex items-center hover:text-foreground transition-colors" onClick={() => handleSort("plan")}>
+                        Plan <SortIcon field="plan" />
+                      </button>
+                    </TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Ngày tham gia</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>
+                      <button className="flex items-center hover:text-foreground transition-colors" onClick={() => handleSort("date")}>
+                        Ngày tham gia <SortIcon field="date" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-right">Info</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         Không tìm thấy user nào
                       </TableCell>
                     </TableRow>
@@ -306,8 +426,15 @@ export default function AdminUsers() {
                       <TableRow
                         key={user.id}
                         className="cursor-pointer hover:bg-muted/50"
+                        data-state={selectedIds.has(user.id) ? "selected" : undefined}
                         onClick={() => { setSelectedUser(user); setDetailOpen(true); }}
                       >
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.has(user.id)}
+                            onCheckedChange={() => toggleSelect(user.id)}
+                          />
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <Avatar className="h-8 w-8">
@@ -316,9 +443,9 @@ export default function AdminUsers() {
                                 {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
-                              <p className="font-medium">{user.full_name || "—"}</p>
-                              <p className="text-sm text-muted-foreground">{user.email}</p>
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{user.full_name || "—"}</p>
+                              <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                             </div>
                           </div>
                         </TableCell>
@@ -333,7 +460,7 @@ export default function AdminUsers() {
                             }
                             disabled={isUpdating}
                           >
-                            <SelectTrigger className="w-[120px]">
+                            <SelectTrigger className="w-[100px]">
                               <Badge className={roleColors[user.role]}>{user.role}</Badge>
                             </SelectTrigger>
                             <SelectContent>
@@ -354,7 +481,7 @@ export default function AdminUsers() {
                             }
                             disabled={isUpdating}
                           >
-                            <SelectTrigger className="w-[120px]">
+                            <SelectTrigger className="w-[110px]">
                               <Badge className={planColors[user.subscription?.plan_type || "free"]}>
                                 {user.subscription?.plan_type || "free"}
                               </Badge>
@@ -375,14 +502,14 @@ export default function AdminUsers() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground whitespace-nowrap">
                             <Calendar className="h-3 w-3" />
                             {format(new Date(user.created_at), "dd/MM/yyyy", { locale: vi })}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
                           {user.subscription?.current_period_end && (
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
                               Hết hạn: {format(new Date(user.subscription.current_period_end), "dd/MM/yyyy")}
                             </span>
                           )}
@@ -398,7 +525,7 @@ export default function AdminUsers() {
           {/* Pagination */}
           <div className="mt-4 flex items-center justify-between">
             <span className="text-sm text-muted-foreground">
-              Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredUsers.length)} / {filteredUsers.length} users
+              Hiển thị {Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredAndSortedUsers.length)}–{Math.min(currentPage * PAGE_SIZE, filteredAndSortedUsers.length)} / {filteredAndSortedUsers.length} users
             </span>
             <div className="flex items-center gap-2">
               <Button
@@ -424,6 +551,19 @@ export default function AdminUsers() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Bulk Actions Bar */}
+      <BrandBulkActionsBar
+        selectedCount={selectedIds.size}
+        totalCount={filteredAndSortedUsers.length}
+        onSelectAll={selectAll}
+        onClearSelection={clearSelection}
+        onBulkDelete={bulkBan}
+        onBulkExport={() => {
+          const selected = filteredAndSortedUsers.filter((u) => selectedIds.has(u.id));
+          exportCSV(selected);
+        }}
+      />
 
       {/* Dialogs */}
       <UserDetailSheet
