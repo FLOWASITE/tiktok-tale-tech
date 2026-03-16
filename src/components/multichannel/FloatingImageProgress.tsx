@@ -27,6 +27,7 @@ export function FloatingImageProgress({
   onRestore,
   onDismiss,
 }: FloatingImageProgressProps) {
+  const isMobile = useIsMobile();
   const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const statusIcon = isComplete
@@ -41,7 +42,7 @@ export function FloatingImageProgress({
       : `${completedCount} ảnh hoàn tất ✓`
     : `Đang tạo ảnh ${completedCount}/${totalCount}...`;
 
-  return (
+  const content = (
     <AnimatePresence>
       {visible && (
         <motion.div
@@ -49,7 +50,12 @@ export function FloatingImageProgress({
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="fixed bottom-4 right-4 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-card shadow-2xl"
+          className={cn(
+            "fixed z-[60] rounded-xl border border-border bg-card shadow-2xl",
+            isMobile
+              ? "bottom-20 left-3 right-3"
+              : "bottom-4 right-4 w-80 max-w-[calc(100vw-2rem)]"
+          )}
         >
           {/* Header */}
           <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/50">
