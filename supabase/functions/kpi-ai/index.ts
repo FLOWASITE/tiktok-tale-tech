@@ -731,6 +731,9 @@ serve(async (req) => {
     const body = await req.json();
     const { action, ...data } = body;
 
+    // Resolve userId for cost tracking
+    const userId = await resolveUserId(req, supabase);
+
     console.log('KPI-AI request:', { action });
 
     switch (action) {
