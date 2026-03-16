@@ -557,6 +557,10 @@ function buildStructuredElement(
           justifyContent: 'center',
           padding: '20px',
           flexGrow: 1,
+          ...(logoInCenterArea && logoMeta ? {
+            paddingLeft: logoMeta.position === 'center-left' || logoMeta.position === 'center' ? logoSafeWidth : 20,
+            paddingRight: logoMeta.position === 'center-right' || logoMeta.position === 'center' ? logoSafeWidth : 20,
+          } : {}),
         },
         children: {
           type: 'span',
