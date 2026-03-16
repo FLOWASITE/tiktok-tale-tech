@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
+import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext } from "../_shared/country-language-map.ts";
 
