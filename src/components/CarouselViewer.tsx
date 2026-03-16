@@ -122,22 +122,20 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
   const { images: savedImages, loading: loadingImages, saveImage, deleteImage: deleteSavedImage, getImageForSlide: getSavedImage } = useCarouselImages(carousel?.id || null);
 
   // Sync saved images into generatedImages state on load
-  const [synced, setSynced] = useState(false);
+  const [syncedCarouselId, setSyncedCarouselId] = useState<string | null>(null);
   
-  // When saved images load, populate the in-memory state
-  if (!loadingImages && savedImages.length > 0 && !synced) {
-    const mapped = savedImages.map(img => ({
-      slideNumber: img.slide_number,
-      imageUrl: img.image_url,
-      generatedAt: img.created_at || new Date().toISOString(),
-    }));
-    setImages(mapped);
-    setSynced(true);
-  }
+  useEffect(() => {
+    if (!loadingImages && savedImages.length > 0 && carousel?.id && syncedCarouselId !== carousel.id) {
+      const mapped = savedImages.map(img => ({
+        slideNumber: img.slide_number,
+        imageUrl: img.image_url,
+        generatedAt: img.created_at || new Date().toISOString(),
+      }));
+      setImages(mapped);
+      setSyncedCarouselId(carousel.id);
+    }
+  }, [loadingImages, savedImages, carousel?.id, syncedCarouselId, setImages]);
 
-  // Reset sync flag when carousel changes
-  const carouselIdRef = carousel?.id;
-  
   // Fetch creator profile
   const { profiles, isLoading: isLoadingProfile } = useCreatorProfiles([carousel?.user_id]);
   const creatorProfile = carousel?.user_id ? profiles[carousel.user_id] : undefined;
