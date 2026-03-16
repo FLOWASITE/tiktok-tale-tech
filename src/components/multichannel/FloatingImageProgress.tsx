@@ -47,7 +47,7 @@ export function FloatingImageProgress({
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="w-full rounded-xl border border-border bg-card shadow-xl"
+          className="fixed bottom-4 right-4 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-card shadow-2xl"
         >
           {/* Header */}
           <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/50">
