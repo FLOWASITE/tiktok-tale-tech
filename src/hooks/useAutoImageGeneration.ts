@@ -316,10 +316,17 @@ export function useAutoImageGeneration() {
         }
 
         // Step 4: Structured multi-block overlay (for complex infographics)
-        // This is the FINAL step — outputs SVG, no further raster processing needed
         // Skip in ai_render mode (AI already rendered text directly)
         if (structuredOverlay && !isAiRenderMode) {
-          console.log(`[useAutoImageGeneration] Applying structured overlay for ${channel}`);
+          const step4Start = Date.now();
+          console.log(`[Pipeline:${channel}] ▶ STEP 4/4 — Structured overlay (Satori)`, {
+            layout: structuredOverlay.layout,
+            hasBanner: !!structuredOverlay.elements.banner,
+            hasHeroText: !!structuredOverlay.elements.heroText,
+            cardCount: structuredOverlay.elements.cards?.items?.length || 0,
+            hasCta: !!structuredOverlay.elements.cta,
+            hasLogoMeta: includeLogo && logoUrl && !logoFailed,
+          });
           
           const channelConfig = CHANNEL_IMAGE_CONFIG[channel];
           const [widthStr, heightStr] = channelConfig.size.split('x');
@@ -337,7 +344,6 @@ export function useAutoImageGeneration() {
               imageHeight: imgH,
               contentId,
               channel,
-              // Pass logo metadata so banner can apply safe-area logic
               logoMeta: (includeLogo && logoUrl && !logoFailed) ? {
                 position: logoPosition || 'bottom-right',
                 sizePercent: logoSizePercent || 15,
@@ -347,14 +353,25 @@ export function useAutoImageGeneration() {
             timeoutMs: 30_000,
           });
 
+          const step4Duration = Date.now() - step4Start;
           if (structError || !structData?.success) {
-            console.warn(`[useAutoImageGeneration] Structured overlay failed for ${channel}:`, structError?.message || structData?.error);
+            console.warn(`[Pipeline:${channel}] ✗ STEP 4 FAILED (${step4Duration}ms):`, structError?.message || structData?.error);
             toast.warning(`${channel}: Structured overlay thất bại`, { duration: 5000 });
           } else {
             finalImageUrl = structData.imageUrl;
-            console.log(`[useAutoImageGeneration] Structured overlay success for ${channel}`);
+            console.log(`[Pipeline:${channel}] ✓ STEP 4 OK (${step4Duration}ms)`);
           }
+        } else {
+          const skipReason = isAiRenderMode ? 'ai_render mode (text baked in)' : 'no structured overlay';
+          console.log(`[Pipeline:${channel}] ⏭ STEP 4 SKIPPED — ${skipReason}`);
         }
+
+        // Finalize
+        const totalDuration = Date.now() - startTime;
+        console.log(`[Pipeline:${channel}] ✅ COMPLETE (${totalDuration}ms total)`, {
+          logoFailed,
+          model: modelUsed,
+        });
 
         const result: GeneratedImage = {
           channel,
