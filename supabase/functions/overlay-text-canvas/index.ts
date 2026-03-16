@@ -492,7 +492,9 @@ function buildStructuredElement(
   // === Safe-area logic: if logo is in a top corner, add padding so banner text avoids it ===
   const logoInTopArea = logoMeta && (logoMeta.position === 'top-left' || logoMeta.position === 'top-right' || logoMeta.position === 'top-center');
   const logoInBottomArea = logoMeta && (logoMeta.position === 'bottom-left' || logoMeta.position === 'bottom-right' || logoMeta.position === 'bottom-center');
+  const logoInCenterArea = logoMeta && (logoMeta.position === 'center-left' || logoMeta.position === 'center-right' || logoMeta.position === 'center');
   const logoSafeWidth = logoMeta ? Math.ceil(imageWidth * (logoMeta.sizePercent / 100)) + (logoMeta.padding * 2) : 0;
+  const logoSafeHeight = logoMeta ? Math.ceil(imageWidth * (logoMeta.sizePercent / 100) * 0.75) + (logoMeta.padding * 2) : 0;
 
   // Banner (top or bottom)
   if (elements.banner) {
@@ -555,6 +557,10 @@ function buildStructuredElement(
           justifyContent: 'center',
           padding: '20px',
           flexGrow: 1,
+          ...(logoInCenterArea && logoMeta ? {
+            paddingLeft: logoMeta.position === 'center-left' || logoMeta.position === 'center' ? logoSafeWidth : 20,
+            paddingRight: logoMeta.position === 'center-right' || logoMeta.position === 'center' ? logoSafeWidth : 20,
+          } : {}),
         },
         children: {
           type: 'span',
@@ -662,6 +668,18 @@ function buildStructuredElement(
       };
     });
 
+    // Cards safe-area: avoid logo at center-left/center-right/center
+    let cardsPaddingLeft = 24;
+    let cardsPaddingRight = 24;
+    if (logoInCenterArea && logoMeta) {
+      if (logoMeta.position === 'center-left') cardsPaddingLeft = logoSafeWidth;
+      if (logoMeta.position === 'center-right') cardsPaddingRight = logoSafeWidth;
+      if (logoMeta.position === 'center') {
+        cardsPaddingLeft = logoSafeWidth;
+        cardsPaddingRight = logoSafeWidth;
+      }
+    }
+
     children.push({
       type: 'div',
       props: {
@@ -669,7 +687,7 @@ function buildStructuredElement(
           display: 'flex',
           flexWrap: isGrid ? 'wrap' : 'nowrap',
           gap: 8,
-          padding: '12px 24px',
+          padding: `12px ${cardsPaddingRight}px 12px ${cardsPaddingLeft}px`,
           justifyContent: 'center',
           ...(isGrid ? { maxWidth: '80%' } : {}),
         },
@@ -680,6 +698,9 @@ function buildStructuredElement(
 
   // CTA button
   if (elements.cta) {
+    // CTA safe-area: avoid logo at bottom-center
+    const ctaMarginBottom = (logoMeta && logoMeta.position === 'bottom-center') ? logoSafeHeight : 0;
+
     children.push({
       type: 'div',
       props: {
@@ -691,6 +712,7 @@ function buildStructuredElement(
           backgroundColor: colors.primary,
           borderRadius: theme.borderRadius > 8 ? 24 : theme.borderRadius > 0 ? 12 : 0,
           marginTop: 8,
+          ...(ctaMarginBottom > 0 ? { marginBottom: ctaMarginBottom } : {}),
         },
         children: {
           type: 'span',
@@ -740,6 +762,14 @@ function buildStructuredElement(
       },
     }));
 
+    // Footer safe-area: avoid logo at bottom-left/bottom-right
+    let footerPaddingLeft = 24;
+    let footerPaddingRight = 24;
+    if (logoInBottomArea && logoMeta) {
+      if (logoMeta.position === 'bottom-left') footerPaddingLeft = logoSafeWidth;
+      if (logoMeta.position === 'bottom-right') footerPaddingRight = logoSafeWidth;
+    }
+
     children.push({
       type: 'div',
       props: {
@@ -749,7 +779,7 @@ function buildStructuredElement(
           justifyContent: 'center',
           gap: 16,
           backgroundColor: theme.bannerBg,
-          padding: '8px 24px',
+          padding: `8px ${footerPaddingRight}px 8px ${footerPaddingLeft}px`,
           width: '100%',
           borderRadius: theme.borderRadius > 0 ? `0 0 ${theme.borderRadius}px ${theme.borderRadius}px` : '0',
           marginTop: 'auto',
@@ -800,14 +830,20 @@ function buildStructuredElement(
           {
             type: 'div',
             props: {
-              style: { display: 'flex', flexDirection: 'column', width: '55%', gap: 12, justifyContent: 'center' },
+              style: {
+                display: 'flex', flexDirection: 'column', width: '55%', gap: 12, justifyContent: 'center',
+                ...(logoMeta && logoMeta.position === 'center-left' ? { paddingLeft: logoSafeWidth } : {}),
+              },
               children: leftChildren.length === 1 ? leftChildren[0] : leftChildren,
             },
           },
           {
             type: 'div',
             props: {
-              style: { display: 'flex', flexDirection: 'column', width: '45%', gap: 8, justifyContent: 'center' },
+              style: {
+                display: 'flex', flexDirection: 'column', width: '45%', gap: 8, justifyContent: 'center',
+                ...(logoMeta && logoMeta.position === 'center-right' ? { paddingRight: logoSafeWidth } : {}),
+              },
               children: rightChildren.length === 1 ? rightChildren[0] : rightChildren,
             },
           },

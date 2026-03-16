@@ -1,68 +1,44 @@
 
+## Fix: Form tao anh AI hien thi day du noi dung tren Desktop
 
-## Plan: Mở rộng Safe-Area Logic để Cards/Footer/CTA không che Logo
+### Van de
+Dialog "Tao anh AI" tren desktop bi che mat noi dung, dac biet phan "Tuy chinh nang cao" (ImageAdvancedOptions). Nguyen nhan: `ScrollArea` cua Radix khong tu dong fill dung height trong flex container khi chi dung `h-full` -- can them CSS cu the de Viewport cua ScrollArea stretch dung cach.
 
-### Vấn đề
-Hiện tại safe-area logic chỉ xử lý **banner** — thêm padding trái/phải để tránh logo. Nhưng các phần tử khác (cards, footer, CTA, heroText) vẫn render full-width và có thể **đè lên logo**.
+### Giai phap
+Thay doi cach bo tri layout cua Dialog de dam bao scroll hoat dong dung:
 
-### Phân tích vị trí che khuất
+**File: `src/components/multichannel/SimpleImageGenerator.tsx`**
 
-```text
-┌─────────────────────────┐
-│ Banner (đã có safe-area)│  ← Logo top-left/right: OK
-├─────────────────────────┤
-│                         │
-│   Cards / HeroText      │  ← Logo center-left/right: BỊ CHE
-│                         │
-├─────────────────────────┤
-│ Footer (chưa safe-area) │  ← Logo bottom-left/right: BỊ CHE
-└─────────────────────────┘
-```
+1. **Tang max-h cua DialogContent** tu `90vh` len `92vh` de tan dung toi da khong gian man hinh.
 
-### Thay đổi — 1 file: `supabase/functions/overlay-text-canvas/index.ts`
+2. **Fix ScrollArea layout**: Thay `overflow-hidden` bang cach dung CSS truc tiep -- dat `bodyContent` wrapper thanh flex-1 voi `overflow-y: auto` thay vi dua vao ScrollArea cua Radix (von khong tu dong stretch trong flex context).
 
-**1. Tính `logoSafeHeight` bổ sung `logoSafeWidth` đã có**
+Cu the:
+- Bo `ScrollArea` wrapper trong `bodyContent` (desktop)
+- Thay bang `div` voi `className="flex-1 min-h-0 overflow-y-auto pr-3"` de native scroll hoat dong dung trong flex column layout
+- Giu nguyen `ScrollArea` cho mobile (da hoat dong tot)
+
+### Chi tiet ky thuat
 
 ```typescript
-const logoSafeHeight = logoMeta 
-  ? Math.ceil(imageHeight * (logoMeta.sizePercent / 100) * aspectRatio) + (logoMeta.padding * 2) 
-  : 0;
+// bodyContent - thay doi:
+const bodyContent = (
+  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+    {viewMode === 'setup' && setupFields}
+    {(viewMode === 'streaming' || viewMode === 'preview') && streamingPreviewContent}
+  </div>
+);
 ```
 
-**2. Footer: thêm safe-area padding (tương tự banner)**
+Va DialogContent:
+```typescript
+className={cn(
+  "transition-all duration-300 max-h-[92vh] overflow-hidden flex flex-col",
+  viewMode === 'setup' ? "sm:max-w-3xl" : "sm:max-w-5xl"
+)}
+```
 
-Footer hiện có `padding: '8px 24px'` cố định. Thêm logic:
-- Logo `bottom-left` → footer paddingLeft = logoSafeWidth
-- Logo `bottom-right` → footer paddingRight = logoSafeWidth
-
-**3. Cards container: thêm margin tránh logo ở center-left/center-right**
-
-Khi logo ở `center-left` hoặc `center-right`, cards container cần:
-- `center-left` → thêm `marginLeft` hoặc `paddingLeft` = logoSafeWidth
-- `center-right` → thêm `marginRight` hoặc `paddingRight` = logoSafeWidth
-
-**4. CTA button: tránh logo ở bottom-center**
-
-Nếu logo ở `bottom-center` và CTA nằm phía dưới → thêm `marginBottom` = logoSafeHeight
-
-**5. Split layout: điều chỉnh cột trái/phải**
-
-Trong split layout, nếu logo ở `center-left`, cột trái (55%) cần padding thêm để không che logo.
-
-### Tóm tắt logic mới
-
-| Vị trí Logo | Phần tử bị ảnh hưởng | Xử lý |
-|---|---|---|
-| top-left/right | Banner | ✅ Đã có |
-| top-center | Banner | ✅ Đã có (banner tránh center) |
-| center-left | Cards, Split left col | **Thêm paddingLeft** |
-| center-right | Cards, Split right col | **Thêm paddingRight** |
-| center | Cards, HeroText | **Thêm padding both sides** |
-| bottom-left/right | Footer | **Thêm paddingLeft/Right** |
-| bottom-center | Footer, CTA | **Thêm marginBottom cho CTA** |
-
-### Scope
-- 1 file: `supabase/functions/overlay-text-canvas/index.ts` (~30 dòng thêm/sửa)
-- Không thay đổi frontend — chỉ cải thiện rendering logic phía backend
-- `logoMeta` đã được truyền đầy đủ từ pipeline, chỉ cần sử dụng thêm
-
+### Pham vi thay doi
+- 1 file: `src/components/multichannel/SimpleImageGenerator.tsx`
+- Thay doi ~10 dong code
+- Khong anh huong den mobile (giu nguyen `mobileBodyContent`)
