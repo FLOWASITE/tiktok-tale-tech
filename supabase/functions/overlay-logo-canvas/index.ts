@@ -186,6 +186,9 @@ async function compositeImages(
   
   console.log(`[overlay-logo-canvas] Compositing at position (${x}, ${y})`);
   
+  // Draw semi-transparent backdrop behind logo for visibility
+  drawLogoBackdrop(baseImg, x, y, targetLogoWidth, targetLogoHeight);
+  
   // Composite logo onto base image
   baseImg.composite(logoImg, x, y);
   
