@@ -48,6 +48,7 @@ function validateOverlay(overlay: any, primaryColor: string): any {
         .map((c: any) => ({
           icon: c.icon || undefined,
           label: c.label.trim().slice(0, 50),
+          ...(c.number != null ? { number: c.number } : {}),
         }));
 
       if (result.cards.items.length < 2) {
