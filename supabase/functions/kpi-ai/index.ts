@@ -488,7 +488,8 @@ QUAN TRỌNG: Return JSON với format CHÍNH XÁC như sau (không thêm markdo
 
 async function handleAdjust(
   supabase: AnySupabaseClient,
-  data: AdjustRequest
+  data: AdjustRequest,
+  userId?: string
 ): Promise<Response> {
   const { campaignId, organizationId, currentGoals, kpiLogs, startDate, endDate, campaignType, campaignName } = data;
 
