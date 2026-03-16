@@ -275,12 +275,14 @@ Lưu ý:
       functionName: 'generate-journey-messaging',
       organizationId,
       brandTemplateId,
+      userId,
       messages: [
         { role: "system", content: contextPrompt },
         { role: "user", content: userPrompt }
       ],
       tools,
       toolChoice: { type: "function", function: { name: "generate_journey_messaging" } },
+      actionType: 'content_generation',
     });
 
     if (!aiResponse.success) {

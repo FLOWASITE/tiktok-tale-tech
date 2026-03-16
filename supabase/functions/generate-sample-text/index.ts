@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
-import { generateTraceId, saveMetrics, estimateTokens } from "../_shared/logger.ts";
+import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
 
 const corsHeaders = {
