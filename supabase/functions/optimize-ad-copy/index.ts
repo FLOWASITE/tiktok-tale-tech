@@ -71,6 +71,10 @@ Respond in the same language as the ad copy provided.`;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Resolve userId for cost tracking
+    const userId = await resolveUserId(req, supabase);
+
+
     let systemPrompt = '';
     try {
       const promptManager = createPromptManager(supabase, 'optimize-ad-copy');
