@@ -1054,7 +1054,7 @@ export function MultiChannelFormWizard({
                       }
                     }
                   }}
-                  placeholder="VD: Cách tối ưu thuế cho doanh nghiệp nhỏ trong năm 2024... hoặc gõ 'tạo chủ đề bán hàng' để AI gợi ý"
+                  placeholder="Nhập chủ đề bạn muốn viết, VD: Skincare mùa hè, Mẹo tiết kiệm chi phí... hoặc mô tả ý tưởng để AI hỗ trợ"
                   className="min-h-[100px] resize-y text-sm"
                   disabled={isGenerating}
                   autoFocus
