@@ -590,8 +590,8 @@ serve(async (req) => {
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        // Use multi-provider system
-        const aiResult = await callAIProvider({
+        // Use multi-provider system with auto metrics
+        const aiResult = await callAIWithMetrics(supabase, {
           functionName: 'analyze-dashboard-insights',
           organizationId,
           messages: [
