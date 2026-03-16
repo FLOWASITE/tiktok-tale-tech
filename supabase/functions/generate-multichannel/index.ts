@@ -1262,6 +1262,7 @@ serve(async (req) => {
   }
 
   try {
+    const requestStartTime = Date.now();
     const formData: FormData = await req.json();
     console.log("Generating multi-channel content for:", formData.topic);
 
