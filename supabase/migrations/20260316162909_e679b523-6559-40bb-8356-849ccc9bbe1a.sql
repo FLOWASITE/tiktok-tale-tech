@@ -1,0 +1,1 @@
+ALTER TABLE public.ai_metrics ADD COLUMN IF NOT EXISTS span_id text, ADD COLUMN IF NOT EXISTS parent_span_id text;
