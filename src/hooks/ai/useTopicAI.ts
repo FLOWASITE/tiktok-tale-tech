@@ -831,7 +831,10 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
       });
 
       if (functionError) {
-        throw new Error(functionError.message);
+        // Preserve context from FunctionsHttpError for structured error handling
+        const wrappedErr: any = new Error(functionError.message);
+        wrappedErr.context = (functionError as any).context;
+        throw wrappedErr;
       }
 
       if (data?.suggestions && data.suggestions.length > 0) {
