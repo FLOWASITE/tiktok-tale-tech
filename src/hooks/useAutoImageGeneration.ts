@@ -270,9 +270,13 @@ export function useAutoImageGeneration() {
         // Skip if structuredOverlay is active (Step 4 handles text rendering)
         // Skip entirely in ai_render mode (AI already rendered text)
         if (useCanvasFallback && imageContentType === 'with_text' && channelText && !structuredOverlay && !isAiRenderMode) {
-          console.log(`[useAutoImageGeneration] Applying canvas text overlay for ${channel}`);
+          const step3Start = Date.now();
+          console.log(`[Pipeline:${channel}] ▶ STEP 3/4 — Canvas text overlay`, {
+            textLength: channelText.length,
+            position: textPosition || 'center',
+            typography: typographyStyle || 'modern',
+          });
           
-          // Parse dimensions from channel config
           const channelConfig = CHANNEL_IMAGE_CONFIG[channel];
           const [widthStr, heightStr] = channelConfig.size.split('x');
           const imageWidth = parseInt(widthStr, 10) || 1200;
@@ -295,16 +299,20 @@ export function useAutoImageGeneration() {
             timeoutMs: 30_000,
           });
 
+          const step3Duration = Date.now() - step3Start;
           if (textError || !textData?.success) {
-            console.warn(`[useAutoImageGeneration] Canvas text overlay failed for ${channel}:`, textError?.message || textData?.error);
+            console.warn(`[Pipeline:${channel}] ✗ STEP 3 FAILED (${step3Duration}ms):`, textError?.message || textData?.error);
             toast.warning(`${channel}: Text overlay thất bại, sử dụng ảnh gốc`, {
               description: 'AI không thể render text chính xác',
               duration: 5000,
             });
           } else {
             finalImageUrl = textData.imageUrl;
-            console.log(`[useAutoImageGeneration] Canvas text overlay success for ${channel}`);
+            console.log(`[Pipeline:${channel}] ✓ STEP 3 OK (${step3Duration}ms)`);
           }
+        } else {
+          const skipReason = isAiRenderMode ? 'ai_render mode' : structuredOverlay ? 'structured overlay active' : !useCanvasFallback ? 'canvas fallback disabled' : 'no text';
+          console.log(`[Pipeline:${channel}] ⏭ STEP 3 SKIPPED — ${skipReason}`);
         }
 
         // Step 4: Structured multi-block overlay (for complex infographics)
