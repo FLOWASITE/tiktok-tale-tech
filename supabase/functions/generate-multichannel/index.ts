@@ -5006,7 +5006,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
         organizationId: organizationId || undefined,
         userId: userId || undefined,
         brandTemplateId: formData.brandTemplateId,
-        totalDurationMs: 0, // TODO: Track full request duration
+        totalDurationMs: usageMetadata?.totalDurationMs || requestDurationMs,
         contextSources,
         hadError: false,
         channels: formData.channels,
