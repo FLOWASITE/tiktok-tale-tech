@@ -95,12 +95,18 @@ export function useChannelModelConfig(organizationId?: string) {
   // Upsert channel config
   const upsertMutation = useMutation({
     mutationFn: async (config: Partial<ChannelModelConfig> & { channel: string }) => {
-      const { data: existingData } = await supabase
+      let findQuery = supabase
         .from('ai_channel_model_configs')
         .select('id')
-        .eq('channel', config.channel)
-        .eq(organizationId ? 'organization_id' : 'organization_id', organizationId || null)
-        .maybeSingle();
+        .eq('channel', config.channel);
+
+      if (organizationId) {
+        findQuery = findQuery.eq('organization_id', organizationId);
+      } else {
+        findQuery = findQuery.is('organization_id', null);
+      }
+
+      const { data: existingData } = await findQuery.maybeSingle();
 
       const payload = {
         channel: config.channel,
