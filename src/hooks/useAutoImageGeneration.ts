@@ -459,8 +459,17 @@ export function useAutoImageGeneration() {
     // Dynamic batch size based on total channels
     const batchSize = getBatchSize(channels.length);
     const batchDelay = getBatchDelay(batchSize);
+    const pipelineStart = Date.now();
     
-    console.log(`[useAutoImageGeneration] Processing ${channels.length} channels with batch size ${batchSize}`);
+    console.log(`[Pipeline] 🚀 START — ${channels.length} channels, batch size ${batchSize}, delay ${batchDelay}ms`, {
+      channels,
+      contentId: options.contentId,
+      promptMode: options.promptMode || 'full',
+      overlayMode: options.overlayMode || 'satori',
+      hasStructuredOverlay: !!options.structuredOverlay,
+      includeLogo: !!options.includeLogo,
+      style: options.imageStylePreset || 'default',
+    });
     
     for (let i = 0; i < channels.length; i += batchSize) {
       const batch = channels.slice(i, i + batchSize);
