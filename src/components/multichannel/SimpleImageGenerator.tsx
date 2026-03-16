@@ -427,9 +427,11 @@ export function SimpleImageGenerator({
           ? overlayTemplate
           : autoSelectTemplate(summaryText, decomposed.overlayConfig);
         console.log('[AutoTemplate] Selected:', selectedTemplate, 'from overlayTemplate:', overlayTemplate);
-        const { backgroundPrompt, overlayConfig } = applyTemplate(selectedTemplate, decomposed, summaryText, brandPrimaryColor || '#DC2626');
+        const applyResult = applyTemplate(selectedTemplate, decomposed, summaryText, brandPrimaryColor || '#DC2626');
+        const { backgroundPrompt, overlayConfig } = applyResult;
+        const resolvedLayout = applyResult.layout || (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple');
         setHybridOverlay({
-          layout: (overlayConfig.cards ? 'banner_cards' : overlayConfig.heroText ? 'hero_text' : 'simple') as 'banner_cards' | 'hero_text' | 'simple',
+          layout: resolvedLayout as 'banner_cards' | 'hero_text' | 'simple' | 'split' | 'stack',
           elements: {
             banner: overlayConfig.banner,
             heroText: overlayConfig.heroText,
