@@ -851,7 +851,7 @@ function buildStructuredElement(
               type: 'span',
               props: {
                 style: {
-                  color: '#FFFFFF',
+                  color: getContrastTextColor(colors.primary),
                   fontSize: Math.round(numSize * 0.55),
                   fontFamily,
                   fontWeight: 700,
