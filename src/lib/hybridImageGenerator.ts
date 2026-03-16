@@ -67,6 +67,17 @@ export interface DecomposedRequest {
   backgroundPrompt: BackgroundPrompt;
   overlayConfig: StructuredOverlayConfig;
   layout?: 'stack' | 'split' | 'banner_cards' | 'hero_text' | 'simple';
+  /** AI-suggested template ID based on content analysis */
+  suggestedLayout?: 'poster' | 'infographic' | 'quote_card' | 'feature_list' | 'contact_card';
+}
+
+/** Strategic context passed to AI decomposition for smarter layout selection */
+export interface DecomposeContext {
+  contentRole?: string;
+  contentGoal?: string;
+  contentAngle?: string;
+  topic?: string;
+  textToInclude?: string;
 }
 
 /**
