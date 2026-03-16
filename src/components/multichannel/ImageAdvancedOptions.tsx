@@ -470,11 +470,11 @@ export function ImageAdvancedOptions({
           </div>
         )}
 
-        {/* Strategic Context — only in full mode */}
-        {promptMode === 'full' && (contentRole || contentAngle || (selectedChannels && hookMessages && selectedChannels.some(ch => hookMessages[ch]?.hookMessage))) && (
-          <div className="space-y-2">
+        {/* Strategic Context — full + brand_only modes */}
+        {(promptMode === 'full' || promptMode === 'brand_only') && (contentRole || contentAngle || (selectedChannels && hookMessages && selectedChannels.some(ch => hookMessages[ch]?.hookMessage))) && (
+          <div className={cn("space-y-2", promptMode === 'brand_only' && "opacity-60")}>
             <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
-              Ngữ cảnh chiến lược
+              {promptMode === 'brand_only' ? 'Ngữ cảnh chiến lược (áp dụng nhẹ)' : 'Ngữ cảnh chiến lược'}
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
