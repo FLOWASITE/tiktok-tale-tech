@@ -332,6 +332,23 @@ export function applyTemplate(
     overlay.cta = 'Tìm hiểu thêm';
   }
 
+  // Ensure required summaryRibbon slot
+  if (template.requiredSlots.includes('summaryRibbon') && !overlay.summaryRibbon) {
+    const sentences = description.split(/[.!?\n]/).map(s => s.trim()).filter(s => s.length > 10);
+    overlay.summaryRibbon = {
+      text: sentences[sentences.length - 1]?.slice(0, 80) || 'Liên hệ ngay để được tư vấn',
+      bgColor: overlay.colors.primary,
+    };
+  }
+
+  // Add numbered styling to cards when template requires it
+  if (template.defaults.cards?.numbered && overlay.cards) {
+    overlay.cards.items = overlay.cards.items.map((item, idx) => ({
+      ...item,
+      number: idx + 1,
+    }));
+  }
+
   if (template.requiredSlots.includes('footer') && !overlay.footer) {
     const footerItems = extractFooterItemsFromText(description);
     overlay.footer = {
