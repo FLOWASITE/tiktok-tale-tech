@@ -606,6 +606,7 @@ Hãy đưa ra đề xuất điều chỉnh phù hợp.`;
   const aiResult = await callAIWithMetrics(supabase, {
     functionName: 'kpi-ai',
     organizationId,
+    userId,
     actionType: 'adjust',
     messages: [
       { role: "system", content: systemPrompt },
