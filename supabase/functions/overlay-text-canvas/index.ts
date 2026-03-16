@@ -664,6 +664,18 @@ function buildStructuredElement(
       };
     });
 
+    // Cards safe-area: avoid logo at center-left/center-right/center
+    let cardsPaddingLeft = 24;
+    let cardsPaddingRight = 24;
+    if (logoInCenterArea && logoMeta) {
+      if (logoMeta.position === 'center-left') cardsPaddingLeft = logoSafeWidth;
+      if (logoMeta.position === 'center-right') cardsPaddingRight = logoSafeWidth;
+      if (logoMeta.position === 'center') {
+        cardsPaddingLeft = logoSafeWidth;
+        cardsPaddingRight = logoSafeWidth;
+      }
+    }
+
     children.push({
       type: 'div',
       props: {
@@ -671,7 +683,7 @@ function buildStructuredElement(
           display: 'flex',
           flexWrap: isGrid ? 'wrap' : 'nowrap',
           gap: 8,
-          padding: '12px 24px',
+          padding: `12px ${cardsPaddingRight}px 12px ${cardsPaddingLeft}px`,
           justifyContent: 'center',
           ...(isGrid ? { maxWidth: '80%' } : {}),
         },
