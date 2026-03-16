@@ -617,14 +617,78 @@ function buildStructuredElement(
   if (elements.cards && elements.cards.items.length > 0) {
     const isGrid = elements.cards.layout === 'grid-2x2';
     const cardFontSize = Math.round(imageWidth * 0.02);
+    const hasNumberedCards = elements.cards.items.some(item => item.number != null);
     
     const cardElements = elements.cards.items.map((item, idx) => {
-      // Alternate subtle gradient directions for visual variety
       const gradientAngle = idx % 2 === 0 ? '135deg' : '225deg';
       const isLightCard = theme.cardBg.includes('255,255,255');
       const cardGradient = isLightCard
         ? `linear-gradient(${gradientAngle}, rgba(255,255,255,0.92), rgba(240,240,255,0.85))`
         : `linear-gradient(${gradientAngle}, ${theme.cardBg}, rgba(0,0,0,0.5))`;
+
+      // Build card children: numbered circle or icon/dot + label
+      const cardChildren: any[] = [];
+
+      if (hasNumberedCards && item.number != null) {
+        // Large numbered circle
+        const numSize = Math.round(imageWidth * 0.04);
+        cardChildren.push({
+          type: 'div',
+          props: {
+            style: {
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: numSize,
+              height: numSize,
+              borderRadius: numSize / 2,
+              backgroundColor: colors.primary,
+              flexShrink: 0,
+            },
+            children: {
+              type: 'span',
+              props: {
+                style: {
+                  color: '#FFFFFF',
+                  fontSize: Math.round(numSize * 0.55),
+                  fontFamily,
+                  fontWeight: 700,
+                },
+                children: String(item.number),
+              },
+            },
+          },
+        });
+      } else if (item.icon) {
+        cardChildren.push({
+          type: 'span',
+          props: { style: { fontSize: cardFontSize * 1.2 }, children: item.icon },
+        });
+      } else {
+        cardChildren.push({
+          type: 'div',
+          props: {
+            style: {
+              width: 8, height: 8, borderRadius: 4,
+              backgroundColor: colors.primary,
+            },
+          },
+        });
+      }
+
+      cardChildren.push({
+        type: 'span',
+        props: {
+          style: {
+            color: theme.cardTextColor,
+            fontSize: cardFontSize,
+            fontFamily,
+            fontWeight: theme.fontWeight >= 600 ? 500 : theme.fontWeight,
+            flex: 1,
+          },
+          children: item.label,
+        },
+      });
 
       return {
         type: 'div',
@@ -632,39 +696,14 @@ function buildStructuredElement(
           style: {
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
+            gap: hasNumberedCards ? 12 : 8,
             background: cardGradient,
             borderRadius: theme.borderRadius,
-            padding: '10px 16px',
+            padding: hasNumberedCards ? '12px 16px' : '10px 16px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)',
             ...(isGrid ? { width: '48%' } : { flex: '1' }),
           },
-          children: [
-            ...(item.icon ? [{
-              type: 'span',
-              props: { style: { fontSize: cardFontSize * 1.2 }, children: item.icon },
-            }] : [{
-              type: 'div',
-              props: {
-                style: {
-                  width: 8, height: 8, borderRadius: 4,
-                  backgroundColor: colors.primary,
-                },
-              },
-            }]),
-            {
-              type: 'span',
-              props: {
-                style: {
-                  color: theme.cardTextColor,
-                  fontSize: cardFontSize,
-                  fontFamily,
-                  fontWeight: theme.fontWeight >= 600 ? 500 : theme.fontWeight,
-                },
-                children: item.label,
-              },
-            },
-          ],
+          children: cardChildren,
         },
       };
     });
