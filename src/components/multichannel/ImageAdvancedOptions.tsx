@@ -358,7 +358,7 @@ export function ImageAdvancedOptions({
             </div>
           )}
 
-          {enableTextOverlay && (
+          {enableTextOverlay && promptMode !== 'full' && (
             <div className="space-y-3 pl-1">
               {/* Shared / Per-channel toggle */}
               <div className="flex items-center gap-1 p-0.5 bg-muted/50 rounded-lg w-fit">
