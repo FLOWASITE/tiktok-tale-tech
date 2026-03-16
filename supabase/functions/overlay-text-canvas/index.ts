@@ -1330,16 +1330,25 @@ serve(async (req) => {
     console.log(`[overlay-text-canvas] Font size: ${fontSize}px, Text length: ${displayText.length}`);
     
     // Load font for the text
-    const fontData = await loadGoogleFont(displayText, typographyConfig.fontWeight);
-    
-    // Prepare fonts array for Satori
+    // Load multiple font weights for legacy path too
+    const fontWeights = [400, 600, 700] as const;
     type Weight = 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
-    const fonts = fontData ? [{
-      name: 'Be Vietnam Pro',
-      data: fontData,
-      weight: typographyConfig.fontWeight as Weight,
-      style: 'normal' as const,
-    }] : [];
+    const fonts: Array<{ name: string; data: ArrayBuffer; weight: Weight; style: 'normal' }> = [];
+    
+    const fontResults = await Promise.allSettled(
+      fontWeights.map(w => loadGoogleFont(displayText, w))
+    );
+    for (let i = 0; i < fontWeights.length; i++) {
+      const result = fontResults[i];
+      if (result.status === 'fulfilled' && result.value) {
+        fonts.push({
+          name: 'Be Vietnam Pro',
+          data: result.value,
+          weight: fontWeights[i] as Weight,
+          style: 'normal' as const,
+        });
+      }
+    }
 
     console.log(`[overlay-text-canvas] Generating SVG with Satori...`);
     console.log(`[overlay-text-canvas] Has background: ${hasBackground(typographyStyle)}`);

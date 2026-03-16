@@ -542,12 +542,13 @@ export const buildCriticalRules: PromptBuilder = (ctx) => {
 2. DO NOT include any logos or brand marks
 3. Image must be photorealistic OR stylized illustration based on brand style
 4. Ensure the image works well as a background for text overlay
-5. Main subject should be clearly visible and not cropped
-6. Use natural, professional lighting
-7. Maintain brand-appropriate color temperature
-8. NEVER create blank, white, or empty images - always include clear visual content
-9. Background must have visible color, texture, or gradient - NEVER pure white (#FFFFFF)
-10. Image must have at least one clear focal point or subject`,
+5. SPATIAL OVERLAY GUIDELINE: Keep top 15% and bottom 20% of the image with lower visual complexity (softer colors, less detail) to ensure text overlay readability
+6. Main subject should be clearly visible and not cropped
+7. Use natural, professional lighting
+8. Maintain brand-appropriate color temperature
+9. NEVER create blank, white, or empty images - always include clear visual content
+10. Background must have visible color, texture, or gradient - NEVER pure white (#FFFFFF)
+11. Image must have at least one clear focal point or subject`,
   };
 };
 

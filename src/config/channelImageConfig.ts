@@ -251,7 +251,7 @@ export const CHANNEL_OPTIMAL_ASPECT_RATIO: Record<Channel, string> = {
   website: '16:9',
   youtube: '16:9',
   facebook: '16:9',
-  instagram: '1:1',
+  instagram: '4:5',
   tiktok: '9:16',
   threads: '1:1',
   twitter: '16:9',
