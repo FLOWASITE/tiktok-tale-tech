@@ -913,7 +913,7 @@ export function SimpleImageGenerator({
         onTypographyStyleChange={setTypographyStyle}
         textPreview={textToInclude}
         negativePrompt={negativePrompt}
-        onNegativePromptChange={setNegativePrompt}
+        onNegativePromptChange={(val) => { setNegativePrompt(val); setIsNegativePromptCustomized(true); }}
         contentRole={contentRole}
         contentAngle={contentAngle}
         selectedChannels={selectedChannels}
