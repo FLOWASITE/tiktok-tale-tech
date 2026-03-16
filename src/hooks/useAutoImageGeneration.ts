@@ -135,7 +135,7 @@ export function useAutoImageGeneration() {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         if (attempt > 0) {
-          console.log(`[useAutoImageGeneration] Retry attempt ${attempt} for ${channel}`);
+          console.log(`[Pipeline:${channel}] 🔄 Retry attempt ${attempt}/${maxRetries}`);
         }
         
         // Set status and track start time
@@ -143,17 +143,25 @@ export function useAutoImageGeneration() {
         setProgress(prev => ({ ...prev, [channel]: 'generating' }));
         setProgressTimes(prev => ({ ...prev, [channel]: startTime }));
         
-        console.log(`[useAutoImageGeneration] Generating image for ${channel} with aspect ratio ${channelAspectRatio}, style: ${imageStylePreset || 'default'}, role: ${contentRole || 'none'}`);
-
-        // Step 1: Generate base image with brand colors, style preset, and strategic context
-        // Force background_only when structured overlay is present AND using satori mode
-        // When ai_render mode: pass structuredElements to AI so it renders text directly
+        // Determine rendering mode
         const overlayMode = options.overlayMode || 'satori';
         const isAiRenderMode = overlayMode === 'ai_render' && !!structuredOverlay;
         const effectiveContentType = isAiRenderMode 
-          ? 'with_text'  // AI renders text directly
+          ? 'with_text'
           : (structuredOverlay ? 'background_only' : (useCanvasFallback ? 'background_only' : imageContentType));
         
+        console.log(`[Pipeline:${channel}] ▶ STEP 1/4 — Generate base image`, {
+          aspectRatio: channelAspectRatio,
+          style: imageStylePreset || 'default',
+          role: contentRole || 'none',
+          overlayMode,
+          isAiRenderMode,
+          effectiveContentType,
+          promptMode: promptMode || 'full',
+          hasStructuredOverlay: !!structuredOverlay,
+          hasStructuredTemplate: !!options.structuredTemplate,
+        });
+
         // OPTIMIZATION: Early timeout warning — notify user if AI is slow
         const slowWarningTimer = setTimeout(() => {
           toast.info(`${channel}: AI đang xử lý lâu hơn bình thường...`, {
@@ -190,11 +198,17 @@ export function useAutoImageGeneration() {
         });
 
         clearTimeout(slowWarningTimer);
+        const step1Duration = Date.now() - startTime;
 
         if (imageError || !imageData?.success) {
-          console.error(`[useAutoImageGeneration] Generate error for ${channel}:`, imageError || imageData?.error);
+          console.error(`[Pipeline:${channel}] ✗ STEP 1 FAILED (${step1Duration}ms):`, imageError || imageData?.error);
           throw new Error(imageData?.error || imageError?.message || 'Failed to generate image');
         }
+        
+        console.log(`[Pipeline:${channel}] ✓ STEP 1 OK (${step1Duration}ms)`, {
+          model: imageData.modelUsed || 'unknown',
+          imageUrlLength: imageData.imageUrl?.length || 0,
+        });
 
         let finalImageUrl = imageData.imageUrl;
         let logoFailed = false;
