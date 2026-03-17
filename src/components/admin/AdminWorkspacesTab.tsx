@@ -20,7 +20,7 @@ import {
 import {
   Building2, Search, Users, CreditCard, TrendingUp, Crown,
   Trash2, ChevronLeft, ChevronRight, Download, Sparkles, Loader2,
-  ChevronDown, FileText, Image, Layers, Palette, Wand2, ScrollText, Images, Calendar,
+  ChevronDown, FileText, Image, Layers, Palette, Wand2, ScrollText, Images, Calendar, RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -304,7 +304,7 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
 }
 
 export function AdminWorkspacesTab() {
-  const { workspaces, stats, isLoading, updateWorkspacePlan, deleteWorkspace, cleanupOrphans, isCleaningUp, isUpdating } = useAdminWorkspaces();
+  const { workspaces, stats, isLoading, updateWorkspacePlan, deleteWorkspace, cleanupOrphans, isCleaningUp, isUpdating, refetch } = useAdminWorkspaces();
   const [searchQuery, setSearchQuery] = useState("");
   const [planFilter, setPlanFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -451,6 +451,10 @@ export function AdminWorkspacesTab() {
               <CardDescription>Quản lý workspace và plan tính phí</CardDescription>
             </div>
             <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={refetch} disabled={isLoading}>
+                <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
               <Button variant="outline" size="sm" onClick={handleCleanup} disabled={isCleaningUp}>
                 {isCleaningUp ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
                 Dọn dẹp WS thừa
