@@ -14,6 +14,7 @@ export interface AdminUser {
   created_at: string;
   role: AppRole;
   is_banned: boolean;
+  organizations: Array<{ id: string; name: string; role: string }>;
   subscription: {
     plan_type: "free" | "starter" | "pro" | "enterprise";
     status: "active" | "cancelled" | "expired" | "pending" | "trial";
