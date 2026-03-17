@@ -94,6 +94,15 @@ const Blog = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="Blog | Flowa - Chiến Lược Content Marketing & AI"
+        description="Chia sẻ kiến thức, trends và chiến lược content marketing từ đội ngũ Flowa. Hướng dẫn AI marketing, content đa kênh, và repurposing."
+        canonicalPath="/blog"
+        breadcrumbs={[
+          { name: 'Trang chủ', url: '/' },
+          { name: 'Blog', url: '/blog' },
+        ]}
+      />
       {/* Navigation */}
       <LandingNav />
 
