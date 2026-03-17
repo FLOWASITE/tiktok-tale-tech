@@ -18,7 +18,7 @@ import {
 } from '@/components/dashboard';
 import { useScripts } from '@/hooks/useScripts';
 import { useCarousels } from '@/hooks/useCarousels';
-import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
+import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCampaignIntegration } from '@/hooks/useCampaignIntegration';
 import { 
