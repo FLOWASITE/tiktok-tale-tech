@@ -100,7 +100,7 @@ export default function Account() {
 
       // Get org's content IDs for image counting (workspace-scoped)
       const orgId = subscription?.organization_id;
-      if (!orgId) return EMPTY_USAGE;
+      if (!orgId) return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, brands: 0 };
 
       const { data: orgContents } = await supabase
         .from("multi_channel_contents")
