@@ -86,38 +86,51 @@ export function useSubscription() {
         return { scripts: 0, carousels: 0, multichannel: 0, images: 0, ai_edits: 0 };
       }
 
-      const { data, error } = await supabase
-        .from("usage_logs")
-        .select("usage_type")
-        .eq("user_id", user.id)
-        .gte("created_at", subscription.current_period_start)
-        .lte("created_at", subscription.current_period_end);
+      const periodStart = subscription.current_period_start;
+      const periodEnd = subscription.current_period_end;
 
-      if (error) throw error;
+      // Query actual content tables for real counts
+      const [scriptsRes, carouselsRes, multiRes, imagesRes, aiEditsRes] = await Promise.all([
+        supabase
+          .from("scripts")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .gte("created_at", periodStart)
+          .lte("created_at", periodEnd),
+        supabase
+          .from("carousels")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .gte("created_at", periodStart)
+          .lte("created_at", periodEnd),
+        supabase
+          .from("multi_channel_contents")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .gte("created_at", periodStart)
+          .lte("created_at", periodEnd),
+        supabase
+          .from("channel_image_history")
+          .select("*", { count: "exact", head: true })
+          .eq("created_by", user.id)
+          .gte("created_at", periodStart)
+          .lte("created_at", periodEnd),
+        supabase
+          .from("usage_logs")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("usage_type", "ai_edit")
+          .gte("created_at", periodStart)
+          .lte("created_at", periodEnd),
+      ]);
 
-      const stats: UsageStats = { scripts: 0, carousels: 0, multichannel: 0, images: 0, ai_edits: 0 };
-      
-      data?.forEach((log) => {
-        switch (log.usage_type) {
-          case "script":
-            stats.scripts++;
-            break;
-          case "carousel":
-            stats.carousels++;
-            break;
-          case "multichannel":
-            stats.multichannel++;
-            break;
-          case "image_generation":
-            stats.images++;
-            break;
-          case "ai_edit":
-            stats.ai_edits++;
-            break;
-        }
-      });
-
-      return stats;
+      return {
+        scripts: scriptsRes.count ?? 0,
+        carousels: carouselsRes.count ?? 0,
+        multichannel: multiRes.count ?? 0,
+        images: imagesRes.count ?? 0,
+        ai_edits: aiEditsRes.count ?? 0,
+      };
     },
     enabled: !!user?.id && !!subscriptionQuery.data,
   });
