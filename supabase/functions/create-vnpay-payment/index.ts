@@ -5,6 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const PLAN_ORDER = ['free', 'starter', 'pro', 'business', 'enterprise'];
+
 function sortObject(obj: Record<string, string>) {
   const sorted: Record<string, string> = {};
   const keys = Object.keys(obj).sort();
@@ -107,17 +109,47 @@ Deno.serve(async (req) => {
       });
     }
 
-    const amount = cycle === 'yearly' ? planLimit.price_yearly : planLimit.price_monthly;
-    if (!amount || amount <= 0) {
+    const fullPrice = cycle === 'yearly' ? planLimit.price_yearly : planLimit.price_monthly;
+    if (!fullPrice || fullPrice <= 0) {
       return new Response(JSON.stringify({ error: 'Invalid plan price' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
+    // Check for existing active subscription to calculate proration
+    const { data: currentSub } = await serviceClient
+      .from('subscriptions')
+      .select('plan_type, current_period_start, current_period_end, status')
+      .eq('organization_id', organization_id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    let amount = fullPrice;
+    let isProrated = false;
+    let daysRemaining = 0;
+    let daysInPeriod = 0;
+
+    if (currentSub && currentSub.current_period_end) {
+      const now = new Date();
+      const periodEnd = new Date(currentSub.current_period_end);
+      const periodStart = new Date(currentSub.current_period_start);
+      const currentRank = PLAN_ORDER.indexOf(currentSub.plan_type);
+      const newRank = PLAN_ORDER.indexOf(plan_type);
+
+      // Only prorate for upgrades within an active period
+      if (newRank > currentRank && periodEnd > now) {
+        daysInPeriod = Math.max(1, Math.ceil((periodEnd.getTime() - periodStart.getTime()) / 86400000));
+        daysRemaining = Math.max(1, Math.ceil((periodEnd.getTime() - now.getTime()) / 86400000));
+        amount = Math.ceil(fullPrice * daysRemaining / daysInPeriod);
+        isProrated = true;
+        console.log(`Proration: ${daysRemaining}/${daysInPeriod} days, ${amount}₫ (full: ${fullPrice}₫)`);
+      }
+    }
+
     // Create unique txn ref
     const txnRef = `${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
 
-    // Save pending order
+    // Save pending order with proration metadata
     const { error: orderError } = await serviceClient
       .from('payment_orders')
       .insert({
@@ -128,6 +160,13 @@ Deno.serve(async (req) => {
         amount,
         vnpay_txn_ref: txnRef,
         status: 'pending',
+        metadata: isProrated ? {
+          prorated: true,
+          original_amount: fullPrice,
+          days_remaining: daysRemaining,
+          days_in_period: daysInPeriod,
+          previous_plan: currentSub?.plan_type,
+        } : undefined,
       });
 
     if (orderError) {
@@ -139,7 +178,6 @@ Deno.serve(async (req) => {
 
     // Build VNPay payment URL
     const now = new Date();
-    const ipnUrl = `${supabaseUrl}/functions/v1/vnpay-callback`;
     const clientReturnUrl = return_url || `${req.headers.get('origin') || 'https://app.flowa.one'}/payment/result`;
 
     const vnpParams: Record<string, string> = {
@@ -149,9 +187,9 @@ Deno.serve(async (req) => {
       vnp_Locale: 'vn',
       vnp_CurrCode: 'VND',
       vnp_TxnRef: txnRef,
-      vnp_OrderInfo: `Nang cap goi ${plan_type} - ${cycle}`,
+      vnp_OrderInfo: `Nang cap goi ${plan_type} - ${cycle}${isProrated ? ' (prorate)' : ''}`,
       vnp_OrderType: 'other',
-      vnp_Amount: (amount * 100).toString(), // VNPay requires smallest unit
+      vnp_Amount: (amount * 100).toString(),
       vnp_ReturnUrl: clientReturnUrl,
       vnp_IpAddr: req.headers.get('x-forwarded-for') || '127.0.0.1',
       vnp_CreateDate: formatVNPayDate(now),
@@ -169,7 +207,17 @@ Deno.serve(async (req) => {
 
     const paymentUrl = `${vnpUrl}?${finalParams.toString()}`;
 
-    return new Response(JSON.stringify({ payment_url: paymentUrl, txn_ref: txnRef }), {
+    return new Response(JSON.stringify({
+      payment_url: paymentUrl,
+      txn_ref: txnRef,
+      amount,
+      is_prorated: isProrated,
+      ...(isProrated && {
+        original_amount: fullPrice,
+        days_remaining: daysRemaining,
+        days_in_period: daysInPeriod,
+      }),
+    }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

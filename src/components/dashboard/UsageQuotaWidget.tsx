@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Images, Layers, Wand2, Palette, ArrowUpRight, AlertTriangle, Calendar } from 'lucide-react';
+import { FileText, Images, Layers, Wand2, Palette, ArrowUpRight, AlertTriangle, Calendar, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getPlanBadge } from '@/lib/plan-badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
