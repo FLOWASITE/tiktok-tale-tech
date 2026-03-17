@@ -305,11 +305,6 @@ export default function Account() {
                    <p className="text-xs text-muted-foreground">
                      Còn lại: {remaining}
                    </p>
-                   {'socialPosts' in item && item.socialPosts > 0 && (
-                     <p className="text-xs text-primary font-medium">
-                       📢 {item.socialPosts} bài trên social
-                     </p>
-                   )}
                 </div>
               );
             })}
