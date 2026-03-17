@@ -474,7 +474,7 @@ export function AdminWorkspacesTab() {
                                       </Badge>
                                     )}
                                   </div>
-                                  <div className="text-xs text-muted-foreground">{ws.slug}</div>
+                                  {!isAutoCreated(ws.slug) && <div className="text-xs text-muted-foreground">{ws.slug}</div>}
                                 </div>
                               </div>
                             </TableCell>
