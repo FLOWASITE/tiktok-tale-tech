@@ -126,56 +126,57 @@ function GradientSeparator() {
   );
 }
 
-// Quota Warning Indicator - shows when any resource > 80% 
+// Quota Progress Indicator - shows average usage across all metrics
 function QuotaWarningIndicator() {
-  const { currentPlanLimits, usage, currentPeriod } = useSubscription();
+  const { currentPlanLimits, usage, currentPeriod, subscription } = useSubscription();
   const navigate = useNavigate();
+  const planBadge = getPlanBadge(subscription?.plan_type);
 
   if (!currentPlanLimits || !usage) {
     return <p className="text-[10px] text-muted-foreground/70">One Flow. All Content.</p>;
   }
 
   const checks = [
-    { used: usage.scripts, limit: currentPlanLimits.monthly_scripts, label: 'Scripts' },
-    { used: usage.carousels, limit: currentPlanLimits.monthly_carousels, label: 'Carousels' },
-    { used: usage.multichannel, limit: currentPlanLimits.monthly_multichannel, label: 'Đa kênh' },
-    { used: usage.images, limit: currentPlanLimits.monthly_images, label: 'Ảnh AI' },
-    { used: usage.brands, limit: currentPlanLimits.monthly_brands, label: 'Brands' },
-  ];
+    { used: usage.scripts, limit: currentPlanLimits.monthly_scripts },
+    { used: usage.carousels, limit: currentPlanLimits.monthly_carousels },
+    { used: usage.multichannel, limit: currentPlanLimits.monthly_multichannel },
+    { used: usage.images, limit: currentPlanLimits.monthly_images },
+    { used: usage.brands, limit: currentPlanLimits.monthly_brands },
+  ].filter(c => c.limit !== -1 && c.limit > 0);
 
-  const critical = checks.find(c => c.limit !== -1 && c.limit > 0 && (c.used / c.limit) >= 0.8);
+  const avgPct = checks.length > 0
+    ? Math.round(checks.reduce((acc, c) => acc + (c.used / c.limit) * 100, 0) / checks.length)
+    : 0;
+  const clampedPct = Math.min(100, avgPct);
 
-  // Check cycle expiry
   const now = new Date();
   const periodEnd = new Date(currentPeriod.end);
   const daysRemaining = Math.max(0, Math.ceil((periodEnd.getTime() - now.getTime()) / 86400000));
-  const cycleWarning = daysRemaining <= 3;
 
-  if (!critical && !cycleWarning) {
-    return <p className="text-[10px] text-muted-foreground/70">One Flow. All Content.</p>;
-  }
+  const barColor = clampedPct >= 90
+    ? 'bg-destructive'
+    : clampedPct >= 70
+      ? 'bg-yellow-500'
+      : 'bg-emerald-500';
 
   return (
-    <div className="flex flex-col gap-0.5">
-      {critical && (
-        <button 
-          onClick={() => navigate('/account')}
-          className="flex items-center gap-1 text-[10px] text-amber-500 hover:text-amber-400 transition-colors cursor-pointer"
-        >
-          <AlertTriangle className="h-2.5 w-2.5" />
-          <span>{critical.label} {Math.round((critical.used / critical.limit) * 100)}% — Sắp hết</span>
-        </button>
-      )}
-      {cycleWarning && (
-        <button 
-          onClick={() => navigate('/account')}
-          className="flex items-center gap-1 text-[10px] text-destructive hover:text-destructive/80 transition-colors cursor-pointer"
-        >
-          <AlertTriangle className="h-2.5 w-2.5" />
-          <span>Chu kỳ còn {daysRemaining} ngày</span>
-        </button>
-      )}
-    </div>
+    <button
+      onClick={() => navigate('/account')}
+      className="w-full text-left cursor-pointer group mt-0.5"
+    >
+      <div className="flex items-center justify-between text-[10px] mb-0.5">
+        <span className="text-muted-foreground/80 group-hover:text-foreground transition-colors">
+          Quota: {clampedPct}%
+        </span>
+        <span className="text-muted-foreground/60">{daysRemaining}d left</span>
+      </div>
+      <div className="w-full h-1.5 rounded-full bg-muted/60 overflow-hidden">
+        <div
+          className={cn('h-full rounded-full transition-all duration-500', barColor)}
+          style={{ width: `${clampedPct}%` }}
+        />
+      </div>
+    </button>
   );
 }
 
