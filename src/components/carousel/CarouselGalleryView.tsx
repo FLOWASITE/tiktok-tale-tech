@@ -519,16 +519,52 @@ function GalleryImageCard({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="p-2">
+            <div className="p-2 space-y-1.5">
               <p className="text-xs font-medium text-foreground truncate">{img.carouselTitle}</p>
+              
+              {/* User & Brand row */}
+              <div className="flex items-center gap-1.5">
+                {img.createdByAvatar ? (
+                  <img src={img.createdByAvatar} alt="" className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
+                ) : (
+                  <div className="w-4 h-4 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                    <User className="w-2.5 h-2.5 text-muted-foreground" />
+                  </div>
+                )}
+                <span className="text-[10px] text-muted-foreground truncate">
+                  {img.createdByName || img.createdByEmail?.split('@')[0] || 'Ẩn danh'}
+                </span>
+                {img.brandName && (
+                  <>
+                    <span className="text-[10px] text-muted-foreground/50">·</span>
+                    {img.brandLogoUrl ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <img src={img.brandLogoUrl} alt={img.brandName} className="w-4 h-4 rounded object-contain flex-shrink-0" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">{img.brandName}</TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground truncate">{img.brandName}</span>
+                    )}
+                  </>
+                )}
+              </div>
+
               <p className="text-[10px] text-muted-foreground">
                 {img.source === 'multichannel' && img.channel ? getChannelLabel(img.channel) + ' · ' : ''}
                 {formatRelativeTime(img.createdAt)}
               </p>
             </div>
           </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-[240px]">
+          <TooltipContent side="bottom" className="max-w-[260px]">
             <p className="text-xs font-medium">{img.carouselTitle}</p>
+            {img.createdByName && (
+              <p className="text-xs text-muted-foreground mt-0.5">Tạo bởi: {img.createdByName}</p>
+            )}
+            {img.brandName && (
+              <p className="text-xs text-muted-foreground">Brand: {img.brandName}</p>
+            )}
             <p className="text-xs text-muted-foreground mt-0.5">
               {img.source === 'carousel' ? `Carousel · Slide ${img.slideNumber}` : getChannelLabel(img.channel || '')}
               {' · v'}{img.version} · {new Date(img.createdAt).toLocaleString('vi-VN')}
