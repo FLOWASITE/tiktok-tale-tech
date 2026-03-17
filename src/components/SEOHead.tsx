@@ -10,6 +10,11 @@ export interface ArticleData {
   modifiedDate?: string;
   section: string;
   tags?: string[];
+  readingTime?: string; // ISO 8601 duration, e.g. "PT15M"
+  wordCount?: number;
+  authorUrl?: string;
+  authorJobTitle?: string;
+  authorSameAs?: string[];
 }
 
 export interface BreadcrumbItem {
