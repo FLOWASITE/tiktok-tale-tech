@@ -110,6 +110,7 @@ function AppRoutes() {
       <Route path="/auth/zalo/callback" element={<ZaloCallback />} />
       <Route path="/auth/google-business/callback" element={<GoogleBusinessCallback />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/payment/result" element={<ProtectedRoute><AppLayout><PaymentResult /></AppLayout></ProtectedRoute>} />
       {/* Protected routes */}
       <Route
         path="/"

@@ -312,3 +312,9 @@ verify_jwt = false
 
 [functions.decompose-image-request]
 verify_jwt = false
+
+[functions.create-vnpay-payment]
+verify_jwt = false
+
+[functions.vnpay-callback]
+verify_jwt = false
