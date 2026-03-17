@@ -207,10 +207,7 @@ serve(async (req) => {
         clearInterval(heartbeatInterval);
         await writer.close();
 
-        if (!hadError && userId) {
-          logUsage(supabase, userId, 'ai_edit', undefined, { mode: 'graph_engine', brandTemplateId })
-            .catch(err => logger.warn('Failed to log usage', { error: err.message }));
-        }
+        // ai_edit usage logging removed (unlimited)
 
         const aiCallDurationMs = Math.round(performance.now() - aiCallStart);
         const totalDurationMs = Math.round(performance.now() - requestStartTime);
