@@ -49,9 +49,9 @@ export function HeroSection() {
   const { t } = useTranslation();
 
   const stats = [
-    { icon: Users, value: 10000, suffix: "+", label: t("hero.stats.marketers") },
-    { icon: FileText, value: 500000, suffix: "+", label: t("hero.stats.content") },
-    { icon: TrendingUp, value: 95, suffix: "%", label: t("hero.stats.satisfaction") },
+    { icon: Users, value: 500, suffix: "+", label: t("hero.stats.marketers") },
+    { icon: FileText, value: 50000, suffix: "+", label: t("hero.stats.content") },
+    { icon: TrendingUp, value: 98, suffix: "%", label: t("hero.stats.satisfaction") },
   ];
 
   const urgencyBenefits = [
