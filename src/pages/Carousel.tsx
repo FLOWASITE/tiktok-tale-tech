@@ -179,7 +179,9 @@ const CarouselPage = () => {
           carousels={carousels}
           loading={loading}
           viewMode={viewMode}
+          showGallery={showGallery}
           onViewModeChange={setViewMode}
+          onToggleGallery={() => setShowGallery(prev => !prev)}
           onRefresh={refetch}
           onCreateNew={() => setFormSheetOpen(true)}
         />
