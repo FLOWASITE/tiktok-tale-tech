@@ -80,11 +80,10 @@ export default function Account() {
     },
     { 
       key: "multichannel" as const, 
-      label: "Nội dung đa kênh", 
+      label: "Bài trên Social", 
       icon: Layers,
       limit: currentPlanLimits?.monthly_multichannel || 0,
-      used: usage?.multichannel || 0,
-      socialPosts: usage?.multichannel_social_posts || 0,
+      used: usage?.multichannel_social_posts || 0,
     },
     { 
       key: "images" as const, 
