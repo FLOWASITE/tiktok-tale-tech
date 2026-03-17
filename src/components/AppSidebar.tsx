@@ -240,7 +240,7 @@ export function AppSidebar() {
                   {planBadge.label}
                 </span>
               </div>
-              <p className="text-[10px] text-muted-foreground/70">One Flow. All Content.</p>
+              <QuotaWarningIndicator />
             </div>
           )}
         </div>

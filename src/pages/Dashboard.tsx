@@ -310,11 +310,21 @@ function DashboardContent() {
             <TodaySchedules />
           </motion.div>
 
-          {/* Performance Reminder (spans 4 cols on lg) */}
+          {/* Usage Quota Widget (spans 4 cols on lg) */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7 }}
+            className="lg:col-span-4"
+          >
+            <UsageQuotaWidget />
+          </motion.div>
+
+          {/* Performance Reminder (spans 4 cols on lg) */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.75 }}
             className="lg:col-span-4"
           >
             <PerformanceReminderWidget />
