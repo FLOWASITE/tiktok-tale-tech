@@ -17,6 +17,9 @@ export interface AdminWorkspace {
     avatar_url: string | null;
   } | null;
   member_count: number;
+  brand_count: number;
+  content_count: number;
+  image_count: number;
   subscription: {
     plan_type: string;
     status: string;
