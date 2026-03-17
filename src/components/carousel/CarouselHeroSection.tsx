@@ -19,7 +19,9 @@ export function CarouselHeroSection({
   carousels,
   loading,
   viewMode,
+  showGallery,
   onViewModeChange,
+  onToggleGallery,
   onRefresh,
   onCreateNew,
 }: CarouselHeroSectionProps) {
