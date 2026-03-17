@@ -83,7 +83,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user, currentOrganization?.id, storageKey]);
+  }, [user, currentOrganization?.id, storageKey, orgLoading]);
 
   useEffect(() => {
     setLoading(true);
