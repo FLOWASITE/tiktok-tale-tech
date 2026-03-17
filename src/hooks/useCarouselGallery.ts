@@ -39,42 +39,95 @@ export function useCarouselGallery() {
       const [carouselRes, channelRes] = await Promise.all([
         supabase
           .from('carousel_images')
-          .select('id, image_url, carousel_id, slide_number, version, is_selected, created_at, carousels(title)')
+          .select('id, image_url, carousel_id, slide_number, version, is_selected, created_at, created_by, carousels(title, brand_name, user_id)')
           .order('created_at', { ascending: false }),
         supabase
           .from('channel_image_history')
-          .select('id, image_url, content_id, channel, version, is_selected, created_at, multi_channel_contents(title)')
+          .select('id, image_url, content_id, channel, version, is_selected, created_at, created_by, multi_channel_contents(title, brand_template_id, user_id)')
           .order('created_at', { ascending: false }),
       ]);
 
       if (carouselRes.error) throw carouselRes.error;
       if (channelRes.error) throw channelRes.error;
 
-      const carouselImages: GalleryImage[] = (carouselRes.data || []).map((row: any) => ({
-        id: row.id,
-        imageUrl: row.image_url,
-        carouselId: row.carousel_id,
-        carouselTitle: row.carousels?.title || 'Không rõ',
-        slideNumber: row.slide_number,
-        version: row.version,
-        isSelected: row.is_selected ?? false,
-        createdAt: row.created_at,
-        source: 'carousel' as ImageSource,
-        channel: 'carousel',
-      }));
+      // Collect all user IDs and brand_template_ids to batch fetch
+      const userIds = new Set<string>();
+      const brandTemplateIds = new Set<string>();
 
-      const channelImages: GalleryImage[] = (channelRes.data || []).map((row: any) => ({
-        id: row.id,
-        imageUrl: row.image_url,
-        carouselId: row.content_id,
-        carouselTitle: row.multi_channel_contents?.title || 'Không rõ',
-        slideNumber: row.version || 1,
-        version: row.version || 1,
-        isSelected: row.is_selected ?? false,
-        createdAt: row.created_at,
-        source: 'multichannel' as ImageSource,
-        channel: row.channel,
-      }));
+      (carouselRes.data || []).forEach((row: any) => {
+        if (row.created_by) userIds.add(row.created_by);
+        if (row.carousels?.user_id) userIds.add(row.carousels.user_id);
+      });
+      (channelRes.data || []).forEach((row: any) => {
+        if (row.created_by) userIds.add(row.created_by);
+        if (row.multi_channel_contents?.user_id) userIds.add(row.multi_channel_contents.user_id);
+        if (row.multi_channel_contents?.brand_template_id) brandTemplateIds.add(row.multi_channel_contents.brand_template_id);
+      });
+
+      // Batch fetch profiles and brands
+      const [profilesRes, brandsRes] = await Promise.all([
+        userIds.size > 0
+          ? supabase.from('profiles').select('id, full_name, email, avatar_url').in('id', Array.from(userIds))
+          : Promise.resolve({ data: [], error: null }),
+        brandTemplateIds.size > 0
+          ? supabase.from('brand_templates').select('id, brand_name, logo_url').in('id', Array.from(brandTemplateIds))
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+      const profileMap = new Map<string, { name?: string; email?: string; avatar?: string }>();
+      (profilesRes.data || []).forEach((p: any) => {
+        profileMap.set(p.id, { name: p.full_name, email: p.email, avatar: p.avatar_url });
+      });
+
+      const brandMap = new Map<string, { name?: string; logoUrl?: string }>();
+      (brandsRes.data || []).forEach((b: any) => {
+        brandMap.set(b.id, { name: b.brand_name, logoUrl: b.logo_url });
+      });
+
+      const carouselImages: GalleryImage[] = (carouselRes.data || []).map((row: any) => {
+        const userId = row.created_by || row.carousels?.user_id;
+        const profile = userId ? profileMap.get(userId) : undefined;
+        return {
+          id: row.id,
+          imageUrl: row.image_url,
+          carouselId: row.carousel_id,
+          carouselTitle: row.carousels?.title || 'Không rõ',
+          slideNumber: row.slide_number,
+          version: row.version,
+          isSelected: row.is_selected ?? false,
+          createdAt: row.created_at,
+          source: 'carousel' as ImageSource,
+          channel: 'carousel',
+          createdByName: profile?.name,
+          createdByEmail: profile?.email,
+          createdByAvatar: profile?.avatar,
+          brandName: row.carousels?.brand_name || undefined,
+        };
+      });
+
+      const channelImages: GalleryImage[] = (channelRes.data || []).map((row: any) => {
+        const userId = row.created_by || row.multi_channel_contents?.user_id;
+        const profile = userId ? profileMap.get(userId) : undefined;
+        const brandId = row.multi_channel_contents?.brand_template_id;
+        const brand = brandId ? brandMap.get(brandId) : undefined;
+        return {
+          id: row.id,
+          imageUrl: row.image_url,
+          carouselId: row.content_id,
+          carouselTitle: row.multi_channel_contents?.title || 'Không rõ',
+          slideNumber: row.version || 1,
+          version: row.version || 1,
+          isSelected: row.is_selected ?? false,
+          createdAt: row.created_at,
+          source: 'multichannel' as ImageSource,
+          channel: row.channel,
+          createdByName: profile?.name,
+          createdByEmail: profile?.email,
+          createdByAvatar: profile?.avatar,
+          brandName: brand?.name,
+          brandLogoUrl: brand?.logoUrl,
+        };
+      });
 
       const all = [...carouselImages, ...channelImages].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
