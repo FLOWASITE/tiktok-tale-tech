@@ -88,7 +88,6 @@ export default function Account() {
     },
     enabled: !!user?.id && selectedMonth !== "current" && !!selectedPeriod,
   });
-  const [isEditing, setIsEditing] = useState(false);
 
   const handleSaveProfile = () => {
     updateProfile({ full_name: fullName });
