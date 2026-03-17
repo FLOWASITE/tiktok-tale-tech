@@ -6341,6 +6341,59 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_orders: {
+        Row: {
+          amount: number
+          billing_cycle: string
+          created_at: string
+          currency: string
+          id: string
+          organization_id: string
+          plan_type: string
+          status: string
+          updated_at: string
+          user_id: string
+          vnpay_response: Json | null
+          vnpay_txn_ref: string
+        }
+        Insert: {
+          amount: number
+          billing_cycle?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          organization_id: string
+          plan_type: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          vnpay_response?: Json | null
+          vnpay_txn_ref: string
+        }
+        Update: {
+          amount?: number
+          billing_cycle?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          organization_id?: string
+          plan_type?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          vnpay_response?: Json | null
+          vnpay_txn_ref?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_orders_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_limits: {
         Row: {
           created_at: string
