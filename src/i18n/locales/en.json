@@ -220,12 +220,21 @@
   "socialProof": {
     "badge": "Reviews",
     "title": "Trusted by",
-    "titleHighlight": "10,000+ Marketers",
-    "subtitle": "From startups to enterprise, Flowa helps marketing teams save time and increase effectiveness.",
+    "titleHighlight": "500+ Marketers",
+    "subtitle": "From freelancers to agencies, Flowa helps marketing teams save time and increase effectiveness.",
     "stats": {
       "rating": "Average rating",
       "timeSaved": "Time saved",
       "contentIncrease": "Content output increase"
+    },
+    "metrics": {
+      "users": "Marketers trust us",
+      "usersDesc": "Growing monthly",
+      "content": "Content created",
+      "contentDesc": "Across 12+ marketing channels",
+      "reviewsDesc": "From 200+ reviews",
+      "uptime": "System uptime",
+      "uptimeDesc": "Enterprise-grade reliability"
     }
   },
   "testimonials": {
