@@ -164,7 +164,7 @@ function QuotaWarningIndicator() {
       onClick={() => navigate('/account')}
       className="w-full text-left cursor-pointer group mt-0.5"
     >
-      <div className="flex items-center justify-between text-[10px] mb-0.5">
+      <div className="flex items-center justify-between text-[10px] mb-0.5 gap-2">
         <span className="text-muted-foreground/80 group-hover:text-foreground transition-colors">
           Hạn mức: {clampedPct}%
         </span>
