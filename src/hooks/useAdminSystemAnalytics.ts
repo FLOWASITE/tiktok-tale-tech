@@ -261,11 +261,10 @@ export function useAdminSystemAnalytics(period: PeriodFilter) {
   const userQuery = useQuery({
     queryKey: ['admin-analytics-users', period],
     queryFn: async (): Promise<UserRanking[]> => {
-      const [{ data: contents }, { data: images }, { data: profiles }, { data: edits }, { data: members }, { data: orgs }] = await Promise.all([
+      const [{ data: contents }, { data: images }, { data: profiles }, { data: members }, { data: orgs }] = await Promise.all([
         supabase.from('multi_channel_contents').select('id, user_id, selected_channels').gte('created_at', dates.start).lte('created_at', dates.end),
         supabase.from('channel_image_history').select('id, content_id').gte('created_at', dates.start).lte('created_at', dates.end),
         supabase.from('profiles').select('id, full_name, email, avatar_url'),
-        supabase.from('usage_logs').select('user_id').eq('usage_type', 'ai_edit').gte('created_at', dates.start).lte('created_at', dates.end),
         supabase.from('organization_members').select('user_id, organization_id'),
         supabase.from('organizations').select('id, name'),
       ]);
