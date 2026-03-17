@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { FAQSEOSchema } from "@/components/SEOHead";
 
 export function FAQSection() {
   const { t } = useTranslation();
