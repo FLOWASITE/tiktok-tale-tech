@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+export type PeriodFilter = "all" | "current" | "previous";
+
 export interface WorkspaceMember {
   id: string;
   user_id: string;
@@ -40,7 +42,61 @@ export interface MemberContribution {
   } | null;
 }
 
-export function useAdminWorkspaceDetail(orgId: string | null) {
+export interface WorkspacePeriodInfo {
+  start: string | null;
+  end: string | null;
+}
+
+async function getWorkspacePeriod(orgId: string): Promise<WorkspacePeriodInfo> {
+  const { data } = await supabase
+    .from("subscriptions")
+    .select("current_period_start, current_period_end")
+    .eq("organization_id", orgId)
+    .maybeSingle();
+
+  if (!data) return { start: null, end: null };
+  return { start: data.current_period_start, end: data.current_period_end };
+}
+
+function getDateRange(period: WorkspacePeriodInfo, filter: PeriodFilter): { start?: string; end?: string } {
+  if (filter === "all" || !period.start || !period.end) return {};
+
+  if (filter === "current") {
+    const now = new Date();
+    const periodEnd = new Date(period.end);
+    if (periodEnd < now) {
+      // Fallback to current month
+      const s = new Date(now.getFullYear(), now.getMonth(), 1);
+      const e = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      return { start: s.toISOString(), end: e.toISOString() };
+    }
+    return { start: period.start, end: period.end };
+  }
+
+  // previous: everything before current_period_start
+  const now = new Date();
+  const periodEnd = new Date(period.end);
+  if (periodEnd < now) {
+    // Period expired, "previous" = everything before current month start
+    const s = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { end: s.toISOString() };
+  }
+  return { end: period.start };
+}
+
+function applyDateFilter(query: any, range: { start?: string; end?: string }) {
+  if (range.start) query = query.gte("created_at", range.start);
+  if (range.end) query = query.lte("created_at", range.end);
+  return query;
+}
+
+export function useAdminWorkspaceDetail(orgId: string | null, periodFilter: PeriodFilter = "all") {
+  const periodQuery = useQuery({
+    queryKey: ["admin_workspace_period", orgId],
+    queryFn: () => getWorkspacePeriod(orgId!),
+    enabled: !!orgId && periodFilter !== "all",
+  });
+
   const membersQuery = useQuery({
     queryKey: ["admin_workspace_members", orgId],
     queryFn: async (): Promise<WorkspaceMember[]> => {
@@ -95,18 +151,30 @@ export function useAdminWorkspaceDetail(orgId: string | null) {
     enabled: !!orgId,
   });
 
+  const canQueryStats = !!orgId && (periodFilter === "all" || !!periodQuery.data);
+
   const statsQuery = useQuery({
-    queryKey: ["admin_workspace_content_stats", orgId],
+    queryKey: ["admin_workspace_content_stats", orgId, periodFilter, periodQuery.data],
     queryFn: async (): Promise<WorkspaceContentStats> => {
+      const range = periodFilter === "all" ? {} : getDateRange(periodQuery.data!, periodFilter);
+
+      const buildQuery = (table: string, orgField = "organization_id") => {
+        let q = supabase.from(table).select("id", { count: "exact", head: true }).eq(orgField, orgId!);
+        return applyDateFilter(q, range);
+      };
+
+      // multi_channel_contents needs selected_channels data
+      let mcQuery = supabase.from("multi_channel_contents").select("id, selected_channels").eq("organization_id", orgId!);
+      mcQuery = applyDateFilter(mcQuery, range);
+
       const [mcRes, carRes, imgRes, scriptRes, carImgRes] = await Promise.all([
-        supabase.from("multi_channel_contents").select("id, selected_channels").eq("organization_id", orgId!),
-        supabase.from("carousels").select("id", { count: "exact", head: true }).eq("organization_id", orgId!),
-        supabase.from("channel_image_history").select("id", { count: "exact", head: true }).eq("organization_id", orgId!),
-        supabase.from("scripts").select("id", { count: "exact", head: true }).eq("organization_id", orgId!),
-        supabase.from("carousel_images").select("id", { count: "exact", head: true }).eq("organization_id", orgId!),
+        mcQuery,
+        buildQuery("carousels"),
+        buildQuery("channel_image_history"),
+        buildQuery("scripts"),
+        buildQuery("carousel_images"),
       ]);
 
-      // Calculate social post count from selected_channels arrays
       const contents = mcRes.data || [];
       const socialPostCount = contents.reduce((sum, row) => {
         const channels = (row as any).selected_channels;
@@ -122,22 +190,21 @@ export function useAdminWorkspaceDetail(orgId: string | null) {
         scriptCount: scriptRes.count || 0,
       };
     },
-    enabled: !!orgId,
+    enabled: canQueryStats,
   });
 
   const contributionsQuery = useQuery({
-    queryKey: ["admin_workspace_contributions", orgId],
+    queryKey: ["admin_workspace_contributions", orgId, periodFilter, periodQuery.data],
     queryFn: async (): Promise<MemberContribution[]> => {
-      // Get contents grouped by user
-      const { data: contents } = await supabase
-        .from("multi_channel_contents")
-        .select("user_id")
-        .eq("organization_id", orgId!);
+      const range = periodFilter === "all" ? {} : getDateRange(periodQuery.data!, periodFilter);
 
-      const { data: images } = await supabase
-        .from("channel_image_history")
-        .select("user_id")
-        .eq("organization_id", orgId!);
+      let contentsQ = supabase.from("multi_channel_contents").select("user_id").eq("organization_id", orgId!);
+      contentsQ = applyDateFilter(contentsQ, range);
+      const { data: contents } = await contentsQ;
+
+      let imagesQ = supabase.from("channel_image_history").select("user_id").eq("organization_id", orgId!);
+      imagesQ = applyDateFilter(imagesQ, range);
+      const { data: images } = await imagesQ;
 
       const contentByUser: Record<string, number> = {};
       const imageByUser: Record<string, number> = {};
@@ -174,7 +241,7 @@ export function useAdminWorkspaceDetail(orgId: string | null) {
         }))
         .sort((a, b) => (b.contentCount + b.imageCount) - (a.contentCount + a.imageCount));
     },
-    enabled: !!orgId,
+    enabled: canQueryStats,
   });
 
   return {
@@ -182,6 +249,7 @@ export function useAdminWorkspaceDetail(orgId: string | null) {
     brands: brandsQuery.data || [],
     contentStats: statsQuery.data || { multiChannelCount: 0, socialPostCount: 0, carouselCount: 0, carouselImageCount: 0, imageCount: 0, scriptCount: 0 },
     contributions: contributionsQuery.data || [],
-    isLoading: membersQuery.isLoading || brandsQuery.isLoading || statsQuery.isLoading || contributionsQuery.isLoading,
+    periodInfo: periodQuery.data || null,
+    isLoading: membersQuery.isLoading || brandsQuery.isLoading || statsQuery.isLoading || contributionsQuery.isLoading || (periodFilter !== "all" && periodQuery.isLoading),
   };
 }
