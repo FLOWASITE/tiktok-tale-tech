@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import {
   Users,
+  Building2,
   CreditCard,
   TrendingUp,
   Activity,
