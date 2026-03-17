@@ -1,62 +1,36 @@
-## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-### Vấn đề
-Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-### Đã sửa (3 files)
-1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
-2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
+# Bổ sung card Ảnh AI & Video vào Dashboard Stats
 
----
+## Thay đổi
 
-## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
+Hiện tại `DashboardStats` có 4 card: Kịch bản Video, Carousel, Nội dung đa kênh, Brand Templates. Cần thêm 2 card:
+- **Ảnh AI**: Đếm từ `channel_image_history` (org scope)
+- **Video AI**: Hiển thị "Soon" badge, giá trị = 0
 
-### Vấn đề
-AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
+## Kế hoạch
 
-### Đã sửa (3 files)
-1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
-2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
+### 1. `src/components/DashboardStats.tsx`
+- Mở rộng `StatsData` thêm `aiImages: number` và `aiVideos: number`
+- Thêm 2 config entries:
+  - `aiImages`: icon `Wand2`, gradient teal, key `statsAiImages`
+  - `aiVideos`: icon `Video`, gradient indigo, key `statsAiVideos`, thêm flag `comingSoon: true`
+- Card có `comingSoon` sẽ hiển thị badge "Soon" thay vì trend percentage
+- Grid chuyển thành `grid-cols-2 md:grid-cols-3 lg:grid-cols-6` cho 6 card
 
----
+### 2. `src/pages/Dashboard.tsx`
+- Fetch count ảnh AI từ `channel_image_history` với `organization_id` filter (dùng `supabase.from('channel_image_history').select('id', { count: 'exact', head: true })`)
+- Truyền `aiImages` và `aiVideos: 0` vào stats
 
-## Feature: Regenerate sử dụng Core Content — đã sửa
+### 3. `src/i18n/locales/vi.json` & `en.json`
+- Thêm keys: `statsAiImages` = "Ảnh AI" / "AI Images", `statsAiVideos` = "Video AI" / "AI Videos"
 
-### Vấn đề
-Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
+## Files thay đổi
 
-### Đã sửa (1 file)
-1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
+| File | Thay đổi |
+|------|----------|
+| `src/components/DashboardStats.tsx` | Thêm 2 card, cập nhật grid 6 cột |
+| `src/pages/Dashboard.tsx` | Fetch AI image count, truyền vào stats |
+| `src/i18n/locales/vi.json` | Thêm 2 keys |
+| `src/i18n/locales/en.json` | Thêm 2 keys |
 
----
-
-## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
-
-### Vấn đề
-1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
-2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
-3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
-
-### Đã sửa (4 files)
-1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
-2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
-3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
-4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
-
----
-
-## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
-
-### Vấn đề
-Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
-
-### Đã sửa (6 files + 2 edge functions)
-1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
-2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
-3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
-4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
-5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
-6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
-7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
