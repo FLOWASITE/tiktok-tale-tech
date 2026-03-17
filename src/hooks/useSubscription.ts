@@ -26,6 +26,7 @@ export interface PlanLimit {
   monthly_multichannel: number;
   monthly_images: number;
   monthly_ai_edits: number;
+  monthly_brands: number;
   price_monthly: number;
   price_yearly: number;
   features: string[];
