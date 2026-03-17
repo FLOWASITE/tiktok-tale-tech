@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { toast } from 'sonner';
 
 export type ImageSource = 'carousel' | 'multichannel';
@@ -24,6 +25,7 @@ export interface GalleryImage {
 }
 
 export function useCarouselGallery() {
+  const { currentOrganization } = useOrganizationContext();
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [carouselFilter, setCarouselFilter] = useState<string>('all');
@@ -34,17 +36,26 @@ export function useCarouselGallery() {
   const [creatorFilter, setCreatorFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  const orgId = currentOrganization?.id;
+
   const fetchImages = async () => {
+    if (!orgId) {
+      setImages([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [carouselRes, channelRes] = await Promise.all([
         supabase
           .from('carousel_images')
           .select('id, image_url, carousel_id, slide_number, version, is_selected, created_at, created_by, carousels(title, brand_name, user_id)')
+          .eq('organization_id', orgId)
           .order('created_at', { ascending: false }),
         supabase
           .from('channel_image_history')
           .select('id, image_url, content_id, channel, version, is_selected, created_at, created_by, multi_channel_contents(title, brand_template_id, user_id)')
+          .eq('organization_id', orgId)
           .order('created_at', { ascending: false }),
       ]);
 
@@ -145,7 +156,7 @@ export function useCarouselGallery() {
 
   useEffect(() => {
     fetchImages();
-  }, []);
+  }, [orgId]);
 
   const creatorOptions = useMemo(() => {
     const map = new Map<string, string>();
