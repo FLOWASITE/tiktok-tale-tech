@@ -238,45 +238,45 @@
     }
   },
   "testimonials": {
-    "badge": "Testimonials",
-    "title": "What customers say",
-    "titleHighlight": "about Flowa",
+    "badge": "What customers say",
+    "title": "Real stories",
+    "titleHighlight": "from Flowa users",
     "items": [
       {
-        "quote": "Flowa helps my team create content 5x faster. Quality is even better than manual writing!",
+        "quote": "My team used to spend 3 days writing content for a week. With Flowa, it takes just 2 hours and quality is more consistent.",
         "name": "Nguyen Minh Anh",
-        "role": "Marketing Director",
-        "company": "TechViet"
+        "role": "Marketing Manager",
+        "company": "Creative Agency"
       },
       {
-        "quote": "The brand voice management feature is a game-changer. Content is always on-tone no matter who creates it.",
+        "quote": "The Industry Compliance feature saved my team from so many issues. Healthcare content is now auto-checked for forbidden terms.",
         "name": "Tran Hoang Long",
         "role": "Content Lead",
-        "company": "StartupXYZ"
+        "company": "Clinic Chain"
       },
       {
-        "quote": "From 1 post, Flowa automatically creates 5 versions for different channels. Saves so much time!",
+        "quote": "From 1 blog post, Flowa creates 6 versions for Facebook, Instagram, TikTok, LinkedIn, Zalo and email. Truly saves 80% of time!",
         "name": "Le Thu Huong",
         "role": "Social Media Manager",
-        "company": "E-commerce Plus"
+        "company": "Fashion E-commerce"
       },
       {
-        "quote": "ROI after 3 months using Flowa increased 200%. Cost of hiring content writers decreased significantly.",
+        "quote": "Brand voice management lets 5 team members create content that customers can't tell apart. On-brand from A-Z.",
         "name": "Pham Van Duc",
-        "role": "CEO",
-        "company": "Agency Pro"
+        "role": "Founder",
+        "company": "Digital Agency"
       },
       {
-        "quote": "Beautiful interface, easy to use. Team onboarded in just one session.",
+        "quote": "Friendly interface, team onboarded in 30 minutes. AI-generated carousels are beautiful and on-brand, clients love them.",
         "name": "Vo Thi Mai",
         "role": "Brand Manager",
-        "company": "Beauty Corp"
+        "company": "Cosmetics Chain"
       },
       {
-        "quote": "Flowa's AI understands Vietnamese very well, including memes and trends. Content created is very natural.",
+        "quote": "The AI understands Vietnamese naturally, including slang and latest trends. Content doesn't feel machine-generated at all.",
         "name": "Dang Quoc Bao",
         "role": "Creative Director",
-        "company": "Digital Studio"
+        "company": "Production House"
       }
     ]
   },
