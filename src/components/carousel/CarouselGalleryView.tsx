@@ -92,9 +92,10 @@ export function CarouselGalleryView() {
     setSourceFilter('all');
     setChannelFilter('all');
     setCarouselFilter('all');
+    setCreatorFilter('all');
     setSearchQuery('');
     setPage(1);
-  }, [setSourceFilter, setChannelFilter, setCarouselFilter, setSearchQuery]);
+  }, [setSourceFilter, setChannelFilter, setCarouselFilter, setCreatorFilter, setSearchQuery]);
 
   const visibleImages = useMemo(() => images.slice(0, page * PAGE_SIZE), [images, page]);
   const hasMore = images.length > page * PAGE_SIZE;
