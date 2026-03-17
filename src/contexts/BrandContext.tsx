@@ -30,7 +30,7 @@ function transformDbResponse(data: any): BrandTemplate {
 
 export function BrandProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { currentOrganization } = useOrganizationContext();
+  const { currentOrganization, loading: orgLoading } = useOrganizationContext();
   const [brands, setBrands] = useState<BrandTemplate[]>([]);
   const [currentBrand, setCurrentBrand] = useState<BrandTemplate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,6 +47,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
+    if (orgLoading) return;
 
     try {
       let query = supabase
@@ -82,7 +83,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user, currentOrganization?.id, storageKey]);
+  }, [user, currentOrganization?.id, storageKey, orgLoading]);
 
   useEffect(() => {
     setLoading(true);
