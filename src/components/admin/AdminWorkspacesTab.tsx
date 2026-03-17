@@ -218,7 +218,7 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
                   <Wand2 className="h-2.5 w-2.5" />
                   <span className="font-bold text-foreground">{totalImages}</span>
                 </span>
-                <span className="font-bold text-primary">= {totalContent + totalImages}</span>
+                <span className="font-bold text-primary">{totalContent + totalImages}</span>
               </div>
             );
           })()}
