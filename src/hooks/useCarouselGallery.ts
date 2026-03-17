@@ -31,6 +31,7 @@ export function useCarouselGallery() {
   const [channelFilter, setChannelFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('newest');
+  const [creatorFilter, setCreatorFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const fetchImages = async () => {
