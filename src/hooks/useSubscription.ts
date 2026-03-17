@@ -202,7 +202,7 @@ export function useSubscription() {
       multichannel: currentPlanLimits.monthly_multichannel,
       multichannel_social_posts: currentPlanLimits.monthly_multichannel,
       images: currentPlanLimits.monthly_images,
-      ai_edits: currentPlanLimits.monthly_ai_edits,
+      brands: currentPlanLimits.monthly_brands,
     };
 
     const limit = limitMap[type];
