@@ -281,9 +281,11 @@ export default function MultiChannelCreate() {
               onGenerate={handleGenerate}
               // Step 5: Image pipeline props
               onStartImagePipeline={(channels, channelTexts, contentMeta) => {
-                if (generatedContentId && selectedBrandId) {
-                  imagePipeline.startPipeline(generatedContentId, channels, channelTexts, contentMeta);
+                if (!generatedContentId || !selectedBrandId) {
+                  toast.warning('Vui lòng chờ nội dung đa kênh tạo xong trước khi tạo ảnh');
+                  return;
                 }
+                imagePipeline.startPipeline(generatedContentId, channels, channelTexts, contentMeta);
               }}
               imagePhase={imagePipeline.phase}
               imageProgress={imagePipeline.imageProgress as any}
