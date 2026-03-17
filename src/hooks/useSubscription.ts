@@ -38,6 +38,7 @@ export interface UsageStats {
   carousels: number;
   multichannel: number;
   multichannel_social_posts: number;
+  channel_breakdown: Record<string, number>;
   images: number;
   ai_edits: number;
 }
