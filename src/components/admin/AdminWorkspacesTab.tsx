@@ -512,9 +512,9 @@ export function AdminWorkspacesTab() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-center">
-                              <span className="text-sm font-medium">{ws.brand_count}</span>
+                              <span className="text-sm text-muted-foreground">{ws.brand_count}</span>
                             </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell className="text-center border-l border-border/50">
                               <span className="text-sm font-medium">{ws.content_count}</span>
                             </TableCell>
                             <TableCell className="text-center">
