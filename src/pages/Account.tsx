@@ -541,6 +541,17 @@ export default function Account() {
                   <ChannelBreakdown breakdown={historyQuery.data.channel_breakdown} />
                 </div>
               )}
+
+              {/* History Image Channel Breakdown */}
+              {historyQuery.data?.image_channel_breakdown && Object.keys(historyQuery.data.image_channel_breakdown).length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <Wand2 className="h-4 w-4" />
+                    Chi tiết ảnh AI theo kênh
+                  </h4>
+                  <ChannelBreakdown breakdown={historyQuery.data.image_channel_breakdown} />
+                </div>
+              )}
             </div>
           )}
         </CardContent>
