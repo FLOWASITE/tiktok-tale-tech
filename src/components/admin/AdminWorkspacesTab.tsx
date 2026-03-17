@@ -296,7 +296,7 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
                   <ScrollText className="h-3 w-3" />
                   <span className="font-bold text-foreground">{tScript}</span>
                 </span>
-                <span className="font-bold text-primary">= {tContent + tImages + tCarousel + tScript}</span>
+                <span className="font-bold text-primary">{tContent + tImages + tCarousel + tScript}</span>
               </div>
             );
           })()}
