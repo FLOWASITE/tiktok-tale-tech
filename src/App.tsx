@@ -112,6 +112,7 @@ function AppRoutes() {
       <Route path="/auth/google-business/callback" element={<GoogleBusinessCallback />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/payment/result" element={<ProtectedRoute><AppLayout><PaymentResult /></AppLayout></ProtectedRoute>} />
+      <Route path="/pricing" element={<Pricing />} />
       {/* Protected routes */}
       <Route
         path="/"
