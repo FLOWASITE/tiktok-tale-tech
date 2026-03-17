@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   User, Mail, Calendar, Crown, Zap, FileText, 
   Images, Layers, Wand2, Upload, Save, CreditCard, History,
-  Globe, MessageCircle, Youtube, Send
+  Globe, MessageCircle, Youtube, Send, Building2
 } from "lucide-react";
 import { Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
 import { format } from "date-fns";
