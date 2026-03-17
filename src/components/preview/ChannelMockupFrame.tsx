@@ -920,26 +920,45 @@ function EmailMockup({ content, brandName, logoUrl, isGenerating }: Omit<Channel
   );
 }
 
+// Breadcrumb Component
+function WebsiteBreadcrumb({ brandName, themeColor, category }: { brandName: string; themeColor: string; category?: string }) {
+  return (
+    <nav className="flex items-center gap-1.5 text-[10px] text-[#86868b] px-4 sm:px-6 py-2 bg-[#fafafa] dark:bg-[#232326] border-b border-[#e5e5e7] dark:border-[#3d3d3f]">
+      <span className="hover:underline cursor-pointer" style={{ color: themeColor }}>Trang chủ</span>
+      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+      <span className="hover:underline cursor-pointer" style={{ color: themeColor }}>Blog</span>
+      {category && (
+        <>
+          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+          <span className="hover:underline cursor-pointer" style={{ color: themeColor }}>{category}</span>
+        </>
+      )}
+      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+      <span className="text-[#1d1d1f] dark:text-white truncate max-w-[120px]">Bài viết hiện tại</span>
+    </nav>
+  );
+}
+
 // Article TOC Component
 function ArticleTOC({ headings, themeColor }: { headings: string[]; themeColor: string }) {
   if (!headings?.length) return null;
   
   return (
-    <div className="bg-[#f8f8fa] dark:bg-[#2c2c2e] rounded-lg p-3 text-xs mb-4">
+    <div className="bg-[#f8f8fa] dark:bg-[#2c2c2e] rounded-lg p-3 text-xs mb-4 border border-[#e5e5e7] dark:border-[#3d3d3f]">
       <h4 className="font-semibold mb-2 text-[#1d1d1f] dark:text-white flex items-center gap-1.5">
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
         </svg>
-        Mục lục
+        Mục lục bài viết
       </h4>
       <ol className="space-y-1.5 list-decimal list-inside text-[#86868b]">
-        {headings.slice(0, 5).map((h, i) => (
-          <li key={i} className="hover:text-[#1d1d1f] dark:hover:text-white cursor-pointer truncate transition-colors" style={{ '--hover-color': themeColor } as React.CSSProperties}>
-            {h}
+        {headings.slice(0, 6).map((h, i) => (
+          <li key={i} className="hover:text-[#1d1d1f] dark:hover:text-white cursor-pointer truncate transition-colors">
+            <span className="hover:underline">{h}</span>
           </li>
         ))}
-        {headings.length > 5 && (
-          <li className="text-[#86868b] italic">+{headings.length - 5} mục khác...</li>
+        {headings.length > 6 && (
+          <li className="italic" style={{ color: themeColor }}>+{headings.length - 6} mục khác...</li>
         )}
       </ol>
     </div>
@@ -955,9 +974,165 @@ function SEOScoreBadge({ score, themeColor }: { score: number; themeColor: strin
   };
   
   return (
-    <div className="absolute top-2 right-2 flex items-center gap-1 bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur rounded-full px-2 py-1 text-xs shadow-sm border border-[#e5e5e7] dark:border-[#3d3d3f]">
+    <div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur rounded-full px-2 py-1 text-xs shadow-sm border border-[#e5e5e7] dark:border-[#3d3d3f]">
       <div className={cn("w-2 h-2 rounded-full", getScoreColor())} />
       <span className="font-medium text-[#1d1d1f] dark:text-white">SEO {score}</span>
+    </div>
+  );
+}
+
+// Related Posts Sidebar
+function RelatedPostsSidebar({ brandName, themeColor }: { brandName: string; themeColor: string }) {
+  const posts = [
+    { title: 'Hướng dẫn tối ưu content hiệu quả', date: '28 Th12, 2025', views: '1.2K' },
+    { title: 'Xu hướng marketing 2026 không thể bỏ qua', date: '15 Th12, 2025', views: '3.4K' },
+    { title: '5 mẹo viết headline thu hút người đọc', date: '10 Th12, 2025', views: '856' },
+  ];
+  
+  return (
+    <div className="bg-[#f8f8fa] dark:bg-[#2c2c2e] rounded-lg p-3 text-xs border border-[#e5e5e7] dark:border-[#3d3d3f]">
+      <h4 className="font-semibold mb-2.5 text-[#1d1d1f] dark:text-white flex items-center gap-1.5">
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" /></svg>
+        Bài viết liên quan
+      </h4>
+      <div className="space-y-2.5">
+        {posts.map((post, i) => (
+          <div key={i} className="group cursor-pointer">
+            <p className="font-medium text-[#1d1d1f] dark:text-white group-hover:underline line-clamp-2 leading-tight">{post.title}</p>
+            <div className="flex items-center gap-2 mt-0.5 text-[10px] text-[#86868b]">
+              <span>{post.date}</span>
+              <span>•</span>
+              <span>{post.views} lượt xem</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Newsletter CTA
+function NewsletterCTA({ themeColor }: { themeColor: string }) {
+  return (
+    <div className="rounded-lg p-3 text-xs border border-dashed" style={{ borderColor: themeColor + '60', backgroundColor: themeColor + '08' }}>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Mail className="w-3.5 h-3.5" style={{ color: themeColor }} />
+        <span className="font-semibold text-[#1d1d1f] dark:text-white">Nhận bài viết mới nhất</span>
+      </div>
+      <p className="text-[#86868b] mb-2 leading-relaxed">Đăng ký để không bỏ lỡ bài viết chất lượng mỗi tuần.</p>
+      <div className="flex gap-1.5">
+        <div className="flex-1 bg-white dark:bg-[#1c1c1e] rounded px-2 py-1.5 text-[#86868b] border border-[#e5e5e7] dark:border-[#3d3d3f]">email@example.com</div>
+        <button className="px-2.5 py-1.5 rounded text-white font-medium shrink-0" style={{ backgroundColor: themeColor }}>Đăng ký</button>
+      </div>
+    </div>
+  );
+}
+
+// Social Share Floating Bar
+function SocialShareBar({ themeColor }: { themeColor: string }) {
+  return (
+    <div className="flex items-center gap-1 text-[10px] text-[#86868b] mb-3">
+      <span className="mr-1 font-medium text-[#1d1d1f] dark:text-white">Chia sẻ:</span>
+      {[
+        { icon: '𝕏', label: 'Twitter' },
+        { icon: 'f', label: 'Facebook' },
+        { icon: 'in', label: 'LinkedIn' },
+      ].map((s) => (
+        <button key={s.label} className="w-6 h-6 rounded-full flex items-center justify-center font-bold text-white hover:opacity-80 transition-opacity" style={{ backgroundColor: themeColor }}>
+          {s.icon}
+        </button>
+      ))}
+      <button className="w-6 h-6 rounded-full flex items-center justify-center bg-[#f0f0f2] dark:bg-[#3d3d3f] hover:bg-[#e5e5e7] dark:hover:bg-[#4a4a4c] transition-colors">
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+      </button>
+    </div>
+  );
+}
+
+// FAQ Section in Website
+function WebsiteFAQSection({ faqItems, themeColor }: { faqItems: Array<{ question: string; answer: string }>; themeColor: string }) {
+  if (!faqItems?.length) return null;
+  return (
+    <div className="mt-4 pt-3 border-t border-[#e5e5e7] dark:border-[#3d3d3f]">
+      <h3 className="text-sm font-bold text-[#1d1d1f] dark:text-white mb-2 flex items-center gap-1.5">
+        <svg className="w-4 h-4" style={{ color: themeColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        Câu hỏi thường gặp
+      </h3>
+      <div className="space-y-2">
+        {faqItems.slice(0, 3).map((item, i) => (
+          <details key={i} className="group bg-[#f8f8fa] dark:bg-[#2c2c2e] rounded-lg overflow-hidden border border-[#e5e5e7] dark:border-[#3d3d3f]">
+            <summary className="px-3 py-2 text-xs font-medium text-[#1d1d1f] dark:text-white cursor-pointer hover:bg-[#f0f0f2] dark:hover:bg-[#3d3d3f] transition-colors list-none flex items-center justify-between">
+              {item.question}
+              <svg className="w-3 h-3 text-[#86868b] group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+            </summary>
+            <div className="px-3 pb-2 text-[11px] text-[#86868b] leading-relaxed">{item.answer}</div>
+          </details>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Tags Component
+function ArticleTags({ keywords, themeColor }: { keywords?: string[]; focusKeyword?: string; themeColor: string }) {
+  if (!keywords?.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-3">
+      {keywords.slice(0, 5).map((kw, i) => (
+        <span key={i} className="px-2 py-0.5 rounded-full text-[10px] font-medium cursor-pointer hover:opacity-80 transition-opacity border" style={{ color: themeColor, borderColor: themeColor + '40', backgroundColor: themeColor + '08' }}>
+          #{kw}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// Website Footer
+function WebsiteFooter({ brandName, themeColor, logoUrl }: { brandName: string; themeColor: string; logoUrl?: string }) {
+  return (
+    <div className="bg-[#1d1d1f] dark:bg-[#0a0a0a] text-white px-4 sm:px-6 py-4">
+      <div className="grid grid-cols-3 gap-3 text-[10px] mb-3">
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            {logoUrl ? (
+              <img src={logoUrl} alt={brandName} className="w-5 h-5 rounded object-cover" />
+            ) : (
+              <div className="w-5 h-5 rounded flex items-center justify-center text-white text-[8px] font-bold" style={{ backgroundColor: themeColor }}>
+                {brandName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span className="font-semibold text-[11px]">{brandName}</span>
+          </div>
+          <p className="text-[#86868b] leading-relaxed">Nền tảng tạo content chuyên nghiệp.</p>
+        </div>
+        <div>
+          <p className="font-semibold mb-1.5 text-[#86868b] uppercase tracking-wider">Liên kết</p>
+          <div className="space-y-1 text-[#a1a1a6]">
+            <p className="hover:text-white cursor-pointer transition-colors">Trang chủ</p>
+            <p className="hover:text-white cursor-pointer transition-colors">Blog</p>
+            <p className="hover:text-white cursor-pointer transition-colors">Sản phẩm</p>
+            <p className="hover:text-white cursor-pointer transition-colors">Liên hệ</p>
+          </div>
+        </div>
+        <div>
+          <p className="font-semibold mb-1.5 text-[#86868b] uppercase tracking-wider">Pháp lý</p>
+          <div className="space-y-1 text-[#a1a1a6]">
+            <p className="hover:text-white cursor-pointer transition-colors">Chính sách</p>
+            <p className="hover:text-white cursor-pointer transition-colors">Điều khoản</p>
+            <p className="hover:text-white cursor-pointer transition-colors">Cookie</p>
+          </div>
+        </div>
+      </div>
+      <div className="border-t border-[#3d3d3f] pt-2 flex items-center justify-between">
+        <p className="text-[9px] text-[#86868b]">© 2026 {brandName}. All rights reserved.</p>
+        <div className="flex items-center gap-2">
+          {['𝕏', 'f', 'in'].map((s) => (
+            <div key={s} className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-[#86868b] hover:text-white border border-[#3d3d3f] hover:border-[#86868b] cursor-pointer transition-colors">
+              {s}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
