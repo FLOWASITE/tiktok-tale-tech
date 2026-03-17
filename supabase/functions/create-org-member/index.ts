@@ -38,22 +38,15 @@ serve(async (req: Request) => {
       throw new Error("Missing authorization header");
     }
 
-    // Verify the caller is authenticated using getClaims
-    const supabaseClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
+    // Verify the caller using the admin client with the user's token
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      console.error("Auth error:", claimsError);
+    const { data: { user: caller }, error: callerError } = await supabaseAdmin.auth.getUser(token);
+    if (callerError || !caller) {
+      console.error("Auth error:", callerError);
       throw new Error("Unauthorized");
     }
 
-    const callerId = claimsData.claims.sub;
-    if (!callerId) {
-      throw new Error("Unauthorized");
-    }
+    const callerId = caller.id;
 
     const { email, password, fullName, organizationId, role }: CreateMemberRequest = await req.json();
 
