@@ -153,6 +153,9 @@ const Blog = () => {
                       src={featuredPost.image}
                       alt={featuredPost.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                      loading="lazy"
+                      width={800}
+                      height={400}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent lg:bg-gradient-to-r lg:from-transparent lg:to-black/20" />
                     <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground">
@@ -174,10 +177,10 @@ const Blog = () => {
                         <User className="w-4 h-4" />
                         {featuredPost.author}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <time dateTime="2026-01-15" className="flex items-center gap-2">
                         <Calendar className="w-4 h-4" />
                         {featuredPost.date}
-                      </div>
+                      </time>
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4" />
                         {featuredPost.readTime}
@@ -220,6 +223,9 @@ const Blog = () => {
                           src={post.image}
                           alt={post.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          loading="lazy"
+                          width={400}
+                          height={250}
                         />
                         <Badge className="absolute top-3 left-3 bg-background/90 text-foreground text-xs">
                           {post.category}
@@ -233,10 +239,10 @@ const Blog = () => {
                           {post.excerpt}
                         </p>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
+                          <time dateTime="2026-01-15" className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             {post.date}
-                          </span>
+                          </time>
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             {post.readTime}

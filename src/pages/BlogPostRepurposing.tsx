@@ -104,10 +104,10 @@ const BlogPostRepurposing = () => {
                   <User className="w-4 h-4" />
                   <span>Võ Phương Duy</span>
                 </div>
-                <div className="flex items-center space-x-2">
+                <time dateTime="2026-01-15" className="flex items-center space-x-2">
                   <Calendar className="w-4 h-4" />
                   <span>Tháng 1, 2026</span>
-                </div>
+                </time>
                 <div className="flex items-center space-x-2">
                   <Clock className="w-4 h-4" />
                   <span>15 phút đọc</span>

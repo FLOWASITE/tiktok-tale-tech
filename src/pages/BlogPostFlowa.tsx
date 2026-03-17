@@ -134,10 +134,10 @@ const BlogPostFlowa = () => {
                 <User className="w-4 h-4" />
                 Flowa Team
               </div>
-              <div className="flex items-center gap-2">
+              <time dateTime="2026-01-15" className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
                 Tháng 1, 2026
-              </div>
+              </time>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4" />
                 15 phút đọc
@@ -162,8 +162,11 @@ const BlogPostFlowa = () => {
           >
             <img
               src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&h=600&fit=crop"
-              alt="Flowa Content Marketing Platform"
+              alt="Flowa Content Marketing Platform - Nền tảng tạo content đa kênh"
               className="w-full h-auto"
+              loading="lazy"
+              width={1200}
+              height={600}
             />
           </motion.div>
         </div>
