@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 
 import { MultiChannelFormWizard } from '@/components/multichannel/MultiChannelFormWizard';
 import { CreatePreviewPanel } from '@/components/multichannel/CreatePreviewPanel';
-import { CompactBrandSelector } from '@/components/multichannel/CompactBrandSelector';
+
 import { MobileGenerationSheet } from '@/components/multichannel/MobileGenerationSheet';
 import { TopicAIChatbot } from '@/components/topic/TopicAIChatbot';
 import { cn } from '@/lib/utils';
