@@ -12,6 +12,7 @@ import {
 import { formatDistanceToNow, isToday, isYesterday, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 interface ActivityItem {
   id: string;
@@ -31,53 +32,55 @@ interface ActivityTimelineProps {
   className?: string;
 }
 
-const typeConfig = {
-  script: {
-    icon: FileVideo,
-    color: 'bg-rose-500',
-    label: 'Kịch bản video',
-    href: '/scripts',
-  },
-  carousel: {
-    icon: Images,
-    color: 'bg-cyan-500',
-    label: 'Carousel',
-    href: '/carousel',
-  },
-  multichannel: {
-    icon: Layers,
-    color: 'bg-violet-500',
-    label: 'Nội dung đa kênh',
-    href: '/multichannel',
-  },
-};
-
-function groupByDate(activities: ActivityItem[]) {
-  const groups: { [key: string]: ActivityItem[] } = {};
-  
-  activities.forEach(activity => {
-    const date = new Date(activity.createdAt);
-    let key: string;
-    
-    if (isToday(date)) {
-      key = 'Hôm nay';
-    } else if (isYesterday(date)) {
-      key = 'Hôm qua';
-    } else {
-      key = format(date, 'dd/MM/yyyy', { locale: vi });
-    }
-    
-    if (!groups[key]) {
-      groups[key] = [];
-    }
-    groups[key].push(activity);
-  });
-  
-  return groups;
-}
-
 export function ActivityTimeline({ activities, loading, className }: ActivityTimelineProps) {
-  const groupedActivities = useMemo(() => groupByDate(activities), [activities]);
+  const { t } = useTranslation();
+
+  const typeConfig = {
+    script: {
+      icon: FileVideo,
+      color: 'bg-rose-500',
+      label: t('app.dashboard.scriptLabel'),
+      href: '/scripts',
+    },
+    carousel: {
+      icon: Images,
+      color: 'bg-cyan-500',
+      label: t('app.dashboard.carouselLabel'),
+      href: '/carousel',
+    },
+    multichannel: {
+      icon: Layers,
+      color: 'bg-violet-500',
+      label: t('app.dashboard.multiChannelLabel'),
+      href: '/multichannel',
+    },
+  };
+
+  function groupByDate(items: ActivityItem[]) {
+    const groups: { [key: string]: ActivityItem[] } = {};
+    
+    items.forEach(activity => {
+      const date = new Date(activity.createdAt);
+      let key: string;
+      
+      if (isToday(date)) {
+        key = t('app.dashboard.today');
+      } else if (isYesterday(date)) {
+        key = t('app.dashboard.yesterday');
+      } else {
+        key = format(date, 'dd/MM/yyyy', { locale: vi });
+      }
+      
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(activity);
+    });
+    
+    return groups;
+  }
+
+  const groupedActivities = useMemo(() => groupByDate(activities), [activities, t]);
 
   if (loading) {
     return (
@@ -108,7 +111,7 @@ export function ActivityTimeline({ activities, loading, className }: ActivityTim
         <CardHeader className="pb-3">
           <CardTitle className="text-base sm:text-lg flex items-center gap-2">
             <Clock className="w-4 h-4 text-primary" />
-            Hoạt động gần đây
+            {t('app.dashboard.recentActivity')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -117,10 +120,10 @@ export function ActivityTimeline({ activities, loading, className }: ActivityTim
               <Clock className="w-5 h-5 text-muted-foreground" />
             </div>
             <p className="text-sm text-muted-foreground">
-              Chưa có hoạt động nào
+              {t('app.dashboard.noActivity')}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Bắt đầu tạo nội dung đầu tiên!
+              {t('app.dashboard.startCreating')}
             </p>
           </div>
         </CardContent>
@@ -133,14 +136,13 @@ export function ActivityTimeline({ activities, loading, className }: ActivityTim
       <CardHeader className="pb-3">
         <CardTitle className="text-base sm:text-lg flex items-center gap-2">
           <Clock className="w-4 h-4 text-primary" />
-          Hoạt động gần đây
+          {t('app.dashboard.recentActivity')}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-5">
           {Object.entries(groupedActivities).map(([date, items], groupIndex) => (
             <div key={date}>
-              {/* Date header */}
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   {date}
@@ -148,9 +150,7 @@ export function ActivityTimeline({ activities, loading, className }: ActivityTim
                 <div className="flex-1 h-px bg-border" />
               </div>
 
-              {/* Timeline items */}
               <div className="relative ml-3">
-                {/* Timeline line */}
                 <div className="absolute left-0 top-3 bottom-3 w-px bg-border" />
 
                 <div className="space-y-3">
@@ -169,15 +169,12 @@ export function ActivityTimeline({ activities, loading, className }: ActivityTim
                           to={`${config.href}/${activity.id}`}
                           className="group flex items-start gap-3 relative pl-5"
                         >
-                          {/* Dot */}
                           <div className={`absolute left-0 top-2 w-2 h-2 rounded-full ${config.color} -translate-x-1/2 ring-2 ring-background`} />
                           
-                          {/* Icon */}
                           <div className={`w-8 h-8 rounded-lg ${config.color} bg-opacity-10 flex items-center justify-center flex-shrink-0`}>
                             <Icon className={`w-4 h-4 ${config.color.replace('bg-', 'text-')}`} />
                           </div>
 
-                          {/* Content */}
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
                               {activity.title}
@@ -196,7 +193,6 @@ export function ActivityTimeline({ activities, loading, className }: ActivityTim
                             </div>
                           </div>
 
-                          {/* Arrow */}
                           <ChevronRight className="w-4 h-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-1" />
                         </Link>
                       </motion.div>

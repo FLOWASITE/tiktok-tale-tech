@@ -16,6 +16,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { useTranslation } from 'react-i18next';
 import { CampaignSummary } from '@/hooks/useCampaignIntegration';
 
 interface ActiveCampaignsWidgetProps {
@@ -29,6 +30,7 @@ export function ActiveCampaignsWidget({
   isLoading = false,
   className 
 }: ActiveCampaignsWidgetProps) {
+  const { t } = useTranslation();
   const displayCampaigns = campaigns.slice(0, 3);
 
   if (isLoading) {
@@ -51,14 +53,13 @@ export function ActiveCampaignsWidget({
 
   return (
     <Card className={`gradient-card border-border/50 overflow-hidden ${className}`}>
-      {/* Header with gradient accent */}
       <div className="relative">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent" />
         <CardHeader className="relative pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base sm:text-lg flex items-center gap-2">
               <Target className="w-4 h-4 text-primary" />
-              Chiến dịch đang chạy
+              {t('app.dashboard.activeCampaigns')}
             </CardTitle>
             <Badge variant="secondary" className="text-xs">
               {campaigns.length}
@@ -71,10 +72,10 @@ export function ActiveCampaignsWidget({
         {displayCampaigns.length === 0 ? (
           <div className="text-center py-6">
             <Target className="w-10 h-10 mx-auto text-muted-foreground/40 mb-2" />
-            <p className="text-sm text-muted-foreground">Chưa có chiến dịch nào</p>
+            <p className="text-sm text-muted-foreground">{t('app.dashboard.noCampaigns')}</p>
             <Button variant="outline" size="sm" className="mt-3 gap-2" asChild>
               <Link to="/campaigns/new">
-                Tạo chiến dịch mới
+                {t('app.dashboard.createCampaign')}
                 <ArrowRight className="w-3 h-3" />
               </Link>
             </Button>
@@ -115,10 +116,8 @@ export function ActiveCampaignsWidget({
                       </div>
                     </div>
                     
-                    {/* KPI Progress */}
                     <Progress value={campaign.kpi_progress} className="h-1.5 mb-2" />
                     
-                    {/* Stats row */}
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Flag className="w-3 h-3" />
@@ -126,17 +125,17 @@ export function ActiveCampaignsWidget({
                       </div>
                       <div className="flex items-center gap-1">
                         <FileText className="w-3 h-3" />
-                        <span>{campaign.content_count} nội dung</span>
+                        <span>{t('app.dashboard.contentCount', { count: campaign.content_count })}</span>
                       </div>
                       {campaign.days_remaining > 0 ? (
                         <div className="flex items-center gap-1 ml-auto">
                           <Calendar className="w-3 h-3" />
-                          <span>{campaign.days_remaining} ngày còn lại</span>
+                          <span>{t('app.dashboard.daysRemaining', { count: campaign.days_remaining })}</span>
                         </div>
                       ) : campaign.status === 'planning' ? (
                         <div className="flex items-center gap-1 ml-auto text-muted-foreground">
                           <Calendar className="w-3 h-3" />
-                          <span>Bắt đầu {format(parseISO(campaign.start_date), 'dd/MM', { locale: vi })}</span>
+                          <span>{t('app.dashboard.startDate', { date: format(parseISO(campaign.start_date), 'dd/MM', { locale: vi }) })}</span>
                         </div>
                       ) : null}
                     </div>
@@ -148,7 +147,7 @@ export function ActiveCampaignsWidget({
             {campaigns.length > 3 && (
               <Button variant="ghost" size="sm" className="w-full gap-2 text-muted-foreground hover:text-foreground" asChild>
                 <Link to="/campaigns">
-                  Xem tất cả chiến dịch
+                  {t('app.dashboard.viewAllCampaigns')}
                   <ArrowRight className="w-3 h-3" />
                 </Link>
               </Button>

@@ -1,10 +1,12 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { DashboardStats } from '@/components/DashboardStats';
 import { MyAssignments } from '@/components/MyAssignments';
 import { TodaySchedules } from '@/components/TodaySchedules';
 import { PendingReviews } from '@/components/PendingReviews';
 import { TopicQuickAccess } from '@/components/TopicQuickAccess';
 import { PerformanceReminderWidget } from '@/components/PerformanceReminderWidget';
+import { useContentSchedules } from '@/hooks/useContentSchedules';
+import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { 
   DashboardHeader, 
   QuickActionGrid, 
@@ -16,7 +18,6 @@ import {
 } from '@/components/dashboard';
 import { useScripts } from '@/hooks/useScripts';
 import { useCarousels } from '@/hooks/useCarousels';
-import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCampaignIntegration } from '@/hooks/useCampaignIntegration';
 import { 
@@ -36,6 +37,7 @@ function DashboardContent() {
   const { carousels, loading: carouselsLoading } = useCarousels();
   const { contents: multiChannelContents, loading: multiChannelLoading } = useMultiChannelContents();
   const { templates: brands, loading: brandsLoading } = useBrandTemplates();
+  const { allSchedules, fetchAllSchedules } = useContentSchedules();
   const { 
     activeCampaigns, 
     upcomingMilestones, 
@@ -52,6 +54,25 @@ function DashboardContent() {
     skipWelcome,
     closeCompletionModal 
   } = useCoachmark();
+
+  // Fetch all schedules for counts
+  useEffect(() => {
+    fetchAllSchedules();
+  }, [fetchAllSchedules]);
+
+  // Compute today's schedule count
+  const todayScheduleCount = useMemo(() => {
+    return allSchedules.filter(s => {
+      const d = new Date(s.scheduled_at);
+      const now = new Date();
+      return d.toDateString() === now.toDateString() && s.publish_status !== 'cancelled';
+    }).length;
+  }, [allSchedules]);
+
+  // Compute pending review count
+  const pendingReviewCount = useMemo(() => {
+    return multiChannelContents.filter(c => c.status === 'review').length;
+  }, [multiChannelContents]);
 
   const loading = scriptsLoading || carouselsLoading || multiChannelLoading || brandsLoading;
 
@@ -174,8 +195,8 @@ function DashboardContent() {
         {/* Hero Header */}
         <div data-coachmark="header">
           <DashboardHeader 
-            pendingCount={0}
-            todayScheduleCount={0}
+            pendingCount={pendingReviewCount}
+            todayScheduleCount={todayScheduleCount}
             onStartOnboarding={start}
           />
         </div>
@@ -216,7 +237,7 @@ function DashboardContent() {
             transition={{ delay: 0.4 }}
             className="lg:col-span-3"
           >
-            <TodayFocus scheduledCount={0} pendingReviewCount={0} todayMilestones={todayMilestones} />
+            <TodayFocus scheduledCount={todayScheduleCount} pendingReviewCount={pendingReviewCount} todayMilestones={todayMilestones} />
           </motion.div>
 
           {/* AI Insights (spans 4 cols on lg) */}

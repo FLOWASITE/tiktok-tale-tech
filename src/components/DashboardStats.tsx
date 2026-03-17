@@ -4,6 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { FileVideo, Images, Layers, Bookmark, TrendingUp, TrendingDown } from 'lucide-react';
 import { AnimatedNumber, Sparkline } from '@/components/dashboard';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 interface StatsData {
   scripts: number;
@@ -20,7 +21,7 @@ interface DashboardStatsProps {
 const statsConfig = [
   {
     key: 'scripts' as const,
-    label: 'Kịch bản Video',
+    labelKey: 'app.dashboard.statsScripts',
     icon: FileVideo,
     gradient: 'from-rose-500 to-pink-500',
     bgGlow: 'bg-rose-500/10',
@@ -28,7 +29,7 @@ const statsConfig = [
   },
   {
     key: 'carousels' as const,
-    label: 'Carousel',
+    labelKey: 'app.dashboard.statsCarousels',
     icon: Images,
     gradient: 'from-cyan-500 to-blue-500',
     bgGlow: 'bg-cyan-500/10',
@@ -36,7 +37,7 @@ const statsConfig = [
   },
   {
     key: 'multiChannel' as const,
-    label: 'Nội dung đa kênh',
+    labelKey: 'app.dashboard.statsMultiChannel',
     icon: Layers,
     gradient: 'from-violet-500 to-purple-500',
     bgGlow: 'bg-violet-500/10',
@@ -44,7 +45,7 @@ const statsConfig = [
   },
   {
     key: 'brands' as const,
-    label: 'Brand Templates',
+    labelKey: 'app.dashboard.statsBrands',
     icon: Bookmark,
     gradient: 'from-amber-500 to-orange-500',
     bgGlow: 'bg-amber-500/10',
@@ -52,20 +53,17 @@ const statsConfig = [
   },
 ];
 
-// Generate mock sparkline data based on current value
 function generateSparklineData(value: number): number[] {
   const data: number[] = [];
   for (let i = 0; i < 7; i++) {
-    // Create a trend towards current value
-    const variation = Math.random() * 0.4 - 0.2; // ±20%
-    const baseValue = value * (0.6 + (i / 7) * 0.4); // Trend upward
+    const variation = Math.random() * 0.4 - 0.2;
+    const baseValue = value * (0.6 + (i / 7) * 0.4);
     data.push(Math.max(0, Math.round(baseValue * (1 + variation))));
   }
-  data[6] = value; // End at current value
+  data[6] = value;
   return data;
 }
 
-// Calculate trend from sparkline data
 function calculateTrend(data: number[]): { value: number; isPositive: boolean } {
   if (data.length < 2) return { value: 0, isPositive: true };
   const first = data[0] || 1;
@@ -75,7 +73,8 @@ function calculateTrend(data: number[]): { value: number; isPositive: boolean } 
 }
 
 export function DashboardStats({ stats, loading }: DashboardStatsProps) {
-  // Memoize sparkline data
+  const { t } = useTranslation();
+
   const sparklineData = useMemo(() => {
     return {
       scripts: generateSparklineData(stats.scripts),
@@ -121,16 +120,13 @@ export function DashboardStats({ stats, loading }: DashboardStatsProps) {
           >
             <Card className="gradient-card border-border/50 card-animated group overflow-hidden h-full">
               <CardContent className="p-4 sm:p-6 relative h-full flex flex-col">
-                {/* Background glow */}
                 <div className={`absolute top-0 right-0 w-20 sm:w-24 h-20 sm:h-24 ${config.bgGlow} rounded-full blur-2xl opacity-30 group-hover:opacity-60 transition-opacity`} />
                 
-                {/* Top row - Icon and Sparkline */}
                 <div className="relative flex items-start justify-between mb-3 sm:mb-4">
                   <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br ${config.gradient} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
                     <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
                   
-                  {/* Sparkline - hidden on small screens */}
                   <div className="hidden sm:block">
                     <Sparkline 
                       data={data} 
@@ -141,14 +137,12 @@ export function DashboardStats({ stats, loading }: DashboardStatsProps) {
                   </div>
                 </div>
                 
-                {/* Value with animated counter */}
                 <div className="relative mt-auto">
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl sm:text-3xl font-bold text-foreground">
                       <AnimatedNumber value={value} />
                     </span>
                     
-                    {/* Trend indicator */}
                     {trend.value > 0 && (
                       <span className={`flex items-center text-xs font-medium ${
                         trend.isPositive ? 'text-emerald-500' : 'text-rose-500'
@@ -163,7 +157,7 @@ export function DashboardStats({ stats, loading }: DashboardStatsProps) {
                     )}
                   </div>
                   <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                    {config.label}
+                    {t(config.labelKey)}
                   </p>
                 </div>
               </CardContent>
