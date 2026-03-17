@@ -27,6 +27,9 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { subscription } = useSubscription();
+  const planBadge = getPlanBadge(subscription?.plan_type);
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();

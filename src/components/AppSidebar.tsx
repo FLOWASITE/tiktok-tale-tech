@@ -235,7 +235,10 @@ export function AppSidebar() {
             <div className="overflow-hidden">
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold text-gradient">Flowa</h1>
-                <PlanBadgeInline />
+                <span className={`px-1.5 py-0.5 text-[9px] font-semibold rounded-full border flex items-center gap-0.5 ${planBadge.className}`}>
+                  <Sparkles className="w-2.5 h-2.5" />
+                  {planBadge.label}
+                </span>
               </div>
               <p className="text-[10px] text-muted-foreground/70">One Flow. All Content.</p>
             </div>

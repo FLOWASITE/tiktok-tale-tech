@@ -50,6 +50,8 @@ export function UserAvatar() {
   const [createOrgDialogOpen, setCreateOrgDialogOpen] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
   const [creatingOrg, setCreatingOrg] = useState(false);
+  const { subscription } = useSubscription();
+  const planBadge = getPlanBadge(subscription?.plan_type);
 
   const languages = [
     { code: 'vi', name: 'Tiếng Việt', flag: '🇻🇳' },
