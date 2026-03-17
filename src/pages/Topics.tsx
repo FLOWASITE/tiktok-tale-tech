@@ -69,11 +69,7 @@ const Topics = () => {
     localStorage.setItem(STORAGE_KEY_GOAL, selectedGoal);
   }, [selectedGoal]);
 
-  // Get selected brand object
-  const selectedBrand = useMemo(() => {
-    if (!selectedBrandId) return undefined;
-    return brands.find(b => b.id === selectedBrandId);
-  }, [selectedBrandId, brands]);
+  const selectedBrand = currentBrand || undefined;
   
   const { 
     suggestions, 
