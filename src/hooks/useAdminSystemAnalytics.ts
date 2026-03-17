@@ -312,7 +312,7 @@ export function useAdminSystemAnalytics(period: PeriodFilter) {
           orgName: userOrgMap[userId] || null,
           ...stats,
         }))
-        .sort((a, b) => (b.contentCount + b.aiImages + b.aiEdits) - (a.contentCount + a.aiImages + a.aiEdits))
+        .sort((a, b) => (b.contentCount + b.aiImages) - (a.contentCount + a.aiImages))
         .slice(0, 20);
     },
     staleTime: 60000,
