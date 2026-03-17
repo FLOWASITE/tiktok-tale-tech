@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Download, Trash2, Image as ImageIcon, Filter, Layers, Search, CheckSquare, Square, X, ArrowUpDown, Grid2X2, Grid3X3, LayoutGrid } from 'lucide-react';
+import { Download, Trash2, Image as ImageIcon, Filter, Layers, Search, CheckSquare, X, ArrowUpDown, Grid2X2, Grid3X3, LayoutGrid, RotateCcw, SearchX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ImageLightbox, LightboxImage } from '@/components/ui/ImageLightbox';
 import { useCarouselGallery, SortBy } from '@/hooks/useCarouselGallery';
 import { ChannelIcon, getChannelLabel } from '@/components/multichannel/streaming/ChannelIcon';
@@ -34,9 +35,26 @@ const gridClasses: Record<GridSize, string> = {
   large: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
 };
 
+function formatRelativeTime(dateStr: string): string {
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return 'Vừa xong';
+  if (diffMin < 60) return `${diffMin} phút trước`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours} giờ trước`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 30) return `${diffDays} ngày trước`;
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths < 12) return `${diffMonths} tháng trước`;
+  return date.toLocaleDateString('vi-VN');
+}
+
 export function CarouselGalleryView() {
   const {
     images,
+    allImages,
     loading,
     carouselFilter,
     setCarouselFilter,
@@ -64,6 +82,16 @@ export function CarouselGalleryView() {
   const [gridSize, setGridSize] = useState<GridSize>('normal');
   const [page, setPage] = useState(1);
   const [bulkMode, setBulkMode] = useState(false);
+
+  const hasActiveFilters = sourceFilter !== 'all' || channelFilter !== 'all' || carouselFilter !== 'all' || searchQuery.trim() !== '';
+
+  const resetAllFilters = useCallback(() => {
+    setSourceFilter('all');
+    setChannelFilter('all');
+    setCarouselFilter('all');
+    setSearchQuery('');
+    setPage(1);
+  }, [setSourceFilter, setChannelFilter, setCarouselFilter, setSearchQuery]);
 
   const visibleImages = useMemo(() => images.slice(0, page * PAGE_SIZE), [images, page]);
   const hasMore = images.length > page * PAGE_SIZE;
@@ -133,197 +161,241 @@ export function CarouselGalleryView() {
   }
 
   return (
-    <div className="space-y-4">
-      {/* Search + Sort row */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Tìm theo tên nội dung..."
-            value={searchQuery}
-            onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
-            className="pl-9 h-9 text-sm"
-          />
-        </div>
-
-        <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
-          <SelectTrigger className="w-[160px] h-9 text-sm border-border/50">
-            <ArrowUpDown className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="newest">Mới nhất</SelectItem>
-            <SelectItem value="oldest">Cũ nhất</SelectItem>
-            <SelectItem value="name">Tên A-Z</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <ToggleGroup type="single" value={gridSize} onValueChange={v => v && setGridSize(v as GridSize)} className="border border-border/50 rounded-md p-0.5">
-          <ToggleGroupItem value="compact" className="h-7 w-7 p-0" aria-label="Compact">
-            <Grid3X3 className="w-3.5 h-3.5" />
-          </ToggleGroupItem>
-          <ToggleGroupItem value="normal" className="h-7 w-7 p-0" aria-label="Normal">
-            <Grid2X2 className="w-3.5 h-3.5" />
-          </ToggleGroupItem>
-          <ToggleGroupItem value="large" className="h-7 w-7 p-0" aria-label="Large">
-            <LayoutGrid className="w-3.5 h-3.5" />
-          </ToggleGroupItem>
-        </ToggleGroup>
-
-        <Button
-          variant={bulkMode ? 'default' : 'outline'}
-          size="sm"
-          className="h-9"
-          onClick={() => { setBulkMode(!bulkMode); if (bulkMode) clearSelection(); }}
-        >
-          <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
-          Chọn
-        </Button>
-      </div>
-
-      {/* Filter bar */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <Filter className="w-4 h-4 text-muted-foreground" />
-
-        <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setChannelFilter('all'); setCarouselFilter('all'); setPage(1); }}>
-          <SelectTrigger className="w-[200px] h-9 text-sm border-border/50">
-            <SelectValue placeholder="Tất cả nguồn" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả nguồn ({sourceCounts.all})</SelectItem>
-            <SelectItem value="carousel">Carousel ({sourceCounts.carousel})</SelectItem>
-            <SelectItem value="multichannel">Multichannel ({sourceCounts.multichannel})</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {sourceFilter !== 'carousel' && channelOptions.length > 0 && (
-          <Select value={channelFilter} onValueChange={v => { setChannelFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-[180px] h-9 text-sm border-border/50">
-              <SelectValue placeholder="Tất cả kênh" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả kênh</SelectItem>
-              {channelOptions.map(ch => (
-                <SelectItem key={ch} value={ch} textValue={getChannelLabel(ch)}>
-                  <div className="flex items-center gap-2">
-                    <ChannelIcon channel={ch} size="sm" />
-                    <span>{getChannelLabel(ch)}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        {carouselOptions.length > 0 && (
-          <Select value={carouselFilter} onValueChange={v => { setCarouselFilter(v); setPage(1); }}>
-            <SelectTrigger className="w-[220px] h-9 text-sm border-border/50">
-              <SelectValue placeholder="Tất cả nội dung" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả nội dung</SelectItem>
-              {carouselOptions.map(opt => (
-                <SelectItem key={opt.id} value={opt.id}>
-                  {opt.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        <Badge variant="secondary" className="text-xs">
-          {images.length} ảnh
-        </Badge>
-      </div>
-
-      {/* Bulk action toolbar */}
-      {bulkMode && selectedIds.size > 0 && (
-        <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border border-border/50">
-          <Badge variant="default" className="text-xs">{selectedIds.size} đã chọn</Badge>
-          <Button variant="outline" size="sm" onClick={selectAll} className="h-7 text-xs">
-            Chọn tất cả ({images.length})
-          </Button>
-          <Button variant="outline" size="sm" onClick={clearSelection} className="h-7 text-xs">
-            <X className="w-3 h-3 mr-1" /> Bỏ chọn
-          </Button>
-          <div className="flex-1" />
-          <Button variant="outline" size="sm" onClick={handleBulkDownload} className="h-7 text-xs">
-            <Download className="w-3 h-3 mr-1" /> Tải về
-          </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm" className="h-7 text-xs">
-                <Trash2 className="w-3 h-3 mr-1" /> Xóa
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Xóa {selectedIds.size} ảnh?</AlertDialogTitle>
-                <AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => bulkDelete(Array.from(selectedIds))}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Xóa {selectedIds.size} ảnh
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      )}
-
-      {images.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center py-20"
-        >
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-muted/50 mb-4">
-            <ImageIcon className="w-8 h-8 text-muted-foreground" />
-          </div>
-          <h3 className="text-lg font-semibold text-foreground mb-1">Chưa có ảnh nào</h3>
-          <p className="text-sm text-muted-foreground">Tạo nội dung và generate ảnh để xem tại đây.</p>
-        </motion.div>
-      ) : (
-        <>
-          <div className={`grid ${gridClasses[gridSize]} gap-3`}>
-            {visibleImages.map((img, index) => (
-              <GalleryImageCard
-                key={img.id}
-                img={img}
-                index={index}
-                bulkMode={bulkMode}
-                isSelected={selectedIds.has(img.id)}
-                onToggleSelect={() => toggleSelect(img.id)}
-                onOpenLightbox={openLightbox}
-                onDownload={handleDownload}
-                onDelete={deleteImage}
-              />
-            ))}
+    <TooltipProvider delayDuration={300}>
+      <div className="space-y-4">
+        {/* Search + Sort row */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Tìm theo tên nội dung..."
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+              className="pl-9 h-9 text-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => { setSearchQuery(''); setPage(1); }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          {hasMore && (
-            <div className="flex justify-center pt-4">
-              <Button variant="outline" onClick={() => setPage(p => p + 1)}>
-                Tải thêm ({images.length - page * PAGE_SIZE} ảnh còn lại)
-              </Button>
-            </div>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
+            <SelectTrigger className="w-[160px] h-9 text-sm border-border/50">
+              <ArrowUpDown className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Mới nhất</SelectItem>
+              <SelectItem value="oldest">Cũ nhất</SelectItem>
+              <SelectItem value="name">Tên A-Z</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <ToggleGroup type="single" value={gridSize} onValueChange={v => v && setGridSize(v as GridSize)} className="border border-border/50 rounded-md p-0.5">
+            <ToggleGroupItem value="compact" className="h-7 w-7 p-0" aria-label="Compact">
+              <Grid3X3 className="w-3.5 h-3.5" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="normal" className="h-7 w-7 p-0" aria-label="Normal">
+              <Grid2X2 className="w-3.5 h-3.5" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="large" className="h-7 w-7 p-0" aria-label="Large">
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+
+          <Button
+            variant={bulkMode ? 'default' : 'outline'}
+            size="sm"
+            className="h-9"
+            onClick={() => { setBulkMode(!bulkMode); if (bulkMode) clearSelection(); }}
+          >
+            <CheckSquare className="w-3.5 h-3.5 mr-1.5" />
+            Chọn
+          </Button>
+        </div>
+
+        {/* Filter bar */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <Filter className="w-4 h-4 text-muted-foreground" />
+
+          <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setChannelFilter('all'); setCarouselFilter('all'); setPage(1); }}>
+            <SelectTrigger className="w-[200px] h-9 text-sm border-border/50">
+              <SelectValue>
+                {sourceFilter === 'all' ? `Tất cả nguồn (${sourceCounts.all})` :
+                 sourceFilter === 'carousel' ? `Carousel (${sourceCounts.carousel})` :
+                 `Multichannel (${sourceCounts.multichannel})`}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả nguồn ({sourceCounts.all})</SelectItem>
+              <SelectItem value="carousel">Carousel ({sourceCounts.carousel})</SelectItem>
+              <SelectItem value="multichannel">Multichannel ({sourceCounts.multichannel})</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {sourceFilter !== 'carousel' && channelOptions.length > 0 && (
+            <Select value={channelFilter} onValueChange={v => { setChannelFilter(v); setPage(1); }}>
+              <SelectTrigger className="w-[180px] h-9 text-sm border-border/50">
+                <SelectValue>
+                  {channelFilter === 'all' ? 'Tất cả kênh' : getChannelLabel(channelFilter)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả kênh</SelectItem>
+                {channelOptions.map(ch => (
+                  <SelectItem key={ch} value={ch} textValue={getChannelLabel(ch)}>
+                    <div className="flex items-center gap-2">
+                      <ChannelIcon channel={ch} size="sm" />
+                      <span>{getChannelLabel(ch)}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
-        </>
-      )}
 
-      <ImageLightbox
-        images={lightboxImages}
-        currentIndex={lightboxIndex}
-        open={lightboxOpen}
-        onClose={() => setLightboxOpen(false)}
-        onNavigate={setLightboxIndex}
-        onDownload={handleDownload}
-      />
-    </div>
+          {carouselOptions.length > 0 && (
+            <Select value={carouselFilter} onValueChange={v => { setCarouselFilter(v); setPage(1); }}>
+              <SelectTrigger className="w-[220px] h-9 text-sm border-border/50">
+                <SelectValue>
+                  {carouselFilter === 'all' ? 'Tất cả nội dung' : carouselOptions.find(o => o.id === carouselFilter)?.title || 'Tất cả nội dung'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả nội dung</SelectItem>
+                {carouselOptions.map(opt => (
+                  <SelectItem key={opt.id} value={opt.id}>
+                    {opt.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          <Badge variant="secondary" className="text-xs">
+            {images.length} ảnh
+          </Badge>
+
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-foreground" onClick={resetAllFilters}>
+              <RotateCcw className="w-3 h-3 mr-1" />
+              Xóa bộ lọc
+            </Button>
+          )}
+        </div>
+
+        {/* Bulk action toolbar — always visible in bulk mode */}
+        {bulkMode && (
+          <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border border-border/50">
+            <Badge variant="default" className="text-xs">{selectedIds.size} đã chọn</Badge>
+            <Button variant="outline" size="sm" onClick={selectAll} className="h-7 text-xs">
+              Chọn tất cả ({images.length})
+            </Button>
+            {selectedIds.size > 0 && (
+              <Button variant="outline" size="sm" onClick={clearSelection} className="h-7 text-xs">
+                <X className="w-3 h-3 mr-1" /> Bỏ chọn
+              </Button>
+            )}
+            <div className="flex-1" />
+            <Button variant="outline" size="sm" onClick={handleBulkDownload} className="h-7 text-xs" disabled={selectedIds.size === 0}>
+              <Download className="w-3 h-3 mr-1" /> Tải về
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" className="h-7 text-xs" disabled={selectedIds.size === 0}>
+                  <Trash2 className="w-3 h-3 mr-1" /> Xóa
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Xóa {selectedIds.size} ảnh?</AlertDialogTitle>
+                  <AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => bulkDelete(Array.from(selectedIds))}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Xóa {selectedIds.size} ảnh
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
+
+        {/* Empty states */}
+        {images.length === 0 && hasActiveFilters ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-20"
+          >
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-muted/50 mb-4">
+              <SearchX className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground mb-1">Không tìm thấy kết quả</h3>
+            <p className="text-sm text-muted-foreground mb-4">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
+            <Button variant="outline" size="sm" onClick={resetAllFilters}>
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+              Xóa bộ lọc
+            </Button>
+          </motion.div>
+        ) : images.length === 0 && allImages.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-20"
+          >
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-muted/50 mb-4">
+              <ImageIcon className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground mb-1">Chưa có ảnh nào</h3>
+            <p className="text-sm text-muted-foreground">Tạo nội dung và generate ảnh để xem tại đây.</p>
+          </motion.div>
+        ) : (
+          <>
+            <div className={`grid ${gridClasses[gridSize]} gap-3`}>
+              {visibleImages.map((img, index) => (
+                <GalleryImageCard
+                  key={img.id}
+                  img={img}
+                  index={index}
+                  bulkMode={bulkMode}
+                  isSelected={selectedIds.has(img.id)}
+                  onToggleSelect={() => toggleSelect(img.id)}
+                  onOpenLightbox={openLightbox}
+                  onDownload={handleDownload}
+                  onDelete={deleteImage}
+                />
+              ))}
+            </div>
+
+            {hasMore && (
+              <div className="flex justify-center pt-4">
+                <Button variant="outline" onClick={() => setPage(p => p + 1)}>
+                  Tải thêm ({images.length - page * PAGE_SIZE} ảnh còn lại)
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        <ImageLightbox
+          images={lightboxImages}
+          currentIndex={lightboxIndex}
+          open={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          onNavigate={setLightboxIndex}
+          onDownload={handleDownload}
+        />
+      </div>
+    </TooltipProvider>
   );
 }
 
@@ -346,20 +418,22 @@ function GalleryImageCard({
   onDownload: (i: number) => void;
   onDelete: (id: string) => void;
 }) {
+  const fullTitle = `${img.carouselTitle} — ${img.source === 'carousel' ? `Slide ${img.slideNumber}` : getChannelLabel(img.channel || '')}`;
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: Math.min(index * 0.02, 0.3) }}
     >
-      <Card className={`group overflow-hidden border-border/50 hover:border-primary/30 transition-all duration-200 ${isSelected ? 'ring-2 ring-primary border-primary/50' : ''}`}>
+      <Card className={`group overflow-hidden border-border/50 transition-all duration-200 hover:shadow-md hover:border-primary/30 ${isSelected ? 'ring-2 ring-primary border-primary/50' : ''}`}>
         <div
           className="relative aspect-square cursor-pointer overflow-hidden bg-muted/30"
           onClick={() => bulkMode ? onToggleSelect() : onOpenLightbox(index)}
         >
           <img
             src={img.imageUrl}
-            alt={`Image ${index + 1}`}
+            alt={fullTitle}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
           />
@@ -443,13 +517,24 @@ function GalleryImageCard({
           )}
         </div>
 
-        <div className="p-2">
-          <p className="text-xs font-medium text-foreground truncate">{img.carouselTitle}</p>
-          <p className="text-[10px] text-muted-foreground">
-            {img.source === 'multichannel' && img.channel ? getChannelLabel(img.channel) + ' · ' : ''}
-            {new Date(img.createdAt).toLocaleDateString('vi-VN')}
-          </p>
-        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="p-2">
+              <p className="text-xs font-medium text-foreground truncate">{img.carouselTitle}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {img.source === 'multichannel' && img.channel ? getChannelLabel(img.channel) + ' · ' : ''}
+                {formatRelativeTime(img.createdAt)}
+              </p>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-[240px]">
+            <p className="text-xs font-medium">{img.carouselTitle}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {img.source === 'carousel' ? `Carousel · Slide ${img.slideNumber}` : getChannelLabel(img.channel || '')}
+              {' · v'}{img.version} · {new Date(img.createdAt).toLocaleString('vi-VN')}
+            </p>
+          </TooltipContent>
+        </Tooltip>
       </Card>
     </motion.div>
   );
