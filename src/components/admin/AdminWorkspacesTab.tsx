@@ -52,7 +52,20 @@ const statusColors: Record<string, string> = {
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
-  const { members, brands, contentStats, contributions, isLoading } = useAdminWorkspaceDetail(orgId);
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("all");
+  const { members, brands, contentStats, contributions, periodInfo, isLoading } = useAdminWorkspaceDetail(orgId, periodFilter);
+
+  const periodLabel = useMemo(() => {
+    if (!periodInfo?.start || !periodInfo?.end) return null;
+    const now = new Date();
+    const periodEnd = new Date(periodInfo.end);
+    if (periodEnd < now) {
+      const s = new Date(now.getFullYear(), now.getMonth(), 1);
+      const e = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return `${format(s, "dd/MM")} – ${format(e, "dd/MM/yyyy")}`;
+    }
+    return `${format(new Date(periodInfo.start), "dd/MM")} – ${format(new Date(periodInfo.end), "dd/MM/yyyy")}`;
+  }, [periodInfo]);
 
   if (isLoading) {
     return (
