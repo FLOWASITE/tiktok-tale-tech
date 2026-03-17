@@ -24,9 +24,70 @@ import { vi } from "date-fns/locale";
 export default function Account() {
   const { user } = useAuth();
   const { profile, isLoading: profileLoading, updateProfile, uploadAvatar, isUpdating } = useProfile();
-  const { subscription, currentPlanLimits, usage, isLoading: subLoading } = useSubscription();
+  const { subscription, currentPlanLimits, usage, currentPeriod, isLoading: subLoading } = useSubscription();
 
   const [fullName, setFullName] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<string>("current");
+
+  // Generate last 6 months options
+  const monthOptions = useMemo(() => {
+    const options: { value: string; label: string; start: string; end: string }[] = [];
+    const now = new Date();
+    for (let i = 1; i <= 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const s = d.toISOString();
+      const e = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
+      options.push({
+        value: `${d.getFullYear()}-${d.getMonth()}`,
+        label: format(d, "MMMM yyyy", { locale: vi }),
+        start: s,
+        end: e,
+      });
+    }
+    return options;
+  }, []);
+
+  const selectedPeriod = monthOptions.find((m) => m.value === selectedMonth);
+
+  // Query historical usage
+  const historyQuery = useQuery({
+    queryKey: ["usage_history", user?.id, selectedMonth],
+    queryFn: async (): Promise<UsageStats> => {
+      if (!user?.id || !selectedPeriod) {
+        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, images: 0, ai_edits: 0 };
+      }
+
+      const [scriptsRes, carouselsRes, multiRes, imagesRes, aiEditsRes] = await Promise.all([
+        supabase.from("scripts").select("*", { count: "exact", head: true })
+          .eq("user_id", user.id).gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
+        supabase.from("carousels").select("*", { count: "exact", head: true })
+          .eq("user_id", user.id).gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
+        supabase.from("multi_channel_contents").select("selected_channels", { count: "exact" })
+          .eq("user_id", user.id).gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
+        supabase.from("channel_image_history").select("*", { count: "exact", head: true })
+          .eq("created_by", user.id).gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
+        supabase.from("usage_logs").select("*", { count: "exact", head: true })
+          .eq("user_id", user.id).eq("usage_type", "ai_edit")
+          .gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
+      ]);
+
+      const socialPostsTotal = (multiRes.data || []).reduce(
+        (sum: number, row: any) => sum + (Array.isArray(row.selected_channels) ? row.selected_channels.length : 0),
+        0
+      );
+
+      return {
+        scripts: scriptsRes.count ?? 0,
+        carousels: carouselsRes.count ?? 0,
+        multichannel: multiRes.count ?? 0,
+        multichannel_social_posts: socialPostsTotal,
+        images: imagesRes.count ?? 0,
+        ai_edits: aiEditsRes.count ?? 0,
+      };
+    },
+    enabled: !!user?.id && selectedMonth !== "current" && !!selectedPeriod,
+  });
   const [isEditing, setIsEditing] = useState(false);
 
   const handleSaveProfile = () => {
