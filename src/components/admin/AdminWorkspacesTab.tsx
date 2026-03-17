@@ -98,7 +98,7 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
             Kỳ trước
           </ToggleGroupItem>
         </ToggleGroup>
-        {periodFilter !== "all" && periodLabel && (
+        {periodLabel && (
           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
             <Calendar className="h-3 w-3" />
             {periodFilter === "current" ? "Kỳ hiện tại" : "Trước"}: {periodLabel}
