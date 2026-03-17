@@ -87,8 +87,22 @@ export function useSubscription() {
         return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, images: 0, ai_edits: 0 };
       }
 
-      const periodStart = subscription.current_period_start;
-      const periodEnd = subscription.current_period_end;
+      // Auto-renew: if period expired, fallback to current month
+      const now = new Date();
+      const periodEndDate = new Date(subscription.current_period_end);
+      let periodStart: string;
+      let periodEnd: string;
+
+      if (periodEndDate < now) {
+        // Period expired — use current month as fallback
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        periodStart = startOfMonth.toISOString();
+        periodEnd = endOfMonth.toISOString();
+      } else {
+        periodStart = subscription.current_period_start;
+        periodEnd = subscription.current_period_end;
+      }
 
       // Query actual content tables for real counts
       const [scriptsRes, carouselsRes, multiRes, imagesRes, aiEditsRes] = await Promise.all([
