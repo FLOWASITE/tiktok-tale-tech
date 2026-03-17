@@ -301,11 +301,12 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
             {loading ? (
               <Skeleton className="h-12" />
             ) : (
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 rounded-lg bg-primary/10 text-center">
                   <FileText className="h-4 w-4 mx-auto mb-1 text-primary" />
                   <div className="text-xl font-bold">{contentCounts.posts}</div>
-                  <div className="text-xs text-muted-foreground">Bài đa kênh</div>
+                  <div className="text-xs text-muted-foreground">Bản nội dung</div>
+                  <div className="text-xs text-primary font-medium mt-1">📢 {contentCounts.socialPosts} bài trên social</div>
                 </div>
                 <div className="p-3 rounded-lg bg-primary/10 text-center">
                   <Layers className="h-4 w-4 mx-auto mb-1 text-primary" />
