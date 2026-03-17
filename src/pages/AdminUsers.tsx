@@ -49,6 +49,7 @@ import { UserDetailSheet } from "@/components/admin/UserDetailSheet";
 import { CreateUserDialog } from "@/components/admin/CreateUserDialog";
 import { UserBulkActionsBar } from "@/components/admin/UserBulkActionsBar";
 import { AuditLogPanel } from "@/components/admin/AuditLogPanel";
+import { AdminWorkspacesTab } from "@/components/admin/AdminWorkspacesTab";
 import { ImportUsersDialog } from "@/components/admin/ImportUsersDialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
