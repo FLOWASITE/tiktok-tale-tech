@@ -509,6 +509,7 @@ export function AdminWorkspacesTab() {
                     <TableHead className="text-center border-l border-border/50">Nội dung</TableHead>
                     <TableHead className="text-center">Ảnh</TableHead>
                     <TableHead className="text-center font-bold">Tổng</TableHead>
+                    <TableHead className="text-center">Hạn mức</TableHead>
                     <TableHead>Plan</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Ngày tạo</TableHead>
