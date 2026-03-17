@@ -134,10 +134,10 @@ const BlogPostFlowa = () => {
                 <User className="w-4 h-4" />
                 Flowa Team
               </div>
-              <div className="flex items-center gap-2">
+              <time dateTime="2026-01-15" className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
                 Tháng 1, 2026
-              </div>
+              </time>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4" />
                 15 phút đọc
