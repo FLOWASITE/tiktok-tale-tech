@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import {
   Users,
+  Building2,
   CreditCard,
   TrendingUp,
   Activity,
@@ -496,7 +497,7 @@ export default function AdminUsers() {
                             Plan <SortIcon field="plan" />
                           </button>
                         </TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>Workspace</TableHead>
                         <TableHead>
                           <button className="flex items-center hover:text-foreground transition-colors" onClick={() => handleSort("date")}>
                             Ngày tham gia <SortIcon field="date" />
@@ -508,7 +509,7 @@ export default function AdminUsers() {
                     <TableBody>
                       {paginatedUsers.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                             Không tìm thấy user nào
                           </TableCell>
                         </TableRow>
@@ -600,6 +601,25 @@ export default function AdminUsers() {
                               )}
                             </TableCell>
                             <TableCell>
+                              <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                {user.organizations.length > 0 ? (
+                                  <>
+                                    {user.organizations.slice(0, 2).map((org) => (
+                                      <Badge key={org.id} variant="outline" className="text-[10px] px-1.5 py-0 h-5 truncate max-w-[150px]" title={`${org.name} (${org.role})`}>
+                                        <Building2 className="h-2.5 w-2.5 mr-0.5 shrink-0" />
+                                        {org.name}
+                                      </Badge>
+                                    ))}
+                                    {user.organizations.length > 2 && (
+                                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+                                        +{user.organizations.length - 2}
+                                      </Badge>
+                                    )}
+                                  </>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </div>
                               <div className="flex items-center gap-1 text-sm text-muted-foreground whitespace-nowrap">
                                 <Calendar className="h-3 w-3" />
                                 {format(new Date(user.created_at), "dd/MM/yyyy", { locale: vi })}
