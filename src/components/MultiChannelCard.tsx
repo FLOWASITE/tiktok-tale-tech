@@ -436,10 +436,25 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
         <div className="relative flex items-center justify-between text-[9px] xs:text-[10px] text-muted-foreground mb-1.5 xs:mb-2">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
-            {content.brand_name && (
+            {(brandLogoUrl || content.brand_name) && (
               <>
                 <span className="text-muted-foreground/40">·</span>
-                <span className="truncate text-[8px] xs:text-[10px]">{content.brand_name}</span>
+                {brandLogoUrl ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <img 
+                        src={brandLogoUrl} 
+                        alt={content.brand_name || 'Brand'} 
+                        className="w-4 h-4 xs:w-5 xs:h-5 rounded-sm object-contain flex-shrink-0"
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      {content.brand_name}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <span className="truncate text-[8px] xs:text-[10px]">{content.brand_name}</span>
+                )}
               </>
             )}
           </div>
