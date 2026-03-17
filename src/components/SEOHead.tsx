@@ -76,6 +76,8 @@ export function SEOHead({
         },
         articleSection: article.section,
         keywords: article.tags?.join(', '),
+        ...(article.readingTime && { timeRequired: article.readingTime }),
+        ...(article.wordCount && { wordCount: article.wordCount }),
       }
     : null;
 
