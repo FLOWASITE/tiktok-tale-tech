@@ -183,7 +183,7 @@ export function getRateLimitConfig(
 export async function checkUserQuota(
   supabase: any,
   userId: string,
-  usageType: 'script' | 'carousel' | 'multichannel' | 'image_generation' | 'ai_edit'
+  usageType: 'script' | 'carousel' | 'multichannel' | 'image_generation'
 ): Promise<QuotaCheckResult> {
   try {
     // Get user's subscription
