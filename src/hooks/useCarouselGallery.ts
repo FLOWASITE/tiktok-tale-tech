@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export type ImageSource = 'carousel' | 'multichannel';
-export type SortBy = 'newest' | 'oldest' | 'name';
+export type SortBy = 'newest' | 'oldest' | 'creator';
 
 export interface GalleryImage {
   id: string;
@@ -166,8 +166,8 @@ export function useCarouselGallery() {
       case 'oldest':
         result = [...result].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
         break;
-      case 'name':
-        result = [...result].sort((a, b) => a.carouselTitle.localeCompare(b.carouselTitle));
+      case 'creator':
+        result = [...result].sort((a, b) => (a.createdByName || 'zzz').localeCompare(b.createdByName || 'zzz'));
         break;
       case 'newest':
       default:
