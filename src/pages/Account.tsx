@@ -434,16 +434,7 @@ export default function Account() {
                   <Layers className="h-4 w-4" />
                   Chi tiết bài đăng theo kênh
                 </h4>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {Object.entries(usage.channel_breakdown)
-                    .sort(([, a], [, b]) => b - a)
-                    .map(([channel, count]) => (
-                      <div key={channel} className="flex items-center justify-between rounded-lg border px-3 py-2">
-                        <span className="text-sm capitalize">{channel}</span>
-                        <Badge variant="secondary" className="font-mono">{count}</Badge>
-                      </div>
-                    ))}
-                </div>
+                <ChannelBreakdown breakdown={usage.channel_breakdown} />
               </div>
             </>
           )}
