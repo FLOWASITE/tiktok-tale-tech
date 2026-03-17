@@ -153,6 +153,9 @@ const Blog = () => {
                       src={featuredPost.image}
                       alt={featuredPost.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                      loading="lazy"
+                      width={800}
+                      height={400}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent lg:bg-gradient-to-r lg:from-transparent lg:to-black/20" />
                     <Badge className="absolute top-4 left-4 bg-primary text-primary-foreground">
