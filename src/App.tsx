@@ -1,3 +1,4 @@
+import { HelmetProvider } from "react-helmet-async";
 import { AnimatedToaster } from "@/components/ui/animated-toast";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
