@@ -139,33 +139,78 @@ export function useAdminWorkspaces() {
         }
       });
 
+      // Plan limits map
+      const planLimitsMap = new Map(
+        (planLimitsRes.data || []).map((p: any) => [p.plan_type, p])
+      );
+
       // Subscriptions by org
       const subsMap = new Map(
         (subsRes.data || []).map((s: any) => [s.organization_id, s])
       );
 
-      return orgs.map((org) => ({
-        id: org.id,
-        name: org.name,
-        slug: org.slug,
-        logo_url: org.logo_url,
-        primary_color: org.primary_color,
-        created_at: org.created_at,
-        owner: profilesMap.get(org.owner_id) || null,
-        member_count: memberCounts.get(org.id) || 0,
-        brand_count: brandCounts.get(org.id) || 0,
-        content_count: contentCounts.get(org.id) || 0,
-        image_count: imageCounts.get(org.id) || 0,
-        carousel_count: carouselCounts.get(org.id) || 0,
-        script_count: scriptCounts.get(org.id) || 0,
-        subscription: subsMap.has(org.id)
-          ? {
-              plan_type: subsMap.get(org.id)!.plan_type,
-              status: subsMap.get(org.id)!.status,
-              current_period_end: subsMap.get(org.id)!.current_period_end,
-            }
-          : null,
-      }));
+      function computeQuota(ws: { content_count: number; image_count: number; carousel_count: number; script_count: number; brand_count: number }, planType: string): { status: QuotaStatus; highest: { label: string; percentage: number } | null } {
+        const limits = planLimitsMap.get(planType);
+        if (!limits) return { status: 'ok', highest: null };
+
+        const checks = [
+          { used: ws.script_count, limit: limits.monthly_scripts, label: 'Scripts' },
+          { used: ws.carousel_count, limit: limits.monthly_carousels, label: 'Carousels' },
+          { used: ws.content_count, limit: limits.monthly_multichannel, label: 'Đa kênh' },
+          { used: ws.image_count, limit: limits.monthly_images, label: 'Ảnh AI' },
+          { used: ws.brand_count, limit: limits.monthly_brands, label: 'Brands' },
+        ];
+
+        let maxPct = 0;
+        let maxItem: { label: string; percentage: number } | null = null;
+
+        for (const c of checks) {
+          if (c.limit === -1 || c.limit === 0) continue;
+          const pct = Math.round((c.used / c.limit) * 100);
+          if (pct > maxPct) {
+            maxPct = pct;
+            maxItem = { label: c.label, percentage: pct };
+          }
+        }
+
+        const status: QuotaStatus = maxPct >= 90 ? 'critical' : maxPct >= 70 ? 'warning' : 'ok';
+        return { status, highest: maxItem };
+      }
+
+      return orgs.map((org) => {
+        const content_count = contentCounts.get(org.id) || 0;
+        const image_count = imageCounts.get(org.id) || 0;
+        const carousel_count = carouselCounts.get(org.id) || 0;
+        const script_count = scriptCounts.get(org.id) || 0;
+        const brand_count = brandCounts.get(org.id) || 0;
+        const planType = subsMap.get(org.id)?.plan_type || 'free';
+        const quota = computeQuota({ content_count, image_count, carousel_count, script_count, brand_count }, planType);
+
+        return {
+          id: org.id,
+          name: org.name,
+          slug: org.slug,
+          logo_url: org.logo_url,
+          primary_color: org.primary_color,
+          created_at: org.created_at,
+          owner: profilesMap.get(org.owner_id) || null,
+          member_count: memberCounts.get(org.id) || 0,
+          brand_count,
+          content_count,
+          image_count,
+          carousel_count,
+          script_count,
+          subscription: subsMap.has(org.id)
+            ? {
+                plan_type: subsMap.get(org.id)!.plan_type,
+                status: subsMap.get(org.id)!.status,
+                current_period_end: subsMap.get(org.id)!.current_period_end,
+              }
+            : null,
+          quota_status: quota.status,
+          quota_highest: quota.highest,
+        };
+      });
     },
   });
 
