@@ -36,6 +36,8 @@ import { motion } from 'framer-motion';
 
 // Inner component that uses the coachmark context
 function DashboardContent() {
+  const { currentOrganization } = useOrganizationContext();
+  const orgId = currentOrganization?.id;
   const { scripts, loading: scriptsLoading } = useScripts();
   const { carousels, loading: carouselsLoading } = useCarousels();
   const { contents: multiChannelContents, loading: multiChannelLoading } = useMultiChannelContents();
@@ -57,6 +59,19 @@ function DashboardContent() {
     skipWelcome,
     closeCompletionModal 
   } = useCoachmark();
+
+  // Fetch AI image count
+  const { data: aiImageCount = 0 } = useQuery({
+    queryKey: ['ai_image_count', orgId],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('channel_image_history')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', orgId!);
+      return count ?? 0;
+    },
+    enabled: !!orgId,
+  });
 
   // Fetch all schedules for counts
   useEffect(() => {
@@ -84,7 +99,9 @@ function DashboardContent() {
     carousels: carousels.length,
     multiChannel: multiChannelContents.length,
     brands: brands.length,
-  }), [scripts, carousels, multiChannelContents, brands]);
+    aiImages: aiImageCount,
+    aiVideos: 0,
+  }), [scripts, carousels, multiChannelContents, brands, aiImageCount]);
 
   // Combine all activities and sort by date
   const recentActivities = useMemo(() => {
