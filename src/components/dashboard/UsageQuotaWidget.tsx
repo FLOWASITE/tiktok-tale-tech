@@ -48,7 +48,22 @@ export function UsageQuotaWidget() {
     );
   }
 
-  if (!currentPlanLimits || !usage) return null;
+  if (!currentPlanLimits || !usage) {
+    return (
+      <Card className="h-full">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">Hạn mức sử dụng</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center py-6 text-center space-y-3">
+          <AlertTriangle className="h-8 w-8 text-muted-foreground/50" />
+          <p className="text-sm text-muted-foreground">Chưa có gói đăng ký</p>
+          <Button size="sm" className="text-xs" onClick={() => navigate('/pricing')}>
+            Chọn gói
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const now = new Date();
   const periodStart = new Date(currentPeriod.start);
