@@ -93,6 +93,7 @@ const TOPIC_MIN_LENGTH_FOR_REFINEMENT = 10;
 
 export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHistoryId }: ScriptFormStepperProps) {
   const { templates, loading: templatesLoading } = useBrandTemplates();
+  const { currentBrand } = useCurrentBrand();
   const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
   
   const [currentStep, setCurrentStep] = useState(1);
