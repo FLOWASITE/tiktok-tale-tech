@@ -58,6 +58,15 @@ export default function MultiChannel() {
   
   const { templates: brandTemplates } = useBrandTemplates();
   
+  // Build brand logo lookup map
+  const brandLogoMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    brandTemplates.forEach(t => {
+      if (t.logo_url) map[t.id] = t.logo_url;
+    });
+    return map;
+  }, [brandTemplates]);
+  
   // Fetch creator profiles for all contents
   const userIds = useMemo(() => contents.map(c => c.user_id), [contents]);
   const { profiles: creatorProfiles, isLoading: isLoadingProfiles } = useCreatorProfiles(userIds);
