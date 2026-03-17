@@ -62,16 +62,7 @@ const Topics = () => {
   const [mobileBankOpen, setMobileBankOpen] = useState(false);
   const [mobileDiscoveryOpen, setMobileDiscoveryOpen] = useState(false);
 
-  const { templates: brands, loading: brandsLoading } = useBrandTemplates();
-
-  // Persist selected brand to localStorage
-  useEffect(() => {
-    if (selectedBrandId) {
-      localStorage.setItem(STORAGE_KEY_BRAND, selectedBrandId);
-    } else {
-      localStorage.removeItem(STORAGE_KEY_BRAND);
-    }
-  }, [selectedBrandId]);
+  const { templates: brandTemplates } = useBrandTemplates();
 
   // Persist selected goal to localStorage
   useEffect(() => {
