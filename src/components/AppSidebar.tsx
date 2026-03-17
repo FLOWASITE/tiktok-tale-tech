@@ -11,6 +11,8 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { ORG_ROLE_LABELS } from '@/types/organization';
 import { useTranslation } from 'react-i18next';
+import { useSubscription } from '@/hooks/useSubscription';
+import { getPlanBadge } from '@/lib/plan-badge';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
