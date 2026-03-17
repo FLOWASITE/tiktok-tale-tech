@@ -8,27 +8,27 @@ export function SocialProofSection() {
   const metrics = [
     {
       icon: Users,
-      value: "10,000+",
-      label: t("socialProof.title"),
-      description: t("socialProof.subtitle"),
+      value: "500+",
+      label: t("socialProof.metrics.users"),
+      description: t("socialProof.metrics.usersDesc"),
     },
     {
       icon: TrendingUp,
-      value: "500K+",
-      label: t("features.stats.contentTypes"),
-      description: t("socialProof.stats.contentIncrease"),
+      value: "50K+",
+      label: t("socialProof.metrics.content"),
+      description: t("socialProof.metrics.contentDesc"),
     },
     {
       icon: Award,
       value: "4.9/5",
       label: t("socialProof.stats.rating"),
-      description: "2,000+ reviews",
+      description: t("socialProof.metrics.reviewsDesc"),
     },
     {
       icon: Shield,
       value: "99.9%",
-      label: "Uptime",
-      description: "Enterprise-grade reliability",
+      label: t("socialProof.metrics.uptime"),
+      description: t("socialProof.metrics.uptimeDesc"),
     },
   ];
 

@@ -179,13 +179,13 @@ export function HeroSection() {
             <p className="text-xs text-muted-foreground uppercase tracking-widest mb-5">
               {t("hero.trustBadge")}
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-8 lg:gap-12">
-              {trustLogos.map((logo) => (
+            <div className="flex flex-wrap items-center justify-center gap-3 lg:gap-4">
+              {industryBadges.map((badge) => (
                 <span
-                  key={logo}
-                  className="text-base font-semibold text-muted-foreground/50"
+                  key={badge}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border/50"
                 >
-                  {logo}
+                  {badge}
                 </span>
               ))}
             </div>
