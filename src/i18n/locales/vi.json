@@ -351,35 +351,39 @@
     "items": [
       {
         "question": "Flowa có phù hợp với ngành của tôi không?",
-        "answer": "Flowa hỗ trợ 50+ ngành nghề khác nhau từ E-commerce, F&B, Bất động sản, Giáo dục, đến Fintech và nhiều hơn nữa. AI của chúng tôi đã được train với dữ liệu đặc thù từng ngành để tạo ra nội dung chuyên nghiệp và phù hợp."
+        "answer": "Flowa hỗ trợ 42+ ngành nghề với bộ quy tắc tuân thủ riêng — từ Y tế, Tài chính, Bất động sản đến F&B, Giáo dục và Thương mại điện tử. AI được tích hợp Industry Compliance để tạo content đúng luật cho từng ngành."
       },
       {
         "question": "AI có thể giữ đúng giọng điệu thương hiệu của tôi không?",
-        "answer": "Hoàn toàn có thể! Bạn chỉ cần nhập brand guidelines, tone of voice và một vài sample text. AI sẽ học và duy trì giọng điệu nhất quán trên mọi nội dung. Bạn cũng có thể điều chỉnh và tinh chỉnh bất cứ lúc nào."
+        "answer": "Hoàn toàn có thể! Bạn thiết lập Brand Template với tone of voice, formality level, từ ngữ ưu tiên/cấm dùng. AI sẽ học và duy trì giọng điệu nhất quán trên mọi content, dù ai trong team tạo."
       },
       {
         "question": "Tôi có thể xuất bản trực tiếp lên các kênh social không?",
-        "answer": "Có, Flowa tích hợp với Facebook, Instagram, TikTok, LinkedIn, Zalo, và nhiều kênh khác. Bạn có thể lên lịch và xuất bản tự động, hoặc review trước khi đăng. Tất cả đều được quản lý từ một dashboard duy nhất."
+        "answer": "Có, Flowa tích hợp với Facebook, Instagram, TikTok, LinkedIn, Zalo, và nhiều kênh khác. Bạn có thể lên lịch và xuất bản tự động, hoặc review trước khi đăng từ một dashboard duy nhất."
       },
       {
         "question": "Nội dung AI tạo ra có bị trùng lặp không?",
-        "answer": "Không! Mỗi nội dung được AI tạo ra đều là duy nhất và được tùy chỉnh theo brand, context và mục tiêu của bạn. Chúng tôi cũng có công cụ kiểm tra plagiarism để đảm bảo tính độc đáo."
+        "answer": "Không! Mỗi nội dung đều là duy nhất, được tùy chỉnh theo brand, ngành nghề và mục tiêu của bạn. AI còn tự kiểm tra compliance trước khi hoàn thành."
       },
       {
-        "question": "Có giới hạn số lượng content tôi có thể tạo không?",
-        "answer": "Gói Starter miễn phí cho phép tạo 100 nội dung/tháng. Gói Professional cung cấp unlimited content generation, đủ cho mọi nhu cầu của team marketing chuyên nghiệp."
+        "question": "Dữ liệu và nội dung của tôi có an toàn không?",
+        "answer": "Bảo mật là ưu tiên hàng đầu. Hệ thống sử dụng mã hóa SSL, phân quyền theo vai trò (Admin/Editor/Viewer), và không bao giờ chia sẻ dữ liệu với bên thứ ba. Dữ liệu được lưu trữ trên servers bảo mật."
+      },
+      {
+        "question": "Team tôi có thể cùng làm việc trên Flowa không?",
+        "answer": "Có! Flowa hỗ trợ cộng tác team với phân quyền chi tiết, quy trình phê duyệt content, giao task và theo dõi tiến độ theo Campaign. Mọi thành viên đều có thể tạo content đúng brand voice."
+      },
+      {
+        "question": "Flowa khác gì so với ChatGPT hay các AI khác?",
+        "answer": "ChatGPT là công cụ AI đa mục đích. Flowa được xây dựng chuyên biệt cho Content Marketing với: Brand Voice Management, Industry Compliance tự động, Content Calendar, Multi-channel publishing và Team Collaboration — tất cả trong một nền tảng."
       },
       {
         "question": "Tôi có cần kỹ năng kỹ thuật để sử dụng Flowa không?",
-        "answer": "Hoàn toàn không! Flowa được thiết kế cho marketer, không phải developer. Giao diện trực quan, kéo thả dễ dàng. Setup chỉ mất 2 phút và bạn có thể bắt đầu tạo content ngay lập tức."
-      },
-      {
-        "question": "Dữ liệu của tôi có an toàn không?",
-        "answer": "Bảo mật là ưu tiên hàng đầu. Chúng tôi sử dụng mã hóa SSL, tuân thủ GDPR, và không bao giờ chia sẻ dữ liệu của bạn với bên thứ ba. Dữ liệu được lưu trữ trên servers bảo mật tại Singapore."
+        "answer": "Hoàn toàn không! Flowa được thiết kế cho marketer. Giao diện trực quan, setup chỉ mất 5 phút và bạn có thể bắt đầu tạo content ngay lập tức."
       },
       {
         "question": "Có hỗ trợ tiếng Việt không?",
-        "answer": "Flowa được tối ưu đặc biệt cho tiếng Việt với AI hiểu văn hóa, ngữ cảnh và cách diễn đạt của người Việt. Giao diện và support đều 100% tiếng Việt."
+        "answer": "Flowa được tối ưu đặc biệt cho tiếng Việt với AI hiểu văn hóa, ngữ cảnh và quy định pháp luật Việt Nam. Giao diện và support đều 100% tiếng Việt."
       }
     ]
   },
