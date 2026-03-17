@@ -756,7 +756,6 @@ serve(async (req) => {
 
     // Non-blocking metrics save
     const totalDurationMs = Math.round(performance.now() - startTime);
-    const totalDurationMs = Math.round(performance.now() - startTime);
     const estimatedCostUsd = estimateImageCost(modelUsed.split(' ')[0]);
     saveMetrics(supabase, {
       traceId,
