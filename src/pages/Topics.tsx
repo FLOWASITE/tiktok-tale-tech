@@ -30,19 +30,17 @@ import { EnhancedTopicSuggestion, ContentPillar, SEASONAL_EVENTS } from '@/types
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-const STORAGE_KEY_BRAND = 'topics-selected-brand';
 const STORAGE_KEY_GOAL = 'topics-selected-goal';
 
 const Topics = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState('bank');
-  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(STORAGE_KEY_BRAND);
-    }
-    return null;
-  });
+  
+  // Use global brand from header context
+  const { currentBrand, brands, loading: brandsLoading, switchBrand } = useCurrentBrand();
+  const selectedBrandId = currentBrand?.id || null;
+  
   const [selectedGoal, setSelectedGoal] = useState<ContentGoal>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(STORAGE_KEY_GOAL);
