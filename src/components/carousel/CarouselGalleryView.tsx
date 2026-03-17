@@ -86,7 +86,7 @@ export function CarouselGalleryView() {
   const [page, setPage] = useState(1);
   const [bulkMode, setBulkMode] = useState(false);
 
-  const hasActiveFilters = sourceFilter !== 'all' || channelFilter !== 'all' || carouselFilter !== 'all' || searchQuery.trim() !== '';
+  const hasActiveFilters = sourceFilter !== 'all' || channelFilter !== 'all' || carouselFilter !== 'all' || creatorFilter !== 'all' || searchQuery.trim() !== '';
 
   const resetAllFilters = useCallback(() => {
     setSourceFilter('all');
