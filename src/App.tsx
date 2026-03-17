@@ -68,6 +68,7 @@ import CoreContentPage from "./pages/CoreContentPage";
 import FlowaChatPage from "./pages/FlowaChatPage";
 import Gallery from "./pages/Gallery";
 import PaymentResult from "./pages/PaymentResult";
+import Pricing from "./pages/Pricing";
 
 const queryClient = new QueryClient();
 
