@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { FAQSEOSchema } from "@/components/SEOHead";
 
 export function FAQSection() {
   const { t } = useTranslation();
@@ -11,6 +12,7 @@ export function FAQSection() {
 
   return (
     <section id="faq" className="py-24 lg:py-32">
+      <FAQSEOSchema faqs={faqs} />
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <motion.div

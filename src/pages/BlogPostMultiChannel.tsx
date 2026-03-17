@@ -50,6 +50,7 @@ import {
   BlogBreadcrumb,
   blogPostsData 
 } from '@/components/blog';
+import { SEOHead } from '@/components/SEOHead';
 
 const POST_SLUG = 'cach-tao-content-da-kenh';
 const POST_CATEGORY = 'Strategy';
@@ -77,6 +78,18 @@ const BlogPostMultiChannel = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="Cách Tạo Content Đa Kênh: Hướng Dẫn Toàn Diện Từ A-Z [2026]"
+        description="Học cách tạo content cho 10+ kênh từ 1 ý tưởng duy nhất. Bao gồm framework, templates, tools và case studies thực tế."
+        canonicalPath="/blog/cach-tao-content-da-kenh"
+        ogType="article"
+        article={{ author: 'Flowa Team', publishDate: '2026-01-15T00:00:00+07:00', section: 'Guide', tags: ['content đa kênh', 'hướng dẫn', 'framework', 'marketing'] }}
+        breadcrumbs={[
+          { name: 'Trang chủ', url: '/' },
+          { name: 'Blog', url: '/blog' },
+          { name: 'Cách Tạo Content Đa Kênh', url: '/blog/cach-tao-content-da-kenh' },
+        ]}
+      />
       {/* Reading Progress */}
       <ReadingProgress />
 

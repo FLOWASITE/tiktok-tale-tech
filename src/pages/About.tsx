@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Target, Users, Zap, Heart, Mail, Phone, MapPin, Clock, Facebook, Linkedin, MessageCircle } from "lucide-react";
 import { PublicPageLayout } from "@/components/landing/PublicPageLayout";
 import founderImage from "@/assets/founder-duy-vo.jpg";
+import { SEOHead } from "@/components/SEOHead";
 
 const values = [
   {
@@ -84,6 +85,11 @@ export default function About() {
 
   return (
     <PublicPageLayout>
+      <SEOHead
+        title="Về Flowa - Đội Ngũ & Sứ Mệnh"
+        description="Tìm hiểu về Flowa - nền tảng AI giúp tự động hóa content marketing đa kênh. Đội ngũ, giá trị cốt lõi và câu chuyện thành lập."
+        canonicalPath="/about"
+      />
       {/* Hero Section */}
       <section className="py-20 md:py-28 lg:py-32">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">

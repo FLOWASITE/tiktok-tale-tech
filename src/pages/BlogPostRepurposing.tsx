@@ -12,6 +12,7 @@ import {
   BlogBreadcrumb,
   blogPostsData 
 } from '@/components/blog';
+import { SEOHead } from '@/components/SEOHead';
 
 const POST_SLUG = 'content-repurposing-chien-luoc';
 const POST_CATEGORY = 'Strategy';
@@ -37,6 +38,18 @@ const BlogPostRepurposing = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="Content Repurposing: Biến 1 Ý Tưởng Thành 20+ Nội Dung Đa Kênh"
+        description="Đừng viết nhiều hơn, hãy viết thông minh hơn. Hướng dẫn chi tiết chiến lược Content Repurposing để thống trị mọi nền tảng."
+        canonicalPath="/blog/content-repurposing-chien-luoc"
+        ogType="article"
+        article={{ author: 'Võ Phương Duy', publishDate: '2026-01-15T00:00:00+07:00', section: 'Strategy', tags: ['content repurposing', 'đa kênh', 'chiến lược', 'tái sử dụng nội dung'] }}
+        breadcrumbs={[
+          { name: 'Trang chủ', url: '/' },
+          { name: 'Blog', url: '/blog' },
+          { name: 'Content Repurposing', url: '/blog/content-repurposing-chien-luoc' },
+        ]}
+      />
       {/* Reading Progress */}
       <ReadingProgress />
 

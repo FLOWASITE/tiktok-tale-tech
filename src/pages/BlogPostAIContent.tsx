@@ -14,6 +14,7 @@ import {
   BlogBreadcrumb,
   blogPostsData 
 } from '@/components/blog';
+import { SEOHead } from '@/components/SEOHead';
 
 const POST_SLUG = 'ai-content-marketing-huong-dan';
 const POST_CATEGORY = 'AI';
@@ -45,6 +46,18 @@ const BlogPostAIContent = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="AI Content Marketing: Hướng Dẫn Toàn Diện Từ Cơ Bản Đến Nâng Cao [2026]"
+        description="Tìm hiểu cách sử dụng AI trong content marketing hiệu quả. Bao gồm workflow, tools, prompts, và case studies thực tế."
+        canonicalPath="/blog/ai-content-marketing-huong-dan"
+        ogType="article"
+        article={{ author: 'Flowa Team', publishDate: '2026-01-15T00:00:00+07:00', section: 'AI Marketing', tags: ['AI', 'content marketing', 'prompt engineering', 'công cụ AI'] }}
+        breadcrumbs={[
+          { name: 'Trang chủ', url: '/' },
+          { name: 'Blog', url: '/blog' },
+          { name: 'AI Content Marketing', url: '/blog/ai-content-marketing-huong-dan' },
+        ]}
+      />
       {/* Reading Progress */}
       <ReadingProgress />
 

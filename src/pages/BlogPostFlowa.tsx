@@ -41,6 +41,7 @@ import {
   BlogBreadcrumb,
   blogPostsData 
 } from '@/components/blog';
+import { SEOHead } from '@/components/SEOHead';
 
 const POST_SLUG = 'flowa-content-marketing-da-kenh';
 const POST_CATEGORY = 'Product';
@@ -69,6 +70,18 @@ const BlogPostFlowa = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="Flowa: Giải Pháp Tạo Content Marketing Đa Kênh Trong 10 Phút"
+        description="Flowa giúp Marketing Team tạo content cho 12 kênh chỉ trong 10 phút. Tự động hóa 90% quy trình, giữ brand voice nhất quán."
+        canonicalPath="/blog/flowa-content-marketing-da-kenh"
+        ogType="article"
+        article={{ author: 'Flowa Team', publishDate: '2026-01-15T00:00:00+07:00', section: 'Product', tags: ['content marketing', 'đa kênh', 'AI', 'flowa'] }}
+        breadcrumbs={[
+          { name: 'Trang chủ', url: '/' },
+          { name: 'Blog', url: '/blog' },
+          { name: 'Flowa: Content Marketing Đa Kênh', url: '/blog/flowa-content-marketing-da-kenh' },
+        ]}
+      />
       {/* Reading Progress */}
       <ReadingProgress />
 
