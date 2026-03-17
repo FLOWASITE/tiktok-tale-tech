@@ -111,17 +111,35 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
         usageQuery = usageQuery.lte("created_at", subscription.current_period_end);
       }
 
-      const [orgRes, usageRes] = await Promise.all([
+      const [orgRes, usageRes, postsRes, carouselsRes, imagesRes] = await Promise.all([
         supabase
           .from("organization_members")
           .select("organization_id, role, joined_at, organization:organizations(name, slug)")
           .eq("user_id", userId),
         usageQuery,
+        supabase
+          .from("multi_channel_contents")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", userId),
+        supabase
+          .from("carousels")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", userId),
+        supabase
+          .from("channel_image_history")
+          .select("*", { count: "exact", head: true })
+          .eq("created_by", userId),
       ]);
 
       if (orgRes.data) {
         setOrgs(orgRes.data as unknown as OrgMembership[]);
       }
+
+      setContentCounts({
+        posts: postsRes.count ?? 0,
+        carousels: carouselsRes.count ?? 0,
+        images: imagesRes.count ?? 0,
+      });
 
       if (usageRes.data) {
         const grouped: Record<string, number> = {};
