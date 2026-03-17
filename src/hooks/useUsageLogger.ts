@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCallback } from "react";
 import type { Json } from "@/integrations/supabase/types";
 
-type UsageType = "script" | "carousel" | "multichannel" | "image_generation" | "ai_edit";
+type UsageType = "script" | "carousel" | "multichannel" | "image_generation";
 
 export function useUsageLogger() {
   const { user } = useAuth();

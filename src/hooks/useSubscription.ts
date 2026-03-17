@@ -181,7 +181,7 @@ export function useSubscription() {
         channel_breakdown: channelBreakdown,
         images: imagesRes.count ?? 0,
         image_channel_breakdown: imageChannelBreakdown,
-        ai_edits: aiEditsRes.count ?? 0,
+        brands: brandsRes.count ?? 0,
       };
     },
     enabled: !!user?.id && !!subscriptionQuery.data,
