@@ -67,6 +67,7 @@ import GoogleBusinessCallback from "./pages/GoogleBusinessCallback";
 import CoreContentPage from "./pages/CoreContentPage";
 import FlowaChatPage from "./pages/FlowaChatPage";
 import Gallery from "./pages/Gallery";
+import PaymentResult from "./pages/PaymentResult";
 
 const queryClient = new QueryClient();
 
