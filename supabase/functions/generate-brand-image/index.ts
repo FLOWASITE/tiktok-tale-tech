@@ -739,6 +739,7 @@ function structuredElementsToPromptText(
             aspect_ratio: finalAspectRatio,
             is_selected: true,
             organization_id: brandTemplate.organization_id,
+            created_by: userId,
           });
         console.log("[generate-brand-image] Saved to channel_image_history");
       } catch (historyErr) {

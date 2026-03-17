@@ -1605,6 +1605,7 @@ async function executeGenerateImage(
         model_used: modelUsed,
         organization_id: context.organizationId,
         is_selected: true,
+        created_by: context.userId,
       }).catch(() => {});
     }
 
