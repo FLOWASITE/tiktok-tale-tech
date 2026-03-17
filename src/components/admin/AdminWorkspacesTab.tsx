@@ -452,10 +452,10 @@ export function AdminWorkspacesTab() {
                     <TableHead>Workspace</TableHead>
                     <TableHead>Owner</TableHead>
                     <TableHead className="text-center">Thành viên</TableHead>
-                    <TableHead className="text-center">Brands</TableHead>
-                    <TableHead className="text-center">Nội dung</TableHead>
+                    <TableHead className="text-center text-muted-foreground">Brands</TableHead>
+                    <TableHead className="text-center border-l border-border/50">Nội dung</TableHead>
                     <TableHead className="text-center">Ảnh</TableHead>
-                    <TableHead className="text-center">Tổng</TableHead>
+                    <TableHead className="text-center font-bold">Tổng</TableHead>
                     <TableHead>Plan</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Ngày tạo</TableHead>
