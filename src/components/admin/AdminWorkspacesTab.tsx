@@ -234,6 +234,14 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
                         <Wand2 className="h-3 w-3" />
                         <span className="font-semibold text-foreground">{c.imageCount}</span>
                       </span>
+                      <span className="flex items-center gap-0.5" title="Carousel">
+                        <Images className="h-3 w-3" />
+                        <span className="font-semibold text-foreground">{c.carouselCount}</span>
+                      </span>
+                      <span className="flex items-center gap-0.5" title="Script">
+                        <ScrollText className="h-3 w-3" />
+                        <span className="font-semibold text-foreground">{c.scriptCount}</span>
+                      </span>
                     </div>
                   </div>
                 );
