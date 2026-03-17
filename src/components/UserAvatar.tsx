@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { User, LogOut, HelpCircle, Check, Shield, Building2, Plus, ExternalLink } from 'lucide-react';
+import { User, LogOut, HelpCircle, Check, Shield, Building2, Plus, ExternalLink, Globe } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
