@@ -241,24 +241,6 @@ export default function MultiChannelCreate() {
         {/* Right: Close */}
         <div className="flex items-center gap-2">
           <Button
-            variant={showChatPanel ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setShowChatPanel(!showChatPanel)}
-            className="hidden lg:flex gap-2 h-8"
-          >
-            {showChatPanel ? (
-              <>
-                <PanelRightClose className="w-4 h-4" />
-                Ẩn chat
-              </>
-            ) : (
-              <>
-                <MessageSquare className="w-4 h-4" />
-                Brainstorm AI
-              </>
-            )}
-          </Button>
-          <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate('/multichannel')}
