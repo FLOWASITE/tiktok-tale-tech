@@ -5,6 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const PLAN_ORDER = ['free', 'starter', 'pro', 'business', 'enterprise'];
+
 async function hmacSHA512(secret: string, data: string): Promise<string> {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
@@ -60,7 +62,7 @@ Deno.serve(async (req) => {
     const txnRef = params.get('vnp_TxnRef') || '';
     const responseCode = params.get('vnp_ResponseCode') || '';
     const transactionNo = params.get('vnp_TransactionNo') || '';
-    const amount = parseInt(params.get('vnp_Amount') || '0') / 100; // Convert back from smallest unit
+    const amount = parseInt(params.get('vnp_Amount') || '0') / 100;
 
     console.log(`VNPay callback: txnRef=${txnRef}, code=${responseCode}, amount=${amount}`);
 
@@ -68,7 +70,6 @@ Deno.serve(async (req) => {
     if (checkHash !== vnpSecureHash) {
       console.error('Invalid VNPay checksum');
       
-      // Update order as failed
       await supabase
         .from('payment_orders')
         .update({ status: 'failed', vnpay_response: { error: 'invalid_checksum', responseCode }, updated_at: new Date().toISOString() })
@@ -80,7 +81,7 @@ Deno.serve(async (req) => {
     }
 
     // Get the order
-    const { data: order, error: orderError } = await supabase
+    const { data: order } = await supabase
       .from('payment_orders')
       .select('*')
       .eq('vnpay_txn_ref', txnRef)
@@ -107,14 +108,20 @@ Deno.serve(async (req) => {
     }
 
     if (responseCode === '00') {
-      // Payment successful
+      // Payment successful — determine if this is an upgrade or new subscription
       const now = new Date();
-      const periodEnd = new Date(now);
-      if (order.billing_cycle === 'yearly') {
-        periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-      } else {
-        periodEnd.setMonth(periodEnd.getMonth() + 1);
-      }
+
+      // Get current subscription
+      const { data: currentSub } = await supabase
+        .from('subscriptions')
+        .select('plan_type, current_period_start, current_period_end, metadata')
+        .eq('organization_id', order.organization_id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      const currentRank = currentSub ? PLAN_ORDER.indexOf(currentSub.plan_type) : -1;
+      const newRank = PLAN_ORDER.indexOf(order.plan_type);
+      const isUpgrade = currentSub && newRank > currentRank && new Date(currentSub.current_period_end) > now;
 
       // Update order
       await supabase
@@ -126,25 +133,62 @@ Deno.serve(async (req) => {
         })
         .eq('id', order.id);
 
-      // Update subscription
-      const { error: subError } = await supabase
-        .from('subscriptions')
-        .update({
-          plan_type: order.plan_type,
-          status: 'active',
-          payment_provider: 'vnpay',
-          payment_reference: transactionNo,
-          current_period_start: now.toISOString(),
-          current_period_end: periodEnd.toISOString(),
-          metadata: { last_vnpay_txn: txnRef, amount, billing_cycle: order.billing_cycle },
-          updated_at: now.toISOString(),
-        })
-        .eq('organization_id', order.organization_id);
+      if (isUpgrade) {
+        // MID-CYCLE UPGRADE: Keep period dates, only change plan_type
+        const existingMetadata = (currentSub.metadata as Record<string, unknown>) || {};
+        const { error: subError } = await supabase
+          .from('subscriptions')
+          .update({
+            plan_type: order.plan_type,
+            previous_plan_type: currentSub.plan_type,
+            payment_provider: 'vnpay',
+            payment_reference: transactionNo,
+            metadata: {
+              ...existingMetadata,
+              last_vnpay_txn: txnRef,
+              amount,
+              billing_cycle: order.billing_cycle,
+              upgraded_at: now.toISOString(),
+              upgrade_from: currentSub.plan_type,
+            },
+            updated_at: now.toISOString(),
+          })
+          .eq('organization_id', order.organization_id);
 
-      if (subError) {
-        console.error('Failed to update subscription:', subError);
+        if (subError) {
+          console.error('Failed to update subscription (upgrade):', subError);
+        } else {
+          console.log(`Subscription upgraded (mid-cycle): org=${order.organization_id}, ${currentSub.plan_type} → ${order.plan_type}, period kept`);
+        }
       } else {
-        console.log(`Subscription upgraded: org=${order.organization_id}, plan=${order.plan_type}`);
+        // NEW / RENEWAL: Reset period dates
+        const periodEnd = new Date(now);
+        if (order.billing_cycle === 'yearly') {
+          periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+        } else {
+          periodEnd.setMonth(periodEnd.getMonth() + 1);
+        }
+
+        const { error: subError } = await supabase
+          .from('subscriptions')
+          .update({
+            plan_type: order.plan_type,
+            previous_plan_type: currentSub?.plan_type || null,
+            status: 'active',
+            payment_provider: 'vnpay',
+            payment_reference: transactionNo,
+            current_period_start: now.toISOString(),
+            current_period_end: periodEnd.toISOString(),
+            metadata: { last_vnpay_txn: txnRef, amount, billing_cycle: order.billing_cycle },
+            updated_at: now.toISOString(),
+          })
+          .eq('organization_id', order.organization_id);
+
+        if (subError) {
+          console.error('Failed to update subscription:', subError);
+        } else {
+          console.log(`Subscription updated (new/renewal): org=${order.organization_id}, plan=${order.plan_type}`);
+        }
       }
 
       return new Response(JSON.stringify({ RspCode: '00', Message: 'Success' }), {

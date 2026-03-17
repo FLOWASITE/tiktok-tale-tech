@@ -1,81 +1,62 @@
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-# Phương án xử lý: Hạn mức dư thừa & Nâng cấp giữa chu kỳ
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-## Phân tích hiện trạng
+---
 
-**Hiện tại khi nâng cấp gói (`vnpay-callback`):**
-- Reset `current_period_start = now()`, `current_period_end = now + 1 tháng/năm`
-- **Không xử lý proration** (tính phí theo tỷ lệ ngày còn lại)
-- **Không cộng dồn hạn mức** chưa dùng từ gói cũ
-- Usage query chỉ đếm trong `period_start → period_end`, nên khi reset period → usage cũng bị reset về 0
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-**2 vấn đề cần giải quyết:**
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-| Trường hợp | Hiện tại | Mong muốn |
-|---|---|---|
-| Hạn mức dư cuối tháng | Mất hoàn toàn khi chu kỳ mới bắt đầu | **Không rollover** (phổ biến trong SaaS) hoặc **Rollover một phần** |
-| Nâng cấp giữa tháng | Period reset → usage reset → được dùng lại từ đầu | Nên **cộng thêm hạn mức mới - đã dùng** hoặc **tính phí prorate** |
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-## Đề xuất phương án
+---
 
-### Phương án A: Không rollover + Immediate upgrade (đơn giản, khuyến nghị)
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-**Hạn mức dư cuối tháng:** Mất hết, reset về 0 khi chu kỳ mới → **không cần thay đổi gì** (đây là chuẩn SaaS).
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-**Nâng cấp giữa tháng:**
-1. **Prorate phí thanh toán**: Chỉ tính phí cho số ngày còn lại trong chu kỳ hiện tại
-2. **Giữ nguyên period dates**: KHÔNG reset `current_period_start/end` → chỉ đổi `plan_type`
-3. **Hạn mức mới áp dụng ngay**: Usage đã dùng vẫn tính, nhưng limit cao hơn → tự động có thêm room
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-**Ví dụ:** User đã dùng 8/10 scripts (Starter), nâng lên Pro (50 scripts) → còn lại 42 scripts trong tháng.
+---
 
-### Thay đổi cần làm
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
-#### 1. Edge function `create-vnpay-payment` — Tính prorate
-- Tính `daysRemaining = (periodEnd - now) / totalDays`
-- `proratedAmount = planPrice × (daysRemaining / totalDays)`
-- Lưu `prorated: true` và `original_amount` vào `payment_orders.metadata`
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
 
-#### 2. Edge function `vnpay-callback` — Giữ period khi upgrade
-- Khi upgrade (gói mới > gói cũ): **chỉ update `plan_type`**, KHÔNG reset `current_period_start/end`
-- Lưu `previous_plan`, `upgraded_at` vào `metadata` để audit trail
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
 
-#### 3. DB Migration — Thêm cột `previous_plan_type` vào `subscriptions`
-- `previous_plan_type plan_type NULL` — track gói cũ trước khi upgrade
+---
 
-#### 4. UI: `UpgradePlanDialog` — Hiển thị prorated price
-- Hiện giá prorate: "Thanh toán 150.000₫ cho 15 ngày còn lại (thay vì 499.000₫/tháng)"
-- Hiện hạn mức sẽ được nâng: "Scripts: 8/10 → 8/50"
+## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
 
-#### 5. `UsageQuotaWidget` — Badge "Vừa nâng cấp"
-- Nếu `metadata.upgraded_at` trong 7 ngày qua → hiện badge nhỏ "Đã nâng cấp" với tooltip giải thích
+### Vấn đề
+Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
 
-## Files thay đổi (~5)
-
-| File | Thay đổi |
-|---|---|
-| `supabase/functions/create-vnpay-payment/index.ts` | Tính prorated amount |
-| `supabase/functions/vnpay-callback/index.ts` | Giữ period dates khi upgrade, chỉ đổi plan_type |
-| DB Migration | Thêm `previous_plan_type` vào `subscriptions` |
-| `src/components/UpgradePlanDialog.tsx` | Hiện giá prorate + hạn mức trước/sau |
-| `src/components/dashboard/UsageQuotaWidget.tsx` | Badge "vừa nâng cấp" |
-
-## Chi tiết kỹ thuật
-
-**Prorated calculation:**
-```text
-daysInPeriod = (period_end - period_start) / 86400000
-daysRemaining = (period_end - now) / 86400000  
-proratedPrice = Math.ceil(newPlanPrice × daysRemaining / daysInPeriod)
-```
-
-**vnpay-callback upgrade logic:**
-```text
-IF order.plan_type rank > current subscription.plan_type rank:
-  → UPDATE plan_type only, keep period dates
-  → Save previous_plan_type, upgraded_at in metadata
-ELSE (new subscription / renewal):
-  → Reset period dates as current behavior
-```
-
+### Đã sửa (6 files + 2 edge functions)
+1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
+2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
+3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
+4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
+5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
+6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
+7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
