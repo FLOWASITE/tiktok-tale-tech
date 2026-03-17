@@ -119,7 +119,7 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
         usageQuery,
         supabase
           .from("multi_channel_contents")
-          .select("*", { count: "exact", head: true })
+          .select("selected_channels", { count: "exact" })
           .eq("user_id", userId),
         supabase
           .from("carousels")
