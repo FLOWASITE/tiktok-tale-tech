@@ -4,6 +4,7 @@ import {
   WorkflowSection,
   IndustryMemorySection,
   SocialProofSection,
+  TestimonialsSection,
   PricingSection,
   FAQSection,
   CTASection,
