@@ -263,6 +263,9 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
                         <ScrollText className="h-3 w-3" />
                         <span className="font-semibold text-foreground">{c.scriptCount}</span>
                       </span>
+                      <span className="font-bold text-primary text-xs" title="Tổng">
+                        = {c.contentCount + c.imageCount + c.carouselCount + c.scriptCount}
+                      </span>
                     </div>
                   </div>
                 );
