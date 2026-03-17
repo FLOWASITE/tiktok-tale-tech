@@ -289,7 +289,7 @@ const Topics = () => {
         onOpenChange={setBrandDialogOpen}
         brands={brands}
         selectedBrandId={selectedBrandId || undefined}
-        onSelectBrand={(id) => setSelectedBrandId(id)}
+        onSelectBrand={(id) => switchBrand(id)}
         onCreateBrand={() => navigate('/brands/new')}
         onViewBrand={(id) => navigate(`/brands/${id}`)}
       />
