@@ -59,7 +59,7 @@ export function useAdminWorkspaces() {
       // Fetch owner profiles, member counts, and subscriptions in parallel
       const ownerIds = [...new Set(orgs.map((o) => o.owner_id).filter(Boolean))];
 
-      const [profilesRes, membersRes, subsRes, brandsRes, contentsRes, imagesRes, carouselsRes, scriptsRes] = await Promise.all([
+      const [profilesRes, membersRes, subsRes, brandsRes, contentsRes, imagesRes, carouselsRes, scriptsRes, planLimitsRes] = await Promise.all([
         supabase.from("profiles").select("id, email, full_name, avatar_url").in("id", ownerIds),
         supabase.from("organization_members").select("organization_id"),
         supabase.from("subscriptions").select("organization_id, plan_type, status, current_period_start, current_period_end").not("organization_id", "is", null),
@@ -68,6 +68,7 @@ export function useAdminWorkspaces() {
         supabase.from("channel_image_history").select("organization_id, created_at"),
         supabase.from("carousels").select("organization_id, created_at"),
         supabase.from("scripts").select("organization_id, created_at"),
+        supabase.from("plan_limits").select("plan_type, monthly_scripts, monthly_carousels, monthly_multichannel, monthly_images, monthly_brands"),
       ]);
 
       // Build period map per org from subscriptions (fallback to current month)
