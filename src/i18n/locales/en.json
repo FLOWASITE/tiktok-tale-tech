@@ -798,6 +798,7 @@
       "scriptLabel": "Video script",
       "carouselLabel": "Carousel",
       "multiChannelLabel": "Multi-channel content",
+      "publishedOn": "Published",
       "activeCampaigns": "Active Campaigns",
       "noCampaigns": "No campaigns yet",
       "createCampaign": "Create new campaign",

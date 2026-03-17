@@ -103,6 +103,30 @@ function DashboardContent() {
     aiVideos: 0,
   }), [scripts, carousels, multiChannelContents, brands, aiImageCount]);
 
+  // Fetch published channels mapping
+  const { data: publishedChannelsMap } = useQuery({
+    queryKey: ['published_channels_map', orgId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('content_publishing_logs')
+        .select('content_id, channel')
+        .eq('action', 'published')
+        .eq('organization_id', orgId!);
+      
+      const map: Record<string, string[]> = {};
+      data?.forEach(log => {
+        if (log.content_id) {
+          if (!map[log.content_id]) map[log.content_id] = [];
+          if (!map[log.content_id].includes(log.channel)) {
+            map[log.content_id].push(log.channel);
+          }
+        }
+      });
+      return map;
+    },
+    enabled: !!orgId,
+  });
+
   // Combine all activities and sort by date
   const recentActivities = useMemo(() => {
     const activities: Array<{
@@ -114,6 +138,7 @@ function DashboardContent() {
         topic?: string;
         platform?: string;
         channels?: string[];
+        publishedChannels?: string[];
       };
     }> = [];
 
@@ -123,7 +148,7 @@ function DashboardContent() {
         type: 'script',
         title: script.title,
         createdAt: script.created_at,
-        metadata: { topic: script.topic },
+        metadata: { topic: script.topic, publishedChannels: publishedChannelsMap?.[script.id] },
       });
     });
 
@@ -136,6 +161,7 @@ function DashboardContent() {
         metadata: { 
           topic: carousel.topic,
           platform: carousel.platform,
+          publishedChannels: publishedChannelsMap?.[carousel.id],
         },
       });
     });
@@ -149,6 +175,7 @@ function DashboardContent() {
         metadata: { 
           topic: content.topic,
           channels: content.selected_channels,
+          publishedChannels: publishedChannelsMap?.[content.id],
         },
       });
     });
@@ -157,7 +184,7 @@ function DashboardContent() {
     return activities
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 10);
-  }, [scripts, carousels, multiChannelContents]);
+  }, [scripts, carousels, multiChannelContents, publishedChannelsMap]);
 
   // Auto-start onboarding for new users with welcome modal
   useEffect(() => {

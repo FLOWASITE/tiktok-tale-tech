@@ -2,17 +2,21 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { 
   FileVideo, 
   Images, 
   Layers, 
   Clock,
-  ChevronRight
+  ChevronRight,
+  CheckCircle
 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isYesterday, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { getChannelColorClasses } from '@/utils/channelColors';
+import { Channel } from '@/types/multichannel';
 
 interface ActivityItem {
   id: string;
@@ -23,6 +27,7 @@ interface ActivityItem {
     topic?: string;
     platform?: string;
     channels?: string[];
+    publishedChannels?: string[];
   };
 }
 
@@ -30,6 +35,39 @@ interface ActivityTimelineProps {
   activities: ActivityItem[];
   loading?: boolean;
   className?: string;
+}
+
+const CHANNEL_LABELS: Record<string, string> = {
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+  twitter: 'X',
+  linkedin: 'LinkedIn',
+  youtube: 'YouTube',
+  tiktok: 'TikTok',
+  threads: 'Threads',
+  website: 'Website',
+  email: 'Email',
+  zalo_oa: 'Zalo OA',
+  telegram: 'Telegram',
+  google_maps: 'Google Maps',
+};
+
+function PublishedChannelBadges({ channels, label }: { channels: string[]; label: string }) {
+  return (
+    <div className="flex items-center gap-1 mt-1 flex-wrap">
+      <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" />
+      <span className="text-[10px] text-muted-foreground mr-0.5">{label}</span>
+      {channels.map(ch => (
+        <Badge 
+          key={ch} 
+          variant="outline" 
+          className={`text-[10px] px-1.5 py-0 h-4 ${getChannelColorClasses(ch as Channel)}`}
+        >
+          {CHANNEL_LABELS[ch] || ch}
+        </Badge>
+      ))}
+    </div>
+  );
 }
 
 export function ActivityTimeline({ activities, loading, className }: ActivityTimelineProps) {
@@ -157,6 +195,7 @@ export function ActivityTimeline({ activities, loading, className }: ActivityTim
                   {items.map((activity, index) => {
                     const config = typeConfig[activity.type];
                     const Icon = config.icon;
+                    const publishedChannels = activity.metadata?.publishedChannels;
 
                     return (
                       <motion.div
@@ -191,6 +230,12 @@ export function ActivityTimeline({ activities, loading, className }: ActivityTim
                                 })}
                               </span>
                             </div>
+                            {publishedChannels && publishedChannels.length > 0 && (
+                              <PublishedChannelBadges 
+                                channels={publishedChannels} 
+                                label={t('app.dashboard.publishedOn')} 
+                              />
+                            )}
                           </div>
 
                           <ChevronRight className="w-4 h-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-1" />
