@@ -91,9 +91,6 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
           size="sm"
           className="bg-background border rounded-lg p-0.5"
         >
-          <ToggleGroupItem value="all" className="text-xs px-3 h-7 rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-            Tổng cộng
-          </ToggleGroupItem>
           <ToggleGroupItem value="current" className="text-xs px-3 h-7 rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
             Kỳ này
           </ToggleGroupItem>
