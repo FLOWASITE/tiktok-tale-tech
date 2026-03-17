@@ -13,6 +13,7 @@ import { ORG_ROLE_LABELS } from '@/types/organization';
 import { useTranslation } from 'react-i18next';
 import { useSubscription } from '@/hooks/useSubscription';
 import { getPlanBadge } from '@/lib/plan-badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -159,24 +160,62 @@ function QuotaWarningIndicator() {
       ? 'bg-yellow-500'
       : 'bg-emerald-500';
 
+  const metricDetails = [
+    { label: 'Scripts', used: usage.scripts, limit: currentPlanLimits.monthly_scripts },
+    { label: 'Carousels', used: usage.carousels, limit: currentPlanLimits.monthly_carousels },
+    { label: 'Đa kênh', used: usage.multichannel, limit: currentPlanLimits.monthly_multichannel },
+    { label: 'Ảnh AI', used: usage.images, limit: currentPlanLimits.monthly_images },
+    { label: 'Brands', used: usage.brands, limit: currentPlanLimits.monthly_brands },
+  ];
+
   return (
-    <button
-      onClick={() => navigate('/account')}
-      className="w-full text-left cursor-pointer group mt-0.5"
-    >
-      <div className="flex items-center justify-between text-[10px] mb-0.5 gap-2">
-        <span className="text-muted-foreground/80 group-hover:text-foreground transition-colors">
-          Hạn mức: {clampedPct}%
-        </span>
-        <span className="text-muted-foreground/60">{daysRemaining} ngày còn lại</span>
-      </div>
-      <div className="w-full h-1.5 rounded-full bg-muted/60 overflow-hidden">
-        <div
-          className={cn('h-full rounded-full transition-all duration-500', barColor)}
-          style={{ width: `${clampedPct}%` }}
-        />
-      </div>
-    </button>
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => navigate('/account')}
+            className="w-full text-left cursor-pointer group mt-0.5"
+          >
+            <div className="flex items-center justify-between text-[10px] mb-0.5 gap-2">
+              <span className="text-muted-foreground/80 group-hover:text-foreground transition-colors">
+                Hạn mức: {clampedPct}%
+              </span>
+              <span className="text-muted-foreground/60">{daysRemaining} ngày còn lại</span>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-muted/60 overflow-hidden">
+              <div
+                className={cn('h-full rounded-full transition-all duration-500', barColor)}
+                style={{ width: `${clampedPct}%` }}
+              />
+            </div>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="w-52 p-3">
+          <div className="space-y-1.5 text-xs">
+            <p className="font-semibold border-b border-border pb-1 mb-1">Chi tiết hạn mức</p>
+            {metricDetails.map(m => {
+              const isUnlimited = m.limit === -1;
+              const pct = isUnlimited ? 0 : Math.min(100, Math.round((m.used / m.limit) * 100));
+              return (
+                <div key={m.label} className="flex justify-between">
+                  <span className="text-muted-foreground">{m.label}</span>
+                  <span className={cn(
+                    'font-medium tabular-nums',
+                    !isUnlimited && pct >= 90 ? 'text-destructive' : !isUnlimited && pct >= 70 ? 'text-amber-500' : ''
+                  )}>
+                    {m.used}/{isUnlimited ? '∞' : m.limit} {!isUnlimited && `(${pct}%)`}
+                  </span>
+                </div>
+              );
+            })}
+            <div className="pt-1 border-t border-border mt-1 font-semibold flex justify-between">
+              <span>Trung bình</span>
+              <span>{clampedPct}%</span>
+            </div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
