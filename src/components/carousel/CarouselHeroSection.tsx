@@ -98,7 +98,7 @@ export function CarouselHeroSection({
                 transition={{ delay: 0.1 }}
                 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text"
               >
-                Carousel Prompt
+                Carousel
               </motion.h1>
               <motion.p
                 initial={{ x: -20, opacity: 0 }}
@@ -106,7 +106,7 @@ export function CarouselHeroSection({
                 transition={{ delay: 0.2 }}
                 className="text-sm text-muted-foreground"
               >
-                Tạo prompt cho ảnh carousel đa nền tảng
+                Tạo ảnh carousel đa nền tảng
               </motion.p>
             </div>
           </div>
