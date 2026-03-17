@@ -79,6 +79,7 @@ const CarouselPage = () => {
   }, [prefillData]);
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showGallery, setShowGallery] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<CarouselFiltersState>({
     search: '',
