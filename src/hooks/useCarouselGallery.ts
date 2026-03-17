@@ -85,7 +85,7 @@ export function useCarouselGallery() {
       });
 
       const carouselImages: GalleryImage[] = (carouselRes.data || []).map((row: any) => {
-        const userId = row.created_by || row.carousels?.user_id;
+        const userId = row.created_by;
         const profile = userId ? profileMap.get(userId) : undefined;
         return {
           id: row.id,
@@ -106,7 +106,7 @@ export function useCarouselGallery() {
       });
 
       const channelImages: GalleryImage[] = (channelRes.data || []).map((row: any) => {
-        const userId = row.created_by || row.multi_channel_contents?.user_id;
+        const userId = row.created_by;
         const profile = userId ? profileMap.get(userId) : undefined;
         const brandId = row.multi_channel_contents?.brand_template_id;
         const brand = brandId ? brandMap.get(brandId) : undefined;
