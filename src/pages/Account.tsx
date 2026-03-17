@@ -114,7 +114,7 @@ export default function Account() {
         supabase.from("multi_channel_contents").select("selected_channels", { count: "exact" })
           .eq("user_id", user.id).gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
         contentIds.length > 0
-          ? supabase.from("channel_image_history").select("*", { count: "exact", head: true })
+          ? supabase.from("channel_image_history").select("channel", { count: "exact" })
               .in("content_id", contentIds)
           : Promise.resolve({ count: 0, data: null, error: null }),
         supabase.from("usage_logs").select("*", { count: "exact", head: true })
