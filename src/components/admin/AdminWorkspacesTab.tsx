@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,12 +20,12 @@ import {
 import {
   Building2, Search, Users, CreditCard, TrendingUp, Crown,
   Trash2, ChevronLeft, ChevronRight, Download, Sparkles, Loader2,
-  ChevronDown, FileText, Image, Layers, Palette, Wand2, ScrollText, Images,
+  ChevronDown, FileText, Image, Layers, Palette, Wand2, ScrollText, Images, Calendar,
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useAdminWorkspaces, type AdminWorkspace } from "@/hooks/useAdminWorkspaces";
-import { useAdminWorkspaceDetail } from "@/hooks/useAdminWorkspaceDetail";
+import { useAdminWorkspaceDetail, type PeriodFilter } from "@/hooks/useAdminWorkspaceDetail";
 import { MemberAvatar } from "@/components/MemberAvatar";
 import { ORG_ROLE_LABELS, ORG_ROLE_COLORS, type OrgRole } from "@/types/organization";
 import { toast } from "sonner";
@@ -51,7 +52,20 @@ const statusColors: Record<string, string> = {
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
-  const { members, brands, contentStats, contributions, isLoading } = useAdminWorkspaceDetail(orgId);
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("all");
+  const { members, brands, contentStats, contributions, periodInfo, isLoading } = useAdminWorkspaceDetail(orgId, periodFilter);
+
+  const periodLabel = useMemo(() => {
+    if (!periodInfo?.start || !periodInfo?.end) return null;
+    const now = new Date();
+    const periodEnd = new Date(periodInfo.end);
+    if (periodEnd < now) {
+      const s = new Date(now.getFullYear(), now.getMonth(), 1);
+      const e = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return `${format(s, "dd/MM")} – ${format(e, "dd/MM/yyyy")}`;
+    }
+    return `${format(new Date(periodInfo.start), "dd/MM")} – ${format(new Date(periodInfo.end), "dd/MM/yyyy")}`;
+  }, [periodInfo]);
 
   if (isLoading) {
     return (
@@ -68,7 +82,32 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
 
   return (
     <div className="p-4 bg-muted/30 border-t space-y-4">
-      {/* Stats Grid */}
+      {/* Period Filter */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <ToggleGroup
+          type="single"
+          value={periodFilter}
+          onValueChange={(v) => v && setPeriodFilter(v as PeriodFilter)}
+          size="sm"
+          className="bg-background border rounded-lg p-0.5"
+        >
+          <ToggleGroupItem value="all" className="text-xs px-3 h-7 rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+            Tổng cộng
+          </ToggleGroupItem>
+          <ToggleGroupItem value="current" className="text-xs px-3 h-7 rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+            Kỳ này
+          </ToggleGroupItem>
+          <ToggleGroupItem value="previous" className="text-xs px-3 h-7 rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+            Kỳ trước
+          </ToggleGroupItem>
+        </ToggleGroup>
+        {periodFilter !== "all" && periodLabel && (
+          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
+            {periodFilter === "current" ? "Kỳ hiện tại" : "Trước"}: {periodLabel}
+          </span>
+        )}
+      </div>
       <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
         {[
           { icon: FileText, label: "Bài viết", value: contentStats.multiChannelCount },
