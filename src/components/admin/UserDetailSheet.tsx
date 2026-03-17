@@ -286,7 +286,38 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
 
           <Separator />
 
-          {/* Usage */}
+          {/* Content Stats (all-time) */}
+          <div>
+            <h4 className="font-medium flex items-center gap-2 mb-3">
+              <BarChart3 className="h-4 w-4" />
+              Tổng nội dung đã tạo
+            </h4>
+            {loading ? (
+              <Skeleton className="h-12" />
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                <div className="p-3 rounded-lg bg-primary/10 text-center">
+                  <FileText className="h-4 w-4 mx-auto mb-1 text-primary" />
+                  <div className="text-xl font-bold">{contentCounts.posts}</div>
+                  <div className="text-xs text-muted-foreground">Bài đa kênh</div>
+                </div>
+                <div className="p-3 rounded-lg bg-primary/10 text-center">
+                  <Layers className="h-4 w-4 mx-auto mb-1 text-primary" />
+                  <div className="text-xl font-bold">{contentCounts.carousels}</div>
+                  <div className="text-xs text-muted-foreground">Carousel</div>
+                </div>
+                <div className="p-3 rounded-lg bg-primary/10 text-center">
+                  <Image className="h-4 w-4 mx-auto mb-1 text-primary" />
+                  <div className="text-xl font-bold">{contentCounts.images}</div>
+                  <div className="text-xs text-muted-foreground">Ảnh AI</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Usage (current period) */}
           <div>
             <h4 className="font-medium flex items-center gap-2 mb-3">
               <BarChart3 className="h-4 w-4" />
