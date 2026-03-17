@@ -281,6 +281,31 @@ export function UserAvatar() {
           
           <DropdownMenuSeparator />
           
+          {/* Language Switcher */}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="gap-2">
+              <Globe className="h-4 w-4" />
+              <span className="flex-1">{currentLang.flag} {currentLang.name}</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent className="w-48 bg-popover">
+                {languages.map((lang) => (
+                  <DropdownMenuItem
+                    key={lang.code}
+                    onClick={() => handleLanguageChange(lang.code)}
+                    className="gap-2"
+                  >
+                    <span>{lang.flag}</span>
+                    <span className="flex-1">{lang.name}</span>
+                    {activeLang === lang.code && (
+                      <Check className="w-4 h-4 text-primary shrink-0" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
+
           <DropdownMenuItem onClick={handleSupportClick}>
             <HelpCircle className="mr-2 h-4 w-4" />
             Trợ giúp

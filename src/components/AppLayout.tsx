@@ -40,7 +40,6 @@ export function AppLayout({ children }: AppLayoutProps) {
               <QuickSearch />
               <HelpHeaderButton />
               <NotificationDropdown />
-              <LanguageSwitcher variant="pill" />
               <ThemeToggle />
               <UserAvatar />
             </div>
