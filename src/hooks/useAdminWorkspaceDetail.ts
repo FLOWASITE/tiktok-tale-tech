@@ -38,6 +38,8 @@ export interface MemberContribution {
   userId: string;
   contentCount: number;
   imageCount: number;
+  carouselCount: number;
+  scriptCount: number;
   profile: {
     full_name: string | null;
     email: string | null;
