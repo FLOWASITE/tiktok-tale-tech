@@ -196,8 +196,8 @@ function DashboardContent() {
         {/* Hero Header */}
         <div data-coachmark="header">
           <DashboardHeader 
-            pendingCount={0}
-            todayScheduleCount={0}
+            pendingCount={pendingReviewCount}
+            todayScheduleCount={todayScheduleCount}
             onStartOnboarding={start}
           />
         </div>
