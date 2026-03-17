@@ -304,7 +304,7 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
 }
 
 export function AdminWorkspacesTab() {
-  const { workspaces, stats, isLoading, updateWorkspacePlan, deleteWorkspace, cleanupOrphans, isCleaningUp, isUpdating } = useAdminWorkspaces();
+  const { workspaces, stats, isLoading, updateWorkspacePlan, deleteWorkspace, cleanupOrphans, isCleaningUp, isUpdating, refetch } = useAdminWorkspaces();
   const [searchQuery, setSearchQuery] = useState("");
   const [planFilter, setPlanFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
