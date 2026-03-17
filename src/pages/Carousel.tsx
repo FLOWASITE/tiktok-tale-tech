@@ -415,6 +415,8 @@ const CarouselPage = () => {
             </div>
           </motion.div>
         )}
+          </>
+        )}
       </div>
 
       {/* Form Panel */}
