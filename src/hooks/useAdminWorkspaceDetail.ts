@@ -160,21 +160,24 @@ export function useAdminWorkspaceDetail(orgId: string | null, periodFilter: Peri
     queryFn: async (): Promise<WorkspaceContentStats> => {
       const range = periodFilter === "all" ? {} : getDateRange(periodQuery.data!, periodFilter);
 
-      const buildQuery = (table: string, orgField = "organization_id") => {
-        let q = supabase.from(table).select("id", { count: "exact", head: true }).eq(orgField, orgId!);
-        return applyDateFilter(q, range);
-      };
-
       // multi_channel_contents needs selected_channels data
       let mcQuery = supabase.from("multi_channel_contents").select("id, selected_channels").eq("organization_id", orgId!);
       mcQuery = applyDateFilter(mcQuery, range);
 
+      let carQuery = supabase.from("carousels").select("id", { count: "exact", head: true }).eq("organization_id", orgId!);
+      carQuery = applyDateFilter(carQuery, range);
+
+      let imgQuery = supabase.from("channel_image_history").select("id", { count: "exact", head: true }).eq("organization_id", orgId!);
+      imgQuery = applyDateFilter(imgQuery, range);
+
+      let scriptQuery = supabase.from("scripts").select("id", { count: "exact", head: true }).eq("organization_id", orgId!);
+      scriptQuery = applyDateFilter(scriptQuery, range);
+
+      let carImgQuery = supabase.from("carousel_images").select("id", { count: "exact", head: true }).eq("organization_id", orgId!);
+      carImgQuery = applyDateFilter(carImgQuery, range);
+
       const [mcRes, carRes, imgRes, scriptRes, carImgRes] = await Promise.all([
-        mcQuery,
-        buildQuery("carousels"),
-        buildQuery("channel_image_history"),
-        buildQuery("scripts"),
-        buildQuery("carousel_images"),
+        mcQuery, carQuery, imgQuery, scriptQuery, carImgQuery,
       ]);
 
       const contents = mcRes.data || [];
