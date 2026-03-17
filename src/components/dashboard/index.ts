@@ -10,3 +10,4 @@ export { SkeletonCard } from './SkeletonCard';
 export { PulseIndicator } from './PulseIndicator';
 export { ActiveCampaignsWidget } from './ActiveCampaignsWidget';
 export { CampaignMilestoneReminder } from './CampaignMilestoneReminder';
+export { UsageQuotaWidget } from './UsageQuotaWidget';

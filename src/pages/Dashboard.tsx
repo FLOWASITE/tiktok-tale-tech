@@ -17,7 +17,8 @@ import {
   ActivityTimeline,
   TodayFocus,
   ActiveCampaignsWidget,
-  CampaignMilestoneReminder
+  CampaignMilestoneReminder,
+  UsageQuotaWidget
 } from '@/components/dashboard';
 import { useScripts } from '@/hooks/useScripts';
 import { useCarousels } from '@/hooks/useCarousels';

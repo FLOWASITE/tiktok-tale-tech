@@ -1,7 +1,6 @@
 import { useSubscription } from '@/hooks/useSubscription';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Images, Layers, Wand2, Palette, ArrowUpRight, AlertTriangle } from 'lucide-react';
@@ -17,13 +16,13 @@ interface QuotaItem {
   limit: number;
 }
 
-function getQuotaColor(percentage: number) {
+function getQuotaBarClass(percentage: number) {
   if (percentage >= 90) return 'bg-destructive';
   if (percentage >= 70) return 'bg-amber-500';
   return 'bg-primary';
 }
 
-function getQuotaTextColor(percentage: number) {
+function getQuotaTextClass(percentage: number) {
   if (percentage >= 90) return 'text-destructive';
   if (percentage >= 70) return 'text-amber-500';
   return 'text-muted-foreground';
@@ -36,7 +35,7 @@ export function UsageQuotaWidget() {
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="h-full">
         <CardHeader className="pb-3">
           <Skeleton className="h-5 w-40" />
         </CardHeader>
@@ -90,22 +89,13 @@ export function UsageQuotaWidget() {
                   <Icon className="h-3 w-3" />
                   {item.label}
                 </span>
-                <span className={cn('font-medium tabular-nums', !isUnlimited && getQuotaTextColor(percentage))}>
+                <span className={cn('font-medium tabular-nums', !isUnlimited && getQuotaTextClass(percentage))}>
                   {item.used}{isUnlimited ? ' / ∞' : ` / ${item.limit}`}
                 </span>
               </div>
-              <Progress
-                value={isUnlimited ? 0 : percentage}
-                className="h-1.5"
-                style={{
-                  // Override indicator color via CSS variable
-                }}
-              >
-              </Progress>
-              {/* Custom colored progress bar */}
-              <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden -mt-1.5">
+              <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
                 <div
-                  className={cn('h-full rounded-full transition-all', getQuotaColor(percentage))}
+                  className={cn('h-full rounded-full transition-all', getQuotaBarClass(percentage))}
                   style={{ width: `${isUnlimited ? 0 : percentage}%` }}
                 />
               </div>
