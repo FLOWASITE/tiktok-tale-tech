@@ -204,6 +204,24 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
               ))
             )}
           </div>
+          {brands.length > 1 && (() => {
+            const totalContent = brands.reduce((s, b) => s + b.content_count, 0);
+            const totalImages = brands.reduce((s, b) => s + b.image_count, 0);
+            return (
+              <div className="flex items-center justify-end gap-2 pt-1.5 border-t border-border/50 text-[10px] text-muted-foreground">
+                <span className="font-medium">Tổng:</span>
+                <span className="flex items-center gap-0.5">
+                  <FileText className="h-2.5 w-2.5" />
+                  <span className="font-bold text-foreground">{totalContent}</span>
+                </span>
+                <span className="flex items-center gap-0.5">
+                  <Wand2 className="h-2.5 w-2.5" />
+                  <span className="font-bold text-foreground">{totalImages}</span>
+                </span>
+                <span className="font-bold text-primary">= {totalContent + totalImages}</span>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Contributions */}
