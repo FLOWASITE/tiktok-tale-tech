@@ -82,6 +82,39 @@ export function useAdminWorkspaces() {
         return createdAt >= p.start && createdAt <= p.end;
       };
 
+      const profilesMap = new Map(
+        (profilesRes.data || []).map((p) => [p.id, p])
+      );
+
+      // Count members per org
+      const memberCounts = new Map<string, number>();
+      (membersRes.data || []).forEach((m: any) => {
+        memberCounts.set(m.organization_id, (memberCounts.get(m.organization_id) || 0) + 1);
+      });
+
+      // Count brands per org
+      const brandCounts = new Map<string, number>();
+      (brandsRes.data || []).forEach((b: any) => {
+        if (b.organization_id) brandCounts.set(b.organization_id, (brandCounts.get(b.organization_id) || 0) + 1);
+      });
+
+      // Count contents per org (filtered by subscription period)
+      const contentCounts = new Map<string, number>();
+      (contentsRes.data || []).forEach((c: any) => {
+        if (c.organization_id && isInPeriod(c.organization_id, c.created_at)) {
+          contentCounts.set(c.organization_id, (contentCounts.get(c.organization_id) || 0) + 1);
+        }
+      });
+
+      // Count images per org (filtered by subscription period)
+      const imageCounts = new Map<string, number>();
+      (imagesRes.data || []).forEach((img: any) => {
+        const orgId = img.organization_id?.organization_id;
+        if (orgId && isInPeriod(orgId, img.created_at)) {
+          imageCounts.set(orgId, (imageCounts.get(orgId) || 0) + 1);
+        }
+      });
+
       // Subscriptions by org
       const subsMap = new Map(
         (subsRes.data || []).map((s: any) => [s.organization_id, s])
