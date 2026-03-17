@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { useAdminWorkspaces, type AdminWorkspace } from "@/hooks/useAdminWorkspaces";
+import { useAdminWorkspaces, type AdminWorkspace, type QuotaStatus } from "@/hooks/useAdminWorkspaces";
 import { useAdminWorkspaceDetail, type PeriodFilter } from "@/hooks/useAdminWorkspaceDetail";
 import { MemberAvatar } from "@/components/MemberAvatar";
 import { ORG_ROLE_LABELS, ORG_ROLE_COLORS, type OrgRole } from "@/types/organization";
