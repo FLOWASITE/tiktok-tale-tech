@@ -171,28 +171,30 @@ export function useSubscription() {
     (plan) => plan.plan_type === subscriptionQuery.data?.plan_type
   );
 
-  const isWithinLimits = (type: keyof UsageStats): boolean => {
+  type NumericUsageKey = Exclude<keyof UsageStats, 'channel_breakdown'>;
+
+  const isWithinLimits = (type: NumericUsageKey): boolean => {
     if (!currentPlanLimits || !usageQuery.data) return false;
     
-    const limitMap: Record<keyof UsageStats, number> = {
+    const limitMap: Record<NumericUsageKey, number> = {
       scripts: currentPlanLimits.monthly_scripts,
       carousels: currentPlanLimits.monthly_carousels,
       multichannel: currentPlanLimits.monthly_multichannel,
-      multichannel_social_posts: currentPlanLimits.monthly_multichannel, // uses same limit
+      multichannel_social_posts: currentPlanLimits.monthly_multichannel,
       images: currentPlanLimits.monthly_images,
       ai_edits: currentPlanLimits.monthly_ai_edits,
     };
 
     const limit = limitMap[type];
-    if (limit === -1) return true; // Unlimited
+    if (limit === -1) return true;
 
-    return usageQuery.data[type] < limit;
+    return (usageQuery.data[type] as number) < limit;
   };
 
-  const getRemainingUsage = (type: keyof UsageStats): number => {
+  const getRemainingUsage = (type: NumericUsageKey): number => {
     if (!currentPlanLimits || !usageQuery.data) return 0;
     
-    const limitMap: Record<keyof UsageStats, number> = {
+    const limitMap: Record<NumericUsageKey, number> = {
       scripts: currentPlanLimits.monthly_scripts,
       carousels: currentPlanLimits.monthly_carousels,
       multichannel: currentPlanLimits.monthly_multichannel,
@@ -204,7 +206,7 @@ export function useSubscription() {
     const limit = limitMap[type];
     if (limit === -1) return Infinity;
 
-    return Math.max(0, limit - usageQuery.data[type]);
+    return Math.max(0, limit - (usageQuery.data[type] as number));
   };
 
   // Compute current period for display
