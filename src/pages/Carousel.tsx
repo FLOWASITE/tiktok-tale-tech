@@ -186,6 +186,10 @@ const CarouselPage = () => {
           onCreateNew={() => setFormSheetOpen(true)}
         />
 
+        {showGallery ? (
+          <CarouselGalleryView />
+        ) : (
+          <>
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
