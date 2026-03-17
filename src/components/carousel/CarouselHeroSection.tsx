@@ -126,6 +126,19 @@ export function CarouselHeroSection({
             >
               <RefreshCw className="w-4 h-4" />
             </Button>
+
+            {onToggleGallery && (
+              <Button
+                variant={showGallery ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={onToggleGallery}
+                className="gap-1.5 h-9 border-border/50"
+                title="Gallery ảnh"
+              >
+                <GalleryHorizontalEnd className="w-4 h-4" />
+                <span className="hidden sm:inline">Gallery</span>
+              </Button>
+            )}
             
             <div className="hidden sm:flex items-center border border-border/50 rounded-lg p-1 bg-muted/30">
               <Button
