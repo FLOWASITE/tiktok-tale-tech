@@ -646,7 +646,7 @@ export function AdminWorkspacesTab() {
                           </TableRow>
                           {isExpanded && (
                             <TableRow key={ws.id + "-detail"}>
-                              <TableCell colSpan={11} className="p-0">
+                              <TableCell colSpan={12} className="p-0">
                                 <WorkspaceDetailPanel orgId={ws.id} />
                               </TableCell>
                             </TableRow>
