@@ -460,6 +460,20 @@ export default function Account() {
               </div>
             </>
           )}
+
+          {/* Image Channel Breakdown */}
+          {usage?.image_channel_breakdown && Object.keys(usage.image_channel_breakdown).length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                  <Wand2 className="h-4 w-4" />
+                  Chi tiết ảnh AI theo kênh
+                </h4>
+                <ChannelBreakdown breakdown={usage.image_channel_breakdown} />
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
