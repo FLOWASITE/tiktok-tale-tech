@@ -1,15 +1,15 @@
 // ============================================
 // Rate Limiting & Quota Management
-// Phase 5: Per-user and per-org rate limiting
+// Phase 5: Per-org and per-user rate limiting
 // ============================================
 
 /**
  * Rate limit configuration
  */
 export interface RateLimitConfig {
-  windowMs: number;       // Time window in milliseconds
-  maxRequests: number;    // Max requests per window
-  keyPrefix: string;      // Prefix for rate limit keys
+  windowMs: number;
+  maxRequests: number;
+  keyPrefix: string;
 }
 
 /**
@@ -39,69 +39,34 @@ export interface QuotaCheckResult {
  * Default rate limits by plan type
  */
 export const PLAN_RATE_LIMITS: Record<string, RateLimitConfig> = {
-  free: {
-    windowMs: 60 * 1000, // 1 minute
-    maxRequests: 10,
-    keyPrefix: 'rl:free',
-  },
-  starter: {
-    windowMs: 60 * 1000,
-    maxRequests: 30,
-    keyPrefix: 'rl:starter',
-  },
-  pro: {
-    windowMs: 60 * 1000,
-    maxRequests: 60,
-    keyPrefix: 'rl:pro',
-  },
-  enterprise: {
-    windowMs: 60 * 1000,
-    maxRequests: 120,
-    keyPrefix: 'rl:enterprise',
-  },
+  free: { windowMs: 60 * 1000, maxRequests: 10, keyPrefix: 'rl:free' },
+  starter: { windowMs: 60 * 1000, maxRequests: 30, keyPrefix: 'rl:starter' },
+  pro: { windowMs: 60 * 1000, maxRequests: 60, keyPrefix: 'rl:pro' },
+  enterprise: { windowMs: 60 * 1000, maxRequests: 120, keyPrefix: 'rl:enterprise' },
 };
 
 /**
  * Chat-specific rate limits (messages per minute)
  */
 export const CHAT_RATE_LIMITS: Record<string, RateLimitConfig> = {
-  free: {
-    windowMs: 60 * 1000,
-    maxRequests: 5,
-    keyPrefix: 'rl:chat:free',
-  },
-  starter: {
-    windowMs: 60 * 1000,
-    maxRequests: 15,
-    keyPrefix: 'rl:chat:starter',
-  },
-  pro: {
-    windowMs: 60 * 1000,
-    maxRequests: 30,
-    keyPrefix: 'rl:chat:pro',
-  },
-  enterprise: {
-    windowMs: 60 * 1000,
-    maxRequests: 60,
-    keyPrefix: 'rl:chat:enterprise',
-  },
+  free: { windowMs: 60 * 1000, maxRequests: 5, keyPrefix: 'rl:chat:free' },
+  starter: { windowMs: 60 * 1000, maxRequests: 15, keyPrefix: 'rl:chat:starter' },
+  pro: { windowMs: 60 * 1000, maxRequests: 30, keyPrefix: 'rl:chat:pro' },
+  enterprise: { windowMs: 60 * 1000, maxRequests: 60, keyPrefix: 'rl:chat:enterprise' },
 };
 
 /**
  * In-memory rate limit store (for edge functions)
- * Uses a Map with automatic cleanup
  */
 class InMemoryRateLimitStore {
   private store: Map<string, { count: number; resetAt: number }> = new Map();
   private cleanupInterval: number | null = null;
 
   constructor() {
-    // Cleanup expired entries every 5 minutes
     this.startCleanup();
   }
 
   private startCleanup(): void {
-    // Edge functions are short-lived, but this helps with long-running instances
     this.cleanupInterval = setInterval(() => {
       const now = Date.now();
       for (const [key, value] of this.store.entries()) {
@@ -141,7 +106,6 @@ class InMemoryRateLimitStore {
   }
 }
 
-// Singleton store for edge function lifecycle
 const rateLimitStore = new InMemoryRateLimitStore();
 
 /**
@@ -178,19 +142,19 @@ export function getRateLimitConfig(
 }
 
 /**
- * Check user quota from database
+ * Check organization quota from database
  */
-export async function checkUserQuota(
+export async function checkOrgQuota(
   supabase: any,
-  userId: string,
+  orgId: string,
   usageType: 'script' | 'carousel' | 'multichannel' | 'image_generation'
 ): Promise<QuotaCheckResult> {
   try {
-    // Get user's subscription
+    // Get org's subscription
     const { data: subscription, error: subError } = await supabase
       .from('subscriptions')
       .select('plan_type, status, current_period_start, current_period_end')
-      .eq('user_id', userId)
+      .eq('organization_id', orgId)
       .eq('status', 'active')
       .maybeSingle();
 
@@ -225,11 +189,11 @@ export async function checkUserQuota(
       };
     }
 
-    // Get current usage
+    // Get current usage by organization
     const { count: currentUsage, error: usageError } = await supabase
       .from('usage_logs')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
+      .eq('organization_id', orgId)
       .eq('usage_type', usageType)
       .gte('created_at', subscription.current_period_start)
       .lte('created_at', subscription.current_period_end);
@@ -240,7 +204,6 @@ export async function checkUserQuota(
 
     const usage = currentUsage || 0;
 
-    // Map usage type to limit field
     const limitMap: Record<string, string> = {
       script: 'monthly_scripts',
       carousel: 'monthly_carousels',
@@ -251,7 +214,6 @@ export async function checkUserQuota(
     const limitField = limitMap[usageType];
     const limit = planLimit[limitField] as number;
 
-    // -1 means unlimited
     if (limit === -1) {
       return {
         allowed: true,
@@ -289,15 +251,19 @@ export async function checkUserQuota(
   }
 }
 
+// Keep backward-compatible alias
+export const checkUserQuota = checkOrgQuota;
+
 /**
- * Log usage for tracking
+ * Log usage for tracking (with organization_id)
  */
 export async function logUsage(
   supabase: any,
   userId: string,
   usageType: 'script' | 'carousel' | 'multichannel' | 'image_generation',
   referenceId?: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, any>,
+  organizationId?: string
 ): Promise<boolean> {
   try {
     const { error } = await supabase.from('usage_logs').insert({
@@ -305,6 +271,7 @@ export async function logUsage(
       usage_type: usageType,
       reference_id: referenceId || null,
       metadata: metadata || null,
+      organization_id: organizationId || null,
     });
 
     if (error) {
@@ -319,24 +286,32 @@ export async function logUsage(
 }
 
 /**
- * Get user's plan type from subscription
+ * Get user's plan type via their org subscription
  */
 export async function getUserPlanType(
   supabase: any,
   userId: string
 ): Promise<string> {
   try {
+    // Look up user's primary org membership
+    const { data: membership, error: memError } = await supabase
+      .from('organization_members')
+      .select('organization_id')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (memError || !membership) return 'free';
+
     const { data, error } = await supabase
       .from('subscriptions')
       .select('plan_type')
-      .eq('user_id', userId)
+      .eq('organization_id', membership.organization_id)
       .eq('status', 'active')
       .maybeSingle();
 
-    if (error || !data) {
-      return 'free';
-    }
-
+    if (error || !data) return 'free';
     return data.plan_type || 'free';
   } catch {
     return 'free';
@@ -357,17 +332,25 @@ export async function checkRateLimitAndQuota(
   quota: QuotaCheckResult;
   message?: string;
 }> {
-  // Get user's plan type
   const planType = await getUserPlanType(supabase, userId);
   
-  // Check rate limit
   const rateLimitConfig = getRateLimitConfig(planType, limitType);
   const rateLimit = checkRateLimit(userId, rateLimitConfig);
   
-  // Check quota
-  const quota = await checkUserQuota(supabase, userId, usageType);
+  // Get org for quota check
+  const { data: membership } = await supabase
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  const orgId = membership?.organization_id;
+  const quota = orgId 
+    ? await checkOrgQuota(supabase, orgId, usageType)
+    : { allowed: false, usageType, currentUsage: 0, limit: 0, remaining: 0, planType: 'none', message: 'No organization found' };
   
-  // Determine overall allowance
   const allowed = rateLimit.allowed && quota.allowed;
   
   let message: string | undefined;
@@ -377,12 +360,7 @@ export async function checkRateLimitAndQuota(
     message = quota.message;
   }
   
-  return {
-    allowed,
-    rateLimit,
-    quota,
-    message,
-  };
+  return { allowed, rateLimit, quota, message };
 }
 
 /**

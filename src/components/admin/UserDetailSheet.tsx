@@ -227,6 +227,21 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
     if (!user) return;
     setActionLoading(true);
     try {
+      // Update subscription via the user's primary organization
+      const { data: memberData } = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .eq("role", "owner")
+        .limit(1)
+        .maybeSingle();
+      
+      if (!memberData?.organization_id) {
+        toast.error("User không sở hữu workspace nào");
+        setActionLoading(false);
+        return;
+      }
+
       const { error } = await supabase
         .from("subscriptions")
         .update({
@@ -234,7 +249,7 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
           status: editStatus,
           current_period_end: editEndDate ? new Date(editEndDate).toISOString() : undefined,
         })
-        .eq("user_id", user.id);
+        .eq("organization_id", memberData.organization_id);
 
       if (error) throw error;
       toast.success("Đã cập nhật subscription");

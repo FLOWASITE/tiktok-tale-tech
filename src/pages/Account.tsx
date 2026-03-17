@@ -98,22 +98,25 @@ export default function Account() {
         return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, brands: 0 };
       }
 
-      // Get user's content IDs for image counting
-      const { data: userContents } = await supabase
+      // Get org's content IDs for image counting (workspace-scoped)
+      const orgId = subscription?.organization_id;
+      if (!orgId) return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, brands: 0 };
+
+      const { data: orgContents } = await supabase
         .from("multi_channel_contents")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("organization_id", orgId)
         .gte("created_at", selectedPeriod.start)
         .lte("created_at", selectedPeriod.end);
-      const contentIds = (userContents || []).map((c: any) => c.id);
+      const contentIds = (orgContents || []).map((c: any) => c.id);
 
       const [scriptsRes, carouselsRes, multiRes, imagesRes] = await Promise.all([
         supabase.from("scripts").select("*", { count: "exact", head: true })
-          .eq("user_id", user.id).gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
+          .eq("organization_id", orgId).gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
         supabase.from("carousels").select("*", { count: "exact", head: true })
-          .eq("user_id", user.id).gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
+          .eq("organization_id", orgId).gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
         supabase.from("multi_channel_contents").select("selected_channels", { count: "exact" })
-          .eq("user_id", user.id).gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
+          .eq("organization_id", orgId).gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
         contentIds.length > 0
           ? supabase.from("channel_image_history").select("channel", { count: "exact" })
               .in("content_id", contentIds)
