@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export type ImageSource = 'carousel' | 'multichannel';
-export type SortBy = 'newest' | 'oldest' | 'name';
+export type SortBy = 'newest' | 'oldest' | 'creator';
 
 export interface GalleryImage {
   id: string;
