@@ -105,6 +105,9 @@ export function useAdminWorkspaces() {
         created_at: org.created_at,
         owner: profilesMap.get(org.owner_id) || null,
         member_count: memberCounts.get(org.id) || 0,
+        brand_count: brandCounts.get(org.id) || 0,
+        content_count: contentCounts.get(org.id) || 0,
+        image_count: imageCounts.get(org.id) || 0,
         subscription: subsMap.has(org.id)
           ? {
               plan_type: subsMap.get(org.id)!.plan_type,
