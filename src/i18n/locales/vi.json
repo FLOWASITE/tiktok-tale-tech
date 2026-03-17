@@ -43,7 +43,7 @@
   "workflow": {
     "badge": "Cách Flowa hoạt động",
     "title": "Từ Brand đến Content",
-    "titleHighlight": "trong 5 bước",
+    "titleHighlight": "trong 6 bước",
     "subtitle": "Tiết kiệm 80% thời gian, AI lo tất cả",
     "steps": {
       "step1": {
@@ -71,6 +71,11 @@
         "description": "AI tự đánh giá và cải thiện output qua Self-Critique, tuân thủ brand voice và compliance rules. Học từ feedback để ngày càng chính xác."
       },
       "step5": {
+        "title": "Tạo ảnh AI đa kênh",
+        "description": "AI tự động tạo ảnh tối ưu cho từng kênh — TikTok 9:16, Instagram 4:5, Facebook 16:9. 3 chế độ: Để AI lo, Giữ Brand, hoặc Toàn quyền kiểm soát.",
+        "feature": "Auto logo overlay + 5 kiểu layout thông minh"
+      },
+      "step6": {
         "title": "Phê duyệt & Lên lịch",
         "description": "Review, chỉnh sửa inline, phân công team, lên lịch xuất bản tự động. Quản lý theo Campaign với timeline và KPI tracking.",
         "feature": "Content Calendar + Team Collaboration"

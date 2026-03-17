@@ -43,7 +43,7 @@
   "workflow": {
     "badge": "How Flowa Works",
     "title": "From Brand to Content",
-    "titleHighlight": "in 5 Steps",
+    "titleHighlight": "in 6 Steps",
     "subtitle": "Save 80% of time, AI handles everything",
     "steps": {
       "step1": {
@@ -71,6 +71,11 @@
         "description": "AI self-evaluates and improves output via Self-Critique, following brand voice and compliance rules. Learns from feedback for better accuracy."
       },
       "step5": {
+        "title": "AI Multi-Channel Image Generation",
+        "description": "AI automatically generates optimized images for each channel — TikTok 9:16, Instagram 4:5, Facebook 16:9. 3 modes: Let AI Handle, Keep Brand, or Full Control.",
+        "feature": "Auto logo overlay + 5 smart layout styles"
+      },
+      "step6": {
         "title": "Approve & Schedule",
         "description": "Review, inline editing, assign team members, auto-schedule publishing. Manage by Campaign with timeline and KPI tracking.",
         "feature": "Content Calendar + Team Collaboration"
