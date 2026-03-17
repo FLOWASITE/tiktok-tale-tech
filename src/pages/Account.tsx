@@ -70,6 +70,7 @@ export default function Account() {
   const [fullName, setFullName] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>("current");
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   // Generate last 6 months options
   const monthOptions = useMemo(() => {
