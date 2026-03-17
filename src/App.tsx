@@ -26,6 +26,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Account from "./pages/Account";
 import Admin from "./pages/Admin";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminAnalytics from "./pages/AdminAnalytics";
 import AdminUsers from "./pages/AdminUsers";
 import AdminAIManagement from "./pages/AdminAIManagement";
 import AdminIndustries from "./pages/AdminIndustries";
