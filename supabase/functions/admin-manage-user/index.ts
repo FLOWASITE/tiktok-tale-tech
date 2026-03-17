@@ -81,12 +81,17 @@ Deno.serve(async (req) => {
           );
         }
 
+        // Skip default org creation if admin is assigning to specific orgs
+        const shouldSkipDefaultOrg = organization_ids?.length > 0;
         const { data: newUser, error: createError } =
           await serviceClient.auth.admin.createUser({
             email,
             password,
             email_confirm: true,
-            user_metadata: { full_name: full_name || "" },
+            user_metadata: {
+              full_name: full_name || "",
+              ...(shouldSkipDefaultOrg && { skip_default_org: true }),
+            },
           });
 
         if (createError) {

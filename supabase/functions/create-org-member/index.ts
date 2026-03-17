@@ -100,6 +100,7 @@ serve(async (req: Request) => {
         email_confirm: true, // Auto-confirm email
         user_metadata: {
           full_name: fullName || email.split("@")[0],
+          skip_default_org: true, // Prevent trigger from creating a default workspace
         },
       });
 
