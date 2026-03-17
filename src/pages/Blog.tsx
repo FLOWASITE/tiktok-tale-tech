@@ -239,10 +239,10 @@ const Blog = () => {
                           {post.excerpt}
                         </p>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
+                          <time dateTime="2026-01-15" className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             {post.date}
-                          </span>
+                          </time>
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             {post.readTime}

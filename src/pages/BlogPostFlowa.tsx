@@ -162,8 +162,11 @@ const BlogPostFlowa = () => {
           >
             <img
               src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&h=600&fit=crop"
-              alt="Flowa Content Marketing Platform"
+              alt="Flowa Content Marketing Platform - Nền tảng tạo content đa kênh"
               className="w-full h-auto"
+              loading="lazy"
+              width={1200}
+              height={600}
             />
           </motion.div>
         </div>

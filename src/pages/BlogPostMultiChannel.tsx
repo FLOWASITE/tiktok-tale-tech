@@ -169,8 +169,11 @@ const BlogPostMultiChannel = () => {
           >
             <img
               src="https://images.unsplash.com/photo-1432888622747-4eb9a8efeb07?w=1200&h=600&fit=crop"
-              alt="Multi-channel Content Marketing Guide"
+              alt="Hướng dẫn tạo content đa kênh toàn diện từ A-Z"
               className="w-full h-auto"
+              loading="lazy"
+              width={1200}
+              height={600}
             />
           </motion.div>
         </div>

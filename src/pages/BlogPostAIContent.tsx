@@ -110,10 +110,10 @@ const BlogPostAIContent = () => {
                 <User className="w-4 h-4" />
                 <span>Flowa Team</span>
               </div>
-              <div className="flex items-center space-x-2">
+              <time dateTime="2026-01-15" className="flex items-center space-x-2">
                 <Calendar className="w-4 h-4" />
                 <span>Cập nhật: Tháng 1, 2026</span>
-              </div>
+              </time>
             </div>
             
             <SocialShare 
