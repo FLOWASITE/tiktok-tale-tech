@@ -106,6 +106,7 @@ export function useCarouselGallery() {
       const carouselImages: GalleryImage[] = (carouselRes.data || []).map((row: any) => {
         const userId = row.created_by;
         const profile = userId ? profileMap.get(userId) : undefined;
+        const isMember = userId ? orgMemberIds.has(userId) : true;
         return {
           id: row.id,
           imageUrl: row.image_url,
@@ -120,6 +121,8 @@ export function useCarouselGallery() {
           createdByName: profile?.name,
           createdByEmail: profile?.email,
           createdByAvatar: profile?.avatar,
+          createdByUserId: userId,
+          isOrgMember: isMember,
           brandName: row.carousels?.brand_name || undefined,
         };
       });
