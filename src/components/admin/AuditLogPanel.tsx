@@ -204,7 +204,7 @@ export function AuditLogPanel() {
                           : "—"}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
-                        {formatDetails(log.details as Record<string, unknown> | null)}
+                        {formatDetails(log.details)}
                       </TableCell>
                     </TableRow>
                   );
