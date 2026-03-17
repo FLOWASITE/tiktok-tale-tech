@@ -19,7 +19,7 @@ import {
 import {
   Building2, Search, Users, CreditCard, TrendingUp, Crown,
   Trash2, ChevronLeft, ChevronRight, Download, Sparkles, Loader2,
-  ChevronDown, FileText, Image, Layers, Palette,
+  ChevronDown, FileText, Image, Layers, Palette, Wand2, ScrollText, Images,
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
