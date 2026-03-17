@@ -20,6 +20,8 @@ export interface AdminWorkspace {
   brand_count: number;
   content_count: number;
   image_count: number;
+  carousel_count: number;
+  script_count: number;
   subscription: {
     plan_type: string;
     status: string;
@@ -53,13 +55,15 @@ export function useAdminWorkspaces() {
       // Fetch owner profiles, member counts, and subscriptions in parallel
       const ownerIds = [...new Set(orgs.map((o) => o.owner_id).filter(Boolean))];
 
-      const [profilesRes, membersRes, subsRes, brandsRes, contentsRes, imagesRes] = await Promise.all([
+      const [profilesRes, membersRes, subsRes, brandsRes, contentsRes, imagesRes, carouselsRes, scriptsRes] = await Promise.all([
         supabase.from("profiles").select("id, email, full_name, avatar_url").in("id", ownerIds),
         supabase.from("organization_members").select("organization_id"),
         supabase.from("subscriptions").select("organization_id, plan_type, status, current_period_start, current_period_end").not("organization_id", "is", null),
         supabase.from("brand_templates").select("organization_id"),
         supabase.from("multi_channel_contents").select("organization_id, created_at"),
         supabase.from("channel_image_history").select("content_id, created_at, organization_id:multi_channel_contents(organization_id)"),
+        supabase.from("carousels").select("organization_id, created_at"),
+        supabase.from("scripts").select("organization_id, created_at"),
       ]);
 
       // Build period map per org from subscriptions (fallback to current month)
@@ -115,6 +119,22 @@ export function useAdminWorkspaces() {
         }
       });
 
+      // Count carousels per org (filtered by subscription period)
+      const carouselCounts = new Map<string, number>();
+      (carouselsRes.data || []).forEach((c: any) => {
+        if (c.organization_id && isInPeriod(c.organization_id, c.created_at)) {
+          carouselCounts.set(c.organization_id, (carouselCounts.get(c.organization_id) || 0) + 1);
+        }
+      });
+
+      // Count scripts per org (filtered by subscription period)
+      const scriptCounts = new Map<string, number>();
+      (scriptsRes.data || []).forEach((s: any) => {
+        if (s.organization_id && isInPeriod(s.organization_id, s.created_at)) {
+          scriptCounts.set(s.organization_id, (scriptCounts.get(s.organization_id) || 0) + 1);
+        }
+      });
+
       // Subscriptions by org
       const subsMap = new Map(
         (subsRes.data || []).map((s: any) => [s.organization_id, s])
@@ -132,6 +152,8 @@ export function useAdminWorkspaces() {
         brand_count: brandCounts.get(org.id) || 0,
         content_count: contentCounts.get(org.id) || 0,
         image_count: imageCounts.get(org.id) || 0,
+        carousel_count: carouselCounts.get(org.id) || 0,
+        script_count: scriptCounts.get(org.id) || 0,
         subscription: subsMap.has(org.id)
           ? {
               plan_type: subsMap.get(org.id)!.plan_type,
