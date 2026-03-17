@@ -73,7 +73,8 @@ import {
   AlignLeft,
   AlertTriangle,
   Image,
-  SkipForward,
+   SkipForward,
+   Loader2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
