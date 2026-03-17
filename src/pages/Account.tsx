@@ -80,11 +80,10 @@ export default function Account() {
     },
     { 
       key: "multichannel" as const, 
-      label: "Nội dung đa kênh", 
+      label: "Bài trên Social", 
       icon: Layers,
       limit: currentPlanLimits?.monthly_multichannel || 0,
-      used: usage?.multichannel || 0,
-      socialPosts: usage?.multichannel_social_posts || 0,
+      used: usage?.multichannel_social_posts || 0,
     },
     { 
       key: "images" as const, 
@@ -306,11 +305,6 @@ export default function Account() {
                    <p className="text-xs text-muted-foreground">
                      Còn lại: {remaining}
                    </p>
-                   {'socialPosts' in item && item.socialPosts > 0 && (
-                     <p className="text-xs text-primary font-medium">
-                       📢 {item.socialPosts} bài trên social
-                     </p>
-                   )}
                 </div>
               );
             })}
