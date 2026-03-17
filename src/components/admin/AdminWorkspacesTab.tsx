@@ -455,6 +455,7 @@ export function AdminWorkspacesTab() {
                     <TableHead className="text-center">Brands</TableHead>
                     <TableHead className="text-center">Nội dung</TableHead>
                     <TableHead className="text-center">Ảnh</TableHead>
+                    <TableHead className="text-center">Tổng</TableHead>
                     <TableHead>Plan</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Ngày tạo</TableHead>
