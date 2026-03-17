@@ -239,7 +239,7 @@ export function useAdminWorkspaceDetail(orgId: string | null, periodFilter: Peri
       contentsQ = applyDateFilter(contentsQ, range);
       const { data: contents } = await contentsQ;
 
-      let imagesQ = supabase.from("channel_image_history").select("user_id").eq("organization_id", orgId!);
+      let imagesQ = supabase.from("channel_image_history").select("created_by, content:multi_channel_contents(user_id)").eq("organization_id", orgId!);
       imagesQ = applyDateFilter(imagesQ, range);
       const { data: images } = await imagesQ;
 
