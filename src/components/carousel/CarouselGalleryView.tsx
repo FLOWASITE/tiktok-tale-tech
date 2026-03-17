@@ -585,7 +585,10 @@ function GalleryImageCard({
           <TooltipContent side="bottom" className="max-w-[260px]">
             <p className="text-xs font-medium">{img.carouselTitle}</p>
             {img.createdByName && (
-              <p className="text-xs text-muted-foreground mt-0.5">Tạo bởi: {img.createdByName}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Tạo bởi: {img.createdByName}
+                {img.isOrgMember === false && <span className="text-amber-500 font-medium"> (Quản trị viên)</span>}
+              </p>
             )}
             {img.brandName && (
               <p className="text-xs text-muted-foreground">Brand: {img.brandName}</p>

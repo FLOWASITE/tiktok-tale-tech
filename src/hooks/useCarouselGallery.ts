@@ -130,6 +130,7 @@ export function useCarouselGallery() {
       const channelImages: GalleryImage[] = (channelRes.data || []).map((row: any) => {
         const userId = row.created_by;
         const profile = userId ? profileMap.get(userId) : undefined;
+        const isMember = userId ? orgMemberIds.has(userId) : true;
         const brandId = row.multi_channel_contents?.brand_template_id;
         const brand = brandId ? brandMap.get(brandId) : undefined;
         return {
@@ -146,6 +147,8 @@ export function useCarouselGallery() {
           createdByName: profile?.name,
           createdByEmail: profile?.email,
           createdByAvatar: profile?.avatar,
+          createdByUserId: userId,
+          isOrgMember: isMember,
           brandName: brand?.name,
           brandLogoUrl: brand?.logoUrl,
         };
