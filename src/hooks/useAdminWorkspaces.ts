@@ -113,9 +113,8 @@ export function useAdminWorkspaces() {
       // Count images per org (filtered by subscription period)
       const imageCounts = new Map<string, number>();
       (imagesRes.data || []).forEach((img: any) => {
-        const orgId = img.organization_id?.organization_id;
-        if (orgId && isInPeriod(orgId, img.created_at)) {
-          imageCounts.set(orgId, (imageCounts.get(orgId) || 0) + 1);
+        if (img.organization_id && isInPeriod(img.organization_id, img.created_at)) {
+          imageCounts.set(img.organization_id, (imageCounts.get(img.organization_id) || 0) + 1);
         }
       });
 
