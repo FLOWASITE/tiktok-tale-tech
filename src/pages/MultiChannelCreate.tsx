@@ -10,6 +10,7 @@ import { MobileGenerationSheet } from '@/components/multichannel/MobileGeneratio
 import { TopicAIChatbot } from '@/components/topic/TopicAIChatbot';
 import { cn } from '@/lib/utils';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useStreamingGeneration, ProgressEvent } from '@/hooks/useStreamingGeneration';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
