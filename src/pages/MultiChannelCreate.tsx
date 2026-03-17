@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 
 import { MultiChannelFormWizard } from '@/components/multichannel/MultiChannelFormWizard';
 import { CreatePreviewPanel } from '@/components/multichannel/CreatePreviewPanel';
-import { CompactBrandSelector } from '@/components/multichannel/CompactBrandSelector';
+
 import { MobileGenerationSheet } from '@/components/multichannel/MobileGenerationSheet';
 import { TopicAIChatbot } from '@/components/topic/TopicAIChatbot';
 import { cn } from '@/lib/utils';
@@ -238,7 +238,7 @@ export default function MultiChannelCreate() {
           </h1>
         </div>
 
-        {/* Right: Chat toggle + Brand Selector + Close */}
+        {/* Right: Close */}
         <div className="flex items-center gap-2">
           <Button
             variant={showChatPanel ? 'default' : 'outline'}
@@ -258,17 +258,6 @@ export default function MultiChannelCreate() {
               </>
             )}
           </Button>
-          <div className="hidden md:block max-w-[200px]">
-            <CompactBrandSelector
-              templates={templates}
-              isLoading={templatesLoading}
-              disabled={isGenerating}
-              selectedTemplateId={selectedBrandId}
-              selectedVoiceVariantId={selectedVoiceVariantId}
-              onTemplateChange={setSelectedBrandId}
-              onVoiceVariantChange={setSelectedVoiceVariantId}
-            />
-          </div>
           <Button
             variant="ghost"
             size="icon"
@@ -285,18 +274,6 @@ export default function MultiChannelCreate() {
         {/* Left Panel: Form Wizard */}
         <div className="flex-1 lg:max-w-2xl xl:max-w-3xl border-r border-border/30 overflow-y-auto">
           <div className="p-4 sm:p-6 lg:p-8">
-            {/* Mobile Brand Selector */}
-            <div className="md:hidden mb-4">
-              <CompactBrandSelector
-                templates={templates}
-                isLoading={templatesLoading}
-                disabled={isGenerating}
-                selectedTemplateId={selectedBrandId}
-                selectedVoiceVariantId={selectedVoiceVariantId}
-                onTemplateChange={setSelectedBrandId}
-                onVoiceVariantChange={setSelectedVoiceVariantId}
-              />
-            </div>
 
             <MultiChannelFormWizard
               key={location.key}
