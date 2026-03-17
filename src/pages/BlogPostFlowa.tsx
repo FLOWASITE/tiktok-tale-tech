@@ -41,7 +41,7 @@ import {
   BlogBreadcrumb,
   blogPostsData 
 } from '@/components/blog';
-import { SEOHead } from '@/components/SEOHead';
+import { SEOHead, TOCSEOSchema } from '@/components/SEOHead';
 
 const POST_SLUG = 'flowa-content-marketing-da-kenh';
 const POST_CATEGORY = 'Product';
