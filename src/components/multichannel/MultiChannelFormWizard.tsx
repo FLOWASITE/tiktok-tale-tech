@@ -2041,14 +2041,28 @@ export function MultiChannelFormWizard({
                         }
                       }}
                       disabled={!onStartImagePipeline}
-                      className="w-full gap-3 gradient-primary glow-primary text-base font-semibold shadow-lg shadow-primary/25 animate-pulse hover:animate-none"
+                      className={cn(
+                        "w-full gap-3 text-base font-semibold shadow-lg",
+                        generationComplete
+                          ? "gradient-primary glow-primary shadow-primary/25 animate-pulse hover:animate-none"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      )}
                       size="lg"
                     >
-                      <Sparkles className="w-6 h-6" />
-                      Tạo ảnh AI
-                      <span className="inline-flex items-center justify-center rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs font-bold">
-                        {formData.channels.length} kênh
-                      </span>
+                      {generationComplete ? (
+                        <>
+                          <Sparkles className="w-6 h-6" />
+                          Tạo ảnh AI
+                          <span className="inline-flex items-center justify-center rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs font-bold">
+                            {formData.channels.length} kênh
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Đang chờ nội dung...
+                        </>
+                      )}
                     </Button>
                     <button
                       onClick={() => navigate('/multichannel')}
