@@ -20,6 +20,9 @@ export interface WorkspaceBrand {
   brand_name: string;
   logo_url: string | null;
   industry: string | null;
+  content_count: number;
+  image_count: number;
+  created_at: string | null;
 }
 
 export interface WorkspaceContentStats {
@@ -35,6 +38,8 @@ export interface MemberContribution {
   userId: string;
   contentCount: number;
   imageCount: number;
+  carouselCount: number;
+  scriptCount: number;
   profile: {
     full_name: string | null;
     email: string | null;
@@ -129,7 +134,7 @@ export function useAdminWorkspaceDetail(orgId: string | null, periodFilter: Peri
     queryFn: async (): Promise<WorkspaceBrand[]> => {
       const { data, error } = await supabase
         .from("brand_templates")
-        .select("id, brand_name, logo_url, industry_template_id")
+        .select("id, brand_name, logo_url, industry_template_id, created_at")
         .eq("organization_id", orgId!);
       if (error) throw error;
 
@@ -143,11 +148,33 @@ export function useAdminWorkspaceDetail(orgId: string | null, periodFilter: Peri
         industryMap = new Map((industries || []).map((i) => [i.id, i.code]));
       }
 
+      // Fetch content counts per brand
+      const brandIds = data.map((b) => b.id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const contentQ2 = supabase.from("multi_channel_contents").select("brand_template_id").eq("organization_id", orgId!) as any;
+      const { data: contentRows } = await contentQ2.in("brand_template_id", brandIds);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const imageQ2 = supabase.from("channel_image_history").select("brand_template_id").eq("organization_id", orgId!) as any;
+      const { data: imageRows } = await imageQ2.in("brand_template_id", brandIds);
+
+      const contentByBrand: Record<string, number> = {};
+      const imageByBrand: Record<string, number> = {};
+      (contentRows || []).forEach((r: any) => {
+        if (r.brand_template_id) contentByBrand[r.brand_template_id] = (contentByBrand[r.brand_template_id] || 0) + 1;
+      });
+      (imageRows || []).forEach((r: any) => {
+        if (r.brand_template_id) imageByBrand[r.brand_template_id] = (imageByBrand[r.brand_template_id] || 0) + 1;
+      });
+
       return data.map((b) => ({
         id: b.id,
         brand_name: b.brand_name,
         logo_url: b.logo_url,
         industry: b.industry_template_id ? industryMap.get(b.industry_template_id) || null : null,
+        content_count: contentByBrand[b.id] || 0,
+        image_count: imageByBrand[b.id] || 0,
+        created_at: b.created_at,
       }));
     },
     enabled: !!orgId,
@@ -211,21 +238,31 @@ export function useAdminWorkspaceDetail(orgId: string | null, periodFilter: Peri
       imagesQ = applyDateFilter(imagesQ, range);
       const { data: images } = await imagesQ;
 
+      let carouselsQ = supabase.from("carousels").select("user_id").eq("organization_id", orgId!);
+      carouselsQ = applyDateFilter(carouselsQ, range);
+      const { data: carousels } = await carouselsQ;
+
+      let scriptsQ = supabase.from("scripts").select("user_id").eq("organization_id", orgId!);
+      scriptsQ = applyDateFilter(scriptsQ, range);
+      const { data: scripts } = await scriptsQ;
+
       const contentByUser: Record<string, number> = {};
       const imageByUser: Record<string, number> = {};
+      const carouselByUser: Record<string, number> = {};
+      const scriptByUser: Record<string, number> = {};
       const allUserIds = new Set<string>();
 
       (contents || []).forEach((r: any) => {
-        if (r.user_id) {
-          allUserIds.add(r.user_id);
-          contentByUser[r.user_id] = (contentByUser[r.user_id] || 0) + 1;
-        }
+        if (r.user_id) { allUserIds.add(r.user_id); contentByUser[r.user_id] = (contentByUser[r.user_id] || 0) + 1; }
       });
       (images || []).forEach((r: any) => {
-        if (r.user_id) {
-          allUserIds.add(r.user_id);
-          imageByUser[r.user_id] = (imageByUser[r.user_id] || 0) + 1;
-        }
+        if (r.user_id) { allUserIds.add(r.user_id); imageByUser[r.user_id] = (imageByUser[r.user_id] || 0) + 1; }
+      });
+      (carousels || []).forEach((r: any) => {
+        if (r.user_id) { allUserIds.add(r.user_id); carouselByUser[r.user_id] = (carouselByUser[r.user_id] || 0) + 1; }
+      });
+      (scripts || []).forEach((r: any) => {
+        if (r.user_id) { allUserIds.add(r.user_id); scriptByUser[r.user_id] = (scriptByUser[r.user_id] || 0) + 1; }
       });
 
       if (allUserIds.size === 0) return [];
@@ -242,9 +279,11 @@ export function useAdminWorkspaceDetail(orgId: string | null, periodFilter: Peri
           userId,
           contentCount: contentByUser[userId] || 0,
           imageCount: imageByUser[userId] || 0,
+          carouselCount: carouselByUser[userId] || 0,
+          scriptCount: scriptByUser[userId] || 0,
           profile: profileMap.get(userId) || null,
         }))
-        .sort((a, b) => (b.contentCount + b.imageCount) - (a.contentCount + a.imageCount));
+        .sort((a, b) => (b.contentCount + b.imageCount + b.carouselCount + b.scriptCount) - (a.contentCount + a.imageCount + a.carouselCount + a.scriptCount));
     },
     enabled: canQueryStats,
   });

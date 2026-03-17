@@ -180,7 +180,22 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
                   </Avatar>
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-medium truncate">{b.brand_name}</div>
-                    {b.industry && <div className="text-[10px] text-muted-foreground">{b.industry}</div>}
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                      {b.industry && <span>{b.industry}</span>}
+                      {b.created_at && (
+                        <span>{format(new Date(b.created_at), "dd/MM/yyyy")}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-0.5" title="Bài viết">
+                      <FileText className="h-2.5 w-2.5" />
+                      <span className="font-semibold text-foreground">{b.content_count}</span>
+                    </span>
+                    <span className="flex items-center gap-0.5" title="Ảnh AI">
+                      <Wand2 className="h-2.5 w-2.5" />
+                      <span className="font-semibold text-foreground">{b.image_count}</span>
+                    </span>
                   </div>
                 </div>
               ))
@@ -218,6 +233,14 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
                       <span className="flex items-center gap-0.5" title="Ảnh AI">
                         <Wand2 className="h-3 w-3" />
                         <span className="font-semibold text-foreground">{c.imageCount}</span>
+                      </span>
+                      <span className="flex items-center gap-0.5" title="Carousel">
+                        <Images className="h-3 w-3" />
+                        <span className="font-semibold text-foreground">{c.carouselCount}</span>
+                      </span>
+                      <span className="flex items-center gap-0.5" title="Script">
+                        <ScrollText className="h-3 w-3" />
+                        <span className="font-semibold text-foreground">{c.scriptCount}</span>
                       </span>
                     </div>
                   </div>
