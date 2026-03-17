@@ -106,7 +106,7 @@ export function useSubscription() {
           .lte("created_at", periodEnd),
         supabase
           .from("multi_channel_contents")
-          .select("*", { count: "exact", head: true })
+          .select("selected_channels", { count: "exact" })
           .eq("user_id", user.id)
           .gte("created_at", periodStart)
           .lte("created_at", periodEnd),
