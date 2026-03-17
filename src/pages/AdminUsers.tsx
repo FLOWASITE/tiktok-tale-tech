@@ -387,6 +387,10 @@ export default function AdminUsers() {
             <UserCheck className="h-4 w-4" />
             Quản lý Users
           </TabsTrigger>
+          <TabsTrigger value="workspaces" className="gap-1.5">
+            <Building2 className="h-4 w-4" />
+            Quản lý Workspaces
+          </TabsTrigger>
           <TabsTrigger value="audit" className="gap-1.5">
             <ClipboardList className="h-4 w-4" />
             Audit Log
