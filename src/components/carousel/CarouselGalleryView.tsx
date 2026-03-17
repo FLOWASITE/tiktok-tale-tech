@@ -62,6 +62,9 @@ export function CarouselGalleryView() {
     setSourceFilter,
     channelFilter,
     setChannelFilter,
+    creatorFilter,
+    setCreatorFilter,
+    creatorOptions,
     searchQuery,
     setSearchQuery,
     sortBy,
@@ -83,15 +86,16 @@ export function CarouselGalleryView() {
   const [page, setPage] = useState(1);
   const [bulkMode, setBulkMode] = useState(false);
 
-  const hasActiveFilters = sourceFilter !== 'all' || channelFilter !== 'all' || carouselFilter !== 'all' || searchQuery.trim() !== '';
+  const hasActiveFilters = sourceFilter !== 'all' || channelFilter !== 'all' || carouselFilter !== 'all' || creatorFilter !== 'all' || searchQuery.trim() !== '';
 
   const resetAllFilters = useCallback(() => {
     setSourceFilter('all');
     setChannelFilter('all');
     setCarouselFilter('all');
+    setCreatorFilter('all');
     setSearchQuery('');
     setPage(1);
-  }, [setSourceFilter, setChannelFilter, setCarouselFilter, setSearchQuery]);
+  }, [setSourceFilter, setChannelFilter, setCarouselFilter, setCreatorFilter, setSearchQuery]);
 
   const visibleImages = useMemo(() => images.slice(0, page * PAGE_SIZE), [images, page]);
   const hasMore = images.length > page * PAGE_SIZE;
@@ -184,14 +188,13 @@ export function CarouselGalleryView() {
           </div>
 
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
-            <SelectTrigger className="w-[160px] h-9 text-sm border-border/50">
+            <SelectTrigger className="w-[140px] h-9 text-sm border-border/50">
               <ArrowUpDown className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="newest">Mới nhất</SelectItem>
               <SelectItem value="oldest">Cũ nhất</SelectItem>
-              <SelectItem value="creator">Người tạo A-Z</SelectItem>
             </SelectContent>
           </Select>
 
@@ -270,6 +273,25 @@ export function CarouselGalleryView() {
                 {carouselOptions.map(opt => (
                   <SelectItem key={opt.id} value={opt.id}>
                     {opt.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {creatorOptions.length > 0 && (
+            <Select value={creatorFilter} onValueChange={v => { setCreatorFilter(v); setPage(1); }}>
+              <SelectTrigger className="w-[180px] h-9 text-sm border-border/50">
+                <User className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                <SelectValue>
+                  {creatorFilter === 'all' ? 'Tất cả người tạo' : creatorFilter}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả người tạo</SelectItem>
+                {creatorOptions.map(opt => (
+                  <SelectItem key={opt.key} value={opt.key}>
+                    {opt.label}
                   </SelectItem>
                 ))}
               </SelectContent>
