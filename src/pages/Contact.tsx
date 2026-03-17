@@ -104,6 +104,11 @@ export default function Contact() {
 
   return (
     <PublicPageLayout>
+      <SEOHead
+        title="Liên Hệ Flowa - Tư Vấn Content Marketing AI"
+        description="Liên hệ Flowa để được tư vấn giải pháp content marketing đa kênh với AI. Email, điện thoại, hoặc đặt lịch demo."
+        canonicalPath="/contact"
+      />
       {/* Hero Section - Simple */}
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">

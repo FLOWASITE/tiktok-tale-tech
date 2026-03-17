@@ -136,6 +136,11 @@ export default function Careers() {
 
   return (
     <PublicPageLayout>
+      <SEOHead
+        title="Tuyển Dụng - Gia Nhập Đội Ngũ Flowa"
+        description="Cơ hội nghề nghiệp tại Flowa. Làm việc remote, đội ngũ năng động, xây dựng sản phẩm AI content marketing hàng đầu Việt Nam."
+        canonicalPath="/careers"
+      />
       {/* Hero Section */}
       <section className="relative py-24 lg:py-32 overflow-hidden">
         {/* Subtle gradient background */}
