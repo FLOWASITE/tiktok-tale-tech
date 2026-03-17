@@ -567,6 +567,22 @@ export function AdminWorkspacesTab() {
                     })
                   )}
                 </TableBody>
+                {filtered.length > 0 && (
+                  <tfoot>
+                    <TableRow className="bg-muted/50 font-medium">
+                      <TableCell colSpan={2} className="text-sm font-semibold">
+                        Tổng ({filtered.length} workspaces)
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="secondary" className="font-mono">{filteredTotals.members}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center font-semibold text-sm">{filteredTotals.brands}</TableCell>
+                      <TableCell className="text-center font-semibold text-sm">{filteredTotals.contents}</TableCell>
+                      <TableCell className="text-center font-semibold text-sm">{filteredTotals.images}</TableCell>
+                      <TableCell colSpan={4} />
+                    </TableRow>
+                  </tfoot>
+                )}
               </Table>
             </div>
           )}
