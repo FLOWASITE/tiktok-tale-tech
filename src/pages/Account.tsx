@@ -55,7 +55,7 @@ export default function Account() {
     queryKey: ["usage_history", user?.id, selectedMonth],
     queryFn: async (): Promise<UsageStats> => {
       if (!user?.id || !selectedPeriod) {
-        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, images: 0, ai_edits: 0 };
+        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, ai_edits: 0 };
       }
 
       const [scriptsRes, carouselsRes, multiRes, imagesRes, aiEditsRes] = await Promise.all([
@@ -72,8 +72,17 @@ export default function Account() {
           .gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
       ]);
 
+      const channelBreakdown: Record<string, number> = {};
       const socialPostsTotal = (multiRes.data || []).reduce(
-        (sum: number, row: any) => sum + (Array.isArray(row.selected_channels) ? row.selected_channels.length : 0),
+        (sum: number, row: any) => {
+          if (Array.isArray(row.selected_channels)) {
+            row.selected_channels.forEach((ch: string) => {
+              channelBreakdown[ch] = (channelBreakdown[ch] || 0) + 1;
+            });
+            return sum + row.selected_channels.length;
+          }
+          return sum;
+        },
         0
       );
 
@@ -82,6 +91,7 @@ export default function Account() {
         carousels: carouselsRes.count ?? 0,
         multichannel: multiRes.count ?? 0,
         multichannel_social_posts: socialPostsTotal,
+        channel_breakdown: channelBreakdown,
         images: imagesRes.count ?? 0,
         ai_edits: aiEditsRes.count ?? 0,
       };
@@ -346,7 +356,7 @@ export default function Account() {
             Chu kỳ: {format(new Date(currentPeriod.start), "dd/MM/yyyy")} – {format(new Date(currentPeriod.end), "dd/MM/yyyy")}
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <div className="grid gap-6 sm:grid-cols-2">
             {usageItems.map((item) => {
               const isUnlimited = item.limit === -1;
@@ -375,6 +385,29 @@ export default function Account() {
               );
             })}
           </div>
+
+          {/* Channel Breakdown */}
+          {usage?.channel_breakdown && Object.keys(usage.channel_breakdown).length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                  <Layers className="h-4 w-4" />
+                  Chi tiết bài đăng theo kênh
+                </h4>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {Object.entries(usage.channel_breakdown)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([channel, count]) => (
+                      <div key={channel} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                        <span className="text-sm capitalize">{channel}</span>
+                        <Badge variant="secondary" className="font-mono">{count}</Badge>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -414,21 +447,43 @@ export default function Account() {
               {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-16" />)}
             </div>
           ) : (
-            <div className="grid gap-6 sm:grid-cols-2">
-              {[
-                { label: "Kịch bản Video", icon: FileText, value: historyQuery.data?.scripts ?? 0 },
-                { label: "Carousel", icon: Images, value: historyQuery.data?.carousels ?? 0 },
-                { label: "Bài trên Social", icon: Layers, value: historyQuery.data?.multichannel_social_posts ?? 0 },
-                { label: "Ảnh AI", icon: Wand2, value: historyQuery.data?.images ?? 0 },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="flex items-center gap-3">
-                    <item.icon className="h-5 w-5 text-muted-foreground" />
-                    <span className="font-medium">{item.label}</span>
+            <div className="space-y-6">
+              <div className="grid gap-6 sm:grid-cols-2">
+                {[
+                  { label: "Kịch bản Video", icon: FileText, value: historyQuery.data?.scripts ?? 0 },
+                  { label: "Carousel", icon: Images, value: historyQuery.data?.carousels ?? 0 },
+                  { label: "Bài trên Social", icon: Layers, value: historyQuery.data?.multichannel_social_posts ?? 0 },
+                  { label: "Ảnh AI", icon: Wand2, value: historyQuery.data?.images ?? 0 },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="flex items-center gap-3">
+                      <item.icon className="h-5 w-5 text-muted-foreground" />
+                      <span className="font-medium">{item.label}</span>
+                    </div>
+                    <span className="text-2xl font-bold">{item.value}</span>
                   </div>
-                  <span className="text-2xl font-bold">{item.value}</span>
+                ))}
+              </div>
+
+              {/* History Channel Breakdown */}
+              {historyQuery.data?.channel_breakdown && Object.keys(historyQuery.data.channel_breakdown).length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <Layers className="h-4 w-4" />
+                    Chi tiết bài đăng theo kênh
+                  </h4>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {Object.entries(historyQuery.data.channel_breakdown)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([channel, count]) => (
+                        <div key={channel} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                          <span className="text-sm capitalize">{channel}</span>
+                          <Badge variant="secondary" className="font-mono">{count}</Badge>
+                        </div>
+                      ))}
+                  </div>
                 </div>
-              ))}
+              )}
             </div>
           )}
         </CardContent>

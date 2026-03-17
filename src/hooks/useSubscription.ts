@@ -38,6 +38,7 @@ export interface UsageStats {
   carousels: number;
   multichannel: number;
   multichannel_social_posts: number;
+  channel_breakdown: Record<string, number>;
   images: number;
   ai_edits: number;
 }
@@ -79,12 +80,12 @@ export function useSubscription() {
     queryKey: ["usage_stats", user?.id],
     queryFn: async (): Promise<UsageStats> => {
       if (!user?.id) {
-        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, images: 0, ai_edits: 0 };
+        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, ai_edits: 0 };
       }
 
       const subscription = subscriptionQuery.data;
       if (!subscription) {
-        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, images: 0, ai_edits: 0 };
+        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, ai_edits: 0 };
       }
 
       // Auto-renew: if period expired, fallback to current month
@@ -139,8 +140,17 @@ export function useSubscription() {
           .lte("created_at", periodEnd),
       ]);
 
+      const channelBreakdown: Record<string, number> = {};
       const socialPostsTotal = (multiRes.data || []).reduce(
-        (sum: number, row: any) => sum + (Array.isArray(row.selected_channels) ? row.selected_channels.length : 0),
+        (sum: number, row: any) => {
+          if (Array.isArray(row.selected_channels)) {
+            row.selected_channels.forEach((ch: string) => {
+              channelBreakdown[ch] = (channelBreakdown[ch] || 0) + 1;
+            });
+            return sum + row.selected_channels.length;
+          }
+          return sum;
+        },
         0
       );
 
@@ -149,6 +159,7 @@ export function useSubscription() {
         carousels: carouselsRes.count ?? 0,
         multichannel: multiRes.count ?? 0,
         multichannel_social_posts: socialPostsTotal,
+        channel_breakdown: channelBreakdown,
         images: imagesRes.count ?? 0,
         ai_edits: aiEditsRes.count ?? 0,
       };
@@ -160,28 +171,30 @@ export function useSubscription() {
     (plan) => plan.plan_type === subscriptionQuery.data?.plan_type
   );
 
-  const isWithinLimits = (type: keyof UsageStats): boolean => {
+  type NumericUsageKey = Exclude<keyof UsageStats, 'channel_breakdown'>;
+
+  const isWithinLimits = (type: NumericUsageKey): boolean => {
     if (!currentPlanLimits || !usageQuery.data) return false;
     
-    const limitMap: Record<keyof UsageStats, number> = {
+    const limitMap: Record<NumericUsageKey, number> = {
       scripts: currentPlanLimits.monthly_scripts,
       carousels: currentPlanLimits.monthly_carousels,
       multichannel: currentPlanLimits.monthly_multichannel,
-      multichannel_social_posts: currentPlanLimits.monthly_multichannel, // uses same limit
+      multichannel_social_posts: currentPlanLimits.monthly_multichannel,
       images: currentPlanLimits.monthly_images,
       ai_edits: currentPlanLimits.monthly_ai_edits,
     };
 
     const limit = limitMap[type];
-    if (limit === -1) return true; // Unlimited
+    if (limit === -1) return true;
 
-    return usageQuery.data[type] < limit;
+    return (usageQuery.data[type] as number) < limit;
   };
 
-  const getRemainingUsage = (type: keyof UsageStats): number => {
+  const getRemainingUsage = (type: NumericUsageKey): number => {
     if (!currentPlanLimits || !usageQuery.data) return 0;
     
-    const limitMap: Record<keyof UsageStats, number> = {
+    const limitMap: Record<NumericUsageKey, number> = {
       scripts: currentPlanLimits.monthly_scripts,
       carousels: currentPlanLimits.monthly_carousels,
       multichannel: currentPlanLimits.monthly_multichannel,
@@ -193,7 +206,7 @@ export function useSubscription() {
     const limit = limitMap[type];
     if (limit === -1) return Infinity;
 
-    return Math.max(0, limit - usageQuery.data[type]);
+    return Math.max(0, limit - (usageQuery.data[type] as number));
   };
 
   // Compute current period for display
