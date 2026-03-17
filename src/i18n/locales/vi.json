@@ -298,46 +298,57 @@
     "contact": "Liên hệ",
     "popularBadge": "Phổ biến nhất",
     "plans": {
-      "starter": {
-        "name": "Starter",
-        "description": "Dành cho cá nhân và freelancer",
+      "free": {
+        "name": "Miễn phí",
+        "description": "Dùng thử nền tảng",
         "cta": "Bắt đầu miễn phí",
         "features": [
-          "100 nội dung AI/tháng",
-          "3 brand templates",
-          "5 kênh social",
-          "Xuất PDF/Image",
-          "Email support"
+          "1 thương hiệu",
+          "2 bài đa kênh/tháng",
+          "2 ảnh AI/tháng",
+          "2 kịch bản video/tháng",
+          "AI Chat không giới hạn"
+        ]
+      },
+      "starter": {
+        "name": "Starter",
+        "description": "Dành cho freelancer & shop nhỏ",
+        "cta": "Đăng ký Starter",
+        "features": [
+          "3 thương hiệu",
+          "20 bài đa kênh/tháng",
+          "20 ảnh AI/tháng",
+          "10 kịch bản video/tháng",
+          "3 carousel/tháng",
+          "AI Chat không giới hạn"
         ]
       },
       "professional": {
-        "name": "Professional",
-        "description": "Dành cho team marketing nhỏ",
-        "cta": "Dùng thử 14 ngày",
+        "name": "Pro",
+        "description": "Dành cho SME & Marketing team",
+        "cta": "Đăng ký Pro",
         "features": [
-          "Unlimited nội dung AI",
-          "10 brand templates",
-          "Tất cả kênh social",
-          "Campaign management",
-          "Ad copy creation",
-          "Content calendar",
-          "Priority support",
-          "API access"
+          "10 thương hiệu",
+          "60 bài đa kênh/tháng",
+          "60 ảnh AI/tháng",
+          "30 kịch bản video/tháng",
+          "10 carousel/tháng",
+          "AI Chat không giới hạn",
+          "Priority support"
         ]
       },
       "enterprise": {
         "name": "Enterprise",
-        "description": "Dành cho doanh nghiệp lớn",
-        "cta": "Liên hệ tư vấn",
+        "description": "Dành cho Agency & Doanh nghiệp",
+        "cta": "Đăng ký Enterprise",
         "features": [
-          "Mọi tính năng Professional",
-          "Unlimited brand templates",
-          "Custom AI training",
-          "Dedicated account manager",
-          "SSO & Advanced security",
-          "Custom integrations",
-          "SLA guarantee",
-          "On-premise option"
+          "30 thương hiệu",
+          "200 bài đa kênh/tháng",
+          "200 ảnh AI/tháng",
+          "100 kịch bản video/tháng",
+          "35 carousel/tháng",
+          "AI Chat không giới hạn",
+          "Dedicated support"
         ]
       }
     },
