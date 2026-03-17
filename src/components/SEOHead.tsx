@@ -59,6 +59,9 @@ export function SEOHead({
         author: {
           '@type': 'Person',
           name: article.author,
+          ...(article.authorUrl && { url: article.authorUrl }),
+          ...(article.authorJobTitle && { jobTitle: article.authorJobTitle }),
+          ...(article.authorSameAs?.length && { sameAs: article.authorSameAs }),
         },
         publisher: {
           '@type': 'Organization',
