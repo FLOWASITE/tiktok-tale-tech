@@ -349,7 +349,7 @@ export async function getUserPlanType(
 export async function checkRateLimitAndQuota(
   supabase: any,
   userId: string,
-  usageType: 'script' | 'carousel' | 'multichannel' | 'image_generation' | 'ai_edit',
+  usageType: 'script' | 'carousel' | 'multichannel' | 'image_generation',
   limitType: 'general' | 'chat' = 'general'
 ): Promise<{
   allowed: boolean;
