@@ -10,12 +10,12 @@
     "startFree": "Bắt đầu miễn phí"
   },
   "hero": {
-    "badge": "10,000+ Marketer đang dùng",
+    "badge": "500+ Marketer đang dùng",
     "problem": "Mệt mỏi với việc tạo content thủ công?",
     "titleLine1": "Tạo 1 Tuần Content",
     "titleLine2": "Chỉ Trong 1 Giờ",
-    "description": "Flowa là nền tảng AI giúp bạn <strong>tạo, lên lịch và xuất bản</strong> nội dung đa kênh tự động. Tiết kiệm <strong>80% thời gian</strong> với chất lượng tốt hơn.",
-    "descPlain": "Flowa là nền tảng AI giúp bạn tạo, lên lịch và xuất bản nội dung đa kênh tự động. Tiết kiệm 80% thời gian với chất lượng tốt hơn.",
+    "description": "Flowa là nền tảng AI đầu tiên tại Việt Nam với <strong>Industry Compliance</strong> tích hợp — giúp bạn tạo content đa kênh <strong>tuân thủ pháp luật ngành</strong>, giữ brand voice nhất quán.",
+    "descPlain": "Flowa là nền tảng AI đầu tiên tại Việt Nam với Industry Compliance tích hợp — giúp bạn tạo content đa kênh tuân thủ pháp luật ngành, giữ brand voice nhất quán trong 10 phút.",
     "benefits": {
       "noCard": "Không cần thẻ tín dụng",
       "freeTrial": "Dùng thử miễn phí 14 ngày",
@@ -30,7 +30,7 @@
       "content": "Nội dung đã tạo",
       "satisfaction": "Khách hài lòng"
     },
-    "trustBadge": "Được tin dùng bởi các thương hiệu hàng đầu Việt Nam",
+    "trustBadge": "Hỗ trợ 42+ ngành nghề tại Việt Nam",
     "dashboard": {
       "postsToday": "Bài viết hôm nay",
       "scheduled": "Đã lên lịch",
