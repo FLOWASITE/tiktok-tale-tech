@@ -166,9 +166,9 @@ function QuotaWarningIndicator() {
     >
       <div className="flex items-center justify-between text-[10px] mb-0.5">
         <span className="text-muted-foreground/80 group-hover:text-foreground transition-colors">
-          Quota: {clampedPct}%
+          Hạn mức: {clampedPct}%
         </span>
-        <span className="text-muted-foreground/60">{daysRemaining}d left</span>
+        <span className="text-muted-foreground/60">{daysRemaining} ngày còn lại</span>
       </div>
       <div className="w-full h-1.5 rounded-full bg-muted/60 overflow-hidden">
         <div
