@@ -19,7 +19,7 @@ import {
 import {
   Building2, Search, Users, CreditCard, TrendingUp, Crown,
   Trash2, ChevronLeft, ChevronRight, Download, Sparkles, Loader2,
-  ChevronDown, FileText, Image, Layers, Palette,
+  ChevronDown, FileText, Image, Layers, Palette, Wand2, ScrollText, Images,
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -51,99 +51,140 @@ const statusColors: Record<string, string> = {
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
-  const { members, brands, contentStats, isLoading } = useAdminWorkspaceDetail(orgId);
+  const { members, brands, contentStats, contributions, isLoading } = useAdminWorkspaceDetail(orgId);
 
   if (isLoading) {
     return (
-      <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[1, 2, 3].map((i) => <Skeleton key={i} className="h-28" />)}
+      <div className="p-4 space-y-4">
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+          {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-20" />)}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-28" />)}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 bg-muted/30 border-t grid grid-cols-1 md:grid-cols-3 gap-4">
-      {/* Members */}
-      <div className="space-y-2">
-        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-          <Users className="h-3.5 w-3.5" /> Thành viên ({members.length})
-        </h4>
-        <div className="space-y-1.5 max-h-48 overflow-y-auto">
-          {members.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Không có thành viên</p>
-          ) : (
-            members.map((m) => (
-              <div key={m.id} className="flex items-center gap-2 text-sm">
-                <MemberAvatar
-                  avatarUrl={m.profile?.avatar_url}
-                  name={m.profile?.full_name}
-                  email={m.profile?.email}
-                  size="sm"
-                  showStatus={false}
-                  showTooltip={false}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium truncate">
-                    {m.profile?.full_name || m.profile?.email || "—"}
+    <div className="p-4 bg-muted/30 border-t space-y-4">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+        {[
+          { icon: FileText, label: "Bài viết", value: contentStats.multiChannelCount },
+          { icon: Layers, label: "Bài Social", value: contentStats.socialPostCount },
+          { icon: ScrollText, label: "Scripts", value: contentStats.scriptCount },
+          { icon: Images, label: "Carousel", value: contentStats.carouselCount },
+          { icon: Image, label: "Ảnh Carousel", value: contentStats.carouselImageCount },
+          { icon: Wand2, label: "Ảnh AI", value: contentStats.imageCount },
+        ].map(({ icon: Icon, label, value }) => (
+          <div key={label} className="rounded-lg bg-background border p-2.5 text-center">
+            <Icon className="h-3.5 w-3.5 mx-auto mb-1 text-primary" />
+            <div className="text-lg font-bold leading-tight">{value}</div>
+            <div className="text-[10px] text-muted-foreground">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Members, Brands, Contributions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Members */}
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5" /> Thành viên ({members.length})
+          </h4>
+          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+            {members.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Không có thành viên</p>
+            ) : (
+              members.map((m) => (
+                <div key={m.id} className="flex items-center gap-2 text-sm">
+                  <MemberAvatar
+                    avatarUrl={m.profile?.avatar_url}
+                    name={m.profile?.full_name}
+                    email={m.profile?.email}
+                    size="sm"
+                    showStatus={false}
+                    showTooltip={false}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium truncate">
+                      {m.profile?.full_name || m.profile?.email || "—"}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground truncate">{m.profile?.email}</div>
                   </div>
-                  <div className="text-[10px] text-muted-foreground truncate">{m.profile?.email}</div>
+                  <Badge className={cn("text-[10px] px-1.5 py-0 h-4 border-0", ORG_ROLE_COLORS[m.role as OrgRole] || "bg-muted text-muted-foreground")}>
+                    {ORG_ROLE_LABELS[m.role as OrgRole] || m.role}
+                  </Badge>
                 </div>
-                <Badge className={cn("text-[10px] px-1.5 py-0 h-4 border-0", ORG_ROLE_COLORS[m.role as OrgRole] || "bg-muted text-muted-foreground")}>
-                  {ORG_ROLE_LABELS[m.role as OrgRole] || m.role}
-                </Badge>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Brands */}
-      <div className="space-y-2">
-        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-          <Palette className="h-3.5 w-3.5" /> Brands ({brands.length})
-        </h4>
-        <div className="space-y-1.5 max-h-48 overflow-y-auto">
-          {brands.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Chưa có brand</p>
-          ) : (
-            brands.map((b) => (
-              <div key={b.id} className="flex items-center gap-2">
-                <Avatar className="h-7 w-7">
-                  <AvatarImage src={b.logo_url || undefined} />
-                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                    {b.brand_name.slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium truncate">{b.brand_name}</div>
-                  {b.industry && <div className="text-[10px] text-muted-foreground">{b.industry}</div>}
+        {/* Brands */}
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Palette className="h-3.5 w-3.5" /> Brands ({brands.length})
+          </h4>
+          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+            {brands.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Chưa có brand</p>
+            ) : (
+              brands.map((b) => (
+                <div key={b.id} className="flex items-center gap-2">
+                  <Avatar className="h-7 w-7">
+                    <AvatarImage src={b.logo_url || undefined} />
+                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                      {b.brand_name.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium truncate">{b.brand_name}</div>
+                    {b.industry && <div className="text-[10px] text-muted-foreground">{b.industry}</div>}
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Content Stats */}
-      <div className="space-y-2">
-        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-          <Layers className="h-3.5 w-3.5" /> Nội dung
-        </h4>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-lg bg-background border p-3 text-center">
-            <FileText className="h-4 w-4 mx-auto mb-1 text-primary" />
-            <div className="text-lg font-bold">{contentStats.multiChannelCount}</div>
-            <div className="text-[10px] text-muted-foreground">Bài viết</div>
-          </div>
-          <div className="rounded-lg bg-background border p-3 text-center">
-            <Layers className="h-4 w-4 mx-auto mb-1 text-primary" />
-            <div className="text-lg font-bold">{contentStats.carouselCount}</div>
-            <div className="text-[10px] text-muted-foreground">Carousel</div>
-          </div>
-          <div className="rounded-lg bg-background border p-3 text-center">
-            <Image className="h-4 w-4 mx-auto mb-1 text-primary" />
-            <div className="text-lg font-bold">{contentStats.imageCount}</div>
-            <div className="text-[10px] text-muted-foreground">Ảnh AI</div>
+        {/* Contributions */}
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <TrendingUp className="h-3.5 w-3.5" /> Đóng góp
+          </h4>
+          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+            {contributions.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Chưa có dữ liệu</p>
+            ) : (
+              contributions.map((c) => {
+                const name = c.profile?.full_name || c.profile?.email?.split("@")[0] || "—";
+                return (
+                  <div key={c.userId} className="flex items-center gap-2">
+                    <MemberAvatar
+                      avatarUrl={c.profile?.avatar_url}
+                      name={c.profile?.full_name}
+                      email={c.profile?.email}
+                      size="sm"
+                      showStatus={false}
+                      showTooltip={false}
+                    />
+                    <span className="text-xs font-medium truncate flex-1 min-w-0" title={name}>{name}</span>
+                    <div className="flex items-center gap-2.5 shrink-0 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-0.5" title="Bài viết">
+                        <FileText className="h-3 w-3" />
+                        <span className="font-semibold text-foreground">{c.contentCount}</span>
+                      </span>
+                      <span className="flex items-center gap-0.5" title="Ảnh AI">
+                        <Wand2 className="h-3 w-3" />
+                        <span className="font-semibold text-foreground">{c.imageCount}</span>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
