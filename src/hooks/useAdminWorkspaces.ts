@@ -119,6 +119,22 @@ export function useAdminWorkspaces() {
         }
       });
 
+      // Count carousels per org (filtered by subscription period)
+      const carouselCounts = new Map<string, number>();
+      (carouselsRes.data || []).forEach((c: any) => {
+        if (c.organization_id && isInPeriod(c.organization_id, c.created_at)) {
+          carouselCounts.set(c.organization_id, (carouselCounts.get(c.organization_id) || 0) + 1);
+        }
+      });
+
+      // Count scripts per org (filtered by subscription period)
+      const scriptCounts = new Map<string, number>();
+      (scriptsRes.data || []).forEach((s: any) => {
+        if (s.organization_id && isInPeriod(s.organization_id, s.created_at)) {
+          scriptCounts.set(s.organization_id, (scriptCounts.get(s.organization_id) || 0) + 1);
+        }
+      });
+
       // Subscriptions by org
       const subsMap = new Map(
         (subsRes.data || []).map((s: any) => [s.organization_id, s])
