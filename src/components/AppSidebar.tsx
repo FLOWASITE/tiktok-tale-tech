@@ -1,4 +1,4 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare, GalleryHorizontalEnd } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare, GalleryHorizontalEnd, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -126,6 +126,42 @@ function GradientSeparator() {
   );
 }
 
+// Quota Warning Indicator - shows when any resource > 80% 
+function QuotaWarningIndicator() {
+  const { currentPlanLimits, usage } = useSubscription();
+  const navigate = useNavigate();
+
+  if (!currentPlanLimits || !usage) {
+    return <p className="text-[10px] text-muted-foreground/70">One Flow. All Content.</p>;
+  }
+
+  const checks = [
+    { used: usage.scripts, limit: currentPlanLimits.monthly_scripts, label: 'Scripts' },
+    { used: usage.carousels, limit: currentPlanLimits.monthly_carousels, label: 'Carousels' },
+    { used: usage.multichannel, limit: currentPlanLimits.monthly_multichannel, label: 'Đa kênh' },
+    { used: usage.images, limit: currentPlanLimits.monthly_images, label: 'Ảnh AI' },
+    { used: usage.brands, limit: currentPlanLimits.monthly_brands, label: 'Brands' },
+  ];
+
+  const critical = checks.find(c => c.limit !== -1 && c.limit > 0 && (c.used / c.limit) >= 0.8);
+  
+  if (!critical) {
+    return <p className="text-[10px] text-muted-foreground/70">One Flow. All Content.</p>;
+  }
+
+  const pct = Math.round((critical.used / critical.limit) * 100);
+
+  return (
+    <button 
+      onClick={() => navigate('/account')}
+      className="flex items-center gap-1 text-[10px] text-amber-500 hover:text-amber-400 transition-colors cursor-pointer"
+    >
+      <AlertTriangle className="h-2.5 w-2.5" />
+      <span>{critical.label} {pct}% — Sắp hết</span>
+    </button>
+  );
+}
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const { isAdmin } = useAdmin();
@@ -240,7 +276,7 @@ export function AppSidebar() {
                   {planBadge.label}
                 </span>
               </div>
-              <p className="text-[10px] text-muted-foreground/70">One Flow. All Content.</p>
+              <QuotaWarningIndicator />
             </div>
           )}
         </div>

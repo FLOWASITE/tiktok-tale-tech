@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { useAdminWorkspaces, type AdminWorkspace } from "@/hooks/useAdminWorkspaces";
+import { useAdminWorkspaces, type AdminWorkspace, type QuotaStatus } from "@/hooks/useAdminWorkspaces";
 import { useAdminWorkspaceDetail, type PeriodFilter } from "@/hooks/useAdminWorkspaceDetail";
 import { MemberAvatar } from "@/components/MemberAvatar";
 import { ORG_ROLE_LABELS, ORG_ROLE_COLORS, type OrgRole } from "@/types/organization";
@@ -509,6 +509,7 @@ export function AdminWorkspacesTab() {
                     <TableHead className="text-center border-l border-border/50">Nội dung</TableHead>
                     <TableHead className="text-center">Ảnh</TableHead>
                     <TableHead className="text-center font-bold">Tổng</TableHead>
+                    <TableHead className="text-center">Hạn mức</TableHead>
                     <TableHead>Plan</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Ngày tạo</TableHead>
@@ -518,7 +519,7 @@ export function AdminWorkspacesTab() {
                 <TableBody>
                   {paginated.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                         Không tìm thấy workspace
                       </TableCell>
                     </TableRow>
@@ -576,6 +577,20 @@ export function AdminWorkspacesTab() {
                             <TableCell className="text-center">
                               <span className="text-sm font-bold text-primary">{ws.content_count + ws.image_count + ws.carousel_count + ws.script_count}</span>
                             </TableCell>
+                            <TableCell className="text-center">
+                              {ws.quota_highest ? (
+                                <Badge className={cn(
+                                  'border-0 text-xs',
+                                  ws.quota_status === 'critical' ? 'bg-destructive/10 text-destructive' :
+                                  ws.quota_status === 'warning' ? 'bg-amber-500/10 text-amber-500' :
+                                  'bg-muted text-muted-foreground'
+                                )}>
+                                  {ws.quota_highest.percentage}% {ws.quota_highest.label}
+                                </Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
                             <TableCell onClick={(e) => e.stopPropagation()}>
                               <Select
                                 value={plan}
@@ -631,7 +646,7 @@ export function AdminWorkspacesTab() {
                           </TableRow>
                           {isExpanded && (
                             <TableRow key={ws.id + "-detail"}>
-                              <TableCell colSpan={11} className="p-0">
+                              <TableCell colSpan={12} className="p-0">
                                 <WorkspaceDetailPanel orgId={ws.id} />
                               </TableCell>
                             </TableRow>
@@ -654,7 +669,7 @@ export function AdminWorkspacesTab() {
                       <TableCell className="text-center font-semibold text-sm border-l border-border/50">{filteredTotals.contents}</TableCell>
                       <TableCell className="text-center font-semibold text-sm">{filteredTotals.images}</TableCell>
                       <TableCell className="text-center font-bold text-sm text-primary">{filteredTotals.total}</TableCell>
-                      <TableCell colSpan={4} />
+                      <TableCell colSpan={5} />
                     </TableRow>
                   </tfoot>
                 )}
