@@ -43,11 +43,27 @@ const statusColors: Record<string, string> = {
   trial: "bg-blue-500/10 text-blue-500",
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function AdminWorkspacesTab() {
-  const { workspaces, stats, isLoading, updateWorkspacePlan, deleteWorkspace, isUpdating } = useAdminWorkspaces();
+  const { workspaces, stats, isLoading, updateWorkspacePlan, deleteWorkspace, cleanupOrphans, isCleaningUp, isUpdating } = useAdminWorkspaces();
   const [searchQuery, setSearchQuery] = useState("");
   const [planFilter, setPlanFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+
+  const isAutoCreated = (slug: string) => UUID_REGEX.test(slug);
+
+  async function handleCleanup() {
+    // First dry run to show count
+    const result = await cleanupOrphans(true);
+    if (result.orphan_count === 0) {
+      toast.info("Không có workspace thừa nào cần dọn dẹp");
+      return;
+    }
+    if (confirm(`Tìm thấy ${result.orphan_count} workspace tự động thừa. Xóa tất cả?`)) {
+      await cleanupOrphans(false);
+    }
+  }
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
