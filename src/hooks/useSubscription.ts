@@ -37,6 +37,7 @@ export interface UsageStats {
   scripts: number;
   carousels: number;
   multichannel: number;
+  multichannel_social_posts: number;
   images: number;
   ai_edits: number;
 }
@@ -78,12 +79,12 @@ export function useSubscription() {
     queryKey: ["usage_stats", user?.id],
     queryFn: async (): Promise<UsageStats> => {
       if (!user?.id) {
-        return { scripts: 0, carousels: 0, multichannel: 0, images: 0, ai_edits: 0 };
+        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, images: 0, ai_edits: 0 };
       }
 
       const subscription = subscriptionQuery.data;
       if (!subscription) {
-        return { scripts: 0, carousels: 0, multichannel: 0, images: 0, ai_edits: 0 };
+        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, images: 0, ai_edits: 0 };
       }
 
       const periodStart = subscription.current_period_start;
@@ -105,7 +106,7 @@ export function useSubscription() {
           .lte("created_at", periodEnd),
         supabase
           .from("multi_channel_contents")
-          .select("*", { count: "exact", head: true })
+          .select("selected_channels", { count: "exact" })
           .eq("user_id", user.id)
           .gte("created_at", periodStart)
           .lte("created_at", periodEnd),
@@ -124,10 +125,16 @@ export function useSubscription() {
           .lte("created_at", periodEnd),
       ]);
 
+      const socialPostsTotal = (multiRes.data || []).reduce(
+        (sum: number, row: any) => sum + (Array.isArray(row.selected_channels) ? row.selected_channels.length : 0),
+        0
+      );
+
       return {
         scripts: scriptsRes.count ?? 0,
         carousels: carouselsRes.count ?? 0,
         multichannel: multiRes.count ?? 0,
+        multichannel_social_posts: socialPostsTotal,
         images: imagesRes.count ?? 0,
         ai_edits: aiEditsRes.count ?? 0,
       };
@@ -146,6 +153,7 @@ export function useSubscription() {
       scripts: currentPlanLimits.monthly_scripts,
       carousels: currentPlanLimits.monthly_carousels,
       multichannel: currentPlanLimits.monthly_multichannel,
+      multichannel_social_posts: currentPlanLimits.monthly_multichannel, // uses same limit
       images: currentPlanLimits.monthly_images,
       ai_edits: currentPlanLimits.monthly_ai_edits,
     };
@@ -163,6 +171,7 @@ export function useSubscription() {
       scripts: currentPlanLimits.monthly_scripts,
       carousels: currentPlanLimits.monthly_carousels,
       multichannel: currentPlanLimits.monthly_multichannel,
+      multichannel_social_posts: currentPlanLimits.monthly_multichannel,
       images: currentPlanLimits.monthly_images,
       ai_edits: currentPlanLimits.monthly_ai_edits,
     };

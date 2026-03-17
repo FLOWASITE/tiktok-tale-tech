@@ -68,7 +68,7 @@ interface UsageSummary {
 export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDetailSheetProps) {
   const [orgs, setOrgs] = useState<OrgMembership[]>([]);
   const [usage, setUsage] = useState<UsageSummary[]>([]);
-  const [contentCounts, setContentCounts] = useState({ posts: 0, carousels: 0, images: 0 });
+  const [contentCounts, setContentCounts] = useState({ posts: 0, socialPosts: 0, carousels: 0, images: 0 });
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -119,7 +119,7 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
         usageQuery,
         supabase
           .from("multi_channel_contents")
-          .select("*", { count: "exact", head: true })
+          .select("selected_channels", { count: "exact" })
           .eq("user_id", userId),
         supabase
           .from("carousels")
@@ -135,8 +135,14 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
         setOrgs(orgRes.data as unknown as OrgMembership[]);
       }
 
+      const socialPostsTotal = (postsRes.data || []).reduce(
+        (sum: number, row: any) => sum + (Array.isArray(row.selected_channels) ? row.selected_channels.length : 0),
+        0
+      );
+
       setContentCounts({
         posts: postsRes.count ?? 0,
+        socialPosts: socialPostsTotal,
         carousels: carouselsRes.count ?? 0,
         images: imagesRes.count ?? 0,
       });
@@ -295,11 +301,12 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
             {loading ? (
               <Skeleton className="h-12" />
             ) : (
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 rounded-lg bg-primary/10 text-center">
                   <FileText className="h-4 w-4 mx-auto mb-1 text-primary" />
                   <div className="text-xl font-bold">{contentCounts.posts}</div>
-                  <div className="text-xs text-muted-foreground">Bài đa kênh</div>
+                  <div className="text-xs text-muted-foreground">Bản nội dung</div>
+                  <div className="text-xs text-primary font-medium mt-1">📢 {contentCounts.socialPosts} bài trên social</div>
                 </div>
                 <div className="p-3 rounded-lg bg-primary/10 text-center">
                   <Layers className="h-4 w-4 mx-auto mb-1 text-primary" />

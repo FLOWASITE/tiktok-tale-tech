@@ -84,6 +84,7 @@ export default function Account() {
       icon: Layers,
       limit: currentPlanLimits?.monthly_multichannel || 0,
       used: usage?.multichannel || 0,
+      socialPosts: usage?.multichannel_social_posts || 0,
     },
     { 
       key: "images" as const, 
@@ -302,9 +303,14 @@ export default function Account() {
                     value={isUnlimited ? 0 : Math.min(percentage, 100)} 
                     className="h-2"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Còn lại: {remaining}
-                  </p>
+                   <p className="text-xs text-muted-foreground">
+                     Còn lại: {remaining}
+                   </p>
+                   {'socialPosts' in item && item.socialPosts > 0 && (
+                     <p className="text-xs text-primary font-medium">
+                       📢 {item.socialPosts} bài trên social
+                     </p>
+                   )}
                 </div>
               );
             })}
