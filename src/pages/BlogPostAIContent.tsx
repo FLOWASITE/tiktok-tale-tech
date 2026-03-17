@@ -14,7 +14,7 @@ import {
   BlogBreadcrumb,
   blogPostsData 
 } from '@/components/blog';
-import { SEOHead } from '@/components/SEOHead';
+import { SEOHead, HowToSEOSchema, TOCSEOSchema } from '@/components/SEOHead';
 
 const POST_SLUG = 'ai-content-marketing-huong-dan';
 const POST_CATEGORY = 'AI';
