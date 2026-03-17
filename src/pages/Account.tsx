@@ -136,6 +136,16 @@ export default function Account() {
         0
       );
 
+      // Image channel breakdown
+      const imageChannelBreakdown: Record<string, number> = {};
+      if (imagesRes.data && Array.isArray(imagesRes.data)) {
+        imagesRes.data.forEach((row: any) => {
+          if (row.channel) {
+            imageChannelBreakdown[row.channel] = (imageChannelBreakdown[row.channel] || 0) + 1;
+          }
+        });
+      }
+
       return {
         scripts: scriptsRes.count ?? 0,
         carousels: carouselsRes.count ?? 0,
@@ -143,6 +153,7 @@ export default function Account() {
         multichannel_social_posts: socialPostsTotal,
         channel_breakdown: channelBreakdown,
         images: imagesRes.count ?? 0,
+        image_channel_breakdown: imageChannelBreakdown,
         ai_edits: aiEditsRes.count ?? 0,
       };
     },
