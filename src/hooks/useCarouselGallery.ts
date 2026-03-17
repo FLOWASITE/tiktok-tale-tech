@@ -159,14 +159,10 @@ export function useCarouselGallery() {
     const carouselIds = ids.filter(id => images.find(i => i.id === id)?.source === 'carousel');
     const channelIds = ids.filter(id => images.find(i => i.id === id)?.source === 'multichannel');
     try {
-      const promises: Promise<any>[] = [];
-      if (carouselIds.length) {
-        promises.push(supabase.from('carousel_images').delete().in('id', carouselIds));
-      }
-      if (channelIds.length) {
-        promises.push(supabase.from('channel_image_history').delete().in('id', channelIds));
-      }
-      const results = await Promise.all(promises);
+      const results = await Promise.all([
+        ...(carouselIds.length ? [supabase.from('carousel_images').delete().in('id', carouselIds).select()] : []),
+        ...(channelIds.length ? [supabase.from('channel_image_history').delete().in('id', channelIds).select()] : []),
+      ]);
       for (const r of results) {
         if (r.error) throw r.error;
       }
