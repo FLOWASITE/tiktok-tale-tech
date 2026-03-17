@@ -136,11 +136,11 @@ export function useSubscription() {
           .eq("user_id", user.id)
           .gte("created_at", periodStart)
           .lte("created_at", periodEnd),
-        // Count images via content_id join (created_by may be NULL for old records)
+        // Count images via content_id join + fetch channel for breakdown
         contentIds.length > 0
           ? supabase
               .from("channel_image_history")
-              .select("*", { count: "exact", head: true })
+              .select("channel", { count: "exact" })
               .in("content_id", contentIds)
           : Promise.resolve({ count: 0, data: null, error: null }),
         supabase
