@@ -171,6 +171,7 @@ export function useSubscription() {
       scripts: currentPlanLimits.monthly_scripts,
       carousels: currentPlanLimits.monthly_carousels,
       multichannel: currentPlanLimits.monthly_multichannel,
+      multichannel_social_posts: currentPlanLimits.monthly_multichannel,
       images: currentPlanLimits.monthly_images,
       ai_edits: currentPlanLimits.monthly_ai_edits,
     };
