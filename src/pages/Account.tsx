@@ -94,7 +94,7 @@ export default function Account() {
     queryKey: ["usage_history", user?.id, selectedMonth],
     queryFn: async (): Promise<UsageStats> => {
       if (!user?.id || !selectedPeriod) {
-        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, ai_edits: 0 };
+        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, ai_edits: 0 };
       }
 
       // Get user's content IDs for image counting
@@ -114,7 +114,7 @@ export default function Account() {
         supabase.from("multi_channel_contents").select("selected_channels", { count: "exact" })
           .eq("user_id", user.id).gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
         contentIds.length > 0
-          ? supabase.from("channel_image_history").select("*", { count: "exact", head: true })
+          ? supabase.from("channel_image_history").select("channel", { count: "exact" })
               .in("content_id", contentIds)
           : Promise.resolve({ count: 0, data: null, error: null }),
         supabase.from("usage_logs").select("*", { count: "exact", head: true })
@@ -136,6 +136,16 @@ export default function Account() {
         0
       );
 
+      // Image channel breakdown
+      const imageChannelBreakdown: Record<string, number> = {};
+      if (imagesRes.data && Array.isArray(imagesRes.data)) {
+        imagesRes.data.forEach((row: any) => {
+          if (row.channel) {
+            imageChannelBreakdown[row.channel] = (imageChannelBreakdown[row.channel] || 0) + 1;
+          }
+        });
+      }
+
       return {
         scripts: scriptsRes.count ?? 0,
         carousels: carouselsRes.count ?? 0,
@@ -143,6 +153,7 @@ export default function Account() {
         multichannel_social_posts: socialPostsTotal,
         channel_breakdown: channelBreakdown,
         images: imagesRes.count ?? 0,
+        image_channel_breakdown: imageChannelBreakdown,
         ai_edits: aiEditsRes.count ?? 0,
       };
     },
@@ -449,6 +460,20 @@ export default function Account() {
               </div>
             </>
           )}
+
+          {/* Image Channel Breakdown */}
+          {usage?.image_channel_breakdown && Object.keys(usage.image_channel_breakdown).length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                  <Wand2 className="h-4 w-4" />
+                  Chi tiết ảnh AI theo kênh
+                </h4>
+                <ChannelBreakdown breakdown={usage.image_channel_breakdown} />
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -514,6 +539,17 @@ export default function Account() {
                     Chi tiết bài đăng theo kênh
                   </h4>
                   <ChannelBreakdown breakdown={historyQuery.data.channel_breakdown} />
+                </div>
+              )}
+
+              {/* History Image Channel Breakdown */}
+              {historyQuery.data?.image_channel_breakdown && Object.keys(historyQuery.data.image_channel_breakdown).length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <Wand2 className="h-4 w-4" />
+                    Chi tiết ảnh AI theo kênh
+                  </h4>
+                  <ChannelBreakdown breakdown={historyQuery.data.image_channel_breakdown} />
                 </div>
               )}
             </div>

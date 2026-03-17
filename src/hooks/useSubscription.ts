@@ -40,6 +40,7 @@ export interface UsageStats {
   multichannel_social_posts: number;
   channel_breakdown: Record<string, number>;
   images: number;
+  image_channel_breakdown: Record<string, number>;
   ai_edits: number;
 }
 
@@ -80,12 +81,12 @@ export function useSubscription() {
     queryKey: ["usage_stats", user?.id],
     queryFn: async (): Promise<UsageStats> => {
       if (!user?.id) {
-        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, ai_edits: 0 };
+        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, ai_edits: 0 };
       }
 
       const subscription = subscriptionQuery.data;
       if (!subscription) {
-        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, ai_edits: 0 };
+        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, ai_edits: 0 };
       }
 
       // Auto-renew: if period expired, fallback to current month
@@ -135,11 +136,11 @@ export function useSubscription() {
           .eq("user_id", user.id)
           .gte("created_at", periodStart)
           .lte("created_at", periodEnd),
-        // Count images via content_id join (created_by may be NULL for old records)
+        // Count images via content_id join + fetch channel for breakdown
         contentIds.length > 0
           ? supabase
               .from("channel_image_history")
-              .select("*", { count: "exact", head: true })
+              .select("channel", { count: "exact" })
               .in("content_id", contentIds)
           : Promise.resolve({ count: 0, data: null, error: null }),
         supabase
@@ -164,6 +165,15 @@ export function useSubscription() {
         },
         0
       );
+      // Image channel breakdown
+      const imageChannelBreakdown: Record<string, number> = {};
+      if (imagesRes.data && Array.isArray(imagesRes.data)) {
+        imagesRes.data.forEach((row: any) => {
+          if (row.channel) {
+            imageChannelBreakdown[row.channel] = (imageChannelBreakdown[row.channel] || 0) + 1;
+          }
+        });
+      }
 
       return {
         scripts: scriptsRes.count ?? 0,
@@ -172,6 +182,7 @@ export function useSubscription() {
         multichannel_social_posts: socialPostsTotal,
         channel_breakdown: channelBreakdown,
         images: imagesRes.count ?? 0,
+        image_channel_breakdown: imageChannelBreakdown,
         ai_edits: aiEditsRes.count ?? 0,
       };
     },
@@ -182,7 +193,7 @@ export function useSubscription() {
     (plan) => plan.plan_type === subscriptionQuery.data?.plan_type
   );
 
-  type NumericUsageKey = Exclude<keyof UsageStats, 'channel_breakdown'>;
+  type NumericUsageKey = Exclude<keyof UsageStats, 'channel_breakdown' | 'image_channel_breakdown'>;
 
   const isWithinLimits = (type: NumericUsageKey): boolean => {
     if (!currentPlanLimits || !usageQuery.data) return false;
