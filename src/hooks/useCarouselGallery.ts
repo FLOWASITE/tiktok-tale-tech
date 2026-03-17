@@ -147,6 +147,19 @@ export function useCarouselGallery() {
     fetchImages();
   }, []);
 
+  const creatorOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    images.forEach(img => {
+      if (img.createdByName) {
+        // Use name as both key and label
+        map.set(img.createdByName, img.createdByName);
+      }
+    });
+    return Array.from(map.entries())
+      .map(([key, label]) => ({ key, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [images]);
+
   const filteredImages = useMemo(() => {
     let result = images;
     if (sourceFilter !== 'all') {
@@ -158,6 +171,9 @@ export function useCarouselGallery() {
     if (carouselFilter !== 'all') {
       result = result.filter(img => img.carouselId === carouselFilter);
     }
+    if (creatorFilter !== 'all') {
+      result = result.filter(img => img.createdByName === creatorFilter);
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(img => img.carouselTitle.toLowerCase().includes(q));
@@ -167,16 +183,12 @@ export function useCarouselGallery() {
       case 'oldest':
         result = [...result].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
         break;
-      case 'creator':
-        result = [...result].sort((a, b) => (a.createdByName || 'zzz').localeCompare(b.createdByName || 'zzz'));
-        break;
       case 'newest':
       default:
-        // already sorted newest first from fetch
         break;
     }
     return result;
-  }, [images, sourceFilter, channelFilter, carouselFilter, searchQuery, sortBy]);
+  }, [images, sourceFilter, channelFilter, carouselFilter, creatorFilter, searchQuery, sortBy]);
 
   const carouselOptions = useMemo(() => {
     const filtered = sourceFilter !== 'all' ? images.filter(i => i.source === sourceFilter) : images;
