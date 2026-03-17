@@ -1,10 +1,12 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { DashboardStats } from '@/components/DashboardStats';
 import { MyAssignments } from '@/components/MyAssignments';
 import { TodaySchedules } from '@/components/TodaySchedules';
 import { PendingReviews } from '@/components/PendingReviews';
 import { TopicQuickAccess } from '@/components/TopicQuickAccess';
 import { PerformanceReminderWidget } from '@/components/PerformanceReminderWidget';
+import { useContentSchedules } from '@/hooks/useContentSchedules';
+import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { 
   DashboardHeader, 
   QuickActionGrid, 
