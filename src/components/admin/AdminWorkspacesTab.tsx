@@ -19,11 +19,16 @@ import {
 import {
   Building2, Search, Users, CreditCard, TrendingUp, Crown,
   Trash2, ChevronLeft, ChevronRight, Download, Sparkles, Loader2,
+  ChevronDown, FileText, Image, Layers, Palette,
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useAdminWorkspaces, type AdminWorkspace } from "@/hooks/useAdminWorkspaces";
+import { useAdminWorkspaceDetail } from "@/hooks/useAdminWorkspaceDetail";
+import { MemberAvatar } from "@/components/MemberAvatar";
+import { ORG_ROLE_LABELS, ORG_ROLE_COLORS, type OrgRole } from "@/types/organization";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
 
@@ -45,11 +50,113 @@ const statusColors: Record<string, string> = {
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
+  const { members, brands, contentStats, isLoading } = useAdminWorkspaceDetail(orgId);
+
+  if (isLoading) {
+    return (
+      <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[1, 2, 3].map((i) => <Skeleton key={i} className="h-28" />)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 bg-muted/30 border-t grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Members */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <Users className="h-3.5 w-3.5" /> Thành viên ({members.length})
+        </h4>
+        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+          {members.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Không có thành viên</p>
+          ) : (
+            members.map((m) => (
+              <div key={m.id} className="flex items-center gap-2 text-sm">
+                <MemberAvatar
+                  avatarUrl={m.profile?.avatar_url}
+                  name={m.profile?.full_name}
+                  email={m.profile?.email}
+                  size="sm"
+                  showStatus={false}
+                  showTooltip={false}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium truncate">
+                    {m.profile?.full_name || m.profile?.email || "—"}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground truncate">{m.profile?.email}</div>
+                </div>
+                <Badge className={cn("text-[10px] px-1.5 py-0 h-4 border-0", ORG_ROLE_COLORS[m.role as OrgRole] || "bg-muted text-muted-foreground")}>
+                  {ORG_ROLE_LABELS[m.role as OrgRole] || m.role}
+                </Badge>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Brands */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <Palette className="h-3.5 w-3.5" /> Brands ({brands.length})
+        </h4>
+        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+          {brands.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Chưa có brand</p>
+          ) : (
+            brands.map((b) => (
+              <div key={b.id} className="flex items-center gap-2">
+                <Avatar className="h-7 w-7">
+                  <AvatarImage src={b.logo_url || undefined} />
+                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                    {b.brand_name.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium truncate">{b.brand_name}</div>
+                  {b.industry && <div className="text-[10px] text-muted-foreground">{b.industry}</div>}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Content Stats */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <Layers className="h-3.5 w-3.5" /> Nội dung
+        </h4>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-lg bg-background border p-3 text-center">
+            <FileText className="h-4 w-4 mx-auto mb-1 text-primary" />
+            <div className="text-lg font-bold">{contentStats.multiChannelCount}</div>
+            <div className="text-[10px] text-muted-foreground">Bài viết</div>
+          </div>
+          <div className="rounded-lg bg-background border p-3 text-center">
+            <Layers className="h-4 w-4 mx-auto mb-1 text-primary" />
+            <div className="text-lg font-bold">{contentStats.carouselCount}</div>
+            <div className="text-[10px] text-muted-foreground">Carousel</div>
+          </div>
+          <div className="rounded-lg bg-background border p-3 text-center">
+            <Image className="h-4 w-4 mx-auto mb-1 text-primary" />
+            <div className="text-lg font-bold">{contentStats.imageCount}</div>
+            <div className="text-[10px] text-muted-foreground">Ảnh AI</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AdminWorkspacesTab() {
   const { workspaces, stats, isLoading, updateWorkspacePlan, deleteWorkspace, cleanupOrphans, isCleaningUp, isUpdating } = useAdminWorkspaces();
   const [searchQuery, setSearchQuery] = useState("");
   const [planFilter, setPlanFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const isAutoCreated = (slug: string) => UUID_REGEX.test(slug);
 
@@ -246,97 +353,112 @@ export function AdminWorkspacesTab() {
                     paginated.map((ws) => {
                       const plan = ws.subscription?.plan_type || "free";
                       const status = ws.subscription?.status || "N/A";
+                      const isExpanded = expandedId === ws.id;
                       return (
-                        <TableRow key={ws.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={ws.logo_url || undefined} />
-                                <AvatarFallback className="text-xs" style={{ backgroundColor: ws.primary_color + "20", color: ws.primary_color }}>
-                                  {ws.name.slice(0, 2).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <div className="font-medium text-sm flex items-center gap-1.5">
-                                  {ws.name}
-                                  {isAutoCreated(ws.slug) && (
-                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground border-dashed">
-                                      Tự động
-                                    </Badge>
-                                  )}
+                        <> 
+                          <TableRow
+                            key={ws.id}
+                            className="cursor-pointer hover:bg-muted/50 transition-colors"
+                            onClick={() => setExpandedId(isExpanded ? null : ws.id)}
+                          >
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", isExpanded && "rotate-180")} />
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={ws.logo_url || undefined} />
+                                  <AvatarFallback className="text-xs" style={{ backgroundColor: ws.primary_color + "20", color: ws.primary_color }}>
+                                    {ws.name.slice(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="font-medium text-sm flex items-center gap-1.5">
+                                    {ws.name}
+                                    {isAutoCreated(ws.slug) && (
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground border-dashed">
+                                        Tự động
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">{ws.slug}</div>
                                 </div>
-                                <div className="text-xs text-muted-foreground">{ws.slug}</div>
                               </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {ws.owner ? (
-                              <div>
-                                <div className="text-sm">{ws.owner.full_name || ws.owner.email}</div>
-                                <div className="text-xs text-muted-foreground">{ws.owner.email}</div>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant="secondary" className="font-mono">
-                              {ws.member_count}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={plan}
-                              onValueChange={(v) => updateWorkspacePlan({ organizationId: ws.id, planType: v })}
-                              disabled={isUpdating}
-                            >
-                              <SelectTrigger className="w-[120px] h-7 text-xs">
-                                <Badge className={`${planColors[plan] || planColors.free} border-0 text-xs`}>
-                                  {plan.charAt(0).toUpperCase() + plan.slice(1)}
-                                </Badge>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {["free", "starter", "pro", "business", "enterprise"].map((p) => (
-                                  <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={`${statusColors[status] || statusColors.expired} border-0 text-xs`}>
-                              {status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {format(new Date(ws.created_at), "dd/MM/yyyy", { locale: vi })}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Xóa workspace "{ws.name}"?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Hành động này sẽ xóa workspace và toàn bộ dữ liệu liên quan. Không thể hoàn tác.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => deleteWorkspace(ws.id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  >
-                                    Xóa
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </TableCell>
-                        </TableRow>
+                            </TableCell>
+                            <TableCell>
+                              {ws.owner ? (
+                                <div>
+                                  <div className="text-sm">{ws.owner.full_name || ws.owner.email}</div>
+                                  <div className="text-xs text-muted-foreground">{ws.owner.email}</div>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="secondary" className="font-mono">
+                                {ws.member_count}
+                              </Badge>
+                            </TableCell>
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <Select
+                                value={plan}
+                                onValueChange={(v) => updateWorkspacePlan({ organizationId: ws.id, planType: v })}
+                                disabled={isUpdating}
+                              >
+                                <SelectTrigger className="w-[120px] h-7 text-xs">
+                                  <Badge className={`${planColors[plan] || planColors.free} border-0 text-xs`}>
+                                    {plan.charAt(0).toUpperCase() + plan.slice(1)}
+                                  </Badge>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {["free", "starter", "pro", "business", "enterprise"].map((p) => (
+                                    <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={`${statusColors[status] || statusColors.expired} border-0 text-xs`}>
+                                {status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {format(new Date(ws.created_at), "dd/MM/yyyy", { locale: vi })}
+                            </TableCell>
+                            <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Xóa workspace "{ws.name}"?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Hành động này sẽ xóa workspace và toàn bộ dữ liệu liên quan. Không thể hoàn tác.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => deleteWorkspace(ws.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Xóa
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </TableCell>
+                          </TableRow>
+                          {isExpanded && (
+                            <TableRow key={ws.id + "-detail"}>
+                              <TableCell colSpan={7} className="p-0">
+                                <WorkspaceDetailPanel orgId={ws.id} />
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
                       );
                     })
                   )}
