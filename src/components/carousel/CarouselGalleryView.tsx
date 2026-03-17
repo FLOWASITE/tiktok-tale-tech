@@ -191,7 +191,7 @@ export function CarouselGalleryView() {
             <SelectContent>
               <SelectItem value="newest">Mới nhất</SelectItem>
               <SelectItem value="oldest">Cũ nhất</SelectItem>
-              <SelectItem value="name">Tên A-Z</SelectItem>
+              <SelectItem value="creator">Người tạo A-Z</SelectItem>
             </SelectContent>
           </Select>
 
