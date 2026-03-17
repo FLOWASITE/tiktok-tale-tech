@@ -577,6 +577,20 @@ export function AdminWorkspacesTab() {
                             <TableCell className="text-center">
                               <span className="text-sm font-bold text-primary">{ws.content_count + ws.image_count + ws.carousel_count + ws.script_count}</span>
                             </TableCell>
+                            <TableCell className="text-center">
+                              {ws.quota_highest ? (
+                                <Badge className={cn(
+                                  'border-0 text-xs',
+                                  ws.quota_status === 'critical' ? 'bg-destructive/10 text-destructive' :
+                                  ws.quota_status === 'warning' ? 'bg-amber-500/10 text-amber-500' :
+                                  'bg-muted text-muted-foreground'
+                                )}>
+                                  {ws.quota_highest.percentage}% {ws.quota_highest.label}
+                                </Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
                             <TableCell onClick={(e) => e.stopPropagation()}>
                               <Select
                                 value={plan}
