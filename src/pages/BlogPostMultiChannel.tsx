@@ -83,12 +83,29 @@ const BlogPostMultiChannel = () => {
         description="Học cách tạo content cho 10+ kênh từ 1 ý tưởng duy nhất. Bao gồm framework, templates, tools và case studies thực tế."
         canonicalPath="/blog/cach-tao-content-da-kenh"
         ogType="article"
-        article={{ author: 'Flowa Team', publishDate: '2026-01-15T00:00:00+07:00', section: 'Guide', tags: ['content đa kênh', 'hướng dẫn', 'framework', 'marketing'] }}
+        ogImage="https://images.unsplash.com/photo-1432888622747-4eb9a8efeb07?w=1200&h=630&fit=crop"
+        article={{ author: 'Flowa Team', publishDate: '2026-01-15T00:00:00+07:00', section: 'Guide', tags: ['content đa kênh', 'hướng dẫn', 'framework', 'marketing'], readingTime: 'PT25M', wordCount: 6500, authorUrl: 'https://flowa.vn', authorJobTitle: 'Content Marketing Team' }}
         breadcrumbs={[
           { name: 'Trang chủ', url: '/' },
           { name: 'Blog', url: '/blog' },
           { name: 'Cách Tạo Content Đa Kênh', url: '/blog/cach-tao-content-da-kenh' },
         ]}
+      />
+      <HowToSEOSchema
+        name="Cách Tạo Content Đa Kênh: Hướng Dẫn Toàn Diện Từ A-Z"
+        description="Quy trình 4 bước tạo content đa kênh hiệu quả từ 1 ý tưởng duy nhất."
+        steps={[
+          { name: 'Create - Tạo Core Content', text: 'Viết 1 bài pillar content chất lượng cao (blog post 2000+ từ) làm nền tảng.' },
+          { name: 'Optimize - Tối ưu cho từng kênh', text: 'Adapt nội dung theo format, tone và đặc thù của từng platform.' },
+          { name: 'Repurpose - Nhân bản nội dung', text: 'Biến 1 bài gốc thành 10+ formats: carousel, video script, email, thread.' },
+          { name: 'Evaluate - Đo lường hiệu quả', text: 'Track metrics từng kênh, A/B test và tối ưu liên tục.' },
+        ]}
+      />
+      <TOCSEOSchema
+        items={tableOfContents.map((item) => ({
+          name: item.title,
+          url: `https://tiktok-tale-tech.lovable.app/blog/cach-tao-content-da-kenh#${item.id}`,
+        }))}
       />
       {/* Reading Progress */}
       <ReadingProgress />
