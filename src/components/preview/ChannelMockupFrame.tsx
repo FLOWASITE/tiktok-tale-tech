@@ -920,26 +920,45 @@ function EmailMockup({ content, brandName, logoUrl, isGenerating }: Omit<Channel
   );
 }
 
+// Breadcrumb Component
+function WebsiteBreadcrumb({ brandName, themeColor, category }: { brandName: string; themeColor: string; category?: string }) {
+  return (
+    <nav className="flex items-center gap-1.5 text-[10px] text-[#86868b] px-4 sm:px-6 py-2 bg-[#fafafa] dark:bg-[#232326] border-b border-[#e5e5e7] dark:border-[#3d3d3f]">
+      <span className="hover:underline cursor-pointer" style={{ color: themeColor }}>Trang chủ</span>
+      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+      <span className="hover:underline cursor-pointer" style={{ color: themeColor }}>Blog</span>
+      {category && (
+        <>
+          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+          <span className="hover:underline cursor-pointer" style={{ color: themeColor }}>{category}</span>
+        </>
+      )}
+      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+      <span className="text-[#1d1d1f] dark:text-white truncate max-w-[120px]">Bài viết hiện tại</span>
+    </nav>
+  );
+}
+
 // Article TOC Component
 function ArticleTOC({ headings, themeColor }: { headings: string[]; themeColor: string }) {
   if (!headings?.length) return null;
   
   return (
-    <div className="bg-[#f8f8fa] dark:bg-[#2c2c2e] rounded-lg p-3 text-xs mb-4">
+    <div className="bg-[#f8f8fa] dark:bg-[#2c2c2e] rounded-lg p-3 text-xs mb-4 border border-[#e5e5e7] dark:border-[#3d3d3f]">
       <h4 className="font-semibold mb-2 text-[#1d1d1f] dark:text-white flex items-center gap-1.5">
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
         </svg>
-        Mục lục
+        Mục lục bài viết
       </h4>
       <ol className="space-y-1.5 list-decimal list-inside text-[#86868b]">
-        {headings.slice(0, 5).map((h, i) => (
-          <li key={i} className="hover:text-[#1d1d1f] dark:hover:text-white cursor-pointer truncate transition-colors" style={{ '--hover-color': themeColor } as React.CSSProperties}>
-            {h}
+        {headings.slice(0, 6).map((h, i) => (
+          <li key={i} className="hover:text-[#1d1d1f] dark:hover:text-white cursor-pointer truncate transition-colors">
+            <span className="hover:underline">{h}</span>
           </li>
         ))}
-        {headings.length > 5 && (
-          <li className="text-[#86868b] italic">+{headings.length - 5} mục khác...</li>
+        {headings.length > 6 && (
+          <li className="italic" style={{ color: themeColor }}>+{headings.length - 6} mục khác...</li>
         )}
       </ol>
     </div>
@@ -955,9 +974,165 @@ function SEOScoreBadge({ score, themeColor }: { score: number; themeColor: strin
   };
   
   return (
-    <div className="absolute top-2 right-2 flex items-center gap-1 bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur rounded-full px-2 py-1 text-xs shadow-sm border border-[#e5e5e7] dark:border-[#3d3d3f]">
+    <div className="absolute top-2 right-2 z-20 flex items-center gap-1 bg-white/90 dark:bg-[#1c1c1e]/90 backdrop-blur rounded-full px-2 py-1 text-xs shadow-sm border border-[#e5e5e7] dark:border-[#3d3d3f]">
       <div className={cn("w-2 h-2 rounded-full", getScoreColor())} />
       <span className="font-medium text-[#1d1d1f] dark:text-white">SEO {score}</span>
+    </div>
+  );
+}
+
+// Related Posts Sidebar
+function RelatedPostsSidebar({ brandName, themeColor }: { brandName: string; themeColor: string }) {
+  const posts = [
+    { title: 'Hướng dẫn tối ưu content hiệu quả', date: '28 Th12, 2025', views: '1.2K' },
+    { title: 'Xu hướng marketing 2026 không thể bỏ qua', date: '15 Th12, 2025', views: '3.4K' },
+    { title: '5 mẹo viết headline thu hút người đọc', date: '10 Th12, 2025', views: '856' },
+  ];
+  
+  return (
+    <div className="bg-[#f8f8fa] dark:bg-[#2c2c2e] rounded-lg p-3 text-xs border border-[#e5e5e7] dark:border-[#3d3d3f]">
+      <h4 className="font-semibold mb-2.5 text-[#1d1d1f] dark:text-white flex items-center gap-1.5">
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" /></svg>
+        Bài viết liên quan
+      </h4>
+      <div className="space-y-2.5">
+        {posts.map((post, i) => (
+          <div key={i} className="group cursor-pointer">
+            <p className="font-medium text-[#1d1d1f] dark:text-white group-hover:underline line-clamp-2 leading-tight">{post.title}</p>
+            <div className="flex items-center gap-2 mt-0.5 text-[10px] text-[#86868b]">
+              <span>{post.date}</span>
+              <span>•</span>
+              <span>{post.views} lượt xem</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Newsletter CTA
+function NewsletterCTA({ themeColor }: { themeColor: string }) {
+  return (
+    <div className="rounded-lg p-3 text-xs border border-dashed" style={{ borderColor: themeColor + '60', backgroundColor: themeColor + '08' }}>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <Mail className="w-3.5 h-3.5" style={{ color: themeColor }} />
+        <span className="font-semibold text-[#1d1d1f] dark:text-white">Nhận bài viết mới nhất</span>
+      </div>
+      <p className="text-[#86868b] mb-2 leading-relaxed">Đăng ký để không bỏ lỡ bài viết chất lượng mỗi tuần.</p>
+      <div className="flex gap-1.5">
+        <div className="flex-1 bg-white dark:bg-[#1c1c1e] rounded px-2 py-1.5 text-[#86868b] border border-[#e5e5e7] dark:border-[#3d3d3f]">email@example.com</div>
+        <button className="px-2.5 py-1.5 rounded text-white font-medium shrink-0" style={{ backgroundColor: themeColor }}>Đăng ký</button>
+      </div>
+    </div>
+  );
+}
+
+// Social Share Floating Bar
+function SocialShareBar({ themeColor }: { themeColor: string }) {
+  return (
+    <div className="flex items-center gap-1 text-[10px] text-[#86868b] mb-3">
+      <span className="mr-1 font-medium text-[#1d1d1f] dark:text-white">Chia sẻ:</span>
+      {[
+        { icon: '𝕏', label: 'Twitter' },
+        { icon: 'f', label: 'Facebook' },
+        { icon: 'in', label: 'LinkedIn' },
+      ].map((s) => (
+        <button key={s.label} className="w-6 h-6 rounded-full flex items-center justify-center font-bold text-white hover:opacity-80 transition-opacity" style={{ backgroundColor: themeColor }}>
+          {s.icon}
+        </button>
+      ))}
+      <button className="w-6 h-6 rounded-full flex items-center justify-center bg-[#f0f0f2] dark:bg-[#3d3d3f] hover:bg-[#e5e5e7] dark:hover:bg-[#4a4a4c] transition-colors">
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+      </button>
+    </div>
+  );
+}
+
+// FAQ Section in Website
+function WebsiteFAQSection({ faqItems, themeColor }: { faqItems: Array<{ question: string; answer: string }>; themeColor: string }) {
+  if (!faqItems?.length) return null;
+  return (
+    <div className="mt-4 pt-3 border-t border-[#e5e5e7] dark:border-[#3d3d3f]">
+      <h3 className="text-sm font-bold text-[#1d1d1f] dark:text-white mb-2 flex items-center gap-1.5">
+        <svg className="w-4 h-4" style={{ color: themeColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        Câu hỏi thường gặp
+      </h3>
+      <div className="space-y-2">
+        {faqItems.slice(0, 3).map((item, i) => (
+          <details key={i} className="group bg-[#f8f8fa] dark:bg-[#2c2c2e] rounded-lg overflow-hidden border border-[#e5e5e7] dark:border-[#3d3d3f]">
+            <summary className="px-3 py-2 text-xs font-medium text-[#1d1d1f] dark:text-white cursor-pointer hover:bg-[#f0f0f2] dark:hover:bg-[#3d3d3f] transition-colors list-none flex items-center justify-between">
+              {item.question}
+              <svg className="w-3 h-3 text-[#86868b] group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+            </summary>
+            <div className="px-3 pb-2 text-[11px] text-[#86868b] leading-relaxed">{item.answer}</div>
+          </details>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Tags Component
+function ArticleTags({ keywords, themeColor }: { keywords?: string[]; focusKeyword?: string; themeColor: string }) {
+  if (!keywords?.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-3">
+      {keywords.slice(0, 5).map((kw, i) => (
+        <span key={i} className="px-2 py-0.5 rounded-full text-[10px] font-medium cursor-pointer hover:opacity-80 transition-opacity border" style={{ color: themeColor, borderColor: themeColor + '40', backgroundColor: themeColor + '08' }}>
+          #{kw}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// Website Footer
+function WebsiteFooter({ brandName, themeColor, logoUrl }: { brandName: string; themeColor: string; logoUrl?: string }) {
+  return (
+    <div className="bg-[#1d1d1f] dark:bg-[#0a0a0a] text-white px-4 sm:px-6 py-4">
+      <div className="grid grid-cols-3 gap-3 text-[10px] mb-3">
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            {logoUrl ? (
+              <img src={logoUrl} alt={brandName} className="w-5 h-5 rounded object-cover" />
+            ) : (
+              <div className="w-5 h-5 rounded flex items-center justify-center text-white text-[8px] font-bold" style={{ backgroundColor: themeColor }}>
+                {brandName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span className="font-semibold text-[11px]">{brandName}</span>
+          </div>
+          <p className="text-[#86868b] leading-relaxed">Nền tảng tạo content chuyên nghiệp.</p>
+        </div>
+        <div>
+          <p className="font-semibold mb-1.5 text-[#86868b] uppercase tracking-wider">Liên kết</p>
+          <div className="space-y-1 text-[#a1a1a6]">
+            <p className="hover:text-white cursor-pointer transition-colors">Trang chủ</p>
+            <p className="hover:text-white cursor-pointer transition-colors">Blog</p>
+            <p className="hover:text-white cursor-pointer transition-colors">Sản phẩm</p>
+            <p className="hover:text-white cursor-pointer transition-colors">Liên hệ</p>
+          </div>
+        </div>
+        <div>
+          <p className="font-semibold mb-1.5 text-[#86868b] uppercase tracking-wider">Pháp lý</p>
+          <div className="space-y-1 text-[#a1a1a6]">
+            <p className="hover:text-white cursor-pointer transition-colors">Chính sách</p>
+            <p className="hover:text-white cursor-pointer transition-colors">Điều khoản</p>
+            <p className="hover:text-white cursor-pointer transition-colors">Cookie</p>
+          </div>
+        </div>
+      </div>
+      <div className="border-t border-[#3d3d3f] pt-2 flex items-center justify-between">
+        <p className="text-[9px] text-[#86868b]">© 2026 {brandName}. All rights reserved.</p>
+        <div className="flex items-center gap-2">
+          {['𝕏', 'f', 'in'].map((s) => (
+            <div key={s} className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-[#86868b] hover:text-white border border-[#3d3d3f] hover:border-[#86868b] cursor-pointer transition-colors">
+              {s}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -965,19 +1140,17 @@ function SEOScoreBadge({ score, themeColor }: { score: number; themeColor: strin
 // Website/Blog Mockup - Modern browser with article preview
 function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating, seoData, channelImage }: Omit<ChannelMockupFrameProps, 'channel'>) {
   const [liked, setLiked] = useState(false);
+  const [bookmarked, setBookmarked] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const domain = brandName.toLowerCase().replace(/\s+/g, '') + '.com';
   
-  // Ensure content is in Markdown format (auto-converts HTML if detected)
   const formattedContent = useMemo(() => ensureMarkdownFormat(content), [content]);
   
-  // Use SEO data for reading time if available
   const wordCount = seoData?.word_count || formattedContent.split(/\s+/).length;
   const readTime = seoData?.reading_time_minutes || Math.max(1, Math.ceil(wordCount / 200));
   const themeColor = primaryColor || '#3b82f6';
   
-  // Calculate simple SEO score based on available data
   const seoScore = useMemo(() => {
     if (!seoData) return 0;
     let score = 0;
@@ -992,7 +1165,6 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
     return Math.min(100, score);
   }, [seoData, wordCount]);
 
-  // Handle scroll progress
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     const scrollHeight = el.scrollHeight - el.clientHeight;
@@ -1004,38 +1176,54 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
   
   return (
     <div className="bg-[#f5f5f7] dark:bg-[#1c1c1e] rounded-xl overflow-hidden shadow-2xl border border-[#d2d2d7] dark:border-[#3d3d3f] font-['Inter',system-ui,sans-serif]">
-      {/* Browser Chrome */}
-      <div className="bg-gradient-to-b from-[#e8e8ed] to-[#dedee3] dark:from-[#3d3d3f] dark:to-[#2c2c2e] px-3 py-2.5 flex items-center gap-3">
-        {/* Traffic lights */}
+      {/* Browser Chrome with Tab */}
+      <div className="bg-gradient-to-b from-[#e8e8ed] to-[#dedee3] dark:from-[#3d3d3f] dark:to-[#2c2c2e] px-3 py-2 flex items-center gap-3">
         <div className="flex gap-2">
-          <div className="w-3 h-3 rounded-full bg-[#ff5f57] hover:brightness-90 transition cursor-pointer shadow-sm" />
-          <div className="w-3 h-3 rounded-full bg-[#febc2e] hover:brightness-90 transition cursor-pointer shadow-sm" />
-          <div className="w-3 h-3 rounded-full bg-[#28c840] hover:brightness-90 transition cursor-pointer shadow-sm" />
+          <div className="w-3 h-3 rounded-full bg-[#ff5f57] shadow-sm" />
+          <div className="w-3 h-3 rounded-full bg-[#febc2e] shadow-sm" />
+          <div className="w-3 h-3 rounded-full bg-[#28c840] shadow-sm" />
         </div>
         
-        {/* URL Bar */}
-        <div className="flex-1 bg-white/90 dark:bg-[#1c1c1e]/90 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs shadow-inner border border-[#c5c5c7] dark:border-[#4a4a4c]">
-          <div className="flex items-center gap-1.5 text-[#28c840]">
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-            </svg>
+        {/* Tab */}
+        <div className="flex items-center gap-0.5 flex-1">
+          <div className="bg-white/90 dark:bg-[#1c1c1e]/90 rounded-t-lg px-3 py-1.5 flex items-center gap-2 text-xs border border-b-0 border-[#c5c5c7] dark:border-[#4a4a4c] max-w-[200px]">
+            <div className="w-3 h-3 rounded flex items-center justify-center text-white text-[6px] font-bold shrink-0" style={{ backgroundColor: themeColor }}>
+              {brandName.charAt(0).toUpperCase()}
+            </div>
+            <span className="text-[#1d1d1f] dark:text-white font-medium truncate text-[10px]">{seoData?.seo_title || `${brandName} Blog`}</span>
+            <svg className="w-2.5 h-2.5 text-[#86868b] shrink-0 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </div>
-          <span className="text-[#1d1d1f] dark:text-white font-medium">{domain}</span>
-          <span className="text-[#86868b]">{seoData?.slug_suggestion ? `/${seoData.slug_suggestion}` : '/blog/article'}</span>
+          <button className="w-5 h-5 rounded flex items-center justify-center text-[#86868b] hover:bg-white/50 text-xs">+</button>
         </div>
         
-        {/* Browser actions */}
         <div className="flex items-center gap-1">
-          <button className="p-1.5 hover:bg-white/50 dark:hover:bg-white/10 rounded transition-colors">
+          <button className="p-1.5 hover:bg-white/50 rounded transition-colors">
             <Share2 className="w-3.5 h-3.5 text-[#86868b]" />
-          </button>
-          <button className="p-1.5 hover:bg-white/50 dark:hover:bg-white/10 rounded transition-colors">
-            <MoreHorizontal className="w-3.5 h-3.5 text-[#86868b]" />
           </button>
         </div>
       </div>
       
-      {/* Reading Progress Bar */}
+      {/* URL Bar */}
+      <div className="bg-[#dedee3] dark:bg-[#2c2c2e] px-3 pb-2">
+        <div className="bg-white/90 dark:bg-[#1c1c1e]/90 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs shadow-inner border border-[#c5c5c7] dark:border-[#4a4a4c]">
+          <div className="flex items-center gap-1 text-[#86868b]">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+          </div>
+          <div className="flex-1 flex items-center gap-1.5">
+            <div className="flex items-center gap-1 text-[#28c840]">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <span className="text-[#1d1d1f] dark:text-white font-medium">{domain}</span>
+            <span className="text-[#86868b]">{seoData?.slug_suggestion ? `/blog/${seoData.slug_suggestion}` : '/blog/article'}</span>
+          </div>
+          <Bookmark className={cn("w-3.5 h-3.5 cursor-pointer transition-colors", bookmarked ? "text-yellow-500 fill-yellow-500" : "text-[#86868b]")} onClick={() => setBookmarked(!bookmarked)} />
+        </div>
+      </div>
+      
+      {/* Reading Progress */}
       <div className="h-0.5 bg-[#e5e5e7] dark:bg-[#3d3d3f]">
         <motion.div 
           className="h-full"
@@ -1049,24 +1237,20 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
       {/* Website Content */}
       <div 
         ref={scrollContainerRef}
-        className="bg-white dark:bg-[#1c1c1e] max-h-[450px] overflow-y-auto relative"
+        className="bg-white dark:bg-[#1c1c1e] max-h-[520px] overflow-y-auto relative"
         onScroll={handleScroll}
       >
-        {/* SEO Score Badge */}
         {seoData && seoScore > 0 && (
           <SEOScoreBadge score={seoScore} themeColor={themeColor} />
         )}
         
-        {/* Website Header */}
-        <div className="sticky top-0 z-10 bg-white/95 dark:bg-[#1c1c1e]/95 backdrop-blur-sm border-b border-[#e5e5e7] dark:border-[#3d3d3f] px-4 py-3 flex items-center justify-between">
+        {/* Site Header */}
+        <div className="sticky top-0 z-10 bg-white/95 dark:bg-[#1c1c1e]/95 backdrop-blur-sm border-b border-[#e5e5e7] dark:border-[#3d3d3f] px-4 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             {logoUrl ? (
               <img src={logoUrl} alt={brandName} className="w-7 h-7 rounded-lg object-cover" />
             ) : (
-              <div 
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-xs"
-                style={{ backgroundColor: themeColor }}
-              >
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-xs" style={{ backgroundColor: themeColor }}>
                 {brandName.charAt(0).toUpperCase()}
               </div>
             )}
@@ -1074,186 +1258,197 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
           </div>
           <nav className="hidden sm:flex items-center gap-4 text-xs text-[#86868b]">
             <span className="hover:text-[#1d1d1f] dark:hover:text-white cursor-pointer transition-colors">Trang chủ</span>
-            <span className="hover:text-[#1d1d1f] dark:hover:text-white cursor-pointer transition-colors font-medium" style={{ color: themeColor }}>Blog</span>
-            <span className="hover:text-[#1d1d1f] dark:hover:text-white cursor-pointer transition-colors">Giới thiệu</span>
+            <span className="cursor-pointer font-medium" style={{ color: themeColor }}>Blog</span>
+            <span className="hover:text-[#1d1d1f] dark:hover:text-white cursor-pointer transition-colors">Sản phẩm</span>
             <span className="hover:text-[#1d1d1f] dark:hover:text-white cursor-pointer transition-colors">Liên hệ</span>
           </nav>
+          <button className="px-3 py-1 rounded-full text-[10px] font-semibold text-white" style={{ backgroundColor: themeColor }}>Bắt đầu</button>
         </div>
+        
+        {/* Breadcrumb */}
+        <WebsiteBreadcrumb brandName={brandName} themeColor={themeColor} category={seoData?.focus_keyword} />
         
         {/* Featured Image */}
-        <div 
-          className="h-32 sm:h-40 relative overflow-hidden"
-          style={{ 
-            background: channelImage ? undefined : `linear-gradient(135deg, ${themeColor}20 0%, ${themeColor}40 50%, ${themeColor}20 100%)`
-          }}
-        >
+        <div className="h-36 sm:h-44 relative overflow-hidden" style={{ background: channelImage ? undefined : `linear-gradient(135deg, ${themeColor}15 0%, ${themeColor}30 50%, ${themeColor}15 100%)` }}>
           {channelImage ? (
             <>
-              <img 
-                src={channelImage} 
-                alt="Featured" 
-                className="w-full h-full object-cover"
-              />
-              <div 
-                className="absolute inset-0"
-                style={{ background: `linear-gradient(to bottom, transparent 50%, ${themeColor}30 100%)` }}
-              />
+              <img src={channelImage} alt="Featured" className="w-full h-full object-cover" />
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.5) 100%)' }} />
+              {seoData?.seo_title && (
+                <div className="absolute bottom-3 left-4 right-4">
+                  <h1 className="text-base sm:text-lg font-bold text-white leading-tight drop-shadow-lg">{seoData.seo_title}</h1>
+                </div>
+              )}
             </>
           ) : (
-            <>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <Globe className="w-10 h-10 mx-auto opacity-30" style={{ color: themeColor }} />
-                  <p className="text-xs mt-1 opacity-40" style={{ color: themeColor }}>Featured Image</p>
-                </div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <Globe className="w-10 h-10 mx-auto opacity-20" style={{ color: themeColor }} />
+                <p className="text-xs mt-1 opacity-30 font-medium" style={{ color: themeColor }}>Featured Image</p>
               </div>
-              {/* Decorative pattern */}
-              <div className="absolute inset-0 opacity-10">
-                <div className="absolute top-4 left-4 w-20 h-20 rounded-full border-2" style={{ borderColor: themeColor }} />
-                <div className="absolute bottom-4 right-4 w-16 h-16 rounded-full border-2" style={{ borderColor: themeColor }} />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full border" style={{ borderColor: themeColor }} />
-              </div>
-            </>
+            </div>
           )}
         </div>
         
-        {/* Article Content */}
-        <div className="px-4 sm:px-6 py-4">
-          {/* SEO Title Display */}
-          {seoData?.seo_title && (
-            <h1 className="text-lg sm:text-xl font-bold text-[#1d1d1f] dark:text-white mb-2 leading-tight">
-              {seoData.seo_title}
-            </h1>
-          )}
-          
-          {/* Article Meta */}
-          <div className="flex flex-wrap items-center gap-2 text-xs text-[#86868b] mb-3">
-            <span className="flex items-center gap-1">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              2 Jan, 2026
-            </span>
-            <span className="w-1 h-1 rounded-full bg-[#86868b]" />
-            <span className="flex items-center gap-1">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {readTime} phút đọc
-            </span>
+        {/* Two Column Layout */}
+        <div className="flex">
+          {/* Article Main */}
+          <div className="flex-1 px-4 sm:px-5 py-4 min-w-0">
+            {seoData?.seo_title && !channelImage && (
+              <h1 className="text-lg sm:text-xl font-bold text-[#1d1d1f] dark:text-white mb-2 leading-tight">{seoData.seo_title}</h1>
+            )}
+            
+            {seoData?.meta_description && (
+              <p className="text-xs text-[#86868b] italic mb-2 leading-relaxed line-clamp-2">{seoData.meta_description}</p>
+            )}
+            
+            {/* Author Meta */}
+            <div className="flex flex-wrap items-center gap-2 text-[10px] text-[#86868b] mb-3">
+              <div className="flex items-center gap-1.5">
+                {logoUrl ? (
+                  <img src={logoUrl} alt={brandName} className="w-5 h-5 rounded-full object-cover" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[7px] font-bold" style={{ backgroundColor: themeColor }}>
+                    {brandName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="font-medium text-[#1d1d1f] dark:text-white">{brandName}</span>
+              </div>
+              <span className="w-1 h-1 rounded-full bg-[#c5c5c7]" />
+              <span>2 Jan, 2026</span>
+              <span className="w-1 h-1 rounded-full bg-[#c5c5c7]" />
+              <span>{readTime} phút đọc</span>
+              {wordCount > 0 && (
+                <>
+                  <span className="w-1 h-1 rounded-full bg-[#c5c5c7]" />
+                  <span>{wordCount.toLocaleString()} từ</span>
+                </>
+              )}
+            </div>
+            
+            <SocialShareBar themeColor={themeColor} />
+            
             {seoData?.focus_keyword && (
-              <>
-                <span className="w-1 h-1 rounded-full bg-[#86868b]" />
-                <span 
-                  className="px-2 py-0.5 rounded-full text-white font-medium"
-                  style={{ backgroundColor: themeColor }}
-                >
-                  {seoData.focus_keyword}
+              <div className="mb-3">
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold text-white" style={{ backgroundColor: themeColor }}>
+                  🏷️ {seoData.focus_keyword}
                 </span>
-              </>
+              </div>
             )}
-            {wordCount > 0 && (
-              <>
-                <span className="w-1 h-1 rounded-full bg-[#86868b]" />
-                <span>{wordCount.toLocaleString()} từ</span>
-              </>
+            
+            <div className="h-px bg-gradient-to-r from-transparent via-[#e5e5e7] dark:via-[#3d3d3f] to-transparent mb-4" />
+            
+            {seoData?.heading_structure?.h2s && seoData.heading_structure.h2s.length > 0 && (
+              <ArticleTOC headings={seoData.heading_structure.h2s} themeColor={themeColor} />
             )}
+            
+            {isGenerating ? (
+              <div className="space-y-3 animate-pulse">
+                <div className="h-5 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded-lg w-3/4" />
+                <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-full" />
+                <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-full" />
+                <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-5/6" />
+                <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-4/5" />
+              </div>
+            ) : (
+              <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-[#1d1d1f] dark:text-[#f5f5f7] leading-relaxed">
+                <ReactMarkdown components={{
+                  p: ({ children }) => <p className="mb-3 leading-relaxed text-[13px]">{children}</p>,
+                  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                  em: ({ children }) => <em className="italic">{children}</em>,
+                  ul: ({ children }) => <ul className="list-none space-y-2 my-3 pl-0">{children}</ul>,
+                  li: ({ children }) => <li className="flex items-start gap-2 text-[13px]">{children}</li>,
+                  h1: ({ children }) => <h1 className="text-xl font-bold mb-3">{children}</h1>,
+                  h2: ({ children }) => (
+                    <h2 className="text-base font-bold mb-2 mt-5 pb-1.5 border-b border-[#e5e5e7] dark:border-[#3d3d3f] flex items-center gap-1.5">
+                      <span className="w-1 h-4 rounded-full inline-block" style={{ backgroundColor: themeColor }} />
+                      {children}
+                    </h2>
+                  ),
+                  h3: ({ children }) => <h3 className="text-sm font-semibold mb-2 mt-3">{children}</h3>,
+                  blockquote: ({ children }) => (
+                    <blockquote className="border-l-2 pl-3 my-3 italic text-[#86868b]" style={{ borderColor: themeColor }}>{children}</blockquote>
+                  ),
+                  a: ({ children, href }) => (
+                    <a href={href} className="underline font-medium" style={{ color: themeColor }}>{children}</a>
+                  ),
+                  code: ({ children }) => (
+                    <code className="bg-[#f0f0f2] dark:bg-[#2c2c2e] px-1.5 py-0.5 rounded text-[12px] font-mono">{children}</code>
+                  ),
+                }}>{formattedContent}</ReactMarkdown>
+              </div>
+            )}
+            
+            <ArticleTags keywords={seoData?.secondary_keywords} themeColor={themeColor} />
+            <WebsiteFAQSection faqItems={seoData?.faq_items} themeColor={themeColor} />
           </div>
           
-          {/* Divider */}
-          <div className="h-px bg-gradient-to-r from-transparent via-[#e5e5e7] dark:via-[#3d3d3f] to-transparent mb-4" />
-          
-          {/* Table of Contents */}
-          {seoData?.heading_structure?.h2s && seoData.heading_structure.h2s.length > 0 && (
-            <ArticleTOC headings={seoData.heading_structure.h2s} themeColor={themeColor} />
-          )}
-          
-          {/* Content */}
-          {isGenerating ? (
-            <div className="space-y-3 animate-pulse">
-              <div className="h-5 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded-lg w-3/4" />
-              <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-full" />
-              <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-full" />
-              <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-5/6" />
-              <div className="h-4 bg-[#f0f0f2] dark:bg-[#2c2c2e] rounded w-4/5" />
-            </div>
-          ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-[#1d1d1f] dark:text-[#f5f5f7] leading-relaxed">
-              <ReactMarkdown components={{
-                p: ({ children }) => <p className="mb-3 leading-relaxed">{children}</p>,
-                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                em: ({ children }) => <em className="italic">{children}</em>,
-                ul: ({ children }) => <ul className="list-none space-y-2 my-3 pl-0">{children}</ul>,
-                li: ({ children }) => <li className="flex items-start gap-2">{children}</li>,
-                h1: ({ children }) => <h1 className="text-xl font-bold mb-3">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-lg font-bold mb-2 mt-4 pb-1 border-b border-[#e5e5e7] dark:border-[#3d3d3f]">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-base font-semibold mb-2">{children}</h3>,
-              }}>{formattedContent}</ReactMarkdown>
-            </div>
-          )}
+          {/* Sidebar */}
+          <div className="hidden sm:block w-[140px] shrink-0 px-2 py-4 space-y-3 border-l border-[#e5e5e7] dark:border-[#3d3d3f]">
+            <RelatedPostsSidebar brandName={brandName} themeColor={themeColor} />
+            <NewsletterCTA themeColor={themeColor} />
+          </div>
         </div>
         
         {/* Author Card */}
-        <div className="px-4 sm:px-6 py-4 bg-[#f8f8fa] dark:bg-[#2c2c2e] border-t border-[#e5e5e7] dark:border-[#3d3d3f]">
+        <div className="px-4 sm:px-5 py-4 bg-[#f8f8fa] dark:bg-[#2c2c2e] border-t border-[#e5e5e7] dark:border-[#3d3d3f]">
           <div className="flex items-start gap-3">
             {logoUrl ? (
-              <img src={logoUrl} alt={brandName} className="w-12 h-12 rounded-full object-cover" />
+              <img src={logoUrl} alt={brandName} className="w-10 h-10 rounded-full object-cover" />
             ) : (
-              <div 
-                className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"
-                style={{ backgroundColor: themeColor }}
-              >
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-base" style={{ backgroundColor: themeColor }}>
                 {brandName.charAt(0).toUpperCase()}
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm text-[#1d1d1f] dark:text-white">{brandName}</p>
-              <p className="text-xs text-[#86868b] line-clamp-2 mt-0.5">
-                Theo dõi để cập nhật thêm nội dung chất lượng từ {brandName}
-              </p>
-              <button 
-                className="mt-2 text-xs font-medium transition-colors hover:opacity-80"
-                style={{ color: themeColor }}
-              >
-                Theo dõi →
-              </button>
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-sm text-[#1d1d1f] dark:text-white">{brandName}</p>
+                <Check className="w-3.5 h-3.5 text-white rounded-full p-0.5" style={{ backgroundColor: themeColor }} />
+              </div>
+              <p className="text-[11px] text-[#86868b] line-clamp-2 mt-0.5">Theo dõi để cập nhật nội dung chất lượng từ {brandName}.</p>
+              <div className="flex items-center gap-2 mt-2">
+                <button className="px-3 py-1 rounded-full text-[10px] font-semibold text-white" style={{ backgroundColor: themeColor }}>Theo dõi</button>
+                <button className="px-3 py-1 rounded-full text-[10px] font-medium border border-[#e5e5e7] dark:border-[#3d3d3f] text-[#86868b]">Xem thêm</button>
+              </div>
             </div>
           </div>
         </div>
         
         {/* Engagement Bar */}
-        <div className="px-4 sm:px-6 py-3 border-t border-[#e5e5e7] dark:border-[#3d3d3f] bg-[#fafafa] dark:bg-[#2c2c2e]">
+        <div className="px-4 sm:px-5 py-3 border-t border-[#e5e5e7] dark:border-[#3d3d3f] bg-white dark:bg-[#1c1c1e]">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button 
                 onClick={() => setLiked(!liked)}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 hover:scale-105 active:scale-95",
-                  liked 
-                    ? "bg-red-50 dark:bg-red-900/30 text-red-500" 
-                    : "bg-[#f0f0f2] dark:bg-[#3d3d3f] text-[#86868b] hover:bg-[#e5e5e7] dark:hover:bg-[#4a4a4c]"
+                  "flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-medium transition-all duration-200 hover:scale-105 active:scale-95",
+                  liked ? "text-red-500" : "text-[#86868b]"
                 )}
+                style={{ backgroundColor: liked ? 'rgb(239 68 68 / 0.1)' : '#f0f0f2' }}
               >
-                <Heart className={cn("w-3.5 h-3.5 transition-all", liked && "fill-current")} />
+                <Heart className={cn("w-3.5 h-3.5", liked && "fill-current")} />
                 <span>{liked ? '235' : '234'}</span>
               </button>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[#f0f0f2] dark:bg-[#3d3d3f] text-[#86868b] hover:bg-[#e5e5e7] dark:hover:bg-[#4a4a4c] transition-all duration-200 hover:scale-105 active:scale-95">
+              <button className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-[#f0f0f2] dark:bg-[#3d3d3f] text-[#86868b]">
                 <MessageCircle className="w-3.5 h-3.5" />
                 <span>56</span>
               </button>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-[#f0f0f2] dark:bg-[#3d3d3f] text-[#86868b] hover:bg-[#e5e5e7] dark:hover:bg-[#4a4a4c] transition-all duration-200 hover:scale-105 active:scale-95">
+              <button className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-[#f0f0f2] dark:bg-[#3d3d3f] text-[#86868b]">
+                <Bookmark className={cn("w-3.5 h-3.5", bookmarked && "fill-current text-yellow-500")} />
+                <span>Lưu</span>
+              </button>
+              <button className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-medium bg-[#f0f0f2] dark:bg-[#3d3d3f] text-[#86868b]">
                 <Share2 className="w-3.5 h-3.5" />
-                <span>Chia sẻ</span>
               </button>
             </div>
-            <button 
-              className="px-4 py-1.5 rounded-full text-xs font-semibold text-white transition-all duration-200 hover:scale-105 hover:shadow-lg active:scale-95"
-              style={{ backgroundColor: themeColor }}
-            >
+            <button className="px-3 py-1.5 rounded-full text-[10px] font-semibold text-white" style={{ backgroundColor: themeColor }}>
               Đọc tiếp →
             </button>
           </div>
         </div>
+        
+        {/* Website Footer */}
+        <WebsiteFooter brandName={brandName} themeColor={themeColor} logoUrl={logoUrl} />
       </div>
     </div>
   );
@@ -1262,7 +1457,6 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
 export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
   const { channel, seoData, channelImage, brandName: rawBrandName, ...rest } = props;
   
-  // Normalize brandName to prevent charAt/toLowerCase crashes
   const safeBrandName = typeof rawBrandName === 'string' && rawBrandName.trim() 
     ? rawBrandName.trim() 
     : 'Brand';
