@@ -405,10 +405,11 @@ export default function Account() {
               </div>
             )}
 
-            <Button className="w-full" variant="outline">
+            <Button className="w-full" variant="outline" onClick={() => setUpgradeOpen(true)}>
               <CreditCard className="h-4 w-4 mr-2" />
               Nâng cấp gói
             </Button>
+            <UpgradePlanDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
           </CardContent>
         </Card>
       </div>
