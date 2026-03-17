@@ -597,8 +597,8 @@ export function AdminWorkspacesTab() {
                       <TableCell className="text-center">
                         <Badge variant="secondary" className="font-mono">{filteredTotals.members}</Badge>
                       </TableCell>
-                      <TableCell className="text-center font-semibold text-sm">{filteredTotals.brands}</TableCell>
-                      <TableCell className="text-center font-semibold text-sm">{filteredTotals.contents}</TableCell>
+                      <TableCell className="text-center text-sm text-muted-foreground">{filteredTotals.brands}</TableCell>
+                      <TableCell className="text-center font-semibold text-sm border-l border-border/50">{filteredTotals.contents}</TableCell>
                       <TableCell className="text-center font-semibold text-sm">{filteredTotals.images}</TableCell>
                       <TableCell className="text-center font-bold text-sm text-primary">{filteredTotals.total}</TableCell>
                       <TableCell colSpan={4} />
