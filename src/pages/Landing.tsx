@@ -12,6 +12,7 @@ import {
 import { ScrollProgress } from "@/components/landing/ScrollProgress";
 import { BackToTop } from "@/components/landing/BackToTop";
 import { SalesChatWidget } from "@/components/landing/SalesChatWidget";
+import { SEOHead, LandingSEOSchemas } from "@/components/SEOHead";
 
 export default function Landing() {
   return (
