@@ -12,7 +12,7 @@ import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { EnhancedTopicSuggestion, TopicCategory } from '@/types/topicDiscovery';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 const categoryConfig: Record<TopicCategory, { icon: typeof Leaf; color: string; bgColor: string }> = {
   evergreen: { icon: Leaf, color: 'text-emerald-600', bgColor: 'bg-emerald-500/10' },
@@ -27,11 +27,11 @@ interface TopicQuickAccessProps {
 
 export function TopicQuickAccess({ className }: TopicQuickAccessProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   
   const { 
     suggestions, 
     isLoading,
-    source,
   } = useEnhancedTopicSuggestions({
     contentGoal: 'engagement',
     enabled: true,
@@ -42,7 +42,6 @@ export function TopicQuickAccess({ className }: TopicQuickAccessProps) {
     enabled: true,
   });
 
-  // Get top 3 suggestions
   const topSuggestions = useMemo(() => {
     return suggestions.slice(0, 3);
   }, [suggestions]);
@@ -66,11 +65,11 @@ export function TopicQuickAccess({ className }: TopicQuickAccessProps) {
             <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary/20 to-violet-500/20">
               <Lightbulb className="w-4 h-4 text-primary" />
             </div>
-            <span>Ý tưởng hôm nay</span>
+            <span>{t('app.dashboard.todayIdeas')}</span>
           </div>
           <Link to="/topics">
             <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
-              Xem tất cả
+              {t('app.dashboard.viewAll')}
               <ChevronRight className="w-3.5 h-3.5" />
             </Button>
           </Link>
@@ -86,9 +85,9 @@ export function TopicQuickAccess({ className }: TopicQuickAccessProps) {
         ) : topSuggestions.length === 0 ? (
           <div className="text-center py-6">
             <Sparkles className="w-8 h-8 mx-auto text-muted-foreground/50 mb-2" />
-            <p className="text-sm text-muted-foreground">Chưa có gợi ý</p>
+            <p className="text-sm text-muted-foreground">{t('app.dashboard.noSuggestions')}</p>
             <Button variant="link" size="sm" asChild className="mt-1">
-              <Link to="/topics">Khám phá ngay</Link>
+              <Link to="/topics">{t('app.dashboard.exploreNow')}</Link>
             </Button>
           </div>
         ) : (
@@ -116,7 +115,7 @@ export function TopicQuickAccess({ className }: TopicQuickAccessProps) {
                       </Badge>
                       {topic.scores && (
                         <span className="text-[10px] text-muted-foreground">
-                          Điểm: {Math.round((topic.scores.brandFit + topic.scores.trend) / 2)}
+                          {t('app.dashboard.score')}: {Math.round((topic.scores.brandFit + topic.scores.trend) / 2)}
                         </span>
                       )}
                     </div>
@@ -135,7 +134,7 @@ export function TopicQuickAccess({ className }: TopicQuickAccessProps) {
             
             <Link to="/topics" className="block mt-3">
               <Button variant="outline" size="sm" className="w-full h-8 text-xs gap-1">
-                Khám phá thêm
+                {t('app.dashboard.exploreMore')}
                 <ArrowRight className="w-3.5 h-3.5" />
               </Button>
             </Link>

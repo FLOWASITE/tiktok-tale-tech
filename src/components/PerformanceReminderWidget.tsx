@@ -21,6 +21,7 @@ import {
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { useTranslation } from 'react-i18next';
 
 interface PerformanceReminderWidgetProps {
   className?: string;
@@ -44,6 +45,7 @@ function PendingItemCard({
   onDismiss: () => void;
   onUpdate: () => void;
 }) {
+  const { t } = useTranslation();
   const config = contentTypeConfig[item.contentType];
   const Icon = config.icon;
 
@@ -63,7 +65,7 @@ function PendingItemCard({
           </Badge>
           {item.daysSincePublish >= 3 && (
             <Badge variant="destructive" className="text-[10px] h-5">
-              Quá hạn
+              {t('app.dashboard.overdue')}
             </Badge>
           )}
         </div>
@@ -76,7 +78,7 @@ function PendingItemCard({
           trigger={
             <Button size="sm" variant="default" className="h-7 text-xs gap-1">
               <TrendingUp className="w-3 h-3" />
-              Cập nhật
+              {t('app.dashboard.update')}
             </Button>
           }
         />
@@ -99,6 +101,7 @@ export function PerformanceReminderWidget({
   collapsible = true,
   defaultCollapsed = false,
 }: PerformanceReminderWidgetProps) {
+  const { t } = useTranslation();
   const { pendingItems, isLoading, hasPendingItems, pendingCount, dismissItem, refetch } = usePerformanceReminder();
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
@@ -129,10 +132,10 @@ export function PerformanceReminderWidget({
             </div>
             <div>
               <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                Tất cả đã được cập nhật!
+                {t('app.dashboard.allUpdated')}
               </p>
               <p className="text-xs text-muted-foreground">
-                Không có nội dung nào cần cập nhật hiệu suất
+                {t('app.dashboard.noPerformanceNeeded')}
               </p>
             </div>
           </div>
@@ -147,7 +150,7 @@ export function PerformanceReminderWidget({
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Bell className="w-4 h-4 text-amber-500" />
-            Cập nhật hiệu suất
+            {t('app.dashboard.updatePerformance')}
             <Badge variant="secondary" className="ml-1">
               {pendingCount}
             </Badge>
@@ -168,7 +171,7 @@ export function PerformanceReminderWidget({
           )}
         </div>
         <p className="text-xs text-muted-foreground">
-          Cập nhật hiệu suất để AI học hỏi và đề xuất tốt hơn
+          {t('app.dashboard.updateToLearn')}
         </p>
       </CardHeader>
       
@@ -192,7 +195,7 @@ export function PerformanceReminderWidget({
           
           {hasMore && (
             <p className="text-xs text-center text-muted-foreground mt-3">
-              và {pendingItems.length - maxItems} nội dung khác...
+              {t('app.dashboard.andMore', { count: pendingItems.length - maxItems })}
             </p>
           )}
         </CardContent>

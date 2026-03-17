@@ -11,11 +11,12 @@ import {
   Keyboard
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import type { LucideIcon } from 'lucide-react';
 
 interface QuickAction {
-  title: string;
-  description: string;
+  titleKey: string;
+  descKey: string;
   icon: LucideIcon;
   href: string;
   gradient: string;
@@ -26,8 +27,8 @@ interface QuickAction {
 
 const quickActions: QuickAction[] = [
   { 
-    title: 'Nội dung đa kênh', 
-    description: 'Facebook, Instagram, LinkedIn...',
+    titleKey: 'app.dashboard.multiChannel', 
+    descKey: 'app.dashboard.multiChannelDesc',
     icon: Layers,
     href: '/multichannel',
     gradient: 'from-violet-500 to-purple-600',
@@ -35,8 +36,8 @@ const quickActions: QuickAction[] = [
     shortcutKey: 'n',
   },
   { 
-    title: 'Kịch bản Video', 
-    description: 'TikTok, YouTube Shorts, Reels',
+    titleKey: 'app.dashboard.videoScript', 
+    descKey: 'app.dashboard.videoScriptDesc',
     icon: FileVideo,
     href: '/scripts',
     gradient: 'from-rose-500 to-pink-600',
@@ -44,8 +45,8 @@ const quickActions: QuickAction[] = [
     shortcutKey: 'v',
   },
   { 
-    title: 'Carousel', 
-    description: 'Thiết kế slides hấp dẫn',
+    titleKey: 'app.dashboard.carousel', 
+    descKey: 'app.dashboard.carouselDesc',
     icon: Images,
     href: '/carousel',
     gradient: 'from-cyan-500 to-blue-600',
@@ -53,8 +54,8 @@ const quickActions: QuickAction[] = [
     shortcutKey: 'c',
   },
   { 
-    title: 'Quản lý Brand', 
-    description: 'Brand voice & templates',
+    titleKey: 'app.dashboard.brandManagement', 
+    descKey: 'app.dashboard.brandManagementDesc',
     icon: Bookmark,
     href: '/brands',
     gradient: 'from-amber-500 to-orange-600',
@@ -62,8 +63,8 @@ const quickActions: QuickAction[] = [
     shortcutKey: 'b',
   },
   { 
-    title: 'Tổ chức', 
-    description: 'Thành viên & phân quyền',
+    titleKey: 'app.dashboard.organization', 
+    descKey: 'app.dashboard.organizationDesc',
     icon: Users,
     href: '/organization',
     gradient: 'from-emerald-500 to-teal-600',
@@ -102,11 +103,11 @@ interface QuickActionGridProps {
 
 export function QuickActionGrid({ className }: QuickActionGridProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeydown = (e: KeyboardEvent) => {
-      // Check for Cmd/Ctrl key
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
         const action = quickActions.find(a => a.shortcutKey === e.key.toLowerCase());
         if (action) {
@@ -129,11 +130,11 @@ export function QuickActionGrid({ className }: QuickActionGridProps) {
     >
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-2">
-          Bắt đầu nhanh
+          {t('app.dashboard.quickStart')}
         </h2>
         <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
           <Keyboard className="w-3 h-3" />
-          <span>Phím tắt hoạt động</span>
+          <span>{t('app.dashboard.shortcutsActive')}</span>
         </div>
       </div>
 
@@ -148,18 +149,15 @@ export function QuickActionGrid({ className }: QuickActionGridProps) {
               >
                 <Card className="gradient-card border-border/50 group overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5">
                   <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-                    {/* Icon with gradient */}
                     <div className={`relative w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br ${action.gradient} flex items-center justify-center flex-shrink-0 shadow-lg transition-transform duration-300 group-hover:scale-110`}>
                       <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                      {/* Glow effect */}
                       <div className={`absolute inset-0 rounded-xl bg-gradient-to-br ${action.gradient} blur-lg opacity-0 group-hover:opacity-40 transition-opacity duration-300`} />
                     </div>
 
-                    {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-semibold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors">
-                          {action.title}
+                          {t(action.titleKey)}
                         </p>
                         {action.badge && (
                           <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-primary/10 text-primary">
@@ -168,11 +166,10 @@ export function QuickActionGrid({ className }: QuickActionGridProps) {
                         )}
                       </div>
                       <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                        {action.description}
+                        {t(action.descKey)}
                       </p>
                     </div>
 
-                    {/* Shortcut & Arrow */}
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {action.shortcut && (
                         <kbd className="hidden sm:inline-flex h-5 items-center gap-1 px-1.5 rounded border border-border bg-muted/50 text-[10px] font-mono text-muted-foreground group-hover:border-primary/30 group-hover:bg-primary/5 transition-colors">
