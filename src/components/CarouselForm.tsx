@@ -20,6 +20,7 @@ import {
   DEFAULT_BRAND_GUIDELINE,
 } from '@/types/carousel';
 import { useBrandTemplates, BrandTemplate } from '@/hooks/useBrandTemplates';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { BrandPreviewCard } from '@/components/BrandPreviewCard';
 import { PlatformSelector } from '@/components/carousel/PlatformSelector';
