@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Target, Users, Zap, Heart, Mail, Phone, MapPin, Clock, Facebook, Linkedin, MessageCircle } from "lucide-react";
 import { PublicPageLayout } from "@/components/landing/PublicPageLayout";
 import founderImage from "@/assets/founder-duy-vo.jpg";
+import { SEOHead } from "@/components/SEOHead";
 
 const values = [
   {
