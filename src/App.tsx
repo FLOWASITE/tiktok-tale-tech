@@ -87,6 +87,7 @@ function AppRoutes() {
         <Route path="/careers" element={<Careers />} />
         <Route path="/blog" element={<Blog />} />
         <Route path="/blog/:slug" element={<BlogPost />} />
+        <Route path="/pricing" element={<Pricing />} />
         {/* Redirect all other routes to landing page on landing domain */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
