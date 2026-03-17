@@ -37,6 +37,7 @@ export interface UsageStats {
   scripts: number;
   carousels: number;
   multichannel: number;
+  multichannel_social_posts: number;
   images: number;
   ai_edits: number;
 }
