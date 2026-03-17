@@ -1,62 +1,67 @@
-## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-### Vấn đề
-Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-### Đã sửa (3 files)
-1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
-2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
+# Kế hoạch: Hoàn thiện phân hệ quản lý User
 
----
+## Hiện trạng đã có
+- Danh sách user: search, filter (role/plan), sort, phân trang client-side
+- Tạo user mới (chọn role, plan, gán org)
+- Chi tiết user: orgs, usage, content stats, subscription edit
+- Hành động: Ban/Unban, Delete, Reset password, Reset usage
+- Bulk: Ban hàng loạt, Export CSV
+- Stats: Tổng users, active subs, revenue, usage today
 
-## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
+## Các điểm cần bổ sung (6 module)
 
-### Vấn đề
-AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
+### 1. Bộ lọc nâng cao + Filter trạng thái Banned
+Hiện chỉ filter theo Role và Plan. Thiếu filter theo **trạng thái tài khoản** (Active/Banned) và **khoảng thời gian đăng ký**.
 
-### Đã sửa (3 files)
-1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
-2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
+**Thay đổi:** Thêm Select filter "Trạng thái" (All / Active / Banned) và DateRange filter "Ngày tham gia" vào `AdminUsers.tsx`.
 
----
+### 2. Chỉnh sửa Profile từ Admin
+Hiện admin không thể sửa tên, email user. Chỉ xem được.
 
-## Feature: Regenerate sử dụng Core Content — đã sửa
+**Thay đổi:**
+- `UserDetailSheet.tsx`: Thêm form edit `full_name` với nút Save, gọi `serviceClient.from('profiles').update()`
+- `admin-manage-user/index.ts`: Thêm action `update_profile` (update profiles table + audit log)
 
-### Vấn đề
-Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
+### 3. Quản lý Org từ User Detail
+Hiện UserDetailSheet chỉ hiển thị danh sách org. Không thể **thêm/xóa user khỏi org** hay **đổi role trong org**.
 
-### Đã sửa (1 file)
-1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
+**Thay đổi:**
+- `UserDetailSheet.tsx`: Thêm nút "Thêm vào Org" (dialog chọn org + role), nút "Xóa khỏi Org" và dropdown đổi role cho mỗi org membership
+- `admin-manage-user/index.ts`: Thêm actions `add_to_org`, `remove_from_org`, `update_org_role`
 
----
+### 4. Bulk Actions mở rộng
+Hiện chỉ có Bulk Ban. Thiếu **Bulk Unban**, **Bulk Delete**, **Bulk đổi Plan**.
 
-## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
+**Thay đổi:**
+- `AdminUsers.tsx`: Thay thế `BrandBulkActionsBar` bằng `UserBulkActionsBar` mới với các nút: Ban, Unban, Delete (confirm dialog), Đổi Plan (select plan), Export CSV
+- Tạo component `src/components/admin/UserBulkActionsBar.tsx`
 
-### Vấn đề
-1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
-2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
-3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
+### 5. Audit Log Viewer
+Bảng `admin_audit_logs` đã có nhưng **không có UI** để xem lịch sử hành động admin.
 
-### Đã sửa (4 files)
-1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
-2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
-3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
-4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
+**Thay đổi:**
+- Tạo `src/components/admin/AuditLogPanel.tsx`: Hiển thị danh sách logs với filter theo action type, target user, thời gian. Mỗi entry hiện: Admin nào → Action gì → User nào → Khi nào → Chi tiết
+- Tích hợp vào `AdminUsers.tsx` dưới dạng tab hoặc expandable panel
 
----
+### 6. Bulk Import Users từ CSV
+Hiện chỉ tạo từng user. Thiếu khả năng **import hàng loạt từ file CSV**.
 
-## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
+**Thay đổi:**
+- Tạo `src/components/admin/ImportUsersDialog.tsx`: Upload CSV (email, name, password, role, plan), preview bảng dữ liệu, chọn org gán chung, nút Import với progress bar
+- Gọi `admin-manage-user` action `create_user` tuần tự cho mỗi row, hiển thị kết quả success/failed
 
-### Vấn đề
-Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
+## Tổng hợp files thay đổi
 
-### Đã sửa (6 files + 2 edge functions)
-1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
-2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
-3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
-4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
-5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
-6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
-7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
+| File | Thay đổi |
+|------|----------|
+| `src/pages/AdminUsers.tsx` | Thêm filter Banned/DateRange, tab Audit Log, nút Import CSV |
+| `src/components/admin/UserDetailSheet.tsx` | Edit profile, quản lý org membership |
+| `src/components/admin/UserBulkActionsBar.tsx` | **Mới** - Bulk Unban, Delete, Đổi Plan |
+| `src/components/admin/AuditLogPanel.tsx` | **Mới** - Viewer cho admin_audit_logs |
+| `src/components/admin/ImportUsersDialog.tsx` | **Mới** - CSV import |
+| `supabase/functions/admin-manage-user/index.ts` | Thêm actions: update_profile, add_to_org, remove_from_org, update_org_role |
+
+Không cần migration DB — sử dụng các bảng đã có (`profiles`, `organization_members`, `admin_audit_logs`).
+
