@@ -59,6 +59,5 @@ export async function validateRequest(
     allowed: true,
     planType,
     rateLimitRemaining: rateLimitResult.remaining,
-    quotaRemaining: quotaResult.remaining,
   };
 }
