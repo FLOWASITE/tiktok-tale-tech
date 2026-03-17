@@ -20,6 +20,8 @@ export interface AdminWorkspace {
   brand_count: number;
   content_count: number;
   image_count: number;
+  carousel_count: number;
+  script_count: number;
   subscription: {
     plan_type: string;
     status: string;
