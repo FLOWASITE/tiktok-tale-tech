@@ -303,9 +303,14 @@ export default function Account() {
                     value={isUnlimited ? 0 : Math.min(percentage, 100)} 
                     className="h-2"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Còn lại: {remaining}
-                  </p>
+                   <p className="text-xs text-muted-foreground">
+                     Còn lại: {remaining}
+                   </p>
+                   {'socialPosts' in item && item.socialPosts > 0 && (
+                     <p className="text-xs text-primary font-medium">
+                       📢 {item.socialPosts} bài trên social
+                     </p>
+                   )}
                 </div>
               );
             })}
