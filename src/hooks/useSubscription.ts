@@ -106,6 +106,16 @@ export function useSubscription() {
       }
 
       // Query actual content tables for real counts
+      // First get user's content IDs for image counting
+      const { data: userContents } = await supabase
+        .from("multi_channel_contents")
+        .select("id")
+        .eq("user_id", user.id)
+        .gte("created_at", periodStart)
+        .lte("created_at", periodEnd);
+
+      const contentIds = (userContents || []).map((c: any) => c.id);
+
       const [scriptsRes, carouselsRes, multiRes, imagesRes, aiEditsRes] = await Promise.all([
         supabase
           .from("scripts")
@@ -125,12 +135,13 @@ export function useSubscription() {
           .eq("user_id", user.id)
           .gte("created_at", periodStart)
           .lte("created_at", periodEnd),
-        supabase
-          .from("channel_image_history")
-          .select("*", { count: "exact", head: true })
-          .eq("created_by", user.id)
-          .gte("created_at", periodStart)
-          .lte("created_at", periodEnd),
+        // Count images via content_id join (created_by may be NULL for old records)
+        contentIds.length > 0
+          ? supabase
+              .from("channel_image_history")
+              .select("*", { count: "exact", head: true })
+              .in("content_id", contentIds)
+          : Promise.resolve({ count: 0, data: null, error: null }),
         supabase
           .from("usage_logs")
           .select("*", { count: "exact", head: true })
