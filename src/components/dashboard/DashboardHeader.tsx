@@ -10,6 +10,9 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import { useSubscription } from '@/hooks/useSubscription';
+import { getPlanBadge } from '@/lib/plan-badge';
 
 interface DashboardHeaderProps {
   pendingCount?: number;
