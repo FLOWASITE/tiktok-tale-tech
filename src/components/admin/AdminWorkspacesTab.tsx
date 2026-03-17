@@ -52,7 +52,7 @@ const statusColors: Record<string, string> = {
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("all");
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("current");
   const { members, brands, contentStats, contributions, periodInfo, isLoading } = useAdminWorkspaceDetail(orgId, periodFilter);
 
   const periodLabel = useMemo(() => {
@@ -91,9 +91,6 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
           size="sm"
           className="bg-background border rounded-lg p-0.5"
         >
-          <ToggleGroupItem value="all" className="text-xs px-3 h-7 rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-            Tổng cộng
-          </ToggleGroupItem>
           <ToggleGroupItem value="current" className="text-xs px-3 h-7 rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
             Kỳ này
           </ToggleGroupItem>
@@ -101,7 +98,7 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
             Kỳ trước
           </ToggleGroupItem>
         </ToggleGroup>
-        {periodFilter !== "all" && periodLabel && (
+        {periodLabel && (
           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
             <Calendar className="h-3 w-3" />
             {periodFilter === "current" ? "Kỳ hiện tại" : "Trước"}: {periodLabel}
