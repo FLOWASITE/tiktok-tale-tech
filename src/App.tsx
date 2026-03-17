@@ -68,6 +68,7 @@ import CoreContentPage from "./pages/CoreContentPage";
 import FlowaChatPage from "./pages/FlowaChatPage";
 import Gallery from "./pages/Gallery";
 import PaymentResult from "./pages/PaymentResult";
+import Pricing from "./pages/Pricing";
 
 const queryClient = new QueryClient();
 
@@ -86,6 +87,7 @@ function AppRoutes() {
         <Route path="/careers" element={<Careers />} />
         <Route path="/blog" element={<Blog />} />
         <Route path="/blog/:slug" element={<BlogPost />} />
+        <Route path="/pricing" element={<Pricing />} />
         {/* Redirect all other routes to landing page on landing domain */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -111,6 +113,7 @@ function AppRoutes() {
       <Route path="/auth/google-business/callback" element={<GoogleBusinessCallback />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/payment/result" element={<ProtectedRoute><AppLayout><PaymentResult /></AppLayout></ProtectedRoute>} />
+      <Route path="/pricing" element={<Pricing />} />
       {/* Protected routes */}
       <Route
         path="/"
