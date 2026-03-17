@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { UpgradePlanDialog } from "@/components/UpgradePlanDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useSubscription, type UsageStats } from "@/hooks/useSubscription";
