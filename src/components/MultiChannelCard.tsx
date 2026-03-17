@@ -36,6 +36,7 @@ interface MultiChannelCardProps {
   creatorProfile?: CreatorProfile;
   isLoadingProfile?: boolean;
   index?: number;
+  brandLogoUrl?: string | null;
 }
 
 const channelIcons: Record<Channel, React.ReactNode> = {
