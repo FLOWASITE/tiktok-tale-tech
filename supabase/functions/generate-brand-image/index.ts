@@ -347,6 +347,9 @@ function structuredElementsToPromptText(
 
     // Resolve userId for cost tracking
     const userId = await resolveUserId(req, supabase);
+    if (!userId) {
+      console.warn("[generate-brand-image] WARNING: userId is undefined — image will have NULL created_by!");
+    }
 
     const {
       contentId,
