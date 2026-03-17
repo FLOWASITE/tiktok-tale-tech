@@ -197,7 +197,7 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
                       <span className="font-semibold text-foreground">{b.image_count}</span>
                     </span>
                     <span className="font-bold text-primary text-[10px]" title="Tổng">
-                      = {b.content_count + b.image_count}
+                      {b.content_count + b.image_count}
                     </span>
                   </div>
                 </div>
@@ -218,7 +218,7 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
                   <Wand2 className="h-2.5 w-2.5" />
                   <span className="font-bold text-foreground">{totalImages}</span>
                 </span>
-                <span className="font-bold text-primary">= {totalContent + totalImages}</span>
+                <span className="font-bold text-primary">{totalContent + totalImages}</span>
               </div>
             );
           })()}
@@ -264,7 +264,7 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
                         <span className="font-semibold text-foreground">{c.scriptCount}</span>
                       </span>
                       <span className="font-bold text-primary text-xs" title="Tổng">
-                        = {c.contentCount + c.imageCount + c.carouselCount + c.scriptCount}
+                        {c.contentCount + c.imageCount + c.carouselCount + c.scriptCount}
                       </span>
                     </div>
                   </div>
@@ -296,7 +296,7 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
                   <ScrollText className="h-3 w-3" />
                   <span className="font-bold text-foreground">{tScript}</span>
                 </span>
-                <span className="font-bold text-primary">= {tContent + tImages + tCarousel + tScript}</span>
+                <span className="font-bold text-primary">{tContent + tImages + tCarousel + tScript}</span>
               </div>
             );
           })()}
