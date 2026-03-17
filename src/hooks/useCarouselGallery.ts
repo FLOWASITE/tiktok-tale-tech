@@ -20,6 +20,8 @@ export interface GalleryImage {
   createdByName?: string;
   createdByEmail?: string;
   createdByAvatar?: string;
+  createdByUserId?: string;
+  isOrgMember?: boolean;
   brandName?: string;
   brandLogoUrl?: string;
 }
