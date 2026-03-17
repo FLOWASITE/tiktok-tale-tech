@@ -125,10 +125,16 @@ export function useSubscription() {
           .lte("created_at", periodEnd),
       ]);
 
+      const socialPostsTotal = (multiRes.data || []).reduce(
+        (sum: number, row: any) => sum + (Array.isArray(row.selected_channels) ? row.selected_channels.length : 0),
+        0
+      );
+
       return {
         scripts: scriptsRes.count ?? 0,
         carousels: carouselsRes.count ?? 0,
         multichannel: multiRes.count ?? 0,
+        multichannel_social_posts: socialPostsTotal,
         images: imagesRes.count ?? 0,
         ai_edits: aiEditsRes.count ?? 0,
       };
