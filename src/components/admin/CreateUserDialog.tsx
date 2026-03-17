@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,14 +17,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { UserPlus, Loader2 } from "lucide-react";
+import { UserPlus, Loader2, Building2 } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface CreateUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
+}
+
+interface OrgItem {
+  id: string;
+  name: string;
 }
 
 export function CreateUserDialog({ open, onOpenChange, onCreated }: CreateUserDialogProps) {
@@ -34,6 +41,41 @@ export function CreateUserDialog({ open, onOpenChange, onCreated }: CreateUserDi
   const [role, setRole] = useState("user");
   const [planType, setPlanType] = useState("free");
   const [loading, setLoading] = useState(false);
+
+  const [organizations, setOrganizations] = useState<OrgItem[]>([]);
+  const [selectedOrgIds, setSelectedOrgIds] = useState<string[]>([]);
+  const [orgRole, setOrgRole] = useState("member");
+  const [loadingOrgs, setLoadingOrgs] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      fetchOrganizations();
+    }
+  }, [open]);
+
+  async function fetchOrganizations() {
+    setLoadingOrgs(true);
+    try {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id, name")
+        .order("name");
+      if (error) throw error;
+      setOrganizations(data || []);
+    } catch (err) {
+      console.error("Failed to fetch organizations:", err);
+    } finally {
+      setLoadingOrgs(false);
+    }
+  }
+
+  function toggleOrg(orgId: string) {
+    setSelectedOrgIds((prev) =>
+      prev.includes(orgId)
+        ? prev.filter((id) => id !== orgId)
+        : [...prev, orgId]
+    );
+  }
 
   async function handleCreate() {
     if (!email || !password) {
@@ -55,6 +97,8 @@ export function CreateUserDialog({ open, onOpenChange, onCreated }: CreateUserDi
           full_name: fullName,
           role,
           plan_type: planType,
+          organization_ids: selectedOrgIds,
+          org_role: orgRole,
         },
       });
 
@@ -67,6 +111,8 @@ export function CreateUserDialog({ open, onOpenChange, onCreated }: CreateUserDi
       setFullName("");
       setRole("user");
       setPlanType("free");
+      setSelectedOrgIds([]);
+      setOrgRole("member");
       onOpenChange(false);
       onCreated();
     } catch (err: unknown) {
@@ -78,14 +124,14 @@ export function CreateUserDialog({ open, onOpenChange, onCreated }: CreateUserDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
             Tạo User Mới
           </DialogTitle>
           <DialogDescription>
-            Tạo tài khoản user mới với role và plan tùy chỉnh
+            Tạo tài khoản user mới với role, plan và tổ chức tùy chỉnh
           </DialogDescription>
         </DialogHeader>
 
@@ -144,6 +190,58 @@ export function CreateUserDialog({ open, onOpenChange, onCreated }: CreateUserDi
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Organization selection */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5">
+              <Building2 className="h-4 w-4" />
+              Thêm vào tổ chức
+            </Label>
+            {loadingOrgs ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Đang tải...
+              </div>
+            ) : organizations.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Không có tổ chức nào</p>
+            ) : (
+              <>
+                <ScrollArea className="h-[120px] rounded-md border p-2">
+                  <div className="space-y-2">
+                    {organizations.map((org) => (
+                      <label
+                        key={org.id}
+                        className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5"
+                      >
+                        <Checkbox
+                          checked={selectedOrgIds.includes(org.id)}
+                          onCheckedChange={() => toggleOrg(org.id)}
+                        />
+                        <span className="text-sm truncate">{org.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </ScrollArea>
+                {selectedOrgIds.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">
+                      Role trong org ({selectedOrgIds.length} đã chọn):
+                    </span>
+                    <Select value={orgRole} onValueChange={setOrgRole}>
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="viewer">Người xem</SelectItem>
+                        <SelectItem value="member">Thành viên</SelectItem>
+                        <SelectItem value="admin">Quản trị viên</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
 
