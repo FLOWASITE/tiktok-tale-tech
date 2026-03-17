@@ -30,14 +30,19 @@ function transformDbResponse(data: any): BrandTemplate {
 
 export function BrandProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { currentOrganization, loading: orgLoading } = useOrganizationContext();
+  const { currentOrganization, organizations, loading: orgLoading } = useOrganizationContext();
   const [brands, setBrands] = useState<BrandTemplate[]>([]);
   const [currentBrand, setCurrentBrand] = useState<BrandTemplate | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const fallbackOrganizationId = useMemo(
+    () => currentOrganization?.id ?? organizations[0]?.id ?? null,
+    [currentOrganization?.id, organizations]
+  );
+
   const storageKey = useMemo(
-    () => getStorageKey(currentOrganization?.id),
-    [currentOrganization?.id]
+    () => getStorageKey(fallbackOrganizationId || undefined),
+    [fallbackOrganizationId]
   );
 
   const fetchBrands = useCallback(async () => {
