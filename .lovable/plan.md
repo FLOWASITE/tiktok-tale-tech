@@ -1,92 +1,62 @@
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-# Kế hoạch: Thống kê toàn hệ thống cho Admin (flowasite@gmail.com)
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-## Hiện trạng
+---
 
-Admin Dashboard hiện tại (`/admin/dashboard`) chỉ hiện số liệu tĩnh đơn giản: đếm tổng users, subscriptions, brands, scripts, carousels, multi-channel, industry templates. Không có **thống kê theo thời gian**, **xu hướng tăng trưởng**, hay **phân tích chi tiết hoạt động** của toàn hệ thống.
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-Đã có sẵn:
-- **AI Cost Dashboard** (`/admin/ai` tab Costs) — chi phí AI theo model/user/org
-- **WorkspaceUsageStats** — thống kê theo user/brand trong 1 workspace
-- **Bảng dữ liệu**: `multi_channel_contents`, `channel_image_history`, `scripts`, `carousels`, `usage_logs`, `ai_metrics`, `content_schedules`, `social_connections`, `profiles`, `subscriptions`, `organizations`, `organization_members`
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-## Kế hoạch triển khai
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-### 1. Trang mới: `/admin/analytics` — Admin System Analytics
+---
 
-Tạo trang `AdminAnalytics.tsx` với các section sau:
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-#### Section A: Tổng quan theo thời gian (Time-series Overview)
-- **Bộ lọc**: Chọn khoảng thời gian (7 ngày / 30 ngày / 90 ngày / Tháng này / Tháng trước)
-- **4 KPI cards** với so sánh % thay đổi so với kỳ trước:
-  - Tổng nội dung tạo mới (multi_channel_contents)
-  - Tổng bài Social (sum selected_channels)
-  - Tổng ảnh AI (channel_image_history)
-  - Tổng user mới đăng ký (profiles)
-- **Line chart**: Xu hướng tạo nội dung theo ngày (nội dung + ảnh AI)
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-#### Section B: Thống kê theo Organization
-- **Bảng xếp hạng Organization**: Sort theo tổng hoạt động giảm dần
-  - Tên org | Số thành viên | Nội dung đa kênh | Bài Social | Ảnh AI | Plan
-- Có thể click vào org để xem chi tiết (link tới `/admin/organizations`)
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-#### Section C: Thống kê theo User (Top Users)
-- **Bảng xếp hạng User**: Top 20 user hoạt động nhiều nhất trong kỳ
-  - Avatar | Tên | Email | Org | Nội dung | Bài Social | Ảnh AI | AI Edits
-- Export CSV
+---
 
-#### Section D: Phân bổ theo kênh (Channel Distribution)
-- **Pie/Bar chart**: Phân bổ bài Social theo từng channel (Facebook, Instagram, TikTok, Twitter, Threads, Zalo, Website...)
-- **Pie/Bar chart**: Phân bổ ảnh AI theo channel
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
-#### Section E: Tăng trưởng hệ thống (System Growth)
-- **Stacked area chart**: User mới đăng ký theo ngày/tuần
-- **Bar chart**: Subscription distribution over time (free/starter/pro/enterprise)
-- **Số liệu**: Tổng organizations, active organizations (có hoạt động trong 30 ngày)
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
 
-#### Section F: AI Usage Summary (tóm tắt từ ai_metrics)
-- Tổng requests AI, tổng chi phí, chi phí trung bình/request
-- Top 5 models được dùng nhiều nhất
-- Link sang `/admin/ai` để xem chi tiết
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
 
-### 2. Thay đổi code
+---
 
-**Files mới:**
-- `src/pages/AdminAnalytics.tsx` — Trang chính, layout các section
-- `src/hooks/useAdminSystemAnalytics.ts` — Hook fetch + aggregate dữ liệu từ các bảng
+## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
 
-**Files sửa:**
-- `src/App.tsx` — Thêm route `/admin/analytics`
-- `src/pages/AdminDashboard.tsx` — Thêm link/card "System Analytics" vào Quick Actions và header
+### Vấn đề
+Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
 
-### 3. Truy vấn dữ liệu
-
-Tất cả query sẽ chạy client-side với admin RLS policies đã có sẵn (`has_role`). Các bảng chính:
-
-```text
-multi_channel_contents  → count, selected_channels, user_id, organization_id, created_at
-channel_image_history   → count, channel, content_id
-scripts                 → count by user_id, created_at
-carousels               → count by user_id, created_at
-usage_logs              → count ai_edit by user_id
-ai_metrics              → estimated_cost_usd, model, function_name
-profiles                → id, email, full_name, avatar_url, created_at
-organizations           → id, name
-organization_members    → organization_id, user_id, role
-subscriptions           → user_id, plan_type, status
-```
-
-### 4. Không cần migration
-
-Tất cả dữ liệu đã có sẵn. Admin đã có RLS policies cho phép đọc toàn bộ bảng.
-
-### Ước lượng
-
-- `useAdminSystemAnalytics.ts`: ~200 dòng (hook với nhiều parallel queries)
-- `AdminAnalytics.tsx`: ~400 dòng (6 sections với charts)
-- Sửa `App.tsx`: +10 dòng (route)
-- Sửa `AdminDashboard.tsx`: +5 dòng (link)
-
-Tổng: ~615 dòng code mới, 2 files sửa nhỏ.
-
+### Đã sửa (6 files + 2 edge functions)
+1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
+2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
+3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
+4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
+5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
+6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
+7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
