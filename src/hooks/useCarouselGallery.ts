@@ -16,6 +16,11 @@ export interface GalleryImage {
   createdAt: string;
   source: ImageSource;
   channel?: string;
+  createdByName?: string;
+  createdByEmail?: string;
+  createdByAvatar?: string;
+  brandName?: string;
+  brandLogoUrl?: string;
 }
 
 export function useCarouselGallery() {
