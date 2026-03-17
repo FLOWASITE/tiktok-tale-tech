@@ -19,7 +19,6 @@ import {
 import { useScripts } from '@/hooks/useScripts';
 import { useCarousels } from '@/hooks/useCarousels';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
-import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCampaignIntegration } from '@/hooks/useCampaignIntegration';
 import { 
   CoachmarkProvider, 
