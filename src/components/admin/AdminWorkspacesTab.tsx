@@ -196,6 +196,9 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
                       <Wand2 className="h-2.5 w-2.5" />
                       <span className="font-semibold text-foreground">{b.image_count}</span>
                     </span>
+                    <span className="font-bold text-primary text-[10px]" title="Tổng">
+                      = {b.content_count + b.image_count}
+                    </span>
                   </div>
                 </div>
               ))
