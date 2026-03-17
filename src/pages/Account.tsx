@@ -84,6 +84,7 @@ export default function Account() {
       icon: Layers,
       limit: currentPlanLimits?.monthly_multichannel || 0,
       used: usage?.multichannel || 0,
+      socialPosts: usage?.multichannel_social_posts || 0,
     },
     { 
       key: "images" as const, 
