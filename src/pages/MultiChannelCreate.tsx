@@ -110,6 +110,13 @@ export default function MultiChannelCreate() {
     },
   });
 
+  // Sync with global brand context when it changes (and no local override)
+  useEffect(() => {
+    if (currentBrand && !selectedBrandId) {
+      setSelectedBrandId(currentBrand.id);
+    }
+  }, [currentBrand, selectedBrandId]);
+
   // Auto-select default brand
   useEffect(() => {
     if (templatesLoading || templates.length === 0 || selectedBrandId) return;
