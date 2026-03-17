@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { FileVideo, Images, Layers, Bookmark, TrendingUp, TrendingDown } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { FileVideo, Images, Layers, Bookmark, TrendingUp, TrendingDown, Wand2, Video } from 'lucide-react';
 import { AnimatedNumber, Sparkline } from '@/components/dashboard';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +12,8 @@ interface StatsData {
   carousels: number;
   multiChannel: number;
   brands: number;
+  aiImages: number;
+  aiVideos: number;
 }
 
 interface DashboardStatsProps {
@@ -18,9 +21,19 @@ interface DashboardStatsProps {
   loading?: boolean;
 }
 
-const statsConfig = [
+interface StatConfig {
+  key: keyof StatsData;
+  labelKey: string;
+  icon: typeof FileVideo;
+  gradient: string;
+  bgGlow: string;
+  sparklineColor: string;
+  comingSoon?: boolean;
+}
+
+const statsConfig: StatConfig[] = [
   {
-    key: 'scripts' as const,
+    key: 'scripts',
     labelKey: 'app.dashboard.statsScripts',
     icon: FileVideo,
     gradient: 'from-rose-500 to-pink-500',
@@ -28,7 +41,7 @@ const statsConfig = [
     sparklineColor: 'hsl(350, 89%, 60%)',
   },
   {
-    key: 'carousels' as const,
+    key: 'carousels',
     labelKey: 'app.dashboard.statsCarousels',
     icon: Images,
     gradient: 'from-cyan-500 to-blue-500',
@@ -36,7 +49,7 @@ const statsConfig = [
     sparklineColor: 'hsl(190, 95%, 55%)',
   },
   {
-    key: 'multiChannel' as const,
+    key: 'multiChannel',
     labelKey: 'app.dashboard.statsMultiChannel',
     icon: Layers,
     gradient: 'from-violet-500 to-purple-500',
@@ -44,12 +57,29 @@ const statsConfig = [
     sparklineColor: 'hsl(270, 80%, 60%)',
   },
   {
-    key: 'brands' as const,
+    key: 'brands',
     labelKey: 'app.dashboard.statsBrands',
     icon: Bookmark,
     gradient: 'from-amber-500 to-orange-500',
     bgGlow: 'bg-amber-500/10',
     sparklineColor: 'hsl(35, 92%, 55%)',
+  },
+  {
+    key: 'aiImages',
+    labelKey: 'app.dashboard.statsAiImages',
+    icon: Wand2,
+    gradient: 'from-teal-500 to-emerald-500',
+    bgGlow: 'bg-teal-500/10',
+    sparklineColor: 'hsl(160, 84%, 45%)',
+  },
+  {
+    key: 'aiVideos',
+    labelKey: 'app.dashboard.statsAiVideos',
+    icon: Video,
+    gradient: 'from-indigo-500 to-blue-600',
+    bgGlow: 'bg-indigo-500/10',
+    sparklineColor: 'hsl(230, 70%, 55%)',
+    comingSoon: true,
   },
 ];
 
@@ -81,13 +111,15 @@ export function DashboardStats({ stats, loading }: DashboardStatsProps) {
       carousels: generateSparklineData(stats.carousels),
       multiChannel: generateSparklineData(stats.multiChannel),
       brands: generateSparklineData(stats.brands),
+      aiImages: generateSparklineData(stats.aiImages),
+      aiVideos: generateSparklineData(stats.aiVideos),
     };
   }, [stats]);
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
           <Card key={i} className="gradient-card border-border/50">
             <CardContent className="p-4 sm:p-6">
               <div className="flex justify-between items-start">
@@ -104,7 +136,7 @@ export function DashboardStats({ stats, loading }: DashboardStatsProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
       {statsConfig.map((config, index) => {
         const Icon = config.icon;
         const value = stats[config.key];
@@ -116,9 +148,9 @@ export function DashboardStats({ stats, loading }: DashboardStatsProps) {
             key={config.key}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
+            transition={{ delay: index * 0.08 }}
           >
-            <Card className="gradient-card border-border/50 card-animated group overflow-hidden h-full">
+            <Card className={`gradient-card border-border/50 card-animated group overflow-hidden h-full ${config.comingSoon ? 'opacity-75' : ''}`}>
               <CardContent className="p-4 sm:p-6 relative h-full flex flex-col">
                 <div className={`absolute top-0 right-0 w-20 sm:w-24 h-20 sm:h-24 ${config.bgGlow} rounded-full blur-2xl opacity-30 group-hover:opacity-60 transition-opacity`} />
                 
@@ -127,23 +159,29 @@ export function DashboardStats({ stats, loading }: DashboardStatsProps) {
                     <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
                   
-                  <div className="hidden sm:block">
-                    <Sparkline 
-                      data={data} 
-                      color={config.sparklineColor}
-                      width={64}
-                      height={28}
-                    />
-                  </div>
+                  {config.comingSoon ? (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">
+                      {t('app.dashboard.comingSoon')}
+                    </Badge>
+                  ) : (
+                    <div className="hidden sm:block">
+                      <Sparkline 
+                        data={data} 
+                        color={config.sparklineColor}
+                        width={64}
+                        height={28}
+                      />
+                    </div>
+                  )}
                 </div>
                 
                 <div className="relative mt-auto">
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl sm:text-3xl font-bold text-foreground">
-                      <AnimatedNumber value={value} />
+                      {config.comingSoon ? '—' : <AnimatedNumber value={value} />}
                     </span>
                     
-                    {trend.value > 0 && (
+                    {!config.comingSoon && trend.value > 0 && (
                       <span className={`flex items-center text-xs font-medium ${
                         trend.isPositive ? 'text-emerald-500' : 'text-rose-500'
                       }`}>
