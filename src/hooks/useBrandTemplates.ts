@@ -108,9 +108,9 @@ export function useBrandTemplates() {
         .order('is_default', { ascending: false })
         .order('name', { ascending: true });
 
-      // Filter by user_id OR organization_id
+      // Filter strictly by organization when in a workspace context
       if (currentOrganization) {
-        query = query.or(`user_id.eq.${user.id},organization_id.eq.${currentOrganization.id}`);
+        query = query.eq('organization_id', currentOrganization.id);
       } else {
         query = query.eq('user_id', user.id);
       }
