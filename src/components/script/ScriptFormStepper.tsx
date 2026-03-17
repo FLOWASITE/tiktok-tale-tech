@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useQuickHookSuggestions } from '@/hooks/useQuickHookSuggestions';
 import { useTopicRefinement } from '@/hooks/useTopicRefinement';
 import { BrandPreviewCard } from '@/components/BrandPreviewCard';
