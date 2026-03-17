@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { PublicPageLayout } from "@/components/landing/PublicPageLayout";
 import { toast } from "sonner";
+import { SEOHead } from "@/components/SEOHead";
 
 const contactInfo = [
   {
