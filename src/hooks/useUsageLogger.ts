@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrganizationContext } from "@/contexts/OrganizationContext";
 import { useCallback } from "react";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -7,6 +8,7 @@ type UsageType = "script" | "carousel" | "multichannel" | "image_generation";
 
 export function useUsageLogger() {
   const { user } = useAuth();
+  const { currentOrganization } = useOrganizationContext();
 
   const logUsage = useCallback(
     async (
@@ -25,6 +27,7 @@ export function useUsageLogger() {
           usage_type: usageType,
           reference_id: referenceId || null,
           metadata: metadata || null,
+          organization_id: currentOrganization?.id || null,
         }]);
 
         if (error) {
@@ -34,7 +37,7 @@ export function useUsageLogger() {
         console.error("Error logging usage:", err);
       }
     },
-    [user?.id]
+    [user?.id, currentOrganization?.id]
   );
 
   return { logUsage };

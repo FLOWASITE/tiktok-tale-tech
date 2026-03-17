@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOrganizationContext } from "@/contexts/OrganizationContext";
 
 export interface Subscription {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  organization_id: string;
   plan_type: "free" | "starter" | "pro" | "enterprise";
   status: "active" | "cancelled" | "expired" | "pending" | "trial";
   payment_provider: string | null;
@@ -44,24 +45,29 @@ export interface UsageStats {
   brands: number;
 }
 
+const EMPTY_USAGE: UsageStats = {
+  scripts: 0, carousels: 0, multichannel: 0,
+  multichannel_social_posts: 0, channel_breakdown: {},
+  images: 0, image_channel_breakdown: {}, brands: 0,
+};
+
 export function useSubscription() {
-  const { user } = useAuth();
+  const { currentOrganization } = useOrganizationContext();
+  const orgId = currentOrganization?.id;
 
   const subscriptionQuery = useQuery({
-    queryKey: ["subscription", user?.id],
+    queryKey: ["subscription", orgId],
     queryFn: async (): Promise<Subscription | null> => {
-      if (!user?.id) return null;
-
+      if (!orgId) return null;
       const { data, error } = await supabase
         .from("subscriptions")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("organization_id", orgId)
         .maybeSingle();
-
       if (error) throw error;
       return data as Subscription | null;
     },
-    enabled: !!user?.id,
+    enabled: !!orgId,
   });
 
   const planLimitsQuery = useQuery({
@@ -71,23 +77,18 @@ export function useSubscription() {
         .from("plan_limits")
         .select("*")
         .order("price_monthly", { ascending: true });
-
       if (error) throw error;
       return data as PlanLimit[];
     },
   });
 
   const usageQuery = useQuery({
-    queryKey: ["usage_stats", user?.id],
+    queryKey: ["usage_stats", orgId],
     queryFn: async (): Promise<UsageStats> => {
-      if (!user?.id) {
-        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, brands: 0 };
-      }
+      if (!orgId) return EMPTY_USAGE;
 
       const subscription = subscriptionQuery.data;
-      if (!subscription) {
-        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, brands: 0 };
-      }
+      if (!subscription) return EMPTY_USAGE;
 
       // Auto-renew: if period expired, fallback to current month
       const now = new Date();
@@ -96,7 +97,6 @@ export function useSubscription() {
       let periodEnd: string;
 
       if (periodEndDate < now) {
-        // Period expired — use current month as fallback
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
         periodStart = startOfMonth.toISOString();
@@ -106,37 +106,35 @@ export function useSubscription() {
         periodEnd = subscription.current_period_end;
       }
 
-      // Query actual content tables for real counts
-      // First get user's content IDs for image counting
-      const { data: userContents } = await supabase
+      // Query by organization_id instead of user_id
+      const { data: orgContents } = await supabase
         .from("multi_channel_contents")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("organization_id", orgId)
         .gte("created_at", periodStart)
         .lte("created_at", periodEnd);
 
-      const contentIds = (userContents || []).map((c: any) => c.id);
+      const contentIds = (orgContents || []).map((c: any) => c.id);
 
       const [scriptsRes, carouselsRes, multiRes, imagesRes, brandsRes] = await Promise.all([
         supabase
           .from("scripts")
           .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id)
+          .eq("organization_id", orgId)
           .gte("created_at", periodStart)
           .lte("created_at", periodEnd),
         supabase
           .from("carousels")
           .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id)
+          .eq("organization_id", orgId)
           .gte("created_at", periodStart)
           .lte("created_at", periodEnd),
         supabase
           .from("multi_channel_contents")
           .select("selected_channels", { count: "exact" })
-          .eq("user_id", user.id)
+          .eq("organization_id", orgId)
           .gte("created_at", periodStart)
           .lte("created_at", periodEnd),
-        // Count images via content_id join + fetch channel for breakdown
         contentIds.length > 0
           ? supabase
               .from("channel_image_history")
@@ -146,7 +144,7 @@ export function useSubscription() {
         supabase
           .from("brand_templates")
           .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id),
+          .eq("organization_id", orgId),
       ]);
 
       const channelBreakdown: Record<string, number> = {};
@@ -162,7 +160,7 @@ export function useSubscription() {
         },
         0
       );
-      // Image channel breakdown
+
       const imageChannelBreakdown: Record<string, number> = {};
       if (imagesRes.data && Array.isArray(imagesRes.data)) {
         imagesRes.data.forEach((row: any) => {
@@ -183,7 +181,7 @@ export function useSubscription() {
         brands: brandsRes.count ?? 0,
       };
     },
-    enabled: !!user?.id && !!subscriptionQuery.data,
+    enabled: !!orgId && !!subscriptionQuery.data,
   });
 
   const currentPlanLimits = planLimitsQuery.data?.find(
@@ -206,7 +204,6 @@ export function useSubscription() {
 
     const limit = limitMap[type];
     if (limit === -1) return true;
-
     return (usageQuery.data[type] as number) < limit;
   };
 
@@ -224,11 +221,9 @@ export function useSubscription() {
 
     const limit = limitMap[type];
     if (limit === -1) return Infinity;
-
     return Math.max(0, limit - (usageQuery.data[type] as number));
   };
 
-  // Compute current period for display
   const computeCurrentPeriod = (): { start: string; end: string } => {
     const sub = subscriptionQuery.data;
     if (!sub) {
