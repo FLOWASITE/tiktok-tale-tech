@@ -150,17 +150,13 @@ export function useAdminWorkspaceDetail(orgId: string | null, periodFilter: Peri
 
       // Fetch content counts per brand
       const brandIds = data.map((b) => b.id);
-      const { data: contentRows } = await (supabase
-        .from("multi_channel_contents")
-        .select("brand_template_id")
-        .eq("organization_id", orgId!)
-        .in("brand_template_id", brandIds) as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const contentQ2 = supabase.from("multi_channel_contents").select("brand_template_id").eq("organization_id", orgId!) as any;
+      const { data: contentRows } = await contentQ2.in("brand_template_id", brandIds);
 
-      const { data: imageRows } = await (supabase
-        .from("channel_image_history")
-        .select("brand_template_id")
-        .eq("organization_id", orgId!)
-        .in("brand_template_id", brandIds) as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const imageQ2 = supabase.from("channel_image_history").select("brand_template_id").eq("organization_id", orgId!) as any;
+      const { data: imageRows } = await imageQ2.in("brand_template_id", brandIds);
 
       const contentByBrand: Record<string, number> = {};
       const imageByBrand: Record<string, number> = {};
