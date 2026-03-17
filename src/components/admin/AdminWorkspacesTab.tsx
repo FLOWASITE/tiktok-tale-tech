@@ -197,7 +197,7 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
                       <span className="font-semibold text-foreground">{b.image_count}</span>
                     </span>
                     <span className="font-bold text-primary text-[10px]" title="Tổng">
-                      = {b.content_count + b.image_count}
+                      {b.content_count + b.image_count}
                     </span>
                   </div>
                 </div>
