@@ -238,45 +238,45 @@
     }
   },
   "testimonials": {
-    "badge": "Testimonials",
-    "title": "Khách hàng nói gì",
-    "titleHighlight": "về Flowa",
+    "badge": "Khách hàng nói gì",
+    "title": "Câu chuyện thực tế",
+    "titleHighlight": "từ người dùng Flowa",
     "items": [
       {
-        "quote": "Flowa giúp team tôi tạo content nhanh gấp 5 lần. Chất lượng còn tốt hơn cả khi viết thủ công!",
+        "quote": "Trước đây team tôi mất 3 ngày để viết content cho 1 tuần. Giờ với Flowa, chỉ cần 2 tiếng là xong cả tuần, chất lượng còn đồng nhất hơn.",
         "name": "Nguyễn Minh Anh",
-        "role": "Marketing Director",
-        "company": "TechViet"
+        "role": "Marketing Manager",
+        "company": "Agency sáng tạo"
       },
       {
-        "quote": "Tính năng brand voice management là game-changer. Content luôn đúng tone dù ai trong team tạo.",
+        "quote": "Tính năng Industry Compliance cứu team tôi khỏi bao rắc rối. Content y tế giờ tự động được kiểm tra từ cấm trước khi đăng.",
         "name": "Trần Hoàng Long",
         "role": "Content Lead",
-        "company": "StartupXYZ"
+        "company": "Chuỗi phòng khám"
       },
       {
-        "quote": "Từ 1 bài viết, Flowa tự động tạo 5 phiên bản cho các kênh khác nhau. Tiết kiệm cực kỳ nhiều thời gian!",
+        "quote": "Từ 1 bài blog, Flowa tạo 6 phiên bản cho Facebook, Instagram, TikTok, LinkedIn, Zalo và email. Tiết kiệm 80% thời gian thật sự!",
         "name": "Lê Thu Hương",
         "role": "Social Media Manager",
-        "company": "E-commerce Plus"
+        "company": "E-commerce thời trang"
       },
       {
-        "quote": "ROI sau 3 tháng dùng Flowa tăng 200%. Chi phí thuê thêm content writer giảm đáng kể.",
+        "quote": "Brand voice management giúp 5 người trong team viết content mà khách hàng không phân biệt được ai viết. Đúng tone từ A-Z.",
         "name": "Phạm Văn Đức",
-        "role": "CEO",
-        "company": "Agency Pro"
+        "role": "Founder",
+        "company": "Digital Agency"
       },
       {
-        "quote": "Interface đẹp, dễ dùng. Team onboard chỉ trong 1 buổi là thành thạo hết các tính năng.",
+        "quote": "Giao diện thân thiện, team onboard chỉ trong 30 phút. Carousel AI tạo ra đẹp và đúng brand, khách hàng rất hài lòng.",
         "name": "Võ Thị Mai",
         "role": "Brand Manager",
-        "company": "Beauty Corp"
+        "company": "Chuỗi mỹ phẩm"
       },
       {
-        "quote": "AI của Flowa hiểu tiếng Việt rất tốt, kể cả các cách nói meme, trend. Content tạo ra rất tự nhiên.",
+        "quote": "AI hiểu tiếng Việt rất tự nhiên, kể cả slang và trend mới nhất. Content tạo ra không có cảm giác máy móc.",
         "name": "Đặng Quốc Bảo",
         "role": "Creative Director",
-        "company": "Digital Studio"
+        "company": "Production House"
       }
     ]
   },
