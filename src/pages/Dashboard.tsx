@@ -1,4 +1,7 @@
 import { useMemo, useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { DashboardStats } from '@/components/DashboardStats';
 import { MyAssignments } from '@/components/MyAssignments';
 import { TodaySchedules } from '@/components/TodaySchedules';
