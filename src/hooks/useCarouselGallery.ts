@@ -172,15 +172,20 @@ export function useCarouselGallery() {
   }, [orgId]);
 
   const creatorOptions = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, { label: string; isOrgMember: boolean }>();
     images.forEach(img => {
       if (img.createdByName) {
-        // Use name as both key and label
-        map.set(img.createdByName, img.createdByName);
+        const existing = map.get(img.createdByName);
+        if (!existing) {
+          map.set(img.createdByName, { 
+            label: img.isOrgMember === false ? `${img.createdByName} (QTV)` : img.createdByName,
+            isOrgMember: img.isOrgMember !== false,
+          });
+        }
       }
     });
     return Array.from(map.entries())
-      .map(([key, label]) => ({ key, label }))
+      .map(([key, val]) => ({ key, label: val.label }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [images]);
 
