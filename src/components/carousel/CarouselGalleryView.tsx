@@ -555,6 +555,9 @@ function GalleryImageCard({
                 )}
                 <span className="text-[10px] text-muted-foreground truncate">
                   {img.createdByName || img.createdByEmail?.split('@')[0] || 'Ẩn danh'}
+                  {img.createdByName && img.isOrgMember === false && (
+                    <span className="ml-0.5 text-amber-500 font-medium">(QTV)</span>
+                  )}
                 </span>
                 {img.brandName && (
                   <>
