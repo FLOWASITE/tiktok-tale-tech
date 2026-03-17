@@ -47,6 +47,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
+    if (orgLoading) return;
 
     try {
       let query = supabase
