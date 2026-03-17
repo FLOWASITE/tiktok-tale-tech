@@ -135,8 +135,14 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
         setOrgs(orgRes.data as unknown as OrgMembership[]);
       }
 
+      const socialPostsTotal = (postsRes.data || []).reduce(
+        (sum: number, row: any) => sum + (Array.isArray(row.selected_channels) ? row.selected_channels.length : 0),
+        0
+      );
+
       setContentCounts({
         posts: postsRes.count ?? 0,
+        socialPosts: socialPostsTotal,
         carousels: carouselsRes.count ?? 0,
         images: imagesRes.count ?? 0,
       });
