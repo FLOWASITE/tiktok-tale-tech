@@ -71,7 +71,7 @@ function DashboardContent() {
 
   // Compute pending review count
   const pendingReviewCount = useMemo(() => {
-    return multiChannelContents.filter(c => c.status === 'pending_review').length;
+    return multiChannelContents.filter(c => c.status === 'review').length;
   }, [multiChannelContents]);
 
   const loading = scriptsLoading || carouselsLoading || multiChannelLoading || brandsLoading;
