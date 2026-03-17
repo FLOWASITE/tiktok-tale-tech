@@ -44,9 +44,24 @@ export function UserAvatar() {
   const { createOrganization } = useOrganization();
   const navigate = useNavigate();
   const { isAdmin } = useAdmin();
+  const { i18n } = useTranslation();
   const [createOrgDialogOpen, setCreateOrgDialogOpen] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
   const [creatingOrg, setCreatingOrg] = useState(false);
+
+  const languages = [
+    { code: 'vi', name: 'Tiếng Việt', flag: '🇻🇳' },
+    { code: 'en', name: 'English', flag: '🇺🇸' },
+    { code: 'th', name: 'ภาษาไทย', flag: '🇹🇭' },
+  ];
+  const activeLang = i18n.language?.split('-')[0] || 'vi';
+  const currentLang = languages.find((l) => l.code === activeLang) || languages[0];
+
+  const handleLanguageChange = (langCode: string) => {
+    localStorage.setItem('flowa_lang_override', langCode);
+    localStorage.setItem('i18nextLng', langCode);
+    i18n.changeLanguage(langCode);
+  };
 
   const handleSignOut = async () => {
     await signOut();
