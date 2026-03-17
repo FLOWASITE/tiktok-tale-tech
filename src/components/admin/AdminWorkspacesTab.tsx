@@ -52,7 +52,7 @@ const statusColors: Record<string, string> = {
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("all");
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("current");
   const { members, brands, contentStats, contributions, periodInfo, isLoading } = useAdminWorkspaceDetail(orgId, periodFilter);
 
   const periodLabel = useMemo(() => {
