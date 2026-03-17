@@ -197,6 +197,13 @@ export default function Account() {
 
   const usageItems = [
     { 
+      key: "brands" as const, 
+      label: "Thương hiệu", 
+      icon: Building2,
+      limit: currentPlanLimits?.monthly_brands || 0,
+      used: usage?.brands || 0,
+    },
+    { 
       key: "scripts" as const, 
       label: "Kịch bản Video", 
       icon: FileText,
