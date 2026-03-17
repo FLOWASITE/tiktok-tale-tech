@@ -36,6 +36,8 @@ import { Badge } from '@/components/ui/badge';
 import { ORG_ROLE_LABELS, ORG_ROLE_COLORS } from '@/types/organization';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { useSubscription } from '@/hooks/useSubscription';
+import { getPlanBadge } from '@/lib/plan-badge';
 
 export function UserAvatar() {
   const { user, signOut } = useAuth();
@@ -48,6 +50,8 @@ export function UserAvatar() {
   const [createOrgDialogOpen, setCreateOrgDialogOpen] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
   const [creatingOrg, setCreatingOrg] = useState(false);
+  const { subscription } = useSubscription();
+  const planBadge = getPlanBadge(subscription?.plan_type);
 
   const languages = [
     { code: 'vi', name: 'Tiếng Việt', flag: '🇻🇳' },
@@ -181,6 +185,9 @@ export function UserAvatar() {
                   {currentOrganization.name}
                 </Badge>
               )}
+              <Badge className={`text-[10px] ${planBadge.className}`}>
+                {planBadge.label}
+              </Badge>
               {currentRole && (
                 <Badge className={`text-xs ${ORG_ROLE_COLORS[currentRole]}`}>
                   {ORG_ROLE_LABELS[currentRole]}

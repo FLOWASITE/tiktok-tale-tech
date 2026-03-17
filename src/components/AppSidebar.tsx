@@ -11,6 +11,8 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { ORG_ROLE_LABELS } from '@/types/organization';
 import { useTranslation } from 'react-i18next';
+import { useSubscription } from '@/hooks/useSubscription';
+import { getPlanBadge } from '@/lib/plan-badge';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -127,6 +129,8 @@ function GradientSeparator() {
 export function AppSidebar() {
   const { state } = useSidebar();
   const { isAdmin } = useAdmin();
+  const { subscription } = useSubscription();
+  const planBadge = getPlanBadge(subscription?.plan_type);
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
   const { organizations, currentOrganization, switchOrganization } = useOrganizationContext();
@@ -231,9 +235,9 @@ export function AppSidebar() {
             <div className="overflow-hidden">
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold text-gradient">Flowa</h1>
-                <span className="px-1.5 py-0.5 text-[9px] font-semibold bg-primary/10 text-primary rounded-full border border-primary/20 flex items-center gap-0.5">
+                <span className={`px-1.5 py-0.5 text-[9px] font-semibold rounded-full border flex items-center gap-0.5 ${planBadge.className}`}>
                   <Sparkles className="w-2.5 h-2.5" />
-                  PRO
+                  {planBadge.label}
                 </span>
               </div>
               <p className="text-[10px] text-muted-foreground/70">One Flow. All Content.</p>
