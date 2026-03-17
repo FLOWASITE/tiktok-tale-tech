@@ -238,7 +238,7 @@ export default function MultiChannelCreate() {
           </h1>
         </div>
 
-        {/* Right: Chat toggle + Brand Selector + Close */}
+        {/* Right: Close */}
         <div className="flex items-center gap-2">
           <Button
             variant={showChatPanel ? 'default' : 'outline'}
@@ -258,17 +258,6 @@ export default function MultiChannelCreate() {
               </>
             )}
           </Button>
-          <div className="hidden md:block max-w-[200px]">
-            <CompactBrandSelector
-              templates={templates}
-              isLoading={templatesLoading}
-              disabled={isGenerating}
-              selectedTemplateId={selectedBrandId}
-              selectedVoiceVariantId={selectedVoiceVariantId}
-              onTemplateChange={setSelectedBrandId}
-              onVoiceVariantChange={setSelectedVoiceVariantId}
-            />
-          </div>
           <Button
             variant="ghost"
             size="icon"
