@@ -10,12 +10,12 @@
     "startFree": "Start Free"
   },
   "hero": {
-    "badge": "10,000+ Marketers using",
+    "badge": "500+ Marketers using",
     "problem": "Tired of creating content manually?",
     "titleLine1": "Create 1 Week of Content",
     "titleLine2": "In Just 1 Hour",
-    "description": "Flowa is an AI platform that helps you <strong>create, schedule, and publish</strong> multi-channel content automatically. Save <strong>80% of time</strong> with better quality.",
-    "descPlain": "Flowa is an AI platform that helps you create, schedule, and publish multi-channel content automatically. Save 80% of time with better quality.",
+    "description": "Flowa is Vietnam's first AI platform with built-in <strong>Industry Compliance</strong> — helping you create multi-channel content that's <strong>legally compliant</strong> and brand-consistent.",
+    "descPlain": "Flowa is Vietnam's first AI platform with built-in Industry Compliance — helping you create multi-channel content that's legally compliant and brand-consistent in 10 minutes.",
     "benefits": {
       "noCard": "No credit card required",
       "freeTrial": "14-day free trial",
@@ -30,7 +30,7 @@
       "content": "Content created",
       "satisfaction": "Customer satisfaction"
     },
-    "trustBadge": "Trusted by leading brands in Vietnam",
+    "trustBadge": "Supporting 42+ industries in Vietnam",
     "dashboard": {
       "postsToday": "Posts today",
       "scheduled": "Scheduled",
