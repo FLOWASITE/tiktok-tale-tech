@@ -1,75 +1,62 @@
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-# Bỏ AI Edit khỏi hệ thống quota + Thêm Brands + Cập nhật giá gói
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-## Tổng quan
-Bỏ hoàn toàn AI Edit khỏi hệ thống giới hạn quota (cho dùng unlimited). Thêm `monthly_brands` vào plan_limits. Cập nhật quota và giá theo yêu cầu chính thức.
+---
 
-## Quota chính thức
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-| Metric | Free | Starter | Pro | Enterprise |
-|---|:-:|:-:|:-:|:-:|
-| Brands | 1 | 3 | 10 | 30 |
-| Content đa kênh | 2 | 20 | 60 | 200 |
-| Ảnh AI | 2 | 20 | 60 | 200 |
-| Scripts | 2 | 10 | 30 | 100 |
-| Carousels | 0 | 3 | 10 | 35 |
-| AI Edits | ∞ | ∞ | ∞ | ∞ |
-| Giá/tháng | 0₫ | 299.000₫ | 549.000₫ | 1.499.000₫ |
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-## Thay đổi cần thực hiện
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-### 1. Database migration
-- Thêm cột `monthly_brands INTEGER NOT NULL DEFAULT 1` vào `plan_limits`
+---
 
-### 2. Database data update (INSERT tool)
-- Update 4 gói plan_limits với quota mới, giá mới, `monthly_ai_edits = -1`
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-### 3. Update `can_use_feature` DB function
-- Bỏ case `ai_edit` (hoặc luôn return true)
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-### 4. `src/hooks/useSubscription.ts`
-- Thêm `monthly_brands` vào `PlanLimit` interface
-- Bỏ `ai_edits` khỏi `UsageStats`
-- Thêm đếm brands vào usage query
-- Thêm `brands` vào `isWithinLimits` / `getRemainingUsage`
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-### 5. `src/pages/Account.tsx`
-- Bỏ query `ai_edits` từ usage_logs
-- Thêm "Thương hiệu" vào `usageItems` array
+---
 
-### 6. `src/hooks/useUsageLogger.ts`
-- Bỏ `ai_edit` khỏi `UsageType`
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
-### 7. `supabase/functions/_shared/rate-limiter.ts`
-- Bỏ `ai_edit` khỏi mapping và type unions
-- Bỏ quota check cho ai_edit
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
 
-### 8. `supabase/functions/_shared/pipeline/request-validator.ts`
-- Bỏ quota check `ai_edit` (chỉ giữ rate limit)
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
 
-### 9. `supabase/functions/chat-topics/index.ts`
-- Bỏ `logUsage(..., 'ai_edit', ...)` call
+---
 
-### 10. `src/components/landing/PricingSection.tsx` + i18n
-- Cập nhật giá và features cho 4 gói
+## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
 
-### 11. `src/components/admin/UserDetailSheet.tsx`
-- Bỏ `ai_edit` khỏi label mapping
+### Vấn đề
+Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
 
-## Files thay đổi (11 files)
-
-| File | Thay đổi |
-|---|---|
-| DB Migration | Thêm `monthly_brands` column |
-| DB Data | Update quota + giá 4 gói |
-| `can_use_feature` function | Bỏ ai_edit case |
-| `useSubscription.ts` | Brands + bỏ ai_edits |
-| `Account.tsx` | Usage bar brands, bỏ ai_edit query |
-| `useUsageLogger.ts` | Bỏ ai_edit type |
-| `rate-limiter.ts` | Bỏ ai_edit mapping |
-| `request-validator.ts` | Bỏ quota check ai_edit |
-| `chat-topics/index.ts` | Bỏ logUsage ai_edit |
-| `PricingSection.tsx` + i18n | Giá mới, features mới |
-| `UserDetailSheet.tsx` | Bỏ ai_edit label |
-
+### Đã sửa (6 files + 2 edge functions)
+1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
+2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
+3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
+4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
+5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
+6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
+7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon

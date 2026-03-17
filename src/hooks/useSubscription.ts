@@ -26,6 +26,7 @@ export interface PlanLimit {
   monthly_multichannel: number;
   monthly_images: number;
   monthly_ai_edits: number;
+  monthly_brands: number;
   price_monthly: number;
   price_yearly: number;
   features: string[];
@@ -41,7 +42,7 @@ export interface UsageStats {
   channel_breakdown: Record<string, number>;
   images: number;
   image_channel_breakdown: Record<string, number>;
-  ai_edits: number;
+  brands: number;
 }
 
 export function useSubscription() {
@@ -81,12 +82,12 @@ export function useSubscription() {
     queryKey: ["usage_stats", user?.id],
     queryFn: async (): Promise<UsageStats> => {
       if (!user?.id) {
-        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, ai_edits: 0 };
+        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, brands: 0 };
       }
 
       const subscription = subscriptionQuery.data;
       if (!subscription) {
-        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, ai_edits: 0 };
+        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, brands: 0 };
       }
 
       // Auto-renew: if period expired, fallback to current month
@@ -117,7 +118,7 @@ export function useSubscription() {
 
       const contentIds = (userContents || []).map((c: any) => c.id);
 
-      const [scriptsRes, carouselsRes, multiRes, imagesRes, aiEditsRes] = await Promise.all([
+      const [scriptsRes, carouselsRes, multiRes, imagesRes, brandsRes] = await Promise.all([
         supabase
           .from("scripts")
           .select("*", { count: "exact", head: true })
@@ -144,12 +145,9 @@ export function useSubscription() {
               .in("content_id", contentIds)
           : Promise.resolve({ count: 0, data: null, error: null }),
         supabase
-          .from("usage_logs")
+          .from("brand_templates")
           .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id)
-          .eq("usage_type", "ai_edit")
-          .gte("created_at", periodStart)
-          .lte("created_at", periodEnd),
+          .eq("user_id", user.id),
       ]);
 
       const channelBreakdown: Record<string, number> = {};
@@ -183,7 +181,7 @@ export function useSubscription() {
         channel_breakdown: channelBreakdown,
         images: imagesRes.count ?? 0,
         image_channel_breakdown: imageChannelBreakdown,
-        ai_edits: aiEditsRes.count ?? 0,
+        brands: brandsRes.count ?? 0,
       };
     },
     enabled: !!user?.id && !!subscriptionQuery.data,
@@ -204,7 +202,7 @@ export function useSubscription() {
       multichannel: currentPlanLimits.monthly_multichannel,
       multichannel_social_posts: currentPlanLimits.monthly_multichannel,
       images: currentPlanLimits.monthly_images,
-      ai_edits: currentPlanLimits.monthly_ai_edits,
+      brands: currentPlanLimits.monthly_brands,
     };
 
     const limit = limitMap[type];
@@ -222,7 +220,7 @@ export function useSubscription() {
       multichannel: currentPlanLimits.monthly_multichannel,
       multichannel_social_posts: currentPlanLimits.monthly_multichannel,
       images: currentPlanLimits.monthly_images,
-      ai_edits: currentPlanLimits.monthly_ai_edits,
+      brands: currentPlanLimits.monthly_brands,
     };
 
     const limit = limitMap[type];

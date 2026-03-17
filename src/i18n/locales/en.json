@@ -298,46 +298,57 @@
     "contact": "Contact",
     "popularBadge": "Most Popular",
     "plans": {
-      "starter": {
-        "name": "Starter",
-        "description": "For individuals and freelancers",
+      "free": {
+        "name": "Free",
+        "description": "Try the platform",
         "cta": "Start Free",
         "features": [
-          "100 AI content/month",
-          "3 brand templates",
-          "5 social channels",
-          "Export PDF/Image",
-          "Email support"
+          "1 brand",
+          "2 multi-channel posts/month",
+          "2 AI images/month",
+          "2 video scripts/month",
+          "Unlimited AI Chat"
+        ]
+      },
+      "starter": {
+        "name": "Starter",
+        "description": "For freelancers & small shops",
+        "cta": "Get Starter",
+        "features": [
+          "3 brands",
+          "20 multi-channel posts/month",
+          "20 AI images/month",
+          "10 video scripts/month",
+          "3 carousels/month",
+          "Unlimited AI Chat"
         ]
       },
       "professional": {
-        "name": "Professional",
-        "description": "For small marketing teams",
-        "cta": "Try 14 days free",
+        "name": "Pro",
+        "description": "For SMEs & Marketing teams",
+        "cta": "Get Pro",
         "features": [
-          "Unlimited AI content",
-          "10 brand templates",
-          "All social channels",
-          "Campaign management",
-          "Ad copy creation",
-          "Content calendar",
-          "Priority support",
-          "API access"
+          "10 brands",
+          "60 multi-channel posts/month",
+          "60 AI images/month",
+          "30 video scripts/month",
+          "10 carousels/month",
+          "Unlimited AI Chat",
+          "Priority support"
         ]
       },
       "enterprise": {
         "name": "Enterprise",
-        "description": "For large businesses",
-        "cta": "Contact Sales",
+        "description": "For Agencies & Businesses",
+        "cta": "Get Enterprise",
         "features": [
-          "All Professional features",
-          "Unlimited brand templates",
-          "Custom AI training",
-          "Dedicated account manager",
-          "SSO & Advanced security",
-          "Custom integrations",
-          "SLA guarantee",
-          "On-premise option"
+          "30 brands",
+          "200 multi-channel posts/month",
+          "200 AI images/month",
+          "100 video scripts/month",
+          "35 carousels/month",
+          "Unlimited AI Chat",
+          "Dedicated support"
         ]
       }
     },

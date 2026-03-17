@@ -183,7 +183,7 @@ export function getRateLimitConfig(
 export async function checkUserQuota(
   supabase: any,
   userId: string,
-  usageType: 'script' | 'carousel' | 'multichannel' | 'image_generation' | 'ai_edit'
+  usageType: 'script' | 'carousel' | 'multichannel' | 'image_generation'
 ): Promise<QuotaCheckResult> {
   try {
     // Get user's subscription
@@ -246,7 +246,6 @@ export async function checkUserQuota(
       carousel: 'monthly_carousels',
       multichannel: 'monthly_multichannel',
       image_generation: 'monthly_images',
-      ai_edit: 'monthly_ai_edits',
     };
 
     const limitField = limitMap[usageType];
@@ -296,7 +295,7 @@ export async function checkUserQuota(
 export async function logUsage(
   supabase: any,
   userId: string,
-  usageType: 'script' | 'carousel' | 'multichannel' | 'image_generation' | 'ai_edit',
+  usageType: 'script' | 'carousel' | 'multichannel' | 'image_generation',
   referenceId?: string,
   metadata?: Record<string, any>
 ): Promise<boolean> {
@@ -350,7 +349,7 @@ export async function getUserPlanType(
 export async function checkRateLimitAndQuota(
   supabase: any,
   userId: string,
-  usageType: 'script' | 'carousel' | 'multichannel' | 'image_generation' | 'ai_edit',
+  usageType: 'script' | 'carousel' | 'multichannel' | 'image_generation',
   limitType: 'general' | 'chat' = 'general'
 ): Promise<{
   allowed: boolean;

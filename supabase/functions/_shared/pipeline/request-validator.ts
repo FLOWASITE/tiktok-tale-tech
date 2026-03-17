@@ -48,29 +48,16 @@ export async function validateRequest(
     return { allowed: false, errorResponse: createRateLimitErrorResponse(rateLimitResult, corsHeaders) };
   }
 
-  // Quota check
-  const quotaResult = await checkUserQuota(supabase, userId, 'ai_edit');
+  // Quota check removed for ai_edit (unlimited) - only rate limit applies
 
-  if (!quotaResult.allowed) {
-    logger.warn('Quota exceeded', {
-      userId,
-      usageType: quotaResult.usageType,
-      currentUsage: quotaResult.currentUsage,
-      limit: quotaResult.limit,
-    });
-    return { allowed: false, errorResponse: createQuotaExceededResponse(quotaResult, corsHeaders) };
-  }
-
-  logger.info('Rate limit and quota check passed', {
+  logger.info('Rate limit check passed', {
     planType,
     rateLimitRemaining: rateLimitResult.remaining,
-    quotaRemaining: quotaResult.remaining,
   });
 
   return {
     allowed: true,
     planType,
     rateLimitRemaining: rateLimitResult.remaining,
-    quotaRemaining: quotaResult.remaining,
   };
 }

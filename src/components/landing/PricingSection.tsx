@@ -12,21 +12,27 @@ export function PricingSection() {
 
   const plans = [
     {
-      key: "starter",
+      key: "free",
       monthlyPrice: 0,
       yearlyPrice: 0,
       popular: false,
     },
     {
+      key: "starter",
+      monthlyPrice: 299000,
+      yearlyPrice: 2990000,
+      popular: false,
+    },
+    {
       key: "professional",
-      monthlyPrice: 990000,
-      yearlyPrice: 9900000,
+      monthlyPrice: 549000,
+      yearlyPrice: 5490000,
       popular: true,
     },
     {
       key: "enterprise",
-      monthlyPrice: null,
-      yearlyPrice: null,
+      monthlyPrice: 1499000,
+      yearlyPrice: 14990000,
       popular: false,
     },
   ];
@@ -35,7 +41,7 @@ export function PricingSection() {
 
   return (
     <section id="pricing" className="py-16 lg:py-24 bg-background">
-      <div className="container mx-auto px-4 max-w-5xl">
+      <div className="container mx-auto px-4 max-w-6xl">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -64,7 +70,7 @@ export function PricingSection() {
         </motion.div>
 
         {/* Pricing Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {plans.map((plan, index) => (
             <motion.div
               key={plan.key}
@@ -95,15 +101,15 @@ export function PricingSection() {
 
               {/* Price */}
               <div className="mb-5">
-                {plan.monthlyPrice !== null ? (
+                {plan.monthlyPrice > 0 ? (
                   <>
                     <span className="text-3xl font-extrabold text-foreground">
-                      {formatPrice(isYearly ? Math.round(plan.yearlyPrice! / 12) : plan.monthlyPrice)}
+                      {formatPrice(isYearly ? Math.round(plan.yearlyPrice / 12) : plan.monthlyPrice)}
                     </span>
                     <span className="text-sm text-muted-foreground ml-1">₫/{t("pricing.perMonth")}</span>
                   </>
                 ) : (
-                  <span className="text-2xl font-bold text-foreground">{t("pricing.contact")}</span>
+                  <span className="text-3xl font-extrabold text-foreground">0₫</span>
                 )}
               </div>
 
@@ -123,7 +129,7 @@ export function PricingSection() {
                 variant={plan.popular ? "default" : "outline"}
                 asChild
               >
-                <a href={plan.monthlyPrice !== null ? getAuthUrl('register') : "#"}>
+                <a href={getAuthUrl('register')}>
                   {t(`pricing.plans.${plan.key}.cta`)}
                 </a>
               </Button>

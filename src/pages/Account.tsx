@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   User, Mail, Calendar, Crown, Zap, FileText, 
   Images, Layers, Wand2, Upload, Save, CreditCard, History,
-  Globe, MessageCircle, Youtube, Send
+  Globe, MessageCircle, Youtube, Send, Building2
 } from "lucide-react";
 import { Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
 import { format } from "date-fns";
@@ -95,7 +95,7 @@ export default function Account() {
     queryKey: ["usage_history", user?.id, selectedMonth],
     queryFn: async (): Promise<UsageStats> => {
       if (!user?.id || !selectedPeriod) {
-        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, ai_edits: 0 };
+        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, brands: 0 };
       }
 
       // Get user's content IDs for image counting
@@ -107,7 +107,7 @@ export default function Account() {
         .lte("created_at", selectedPeriod.end);
       const contentIds = (userContents || []).map((c: any) => c.id);
 
-      const [scriptsRes, carouselsRes, multiRes, imagesRes, aiEditsRes] = await Promise.all([
+      const [scriptsRes, carouselsRes, multiRes, imagesRes] = await Promise.all([
         supabase.from("scripts").select("*", { count: "exact", head: true })
           .eq("user_id", user.id).gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
         supabase.from("carousels").select("*", { count: "exact", head: true })
@@ -118,9 +118,6 @@ export default function Account() {
           ? supabase.from("channel_image_history").select("channel", { count: "exact" })
               .in("content_id", contentIds)
           : Promise.resolve({ count: 0, data: null, error: null }),
-        supabase.from("usage_logs").select("*", { count: "exact", head: true })
-          .eq("user_id", user.id).eq("usage_type", "ai_edit")
-          .gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
       ]);
 
       const channelBreakdown: Record<string, number> = {};
@@ -155,7 +152,7 @@ export default function Account() {
         channel_breakdown: channelBreakdown,
         images: imagesRes.count ?? 0,
         image_channel_breakdown: imageChannelBreakdown,
-        ai_edits: aiEditsRes.count ?? 0,
+        brands: 0,
       };
     },
     enabled: !!user?.id && selectedMonth !== "current" && !!selectedPeriod,
@@ -199,6 +196,13 @@ export default function Account() {
   };
 
   const usageItems = [
+    { 
+      key: "brands" as const, 
+      label: "Thương hiệu", 
+      icon: Building2,
+      limit: currentPlanLimits?.monthly_brands || 0,
+      used: usage?.brands || 0,
+    },
     { 
       key: "scripts" as const, 
       label: "Kịch bản Video", 
