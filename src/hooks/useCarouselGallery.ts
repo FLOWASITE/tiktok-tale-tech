@@ -20,6 +20,8 @@ export interface GalleryImage {
   createdByName?: string;
   createdByEmail?: string;
   createdByAvatar?: string;
+  createdByUserId?: string;
+  isOrgMember?: boolean;
   brandName?: string;
   brandLogoUrl?: string;
 }
@@ -76,14 +78,15 @@ export function useCarouselGallery() {
         if (row.multi_channel_contents?.brand_template_id) brandTemplateIds.add(row.multi_channel_contents.brand_template_id);
       });
 
-      // Batch fetch profiles and brands
-      const [profilesRes, brandsRes] = await Promise.all([
+      // Batch fetch profiles, brands, and org members
+      const [profilesRes, brandsRes, membersRes] = await Promise.all([
         userIds.size > 0
           ? supabase.from('profiles').select('id, full_name, email, avatar_url').in('id', Array.from(userIds))
           : Promise.resolve({ data: [], error: null }),
         brandTemplateIds.size > 0
           ? supabase.from('brand_templates').select('id, brand_name, logo_url').in('id', Array.from(brandTemplateIds))
           : Promise.resolve({ data: [], error: null }),
+        supabase.from('organization_members').select('user_id').eq('organization_id', orgId),
       ]);
 
       const profileMap = new Map<string, { name?: string; email?: string; avatar?: string }>();
@@ -96,9 +99,14 @@ export function useCarouselGallery() {
         brandMap.set(b.id, { name: b.brand_name, logoUrl: b.logo_url });
       });
 
+      const orgMemberIds = new Set<string>(
+        (membersRes.data || []).map((m: any) => m.user_id)
+      );
+
       const carouselImages: GalleryImage[] = (carouselRes.data || []).map((row: any) => {
         const userId = row.created_by;
         const profile = userId ? profileMap.get(userId) : undefined;
+        const isMember = userId ? orgMemberIds.has(userId) : true;
         return {
           id: row.id,
           imageUrl: row.image_url,
@@ -113,6 +121,8 @@ export function useCarouselGallery() {
           createdByName: profile?.name,
           createdByEmail: profile?.email,
           createdByAvatar: profile?.avatar,
+          createdByUserId: userId,
+          isOrgMember: isMember,
           brandName: row.carousels?.brand_name || undefined,
         };
       });
@@ -120,6 +130,7 @@ export function useCarouselGallery() {
       const channelImages: GalleryImage[] = (channelRes.data || []).map((row: any) => {
         const userId = row.created_by;
         const profile = userId ? profileMap.get(userId) : undefined;
+        const isMember = userId ? orgMemberIds.has(userId) : true;
         const brandId = row.multi_channel_contents?.brand_template_id;
         const brand = brandId ? brandMap.get(brandId) : undefined;
         return {
@@ -136,6 +147,8 @@ export function useCarouselGallery() {
           createdByName: profile?.name,
           createdByEmail: profile?.email,
           createdByAvatar: profile?.avatar,
+          createdByUserId: userId,
+          isOrgMember: isMember,
           brandName: brand?.name,
           brandLogoUrl: brand?.logoUrl,
         };
@@ -159,15 +172,20 @@ export function useCarouselGallery() {
   }, [orgId]);
 
   const creatorOptions = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, { label: string; isOrgMember: boolean }>();
     images.forEach(img => {
       if (img.createdByName) {
-        // Use name as both key and label
-        map.set(img.createdByName, img.createdByName);
+        const existing = map.get(img.createdByName);
+        if (!existing) {
+          map.set(img.createdByName, { 
+            label: img.isOrgMember === false ? `${img.createdByName} (QTV)` : img.createdByName,
+            isOrgMember: img.isOrgMember !== false,
+          });
+        }
       }
     });
     return Array.from(map.entries())
-      .map(([key, label]) => ({ key, label }))
+      .map(([key, val]) => ({ key, label: val.label }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [images]);
 
