@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
           );
         }
 
-        const shouldSkipDefaultOrg = organization_ids?.length > 0;
+        // Admin tạo user → luôn skip default workspace, admin sẽ tự quản lý việc gán org
         const { data: newUser, error: createError } =
           await serviceClient.auth.admin.createUser({
             email,
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
             email_confirm: true,
             user_metadata: {
               full_name: full_name || "",
-              ...(shouldSkipDefaultOrg && { skip_default_org: true }),
+              skip_default_org: true,
             },
           });
 
