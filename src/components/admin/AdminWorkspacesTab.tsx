@@ -520,6 +520,9 @@ export function AdminWorkspacesTab() {
                             <TableCell className="text-center">
                               <span className="text-sm font-medium">{ws.image_count}</span>
                             </TableCell>
+                            <TableCell className="text-center">
+                              <span className="text-sm font-bold text-primary">{ws.brand_count + ws.content_count + ws.image_count}</span>
+                            </TableCell>
                             <TableCell onClick={(e) => e.stopPropagation()}>
                               <Select
                                 value={plan}
