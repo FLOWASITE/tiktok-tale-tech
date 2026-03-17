@@ -193,7 +193,7 @@ export function useSubscription() {
     (plan) => plan.plan_type === subscriptionQuery.data?.plan_type
   );
 
-  type NumericUsageKey = Exclude<keyof UsageStats, 'channel_breakdown'>;
+  type NumericUsageKey = Exclude<keyof UsageStats, 'channel_breakdown' | 'image_channel_breakdown'>;
 
   const isWithinLimits = (type: NumericUsageKey): boolean => {
     if (!currentPlanLimits || !usageQuery.data) return false;
