@@ -34,17 +34,24 @@ serve(async (req: Request) => {
 
     // Get the authorization header to verify the caller
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       throw new Error("Missing authorization header");
     }
 
-    // Verify the caller is authenticated and is an org admin
+    // Verify the caller is authenticated using getClaims
     const supabaseClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: { user: caller }, error: callerError } = await supabaseClient.auth.getUser();
-    if (callerError || !caller) {
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      console.error("Auth error:", claimsError);
+      throw new Error("Unauthorized");
+    }
+
+    const callerId = claimsData.claims.sub;
+    if (!callerId) {
       throw new Error("Unauthorized");
     }
 
