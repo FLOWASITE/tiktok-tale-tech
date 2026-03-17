@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { User, LogOut, HelpCircle, Check, Shield, Building2, Plus, ExternalLink } from 'lucide-react';
+import { User, LogOut, HelpCircle, Check, Shield, Building2, Plus, ExternalLink, Globe } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
@@ -43,9 +44,24 @@ export function UserAvatar() {
   const { createOrganization } = useOrganization();
   const navigate = useNavigate();
   const { isAdmin } = useAdmin();
+  const { i18n } = useTranslation();
   const [createOrgDialogOpen, setCreateOrgDialogOpen] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
   const [creatingOrg, setCreatingOrg] = useState(false);
+
+  const languages = [
+    { code: 'vi', name: 'Tiếng Việt', flag: '🇻🇳' },
+    { code: 'en', name: 'English', flag: '🇺🇸' },
+    { code: 'th', name: 'ภาษาไทย', flag: '🇹🇭' },
+  ];
+  const activeLang = i18n.language?.split('-')[0] || 'vi';
+  const currentLang = languages.find((l) => l.code === activeLang) || languages[0];
+
+  const handleLanguageChange = (langCode: string) => {
+    localStorage.setItem('flowa_lang_override', langCode);
+    localStorage.setItem('i18nextLng', langCode);
+    i18n.changeLanguage(langCode);
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -265,6 +281,31 @@ export function UserAvatar() {
           
           <DropdownMenuSeparator />
           
+          {/* Language Switcher */}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="gap-2">
+              <Globe className="h-4 w-4" />
+              <span className="flex-1">{currentLang.flag} {currentLang.name}</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent className="w-48 bg-popover">
+                {languages.map((lang) => (
+                  <DropdownMenuItem
+                    key={lang.code}
+                    onClick={() => handleLanguageChange(lang.code)}
+                    className="gap-2"
+                  >
+                    <span>{lang.flag}</span>
+                    <span className="flex-1">{lang.name}</span>
+                    {activeLang === lang.code && (
+                      <Check className="w-4 h-4 text-primary shrink-0" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
+
           <DropdownMenuItem onClick={handleSupportClick}>
             <HelpCircle className="mr-2 h-4 w-4" />
             Trợ giúp
