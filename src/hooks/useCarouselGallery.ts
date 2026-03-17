@@ -85,7 +85,7 @@ export function useCarouselGallery() {
       });
 
       const carouselImages: GalleryImage[] = (carouselRes.data || []).map((row: any) => {
-        const userId = row.created_by || row.carousels?.user_id;
+        const userId = row.created_by;
         const profile = userId ? profileMap.get(userId) : undefined;
         return {
           id: row.id,
