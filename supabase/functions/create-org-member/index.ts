@@ -126,7 +126,7 @@ serve(async (req: Request) => {
         organization_id: organizationId,
         user_id: userId,
         role: role,
-        invited_by: caller.id,
+        invited_by: callerId,
         invited_at: new Date().toISOString(),
         joined_at: new Date().toISOString(),
       });
