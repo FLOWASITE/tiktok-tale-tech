@@ -451,6 +451,10 @@ export function AdminWorkspacesTab() {
               <CardDescription>Quản lý workspace và plan tính phí</CardDescription>
             </div>
             <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={refetch} disabled={isLoading}>
+                <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
               <Button variant="outline" size="sm" onClick={handleCleanup} disabled={isCleaningUp}>
                 {isCleaningUp ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
                 Dọn dẹp WS thừa
