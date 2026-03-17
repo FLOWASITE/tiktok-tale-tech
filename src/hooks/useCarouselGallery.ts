@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export type ImageSource = 'carousel' | 'multichannel';
+export type SortBy = 'newest' | 'oldest' | 'name';
 
 export interface GalleryImage {
   id: string;
@@ -23,11 +24,13 @@ export function useCarouselGallery() {
   const [carouselFilter, setCarouselFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [channelFilter, setChannelFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<SortBy>('newest');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const fetchImages = async () => {
     setLoading(true);
     try {
-      // Fetch both sources in parallel
       const [carouselRes, channelRes] = await Promise.all([
         supabase
           .from('carousel_images')
@@ -68,7 +71,6 @@ export function useCarouselGallery() {
         channel: row.channel,
       }));
 
-      // Merge and sort by date descending
       const all = [...carouselImages, ...channelImages].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
@@ -97,8 +99,25 @@ export function useCarouselGallery() {
     if (carouselFilter !== 'all') {
       result = result.filter(img => img.carouselId === carouselFilter);
     }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(img => img.carouselTitle.toLowerCase().includes(q));
+    }
+    // Sort
+    switch (sortBy) {
+      case 'oldest':
+        result = [...result].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        break;
+      case 'name':
+        result = [...result].sort((a, b) => a.carouselTitle.localeCompare(b.carouselTitle));
+        break;
+      case 'newest':
+      default:
+        // already sorted newest first from fetch
+        break;
+    }
     return result;
-  }, [images, sourceFilter, channelFilter, carouselFilter]);
+  }, [images, sourceFilter, channelFilter, carouselFilter, searchQuery, sortBy]);
 
   const carouselOptions = useMemo(() => {
     const filtered = sourceFilter !== 'all' ? images.filter(i => i.source === sourceFilter) : images;
@@ -127,12 +146,54 @@ export function useCarouselGallery() {
       const { error } = await supabase.from(table).delete().eq('id', imageId);
       if (error) throw error;
       setImages(prev => prev.filter(i => i.id !== imageId));
+      setSelectedIds(prev => { const n = new Set(prev); n.delete(imageId); return n; });
       toast.success('Đã xóa ảnh');
     } catch (err) {
       console.error('Failed to delete image:', err);
       toast.error('Không thể xóa ảnh');
     }
   };
+
+  const bulkDelete = useCallback(async (ids: string[]) => {
+    if (!ids.length) return;
+    const carouselIds = ids.filter(id => images.find(i => i.id === id)?.source === 'carousel');
+    const channelIds = ids.filter(id => images.find(i => i.id === id)?.source === 'multichannel');
+    try {
+      const promises: Promise<any>[] = [];
+      if (carouselIds.length) {
+        promises.push(supabase.from('carousel_images').delete().in('id', carouselIds));
+      }
+      if (channelIds.length) {
+        promises.push(supabase.from('channel_image_history').delete().in('id', channelIds));
+      }
+      const results = await Promise.all(promises);
+      for (const r of results) {
+        if (r.error) throw r.error;
+      }
+      setImages(prev => prev.filter(i => !ids.includes(i.id)));
+      setSelectedIds(new Set());
+      toast.success(`Đã xóa ${ids.length} ảnh`);
+    } catch (err) {
+      console.error('Failed to bulk delete:', err);
+      toast.error('Không thể xóa ảnh hàng loạt');
+    }
+  }, [images]);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(filteredImages.map(i => i.id)));
+  }, [filteredImages]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
 
   return {
     images: filteredImages,
@@ -144,10 +205,19 @@ export function useCarouselGallery() {
     setSourceFilter,
     channelFilter,
     setChannelFilter,
+    searchQuery,
+    setSearchQuery,
+    sortBy,
+    setSortBy,
+    selectedIds,
+    toggleSelect,
+    selectAll,
+    clearSelection,
     carouselOptions,
     channelOptions,
     sourceCounts,
     deleteImage,
+    bulkDelete,
     refetch: fetchImages,
   };
 }
