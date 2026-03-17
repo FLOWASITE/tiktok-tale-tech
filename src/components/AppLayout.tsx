@@ -42,9 +42,9 @@ export function AppLayout({ children }: AppLayoutProps) {
             
             <div className="flex items-center gap-2">
               <QuickSearch />
-              <HelpHeaderButton />
+              <div className="hidden sm:flex"><HelpHeaderButton /></div>
               <NotificationDropdown />
-              <ThemeToggle />
+              <div className="hidden sm:flex"><ThemeToggle /></div>
               <UserAvatar />
             </div>
           </header>

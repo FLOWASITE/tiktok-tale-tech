@@ -44,7 +44,7 @@ export function HeaderBrandSwitcher() {
           {currentBrand ? (
             <>
               <div className="relative">
-                <Avatar className="w-6 h-6 rounded-md border border-border">
+                <Avatar className="w-7 h-7 sm:w-6 sm:h-6 rounded-md border-2" style={{ borderColor: currentBrand.primary_color || 'hsl(var(--border))' }}>
                   {currentBrand.logo_url ? (
                     <AvatarImage src={currentBrand.logo_url} alt={currentBrand.brand_name} />
                   ) : null}
@@ -58,7 +58,7 @@ export function HeaderBrandSwitcher() {
                   </div>
                 )}
               </div>
-              <span className="text-sm font-medium max-w-[100px] truncate hidden sm:inline">
+              <span className="text-sm font-medium max-w-[60px] sm:max-w-[100px] truncate">
                 {currentBrand.brand_name}
               </span>
             </>
