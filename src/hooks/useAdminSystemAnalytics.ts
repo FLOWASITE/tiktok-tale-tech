@@ -80,7 +80,6 @@ export interface UserRanking {
   contentCount: number;
   socialPosts: number;
   aiImages: number;
-  aiEdits: number;
 }
 
 export interface DailyTrend {
