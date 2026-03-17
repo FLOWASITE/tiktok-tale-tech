@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
 
     switch (action) {
       case "create_user": {
-        const { email, password, full_name, role, plan_type } = body;
+        const { email, password, full_name, role, plan_type, organization_ids, org_role } = body;
         if (!email || !password) {
           return new Response(
             JSON.stringify({ error: "Email and password required" }),
@@ -117,7 +117,19 @@ Deno.serve(async (req) => {
             .eq("user_id", newUser.user.id);
         }
 
-        await auditLog("create_user", newUser.user?.id || null, { email, full_name, role, plan_type });
+        // Add user to selected organizations
+        if (organization_ids?.length && newUser.user) {
+          for (const orgId of organization_ids) {
+            await serviceClient.from("organization_members").insert({
+              organization_id: orgId,
+              user_id: newUser.user.id,
+              role: org_role || "member",
+              joined_at: new Date().toISOString(),
+            });
+          }
+        }
+
+        await auditLog("create_user", newUser.user?.id || null, { email, full_name, role, plan_type, organization_ids, org_role });
 
         return new Response(
           JSON.stringify({ success: true, user: newUser.user }),
