@@ -353,97 +353,112 @@ export function AdminWorkspacesTab() {
                     paginated.map((ws) => {
                       const plan = ws.subscription?.plan_type || "free";
                       const status = ws.subscription?.status || "N/A";
+                      const isExpanded = expandedId === ws.id;
                       return (
-                        <TableRow key={ws.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={ws.logo_url || undefined} />
-                                <AvatarFallback className="text-xs" style={{ backgroundColor: ws.primary_color + "20", color: ws.primary_color }}>
-                                  {ws.name.slice(0, 2).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <div className="font-medium text-sm flex items-center gap-1.5">
-                                  {ws.name}
-                                  {isAutoCreated(ws.slug) && (
-                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground border-dashed">
-                                      Tự động
-                                    </Badge>
-                                  )}
+                        <> 
+                          <TableRow
+                            key={ws.id}
+                            className="cursor-pointer hover:bg-muted/50 transition-colors"
+                            onClick={() => setExpandedId(isExpanded ? null : ws.id)}
+                          >
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", isExpanded && "rotate-180")} />
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={ws.logo_url || undefined} />
+                                  <AvatarFallback className="text-xs" style={{ backgroundColor: ws.primary_color + "20", color: ws.primary_color }}>
+                                    {ws.name.slice(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="font-medium text-sm flex items-center gap-1.5">
+                                    {ws.name}
+                                    {isAutoCreated(ws.slug) && (
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground border-dashed">
+                                        Tự động
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">{ws.slug}</div>
                                 </div>
-                                <div className="text-xs text-muted-foreground">{ws.slug}</div>
                               </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {ws.owner ? (
-                              <div>
-                                <div className="text-sm">{ws.owner.full_name || ws.owner.email}</div>
-                                <div className="text-xs text-muted-foreground">{ws.owner.email}</div>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant="secondary" className="font-mono">
-                              {ws.member_count}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={plan}
-                              onValueChange={(v) => updateWorkspacePlan({ organizationId: ws.id, planType: v })}
-                              disabled={isUpdating}
-                            >
-                              <SelectTrigger className="w-[120px] h-7 text-xs">
-                                <Badge className={`${planColors[plan] || planColors.free} border-0 text-xs`}>
-                                  {plan.charAt(0).toUpperCase() + plan.slice(1)}
-                                </Badge>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {["free", "starter", "pro", "business", "enterprise"].map((p) => (
-                                  <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={`${statusColors[status] || statusColors.expired} border-0 text-xs`}>
-                              {status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {format(new Date(ws.created_at), "dd/MM/yyyy", { locale: vi })}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Xóa workspace "{ws.name}"?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Hành động này sẽ xóa workspace và toàn bộ dữ liệu liên quan. Không thể hoàn tác.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Hủy</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => deleteWorkspace(ws.id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  >
-                                    Xóa
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </TableCell>
-                        </TableRow>
+                            </TableCell>
+                            <TableCell>
+                              {ws.owner ? (
+                                <div>
+                                  <div className="text-sm">{ws.owner.full_name || ws.owner.email}</div>
+                                  <div className="text-xs text-muted-foreground">{ws.owner.email}</div>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="secondary" className="font-mono">
+                                {ws.member_count}
+                              </Badge>
+                            </TableCell>
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <Select
+                                value={plan}
+                                onValueChange={(v) => updateWorkspacePlan({ organizationId: ws.id, planType: v })}
+                                disabled={isUpdating}
+                              >
+                                <SelectTrigger className="w-[120px] h-7 text-xs">
+                                  <Badge className={`${planColors[plan] || planColors.free} border-0 text-xs`}>
+                                    {plan.charAt(0).toUpperCase() + plan.slice(1)}
+                                  </Badge>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {["free", "starter", "pro", "business", "enterprise"].map((p) => (
+                                    <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={`${statusColors[status] || statusColors.expired} border-0 text-xs`}>
+                                {status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {format(new Date(ws.created_at), "dd/MM/yyyy", { locale: vi })}
+                            </TableCell>
+                            <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Xóa workspace "{ws.name}"?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Hành động này sẽ xóa workspace và toàn bộ dữ liệu liên quan. Không thể hoàn tác.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => deleteWorkspace(ws.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Xóa
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </TableCell>
+                          </TableRow>
+                          {isExpanded && (
+                            <TableRow key={ws.id + "-detail"}>
+                              <TableCell colSpan={7} className="p-0">
+                                <WorkspaceDetailPanel orgId={ws.id} />
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
                       );
                     })
                   )}
