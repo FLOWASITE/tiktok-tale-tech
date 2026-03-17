@@ -134,7 +134,7 @@ export function useAdminWorkspaceDetail(orgId: string | null, periodFilter: Peri
     queryFn: async (): Promise<WorkspaceBrand[]> => {
       const { data, error } = await supabase
         .from("brand_templates")
-        .select("id, brand_name, logo_url, industry_template_id")
+        .select("id, brand_name, logo_url, industry_template_id, created_at")
         .eq("organization_id", orgId!);
       if (error) throw error;
 
@@ -148,11 +148,37 @@ export function useAdminWorkspaceDetail(orgId: string | null, periodFilter: Peri
         industryMap = new Map((industries || []).map((i) => [i.id, i.code]));
       }
 
+      // Fetch content counts per brand
+      const brandIds = data.map((b) => b.id);
+      const { data: contentRows } = await supabase
+        .from("multi_channel_contents")
+        .select("brand_template_id")
+        .eq("organization_id", orgId!)
+        .in("brand_template_id", brandIds);
+
+      const { data: imageRows } = await supabase
+        .from("channel_image_history")
+        .select("brand_template_id")
+        .eq("organization_id", orgId!)
+        .in("brand_template_id", brandIds);
+
+      const contentByBrand: Record<string, number> = {};
+      const imageByBrand: Record<string, number> = {};
+      (contentRows || []).forEach((r: any) => {
+        if (r.brand_template_id) contentByBrand[r.brand_template_id] = (contentByBrand[r.brand_template_id] || 0) + 1;
+      });
+      (imageRows || []).forEach((r: any) => {
+        if (r.brand_template_id) imageByBrand[r.brand_template_id] = (imageByBrand[r.brand_template_id] || 0) + 1;
+      });
+
       return data.map((b) => ({
         id: b.id,
         brand_name: b.brand_name,
         logo_url: b.logo_url,
         industry: b.industry_template_id ? industryMap.get(b.industry_template_id) || null : null,
+        content_count: contentByBrand[b.id] || 0,
+        image_count: imageByBrand[b.id] || 0,
+        created_at: b.created_at,
       }));
     },
     enabled: !!orgId,
