@@ -38,6 +38,7 @@ function DashboardContent() {
   const { carousels, loading: carouselsLoading } = useCarousels();
   const { contents: multiChannelContents, loading: multiChannelLoading } = useMultiChannelContents();
   const { templates: brands, loading: brandsLoading } = useBrandTemplates();
+  const { allSchedules, fetchAllSchedules } = useContentSchedules();
   const { 
     activeCampaigns, 
     upcomingMilestones, 
@@ -54,6 +55,25 @@ function DashboardContent() {
     skipWelcome,
     closeCompletionModal 
   } = useCoachmark();
+
+  // Fetch all schedules for counts
+  useEffect(() => {
+    fetchAllSchedules();
+  }, [fetchAllSchedules]);
+
+  // Compute today's schedule count
+  const todayScheduleCount = useMemo(() => {
+    return allSchedules.filter(s => {
+      const d = new Date(s.scheduled_at);
+      const now = new Date();
+      return d.toDateString() === now.toDateString() && s.publish_status !== 'cancelled';
+    }).length;
+  }, [allSchedules]);
+
+  // Compute pending review count
+  const pendingReviewCount = useMemo(() => {
+    return multiChannelContents.filter(c => c.status === 'pending_review').length;
+  }, [multiChannelContents]);
 
   const loading = scriptsLoading || carouselsLoading || multiChannelLoading || brandsLoading;
 
