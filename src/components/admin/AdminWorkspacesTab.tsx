@@ -452,10 +452,10 @@ export function AdminWorkspacesTab() {
                     <TableHead>Workspace</TableHead>
                     <TableHead>Owner</TableHead>
                     <TableHead className="text-center">Thành viên</TableHead>
-                    <TableHead className="text-center">Brands</TableHead>
-                    <TableHead className="text-center">Nội dung</TableHead>
+                    <TableHead className="text-center text-muted-foreground">Brands</TableHead>
+                    <TableHead className="text-center border-l border-border/50">Nội dung</TableHead>
                     <TableHead className="text-center">Ảnh</TableHead>
-                    <TableHead className="text-center">Tổng</TableHead>
+                    <TableHead className="text-center font-bold">Tổng</TableHead>
                     <TableHead>Plan</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Ngày tạo</TableHead>
@@ -512,9 +512,9 @@ export function AdminWorkspacesTab() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-center">
-                              <span className="text-sm font-medium">{ws.brand_count}</span>
+                              <span className="text-sm text-muted-foreground">{ws.brand_count}</span>
                             </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell className="text-center border-l border-border/50">
                               <span className="text-sm font-medium">{ws.content_count}</span>
                             </TableCell>
                             <TableCell className="text-center">
@@ -597,8 +597,8 @@ export function AdminWorkspacesTab() {
                       <TableCell className="text-center">
                         <Badge variant="secondary" className="font-mono">{filteredTotals.members}</Badge>
                       </TableCell>
-                      <TableCell className="text-center font-semibold text-sm">{filteredTotals.brands}</TableCell>
-                      <TableCell className="text-center font-semibold text-sm">{filteredTotals.contents}</TableCell>
+                      <TableCell className="text-center text-sm text-muted-foreground">{filteredTotals.brands}</TableCell>
+                      <TableCell className="text-center font-semibold text-sm border-l border-border/50">{filteredTotals.contents}</TableCell>
                       <TableCell className="text-center font-semibold text-sm">{filteredTotals.images}</TableCell>
                       <TableCell className="text-center font-bold text-sm text-primary">{filteredTotals.total}</TableCell>
                       <TableCell colSpan={4} />
