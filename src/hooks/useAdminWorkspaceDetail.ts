@@ -261,7 +261,9 @@ export function useAdminWorkspaceDetail(orgId: string | null, periodFilter: Peri
         if (r.user_id) { allUserIds.add(r.user_id); contentByUser[r.user_id] = (contentByUser[r.user_id] || 0) + 1; }
       });
       (images || []).forEach((r: any) => {
-        if (r.user_id) { allUserIds.add(r.user_id); imageByUser[r.user_id] = (imageByUser[r.user_id] || 0) + 1; }
+        const related = Array.isArray(r.content) ? r.content[0] : r.content;
+        const imageUserId = r.created_by || related?.user_id;
+        if (imageUserId) { allUserIds.add(imageUserId); imageByUser[imageUserId] = (imageByUser[imageUserId] || 0) + 1; }
       });
       (carousels || []).forEach((r: any) => {
         if (r.user_id) { allUserIds.add(r.user_id); carouselByUser[r.user_id] = (carouselByUser[r.user_id] || 0) + 1; }
