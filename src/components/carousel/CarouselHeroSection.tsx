@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Images, Plus, RefreshCw, LayoutGrid, List, CheckCircle2, Clock, TrendingUp } from 'lucide-react';
+import { Images, Plus, RefreshCw, LayoutGrid, List, CheckCircle2, Clock, TrendingUp, GalleryHorizontalEnd } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Carousel } from '@/types/carousel';
 
@@ -8,7 +8,9 @@ interface CarouselHeroSectionProps {
   carousels: Carousel[];
   loading: boolean;
   viewMode: 'grid' | 'list';
+  showGallery?: boolean;
   onViewModeChange: (mode: 'grid' | 'list') => void;
+  onToggleGallery?: () => void;
   onRefresh: () => void;
   onCreateNew: () => void;
 }
