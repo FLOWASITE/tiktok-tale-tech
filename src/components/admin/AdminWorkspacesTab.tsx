@@ -82,7 +82,32 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
 
   return (
     <div className="p-4 bg-muted/30 border-t space-y-4">
-      {/* Stats Grid */}
+      {/* Period Filter */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <ToggleGroup
+          type="single"
+          value={periodFilter}
+          onValueChange={(v) => v && setPeriodFilter(v as PeriodFilter)}
+          size="sm"
+          className="bg-background border rounded-lg p-0.5"
+        >
+          <ToggleGroupItem value="all" className="text-xs px-3 h-7 rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+            Tổng cộng
+          </ToggleGroupItem>
+          <ToggleGroupItem value="current" className="text-xs px-3 h-7 rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+            Kỳ này
+          </ToggleGroupItem>
+          <ToggleGroupItem value="previous" className="text-xs px-3 h-7 rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+            Kỳ trước
+          </ToggleGroupItem>
+        </ToggleGroup>
+        {periodFilter !== "all" && periodLabel && (
+          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
+            {periodFilter === "current" ? "Kỳ hiện tại" : "Trước"}: {periodLabel}
+          </span>
+        )}
+      </div>
       <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
         {[
           { icon: FileText, label: "Bài viết", value: contentStats.multiChannelCount },
