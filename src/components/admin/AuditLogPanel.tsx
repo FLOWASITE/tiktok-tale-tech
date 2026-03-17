@@ -123,10 +123,12 @@ export function AuditLogPanel() {
       })
     : logs;
 
-  const formatDetails = (details: Record<string, unknown> | null) => {
-    if (!details || Object.keys(details).length === 0) return "—";
-    return Object.entries(details)
-      .filter(([, v]) => v !== null && v !== undefined)
+  const formatDetails = (details: unknown) => {
+    if (!details || typeof details !== "object") return "—";
+    const obj = details as Record<string, unknown>;
+    const entries = Object.entries(obj).filter(([, v]) => v !== null && v !== undefined);
+    if (entries.length === 0) return "—";
+    return entries
       .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
       .join(", ");
   };
