@@ -154,9 +154,12 @@ export function useAdminWorkspaceDetail(orgId: string | null, periodFilter: Peri
       const contentQ2 = supabase.from("multi_channel_contents").select("brand_template_id").eq("organization_id", orgId!) as any;
       const { data: contentRows } = await contentQ2.in("brand_template_id", brandIds);
 
+      // Ảnh không có brand_template_id trực tiếp, lấy qua relation content_id -> multi_channel_contents.brand_template_id
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const imageQ2 = supabase.from("channel_image_history").select("brand_template_id").eq("organization_id", orgId!) as any;
-      const { data: imageRows } = await imageQ2.in("brand_template_id", brandIds);
+      const { data: imageRows } = await (supabase
+        .from("channel_image_history")
+        .select("content:multi_channel_contents(brand_template_id)")
+        .eq("organization_id", orgId!) as any);
 
       const contentByBrand: Record<string, number> = {};
       const imageByBrand: Record<string, number> = {};
@@ -164,7 +167,9 @@ export function useAdminWorkspaceDetail(orgId: string | null, periodFilter: Peri
         if (r.brand_template_id) contentByBrand[r.brand_template_id] = (contentByBrand[r.brand_template_id] || 0) + 1;
       });
       (imageRows || []).forEach((r: any) => {
-        if (r.brand_template_id) imageByBrand[r.brand_template_id] = (imageByBrand[r.brand_template_id] || 0) + 1;
+        const related = Array.isArray(r.content) ? r.content[0] : r.content;
+        const brandTemplateId = related?.brand_template_id;
+        if (brandTemplateId) imageByBrand[brandTemplateId] = (imageByBrand[brandTemplateId] || 0) + 1;
       });
 
       return data.map((b) => ({
