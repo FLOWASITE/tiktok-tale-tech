@@ -129,6 +129,8 @@ function GradientSeparator() {
 export function AppSidebar() {
   const { state } = useSidebar();
   const { isAdmin } = useAdmin();
+  const { subscription } = useSubscription();
+  const planBadge = getPlanBadge(subscription?.plan_type);
   const { user, signOut } = useAuth();
   const { profile } = useProfile();
   const { organizations, currentOrganization, switchOrganization } = useOrganizationContext();
