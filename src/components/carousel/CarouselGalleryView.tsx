@@ -279,6 +279,25 @@ export function CarouselGalleryView() {
             </Select>
           )}
 
+          {creatorOptions.length > 0 && (
+            <Select value={creatorFilter} onValueChange={v => { setCreatorFilter(v); setPage(1); }}>
+              <SelectTrigger className="w-[180px] h-9 text-sm border-border/50">
+                <User className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                <SelectValue>
+                  {creatorFilter === 'all' ? 'Tất cả người tạo' : creatorFilter}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả người tạo</SelectItem>
+                {creatorOptions.map(opt => (
+                  <SelectItem key={opt.key} value={opt.key}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <Badge variant="secondary" className="text-xs">
             {images.length} ảnh
           </Badge>
