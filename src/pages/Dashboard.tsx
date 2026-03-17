@@ -238,7 +238,7 @@ function DashboardContent() {
             transition={{ delay: 0.4 }}
             className="lg:col-span-3"
           >
-            <TodayFocus scheduledCount={0} pendingReviewCount={0} todayMilestones={todayMilestones} />
+            <TodayFocus scheduledCount={todayScheduleCount} pendingReviewCount={pendingReviewCount} todayMilestones={todayMilestones} />
           </motion.div>
 
           {/* AI Insights (spans 4 cols on lg) */}
