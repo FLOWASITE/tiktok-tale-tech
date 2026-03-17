@@ -347,7 +347,7 @@ export function AdminWorkspacesTab() {
         brands: acc.brands + ws.brand_count,
         contents: acc.contents + ws.content_count,
         images: acc.images + ws.image_count,
-        total: acc.total + ws.content_count + ws.image_count,
+        total: acc.total + ws.content_count + ws.image_count + ws.carousel_count + ws.script_count,
       }),
       { members: 0, brands: 0, contents: 0, images: 0, total: 0 }
     );
