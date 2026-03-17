@@ -75,12 +75,19 @@ const BlogPostFlowa = () => {
         description="Flowa giúp Marketing Team tạo content cho 12 kênh chỉ trong 10 phút. Tự động hóa 90% quy trình, giữ brand voice nhất quán."
         canonicalPath="/blog/flowa-content-marketing-da-kenh"
         ogType="article"
-        article={{ author: 'Flowa Team', publishDate: '2026-01-15T00:00:00+07:00', section: 'Product', tags: ['content marketing', 'đa kênh', 'AI', 'flowa'] }}
+        ogImage="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&h=630&fit=crop"
+        article={{ author: 'Flowa Team', publishDate: '2026-01-15T00:00:00+07:00', section: 'Product', tags: ['content marketing', 'đa kênh', 'AI', 'flowa'], readingTime: 'PT15M', wordCount: 4500, authorUrl: 'https://flowa.vn', authorJobTitle: 'Content Marketing Team' }}
         breadcrumbs={[
           { name: 'Trang chủ', url: '/' },
           { name: 'Blog', url: '/blog' },
           { name: 'Flowa: Content Marketing Đa Kênh', url: '/blog/flowa-content-marketing-da-kenh' },
         ]}
+      />
+      <TOCSEOSchema
+        items={tableOfContents.map((item) => ({
+          name: item.title,
+          url: `https://tiktok-tale-tech.lovable.app/blog/flowa-content-marketing-da-kenh#${item.id}`,
+        }))}
       />
       {/* Reading Progress */}
       <ReadingProgress />
