@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
+export type QuotaStatus = 'ok' | 'warning' | 'critical';
+
 export interface AdminWorkspace {
   id: string;
   name: string;
@@ -27,6 +29,8 @@ export interface AdminWorkspace {
     status: string;
     current_period_end: string;
   } | null;
+  quota_status: QuotaStatus;
+  quota_highest: { label: string; percentage: number } | null;
 }
 
 export interface WorkspaceStats {
