@@ -109,7 +109,7 @@ function getCritiqueBarColor(score: number): string {
   return 'bg-red-400';
 }
 
-export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete, creatorProfile, isLoadingProfile, index = 0 }: MultiChannelCardProps) {
+export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete, creatorProfile, isLoadingProfile, index = 0, brandLogoUrl }: MultiChannelCardProps) {
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   
