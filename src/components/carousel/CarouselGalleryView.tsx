@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Download, Trash2, Image as ImageIcon, Filter, Layers, Search, CheckSquare, X, ArrowUpDown, Grid2X2, Grid3X3, LayoutGrid, RotateCcw, SearchX } from 'lucide-react';
+import { Download, Trash2, Image as ImageIcon, Filter, Layers, Search, CheckSquare, X, ArrowUpDown, Grid2X2, Grid3X3, LayoutGrid, RotateCcw, SearchX, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
