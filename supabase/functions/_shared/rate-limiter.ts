@@ -246,7 +246,6 @@ export async function checkUserQuota(
       carousel: 'monthly_carousels',
       multichannel: 'monthly_multichannel',
       image_generation: 'monthly_images',
-      ai_edit: 'monthly_ai_edits',
     };
 
     const limitField = limitMap[usageType];
