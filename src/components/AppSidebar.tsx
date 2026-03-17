@@ -1,4 +1,4 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare, GalleryHorizontalEnd } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -150,6 +150,7 @@ export function AppSidebar() {
     { title: 'Nội dung đa kênh', titleKey: 'app.sidebar.multichannel', url: '/multichannel', icon: Layers },
     { title: 'Kịch bản Video', titleKey: 'app.sidebar.videoScript', url: '/scripts', icon: Film },
     { title: 'Carousel', titleKey: 'app.sidebar.carousel', url: '/carousel', icon: Images },
+    { title: 'Gallery', titleKey: 'app.sidebar.gallery', url: '/gallery', icon: GalleryHorizontalEnd },
     { title: 'Ad Copies', titleKey: 'app.sidebar.adCopies', url: '/ad-copies', icon: Megaphone },
   ];
 
