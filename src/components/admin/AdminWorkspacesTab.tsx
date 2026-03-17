@@ -570,7 +570,7 @@ export function AdminWorkspacesTab() {
                               <span className="text-sm font-medium">{ws.image_count}</span>
                             </TableCell>
                             <TableCell className="text-center">
-                              <span className="text-sm font-bold text-primary">{ws.content_count + ws.image_count}</span>
+                              <span className="text-sm font-bold text-primary">{ws.content_count + ws.image_count + ws.carousel_count + ws.script_count}</span>
                             </TableCell>
                             <TableCell onClick={(e) => e.stopPropagation()}>
                               <Select

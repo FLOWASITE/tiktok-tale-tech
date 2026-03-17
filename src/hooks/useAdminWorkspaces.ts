@@ -152,6 +152,8 @@ export function useAdminWorkspaces() {
         brand_count: brandCounts.get(org.id) || 0,
         content_count: contentCounts.get(org.id) || 0,
         image_count: imageCounts.get(org.id) || 0,
+        carousel_count: carouselCounts.get(org.id) || 0,
+        script_count: scriptCounts.get(org.id) || 0,
         subscription: subsMap.has(org.id)
           ? {
               plan_type: subsMap.get(org.id)!.plan_type,
