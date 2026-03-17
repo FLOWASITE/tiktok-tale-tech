@@ -220,12 +220,21 @@
   "socialProof": {
     "badge": "Đánh giá",
     "title": "Được tin dùng bởi",
-    "titleHighlight": "10,000+ Marketer",
-    "subtitle": "Từ startup đến enterprise, Flowa giúp các team marketing tiết kiệm thời gian và tăng hiệu quả.",
+    "titleHighlight": "500+ Marketer",
+    "subtitle": "Từ freelancer đến agency, Flowa giúp các team marketing tiết kiệm thời gian và tăng hiệu quả.",
     "stats": {
       "rating": "Đánh giá trung bình",
       "timeSaved": "Tiết kiệm thời gian",
       "contentIncrease": "Tăng content output"
+    },
+    "metrics": {
+      "users": "Marketer tin dùng",
+      "usersDesc": "Và đang tăng trưởng hàng tháng",
+      "content": "Nội dung đã tạo",
+      "contentDesc": "Trên 12+ kênh marketing",
+      "reviewsDesc": "Từ 200+ đánh giá",
+      "uptime": "Thời gian hoạt động",
+      "uptimeDesc": "Hệ thống ổn định cấp doanh nghiệp"
     }
   },
   "testimonials": {
