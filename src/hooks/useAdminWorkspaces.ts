@@ -186,6 +186,8 @@ export function useAdminWorkspaces() {
     isLoading: workspacesQuery.isLoading,
     updateWorkspacePlan: updateWorkspacePlanMutation.mutate,
     deleteWorkspace: deleteWorkspaceMutation.mutate,
+    cleanupOrphans: cleanupOrphansMutation.mutateAsync,
+    isCleaningUp: cleanupOrphansMutation.isPending,
     isUpdating: updateWorkspacePlanMutation.isPending || deleteWorkspaceMutation.isPending,
     refetch: () => {
       workspacesQuery.refetch();

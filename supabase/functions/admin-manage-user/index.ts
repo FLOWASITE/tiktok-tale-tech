@@ -510,6 +510,82 @@ Deno.serve(async (req) => {
         );
       }
 
+      case "cleanup_orphan_workspaces": {
+        // Find auto-created personal workspaces (slug = UUID format) where owner is member of another org
+        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+        const { data: allOrgs } = await serviceClient
+          .from("organizations")
+          .select("id, name, slug, owner_id");
+
+        if (!allOrgs) {
+          return new Response(
+            JSON.stringify({ success: true, deleted: 0, orphans: [] }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Filter orgs with UUID slugs (auto-created)
+        const autoOrgs = allOrgs.filter((o) => UUID_REGEX.test(o.slug));
+
+        // Get member counts for these orgs
+        const autoOrgIds = autoOrgs.map((o) => o.id);
+        const { data: members } = await serviceClient
+          .from("organization_members")
+          .select("organization_id, user_id")
+          .in("organization_id", autoOrgIds.length > 0 ? autoOrgIds : ["__none__"]);
+
+        const memberCountMap = new Map<string, number>();
+        (members || []).forEach((m: any) => {
+          memberCountMap.set(m.organization_id, (memberCountMap.get(m.organization_id) || 0) + 1);
+        });
+
+        // Check which owners are members of other orgs
+        const ownerIds = [...new Set(autoOrgs.map((o) => o.owner_id).filter(Boolean))];
+        const { data: ownerMemberships } = await serviceClient
+          .from("organization_members")
+          .select("user_id, organization_id")
+          .in("user_id", ownerIds.length > 0 ? ownerIds : ["__none__"]);
+
+        const ownerOtherOrgMap = new Map<string, boolean>();
+        (ownerMemberships || []).forEach((m: any) => {
+          const ownerAutoOrg = autoOrgs.find((o) => o.owner_id === m.user_id);
+          if (ownerAutoOrg && m.organization_id !== ownerAutoOrg.id) {
+            ownerOtherOrgMap.set(m.user_id, true);
+          }
+        });
+
+        // Orphans: auto-created, 1 member (owner), owner belongs to another org
+        const orphans = autoOrgs.filter((o) => {
+          const count = memberCountMap.get(o.id) || 0;
+          return count <= 1 && o.owner_id && ownerOtherOrgMap.has(o.owner_id);
+        });
+
+        if (body.dry_run) {
+          return new Response(
+            JSON.stringify({ success: true, dry_run: true, orphan_count: orphans.length, orphans: orphans.map((o) => ({ id: o.id, name: o.name, slug: o.slug })) }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Delete orphans
+        let deletedCount = 0;
+        for (const orphan of orphans) {
+          const { error: delErr } = await serviceClient
+            .from("organizations")
+            .delete()
+            .eq("id", orphan.id);
+          if (!delErr) deletedCount++;
+        }
+
+        await auditLog("cleanup_orphan_workspaces", null, { deleted_count: deletedCount, orphan_ids: orphans.map((o) => o.id) });
+
+        return new Response(
+          JSON.stringify({ success: true, deleted: deletedCount, orphans: orphans.map((o) => ({ id: o.id, name: o.name })) }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       case "delete_workspace": {
         const { organization_id } = body;
         if (!organization_id) {

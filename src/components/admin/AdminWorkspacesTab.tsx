@@ -257,7 +257,14 @@ export function AdminWorkspacesTab() {
                                 </AvatarFallback>
                               </Avatar>
                               <div>
-                                <div className="font-medium text-sm">{ws.name}</div>
+                                <div className="font-medium text-sm flex items-center gap-1.5">
+                                  {ws.name}
+                                  {isAutoCreated(ws.slug) && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground border-dashed">
+                                      Tự động
+                                    </Badge>
+                                  )}
+                                </div>
                                 <div className="text-xs text-muted-foreground">{ws.slug}</div>
                               </div>
                             </div>
