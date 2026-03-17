@@ -326,7 +326,7 @@ function structuredElementsToPromptText(
   return parts.join('\n');
 }
 
-
+serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
