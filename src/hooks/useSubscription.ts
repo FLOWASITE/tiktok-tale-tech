@@ -118,7 +118,7 @@ export function useSubscription() {
 
       const contentIds = (userContents || []).map((c: any) => c.id);
 
-      const [scriptsRes, carouselsRes, multiRes, imagesRes, aiEditsRes] = await Promise.all([
+      const [scriptsRes, carouselsRes, multiRes, imagesRes, brandsRes] = await Promise.all([
         supabase
           .from("scripts")
           .select("*", { count: "exact", head: true })
@@ -145,12 +145,9 @@ export function useSubscription() {
               .in("content_id", contentIds)
           : Promise.resolve({ count: 0, data: null, error: null }),
         supabase
-          .from("usage_logs")
+          .from("brand_templates")
           .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id)
-          .eq("usage_type", "ai_edit")
-          .gte("created_at", periodStart)
-          .lte("created_at", periodEnd),
+          .eq("user_id", user.id),
       ]);
 
       const channelBreakdown: Record<string, number> = {};
