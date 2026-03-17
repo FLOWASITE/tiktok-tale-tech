@@ -58,13 +58,14 @@ export function useAdmin() {
   const usersQuery = useQuery({
     queryKey: ["admin_users"],
     queryFn: async (): Promise<AdminUser[]> => {
-      const [profilesRes, rolesRes, subsRes, bannedRes] = await Promise.all([
+      const [profilesRes, rolesRes, subsRes, bannedRes, orgMembersRes] = await Promise.all([
         supabase.from("profiles").select("*").order("created_at", { ascending: false }),
         supabase.from("user_roles").select("*"),
         supabase.from("subscriptions").select("*"),
         supabase.functions.invoke("admin-manage-user", {
           body: { action: "list_banned_users" },
         }),
+        supabase.from("organization_members").select("user_id, organization_id, role, organizations(id, name)"),
       ]);
 
       if (profilesRes.error) throw profilesRes.error;
@@ -72,10 +73,18 @@ export function useAdmin() {
       if (subsRes.error) throw subsRes.error;
 
       const bannedIds: string[] = bannedRes.data?.banned_ids || [];
+      const orgMembers = orgMembersRes.data || [];
 
       return profilesRes.data.map((profile) => {
         const userRole = rolesRes.data.find((r) => r.user_id === profile.id);
         const userSub = subsRes.data.find((s) => s.user_id === profile.id);
+        const userOrgs = orgMembers
+          .filter((m: any) => m.user_id === profile.id)
+          .map((m: any) => ({
+            id: m.organization_id,
+            name: (m.organizations as any)?.name || 'Unknown',
+            role: m.role as string,
+          }));
 
         return {
           id: profile.id,
@@ -85,6 +94,7 @@ export function useAdmin() {
           created_at: profile.created_at,
           role: (userRole?.role as AppRole) || "user",
           is_banned: bannedIds.includes(profile.id),
+          organizations: userOrgs,
           subscription: userSub
             ? {
                 plan_type: userSub.plan_type as "free" | "starter" | "pro" | "enterprise",
