@@ -6,7 +6,6 @@ import { getAIConfig } from "../_shared/ai-config.ts";
 import { runOrchestrator, createNodeRegistry, type NodeExecutionContext } from "../_shared/graph/graph-engine.ts";
 import { ChatMessage, ChatRequest } from "../_shared/types/chat-types.ts";
 import { estimateTokenCount, estimateConversationTokens } from "../_shared/token-manager.ts";
-import { logUsage } from "../_shared/rate-limiter.ts";
 import { sanitizeInput, logSecurityEvent } from "../_shared/prompt-guard.ts";
 import { createLogger, saveMetrics, AIMetrics } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
