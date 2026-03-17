@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getAuthUrl } from "@/hooks/useDomainRouting";
 
-const trustLogos = [
-  "VinGroup", "FPT", "Shopee", "Tiki", "Sendo", "MoMo"
+const industryBadges = [
+  "E-commerce", "F&B", "Bất động sản", "Y tế", "Giáo dục", "Tài chính"
 ];
 
 function AnimatedCounter({ value, suffix }: { value: number; suffix: string }) {
