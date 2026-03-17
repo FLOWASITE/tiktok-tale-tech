@@ -288,11 +288,6 @@ export function useAdminSystemAnalytics(period: PeriodFilter) {
         }
       });
 
-      (edits || []).forEach(e => {
-        if (!e.user_id) return;
-        if (!userStats[e.user_id]) userStats[e.user_id] = { contentCount: 0, socialPosts: 0, aiImages: 0, aiEdits: 0 };
-        userStats[e.user_id].aiEdits++;
-      });
 
       const profileMap: Record<string, { fullName: string | null; email: string | null; avatarUrl: string | null }> = {};
       (profiles || []).forEach(p => { profileMap[p.id] = { fullName: p.full_name, email: p.email, avatarUrl: p.avatar_url }; });
