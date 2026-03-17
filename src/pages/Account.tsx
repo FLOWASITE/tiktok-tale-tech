@@ -95,7 +95,7 @@ export default function Account() {
     queryKey: ["usage_history", user?.id, selectedMonth],
     queryFn: async (): Promise<UsageStats> => {
       if (!user?.id || !selectedPeriod) {
-        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, ai_edits: 0 };
+        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, channel_breakdown: {}, images: 0, image_channel_breakdown: {}, brands: 0 };
       }
 
       // Get user's content IDs for image counting
