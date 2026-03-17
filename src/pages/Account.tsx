@@ -107,7 +107,7 @@ export default function Account() {
         .lte("created_at", selectedPeriod.end);
       const contentIds = (userContents || []).map((c: any) => c.id);
 
-      const [scriptsRes, carouselsRes, multiRes, imagesRes, aiEditsRes] = await Promise.all([
+      const [scriptsRes, carouselsRes, multiRes, imagesRes] = await Promise.all([
         supabase.from("scripts").select("*", { count: "exact", head: true })
           .eq("user_id", user.id).gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
         supabase.from("carousels").select("*", { count: "exact", head: true })
@@ -118,9 +118,6 @@ export default function Account() {
           ? supabase.from("channel_image_history").select("channel", { count: "exact" })
               .in("content_id", contentIds)
           : Promise.resolve({ count: 0, data: null, error: null }),
-        supabase.from("usage_logs").select("*", { count: "exact", head: true })
-          .eq("user_id", user.id).eq("usage_type", "ai_edit")
-          .gte("created_at", selectedPeriod.start).lte("created_at", selectedPeriod.end),
       ]);
 
       const channelBreakdown: Record<string, number> = {};
