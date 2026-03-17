@@ -156,7 +156,7 @@ export function useCarouselGallery() {
 
   useEffect(() => {
     fetchImages();
-  }, []);
+  }, [orgId]);
 
   const creatorOptions = useMemo(() => {
     const map = new Map<string, string>();
