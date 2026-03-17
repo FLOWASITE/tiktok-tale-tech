@@ -22,8 +22,22 @@ export interface WorkspaceBrand {
 
 export interface WorkspaceContentStats {
   multiChannelCount: number;
+  socialPostCount: number;
   carouselCount: number;
+  carouselImageCount: number;
   imageCount: number;
+  scriptCount: number;
+}
+
+export interface MemberContribution {
+  userId: string;
+  contentCount: number;
+  imageCount: number;
+  profile: {
+    full_name: string | null;
+    email: string | null;
+    avatar_url: string | null;
+  } | null;
 }
 
 export function useAdminWorkspaceDetail(orgId: string | null) {
@@ -61,7 +75,6 @@ export function useAdminWorkspaceDetail(orgId: string | null) {
         .eq("organization_id", orgId!);
       if (error) throw error;
 
-      // Fetch industry names
       const industryIds = [...new Set(data.filter((b) => b.industry_template_id).map((b) => b.industry_template_id!))];
       let industryMap = new Map<string, string>();
       if (industryIds.length > 0) {
@@ -85,16 +98,81 @@ export function useAdminWorkspaceDetail(orgId: string | null) {
   const statsQuery = useQuery({
     queryKey: ["admin_workspace_content_stats", orgId],
     queryFn: async (): Promise<WorkspaceContentStats> => {
-      const [mcRes, carRes, imgRes] = await Promise.all([
-        supabase.from("multi_channel_contents").select("id", { count: "exact", head: true }).eq("organization_id", orgId!),
+      const [mcRes, carRes, imgRes, scriptRes, carImgRes] = await Promise.all([
+        supabase.from("multi_channel_contents").select("id, selected_channels").eq("organization_id", orgId!),
         supabase.from("carousels").select("id", { count: "exact", head: true }).eq("organization_id", orgId!),
         supabase.from("channel_image_history").select("id", { count: "exact", head: true }).eq("organization_id", orgId!),
+        supabase.from("scripts").select("id", { count: "exact", head: true }).eq("organization_id", orgId!),
+        supabase.from("carousel_images").select("id", { count: "exact", head: true }).eq("organization_id", orgId!),
       ]);
+
+      // Calculate social post count from selected_channels arrays
+      const contents = mcRes.data || [];
+      const socialPostCount = contents.reduce((sum, row) => {
+        const channels = (row as any).selected_channels;
+        return sum + (Array.isArray(channels) ? channels.length : 0);
+      }, 0);
+
       return {
-        multiChannelCount: mcRes.count || 0,
+        multiChannelCount: contents.length,
+        socialPostCount,
         carouselCount: carRes.count || 0,
+        carouselImageCount: carImgRes.count || 0,
         imageCount: imgRes.count || 0,
+        scriptCount: scriptRes.count || 0,
       };
+    },
+    enabled: !!orgId,
+  });
+
+  const contributionsQuery = useQuery({
+    queryKey: ["admin_workspace_contributions", orgId],
+    queryFn: async (): Promise<MemberContribution[]> => {
+      // Get contents grouped by user
+      const { data: contents } = await supabase
+        .from("multi_channel_contents")
+        .select("user_id")
+        .eq("organization_id", orgId!);
+
+      const { data: images } = await supabase
+        .from("channel_image_history")
+        .select("user_id")
+        .eq("organization_id", orgId!);
+
+      const contentByUser: Record<string, number> = {};
+      const imageByUser: Record<string, number> = {};
+      const allUserIds = new Set<string>();
+
+      (contents || []).forEach((r: any) => {
+        if (r.user_id) {
+          allUserIds.add(r.user_id);
+          contentByUser[r.user_id] = (contentByUser[r.user_id] || 0) + 1;
+        }
+      });
+      (images || []).forEach((r: any) => {
+        if (r.user_id) {
+          allUserIds.add(r.user_id);
+          imageByUser[r.user_id] = (imageByUser[r.user_id] || 0) + 1;
+        }
+      });
+
+      if (allUserIds.size === 0) return [];
+
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, avatar_url")
+        .in("id", [...allUserIds]);
+
+      const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+
+      return [...allUserIds]
+        .map((userId) => ({
+          userId,
+          contentCount: contentByUser[userId] || 0,
+          imageCount: imageByUser[userId] || 0,
+          profile: profileMap.get(userId) || null,
+        }))
+        .sort((a, b) => (b.contentCount + b.imageCount) - (a.contentCount + a.imageCount));
     },
     enabled: !!orgId,
   });
@@ -102,7 +180,8 @@ export function useAdminWorkspaceDetail(orgId: string | null) {
   return {
     members: membersQuery.data || [],
     brands: brandsQuery.data || [],
-    contentStats: statsQuery.data || { multiChannelCount: 0, carouselCount: 0, imageCount: 0 },
-    isLoading: membersQuery.isLoading || brandsQuery.isLoading || statsQuery.isLoading,
+    contentStats: statsQuery.data || { multiChannelCount: 0, socialPostCount: 0, carouselCount: 0, carouselImageCount: 0, imageCount: 0, scriptCount: 0 },
+    contributions: contributionsQuery.data || [],
+    isLoading: membersQuery.isLoading || brandsQuery.isLoading || statsQuery.isLoading || contributionsQuery.isLoading,
   };
 }
