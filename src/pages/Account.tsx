@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
-import { useSubscription } from "@/hooks/useSubscription";
+import { useSubscription, type UsageStats } from "@/hooks/useSubscription";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,9 +13,10 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   User, Mail, Calendar, Crown, Zap, FileText, 
-  Images, Layers, Wand2, Upload, Save, CreditCard 
+  Images, Layers, Wand2, Upload, Save, CreditCard, History
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
