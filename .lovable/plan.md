@@ -1,53 +1,62 @@
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-# Thống kê sử dụng trong tháng theo User và Brand trong Workspace
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-## Tổng quan
+---
 
-Bổ sung 2 section mới vào trang Account, ngay dưới phần "Sử dụng trong tháng" hiện tại:
-1. **Theo thành viên** — hiển thị số bài Social + ảnh AI mỗi user đã tạo trong tháng
-2. **Theo Brand** — hiển thị số bài Social + ảnh AI theo từng brand template
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-## Dữ liệu
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-Truy vấn bảng `multi_channel_contents` với filter `organization_id` = workspace hiện tại + khoảng thời gian chu kỳ hiện tại. Group by `user_id` và `brand_template_id`.
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-Với ảnh AI: truy vấn `channel_image_history` qua content_ids đã lấy.
+---
 
-Với tên user: join hoặc lookup riêng từ bảng `profiles` (id, full_name, email, avatar_url).
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-Với tên brand: lookup từ `brand_templates` (id, name, logo_url).
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-## Thay đổi
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-### 1. `src/pages/Account.tsx`
+---
 
-- Import `useOrganizationContext` để lấy `currentOrganization`
-- Import `useCurrentBrand` để lấy danh sách brands
-- Thêm 1 `useQuery` mới: `workspace_usage_stats` — fetch `multi_channel_contents` grouped by `user_id` và `brand_template_id` trong chu kỳ hiện tại, kèm lookup profiles và brands
-- Thêm 2 Card/Section mới sau card "Sử dụng trong tháng":
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
-**Section "Theo thành viên":**
-```
-Avatar | Tên (email) | Bài Social: X | Ảnh AI: Y
-```
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
 
-**Section "Theo Brand":**  
-```
-Logo | Tên Brand | Bài Social: X | Ảnh AI: Y
-```
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
 
-- Chỉ hiện khi `currentOrganization` tồn tại (workspace mode)
-- Hiển thị dạng bảng/list compact, sort theo số lượng giảm dần
+---
 
-### 2. Không cần migration
+## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
 
-Tất cả dữ liệu đã có sẵn trong `multi_channel_contents` (user_id, brand_template_id, selected_channels, organization_id) và `channel_image_history` (content_id, channel). Chỉ cần query client-side.
+### Vấn đề
+Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
 
-## Kỹ thuật
-
-- Query `multi_channel_contents` với `.select('user_id, brand_template_id, selected_channels')` filter by `organization_id` + period → group client-side
-- Query `channel_image_history` via content_ids → group by user/brand qua content lookup
-- Lookup `profiles` cho tên + avatar, `brand_templates` cho name + logo
-- ~80 dòng code mới trong Account.tsx
-
+### Đã sửa (6 files + 2 edge functions)
+1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
+2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
+3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
+4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
+5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
+6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
+7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
