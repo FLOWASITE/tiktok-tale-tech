@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Building2, Search, Users, CreditCard, TrendingUp, Crown,
-  Trash2, ChevronLeft, ChevronRight, Download,
+  Trash2, ChevronLeft, ChevronRight, Download, Sparkles, Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -43,11 +43,27 @@ const statusColors: Record<string, string> = {
   trial: "bg-blue-500/10 text-blue-500",
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function AdminWorkspacesTab() {
-  const { workspaces, stats, isLoading, updateWorkspacePlan, deleteWorkspace, isUpdating } = useAdminWorkspaces();
+  const { workspaces, stats, isLoading, updateWorkspacePlan, deleteWorkspace, cleanupOrphans, isCleaningUp, isUpdating } = useAdminWorkspaces();
   const [searchQuery, setSearchQuery] = useState("");
   const [planFilter, setPlanFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+
+  const isAutoCreated = (slug: string) => UUID_REGEX.test(slug);
+
+  async function handleCleanup() {
+    // First dry run to show count
+    const result = await cleanupOrphans(true);
+    if (result.orphan_count === 0) {
+      toast.info("Không có workspace thừa nào cần dọn dẹp");
+      return;
+    }
+    if (confirm(`Tìm thấy ${result.orphan_count} workspace tự động thừa. Xóa tất cả?`)) {
+      await cleanupOrphans(false);
+    }
+  }
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
@@ -162,10 +178,16 @@ export function AdminWorkspacesTab() {
               </CardTitle>
               <CardDescription>Quản lý workspace và plan tính phí</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={exportCSV}>
-              <Download className="h-4 w-4 mr-1" />
-              Export
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleCleanup} disabled={isCleaningUp}>
+                {isCleaningUp ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
+                Dọn dẹp WS thừa
+              </Button>
+              <Button variant="outline" size="sm" onClick={exportCSV}>
+                <Download className="h-4 w-4 mr-1" />
+                Export
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -235,7 +257,14 @@ export function AdminWorkspacesTab() {
                                 </AvatarFallback>
                               </Avatar>
                               <div>
-                                <div className="font-medium text-sm">{ws.name}</div>
+                                <div className="font-medium text-sm flex items-center gap-1.5">
+                                  {ws.name}
+                                  {isAutoCreated(ws.slug) && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-muted-foreground border-dashed">
+                                      Tự động
+                                    </Badge>
+                                  )}
+                                </div>
                                 <div className="text-xs text-muted-foreground">{ws.slug}</div>
                               </div>
                             </div>

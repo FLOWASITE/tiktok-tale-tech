@@ -145,6 +145,25 @@ export function useAdminWorkspaces() {
     onError: (err: Error) => toast.error("Lỗi: " + err.message),
   });
 
+  const cleanupOrphansMutation = useMutation({
+    mutationFn: async (dryRun: boolean = false) => {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "cleanup_orphan_workspaces", dry_run: dryRun },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      if (!data.dry_run) {
+        queryClient.invalidateQueries({ queryKey: ["admin_workspaces"] });
+        queryClient.invalidateQueries({ queryKey: ["admin_workspace_stats"] });
+        toast.success(`Đã xóa ${data.deleted} workspace thừa`);
+      }
+    },
+    onError: (err: Error) => toast.error("Lỗi: " + err.message),
+  });
+
   const deleteWorkspaceMutation = useMutation({
     mutationFn: async (organizationId: string) => {
       const { data, error } = await supabase.functions.invoke("admin-manage-user", {
@@ -167,6 +186,8 @@ export function useAdminWorkspaces() {
     isLoading: workspacesQuery.isLoading,
     updateWorkspacePlan: updateWorkspacePlanMutation.mutate,
     deleteWorkspace: deleteWorkspaceMutation.mutate,
+    cleanupOrphans: cleanupOrphansMutation.mutateAsync,
+    isCleaningUp: cleanupOrphansMutation.isPending,
     isUpdating: updateWorkspacePlanMutation.isPending || deleteWorkspaceMutation.isPending,
     refetch: () => {
       workspacesQuery.refetch();
