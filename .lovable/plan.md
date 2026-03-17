@@ -1,83 +1,62 @@
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-# Kế hoạch: Tab Quản lý Workspace trong trang Admin Users
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-## Bối cảnh hiện tại
-- **Subscriptions đang gắn với user** (`subscriptions.user_id`), chưa có `organization_id`
-- **Organizations** chỉ có metadata cơ bản (name, slug, owner_id, logo)
-- Trang Admin Users có 2 tab: "Quản lý Users" và "Audit Log"
-- Hệ thống sẽ chuyển sang **tính phí theo workspace** (organization)
+---
 
-## Thay đổi cần thực hiện
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-### 1. Database Migration — Thêm subscription cho workspace
-```sql
--- Thêm cột organization_id vào bảng subscriptions (nullable để tương thích ngược)
-ALTER TABLE subscriptions ADD COLUMN organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE;
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
--- Migrate: gán subscription hiện tại cho org mà user đang own
-UPDATE subscriptions s
-SET organization_id = (
-  SELECT o.id FROM organizations o WHERE o.owner_id = s.user_id LIMIT 1
-)
-WHERE organization_id IS NULL;
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
--- RLS cho admin đọc tất cả
-CREATE POLICY "Admins can view all subscriptions"
-ON subscriptions FOR SELECT TO authenticated
-USING (public.has_role(auth.uid(), 'admin'));
-```
+---
 
-### 2. Hook mới — `useAdminWorkspaces`
-File: `src/hooks/useAdminWorkspaces.ts`
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-Fetch tất cả organizations kèm:
-- Owner profile (name, email)
-- Số thành viên (`organization_members` count)
-- Subscription hiện tại (plan, status, period end)
-- Usage stats (tổng content, images trong kỳ)
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-Interface `AdminWorkspace`:
-```text
-id, name, slug, logo_url, owner (name, email), 
-member_count, created_at,
-subscription: { plan_type, status, current_period_end },
-usage: { scripts, carousels, images, multichannel }
-```
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-### 3. Component mới — `AdminWorkspacesTab`
-File: `src/components/admin/AdminWorkspacesTab.tsx`
+---
 
-Gồm:
-- **Stats row**: Tổng workspaces, Workspaces trả phí, MRR từ workspace, Avg members/workspace
-- **Bộ lọc**: Search (tên/owner email), Filter plan (Free/Starter/Pro/Business/Enterprise), Filter status
-- **Bảng chính**: Tên workspace + logo, Owner, Thành viên (count), Plan (badge), Status, Ngày tạo, Actions
-- **Actions per row**: Đổi plan, Xem chi tiết (expand members list), Xóa workspace
-- **Bulk actions**: Đổi plan hàng loạt, Export CSV
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
-### 4. Tích hợp vào AdminUsers.tsx
-Thêm tab thứ 3 "Quản lý Workspaces" với icon `Building2` vào `TabsList` hiện tại:
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
 
-```text
-[Quản lý Users] [Quản lý Workspaces] [Audit Log]
-```
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
 
-### 5. Edge Function update — `admin-manage-user`
-Thêm actions:
-- `update_workspace_plan`: Đổi plan cho workspace (upsert subscriptions với organization_id)
-- `delete_workspace`: Xóa workspace và tất cả dữ liệu liên quan
+---
 
-## Files thay đổi
+## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
 
-| File | Thay đổi |
-|------|----------|
-| **Migration SQL** | Thêm `organization_id` vào `subscriptions` |
-| `src/hooks/useAdminWorkspaces.ts` | **Mới** — Fetch & manage workspaces |
-| `src/components/admin/AdminWorkspacesTab.tsx` | **Mới** — UI tab quản lý workspaces |
-| `src/pages/AdminUsers.tsx` | Thêm tab "Quản lý Workspaces" |
-| `supabase/functions/admin-manage-user/index.ts` | Thêm actions workspace plan/delete |
+### Vấn đề
+Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
 
-## Lưu ý quan trọng
-- Giữ nguyên `subscriptions.user_id` để tương thích ngược — giai đoạn chuyển tiếp cả user và workspace đều có subscription
-- Khi tính phí theo workspace, usage limits sẽ check theo `organization_id` thay vì `user_id` (cần migration riêng sau)
-
+### Đã sửa (6 files + 2 edge functions)
+1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
+2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
+3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
+4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
+5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
+6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
+7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon

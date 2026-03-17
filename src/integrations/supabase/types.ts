@@ -7881,6 +7881,7 @@ export type Database = {
           current_period_start: string
           id: string
           metadata: Json | null
+          organization_id: string | null
           payment_provider: string | null
           payment_reference: string | null
           plan_type: Database["public"]["Enums"]["plan_type"]
@@ -7896,6 +7897,7 @@ export type Database = {
           current_period_start?: string
           id?: string
           metadata?: Json | null
+          organization_id?: string | null
           payment_provider?: string | null
           payment_reference?: string | null
           plan_type?: Database["public"]["Enums"]["plan_type"]
@@ -7911,6 +7913,7 @@ export type Database = {
           current_period_start?: string
           id?: string
           metadata?: Json | null
+          organization_id?: string | null
           payment_provider?: string | null
           payment_reference?: string | null
           plan_type?: Database["public"]["Enums"]["plan_type"]
@@ -7919,7 +7922,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       topic_content_links: {
         Row: {
