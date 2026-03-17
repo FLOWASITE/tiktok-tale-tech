@@ -215,7 +215,7 @@ export default function AdminAnalytics() {
                     <div className="flex items-center gap-2 text-xs shrink-0">
                       <Badge variant="secondary">{u.socialPosts}</Badge>
                       <Badge variant="outline">{u.aiImages} ảnh</Badge>
-                      {u.aiEdits > 0 && <Badge variant="outline">{u.aiEdits} edits</Badge>}
+                      
                     </div>
                   </div>
                 ))}
