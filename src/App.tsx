@@ -191,6 +191,16 @@ function AppRoutes() {
                 }
               />
               <Route
+                path="/gallery"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <Gallery />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/brands"
                 element={
                   <ProtectedRoute>

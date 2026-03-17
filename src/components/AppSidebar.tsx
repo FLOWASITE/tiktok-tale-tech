@@ -150,6 +150,7 @@ export function AppSidebar() {
     { title: 'Nội dung đa kênh', titleKey: 'app.sidebar.multichannel', url: '/multichannel', icon: Layers },
     { title: 'Kịch bản Video', titleKey: 'app.sidebar.videoScript', url: '/scripts', icon: Film },
     { title: 'Carousel', titleKey: 'app.sidebar.carousel', url: '/carousel', icon: Images },
+    { title: 'Gallery', titleKey: 'app.sidebar.gallery', url: '/gallery', icon: ImageIcon },
     { title: 'Ad Copies', titleKey: 'app.sidebar.adCopies', url: '/ad-copies', icon: Megaphone },
   ];
 
