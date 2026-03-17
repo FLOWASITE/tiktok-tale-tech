@@ -438,6 +438,7 @@ export default function MultiChannel() {
                   creatorProfile={content.user_id ? creatorProfiles[content.user_id] : undefined}
                   isLoadingProfile={isLoadingProfiles}
                   index={index}
+                  brandLogoUrl={content.brand_template_id ? brandLogoMap[content.brand_template_id] : undefined}
                 />
               </div>
             ))}
