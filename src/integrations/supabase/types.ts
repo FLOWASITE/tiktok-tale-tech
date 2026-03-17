@@ -6347,6 +6347,7 @@ export type Database = {
           features: Json | null
           id: string
           monthly_ai_edits: number
+          monthly_brands: number
           monthly_carousels: number
           monthly_images: number
           monthly_multichannel: number
@@ -6361,6 +6362,7 @@ export type Database = {
           features?: Json | null
           id?: string
           monthly_ai_edits?: number
+          monthly_brands?: number
           monthly_carousels?: number
           monthly_images?: number
           monthly_multichannel?: number
@@ -6375,6 +6377,7 @@ export type Database = {
           features?: Json | null
           id?: string
           monthly_ai_edits?: number
+          monthly_brands?: number
           monthly_carousels?: number
           monthly_images?: number
           monthly_multichannel?: number
