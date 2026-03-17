@@ -242,21 +242,31 @@ export function useAdminWorkspaceDetail(orgId: string | null, periodFilter: Peri
       imagesQ = applyDateFilter(imagesQ, range);
       const { data: images } = await imagesQ;
 
+      let carouselsQ = supabase.from("carousels").select("user_id").eq("organization_id", orgId!);
+      carouselsQ = applyDateFilter(carouselsQ, range);
+      const { data: carousels } = await carouselsQ;
+
+      let scriptsQ = supabase.from("scripts").select("user_id").eq("organization_id", orgId!);
+      scriptsQ = applyDateFilter(scriptsQ, range);
+      const { data: scripts } = await scriptsQ;
+
       const contentByUser: Record<string, number> = {};
       const imageByUser: Record<string, number> = {};
+      const carouselByUser: Record<string, number> = {};
+      const scriptByUser: Record<string, number> = {};
       const allUserIds = new Set<string>();
 
       (contents || []).forEach((r: any) => {
-        if (r.user_id) {
-          allUserIds.add(r.user_id);
-          contentByUser[r.user_id] = (contentByUser[r.user_id] || 0) + 1;
-        }
+        if (r.user_id) { allUserIds.add(r.user_id); contentByUser[r.user_id] = (contentByUser[r.user_id] || 0) + 1; }
       });
       (images || []).forEach((r: any) => {
-        if (r.user_id) {
-          allUserIds.add(r.user_id);
-          imageByUser[r.user_id] = (imageByUser[r.user_id] || 0) + 1;
-        }
+        if (r.user_id) { allUserIds.add(r.user_id); imageByUser[r.user_id] = (imageByUser[r.user_id] || 0) + 1; }
+      });
+      (carousels || []).forEach((r: any) => {
+        if (r.user_id) { allUserIds.add(r.user_id); carouselByUser[r.user_id] = (carouselByUser[r.user_id] || 0) + 1; }
+      });
+      (scripts || []).forEach((r: any) => {
+        if (r.user_id) { allUserIds.add(r.user_id); scriptByUser[r.user_id] = (scriptByUser[r.user_id] || 0) + 1; }
       });
 
       if (allUserIds.size === 0) return [];
@@ -273,9 +283,11 @@ export function useAdminWorkspaceDetail(orgId: string | null, periodFilter: Peri
           userId,
           contentCount: contentByUser[userId] || 0,
           imageCount: imageByUser[userId] || 0,
+          carouselCount: carouselByUser[userId] || 0,
+          scriptCount: scriptByUser[userId] || 0,
           profile: profileMap.get(userId) || null,
         }))
-        .sort((a, b) => (b.contentCount + b.imageCount) - (a.contentCount + a.imageCount));
+        .sort((a, b) => (b.contentCount + b.imageCount + b.carouselCount + b.scriptCount) - (a.contentCount + a.imageCount + a.carouselCount + a.scriptCount));
     },
     enabled: canQueryStats,
   });
