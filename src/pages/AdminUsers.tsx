@@ -220,7 +220,7 @@ export default function AdminUsers() {
         const { error } = await supabase
           .from("subscriptions")
           .update({
-            plan_type: plan,
+            plan_type: plan as "free" | "starter" | "pro" | "enterprise",
             status: "active",
             current_period_start: new Date().toISOString(),
             current_period_end: periodEnd.toISOString(),
