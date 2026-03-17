@@ -356,7 +356,7 @@ export default function Account() {
             Chu kỳ: {format(new Date(currentPeriod.start), "dd/MM/yyyy")} – {format(new Date(currentPeriod.end), "dd/MM/yyyy")}
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <div className="grid gap-6 sm:grid-cols-2">
             {usageItems.map((item) => {
               const isUnlimited = item.limit === -1;
@@ -385,6 +385,29 @@ export default function Account() {
               );
             })}
           </div>
+
+          {/* Channel Breakdown */}
+          {usage?.channel_breakdown && Object.keys(usage.channel_breakdown).length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                  <Layers className="h-4 w-4" />
+                  Chi tiết bài đăng theo kênh
+                </h4>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {Object.entries(usage.channel_breakdown)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([channel, count]) => (
+                      <div key={channel} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                        <span className="text-sm capitalize">{channel}</span>
+                        <Badge variant="secondary" className="font-mono">{count}</Badge>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
