@@ -1,62 +1,56 @@
-## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-### Vấn đề
-Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-### Đã sửa (3 files)
-1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
-2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
+# Rà soát SEO: Các điểm cần chỉnh cho UI và backend
 
----
+## Đã hoàn thành tốt
+- SEOHead component với dynamic title, description, OG tags, Twitter cards, canonical URL
+- JSON-LD: Article, BreadcrumbList, Organization, WebSite, FAQPage schemas
+- sitemap.xml, robots.txt đã chuẩn
+- `lang="vi"` trong index.html
 
-## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
+## Cần chỉnh (6 vấn đề)
 
-### Vấn đề
-AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
+### 1. Ảnh blog thiếu `loading="lazy"` và kích thước cố định
+Tất cả `<img>` trong BlogPostFlowa, BlogPostMultiChannel thiếu `loading="lazy"`, `width`, `height` — ảnh hưởng Core Web Vitals (CLS score).
 
-### Đã sửa (3 files)
-1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
-2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
+**Fix:** Thêm `loading="lazy" width={1200} height={600}` cho hero images trong 4 file BlogPost.
 
----
+### 2. Thiếu `<article>` semantic wrapper
+Không có `<article>` tag nào trong các trang blog. Google và screen readers cần tag này để nhận diện nội dung chính.
 
-## Feature: Regenerate sử dụng Core Content — đã sửa
+**Fix:** Wrap phần nội dung chính trong `<article>` tag cho 4 BlogPost pages.
 
-### Vấn đề
-Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
+### 3. Thiếu `<time datetime="...">` cho ngày đăng
+Các bài blog hiển thị "Tháng 1, 2026" nhưng dùng `<div>` thay vì `<time datetime="2026-01-15">`. Google cần `<time>` để hiểu ngày xuất bản.
 
-### Đã sửa (1 file)
-1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
+**Fix:** Đổi `<div>` chứa ngày thành `<time datetime="ISO_DATE">` trong 4 BlogPost pages.
 
----
+### 4. Duplicate meta tags giữa index.html và SEOHead
+`index.html` có hardcoded OG/Twitter meta tags + title. Khi SEOHead render, sẽ tạo **duplicate tags** — crawler có thể lấy sai giá trị.
 
-## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
+**Fix:** Xóa các meta tags OG/Twitter khỏi `index.html`, chỉ giữ charset, viewport, favicon. SEOHead sẽ quản lý toàn bộ.
 
-### Vấn đề
-1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
-2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
-3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
+### 5. Blog list page: Ảnh dùng CSS background thay vì `<img>` tag
+Trang `/blog` dùng images trong card nhưng không có alt text SEO-friendly vì render qua CSS. Cần kiểm tra và đảm bảo dùng `<img>` với alt text.
 
-### Đã sửa (4 files)
-1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
-2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
-3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
-4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
+**Fix:** Kiểm tra Blog.tsx cards, đảm bảo ảnh dùng `<img>` tag có alt text mô tả rõ nội dung.
 
----
+### 6. Sitemap thiếu `<lastmod>` tag
+Sitemap hiện chỉ có `<changefreq>` và `<priority>` nhưng thiếu `<lastmod>` — Google ưu tiên `<lastmod>` để quyết định re-crawl.
 
-## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
+**Fix:** Thêm `<lastmod>2026-01-15</lastmod>` cho mỗi URL trong sitemap.xml.
 
-### Vấn đề
-Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
+## Tổng hợp thay đổi
 
-### Đã sửa (6 files + 2 edge functions)
-1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
-2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
-3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
-4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
-5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
-6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
-7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
+| File | Thay đổi |
+|------|----------|
+| `index.html` | Xóa duplicate OG/Twitter meta tags |
+| `public/sitemap.xml` | Thêm `<lastmod>` cho mỗi URL |
+| `BlogPostFlowa.tsx` | Thêm `<article>`, `<time>`, img lazy+dimensions |
+| `BlogPostMultiChannel.tsx` | Tương tự |
+| `BlogPostAIContent.tsx` | Tương tự |
+| `BlogPostRepurposing.tsx` | Tương tự |
+| `Blog.tsx` | Kiểm tra img alt text trong cards |
+
+Không cần migration hay thay đổi backend. Tổng ~7 files, mỗi file thay đổi nhỏ (5-15 dòng).
+
