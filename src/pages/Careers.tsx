@@ -23,6 +23,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { PublicPageLayout } from "@/components/landing/PublicPageLayout";
+import { SEOHead } from "@/components/SEOHead";
 
 const benefits = [
   {
