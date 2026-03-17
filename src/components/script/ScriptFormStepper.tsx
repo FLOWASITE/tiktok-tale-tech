@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useQuickHookSuggestions } from '@/hooks/useQuickHookSuggestions';
 import { useTopicRefinement } from '@/hooks/useTopicRefinement';
 import { BrandPreviewCard } from '@/components/BrandPreviewCard';
@@ -92,6 +93,7 @@ const TOPIC_MIN_LENGTH_FOR_REFINEMENT = 10;
 
 export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHistoryId }: ScriptFormStepperProps) {
   const { templates, loading: templatesLoading } = useBrandTemplates();
+  const { currentBrand } = useCurrentBrand();
   const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
   
   const [currentStep, setCurrentStep] = useState(1);
@@ -227,16 +229,21 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     return () => clearInterval(interval);
   }, [isLoading]);
 
-  // Set default template
+  // Set default template from global brand context or default template
   useEffect(() => {
-    if (templatesLoading || brandTouched || templates.length === 0 || brandValue !== 'none') return;
-
-    const defaultTemplate = templates.find((t) => t.is_default) ?? templates[0];
-    if (!defaultTemplate) return;
-
-    setBrandValue(defaultTemplate.id);
-    setFormData((prev) => ({ ...prev, brandTemplateId: defaultTemplate.id }));
-  }, [templatesLoading, templates, brandTouched, brandValue]);
+    if (templatesLoading || brandTouched || templates.length === 0) return;
+    
+    // If brandValue is still 'none', set from global context or default
+    if (brandValue === 'none') {
+      const initialBrand = currentBrand 
+        ? templates.find(t => t.id === currentBrand.id)
+        : (templates.find(t => t.is_default) ?? templates[0]);
+      if (initialBrand) {
+        setBrandValue(initialBrand.id);
+        setFormData(prev => ({ ...prev, brandTemplateId: initialBrand.id }));
+      }
+    }
+  }, [templatesLoading, templates, brandTouched, brandValue, currentBrand]);
 
   // Character count color
   const topicLength = formData.topic.length;

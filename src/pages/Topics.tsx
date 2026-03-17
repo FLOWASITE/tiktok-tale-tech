@@ -23,25 +23,24 @@ import { MobileDiscoverySheet } from '@/components/topic/MobileDiscoverySheet';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ContentGoal } from '@/types/multichannel';
 import { EnhancedTopicSuggestion, ContentPillar, SEASONAL_EVENTS } from '@/types/topicDiscovery';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-const STORAGE_KEY_BRAND = 'topics-selected-brand';
 const STORAGE_KEY_GOAL = 'topics-selected-goal';
 
 const Topics = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState('bank');
-  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(STORAGE_KEY_BRAND);
-    }
-    return null;
-  });
+  
+  // Use global brand from header context
+  const { currentBrand, brands, loading: brandsLoading, switchBrand } = useCurrentBrand();
+  const selectedBrandId = currentBrand?.id || null;
+  
   const [selectedGoal, setSelectedGoal] = useState<ContentGoal>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(STORAGE_KEY_GOAL);
@@ -63,27 +62,14 @@ const Topics = () => {
   const [mobileBankOpen, setMobileBankOpen] = useState(false);
   const [mobileDiscoveryOpen, setMobileDiscoveryOpen] = useState(false);
 
-  const { templates: brands, loading: brandsLoading } = useBrandTemplates();
-
-  // Persist selected brand to localStorage
-  useEffect(() => {
-    if (selectedBrandId) {
-      localStorage.setItem(STORAGE_KEY_BRAND, selectedBrandId);
-    } else {
-      localStorage.removeItem(STORAGE_KEY_BRAND);
-    }
-  }, [selectedBrandId]);
+  const { templates: brandTemplates } = useBrandTemplates();
 
   // Persist selected goal to localStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_GOAL, selectedGoal);
   }, [selectedGoal]);
 
-  // Get selected brand object
-  const selectedBrand = useMemo(() => {
-    if (!selectedBrandId) return undefined;
-    return brands.find(b => b.id === selectedBrandId);
-  }, [selectedBrandId, brands]);
+  const selectedBrand = currentBrand || undefined;
   
   const { 
     suggestions, 
@@ -303,7 +289,7 @@ const Topics = () => {
         onOpenChange={setBrandDialogOpen}
         brands={brands}
         selectedBrandId={selectedBrandId || undefined}
-        onSelectBrand={(id) => setSelectedBrandId(id)}
+        onSelectBrand={(id) => switchBrand(id)}
         onCreateBrand={() => navigate('/brands/new')}
         onViewBrand={(id) => navigate(`/brands/${id}`)}
       />

@@ -10,6 +10,7 @@ import { MobileGenerationSheet } from '@/components/multichannel/MobileGeneratio
 import { TopicAIChatbot } from '@/components/topic/TopicAIChatbot';
 import { cn } from '@/lib/utils';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useStreamingGeneration, ProgressEvent } from '@/hooks/useStreamingGeneration';
 import { useMultiChannelContents } from '@/hooks/useMultiChannelContents';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
@@ -38,12 +39,13 @@ export default function MultiChannelCreate() {
   const coreContentIdFromUrl = searchParams.get('coreContentId');
   
   const { templates, loading: templatesLoading } = useBrandTemplates();
+  const { currentBrand } = useCurrentBrand();
   const { refetch } = useMultiChannelContents();
   const { createLink } = useTopicContentLinks({ enabled: false });
   const { currentOrganization } = useOrganizationContext();
   
-  // Form state
-  const [selectedBrandId, setSelectedBrandId] = useState<string | undefined>();
+  // Form state — default to global brand from header
+  const [selectedBrandId, setSelectedBrandId] = useState<string | undefined>(currentBrand?.id);
   const [selectedVoiceVariantId, setSelectedVoiceVariantId] = useState<string | undefined>();
   const [formData, setFormData] = useState<Partial<MultiChannelFormData>>({
     topic: prefillData?.prefillTopic || '',
@@ -107,6 +109,13 @@ export default function MultiChannelCreate() {
       setSseProgress(null);
     },
   });
+
+  // Sync with global brand context when it changes (and no local override)
+  useEffect(() => {
+    if (currentBrand && !selectedBrandId) {
+      setSelectedBrandId(currentBrand.id);
+    }
+  }, [currentBrand, selectedBrandId]);
 
   // Auto-select default brand
   useEffect(() => {

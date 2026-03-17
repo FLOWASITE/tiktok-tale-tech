@@ -20,6 +20,7 @@ import {
   DEFAULT_BRAND_GUIDELINE,
 } from '@/types/carousel';
 import { useBrandTemplates, BrandTemplate } from '@/hooks/useBrandTemplates';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { BrandPreviewCard } from '@/components/BrandPreviewCard';
 import { PlatformSelector } from '@/components/carousel/PlatformSelector';
@@ -73,6 +74,7 @@ const MAX_TOPIC_LENGTH = 300;
 
 export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId }: CarouselFormProps) {
   const { templates, loading: templatesLoading, saveTemplate, deleteTemplate } = useBrandTemplates();
+  const { currentBrand } = useCurrentBrand();
   const topicInputRef = useRef<HTMLInputElement>(null);
   
   const [topic, setTopic] = useState(initialTopic || '');
@@ -111,16 +113,18 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
     return () => clearInterval(interval);
   }, [isLoading]);
 
-  // Load default template on mount
+  // Load default template from global brand context or default on mount
   useEffect(() => {
     if (!templatesLoading && templates.length > 0 && !selectedTemplateId) {
-      const defaultTemplate = templates.find(t => t.is_default);
-      if (defaultTemplate) {
-        applyTemplate(defaultTemplate);
-        setSelectedTemplateId(defaultTemplate.id);
+      const initialBrand = currentBrand
+        ? templates.find(t => t.id === currentBrand.id)
+        : templates.find(t => t.is_default);
+      if (initialBrand) {
+        applyTemplate(initialBrand);
+        setSelectedTemplateId(initialBrand.id);
       }
     }
-  }, [templatesLoading, templates, selectedTemplateId]);
+  }, [templatesLoading, templates, selectedTemplateId, currentBrand]);
 
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
 
