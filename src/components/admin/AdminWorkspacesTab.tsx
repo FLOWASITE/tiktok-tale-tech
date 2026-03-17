@@ -298,8 +298,9 @@ export function AdminWorkspacesTab() {
         brands: acc.brands + ws.brand_count,
         contents: acc.contents + ws.content_count,
         images: acc.images + ws.image_count,
+        total: acc.total + ws.brand_count + ws.content_count + ws.image_count,
       }),
-      { members: 0, brands: 0, contents: 0, images: 0 }
+      { members: 0, brands: 0, contents: 0, images: 0, total: 0 }
     );
   }, [filtered]);
 
@@ -454,6 +455,7 @@ export function AdminWorkspacesTab() {
                     <TableHead className="text-center">Brands</TableHead>
                     <TableHead className="text-center">Nội dung</TableHead>
                     <TableHead className="text-center">Ảnh</TableHead>
+                    <TableHead className="text-center">Tổng</TableHead>
                     <TableHead>Plan</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Ngày tạo</TableHead>
@@ -463,7 +465,7 @@ export function AdminWorkspacesTab() {
                 <TableBody>
                   {paginated.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                         Không tìm thấy workspace
                       </TableCell>
                     </TableRow>
@@ -517,6 +519,9 @@ export function AdminWorkspacesTab() {
                             </TableCell>
                             <TableCell className="text-center">
                               <span className="text-sm font-medium">{ws.image_count}</span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="text-sm font-bold text-primary">{ws.brand_count + ws.content_count + ws.image_count}</span>
                             </TableCell>
                             <TableCell onClick={(e) => e.stopPropagation()}>
                               <Select
@@ -573,7 +578,7 @@ export function AdminWorkspacesTab() {
                           </TableRow>
                           {isExpanded && (
                             <TableRow key={ws.id + "-detail"}>
-                              <TableCell colSpan={10} className="p-0">
+                              <TableCell colSpan={11} className="p-0">
                                 <WorkspaceDetailPanel orgId={ws.id} />
                               </TableCell>
                             </TableRow>
@@ -595,6 +600,7 @@ export function AdminWorkspacesTab() {
                       <TableCell className="text-center font-semibold text-sm">{filteredTotals.brands}</TableCell>
                       <TableCell className="text-center font-semibold text-sm">{filteredTotals.contents}</TableCell>
                       <TableCell className="text-center font-semibold text-sm">{filteredTotals.images}</TableCell>
+                      <TableCell className="text-center font-bold text-sm text-primary">{filteredTotals.total}</TableCell>
                       <TableCell colSpan={4} />
                     </TableRow>
                   </tfoot>
