@@ -96,6 +96,27 @@ export function UsageQuotaWidget() {
             <Badge variant="outline" className={cn('text-[9px] px-1.5 py-0 border', planBadge.className)}>
               {planBadge.label}
             </Badge>
+            {(() => {
+              const upgradedAt = (subscription?.metadata as any)?.upgraded_at;
+              if (!upgradedAt) return null;
+              const daysSinceUpgrade = (Date.now() - new Date(upgradedAt).getTime()) / 86400000;
+              if (daysSinceUpgrade > 7) return null;
+              return (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 gap-0.5">
+                        <Sparkles className="h-2.5 w-2.5" />
+                        Đã nâng cấp
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Gói đã được nâng cấp. Hạn mức mới áp dụng ngay, chu kỳ thanh toán giữ nguyên.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })()}
           </CardTitle>
           {hasWarning && (
             <AlertTriangle className="h-4 w-4 text-amber-500" />
