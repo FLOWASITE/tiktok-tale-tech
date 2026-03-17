@@ -478,6 +478,9 @@ export default function Account() {
         </CardContent>
       </Card>
 
+      {/* Workspace Usage by Member & Brand */}
+      <WorkspaceUsageStats />
+
       {/* Usage History Card */}
       <Card>
         <CardHeader>
