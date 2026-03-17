@@ -78,14 +78,15 @@ export function useCarouselGallery() {
         if (row.multi_channel_contents?.brand_template_id) brandTemplateIds.add(row.multi_channel_contents.brand_template_id);
       });
 
-      // Batch fetch profiles and brands
-      const [profilesRes, brandsRes] = await Promise.all([
+      // Batch fetch profiles, brands, and org members
+      const [profilesRes, brandsRes, membersRes] = await Promise.all([
         userIds.size > 0
           ? supabase.from('profiles').select('id, full_name, email, avatar_url').in('id', Array.from(userIds))
           : Promise.resolve({ data: [], error: null }),
         brandTemplateIds.size > 0
           ? supabase.from('brand_templates').select('id, brand_name, logo_url').in('id', Array.from(brandTemplateIds))
           : Promise.resolve({ data: [], error: null }),
+        supabase.from('organization_members').select('user_id').eq('organization_id', orgId),
       ]);
 
       const profileMap = new Map<string, { name?: string; email?: string; avatar?: string }>();
@@ -97,6 +98,10 @@ export function useCarouselGallery() {
       (brandsRes.data || []).forEach((b: any) => {
         brandMap.set(b.id, { name: b.brand_name, logoUrl: b.logo_url });
       });
+
+      const orgMemberIds = new Set<string>(
+        (membersRes.data || []).map((m: any) => m.user_id)
+      );
 
       const carouselImages: GalleryImage[] = (carouselRes.data || []).map((row: any) => {
         const userId = row.created_by;
