@@ -61,7 +61,7 @@ export function useAdminWorkspaces() {
         supabase.from("subscriptions").select("organization_id, plan_type, status, current_period_start, current_period_end").not("organization_id", "is", null),
         supabase.from("brand_templates").select("organization_id"),
         supabase.from("multi_channel_contents").select("organization_id, created_at"),
-        supabase.from("channel_image_history").select("content_id, created_at, organization_id:multi_channel_contents(organization_id)"),
+        supabase.from("channel_image_history").select("organization_id, created_at"),
         supabase.from("carousels").select("organization_id, created_at"),
         supabase.from("scripts").select("organization_id, created_at"),
       ]);
@@ -113,9 +113,8 @@ export function useAdminWorkspaces() {
       // Count images per org (filtered by subscription period)
       const imageCounts = new Map<string, number>();
       (imagesRes.data || []).forEach((img: any) => {
-        const orgId = img.organization_id?.organization_id;
-        if (orgId && isInPeriod(orgId, img.created_at)) {
-          imageCounts.set(orgId, (imageCounts.get(orgId) || 0) + 1);
+        if (img.organization_id && isInPeriod(img.organization_id, img.created_at)) {
+          imageCounts.set(img.organization_id, (imageCounts.get(img.organization_id) || 0) + 1);
         }
       });
 
