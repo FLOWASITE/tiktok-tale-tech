@@ -295,7 +295,7 @@ export async function checkUserQuota(
 export async function logUsage(
   supabase: any,
   userId: string,
-  usageType: 'script' | 'carousel' | 'multichannel' | 'image_generation' | 'ai_edit',
+  usageType: 'script' | 'carousel' | 'multichannel' | 'image_generation',
   referenceId?: string,
   metadata?: Record<string, any>
 ): Promise<boolean> {
