@@ -676,6 +676,10 @@ export default function AdminUsers() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="workspaces">
+          <AdminWorkspacesTab />
+        </TabsContent>
+
         <TabsContent value="audit">
           <Card>
             <CardHeader>

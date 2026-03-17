@@ -444,6 +444,101 @@ Deno.serve(async (req) => {
         );
       }
 
+      case "update_workspace_plan": {
+        const { organization_id, plan_type } = body;
+        if (!organization_id || !plan_type) {
+          return new Response(
+            JSON.stringify({ error: "organization_id and plan_type required" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const periodEnd = new Date();
+        periodEnd.setDate(periodEnd.getDate() + 30);
+
+        // Check if subscription exists for this org
+        const { data: existingSub } = await serviceClient
+          .from("subscriptions")
+          .select("id")
+          .eq("organization_id", organization_id)
+          .maybeSingle();
+
+        if (existingSub) {
+          const { error: updateErr } = await serviceClient
+            .from("subscriptions")
+            .update({
+              plan_type,
+              status: "active",
+              current_period_start: new Date().toISOString(),
+              current_period_end: periodEnd.toISOString(),
+            })
+            .eq("organization_id", organization_id);
+          if (updateErr) throw updateErr;
+        } else {
+          // Find org owner to create subscription
+          const { data: org } = await serviceClient
+            .from("organizations")
+            .select("owner_id")
+            .eq("id", organization_id)
+            .single();
+
+          if (!org) {
+            return new Response(
+              JSON.stringify({ error: "Organization not found" }),
+              { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          const { error: insertErr } = await serviceClient
+            .from("subscriptions")
+            .insert({
+              user_id: org.owner_id,
+              organization_id,
+              plan_type,
+              status: "active",
+              current_period_start: new Date().toISOString(),
+              current_period_end: periodEnd.toISOString(),
+            });
+          if (insertErr) throw insertErr;
+        }
+
+        await auditLog("update_workspace_plan", null, { organization_id, plan_type });
+
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      case "delete_workspace": {
+        const { organization_id } = body;
+        if (!organization_id) {
+          return new Response(
+            JSON.stringify({ error: "organization_id required" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { error: delError } = await serviceClient
+          .from("organizations")
+          .delete()
+          .eq("id", organization_id);
+
+        if (delError) {
+          return new Response(JSON.stringify({ error: delError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        await auditLog("delete_workspace", null, { organization_id });
+
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       default:
         return new Response(
           JSON.stringify({ error: "Unknown action: " + action }),
