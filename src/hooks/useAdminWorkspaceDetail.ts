@@ -67,9 +67,9 @@ export function useAdminWorkspaceDetail(orgId: string | null) {
       if (industryIds.length > 0) {
         const { data: industries } = await supabase
           .from("industry_templates")
-          .select("id, name")
+          .select("id, code")
           .in("id", industryIds);
-        industryMap = new Map((industries || []).map((i) => [i.id, i.name]));
+        industryMap = new Map((industries || []).map((i) => [i.id, i.code]));
       }
 
       return data.map((b) => ({
