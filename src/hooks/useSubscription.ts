@@ -42,7 +42,7 @@ export interface UsageStats {
   channel_breakdown: Record<string, number>;
   images: number;
   image_channel_breakdown: Record<string, number>;
-  ai_edits: number;
+  brands: number;
 }
 
 export function useSubscription() {
