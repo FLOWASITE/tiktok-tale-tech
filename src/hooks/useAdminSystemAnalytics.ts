@@ -283,7 +283,7 @@ export function useAdminSystemAnalytics(period: PeriodFilter) {
       (images || []).forEach(img => {
         const userId = contentUserMap[img.content_id];
         if (userId) {
-          if (!userStats[userId]) userStats[userId] = { contentCount: 0, socialPosts: 0, aiImages: 0, aiEdits: 0 };
+          if (!userStats[userId]) userStats[userId] = { contentCount: 0, socialPosts: 0, aiImages: 0 };
           userStats[userId].aiImages++;
         }
       });
