@@ -481,6 +481,15 @@ export function AdminWorkspacesTab() {
                                 {ws.member_count}
                               </Badge>
                             </TableCell>
+                            <TableCell className="text-center">
+                              <span className="text-sm font-medium">{ws.brand_count}</span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="text-sm font-medium">{ws.content_count}</span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="text-sm font-medium">{ws.image_count}</span>
+                            </TableCell>
                             <TableCell onClick={(e) => e.stopPropagation()}>
                               <Select
                                 value={plan}
