@@ -13,6 +13,7 @@ import { ORG_ROLE_LABELS } from '@/types/organization';
 import { useTranslation } from 'react-i18next';
 import { useSubscription } from '@/hooks/useSubscription';
 import { getPlanBadge } from '@/lib/plan-badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
