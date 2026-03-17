@@ -196,11 +196,31 @@ export function useSubscription() {
     return Math.max(0, limit - usageQuery.data[type]);
   };
 
+  // Compute current period for display
+  const computeCurrentPeriod = (): { start: string; end: string } => {
+    const sub = subscriptionQuery.data;
+    if (!sub) {
+      const now = new Date();
+      const s = new Date(now.getFullYear(), now.getMonth(), 1);
+      const e = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      return { start: s.toISOString(), end: e.toISOString() };
+    }
+    const now = new Date();
+    const periodEndDate = new Date(sub.current_period_end);
+    if (periodEndDate < now) {
+      const s = new Date(now.getFullYear(), now.getMonth(), 1);
+      const e = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      return { start: s.toISOString(), end: e.toISOString() };
+    }
+    return { start: sub.current_period_start, end: sub.current_period_end };
+  };
+
   return {
     subscription: subscriptionQuery.data,
     planLimits: planLimitsQuery.data,
     currentPlanLimits,
     usage: usageQuery.data,
+    currentPeriod: computeCurrentPeriod(),
     isLoading: subscriptionQuery.isLoading || planLimitsQuery.isLoading,
     isWithinLimits,
     getRemainingUsage,
