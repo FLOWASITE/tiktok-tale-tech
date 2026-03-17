@@ -44,19 +44,6 @@ import {
   Image,
   Layers,
 } from "lucide-react";
-import { toast } from "sonner";
-import {
-  Building2,
-  Calendar,
-  BarChart3,
-  Shield,
-  Ban,
-  Trash2,
-  RotateCcw,
-  Save,
-  ShieldCheck,
-  KeyRound,
-} from "lucide-react";
 import type { AdminUser } from "@/hooks/useAdmin";
 
 interface UserDetailSheetProps {
