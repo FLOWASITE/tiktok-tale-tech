@@ -188,14 +188,13 @@ export function CarouselGalleryView() {
           </div>
 
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
-            <SelectTrigger className="w-[160px] h-9 text-sm border-border/50">
+            <SelectTrigger className="w-[140px] h-9 text-sm border-border/50">
               <ArrowUpDown className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="newest">Mới nhất</SelectItem>
               <SelectItem value="oldest">Cũ nhất</SelectItem>
-              <SelectItem value="creator">Người tạo A-Z</SelectItem>
             </SelectContent>
           </Select>
 
