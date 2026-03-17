@@ -80,7 +80,6 @@ export interface UserRanking {
   contentCount: number;
   socialPosts: number;
   aiImages: number;
-  aiEdits: number;
 }
 
 export interface DailyTrend {
@@ -262,22 +261,21 @@ export function useAdminSystemAnalytics(period: PeriodFilter) {
   const userQuery = useQuery({
     queryKey: ['admin-analytics-users', period],
     queryFn: async (): Promise<UserRanking[]> => {
-      const [{ data: contents }, { data: images }, { data: profiles }, { data: edits }, { data: members }, { data: orgs }] = await Promise.all([
+      const [{ data: contents }, { data: images }, { data: profiles }, { data: members }, { data: orgs }] = await Promise.all([
         supabase.from('multi_channel_contents').select('id, user_id, selected_channels').gte('created_at', dates.start).lte('created_at', dates.end),
         supabase.from('channel_image_history').select('id, content_id').gte('created_at', dates.start).lte('created_at', dates.end),
         supabase.from('profiles').select('id, full_name, email, avatar_url'),
-        supabase.from('usage_logs').select('user_id').eq('usage_type', 'ai_edit').gte('created_at', dates.start).lte('created_at', dates.end),
         supabase.from('organization_members').select('user_id, organization_id'),
         supabase.from('organizations').select('id, name'),
       ]);
 
       const contentUserMap: Record<string, string> = {};
-      const userStats: Record<string, { contentCount: number; socialPosts: number; aiImages: number; aiEdits: number }> = {};
+      const userStats: Record<string, { contentCount: number; socialPosts: number; aiImages: number }> = {};
 
       (contents || []).forEach(c => {
         if (!c.user_id) return;
         contentUserMap[c.id] = c.user_id;
-        if (!userStats[c.user_id]) userStats[c.user_id] = { contentCount: 0, socialPosts: 0, aiImages: 0, aiEdits: 0 };
+        if (!userStats[c.user_id]) userStats[c.user_id] = { contentCount: 0, socialPosts: 0, aiImages: 0 };
         userStats[c.user_id].contentCount++;
         userStats[c.user_id].socialPosts += Array.isArray(c.selected_channels) ? c.selected_channels.length : 0;
       });
@@ -285,16 +283,11 @@ export function useAdminSystemAnalytics(period: PeriodFilter) {
       (images || []).forEach(img => {
         const userId = contentUserMap[img.content_id];
         if (userId) {
-          if (!userStats[userId]) userStats[userId] = { contentCount: 0, socialPosts: 0, aiImages: 0, aiEdits: 0 };
+          if (!userStats[userId]) userStats[userId] = { contentCount: 0, socialPosts: 0, aiImages: 0 };
           userStats[userId].aiImages++;
         }
       });
 
-      (edits || []).forEach(e => {
-        if (!e.user_id) return;
-        if (!userStats[e.user_id]) userStats[e.user_id] = { contentCount: 0, socialPosts: 0, aiImages: 0, aiEdits: 0 };
-        userStats[e.user_id].aiEdits++;
-      });
 
       const profileMap: Record<string, { fullName: string | null; email: string | null; avatarUrl: string | null }> = {};
       (profiles || []).forEach(p => { profileMap[p.id] = { fullName: p.full_name, email: p.email, avatarUrl: p.avatar_url }; });
@@ -314,7 +307,7 @@ export function useAdminSystemAnalytics(period: PeriodFilter) {
           orgName: userOrgMap[userId] || null,
           ...stats,
         }))
-        .sort((a, b) => (b.contentCount + b.aiImages + b.aiEdits) - (a.contentCount + a.aiImages + a.aiEdits))
+        .sort((a, b) => (b.contentCount + b.aiImages) - (a.contentCount + a.aiImages))
         .slice(0, 20);
     },
     staleTime: 60000,

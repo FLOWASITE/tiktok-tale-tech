@@ -65,9 +65,9 @@ function KPICard({ title, value, prevValue, icon: Icon }: { title: string; value
 }
 
 function exportUsersCSV(users: any[]) {
-  const header = 'Tên,Email,Org,Nội dung,Bài Social,Ảnh AI,AI Edits\n';
+  const header = 'Tên,Email,Org,Nội dung,Bài Social,Ảnh AI\n';
   const rows = users.map(u =>
-    `"${u.fullName || ''}","${u.email || ''}","${u.orgName || ''}",${u.contentCount},${u.socialPosts},${u.aiImages},${u.aiEdits}`
+    `"${u.fullName || ''}","${u.email || ''}","${u.orgName || ''}",${u.contentCount},${u.socialPosts},${u.aiImages}`
   ).join('\n');
   const blob = new Blob([header + rows], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
@@ -215,7 +215,7 @@ export default function AdminAnalytics() {
                     <div className="flex items-center gap-2 text-xs shrink-0">
                       <Badge variant="secondary">{u.socialPosts}</Badge>
                       <Badge variant="outline">{u.aiImages} ảnh</Badge>
-                      {u.aiEdits > 0 && <Badge variant="outline">{u.aiEdits} edits</Badge>}
+                      
                     </div>
                   </div>
                 ))}
