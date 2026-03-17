@@ -12,6 +12,7 @@ export function FAQSection() {
 
   return (
     <section id="faq" className="py-24 lg:py-32">
+      <FAQSEOSchema faqs={faqs} />
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <motion.div
