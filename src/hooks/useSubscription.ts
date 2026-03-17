@@ -79,12 +79,12 @@ export function useSubscription() {
     queryKey: ["usage_stats", user?.id],
     queryFn: async (): Promise<UsageStats> => {
       if (!user?.id) {
-        return { scripts: 0, carousels: 0, multichannel: 0, images: 0, ai_edits: 0 };
+        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, images: 0, ai_edits: 0 };
       }
 
       const subscription = subscriptionQuery.data;
       if (!subscription) {
-        return { scripts: 0, carousels: 0, multichannel: 0, images: 0, ai_edits: 0 };
+        return { scripts: 0, carousels: 0, multichannel: 0, multichannel_social_posts: 0, images: 0, ai_edits: 0 };
       }
 
       const periodStart = subscription.current_period_start;
