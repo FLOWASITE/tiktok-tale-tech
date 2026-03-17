@@ -28,7 +28,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         
         <div className="flex-1 min-w-0 flex flex-col h-screen overflow-y-auto">
           {/* Top Header Bar - Sticky when scrolling */}
-          <header className="sticky top-0 z-40 h-14 shrink-0 border-b border-border/50 bg-background/95 backdrop-blur-xl flex items-center px-4 gap-3">
+          <header className="sticky top-0 z-40 h-14 shrink-0 border-b border-border/50 bg-background/95 backdrop-blur-xl flex items-center px-4 gap-1.5 sm:gap-3">
             {/* Mobile menu trigger - only visible on mobile */}
             <MobileSidebarTrigger />
             
@@ -42,9 +42,9 @@ export function AppLayout({ children }: AppLayoutProps) {
             
             <div className="flex items-center gap-2">
               <QuickSearch />
-              <HelpHeaderButton />
+              <div className="hidden sm:flex"><HelpHeaderButton /></div>
               <NotificationDropdown />
-              <ThemeToggle />
+              <div className="hidden sm:flex"><ThemeToggle /></div>
               <UserAvatar />
             </div>
           </header>

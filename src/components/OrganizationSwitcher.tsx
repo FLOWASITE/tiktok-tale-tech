@@ -52,9 +52,9 @@ export function OrganizationSwitcher() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="justify-start gap-2 px-3 h-9 min-w-[350px]">
+          <Button variant="outline" className="justify-start gap-2 px-2 sm:px-3 h-9">
             <div
-              className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-medium shrink-0"
               style={{ backgroundColor: currentOrganization.primary_color + '20', color: currentOrganization.primary_color }}
             >
               {currentOrganization.logo_url ? (
@@ -63,8 +63,8 @@ export function OrganizationSwitcher() {
                 <Building2 className="h-4 w-4" />
               )}
             </div>
-            <div className="flex flex-col items-start text-left min-w-0 flex-1">
-              <span className="text-sm font-medium truncate max-w-[290px]">{currentOrganization.name}</span>
+            <div className="hidden sm:flex flex-col items-start text-left min-w-0 flex-1">
+              <span className="text-sm font-medium truncate max-w-[180px]">{currentOrganization.name}</span>
               <span className="text-[10px] text-muted-foreground leading-tight">{ORG_ROLE_LABELS[currentOrganization.role]}</span>
             </div>
             <ChevronsUpDown className="h-4 w-4 text-muted-foreground shrink-0" />
