@@ -195,6 +195,7 @@ export function ActivityTimeline({ activities, loading, className }: ActivityTim
                   {items.map((activity, index) => {
                     const config = typeConfig[activity.type];
                     const Icon = config.icon;
+                    const channels = activity.metadata?.channels;
                     const publishedChannels = activity.metadata?.publishedChannels;
 
                     return (
@@ -230,6 +231,19 @@ export function ActivityTimeline({ activities, loading, className }: ActivityTim
                                 })}
                               </span>
                             </div>
+                            {activity.type === 'multichannel' && channels && channels.length > 0 && (
+                              <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                {channels.map(ch => (
+                                  <Badge 
+                                    key={ch} 
+                                    variant="outline" 
+                                    className={`text-[10px] px-1.5 py-0 h-4 ${getChannelColorClasses(ch as Channel)}`}
+                                  >
+                                    {CHANNEL_LABELS[ch] || ch}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
                             {publishedChannels && publishedChannels.length > 0 && (
                               <PublishedChannelBadges 
                                 channels={publishedChannels} 
