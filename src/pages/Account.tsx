@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { UpgradePlanDialog } from "@/components/UpgradePlanDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useSubscription, type UsageStats } from "@/hooks/useSubscription";
@@ -69,6 +70,7 @@ export default function Account() {
   const [fullName, setFullName] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>("current");
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   // Generate last 6 months options
   const monthOptions = useMemo(() => {
@@ -403,10 +405,11 @@ export default function Account() {
               </div>
             )}
 
-            <Button className="w-full" variant="outline">
+            <Button className="w-full" variant="outline" onClick={() => setUpgradeOpen(true)}>
               <CreditCard className="h-4 w-4 mr-2" />
               Nâng cấp gói
             </Button>
+            <UpgradePlanDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
           </CardContent>
         </Card>
       </div>

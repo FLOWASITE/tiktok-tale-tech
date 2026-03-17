@@ -67,6 +67,7 @@ import GoogleBusinessCallback from "./pages/GoogleBusinessCallback";
 import CoreContentPage from "./pages/CoreContentPage";
 import FlowaChatPage from "./pages/FlowaChatPage";
 import Gallery from "./pages/Gallery";
+import PaymentResult from "./pages/PaymentResult";
 
 const queryClient = new QueryClient();
 
@@ -109,6 +110,7 @@ function AppRoutes() {
       <Route path="/auth/zalo/callback" element={<ZaloCallback />} />
       <Route path="/auth/google-business/callback" element={<GoogleBusinessCallback />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/payment/result" element={<ProtectedRoute><AppLayout><PaymentResult /></AppLayout></ProtectedRoute>} />
       {/* Protected routes */}
       <Route
         path="/"
