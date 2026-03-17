@@ -645,6 +645,23 @@ const BlogPostRepurposing = () => {
                 </div>
               </section>
 
+              {/* Internal Links */}
+              <div className="p-4 rounded-xl bg-muted/50 border border-border mb-8">
+                <h4 className="font-semibold text-foreground mb-3">📚 Đọc thêm:</h4>
+                <ul className="space-y-2 text-sm">
+                  <li>
+                    <Link to="/blog/cach-tao-content-da-kenh" className="text-primary hover:underline">
+                      → Cách Tạo Content Đa Kênh: Hướng Dẫn Toàn Diện Từ A-Z
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/blog/ai-content-marketing-huong-dan" className="text-primary hover:underline">
+                      → AI Content Marketing: Hướng Dẫn Toàn Diện Từ Cơ Bản Đến Nâng Cao
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+
               {/* CTA */}
               <section className="bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-8 text-center">
                 <h3 className="text-2xl font-bold text-primary-foreground mb-4">

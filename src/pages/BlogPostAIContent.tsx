@@ -1000,6 +1000,23 @@ const BlogPostAIContent = () => {
                 </div>
               </section>
 
+              {/* Internal Links */}
+              <div className="p-4 rounded-xl bg-muted/50 border border-border mb-6">
+                <h4 className="font-semibold text-foreground mb-3">📚 Đọc thêm:</h4>
+                <ul className="space-y-2 text-sm">
+                  <li>
+                    <Link to="/blog/flowa-content-marketing-da-kenh" className="text-primary hover:underline">
+                      → Flowa: Giải Pháp Tạo Content Marketing Đa Kênh Trong 10 Phút
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/blog/cach-tao-content-da-kenh" className="text-primary hover:underline">
+                      → Cách Tạo Content Đa Kênh: Hướng Dẫn Toàn Diện Từ A-Z
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+
               {/* CTA Section */}
               <section className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-xl p-8 text-center">
                 <h2 className="text-2xl font-bold text-foreground mb-4">Bắt Đầu Với AI Content Marketing Ngay Hôm Nay</h2>

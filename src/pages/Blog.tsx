@@ -103,6 +103,14 @@ const Blog = () => {
           { name: 'Blog', url: '/blog' },
         ]}
       />
+      <CollectionPageSchema
+        posts={allPosts.map((post) => ({
+          title: post.title,
+          url: `/blog/${post.id}`,
+          image: post.image,
+          description: post.excerpt,
+        }))}
+      />
       {/* Navigation */}
       <LandingNav />
 

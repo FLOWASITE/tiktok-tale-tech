@@ -871,6 +871,28 @@ Text: "Dùng thử FREE → Bio"`}</pre>
                     Thay vì dành 80% thời gian cho công việc lặp lại, hãy để Flowa handle phần "mechanical" 
                     để bạn focus vào creative strategy và customer insights.
                   </p>
+
+                  {/* Internal Links */}
+                  <div className="p-4 rounded-xl bg-muted/50 border border-border/50 mb-6">
+                    <h4 className="font-semibold mb-3">📚 Đọc thêm:</h4>
+                    <ul className="space-y-2 text-sm">
+                      <li>
+                        <Link to="/blog/content-repurposing-chien-luoc" className="text-primary hover:underline">
+                          → Content Repurposing: Biến 1 Ý Tưởng Thành 20+ Nội Dung Đa Kênh
+                        </Link>
+                      </li>
+                      <li>
+                        <Link to="/blog/ai-content-marketing-huong-dan" className="text-primary hover:underline">
+                          → AI Content Marketing: Hướng Dẫn Toàn Diện Từ Cơ Bản Đến Nâng Cao
+                        </Link>
+                      </li>
+                      <li>
+                        <Link to="/blog/cach-tao-content-da-kenh" className="text-primary hover:underline">
+                          → Cách Tạo Content Đa Kênh: Hướng Dẫn Toàn Diện Từ A-Z
+                        </Link>
+                      </li>
+                    </ul>
+                  </div>
                   
                   <div className="flex flex-col sm:flex-row gap-4">
                     <Button size="lg" className="flex-1" asChild>

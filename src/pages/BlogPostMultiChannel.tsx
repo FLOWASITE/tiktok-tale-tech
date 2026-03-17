@@ -1233,6 +1233,23 @@ const BlogPostMultiChannel = () => {
                   ))}
                 </div>
 
+                {/* Internal Links */}
+                <div className="p-4 rounded-xl bg-muted/50 border border-border/50 mb-8">
+                  <h4 className="font-semibold mb-3">📚 Đọc thêm:</h4>
+                  <ul className="space-y-2 text-sm">
+                    <li>
+                      <Link to="/blog/flowa-content-marketing-da-kenh" className="text-primary hover:underline">
+                        → Flowa: Giải Pháp Tạo Content Marketing Đa Kênh Trong 10 Phút
+                      </Link>
+                    </li>
+                    <li>
+                      <Link to="/blog/content-repurposing-chien-luoc" className="text-primary hover:underline">
+                        → Content Repurposing: Biến 1 Ý Tưởng Thành 20+ Nội Dung Đa Kênh
+                      </Link>
+                    </li>
+                  </ul>
+                </div>
+
                 {/* Final CTA */}
                 <div className="p-8 rounded-3xl bg-gradient-to-br from-primary via-purple-500 to-pink-500 text-white text-center">
                   <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-90" />
