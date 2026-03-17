@@ -68,6 +68,7 @@ interface UsageSummary {
 export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDetailSheetProps) {
   const [orgs, setOrgs] = useState<OrgMembership[]>([]);
   const [usage, setUsage] = useState<UsageSummary[]>([]);
+  const [contentCounts, setContentCounts] = useState({ posts: 0, carousels: 0, images: 0 });
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [newPassword, setNewPassword] = useState("");
