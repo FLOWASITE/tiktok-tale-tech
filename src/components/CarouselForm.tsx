@@ -74,6 +74,7 @@ const MAX_TOPIC_LENGTH = 300;
 
 export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId }: CarouselFormProps) {
   const { templates, loading: templatesLoading, saveTemplate, deleteTemplate } = useBrandTemplates();
+  const { currentBrand } = useCurrentBrand();
   const topicInputRef = useRef<HTMLInputElement>(null);
   
   const [topic, setTopic] = useState(initialTopic || '');
