@@ -78,6 +78,12 @@ export function DashboardHeader({
                 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground flex items-center gap-2"
               >
                 {greeting}, {userName}! <span className="text-2xl">👋</span>
+                <span 
+                  onClick={() => navigate('/pricing')}
+                  className={`ml-1 px-2 py-0.5 text-[10px] font-semibold rounded-full border cursor-pointer hover:opacity-80 transition-opacity ${planBadge.className}`}
+                >
+                  {planBadge.label}
+                </span>
               </motion.h1>
               <motion.p 
                 initial={{ opacity: 0 }}

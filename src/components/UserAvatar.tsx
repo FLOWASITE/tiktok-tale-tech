@@ -181,6 +181,9 @@ export function UserAvatar() {
                   {currentOrganization.name}
                 </Badge>
               )}
+              <Badge className={`text-[10px] ${planBadge.className}`}>
+                {planBadge.label}
+              </Badge>
               {currentRole && (
                 <Badge className={`text-xs ${ORG_ROLE_COLORS[currentRole]}`}>
                   {ORG_ROLE_LABELS[currentRole]}
