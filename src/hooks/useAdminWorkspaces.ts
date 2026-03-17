@@ -56,11 +56,31 @@ export function useAdminWorkspaces() {
       const [profilesRes, membersRes, subsRes, brandsRes, contentsRes, imagesRes] = await Promise.all([
         supabase.from("profiles").select("id, email, full_name, avatar_url").in("id", ownerIds),
         supabase.from("organization_members").select("organization_id"),
-        supabase.from("subscriptions").select("organization_id, plan_type, status, current_period_end").not("organization_id", "is", null),
+        supabase.from("subscriptions").select("organization_id, plan_type, status, current_period_start, current_period_end").not("organization_id", "is", null),
         supabase.from("brand_templates").select("organization_id"),
-        supabase.from("multi_channel_contents").select("organization_id"),
-        supabase.from("channel_image_history").select("content_id, organization_id:multi_channel_contents(organization_id)"),
+        supabase.from("multi_channel_contents").select("organization_id, created_at"),
+        supabase.from("channel_image_history").select("content_id, created_at, organization_id:multi_channel_contents(organization_id)"),
       ]);
+
+      // Build period map per org from subscriptions (fallback to current month)
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
+      const periodMap = new Map<string, { start: string; end: string }>();
+      (subsRes.data || []).forEach((s: any) => {
+        if (!s.organization_id) return;
+        const periodEnd = new Date(s.current_period_end);
+        if (periodEnd < now) {
+          periodMap.set(s.organization_id, { start: monthStart, end: monthEnd });
+        } else {
+          periodMap.set(s.organization_id, { start: s.current_period_start, end: s.current_period_end });
+        }
+      });
+      const getOrgPeriod = (orgId: string) => periodMap.get(orgId) || { start: monthStart, end: monthEnd };
+      const isInPeriod = (orgId: string, createdAt: string) => {
+        const p = getOrgPeriod(orgId);
+        return createdAt >= p.start && createdAt <= p.end;
+      };
 
       const profilesMap = new Map(
         (profilesRes.data || []).map((p) => [p.id, p])
@@ -78,17 +98,21 @@ export function useAdminWorkspaces() {
         if (b.organization_id) brandCounts.set(b.organization_id, (brandCounts.get(b.organization_id) || 0) + 1);
       });
 
-      // Count contents per org
+      // Count contents per org (filtered by subscription period)
       const contentCounts = new Map<string, number>();
       (contentsRes.data || []).forEach((c: any) => {
-        if (c.organization_id) contentCounts.set(c.organization_id, (contentCounts.get(c.organization_id) || 0) + 1);
+        if (c.organization_id && isInPeriod(c.organization_id, c.created_at)) {
+          contentCounts.set(c.organization_id, (contentCounts.get(c.organization_id) || 0) + 1);
+        }
       });
 
-      // Count images per org
+      // Count images per org (filtered by subscription period)
       const imageCounts = new Map<string, number>();
       (imagesRes.data || []).forEach((img: any) => {
         const orgId = img.organization_id?.organization_id;
-        if (orgId) imageCounts.set(orgId, (imageCounts.get(orgId) || 0) + 1);
+        if (orgId && isInPeriod(orgId, img.created_at)) {
+          imageCounts.set(orgId, (imageCounts.get(orgId) || 0) + 1);
+        }
       });
 
       // Subscriptions by org
