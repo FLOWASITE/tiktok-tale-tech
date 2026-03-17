@@ -61,7 +61,7 @@ export function useAdminWorkspaces() {
         supabase.from("subscriptions").select("organization_id, plan_type, status, current_period_start, current_period_end").not("organization_id", "is", null),
         supabase.from("brand_templates").select("organization_id"),
         supabase.from("multi_channel_contents").select("organization_id, created_at"),
-        supabase.from("channel_image_history").select("content_id, created_at, organization_id:multi_channel_contents(organization_id)"),
+        supabase.from("channel_image_history").select("organization_id, created_at"),
         supabase.from("carousels").select("organization_id, created_at"),
         supabase.from("scripts").select("organization_id, created_at"),
       ]);
