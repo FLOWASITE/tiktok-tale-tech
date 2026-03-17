@@ -12,6 +12,7 @@ import {
   BlogBreadcrumb,
   blogPostsData 
 } from '@/components/blog';
+import { SEOHead } from '@/components/SEOHead';
 
 const POST_SLUG = 'content-repurposing-chien-luoc';
 const POST_CATEGORY = 'Strategy';
