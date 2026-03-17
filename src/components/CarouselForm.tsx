@@ -113,16 +113,18 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
     return () => clearInterval(interval);
   }, [isLoading]);
 
-  // Load default template on mount
+  // Load default template from global brand context or default on mount
   useEffect(() => {
     if (!templatesLoading && templates.length > 0 && !selectedTemplateId) {
-      const defaultTemplate = templates.find(t => t.is_default);
-      if (defaultTemplate) {
-        applyTemplate(defaultTemplate);
-        setSelectedTemplateId(defaultTemplate.id);
+      const initialBrand = currentBrand
+        ? templates.find(t => t.id === currentBrand.id)
+        : templates.find(t => t.is_default);
+      if (initialBrand) {
+        applyTemplate(initialBrand);
+        setSelectedTemplateId(initialBrand.id);
       }
     }
-  }, [templatesLoading, templates, selectedTemplateId]);
+  }, [templatesLoading, templates, selectedTemplateId, currentBrand]);
 
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
 
