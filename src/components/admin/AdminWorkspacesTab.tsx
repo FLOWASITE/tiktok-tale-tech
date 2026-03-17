@@ -600,6 +600,7 @@ export function AdminWorkspacesTab() {
                       <TableCell className="text-center font-semibold text-sm">{filteredTotals.brands}</TableCell>
                       <TableCell className="text-center font-semibold text-sm">{filteredTotals.contents}</TableCell>
                       <TableCell className="text-center font-semibold text-sm">{filteredTotals.images}</TableCell>
+                      <TableCell className="text-center font-bold text-sm text-primary">{filteredTotals.total}</TableCell>
                       <TableCell colSpan={4} />
                     </TableRow>
                   </tfoot>
