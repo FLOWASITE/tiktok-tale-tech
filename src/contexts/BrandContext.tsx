@@ -96,7 +96,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user, currentOrganization?.id, storageKey, orgLoading]);
+  }, [user, fallbackOrganizationId, storageKey, orgLoading]);
 
   useEffect(() => {
     setLoading(true);
