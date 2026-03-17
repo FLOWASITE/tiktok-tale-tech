@@ -3,10 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Images, Layers, Wand2, Palette, ArrowUpRight, AlertTriangle } from 'lucide-react';
+import { FileText, Images, Layers, Wand2, Palette, ArrowUpRight, AlertTriangle, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getPlanBadge } from '@/lib/plan-badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 interface QuotaItem {
   key: string;
@@ -30,7 +32,7 @@ function getQuotaTextClass(percentage: number) {
 
 export function UsageQuotaWidget() {
   const navigate = useNavigate();
-  const { subscription, currentPlanLimits, usage, isLoading } = useSubscription();
+  const { subscription, currentPlanLimits, usage, isLoading, currentPeriod } = useSubscription();
   const planBadge = getPlanBadge(subscription?.plan_type);
 
   if (isLoading) {
@@ -47,6 +49,14 @@ export function UsageQuotaWidget() {
   }
 
   if (!currentPlanLimits || !usage) return null;
+
+  const now = new Date();
+  const periodStart = new Date(currentPeriod.start);
+  const periodEnd = new Date(currentPeriod.end);
+  const totalDays = Math.max(1, Math.ceil((periodEnd.getTime() - periodStart.getTime()) / 86400000));
+  const daysElapsed = Math.ceil((now.getTime() - periodStart.getTime()) / 86400000);
+  const daysRemaining = Math.max(0, Math.ceil((periodEnd.getTime() - now.getTime()) / 86400000));
+  const periodPct = Math.min(100, Math.round((daysElapsed / totalDays) * 100));
 
   const items: QuotaItem[] = [
     { key: 'scripts', label: 'Scripts', icon: FileText, used: usage.scripts, limit: currentPlanLimits.monthly_scripts },
@@ -74,6 +84,30 @@ export function UsageQuotaWidget() {
           {hasWarning && (
             <AlertTriangle className="h-4 w-4 text-amber-500" />
           )}
+        </div>
+        {/* Cycle period info */}
+        <div className="space-y-1.5 pt-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <Calendar className="h-3 w-3" />
+              {format(periodStart, 'dd/MM', { locale: vi })} – {format(periodEnd, 'dd/MM/yyyy', { locale: vi })}
+            </span>
+            <span className={cn(
+              'font-medium tabular-nums',
+              daysRemaining <= 5 ? 'text-destructive' : 'text-muted-foreground'
+            )}>
+              Còn {daysRemaining} ngày
+            </span>
+          </div>
+          <div className="h-1 w-full rounded-full bg-secondary overflow-hidden">
+            <div
+              className={cn(
+                'h-full rounded-full transition-all',
+                daysRemaining <= 5 ? 'bg-destructive' : daysRemaining <= 10 ? 'bg-amber-500' : 'bg-muted-foreground/30'
+              )}
+              style={{ width: `${periodPct}%` }}
+            />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">

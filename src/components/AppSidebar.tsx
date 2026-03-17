@@ -128,7 +128,7 @@ function GradientSeparator() {
 
 // Quota Warning Indicator - shows when any resource > 80% 
 function QuotaWarningIndicator() {
-  const { currentPlanLimits, usage } = useSubscription();
+  const { currentPlanLimits, usage, currentPeriod } = useSubscription();
   const navigate = useNavigate();
 
   if (!currentPlanLimits || !usage) {
@@ -144,21 +144,38 @@ function QuotaWarningIndicator() {
   ];
 
   const critical = checks.find(c => c.limit !== -1 && c.limit > 0 && (c.used / c.limit) >= 0.8);
-  
-  if (!critical) {
+
+  // Check cycle expiry
+  const now = new Date();
+  const periodEnd = new Date(currentPeriod.end);
+  const daysRemaining = Math.max(0, Math.ceil((periodEnd.getTime() - now.getTime()) / 86400000));
+  const cycleWarning = daysRemaining <= 3;
+
+  if (!critical && !cycleWarning) {
     return <p className="text-[10px] text-muted-foreground/70">One Flow. All Content.</p>;
   }
 
-  const pct = Math.round((critical.used / critical.limit) * 100);
-
   return (
-    <button 
-      onClick={() => navigate('/account')}
-      className="flex items-center gap-1 text-[10px] text-amber-500 hover:text-amber-400 transition-colors cursor-pointer"
-    >
-      <AlertTriangle className="h-2.5 w-2.5" />
-      <span>{critical.label} {pct}% — Sắp hết</span>
-    </button>
+    <div className="flex flex-col gap-0.5">
+      {critical && (
+        <button 
+          onClick={() => navigate('/account')}
+          className="flex items-center gap-1 text-[10px] text-amber-500 hover:text-amber-400 transition-colors cursor-pointer"
+        >
+          <AlertTriangle className="h-2.5 w-2.5" />
+          <span>{critical.label} {Math.round((critical.used / critical.limit) * 100)}% — Sắp hết</span>
+        </button>
+      )}
+      {cycleWarning && (
+        <button 
+          onClick={() => navigate('/account')}
+          className="flex items-center gap-1 text-[10px] text-destructive hover:text-destructive/80 transition-colors cursor-pointer"
+        >
+          <AlertTriangle className="h-2.5 w-2.5" />
+          <span>Chu kỳ còn {daysRemaining} ngày</span>
+        </button>
+      )}
+    </div>
   );
 }
 
