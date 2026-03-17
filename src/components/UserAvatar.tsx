@@ -36,6 +36,8 @@ import { Badge } from '@/components/ui/badge';
 import { ORG_ROLE_LABELS, ORG_ROLE_COLORS } from '@/types/organization';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { useSubscription } from '@/hooks/useSubscription';
+import { getPlanBadge } from '@/lib/plan-badge';
 
 export function UserAvatar() {
   const { user, signOut } = useAuth();
