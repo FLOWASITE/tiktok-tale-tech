@@ -178,10 +178,16 @@ export function AdminWorkspacesTab() {
               </CardTitle>
               <CardDescription>Quản lý workspace và plan tính phí</CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={exportCSV}>
-              <Download className="h-4 w-4 mr-1" />
-              Export
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleCleanup} disabled={isCleaningUp}>
+                {isCleaningUp ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
+                Dọn dẹp WS thừa
+              </Button>
+              <Button variant="outline" size="sm" onClick={exportCSV}>
+                <Download className="h-4 w-4 mr-1" />
+                Export
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
