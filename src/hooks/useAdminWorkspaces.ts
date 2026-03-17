@@ -17,6 +17,9 @@ export interface AdminWorkspace {
     avatar_url: string | null;
   } | null;
   member_count: number;
+  brand_count: number;
+  content_count: number;
+  image_count: number;
   subscription: {
     plan_type: string;
     status: string;
@@ -50,10 +53,13 @@ export function useAdminWorkspaces() {
       // Fetch owner profiles, member counts, and subscriptions in parallel
       const ownerIds = [...new Set(orgs.map((o) => o.owner_id).filter(Boolean))];
 
-      const [profilesRes, membersRes, subsRes] = await Promise.all([
+      const [profilesRes, membersRes, subsRes, brandsRes, contentsRes, imagesRes] = await Promise.all([
         supabase.from("profiles").select("id, email, full_name, avatar_url").in("id", ownerIds),
         supabase.from("organization_members").select("organization_id"),
         supabase.from("subscriptions").select("organization_id, plan_type, status, current_period_end").not("organization_id", "is", null),
+        supabase.from("brand_templates").select("organization_id"),
+        supabase.from("multi_channel_contents").select("organization_id"),
+        supabase.from("channel_image_history").select("content_id, organization_id:multi_channel_contents(organization_id)"),
       ]);
 
       const profilesMap = new Map(
@@ -64,6 +70,25 @@ export function useAdminWorkspaces() {
       const memberCounts = new Map<string, number>();
       (membersRes.data || []).forEach((m: any) => {
         memberCounts.set(m.organization_id, (memberCounts.get(m.organization_id) || 0) + 1);
+      });
+
+      // Count brands per org
+      const brandCounts = new Map<string, number>();
+      (brandsRes.data || []).forEach((b: any) => {
+        if (b.organization_id) brandCounts.set(b.organization_id, (brandCounts.get(b.organization_id) || 0) + 1);
+      });
+
+      // Count contents per org
+      const contentCounts = new Map<string, number>();
+      (contentsRes.data || []).forEach((c: any) => {
+        if (c.organization_id) contentCounts.set(c.organization_id, (contentCounts.get(c.organization_id) || 0) + 1);
+      });
+
+      // Count images per org
+      const imageCounts = new Map<string, number>();
+      (imagesRes.data || []).forEach((img: any) => {
+        const orgId = img.organization_id?.organization_id;
+        if (orgId) imageCounts.set(orgId, (imageCounts.get(orgId) || 0) + 1);
       });
 
       // Subscriptions by org
@@ -80,6 +105,9 @@ export function useAdminWorkspaces() {
         created_at: org.created_at,
         owner: profilesMap.get(org.owner_id) || null,
         member_count: memberCounts.get(org.id) || 0,
+        brand_count: brandCounts.get(org.id) || 0,
+        content_count: contentCounts.get(org.id) || 0,
+        image_count: imageCounts.get(org.id) || 0,
         subscription: subsMap.has(org.id)
           ? {
               plan_type: subsMap.get(org.id)!.plan_type,

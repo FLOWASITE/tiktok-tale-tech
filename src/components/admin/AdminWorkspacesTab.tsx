@@ -268,6 +268,18 @@ export function AdminWorkspacesTab() {
     });
   }, [workspaces, searchQuery, planFilter]);
 
+  const filteredTotals = useMemo(() => {
+    return filtered.reduce(
+      (acc, ws) => ({
+        members: acc.members + ws.member_count,
+        brands: acc.brands + ws.brand_count,
+        contents: acc.contents + ws.content_count,
+        images: acc.images + ws.image_count,
+      }),
+      { members: 0, brands: 0, contents: 0, images: 0 }
+    );
+  }, [filtered]);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
@@ -416,6 +428,9 @@ export function AdminWorkspacesTab() {
                     <TableHead>Workspace</TableHead>
                     <TableHead>Owner</TableHead>
                     <TableHead className="text-center">Thành viên</TableHead>
+                    <TableHead className="text-center">Brands</TableHead>
+                    <TableHead className="text-center">Nội dung</TableHead>
+                    <TableHead className="text-center">Ảnh</TableHead>
                     <TableHead>Plan</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Ngày tạo</TableHead>
@@ -425,7 +440,7 @@ export function AdminWorkspacesTab() {
                 <TableBody>
                   {paginated.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                         Không tìm thấy workspace
                       </TableCell>
                     </TableRow>
@@ -477,6 +492,15 @@ export function AdminWorkspacesTab() {
                               <Badge variant="secondary" className="font-mono">
                                 {ws.member_count}
                               </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="text-sm font-medium">{ws.brand_count}</span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="text-sm font-medium">{ws.content_count}</span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="text-sm font-medium">{ws.image_count}</span>
                             </TableCell>
                             <TableCell onClick={(e) => e.stopPropagation()}>
                               <Select
@@ -533,7 +557,7 @@ export function AdminWorkspacesTab() {
                           </TableRow>
                           {isExpanded && (
                             <TableRow key={ws.id + "-detail"}>
-                              <TableCell colSpan={7} className="p-0">
+                              <TableCell colSpan={10} className="p-0">
                                 <WorkspaceDetailPanel orgId={ws.id} />
                               </TableCell>
                             </TableRow>
@@ -543,6 +567,22 @@ export function AdminWorkspacesTab() {
                     })
                   )}
                 </TableBody>
+                {filtered.length > 0 && (
+                  <tfoot>
+                    <TableRow className="bg-muted/50 font-medium">
+                      <TableCell colSpan={2} className="text-sm font-semibold">
+                        Tổng ({filtered.length} workspaces)
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="secondary" className="font-mono">{filteredTotals.members}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center font-semibold text-sm">{filteredTotals.brands}</TableCell>
+                      <TableCell className="text-center font-semibold text-sm">{filteredTotals.contents}</TableCell>
+                      <TableCell className="text-center font-semibold text-sm">{filteredTotals.images}</TableCell>
+                      <TableCell colSpan={4} />
+                    </TableRow>
+                  </tfoot>
+                )}
               </Table>
             </div>
           )}
