@@ -64,7 +64,7 @@ serve(async (req: Request) => {
       .from("organization_members")
       .select("role")
       .eq("organization_id", organizationId)
-      .eq("user_id", caller.id)
+      .eq("user_id", callerId)
       .single();
 
     if (membershipError || !callerMembership) {
