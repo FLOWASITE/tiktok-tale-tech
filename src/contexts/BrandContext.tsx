@@ -55,22 +55,30 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     if (orgLoading) return;
 
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('brand_templates')
         .select('*')
         .order('is_default', { ascending: false })
         .order('name', { ascending: true });
 
-      if (currentOrganization) {
-        query = query.eq('organization_id', currentOrganization.id);
-      } else {
-        query = query.eq('user_id', user.id);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
 
-      const list = (data || []).map(transformDbResponse);
+      const allBrands = (data || []).map(transformDbResponse);
+
+      let list: BrandTemplate[];
+      if (fallbackOrganizationId) {
+        const orgBrands = allBrands.filter((brand) => brand.organization_id === fallbackOrganizationId);
+        if (orgBrands.length > 0) {
+          list = orgBrands;
+        } else {
+          const personalBrands = allBrands.filter((brand) => brand.user_id === user.id && !brand.organization_id);
+          list = personalBrands.length > 0 ? personalBrands : allBrands;
+        }
+      } else {
+        const personalBrands = allBrands.filter((brand) => brand.user_id === user.id && !brand.organization_id);
+        list = personalBrands.length > 0 ? personalBrands : allBrands;
+      }
+
       setBrands(list);
 
       // Restore or pick default
