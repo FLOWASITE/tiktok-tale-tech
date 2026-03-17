@@ -270,7 +270,7 @@ export function useAdminSystemAnalytics(period: PeriodFilter) {
       ]);
 
       const contentUserMap: Record<string, string> = {};
-      const userStats: Record<string, { contentCount: number; socialPosts: number; aiImages: number; aiEdits: number }> = {};
+      const userStats: Record<string, { contentCount: number; socialPosts: number; aiImages: number }> = {};
 
       (contents || []).forEach(c => {
         if (!c.user_id) return;
