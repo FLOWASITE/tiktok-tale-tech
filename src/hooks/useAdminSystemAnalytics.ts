@@ -275,7 +275,7 @@ export function useAdminSystemAnalytics(period: PeriodFilter) {
       (contents || []).forEach(c => {
         if (!c.user_id) return;
         contentUserMap[c.id] = c.user_id;
-        if (!userStats[c.user_id]) userStats[c.user_id] = { contentCount: 0, socialPosts: 0, aiImages: 0, aiEdits: 0 };
+        if (!userStats[c.user_id]) userStats[c.user_id] = { contentCount: 0, socialPosts: 0, aiImages: 0 };
         userStats[c.user_id].contentCount++;
         userStats[c.user_id].socialPosts += Array.isArray(c.selected_channels) ? c.selected_channels.length : 0;
       });
