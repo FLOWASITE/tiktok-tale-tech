@@ -428,7 +428,7 @@ export function AdminWorkspacesTab() {
                 <TableBody>
                   {paginated.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                         Không tìm thấy workspace
                       </TableCell>
                     </TableRow>
