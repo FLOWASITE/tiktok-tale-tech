@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LandingNav } from '@/components/landing/LandingNav';
 import { BlogBreadcrumb, BlogPagination } from '@/components/blog';
+import { SEOHead } from '@/components/SEOHead';
 
 const POSTS_PER_PAGE = 6;
 
