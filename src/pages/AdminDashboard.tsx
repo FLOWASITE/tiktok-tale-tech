@@ -754,6 +754,12 @@ export default function AdminDashboard() {
                 AI Management
               </Button>
             </Link>
+            <Link to="/admin/analytics">
+              <Button variant="outline" size="sm">
+                <TrendingUp className="h-4 w-4 mr-2" />
+                System Analytics
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>
