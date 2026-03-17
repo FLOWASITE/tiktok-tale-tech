@@ -51,12 +51,30 @@ const BlogPostAIContent = () => {
         description="Tìm hiểu cách sử dụng AI trong content marketing hiệu quả. Bao gồm workflow, tools, prompts, và case studies thực tế."
         canonicalPath="/blog/ai-content-marketing-huong-dan"
         ogType="article"
-        article={{ author: 'Flowa Team', publishDate: '2026-01-15T00:00:00+07:00', section: 'AI Marketing', tags: ['AI', 'content marketing', 'prompt engineering', 'công cụ AI'] }}
+        ogImage="https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1200&h=630&fit=crop"
+        article={{ author: 'Flowa Team', publishDate: '2026-01-15T00:00:00+07:00', section: 'AI Marketing', tags: ['AI', 'content marketing', 'prompt engineering', 'công cụ AI'], readingTime: 'PT25M', wordCount: 7000, authorUrl: 'https://flowa.vn', authorJobTitle: 'Content Marketing Team' }}
         breadcrumbs={[
           { name: 'Trang chủ', url: '/' },
           { name: 'Blog', url: '/blog' },
           { name: 'AI Content Marketing', url: '/blog/ai-content-marketing-huong-dan' },
         ]}
+      />
+      <HowToSEOSchema
+        name="Workflow Tích Hợp AI Trong Content Marketing: Quy Trình 5 Bước"
+        description="Hướng dẫn tích hợp AI vào quy trình content marketing với 5 bước từ research đến publish."
+        steps={[
+          { name: 'AI Research & Ideation', text: 'Sử dụng AI để research topics, phân tích trends và brainstorm ý tưởng content.' },
+          { name: 'AI-Assisted Drafting', text: 'Tạo draft đầu tiên với AI, cung cấp context và brand guidelines rõ ràng.' },
+          { name: 'Human Review & Enhancement', text: 'Biên tập, fact-check, thêm creativity và emotional depth vào bản draft AI.' },
+          { name: 'Multi-format Adaptation', text: 'Dùng AI adapt content sang nhiều format cho các kênh khác nhau.' },
+          { name: 'Publish & Optimize', text: 'Đăng bài, đo lường performance và dùng AI insights để tối ưu liên tục.' },
+        ]}
+      />
+      <TOCSEOSchema
+        items={tableOfContents.map((item) => ({
+          name: item.title,
+          url: `https://tiktok-tale-tech.lovable.app/blog/ai-content-marketing-huong-dan#${item.id}`,
+        }))}
       />
       {/* Reading Progress */}
       <ReadingProgress />
