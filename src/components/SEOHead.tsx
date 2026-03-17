@@ -10,6 +10,11 @@ export interface ArticleData {
   modifiedDate?: string;
   section: string;
   tags?: string[];
+  readingTime?: string; // ISO 8601 duration, e.g. "PT15M"
+  wordCount?: number;
+  authorUrl?: string;
+  authorJobTitle?: string;
+  authorSameAs?: string[];
 }
 
 export interface BreadcrumbItem {
@@ -54,6 +59,9 @@ export function SEOHead({
         author: {
           '@type': 'Person',
           name: article.author,
+          ...(article.authorUrl && { url: article.authorUrl }),
+          ...(article.authorJobTitle && { jobTitle: article.authorJobTitle }),
+          ...(article.authorSameAs?.length && { sameAs: article.authorSameAs }),
         },
         publisher: {
           '@type': 'Organization',
@@ -71,6 +79,8 @@ export function SEOHead({
         },
         articleSection: article.section,
         keywords: article.tags?.join(', '),
+        ...(article.readingTime && { timeRequired: article.readingTime }),
+        ...(article.wordCount && { wordCount: article.wordCount }),
       }
     : null;
 
@@ -173,6 +183,76 @@ export function LandingSEOSchemas() {
     <Helmet>
       <script type="application/ld+json">{JSON.stringify(orgSchema)}</script>
       <script type="application/ld+json">{JSON.stringify(webSiteSchema)}</script>
+    </Helmet>
+  );
+}
+
+// CollectionPage + ItemList schema for blog list
+export function CollectionPageSchema({ posts }: { posts: { title: string; url: string; image: string; description: string }[] }) {
+  const collectionSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: 'Blog Flowa - Content Marketing & AI',
+    description: 'Chia sẻ kiến thức, trends và chiến lược content marketing từ đội ngũ Flowa.',
+    url: `${SITE_URL}/blog`,
+    mainEntity: {
+      '@type': 'ItemList',
+      itemListElement: posts.map((post, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        url: `${SITE_URL}${post.url}`,
+        name: post.title,
+        image: post.image,
+        description: post.description,
+      })),
+    },
+  };
+
+  return (
+    <Helmet>
+      <script type="application/ld+json">{JSON.stringify(collectionSchema)}</script>
+    </Helmet>
+  );
+}
+
+// HowTo schema for guide-style posts
+export function HowToSEOSchema({ name, description, steps }: { name: string; description: string; steps: { name: string; text: string }[] }) {
+  const howToSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    name,
+    description,
+    step: steps.map((step, index) => ({
+      '@type': 'HowToStep',
+      position: index + 1,
+      name: step.name,
+      text: step.text,
+    })),
+  };
+
+  return (
+    <Helmet>
+      <script type="application/ld+json">{JSON.stringify(howToSchema)}</script>
+    </Helmet>
+  );
+}
+
+// TOC SiteNavigationElement schema
+export function TOCSEOSchema({ items }: { items: { name: string; url: string }[] }) {
+  const tocSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'SiteNavigationElement',
+    name: 'Mục lục bài viết',
+    hasPart: items.map((item) => ({
+      '@type': 'WebPageElement',
+      name: item.name,
+      url: item.url,
+    })),
+  };
+
+  return (
+    <Helmet>
+      <script type="application/ld+json">{JSON.stringify(tocSchema)}</script>
     </Helmet>
   );
 }

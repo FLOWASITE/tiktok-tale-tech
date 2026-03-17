@@ -12,7 +12,7 @@ import {
   BlogBreadcrumb,
   blogPostsData 
 } from '@/components/blog';
-import { SEOHead } from '@/components/SEOHead';
+import { SEOHead, TOCSEOSchema } from '@/components/SEOHead';
 
 const POST_SLUG = 'content-repurposing-chien-luoc';
 const POST_CATEGORY = 'Strategy';
@@ -43,12 +43,19 @@ const BlogPostRepurposing = () => {
         description="Đừng viết nhiều hơn, hãy viết thông minh hơn. Hướng dẫn chi tiết chiến lược Content Repurposing để thống trị mọi nền tảng."
         canonicalPath="/blog/content-repurposing-chien-luoc"
         ogType="article"
-        article={{ author: 'Võ Phương Duy', publishDate: '2026-01-15T00:00:00+07:00', section: 'Strategy', tags: ['content repurposing', 'đa kênh', 'chiến lược', 'tái sử dụng nội dung'] }}
+        ogImage="https://images.unsplash.com/photo-1552664730-d307ca884978?w=1200&h=630&fit=crop"
+        article={{ author: 'Võ Phương Duy', publishDate: '2026-01-15T00:00:00+07:00', section: 'Strategy', tags: ['content repurposing', 'đa kênh', 'chiến lược', 'tái sử dụng nội dung'], readingTime: 'PT15M', wordCount: 3500, authorUrl: 'https://flowa.vn', authorJobTitle: 'Founder Flowa', authorSameAs: ['https://linkedin.com/in/vophuongduy'] }}
         breadcrumbs={[
           { name: 'Trang chủ', url: '/' },
           { name: 'Blog', url: '/blog' },
           { name: 'Content Repurposing', url: '/blog/content-repurposing-chien-luoc' },
         ]}
+      />
+      <TOCSEOSchema
+        items={tableOfContents.map((item) => ({
+          name: item.title,
+          url: `https://tiktok-tale-tech.lovable.app/blog/content-repurposing-chien-luoc#${item.id}`,
+        }))}
       />
       {/* Reading Progress */}
       <ReadingProgress />
@@ -637,6 +644,23 @@ const BlogPostRepurposing = () => {
                   </ol>
                 </div>
               </section>
+
+              {/* Internal Links */}
+              <div className="p-4 rounded-xl bg-muted/50 border border-border mb-8">
+                <h4 className="font-semibold text-foreground mb-3">📚 Đọc thêm:</h4>
+                <ul className="space-y-2 text-sm">
+                  <li>
+                    <Link to="/blog/cach-tao-content-da-kenh" className="text-primary hover:underline">
+                      → Cách Tạo Content Đa Kênh: Hướng Dẫn Toàn Diện Từ A-Z
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/blog/ai-content-marketing-huong-dan" className="text-primary hover:underline">
+                      → AI Content Marketing: Hướng Dẫn Toàn Diện Từ Cơ Bản Đến Nâng Cao
+                    </Link>
+                  </li>
+                </ul>
+              </div>
 
               {/* CTA */}
               <section className="bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-8 text-center">

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LandingNav } from '@/components/landing/LandingNav';
 import { BlogBreadcrumb, BlogPagination } from '@/components/blog';
-import { SEOHead } from '@/components/SEOHead';
+import { SEOHead, CollectionPageSchema } from '@/components/SEOHead';
 
 const POSTS_PER_PAGE = 6;
 
@@ -102,6 +102,14 @@ const Blog = () => {
           { name: 'Trang chủ', url: '/' },
           { name: 'Blog', url: '/blog' },
         ]}
+      />
+      <CollectionPageSchema
+        posts={allPosts.map((post) => ({
+          title: post.title,
+          url: `/blog/${post.id}`,
+          image: post.image,
+          description: post.excerpt,
+        }))}
       />
       {/* Navigation */}
       <LandingNav />

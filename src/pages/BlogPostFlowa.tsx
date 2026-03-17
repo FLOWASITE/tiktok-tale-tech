@@ -41,7 +41,7 @@ import {
   BlogBreadcrumb,
   blogPostsData 
 } from '@/components/blog';
-import { SEOHead } from '@/components/SEOHead';
+import { SEOHead, TOCSEOSchema } from '@/components/SEOHead';
 
 const POST_SLUG = 'flowa-content-marketing-da-kenh';
 const POST_CATEGORY = 'Product';
@@ -75,12 +75,19 @@ const BlogPostFlowa = () => {
         description="Flowa giúp Marketing Team tạo content cho 12 kênh chỉ trong 10 phút. Tự động hóa 90% quy trình, giữ brand voice nhất quán."
         canonicalPath="/blog/flowa-content-marketing-da-kenh"
         ogType="article"
-        article={{ author: 'Flowa Team', publishDate: '2026-01-15T00:00:00+07:00', section: 'Product', tags: ['content marketing', 'đa kênh', 'AI', 'flowa'] }}
+        ogImage="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&h=630&fit=crop"
+        article={{ author: 'Flowa Team', publishDate: '2026-01-15T00:00:00+07:00', section: 'Product', tags: ['content marketing', 'đa kênh', 'AI', 'flowa'], readingTime: 'PT15M', wordCount: 4500, authorUrl: 'https://flowa.vn', authorJobTitle: 'Content Marketing Team' }}
         breadcrumbs={[
           { name: 'Trang chủ', url: '/' },
           { name: 'Blog', url: '/blog' },
           { name: 'Flowa: Content Marketing Đa Kênh', url: '/blog/flowa-content-marketing-da-kenh' },
         ]}
+      />
+      <TOCSEOSchema
+        items={tableOfContents.map((item) => ({
+          name: item.title,
+          url: `https://tiktok-tale-tech.lovable.app/blog/flowa-content-marketing-da-kenh#${item.id}`,
+        }))}
       />
       {/* Reading Progress */}
       <ReadingProgress />
@@ -864,6 +871,28 @@ Text: "Dùng thử FREE → Bio"`}</pre>
                     Thay vì dành 80% thời gian cho công việc lặp lại, hãy để Flowa handle phần "mechanical" 
                     để bạn focus vào creative strategy và customer insights.
                   </p>
+
+                  {/* Internal Links */}
+                  <div className="p-4 rounded-xl bg-muted/50 border border-border/50 mb-6">
+                    <h4 className="font-semibold mb-3">📚 Đọc thêm:</h4>
+                    <ul className="space-y-2 text-sm">
+                      <li>
+                        <Link to="/blog/content-repurposing-chien-luoc" className="text-primary hover:underline">
+                          → Content Repurposing: Biến 1 Ý Tưởng Thành 20+ Nội Dung Đa Kênh
+                        </Link>
+                      </li>
+                      <li>
+                        <Link to="/blog/ai-content-marketing-huong-dan" className="text-primary hover:underline">
+                          → AI Content Marketing: Hướng Dẫn Toàn Diện Từ Cơ Bản Đến Nâng Cao
+                        </Link>
+                      </li>
+                      <li>
+                        <Link to="/blog/cach-tao-content-da-kenh" className="text-primary hover:underline">
+                          → Cách Tạo Content Đa Kênh: Hướng Dẫn Toàn Diện Từ A-Z
+                        </Link>
+                      </li>
+                    </ul>
+                  </div>
                   
                   <div className="flex flex-col sm:flex-row gap-4">
                     <Button size="lg" className="flex-1" asChild>
