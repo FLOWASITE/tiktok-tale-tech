@@ -270,7 +270,6 @@ export function UserDetailSheet({ user, open, onOpenChange, onAction }: UserDeta
     carousel: "Carousel",
     multichannel: "Đa kênh",
     image_generation: "Ảnh AI",
-    ai_edit: "AI Edit",
   };
 
   // Filter orgs that user is not already in
