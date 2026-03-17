@@ -140,8 +140,17 @@ export function useSubscription() {
           .lte("created_at", periodEnd),
       ]);
 
+      const channelBreakdown: Record<string, number> = {};
       const socialPostsTotal = (multiRes.data || []).reduce(
-        (sum: number, row: any) => sum + (Array.isArray(row.selected_channels) ? row.selected_channels.length : 0),
+        (sum: number, row: any) => {
+          if (Array.isArray(row.selected_channels)) {
+            row.selected_channels.forEach((ch: string) => {
+              channelBreakdown[ch] = (channelBreakdown[ch] || 0) + 1;
+            });
+            return sum + row.selected_channels.length;
+          }
+          return sum;
+        },
         0
       );
 
@@ -150,6 +159,7 @@ export function useSubscription() {
         carousels: carouselsRes.count ?? 0,
         multichannel: multiRes.count ?? 0,
         multichannel_social_posts: socialPostsTotal,
+        channel_breakdown: channelBreakdown,
         images: imagesRes.count ?? 0,
         ai_edits: aiEditsRes.count ?? 0,
       };
