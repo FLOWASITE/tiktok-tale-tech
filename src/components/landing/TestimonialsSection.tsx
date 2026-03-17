@@ -207,18 +207,18 @@ export function TestimonialsSection() {
           <p className="text-center text-sm text-muted-foreground mb-8">
             {t("hero.trustBadge")}
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-8 lg:gap-16">
-            {["TechViet", "StartupXYZ", "E-commerce Plus", "Agency Pro", "Beauty Corp", "Digital Studio"].map((company, i) => (
+          <div className="flex flex-wrap items-center justify-center gap-4 lg:gap-6">
+            {["Agency", "E-commerce", "Healthcare", "F&B", "Education", "Real Estate"].map((industry, i) => (
               <motion.div 
-                key={company} 
-                className="text-xl font-bold text-muted-foreground/50 hover:text-primary/70 transition-colors cursor-default"
+                key={industry} 
+                className="px-4 py-2 rounded-full text-sm font-medium text-muted-foreground/60 bg-muted/30 border border-border/30 hover:text-primary/70 hover:border-primary/30 transition-colors cursor-default"
                 whileHover={{ scale: 1.05 }}
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
               >
-                {company}
+                {industry}
               </motion.div>
             ))}
           </div>
