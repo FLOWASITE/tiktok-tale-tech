@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -38,13 +39,16 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Ban,
+  Upload,
+  ClipboardList,
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { UserDetailSheet } from "@/components/admin/UserDetailSheet";
 import { CreateUserDialog } from "@/components/admin/CreateUserDialog";
-import { BrandBulkActionsBar } from "@/components/BrandBulkActionsBar";
+import { UserBulkActionsBar } from "@/components/admin/UserBulkActionsBar";
+import { AuditLogPanel } from "@/components/admin/AuditLogPanel";
+import { ImportUsersDialog } from "@/components/admin/ImportUsersDialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { AdminUser } from "@/hooks/useAdmin";
@@ -68,13 +72,16 @@ export default function AdminUsers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [planFilter, setPlanFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
@@ -104,7 +111,11 @@ export default function AdminUsers() {
       const matchesRole = roleFilter === "all" || user.role === roleFilter;
       const matchesPlan =
         planFilter === "all" || user.subscription?.plan_type === planFilter;
-      return matchesSearch && matchesRole && matchesPlan;
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "banned" && user.is_banned) ||
+        (statusFilter === "active" && !user.is_banned);
+      return matchesSearch && matchesRole && matchesPlan && matchesStatus;
     });
 
     filtered.sort((a, b) => {
@@ -127,7 +138,7 @@ export default function AdminUsers() {
     });
 
     return filtered;
-  }, [users, searchQuery, roleFilter, planFilter, sortField, sortDir]);
+  }, [users, searchQuery, roleFilter, planFilter, statusFilter, sortField, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filteredAndSortedUsers.length / PAGE_SIZE));
   const paginatedUsers = filteredAndSortedUsers.slice(
@@ -156,31 +167,84 @@ export default function AdminUsers() {
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
-  async function bulkBan() {
+  async function bulkAction(actionFn: (id: string) => Promise<boolean>, label: string) {
     const ids = Array.from(selectedIds);
+    setBulkProcessing(true);
     let success = 0;
     for (const id of ids) {
       try {
-        const { data, error } = await supabase.functions.invoke("admin-manage-user", {
-          body: { action: "ban_user", user_id: id, ban: true },
-        });
-        if (!error && !data?.error) success++;
+        if (await actionFn(id)) success++;
       } catch {}
     }
-    toast.success(`Đã ban ${success}/${ids.length} users`);
+    toast.success(`${label}: ${success}/${ids.length}`);
     clearSelection();
     refetch();
+    setBulkProcessing(false);
+  }
+
+  async function bulkBan() {
+    await bulkAction(async (id) => {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "ban_user", user_id: id, ban: true },
+      });
+      return !error && !data?.error;
+    }, "Đã ban");
+  }
+
+  async function bulkUnban() {
+    await bulkAction(async (id) => {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "ban_user", user_id: id, ban: false },
+      });
+      return !error && !data?.error;
+    }, "Đã unban");
+  }
+
+  async function bulkDelete() {
+    await bulkAction(async (id) => {
+      const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+        body: { action: "delete_user", user_id: id },
+      });
+      return !error && !data?.error;
+    }, "Đã xóa");
+  }
+
+  async function bulkChangePlan(plan: string) {
+    const ids = Array.from(selectedIds);
+    setBulkProcessing(true);
+    let success = 0;
+    const periodEnd = new Date();
+    periodEnd.setDate(periodEnd.getDate() + 30);
+    for (const id of ids) {
+      try {
+        const { error } = await supabase
+          .from("subscriptions")
+          .update({
+            plan_type: plan as "free" | "starter" | "pro" | "enterprise",
+            status: "active",
+            current_period_start: new Date().toISOString(),
+            current_period_end: periodEnd.toISOString(),
+          })
+          .eq("user_id", id);
+        if (!error) success++;
+      } catch {}
+    }
+    toast.success(`Đã đổi plan: ${success}/${ids.length}`);
+    clearSelection();
+    refetch();
+    setBulkProcessing(false);
   }
 
   function exportCSV(subset?: AdminUser[]) {
     const data = subset || filteredAndSortedUsers;
-    const headers = ["Email", "Name", "Role", "Plan", "Status", "Created At"];
+    const headers = ["Email", "Name", "Role", "Plan", "Status", "Banned", "Created At"];
     const rows = data.map((u) => [
       u.email,
       u.full_name || "",
       u.role,
       u.subscription?.plan_type || "free",
       u.subscription?.status || "",
+      u.is_banned ? "Yes" : "No",
       u.created_at,
     ]);
     const csv = [headers, ...rows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
@@ -231,6 +295,10 @@ export default function AdminUsers() {
           <Button variant="outline" size="sm" onClick={() => exportCSV()}>
             <Download className="h-4 w-4 mr-1" />
             Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-1" />
+            Import CSV
           </Button>
           <Button size="sm" onClick={() => setCreateOpen(true)}>
             <UserPlus className="h-4 w-4 mr-1" />
@@ -310,266 +378,312 @@ export default function AdminUsers() {
         </CardContent>
       </Card>
 
-      {/* Users Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserCheck className="h-5 w-5" />
+      {/* Tabs: Users + Audit Log */}
+      <Tabs defaultValue="users">
+        <TabsList>
+          <TabsTrigger value="users" className="gap-1.5">
+            <UserCheck className="h-4 w-4" />
             Quản lý Users
-          </CardTitle>
-          <CardDescription>
-            Xem và quản lý tất cả users, roles và subscriptions
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/* Filters */}
-          <div className="flex flex-wrap gap-4 mb-6">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Tìm kiếm email hoặc tên..."
-                value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); setCurrentPage(1); }}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả roles</SelectItem>
-                <SelectItem value="user">User</SelectItem>
-                <SelectItem value="pro">Pro</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={planFilter} onValueChange={(v) => { setPlanFilter(v); setCurrentPage(1); }}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Plan" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả plans</SelectItem>
-                <SelectItem value="free">Free</SelectItem>
-                <SelectItem value="starter">Starter</SelectItem>
-                <SelectItem value="pro">Pro</SelectItem>
-                <SelectItem value="enterprise">Enterprise</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="gap-1.5">
+            <ClipboardList className="h-4 w-4" />
+            Audit Log
+          </TabsTrigger>
+        </TabsList>
 
-          {/* Table */}
-          {isLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Skeleton key={i} className="h-16" />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-md border overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10">
-                      <Checkbox
-                        checked={paginatedUsers.length > 0 && paginatedUsers.every((u) => selectedIds.has(u.id))}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedIds((prev) => {
-                              const next = new Set(prev);
-                              paginatedUsers.forEach((u) => next.add(u.id));
-                              return next;
-                            });
-                          } else {
-                            setSelectedIds((prev) => {
-                              const next = new Set(prev);
-                              paginatedUsers.forEach((u) => next.delete(u.id));
-                              return next;
-                            });
-                          }
-                        }}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <button className="flex items-center hover:text-foreground transition-colors" onClick={() => handleSort("name")}>
-                        User <SortIcon field="name" />
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button className="flex items-center hover:text-foreground transition-colors" onClick={() => handleSort("role")}>
-                        Role <SortIcon field="role" />
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button className="flex items-center hover:text-foreground transition-colors" onClick={() => handleSort("plan")}>
-                        Plan <SortIcon field="plan" />
-                      </button>
-                    </TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>
-                      <button className="flex items-center hover:text-foreground transition-colors" onClick={() => handleSort("date")}>
-                        Ngày tham gia <SortIcon field="date" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="text-right">Info</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedUsers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                        Không tìm thấy user nào
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    paginatedUsers.map((user) => (
-                      <TableRow
-                        key={user.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        data-state={selectedIds.has(user.id) ? "selected" : undefined}
-                        onClick={() => { setSelectedUser(user); setDetailOpen(true); }}
-                      >
-                        <TableCell onClick={(e) => e.stopPropagation()}>
+        <TabsContent value="users">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserCheck className="h-5 w-5" />
+                Quản lý Users
+              </CardTitle>
+              <CardDescription>
+                Xem và quản lý tất cả users, roles và subscriptions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Filters */}
+              <div className="flex flex-wrap gap-4 mb-6">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Tìm kiếm email hoặc tên..."
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả roles</SelectItem>
+                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="pro">Pro</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={planFilter} onValueChange={(v) => { setPlanFilter(v); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Plan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả plans</SelectItem>
+                    <SelectItem value="free">Free</SelectItem>
+                    <SelectItem value="starter">Starter</SelectItem>
+                    <SelectItem value="pro">Pro</SelectItem>
+                    <SelectItem value="enterprise">Enterprise</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="banned">Banned</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Table */}
+              {isLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Skeleton key={i} className="h-16" />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10">
                           <Checkbox
-                            checked={selectedIds.has(user.id)}
-                            onCheckedChange={() => toggleSelect(user.id)}
+                            checked={paginatedUsers.length > 0 && paginatedUsers.every((u) => selectedIds.has(u.id))}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedIds((prev) => {
+                                  const next = new Set(prev);
+                                  paginatedUsers.forEach((u) => next.add(u.id));
+                                  return next;
+                                });
+                              } else {
+                                setSelectedIds((prev) => {
+                                  const next = new Set(prev);
+                                  paginatedUsers.forEach((u) => next.delete(u.id));
+                                  return next;
+                                });
+                              }
+                            }}
                           />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={user.avatar_url || undefined} />
-                              <AvatarFallback>
-                                {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <p className="font-medium truncate">{user.full_name || "—"}</p>
-                                {user.is_banned && (
-                                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 shrink-0">
-                                    Banned
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground truncate">{user.email}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <Select
-                            value={user.role}
-                            onValueChange={(value) =>
-                              updateRole({
-                                userId: user.id,
-                                role: value as "user" | "admin" | "pro",
-                              })
-                            }
-                            disabled={isUpdating}
-                          >
-                            <SelectTrigger className="w-[100px]">
-                              <Badge className={roleColors[user.role]}>{user.role}</Badge>
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="user">User</SelectItem>
-                              <SelectItem value="pro">Pro</SelectItem>
-                              <SelectItem value="admin">Admin</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <Select
-                            value={user.subscription?.plan_type || "free"}
-                            onValueChange={(value) =>
-                              updateSubscription({
-                                userId: user.id,
-                                planType: value as "free" | "starter" | "pro" | "enterprise",
-                              })
-                            }
-                            disabled={isUpdating}
-                          >
-                            <SelectTrigger className="w-[110px]">
-                              <Badge className={planColors[user.subscription?.plan_type || "free"]}>
-                                {user.subscription?.plan_type || "free"}
-                              </Badge>
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="free">Free</SelectItem>
-                              <SelectItem value="starter">Starter</SelectItem>
-                              <SelectItem value="pro">Pro</SelectItem>
-                              <SelectItem value="enterprise">Enterprise</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          {user.subscription && (
-                            <Badge className={statusColors[user.subscription.status]}>
-                              {user.subscription.status}
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1 text-sm text-muted-foreground whitespace-nowrap">
-                            <Calendar className="h-3 w-3" />
-                            {format(new Date(user.created_at), "dd/MM/yyyy", { locale: vi })}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {user.subscription?.current_period_end && (
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">
-                              Hết hạn: {format(new Date(user.subscription.current_period_end), "dd/MM/yyyy")}
-                            </span>
-                          )}
-                        </TableCell>
+                        </TableHead>
+                        <TableHead>
+                          <button className="flex items-center hover:text-foreground transition-colors" onClick={() => handleSort("name")}>
+                            User <SortIcon field="name" />
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button className="flex items-center hover:text-foreground transition-colors" onClick={() => handleSort("role")}>
+                            Role <SortIcon field="role" />
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button className="flex items-center hover:text-foreground transition-colors" onClick={() => handleSort("plan")}>
+                            Plan <SortIcon field="plan" />
+                          </button>
+                        </TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>
+                          <button className="flex items-center hover:text-foreground transition-colors" onClick={() => handleSort("date")}>
+                            Ngày tham gia <SortIcon field="date" />
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-right">Info</TableHead>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedUsers.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                            Không tìm thấy user nào
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        paginatedUsers.map((user) => (
+                          <TableRow
+                            key={user.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            data-state={selectedIds.has(user.id) ? "selected" : undefined}
+                            onClick={() => { setSelectedUser(user); setDetailOpen(true); }}
+                          >
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                checked={selectedIds.has(user.id)}
+                                onCheckedChange={() => toggleSelect(user.id)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={user.avatar_url || undefined} />
+                                  <AvatarFallback>
+                                    {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="font-medium truncate">{user.full_name || "—"}</p>
+                                    {user.is_banned && (
+                                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 shrink-0">
+                                        Banned
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <Select
+                                value={user.role}
+                                onValueChange={(value) =>
+                                  updateRole({
+                                    userId: user.id,
+                                    role: value as "user" | "admin" | "pro",
+                                  })
+                                }
+                                disabled={isUpdating}
+                              >
+                                <SelectTrigger className="w-[100px]">
+                                  <Badge className={roleColors[user.role]}>{user.role}</Badge>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="user">User</SelectItem>
+                                  <SelectItem value="pro">Pro</SelectItem>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <Select
+                                value={user.subscription?.plan_type || "free"}
+                                onValueChange={(value) =>
+                                  updateSubscription({
+                                    userId: user.id,
+                                    planType: value as "free" | "starter" | "pro" | "enterprise",
+                                  })
+                                }
+                                disabled={isUpdating}
+                              >
+                                <SelectTrigger className="w-[110px]">
+                                  <Badge className={planColors[user.subscription?.plan_type || "free"]}>
+                                    {user.subscription?.plan_type || "free"}
+                                  </Badge>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="free">Free</SelectItem>
+                                  <SelectItem value="starter">Starter</SelectItem>
+                                  <SelectItem value="pro">Pro</SelectItem>
+                                  <SelectItem value="enterprise">Enterprise</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell>
+                              {user.subscription && (
+                                <Badge className={statusColors[user.subscription.status]}>
+                                  {user.subscription.status}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground whitespace-nowrap">
+                                <Calendar className="h-3 w-3" />
+                                {format(new Date(user.created_at), "dd/MM/yyyy", { locale: vi })}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {user.subscription?.current_period_end && (
+                                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                  Hết hạn: {format(new Date(user.subscription.current_period_end), "dd/MM/yyyy")}
+                                </span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
 
-          {/* Pagination */}
-          <div className="mt-4 flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              Hiển thị {Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredAndSortedUsers.length)}–{Math.min(currentPage * PAGE_SIZE, filteredAndSortedUsers.length)} / {filteredAndSortedUsers.length} users
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage <= 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm font-medium">
-                {currentPage} / {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage >= totalPages}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              {/* Pagination */}
+              <div className="mt-4 flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">
+                  Hiển thị {Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredAndSortedUsers.length)}–{Math.min(currentPage * PAGE_SIZE, filteredAndSortedUsers.length)} / {filteredAndSortedUsers.length} users
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage <= 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm font-medium">
+                    {currentPage} / {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="audit">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Audit Log
+              </CardTitle>
+              <CardDescription>
+                Lịch sử hành động quản trị
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AuditLogPanel />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Bulk Actions Bar */}
-      <BrandBulkActionsBar
+      <UserBulkActionsBar
         selectedCount={selectedIds.size}
         totalCount={filteredAndSortedUsers.length}
         onSelectAll={selectAll}
         onClearSelection={clearSelection}
-        onBulkDelete={bulkBan}
+        onBulkBan={bulkBan}
+        onBulkUnban={bulkUnban}
+        onBulkDelete={bulkDelete}
+        onBulkChangePlan={bulkChangePlan}
         onBulkExport={() => {
           const selected = filteredAndSortedUsers.filter((u) => selectedIds.has(u.id));
           exportCSV(selected);
         }}
+        isProcessing={bulkProcessing}
       />
 
       {/* Dialogs */}
@@ -583,6 +697,11 @@ export default function AdminUsers() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         onCreated={refetch}
+      />
+      <ImportUsersDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={refetch}
       />
     </div>
   );

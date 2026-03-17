@@ -20,13 +20,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Service role client for all admin operations
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get caller identity via anon client with user's token
     const anonClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -43,7 +41,6 @@ Deno.serve(async (req) => {
 
     const callerId = userData.user.id;
 
-    // Check admin role using serviceClient (bypasses RLS)
     const { data: adminRole } = await serviceClient
       .from("user_roles")
       .select("role")
@@ -58,7 +55,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Helper to log admin actions
     async function auditLog(actionName: string, targetUserId: string | null, details: Record<string, unknown> = {}) {
       await serviceClient.from("admin_audit_logs").insert({
         admin_id: callerId,
@@ -81,7 +77,6 @@ Deno.serve(async (req) => {
           );
         }
 
-        // Skip default org creation if admin is assigning to specific orgs
         const shouldSkipDefaultOrg = organization_ids?.length > 0;
         const { data: newUser, error: createError } =
           await serviceClient.auth.admin.createUser({
@@ -122,7 +117,6 @@ Deno.serve(async (req) => {
             .eq("user_id", newUser.user.id);
         }
 
-        // Add user to selected organizations
         if (organization_ids?.length && newUser.user) {
           for (const orgId of organization_ids) {
             await serviceClient.from("organization_members").insert({
@@ -297,6 +291,155 @@ Deno.serve(async (req) => {
 
         return new Response(
           JSON.stringify({ banned_ids: bannedIds }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // ===== NEW ACTIONS =====
+
+      case "update_profile": {
+        const { user_id, full_name } = body;
+        if (!user_id) {
+          return new Response(
+            JSON.stringify({ error: "user_id required" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const updates: Record<string, unknown> = {};
+        if (full_name !== undefined) updates.full_name = full_name;
+
+        if (Object.keys(updates).length === 0) {
+          return new Response(
+            JSON.stringify({ error: "No fields to update" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { error: profileError } = await serviceClient
+          .from("profiles")
+          .update(updates)
+          .eq("id", user_id);
+
+        if (profileError) {
+          return new Response(JSON.stringify({ error: profileError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        await auditLog("update_profile", user_id, updates);
+
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      case "add_to_org": {
+        const { user_id, organization_id, role: memberRole } = body;
+        if (!user_id || !organization_id) {
+          return new Response(
+            JSON.stringify({ error: "user_id and organization_id required" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Check if already a member
+        const { data: existing } = await serviceClient
+          .from("organization_members")
+          .select("id")
+          .eq("user_id", user_id)
+          .eq("organization_id", organization_id)
+          .maybeSingle();
+
+        if (existing) {
+          return new Response(
+            JSON.stringify({ error: "User đã là thành viên của organization này" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { error: addError } = await serviceClient
+          .from("organization_members")
+          .insert({
+            user_id,
+            organization_id,
+            role: memberRole || "member",
+            joined_at: new Date().toISOString(),
+          });
+
+        if (addError) {
+          return new Response(JSON.stringify({ error: addError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        await auditLog("add_to_org", user_id, { organization_id, role: memberRole || "member" });
+
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      case "remove_from_org": {
+        const { user_id, organization_id } = body;
+        if (!user_id || !organization_id) {
+          return new Response(
+            JSON.stringify({ error: "user_id and organization_id required" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { error: removeError } = await serviceClient
+          .from("organization_members")
+          .delete()
+          .eq("user_id", user_id)
+          .eq("organization_id", organization_id);
+
+        if (removeError) {
+          return new Response(JSON.stringify({ error: removeError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        await auditLog("remove_from_org", user_id, { organization_id });
+
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      case "update_org_role": {
+        const { user_id, organization_id, role: newRole } = body;
+        if (!user_id || !organization_id || !newRole) {
+          return new Response(
+            JSON.stringify({ error: "user_id, organization_id and role required" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { error: updateError } = await serviceClient
+          .from("organization_members")
+          .update({ role: newRole })
+          .eq("user_id", user_id)
+          .eq("organization_id", organization_id);
+
+        if (updateError) {
+          return new Response(JSON.stringify({ error: updateError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        await auditLog("update_org_role", user_id, { organization_id, new_role: newRole });
+
+        return new Response(
+          JSON.stringify({ success: true }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
