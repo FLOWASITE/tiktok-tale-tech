@@ -23,6 +23,7 @@ import { MobileDiscoverySheet } from '@/components/topic/MobileDiscoverySheet';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useTopicHistory } from '@/hooks/useTopicHistory';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ContentGoal } from '@/types/multichannel';
 import { EnhancedTopicSuggestion, ContentPillar, SEASONAL_EVENTS } from '@/types/topicDiscovery';
