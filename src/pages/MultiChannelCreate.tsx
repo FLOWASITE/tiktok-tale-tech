@@ -236,6 +236,17 @@ export default function MultiChannelCreate() {
           <h1 className="text-sm sm:text-base font-semibold text-foreground">
             Tạo nội dung đa kênh
           </h1>
+          {currentBrand ? (
+            <div className="hidden sm:flex items-center gap-1.5 text-sm border-l border-border pl-3 ml-1">
+              <div
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: currentBrand.primary_color || 'hsl(var(--primary))' }}
+              />
+              <span className="font-medium text-foreground truncate max-w-[180px]">{currentBrand.brand_name}</span>
+            </div>
+          ) : (
+            <span className="hidden sm:inline text-xs text-muted-foreground border-l border-border pl-3 ml-1">Chưa chọn brand</span>
+          )}
         </div>
 
         {/* Right: Close */}
