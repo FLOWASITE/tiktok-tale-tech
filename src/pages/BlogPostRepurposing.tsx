@@ -43,12 +43,19 @@ const BlogPostRepurposing = () => {
         description="Đừng viết nhiều hơn, hãy viết thông minh hơn. Hướng dẫn chi tiết chiến lược Content Repurposing để thống trị mọi nền tảng."
         canonicalPath="/blog/content-repurposing-chien-luoc"
         ogType="article"
-        article={{ author: 'Võ Phương Duy', publishDate: '2026-01-15T00:00:00+07:00', section: 'Strategy', tags: ['content repurposing', 'đa kênh', 'chiến lược', 'tái sử dụng nội dung'] }}
+        ogImage="https://images.unsplash.com/photo-1552664730-d307ca884978?w=1200&h=630&fit=crop"
+        article={{ author: 'Võ Phương Duy', publishDate: '2026-01-15T00:00:00+07:00', section: 'Strategy', tags: ['content repurposing', 'đa kênh', 'chiến lược', 'tái sử dụng nội dung'], readingTime: 'PT15M', wordCount: 3500, authorUrl: 'https://flowa.vn', authorJobTitle: 'Founder Flowa', authorSameAs: ['https://linkedin.com/in/vophuongduy'] }}
         breadcrumbs={[
           { name: 'Trang chủ', url: '/' },
           { name: 'Blog', url: '/blog' },
           { name: 'Content Repurposing', url: '/blog/content-repurposing-chien-luoc' },
         ]}
+      />
+      <TOCSEOSchema
+        items={tableOfContents.map((item) => ({
+          name: item.title,
+          url: `https://tiktok-tale-tech.lovable.app/blog/content-repurposing-chien-luoc#${item.id}`,
+        }))}
       />
       {/* Reading Progress */}
       <ReadingProgress />
