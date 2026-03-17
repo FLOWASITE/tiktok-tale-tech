@@ -4,6 +4,7 @@ import {
   WorkflowSection,
   IndustryMemorySection,
   SocialProofSection,
+  TestimonialsSection,
   PricingSection,
   FAQSection,
   CTASection,
@@ -30,6 +31,7 @@ export default function Landing() {
         <WorkflowSection />
         <IndustryMemorySection />
         <SocialProofSection />
+        <TestimonialsSection />
         <PricingSection />
         <FAQSection />
         <CTASection />

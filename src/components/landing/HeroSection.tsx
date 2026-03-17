@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getAuthUrl } from "@/hooks/useDomainRouting";
 
-const trustLogos = [
-  "VinGroup", "FPT", "Shopee", "Tiki", "Sendo", "MoMo"
+const industryBadges = [
+  "E-commerce", "F&B", "Bất động sản", "Y tế", "Giáo dục", "Tài chính"
 ];
 
 function AnimatedCounter({ value, suffix }: { value: number; suffix: string }) {
@@ -49,9 +49,9 @@ export function HeroSection() {
   const { t } = useTranslation();
 
   const stats = [
-    { icon: Users, value: 10000, suffix: "+", label: t("hero.stats.marketers") },
-    { icon: FileText, value: 500000, suffix: "+", label: t("hero.stats.content") },
-    { icon: TrendingUp, value: 95, suffix: "%", label: t("hero.stats.satisfaction") },
+    { icon: Users, value: 500, suffix: "+", label: t("hero.stats.marketers") },
+    { icon: FileText, value: 50000, suffix: "+", label: t("hero.stats.content") },
+    { icon: TrendingUp, value: 98, suffix: "%", label: t("hero.stats.satisfaction") },
   ];
 
   const urgencyBenefits = [
@@ -179,13 +179,13 @@ export function HeroSection() {
             <p className="text-xs text-muted-foreground uppercase tracking-widest mb-5">
               {t("hero.trustBadge")}
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-8 lg:gap-12">
-              {trustLogos.map((logo) => (
+            <div className="flex flex-wrap items-center justify-center gap-3 lg:gap-4">
+              {industryBadges.map((badge) => (
                 <span
-                  key={logo}
-                  className="text-base font-semibold text-muted-foreground/50"
+                  key={badge}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border/50"
                 >
-                  {logo}
+                  {badge}
                 </span>
               ))}
             </div>

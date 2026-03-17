@@ -1,53 +1,62 @@
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-# Hoàn thiện nội dung Landing Page Flowa
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-## Phân tích hiện trạng
+---
 
-Sau khi review toàn bộ codebase, landing page có các vấn đề cần hoàn thiện:
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-### 1. TestimonialsSection không được sử dụng
-- Component `TestimonialsSection` được export trong `index.ts` nhưng **không import vào `Landing.tsx`**
-- `SocialProofSection` hiện tại đã chứa 3 reviews từ testimonials, nhưng section Testimonials riêng (với marquee animation đẹp) bị bỏ sót
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-### 2. Nội dung chưa thuyết phục & thiếu thực tế
-- **Trust logos**: Đang dùng tên giả "VinGroup, FPT, Shopee, Tiki, Sendo, MoMo" - chưa có khách hàng thật
-- **Testimonials**: 6 đánh giá với công ty giả "TechViet, StartupXYZ, E-commerce Plus, Agency Pro, Beauty Corp, Digital Studio"
-- **Stats**: "10,000+ Marketer", "500K+ Content" - con số chưa phản ánh thực tế sản phẩm mới
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-### 3. Nội dung cần cải thiện
-- **SocialProofSection**: Metric "Uptime 99.9%" và "Enterprise-grade reliability" chưa được dịch sang tiếng Việt
-- **Hero description**: Khá generic, chưa nêu rõ điểm khác biệt cốt lõi (Industry Compliance, Multi-agent AI)
-- **FAQ**: Có 8 câu hỏi nhưng thiếu câu hỏi về bảo mật doanh nghiệp, team collaboration, so sánh với đối thủ
-- **Pricing**: Giá cần cập nhật phù hợp thực tế (990K/tháng cho Professional)
+---
 
-## Kế hoạch thực hiện
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-### A. Cập nhật Landing.tsx - Thêm TestimonialsSection
-- Import và thêm `TestimonialsSection` vào sau `SocialProofSection`
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-### B. Cập nhật vi.json - Hoàn thiện nội dung tiếng Việt
-1. **Hero**: Cập nhật description nhấn mạnh USP (Industry Compliance AI, Multi-channel trong 10 phút)
-2. **Hero stats**: Điều chỉnh con số thực tế hơn cho giai đoạn early stage
-3. **Trust logos**: Thay thế bằng mô tả ngành thay vì tên công ty cụ thể (hoặc bỏ đi nếu chưa có khách hàng thật)
-4. **SocialProof**: Dịch "Uptime" và "Enterprise-grade reliability" sang tiếng Việt
-5. **Testimonials**: Cập nhật nội dung testimonials thực tế hơn, phản ánh use cases thật
-6. **FAQ**: Thêm 2-3 câu hỏi mới về bảo mật doanh nghiệp, so sánh với đối thủ, hỗ trợ team
-7. **CTA**: Tăng tính urgency, nhấn mạnh giá trị cụ thể
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-### C. Cập nhật en.json - Đồng bộ nội dung tiếng Anh
+---
 
-### D. Cập nhật Components
-1. **HeroSection.tsx**: Thay trust logos bằng industry badges (thay vì tên công ty chưa xác thực)
-2. **SocialProofSection.tsx**: Dịch hardcoded English text
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
-## Files thay đổi
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
 
-| File | Thay đổi |
-|------|----------|
-| `src/pages/Landing.tsx` | Thêm TestimonialsSection |
-| `src/i18n/locales/vi.json` | Cập nhật nội dung hero, stats, testimonials, FAQ, CTA |
-| `src/i18n/locales/en.json` | Đồng bộ nội dung tiếng Anh |
-| `src/components/landing/HeroSection.tsx` | Thay trust logos bằng industry/use-case badges |
-| `src/components/landing/SocialProofSection.tsx` | Dịch hardcoded text, cải thiện metrics |
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
 
+---
+
+## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
+
+### Vấn đề
+Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
+
+### Đã sửa (6 files + 2 edge functions)
+1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
+2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
+3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
+4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
+5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
+6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
+7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon

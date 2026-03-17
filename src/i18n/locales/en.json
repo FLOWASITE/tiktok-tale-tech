@@ -10,12 +10,12 @@
     "startFree": "Start Free"
   },
   "hero": {
-    "badge": "10,000+ Marketers using",
+    "badge": "500+ Marketers using",
     "problem": "Tired of creating content manually?",
     "titleLine1": "Create 1 Week of Content",
     "titleLine2": "In Just 1 Hour",
-    "description": "Flowa is an AI platform that helps you <strong>create, schedule, and publish</strong> multi-channel content automatically. Save <strong>80% of time</strong> with better quality.",
-    "descPlain": "Flowa is an AI platform that helps you create, schedule, and publish multi-channel content automatically. Save 80% of time with better quality.",
+    "description": "Flowa is Vietnam's first AI platform with built-in <strong>Industry Compliance</strong> — helping you create multi-channel content that's <strong>legally compliant</strong> and brand-consistent.",
+    "descPlain": "Flowa is Vietnam's first AI platform with built-in Industry Compliance — helping you create multi-channel content that's legally compliant and brand-consistent in 10 minutes.",
     "benefits": {
       "noCard": "No credit card required",
       "freeTrial": "14-day free trial",
@@ -30,7 +30,7 @@
       "content": "Content created",
       "satisfaction": "Customer satisfaction"
     },
-    "trustBadge": "Trusted by leading brands in Vietnam",
+    "trustBadge": "Supporting 42+ industries in Vietnam",
     "dashboard": {
       "postsToday": "Posts today",
       "scheduled": "Scheduled",
@@ -220,54 +220,63 @@
   "socialProof": {
     "badge": "Reviews",
     "title": "Trusted by",
-    "titleHighlight": "10,000+ Marketers",
-    "subtitle": "From startups to enterprise, Flowa helps marketing teams save time and increase effectiveness.",
+    "titleHighlight": "500+ Marketers",
+    "subtitle": "From freelancers to agencies, Flowa helps marketing teams save time and increase effectiveness.",
     "stats": {
       "rating": "Average rating",
       "timeSaved": "Time saved",
       "contentIncrease": "Content output increase"
+    },
+    "metrics": {
+      "users": "Marketers trust us",
+      "usersDesc": "Growing monthly",
+      "content": "Content created",
+      "contentDesc": "Across 12+ marketing channels",
+      "reviewsDesc": "From 200+ reviews",
+      "uptime": "System uptime",
+      "uptimeDesc": "Enterprise-grade reliability"
     }
   },
   "testimonials": {
-    "badge": "Testimonials",
-    "title": "What customers say",
-    "titleHighlight": "about Flowa",
+    "badge": "What customers say",
+    "title": "Real stories",
+    "titleHighlight": "from Flowa users",
     "items": [
       {
-        "quote": "Flowa helps my team create content 5x faster. Quality is even better than manual writing!",
+        "quote": "My team used to spend 3 days writing content for a week. With Flowa, it takes just 2 hours and quality is more consistent.",
         "name": "Nguyen Minh Anh",
-        "role": "Marketing Director",
-        "company": "TechViet"
+        "role": "Marketing Manager",
+        "company": "Creative Agency"
       },
       {
-        "quote": "The brand voice management feature is a game-changer. Content is always on-tone no matter who creates it.",
+        "quote": "The Industry Compliance feature saved my team from so many issues. Healthcare content is now auto-checked for forbidden terms.",
         "name": "Tran Hoang Long",
         "role": "Content Lead",
-        "company": "StartupXYZ"
+        "company": "Clinic Chain"
       },
       {
-        "quote": "From 1 post, Flowa automatically creates 5 versions for different channels. Saves so much time!",
+        "quote": "From 1 blog post, Flowa creates 6 versions for Facebook, Instagram, TikTok, LinkedIn, Zalo and email. Truly saves 80% of time!",
         "name": "Le Thu Huong",
         "role": "Social Media Manager",
-        "company": "E-commerce Plus"
+        "company": "Fashion E-commerce"
       },
       {
-        "quote": "ROI after 3 months using Flowa increased 200%. Cost of hiring content writers decreased significantly.",
+        "quote": "Brand voice management lets 5 team members create content that customers can't tell apart. On-brand from A-Z.",
         "name": "Pham Van Duc",
-        "role": "CEO",
-        "company": "Agency Pro"
+        "role": "Founder",
+        "company": "Digital Agency"
       },
       {
-        "quote": "Beautiful interface, easy to use. Team onboarded in just one session.",
+        "quote": "Friendly interface, team onboarded in 30 minutes. AI-generated carousels are beautiful and on-brand, clients love them.",
         "name": "Vo Thi Mai",
         "role": "Brand Manager",
-        "company": "Beauty Corp"
+        "company": "Cosmetics Chain"
       },
       {
-        "quote": "Flowa's AI understands Vietnamese very well, including memes and trends. Content created is very natural.",
+        "quote": "The AI understands Vietnamese naturally, including slang and latest trends. Content doesn't feel machine-generated at all.",
         "name": "Dang Quoc Bao",
         "role": "Creative Director",
-        "company": "Digital Studio"
+        "company": "Production House"
       }
     ]
   },
@@ -342,35 +351,39 @@
     "items": [
       {
         "question": "Is Flowa suitable for my industry?",
-        "answer": "Flowa supports 50+ different industries from E-commerce, F&B, Real Estate, Education, to Fintech and more. Our AI has been trained with industry-specific data to create professional and relevant content."
+        "answer": "Flowa supports 42+ industries with dedicated compliance rules — from Healthcare, Finance, Real Estate to F&B, Education and E-commerce. AI has built-in Industry Compliance to create legally compliant content for each industry."
       },
       {
         "question": "Can AI maintain my brand's tone of voice?",
-        "answer": "Absolutely! Just enter your brand guidelines, tone of voice, and a few sample texts. AI will learn and maintain consistent voice across all content. You can also adjust and fine-tune anytime."
+        "answer": "Absolutely! Set up your Brand Template with tone of voice, formality level, preferred/forbidden words. AI will learn and maintain consistent voice across all content, no matter who on the team creates it."
       },
       {
         "question": "Can I publish directly to social channels?",
-        "answer": "Yes, Flowa integrates with Facebook, Instagram, TikTok, LinkedIn, Zalo, and many other channels. You can schedule and publish automatically, or review before posting. All managed from one dashboard."
+        "answer": "Yes, Flowa integrates with Facebook, Instagram, TikTok, LinkedIn, Zalo, and many other channels. You can schedule and publish automatically, or review before posting — all from one dashboard."
       },
       {
         "question": "Is AI-generated content duplicate?",
-        "answer": "No! Each content generated by AI is unique and customized according to your brand, context, and goals. We also have plagiarism checking tools to ensure originality."
+        "answer": "No! Each content is unique, customized to your brand, industry and goals. AI also auto-checks compliance before completing."
       },
       {
-        "question": "Is there a limit to content I can create?",
-        "answer": "Free Starter plan allows 100 content/month. Professional plan provides unlimited content generation, enough for all professional marketing team needs."
+        "question": "Is my data and content safe?",
+        "answer": "Security is top priority. We use SSL encryption, role-based access control (Admin/Editor/Viewer), and never share your data with third parties. Data is stored on secure servers."
+      },
+      {
+        "question": "Can my team collaborate on Flowa?",
+        "answer": "Yes! Flowa supports team collaboration with detailed permissions, content approval workflows, task assignment and Campaign-based progress tracking. Every member can create on-brand content."
+      },
+      {
+        "question": "How is Flowa different from ChatGPT or other AI tools?",
+        "answer": "ChatGPT is a general-purpose AI tool. Flowa is purpose-built for Content Marketing with: Brand Voice Management, automatic Industry Compliance, Content Calendar, Multi-channel publishing and Team Collaboration — all in one platform."
       },
       {
         "question": "Do I need technical skills to use Flowa?",
-        "answer": "Absolutely not! Flowa is designed for marketers, not developers. Intuitive interface, easy drag and drop. Setup takes only 2 minutes and you can start creating content immediately."
-      },
-      {
-        "question": "Is my data safe?",
-        "answer": "Security is top priority. We use SSL encryption, comply with GDPR, and never share your data with third parties. Data is stored on secure servers in Singapore."
+        "answer": "Absolutely not! Flowa is designed for marketers. Intuitive interface, setup takes only 5 minutes and you can start creating content immediately."
       },
       {
         "question": "Is Vietnamese supported?",
-        "answer": "Flowa is specially optimized for Vietnamese with AI that understands culture, context, and expressions of Vietnamese people. Interface and support are 100% Vietnamese."
+        "answer": "Flowa is specially optimized for Vietnamese with AI that understands culture, context and Vietnamese legal regulations. Interface and support are 100% Vietnamese."
       }
     ]
   },
@@ -378,7 +391,7 @@
     "badge": "Get Started",
     "title": "Ready to accelerate",
     "titleHighlight": "Content Marketing?",
-    "subtitle": "Join 10,000+ marketers using Flowa to create content faster and better.",
+    "subtitle": "Join 500+ marketers using Flowa to create content faster, legally compliant and on-brand.",
     "startFree": "Start free now",
     "benefits": {
       "noCard": "No credit card required",
