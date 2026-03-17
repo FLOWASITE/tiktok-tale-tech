@@ -1,38 +1,62 @@
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-# Bổ sung Gallery trên trang Carousel
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-## Vấn đề
-Hiện tại ảnh tạo bởi Carousel được upload vào storage bucket `carousel-images` (262 ảnh) nhưng không có giao diện tổng hợp để xem lại tất cả. Mỗi carousel chỉ xem ảnh khi mở CarouselViewer.
+---
 
-## Giải pháp
-Thêm tab "Gallery" trên trang Carousel, hiển thị tất cả ảnh đã tạo từ storage bucket, nhóm theo carousel, hỗ trợ xem/tải/xóa.
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-### 1. Tạo hook `useCarouselGallery.ts`
-- Query `storage.objects` qua Supabase Storage API: `supabase.storage.from('carousel-images').list()`
-- Liệt kê tất cả thư mục (carousel IDs) → list files trong mỗi thư mục
-- Lọc bỏ thư mục `social/` (thuộc multichannel, không phải carousel)
-- Map với bảng `carousels` để lấy tên carousel
-- Trả về danh sách images kèm metadata (carousel title, created_at, public URL)
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-### 2. Tạo component `CarouselGalleryView.tsx`
-- Grid layout responsive: 2 cột mobile, 3-4 cột desktop
-- Mỗi ảnh hiện thumbnail + carousel name + ngày tạo
-- Hỗ trợ: xem phóng to (lightbox), tải về, xóa
-- Filter theo carousel
-- Tích hợp `ImageLightbox` có sẵn
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-### 3. Cập nhật `Carousel.tsx` (trang chính)
-- Thêm toggle chuyển giữa chế độ "Danh sách Carousel" và "Gallery ảnh"
-- Nút Gallery kế bên nút viewMode hiện có trong `CarouselHeroSection`
+---
 
-### 4. Cập nhật `CarouselHeroSection.tsx`
-- Thêm nút "Gallery" icon vào thanh toolbar
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-| File | Thay đổi |
-|------|----------|
-| `src/hooks/useCarouselGallery.ts` | Mới — hook fetch ảnh từ storage |
-| `src/components/carousel/CarouselGalleryView.tsx` | Mới — grid gallery component |
-| `src/pages/Carousel.tsx` | Thêm gallery mode toggle và render |
-| `src/components/carousel/CarouselHeroSection.tsx` | Thêm nút Gallery |
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
+
+---
+
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
+
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
+
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
+
+---
+
+## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
+
+### Vấn đề
+Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
+
+### Đã sửa (6 files + 2 edge functions)
+1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
+2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
+3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
+4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
+5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
+6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
+7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon

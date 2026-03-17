@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { CarouselForm } from '@/components/CarouselForm';
 import { CarouselCard } from '@/components/CarouselCard';
 import { CarouselViewer } from '@/components/CarouselViewer';
+import { CarouselGalleryView } from '@/components/carousel/CarouselGalleryView';
 import { CarouselFilters, CarouselFiltersState } from '@/components/CarouselFilters';
 import { CarouselHeroSection } from '@/components/carousel/CarouselHeroSection';
 import { CarouselListView } from '@/components/CarouselListView';
@@ -78,6 +79,7 @@ const CarouselPage = () => {
   }, [prefillData]);
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showGallery, setShowGallery] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<CarouselFiltersState>({
     search: '',
@@ -177,11 +179,17 @@ const CarouselPage = () => {
           carousels={carousels}
           loading={loading}
           viewMode={viewMode}
+          showGallery={showGallery}
           onViewModeChange={setViewMode}
+          onToggleGallery={() => setShowGallery(prev => !prev)}
           onRefresh={refetch}
           onCreateNew={() => setFormSheetOpen(true)}
         />
 
+        {showGallery ? (
+          <CarouselGalleryView />
+        ) : (
+          <>
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
@@ -406,6 +414,8 @@ const CarouselPage = () => {
               </Button>
             </div>
           </motion.div>
+        )}
+          </>
         )}
       </div>
 
