@@ -274,18 +274,6 @@ export default function MultiChannelCreate() {
         {/* Left Panel: Form Wizard */}
         <div className="flex-1 lg:max-w-2xl xl:max-w-3xl border-r border-border/30 overflow-y-auto">
           <div className="p-4 sm:p-6 lg:p-8">
-            {/* Mobile Brand Selector */}
-            <div className="md:hidden mb-4">
-              <CompactBrandSelector
-                templates={templates}
-                isLoading={templatesLoading}
-                disabled={isGenerating}
-                selectedTemplateId={selectedBrandId}
-                selectedVoiceVariantId={selectedVoiceVariantId}
-                onTemplateChange={setSelectedBrandId}
-                onVoiceVariantChange={setSelectedVoiceVariantId}
-              />
-            </div>
 
             <MultiChannelFormWizard
               key={location.key}
