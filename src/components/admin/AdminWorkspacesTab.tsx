@@ -268,6 +268,18 @@ export function AdminWorkspacesTab() {
     });
   }, [workspaces, searchQuery, planFilter]);
 
+  const filteredTotals = useMemo(() => {
+    return filtered.reduce(
+      (acc, ws) => ({
+        members: acc.members + ws.member_count,
+        brands: acc.brands + ws.brand_count,
+        contents: acc.contents + ws.content_count,
+        images: acc.images + ws.image_count,
+      }),
+      { members: 0, brands: 0, contents: 0, images: 0 }
+    );
+  }, [filtered]);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
