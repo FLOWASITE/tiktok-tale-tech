@@ -20,6 +20,9 @@ export interface WorkspaceBrand {
   brand_name: string;
   logo_url: string | null;
   industry: string | null;
+  content_count: number;
+  image_count: number;
+  created_at: string | null;
 }
 
 export interface WorkspaceContentStats {
