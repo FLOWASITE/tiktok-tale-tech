@@ -40,6 +40,7 @@ export interface UsageStats {
   multichannel_social_posts: number;
   channel_breakdown: Record<string, number>;
   images: number;
+  image_channel_breakdown: Record<string, number>;
   ai_edits: number;
 }
 
