@@ -39,12 +39,13 @@ export default function MultiChannelCreate() {
   const coreContentIdFromUrl = searchParams.get('coreContentId');
   
   const { templates, loading: templatesLoading } = useBrandTemplates();
+  const { currentBrand } = useCurrentBrand();
   const { refetch } = useMultiChannelContents();
   const { createLink } = useTopicContentLinks({ enabled: false });
   const { currentOrganization } = useOrganizationContext();
   
-  // Form state
-  const [selectedBrandId, setSelectedBrandId] = useState<string | undefined>();
+  // Form state — default to global brand from header
+  const [selectedBrandId, setSelectedBrandId] = useState<string | undefined>(currentBrand?.id);
   const [selectedVoiceVariantId, setSelectedVoiceVariantId] = useState<string | undefined>();
   const [formData, setFormData] = useState<Partial<MultiChannelFormData>>({
     topic: prefillData?.prefillTopic || '',
