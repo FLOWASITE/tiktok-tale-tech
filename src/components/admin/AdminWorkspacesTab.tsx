@@ -272,6 +272,34 @@ function WorkspaceDetailPanel({ orgId }: { orgId: string }) {
               })
             )}
           </div>
+          {contributions.length > 1 && (() => {
+            const tContent = contributions.reduce((s, c) => s + c.contentCount, 0);
+            const tImages = contributions.reduce((s, c) => s + c.imageCount, 0);
+            const tCarousel = contributions.reduce((s, c) => s + c.carouselCount, 0);
+            const tScript = contributions.reduce((s, c) => s + c.scriptCount, 0);
+            return (
+              <div className="flex items-center justify-end gap-2.5 pt-1.5 border-t border-border/50 text-xs text-muted-foreground">
+                <span className="font-medium">Tổng:</span>
+                <span className="flex items-center gap-0.5">
+                  <FileText className="h-3 w-3" />
+                  <span className="font-bold text-foreground">{tContent}</span>
+                </span>
+                <span className="flex items-center gap-0.5">
+                  <Wand2 className="h-3 w-3" />
+                  <span className="font-bold text-foreground">{tImages}</span>
+                </span>
+                <span className="flex items-center gap-0.5">
+                  <Images className="h-3 w-3" />
+                  <span className="font-bold text-foreground">{tCarousel}</span>
+                </span>
+                <span className="flex items-center gap-0.5">
+                  <ScrollText className="h-3 w-3" />
+                  <span className="font-bold text-foreground">{tScript}</span>
+                </span>
+                <span className="font-bold text-primary">= {tContent + tImages + tCarousel + tScript}</span>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>
