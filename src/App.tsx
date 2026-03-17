@@ -519,13 +519,15 @@ const App = () => (
     <ThemeProvider attribute="class" defaultTheme="light" storageKey="app-theme" enableSystem themes={["light", "dark", "lime", "system"]}>
       <AuthProvider>
         <OrganizationProvider>
-          <TooltipProvider>
-            <AnimatedToaster />
-            <Sonner />
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
-          </TooltipProvider>
+          <BrandProvider>
+            <TooltipProvider>
+              <AnimatedToaster />
+              <Sonner />
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </TooltipProvider>
+          </BrandProvider>
         </OrganizationProvider>
       </AuthProvider>
     </ThemeProvider>

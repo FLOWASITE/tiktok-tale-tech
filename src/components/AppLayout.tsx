@@ -10,7 +10,7 @@ import { QuickSearch } from '@/components/QuickSearch';
 import { HelpChatWidget } from '@/components/help/HelpChatWidget';
 import { HelpHeaderButton } from '@/components/help/HelpHeaderButton';
 import { MobileSidebarTrigger } from '@/components/MobileSidebarTrigger';
-import { BrandProvider } from '@/contexts/BrandContext';
+
 
 import { useAutoLanguage } from '@/hooks/useAutoLanguage';
 
