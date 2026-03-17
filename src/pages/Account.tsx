@@ -342,6 +342,9 @@ export default function Account() {
           <CardDescription>
             Theo dõi mức sử dụng các tính năng trong chu kỳ hiện tại
           </CardDescription>
+          <p className="text-sm font-medium text-primary mt-1">
+            Chu kỳ: {format(new Date(currentPeriod.start), "dd/MM/yyyy")} – {format(new Date(currentPeriod.end), "dd/MM/yyyy")}
+          </p>
         </CardHeader>
         <CardContent>
           <div className="grid gap-6 sm:grid-cols-2">
@@ -372,6 +375,62 @@ export default function Account() {
               );
             })}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Usage History Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Lịch sử sử dụng
+              </CardTitle>
+              <CardDescription>Xem lại mức sử dụng các tháng trước</CardDescription>
+            </div>
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Chọn tháng" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="current">Chọn tháng...</SelectItem>
+                {monthOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {selectedMonth === "current" ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Chọn một tháng để xem lịch sử sử dụng
+            </p>
+          ) : historyQuery.isLoading ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-16" />)}
+            </div>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-2">
+              {[
+                { label: "Kịch bản Video", icon: FileText, value: historyQuery.data?.scripts ?? 0 },
+                { label: "Carousel", icon: Images, value: historyQuery.data?.carousels ?? 0 },
+                { label: "Bài trên Social", icon: Layers, value: historyQuery.data?.multichannel_social_posts ?? 0 },
+                { label: "Ảnh AI", icon: Wand2, value: historyQuery.data?.images ?? 0 },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="flex items-center gap-3">
+                    <item.icon className="h-5 w-5 text-muted-foreground" />
+                    <span className="font-medium">{item.label}</span>
+                  </div>
+                  <span className="text-2xl font-bold">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
