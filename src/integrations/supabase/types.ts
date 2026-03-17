@@ -7884,14 +7884,14 @@ export type Database = {
           current_period_start: string
           id: string
           metadata: Json | null
-          organization_id: string | null
+          organization_id: string
           payment_provider: string | null
           payment_reference: string | null
           plan_type: Database["public"]["Enums"]["plan_type"]
           status: Database["public"]["Enums"]["subscription_status"]
           trial_end: string | null
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           cancelled_at?: string | null
@@ -7900,14 +7900,14 @@ export type Database = {
           current_period_start?: string
           id?: string
           metadata?: Json | null
-          organization_id?: string | null
+          organization_id: string
           payment_provider?: string | null
           payment_reference?: string | null
           plan_type?: Database["public"]["Enums"]["plan_type"]
           status?: Database["public"]["Enums"]["subscription_status"]
           trial_end?: string | null
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           cancelled_at?: string | null
@@ -7916,20 +7916,20 @@ export type Database = {
           current_period_start?: string
           id?: string
           metadata?: Json | null
-          organization_id?: string | null
+          organization_id?: string
           payment_provider?: string | null
           payment_reference?: string | null
           plan_type?: Database["public"]["Enums"]["plan_type"]
           status?: Database["public"]["Enums"]["subscription_status"]
           trial_end?: string | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "subscriptions_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
@@ -8175,6 +8175,7 @@ export type Database = {
           created_at: string
           id: string
           metadata: Json | null
+          organization_id: string | null
           reference_id: string | null
           usage_type: Database["public"]["Enums"]["usage_type"]
           user_id: string
@@ -8183,6 +8184,7 @@ export type Database = {
           created_at?: string
           id?: string
           metadata?: Json | null
+          organization_id?: string | null
           reference_id?: string | null
           usage_type: Database["public"]["Enums"]["usage_type"]
           user_id: string
@@ -8191,11 +8193,20 @@ export type Database = {
           created_at?: string
           id?: string
           metadata?: Json | null
+          organization_id?: string | null
           reference_id?: string | null
           usage_type?: Database["public"]["Enums"]["usage_type"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "usage_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_preferences: {
         Row: {
@@ -8705,8 +8716,8 @@ export type Database = {
       calculate_next_sync_at: { Args: { frequency: string }; Returns: string }
       can_use_feature: {
         Args: {
+          _org_id: string
           _usage_type: Database["public"]["Enums"]["usage_type"]
-          _user_id: string
         }
         Returns: boolean
       }
@@ -8808,6 +8819,14 @@ export type Database = {
           regulation_properties: Json
           relationship_type: string
         }[]
+      }
+      get_org_plan_type: { Args: { _org_id: string }; Returns: string }
+      get_org_usage: {
+        Args: {
+          _org_id: string
+          _usage_type: Database["public"]["Enums"]["usage_type"]
+        }
+        Returns: number
       }
       get_orphan_nodes: {
         Args: { p_limit?: number }
