@@ -496,7 +496,7 @@ export default function AdminUsers() {
                             Plan <SortIcon field="plan" />
                           </button>
                         </TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>Workspace</TableHead>
                         <TableHead>
                           <button className="flex items-center hover:text-foreground transition-colors" onClick={() => handleSort("date")}>
                             Ngày tham gia <SortIcon field="date" />
