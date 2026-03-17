@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+export type ImageSource = 'carousel' | 'multichannel';
+
 export interface GalleryImage {
   id: string;
   imageUrl: string;
@@ -11,24 +13,36 @@ export interface GalleryImage {
   version: number;
   isSelected: boolean;
   createdAt: string;
+  source: ImageSource;
+  channel?: string;
 }
 
 export function useCarouselGallery() {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [carouselFilter, setCarouselFilter] = useState<string>('all');
+  const [sourceFilter, setSourceFilter] = useState<string>('all');
+  const [channelFilter, setChannelFilter] = useState<string>('all');
 
   const fetchImages = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('carousel_images')
-        .select('id, image_url, carousel_id, slide_number, version, is_selected, created_at, carousels(title)')
-        .order('created_at', { ascending: false });
+      // Fetch both sources in parallel
+      const [carouselRes, channelRes] = await Promise.all([
+        supabase
+          .from('carousel_images')
+          .select('id, image_url, carousel_id, slide_number, version, is_selected, created_at, carousels(title)')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('channel_image_history')
+          .select('id, image_url, content_id, channel, version, is_selected, created_at, multi_channel_contents(title)')
+          .order('created_at', { ascending: false }),
+      ]);
 
-      if (error) throw error;
+      if (carouselRes.error) throw carouselRes.error;
+      if (channelRes.error) throw channelRes.error;
 
-      const mapped: GalleryImage[] = (data || []).map((row: any) => ({
+      const carouselImages: GalleryImage[] = (carouselRes.data || []).map((row: any) => ({
         id: row.id,
         imageUrl: row.image_url,
         carouselId: row.carousel_id,
@@ -37,9 +51,29 @@ export function useCarouselGallery() {
         version: row.version,
         isSelected: row.is_selected ?? false,
         createdAt: row.created_at,
+        source: 'carousel' as ImageSource,
+        channel: 'carousel',
       }));
 
-      setImages(mapped);
+      const channelImages: GalleryImage[] = (channelRes.data || []).map((row: any) => ({
+        id: row.id,
+        imageUrl: row.image_url,
+        carouselId: row.content_id,
+        carouselTitle: row.multi_channel_contents?.title || 'Không rõ',
+        slideNumber: row.version || 1,
+        version: row.version || 1,
+        isSelected: row.is_selected ?? false,
+        createdAt: row.created_at,
+        source: 'multichannel' as ImageSource,
+        channel: row.channel,
+      }));
+
+      // Merge and sort by date descending
+      const all = [...carouselImages, ...channelImages].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      setImages(all);
     } catch (err) {
       console.error('Failed to fetch gallery images:', err);
       toast.error('Không thể tải gallery ảnh');
@@ -53,21 +87,46 @@ export function useCarouselGallery() {
   }, []);
 
   const filteredImages = useMemo(() => {
-    if (carouselFilter === 'all') return images;
-    return images.filter(img => img.carouselId === carouselFilter);
-  }, [images, carouselFilter]);
+    let result = images;
+    if (sourceFilter !== 'all') {
+      result = result.filter(img => img.source === sourceFilter);
+    }
+    if (channelFilter !== 'all') {
+      result = result.filter(img => img.channel === channelFilter);
+    }
+    if (carouselFilter !== 'all') {
+      result = result.filter(img => img.carouselId === carouselFilter);
+    }
+    return result;
+  }, [images, sourceFilter, channelFilter, carouselFilter]);
 
   const carouselOptions = useMemo(() => {
+    const filtered = sourceFilter !== 'all' ? images.filter(i => i.source === sourceFilter) : images;
     const map = new Map<string, string>();
-    images.forEach(img => map.set(img.carouselId, img.carouselTitle));
+    filtered.forEach(img => map.set(img.carouselId, img.carouselTitle));
     return Array.from(map.entries()).map(([id, title]) => ({ id, title }));
+  }, [images, sourceFilter]);
+
+  const channelOptions = useMemo(() => {
+    const channels = new Set<string>();
+    images.filter(img => img.source === 'multichannel' && img.channel).forEach(img => channels.add(img.channel!));
+    return Array.from(channels).sort();
   }, [images]);
 
+  const sourceCounts = useMemo(() => ({
+    all: images.length,
+    carousel: images.filter(i => i.source === 'carousel').length,
+    multichannel: images.filter(i => i.source === 'multichannel').length,
+  }), [images]);
+
   const deleteImage = async (imageId: string) => {
+    const img = images.find(i => i.id === imageId);
+    if (!img) return;
     try {
-      const { error } = await supabase.from('carousel_images').delete().eq('id', imageId);
+      const table = img.source === 'carousel' ? 'carousel_images' : 'channel_image_history';
+      const { error } = await supabase.from(table).delete().eq('id', imageId);
       if (error) throw error;
-      setImages(prev => prev.filter(img => img.id !== imageId));
+      setImages(prev => prev.filter(i => i.id !== imageId));
       toast.success('Đã xóa ảnh');
     } catch (err) {
       console.error('Failed to delete image:', err);
@@ -81,7 +140,13 @@ export function useCarouselGallery() {
     loading,
     carouselFilter,
     setCarouselFilter,
+    sourceFilter,
+    setSourceFilter,
+    channelFilter,
+    setChannelFilter,
     carouselOptions,
+    channelOptions,
+    sourceCounts,
     deleteImage,
     refetch: fetchImages,
   };
