@@ -20,12 +20,12 @@ import {
 import {
   Building2, Search, Users, CreditCard, TrendingUp, Crown,
   Trash2, ChevronLeft, ChevronRight, Download, Sparkles, Loader2,
-  ChevronDown, FileText, Image, Layers, Palette, Wand2, ScrollText, Images,
+  ChevronDown, FileText, Image, Layers, Palette, Wand2, ScrollText, Images, Calendar,
 } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useAdminWorkspaces, type AdminWorkspace } from "@/hooks/useAdminWorkspaces";
-import { useAdminWorkspaceDetail } from "@/hooks/useAdminWorkspaceDetail";
+import { useAdminWorkspaceDetail, type PeriodFilter } from "@/hooks/useAdminWorkspaceDetail";
 import { MemberAvatar } from "@/components/MemberAvatar";
 import { ORG_ROLE_LABELS, ORG_ROLE_COLORS, type OrgRole } from "@/types/organization";
 import { toast } from "sonner";

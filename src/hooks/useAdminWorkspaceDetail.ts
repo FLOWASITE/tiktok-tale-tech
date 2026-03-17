@@ -84,10 +84,12 @@ function getDateRange(period: WorkspacePeriodInfo, filter: PeriodFilter): { star
   return { end: period.start };
 }
 
-function applyDateFilter(query: any, range: { start?: string; end?: string }) {
-  if (range.start) query = query.gte("created_at", range.start);
-  if (range.end) query = query.lte("created_at", range.end);
-  return query;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyDateFilter<T>(query: T, range: { start?: string; end?: string }): T {
+  let q = query as any;
+  if (range.start) q = q.gte("created_at", range.start);
+  if (range.end) q = q.lte("created_at", range.end);
+  return q as T;
 }
 
 export function useAdminWorkspaceDetail(orgId: string | null, periodFilter: PeriodFilter = "all") {
