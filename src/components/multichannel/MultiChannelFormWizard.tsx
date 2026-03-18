@@ -1040,7 +1040,7 @@ export function MultiChannelFormWizard({
                         setFormData(prev => ({ ...prev, topic: prev.topic ? `${prev.topic} ${term}` : term }));
                       }}
                     />
-                  </Label>
+                  </div>
                 </div>
 
                 <div className="relative">
