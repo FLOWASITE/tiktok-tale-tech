@@ -2,17 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import {
   CarouselFormData,
   Platform,
@@ -23,40 +13,21 @@ import {
 import { useBrandTemplates, BrandTemplate } from '@/hooks/useBrandTemplates';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
-import { BrandPreviewCard } from '@/components/BrandPreviewCard';
 import { PlatformSelector } from '@/components/carousel/PlatformSelector';
 import { CarouselStyleSelector } from '@/components/carousel/CarouselStyleSelector';
 import { SlideCountSelector } from '@/components/carousel/SlideCountSelector';
 import { AIToolSelector } from '@/components/carousel/AIToolSelector';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
-import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { 
   Images, 
   Loader2, 
-  Save, 
-  Trash2, 
-  Bookmark, 
   Sparkles, 
   Wand2,
-  ChevronDown,
-  ChevronUp,
   Book,
-  Megaphone
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 
 interface CarouselFormProps {
   onSubmit: (data: CarouselFormData) => void;
@@ -75,7 +46,7 @@ const LOADING_PHASES = [
 const MAX_TOPIC_LENGTH = 300;
 
 export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId }: CarouselFormProps) {
-  const { templates, loading: templatesLoading, saveTemplate, deleteTemplate } = useBrandTemplates();
+  const { templates, loading: templatesLoading } = useBrandTemplates();
   const { currentBrand } = useCurrentBrand();
   const topicInputRef = useRef<HTMLInputElement>(null);
   
@@ -90,16 +61,13 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
   const [carouselStyle, setCarouselStyle] = useState<CarouselStyleType>('educational');
   const [slideCount, setSlideCount] = useState(6);
   const [aiTool, setAiTool] = useState<AITool>('ideogram');
+  
+  // Brand fields - auto-loaded from template, hidden from UI
   const [brandName, setBrandName] = useState('Thuế Hộ by TAF.vn');
   const [brandGuideline, setBrandGuideline] = useState(DEFAULT_BRAND_GUIDELINE);
   const [includeLogo, setIncludeLogo] = useState(true);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string | undefined>();
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState(0);
-  
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [newTemplateName, setNewTemplateName] = useState('');
 
   useEffect(() => {
     if (!isLoading) {
@@ -112,6 +80,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
     return () => clearInterval(interval);
   }, [isLoading]);
 
+  // Auto-load brand template silently
   useEffect(() => {
     if (!templatesLoading && templates.length > 0 && !selectedTemplateId) {
       const initialBrand = currentBrand
@@ -154,57 +123,6 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
     setIncludeLogo(template.include_logo);
   };
 
-  const handleTemplateChange = (templateId: string) => {
-    setSelectedTemplateId(templateId);
-    if (templateId === 'custom') {
-      setBrandName('');
-      setBrandGuideline('');
-      setIncludeLogo(true);
-    } else {
-      const template = templates.find(t => t.id === templateId);
-      if (template) {
-        applyTemplate(template);
-        toast.success('Đã chọn Brand Template');
-      }
-    }
-  };
-
-  const handleSaveTemplate = async () => {
-    if (!newTemplateName.trim() || !brandName.trim() || !brandGuideline.trim()) {
-      toast.error('Vui lòng điền đầy đủ thông tin');
-      return;
-    }
-
-    const result = await saveTemplate({
-      name: newTemplateName.trim(),
-      brand_name: brandName.trim(),
-      industry: null,
-      brand_guideline: brandGuideline.trim(),
-      include_logo: includeLogo,
-      is_default: false,
-      logo_url: null,
-      primary_color: '#000000',
-      industry_template_id: null,
-      brand_positioning: null,
-      tone_of_voice: null,
-      formality_level: null,
-      language_style: null,
-      preferred_words: null,
-      forbidden_words: null,
-      allow_emoji: true,
-      compliance_rules: null,
-      channel_overrides: null,
-      sample_texts: null,
-      content_pillars: [],
-    });
-
-    if (result) {
-      setSaveDialogOpen(false);
-      setNewTemplateName('');
-      setSelectedTemplateId(result.id);
-    }
-  };
-
   const getSelectedLogoUrl = (): string | null => {
     if (selectedTemplateId && selectedTemplateId !== 'custom') {
       const template = templates.find(t => t.id === selectedTemplateId);
@@ -231,7 +149,6 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
       logoUrl: getSelectedLogoUrl(),
       brandTemplateId: selectedTemplateId && selectedTemplateId !== 'custom' ? selectedTemplateId : undefined,
       topicHistoryId,
-      campaignId: selectedCampaignId,
       carouselStyle,
     });
   };
@@ -257,97 +174,94 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
         </div>
       </div>
 
-      {/* ===== Nhóm 1: Bắt buộc — Chủ đề + Phong cách ===== */}
-      <div className="space-y-4">
-        {/* Topic Input */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
-              Chủ đề Carousel
-              <span className="text-primary">*</span>
-            </Label>
-            {selectedTemplate?.industry_template_id && (
-              <GlossaryQuickLookup
-                industryTemplateId={selectedTemplate.industry_template_id}
-                onInsertTerm={(term) => {
-                  const input = topicInputRef.current;
-                  if (input) {
-                    const cursorPos = input.selectionStart || topic.length;
-                    const before = topic.slice(0, cursorPos);
-                    const after = topic.slice(cursorPos);
-                    setTopic((before + term + after).slice(0, MAX_TOPIC_LENGTH));
-                    setTimeout(() => {
-                      input.focus();
-                      const newPos = cursorPos + term.length;
-                      input.setSelectionRange(newPos, newPos);
-                    }, 0);
-                  } else {
-                    setTopic((topic + ' ' + term).slice(0, MAX_TOPIC_LENGTH));
-                  }
-                }}
-                trigger={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 gap-1 text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    <Book className="h-3 w-3" />
-                    Từ điển
-                  </Button>
-                }
-              />
-            )}
-          </div>
-          <div className="relative group">
-            <Input
-              ref={topicInputRef}
-              id="topic"
-              placeholder="VD: Bỏ thuế khoán từ 2026 - Hộ kinh doanh cần chuẩn bị gì?"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value.slice(0, MAX_TOPIC_LENGTH))}
-              disabled={isLoading}
-              className={cn(
-                "bg-muted/30 border-2 h-11 text-sm transition-all duration-300",
-                "focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-background",
-                "placeholder:text-muted-foreground/60"
-              )}
-            />
-            <div className={cn(
-              "absolute top-1/2 -translate-y-1/2 right-3 text-xs font-medium transition-colors",
-              charCountColor
-            )}>
-              {topic.length}/{MAX_TOPIC_LENGTH}
-            </div>
-          </div>
-          
-          <TopicSuggestionPanel
-            suggestions={enhancedSuggestions}
-            source={suggestionsSource}
-            isLoading={suggestionsLoading}
-            onSelect={(suggestion) => setTopic(suggestion)}
-            onRefresh={refreshSuggestions}
-            onSave={saveSuggestion}
-            onFeedback={submitFeedback}
-            disabled={isLoading}
-            showEnhancedInfo={true}
-          />
-        </div>
-
-        {/* Carousel Style Selector */}
-        <div className="space-y-2">
-          <Label className="text-foreground font-semibold text-sm">
-            Phong cách Carousel
+      {/* Topic Input */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
+            Chủ đề Carousel
+            <span className="text-primary">*</span>
           </Label>
-          <CarouselStyleSelector
-            value={carouselStyle}
-            onChange={setCarouselStyle}
-            disabled={isLoading}
-          />
+          {selectedTemplate?.industry_template_id && (
+            <GlossaryQuickLookup
+              industryTemplateId={selectedTemplate.industry_template_id}
+              onInsertTerm={(term) => {
+                const input = topicInputRef.current;
+                if (input) {
+                  const cursorPos = input.selectionStart || topic.length;
+                  const before = topic.slice(0, cursorPos);
+                  const after = topic.slice(cursorPos);
+                  setTopic((before + term + after).slice(0, MAX_TOPIC_LENGTH));
+                  setTimeout(() => {
+                    input.focus();
+                    const newPos = cursorPos + term.length;
+                    input.setSelectionRange(newPos, newPos);
+                  }, 0);
+                } else {
+                  setTopic((topic + ' ' + term).slice(0, MAX_TOPIC_LENGTH));
+                }
+              }}
+              trigger={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <Book className="h-3 w-3" />
+                  Từ điển
+                </Button>
+              }
+            />
+          )}
         </div>
+        <div className="relative group">
+          <Input
+            ref={topicInputRef}
+            id="topic"
+            placeholder="VD: Bỏ thuế khoán từ 2026 - Hộ kinh doanh cần chuẩn bị gì?"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value.slice(0, MAX_TOPIC_LENGTH))}
+            disabled={isLoading}
+            className={cn(
+              "bg-muted/30 border-2 h-11 text-sm transition-all duration-300",
+              "focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-background",
+              "placeholder:text-muted-foreground/60"
+            )}
+          />
+          <div className={cn(
+            "absolute top-1/2 -translate-y-1/2 right-3 text-xs font-medium transition-colors",
+            charCountColor
+          )}>
+            {topic.length}/{MAX_TOPIC_LENGTH}
+          </div>
+        </div>
+        
+        <TopicSuggestionPanel
+          suggestions={enhancedSuggestions}
+          source={suggestionsSource}
+          isLoading={suggestionsLoading}
+          onSelect={(suggestion) => setTopic(suggestion)}
+          onRefresh={refreshSuggestions}
+          onSave={saveSuggestion}
+          onFeedback={submitFeedback}
+          disabled={isLoading}
+          showEnhancedInfo={true}
+        />
       </div>
 
-      {/* ===== Nhóm 2: Cài đặt tạo ảnh ===== */}
+      {/* Carousel Style Selector */}
+      <div className="space-y-2">
+        <Label className="text-foreground font-semibold text-sm">
+          Phong cách Carousel
+        </Label>
+        <CarouselStyleSelector
+          value={carouselStyle}
+          onChange={setCarouselStyle}
+          disabled={isLoading}
+        />
+      </div>
+
+      {/* Cài đặt tạo ảnh */}
       <div className="space-y-4 p-4 rounded-xl border border-border/60 bg-muted/10">
         <Label className="text-foreground font-semibold text-sm flex items-center gap-1.5">
           <Images className="w-4 h-4" />
@@ -383,187 +297,6 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
         </div>
       </div>
 
-      {/* ===== Nhóm 3: Cài đặt nâng cao (Collapsible) ===== */}
-      <button
-        type="button"
-        onClick={() => setShowAdvanced(!showAdvanced)}
-        className="w-full flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        {showAdvanced ? 'Ẩn cài đặt nâng cao' : 'Cài đặt nâng cao (Brand, Chiến dịch, Logo)'}
-      </button>
-
-      {showAdvanced && (
-        <div className="space-y-4 animate-fade-in p-4 rounded-xl border border-border/60 bg-muted/10">
-          {/* Brand Template */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-foreground font-semibold text-sm flex items-center gap-1.5">
-                <Bookmark className="w-4 h-4" />
-                Brand Template
-              </Label>
-              <div className="flex items-center gap-2">
-                {selectedTemplate && (
-                  <Badge variant="outline" className="text-xs gap-1 border-primary/30 text-primary">
-                    <Sparkles className="w-3 h-3" />
-                    Applied
-                  </Badge>
-                )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSaveDialogOpen(true)}
-                  className="h-7 text-xs px-2 gap-1"
-                >
-                  <Save className="w-3 h-3" />
-                  Lưu
-                </Button>
-              </div>
-            </div>
-            
-            {templatesLoading ? (
-              <div className="h-10 bg-muted/50 border border-border rounded-lg flex items-center px-3 animate-pulse">
-                <span className="text-sm text-muted-foreground">Đang tải templates...</span>
-              </div>
-            ) : (
-              <Select value={selectedTemplateId} onValueChange={handleTemplateChange} disabled={isLoading}>
-                <SelectTrigger className="bg-muted/30 border-2 border-border focus:border-primary text-sm h-10 transition-all">
-                  <SelectValue placeholder="Chọn template..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="custom" className="text-sm">
-                    <span className="text-muted-foreground">Tùy chỉnh mới...</span>
-                  </SelectItem>
-                  {templates.map((template) => (
-                    <SelectItem key={template.id} value={template.id} className="text-sm">
-                      <span className="flex items-center gap-2">
-                        {template.primary_color && (
-                          <span
-                            className="w-3 h-3 rounded-full ring-2 ring-offset-1 ring-offset-background"
-                            style={{ backgroundColor: template.primary_color }}
-                          />
-                        )}
-                        {template.logo_url && !template.primary_color && (
-                          <img src={template.logo_url} alt="" className="w-4 h-4 rounded object-contain" />
-                        )}
-                        <span className="truncate">{template.name}</span>
-                        {template.is_default && (
-                          <Badge variant="secondary" className="text-[10px] h-4 px-1">Mặc định</Badge>
-                        )}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            
-            {selectedTemplate && (
-              <div className="animate-scale-in">
-                <BrandPreviewCard template={selectedTemplate} defaultOpen={false} />
-              </div>
-            )}
-          </div>
-
-          {/* Campaign Selector */}
-          <div className="space-y-2">
-            <Label className="text-foreground font-semibold text-sm flex items-center gap-1.5">
-              <Megaphone className="w-4 h-4" />
-              Liên kết với Chiến dịch
-              <span className="text-xs text-muted-foreground ml-1">(tùy chọn)</span>
-            </Label>
-            <CampaignSelector
-              value={selectedCampaignId}
-              onValueChange={setSelectedCampaignId}
-              disabled={isLoading}
-              placeholder="Chọn chiến dịch..."
-              showActiveOnly={true}
-            />
-          </div>
-
-          {/* Brand Name */}
-          <div className="space-y-2">
-            <Label htmlFor="brandName" className="text-foreground font-semibold text-sm">
-              Tên Brand
-            </Label>
-            <Input
-              id="brandName"
-              placeholder="VD: Thuế Hộ by TAF.vn"
-              value={brandName}
-              onChange={(e) => setBrandName(e.target.value)}
-              disabled={isLoading}
-              className="bg-muted/30 border-2 border-border focus:border-primary text-sm h-10"
-            />
-          </div>
-
-          {/* Brand Guideline */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="brandGuideline" className="text-foreground font-semibold text-sm">
-                Brand Guideline
-              </Label>
-              {selectedTemplateId && selectedTemplateId !== 'custom' && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-destructive hover:text-destructive px-2"
-                    >
-                      <Trash2 className="w-3 h-3 mr-1" />
-                      Xóa Template
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Xác nhận xóa template</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Bạn có chắc chắn muốn xóa template này? Hành động này không thể hoàn tác.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Hủy</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => {
-                          deleteTemplate(selectedTemplateId);
-                          setSelectedTemplateId('custom');
-                        }}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        Xóa
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </div>
-            <Textarea
-              id="brandGuideline"
-              placeholder="Nhập hướng dẫn về thương hiệu..."
-              value={brandGuideline}
-              onChange={(e) => setBrandGuideline(e.target.value)}
-              rows={4}
-              disabled={isLoading}
-              className="bg-muted/30 border-2 border-border focus:border-primary text-sm min-h-[100px]"
-            />
-          </div>
-
-          {/* Include Logo */}
-          <div className="flex items-center space-x-3 p-3 rounded-lg bg-muted/30 border border-border/50">
-            <Checkbox
-              id="includeLogo"
-              checked={includeLogo}
-              onCheckedChange={(checked) => setIncludeLogo(checked as boolean)}
-              disabled={isLoading}
-            />
-            <Label htmlFor="includeLogo" className="text-sm font-normal cursor-pointer">
-              Bao gồm logo trong thiết kế
-            </Label>
-          </div>
-        </div>
-      )}
-
       {/* Submit Button */}
       <div className="pt-2">
         <Button
@@ -597,43 +330,6 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           </p>
         )}
       </div>
-
-      {/* Save Template Dialog */}
-      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Lưu Brand Template</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="templateName">Tên Template</Label>
-              <Input
-                id="templateName"
-                placeholder="VD: Template chính của công ty"
-                value={newTemplateName}
-                onChange={(e) => setNewTemplateName(e.target.value)}
-              />
-            </div>
-            <div className="text-sm text-muted-foreground p-3 rounded-lg bg-muted/30">
-              <p className="font-medium mb-2">Sẽ lưu:</p>
-              <ul className="list-disc list-inside space-y-1 text-xs">
-                <li>Tên brand: {brandName || '(chưa nhập)'}</li>
-                <li>Brand guideline: {brandGuideline ? `${brandGuideline.slice(0, 40)}...` : '(chưa nhập)'}</li>
-                <li>Logo: {includeLogo ? 'Có' : 'Không'}</li>
-              </ul>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
-              Hủy
-            </Button>
-            <Button onClick={handleSaveTemplate}>
-              <Save className="w-4 h-4 mr-2" />
-              Lưu Template
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </form>
   );
 }
