@@ -1071,7 +1071,7 @@ export function MultiChannelFormWizard({
                       }
                     }}
                     placeholder="VD: Skincare mùa hè, Mẹo tiết kiệm chi phí..."
-                    className="h-11 border-2 pr-20 text-sm"
+                    className="h-12 border-2 pr-20 text-base"
                     disabled={isGenerating}
                     autoFocus
                   />
