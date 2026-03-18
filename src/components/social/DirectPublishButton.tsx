@@ -184,7 +184,7 @@ export function DirectPublishButton({
         disabled={disabled || isPublishing || !content}
         onClick={handleClick}
         className={cn(
-          connection ? 'text-primary border-primary/30 hover:bg-primary/10' : '',
+          variant === 'outline' && connection ? 'text-primary border-primary/30 hover:bg-primary/10' : '',
           className
         )}
       >
