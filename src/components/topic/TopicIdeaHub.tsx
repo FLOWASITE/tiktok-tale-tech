@@ -3,17 +3,52 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
-import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { Lightbulb, ChevronDown, Flame, TrendingUp, Gift, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { EnhancedTopicSuggestion } from '@/types/topicDiscovery';
 import type { ContentGoal } from '@/types/multichannel';
 
 const QUICK_ACTIONS = [
-  { icon: <Flame className="w-3 h-3" />, label: 'Viral tuần này', prompt: 'Gợi ý các chủ đề đang viral tuần này trong lĩnh vực của tôi, phù hợp để tạo nội dung thu hút tương tác cao.' },
-  { icon: <TrendingUp className="w-3 h-3" />, label: 'Theo trend', prompt: 'Phân tích xu hướng nội dung đang hot trên mạng xã hội và gợi ý chủ đề theo trend phù hợp với thương hiệu của tôi.' },
-  { icon: <Gift className="w-3 h-3" />, label: 'Mùa lễ hội', prompt: 'Gợi ý chủ đề nội dung theo mùa lễ hội, sự kiện sắp tới phù hợp để marketing.' },
-  { icon: <Zap className="w-3 h-3" />, label: 'So sánh A vs B', prompt: 'Gợi ý các chủ đề dạng so sánh A vs B hấp dẫn trong lĩnh vực của tôi để tạo nội dung tương tác cao.' },
+  {
+    icon: <Flame className="w-3 h-3" />,
+    label: 'Viral tuần này',
+    topics: [
+      'Top xu hướng viral đang được chia sẻ nhiều nhất tuần này',
+      'Hiện tượng mạng tuần này và góc nhìn chuyên gia',
+      'Nội dung triệu view tuần này: Phân tích yếu tố thành công',
+      'Chủ đề hot nhất tuần này trên mạng xã hội',
+    ],
+  },
+  {
+    icon: <TrendingUp className="w-3 h-3" />,
+    label: 'Theo trend',
+    topics: [
+      'Bắt trend mới nhất: Phân tích và ứng dụng cho thương hiệu',
+      'Xu hướng nội dung đang lên ngôi trên mạng xã hội',
+      'Trend mới nhất trong ngành: Cơ hội cho thương hiệu',
+      'Phân tích xu hướng nội dung đang hot và cách áp dụng',
+    ],
+  },
+  {
+    icon: <Gift className="w-3 h-3" />,
+    label: 'Mùa lễ hội',
+    topics: [
+      'Chiến lược nội dung mùa lễ hội sắp tới',
+      'Ý tưởng marketing theo sự kiện và ngày lễ trong tháng',
+      'Nội dung theo mùa: Kết nối thương hiệu với dịp đặc biệt',
+      'Kế hoạch nội dung cho mùa lễ hội và sự kiện lớn',
+    ],
+  },
+  {
+    icon: <Zap className="w-3 h-3" />,
+    label: 'So sánh A vs B',
+    topics: [
+      'So sánh phương pháp truyền thống vs hiện đại trong ngành',
+      'Đối đầu: Giải pháp A vs Giải pháp B — đâu là lựa chọn tốt hơn?',
+      'So sánh chi tiết: Ưu nhược điểm của 2 xu hướng đang hot',
+      'A vs B: Phân tích chuyên sâu giúp bạn chọn đúng',
+    ],
+  },
 ];
 
 interface TopicIdeaHubProps {
@@ -39,99 +74,80 @@ export function TopicIdeaHub({
   onRefresh,
   onSave,
   onFeedback,
-  brandTemplateId,
   contentGoal,
   disabled = false,
   showEnhancedInfo = true,
   showNavigateToTopics = false,
 }: TopicIdeaHubProps) {
   const [isOpen, setIsOpen] = useState(true);
-  const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
-  const [brainstormPrompt, setBrainstormPrompt] = useState<string | undefined>();
 
-  const handleQuickAction = (prompt: string) => {
-    setBrainstormPrompt(prompt);
-    setShowBrainstormSheet(true);
-  };
-
-  const handleTopicSelect = (topic: string) => {
-    onSelect(topic);
-    setShowBrainstormSheet(false);
+  const handleQuickAction = (topics: string[]) => {
+    const randomTopic = topics[Math.floor(Math.random() * topics.length)];
+    onSelect(randomTopic);
   };
 
   return (
-    <>
-      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <div className="rounded-lg border border-border/60 bg-muted/20 overflow-hidden">
-          <CollapsibleTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                "w-full flex items-center justify-between px-3 py-2 text-sm font-medium",
-                "hover:bg-muted/40 transition-colors",
-                "text-foreground"
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <Lightbulb className="w-3.5 h-3.5 text-primary" />
-                <span>Ý tưởng chủ đề</span>
-                <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
-                  Gợi ý
-                </Badge>
-              </div>
-              <ChevronDown className={cn(
-                "w-3.5 h-3.5 text-muted-foreground transition-transform duration-200",
-                isOpen && "rotate-180"
-              )} />
-            </button>
-          </CollapsibleTrigger>
-
-          <CollapsibleContent>
-            <div className="px-3 pb-3">
-              {/* Quick action chips */}
-              <div className="flex gap-1.5 flex-wrap mb-2">
-                {QUICK_ACTIONS.map((action) => (
-                  <Button
-                    key={action.label}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={disabled}
-                    onClick={() => handleQuickAction(action.prompt)}
-                    className="h-6 text-[10px] whitespace-nowrap gap-1 rounded-full px-2.5 border-border/60 hover:bg-primary hover:text-primary-foreground transition-colors"
-                  >
-                    {action.icon}
-                    {action.label}
-                  </Button>
-                ))}
-              </div>
-
-              <TopicSuggestionPanel
-                suggestions={suggestions}
-                source={source}
-                isLoading={isLoading}
-                onSelect={onSelect}
-                onRefresh={onRefresh}
-                onSave={onSave}
-                onFeedback={onFeedback}
-                disabled={disabled}
-                showEnhancedInfo={showEnhancedInfo}
-                showNavigateToTopics={showNavigateToTopics}
-                contentGoal={contentGoal}
-              />
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="rounded-lg border border-border/60 bg-muted/20 overflow-hidden">
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              "w-full flex items-center justify-between px-3 py-2 text-sm font-medium",
+              "hover:bg-muted/40 transition-colors",
+              "text-foreground"
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <Lightbulb className="w-3.5 h-3.5 text-primary" />
+              <span>Ý tưởng chủ đề</span>
+              <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                Gợi ý
+              </Badge>
             </div>
-          </CollapsibleContent>
-        </div>
-      </Collapsible>
+            <ChevronDown className={cn(
+              "w-3.5 h-3.5 text-muted-foreground transition-transform duration-200",
+              isOpen && "rotate-180"
+            )} />
+          </button>
+        </CollapsibleTrigger>
 
-      <TopicBrainstormSheet
-        open={showBrainstormSheet}
-        onOpenChange={setShowBrainstormSheet}
-        brandTemplateId={brandTemplateId}
-        contentGoal={contentGoal}
-        initialPrompt={brainstormPrompt}
-        onSelectTopic={handleTopicSelect}
-      />
-    </>
+        <CollapsibleContent>
+          <div className="px-3 pb-3">
+            {/* Quick action chips */}
+            <div className="flex gap-1.5 flex-wrap mb-2">
+              {QUICK_ACTIONS.map((action) => (
+                <Button
+                  key={action.label}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={disabled}
+                  onClick={() => handleQuickAction(action.topics)}
+                  className="h-6 text-[10px] whitespace-nowrap gap-1 rounded-full px-2.5 border-border/60 hover:bg-primary hover:text-primary-foreground transition-colors"
+                >
+                  {action.icon}
+                  {action.label}
+                </Button>
+              ))}
+            </div>
+
+            <TopicSuggestionPanel
+              suggestions={suggestions}
+              source={source}
+              isLoading={isLoading}
+              onSelect={onSelect}
+              onRefresh={onRefresh}
+              onSave={onSave}
+              onFeedback={onFeedback}
+              disabled={disabled}
+              showEnhancedInfo={showEnhancedInfo}
+              showNavigateToTopics={showNavigateToTopics}
+              contentGoal={contentGoal}
+            />
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   );
 }
