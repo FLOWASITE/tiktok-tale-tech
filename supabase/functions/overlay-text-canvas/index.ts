@@ -345,11 +345,11 @@ function getTypographyStyles(style: TypographyStyle): {
 }
 
 /**
- * Load Google Font with Vietnamese support
+ * Load Google Font with Vietnamese support — now supports dynamic font family
  */
-async function loadGoogleFont(text: string, weight: number = 600): Promise<ArrayBuffer | null> {
+async function loadGoogleFont(text: string, weight: number = 600, family: string = 'Be Vietnam Pro'): Promise<ArrayBuffer | null> {
   try {
-    const fontFamily = 'Be+Vietnam+Pro';
+    const fontFamily = family.replace(/\s+/g, '+');
     const encodedText = encodeURIComponent(text);
     const url = `https://fonts.googleapis.com/css2?family=${fontFamily}:wght@${weight}&text=${encodedText}`;
     
@@ -360,7 +360,7 @@ async function loadGoogleFont(text: string, weight: number = 600): Promise<Array
     });
     
     if (!cssResponse.ok) {
-      console.error(`[overlay-text-canvas] Font CSS fetch failed: ${cssResponse.status}`);
+      console.error(`[overlay-text-canvas] Font CSS fetch failed for ${family} wt=${weight}: ${cssResponse.status}`);
       return null;
     }
     
@@ -370,7 +370,7 @@ async function loadGoogleFont(text: string, weight: number = 600): Promise<Array
                          css.match(/url\((https:\/\/fonts\.gstatic\.com[^)]+)\)/);
     
     if (!fontUrlMatch) {
-      console.error('[overlay-text-canvas] Could not extract font URL');
+      console.error(`[overlay-text-canvas] Could not extract font URL for ${family}`);
       return null;
     }
     
@@ -382,7 +382,7 @@ async function loadGoogleFont(text: string, weight: number = 600): Promise<Array
     }
     
     const fontData = await fontResponse.arrayBuffer();
-    console.log(`[overlay-text-canvas] Font wt=${weight} loaded: ${fontData.byteLength} bytes`);
+    console.log(`[overlay-text-canvas] Font ${family} wt=${weight} loaded: ${fontData.byteLength} bytes`);
     return fontData;
   } catch (error) {
     console.error(`[overlay-text-canvas] Font loading error:`, error);
@@ -392,25 +392,49 @@ async function loadGoogleFont(text: string, weight: number = 600): Promise<Array
 
 /**
  * Load multiple font weights in parallel for professional typography
+ * V2: supports per-style font families with fallback to Be Vietnam Pro
  */
-async function loadMultipleFontWeights(text: string): Promise<Array<{ name: string; data: ArrayBuffer; weight: 100|200|300|400|500|600|700|800|900; style: 'normal' }>> {
-  const weights = [400, 600, 700] as const;
-  const results = await Promise.all(weights.map(w => loadGoogleFont(text, w)));
-  
+async function loadMultipleFontWeights(
+  text: string,
+  bodyFamily: string = 'Be Vietnam Pro',
+  headingFamily?: string
+): Promise<Array<{ name: string; data: ArrayBuffer; weight: 100|200|300|400|500|600|700|800|900; style: 'normal' }>> {
+  const bodyWeights = [400, 600, 700] as const;
   const fonts: Array<{ name: string; data: ArrayBuffer; weight: 100|200|300|400|500|600|700|800|900; style: 'normal' }> = [];
-  for (let i = 0; i < weights.length; i++) {
-    if (results[i]) {
-      fonts.push({ name: 'Be Vietnam Pro', data: results[i]!, weight: weights[i] as any, style: 'normal' });
+  
+  // Load body font weights
+  const bodyResults = await Promise.all(bodyWeights.map(w => loadGoogleFont(text, w, bodyFamily)));
+  for (let i = 0; i < bodyWeights.length; i++) {
+    if (bodyResults[i]) {
+      fonts.push({ name: bodyFamily, data: bodyResults[i]!, weight: bodyWeights[i] as any, style: 'normal' });
     }
   }
   
-  // If none loaded, try single fallback
+  // Load heading font if different from body
+  if (headingFamily && headingFamily !== bodyFamily) {
+    const headingWeights = [600, 700] as const;
+    const headingResults = await Promise.all(headingWeights.map(w => loadGoogleFont(text, w, headingFamily)));
+    for (let i = 0; i < headingWeights.length; i++) {
+      if (headingResults[i]) {
+        fonts.push({ name: headingFamily, data: headingResults[i]!, weight: headingWeights[i] as any, style: 'normal' });
+      }
+    }
+  }
+  
+  // Fallback: if primary font failed, try Be Vietnam Pro
+  if (fonts.length === 0 && bodyFamily !== 'Be Vietnam Pro') {
+    console.log(`[overlay-text-canvas] Primary font ${bodyFamily} failed, falling back to Be Vietnam Pro`);
+    const fb = await loadGoogleFont(text, 400, 'Be Vietnam Pro');
+    if (fb) fonts.push({ name: 'Be Vietnam Pro', data: fb, weight: 400, style: 'normal' });
+  }
+  
+  // Last resort fallback
   if (fonts.length === 0) {
     const fb = await loadGoogleFont(text, 400);
     if (fb) fonts.push({ name: 'Be Vietnam Pro', data: fb, weight: 400, style: 'normal' });
   }
   
-  console.log(`[overlay-text-canvas] Loaded ${fonts.length} font weights: ${fonts.map(f => f.weight).join(', ')}`);
+  console.log(`[overlay-text-canvas] Loaded ${fonts.length} font weights: ${fonts.map(f => `${f.name}@${f.weight}`).join(', ')}`);
   return fonts;
 }
 
