@@ -120,10 +120,10 @@ export function TopicIdeaHub({
                 <Button
                   key={action.label}
                   type="button"
-                  variant="outline"
+                  variant={activeCategory === action.label ? "default" : "outline"}
                   size="sm"
                   disabled={disabled}
-                  onClick={() => handleQuickAction(action.topics)}
+                  onClick={() => handleCategoryClick(action.label)}
                   className="h-6 text-[10px] whitespace-nowrap gap-1 rounded-full px-2.5 border-border/60 hover:bg-primary hover:text-primary-foreground transition-colors"
                 >
                   {action.icon}
@@ -131,6 +131,23 @@ export function TopicIdeaHub({
                 </Button>
               ))}
             </div>
+
+            {/* Expanded topics for active category */}
+            {activeCategory && (
+              <div className="flex flex-col gap-1 mb-2 pl-2 border-l-2 border-primary/30">
+                {QUICK_ACTIONS.find(a => a.label === activeCategory)?.topics.map((topic) => (
+                  <button
+                    key={topic}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onSelect(topic)}
+                    className="text-left text-[11px] py-1 px-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                  >
+                    → {topic}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <TopicSuggestionPanel
               suggestions={suggestions}
