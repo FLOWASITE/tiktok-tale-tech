@@ -510,6 +510,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                 slides={carousel.slides_content}
                 carouselTitle={carousel.title}
                 onDeleteImage={handleDeleteImage}
+                onGenerateAll={handleGenerateAllImages}
               />
             </TabsContent>
 
