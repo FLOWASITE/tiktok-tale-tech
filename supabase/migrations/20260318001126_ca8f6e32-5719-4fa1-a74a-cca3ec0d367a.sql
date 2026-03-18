@@ -1,0 +1,1 @@
+ALTER TABLE public.payment_orders ADD COLUMN metadata jsonb DEFAULT NULL;

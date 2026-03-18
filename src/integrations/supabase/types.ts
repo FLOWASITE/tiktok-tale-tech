@@ -6348,6 +6348,7 @@ export type Database = {
           created_at: string
           currency: string
           id: string
+          metadata: Json | null
           organization_id: string
           plan_type: string
           status: string
@@ -6362,6 +6363,7 @@ export type Database = {
           created_at?: string
           currency?: string
           id?: string
+          metadata?: Json | null
           organization_id: string
           plan_type: string
           status?: string
@@ -6376,6 +6378,7 @@ export type Database = {
           created_at?: string
           currency?: string
           id?: string
+          metadata?: Json | null
           organization_id?: string
           plan_type?: string
           status?: string
