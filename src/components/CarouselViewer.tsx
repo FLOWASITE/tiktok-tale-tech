@@ -40,6 +40,7 @@ import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { CreatorCell } from '@/components/CreatorCell';
 import { IndustryGuardrailBadge } from '@/components/IndustryGuardrailBadge';
 import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
+import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 
 interface CarouselViewerProps {
   carousel: Carousel | null;
