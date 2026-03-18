@@ -123,7 +123,7 @@ serve(async (req) => {
   const startTime = performance.now();
 
   try {
-    const { description, primaryColor = "#DC2626", secondaryColor = "#FFFFFF", context } = await req.json();
+    const { description, primaryColor = "#DC2626", secondaryColor = "#FFFFFF", context, imageStyle } = await req.json();
 
     if (!description || typeof description !== "string") {
       return new Response(JSON.stringify({ error: "Missing description" }), {
