@@ -1352,8 +1352,9 @@ serve(async (req) => {
 
       console.log(`[overlay-text-canvas] Elements: banner=${!!elements.banner}, hero=${!!elements.heroText}, cards=${elements.cards?.items?.length || 0}`);
 
-      // Load multiple font weights for professional typography
-      const fonts2 = await loadMultipleFontWeights(combinedText);
+      // Load multiple font weights — resolve theme for dynamic font family
+      const resolvedTheme = resolveTheme(sr.imageStyle, sr.colors);
+      const fonts2 = await loadMultipleFontWeights(combinedText, resolvedTheme.fontFamily, resolvedTheme.headingFontFamily);
       if (fonts2.length === 0) throw new Error('Could not load any fonts');
 
       const element2 = buildStructuredElement(baseImageUrl, sr, true, imageWidth, imageHeight);
