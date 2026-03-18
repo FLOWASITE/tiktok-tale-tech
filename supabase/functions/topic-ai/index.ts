@@ -260,7 +260,7 @@ async function handleSuggest(
     console.log('[topic-ai:suggest] Skipped all Perplexity API calls - cost optimization');
   }
 
-  // Build prompts — inject query into prompt context for relevance
+  // Build prompts — inject query and categoryHint into prompt context for relevance
   const { systemPrompt, userPrompt } = buildSuggestPrompts({
     brandContext,
     contentGoal,
@@ -270,7 +270,8 @@ async function handleSuggest(
     learningContext,
     industryInsight,
     audienceQA,
-    query, // Pass user query so prompt generates relevant topics
+    query,
+    categoryHint,
   });
 
   // Call AI with metrics tracking
