@@ -101,7 +101,7 @@ const CarouselPage = () => {
   const [itemsPerPage, setItemsPerPage] = useState(12);
 
   const filteredCarousels = useMemo(() => {
-    return carousels.filter((carousel) => {
+    let result = carousels.filter((carousel) => {
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
         const matchesSearch =
@@ -118,13 +118,36 @@ const CarouselPage = () => {
         return false;
       }
 
+      if (filters.status !== 'all' && carousel.status !== filters.status) {
+        return false;
+      }
+
+      if (filters.carouselStyle !== 'all' && carousel.carousel_style !== filters.carouselStyle) {
+        return false;
+      }
+
       if (campaignFilter && carousel.campaign_id !== campaignFilter) {
         return false;
       }
 
       return true;
     });
-  }, [carousels, filters, campaignFilter]);
+
+    // Sort
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'name_asc':
+          return a.title.localeCompare(b.title, 'vi');
+        case 'newest':
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
+
+    return result;
+  }, [carousels, filters, campaignFilter, sortBy]);
 
   // Paginated carousels
   const paginatedCarousels = useMemo(() => {
