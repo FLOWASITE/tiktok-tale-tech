@@ -81,7 +81,6 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
   
   const [topic, setTopic] = useState(initialTopic || '');
 
-  // Handle initialTopic prop changes
   useEffect(() => {
     if (initialTopic) {
       setTopic(initialTopic);
@@ -102,21 +101,17 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
 
-  // Loading phases animation
   useEffect(() => {
     if (!isLoading) {
       setLoadingPhase(0);
       return;
     }
-    
     const interval = setInterval(() => {
       setLoadingPhase((prev) => (prev + 1) % LOADING_PHASES.length);
     }, 2000);
-    
     return () => clearInterval(interval);
   }, [isLoading]);
 
-  // Load default template from global brand context or default on mount
   useEffect(() => {
     if (!templatesLoading && templates.length > 0 && !selectedTemplateId) {
       const initialBrand = currentBrand
@@ -131,7 +126,6 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
 
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
 
-  // Topic suggestions - unified AI engine
   const {
     suggestions: enhancedSuggestions,
     source: suggestionsSource,
@@ -146,7 +140,6 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
     enabled: true,
   });
 
-  // Character count color
   const charCountColor = useMemo(() => {
     const length = topic.length;
     if (length === 0) return 'text-muted-foreground';
@@ -244,247 +237,250 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Header Section */}
-      <div className="text-center space-y-2 animate-fade-in">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl gradient-primary shadow-lg glow-primary animate-pulse-glow">
-          <Wand2 className="w-7 h-7 text-primary-foreground" />
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {/* Compact Header */}
+      <div className="flex items-center gap-3 animate-fade-in">
+        <div className="flex items-center justify-center w-10 h-10 rounded-xl gradient-primary shadow-md">
+          <Wand2 className="w-5 h-5 text-primary-foreground" />
         </div>
-        <div>
-          <h2 className="text-xl font-bold text-foreground">Tạo Carousel AI</h2>
-          <p className="text-sm text-muted-foreground">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold text-foreground">Tạo Carousel AI</h2>
+            <Badge variant="secondary" className="gap-1 text-[10px] h-5">
+              <Sparkles className="w-2.5 h-2.5" />
+              AI
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground truncate">
             Nhập chủ đề và để AI tạo prompts carousel chuyên nghiệp
           </p>
         </div>
-        <Badge variant="secondary" className="gap-1.5">
-          <Sparkles className="w-3 h-3" />
-          AI Powered
-        </Badge>
       </div>
 
-      {/* Topic Input */}
-      <div className="space-y-3 stagger-item" style={{ animationDelay: '100ms' }}>
-        <div className="flex items-center justify-between">
-          <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
-            Chủ đề Carousel
-            <span className="text-primary">*</span>
-          </Label>
-          {selectedTemplate?.industry_template_id && (
-            <GlossaryQuickLookup
-              industryTemplateId={selectedTemplate.industry_template_id}
-              onInsertTerm={(term) => {
-                const input = topicInputRef.current;
-                if (input) {
-                  const cursorPos = input.selectionStart || topic.length;
-                  const before = topic.slice(0, cursorPos);
-                  const after = topic.slice(cursorPos);
-                  setTopic((before + term + after).slice(0, MAX_TOPIC_LENGTH));
-                  setTimeout(() => {
-                    input.focus();
-                    const newPos = cursorPos + term.length;
-                    input.setSelectionRange(newPos, newPos);
-                  }, 0);
-                } else {
-                  setTopic((topic + ' ' + term).slice(0, MAX_TOPIC_LENGTH));
+      {/* ===== Nhóm 1: Bắt buộc — Chủ đề + Phong cách ===== */}
+      <div className="space-y-4">
+        {/* Topic Input */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
+              Chủ đề Carousel
+              <span className="text-primary">*</span>
+            </Label>
+            {selectedTemplate?.industry_template_id && (
+              <GlossaryQuickLookup
+                industryTemplateId={selectedTemplate.industry_template_id}
+                onInsertTerm={(term) => {
+                  const input = topicInputRef.current;
+                  if (input) {
+                    const cursorPos = input.selectionStart || topic.length;
+                    const before = topic.slice(0, cursorPos);
+                    const after = topic.slice(cursorPos);
+                    setTopic((before + term + after).slice(0, MAX_TOPIC_LENGTH));
+                    setTimeout(() => {
+                      input.focus();
+                      const newPos = cursorPos + term.length;
+                      input.setSelectionRange(newPos, newPos);
+                    }, 0);
+                  } else {
+                    setTopic((topic + ' ' + term).slice(0, MAX_TOPIC_LENGTH));
+                  }
+                }}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <Book className="h-3 w-3" />
+                    Từ điển
+                  </Button>
                 }
-              }}
-              trigger={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 gap-1 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  <Book className="h-3 w-3" />
-                  Từ điển
-                </Button>
-              }
+              />
+            )}
+          </div>
+          <div className="relative group">
+            <Input
+              ref={topicInputRef}
+              id="topic"
+              placeholder="VD: Bỏ thuế khoán từ 2026 - Hộ kinh doanh cần chuẩn bị gì?"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value.slice(0, MAX_TOPIC_LENGTH))}
+              disabled={isLoading}
+              className={cn(
+                "bg-muted/30 border-2 h-11 text-sm transition-all duration-300",
+                "focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-background",
+                "placeholder:text-muted-foreground/60"
+              )}
             />
-          )}
-        </div>
-        <div className="relative group">
-          <Input
-            ref={topicInputRef}
-            id="topic"
-            placeholder="VD: Bỏ thuế khoán từ 2026 - Hộ kinh doanh cần chuẩn bị gì?"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value.slice(0, MAX_TOPIC_LENGTH))}
+            <div className={cn(
+              "absolute top-1/2 -translate-y-1/2 right-3 text-xs font-medium transition-colors",
+              charCountColor
+            )}>
+              {topic.length}/{MAX_TOPIC_LENGTH}
+            </div>
+          </div>
+          
+          <TopicSuggestionPanel
+            suggestions={enhancedSuggestions}
+            source={suggestionsSource}
+            isLoading={suggestionsLoading}
+            onSelect={(suggestion) => setTopic(suggestion)}
+            onRefresh={refreshSuggestions}
+            onSave={saveSuggestion}
+            onFeedback={submitFeedback}
             disabled={isLoading}
-            className={cn(
-              "bg-muted/30 border-2 h-11 text-sm transition-all duration-300",
-              "focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-background",
-              "placeholder:text-muted-foreground/60"
-            )}
+            showEnhancedInfo={true}
           />
-          <div className={cn(
-            "absolute top-1/2 -translate-y-1/2 right-3 text-xs font-medium transition-colors",
-            charCountColor
-          )}>
-            {topic.length}/{MAX_TOPIC_LENGTH}
-          </div>
         </div>
-        
-        {/* Topic Suggestions */}
-        <TopicSuggestionPanel
-          suggestions={enhancedSuggestions}
-          source={suggestionsSource}
-          isLoading={suggestionsLoading}
-          onSelect={(suggestion) => setTopic(suggestion)}
-          onRefresh={refreshSuggestions}
-          onSave={saveSuggestion}
-          onFeedback={submitFeedback}
-          disabled={isLoading}
-          showEnhancedInfo={true}
-        />
-      </div>
 
-      {/* Platform Selector */}
-      <div className="space-y-3 stagger-item" style={{ animationDelay: '150ms' }}>
-        <Label className="text-foreground font-semibold text-sm">
-          Nền tảng
-        </Label>
-        <PlatformSelector
-          value={platform}
-          onChange={setPlatform}
-          disabled={isLoading}
-        />
-      </div>
-
-      {/* Carousel Style Selector */}
-      <div className="space-y-3 stagger-item" style={{ animationDelay: '175ms' }}>
-        <Label className="text-foreground font-semibold text-sm">
-          Phong cách Carousel
-        </Label>
-        <CarouselStyleSelector
-          value={carouselStyle}
-          onChange={setCarouselStyle}
-          disabled={isLoading}
-        />
-      </div>
-
-      {/* Slide Count Selector */}
-      <div className="space-y-3 stagger-item" style={{ animationDelay: '200ms' }}>
-        <Label className="text-foreground font-semibold text-sm">
-          Số lượng ảnh
-        </Label>
-        <SlideCountSelector
-          value={slideCount}
-          onChange={setSlideCount}
-          disabled={isLoading}
-        />
-      </div>
-
-      {/* AI Tool Selector */}
-      <div className="space-y-3 stagger-item" style={{ animationDelay: '250ms' }}>
-        <Label className="text-foreground font-semibold text-sm">
-          Công cụ tạo ảnh AI
-        </Label>
-        <AIToolSelector
-          value={aiTool}
-          onChange={setAiTool}
-          disabled={isLoading}
-        />
-      </div>
-
-      {/* Brand Template Section */}
-      <div className="space-y-3 stagger-item" style={{ animationDelay: '300ms' }}>
-        <div className="flex items-center justify-between">
-          <Label className="text-foreground font-semibold text-sm flex items-center gap-1.5">
-            <Bookmark className="w-4 h-4" />
-            Brand Template
+        {/* Carousel Style Selector */}
+        <div className="space-y-2">
+          <Label className="text-foreground font-semibold text-sm">
+            Phong cách Carousel
           </Label>
-          <div className="flex items-center gap-2">
-            {selectedTemplate && (
-              <Badge variant="outline" className="text-xs gap-1 border-primary/30 text-primary">
-                <Sparkles className="w-3 h-3" />
-                Applied
-              </Badge>
-            )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setSaveDialogOpen(true)}
-              className="h-7 text-xs px-2 gap-1"
-            >
-              <Save className="w-3 h-3" />
-              Lưu
-            </Button>
+          <CarouselStyleSelector
+            value={carouselStyle}
+            onChange={setCarouselStyle}
+            disabled={isLoading}
+          />
+        </div>
+      </div>
+
+      {/* ===== Nhóm 2: Cài đặt tạo ảnh ===== */}
+      <div className="space-y-4 p-4 rounded-xl border border-border/60 bg-muted/10">
+        <Label className="text-foreground font-semibold text-sm flex items-center gap-1.5">
+          <Images className="w-4 h-4" />
+          Cài đặt tạo ảnh
+        </Label>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-muted-foreground text-xs font-medium">Nền tảng</Label>
+            <PlatformSelector
+              value={platform}
+              onChange={setPlatform}
+              disabled={isLoading}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-muted-foreground text-xs font-medium">Số lượng ảnh</Label>
+            <SlideCountSelector
+              value={slideCount}
+              onChange={setSlideCount}
+              disabled={isLoading}
+            />
           </div>
         </div>
-        
-        {templatesLoading ? (
-          <div className="h-10 bg-muted/50 border border-border rounded-lg flex items-center px-3 animate-pulse">
-            <span className="text-sm text-muted-foreground">Đang tải templates...</span>
-          </div>
-        ) : (
-          <Select value={selectedTemplateId} onValueChange={handleTemplateChange} disabled={isLoading}>
-            <SelectTrigger className="bg-muted/30 border-2 border-border focus:border-primary text-sm h-10 transition-all">
-              <SelectValue placeholder="Chọn template..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="custom" className="text-sm">
-                <span className="text-muted-foreground">Tùy chỉnh mới...</span>
-              </SelectItem>
-              {templates.map((template) => (
-                <SelectItem key={template.id} value={template.id} className="text-sm">
-                  <span className="flex items-center gap-2">
-                    {template.primary_color && (
-                      <span
-                        className="w-3 h-3 rounded-full ring-2 ring-offset-1 ring-offset-background"
-                        style={{ backgroundColor: template.primary_color }}
-                      />
-                    )}
-                    {template.logo_url && !template.primary_color && (
-                      <img src={template.logo_url} alt="" className="w-4 h-4 rounded object-contain" />
-                    )}
-                    <span className="truncate">{template.name}</span>
-                    {template.is_default && (
-                      <Badge variant="secondary" className="text-[10px] h-4 px-1">Mặc định</Badge>
-                    )}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        
-        {selectedTemplate && (
-          <div className="animate-scale-in">
-            <BrandPreviewCard template={selectedTemplate} defaultOpen={false} />
-          </div>
-        )}
+
+        <div className="space-y-2">
+          <Label className="text-muted-foreground text-xs font-medium">Công cụ tạo ảnh AI</Label>
+          <AIToolSelector
+            value={aiTool}
+            onChange={setAiTool}
+            disabled={isLoading}
+          />
+        </div>
       </div>
 
-      {/* Campaign Selector */}
-      <div className="space-y-3 stagger-item" style={{ animationDelay: '350ms' }}>
-        <Label className="text-foreground font-semibold text-sm flex items-center gap-1.5">
-          <Megaphone className="w-4 h-4" />
-          Liên kết với Chiến dịch
-          <span className="text-xs text-muted-foreground ml-1">(tùy chọn)</span>
-        </Label>
-        <CampaignSelector
-          value={selectedCampaignId}
-          onValueChange={setSelectedCampaignId}
-          disabled={isLoading}
-          placeholder="Chọn chiến dịch..."
-          showActiveOnly={true}
-        />
-      </div>
-
-      {/* Advanced Settings Toggle */}
+      {/* ===== Nhóm 3: Cài đặt nâng cao (Collapsible) ===== */}
       <button
         type="button"
         onClick={() => setShowAdvanced(!showAdvanced)}
         className="w-full flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        {showAdvanced ? 'Ẩn cài đặt nâng cao' : 'Cài đặt nâng cao (Brand, Logo)'}
+        {showAdvanced ? 'Ẩn cài đặt nâng cao' : 'Cài đặt nâng cao (Brand, Chiến dịch, Logo)'}
       </button>
 
-      {/* Advanced Settings - Collapsible */}
       {showAdvanced && (
-        <div className="space-y-4 animate-fade-in">
+        <div className="space-y-4 animate-fade-in p-4 rounded-xl border border-border/60 bg-muted/10">
+          {/* Brand Template */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-foreground font-semibold text-sm flex items-center gap-1.5">
+                <Bookmark className="w-4 h-4" />
+                Brand Template
+              </Label>
+              <div className="flex items-center gap-2">
+                {selectedTemplate && (
+                  <Badge variant="outline" className="text-xs gap-1 border-primary/30 text-primary">
+                    <Sparkles className="w-3 h-3" />
+                    Applied
+                  </Badge>
+                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSaveDialogOpen(true)}
+                  className="h-7 text-xs px-2 gap-1"
+                >
+                  <Save className="w-3 h-3" />
+                  Lưu
+                </Button>
+              </div>
+            </div>
+            
+            {templatesLoading ? (
+              <div className="h-10 bg-muted/50 border border-border rounded-lg flex items-center px-3 animate-pulse">
+                <span className="text-sm text-muted-foreground">Đang tải templates...</span>
+              </div>
+            ) : (
+              <Select value={selectedTemplateId} onValueChange={handleTemplateChange} disabled={isLoading}>
+                <SelectTrigger className="bg-muted/30 border-2 border-border focus:border-primary text-sm h-10 transition-all">
+                  <SelectValue placeholder="Chọn template..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="custom" className="text-sm">
+                    <span className="text-muted-foreground">Tùy chỉnh mới...</span>
+                  </SelectItem>
+                  {templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id} className="text-sm">
+                      <span className="flex items-center gap-2">
+                        {template.primary_color && (
+                          <span
+                            className="w-3 h-3 rounded-full ring-2 ring-offset-1 ring-offset-background"
+                            style={{ backgroundColor: template.primary_color }}
+                          />
+                        )}
+                        {template.logo_url && !template.primary_color && (
+                          <img src={template.logo_url} alt="" className="w-4 h-4 rounded object-contain" />
+                        )}
+                        <span className="truncate">{template.name}</span>
+                        {template.is_default && (
+                          <Badge variant="secondary" className="text-[10px] h-4 px-1">Mặc định</Badge>
+                        )}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            
+            {selectedTemplate && (
+              <div className="animate-scale-in">
+                <BrandPreviewCard template={selectedTemplate} defaultOpen={false} />
+              </div>
+            )}
+          </div>
+
+          {/* Campaign Selector */}
+          <div className="space-y-2">
+            <Label className="text-foreground font-semibold text-sm flex items-center gap-1.5">
+              <Megaphone className="w-4 h-4" />
+              Liên kết với Chiến dịch
+              <span className="text-xs text-muted-foreground ml-1">(tùy chọn)</span>
+            </Label>
+            <CampaignSelector
+              value={selectedCampaignId}
+              onValueChange={setSelectedCampaignId}
+              disabled={isLoading}
+              placeholder="Chọn chiến dịch..."
+              showActiveOnly={true}
+            />
+          </div>
+
           {/* Brand Name */}
           <div className="space-y-2">
             <Label htmlFor="brandName" className="text-foreground font-semibold text-sm">
@@ -569,7 +565,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
       )}
 
       {/* Submit Button */}
-      <div className="pt-2 stagger-item" style={{ animationDelay: '350ms' }}>
+      <div className="pt-2">
         <Button
           type="submit"
           disabled={!topic.trim() || isLoading}
@@ -578,7 +574,6 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
             !isLoading && "glow-primary"
           )}
         >
-          {/* Shimmer effect */}
           {!isLoading && (
             <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
           )}
@@ -596,7 +591,6 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           )}
         </Button>
         
-        {/* Estimated time */}
         {!isLoading && (
           <p className="text-center text-xs text-muted-foreground mt-2">
             Thời gian ước tính: ~20-40 giây
