@@ -440,6 +440,8 @@ export function MultiChannelFormWizard({
   // Track if user manually changed the goal (to avoid overriding)
   const userManuallySetGoal = useRef(!!initialData?.contentGoal);
   const lastAutoDetectedTopic = useRef('');
+  // Track if topic was set from quick-action (skip auto-refine & auto-detect)
+  const [topicFromQuickAction, setTopicFromQuickAction] = useState(false);
 
   // Auto-detect contentGoal from topic keywords (skip for quick-action topics)
   useEffect(() => {
