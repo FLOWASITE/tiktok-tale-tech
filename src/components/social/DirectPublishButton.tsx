@@ -144,7 +144,7 @@ export function DirectPublishButton({
   }
 
   // Check if platform is supported
-  const isSupported = platform === 'twitter';
+  const isSupported = platform === 'twitter' || platform === 'facebook';
 
   if (!isSupported) {
     return (

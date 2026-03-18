@@ -80,13 +80,11 @@ export function useDirectPublish() {
   };
 
   // Placeholder for future platforms
-  const publishToFacebook = async (_options: PublishOptions) => {
-    toast({
-      title: 'Chưa hỗ trợ',
-      description: 'Facebook sẽ được hỗ trợ trong phiên bản tiếp theo',
-      variant: 'destructive',
+  const publishToFacebook = async (options: PublishOptions) => {
+    return publishMutation.mutateAsync({
+      platform: 'facebook',
+      options,
     });
-    throw new Error('Facebook not yet supported');
   };
 
   const publishToInstagram = async (_options: PublishOptions) => {
