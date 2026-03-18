@@ -526,6 +526,20 @@ function AppRoutes() {
                 }
               />
               
+              {/* Voucher Management */}
+              <Route
+                path="/admin/vouchers"
+                element={
+                  <ProtectedRoute>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <AdminVouchers />
+                      </AppLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+
               {/* Access denied page */}
               <Route path="/access-denied" element={<AccessDenied />} />
               <Route
