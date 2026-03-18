@@ -61,7 +61,8 @@ export function useCarousels() {
         body: { 
           ...formData, 
           user_id: user.id,
-          organization_id: currentOrganization?.id 
+          organization_id: currentOrganization?.id,
+          carouselStyle: formData.carouselStyle,
         },
       });
 

@@ -248,7 +248,7 @@ serve(async (req) => {
  * Build a background-only prompt: strips text rendering instructions,
  * focuses on visual composition with safe zones for overlay.
  */
-function buildBackgroundPrompt(originalPrompt: string, platform?: string): string {
+function buildBackgroundPrompt(originalPrompt: string, platform?: string, carouselStyle?: string, slideNumber?: number, totalSlides?: number): string {
   const safeZoneNote = `
 CRITICAL INSTRUCTIONS:
 - Do NOT render any text, letters, words, or typography on the image.
@@ -257,6 +257,37 @@ CRITICAL INSTRUCTIONS:
 - Focus on mood, atmosphere, colors, and visual composition.
 - High resolution, professional photography or illustration quality.
 `;
+
+  // Style-specific directives
+  let styleDirective = '';
+  if (carouselStyle === 'seamless') {
+    styleDirective = `
+SEAMLESS CAROUSEL STYLE:
+- Visual elements MUST extend to the LEFT and RIGHT edges of the image.
+- Use a consistent color palette and visual motif that connects with adjacent slides.
+- Elements should appear to continue BEYOND the frame boundary.
+- This is slide ${slideNumber || '?'} of ${totalSlides || '?'} — design as a FRAGMENT of a larger panoramic artwork.
+- Background gradient/pattern must flow seamlessly when placed next to adjacent slides.
+- Avoid centered compositions — use edge-bleeding elements (shapes, lines, gradients).
+`;
+  } else if (carouselStyle === 'listicle') {
+    styleDirective = `
+LISTICLE STYLE:
+- Use a UNIFORM layout structure — same visual grid for every item slide.
+- Clean, consistent background with space for a large number indicator.
+- Professional, structured composition with clear visual hierarchy.
+- Keep the same color palette and visual style across all slides.
+`;
+  } else if (carouselStyle === 'gallery') {
+    styleDirective = `
+GALLERY / PHOTO DUMP STYLE:
+- Focus 100% on VISUAL QUALITY — this is a photo collection.
+- Use realistic, high-quality photography or artistic imagery.
+- Rich colors, natural lighting, cinematic composition.
+- NO infographic elements, NO structured layouts — just beautiful imagery.
+- The image itself IS the content.
+`;
+  }
   
   // Clean prompt: remove text-rendering directives
   const cleanedPrompt = originalPrompt
@@ -265,7 +296,7 @@ CRITICAL INSTRUCTIONS:
     .replace(/typography.*?(?=\n|$)/gi, '')
     .replace(/font.*?(?=\n|$)/gi, '');
 
-  return `${safeZoneNote}\n\nVisual concept:\n${cleanedPrompt}`;
+  return `${safeZoneNote}\n${styleDirective}\nVisual concept:\n${cleanedPrompt}`;
 }
 
 function getPlatformDimensions(platform?: string): { width: number; height: number } {
