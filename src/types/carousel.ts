@@ -1,6 +1,7 @@
 export type Platform = 'facebook' | 'tiktok';
 export type AITool = 'ideogram' | 'midjourney' | 'dalle' | 'leonardo';
 export type CarouselStatus = 'draft' | 'review' | 'approved' | 'published';
+export type CarouselStyleType = 'seamless' | 'educational' | 'listicle' | 'gallery';
 
 export interface CarouselSlide {
   slideNumber: number;
