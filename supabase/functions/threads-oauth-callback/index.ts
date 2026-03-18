@@ -97,8 +97,8 @@ serve(async (req) => {
       throw new Error('Invalid state parameter');
     }
 
-    const { brandTemplateId, organizationId, userId } = stateData;
-    console.log('State decoded:', { brandTemplateId, organizationId, userId });
+    const { brandTemplateId, organizationId, userId, frontendOrigin } = stateData;
+    console.log('State decoded:', { brandTemplateId, organizationId, userId, frontendOrigin });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
