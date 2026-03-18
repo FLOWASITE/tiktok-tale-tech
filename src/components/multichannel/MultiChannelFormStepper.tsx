@@ -276,6 +276,7 @@ export function MultiChannelFormStepper({
     suggestions: topicSuggestions,
     source: suggestionsSource,
     isLoading: suggestionsLoading,
+    isEnhancing: suggestionsEnhancing,
     refresh: refreshSuggestions,
     saveSuggestion,
     submitFeedback,
@@ -533,7 +534,7 @@ export function MultiChannelFormStepper({
                 <TopicIdeaHub
                   suggestions={topicSuggestions}
                   source={suggestionsSource}
-                  isLoading={suggestionsLoading}
+                  isLoading={suggestionsEnhancing || suggestionsLoading}
                   onSelect={(topic) => { setTopicFromQuickAction(false); setFormData(prev => ({ ...prev, topic })); }}
                   onQuickActionSelect={(topic) => { setTopicFromQuickAction(true); setFormData(prev => ({ ...prev, topic })); }}
                   onRefresh={refreshSuggestions}
