@@ -1561,6 +1561,10 @@ export function MultiChannelViewer({
                                   contentId={content.id}
                                   channel={channel}
                                   brandTemplateId={content.brand_template_id || undefined}
+                                  mediaUrls={(() => {
+                                    const imgUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
+                                    return imgUrl ? [imgUrl] : undefined;
+                                  })()}
                                   variant="default"
                                   size="sm"
                                 />
