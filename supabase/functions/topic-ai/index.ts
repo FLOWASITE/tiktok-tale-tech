@@ -1320,8 +1320,9 @@ function buildSuggestPrompts(params: {
   industryInsight?: any;
   audienceQA?: any;
   query?: string;
+  categoryHint?: string;
 }): { systemPrompt: string; userPrompt: string } {
-  const { brandContext, contentGoal, format, recentTopics, seasonality, learningContext, industryInsight, audienceQA, query } = params;
+  const { brandContext, contentGoal, format, recentTopics, seasonality, learningContext, industryInsight, audienceQA, query, categoryHint } = params;
 
   const goalLabels: Record<string, string> = {
     education: 'giáo dục, chia sẻ kiến thức chuyên môn',
