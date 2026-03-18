@@ -79,3 +79,16 @@ Hệ thống chưa có cách nhận realtime engagement (comment, reaction, shar
 ### Lưu ý
 - Cần cấu hình Webhook URL trên Facebook Developer Console: `https://rllyipiyuptkibqinotz.supabase.co/functions/v1/facebook-webhook`
 - User cần kết nối lại Facebook để cấp thêm permission `pages_manage_metadata`
+
+---
+
+## Feature: 6 Design Style System cho Image Generation Engine — đã triển khai
+
+### Vấn đề
+Hệ thống dùng font `Be Vietnam Pro` cứng cho mọi style, padding đồng nhất, AI decompose không biết style để chọn layout phù hợp.
+
+### Đã sửa (4 files)
+1. **`supabase/functions/overlay-text-canvas/index.ts`** — Mở rộng `OverlayStyleTheme` thêm `fontFamily`, `headingFontFamily`, `spacingMultiplier`, `preferredLayout`, `ctaBorderRadius`, `cardBoxShadow`, `bannerLetterSpacing`. Cập nhật 6 theme chính (minimalist→Inter, flat_design→Montserrat, gradient→Plus Jakarta Sans, geometric→Open Sans+Playfair Display, illustration→Nunito, product_only→Be Vietnam Pro). Dynamic font loading per style. Spacing multiplier cho padding/gap.
+2. **`supabase/functions/_shared/image-prompt-data.ts`** — Cập nhật keywords 6 presets chính xác hơn theo Design System docs (minimalist→negative space, flat_design→blocky+data-driven, gradient→neon+glow, geometric→corporate+navy, illustration→warm, product_only→studio)
+3. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `imageStyle` param, inject style→layout preference hint vào AI prompt (minimalist→hero_text, flat_design→banner_cards, geometric→split...)
+4. **`src/lib/hybridImageGenerator.ts`** + **`src/components/multichannel/SimpleImageGenerator.tsx`** — Truyền `imageStyle` qua pipeline decompose
