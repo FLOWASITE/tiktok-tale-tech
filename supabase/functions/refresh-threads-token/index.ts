@@ -120,8 +120,8 @@ serve(async (req) => {
 
     console.log('Token refreshed, new expiry:', newExpiresAt);
 
-    // Encrypt and save new token
-    const encryptedToken = encrypt(newToken, encryptionKey);
+    // Encrypt and save new token using GCM
+    const encryptedToken = await encryptGCM(newToken);
 
     await supabase
       .from('social_connections')
