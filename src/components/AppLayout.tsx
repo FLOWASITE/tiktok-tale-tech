@@ -44,7 +44,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               <QuickSearch />
               <div className="hidden sm:flex"><HelpHeaderButton /></div>
               <NotificationDropdown />
-              <div className="hidden sm:flex"><ThemeToggle /></div>
+              
               <UserAvatar />
             </div>
           </header>
