@@ -89,7 +89,7 @@ export function DirectPublishButton({
     brandTemplateId,
     organizationId: !brandTemplateId ? currentOrganization?.id : undefined,
   });
-  const { publishToTwitter, isPublishing, publishResult } = useDirectPublish();
+  const { publishToTwitter, publishToFacebook, isPublishing, publishResult } = useDirectPublish();
 
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
