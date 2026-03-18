@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     // Decrypt the access token
     let accessToken: string;
     try {
-      accessToken = await decryptToken(connection.access_token, encryptionKey);
+      accessToken = await decryptCredential(connection.access_token);
     } catch (decryptError) {
       console.error("Failed to decrypt access token:", decryptError);
       return new Response(
