@@ -225,7 +225,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
             onInput={(e) => {
               const el = e.currentTarget;
               el.style.height = 'auto';
-              el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+              el.style.height = Math.min(el.scrollHeight, 200) + 'px';
             }}
             disabled={isLoading}
             className={cn(
