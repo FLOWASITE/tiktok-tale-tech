@@ -84,7 +84,13 @@ export function TopicIdeaHub({
           <div className="px-3 pb-3">
             <Tabs
               value={activeTab}
-              onValueChange={(v) => setActiveTab(v as 'suggestions' | 'brainstorm')}
+              onValueChange={(v) => {
+                if (isMobile && v === 'brainstorm') {
+                  setShowBrainstormSheet(true);
+                } else {
+                  setActiveTab(v as 'suggestions' | 'brainstorm');
+                }
+              }}
             >
               <TabsList className="w-full h-8 mb-2">
                 <TabsTrigger value="suggestions" className="flex-1 text-xs gap-1.5 h-7">
