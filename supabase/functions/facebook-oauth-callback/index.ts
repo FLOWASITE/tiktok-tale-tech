@@ -191,7 +191,7 @@ serve(async (req) => {
 
     if (pages.length === 0) {
       return Response.redirect(
-        `${getFrontendUrl()}/auth/facebook/callback?error=no_pages&error_description=${encodeURIComponent('Không tìm thấy Facebook Page nào. Bạn cần có quyền quản lý ít nhất một Page.')}`,
+        `${getFrontendUrl(frontendOrigin)}/auth/facebook/callback?error=no_pages&error_description=${encodeURIComponent('Không tìm thấy Facebook Page nào. Bạn cần có quyền quản lý ít nhất một Page.')}&brand_template_id=${brandTemplateId || ''}`,
         302
       );
     }
