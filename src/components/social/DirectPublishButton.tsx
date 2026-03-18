@@ -40,6 +40,7 @@ interface DirectPublishButtonProps {
   contentId?: string;
   channel: string;
   brandTemplateId?: string;
+  mediaUrls?: string[];
   disabled?: boolean;
   variant?: 'default' | 'ghost' | 'outline';
   size?: 'default' | 'sm' | 'lg' | 'icon';
@@ -77,6 +78,7 @@ export function DirectPublishButton({
   contentId,
   channel,
   brandTemplateId,
+  mediaUrls,
   disabled,
   variant = 'outline',
   size = 'sm',
@@ -110,6 +112,7 @@ export function DirectPublishButton({
         connectionId: connection.id,
         contentId,
         content,
+        mediaUrls,
       };
 
       switch (platform) {
@@ -198,6 +201,15 @@ export function DirectPublishButton({
           </DialogHeader>
 
           <div className="py-4">
+            {mediaUrls && mediaUrls.length > 0 && (
+              <div className="mb-3">
+                <img 
+                  src={mediaUrls[0]} 
+                  alt="Ảnh đính kèm" 
+                  className="w-full max-h-40 object-cover rounded-lg border border-border"
+                />
+              </div>
+            )}
             <div className="p-3 rounded-lg bg-muted/50 max-h-48 overflow-y-auto">
               <p className="text-sm whitespace-pre-wrap">
                 {content.length > 280 && platform === 'twitter' 
