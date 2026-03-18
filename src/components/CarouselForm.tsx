@@ -225,11 +225,11 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
             onInput={(e) => {
               const el = e.currentTarget;
               el.style.height = 'auto';
-              el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+              el.style.height = Math.min(el.scrollHeight, 200) + 'px';
             }}
             disabled={isLoading}
             className={cn(
-              "bg-muted/30 border-2 min-h-[52px] max-h-[120px] resize-none text-base transition-all duration-300 pr-20",
+              "bg-muted/30 border-2 min-h-[80px] max-h-[200px] resize-none text-base transition-all duration-300 pr-20",
               "focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-background",
               "placeholder:text-muted-foreground/60"
             )}

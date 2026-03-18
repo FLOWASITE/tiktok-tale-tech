@@ -483,10 +483,10 @@ export function MultiChannelFormStepper({
                     onInput={(e) => {
                       const el = e.currentTarget;
                       el.style.height = 'auto';
-                      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+                      el.style.height = Math.min(el.scrollHeight, 200) + 'px';
                     }}
                     placeholder="VD: Skincare mùa hè, Mẹo tiết kiệm chi phí..."
-                    className="min-h-[52px] max-h-[120px] resize-none border-2 pr-20 text-base"
+                    className="min-h-[80px] max-h-[200px] resize-none border-2 pr-20 text-base"
                     disabled={isLoading}
                     autoFocus
                   />
