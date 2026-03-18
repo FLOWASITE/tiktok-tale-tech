@@ -371,7 +371,7 @@ export function TopicDiscoveryPanel({
               variant="outline"
               size="sm"
               className="h-9"
-              onClick={refresh}
+              onClick={() => refresh()}
               disabled={isLoading || disabled}
             >
               <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />

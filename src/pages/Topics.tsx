@@ -257,7 +257,7 @@ const Topics = () => {
                 variant="outline"
                 size="sm"
                 className="h-8 gap-2"
-                onClick={refresh}
+                onClick={() => refresh()}
                 disabled={!selectedBrandId || suggestionsLoading || isEnhancing}
               >
                 <RefreshCw className={cn('h-4 w-4', (suggestionsLoading || isEnhancing) && 'animate-spin')} />
