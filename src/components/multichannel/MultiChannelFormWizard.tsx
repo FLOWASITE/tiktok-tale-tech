@@ -1028,54 +1028,60 @@ export function MultiChannelFormWizard({
                 </div>
               </div>
 
-              {/* Topic Textarea with AI Button */}
+              {/* Topic Input with char counter Badge - carousel style */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-foreground font-semibold flex items-center gap-2">
                     <FileText className="w-4 h-4 text-primary" />
                     Chủ đề / Ý tưởng
                     <span className="text-primary">*</span>
+                    <GlossaryQuickLookup
+                      industryTemplateId={brandTemplate?.channel_overrides ? undefined : undefined}
+                      onInsertTerm={(term) => {
+                        setFormData(prev => ({ ...prev, topic: prev.topic ? `${prev.topic} ${term}` : term }));
+                      }}
+                    />
                   </Label>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowBrainstormSheet(true)}
-                      disabled={isGenerating}
-                      className="h-7 px-2 text-xs gap-1.5 text-primary hover:bg-primary/10"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Brainstorm AI</span>
-                    </Button>
-                    <span className={cn(
-                      "text-xs",
-                      formData.topic.length < TOPIC_MIN_LENGTH_FOR_REFINEMENT ? 'text-amber-500' : 'text-muted-foreground'
-                    )}>
-                      {formData.topic.length}/{MAX_TOPIC_LENGTH}
-                    </span>
-                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowBrainstormSheet(true)}
+                    disabled={isGenerating}
+                    className="h-7 px-2 text-xs gap-1.5 text-primary hover:bg-primary/10"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Brainstorm AI</span>
+                  </Button>
                 </div>
 
-                <Textarea
-                  ref={topicTextareaRef}
-                  value={formData.topic}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
-                  }))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      const text = (e.target as HTMLTextAreaElement).value;
-                      if (detectAndHandleAICommand(text)) {
-                        e.preventDefault();
+                <div className="relative">
+                  <Input
+                    ref={topicInputRef}
+                    value={formData.topic}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
+                    }))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const text = (e.target as HTMLInputElement).value;
+                        if (detectAndHandleAICommand(text)) {
+                          e.preventDefault();
+                        }
                       }
-                    }
-                  }}
-                  placeholder="Nhập chủ đề bạn muốn viết, VD: Skincare mùa hè, Mẹo tiết kiệm chi phí... hoặc mô tả ý tưởng để AI hỗ trợ"
-                  className="min-h-[100px] resize-y text-sm"
-                  disabled={isGenerating}
-                  autoFocus
-                />
+                    }}
+                    placeholder="VD: Skincare mùa hè, Mẹo tiết kiệm chi phí..."
+                    className="h-11 border-2 pr-20 text-sm"
+                    disabled={isGenerating}
+                    autoFocus
+                  />
+                  <Badge 
+                    variant="secondary" 
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono pointer-events-none"
+                  >
+                    {formData.topic.length}/{MAX_TOPIC_LENGTH}
+                  </Badge>
+                </div>
 
                 {formData.topic.length > 0 && formData.topic.length < TOPIC_MIN_LENGTH_FOR_REFINEMENT && (
                   <p className="text-xs text-amber-500">
@@ -1084,61 +1090,43 @@ export function MultiChannelFormWizard({
                 )}
               </div>
 
+              {/* Topic Suggestion Panel - carousel style (always visible) */}
+              <TopicSuggestionPanel
+                suggestions={topicSuggestions}
+                source={suggestionsSource}
+                isLoading={isSuggestionsLoading}
+                onSelect={(topic) => setFormData(prev => ({ ...prev, topic }))}
+                onRefresh={refreshSuggestions}
+                onSave={saveSuggestion}
+                onFeedback={submitFeedback}
+                disabled={isGenerating}
+                showEnhancedInfo
+                contentGoal={formData.contentGoal}
+              />
+
               {/* ===== DYNAMIC ZONE - Changes based on topic length ===== */}
               <AnimatePresence mode="wait">
                 {formData.topic.trim().length < TOPIC_MIN_LENGTH_FOR_REFINEMENT ? (
-                  /* Empty/Short Input State: Show AI Brainstorm options */
+                  /* Empty/Short Input State: Show Brainstorm button */
                   <motion.div
                     key="ai-suggestions"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
-                    className="space-y-4"
                   >
-                    {/* Hero Brainstorm Card */}
-                    <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/30 overflow-hidden">
-                      <CardContent className="p-5 flex flex-col sm:flex-row items-center gap-4">
-                        <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                          <MessageSquare className="w-7 h-7 text-primary" />
-                        </div>
-                        
-                        <div className="flex-1 text-center sm:text-left space-y-1">
-                          <h3 className="font-semibold">Chưa có ý tưởng?</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Brainstorm với AI để tìm chủ đề hoàn hảo dựa trên brand và mục tiêu của bạn.
-                          </p>
-                        </div>
-                        
-                        <Button
-                          onClick={() => setShowBrainstormSheet(true)}
-                          className="gap-2 shrink-0"
-                          disabled={isGenerating}
-                        >
-                          <Sparkles className="w-4 h-4" />
-                          Brainstorm
-                          <ArrowRight className="w-4 h-4" />
-                        </Button>
-                      </CardContent>
-                    </Card>
-
-                    {/* Quick Suggestions - Compact Chips */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <Separator className="flex-1" />
-                        <span className="text-xs text-muted-foreground px-2">Hoặc chọn gợi ý nhanh</span>
-                        <Separator className="flex-1" />
-                      </div>
-                      
-                      <InlineTopicSuggestions
-                        brandTemplateId={brandTemplateId}
-                        contentGoal={formData.contentGoal || 'education'}
-                        onSelectTopic={(topic) => {
-                          setFormData(prev => ({ ...prev, topic }));
-                        }}
+                    <div className="flex justify-center pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowBrainstormSheet(true)}
                         disabled={isGenerating}
-                        compact
-                      />
+                        className="gap-2"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        Brainstorm với AI
+                        <ArrowRight className="w-4 h-4" />
+                      </Button>
                     </div>
                   </motion.div>
                 ) : (
