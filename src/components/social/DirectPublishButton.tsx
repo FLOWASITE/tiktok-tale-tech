@@ -40,6 +40,7 @@ interface DirectPublishButtonProps {
   contentId?: string;
   channel: string;
   brandTemplateId?: string;
+  mediaUrls?: string[];
   disabled?: boolean;
   variant?: 'default' | 'ghost' | 'outline';
   size?: 'default' | 'sm' | 'lg' | 'icon';
