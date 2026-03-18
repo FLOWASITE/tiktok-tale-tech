@@ -53,6 +53,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
   const topicInputRef = useRef<HTMLTextAreaElement>(null);
   
   const [topic, setTopic] = useState(initialTopic || '');
+  const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
 
   useEffect(() => {
     if (initialTopic) {
