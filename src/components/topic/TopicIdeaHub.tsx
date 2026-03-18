@@ -46,6 +46,8 @@ export function TopicIdeaHub({
 }: TopicIdeaHubProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'suggestions' | 'brainstorm'>('suggestions');
+  const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
+  const isMobile = useIsMobile();
 
   const handleTopicSelect = (topic: string) => {
     onSelect(topic);
