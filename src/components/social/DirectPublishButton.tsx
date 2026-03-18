@@ -78,6 +78,7 @@ export function DirectPublishButton({
   contentId,
   channel,
   brandTemplateId,
+  mediaUrls,
   disabled,
   variant = 'outline',
   size = 'sm',
