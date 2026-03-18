@@ -63,6 +63,14 @@ export function UserAvatar() {
   const activeLang = i18n.language?.split('-')[0] || 'vi';
   const currentLang = languages.find((l) => l.code === activeLang) || languages[0];
 
+  const themes = [
+    { key: 'light', label: 'Sáng', icon: Sun },
+    { key: 'dark', label: 'Tối', icon: Moon },
+    { key: 'lime', label: 'Lime', icon: Leaf },
+    { key: 'system', label: 'Hệ thống', icon: Monitor },
+  ];
+  const currentTheme = themes.find((t) => t.key === theme) || themes[0];
+
   const handleLanguageChange = (langCode: string) => {
     localStorage.setItem('flowa_lang_override', langCode);
     localStorage.setItem('i18nextLng', langCode);
