@@ -128,10 +128,11 @@ function GradientSeparator() {
 }
 
 // Quota Progress Indicator - shows average usage across all metrics
+// Detail card is collapsed by default, expandable on click
 function QuotaWarningIndicator() {
   const { currentPlanLimits, usage, currentPeriod, subscription } = useSubscription();
   const navigate = useNavigate();
-  const planBadge = getPlanBadge(subscription?.plan_type);
+  const [showDetails, setShowDetails] = useState(false);
 
   if (!currentPlanLimits || !usage) {
     return <p className="text-[10px] text-muted-foreground/70">One Flow. All Content.</p>;
@@ -169,53 +170,61 @@ function QuotaWarningIndicator() {
   ];
 
   return (
-    <TooltipProvider delayDuration={300}>
-      <Tooltip>
-        <TooltipTrigger asChild>
+    <div className="mt-0.5">
+      <button
+        type="button"
+        onClick={() => setShowDetails(prev => !prev)}
+        className="w-full text-left cursor-pointer group"
+      >
+        <div className="flex items-center justify-between text-[10px] mb-0.5 gap-2">
+          <span className="text-muted-foreground/80 group-hover:text-foreground transition-colors flex items-center gap-1">
+            Hạn mức: {clampedPct}%
+            <ChevronDown className={cn(
+              "w-2.5 h-2.5 transition-transform duration-200",
+              showDetails && "rotate-180"
+            )} />
+          </span>
+          <span className="text-muted-foreground/60">{daysRemaining} ngày còn lại</span>
+        </div>
+        <div className="w-full h-1.5 rounded-full bg-muted/60 overflow-hidden">
+          <div
+            className={cn('h-full rounded-full transition-all duration-500', barColor)}
+            style={{ width: `${clampedPct}%` }}
+          />
+        </div>
+      </button>
+
+      {/* Collapsible detail card - hidden by default */}
+      {showDetails && (
+        <div className="mt-1.5 rounded-md border border-border/40 bg-muted/30 p-2 space-y-1.5 animate-fade-in">
+          <p className="text-[10px] font-semibold text-muted-foreground border-b border-border/30 pb-1">
+            Chi tiết hạn mức
+          </p>
+          {metricDetails.map(m => {
+            const isUnlimited = m.limit === -1;
+            const pct = isUnlimited ? 0 : Math.min(100, Math.round((m.used / m.limit) * 100));
+            return (
+              <div key={m.label} className="flex justify-between text-[10px]">
+                <span className="text-muted-foreground">{m.label}</span>
+                <span className={cn(
+                  'font-medium tabular-nums',
+                  !isUnlimited && pct >= 90 ? 'text-destructive' : !isUnlimited && pct >= 70 ? 'text-amber-500' : ''
+                )}>
+                  {m.used}/{isUnlimited ? '∞' : m.limit} {!isUnlimited && `(${pct}%)`}
+                </span>
+              </div>
+            );
+          })}
           <button
-            onClick={() => navigate('/account')}
-            className="w-full text-left cursor-pointer group mt-0.5"
+            type="button"
+            onClick={(e) => { e.stopPropagation(); navigate('/account'); }}
+            className="w-full text-[10px] text-primary hover:underline text-center pt-1 border-t border-border/30"
           >
-            <div className="flex items-center justify-between text-[10px] mb-0.5 gap-2">
-              <span className="text-muted-foreground/80 group-hover:text-foreground transition-colors">
-                Hạn mức: {clampedPct}%
-              </span>
-              <span className="text-muted-foreground/60">{daysRemaining} ngày còn lại</span>
-            </div>
-            <div className="w-full h-1.5 rounded-full bg-muted/60 overflow-hidden">
-              <div
-                className={cn('h-full rounded-full transition-all duration-500', barColor)}
-                style={{ width: `${clampedPct}%` }}
-              />
-            </div>
+            Quản lý gói →
           </button>
-        </TooltipTrigger>
-        <TooltipContent side="right" className="w-52 p-3">
-          <div className="space-y-1.5 text-xs">
-            <p className="font-semibold border-b border-border pb-1 mb-1">Chi tiết hạn mức</p>
-            {metricDetails.map(m => {
-              const isUnlimited = m.limit === -1;
-              const pct = isUnlimited ? 0 : Math.min(100, Math.round((m.used / m.limit) * 100));
-              return (
-                <div key={m.label} className="flex justify-between">
-                  <span className="text-muted-foreground">{m.label}</span>
-                  <span className={cn(
-                    'font-medium tabular-nums',
-                    !isUnlimited && pct >= 90 ? 'text-destructive' : !isUnlimited && pct >= 70 ? 'text-amber-500' : ''
-                  )}>
-                    {m.used}/{isUnlimited ? '∞' : m.limit} {!isUnlimited && `(${pct}%)`}
-                  </span>
-                </div>
-              );
-            })}
-            <div className="pt-1 border-t border-border mt-1 font-semibold flex justify-between">
-              <span>Trung bình</span>
-              <span>{clampedPct}%</span>
-            </div>
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+        </div>
+      )}
+    </div>
   );
 }
 
