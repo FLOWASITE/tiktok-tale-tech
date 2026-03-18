@@ -313,6 +313,11 @@ verify_jwt = false
 [functions.decompose-image-request]
 verify_jwt = false
 
+[functions.facebook-webhook]
+verify_jwt = false
+
+[functions.create-vnpay-payment]
+
 [functions.create-vnpay-payment]
 verify_jwt = false
 
