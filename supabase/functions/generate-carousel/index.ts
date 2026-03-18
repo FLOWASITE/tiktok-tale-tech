@@ -518,15 +518,18 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user from auth header
+    // Get user from auth header using getClaims (signing-keys compatible)
     const authHeader = req.headers.get("authorization");
     let userId: string | null = null;
-    if (authHeader) {
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.replace("Bearer ", "");
       const supabaseAuth = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
         global: { headers: { Authorization: authHeader } },
       });
-      const { data: { user } } = await supabaseAuth.auth.getUser();
-      userId = user?.id || null;
+      const { data, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+      if (!claimsError && data?.claims?.sub) {
+        userId = data.claims.sub as string;
+      }
     }
 
     if (!userId) {
