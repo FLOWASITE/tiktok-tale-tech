@@ -109,12 +109,15 @@ export function TopicIdeaHub({
       setActiveCategory(null);
     }, 800);
 
+    // Trigger suggestion refresh so user sees new related suggestions
+    setTimeout(() => onRefresh(), 100);
+
     // Scroll the topic textarea into view (sits above this component)
     requestAnimationFrame(() => {
       const textarea = document.querySelector<HTMLTextAreaElement>('[data-topic-input]');
       textarea?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
-  }, [onQuickActionSelect, onSelect]);
+  }, [onQuickActionSelect, onSelect, onRefresh]);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
