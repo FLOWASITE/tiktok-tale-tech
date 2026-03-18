@@ -236,7 +236,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
 
   const handleGenerateAllImages = async () => {
     setGeneratingAll(true);
-    toast.info(`Bắt đầu tạo ${carousel.slides_content.length} ảnh...`);
+    setGeneratingProgress(0);
 
     for (const slide of carousel.slides_content) {
       const imageUrl = await generateImage(slide.fullPrompt, carousel.id, slide.slideNumber, {
@@ -246,10 +246,12 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
       if (imageUrl) {
         await saveImage(slide.slideNumber, imageUrl, slide.fullPrompt);
       }
+      setGeneratingProgress(prev => prev + 1);
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
     setGeneratingAll(false);
+    setGeneratingProgress(0);
     toast.success('Đã tạo xong tất cả ảnh!');
   };
 
