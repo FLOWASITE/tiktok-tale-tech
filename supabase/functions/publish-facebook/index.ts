@@ -96,11 +96,12 @@ serve(async (req) => {
       throw new Error('Facebook connection is not active');
     }
 
-    // Decrypt access token
-    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-    const accessToken = decrypt(connection.access_token, encryptionKey);
-
-    if (!accessToken) {
+    // Decrypt access token (GCM first, fallback CBC)
+    let accessToken: string;
+    try {
+      accessToken = await decryptCredential(connection.access_token);
+    } catch (e) {
+      console.error('Decryption failed:', e);
       throw new Error('Failed to decrypt access token');
     }
 
