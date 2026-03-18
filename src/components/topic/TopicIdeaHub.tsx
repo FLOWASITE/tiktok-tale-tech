@@ -103,7 +103,17 @@ export function TopicIdeaHub({
     // Visual feedback
     setLastSelectedTopic(topic);
     clearTimeout(selectionTimerRef.current);
-    selectionTimerRef.current = setTimeout(() => setLastSelectedTopic(null), 1500);
+    selectionTimerRef.current = setTimeout(() => {
+      setLastSelectedTopic(null);
+      // Collapse category list after feedback so textarea becomes visible
+      setActiveCategory(null);
+    }, 800);
+
+    // Scroll the topic textarea into view (sits above this component)
+    requestAnimationFrame(() => {
+      const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="topic"], textarea[placeholder*="chủ đề"], textarea[placeholder*="ý tưởng"]');
+      textarea?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   }, [onQuickActionSelect, onSelect]);
 
   return (
