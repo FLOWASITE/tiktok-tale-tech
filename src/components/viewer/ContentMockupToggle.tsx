@@ -54,6 +54,23 @@ export function ContentMockupToggle({
     ? brandName.trim() 
     : 'Brand';
 
+  // Use dedicated Google Maps mockup
+  if (channel === 'google_maps') {
+    return (
+      <div className={cn('flex justify-center items-start p-2 bg-gradient-to-b from-muted/5 to-muted/20 rounded-xl min-h-[500px]', className)}>
+        <div className="w-full max-w-xl">
+          <GoogleMapsMockup
+            content={safeContent}
+            brandName={safeBrandName}
+            logoUrl={logoUrl}
+            isGenerating={isLoading}
+            channelImage={channelImage}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn('flex justify-center items-start p-2 bg-gradient-to-b from-muted/5 to-muted/20 rounded-xl min-h-[500px]', className)}>
       <div className="w-full max-w-xl">
