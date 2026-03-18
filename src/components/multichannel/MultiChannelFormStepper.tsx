@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -69,6 +69,9 @@ import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSele
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { TopicContextBar } from '@/components/multichannel/TopicContextBar';
 import { AIGenerationProgress } from '@/components/multichannel/AIGenerationProgress';
+import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
+import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
+import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { cn } from '@/lib/utils';
 import { 
@@ -161,7 +164,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   threads: <AtSign className="w-4 h-4" />,
 };
 
-const MAX_TOPIC_LENGTH = 500;
+const MAX_TOPIC_LENGTH = 300;
 
 export function MultiChannelFormStepper({ 
   onSubmit, 
@@ -178,7 +181,7 @@ export function MultiChannelFormStepper({
   streamingTexts,
 }: MultiChannelFormStepperProps) {
   const { templates, loading: templatesLoading } = useBrandTemplates();
-  const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const topicInputRef = useRef<HTMLInputElement>(null);
   
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
@@ -262,6 +265,20 @@ export function MultiChannelFormStepper({
     rawTopic: formData.topic,
     brandTemplateId: formData.brandTemplateId,
     enabled: currentStep === 1 && formData.topic.trim().length >= 10,
+  });
+
+  // Topic Suggestions (like CarouselForm)
+  const {
+    suggestions: topicSuggestions,
+    source: suggestionsSource,
+    isLoading: suggestionsLoading,
+    refresh: refreshSuggestions,
+    saveSuggestion,
+    submitFeedback,
+  } = useEnhancedTopicSuggestions({
+    brandTemplateId: formData.brandTemplateId,
+    contentGoal: formData.contentGoal || 'engagement',
+    enabled: currentStep === 1 && !!formData.brandTemplateId,
   });
 
   // Loading phases - only track internal elapsed if external not provided
@@ -434,39 +451,71 @@ export function MultiChannelFormStepper({
           {/* Step 1: Topic Input */}
           {currentStep === 1 && (
             <div className="space-y-4 animate-fade-in">
-              {/* Topic Input - Main focus */}
+              {/* Topic Input - Single-line like CarouselForm */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
                     Chủ đề / Ý tưởng
                     <span className="text-primary">*</span>
                   </Label>
-                  <span className={cn(
-                    "text-xs",
-                    formData.topic.length < 10 ? 'text-amber-500' : 'text-muted-foreground'
-                  )}>
-                    {formData.topic.length}/{MAX_TOPIC_LENGTH}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <GlossaryQuickLookup
+                      industryTemplateId={selectedTemplate?.industry_template_id}
+                      onInsertTerm={(term) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          topic: (prev.topic + ' ' + term).trim().slice(0, MAX_TOPIC_LENGTH),
+                        }));
+                        topicInputRef.current?.focus();
+                      }}
+                    />
+                  </div>
                 </div>
 
-                <Textarea
-                  ref={topicTextareaRef}
-                  value={formData.topic}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
-                  }))}
-                  placeholder="Nhập chủ đề bạn muốn viết, VD: Skincare mùa hè, Mẹo tiết kiệm chi phí... hoặc mô tả ý tưởng để AI hỗ trợ"
-                  className="min-h-[120px] resize-y text-sm"
-                  disabled={isLoading}
-                  autoFocus
-                />
+                <div className="relative">
+                  <Input
+                    ref={topicInputRef}
+                    value={formData.topic}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
+                    }))}
+                    placeholder="VD: Skincare mùa hè, Mẹo tiết kiệm chi phí..."
+                    className="h-11 border-2 pr-20 text-sm"
+                    disabled={isLoading}
+                    autoFocus
+                  />
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono",
+                      formData.topic.length < 10 ? 'bg-amber-500/20 text-amber-600' : 'bg-muted text-muted-foreground'
+                    )}
+                  >
+                    {formData.topic.length}/{MAX_TOPIC_LENGTH}
+                  </Badge>
+                </div>
 
                 {formData.topic.length > 0 && formData.topic.length < 10 && (
                   <p className="text-xs text-amber-500">
                     Chủ đề nên có ít nhất 10 ký tự
                   </p>
                 )}
+
+                {/* Topic Suggestion Panel - like CarouselForm */}
+                <TopicSuggestionPanel
+                  suggestions={topicSuggestions}
+                  source={suggestionsSource}
+                  isLoading={suggestionsLoading}
+                  onSelect={(topic) => setFormData(prev => ({ ...prev, topic }))}
+                  onRefresh={refreshSuggestions}
+                  onSave={saveSuggestion}
+                  onFeedback={submitFeedback}
+                  disabled={isLoading}
+                  showNavigateToTopics
+                  showEnhancedInfo
+                  contentGoal={formData.contentGoal}
+                />
 
                 {/* Brainstorm with AI Button */}
                 <Button
@@ -488,7 +537,6 @@ export function MultiChannelFormStepper({
                     isTyping={isTypingTopic}
                     elapsedMs={refinementElapsedMs}
                     onSelect={(refined, suggestion) => {
-                      // Auto-populate targeting from AI suggestion
                       const aiSuggestion: AiSuggestionContext | undefined = suggestion ? {
                         targetPersona: suggestion.targetPersona,
                         targetPersonaId: suggestion.targetPersonaId,
@@ -503,13 +551,10 @@ export function MultiChannelFormStepper({
                       setFormData(prev => ({ 
                         ...prev, 
                         topic: refined,
-                        // Auto-populate if AI provided IDs
                         productId: suggestion?.productFitId || prev.productId,
                         personaId: suggestion?.targetPersonaId || prev.personaId,
                         journeyStage: suggestion?.suggestedJourneyStage || prev.journeyStage,
-                        // Auto-populate contentAngle from AI suggestion
                         contentAngle: (suggestion?.suggestedContentAngle as ContentAngle) || prev.contentAngle,
-                        // Store full suggestion context
                         aiSuggestion,
                       }));
                     }}
