@@ -233,7 +233,7 @@ serve(async (req) => {
       token_expires_at: tokenExpiresAt,
       is_active: true,
       connected_at: new Date().toISOString(),
-      scopes: ['pages_manage_posts', 'pages_read_engagement', 'pages_show_list'],
+      scopes: ['pages_manage_posts', 'pages_read_engagement', 'pages_show_list', 'pages_manage_metadata'],
       metadata: {
         page_id: pageId,
         page_name: pageName,
