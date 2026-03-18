@@ -576,8 +576,8 @@ export function MultiChannelFormWizard({
     }
   }, [formData.contentGoal]);
 
-  // Track if topic was set from quick-action (skip auto-refine)
-  const [topicFromQuickAction, setTopicFromQuickAction] = useState(false);
+
+  // Topic Refinement - disabled when topic comes from quick-action chip
 
   // Topic Refinement - disabled when topic comes from quick-action chip
   const {
