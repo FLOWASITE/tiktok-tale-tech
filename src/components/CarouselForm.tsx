@@ -17,7 +17,7 @@ import { PlatformSelector } from '@/components/carousel/PlatformSelector';
 import { CarouselStyleSelector } from '@/components/carousel/CarouselStyleSelector';
 import { SlideCountSelector } from '@/components/carousel/SlideCountSelector';
 import { AIToolSelector } from '@/components/carousel/AIToolSelector';
-import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
+import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { 
   Images, 
@@ -236,7 +236,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           </div>
         </div>
         
-        <TopicSuggestionPanel
+        <TopicIdeaHub
           suggestions={enhancedSuggestions}
           source={suggestionsSource}
           isLoading={suggestionsLoading}
@@ -246,6 +246,8 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           onFeedback={submitFeedback}
           disabled={isLoading}
           showEnhancedInfo={true}
+          brandTemplateId={selectedTemplateId && selectedTemplateId !== 'custom' ? selectedTemplateId : undefined}
+          contentGoal="education"
         />
       </div>
 

@@ -93,8 +93,7 @@ import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
 import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
 import { CompactChannelGrid } from '@/components/multichannel/CompactChannelGrid';
 import { InlineJourneySelector } from '@/components/multichannel/InlineJourneySelector';
-import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
-import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
+import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
@@ -275,21 +274,8 @@ export function MultiChannelFormWizard({
   
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
-  const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
-  const [brainstormInitialPrompt, setBrainstormInitialPrompt] = useState<string | undefined>();
 
-  // Intent detection: detect AI commands vs actual topics
-  const AI_COMMAND_PATTERNS = /^(tạo|gợi ý|cho tôi|nghĩ giúp|viết về|suggest|give me|create|brainstorm|hãy|giúp tôi|đề xuất|tìm|liệt kê|list)\b/i;
-  
-  const detectAndHandleAICommand = useCallback((text: string) => {
-    if (text.trim().length >= 10 && AI_COMMAND_PATTERNS.test(text.trim())) {
-      setBrainstormInitialPrompt(text.trim());
-      setShowBrainstormSheet(true);
-      setFormData(prev => ({ ...prev, topic: '' }));
-      return true;
-    }
-    return false;
-  }, []);
+  // Intent detection removed - brainstorm is now inline in TopicIdeaHub
 
   // NEW: Core Content generation state
   const [coreContentData, setCoreContentData] = useState<GeneratedCoreContent | null>(null);
@@ -1042,16 +1028,6 @@ export function MultiChannelFormWizard({
                       }}
                     />
                   </Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowBrainstormSheet(true)}
-                    disabled={isGenerating}
-                    className="h-7 px-2 text-xs gap-1.5 text-primary hover:bg-primary/10"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Brainstorm AI</span>
-                  </Button>
                 </div>
 
                 <div className="relative">
@@ -1062,14 +1038,6 @@ export function MultiChannelFormWizard({
                       ...prev, 
                       topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
                     }))}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const text = (e.target as HTMLInputElement).value;
-                        if (detectAndHandleAICommand(text)) {
-                          e.preventDefault();
-                        }
-                      }
-                    }}
                     placeholder="VD: Skincare mùa hè, Mẹo tiết kiệm chi phí..."
                     className="h-12 border-2 pr-20 text-base"
                     disabled={isGenerating}
@@ -1090,8 +1058,8 @@ export function MultiChannelFormWizard({
                 )}
               </div>
 
-              {/* Topic Suggestion Panel - carousel style (always visible) */}
-              <TopicSuggestionPanel
+              {/* Unified Topic Idea Hub - Suggestions + Brainstorm AI */}
+              <TopicIdeaHub
                 suggestions={topicSuggestions}
                 source={suggestionsSource}
                 isLoading={isSuggestionsLoading}
@@ -1102,35 +1070,12 @@ export function MultiChannelFormWizard({
                 disabled={isGenerating}
                 showEnhancedInfo
                 contentGoal={formData.contentGoal}
+                brandTemplateId={formData.brandTemplateId}
               />
 
-              {/* ===== DYNAMIC ZONE - Changes based on topic length ===== */}
+              {/* ===== DYNAMIC ZONE - Refinement when topic is long enough ===== */}
               <AnimatePresence mode="wait">
-                {formData.topic.trim().length < TOPIC_MIN_LENGTH_FOR_REFINEMENT ? (
-                  /* Empty/Short Input State: Show Brainstorm button */
-                  <motion.div
-                    key="ai-suggestions"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <div className="flex justify-center pt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowBrainstormSheet(true)}
-                        disabled={isGenerating}
-                        className="gap-2"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        Brainstorm với AI
-                        <ArrowRight className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </motion.div>
-                ) : (
-                  /* Has Content State: Show refinement suggestions */
+                {formData.topic.trim().length >= TOPIC_MIN_LENGTH_FOR_REFINEMENT && (
                   <motion.div
                     key="refinement"
                     initial={{ opacity: 0, y: 10 }}
@@ -1179,20 +1124,6 @@ export function MultiChannelFormWizard({
                       onRefresh={refreshRefinement}
                       disabled={isGenerating}
                     />
-
-                    {/* Secondary Brainstorm button */}
-                    <div className="flex justify-center pt-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowBrainstormSheet(true)}
-                        disabled={isGenerating}
-                        className="gap-2 text-muted-foreground hover:text-primary"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        Brainstorm thêm ý tưởng
-                      </Button>
-                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -2246,22 +2177,6 @@ export function MultiChannelFormWizard({
           </div>
         </div>
 
-        {/* Brainstorm Sheet */}
-        <TopicBrainstormSheet
-          open={showBrainstormSheet}
-          onOpenChange={(open) => {
-            setShowBrainstormSheet(open);
-            if (!open) setBrainstormInitialPrompt(undefined);
-          }}
-          brandTemplateId={formData.brandTemplateId}
-          contentGoal={formData.contentGoal}
-          initialPrompt={brainstormInitialPrompt}
-          onSelectTopic={(topic) => {
-            setFormData(prev => ({ ...prev, topic }));
-            setBrainstormInitialPrompt(undefined);
-            toast.success('Đã chọn chủ đề từ AI!');
-          }}
-        />
 
         {/* Floating Status Stack - prevents overlapping on mobile */}
         <FloatingStatusStack>

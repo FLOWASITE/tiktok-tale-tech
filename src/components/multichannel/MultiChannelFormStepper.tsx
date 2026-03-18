@@ -66,10 +66,9 @@ import { ProductSelector } from '@/components/topic/ProductSelector';
 import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
 import { CompactBrandSelector } from '@/components/multichannel/CompactBrandSelector';
 import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
-import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
+import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
 import { TopicContextBar } from '@/components/multichannel/TopicContextBar';
 import { AIGenerationProgress } from '@/components/multichannel/AIGenerationProgress';
-import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
@@ -186,7 +185,7 @@ export function MultiChannelFormStepper({
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [loadingPhase, setLoadingPhase] = useState(0);
-  const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
+  
   const [internalElapsedMs, setInternalElapsedMs] = useState(0);
   const [uiLoading, setUiLoading] = useState(false);
   const uiLoadingStartedAtRef = useRef<number | null>(null);
@@ -502,8 +501,8 @@ export function MultiChannelFormStepper({
                   </p>
                 )}
 
-                {/* Topic Suggestion Panel - like CarouselForm */}
-                <TopicSuggestionPanel
+                {/* Unified Topic Idea Hub - Suggestions + Brainstorm AI */}
+                <TopicIdeaHub
                   suggestions={topicSuggestions}
                   source={suggestionsSource}
                   isLoading={suggestionsLoading}
@@ -515,19 +514,8 @@ export function MultiChannelFormStepper({
                   showNavigateToTopics
                   showEnhancedInfo
                   contentGoal={formData.contentGoal}
+                  brandTemplateId={formData.brandTemplateId}
                 />
-
-                {/* Brainstorm with AI Button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowBrainstormSheet(true)}
-                  className="gap-2 text-primary border-primary/30 hover:bg-primary/5"
-                  disabled={isLoading}
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  Brainstorm với AI
-                </Button>
 
                 {/* Topic Refinement */}
                 {formData.topic.trim().length >= 10 && (
@@ -1142,17 +1130,6 @@ export function MultiChannelFormStepper({
           </p>
         )}
       </div>
-      {/* Topic Brainstorm Sheet */}
-      <TopicBrainstormSheet
-        open={showBrainstormSheet}
-        onOpenChange={setShowBrainstormSheet}
-        brandTemplateId={formData.brandTemplateId}
-        contentGoal={formData.contentGoal}
-        onSelectTopic={(topic) => {
-          setFormData(prev => ({ ...prev, topic }));
-          toast.success('Đã chọn chủ đề từ AI!');
-        }}
-      />
     </TooltipProvider>
   );
 }
