@@ -161,9 +161,19 @@ export function TopicIdeaHub({
                     type="button"
                     disabled={disabled}
                     onClick={() => handleQuickTopicSelect(topic)}
-                    className="text-left text-[11px] py-1 px-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                    className={cn(
+                      "text-left text-[11px] py-1.5 px-2 rounded-md flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97]",
+                      lastSelectedTopic === topic
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                    )}
                   >
-                    → {topic}
+                    {lastSelectedTopic === topic ? (
+                      <Check className="w-3 h-3 shrink-0 text-primary" />
+                    ) : (
+                      <span className="shrink-0">→</span>
+                    )}
+                    {topic}
                   </button>
                 ))}
               </div>
