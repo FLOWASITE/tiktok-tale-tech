@@ -573,7 +573,10 @@ export function MultiChannelFormWizard({
     }
   }, [formData.contentGoal]);
 
-  // Topic Refinement
+  // Track if topic was set from quick-action (skip auto-refine)
+  const [topicFromQuickAction, setTopicFromQuickAction] = useState(false);
+
+  // Topic Refinement - disabled when topic comes from quick-action chip
   const {
     refinedTopics,
     isLoading: isLoadingRefinement,
@@ -584,7 +587,7 @@ export function MultiChannelFormWizard({
     rawTopic: formData.topic,
     brandTemplateId: formData.brandTemplateId,
     contentGoal: formData.contentGoal,
-    enabled: currentStep === 1 && formData.topic.trim().length >= 10,
+    enabled: currentStep === 1 && formData.topic.trim().length >= 10 && !topicFromQuickAction,
   });
 
   // Enhanced Topic Suggestions (carousel-style)

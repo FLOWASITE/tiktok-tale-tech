@@ -255,7 +255,10 @@ export function MultiChannelFormStepper({
     }
   }, [templatesLoading, templates, formData.brandTemplateId]);
 
-  // Topic Refinement - enabled on Step 1 now
+  // Track if topic was set from quick-action (skip auto-refine)
+  const [topicFromQuickAction, setTopicFromQuickAction] = useState(false);
+
+  // Topic Refinement - disabled when topic comes from quick-action chip
   const {
     refinedTopics,
     isLoading: isLoadingRefinement,
@@ -265,7 +268,7 @@ export function MultiChannelFormStepper({
   } = useTopicRefinement({
     rawTopic: formData.topic,
     brandTemplateId: formData.brandTemplateId,
-    enabled: currentStep === 1 && formData.topic.trim().length >= 10,
+    enabled: currentStep === 1 && formData.topic.trim().length >= 10 && !topicFromQuickAction,
   });
 
   // Topic Suggestions (like CarouselForm)
