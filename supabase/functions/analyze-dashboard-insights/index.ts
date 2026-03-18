@@ -401,7 +401,9 @@ serve(async (req) => {
     });
 
     // Validate JWT using getClaims (works even when session is expired in DB)
+    // Important: pass Authorization header so auth-js can resolve claims reliably.
     const anonClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
       auth: { persistSession: false },
     });
 
