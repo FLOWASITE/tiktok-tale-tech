@@ -599,9 +599,9 @@ export default function Auth() {
                           />
                           <Label htmlFor="agree-terms" className="text-sm text-muted-foreground cursor-pointer leading-snug font-normal">
                             Tôi đồng ý với{' '}
-                            <a href="/terms" target="_blank" className="text-primary hover:underline font-medium">Điều khoản dịch vụ</a>
+                            <a href="https://flowa.one/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">Điều khoản dịch vụ</a>
                             {' '}và{' '}
-                            <a href="/privacy" target="_blank" className="text-primary hover:underline font-medium">Chính sách bảo mật</a>
+                            <a href="https://flowa.one/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">Chính sách bảo mật</a>
                           </Label>
                         </motion.div>
 
