@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PublicPageLayout } from "@/components/landing/PublicPageLayout";
+import { PublicPageLayout } from "@/landing/components/PublicPageLayout";
 import { toast } from "sonner";
 import { SEOHead } from "@/components/SEOHead";
 

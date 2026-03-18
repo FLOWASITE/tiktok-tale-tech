@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Clock, User, Calendar, ChevronDown, Zap, Target, Layers, Share2, Video, Mail, BarChart3, Lightbulb } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { LandingNav } from '@/components/landing/LandingNav';
-import { FooterSection } from '@/components/landing/FooterSection';
+import { LandingNav } from '@/landing/components/LandingNav';
+import { FooterSection } from '@/landing/components/FooterSection';
 import { 
   ReadingProgress, 
   SocialShare, 

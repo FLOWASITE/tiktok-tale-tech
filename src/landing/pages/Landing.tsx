@@ -9,10 +9,10 @@ import {
   FAQSection,
   CTASection,
   FooterSection,
-} from "@/components/landing";
-import { ScrollProgress } from "@/components/landing/ScrollProgress";
-import { BackToTop } from "@/components/landing/BackToTop";
-import { SalesChatWidget } from "@/components/landing/SalesChatWidget";
+} from "@/landing/components";
+import { ScrollProgress } from "@/landing/components/ScrollProgress";
+import { BackToTop } from "@/landing/components/BackToTop";
+import { SalesChatWidget } from "@/landing/components/SalesChatWidget";
 import { SEOHead, LandingSEOSchemas } from "@/components/SEOHead";
 
 export default function Landing() {

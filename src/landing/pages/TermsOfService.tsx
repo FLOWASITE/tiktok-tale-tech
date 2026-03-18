@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { PublicPageLayout } from "@/components/landing/PublicPageLayout";
+import { PublicPageLayout } from "@/landing/components/PublicPageLayout";
 import { SEOHead } from "@/components/SEOHead";
 import { FileText, Shield, AlertTriangle, Scale, CreditCard, Ban, RefreshCw, Globe, Mail } from "lucide-react";
 

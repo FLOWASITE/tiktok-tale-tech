@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { PublicPageLayout } from "@/components/landing/PublicPageLayout";
+import { PublicPageLayout } from "@/landing/components/PublicPageLayout";
 import { SEOHead } from "@/components/SEOHead";
 import { Shield, Database, Eye, Lock, UserCheck, Share2, Clock, Globe, Mail, Bell } from "lucide-react";
 

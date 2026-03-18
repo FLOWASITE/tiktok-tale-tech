@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { Clock, User, ArrowRight, Calendar, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { LandingNav } from '@/components/landing/LandingNav';
+import { LandingNav } from '@/landing/components/LandingNav';
 import { BlogBreadcrumb, BlogPagination } from '@/components/blog';
 import { SEOHead, CollectionPageSchema } from '@/components/SEOHead';
 

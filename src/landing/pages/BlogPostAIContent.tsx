@@ -3,8 +3,8 @@ import { ArrowLeft, Clock, User, Calendar, ChevronDown, ChevronRight } from 'luc
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { LandingNav } from '@/components/landing/LandingNav';
-import { FooterSection } from '@/components/landing/FooterSection';
+import { LandingNav } from '@/landing/components/LandingNav';
+import { FooterSection } from '@/landing/components/FooterSection';
 import { 
   ReadingProgress, 
   SocialShare, 

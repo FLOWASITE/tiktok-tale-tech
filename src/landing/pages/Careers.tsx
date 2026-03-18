@@ -22,7 +22,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { PublicPageLayout } from "@/components/landing/PublicPageLayout";
+import { PublicPageLayout } from "@/landing/components/PublicPageLayout";
 import { SEOHead } from "@/components/SEOHead";
 
 const benefits = [

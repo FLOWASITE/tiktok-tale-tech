@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { LandingNav } from '@/components/landing/LandingNav';
-import { FooterSection } from '@/components/landing/FooterSection';
+import { LandingNav } from '@/landing/components/LandingNav';
+import { FooterSection } from '@/landing/components/FooterSection';
 import { 
   ArrowLeft, 
   Clock, 
