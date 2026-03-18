@@ -70,6 +70,8 @@ import FlowaChatPage from "./pages/FlowaChatPage";
 import Gallery from "./pages/Gallery";
 import PaymentResult from "./pages/PaymentResult";
 import Pricing from "./pages/Pricing";
+import TermsOfService from "./pages/TermsOfService";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 
 const queryClient = new QueryClient();
 
