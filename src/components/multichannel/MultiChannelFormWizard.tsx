@@ -274,21 +274,8 @@ export function MultiChannelFormWizard({
   
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
-  const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
-  const [brainstormInitialPrompt, setBrainstormInitialPrompt] = useState<string | undefined>();
 
-  // Intent detection: detect AI commands vs actual topics
-  const AI_COMMAND_PATTERNS = /^(tạo|gợi ý|cho tôi|nghĩ giúp|viết về|suggest|give me|create|brainstorm|hãy|giúp tôi|đề xuất|tìm|liệt kê|list)\b/i;
-  
-  const detectAndHandleAICommand = useCallback((text: string) => {
-    if (text.trim().length >= 10 && AI_COMMAND_PATTERNS.test(text.trim())) {
-      setBrainstormInitialPrompt(text.trim());
-      setShowBrainstormSheet(true);
-      setFormData(prev => ({ ...prev, topic: '' }));
-      return true;
-    }
-    return false;
-  }, []);
+  // Intent detection removed - brainstorm is now inline in TopicIdeaHub
 
   // NEW: Core Content generation state
   const [coreContentData, setCoreContentData] = useState<GeneratedCoreContent | null>(null);
