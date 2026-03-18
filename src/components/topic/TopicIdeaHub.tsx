@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
 import { TopicAIChatbot } from '@/components/topic/TopicAIChatbot';
+import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { Lightbulb, Sparkles, ChevronDown, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { EnhancedTopicSuggestion } from '@/types/topicDiscovery';
 import type { ContentGoal } from '@/types/multichannel';
 
