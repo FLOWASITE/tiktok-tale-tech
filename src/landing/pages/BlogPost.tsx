@@ -1,13 +1,12 @@
 import { useParams, Navigate } from 'react-router-dom';
-import BlogPostFlowa from './BlogPostFlowa';
-import BlogPostMultiChannel from './BlogPostMultiChannel';
-import BlogPostAIContent from './BlogPostAIContent';
-import BlogPostRepurposing from './BlogPostRepurposing';
+import BlogPostFlowa from '@/landing/pages/BlogPostFlowa';
+import BlogPostMultiChannel from '@/landing/pages/BlogPostMultiChannel';
+import BlogPostAIContent from '@/landing/pages/BlogPostAIContent';
+import BlogPostRepurposing from '@/landing/pages/BlogPostRepurposing';
 
 const BlogPost = () => {
   const { slug } = useParams();
 
-  // Route to the appropriate blog post component based on slug
   switch (slug) {
     case 'flowa-content-marketing-da-kenh':
       return <BlogPostFlowa />;
@@ -18,7 +17,6 @@ const BlogPost = () => {
     case 'content-repurposing-chien-luoc':
       return <BlogPostRepurposing />;
     default:
-      // Redirect to blog list if slug not found
       return <Navigate to="/blog" replace />;
   }
 };

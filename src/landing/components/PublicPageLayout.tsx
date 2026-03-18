@@ -1,8 +1,8 @@
 import { ReactNode } from "react";
-import { LandingNav } from "./LandingNav";
-import { FooterSection } from "./FooterSection";
-import { ScrollProgress } from "./ScrollProgress";
-import { BackToTop } from "./BackToTop";
+import { LandingNav } from "@/landing/components/LandingNav";
+import { FooterSection } from "@/landing/components/FooterSection";
+import { ScrollProgress } from "@/landing/components/ScrollProgress";
+import { BackToTop } from "@/landing/components/BackToTop";
 
 interface PublicPageLayoutProps {
   children: ReactNode;

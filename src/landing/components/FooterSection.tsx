@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Facebook, Twitter, Linkedin, Instagram, Youtube } from "lucide-react";
-import { LanguageSwitcher } from "./LanguageSwitcher";
+import { LanguageSwitcher } from "@/landing/components/LanguageSwitcher";
 import logo from "@/assets/logo.png";
 
 const socialLinks = [
