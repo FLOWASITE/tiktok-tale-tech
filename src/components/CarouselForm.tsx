@@ -310,15 +310,6 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
             />
           </div>
         </div>
-
-        <div className="space-y-2">
-          <Label className="text-muted-foreground text-xs font-medium">Công cụ tạo ảnh AI</Label>
-          <AIToolSelector
-            value={aiTool}
-            onChange={setAiTool}
-            disabled={isLoading}
-          />
-        </div>
       </div>
 
       {/* Submit Button */}
