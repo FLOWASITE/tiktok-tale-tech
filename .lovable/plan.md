@@ -1,95 +1,62 @@
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-# Kế hoạch tách source Landing Page
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-## Hiện trạng
+---
 
-Hiện tại, toàn bộ code Landing (trang giới thiệu sản phẩm) và App (ứng dụng chính) nằm chung trong **một codebase duy nhất**. Việc phân biệt được xử lý runtime qua `useDomainRouting` — kiểm tra hostname để quyết định render Landing routes hay App routes.
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-**Vấn đề:**
-- File `App.tsx` (590+ dòng) chứa cả ~10 landing routes và ~40 app routes
-- Bundle size: user truy cập `flowa.one` vẫn tải toàn bộ code của app (Admin, Dashboard, Campaigns...)
-- 18 components trong `src/components/landing/` trộn lẫn với ~100+ components của app
-- 8 landing pages (`Landing`, `About`, `Blog`, `Contact`, `Careers`, `Pricing`, `Terms`, `Privacy`) nằm cùng thư mục với 40+ app pages
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-## Phương án đề xuất: Tách logic trong cùng codebase
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-> Vì Lovable chỉ hỗ trợ 1 project = 1 repo, ta sẽ **tách cấu trúc thư mục** và **lazy-load** để giảm bundle, không tách thành 2 repo riêng.
+---
 
-### 1. Tổ chức lại thư mục
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-```text
-src/
-├── landing/                    ← MỚI: Gom toàn bộ landing
-│   ├── pages/
-│   │   ├── Landing.tsx
-│   │   ├── About.tsx
-│   │   ├── Blog.tsx
-│   │   ├── BlogPost.tsx
-│   │   ├── Careers.tsx
-│   │   ├── Contact.tsx
-│   │   ├── Pricing.tsx
-│   │   ├── TermsOfService.tsx
-│   │   └── PrivacyPolicy.tsx
-│   ├── components/             ← Di chuyển từ src/components/landing/
-│   │   ├── effects/
-│   │   ├── HeroSection.tsx
-│   │   ├── LandingNav.tsx
-│   │   ├── FooterSection.tsx
-│   │   └── ... (18 files)
-│   └── routes.tsx              ← Landing route definitions
-├── app/                        ← MỚI: Gom app routes
-│   └── routes.tsx              ← App route definitions
-├── pages/                      ← Giữ lại cho app pages
-├── components/                 ← Giữ lại cho app components
-└── App.tsx                     ← Đơn giản hóa, import 2 route modules
-```
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-### 2. Lazy loading theo domain
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-```tsx
-// src/landing/routes.tsx
-const Landing = lazy(() => import('./pages/Landing'));
-const About = lazy(() => import('./pages/About'));
-// ...
+---
 
-export function LandingRoutes() {
-  return (
-    <Routes>
-      <Route path="/" element={<Landing />} />
-      <Route path="/about" element={<About />} />
-      ...
-    </Routes>
-  );
-}
-```
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
-```tsx
-// App.tsx — đơn giản hóa
-if (isLandingDomain) return <LandingRoutes />;
-return <AppRoutes />;
-```
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
 
-### 3. Tách shared resources
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
 
-- `src/shared/` cho các thành phần dùng chung: `SEOHead`, `ThemeProvider`, `LanguageSwitcher`, i18n config
-- Landing components chỉ import từ `@/shared` và `@/landing`, không import từ `@/components` hay `@/pages`
+---
 
-## File thay đổi
+## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
 
-| Hành động | Files |
-|---|---|
-| **Tạo mới** | `src/landing/routes.tsx`, `src/app/routes.tsx` |
-| **Di chuyển** | 18 files `src/components/landing/*` → `src/landing/components/*` |
-| **Di chuyển** | 8 landing pages → `src/landing/pages/*` |
-| **Cập nhật** | `src/App.tsx` — import 2 route modules, giảm từ 590 → ~50 dòng |
-| **Cập nhật** | Tất cả import paths trong landing components (đổi `@/components/landing` → `@/landing/components`) |
-| **Tạo mới** | `src/shared/` cho SEOHead, i18n, theme nếu cần |
+### Vấn đề
+Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
 
-## Lợi ích
-
-- **Bundle nhỏ hơn**: User landing page không tải code app (lazy load)
-- **Dễ maintain**: Landing team và App team làm việc độc lập
-- **App.tsx gọn**: Từ 590 dòng → ~50 dòng
-- **Chuẩn bị tách repo**: Nếu sau này muốn tách thành 2 project riêng, cấu trúc đã sẵn sàng
-
+### Đã sửa (6 files + 2 edge functions)
+1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
+2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
+3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
+4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
+5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
+6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
+7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
