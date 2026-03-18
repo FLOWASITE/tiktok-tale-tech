@@ -42,8 +42,6 @@ async function getGlobalPlatformCredentials(
     return { appId: null, appSecret: null };
   }
 }
-  }
-}
 
 // Publish a single image/video to Instagram
 async function publishMedia(
