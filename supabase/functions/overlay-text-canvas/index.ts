@@ -26,7 +26,7 @@ interface OverlayTextRequest {
   imageHeight?: number;
 }
 
-// === Style-Adaptive Overlay Themes ===
+// === Style-Adaptive Overlay Themes (V2 — Design System) ===
 interface OverlayStyleTheme {
   bannerBg: string;       // Banner background (rgba or 'primary')
   cardBg: string;         // Card background
@@ -36,9 +36,126 @@ interface OverlayStyleTheme {
   textShadow: string;
   heroTextShadow: string;
   headlineBg: string;     // Headline container bg
+  // V2 additions for 6 Design Styles
+  fontFamily: string;           // Body font family (Google Fonts name)
+  headingFontFamily?: string;   // Heading font (falls back to fontFamily)
+  spacingMultiplier: number;    // 1.0 = default, 1.5 = airy/minimalist, 0.8 = tight/infographic
+  preferredLayout?: string;     // Layout hint for decompose-image-request
+  ctaBorderRadius?: number;     // Override CTA button border-radius
+  cardBoxShadow?: string;       // Override card box-shadow
+  bannerLetterSpacing?: string; // Override banner letter-spacing
 }
 
 const OVERLAY_STYLE_THEMES: Record<string, OverlayStyleTheme> = {
+  // === Clean Modern (minimalist) ===
+  // Negative space 40-50%, monochromatic, sans-serif neutral, hairline borders
+  minimalist: {
+    bannerBg: 'rgba(255,255,255,0.92)',
+    cardBg: 'rgba(255,255,255,0.95)',
+    cardTextColor: '#1a1a1a',
+    borderRadius: 2,
+    fontWeight: 400,
+    textShadow: 'none',
+    heroTextShadow: 'none',
+    headlineBg: 'rgba(255,255,255,0.9)',
+    fontFamily: 'Inter',
+    spacingMultiplier: 1.5,
+    preferredLayout: 'hero_text',
+    cardBoxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+    bannerLetterSpacing: '0.1em',
+  },
+  // === Bold Infographic (flat_design) ===
+  // Blocky, high-contrast, oversized text, solid icons
+  flat_design: {
+    bannerBg: 'primary',
+    cardBg: 'secondary',
+    cardTextColor: '#1a1a1a',
+    borderRadius: 0,
+    fontWeight: 700,
+    textShadow: 'none',
+    heroTextShadow: 'none',
+    headlineBg: 'rgba(0,0,0,0.4)',
+    fontFamily: 'Montserrat',
+    spacingMultiplier: 0.8,
+    preferredLayout: 'banner_cards',
+    ctaBorderRadius: 0,
+    cardBoxShadow: 'none',
+    bannerLetterSpacing: '0.08em',
+  },
+  // === Gradient Flow (gradient) ===
+  // Neon gradients, glassmorphism-like, rounded cards, modern sans-serif
+  gradient: {
+    bannerBg: 'rgba(0,0,0,0.5)',
+    cardBg: 'rgba(255,255,255,0.18)',
+    cardTextColor: '#FFFFFF',
+    borderRadius: 16,
+    fontWeight: 600,
+    textShadow: '1px 1px 3px rgba(0,0,0,0.3)',
+    heroTextShadow: '0 0 20px rgba(255,255,255,0.3), 2px 2px 5px rgba(0,0,0,0.35)',
+    headlineBg: 'rgba(0,0,0,0.35)',
+    fontFamily: 'Plus Jakarta Sans',
+    spacingMultiplier: 1.1,
+    preferredLayout: 'hero_text',
+    ctaBorderRadius: 24,
+    cardBoxShadow: '0 4px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.15)',
+    bannerLetterSpacing: '0.03em',
+  },
+  // === Corporate (geometric) ===
+  // Navy/charcoal, strict grid, serif headings, sharp shapes
+  geometric: {
+    bannerBg: 'primary',
+    cardBg: 'rgba(255,255,255,0.92)',
+    cardTextColor: '#1a1a1a',
+    borderRadius: 0,
+    fontWeight: 600,
+    textShadow: 'none',
+    heroTextShadow: '1px 1px 2px rgba(0,0,0,0.2)',
+    headlineBg: 'rgba(0,0,0,0.5)',
+    fontFamily: 'Open Sans',
+    headingFontFamily: 'Playfair Display',
+    spacingMultiplier: 1.0,
+    preferredLayout: 'split',
+    ctaBorderRadius: 0,
+    cardBoxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+    bannerLetterSpacing: '0.06em',
+  },
+  // === Story Visual (illustration) ===
+  // Warm/pastel tones, asymmetrical, rounded, hand-drawn feel
+  illustration: {
+    bannerBg: 'primary',
+    cardBg: 'rgba(255,248,240,0.9)',
+    cardTextColor: '#2d1810',
+    borderRadius: 16,
+    fontWeight: 600,
+    textShadow: '1px 1px 2px rgba(0,0,0,0.15)',
+    heroTextShadow: '1px 1px 3px rgba(0,0,0,0.2)',
+    headlineBg: 'rgba(0,0,0,0.35)',
+    fontFamily: 'Nunito',
+    spacingMultiplier: 1.2,
+    preferredLayout: 'hero_text',
+    ctaBorderRadius: 24,
+    cardBoxShadow: '0 3px 10px rgba(0,0,0,0.08)',
+    bannerLetterSpacing: '0.04em',
+  },
+  // === Product Focus (product_only) ===
+  // Center-focus, clean bg, bold CTA, contrast accent
+  product_only: {
+    bannerBg: 'rgba(255,255,255,0.92)',
+    cardBg: 'rgba(255,255,255,0.95)',
+    cardTextColor: '#1a1a1a',
+    borderRadius: 8,
+    fontWeight: 700,
+    textShadow: 'none',
+    heroTextShadow: '1px 1px 2px rgba(0,0,0,0.15)',
+    headlineBg: 'rgba(255,255,255,0.85)',
+    fontFamily: 'Be Vietnam Pro',
+    spacingMultiplier: 1.0,
+    preferredLayout: 'simple',
+    ctaBorderRadius: 8,
+    cardBoxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    bannerLetterSpacing: '0.05em',
+  },
+  // === Legacy styles (keep backward compatibility) ===
   photorealistic: {
     bannerBg: 'rgba(0,0,0,0.7)',
     cardBg: 'rgba(255,255,255,0.85)',
@@ -48,6 +165,8 @@ const OVERLAY_STYLE_THEMES: Record<string, OverlayStyleTheme> = {
     textShadow: '1px 1px 3px rgba(0,0,0,0.4)',
     heroTextShadow: '2px 2px 4px rgba(0,0,0,0.3)',
     headlineBg: 'rgba(0,0,0,0.5)',
+    fontFamily: 'Be Vietnam Pro',
+    spacingMultiplier: 1.0,
   },
   cinematic: {
     bannerBg: 'rgba(0,0,0,0.8)',
@@ -58,6 +177,8 @@ const OVERLAY_STYLE_THEMES: Record<string, OverlayStyleTheme> = {
     textShadow: '0 0 12px rgba(255,200,100,0.6), 2px 2px 6px rgba(0,0,0,0.8)',
     heroTextShadow: '0 0 20px rgba(255,180,80,0.5), 3px 3px 8px rgba(0,0,0,0.7)',
     headlineBg: 'rgba(0,0,0,0.7)',
+    fontFamily: 'Be Vietnam Pro',
+    spacingMultiplier: 1.0,
   },
   watercolor: {
     bannerBg: 'rgba(255,255,255,0.45)',
@@ -68,26 +189,8 @@ const OVERLAY_STYLE_THEMES: Record<string, OverlayStyleTheme> = {
     textShadow: '1px 1px 2px rgba(255,255,255,0.6)',
     heroTextShadow: '1px 1px 3px rgba(255,255,255,0.5)',
     headlineBg: 'rgba(255,255,255,0.4)',
-  },
-  minimalist: {
-    bannerBg: 'primary',
-    cardBg: 'rgba(255,255,255,0.95)',
-    cardTextColor: '#1a1a1a',
-    borderRadius: 2,
-    fontWeight: 400,
-    textShadow: 'none',
-    heroTextShadow: 'none',
-    headlineBg: 'rgba(255,255,255,0.9)',
-  },
-  illustration: {
-    bannerBg: 'primary',
-    cardBg: 'rgba(255,255,255,0.9)',
-    cardTextColor: '#1a1a1a',
-    borderRadius: 12,
-    fontWeight: 600,
-    textShadow: '1px 1px 2px rgba(0,0,0,0.2)',
-    heroTextShadow: '1px 1px 3px rgba(0,0,0,0.2)',
-    headlineBg: 'rgba(0,0,0,0.4)',
+    fontFamily: 'Be Vietnam Pro',
+    spacingMultiplier: 1.2,
   },
   '3d_render': {
     bannerBg: 'rgba(0,0,0,0.7)',
@@ -98,16 +201,8 @@ const OVERLAY_STYLE_THEMES: Record<string, OverlayStyleTheme> = {
     textShadow: '2px 3px 6px rgba(0,0,0,0.5)',
     heroTextShadow: '3px 4px 8px rgba(0,0,0,0.5)',
     headlineBg: 'rgba(0,0,0,0.6)',
-  },
-  flat_design: {
-    bannerBg: 'primary',
-    cardBg: 'secondary',
-    cardTextColor: '#1a1a1a',
-    borderRadius: 0,
-    fontWeight: 700,
-    textShadow: 'none',
-    heroTextShadow: 'none',
-    headlineBg: 'rgba(0,0,0,0.4)',
+    fontFamily: 'Be Vietnam Pro',
+    spacingMultiplier: 1.0,
   },
   abstract: {
     bannerBg: 'rgba(0,0,0,0.65)',
@@ -118,26 +213,8 @@ const OVERLAY_STYLE_THEMES: Record<string, OverlayStyleTheme> = {
     textShadow: '1px 1px 4px rgba(0,0,0,0.3)',
     heroTextShadow: '2px 2px 6px rgba(0,0,0,0.4)',
     headlineBg: 'rgba(0,0,0,0.5)',
-  },
-  gradient: {
-    bannerBg: 'rgba(0,0,0,0.6)',
-    cardBg: 'rgba(255,255,255,0.75)',
-    cardTextColor: '#1a1a1a',
-    borderRadius: 10,
-    fontWeight: 600,
-    textShadow: '1px 1px 3px rgba(0,0,0,0.3)',
-    heroTextShadow: '2px 2px 5px rgba(0,0,0,0.35)',
-    headlineBg: 'rgba(0,0,0,0.45)',
-  },
-  geometric: {
-    bannerBg: 'primary',
-    cardBg: 'rgba(255,255,255,0.9)',
-    cardTextColor: '#1a1a1a',
-    borderRadius: 0,
-    fontWeight: 600,
-    textShadow: 'none',
-    heroTextShadow: '1px 1px 2px rgba(0,0,0,0.2)',
-    headlineBg: 'rgba(0,0,0,0.5)',
+    fontFamily: 'Be Vietnam Pro',
+    spacingMultiplier: 1.0,
   },
   isometric: {
     bannerBg: 'rgba(0,0,0,0.7)',
@@ -148,16 +225,8 @@ const OVERLAY_STYLE_THEMES: Record<string, OverlayStyleTheme> = {
     textShadow: '2px 2px 4px rgba(0,0,0,0.4)',
     heroTextShadow: '2px 3px 6px rgba(0,0,0,0.4)',
     headlineBg: 'rgba(0,0,0,0.55)',
-  },
-  product_only: {
-    bannerBg: 'rgba(255,255,255,0.9)',
-    cardBg: 'rgba(255,255,255,0.95)',
-    cardTextColor: '#1a1a1a',
-    borderRadius: 6,
-    fontWeight: 500,
-    textShadow: 'none',
-    heroTextShadow: '1px 1px 2px rgba(0,0,0,0.15)',
-    headlineBg: 'rgba(255,255,255,0.85)',
+    fontFamily: 'Be Vietnam Pro',
+    spacingMultiplier: 1.0,
   },
 };
 
