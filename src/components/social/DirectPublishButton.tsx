@@ -224,7 +224,8 @@ export function DirectPublishButton({
               <DialogTitle className="text-base font-semibold">
                 Đăng lên {PLATFORM_DISPLAY_NAMES[platform!] || platform}
               </DialogTitle>
-              <DialogDescription className="text-xs mt-0.5">
+              <DialogDescription className="text-xs mt-0.5 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3 text-emerald-500" />
                 {connection?.platform_username 
                   ? `@${connection.platform_username}` 
                   : 'Tài khoản đã kết nối'}
