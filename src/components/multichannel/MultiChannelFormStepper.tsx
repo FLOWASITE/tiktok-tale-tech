@@ -255,7 +255,10 @@ export function MultiChannelFormStepper({
     }
   }, [templatesLoading, templates, formData.brandTemplateId]);
 
-  // Topic Refinement - enabled on Step 1 now
+  // Track if topic was set from quick-action (skip auto-refine)
+  const [topicFromQuickAction, setTopicFromQuickAction] = useState(false);
+
+  // Topic Refinement - disabled when topic comes from quick-action chip
   const {
     refinedTopics,
     isLoading: isLoadingRefinement,
@@ -265,7 +268,7 @@ export function MultiChannelFormStepper({
   } = useTopicRefinement({
     rawTopic: formData.topic,
     brandTemplateId: formData.brandTemplateId,
-    enabled: currentStep === 1 && formData.topic.trim().length >= 10,
+    enabled: currentStep === 1 && formData.topic.trim().length >= 10 && !topicFromQuickAction,
   });
 
   // Topic Suggestions (like CarouselForm)
@@ -491,10 +494,13 @@ export function MultiChannelFormStepper({
                     ref={topicInputRef}
                     rows={1}
                     value={formData.topic}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
-                      topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
-                    }))}
+                    onChange={(e) => {
+                      setTopicFromQuickAction(false);
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
+                      }));
+                    }}
                     onInput={(e) => {
                       const el = e.currentTarget;
                       el.style.height = 'auto';
@@ -527,7 +533,8 @@ export function MultiChannelFormStepper({
                   suggestions={topicSuggestions}
                   source={suggestionsSource}
                   isLoading={suggestionsLoading}
-                  onSelect={(topic) => setFormData(prev => ({ ...prev, topic }))}
+                  onSelect={(topic) => { setTopicFromQuickAction(false); setFormData(prev => ({ ...prev, topic })); }}
+                  onQuickActionSelect={(topic) => { setTopicFromQuickAction(true); setFormData(prev => ({ ...prev, topic })); }}
                   onRefresh={refreshSuggestions}
                   onSave={saveSuggestion}
                   onFeedback={submitFeedback}

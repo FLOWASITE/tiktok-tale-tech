@@ -875,7 +875,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
         return;
       }
       handleSuggestApiError(err, 'Không thể tải gợi ý chủ đề');
-      setAllSuggestions([]);
+      // SWR: keep stale suggestions on error instead of clearing
       setSuggestSource('fallback');
     } finally {
       suggestIsFetchingRef.current = false;
@@ -883,15 +883,18 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     }
   }, [brandTemplateId, contentGoal, format, enabled, currentOrganization?.id]);
 
-  // Auto-fetch suggestions with LAZY LOADING & DEBOUNCE to reduce AI costs
-  // Only fetch after 2 seconds of stable params to avoid rapid calls
+  // Auto-fetch suggestions with STALE-WHILE-REVALIDATE strategy
+  // Keep old suggestions visible while fetching new ones
   useEffect(() => {
     const paramsKey = `${contentGoal}:${brandTemplateId || ''}:${format || ''}`;
     
     if (paramsKey !== suggestPrevParamsRef.current) {
       suggestHasLoadedRef.current = false;
-      setAllSuggestions([]);
-      setSuggestSource('fallback');
+      // SWR: Do NOT clear allSuggestions here — keep stale data visible
+      // Only set loading if we have no data at all
+      if (allSuggestions.length === 0) {
+        setSuggestLoading(true);
+      }
     }
     
     if (!enabled) return;
@@ -901,13 +904,13 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     
     suggestPrevParamsRef.current = paramsKey;
 
-    // OPTIMIZATION: Increased debounce from 300ms to 2000ms to reduce duplicate calls
-    // This allows users to finish selecting options before triggering AI
+    // Reduced debounce from 2000ms to 800ms for faster feedback
     const timer = setTimeout(() => {
       fetchSuggestions().then(() => {
         suggestHasLoadedRef.current = true;
+        setSuggestLoading(false);
       });
-    }, 2000);
+    }, 800);
 
     return () => clearTimeout(timer);
   }, [contentGoal, brandTemplateId, format, enabled, fetchSuggestions]);

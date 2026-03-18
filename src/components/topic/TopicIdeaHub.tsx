@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo, useMemo } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -51,11 +51,16 @@ const QUICK_ACTIONS = [
   },
 ];
 
+/** Memoized wrapper to prevent TopicSuggestionPanel from re-rendering on category toggle */
+const MemoizedSuggestionPanel = memo(TopicSuggestionPanel);
+
 interface TopicIdeaHubProps {
   suggestions: string[] | EnhancedTopicSuggestion[];
   source: 'ai' | 'cache' | 'fallback';
   isLoading: boolean;
   onSelect: (topic: string) => void;
+  /** Called when user picks a topic from quick-action chips (skips auto-refine) */
+  onQuickActionSelect?: (topic: string) => void;
   onRefresh: () => void;
   onSave?: (suggestion: EnhancedTopicSuggestion) => void;
   onFeedback?: (suggestion: EnhancedTopicSuggestion, feedback: 'positive' | 'negative') => void;
@@ -71,6 +76,7 @@ export function TopicIdeaHub({
   source,
   isLoading,
   onSelect,
+  onQuickActionSelect,
   onRefresh,
   onSave,
   onFeedback,
@@ -84,6 +90,15 @@ export function TopicIdeaHub({
 
   const handleCategoryClick = (label: string) => {
     setActiveCategory(activeCategory === label ? null : label);
+  };
+
+  const handleQuickTopicSelect = (topic: string) => {
+    // Use dedicated quick-action callback if available, otherwise fall back to onSelect
+    if (onQuickActionSelect) {
+      onQuickActionSelect(topic);
+    } else {
+      onSelect(topic);
+    }
   };
 
   return (
@@ -140,7 +155,7 @@ export function TopicIdeaHub({
                     key={topic}
                     type="button"
                     disabled={disabled}
-                    onClick={() => onSelect(topic)}
+                    onClick={() => handleQuickTopicSelect(topic)}
                     className="text-left text-[11px] py-1 px-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
                   >
                     → {topic}
@@ -149,7 +164,7 @@ export function TopicIdeaHub({
               </div>
             )}
 
-            <TopicSuggestionPanel
+            <MemoizedSuggestionPanel
               suggestions={suggestions}
               source={source}
               isLoading={isLoading}

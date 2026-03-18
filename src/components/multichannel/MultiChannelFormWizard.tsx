@@ -440,11 +440,14 @@ export function MultiChannelFormWizard({
   // Track if user manually changed the goal (to avoid overriding)
   const userManuallySetGoal = useRef(!!initialData?.contentGoal);
   const lastAutoDetectedTopic = useRef('');
+  // Track if topic was set from quick-action (skip auto-refine & auto-detect)
+  const [topicFromQuickAction, setTopicFromQuickAction] = useState(false);
 
-  // Auto-detect contentGoal from topic keywords
+  // Auto-detect contentGoal from topic keywords (skip for quick-action topics)
   useEffect(() => {
     const topic = formData.topic;
     if (userManuallySetGoal.current) return;
+    if (topicFromQuickAction) return;
     if (topic.length < 10) return;
     if (topic === lastAutoDetectedTopic.current) return;
 
@@ -458,7 +461,7 @@ export function MultiChannelFormWizard({
         duration: 3000,
       });
     }
-  }, [formData.topic]);
+  }, [formData.topic, topicFromQuickAction]);
 
   // Removed: useCoreContents - now using useStreamingCoreContent
 
@@ -573,7 +576,10 @@ export function MultiChannelFormWizard({
     }
   }, [formData.contentGoal]);
 
-  // Topic Refinement
+
+  // Topic Refinement - disabled when topic comes from quick-action chip
+
+  // Topic Refinement - disabled when topic comes from quick-action chip
   const {
     refinedTopics,
     isLoading: isLoadingRefinement,
@@ -584,7 +590,7 @@ export function MultiChannelFormWizard({
     rawTopic: formData.topic,
     brandTemplateId: formData.brandTemplateId,
     contentGoal: formData.contentGoal,
-    enabled: currentStep === 1 && formData.topic.trim().length >= 10,
+    enabled: currentStep === 1 && formData.topic.trim().length >= 10 && !topicFromQuickAction,
   });
 
   // Enhanced Topic Suggestions (carousel-style)
@@ -1052,10 +1058,13 @@ export function MultiChannelFormWizard({
                     ref={topicInputRef}
                     rows={1}
                     value={formData.topic}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
-                      topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
-                    }))}
+                    onChange={(e) => {
+                      setTopicFromQuickAction(false);
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
+                      }));
+                    }}
                     onInput={(e) => {
                       const el = e.currentTarget;
                       el.style.height = 'auto';
@@ -1086,7 +1095,8 @@ export function MultiChannelFormWizard({
                 suggestions={topicSuggestions}
                 source={suggestionsSource}
                 isLoading={isSuggestionsLoading}
-                onSelect={(topic) => setFormData(prev => ({ ...prev, topic }))}
+                onSelect={(topic) => { setTopicFromQuickAction(false); setFormData(prev => ({ ...prev, topic })); }}
+                onQuickActionSelect={(topic) => { setTopicFromQuickAction(true); setFormData(prev => ({ ...prev, topic })); }}
                 onRefresh={refreshSuggestions}
                 onSave={saveSuggestion}
                 onFeedback={submitFeedback}
