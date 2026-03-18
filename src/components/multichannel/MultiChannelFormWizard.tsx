@@ -441,10 +441,11 @@ export function MultiChannelFormWizard({
   const userManuallySetGoal = useRef(!!initialData?.contentGoal);
   const lastAutoDetectedTopic = useRef('');
 
-  // Auto-detect contentGoal from topic keywords
+  // Auto-detect contentGoal from topic keywords (skip for quick-action topics)
   useEffect(() => {
     const topic = formData.topic;
     if (userManuallySetGoal.current) return;
+    if (topicFromQuickAction) return;
     if (topic.length < 10) return;
     if (topic === lastAutoDetectedTopic.current) return;
 
@@ -458,7 +459,7 @@ export function MultiChannelFormWizard({
         duration: 3000,
       });
     }
-  }, [formData.topic]);
+  }, [formData.topic, topicFromQuickAction]);
 
   // Removed: useCoreContents - now using useStreamingCoreContent
 
