@@ -561,6 +561,7 @@ serve(async (req) => {
         brandTemplateId: brandTemplateId || null,
         organizationId: organizationId || null,
         userId: user.id,
+        frontendOrigin: requestOrigin || null,
       }));
 
       const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?` + new URLSearchParams({
