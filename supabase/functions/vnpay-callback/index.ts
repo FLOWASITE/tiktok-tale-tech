@@ -115,18 +115,24 @@ Deno.serve(async (req) => {
       const orderMetadata = (order.metadata as Record<string, unknown>) || {};
       if (orderMetadata.voucher_id) {
         try {
-          // Increment used_count
-          await supabase.rpc('', {}).catch(() => {}); // no-op, use raw query below
+          const voucherId = orderMetadata.voucher_id as string;
+          // Get current count then increment
+          const { data: voucherRow } = await supabase
+            .from('vouchers')
+            .select('used_count')
+            .eq('id', voucherId)
+            .single();
+
           await supabase
             .from('vouchers')
-            .update({ used_count: (await supabase.from('vouchers').select('used_count').eq('id', orderMetadata.voucher_id as string).single()).data?.used_count + 1 || 1 })
-            .eq('id', orderMetadata.voucher_id as string);
+            .update({ used_count: (voucherRow?.used_count || 0) + 1 })
+            .eq('id', voucherId);
 
           // Record usage
           await supabase
             .from('voucher_usages')
             .insert({
-              voucher_id: orderMetadata.voucher_id as string,
+              voucher_id: voucherId,
               organization_id: order.organization_id,
               user_id: order.user_id,
               payment_order_id: order.id,
@@ -135,7 +141,6 @@ Deno.serve(async (req) => {
           console.log(`Voucher ${orderMetadata.voucher_code} usage recorded for order ${order.id}`);
         } catch (voucherErr) {
           console.error('Failed to record voucher usage:', voucherErr);
-          // Don't fail the whole callback for voucher tracking
         }
       }
 
