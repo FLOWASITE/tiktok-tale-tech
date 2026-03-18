@@ -10,6 +10,8 @@ import workflowTopicImg from "@/assets/workflow-topic.png";
 import workflowTopic2Img from "@/assets/workflow-topic-2.png";
 import workflowAiContentImg from "@/assets/workflow/workflow-ai-content.png";
 import workflowPublishImg from "@/assets/workflow/workflow-publish.png";
+import workflowAiImage1 from "@/assets/workflow/workflow-ai-image-1.png";
+import workflowAiImage2 from "@/assets/workflow/workflow-ai-image-2.png";
 
 const containerVariants = {
   hidden: { opacity: 0 },
