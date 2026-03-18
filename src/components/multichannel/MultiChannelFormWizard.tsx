@@ -276,6 +276,9 @@ export function MultiChannelFormWizard({
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
 
+  // Brainstorm Sheet state
+  const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
+
   // Intent detection removed - brainstorm is now inline in TopicIdeaHub
 
   // NEW: Core Content generation state
