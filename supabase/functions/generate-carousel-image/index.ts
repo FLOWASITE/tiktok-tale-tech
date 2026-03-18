@@ -42,7 +42,7 @@ serve(async (req) => {
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
     
     const bgResponse = await fetch(
-      "https://ai-gateway.lovable.dev/v1beta/models/google/gemini-3-pro-image-preview:generateContent",
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
       {
         method: "POST",
         headers: {
@@ -50,8 +50,9 @@ serve(async (req) => {
           "Authorization": `Bearer ${lovableApiKey}`,
         },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: backgroundPrompt }] }],
-          generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
+          model: "google/gemini-3-pro-image-preview",
+          messages: [{ role: "user", content: backgroundPrompt }],
+          modalities: ["image", "text"],
         }),
       }
     );
@@ -66,7 +67,7 @@ serve(async (req) => {
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (errorText.includes("CREDITS_EXHAUSTED") || errorText.includes("credits")) {
+      if (bgResponse.status === 402 || errorText.includes("CREDITS_EXHAUSTED") || errorText.includes("credits")) {
         return new Response(
           JSON.stringify({ error: "Đã hết credits AI. Vui lòng nâng cấp.", errorCode: "CREDITS_EXHAUSTED" }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -82,12 +83,16 @@ serve(async (req) => {
     let imageBase64: string | null = null;
     let mimeType = "image/png";
 
-    if (bgData.candidates && bgData.candidates[0]?.content?.parts) {
-      for (const part of bgData.candidates[0].content.parts) {
-        if (part.inlineData) {
-          imageBase64 = part.inlineData.data;
-          mimeType = part.inlineData.mimeType || "image/png";
-          break;
+    // Parse OpenAI-compatible response with images
+    const messageImages = bgData.choices?.[0]?.message?.images;
+    if (messageImages && messageImages.length > 0) {
+      const imageUrl = messageImages[0].image_url?.url;
+      if (imageUrl && imageUrl.startsWith("data:")) {
+        // Extract base64 from data URI: data:image/png;base64,xxxxx
+        const match = imageUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+        if (match) {
+          mimeType = match[1];
+          imageBase64 = match[2];
         }
       }
     }
