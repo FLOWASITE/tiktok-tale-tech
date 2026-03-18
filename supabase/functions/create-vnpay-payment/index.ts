@@ -36,6 +36,40 @@ function formatVNPayDate(date: Date): string {
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
 }
 
+interface VoucherRecord {
+  id: string;
+  code: string;
+  discount_type: string;
+  discount_value: number;
+  max_uses: number | null;
+  used_count: number;
+  applicable_plans: string[] | null;
+  min_amount: number;
+  starts_at: string;
+  expires_at: string | null;
+  is_active: boolean;
+}
+
+function validateVoucher(voucher: VoucherRecord, planType: string, amount: number): string | null {
+  if (!voucher.is_active) return 'Mã voucher không còn hoạt động';
+  const now = new Date();
+  if (voucher.starts_at && new Date(voucher.starts_at) > now) return 'Mã voucher chưa có hiệu lực';
+  if (voucher.expires_at && new Date(voucher.expires_at) < now) return 'Mã voucher đã hết hạn';
+  if (voucher.max_uses !== null && voucher.used_count >= voucher.max_uses) return 'Mã voucher đã hết lượt sử dụng';
+  if (voucher.applicable_plans && voucher.applicable_plans.length > 0 && !voucher.applicable_plans.includes(planType)) {
+    return 'Mã voucher không áp dụng cho gói này';
+  }
+  if (amount < voucher.min_amount) return `Đơn hàng tối thiểu ${voucher.min_amount}₫ để dùng mã này`;
+  return null;
+}
+
+function calculateDiscount(voucher: VoucherRecord, amount: number): number {
+  if (voucher.discount_type === 'percentage') {
+    return Math.ceil(amount * Math.min(voucher.discount_value, 100) / 100);
+  }
+  return Math.min(voucher.discount_value, amount);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -70,7 +104,7 @@ Deno.serve(async (req) => {
     const userId = claimsData.claims.sub as string;
 
     // Parse body
-    const { organization_id, plan_type, billing_cycle, return_url } = await req.json();
+    const { organization_id, plan_type, billing_cycle, return_url, voucher_code } = await req.json();
 
     if (!organization_id || !plan_type || !['starter', 'pro', 'business', 'enterprise'].includes(plan_type)) {
       return new Response(JSON.stringify({ error: 'Invalid plan_type or missing organization_id' }), {
@@ -136,7 +170,6 @@ Deno.serve(async (req) => {
       const currentRank = PLAN_ORDER.indexOf(currentSub.plan_type);
       const newRank = PLAN_ORDER.indexOf(plan_type);
 
-      // Only prorate for upgrades within an active period
       if (newRank > currentRank && periodEnd > now) {
         daysInPeriod = Math.max(1, Math.ceil((periodEnd.getTime() - periodStart.getTime()) / 86400000));
         daysRemaining = Math.max(1, Math.ceil((periodEnd.getTime() - now.getTime()) / 86400000));
@@ -146,10 +179,57 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Validate & apply voucher
+    let voucherData: VoucherRecord | null = null;
+    let discountAmount = 0;
+
+    if (voucher_code && typeof voucher_code === 'string' && voucher_code.trim()) {
+      const code = voucher_code.trim().toUpperCase();
+      const { data: voucher } = await serviceClient
+        .from('vouchers')
+        .select('*')
+        .eq('code', code)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (!voucher) {
+        return new Response(JSON.stringify({ error: 'Mã voucher không tồn tại' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      const validationError = validateVoucher(voucher as VoucherRecord, plan_type, amount);
+      if (validationError) {
+        return new Response(JSON.stringify({ error: validationError }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      voucherData = voucher as VoucherRecord;
+      discountAmount = calculateDiscount(voucherData, amount);
+      amount = Math.max(1000, amount - discountAmount); // VNPay minimum 1000₫
+      console.log(`Voucher ${code}: discount ${discountAmount}₫, final amount ${amount}₫`);
+    }
+
     // Create unique txn ref
     const txnRef = `${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
 
-    // Save pending order with proration metadata
+    // Save pending order with proration + voucher metadata
+    const metadata: Record<string, unknown> = {};
+    if (isProrated) {
+      metadata.prorated = true;
+      metadata.original_amount = fullPrice;
+      metadata.days_remaining = daysRemaining;
+      metadata.days_in_period = daysInPeriod;
+      metadata.previous_plan = currentSub?.plan_type;
+    }
+    if (voucherData) {
+      metadata.voucher_id = voucherData.id;
+      metadata.voucher_code = voucherData.code;
+      metadata.discount_amount = discountAmount;
+      metadata.amount_before_discount = amount + discountAmount;
+    }
+
     const { error: orderError } = await serviceClient
       .from('payment_orders')
       .insert({
@@ -160,13 +240,7 @@ Deno.serve(async (req) => {
         amount,
         vnpay_txn_ref: txnRef,
         status: 'pending',
-        metadata: isProrated ? {
-          prorated: true,
-          original_amount: fullPrice,
-          days_remaining: daysRemaining,
-          days_in_period: daysInPeriod,
-          previous_plan: currentSub?.plan_type,
-        } : undefined,
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
       });
 
     if (orderError) {
@@ -187,7 +261,7 @@ Deno.serve(async (req) => {
       vnp_Locale: 'vn',
       vnp_CurrCode: 'VND',
       vnp_TxnRef: txnRef,
-      vnp_OrderInfo: `Nang cap goi ${plan_type} - ${cycle}${isProrated ? ' (prorate)' : ''}`,
+      vnp_OrderInfo: `Nang cap goi ${plan_type} - ${cycle}${isProrated ? ' (prorate)' : ''}${voucherData ? ` [voucher: ${voucherData.code}]` : ''}`,
       vnp_OrderType: 'other',
       vnp_Amount: (amount * 100).toString(),
       vnp_ReturnUrl: clientReturnUrl,
@@ -196,12 +270,10 @@ Deno.serve(async (req) => {
       vnp_ExpireDate: formatVNPayDate(new Date(now.getTime() + 15 * 60 * 1000)),
     };
 
-    // Sort and create query string for signing
     const sorted = sortObject(vnpParams);
     const signData = new URLSearchParams(sorted).toString();
     const secureHash = await hmacSHA512(vnpHashSecret, signData);
 
-    // Build final URL
     const finalParams = new URLSearchParams(sorted);
     finalParams.append('vnp_SecureHash', secureHash);
 
@@ -216,6 +288,12 @@ Deno.serve(async (req) => {
         original_amount: fullPrice,
         days_remaining: daysRemaining,
         days_in_period: daysInPeriod,
+      }),
+      ...(voucherData && {
+        voucher_applied: true,
+        voucher_code: voucherData.code,
+        discount_amount: discountAmount,
+        amount_before_discount: amount + discountAmount,
       }),
     }), {
       status: 200,

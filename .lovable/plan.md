@@ -1,92 +1,62 @@
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-# Hệ thống Voucher giảm giá Subscription
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-## Tổng quan
+---
 
-Xây dựng hệ thống voucher cho phép Admin tạo/quản lý mã giảm giá, và người dùng nhập mã khi thanh toán nâng cấp gói để được giảm giá.
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-## 1. Database — Bảng `vouchers` + `voucher_usages`
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-### Bảng `vouchers`
-```sql
-CREATE TABLE public.vouchers (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  code TEXT NOT NULL UNIQUE,
-  description TEXT,
-  discount_type TEXT NOT NULL CHECK (discount_type IN ('percentage', 'fixed')),
-  discount_value NUMERIC NOT NULL,        -- % hoặc số tiền VND
-  max_uses INTEGER DEFAULT NULL,          -- NULL = không giới hạn
-  used_count INTEGER DEFAULT 0,
-  applicable_plans TEXT[] DEFAULT NULL,    -- NULL = áp dụng tất cả, ['pro','business']
-  min_amount NUMERIC DEFAULT 0,           -- Đơn hàng tối thiểu
-  starts_at TIMESTAMPTZ DEFAULT now(),
-  expires_at TIMESTAMPTZ DEFAULT NULL,    -- NULL = không hết hạn
-  is_active BOOLEAN DEFAULT true,
-  created_by UUID REFERENCES auth.users(id),
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-CREATE TABLE public.voucher_usages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  voucher_id UUID REFERENCES vouchers(id) ON DELETE CASCADE NOT NULL,
-  organization_id UUID REFERENCES organizations(id) NOT NULL,
-  user_id UUID REFERENCES auth.users(id) NOT NULL,
-  payment_order_id UUID REFERENCES payment_orders(id),
-  discount_amount NUMERIC NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
+---
 
-RLS: Chỉ admin đọc/ghi `vouchers`. Authenticated users đọc voucher active (để validate). `voucher_usages` chỉ admin đọc.
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-## 2. Edge Function — Validate & Apply voucher
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-### Cập nhật `create-vnpay-payment/index.ts`
-- Thêm param `voucher_code` (optional) từ body
-- Nếu có `voucher_code`:
-  - Query `vouchers` → validate: active, chưa hết hạn, chưa hết lượt, applicable_plans match
-  - Tính `discount_amount` (percentage hoặc fixed), trừ vào `amount`
-  - Lưu `voucher_id` + `discount_amount` vào `payment_orders.metadata`
-  
-### Cập nhật `vnpay-callback/index.ts`
-- Khi payment success, nếu metadata có `voucher_id`:
-  - Tăng `vouchers.used_count += 1`
-  - Insert vào `voucher_usages`
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-## 3. Frontend — Nhập voucher khi thanh toán
+---
 
-### `src/components/UpgradePlanDialog.tsx`
-- Thêm input "Mã voucher" + nút "Áp dụng"
-- Gọi edge function hoặc query trực tiếp để validate mã → hiển thị giảm giá preview
-- Truyền `voucher_code` vào `create-vnpay-payment`
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
-### `src/pages/Pricing.tsx`
-- Tương tự, thêm input voucher trước khi redirect thanh toán
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
 
-## 4. Admin — Quản lý voucher
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
 
-### Trang mới `src/pages/AdminVouchers.tsx`
-- Danh sách voucher (Table): code, loại giảm, giá trị, đã dùng/tối đa, trạng thái, hạn
-- Tạo voucher mới (Dialog form)
-- Bật/tắt voucher, xem lịch sử sử dụng
-- Route: `/admin/vouchers`
+---
 
-### Cập nhật `src/App.tsx` + `src/components/AppSidebar.tsx`
-- Thêm route `/admin/vouchers` → `AdminVouchers`
-- Thêm menu item "Vouchers" trong nhóm Admin sidebar (icon: Ticket)
+## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
 
-## Tóm tắt file thay đổi
+### Vấn đề
+Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
 
-| File | Thay đổi |
-|---|---|
-| Migration SQL | Tạo bảng `vouchers`, `voucher_usages` + RLS |
-| `supabase/functions/create-vnpay-payment/index.ts` | Validate & apply voucher code |
-| `supabase/functions/vnpay-callback/index.ts` | Ghi nhận voucher usage khi thanh toán thành công |
-| `src/components/UpgradePlanDialog.tsx` | Thêm input voucher + preview giảm giá |
-| `src/pages/Pricing.tsx` | Thêm input voucher |
-| `src/pages/AdminVouchers.tsx` | Trang quản lý voucher (mới) |
-| `src/App.tsx` | Thêm route admin/vouchers |
-| `src/components/AppSidebar.tsx` | Thêm menu Vouchers trong admin |
-
+### Đã sửa (6 files + 2 edge functions)
+1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
+2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
+3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
+4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
+5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
+6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
+7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon

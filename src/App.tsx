@@ -48,6 +48,7 @@ import NotFound from "./pages/NotFound";
 import MultiChannelCreate from "./pages/MultiChannelCreate";
 import AdminHelpArticles from "./pages/AdminHelpArticles";
 import AdminSocialSettings from "./pages/AdminSocialSettings";
+import AdminVouchers from "./pages/AdminVouchers";
 import Campaigns from "./pages/Campaigns";
 import CampaignCreate from "./pages/CampaignCreate";
 import CampaignDetail from "./pages/CampaignDetail";
@@ -525,6 +526,20 @@ function AppRoutes() {
                 }
               />
               
+              {/* Voucher Management */}
+              <Route
+                path="/admin/vouchers"
+                element={
+                  <ProtectedRoute>
+                    <AdminProtectedRoute>
+                      <AppLayout>
+                        <AdminVouchers />
+                      </AppLayout>
+                    </AdminProtectedRoute>
+                  </ProtectedRoute>
+                }
+              />
+
               {/* Access denied page */}
               <Route path="/access-denied" element={<AccessDenied />} />
               <Route
