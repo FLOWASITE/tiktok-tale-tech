@@ -32,7 +32,7 @@ export default function FacebookCallback() {
 
       // Auto redirect after 3 seconds
       setTimeout(() => {
-        navigate('/brands', { replace: true });
+        navigate(brandTemplateId ? `/brands/${brandTemplateId}` : '/brands', { replace: true });
       }, 3000);
     } else if (error) {
       setStatus('error');
