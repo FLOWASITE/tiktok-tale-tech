@@ -226,12 +226,24 @@ const CarouselPage = () => {
           <div className="flex-1">
             <CarouselFilters filters={filters} onFiltersChange={setFilters} />
           </div>
-          <CampaignSelector
-            value={campaignFilter}
-            onValueChange={setCampaignFilter}
-            placeholder="Lọc theo chiến dịch"
-            className="w-full sm:w-56"
-          />
+          <div className="flex gap-2">
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+              <SelectTrigger className="w-full sm:w-40 h-9 text-xs border-border/50">
+                <SelectValue placeholder="Sắp xếp" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Mới nhất</SelectItem>
+                <SelectItem value="oldest">Cũ nhất</SelectItem>
+                <SelectItem value="name_asc">Tên A-Z</SelectItem>
+              </SelectContent>
+            </Select>
+            <CampaignSelector
+              value={campaignFilter}
+              onValueChange={setCampaignFilter}
+              placeholder="Lọc theo chiến dịch"
+              className="w-full sm:w-56"
+            />
+          </div>
         </div>
 
         {/* Bulk Actions Bar */}
