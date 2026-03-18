@@ -60,6 +60,19 @@ const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
   website: 'website',
 };
 
+const PLATFORM_DISPLAY_NAMES: Record<string, string> = {
+  twitter: 'Twitter / X',
+  facebook: 'Facebook Page',
+  instagram: 'Instagram',
+  linkedin: 'LinkedIn',
+  tiktok: 'TikTok',
+  threads: 'Threads',
+  youtube: 'YouTube',
+  zalo_oa: 'Zalo OA',
+  google_business: 'Google Business',
+  website: 'Website',
+};
+
 const PLATFORM_ICONS: Record<SocialPlatform, React.ElementType> = {
   twitter: Twitter,
   facebook: Facebook,
