@@ -1,54 +1,18 @@
-import { useState, useRef, useCallback, memo, useMemo } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
-import { Lightbulb, ChevronDown, Flame, TrendingUp, Gift, Zap, Check } from 'lucide-react';
+import { Lightbulb, ChevronDown, Flame, TrendingUp, Gift, Zap, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { EnhancedTopicSuggestion } from '@/types/topicDiscovery';
 import type { ContentGoal } from '@/types/multichannel';
 
 const QUICK_ACTIONS = [
-  {
-    icon: <Flame className="w-3 h-3" />,
-    label: 'Viral tuần này',
-    topics: [
-      'Top xu hướng viral đang được chia sẻ nhiều nhất tuần này',
-      'Hiện tượng mạng tuần này và góc nhìn chuyên gia',
-      'Nội dung triệu view tuần này: Phân tích yếu tố thành công',
-      'Chủ đề hot nhất tuần này trên mạng xã hội',
-    ],
-  },
-  {
-    icon: <TrendingUp className="w-3 h-3" />,
-    label: 'Theo trend',
-    topics: [
-      'Bắt trend mới nhất: Phân tích và ứng dụng cho thương hiệu',
-      'Xu hướng nội dung đang lên ngôi trên mạng xã hội',
-      'Trend mới nhất trong ngành: Cơ hội cho thương hiệu',
-      'Phân tích xu hướng nội dung đang hot và cách áp dụng',
-    ],
-  },
-  {
-    icon: <Gift className="w-3 h-3" />,
-    label: 'Mùa lễ hội',
-    topics: [
-      'Chiến lược nội dung mùa lễ hội sắp tới',
-      'Ý tưởng marketing theo sự kiện và ngày lễ trong tháng',
-      'Nội dung theo mùa: Kết nối thương hiệu với dịp đặc biệt',
-      'Kế hoạch nội dung cho mùa lễ hội và sự kiện lớn',
-    ],
-  },
-  {
-    icon: <Zap className="w-3 h-3" />,
-    label: 'So sánh A vs B',
-    topics: [
-      'So sánh phương pháp truyền thống vs hiện đại trong ngành',
-      'Đối đầu: Giải pháp A vs Giải pháp B — đâu là lựa chọn tốt hơn?',
-      'So sánh chi tiết: Ưu nhược điểm của 2 xu hướng đang hot',
-      'A vs B: Phân tích chuyên sâu giúp bạn chọn đúng',
-    ],
-  },
+  { icon: Flame, label: 'Viral tuần này' },
+  { icon: TrendingUp, label: 'Theo trend' },
+  { icon: Gift, label: 'Mùa lễ hội' },
+  { icon: Zap, label: 'So sánh A vs B' },
 ];
 
 /** Memoized wrapper to prevent TopicSuggestionPanel from re-rendering on category toggle */
@@ -59,9 +23,9 @@ interface TopicIdeaHubProps {
   source: 'ai' | 'cache' | 'fallback';
   isLoading: boolean;
   onSelect: (topic: string) => void;
-  /** Called when user picks a topic from quick-action chips (skips auto-refine) */
   onQuickActionSelect?: (topic: string) => void;
   onRefresh: () => void;
+  onCategoryRefresh?: (category: string) => void;
   onSave?: (suggestion: EnhancedTopicSuggestion) => void;
   onFeedback?: (suggestion: EnhancedTopicSuggestion, feedback: 'positive' | 'negative') => void;
   brandTemplateId?: string;
@@ -76,8 +40,8 @@ export function TopicIdeaHub({
   source,
   isLoading,
   onSelect,
-  onQuickActionSelect,
   onRefresh,
+  onCategoryRefresh,
   onSave,
   onFeedback,
   contentGoal,
@@ -86,38 +50,24 @@ export function TopicIdeaHub({
   showNavigateToTopics = false,
 }: TopicIdeaHubProps) {
   const [isOpen, setIsOpen] = useState(true);
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [lastSelectedTopic, setLastSelectedTopic] = useState<string | null>(null);
-  const selectionTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const [loadingCategory, setLoadingCategory] = useState<string | null>(null);
+
+  // Reset loading state when suggestions finish loading
+  useEffect(() => {
+    if (!isLoading && loadingCategory) {
+      setLoadingCategory(null);
+    }
+  }, [isLoading, loadingCategory]);
 
   const handleCategoryClick = (label: string) => {
-    setActiveCategory(activeCategory === label ? null : label);
-  };
-
-  const handleQuickTopicSelect = useCallback((topic: string) => {
-    if (onQuickActionSelect) {
-      onQuickActionSelect(topic);
+    if (loadingCategory) return; // Prevent double-click
+    setLoadingCategory(label);
+    if (onCategoryRefresh) {
+      onCategoryRefresh(label);
     } else {
-      onSelect(topic);
+      onRefresh();
     }
-    // Visual feedback
-    setLastSelectedTopic(topic);
-    clearTimeout(selectionTimerRef.current);
-    selectionTimerRef.current = setTimeout(() => {
-      setLastSelectedTopic(null);
-      // Collapse category list after feedback so textarea becomes visible
-      setActiveCategory(null);
-    }, 800);
-
-    // Trigger suggestion refresh so user sees new related suggestions
-    setTimeout(() => onRefresh(), 100);
-
-    // Scroll the topic textarea into view (sits above this component)
-    requestAnimationFrame(() => {
-      const textarea = document.querySelector<HTMLTextAreaElement>('[data-topic-input]');
-      textarea?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-  }, [onQuickActionSelect, onSelect, onRefresh]);
+  };
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -149,48 +99,32 @@ export function TopicIdeaHub({
           <div className="px-3 pb-3">
             {/* Quick action chips */}
             <div className="flex gap-1.5 flex-wrap mb-2">
-              {QUICK_ACTIONS.map((action) => (
-                <Button
-                  key={action.label}
-                  type="button"
-                  variant={activeCategory === action.label ? "default" : "outline"}
-                  size="sm"
-                  disabled={disabled}
-                  onClick={() => handleCategoryClick(action.label)}
-                  className="h-6 text-[10px] whitespace-nowrap gap-1 rounded-full px-2.5 border-border/60 hover:bg-primary hover:text-primary-foreground transition-colors"
-                >
-                  {action.icon}
-                  {action.label}
-                </Button>
-              ))}
-            </div>
-
-            {/* Expanded topics for active category */}
-            {activeCategory && (
-              <div className="flex flex-col gap-1 mb-2 pl-2 border-l-2 border-primary/30">
-                {QUICK_ACTIONS.find(a => a.label === activeCategory)?.topics.map((topic) => (
-                  <button
-                    key={topic}
+              {QUICK_ACTIONS.map((action) => {
+                const isActive = loadingCategory === action.label;
+                const Icon = action.icon;
+                return (
+                  <Button
+                    key={action.label}
                     type="button"
-                    disabled={disabled}
-                    onClick={() => handleQuickTopicSelect(topic)}
+                    variant={isActive ? "default" : "outline"}
+                    size="sm"
+                    disabled={disabled || (!!loadingCategory && !isActive)}
+                    onClick={() => handleCategoryClick(action.label)}
                     className={cn(
-                      "text-left text-[11px] py-1.5 px-2 rounded-md flex items-center gap-1.5 transition-all duration-200 active:scale-[0.97]",
-                      lastSelectedTopic === topic
-                        ? "bg-primary/10 text-primary font-medium"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                      "h-6 text-[10px] whitespace-nowrap gap-1 rounded-full px-2.5 border-border/60 transition-colors",
+                      !isActive && "hover:bg-primary hover:text-primary-foreground"
                     )}
                   >
-                    {lastSelectedTopic === topic ? (
-                      <Check className="w-3 h-3 shrink-0 text-primary" />
+                    {isActive ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
                     ) : (
-                      <span className="shrink-0">→</span>
+                      <Icon className="w-3 h-3" />
                     )}
-                    {topic}
-                  </button>
-                ))}
-              </div>
-            )}
+                    {action.label}
+                  </Button>
+                );
+              })}
+            </div>
 
             <MemoizedSuggestionPanel
               suggestions={suggestions}
