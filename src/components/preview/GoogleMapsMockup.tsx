@@ -123,7 +123,7 @@ export function GoogleMapsMockup({ content, brandName, logoUrl, isGenerating, ch
           {[
             { icon: <Navigation className="w-4 h-4" />, label: 'Chỉ đường', color: 'text-[#1a73e8]' },
             { icon: <Phone className="w-4 h-4" />, label: 'Gọi', color: 'text-[#1a73e8]' },
-            { icon: <Bookmark className={cn("w-4 h-4", saved && "fill-[#1a73e8]")}, label: 'Lưu', color: saved ? 'text-[#1a73e8]' : 'text-[#1a73e8]', onClick: () => setSaved(!saved) },
+            { icon: <Bookmark className={cn("w-4 h-4", saved && "fill-[#1a73e8]")} />, label: 'Lưu', color: 'text-[#1a73e8]', onClick: () => setSaved(!saved) },
             { icon: <Share2 className="w-4 h-4" />, label: 'Chia sẻ', color: 'text-[#1a73e8]' },
           ].map((action, i) => (
             <button 
