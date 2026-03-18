@@ -277,6 +277,7 @@ export function AppSidebar() {
     { title: 'Curated News', titleKey: 'app.sidebar.adminNews', url: '/admin/industry-news', icon: Newspaper },
     { title: 'Help Articles', titleKey: 'app.sidebar.adminHelp', url: '/admin/help-articles', icon: BookOpen },
     { title: 'Organizations', titleKey: 'app.sidebar.adminOrgs', url: '/admin/organizations', icon: Building2 },
+    { title: 'Vouchers', titleKey: 'app.sidebar.adminVouchers', url: '/admin/vouchers', icon: Ticket },
     { title: 'Version History', titleKey: 'app.sidebar.adminVersions', url: '/admin/versions', icon: GitBranch },
   ];
 

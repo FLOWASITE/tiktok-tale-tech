@@ -48,6 +48,7 @@ import NotFound from "./pages/NotFound";
 import MultiChannelCreate from "./pages/MultiChannelCreate";
 import AdminHelpArticles from "./pages/AdminHelpArticles";
 import AdminSocialSettings from "./pages/AdminSocialSettings";
+import AdminVouchers from "./pages/AdminVouchers";
 import Campaigns from "./pages/Campaigns";
 import CampaignCreate from "./pages/CampaignCreate";
 import CampaignDetail from "./pages/CampaignDetail";
