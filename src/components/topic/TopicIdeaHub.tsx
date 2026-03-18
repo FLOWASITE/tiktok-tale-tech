@@ -135,6 +135,14 @@ export function TopicIdeaHub({
           </div>
         </CollapsibleContent>
       </div>
+
+      <TopicBrainstormSheet
+        open={showBrainstormSheet}
+        onOpenChange={setShowBrainstormSheet}
+        brandTemplateId={brandTemplateId}
+        contentGoal={contentGoal}
+        onSelectTopic={handleTopicSelect}
+      />
     </Collapsible>
   );
 }
