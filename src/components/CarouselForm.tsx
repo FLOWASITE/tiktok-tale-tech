@@ -236,7 +236,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           </div>
         </div>
         
-        <TopicSuggestionPanel
+        <TopicIdeaHub
           suggestions={enhancedSuggestions}
           source={suggestionsSource}
           isLoading={suggestionsLoading}
@@ -246,6 +246,8 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           onFeedback={submitFeedback}
           disabled={isLoading}
           showEnhancedInfo={true}
+          brandTemplateId={selectedTemplateId && selectedTemplateId !== 'custom' ? selectedTemplateId : undefined}
+          contentGoal="education"
         />
       </div>
 
