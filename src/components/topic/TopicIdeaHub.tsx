@@ -87,19 +87,24 @@ export function TopicIdeaHub({
 }: TopicIdeaHubProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [lastSelectedTopic, setLastSelectedTopic] = useState<string | null>(null);
+  const selectionTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const handleCategoryClick = (label: string) => {
     setActiveCategory(activeCategory === label ? null : label);
   };
 
-  const handleQuickTopicSelect = (topic: string) => {
-    // Use dedicated quick-action callback if available, otherwise fall back to onSelect
+  const handleQuickTopicSelect = useCallback((topic: string) => {
     if (onQuickActionSelect) {
       onQuickActionSelect(topic);
     } else {
       onSelect(topic);
     }
-  };
+    // Visual feedback
+    setLastSelectedTopic(topic);
+    clearTimeout(selectionTimerRef.current);
+    selectionTimerRef.current = setTimeout(() => setLastSelectedTopic(null), 1500);
+  }, [onQuickActionSelect, onSelect]);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
