@@ -348,8 +348,70 @@ const getSlideObjective = (slideNumber: number, totalSlides: number, lang: strin
   return o.impact;
 };
 
+const getCarouselStylePrompt = (style: string, slideCount: number): string => {
+  switch (style) {
+    case 'seamless':
+      return `
+## CAROUSEL STYLE: SEAMLESS / CONTINUOUS (Trượt liền mạch)
+CRITICAL DESIGN RULES:
+- Tất cả ${slideCount} slides tạo thành MỘT bức tranh dài liền mạch
+- Các phần tử (hình khối, mũi tên, đường kẻ, gradient) PHẢI vắt ngang qua biên trái/phải của mỗi slide
+- Sử dụng CÙNG MỘT palette màu xuyên suốt tất cả slides
+- Background phải chuyển tiếp mượt mà giữa các slides
+- Mỗi slide là một FRAGMENT của bức tranh lớn
+- Text content ngắn gọn, đặt ở vị trí không cắt ngang biên
+- Slide 1: Hook mở đầu câu chuyện
+- Slide ${slideCount}: CTA kết thúc
+- Các slide giữa: Mỗi slide tiếp nối visual từ slide trước
+
+PROMPT HƯỚNG DẪN CHO MỖI SLIDE:
+- Yêu cầu "elements extending to left and right edges"
+- Yêu cầu "consistent color palette and visual motif across all slides"
+- Yêu cầu "seamless transition: left edge continues from previous slide, right edge leads to next"
+`;
+    case 'listicle':
+      return `
+## CAROUSEL STYLE: LISTICLE / TOP-LIST (Trượt dạng danh sách)
+CRITICAL DESIGN RULES:
+- Slide 1: Tiêu đề gây tò mò kiểu "Top ${slideCount - 2} điều..." hoặc "${slideCount - 2} bí quyết..."
+- Slides 2 đến ${slideCount - 1}: Mỗi slide = ĐÚNG 1 item được đánh số lớn (#1, #2, ...)
+- Slide ${slideCount}: CTA tổng kết
+- Layout ĐỒNG NHẤT cho tất cả slides item (cùng vị trí số, cùng font size, cùng bố cục)
+- Số thứ tự phải LỚN và NỔI BẬT (kiểu typography)
+- Mỗi item có: Số + Tiêu đề ngắn + Mô tả 1-2 dòng
+- Visual weight phải BẰNG NHAU giữa các slides
+`;
+    case 'gallery':
+      return `
+## CAROUSEL STYLE: PHOTO DUMP / GALLERY (Bộ sưu tập ảnh)
+CRITICAL DESIGN RULES:
+- Focus 100% vào VISUAL QUALITY - ảnh đẹp là ưu tiên số 1
+- MINIMAL TEXT trên ảnh - chỉ slide 1 có tiêu đề, slide cuối có CTA
+- Slides giữa: Background-only, ảnh thực tế hoặc ảnh nghệ thuật
+- KHÔNG cần thiết kế cầu kỳ, layout overlay hay infographic
+- Prompt ảnh phải mô tả chi tiết về: lighting, mood, composition, subject
+- Mỗi slide là một góc nhìn khác của cùng chủ đề
+- textContent cho slides giữa nên để rất ngắn hoặc chỉ 1 câu tagline
+`;
+    case 'educational':
+    default:
+      return `
+## CAROUSEL STYLE: EDUCATIONAL / STEP-BY-STEP (Giáo dục theo bước)
+LOGIC NỘI DUNG:
+- Slide 1: HOOK - Gây sốc, tò mò (câu statement mạnh, số liệu gây sốc)
+- Slide 2: NÊU VẤN ĐỀ - Khơi gợi pain point
+- Slide 3-${Math.floor(slideCount * 0.6)}: GIẢI THÍCH - Chi tiết vấn đề
+- Slide ${Math.floor(slideCount * 0.7)}-${slideCount - 1}: HẬU QUẢ/LỢI ÍCH + GIẢI PHÁP
+- Slide ${slideCount}: CTA - Kêu gọi hành động
+- Mỗi slide có thể có progress indicator (Bước 1/6, Bước 2/6...)
+- Phong cách kể chuyện, xây dựng logic dần dần
+`;
+  }
+};
+
 const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, mergedRules?: MergedRules, outputLang: string = 'vi'): string => {
   const langConfig = getLanguageConfig(outputLang);
+  const carouselStyle = formData.carouselStyle || 'educational';
   const aiToolPromptGuide = {
     ideogram: `Tối ưu cho Ideogram - ưu tiên text clarity:
 - Sử dụng cấu trúc prompt rõ ràng
@@ -372,6 +434,7 @@ const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, me
 
   const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules, outputLang) : "";
   const langName = langConfig.nativeName;
+  const styleSection = getCarouselStylePrompt(carouselStyle, formData.slideCount);
 
   return `You are a professional Content Strategist for social media, specialized in creating carousels for ${formData.platform === "facebook" ? "Facebook" : "TikTok"}.
 Output ALL content in ${langName} (${langConfig.englishName}).
@@ -383,12 +446,7 @@ ${brandVoiceSection}
 2. Tư duy như Content Strategist - chia nội dung theo nhịp đọc mạng xã hội
 3. Chuẩn hóa đầu ra theo format 6 thành phần bắt buộc
 
-## LOGIC NỘI DUNG CAROUSEL (${formData.slideCount} slides)
-- Slide 1: HOOK - Gây sốc, tò mò (câu statement mạnh, số liệu gây sốc)
-- Slide 2: NÊU VẤN ĐỀ - Khơi gợi pain point
-- Slide 3-${Math.floor(formData.slideCount * 0.6)}: GIẢI THÍCH - Chi tiết vấn đề
-- Slide ${Math.floor(formData.slideCount * 0.7)}-${formData.slideCount - 1}: HẬU QUẢ/LỢI ÍCH + GIẢI PHÁP
-- Slide ${formData.slideCount}: CTA - Kêu gọi hành động
+${styleSection}
 
 ## BRAND GUIDELINE BẮT BUỘC
 ${formData.brandGuideline}
@@ -441,7 +499,7 @@ Requirements:
 - Text must be perfectly readable
 - No distorted Vietnamese characters
 - Flat design, no clutter
-${formData.includeLogo ? `- Include subtle "${formData.brandName}" logo at bottom corner${formData.logoUrl ? ` (Logo reference: ${formData.logoUrl})` : ""}` : ""}`;
+${formData.includeLogo ? `- Include subtle "${formData.brandName}" logo at bottom corner${formData.logoUrl ? ` (Logo reference: ${formData.logoUrl})` : ""}` : ""}`; 
 };
 
 serve(async (req) => {
