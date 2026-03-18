@@ -799,7 +799,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
   }, [currentOrganization?.id, brandTemplateId]);
 
   // ============== SUGGESTIONS METHODS ==============
-  const fetchSuggestions = useCallback(async (forceRefresh = false) => {
+  const fetchSuggestions = useCallback(async (forceRefresh = false, categoryHint?: string) => {
     if (!enabled) return;
 
     // OPTIMIZATION: Prevent duplicate parallel calls
@@ -828,7 +828,8 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
           organizationId: currentOrganization?.id,
           format,
           enhanced: true,
-          forceRefresh,
+          forceRefresh: forceRefresh || !!categoryHint,
+          categoryHint: categoryHint || undefined,
         },
       });
 
