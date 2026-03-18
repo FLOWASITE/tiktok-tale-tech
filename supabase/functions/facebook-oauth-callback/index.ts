@@ -267,12 +267,14 @@ serve(async (req) => {
       console.log('Created new Facebook connection:', connection.id);
     }
 
-    const successUrl = `${getFrontendUrl()}/auth/facebook/callback?` + new URLSearchParams({
+    const redirectParams: Record<string, string> = {
       success: 'true',
       platform: 'facebook',
       page_name: pageName,
       connection_id: connection.id,
-    }).toString();
+    };
+    if (brandTemplateId) redirectParams.brand_template_id = brandTemplateId;
+    const successUrl = `${getFrontendUrl(frontendOrigin)}/auth/facebook/callback?` + new URLSearchParams(redirectParams).toString();
 
     console.log('Redirecting to:', successUrl);
     return Response.redirect(successUrl, 302);
