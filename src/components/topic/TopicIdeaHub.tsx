@@ -80,10 +80,10 @@ export function TopicIdeaHub({
   showNavigateToTopics = false,
 }: TopicIdeaHubProps) {
   const [isOpen, setIsOpen] = useState(true);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
-  const handleQuickAction = (topics: string[]) => {
-    const randomTopic = topics[Math.floor(Math.random() * topics.length)];
-    onSelect(randomTopic);
+  const handleCategoryClick = (label: string) => {
+    setActiveCategory(activeCategory === label ? null : label);
   };
 
   return (
