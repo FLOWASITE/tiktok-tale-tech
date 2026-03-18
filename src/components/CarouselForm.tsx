@@ -350,6 +350,18 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
         />
       </div>
 
+      {/* Carousel Style Selector */}
+      <div className="space-y-3 stagger-item" style={{ animationDelay: '175ms' }}>
+        <Label className="text-foreground font-semibold text-sm">
+          Phong cách Carousel
+        </Label>
+        <CarouselStyleSelector
+          value={carouselStyle}
+          onChange={setCarouselStyle}
+          disabled={isLoading}
+        />
+      </div>
+
       {/* Slide Count Selector */}
       <div className="space-y-3 stagger-item" style={{ animationDelay: '200ms' }}>
         <Label className="text-foreground font-semibold text-sm">
