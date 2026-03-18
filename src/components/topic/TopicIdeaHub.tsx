@@ -1,9 +1,9 @@
-import { useState, memo, useMemo } from 'react';
+import { useState, useRef, useCallback, memo, useMemo } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
-import { Lightbulb, ChevronDown, Flame, TrendingUp, Gift, Zap } from 'lucide-react';
+import { Lightbulb, ChevronDown, Flame, TrendingUp, Gift, Zap, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { EnhancedTopicSuggestion } from '@/types/topicDiscovery';
 import type { ContentGoal } from '@/types/multichannel';
