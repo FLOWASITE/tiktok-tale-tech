@@ -597,7 +597,21 @@ export function MultiChannelFormWizard({
     enabled: currentStep === 1 && formData.topic.trim().length >= 10,
   });
 
-  // Compliance Pre-check
+  // Enhanced Topic Suggestions (carousel-style)
+  const {
+    suggestions: topicSuggestions,
+    source: suggestionsSource,
+    isLoading: isSuggestionsLoading,
+    refresh: refreshSuggestions,
+    saveSuggestion,
+    submitFeedback,
+  } = useEnhancedTopicSuggestions({
+    brandTemplateId: formData.brandTemplateId,
+    contentGoal: formData.contentGoal || 'education',
+    enabled: currentStep === 1,
+  });
+
+
   const complianceOptions = useMemo(() => ({
     industryForbiddenTerms: [],
     brandForbiddenWords: [],
