@@ -1151,6 +1151,18 @@ export function MultiChannelFormStepper({
           </p>
         )}
       </div>
+
+      {/* Topic Brainstorm Sheet */}
+      <TopicBrainstormSheet
+        open={showBrainstormSheet}
+        onOpenChange={setShowBrainstormSheet}
+        brandTemplateId={formData.brandTemplateId}
+        contentGoal={formData.contentGoal}
+        onSelectTopic={(topic) => {
+          setFormData(prev => ({ ...prev, topic }));
+          toast.success('Đã chọn chủ đề từ AI Brainstorm');
+        }}
+      />
     </TooltipProvider>
   );
 }

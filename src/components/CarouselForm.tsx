@@ -354,6 +354,18 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           </p>
         )}
       </div>
+
+      {/* Topic Brainstorm Sheet */}
+      <TopicBrainstormSheet
+        open={showBrainstormSheet}
+        onOpenChange={setShowBrainstormSheet}
+        brandTemplateId={selectedTemplateId && selectedTemplateId !== 'custom' ? selectedTemplateId : undefined}
+        contentGoal="education"
+        onSelectTopic={(t) => {
+          setTopic(t);
+          toast.success('Đã chọn chủ đề từ AI Brainstorm');
+        }}
+      />
     </form>
   );
 }
