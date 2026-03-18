@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createDecipheriv } from "node:crypto";
 import { Buffer } from "node:buffer";
+import { decrypt as decryptGCM } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,24 +20,39 @@ interface ConnectRequest {
   username?: string;
 }
 
-// Decrypt encrypted credentials from social_platform_settings
-function decrypt(encryptedText: string, key: string): string {
+// Legacy CBC decrypt for backward compatibility
+function decryptLegacyCBC(encryptedText: string, key: string): string {
+  const [ivHex, encryptedHex] = encryptedText.split(':');
+  if (!ivHex || !encryptedHex) {
+    throw new Error('Invalid legacy encrypted format');
+  }
+  const iv = Buffer.from(ivHex, 'hex');
+  const encryptedData = Buffer.from(encryptedHex, 'hex');
+  const keyBuffer = Buffer.from(key.padEnd(32).slice(0, 32));
+  const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
+  let decrypted = decipher.update(encryptedData);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
+}
+
+// Decrypt with GCM first, fallback to legacy CBC
+async function decryptCredential(ciphertext: string, legacyKey: string): Promise<string | null> {
+  if (!ciphertext) return null;
   try {
-    const textParts = encryptedText.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    
-    // Create key from string (must be 32 bytes for aes-256-cbc)
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    
-    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-    let decrypted = decipher.update(encryptedData);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
+    return await decryptGCM(ciphertext);
+  } catch (primaryError) {
+    if (!ciphertext.includes(':')) throw primaryError;
+    const keyCandidates = [...new Set([
+      legacyKey,
+      'default-encryption-key-change-me',
+      'default-key',
+    ].filter(Boolean))];
+    for (const candidate of keyCandidates) {
+      try {
+        return decryptLegacyCBC(ciphertext, candidate);
+      } catch { /* try next */ }
+    }
+    throw primaryError;
   }
 }
 
@@ -59,10 +75,12 @@ async function getGlobalPlatformCredentials(
       return { consumerKey: null, consumerSecret: null };
     }
 
-    return {
-      consumerKey: data.consumer_key ? decrypt(data.consumer_key, encryptionKey) : null,
-      consumerSecret: data.consumer_secret ? decrypt(data.consumer_secret, encryptionKey) : null,
-    };
+    const [consumerKey, consumerSecret] = await Promise.all([
+      decryptCredential(data.consumer_key, encryptionKey),
+      decryptCredential(data.consumer_secret, encryptionKey),
+    ]);
+
+    return { consumerKey, consumerSecret };
   } catch (error) {
     console.error('Error fetching global credentials:', error);
     return { consumerKey: null, consumerSecret: null };
