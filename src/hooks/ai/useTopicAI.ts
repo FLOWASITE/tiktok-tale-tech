@@ -116,7 +116,7 @@ interface SuggestionsModule {
   setMinScore: (score: number) => void;
   stats: { averageScore: number; topPerformersCount: number; totalCount: number } | null;
   autoSavedCount: number;
-  refresh: () => void;
+  refresh: (categoryHint?: string) => void;
   autoSaveSuggestions: (topics: EnhancedTopicSuggestion[]) => Promise<void>;
   submitFeedback: (suggestion: EnhancedTopicSuggestion, feedback: 'positive' | 'negative') => Promise<void>;
   saveSuggestion: (suggestion: EnhancedTopicSuggestion) => Promise<string | null>;
