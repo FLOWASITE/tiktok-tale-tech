@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { decrypt as decryptGCM, encrypt as encryptGCM } from "../_shared/crypto.ts";
 import { createDecipheriv, createCipheriv, randomBytes } from "node:crypto";
 import { Buffer } from "node:buffer";
 
@@ -8,45 +9,49 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Decrypt encrypted credentials from social_platform_settings
-function decrypt(encryptedText: string, key: string): string {
-  try {
-    const textParts = encryptedText.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    
-    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-    let decrypted = decipher.update(encryptedData);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
+// Legacy CBC decrypt for backward compatibility
+function decryptLegacyCBC(encryptedText: string, key: string): string {
+  const textParts = encryptedText.split(':');
+  const iv = Buffer.from(textParts.shift()!, 'hex');
+  const encryptedData = Buffer.from(textParts.join(':'), 'hex');
+  const keyBuffer = Buffer.alloc(32);
+  Buffer.from(key).copy(keyBuffer);
+  const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
+  let decrypted = decipher.update(encryptedData);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
 }
 
-// Encrypt token for storage
-function encrypt(text: string, key: string): string {
+// Try GCM first, fallback to legacy CBC
+async function decryptCredential(ciphertext: string): Promise<string> {
+  // 1. Try modern GCM
   try {
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    
-    const iv = randomBytes(16);
-    const cipher = createCipheriv('aes-256-cbc', keyBuffer, iv);
-    let encrypted = cipher.update(text);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-    return iv.toString('hex') + ':' + encrypted.toString('hex');
-  } catch (error) {
-    console.error('Encryption error:', error);
-    return '';
+    const result = await decryptGCM(ciphertext);
+    if (result) return result;
+  } catch { /* fallback */ }
+
+  // 2. Try legacy CBC with key candidates
+  const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+  const keyCandidates = [encryptionKey, 'default-encryption-key-change-me', 'default-key'];
+  for (const candidate of keyCandidates) {
+    try {
+      const result = decryptLegacyCBC(ciphertext, candidate);
+      if (result) return result;
+    } catch { /* try next */ }
   }
+
+  throw new Error('Failed to decrypt credential with any method');
+}
+
+// Build frontend URL dynamically
+function getFrontendUrl(): string {
+  const configured = Deno.env.get('FRONTEND_URL');
+  if (configured) return configured;
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  return supabaseUrl.replace('.supabase.co', '.lovableproject.com');
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -58,18 +63,12 @@ serve(async (req) => {
     const error = url.searchParams.get('error');
     const errorDescription = url.searchParams.get('error_description');
 
-    console.log('Facebook OAuth callback received:', { 
-      hasCode: !!code, 
-      hasState: !!state, 
-      error 
-    });
+    console.log('Facebook OAuth callback received:', { hasCode: !!code, hasState: !!state, error });
 
-    // Handle OAuth errors
     if (error) {
       console.error('Facebook OAuth error:', error, errorDescription);
-      const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://preview--flowa-one.lovable.app';
       return Response.redirect(
-        `${frontendUrl}/auth/facebook/callback?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || '')}`,
+        `${getFrontendUrl()}/auth/facebook/callback?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || '')}`,
         302
       );
     }
@@ -78,7 +77,6 @@ serve(async (req) => {
       throw new Error('Missing code or state parameter');
     }
 
-    // Decode state to get brandTemplateId, organizationId, userId
     let stateData;
     try {
       stateData = JSON.parse(atob(state));
@@ -89,14 +87,11 @@ serve(async (req) => {
     const { brandTemplateId, organizationId, userId } = stateData;
     console.log('State decoded:', { brandTemplateId, organizationId, userId });
 
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get Facebook App credentials from social_platform_settings
-    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-    
     const { data: settings, error: settingsError } = await supabase
       .from('social_platform_settings')
       .select('consumer_key, consumer_secret')
@@ -108,8 +103,8 @@ serve(async (req) => {
       throw new Error('Facebook credentials not configured in Admin Settings');
     }
 
-    const appId = decrypt(settings.consumer_key, encryptionKey);
-    const appSecret = decrypt(settings.consumer_secret, encryptionKey);
+    const appId = await decryptCredential(settings.consumer_key);
+    const appSecret = await decryptCredential(settings.consumer_secret);
 
     if (!appId || !appSecret) {
       throw new Error('Failed to decrypt Facebook credentials');
@@ -117,7 +112,7 @@ serve(async (req) => {
 
     // Exchange code for short-lived user access token
     const redirectUri = `${supabaseUrl}/functions/v1/facebook-oauth-callback`;
-    
+
     console.log('Exchanging code for access token...');
     const tokenResponse = await fetch(
       `https://graph.facebook.com/v21.0/oauth/access_token?` + new URLSearchParams({
@@ -137,7 +132,7 @@ serve(async (req) => {
     const tokenData = await tokenResponse.json();
     console.log('Short-lived token obtained');
 
-    // Exchange short-lived token for long-lived token (60 days)
+    // Exchange for long-lived token (60 days)
     console.log('Exchanging for long-lived token...');
     const longLivedResponse = await fetch(
       `https://graph.facebook.com/v21.0/oauth/access_token?` + new URLSearchParams({
@@ -156,7 +151,7 @@ serve(async (req) => {
 
     const longLivedData = await longLivedResponse.json();
     const userAccessToken = longLivedData.access_token;
-    const expiresIn = longLivedData.expires_in || 5184000; // Default 60 days
+    const expiresIn = longLivedData.expires_in || 5184000;
     console.log('Long-lived user token obtained, expires in:', expiresIn);
 
     // Get user's Facebook Pages
@@ -176,32 +171,25 @@ serve(async (req) => {
 
     const pagesData = await pagesResponse.json();
     const pages = pagesData.data || [];
-    
     console.log(`Found ${pages.length} Pages`);
 
     if (pages.length === 0) {
-      // Redirect with error - no pages found
-      const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://preview--flowa-one.lovable.app';
       return Response.redirect(
-        `${frontendUrl}/auth/facebook/callback?error=no_pages&error_description=${encodeURIComponent('Không tìm thấy Facebook Page nào. Bạn cần có quyền quản lý ít nhất một Page.')}`,
+        `${getFrontendUrl()}/auth/facebook/callback?error=no_pages&error_description=${encodeURIComponent('Không tìm thấy Facebook Page nào. Bạn cần có quyền quản lý ít nhất một Page.')}`,
         302
       );
     }
 
-    // For now, use the first page (in future, could let user select)
     const selectedPage = pages[0];
     const pageAccessToken = selectedPage.access_token;
     const pageId = selectedPage.id;
     const pageName = selectedPage.name;
-
     console.log('Selected Page:', { pageId, pageName });
 
-    // Calculate token expiry (Page access tokens from long-lived user tokens don't expire)
-    // But we'll set a 60-day reminder anyway
     const tokenExpiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Encrypt the page access token for storage
-    const encryptedToken = encrypt(pageAccessToken, encryptionKey);
+    // Encrypt page access token using modern GCM
+    const encryptedToken = await encryptGCM(pageAccessToken);
 
     // Check for existing connection
     let query = supabase
@@ -217,7 +205,6 @@ serve(async (req) => {
 
     const { data: existingConnection } = await query.maybeSingle();
 
-    // Prepare connection data
     const connectionData = {
       organization_id: organizationId || null,
       brand_template_id: brandTemplateId || null,
@@ -226,7 +213,7 @@ serve(async (req) => {
       platform_username: pageName,
       platform_user_id: pageId,
       access_token: encryptedToken,
-      refresh_token: null, // Page tokens don't need refresh if derived from long-lived user token
+      refresh_token: null,
       token_expires_at: tokenExpiresAt,
       is_active: true,
       connected_at: new Date().toISOString(),
@@ -250,7 +237,6 @@ serve(async (req) => {
         .eq('id', existingConnection.id)
         .select()
         .single();
-
       if (updateError) throw updateError;
       connection = data;
       console.log('Updated existing Facebook connection:', connection.id);
@@ -260,15 +246,12 @@ serve(async (req) => {
         .insert(connectionData)
         .select()
         .single();
-
       if (insertError) throw insertError;
       connection = data;
       console.log('Created new Facebook connection:', connection.id);
     }
 
-    // Redirect to frontend callback page with success
-    const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://preview--flowa-one.lovable.app';
-    const successUrl = `${frontendUrl}/auth/facebook/callback?` + new URLSearchParams({
+    const successUrl = `${getFrontendUrl()}/auth/facebook/callback?` + new URLSearchParams({
       success: 'true',
       platform: 'facebook',
       page_name: pageName,
@@ -280,11 +263,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Facebook OAuth callback error:', error);
-    
-    const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://preview--flowa-one.lovable.app';
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return Response.redirect(
-      `${frontendUrl}/auth/facebook/callback?error=callback_failed&error_description=${encodeURIComponent(errorMessage)}`,
+      `${getFrontendUrl()}/auth/facebook/callback?error=callback_failed&error_description=${encodeURIComponent(errorMessage)}`,
       302
     );
   }
