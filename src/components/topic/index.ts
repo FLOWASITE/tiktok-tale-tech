@@ -50,6 +50,7 @@ export { UpcomingEventsCard } from './UpcomingEventsCard';
 export { QuickAccessBank } from './QuickAccessBank';
 export { AILearningStatus } from './AILearningStatus';
 export { TopicRefinementProgress } from './TopicRefinementProgress';
+export { TopicIdeaHub } from './TopicIdeaHub';
 
 // Phase 5: New Features
 export { TopicComparisonMode } from './TopicComparisonMode';
