@@ -69,6 +69,9 @@ import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSele
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { TopicContextBar } from '@/components/multichannel/TopicContextBar';
 import { AIGenerationProgress } from '@/components/multichannel/AIGenerationProgress';
+import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
+import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
+import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { cn } from '@/lib/utils';
 import { 
