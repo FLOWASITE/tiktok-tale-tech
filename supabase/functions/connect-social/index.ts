@@ -88,6 +88,8 @@ async function getGlobalPlatformCredentials(
 }
 
 serve(async (req) => {
+  // Capture frontend origin from request headers for OAuth redirect
+  const requestOrigin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/+$/, '').split('/').slice(0, 3).join('/') || '';
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
