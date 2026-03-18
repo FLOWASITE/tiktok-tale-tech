@@ -67,6 +67,7 @@ import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
 import { CompactBrandSelector } from '@/components/multichannel/CompactBrandSelector';
 import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
 import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
+import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { TopicContextBar } from '@/components/multichannel/TopicContextBar';
 import { AIGenerationProgress } from '@/components/multichannel/AIGenerationProgress';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
