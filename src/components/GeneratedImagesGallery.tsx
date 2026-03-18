@@ -24,6 +24,7 @@ export function GeneratedImagesGallery({
   slides,
   carouselTitle,
   onDeleteImage,
+  onGenerateAll,
 }: GeneratedImagesGalleryProps) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false, align: 'center' });
   const [selectedIndex, setSelectedIndex] = useState(0);
