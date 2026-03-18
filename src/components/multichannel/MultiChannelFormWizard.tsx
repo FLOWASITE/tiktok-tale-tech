@@ -1041,16 +1041,6 @@ export function MultiChannelFormWizard({
                       }}
                     />
                   </Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowBrainstormSheet(true)}
-                    disabled={isGenerating}
-                    className="h-7 px-2 text-xs gap-1.5 text-primary hover:bg-primary/10"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Brainstorm AI</span>
-                  </Button>
                 </div>
 
                 <div className="relative">

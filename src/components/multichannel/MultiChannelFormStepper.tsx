@@ -185,7 +185,7 @@ export function MultiChannelFormStepper({
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [loadingPhase, setLoadingPhase] = useState(0);
-  const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
+  
   const [internalElapsedMs, setInternalElapsedMs] = useState(0);
   const [uiLoading, setUiLoading] = useState(false);
   const uiLoadingStartedAtRef = useRef<number | null>(null);
