@@ -629,7 +629,9 @@ function buildStructuredElement(
   const { elements, colors, logoMeta } = request;
   const theme = resolveTheme(request.imageStyle, colors);
   const children: any[] = [];
-  const fontFamily = hasCustomFont ? 'Be Vietnam Pro' : 'sans-serif';
+  const fontFamily = hasCustomFont ? theme.fontFamily : 'sans-serif';
+  const headingFontFamily = hasCustomFont ? (theme.headingFontFamily || theme.fontFamily) : 'sans-serif';
+  const sp = theme.spacingMultiplier; // spacing multiplier
 
   // === Smart Density: reduce visual clutter ===
   // Detect education_infographic mode (has summaryRibbon = dense layout designed for it)
