@@ -40,7 +40,8 @@ const contentTypes = [
 const step1Images = [workflowBrandImg];
 const step2Images = [workflowTopicImg, workflowTopic2Img];
 const step4Images = [workflowAiContentImg];
-const step5Images = [workflowPublishImg];
+const step5AIImages = [workflowAiImage1, workflowAiImage2];
+const step6Images = [workflowPublishImg];
 
 // Step number component with timeline
 function StepNumber({ num, isLast }: { num: number; isLast: boolean }) {
