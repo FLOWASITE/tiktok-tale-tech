@@ -253,12 +253,14 @@ serve(async (req) => {
       console.log('Created new Threads connection:', connection.id);
     }
 
-    const successUrl = `${getFrontendUrl()}/auth/threads/callback?` + new URLSearchParams({
+    const redirectParams: Record<string, string> = {
       success: 'true',
       platform: 'threads',
       username: username,
       connection_id: connection.id,
-    }).toString();
+    };
+    if (brandTemplateId) redirectParams.brand_template_id = brandTemplateId;
+    const successUrl = `${getFrontendUrl(frontendOrigin)}/auth/threads/callback?` + new URLSearchParams(redirectParams).toString();
 
     console.log('Redirecting to:', successUrl);
     return Response.redirect(successUrl, 302);
