@@ -25,6 +25,7 @@ import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { BrandPreviewCard } from '@/components/BrandPreviewCard';
 import { PlatformSelector } from '@/components/carousel/PlatformSelector';
+import { CarouselStyleSelector } from '@/components/carousel/CarouselStyleSelector';
 import { SlideCountSelector } from '@/components/carousel/SlideCountSelector';
 import { AIToolSelector } from '@/components/carousel/AIToolSelector';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
