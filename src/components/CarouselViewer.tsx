@@ -1,4 +1,4 @@
-import { Carousel, CarouselStatus, CarouselSlide } from '@/types/carousel';
+import { Carousel, CarouselStatus, CarouselSlide, CAROUSEL_STYLE_OPTIONS } from '@/types/carousel';
 import { SlidePromptCard } from './SlidePromptCard';
 import { SortableSlideCard } from './SortableSlideCard';
 import {
