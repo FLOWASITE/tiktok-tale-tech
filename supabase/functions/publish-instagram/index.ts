@@ -1,6 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { createDecipheriv, createHash } from 'node:crypto';
-import { Buffer } from 'node:buffer';
+import { decryptCredential } from "../_shared/crypto.ts";
 
 interface PublishRequest {
   connectionId: string;
@@ -14,26 +13,6 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Decrypt function for stored credentials
-function decrypt(encryptedText: string, key: string): string {
-  try {
-    const parts = encryptedText.split(':');
-    if (parts.length !== 2) {
-      throw new Error('Invalid encrypted format');
-    }
-    const iv = Buffer.from(parts[0], 'hex');
-    const encrypted = Buffer.from(parts[1], 'hex');
-    const keyHash = createHash('sha256').update(key).digest();
-    const decipher = createDecipheriv('aes-256-cbc', keyHash, iv);
-    let decrypted = decipher.update(encrypted);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString('utf8');
-  } catch (error) {
-    console.error('Decryption error:', error);
-    throw new Error('Failed to decrypt credentials');
-  }
-}
 
 // Get global platform credentials from admin settings
 async function getGlobalPlatformCredentials(
