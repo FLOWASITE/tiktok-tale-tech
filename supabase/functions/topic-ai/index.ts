@@ -185,13 +185,16 @@ async function handleSuggest(
   params: TopicAIRequest,
   startTime: number
 ): Promise<Response> {
-  const { contentGoal, format, organizationId, brandTemplateId, recentTopics, seasonality, forceRefresh, skipWebSearch, query } = params as TopicAIRequest & { query?: string };
+  const { contentGoal, format, organizationId, brandTemplateId, recentTopics, seasonality, forceRefresh, skipWebSearch, categoryHint, query } = params as TopicAIRequest & { query?: string };
+
+  console.log(`[topic-ai:suggest] categoryHint: ${categoryHint || 'none'}`);
 
   // Phase 4: Enhanced cache key with context hash + query hash for unique results per query
   const hourBucket = Math.floor(Date.now() / (1000 * 60 * 60 * 4)); // 4-hour buckets (reduced from 8h for freshness)
   const contextHash = hashContextData(brandContext);
   const queryHash = query ? hashContextData({ q: query }) : 'no-query';
-  const cacheKey = `topic-suggestions-v9:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${queryHash}:${hourBucket}`;
+  const categoryHash = categoryHint ? hashContextData({ cat: categoryHint }) : 'no-cat';
+  const cacheKey = `topic-suggestions-v9:${organizationId || 'global'}:${brandContext?.industry?.[0] || params.industry || 'general'}:${contentGoal || 'education'}:${brandTemplateId || 'none'}:${format || 'all'}:${contextHash}:${queryHash}:${categoryHash}:${hourBucket}`;
   
   // Check cache first
   let cacheHitTimestamp: number | undefined;
