@@ -7878,6 +7878,73 @@ export type Database = {
         }
         Relationships: []
       }
+      social_post_engagements: {
+        Row: {
+          brand_template_id: string | null
+          connection_id: string | null
+          created_at: string
+          event_data: Json | null
+          event_type: string
+          facebook_event_id: string | null
+          id: string
+          organization_id: string | null
+          platform: string
+          post_id: string
+          sender_id: string | null
+          sender_name: string | null
+        }
+        Insert: {
+          brand_template_id?: string | null
+          connection_id?: string | null
+          created_at?: string
+          event_data?: Json | null
+          event_type: string
+          facebook_event_id?: string | null
+          id?: string
+          organization_id?: string | null
+          platform?: string
+          post_id: string
+          sender_id?: string | null
+          sender_name?: string | null
+        }
+        Update: {
+          brand_template_id?: string | null
+          connection_id?: string | null
+          created_at?: string
+          event_data?: Json | null
+          event_type?: string
+          facebook_event_id?: string | null
+          id?: string
+          organization_id?: string | null
+          platform?: string
+          post_id?: string
+          sender_id?: string | null
+          sender_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_post_engagements_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_post_engagements_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "social_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_post_engagements_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       storyboards: {
         Row: {
           created_at: string

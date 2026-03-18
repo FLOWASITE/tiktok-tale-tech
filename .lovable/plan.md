@@ -1,72 +1,62 @@
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-# Facebook Webhooks — Nhận engagement realtime cho bài đăng
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-## Tổng quan
+---
 
-Thêm endpoint nhận Facebook Webhooks để khi user tương tác (comment, react, share) trên bài đã đăng qua Flowa, hệ thống tự động cập nhật metrics. Cần thêm scope `pages_manage_metadata` vào OAuth flow.
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-## Thay đổi
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-### 1. Database — Bảng `social_post_engagements`
-Tạo bảng lưu engagement data từ webhook:
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-```sql
-CREATE TABLE public.social_post_engagements (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID REFERENCES organizations(id),
-  brand_template_id UUID REFERENCES brand_templates(id),
-  connection_id UUID REFERENCES social_connections(id),
-  platform TEXT NOT NULL DEFAULT 'facebook',
-  post_id TEXT NOT NULL,
-  event
+---
 
-<lov-plan>
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-# Facebook Webhooks — Nhận engagement realtime cho bài đăng
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-## Tổng quan
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-Thêm endpoint nhận Facebook Webhooks để khi user tương tác (comment, react, share) trên bài đã đăng qua Flowa, hệ thống tự động cập nhật metrics. Cần thêm scope `pages_manage_metadata` vào OAuth flow.
+---
 
-## Thay đổi
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
-### 1. Database — Bảng `social_post_engagements`
-Lưu engagement events từ webhook:
-- `post_id`, `platform`, `event_type` (comment, reaction, share), `event_data` (jsonb), `sender_id`, `sender_name`
-- FK tới `social_connections`, `organization_id`, `brand_template_id`
-- RLS: org members có thể đọc, chỉ service role ghi
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
 
-### 2. Edge Function `facebook-webhook` (mới)
-- **GET**: Xử lý Facebook Webhook Verification (`hub.mode`, `hub.verify_token`, `hub.challenge`)
-- **POST**: Nhận webhook events từ Facebook (feed changes: comments, reactions, shares)
-- Parse payload, match `page_id` → `social_connections` → lưu vào `social_post_engagements`
-- Cần secret `FACEBOOK_WEBHOOK_VERIFY_TOKEN` (token tự tạo để Facebook xác thực)
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
 
-### 3. Cập nhật OAuth scopes
-- **`connect-social/index.ts`**: Thêm `pages_manage_metadata` vào scope string (dòng 570)
-- **`facebook-oauth-callback/index.ts`**: Cập nhật scopes array (dòng 236) để phản ánh permission mới
-- Sau khi thêm scope, cần subscribe page tới webhook qua Graph API trong callback
+---
 
-### 4. Subscribe Page tới Webhook (trong `facebook-oauth-callback`)
-Sau khi lưu connection, gọi Graph API để subscribe page:
-```
-POST /{page_id}/subscribed_apps?subscribed_fields=feed&access_token={page_token}
-```
+## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
 
-### 5. Config
-- `supabase/config.toml`: Thêm `[functions.facebook-webhook]` với `verify_jwt = false` (Facebook gọi trực tiếp)
+### Vấn đề
+Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
 
-### File thay đổi
-| File | Thay đổi |
-|------|----------|
-| Migration SQL | Tạo bảng `social_post_engagements` + RLS |
-| `supabase/functions/facebook-webhook/index.ts` | **Mới** — nhận & xử lý webhook |
-| `supabase/functions/connect-social/index.ts` | Thêm `pages_manage_metadata` vào scope |
-| `supabase/functions/facebook-oauth-callback/index.ts` | Thêm scope + subscribe page tới webhook |
-
-### Lưu ý
-- User cần **kết nối lại Facebook** sau khi deploy để cấp thêm permission `pages_manage_metadata`
-- Cần cấu hình Webhook URL trên Facebook Developer Console: `https://rllyipiyuptkibqinotz.supabase.co/functions/v1/facebook-webhook`
-- Cần tạo secret `FACEBOOK_WEBHOOK_VERIFY_TOKEN` trước khi deploy
-
+### Đã sửa (6 files + 2 edge functions)
+1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
+2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
+3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
+4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
+5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
+6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
+7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
