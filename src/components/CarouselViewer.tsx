@@ -462,27 +462,43 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
 
           <ScrollArea className="flex-1 px-3 xs:px-6 py-3 xs:py-4">
             <TabsContent value="slides" className="mt-0 space-y-3 xs:space-y-4">
-              {/* Generate All Button */}
-              <div className="flex justify-end">
-                <Button
-                  onClick={handleGenerateAllImages}
-                  disabled={generatingAll || generating !== null}
-                  className="gap-1.5 xs:gap-2 h-8 xs:h-9 text-xs xs:text-sm"
-                  size="sm"
-                >
-                  {generatingAll ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 xs:w-4 xs:h-4 animate-spin" />
-                      <span className="hidden xs:inline">Đang tạo...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
-                      <span className="hidden xs:inline">Tạo tất cả ảnh</span>
-                      <span className="xs:hidden">Tạo ảnh</span>
-                    </>
-                  )}
-                </Button>
+              {/* Generate All Button + Progress */}
+              <div className="space-y-2">
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleGenerateAllImages}
+                    disabled={generatingAll || generating !== null}
+                    className="gap-1.5 xs:gap-2 h-8 xs:h-9 text-xs xs:text-sm"
+                    size="sm"
+                  >
+                    {generatingAll ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 xs:w-4 xs:h-4 animate-spin" />
+                        <span className="hidden xs:inline">Đang tạo...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
+                        <span className="hidden xs:inline">Tạo tất cả ảnh</span>
+                        <span className="xs:hidden">Tạo ảnh</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+                {generatingAll && (
+                  <div className="space-y-1.5 px-1">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1.5">
+                        <ImageIcon className="w-3.5 h-3.5 text-primary animate-pulse" />
+                        Đang tạo ảnh slide {Math.min(generatingProgress + 1, carousel.slide_count)}/{carousel.slide_count}
+                      </span>
+                      <span className="font-medium text-foreground">
+                        {Math.round((generatingProgress / carousel.slide_count) * 100)}%
+                      </span>
+                    </div>
+                    <Progress value={(generatingProgress / carousel.slide_count) * 100} className="h-2" />
+                  </div>
+                )}
               </div>
 
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
