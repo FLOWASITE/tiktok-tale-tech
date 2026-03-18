@@ -48,6 +48,7 @@ export function UserAvatar() {
   const navigate = useNavigate();
   const { isAdmin } = useAdmin();
   const { i18n } = useTranslation();
+  const { theme, setTheme } = useTheme();
   const [createOrgDialogOpen, setCreateOrgDialogOpen] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
   const [creatingOrg, setCreatingOrg] = useState(false);
