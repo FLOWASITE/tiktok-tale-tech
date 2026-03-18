@@ -280,30 +280,35 @@ export function DirectPublishButton({
 
               {/* Media Preview */}
               {mediaUrls && mediaUrls.length > 0 && (
-                <div className={cn(
-                  'border-t border-border',
-                  mediaUrls.length === 1 && 'aspect-video',
-                  mediaUrls.length > 1 && 'grid grid-cols-2 gap-0.5',
-                )}>
-                  {mediaUrls.slice(0, 4).map((url, i) => (
-                    <div key={i} className={cn(
-                      'relative overflow-hidden bg-muted',
-                      mediaUrls.length === 1 && 'w-full h-full',
-                      mediaUrls.length > 1 && 'aspect-square',
-                    )}>
-                      <img 
-                        src={url} 
-                        alt={`Ảnh ${i + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      {i === 3 && mediaUrls.length > 4 && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <span className="text-white text-lg font-bold">+{mediaUrls.length - 4}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <>
+                  <div className="px-3 pb-1.5">
+                    <span className="text-xs text-muted-foreground">📷 {mediaUrls.length} ảnh đính kèm</span>
+                  </div>
+                  <div className={cn(
+                    'border-t border-border',
+                    mediaUrls.length === 1 && 'max-h-72',
+                    mediaUrls.length > 1 && 'grid grid-cols-2 gap-0.5',
+                  )}>
+                    {mediaUrls.slice(0, 4).map((url, i) => (
+                      <div key={i} className={cn(
+                        'relative overflow-hidden bg-muted',
+                        mediaUrls.length === 1 && 'w-full h-full',
+                        mediaUrls.length > 1 && 'aspect-[4/3]',
+                      )}>
+                        <img 
+                          src={url} 
+                          alt={`Ảnh ${i + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        {i === 3 && mediaUrls.length > 4 && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <span className="text-white text-lg font-bold">+{mediaUrls.length - 4}</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           </div>
