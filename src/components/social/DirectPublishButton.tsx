@@ -336,7 +336,7 @@ export function DirectPublishButton({
               onClick={handlePublish}
               disabled={isPublishing}
               className={cn(
-                'sm:flex-1',
+                'sm:flex-1 font-semibold',
                 platform === 'facebook' && 'bg-[hsl(220,46%,48%)] hover:bg-[hsl(220,46%,42%)] text-white',
                 platform === 'twitter' && 'bg-foreground hover:bg-foreground/90 text-background',
                 platform === 'linkedin' && 'bg-[hsl(201,100%,35%)] hover:bg-[hsl(201,100%,30%)] text-white',
