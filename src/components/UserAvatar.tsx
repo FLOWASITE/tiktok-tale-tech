@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, LogOut, HelpCircle, Check, Shield, Building2, Plus, ExternalLink, Globe, Sun, Moon, Leaf, Monitor } from 'lucide-react';
+import { User, LogOut, Check, Shield, Building2, Plus, Globe, Sun, Moon, Leaf, Monitor, Settings, ChevronRight, Palette, HelpCircle, ExternalLink } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -14,7 +14,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuLabel,
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
@@ -39,6 +38,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useSubscription } from '@/hooks/useSubscription';
 import { getPlanBadge } from '@/lib/plan-badge';
+import { cn } from '@/lib/utils';
 
 export function UserAvatar() {
   const { user, signOut } = useAuth();
@@ -64,12 +64,11 @@ export function UserAvatar() {
   const currentLang = languages.find((l) => l.code === activeLang) || languages[0];
 
   const themes = [
-    { key: 'light', label: 'Sáng', icon: Sun },
-    { key: 'dark', label: 'Tối', icon: Moon },
-    { key: 'lime', label: 'Lime', icon: Leaf },
-    { key: 'system', label: 'Hệ thống', icon: Monitor },
+    { key: 'light', icon: Sun },
+    { key: 'dark', icon: Moon },
+    { key: 'lime', icon: Leaf },
+    { key: 'system', icon: Monitor },
   ];
-  const currentTheme = themes.find((t) => t.key === theme) || themes[0];
 
   const handleLanguageChange = (langCode: string) => {
     localStorage.setItem('flowa_lang_override', langCode);
@@ -83,38 +82,16 @@ export function UserAvatar() {
     navigate('/auth');
   };
 
-  const getAvatarUrl = () => {
-    return profile?.avatar_url || user?.user_metadata?.avatar_url;
-  };
+  const getAvatarUrl = () => profile?.avatar_url || user?.user_metadata?.avatar_url;
 
   const getInitials = () => {
-    if (profile?.full_name) {
-      return profile.full_name
-        .split(' ')
-        .map(n => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
-    }
-    if (user?.user_metadata?.full_name) {
-      return user.user_metadata.full_name
-        .split(' ')
-        .map((n: string) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
-    }
+    const name = profile?.full_name || user?.user_metadata?.full_name;
+    if (name) return name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
     return user?.email?.charAt(0).toUpperCase() || 'U';
   };
 
   const getDisplayName = () => {
-    if (profile?.full_name) {
-      return profile.full_name;
-    }
-    if (user?.user_metadata?.full_name) {
-      return user.user_metadata.full_name;
-    }
-    return user?.email?.split('@')[0] || 'User';
+    return profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
   };
 
   const handleSwitchOrg = (orgId: string) => {
@@ -123,34 +100,21 @@ export function UserAvatar() {
   };
 
   const handleCreateOrg = async () => {
-    if (!newOrgName.trim()) {
-      toast.error('Vui lòng nhập tên tổ chức');
-      return;
-    }
-
+    if (!newOrgName.trim()) { toast.error('Vui lòng nhập tên tổ chức'); return; }
     setCreatingOrg(true);
     try {
       const org = await createOrganization(newOrgName.trim());
       if (!org) return;
-
       toast.success('Đã tạo tổ chức mới');
       setNewOrgName('');
       setCreateOrgDialogOpen(false);
-
-      // Switch to the new org
       switchOrganization(org.id);
-
-      // Navigate to organization settings
       navigate('/organization');
     } catch (error: any) {
       toast.error('Lỗi tạo tổ chức: ' + (error?.message ?? 'Unknown error'));
     } finally {
       setCreatingOrg(false);
     }
-  };
-
-  const handleSupportClick = () => {
-    window.open('https://docs.lovable.dev', '_blank');
   };
 
   return (
@@ -167,202 +131,167 @@ export function UserAvatar() {
               </Avatar>
             </DropdownMenuTrigger>
           </TooltipTrigger>
-          <TooltipContent>
-            <p>Tài khoản</p>
-          </TooltipContent>
+          <TooltipContent><p>Tài khoản</p></TooltipContent>
         </Tooltip>
-        <DropdownMenuContent align="end" className="w-72 bg-popover">
-          {/* Enhanced Header */}
-          <div className="px-3 py-3">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10 border border-border">
-                <AvatarImage src={getAvatarUrl()} />
-                <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                  {getInitials()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
+
+        <DropdownMenuContent align="end" className="w-64 p-0 bg-popover">
+          {/* Profile Header */}
+          <div
+            className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
+            onClick={() => navigate('/account')}
+          >
+            <Avatar className="h-9 w-9 border border-border shrink-0">
+              <AvatarImage src={getAvatarUrl()} />
+              <AvatarFallback className="bg-primary/10 text-primary font-medium text-sm">
+                {getInitials()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
                 <p className="text-sm font-medium truncate">{getDisplayName()}</p>
-                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                <Badge className={`text-[9px] px-1 py-0 leading-tight shrink-0 ${planBadge.className}`}>
+                  {planBadge.label}
+                </Badge>
               </div>
-            </div>
-            
-            {/* Badges */}
-            <div className="flex flex-wrap gap-1.5 mt-3">
-              {currentOrganization && (
-                <Badge variant="outline" className="text-xs gap-1">
-                  <Building2 className="w-3 h-3" />
-                  {currentOrganization.name}
-                </Badge>
-              )}
-              <Badge className={`text-[10px] ${planBadge.className}`}>
-                {planBadge.label}
-              </Badge>
-              {currentRole && (
-                <Badge className={`text-xs ${ORG_ROLE_COLORS[currentRole]}`}>
-                  {ORG_ROLE_LABELS[currentRole]}
-                </Badge>
-              )}
-              {isAdmin && (
-                <Badge variant="destructive" className="text-xs">Admin</Badge>
-              )}
+              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
             </div>
           </div>
-          
-          <DropdownMenuSeparator />
-          
-          {/* Hồ sơ cá nhân */}
-          <DropdownMenuLabel className="text-xs text-muted-foreground px-2">
-            Hồ sơ cá nhân
-          </DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => navigate('/account')}>
-            <User className="mr-2 h-4 w-4" />
-            Tài khoản
-          </DropdownMenuItem>
-          
-          <DropdownMenuSeparator />
-          
-          {/* Tổ chức */}
-          <DropdownMenuLabel className="text-xs text-muted-foreground px-2">
-            Tổ chức
-          </DropdownMenuLabel>
-          
-          {/* Organization Switcher */}
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger className="gap-2">
-              <Building2 className="h-4 w-4" />
-              <span className="flex-1 truncate">
-                {currentOrganization?.name || 'Chọn Tổ chức'}
-              </span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuPortal>
-              <DropdownMenuSubContent className="w-64 bg-popover">
-                <DropdownMenuLabel className="text-xs text-muted-foreground">
-                  Tổ chức của bạn
-                </DropdownMenuLabel>
-                
-                {organizations.length === 0 ? (
-                  <div className="px-2 py-3 text-sm text-muted-foreground text-center">
-                    Chưa có tổ chức nào
-                  </div>
-                ) : (
-                  organizations.map((org) => (
+
+          <DropdownMenuSeparator className="my-0" />
+
+          {/* Organization */}
+          <div className="p-1">
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="gap-2 rounded-sm">
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+                <span className="flex-1 truncate text-sm">
+                  {currentOrganization?.name || 'Chọn tổ chức'}
+                </span>
+                {currentRole && (
+                  <Badge variant="outline" className={cn("text-[10px] px-1 py-0 leading-tight shrink-0", ORG_ROLE_COLORS[currentRole])}>
+                    {ORG_ROLE_LABELS[currentRole]}
+                  </Badge>
+                )}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent className="w-56 bg-popover">
+                  {organizations.length === 0 ? (
+                    <div className="px-2 py-3 text-sm text-muted-foreground text-center">
+                      Chưa có tổ chức nào
+                    </div>
+                  ) : (
+                    organizations.map((org) => (
+                      <DropdownMenuItem
+                        key={org.id}
+                        onClick={() => handleSwitchOrg(org.id)}
+                        className="gap-2"
+                      >
+                        <span className="flex-1 truncate text-sm">{org.name}</span>
+                        {org.id === currentOrganization?.id && (
+                          <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                        )}
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setCreateOrgDialogOpen(true)} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Tạo tổ chức mới
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+
+            {currentOrganization && (
+              <DropdownMenuItem onClick={() => navigate('/organization')} className="gap-2 rounded-sm">
+                <Settings className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">Cài đặt tổ chức</span>
+              </DropdownMenuItem>
+            )}
+
+            {isAdmin && (
+              <DropdownMenuItem onClick={() => navigate('/admin/dashboard')} className="gap-2 rounded-sm">
+                <Shield className="h-4 w-4 text-destructive" />
+                <span className="text-sm">Admin Dashboard</span>
+              </DropdownMenuItem>
+            )}
+          </div>
+
+          <DropdownMenuSeparator className="my-0" />
+
+          {/* Preferences: Language + Theme inline */}
+          <div className="p-1">
+            {/* Language */}
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="gap-2 rounded-sm">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                <span className="flex-1 text-sm">{currentLang.flag} {currentLang.name}</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent className="w-44 bg-popover">
+                  {languages.map((lang) => (
                     <DropdownMenuItem
-                      key={org.id}
-                      onClick={() => handleSwitchOrg(org.id)}
+                      key={lang.code}
+                      onClick={() => handleLanguageChange(lang.code)}
                       className="gap-2"
                     >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">{org.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {ORG_ROLE_LABELS[org.role]}
-                        </p>
-                      </div>
-                      {org.id === currentOrganization?.id && (
-                        <Check className="w-4 h-4 text-primary shrink-0" />
+                      <span>{lang.flag}</span>
+                      <span className="flex-1 text-sm">{lang.name}</span>
+                      {activeLang === lang.code && (
+                        <Check className="w-3.5 h-3.5 text-primary shrink-0" />
                       )}
                     </DropdownMenuItem>
-                  ))
-                )}
-                
-                <DropdownMenuSeparator />
-                
-                <DropdownMenuItem onClick={() => setCreateOrgDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Tạo tổ chức mới
-                </DropdownMenuItem>
-              </DropdownMenuSubContent>
-            </DropdownMenuPortal>
-          </DropdownMenuSub>
-          
-          {currentOrganization && (
-            <DropdownMenuItem onClick={() => navigate('/organization')}>
-              <Building2 className="mr-2 h-4 w-4" />
-              Cài đặt tổ chức
-            </DropdownMenuItem>
-          )}
-          
-          {/* Admin */}
-          {isAdmin && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs text-muted-foreground px-2">
-                Quản trị
-              </DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => navigate('/admin/dashboard')}>
-                <Shield className="mr-2 h-4 w-4 text-destructive" />
-                Admin Dashboard
-              </DropdownMenuItem>
-            </>
-          )}
-          
-          <DropdownMenuSeparator />
-          
-          {/* Language Switcher */}
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger className="gap-2">
-              <Globe className="h-4 w-4" />
-              <span className="flex-1">{currentLang.flag} {currentLang.name}</span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuPortal>
-              <DropdownMenuSubContent className="w-48 bg-popover">
-                {languages.map((lang) => (
-                  <DropdownMenuItem
-                    key={lang.code}
-                    onClick={() => handleLanguageChange(lang.code)}
-                    className="gap-2"
-                  >
-                    <span>{lang.flag}</span>
-                    <span className="flex-1">{lang.name}</span>
-                    {activeLang === lang.code && (
-                      <Check className="w-4 h-4 text-primary shrink-0" />
-                    )}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuPortal>
-          </DropdownMenuSub>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
 
-          {/* Theme Switcher */}
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger className="gap-2">
-              <currentTheme.icon className="h-4 w-4" />
-              <span className="flex-1">{currentTheme.label}</span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuPortal>
-              <DropdownMenuSubContent className="w-48 bg-popover">
+            {/* Theme - inline toggle row */}
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded-sm">
+              <Palette className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-sm flex-1">Giao diện</span>
+              <div className="flex items-center gap-0.5 bg-muted/60 rounded-md p-0.5">
                 {themes.map((t) => {
                   const Icon = t.icon;
+                  const isActive = theme === t.key;
                   return (
-                    <DropdownMenuItem
+                    <button
                       key={t.key}
-                      onClick={() => setTheme(t.key)}
-                      className="gap-2"
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span className="flex-1">{t.label}</span>
-                      {theme === t.key && (
-                        <Check className="w-4 h-4 text-primary shrink-0" />
+                      onClick={(e) => { e.stopPropagation(); setTheme(t.key); }}
+                      className={cn(
+                        "p-1 rounded transition-all",
+                        isActive
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
                       )}
-                    </DropdownMenuItem>
+                      title={t.key}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                    </button>
                   );
                 })}
-              </DropdownMenuSubContent>
-            </DropdownMenuPortal>
-          </DropdownMenuSub>
+              </div>
+            </div>
 
-          <DropdownMenuItem onClick={handleSupportClick}>
-            <HelpCircle className="mr-2 h-4 w-4" />
-            Trợ giúp
-            <ExternalLink className="ml-auto h-3 w-3 text-muted-foreground" />
-          </DropdownMenuItem>
-          
-          <DropdownMenuSeparator />
-          
-          <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
-            <LogOut className="mr-2 h-4 w-4" />
-            Đăng xuất
-          </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => window.open('https://docs.lovable.dev', '_blank')}
+              className="gap-2 rounded-sm"
+            >
+              <HelpCircle className="h-4 w-4 text-muted-foreground" />
+              <span className="flex-1 text-sm">Trợ giúp</span>
+              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+            </DropdownMenuItem>
+          </div>
+
+          <DropdownMenuSeparator className="my-0" />
+
+          {/* Sign out */}
+          <div className="p-1">
+            <DropdownMenuItem onClick={handleSignOut} className="gap-2 rounded-sm text-destructive focus:text-destructive">
+              <LogOut className="h-4 w-4" />
+              <span className="text-sm">Đăng xuất</span>
+            </DropdownMenuItem>
+          </div>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -377,9 +306,7 @@ export function UserAvatar() {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div>
-              <label className="text-sm font-medium mb-2 block">
-                Tên tổ chức
-              </label>
+              <label className="text-sm font-medium mb-2 block">Tên tổ chức</label>
               <Input
                 placeholder="VD: Công ty ABC"
                 value={newOrgName}
@@ -388,16 +315,8 @@ export function UserAvatar() {
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setCreateOrgDialogOpen(false)}
-              >
-                Hủy
-              </Button>
-              <Button
-                onClick={handleCreateOrg}
-                disabled={creatingOrg || !newOrgName.trim()}
-              >
+              <Button variant="outline" onClick={() => setCreateOrgDialogOpen(false)}>Hủy</Button>
+              <Button onClick={handleCreateOrg} disabled={creatingOrg || !newOrgName.trim()}>
                 {creatingOrg ? 'Đang tạo...' : 'Tạo tổ chức'}
               </Button>
             </div>
