@@ -43,8 +43,21 @@ async function decryptCredential(ciphertext: string): Promise<string> {
   throw new Error('Failed to decrypt credential with any method');
 }
 
-// Build frontend URL dynamically
-function getFrontendUrl(): string {
+// Allowed origin patterns for open-redirect prevention
+const ALLOWED_ORIGIN_PATTERNS = [
+  /^https:\/\/[a-z0-9-]+\.lovable\.app$/,
+  /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/,
+  /^https:\/\/(app\.)?flowa\.(one|vn)$/,
+  /^http:\/\/localhost(:\d+)?$/,
+];
+
+function isAllowedOrigin(origin: string): boolean {
+  return ALLOWED_ORIGIN_PATTERNS.some(p => p.test(origin));
+}
+
+// Build frontend URL: prefer state origin > FRONTEND_URL > fallback
+function getFrontendUrl(stateOrigin?: string | null): string {
+  if (stateOrigin && isAllowedOrigin(stateOrigin)) return stateOrigin;
   const configured = Deno.env.get('FRONTEND_URL');
   if (configured) return configured;
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
