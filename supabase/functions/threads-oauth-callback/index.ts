@@ -78,8 +78,10 @@ serve(async (req) => {
 
     if (error) {
       console.error('Threads OAuth error:', error, errorDescription);
+      let errorOrigin: string | null = null;
+      try { if (state) errorOrigin = JSON.parse(atob(state)).frontendOrigin; } catch { /* ignore */ }
       return Response.redirect(
-        `${getFrontendUrl()}/auth/threads/callback?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || '')}`,
+        `${getFrontendUrl(errorOrigin)}/auth/threads/callback?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || '')}`,
         302
       );
     }
