@@ -501,8 +501,8 @@ export function MultiChannelFormStepper({
                   </p>
                 )}
 
-                {/* Topic Suggestion Panel - like CarouselForm */}
-                <TopicSuggestionPanel
+                {/* Unified Topic Idea Hub - Suggestions + Brainstorm AI */}
+                <TopicIdeaHub
                   suggestions={topicSuggestions}
                   source={suggestionsSource}
                   isLoading={suggestionsLoading}
@@ -514,19 +514,8 @@ export function MultiChannelFormStepper({
                   showNavigateToTopics
                   showEnhancedInfo
                   contentGoal={formData.contentGoal}
+                  brandTemplateId={formData.brandTemplateId}
                 />
-
-                {/* Brainstorm with AI Button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowBrainstormSheet(true)}
-                  className="gap-2 text-primary border-primary/30 hover:bg-primary/5"
-                  disabled={isLoading}
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  Brainstorm với AI
-                </Button>
 
                 {/* Topic Refinement */}
                 {formData.topic.trim().length >= 10 && (
