@@ -875,7 +875,7 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
         return;
       }
       handleSuggestApiError(err, 'Không thể tải gợi ý chủ đề');
-      setAllSuggestions([]);
+      // SWR: keep stale suggestions on error instead of clearing
       setSuggestSource('fallback');
     } finally {
       suggestIsFetchingRef.current = false;
