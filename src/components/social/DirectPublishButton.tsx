@@ -201,7 +201,7 @@ export function DirectPublishButton({
         open={confirmDialog.open} 
         onOpenChange={(open) => !open && setConfirmDialog({ open: false, platform: null })}
       >
-        <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-2xl p-0 overflow-hidden">
           {/* Platform Header */}
           <div className={cn(
             'px-6 py-4 flex items-center gap-3',
