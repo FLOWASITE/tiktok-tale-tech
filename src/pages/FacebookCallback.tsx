@@ -12,6 +12,7 @@ export default function FacebookCallback() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [pageName, setPageName] = useState('');
+  const brandTemplateId = searchParams.get('brand_template_id');
 
   useEffect(() => {
     const success = searchParams.get('success');
