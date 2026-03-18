@@ -1099,6 +1099,7 @@ export function MultiChannelFormWizard({
                 onSelect={(topic) => { setTopicFromQuickAction(false); setFormData(prev => ({ ...prev, topic })); }}
                 onQuickActionSelect={(topic) => { setTopicFromQuickAction(true); setFormData(prev => ({ ...prev, topic })); }}
                 onRefresh={refreshSuggestions}
+                onCategoryRefresh={(category) => { console.log('[TopicIdeaHub] Category refresh:', category); refreshSuggestions(); }}
                 onSave={saveSuggestion}
                 onFeedback={submitFeedback}
                 disabled={isGenerating}
