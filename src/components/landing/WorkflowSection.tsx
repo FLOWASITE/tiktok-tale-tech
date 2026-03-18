@@ -209,8 +209,10 @@ export function WorkflowSection() {
                 <StepWithCarousel step={step} images={step2Images} altPrefix="Topic Suggestion Screenshot" isLast={index === steps.length - 1} />
               ) : step.num === 4 ? (
                 <StepWithCarousel step={step} images={step4Images} altPrefix="AI Content Generation Screenshot" isLast={index === steps.length - 1} />
+              ) : step.num === 5 ? (
+                <StepWithCarousel step={step} images={step5AIImages} altPrefix="AI Image Generation Screenshot" isLast={index === steps.length - 1} />
               ) : step.num === 6 ? (
-                <StepWithCarousel step={step} images={step5Images} altPrefix="Publishing Screenshot" isLast={index === steps.length - 1} />
+                <StepWithCarousel step={step} images={step6Images} altPrefix="Publishing Screenshot" isLast={index === steps.length - 1} />
               ) : (
                 /* Other steps: original layout with timeline */
                 <div className="flex gap-5 md:gap-6 items-start">
