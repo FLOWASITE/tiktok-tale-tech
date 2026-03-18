@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createDecipheriv } from "node:crypto";
-import { Buffer } from "node:buffer";
+import { decryptCredential } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,26 +9,6 @@ const corsHeaders = {
 
 interface TestConnectionRequest {
   connectionId: string;
-}
-
-// Decrypt encrypted token
-function decrypt(encryptedText: string, key: string): string {
-  try {
-    const textParts = encryptedText.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    
-    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-    let decrypted = decipher.update(encryptedData);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
 }
 
 serve(async (req) => {
@@ -77,12 +56,7 @@ serve(async (req) => {
     }
 
     // Decrypt access token
-    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-    const accessToken = decrypt(connection.access_token, encryptionKey);
-
-    if (!accessToken) {
-      throw new Error('Failed to decrypt access token');
-    }
+    const accessToken = await decryptCredential(connection.access_token);
 
     // Check token expiry
     const tokenExpiresAt = connection.token_expires_at ? new Date(connection.token_expires_at) : null;

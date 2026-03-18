@@ -1,28 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { decryptCredential } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// Decrypt function matching the encryption used in connect-social
-async function decryptToken(encryptedData: string, encryptionKey: string): Promise<string> {
-  const [ivHex, encryptedHex, authTagHex] = encryptedData.split(":");
-  
-  const iv = new Uint8Array(ivHex.match(/.{1,2}/g)!.map((byte: string) => parseInt(byte, 16)));
-  const encrypted = new Uint8Array(encryptedHex.match(/.{1,2}/g)!.map((byte: string) => parseInt(byte, 16)));
-  const authTag = new Uint8Array(authTagHex.match(/.{1,2}/g)!.map((byte: string) => parseInt(byte, 16)));
-  
-  const keyData = new Uint8Array(encryptionKey.match(/.{1,2}/g)!.map((byte: string) => parseInt(byte, 16)));
-  const key = await crypto.subtle.importKey("raw", keyData, { name: "AES-GCM" }, false, ["decrypt"]);
-  
-  const combined = new Uint8Array(encrypted.length + authTag.length);
-  combined.set(encrypted);
-  combined.set(authTag, encrypted.length);
-  
-  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, combined);
-  return new TextDecoder().decode(decrypted);
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -41,14 +23,6 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const encryptionKey = Deno.env.get("SOCIAL_ENCRYPTION_KEY");
-
-    if (!encryptionKey) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Encryption key not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -77,7 +51,7 @@ Deno.serve(async (req) => {
     // Decrypt the access token
     let accessToken: string;
     try {
-      accessToken = await decryptToken(connection.access_token, encryptionKey);
+      accessToken = await decryptCredential(connection.access_token);
     } catch (decryptError) {
       console.error("Failed to decrypt access token:", decryptError);
       return new Response(

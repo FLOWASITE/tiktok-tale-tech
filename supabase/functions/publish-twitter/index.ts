@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createHmac, createDecipheriv } from "node:crypto";
-import { Buffer } from "node:buffer";
+import { decryptCredential } from "../_shared/crypto.ts";
+import { createHmac } from "node:crypto";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,32 +16,10 @@ interface PublishRequest {
   scheduleId?: string;
 }
 
-// Decrypt encrypted credentials from social_platform_settings
-function decrypt(encryptedText: string, key: string): string {
-  try {
-    const textParts = encryptedText.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    
-    // Create key from string (must be 32 bytes for aes-256-cbc)
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    
-    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-    let decrypted = decipher.update(encryptedData);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
-}
-
 // Get global platform credentials from social_platform_settings
 async function getGlobalPlatformCredentials(
   supabase: any,
   platform: string,
-  encryptionKey: string
 ): Promise<{ consumerKey: string | null; consumerSecret: string | null }> {
   try {
     const { data, error } = await supabase
@@ -56,10 +34,11 @@ async function getGlobalPlatformCredentials(
       return { consumerKey: null, consumerSecret: null };
     }
 
-    return {
-      consumerKey: data.consumer_key ? decrypt(data.consumer_key, encryptionKey) : null,
-      consumerSecret: data.consumer_secret ? decrypt(data.consumer_secret, encryptionKey) : null,
-    };
+    const [consumerKey, consumerSecret] = await Promise.all([
+      data.consumer_key ? decryptCredential(data.consumer_key) : null,
+      data.consumer_secret ? decryptCredential(data.consumer_secret) : null,
+    ]);
+    return { consumerKey, consumerSecret };
   } catch (error) {
     console.error('Error fetching global credentials:', error);
     return { consumerKey: null, consumerSecret: null };
@@ -217,8 +196,7 @@ serve(async (req) => {
 
     if (!consumerKey || !consumerSecret) {
       // Try global admin settings
-      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-      const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter', encryptionKey);
+      const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter');
       
       if (globalCreds.consumerKey && globalCreds.consumerSecret) {
         consumerKey = globalCreds.consumerKey;

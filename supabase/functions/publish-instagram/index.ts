@@ -1,6 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { createDecipheriv, createHash } from 'node:crypto';
-import { Buffer } from 'node:buffer';
+import { decryptCredential } from "../_shared/crypto.ts";
 
 interface PublishRequest {
   connectionId: string;
@@ -15,31 +14,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Decrypt function for stored credentials
-function decrypt(encryptedText: string, key: string): string {
-  try {
-    const parts = encryptedText.split(':');
-    if (parts.length !== 2) {
-      throw new Error('Invalid encrypted format');
-    }
-    const iv = Buffer.from(parts[0], 'hex');
-    const encrypted = Buffer.from(parts[1], 'hex');
-    const keyHash = createHash('sha256').update(key).digest();
-    const decipher = createDecipheriv('aes-256-cbc', keyHash, iv);
-    let decrypted = decipher.update(encrypted);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString('utf8');
-  } catch (error) {
-    console.error('Decryption error:', error);
-    throw new Error('Failed to decrypt credentials');
-  }
-}
-
 // Get global platform credentials from admin settings
 async function getGlobalPlatformCredentials(
   supabase: any,
   platform: string,
-  encryptionKey: string
 ): Promise<{ appId: string | null; appSecret: string | null }> {
   try {
     const { data: settings, error } = await supabase
@@ -54,17 +32,10 @@ async function getGlobalPlatformCredentials(
       return { appId: null, appSecret: null };
     }
 
-    let appId = settings.consumer_key;
-    let appSecret = settings.consumer_secret;
-
-    // Decrypt if encrypted
-    if (appId && appId.includes(':')) {
-      appId = decrypt(appId, encryptionKey);
-    }
-    if (appSecret && appSecret.includes(':')) {
-      appSecret = decrypt(appSecret, encryptionKey);
-    }
-
+    const [appId, appSecret] = await Promise.all([
+      settings.consumer_key ? decryptCredential(settings.consumer_key) : null,
+      settings.consumer_secret ? decryptCredential(settings.consumer_secret) : null,
+    ]);
     return { appId, appSecret };
   } catch (error) {
     console.error('Error fetching global credentials:', error);
@@ -314,9 +285,12 @@ Deno.serve(async (req) => {
       throw new Error('Instagram access token or user ID not found');
     }
 
-    // Decrypt access token if encrypted
-    if (accessToken.includes(':')) {
-      accessToken = decrypt(accessToken, encryptionKey);
+    // Decrypt access token
+    try {
+      accessToken = await decryptCredential(accessToken);
+    } catch (e) {
+      console.error('Failed to decrypt access token:', e);
+      throw new Error('Failed to decrypt access token');
     }
 
     // Create publish attempt record

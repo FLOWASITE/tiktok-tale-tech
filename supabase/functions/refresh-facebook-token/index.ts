@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createDecipheriv, createCipheriv, randomBytes } from "node:crypto";
-import { Buffer } from "node:buffer";
+import { decryptCredential, encrypt as encryptGCM } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,43 +9,6 @@ const corsHeaders = {
 
 interface RefreshRequest {
   connectionId: string;
-}
-
-// Decrypt encrypted token
-function decrypt(encryptedText: string, key: string): string {
-  try {
-    const textParts = encryptedText.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    
-    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-    let decrypted = decipher.update(encryptedData);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
-}
-
-// Encrypt token for storage
-function encrypt(text: string, key: string): string {
-  try {
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    
-    const iv = randomBytes(16);
-    const cipher = createCipheriv('aes-256-cbc', keyBuffer, iv);
-    let encrypted = cipher.update(text);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-    return iv.toString('hex') + ':' + encrypted.toString('hex');
-  } catch (error) {
-    console.error('Encryption error:', error);
-    return '';
-  }
 }
 
 serve(async (req) => {
@@ -93,12 +55,7 @@ serve(async (req) => {
       throw new Error('Facebook connection not found');
     }
 
-    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-    const currentToken = decrypt(connection.access_token, encryptionKey);
-
-    if (!currentToken) {
-      throw new Error('Failed to decrypt current access token');
-    }
+    const currentToken = await decryptCredential(connection.access_token);
 
     // Check if token is still valid by making a simple API call
     console.log('Checking current token validity...');
