@@ -27,9 +27,9 @@ export const IMAGE_STYLE_PRESETS: Record<ImageStylePreset, {
     negativeKeywords: ['photorealistic', 'photograph', 'blurry', 'noisy'],
   },
   minimalist: {
-    description: 'Clean, simple design with subtle colors and soft gradients',
-    keywords: ['minimalist', 'clean design', 'simple composition', 'elegant', 'understated', 'soft color palette', 'subtle gradient background'],
-    negativeKeywords: ['cluttered', 'busy', 'complex', 'detailed', 'ornate', 'pure white background', 'blank', 'empty'],
+    description: 'Clean Modern — monochromatic, 40-50% negative space, hairline borders, no clutter',
+    keywords: ['minimalist', 'clean design', 'simple composition', 'elegant', 'understated', 'soft color palette', 'subtle gradient background', 'white space', 'refined', 'muted tones', 'light grey'],
+    negativeKeywords: ['cluttered', 'busy', 'complex', 'detailed', 'ornate', 'pure white background', 'blank', 'empty', 'neon', 'bold colors', 'heavy shadows'],
   },
   '3d_render': {
     description: '3D rendered graphics with depth and dimension',
@@ -37,9 +37,9 @@ export const IMAGE_STYLE_PRESETS: Record<ImageStylePreset, {
     negativeKeywords: ['flat', '2D', 'illustration', 'sketch'],
   },
   flat_design: {
-    description: 'Flat design style with solid colors and geometric shapes',
-    keywords: ['flat design', 'solid colors', 'geometric shapes', 'no shadows', 'modern UI style'],
-    negativeKeywords: ['3D', 'realistic', 'gradient heavy', 'photorealistic'],
+    description: 'Bold Infographic — high-contrast blocky shapes, solid colors, no shadows, data-driven layout',
+    keywords: ['flat design', 'solid colors', 'geometric shapes', 'no shadows', 'modern UI style', 'bold contrast', 'blocky layout', 'infographic background', 'data visualization'],
+    negativeKeywords: ['3D', 'realistic', 'gradient heavy', 'photorealistic', 'soft', 'pastel'],
   },
   watercolor: {
     description: 'Soft watercolor painting aesthetic',
@@ -57,9 +57,9 @@ export const IMAGE_STYLE_PRESETS: Record<ImageStylePreset, {
     negativeKeywords: ['realistic', 'photographic', 'literal', 'human faces', 'portraits', 'people', 'models'],
   },
   geometric: {
-    description: 'Clean geometric patterns with modern shapes',
-    keywords: ['geometric patterns', 'clean shapes', 'modern design', 'symmetry', 'polygons', 'lines and angles', 'mathematical precision'],
-    negativeKeywords: ['organic', 'realistic', 'photographs', 'human faces', 'portraits', 'people', 'models'],
+    description: 'Corporate — navy/charcoal tones, strict grid alignment, professional shapes, authority-conveying',
+    keywords: ['geometric patterns', 'clean shapes', 'modern design', 'symmetry', 'corporate', 'professional', 'navy blue', 'charcoal', 'gold accent', 'business', 'authority'],
+    negativeKeywords: ['organic', 'realistic', 'photographs', 'human faces', 'portraits', 'people', 'models', 'playful', 'casual'],
   },
   isometric: {
     description: 'Isometric 3D perspective with tech-inspired aesthetics',
@@ -67,13 +67,13 @@ export const IMAGE_STYLE_PRESETS: Record<ImageStylePreset, {
     negativeKeywords: ['photorealistic', 'organic', 'messy', 'human faces', 'portraits', 'people', 'models'],
   },
   gradient: {
-    description: 'Smooth gradient backgrounds with color transitions',
-    keywords: ['gradient background', 'smooth color transitions', 'mesh gradients', 'soft colors', 'ambient lighting', 'ethereal feel', 'color flow'],
-    negativeKeywords: ['harsh edges', 'busy patterns', 'cluttered', 'human faces', 'portraits', 'people', 'models', 'noisy textures'],
+    description: 'Gradient Flow — neon/vibrant gradient transitions, mesh gradients, futuristic glow, tech lifestyle',
+    keywords: ['gradient background', 'smooth color transitions', 'mesh gradients', 'neon colors', 'ambient lighting', 'ethereal feel', 'color flow', 'purple to pink', 'blue to teal', 'futuristic glow'],
+    negativeKeywords: ['harsh edges', 'busy patterns', 'cluttered', 'human faces', 'portraits', 'people', 'models', 'noisy textures', 'muted', 'dull'],
   },
   product_only: {
-    description: 'Clean product-focused imagery without people',
-    keywords: ['product photography', 'clean background', 'studio lighting', 'product focus', 'commercial quality', 'no people', 'object only', 'item showcase'],
+    description: 'Product Focus — clean studio background, product hero shot, transparent bg ready, commercial quality',
+    keywords: ['product photography', 'clean background', 'studio lighting', 'product focus', 'commercial quality', 'no people', 'object only', 'item showcase', 'solid color backdrop', 'contact shadow'],
     negativeKeywords: ['people', 'human faces', 'portraits', 'hands', 'models', 'lifestyle with people', 'crowds', 'persons'],
   },
 };
