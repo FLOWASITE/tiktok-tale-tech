@@ -80,8 +80,11 @@ serve(async (req) => {
 
     if (error) {
       console.error('Facebook OAuth error:', error, errorDescription);
+      // Try to extract origin from state for error redirects
+      let errorOrigin: string | null = null;
+      try { if (state) errorOrigin = JSON.parse(atob(state)).frontendOrigin; } catch { /* ignore */ }
       return Response.redirect(
-        `${getFrontendUrl()}/auth/facebook/callback?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || '')}`,
+        `${getFrontendUrl(errorOrigin)}/auth/facebook/callback?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || '')}`,
         302
       );
     }
