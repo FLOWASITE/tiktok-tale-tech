@@ -43,11 +43,21 @@ async function decryptCredential(encryptedValue: string | null, key: string): Pr
       throw primaryError;
     }
 
-    try {
-      return decryptLegacyCBC(encryptedValue, key);
-    } catch {
-      throw primaryError;
+    const keyCandidates = [...new Set([
+      key,
+      "default-encryption-key-change-me",
+      "default-key",
+    ].filter(Boolean))];
+
+    for (const candidate of keyCandidates) {
+      try {
+        return decryptLegacyCBC(encryptedValue, candidate);
+      } catch {
+        // Try next candidate key
+      }
     }
+
+    throw primaryError;
   }
 }
 
