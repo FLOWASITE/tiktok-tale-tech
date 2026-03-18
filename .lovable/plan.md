@@ -1,75 +1,81 @@
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-# Kế hoạch: Thêm 4 Carousel Style vào hệ thống
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-## Tổng quan
+---
 
-Hiện tại carousel **không có khái niệm style** — mọi carousel đều dùng cùng logic nội dung (Hook → Problem → Explain → Solution → CTA) và prompt tạo ảnh giống nhau. Cần thêm 4 style carousel với logic nội dung và prompt hình ảnh khác biệt cho từng style.
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-## 4 Carousel Styles
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-| Style | Key | Đặc điểm prompt ảnh | Logic nội dung |
-|-------|-----|---------------------|----------------|
-| Seamless | `seamless` | Các phần tử vắt ngang qua biên ảnh, palette + background liền mạch, mũi tên/hình khối nối slide | Một bức tranh dài, mỗi slide là fragment |
-| Educational | `educational` | Mỗi slide có số bước rõ ràng, progress indicator | Hook → Bước 1 → Bước 2 → ... → CTA |
-| Listicle | `listicle` | Mỗi slide = 1 item đánh số, layout đồng nhất | Top N list, mỗi slide 1 điểm |
-| Gallery | `gallery` | Background-only, ảnh thực tế, minimal text overlay | Bộ sưu tập ảnh cùng chủ đề |
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-## Thay đổi kỹ thuật
+---
 
-### 1. Type definitions — `src/types/carousel.ts`
-- Thêm `CarouselStyleType = 'seamless' | 'educational' | 'listicle' | 'gallery'`
-- Thêm `CAROUSEL_STYLE_OPTIONS` array với label, description, icon cho UI
-- Thêm `carouselStyle` vào `CarouselFormData`
-- Thêm `carousel_style` vào interface `Carousel`
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-### 2. Database migration
-- `ALTER TABLE carousels ADD COLUMN carousel_style text DEFAULT 'educational'`
-- Không cần enum vì dùng text linh hoạt hơn
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-### 3. UI chọn style — `src/components/carousel/CarouselStyleSelector.tsx` (mới)
-- Grid 2x2 cards với icon, tên, mô tả ngắn cho 4 styles
-- Tương tự pattern `PlatformSelector` đã có
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-### 4. Form integration — `src/components/CarouselForm.tsx`
-- Thêm `CarouselStyleSelector` vào form, đặt trước Platform selector
-- Truyền `carouselStyle` trong `formData`
+---
 
-### 5. Backend: Prompt theo style — `supabase/functions/generate-carousel/index.ts`
-- **Thay đổi chính**: `getSystemPrompt()` điều chỉnh logic nội dung theo style:
-  - `seamless`: Yêu cầu visual continuity, palette thống nhất, phần tử vắt ngang biên
-  - `educational`: Giữ logic hiện tại (Hook → Problem → Explain → CTA) + thêm step numbering
-  - `listicle`: Mỗi slide = 1 item, layout đồng nhất, numbering rõ ràng
-  - `gallery`: Chỉ tạo prompt ảnh, minimal text, ưu tiên visual quality
-- `getSlideObjective()` trả về objective khác theo style
-- Truyền `carousel_style` khi insert vào DB
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
-### 6. Image generation: Style-aware prompts — `supabase/functions/generate-carousel-image/index.ts`
-- `buildBackgroundPrompt()` nhận thêm `carouselStyle` và `slideNumber`/`totalSlides`:
-  - `seamless`: Inject chỉ dẫn "extend visual elements to left/right edges, use consistent color palette across all slides, elements should appear to continue beyond frame boundary"
-  - `educational`: Inject step indicator visual cue
-  - `listicle`: Inject uniform layout structure
-  - `gallery`: Skip text overlay entirely, focus trên ảnh chất lượng cao
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
 
-### 7. Hook update — `src/hooks/useCarousels.ts`
-- Truyền `carouselStyle` trong body gửi đến edge function
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
 
-### 8. Viewer update — `src/components/CarouselViewer.tsx`
-- Hiển thị badge style trên header
+---
 
-## Thứ tự triển khai
+## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
 
-1. DB migration (thêm cột)
-2. Types + Style constants
-3. `CarouselStyleSelector` component
-4. Form integration
-5. Backend prompt logic theo style
-6. Image generation prompt theo style
-7. Hook + Viewer updates
+### Vấn đề
+Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
 
-## Lưu ý kỹ thuật
+### Đã sửa (6 files + 2 edge functions)
+1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
+2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
+3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
+4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
+5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
+6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
+7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
 
-- Style `seamless` là phức tạp nhất vì cần context cross-slide (slide n biết slide n+1). Giải pháp: trong system prompt yêu cầu AI tạo palette + visual motif thống nhất, và chỉ dẫn edge-bleeding cho mỗi slide.
-- Style `gallery` có thể skip overlay-text-canvas hoàn toàn (đã có logic conditional trong `generate-carousel-image`).
-- Backward compatible: default `'educational'` cho carousel cũ.
+---
 
+## Feature: Facebook Webhooks — Nhận engagement realtime — đã sửa
+
+### Vấn đề
+Hệ thống chưa có cách nhận realtime engagement (comment, reaction, share) từ Facebook khi user tương tác trên bài đã đăng qua Flowa.
+
+### Đã sửa (4 files + 1 migration + 1 secret)
+1. **Migration SQL** — Tạo bảng `social_post_engagements` (post_id, event_type, event_data, sender_id, sender_name, facebook_event_id unique) + RLS (org members read, service_role insert)
+2. **`supabase/functions/facebook-webhook/index.ts`** — **Mới**: GET verification (hub.verify_token), POST nhận feed changes → match page_id → social_connections → upsert engagement
+3. **`supabase/functions/connect-social/index.ts`** — Thêm `pages_manage_metadata` vào OAuth scope
+4. **`supabase/functions/facebook-oauth-callback/index.ts`** — Thêm scope + auto-subscribe page tới webhook (`POST /{page_id}/subscribed_apps?subscribed_fields=feed`)
+5. **`supabase/config.toml`** — Thêm `[functions.facebook-webhook]` verify_jwt=false
+6. **Secret** — `FACEBOOK_WEBHOOK_VERIFY_TOKEN` đã được tạo
+
+### Lưu ý
+- Cần cấu hình Webhook URL trên Facebook Developer Console: `https://rllyipiyuptkibqinotz.supabase.co/functions/v1/facebook-webhook`
+- User cần kết nối lại Facebook để cấp thêm permission `pages_manage_metadata`

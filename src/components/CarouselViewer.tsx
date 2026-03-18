@@ -1,4 +1,4 @@
-import { Carousel, CarouselStatus, CarouselSlide } from '@/types/carousel';
+import { Carousel, CarouselStatus, CarouselSlide, CAROUSEL_STYLE_OPTIONS } from '@/types/carousel';
 import { SlidePromptCard } from './SlidePromptCard';
 import { SortableSlideCard } from './SortableSlideCard';
 import {
@@ -356,6 +356,12 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                 <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[10px] xs:text-xs">
                   {aiToolLabels[carousel.ai_tool]}
                 </Badge>
+                {carousel.carousel_style && (
+                  <Badge variant="outline" className="text-[10px] xs:text-xs bg-accent/30">
+                    {CAROUSEL_STYLE_OPTIONS.find(s => s.value === carousel.carousel_style)?.icon || '📚'}{' '}
+                    {CAROUSEL_STYLE_OPTIONS.find(s => s.value === carousel.carousel_style)?.label || carousel.carousel_style}
+                  </Badge>
+                )}
                 <Badge variant="outline" className="text-[10px] xs:text-xs hidden xs:inline-flex">{carousel.brand_name}</Badge>
               </div>
               {/* Creator & Time - Hidden on very small screens */}

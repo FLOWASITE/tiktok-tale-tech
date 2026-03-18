@@ -1,6 +1,7 @@
 export type Platform = 'facebook' | 'tiktok';
 export type AITool = 'ideogram' | 'midjourney' | 'dalle' | 'leonardo';
 export type CarouselStatus = 'draft' | 'review' | 'approved' | 'published';
+export type CarouselStyleType = 'seamless' | 'educational' | 'listicle' | 'gallery';
 
 export interface CarouselSlide {
   slideNumber: number;
@@ -27,6 +28,7 @@ export interface Carousel {
   caption_suggestion: string | null;
   cta_suggestion: string | null;
   status: CarouselStatus;
+  carousel_style: CarouselStyleType;
   user_id: string | null;
   industry_template_id?: string | null;
   industry_template_version?: string | null;
@@ -60,6 +62,7 @@ export interface CarouselFormData {
   brandTemplateId?: string;
   topicHistoryId?: string;
   campaignId?: string;
+  carouselStyle: CarouselStyleType;
 }
 
 export const DEFAULT_BRAND_GUIDELINE = '';
@@ -77,3 +80,10 @@ export const AI_TOOL_OPTIONS: { value: AITool; label: string; description: strin
 ];
 
 export const SLIDE_COUNT_OPTIONS = [5, 6, 7, 8, 9, 10];
+
+export const CAROUSEL_STYLE_OPTIONS: { value: CarouselStyleType; label: string; description: string; icon: string }[] = [
+  { value: 'seamless', label: 'Trượt liền mạch', description: 'Các phần tử nối liền giữa các slide, tạo cảm giác bức tranh dài', icon: '🎞️' },
+  { value: 'educational', label: 'Giáo dục theo bước', description: 'Kể chuyện từng bước: Hook → Giải thích → CTA', icon: '📚' },
+  { value: 'listicle', label: 'Danh sách Top-list', description: 'Mỗi slide = 1 điểm, layout đồng nhất, đánh số rõ ràng', icon: '📋' },
+  { value: 'gallery', label: 'Bộ sưu tập ảnh', description: 'Tập hợp ảnh cùng chủ đề, minimal text, ưu tiên visual', icon: '🖼️' },
+];

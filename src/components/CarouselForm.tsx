@@ -17,6 +17,7 @@ import {
   CarouselFormData,
   Platform,
   AITool,
+  CarouselStyleType,
   DEFAULT_BRAND_GUIDELINE,
 } from '@/types/carousel';
 import { useBrandTemplates, BrandTemplate } from '@/hooks/useBrandTemplates';
@@ -24,6 +25,7 @@ import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { BrandPreviewCard } from '@/components/BrandPreviewCard';
 import { PlatformSelector } from '@/components/carousel/PlatformSelector';
+import { CarouselStyleSelector } from '@/components/carousel/CarouselStyleSelector';
 import { SlideCountSelector } from '@/components/carousel/SlideCountSelector';
 import { AIToolSelector } from '@/components/carousel/AIToolSelector';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
@@ -86,6 +88,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
     }
   }, [initialTopic]);
   const [platform, setPlatform] = useState<Platform>('facebook');
+  const [carouselStyle, setCarouselStyle] = useState<CarouselStyleType>('educational');
   const [slideCount, setSlideCount] = useState(6);
   const [aiTool, setAiTool] = useState<AITool>('ideogram');
   const [brandName, setBrandName] = useState('Thuế Hộ by TAF.vn');
@@ -236,6 +239,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
       brandTemplateId: selectedTemplateId && selectedTemplateId !== 'custom' ? selectedTemplateId : undefined,
       topicHistoryId,
       campaignId: selectedCampaignId,
+      carouselStyle,
     });
   };
 
@@ -342,6 +346,18 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
         <PlatformSelector
           value={platform}
           onChange={setPlatform}
+          disabled={isLoading}
+        />
+      </div>
+
+      {/* Carousel Style Selector */}
+      <div className="space-y-3 stagger-item" style={{ animationDelay: '175ms' }}>
+        <Label className="text-foreground font-semibold text-sm">
+          Phong cách Carousel
+        </Label>
+        <CarouselStyleSelector
+          value={carouselStyle}
+          onChange={setCarouselStyle}
           disabled={isLoading}
         />
       </div>

@@ -3011,6 +3011,7 @@ export type Database = {
           brand_name: string
           campaign_id: string | null
           caption_suggestion: string | null
+          carousel_style: string
           created_at: string
           critique_details: Json | null
           critique_score: number | null
@@ -3039,6 +3040,7 @@ export type Database = {
           brand_name?: string
           campaign_id?: string | null
           caption_suggestion?: string | null
+          carousel_style?: string
           created_at?: string
           critique_details?: Json | null
           critique_score?: number | null
@@ -3067,6 +3069,7 @@ export type Database = {
           brand_name?: string
           campaign_id?: string | null
           caption_suggestion?: string | null
+          carousel_style?: string
           created_at?: string
           critique_details?: Json | null
           critique_score?: number | null

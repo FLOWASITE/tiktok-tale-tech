@@ -1,0 +1,1 @@
+ALTER TABLE public.carousels ADD COLUMN carousel_style text NOT NULL DEFAULT 'educational';
