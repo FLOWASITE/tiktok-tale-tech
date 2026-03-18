@@ -1,12 +1,13 @@
-export { LandingNav } from "./LandingNav";
-export { HeroSection } from "./HeroSection";
-export { WorkflowSection } from "./WorkflowSection";
-export { IndustryMemorySection } from "./IndustryMemorySection";
-export { SocialProofSection } from "./SocialProofSection";
-export { PricingSection } from "./PricingSection";
-export { FAQSection } from "./FAQSection";
-export { CTASection } from "./CTASection";
-export { FooterSection } from "./FooterSection";
-export { TestimonialsSection } from "./TestimonialsSection";
-export { ScrollProgress } from "./ScrollProgress";
-export { BackToTop } from "./BackToTop";
+// Re-export from new location for backward compatibility
+export { LandingNav } from "@/landing/components/LandingNav";
+export { HeroSection } from "@/landing/components/HeroSection";
+export { WorkflowSection } from "@/landing/components/WorkflowSection";
+export { IndustryMemorySection } from "@/landing/components/IndustryMemorySection";
+export { SocialProofSection } from "@/landing/components/SocialProofSection";
+export { PricingSection } from "@/landing/components/PricingSection";
+export { FAQSection } from "@/landing/components/FAQSection";
+export { CTASection } from "@/landing/components/CTASection";
+export { FooterSection } from "@/landing/components/FooterSection";
+export { TestimonialsSection } from "@/landing/components/TestimonialsSection";
+export { ScrollProgress } from "@/landing/components/ScrollProgress";
+export { BackToTop } from "@/landing/components/BackToTop";
