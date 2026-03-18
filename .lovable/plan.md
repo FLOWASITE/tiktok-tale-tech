@@ -60,3 +60,22 @@ Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banne
 5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
 6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
 7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
+
+---
+
+## Feature: Facebook Webhooks — Nhận engagement realtime — đã sửa
+
+### Vấn đề
+Hệ thống chưa có cách nhận realtime engagement (comment, reaction, share) từ Facebook khi user tương tác trên bài đã đăng qua Flowa.
+
+### Đã sửa (4 files + 1 migration + 1 secret)
+1. **Migration SQL** — Tạo bảng `social_post_engagements` (post_id, event_type, event_data, sender_id, sender_name, facebook_event_id unique) + RLS (org members read, service_role insert)
+2. **`supabase/functions/facebook-webhook/index.ts`** — **Mới**: GET verification (hub.verify_token), POST nhận feed changes → match page_id → social_connections → upsert engagement
+3. **`supabase/functions/connect-social/index.ts`** — Thêm `pages_manage_metadata` vào OAuth scope
+4. **`supabase/functions/facebook-oauth-callback/index.ts`** — Thêm scope + auto-subscribe page tới webhook (`POST /{page_id}/subscribed_apps?subscribed_fields=feed`)
+5. **`supabase/config.toml`** — Thêm `[functions.facebook-webhook]` verify_jwt=false
+6. **Secret** — `FACEBOOK_WEBHOOK_VERIFY_TOKEN` đã được tạo
+
+### Lưu ý
+- Cần cấu hình Webhook URL trên Facebook Developer Console: `https://rllyipiyuptkibqinotz.supabase.co/functions/v1/facebook-webhook`
+- User cần kết nối lại Facebook để cấp thêm permission `pages_manage_metadata`

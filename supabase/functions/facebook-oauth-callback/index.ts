@@ -233,7 +233,7 @@ serve(async (req) => {
       token_expires_at: tokenExpiresAt,
       is_active: true,
       connected_at: new Date().toISOString(),
-      scopes: ['pages_manage_posts', 'pages_read_engagement', 'pages_show_list'],
+      scopes: ['pages_manage_posts', 'pages_read_engagement', 'pages_show_list', 'pages_manage_metadata'],
       metadata: {
         page_id: pageId,
         page_name: pageName,
@@ -265,6 +265,28 @@ serve(async (req) => {
       if (insertError) throw insertError;
       connection = data;
       console.log('Created new Facebook connection:', connection.id);
+    }
+
+    // Subscribe page to webhooks for realtime engagement tracking
+    try {
+      const subscribeUrl = `https://graph.facebook.com/v21.0/${pageId}/subscribed_apps`;
+      const subscribeRes = await fetch(subscribeUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          subscribed_fields: 'feed',
+          access_token: pageAccessToken,
+        }).toString(),
+      });
+      const subscribeData = await subscribeRes.json();
+      if (subscribeData.success) {
+        console.log('Successfully subscribed page to webhooks:', pageId);
+      } else {
+        console.warn('Failed to subscribe page to webhooks:', subscribeData);
+      }
+    } catch (subscribeError) {
+      console.error('Error subscribing page to webhooks:', subscribeError);
+      // Non-blocking — connection still works without webhook
     }
 
     const redirectParams: Record<string, string> = {
