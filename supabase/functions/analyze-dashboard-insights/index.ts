@@ -400,23 +400,19 @@ serve(async (req) => {
       auth: { persistSession: false },
     });
 
-    // Validate JWT using service role (more reliable in Edge runtime)
-    // IMPORTANT: In Edge runtime there is no persisted session, so we must pass the JWT explicitly.
-    const authClient = createClient(supabaseUrl, serviceRoleKey || anonKey, {
+    // Validate JWT using getClaims (works even when session is expired in DB)
+    const anonClient = createClient(supabaseUrl, anonKey, {
       auth: { persistSession: false },
     });
 
     const token = authHeader.replace("Bearer ", "").trim();
 
-    const {
-      data: { user },
-      error: userError,
-    } = await authClient.auth.getUser(token);
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
 
-    if (userError || !user) {
-      console.error("[analyze-dashboard-insights] Auth error:", userError);
+    if (claimsError || !claimsData?.claims) {
+      console.error("[analyze-dashboard-insights] Auth error:", claimsError);
       return new Response(
-        JSON.stringify({ error: "Unauthorized", details: userError?.message || null }),
+        JSON.stringify({ error: "Unauthorized", details: claimsError?.message || "Invalid token" }),
         {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -424,7 +420,7 @@ serve(async (req) => {
       );
     }
 
-    const userId = user.id;
+    const userId = claimsData.claims.sub as string;
 
     // Get organization - try membership first, fallback to content tables
     let organizationId: string | null = null;
