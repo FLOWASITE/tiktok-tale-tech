@@ -855,6 +855,7 @@ Follow the carousel style guidelines strictly.`;
         industry_template_id: industryMemory?.id || null,
         industry_template_version: industryMemory?.version || null,
         campaign_id: formData.campaignId || null,
+        carousel_style: formData.carouselStyle || 'educational',
         // Self-critique metadata
         critique_score: critiqueResult?.overall_score || null,
         critique_details: critiqueResult || null,
