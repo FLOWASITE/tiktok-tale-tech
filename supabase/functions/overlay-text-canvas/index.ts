@@ -693,7 +693,7 @@ function buildStructuredElement(
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: theme.bannerBg,
-          padding: `12px ${bannerPaddingRight}px 12px ${bannerPaddingLeft}px`,
+          padding: `${Math.round(12 * sp)}px ${bannerPaddingRight}px ${Math.round(12 * sp)}px ${bannerPaddingLeft}px`,
           width: '100%',
           borderRadius: theme.borderRadius > 0 ? `${theme.borderRadius}px ${theme.borderRadius}px 0 0` : '0',
           boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
