@@ -1038,14 +1038,6 @@ export function MultiChannelFormWizard({
                       ...prev, 
                       topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
                     }))}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const text = (e.target as HTMLInputElement).value;
-                        if (detectAndHandleAICommand(text)) {
-                          e.preventDefault();
-                        }
-                      }
-                    }}
                     placeholder="VD: Skincare mùa hè, Mẹo tiết kiệm chi phí..."
                     className="h-12 border-2 pr-20 text-base"
                     disabled={isGenerating}
