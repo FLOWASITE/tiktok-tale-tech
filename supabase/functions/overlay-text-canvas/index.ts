@@ -1133,7 +1133,7 @@ function buildStructuredElement(
           justifyContent: 'center',
           padding: '12px 32px',
           backgroundColor: colors.primary,
-          borderRadius: theme.borderRadius > 8 ? 24 : theme.borderRadius > 0 ? 12 : 0,
+          borderRadius: theme.ctaBorderRadius ?? (theme.borderRadius > 8 ? 24 : theme.borderRadius > 0 ? 12 : 0),
           marginTop: 8,
           boxShadow: `0 4px 16px rgba(0,0,0,0.3), 0 2px 6px ${colors.primary}66`,
           ...(ctaMarginBottom > 0 ? { marginBottom: ctaMarginBottom } : {}),
