@@ -609,6 +609,7 @@ serve(async (req) => {
         brandTemplateId: brandTemplateId || null,
         organizationId: organizationId || null,
         userId: user.id,
+        frontendOrigin: requestOrigin || null,
       }));
 
       const oauthUrl = `https://threads.net/oauth/authorize?` + new URLSearchParams({

@@ -66,11 +66,11 @@ export default function ThreadsCallback() {
   }, [searchParams, navigate, toast]);
 
   const handleRetry = () => {
-    navigate('/brands', { replace: true });
+    navigate(brandTemplateId ? `/brands/${brandTemplateId}` : '/brands', { replace: true });
   };
 
   const handleGoToBrands = () => {
-    navigate('/brands', { replace: true });
+    navigate(brandTemplateId ? `/brands/${brandTemplateId}` : '/brands', { replace: true });
   };
 
   return (

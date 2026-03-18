@@ -283,7 +283,7 @@ serve(async (req) => {
     console.error('Facebook OAuth callback error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return Response.redirect(
-      `${getFrontendUrl()}/auth/facebook/callback?error=callback_failed&error_description=${encodeURIComponent(errorMessage)}`,
+      `${getFrontendUrl(null)}/auth/facebook/callback?error=callback_failed&error_description=${encodeURIComponent(errorMessage)}`,
       302
     );
   }

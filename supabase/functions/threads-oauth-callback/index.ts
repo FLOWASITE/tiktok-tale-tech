@@ -269,7 +269,7 @@ serve(async (req) => {
     console.error('Threads OAuth callback error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return Response.redirect(
-      `${getFrontendUrl()}/auth/threads/callback?error=callback_failed&error_description=${encodeURIComponent(errorMessage)}`,
+      `${getFrontendUrl(null)}/auth/threads/callback?error=callback_failed&error_description=${encodeURIComponent(errorMessage)}`,
       302
     );
   }
