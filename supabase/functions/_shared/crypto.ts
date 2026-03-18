@@ -120,3 +120,43 @@ export async function decrypt(ciphertext: string): Promise<string> {
 export function isEncryptionConfigured(): boolean {
   return !!Deno.env.get("AI_ENCRYPTION_KEY");
 }
+
+/**
+ * Decrypt credential with GCM first, fallback to legacy CBC.
+ * This is the single shared helper all edge functions should use.
+ */
+export async function decryptCredential(ciphertext: string): Promise<string> {
+  if (!ciphertext) throw new Error("Empty ciphertext");
+
+  // 1. Try modern GCM
+  try {
+    const result = await decrypt(ciphertext);
+    if (result) return result;
+  } catch { /* fallback to CBC */ }
+
+  // 2. Fallback: legacy AES-256-CBC (hex iv:ciphertext format)
+  if (ciphertext.includes(":")) {
+    const { createDecipheriv } = await import("node:crypto");
+    const { Buffer } = await import("node:buffer");
+    const encryptionKey = Deno.env.get("AI_ENCRYPTION_KEY") || "default-key";
+    const keyCandidates = [
+      ...new Set([encryptionKey, "default-encryption-key-change-me", "default-key"]),
+    ];
+    for (const candidate of keyCandidates) {
+      try {
+        const textParts = ciphertext.split(":");
+        const iv = Buffer.from(textParts.shift()!, "hex");
+        const encryptedData = Buffer.from(textParts.join(":"), "hex");
+        const keyBuffer = Buffer.alloc(32);
+        Buffer.from(candidate).copy(keyBuffer);
+        const decipher = createDecipheriv("aes-256-cbc", keyBuffer, iv);
+        let decrypted = decipher.update(encryptedData);
+        decrypted = Buffer.concat([decrypted, decipher.final()]);
+        const result = decrypted.toString();
+        if (result) return result;
+      } catch { /* try next */ }
+    }
+  }
+
+  throw new Error("Failed to decrypt credential with any method");
+}
