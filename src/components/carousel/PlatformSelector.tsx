@@ -57,7 +57,7 @@ export function PlatformSelector({ value, onChange, disabled }: PlatformSelector
             )}
             
             <Icon className={cn(
-              "w-8 h-8 transition-transform duration-300",
+              "w-6 h-6 transition-transform duration-300",
               isSelected && "scale-110"
             )} />
             
