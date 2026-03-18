@@ -201,7 +201,7 @@ export function DirectPublishButton({
         open={confirmDialog.open} 
         onOpenChange={(open) => !open && setConfirmDialog({ open: false, platform: null })}
       >
-        <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-2xl p-0 overflow-hidden">
           {/* Platform Header */}
           <div className={cn(
             'px-6 py-4 flex items-center gap-3',
@@ -224,7 +224,8 @@ export function DirectPublishButton({
               <DialogTitle className="text-base font-semibold">
                 Đăng lên {PLATFORM_DISPLAY_NAMES[platform!] || platform}
               </DialogTitle>
-              <DialogDescription className="text-xs mt-0.5">
+              <DialogDescription className="text-xs mt-0.5 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3 text-emerald-500" />
                 {connection?.platform_username 
                   ? `@${connection.platform_username}` 
                   : 'Tài khoản đã kết nối'}
@@ -257,7 +258,7 @@ export function DirectPublishButton({
 
               {/* Post Content */}
               <div className="px-3 pb-2">
-                <p className="text-sm whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto">
+                <p className="text-sm whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
                   {platform === 'twitter' && content.length > 280
                     ? content.substring(0, 277) + '...'
                     : content}
@@ -279,30 +280,35 @@ export function DirectPublishButton({
 
               {/* Media Preview */}
               {mediaUrls && mediaUrls.length > 0 && (
-                <div className={cn(
-                  'border-t border-border',
-                  mediaUrls.length === 1 && 'aspect-video',
-                  mediaUrls.length > 1 && 'grid grid-cols-2 gap-0.5',
-                )}>
-                  {mediaUrls.slice(0, 4).map((url, i) => (
-                    <div key={i} className={cn(
-                      'relative overflow-hidden bg-muted',
-                      mediaUrls.length === 1 && 'w-full h-full',
-                      mediaUrls.length > 1 && 'aspect-square',
-                    )}>
-                      <img 
-                        src={url} 
-                        alt={`Ảnh ${i + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      {i === 3 && mediaUrls.length > 4 && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <span className="text-white text-lg font-bold">+{mediaUrls.length - 4}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <>
+                  <div className="px-3 pb-1.5">
+                    <span className="text-xs text-muted-foreground">📷 {mediaUrls.length} ảnh đính kèm</span>
+                  </div>
+                  <div className={cn(
+                    'border-t border-border',
+                    mediaUrls.length === 1 && 'max-h-72',
+                    mediaUrls.length > 1 && 'grid grid-cols-2 gap-0.5',
+                  )}>
+                    {mediaUrls.slice(0, 4).map((url, i) => (
+                      <div key={i} className={cn(
+                        'relative overflow-hidden bg-muted',
+                        mediaUrls.length === 1 && 'w-full h-full',
+                        mediaUrls.length > 1 && 'aspect-[4/3]',
+                      )}>
+                        <img 
+                          src={url} 
+                          alt={`Ảnh ${i + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        {i === 3 && mediaUrls.length > 4 && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <span className="text-white text-lg font-bold">+{mediaUrls.length - 4}</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -330,7 +336,7 @@ export function DirectPublishButton({
               onClick={handlePublish}
               disabled={isPublishing}
               className={cn(
-                'sm:flex-1',
+                'sm:flex-1 font-semibold',
                 platform === 'facebook' && 'bg-[hsl(220,46%,48%)] hover:bg-[hsl(220,46%,42%)] text-white',
                 platform === 'twitter' && 'bg-foreground hover:bg-foreground/90 text-background',
                 platform === 'linkedin' && 'bg-[hsl(201,100%,35%)] hover:bg-[hsl(201,100%,30%)] text-white',
