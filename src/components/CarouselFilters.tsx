@@ -38,11 +38,13 @@ export function CarouselFilters({ filters, onFiltersChange }: CarouselFiltersPro
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const hasActiveFilters =
-    filters.search || filters.platform !== 'all' || filters.aiTool !== 'all';
+    filters.search || filters.platform !== 'all' || filters.aiTool !== 'all' || filters.status !== 'all' || filters.carouselStyle !== 'all';
 
   const activeFilterCount = [
     filters.platform !== 'all',
     filters.aiTool !== 'all',
+    filters.status !== 'all',
+    filters.carouselStyle !== 'all',
   ].filter(Boolean).length;
 
   const clearFilters = () => {
@@ -50,6 +52,8 @@ export function CarouselFilters({ filters, onFiltersChange }: CarouselFiltersPro
       search: '',
       platform: 'all',
       aiTool: 'all',
+      status: 'all',
+      carouselStyle: 'all',
     });
   };
 
