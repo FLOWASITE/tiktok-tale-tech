@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { decrypt as decryptGCM } from "../_shared/crypto.ts";
 import { createDecipheriv } from "node:crypto";
 import { Buffer } from "node:buffer";
 
@@ -12,24 +13,36 @@ interface TestConnectionRequest {
   connectionId: string;
 }
 
-// Decrypt encrypted token
-function decrypt(encryptedText: string, key: string): string {
+// Legacy CBC decrypt for backward compatibility
+function decryptLegacyCBC(encryptedText: string, key: string): string {
+  const textParts = encryptedText.split(':');
+  const iv = Buffer.from(textParts.shift()!, 'hex');
+  const encryptedData = Buffer.from(textParts.join(':'), 'hex');
+  const keyBuffer = Buffer.alloc(32);
+  Buffer.from(key).copy(keyBuffer);
+  const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
+  let decrypted = decipher.update(encryptedData);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
+}
+
+// Try GCM first, fallback to legacy CBC
+async function decryptCredential(ciphertext: string): Promise<string> {
   try {
-    const textParts = encryptedText.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    
-    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-    let decrypted = decipher.update(encryptedData);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
+    const result = await decryptGCM(ciphertext);
+    if (result) return result;
+  } catch { /* fallback */ }
+
+  const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+  const keyCandidates = [encryptionKey, 'default-encryption-key-change-me', 'default-key'];
+  for (const candidate of keyCandidates) {
+    try {
+      const result = decryptLegacyCBC(ciphertext, candidate);
+      if (result) return result;
+    } catch { /* try next */ }
   }
+
+  throw new Error('Failed to decrypt credential with any method');
 }
 
 serve(async (req) => {
