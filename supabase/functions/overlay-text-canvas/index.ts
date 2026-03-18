@@ -706,7 +706,7 @@ function buildStructuredElement(
               fontSize: fitTextToWidth(elements.banner.text, imageWidth - bannerPaddingLeft - bannerPaddingRight - 48, Math.round(imageWidth * (isEducationInfographic ? 0.04 : 0.03)), 14),
               fontFamily,
               fontWeight: theme.fontWeight,
-              letterSpacing: '0.05em',
+              letterSpacing: theme.bannerLetterSpacing || '0.05em',
               textTransform: 'uppercase',
               textShadow: `${theme.textShadow}, 0 2px 8px rgba(0,0,0,0.5)`,
             },
