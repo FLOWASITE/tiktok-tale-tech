@@ -313,13 +313,32 @@ const getBrandVoicePrompt = (voice: BrandVoice, mergedRules?: MergedRules, outpu
   return parts.join("\n");
 };
 
-const getSlideObjective = (slideNumber: number, totalSlides: number, lang: string = 'vi'): string => {
+const getSlideObjective = (slideNumber: number, totalSlides: number, lang: string = 'vi', style: string = 'educational'): string => {
   const objectives: Record<string, Record<string, string>> = {
-    vi: { hook: "Hook - Gây sốc, tò mò, thu hút người xem dừng lại", problem: "Nêu vấn đề - Khơi gợi pain point của người đọc", explain: "Giải thích - Phân tích sâu hơn về vấn đề", explain2: "Giải thích tiếp - Bổ sung thông tin quan trọng", solution: "Giải pháp / Lời khuyên chuyên gia", cta: "CTA - Kêu gọi hành động, tạo tương tác", impact: "Hậu quả / Lợi ích - Nhấn mạnh tầm quan trọng" },
-    th: { hook: "Hook - สร้างความตกใจ อยากรู้ ดึงดูดให้หยุดเลื่อน", problem: "ปัญหา - กระตุ้น Pain Point ของผู้อ่าน", explain: "อธิบาย - วิเคราะห์ปัญหาเชิงลึก", explain2: "อธิบายต่อ - เพิ่มข้อมูลสำคัญ", solution: "ทางออก / คำแนะนำจากผู้เชี่ยวชาญ", cta: "CTA - เรียกร้องให้ดำเนินการ สร้างการมีส่วนร่วม", impact: "ผลกระทบ / ประโยชน์ - เน้นย้ำความสำคัญ" },
-    en: { hook: "Hook - Shock, curiosity, stop the scroll", problem: "Problem - Trigger reader's pain point", explain: "Explain - Deeper analysis of the problem", explain2: "Explain further - Add important information", solution: "Solution / Expert advice", cta: "CTA - Call to action, drive engagement", impact: "Impact / Benefits - Emphasize importance" },
+    vi: { hook: "Hook - Gây sốc, tò mò, thu hút người xem dừng lại", problem: "Nêu vấn đề - Khơi gợi pain point của người đọc", explain: "Giải thích - Phân tích sâu hơn về vấn đề", explain2: "Giải thích tiếp - Bổ sung thông tin quan trọng", solution: "Giải pháp / Lời khuyên chuyên gia", cta: "CTA - Kêu gọi hành động, tạo tương tác", impact: "Hậu quả / Lợi ích - Nhấn mạnh tầm quan trọng", seamless_fragment: "Phân đoạn liên tục - Phần tử nối liền từ slide trước", listicle_item: "Điểm danh sách - 1 item nổi bật", gallery_photo: "Ảnh bộ sưu tập - Visual chủ đề" },
+    th: { hook: "Hook - สร้างความตกใจ อยากรู้ ดึงดูดให้หยุดเลื่อน", problem: "ปัญหา - กระตุ้น Pain Point ของผู้อ่าน", explain: "อธิบาย - วิเคราะห์ปัญหาเชิงลึก", explain2: "อธิบายต่อ - เพิ่มข้อมูลสำคัญ", solution: "ทางออก / คำแนะนำจากผู้เชี่ยวชาญ", cta: "CTA - เรียกร้องให้ดำเนินการ สร้างการมีส่วนร่วม", impact: "ผลกระทบ / ประโยชน์ - เน้นย้ำความสำคัญ", seamless_fragment: "ส่วนต่อเนื่อง", listicle_item: "รายการ", gallery_photo: "ภาพคอลเลกชัน" },
+    en: { hook: "Hook - Shock, curiosity, stop the scroll", problem: "Problem - Trigger reader's pain point", explain: "Explain - Deeper analysis of the problem", explain2: "Explain further - Add important information", solution: "Solution / Expert advice", cta: "CTA - Call to action, drive engagement", impact: "Impact / Benefits - Emphasize importance", seamless_fragment: "Continuous fragment - elements bridge from previous slide", listicle_item: "List item - One standout point", gallery_photo: "Gallery photo - Themed visual" },
   };
   const o = objectives[lang] || objectives['en'];
+
+  // Style-specific objective mapping
+  if (style === 'seamless') {
+    if (slideNumber === 1) return o.hook;
+    if (slideNumber === totalSlides) return o.cta;
+    return o.seamless_fragment;
+  }
+  if (style === 'listicle') {
+    if (slideNumber === 1) return o.hook;
+    if (slideNumber === totalSlides) return o.cta;
+    return `${o.listicle_item} #${slideNumber - 1}`;
+  }
+  if (style === 'gallery') {
+    if (slideNumber === 1) return o.hook;
+    if (slideNumber === totalSlides) return o.cta;
+    return o.gallery_photo;
+  }
+
+  // Default: educational
   if (slideNumber === 1) return o.hook;
   if (slideNumber === 2) return o.problem;
   if (slideNumber === 3) return o.explain;
