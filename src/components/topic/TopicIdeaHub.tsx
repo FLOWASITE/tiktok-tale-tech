@@ -3,7 +3,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
-import { Lightbulb, ChevronDown, Flame, TrendingUp, Gift, Zap, Loader2 } from 'lucide-react';
+import { Lightbulb, ChevronDown, Flame, TrendingUp, Gift, Zap, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { EnhancedTopicSuggestion } from '@/types/topicDiscovery';
 import type { ContentGoal } from '@/types/multichannel';
@@ -26,6 +26,7 @@ interface TopicIdeaHubProps {
   onQuickActionSelect?: (topic: string) => void;
   onRefresh: () => void;
   onCategoryRefresh?: (category: string) => void;
+  onBrainstorm?: () => void;
   onSave?: (suggestion: EnhancedTopicSuggestion) => void;
   onFeedback?: (suggestion: EnhancedTopicSuggestion, feedback: 'positive' | 'negative') => void;
   brandTemplateId?: string;
@@ -42,6 +43,7 @@ export function TopicIdeaHub({
   onSelect,
   onRefresh,
   onCategoryRefresh,
+  onBrainstorm,
   onSave,
   onFeedback,
   contentGoal,
@@ -97,8 +99,8 @@ export function TopicIdeaHub({
 
         <CollapsibleContent>
           <div className="px-3 pb-3">
-            {/* Quick action chips */}
-            <div className="flex gap-1.5 flex-wrap mb-2">
+            {/* Quick action chips + Brainstorm AI badge */}
+            <div className="flex gap-1.5 flex-wrap items-center mb-2">
               {QUICK_ACTIONS.map((action) => {
                 const isActive = loadingCategory === action.label;
                 const Icon = action.icon;
@@ -124,6 +126,24 @@ export function TopicIdeaHub({
                   </Button>
                 );
               })}
+
+              {/* Brainstorm AI badge */}
+              {onBrainstorm && (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={onBrainstorm}
+                  className={cn(
+                    "inline-flex items-center gap-1 h-6 px-2.5 rounded-full text-[10px] font-semibold",
+                    "bg-gradient-to-r from-primary to-accent text-primary-foreground",
+                    "shadow-sm hover:shadow-md hover:brightness-110 transition-all duration-200",
+                    "disabled:opacity-50 disabled:cursor-not-allowed"
+                  )}
+                >
+                  <Sparkles className="w-3 h-3 animate-pulse" />
+                  Brainstorm AI
+                </button>
+              )}
             </div>
 
             <MemoizedSuggestionPanel
