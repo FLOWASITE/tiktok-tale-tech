@@ -112,6 +112,7 @@ export function DirectPublishButton({
         connectionId: connection.id,
         contentId,
         content,
+        mediaUrls,
       };
 
       switch (platform) {
