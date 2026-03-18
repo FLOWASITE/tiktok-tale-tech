@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Eye, EyeOff, ExternalLink } from 'lucide-react';
+import { Loader2, Eye, EyeOff, ExternalLink, Copy, Check } from 'lucide-react';
 import { SocialPlatform, PlatformSettings } from '@/hooks/useSocialPlatformSettings';
 
 interface SocialPlatformCredentialsDialogProps {
@@ -73,6 +73,22 @@ const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string 
   },
 };
 
+const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {
+  facebook: 'facebook-oauth-callback',
+  instagram: 'instagram-oauth-callback',
+  threads: 'threads-oauth-callback',
+  linkedin: 'linkedin-oauth-callback',
+  zalo_oa: 'zalo-oauth-callback',
+  google_business: 'google-business-oauth-callback',
+};
+
+function getCallbackUrl(platform: SocialPlatform): string | null {
+  const path = CALLBACK_URL_MAP[platform];
+  if (!path) return null;
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  return `${supabaseUrl}/functions/v1/${path}`;
+}
+
 export function SocialPlatformCredentialsDialog({
   open,
   onOpenChange,
@@ -88,13 +104,26 @@ export function SocialPlatformCredentialsDialog({
   const [isActive, setIsActive] = useState(true);
   const [showKey, setShowKey] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
+  const [copiedCallback, setCopiedCallback] = useState(false);
 
   const help = PLATFORM_HELP[platform];
+  const callbackUrl = getCallbackUrl(platform);
   const isMetaPlatform = platform === 'facebook' || platform === 'instagram' || platform === 'threads';
   const isLinkedIn = platform === 'linkedin';
   const isZalo = platform === 'zalo_oa';
   const isGoogle = platform === 'google_business';
   const isWebsite = platform === 'website';
+
+  const handleCopyCallback = async () => {
+    if (!callbackUrl) return;
+    try {
+      await navigator.clipboard.writeText(callbackUrl);
+      setCopiedCallback(true);
+      setTimeout(() => setCopiedCallback(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
   
   const keyLabel = isWebsite
     ? 'API URL / WordPress URL'
@@ -124,11 +153,9 @@ export function SocialPlatformCredentialsDialog({
     if (open && existingSettings) {
       setAppName(existingSettings.app_name || '');
       setIsActive(existingSettings.is_active);
-      // Clear credential fields - user must re-enter
       setConsumerKey('');
       setConsumerSecret('');
     } else if (open) {
-      // Reset form for new entry
       setAppName('');
       setConsumerKey('');
       setConsumerSecret('');
@@ -145,7 +172,6 @@ export function SocialPlatformCredentialsDialog({
       is_active: isActive,
     };
 
-    // Only include credentials if provided
     if (consumerKey) data.consumer_key = consumerKey;
     if (consumerSecret) data.consumer_secret = consumerSecret;
 
@@ -153,8 +179,8 @@ export function SocialPlatformCredentialsDialog({
   };
 
   const isValid = existingSettings?.has_credentials 
-    ? true // Allow update without re-entering credentials
-    : consumerKey && consumerSecret; // Require credentials for new setup
+    ? true
+    : consumerKey && consumerSecret;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -180,6 +206,33 @@ export function SocialPlatformCredentialsDialog({
               <ExternalLink className="w-3 h-3" />
             </a>
           </div>
+
+          {/* Callback URL */}
+          {callbackUrl && (
+            <div className="space-y-2">
+              <Label>OAuth Callback URL</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={callbackUrl}
+                  className="text-xs font-mono bg-muted/50"
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0"
+                  onClick={handleCopyCallback}
+                >
+                  {copiedCallback ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Dán URL này vào <strong>Valid OAuth Redirect URIs</strong> trên Developer Console
+              </p>
+            </div>
+          )}
 
           {/* App Name */}
           <div className="space-y-2">
