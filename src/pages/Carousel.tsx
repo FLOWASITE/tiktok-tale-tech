@@ -372,6 +372,8 @@ const CarouselPage = () => {
                 creatorProfile={carousel.user_id ? creatorProfiles[carousel.user_id] : undefined}
                 isLoadingProfile={isLoadingProfiles}
                 index={index}
+                thumbnailUrl={imageMap[carousel.id]?.thumbnailUrl}
+                imageCount={imageMap[carousel.id]?.imageCount}
               />
             ))}
           </div>
