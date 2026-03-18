@@ -23,10 +23,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // Sync Google profile data on sign-in (only update null fields)
+        if (event === 'SIGNED_IN' && session?.user) {
+          const meta = session.user.user_metadata;
+          const avatarUrl = meta?.avatar_url || meta?.picture;
+          const fullName = meta?.full_name || meta?.name;
+
+          if (avatarUrl || fullName) {
+            // Use setTimeout to avoid blocking auth state change
+            setTimeout(async () => {
+              try {
+                const { data: profile } = await supabase
+                  .from('profiles')
+                  .select('avatar_url, full_name')
+                  .eq('id', session.user.id)
+                  .maybeSingle();
+
+                if (profile) {
+                  const updates: Record<string, string> = {};
+                  if (!profile.avatar_url && avatarUrl) updates.avatar_url = avatarUrl;
+                  if (!profile.full_name && fullName) updates.full_name = fullName;
+
+                  if (Object.keys(updates).length > 0) {
+                    await supabase
+                      .from('profiles')
+                      .update(updates)
+                      .eq('id', session.user.id);
+                  }
+                }
+              } catch (err) {
+                console.error('Failed to sync profile from OAuth:', err);
+              }
+            }, 0);
+          }
+        }
       }
     );
 

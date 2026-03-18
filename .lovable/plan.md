@@ -1,49 +1,62 @@
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-# Hoàn thiện đăng ký qua Google
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-## Vấn đề hiện tại
+---
 
-1. **`handle_new_user` trigger chỉ đọc `full_name`** — Google OAuth cung cấp tên trong field `full_name` (do Lovable Cloud maps nó), nhưng **avatar_url** từ Google không được lưu vào `profiles.avatar_url`.
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-2. **Không cập nhật profile khi đăng nhập lại** — Nếu user đăng nhập Google lần 2+ (đã có profile), avatar/tên mới từ Google không được sync.
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-3. **Redirect sau Google sign-in** — Hiện tại `redirect_uri` là `window.location.origin` (trang chủ `/`). Cần đảm bảo redirect về đúng trang user muốn truy cập trước đó (nếu có).
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-## Thay đổi
+---
 
-### 1. Cập nhật `handle_new_user` trigger (Migration SQL)
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-Sửa trigger để lưu `avatar_url` từ Google metadata vào profiles:
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-```sql
-INSERT INTO public.profiles (id, email, full_name, avatar_url)
-VALUES (
-  NEW.id, 
-  NEW.email, 
-  COALESCE(NEW.raw_user_meta_data ->> 'full_name', NEW.raw_user_meta_data ->> 'name'),
-  NEW.raw_user_meta_data ->> 'avatar_url'
-);
-```
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-Cũng cập nhật tên workspace dùng `COALESCE(full_name, name, email)`.
+---
 
-### 2. Sync profile khi đăng nhập lại (`AuthContext.tsx`)
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
-Trong `onAuthStateChange`, khi event là `SIGNED_IN` và provider là Google:
-- Lấy `avatar_url` và `full_name` từ `session.user.user_metadata`
-- Upsert vào `profiles` nếu các field đang null (không ghi đè nếu user đã tự set)
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
 
-### 3. Cải thiện Google redirect (`Auth.tsx`)
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
 
-- Truyền `redirect_uri` kèm `location.state?.from` để sau Google login quay về đúng trang trước đó
-- Thêm loading state rõ ràng hơn khi đang redirect sang Google
+---
 
-## Tóm tắt file thay đổi
+## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
 
-| File | Thay đổi |
-|---|---|
-| Migration SQL | Cập nhật `handle_new_user` lưu `avatar_url` từ Google |
-| `src/contexts/AuthContext.tsx` | Sync avatar/name từ Google metadata khi `SIGNED_IN` |
-| `src/pages/Auth.tsx` | Cải thiện redirect_uri, loading state Google |
+### Vấn đề
+Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
 
+### Đã sửa (6 files + 2 edge functions)
+1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
+2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
+3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
+4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
+5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
+6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
+7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon

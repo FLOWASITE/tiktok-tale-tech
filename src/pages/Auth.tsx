@@ -73,8 +73,16 @@ export default function Auth() {
     setLoginError(null);
     setRegisterError(null);
     try {
+      const from = (location.state as any)?.from?.pathname;
+      const redirectUri = from 
+        ? `${window.location.origin}${from}` 
+        : window.location.origin;
+      
       const { error } = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+        redirect_uri: redirectUri,
+        extraParams: {
+          prompt: "select_account",
+        },
       });
       if (error) {
         const errorMsg = 'Đăng nhập Google thất bại. Vui lòng thử lại.';
