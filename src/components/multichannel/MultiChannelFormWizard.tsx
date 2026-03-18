@@ -1055,6 +1055,7 @@ export function MultiChannelFormWizard({
 
                 <div className="relative">
                   <Textarea
+                    data-topic-input
                     ref={topicInputRef}
                     rows={1}
                     value={formData.topic}

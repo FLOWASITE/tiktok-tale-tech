@@ -111,7 +111,7 @@ export function TopicIdeaHub({
 
     // Scroll the topic textarea into view (sits above this component)
     requestAnimationFrame(() => {
-      const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="topic"], textarea[placeholder*="chủ đề"], textarea[placeholder*="ý tưởng"]');
+      const textarea = document.querySelector<HTMLTextAreaElement>('[data-topic-input]');
       textarea?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   }, [onQuickActionSelect, onSelect]);
