@@ -62,6 +62,7 @@ export interface CarouselFormData {
   brandTemplateId?: string;
   topicHistoryId?: string;
   campaignId?: string;
+  carouselStyle: CarouselStyleType;
 }
 
 export const DEFAULT_BRAND_GUIDELINE = '';
