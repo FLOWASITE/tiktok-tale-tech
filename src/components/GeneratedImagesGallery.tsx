@@ -15,6 +15,7 @@ interface GeneratedImagesGalleryProps {
   slides?: CarouselSlide[];
   carouselTitle?: string;
   onDeleteImage?: (slideNumber: number) => void;
+  onGenerateAll?: () => void;
 }
 
 export function GeneratedImagesGallery({
