@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, ExternalLink, Trash2, ImageIcon, FileArchive, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Download, ExternalLink, Trash2, ImageIcon, FileArchive, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { GeneratedImage } from '@/hooks/useImageGeneration';
 import { CarouselSlide } from '@/types/carousel';
 import { toast } from 'sonner';
