@@ -86,6 +86,8 @@ interface TopicAIRequest {
   forceRefresh?: boolean;
   // Phase 3: Cost optimization flag
   skipWebSearch?: boolean;     // Explicitly skip Perplexity API calls
+  // Category hint from quick-action chips (e.g. "Viral tuần này", "Theo trend")
+  categoryHint?: string;
   // Action-specific params
   rawTopic?: string;           // for 'refine'
   videoType?: string;          // for 'refine'
