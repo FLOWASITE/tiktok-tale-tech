@@ -3,7 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Check, Loader2, CreditCard, Clock, ArrowRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Check, Loader2, CreditCard, Clock, ArrowRight, Tag, X } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useOrganizationContext } from "@/contexts/OrganizationContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,31 +25,97 @@ const PLAN_NAMES: Record<string, string> = {
   enterprise: "Enterprise",
 };
 
+interface VoucherInfo {
+  code: string;
+  discount_type: string;
+  discount_value: number;
+  applicable_plans: string[] | null;
+}
+
 export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps) {
   const { subscription, planLimits, currentPlanLimits, usage } = useSubscription();
   const { currentOrganization } = useOrganizationContext();
   const [isYearly, setIsYearly] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [voucherInput, setVoucherInput] = useState("");
+  const [voucherLoading, setVoucherLoading] = useState(false);
+  const [appliedVoucher, setAppliedVoucher] = useState<VoucherInfo | null>(null);
 
   const currentPlan = subscription?.plan_type || "free";
   const formatPrice = (v: number) => new Intl.NumberFormat("vi-VN").format(v);
 
-  // Calculate proration info
   const getProrateInfo = (targetPlanPrice: number) => {
-    if (!subscription?.current_period_start || !subscription?.current_period_end) {
-      return null;
-    }
+    if (!subscription?.current_period_start || !subscription?.current_period_end) return null;
     const now = new Date();
     const periodEnd = new Date(subscription.current_period_end);
     const periodStart = new Date(subscription.current_period_start);
-    
     if (periodEnd <= now) return null;
-
     const daysInPeriod = Math.max(1, Math.ceil((periodEnd.getTime() - periodStart.getTime()) / 86400000));
     const daysRemaining = Math.max(1, Math.ceil((periodEnd.getTime() - now.getTime()) / 86400000));
     const proratedPrice = Math.ceil(targetPlanPrice * daysRemaining / daysInPeriod);
-
     return { daysRemaining, daysInPeriod, proratedPrice };
+  };
+
+  const getDiscountedPrice = (price: number, planType: string) => {
+    if (!appliedVoucher) return price;
+    if (appliedVoucher.applicable_plans && appliedVoucher.applicable_plans.length > 0 && !appliedVoucher.applicable_plans.includes(planType)) {
+      return price;
+    }
+    if (appliedVoucher.discount_type === 'percentage') {
+      return Math.max(1000, price - Math.ceil(price * Math.min(appliedVoucher.discount_value, 100) / 100));
+    }
+    return Math.max(1000, price - appliedVoucher.discount_value);
+  };
+
+  const handleApplyVoucher = async () => {
+    const code = voucherInput.trim().toUpperCase();
+    if (!code) return;
+
+    setVoucherLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('vouchers')
+        .select('code, discount_type, discount_value, applicable_plans, is_active, max_uses, used_count, starts_at, expires_at')
+        .eq('code', code)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (error || !data) {
+        toast.error("Mã voucher không tồn tại hoặc không hợp lệ");
+        return;
+      }
+
+      const now = new Date();
+      if (data.starts_at && new Date(data.starts_at) > now) {
+        toast.error("Mã voucher chưa có hiệu lực");
+        return;
+      }
+      if (data.expires_at && new Date(data.expires_at) < now) {
+        toast.error("Mã voucher đã hết hạn");
+        return;
+      }
+      if (data.max_uses !== null && data.used_count >= data.max_uses) {
+        toast.error("Mã voucher đã hết lượt sử dụng");
+        return;
+      }
+
+      setAppliedVoucher({
+        code: data.code,
+        discount_type: data.discount_type,
+        discount_value: data.discount_value,
+        applicable_plans: data.applicable_plans,
+      });
+      toast.success(`Áp dụng mã ${data.code} thành công!`);
+    } catch {
+      toast.error("Không thể kiểm tra mã voucher");
+    } finally {
+      setVoucherLoading(false);
+    }
+  };
+
+  const handleRemoveVoucher = () => {
+    setAppliedVoucher(null);
+    setVoucherInput("");
   };
 
   const handleUpgrade = async (planType: string) => {
@@ -65,6 +132,7 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
           plan_type: planType,
           billing_cycle: isYearly ? "yearly" : "monthly",
           return_url: `${window.location.origin}/payment/result`,
+          voucher_code: appliedVoucher?.code || undefined,
         },
       });
 
@@ -111,19 +179,60 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
           </span>
         </div>
 
+        {/* Voucher input */}
+        <div className="rounded-lg border border-border p-3 space-y-2">
+          <div className="flex items-center gap-1.5 text-sm font-medium">
+            <Tag className="h-4 w-4 text-primary" />
+            Mã voucher
+          </div>
+          {appliedVoucher ? (
+            <div className="flex items-center justify-between bg-primary/10 rounded-md px-3 py-2">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="font-mono">{appliedVoucher.code}</Badge>
+                <span className="text-xs text-muted-foreground">
+                  {appliedVoucher.discount_type === 'percentage'
+                    ? `Giảm ${appliedVoucher.discount_value}%`
+                    : `Giảm ${formatPrice(appliedVoucher.discount_value)}₫`}
+                </span>
+              </div>
+              <Button variant="ghost" size="sm" onClick={handleRemoveVoucher} className="h-7 w-7 p-0">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Input
+                placeholder="Nhập mã voucher"
+                value={voucherInput}
+                onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === 'Enter' && handleApplyVoucher()}
+                className="font-mono"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleApplyVoucher}
+                disabled={!voucherInput.trim() || voucherLoading}
+              >
+                {voucherLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Áp dụng"}
+              </Button>
+            </div>
+          )}
+        </div>
+
         {/* Plan cards */}
         <div className="grid gap-4 sm:grid-cols-2">
           {upgradablePlans.map((plan) => {
             const fullMonthlyPrice = isYearly ? Math.round(plan.price_yearly / 12) : plan.price_monthly;
             const fullPrice = isYearly ? plan.price_yearly : plan.price_monthly;
             const prorateInfo = getProrateInfo(fullPrice);
+            const priceBeforeDiscount = prorateInfo ? prorateInfo.proratedPrice : fullPrice;
+            const finalPrice = getDiscountedPrice(priceBeforeDiscount, plan.plan_type);
+            const hasDiscount = appliedVoucher && finalPrice < priceBeforeDiscount;
             const isLoading = loadingPlan === plan.plan_type;
 
             return (
-              <div
-                key={plan.plan_type}
-                className="rounded-xl border border-border p-5 space-y-4"
-              >
+              <div key={plan.plan_type} className="rounded-xl border border-border p-5 space-y-4">
                 <div>
                   <h3 className="text-lg font-bold">{PLAN_NAMES[plan.plan_type] || plan.plan_type}</h3>
                   <div className="mt-1">
@@ -150,7 +259,21 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
                   </div>
                 )}
 
-                {/* Usage comparison for current usage */}
+                {/* Voucher discount notice */}
+                {hasDiscount && (
+                  <div className="rounded-lg bg-primary/10 p-3 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                      <Tag className="h-3.5 w-3.5" />
+                      Voucher {appliedVoucher.code}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="line-through">{formatPrice(priceBeforeDiscount)}₫</span>
+                      <span className="ml-1.5 font-semibold text-primary">{formatPrice(finalPrice)}₫</span>
+                    </p>
+                  </div>
+                )}
+
+                {/* Usage comparison */}
                 {usage && currentPlanLimits && (
                   <div className="rounded-lg border border-border/50 p-2.5 space-y-1">
                     <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Hạn mức nâng lên</p>
@@ -191,9 +314,11 @@ export function UpgradePlanDialog({ open, onOpenChange }: UpgradePlanDialogProps
                   ) : (
                     <CreditCard className="h-4 w-4 mr-2" />
                   )}
-                  {prorateInfo
-                    ? `Thanh toán ${formatPrice(prorateInfo.proratedPrice)}₫`
-                    : "Thanh toán qua VNPay"}
+                  {hasDiscount
+                    ? `Thanh toán ${formatPrice(finalPrice)}₫`
+                    : prorateInfo
+                      ? `Thanh toán ${formatPrice(prorateInfo.proratedPrice)}₫`
+                      : "Thanh toán qua VNPay"}
                 </Button>
               </div>
             );

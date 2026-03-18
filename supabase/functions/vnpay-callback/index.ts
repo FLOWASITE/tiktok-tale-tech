@@ -111,6 +111,34 @@ Deno.serve(async (req) => {
       // Payment successful — determine if this is an upgrade or new subscription
       const now = new Date();
 
+      // Handle voucher usage if present
+      const orderMetadata = (order.metadata as Record<string, unknown>) || {};
+      if (orderMetadata.voucher_id) {
+        try {
+          // Increment used_count
+          await supabase.rpc('', {}).catch(() => {}); // no-op, use raw query below
+          await supabase
+            .from('vouchers')
+            .update({ used_count: (await supabase.from('vouchers').select('used_count').eq('id', orderMetadata.voucher_id as string).single()).data?.used_count + 1 || 1 })
+            .eq('id', orderMetadata.voucher_id as string);
+
+          // Record usage
+          await supabase
+            .from('voucher_usages')
+            .insert({
+              voucher_id: orderMetadata.voucher_id as string,
+              organization_id: order.organization_id,
+              user_id: order.user_id,
+              payment_order_id: order.id,
+              discount_amount: orderMetadata.discount_amount as number || 0,
+            });
+          console.log(`Voucher ${orderMetadata.voucher_code} usage recorded for order ${order.id}`);
+        } catch (voucherErr) {
+          console.error('Failed to record voucher usage:', voucherErr);
+          // Don't fail the whole callback for voucher tracking
+        }
+      }
+
       // Get current subscription
       const { data: currentSub } = await supabase
         .from('subscriptions')
