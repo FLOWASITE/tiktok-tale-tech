@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
 import { TopicAIChatbot } from '@/components/topic/TopicAIChatbot';
+import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { Lightbulb, Sparkles, ChevronDown, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { EnhancedTopicSuggestion } from '@/types/topicDiscovery';
 import type { ContentGoal } from '@/types/multichannel';
 
@@ -44,6 +46,8 @@ export function TopicIdeaHub({
 }: TopicIdeaHubProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'suggestions' | 'brainstorm'>('suggestions');
+  const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
+  const isMobile = useIsMobile();
 
   const handleTopicSelect = (topic: string) => {
     onSelect(topic);
@@ -80,7 +84,13 @@ export function TopicIdeaHub({
           <div className="px-3 pb-3">
             <Tabs
               value={activeTab}
-              onValueChange={(v) => setActiveTab(v as 'suggestions' | 'brainstorm')}
+              onValueChange={(v) => {
+                if (isMobile && v === 'brainstorm') {
+                  setShowBrainstormSheet(true);
+                } else {
+                  setActiveTab(v as 'suggestions' | 'brainstorm');
+                }
+              }}
             >
               <TabsList className="w-full h-8 mb-2">
                 <TabsTrigger value="suggestions" className="flex-1 text-xs gap-1.5 h-7">
@@ -125,6 +135,14 @@ export function TopicIdeaHub({
           </div>
         </CollapsibleContent>
       </div>
+
+      <TopicBrainstormSheet
+        open={showBrainstormSheet}
+        onOpenChange={setShowBrainstormSheet}
+        brandTemplateId={brandTemplateId}
+        contentGoal={contentGoal}
+        onSelectTopic={handleTopicSelect}
+      />
     </Collapsible>
   );
 }
