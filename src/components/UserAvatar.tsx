@@ -323,7 +323,34 @@ export function UserAvatar() {
             </DropdownMenuPortal>
           </DropdownMenuSub>
 
-          <DropdownMenuItem onClick={handleSupportClick}>
+          {/* Theme Switcher */}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="gap-2">
+              <currentTheme.icon className="h-4 w-4" />
+              <span className="flex-1">{currentTheme.label}</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent className="w-48 bg-popover">
+                {themes.map((t) => {
+                  const Icon = t.icon;
+                  return (
+                    <DropdownMenuItem
+                      key={t.key}
+                      onClick={() => setTheme(t.key)}
+                      className="gap-2"
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="flex-1">{t.label}</span>
+                      {theme === t.key && (
+                        <Check className="w-4 h-4 text-primary shrink-0" />
+                      )}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
+
             <HelpCircle className="mr-2 h-4 w-4" />
             Trợ giúp
             <ExternalLink className="ml-auto h-3 w-3 text-muted-foreground" />
