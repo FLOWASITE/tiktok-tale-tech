@@ -86,8 +86,15 @@ const CarouselPage = () => {
     search: '',
     platform: 'all',
     aiTool: 'all',
+    status: 'all',
+    carouselStyle: 'all',
   });
   const [campaignFilter, setCampaignFilter] = useState<string | undefined>();
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name_asc'>('newest');
+
+  // Fetch thumbnail images
+  const carouselIds = useMemo(() => carousels.map(c => c.id), [carousels]);
+  const { imageMap } = useCarouselCardImages(carouselIds);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);

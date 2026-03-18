@@ -212,6 +212,46 @@ export function CarouselFilters({ filters, onFiltersChange }: CarouselFiltersPro
                 </Select>
               </div>
 
+              {/* Status Select */}
+              <div className="flex-1 min-w-[150px]">
+                <Select
+                  value={filters.status}
+                  onValueChange={(v) => onFiltersChange({ ...filters, status: v as CarouselStatus | 'all' })}
+                >
+                  <SelectTrigger className="w-full bg-background/50 border-border/50">
+                    <SelectValue placeholder="Trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                    {Object.entries(CAROUSEL_STATUS_CONFIG).map(([key, config]) => (
+                      <SelectItem key={key} value={key}>
+                        {config.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Carousel Style Select */}
+              <div className="flex-1 min-w-[150px]">
+                <Select
+                  value={filters.carouselStyle}
+                  onValueChange={(v) => onFiltersChange({ ...filters, carouselStyle: v as CarouselStyleType | 'all' })}
+                >
+                  <SelectTrigger className="w-full bg-background/50 border-border/50">
+                    <SelectValue placeholder="Kiểu carousel" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả kiểu</SelectItem>
+                    {CAROUSEL_STYLE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.icon} {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* AI Tool Quick Chips */}
               <div className="hidden md:flex items-center gap-1.5">
                 {AI_TOOL_OPTIONS.slice(0, 3).map((tool) => (
