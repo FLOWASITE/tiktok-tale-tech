@@ -146,12 +146,25 @@ serve(async (req) => {
     const contentAngle = context?.contentAngle || '';
     const topic = context?.topic || '';
 
-    const strategicContext = (contentRole || contentGoal || contentAngle) ? `
+    // Style-based layout preference mapping
+    const STYLE_LAYOUT_HINTS: Record<string, string> = {
+      minimalist: 'hero_text hoặc simple (ưu tiên không gian trống, tối giản)',
+      flat_design: 'infographic hoặc education_infographic (ưu tiên cards blocky, data-driven)',
+      gradient: 'hero_text hoặc quote_card (ưu tiên hero text lớn trên nền gradient)',
+      geometric: 'infographic hoặc feature_list (ưu tiên split layout, cấu trúc cột)',
+      illustration: 'quote_card hoặc hero_text (ưu tiên storytelling, cảm xúc)',
+      product_only: 'poster hoặc simple (ưu tiên sản phẩm trung tâm, CTA mạnh)',
+    };
+    const styleHint = imageStyle && STYLE_LAYOUT_HINTS[imageStyle] 
+      ? `\n- Phong cách ảnh (Image Style): ${imageStyle} → Ưu tiên layout: ${STYLE_LAYOUT_HINTS[imageStyle]}`
+      : '';
+
+    const strategicContext = (contentRole || contentGoal || contentAngle || styleHint) ? `
 BỐI CẢNH CHIẾN LƯỢC:
 ${contentGoal ? `- Mục tiêu nội dung (Content Goal): ${contentGoal}` : ''}
 ${contentRole ? `- Vai trò nội dung (Content Role): ${contentRole} ${contentRole === 'seed' ? '(Awareness - thu hút, không bán hàng)' : contentRole === 'sprout' ? '(Trust - xây dựng niềm tin, phân tích sâu)' : '(Conversion - CTA mạnh, bán hàng)'}` : ''}
 ${contentAngle ? `- Góc tiếp cận: ${contentAngle}` : ''}
-${topic ? `- Chủ đề gốc: ${topic}` : ''}
+${topic ? `- Chủ đề gốc: ${topic}` : ''}${styleHint}
 
 CHIẾN LƯỢC CHỌN LAYOUT (suggestedLayout):
 - Nội dung giáo dục/kiến thức có nhiều điểm + có thông tin liên hệ → "education_infographic" (banner + cards đánh số + ribbon tóm tắt + CTA + footer liên hệ)
@@ -161,6 +174,7 @@ CHIẾN LƯỢC CHỌN LAYOUT (suggestedLayout):
 - Nội dung có số liệu nổi bật → "quote_card" với heroText là số liệu
 - Nội dung liệt kê tính năng/lợi ích → "feature_list" (banner + danh sách dọc)
 - Nội dung Q&A, behind_the_scenes → "poster" (đơn giản, headline + CTA)
+- **Nếu có Image Style hint ở trên, ƯU TIÊN layout phù hợp style đó**
 ` : '';
 
     const systemPrompt = `Bạn là chuyên gia thiết kế infographic. Nhiệm vụ: từ nội dung bài viết (có thể dài, narrative), bạn phải PHÂN TÍCH SÂU nội dung và SÁNG TẠO infographic gồm 3 phần:
