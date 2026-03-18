@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createDecipheriv } from "node:crypto";
+import { Buffer } from "node:buffer";
 import { decrypt } from "../_shared/crypto.ts";
 
 const corsHeaders = {
@@ -14,6 +16,48 @@ interface TestRequest {
   appSecret?: string;
 }
 
+function decryptLegacyCBC(encryptedText: string, key: string): string {
+  const [ivHex, encryptedHex] = encryptedText.split(':');
+  if (!ivHex || !encryptedHex) {
+    throw new Error('Invalid legacy encrypted format');
+  }
+
+  const iv = Buffer.from(ivHex, 'hex');
+  const encryptedData = Buffer.from(encryptedHex, 'hex');
+  const keyBuffer = Buffer.from(key.padEnd(32).slice(0, 32));
+
+  const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
+  let decrypted = decipher.update(encryptedData);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
+}
+
+async function decryptCredential(ciphertext: string, key: string): Promise<string> {
+  try {
+    return await decrypt(ciphertext);
+  } catch (primaryError) {
+    if (!ciphertext.includes(':')) {
+      throw primaryError;
+    }
+
+    const keyCandidates = [...new Set([
+      key,
+      'default-encryption-key-change-me',
+      'default-key',
+    ].filter(Boolean))];
+
+    for (const candidate of keyCandidates) {
+      try {
+        return decryptLegacyCBC(ciphertext, candidate);
+      } catch {
+        // Try next candidate key
+      }
+    }
+
+    throw primaryError;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -22,6 +66,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-encryption-key-change-me';
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Verify admin role
@@ -78,8 +123,10 @@ serve(async (req) => {
       }
 
       try {
-        appId = await decrypt(settings.consumer_key);
-        appSecret = await decrypt(settings.consumer_secret);
+        [appId, appSecret] = await Promise.all([
+          decryptCredential(settings.consumer_key, encryptionKey),
+          decryptCredential(settings.consumer_secret, encryptionKey),
+        ]);
       } catch (decryptErr) {
         console.error('Decryption error:', decryptErr);
         throw new Error('Không thể giải mã credentials - kiểm tra encryption key');

@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Buffer } from "node:buffer";
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createDecipheriv } from "node:crypto";
+import { decrypt, encrypt } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,28 +17,47 @@ interface PlatformSettings {
   is_active?: boolean;
 }
 
-// Encryption helpers using Base64 encoding for simplicity
-function encrypt(text: string, key: string): string {
-  const iv = randomBytes(16);
+function decryptLegacyCBC(encryptedText: string, key: string): string {
+  const [ivHex, encryptedHex] = encryptedText.split(":");
+  if (!ivHex || !encryptedHex) {
+    throw new Error("Invalid legacy encrypted format");
+  }
+
+  const iv = Buffer.from(ivHex, "hex");
+  const encryptedData = Buffer.from(encryptedHex, "hex");
   const keyBuffer = Buffer.from(key.padEnd(32).slice(0, 32));
-  const cipher = createCipheriv("aes-256-cbc", keyBuffer, iv);
-  let encrypted = cipher.update(text, "utf8", "hex");
-  encrypted += cipher.final("hex");
-  return iv.toString("hex") + ":" + encrypted;
+
+  const decipher = createDecipheriv("aes-256-cbc", keyBuffer, iv);
+  let decrypted = decipher.update(encryptedData);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
 }
 
-function decrypt(encryptedText: string, key: string): string {
+async function decryptCredential(encryptedValue: string | null, key: string): Promise<string | null> {
+  if (!encryptedValue) return null;
+
   try {
-    const [ivHex, encrypted] = encryptedText.split(":");
-    if (!ivHex || !encrypted) return encryptedText;
-    const iv = Buffer.from(ivHex, "hex");
-    const keyBuffer = Buffer.from(key.padEnd(32).slice(0, 32));
-    const decipher = createDecipheriv("aes-256-cbc", keyBuffer, iv);
-    let decrypted = decipher.update(encrypted, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
-  } catch {
-    return encryptedText;
+    return await decrypt(encryptedValue);
+  } catch (primaryError) {
+    if (!encryptedValue.includes(":")) {
+      throw primaryError;
+    }
+
+    const keyCandidates = [...new Set([
+      key,
+      "default-encryption-key-change-me",
+      "default-key",
+    ].filter(Boolean))];
+
+    for (const candidate of keyCandidates) {
+      try {
+        return decryptLegacyCBC(encryptedValue, candidate);
+      } catch {
+        // Try next candidate key
+      }
+    }
+
+    throw primaryError;
   }
 }
 
@@ -111,11 +131,18 @@ Deno.serve(async (req) => {
       }
 
       // Mask credentials for response
-      const maskedSettings = (settings || []).map((s) => ({
-        ...s,
-        consumer_key: s.consumer_key ? maskCredential(decrypt(s.consumer_key, encryptionKey)) : null,
-        consumer_secret: s.consumer_secret ? maskCredential(decrypt(s.consumer_secret, encryptionKey)) : null,
-        has_credentials: !!(s.consumer_key && s.consumer_secret),
+      const maskedSettings = await Promise.all((settings || []).map(async (s) => {
+        const [decryptedKey, decryptedSecret] = await Promise.all([
+          decryptCredential(s.consumer_key, encryptionKey).catch(() => null),
+          decryptCredential(s.consumer_secret, encryptionKey).catch(() => null),
+        ]);
+
+        return {
+          ...s,
+          consumer_key: maskCredential(decryptedKey),
+          consumer_secret: maskCredential(decryptedSecret),
+          has_credentials: !!(s.consumer_key && s.consumer_secret),
+        };
       }));
 
       return new Response(JSON.stringify({ settings: maskedSettings }), {
@@ -144,10 +171,10 @@ Deno.serve(async (req) => {
       };
 
       if (body.consumer_key) {
-        encryptedData.consumer_key = encrypt(body.consumer_key, encryptionKey);
+        encryptedData.consumer_key = await encrypt(body.consumer_key);
       }
       if (body.consumer_secret) {
-        encryptedData.consumer_secret = encrypt(body.consumer_secret, encryptionKey);
+        encryptedData.consumer_secret = await encrypt(body.consumer_secret);
       }
 
       // Upsert (update or insert)
