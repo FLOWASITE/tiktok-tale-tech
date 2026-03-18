@@ -36,7 +36,7 @@ serve(async (req) => {
     }
 
     // === STEP 1: Generate background image (no text) ===
-    const backgroundPrompt = buildBackgroundPrompt(prompt, platform);
+    const backgroundPrompt = buildBackgroundPrompt(prompt, platform, carouselStyle, slideNumber, totalSlides);
     console.log("[generate-carousel-image] Step 1: Generating background...");
     
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
