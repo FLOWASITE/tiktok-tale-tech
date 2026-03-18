@@ -180,7 +180,7 @@ export function MultiChannelFormStepper({
   streamingTexts,
 }: MultiChannelFormStepperProps) {
   const { templates, loading: templatesLoading } = useBrandTemplates();
-  const topicInputRef = useRef<HTMLInputElement>(null);
+  const topicInputRef = useRef<HTMLTextAreaElement>(null);
   
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
