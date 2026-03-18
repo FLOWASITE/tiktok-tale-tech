@@ -1089,8 +1089,8 @@ export function MultiChannelFormWizard({
                 )}
               </div>
 
-              {/* Topic Suggestion Panel - carousel style (always visible) */}
-              <TopicSuggestionPanel
+              {/* Unified Topic Idea Hub - Suggestions + Brainstorm AI */}
+              <TopicIdeaHub
                 suggestions={topicSuggestions}
                 source={suggestionsSource}
                 isLoading={isSuggestionsLoading}
@@ -1101,34 +1101,8 @@ export function MultiChannelFormWizard({
                 disabled={isGenerating}
                 showEnhancedInfo
                 contentGoal={formData.contentGoal}
+                brandTemplateId={formData.brandTemplateId}
               />
-
-              {/* ===== DYNAMIC ZONE - Changes based on topic length ===== */}
-              <AnimatePresence mode="wait">
-                {formData.topic.trim().length < TOPIC_MIN_LENGTH_FOR_REFINEMENT ? (
-                  /* Empty/Short Input State: Show Brainstorm button */
-                  <motion.div
-                    key="ai-suggestions"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <div className="flex justify-center pt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowBrainstormSheet(true)}
-                        disabled={isGenerating}
-                        className="gap-2"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        Brainstorm với AI
-                        <ArrowRight className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </motion.div>
-                ) : (
                   /* Has Content State: Show refinement suggestions */
                   <motion.div
                     key="refinement"
