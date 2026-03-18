@@ -164,7 +164,7 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   threads: <AtSign className="w-4 h-4" />,
 };
 
-const MAX_TOPIC_LENGTH = 500;
+const MAX_TOPIC_LENGTH = 300;
 
 export function MultiChannelFormStepper({ 
   onSubmit, 
