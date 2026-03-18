@@ -1,6 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
-import { ThemeToggle } from '@/components/ThemeToggle';
+
 import { UserAvatar } from '@/components/UserAvatar';
 import { Separator } from '@/components/ui/separator';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
