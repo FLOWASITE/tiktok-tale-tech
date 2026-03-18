@@ -18,7 +18,6 @@ const corsHeaders = {
 async function getGlobalPlatformCredentials(
   supabase: any,
   platform: string,
-  encryptionKey: string
 ): Promise<{ appId: string | null; appSecret: string | null }> {
   try {
     const { data: settings, error } = await supabase
@@ -33,21 +32,16 @@ async function getGlobalPlatformCredentials(
       return { appId: null, appSecret: null };
     }
 
-    let appId = settings.consumer_key;
-    let appSecret = settings.consumer_secret;
-
-    // Decrypt if encrypted
-    if (appId && appId.includes(':')) {
-      appId = decrypt(appId, encryptionKey);
-    }
-    if (appSecret && appSecret.includes(':')) {
-      appSecret = decrypt(appSecret, encryptionKey);
-    }
-
+    const [appId, appSecret] = await Promise.all([
+      settings.consumer_key ? decryptCredential(settings.consumer_key) : null,
+      settings.consumer_secret ? decryptCredential(settings.consumer_secret) : null,
+    ]);
     return { appId, appSecret };
   } catch (error) {
     console.error('Error fetching global credentials:', error);
     return { appId: null, appSecret: null };
+  }
+}
   }
 }
 
