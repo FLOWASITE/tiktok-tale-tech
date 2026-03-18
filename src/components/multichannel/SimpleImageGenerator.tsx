@@ -465,7 +465,8 @@ export function SimpleImageGenerator({
     let cancelled = false;
     setIsDecomposing(true);
 
-    decomposeRequestWithAI(aiInput, brandPrimaryColor || '#DC2626', '#FFFFFF', decomposeContext)
+    const resolvedImageStyle = imageStyle !== 'auto' ? imageStyle : (v3Suggestions[0]?.style as string | undefined);
+    decomposeRequestWithAI(aiInput, brandPrimaryColor || '#DC2626', '#FFFFFF', decomposeContext, resolvedImageStyle)
       .then((decomposed) => {
         if (cancelled) return;
         // Use AI-suggested layout when in auto mode, fallback to heuristic
