@@ -47,8 +47,8 @@ export function FooterSection() {
     legal: {
       title: t("footer.sections.legal.title"),
       links: [
-        { name: t("footer.sections.legal.links.0"), href: "#" },
-        { name: t("footer.sections.legal.links.1"), href: "#" },
+        { name: t("footer.sections.legal.links.0"), href: "/terms", isInternal: true },
+        { name: t("footer.sections.legal.links.1"), href: "/privacy", isInternal: true },
         { name: t("footer.sections.legal.links.2"), href: "#" },
         { name: t("footer.sections.legal.links.3"), href: "#" },
       ],

@@ -119,6 +119,8 @@ function AppRoutes() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/payment/result" element={<ProtectedRoute><AppLayout><PaymentResult /></AppLayout></ProtectedRoute>} />
       <Route path="/pricing" element={<Pricing />} />
+      <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
       {/* Protected routes */}
       <Route
         path="/"
