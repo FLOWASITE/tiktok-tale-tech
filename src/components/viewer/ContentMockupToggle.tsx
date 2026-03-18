@@ -1,4 +1,5 @@
 import { ChannelMockupFrame } from '@/components/preview/ChannelMockupFrame';
+import { GoogleMapsMockup } from '@/components/preview/GoogleMapsMockup';
 import { Channel, WebsiteSEOData } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 import { normalizeMarkdownText } from '@/utils/normalizeMarkdownText';
@@ -52,6 +53,23 @@ export function ContentMockupToggle({
   const safeBrandName = typeof brandName === 'string' && brandName.trim() 
     ? brandName.trim() 
     : 'Brand';
+
+  // Use dedicated Google Maps mockup
+  if (channel === 'google_maps') {
+    return (
+      <div className={cn('flex justify-center items-start p-2 bg-gradient-to-b from-muted/5 to-muted/20 rounded-xl min-h-[500px]', className)}>
+        <div className="w-full max-w-xl">
+          <GoogleMapsMockup
+            content={safeContent}
+            brandName={safeBrandName}
+            logoUrl={logoUrl}
+            isGenerating={isLoading}
+            channelImage={channelImage}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn('flex justify-center items-start p-2 bg-gradient-to-b from-muted/5 to-muted/20 rounded-xl min-h-[500px]', className)}>
