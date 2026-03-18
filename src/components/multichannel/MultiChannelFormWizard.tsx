@@ -2208,22 +2208,6 @@ export function MultiChannelFormWizard({
           </div>
         </div>
 
-        {/* Brainstorm Sheet */}
-        <TopicBrainstormSheet
-          open={showBrainstormSheet}
-          onOpenChange={(open) => {
-            setShowBrainstormSheet(open);
-            if (!open) setBrainstormInitialPrompt(undefined);
-          }}
-          brandTemplateId={formData.brandTemplateId}
-          contentGoal={formData.contentGoal}
-          initialPrompt={brainstormInitialPrompt}
-          onSelectTopic={(topic) => {
-            setFormData(prev => ({ ...prev, topic }));
-            setBrainstormInitialPrompt(undefined);
-            toast.success('Đã chọn chủ đề từ AI!');
-          }}
-        />
 
         {/* Floating Status Stack - prevents overlapping on mobile */}
         <FloatingStatusStack>
