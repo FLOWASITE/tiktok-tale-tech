@@ -1,4 +1,5 @@
 import { ChannelMockupFrame } from '@/components/preview/ChannelMockupFrame';
+import { GoogleMapsMockup } from '@/components/preview/GoogleMapsMockup';
 import { Channel, WebsiteSEOData } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 import { normalizeMarkdownText } from '@/utils/normalizeMarkdownText';
