@@ -287,9 +287,12 @@ Deno.serve(async (req) => {
       throw new Error('Instagram access token or user ID not found');
     }
 
-    // Decrypt access token if encrypted
-    if (accessToken.includes(':')) {
-      accessToken = decrypt(accessToken, encryptionKey);
+    // Decrypt access token
+    try {
+      accessToken = await decryptCredential(accessToken);
+    } catch (e) {
+      console.error('Failed to decrypt access token:', e);
+      throw new Error('Failed to decrypt access token');
     }
 
     // Create publish attempt record
