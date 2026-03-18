@@ -56,12 +56,7 @@ serve(async (req) => {
     }
 
     // Decrypt access token
-    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-    const accessToken = decrypt(connection.access_token, encryptionKey);
-
-    if (!accessToken) {
-      throw new Error('Failed to decrypt access token');
-    }
+    const accessToken = await decryptCredential(connection.access_token);
 
     // Check token expiry
     const tokenExpiresAt = connection.token_expires_at ? new Date(connection.token_expires_at) : null;

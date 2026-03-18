@@ -55,12 +55,7 @@ serve(async (req) => {
       throw new Error('Facebook connection not found');
     }
 
-    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-    const currentToken = decrypt(connection.access_token, encryptionKey);
-
-    if (!currentToken) {
-      throw new Error('Failed to decrypt current access token');
-    }
+    const currentToken = await decryptCredential(connection.access_token);
 
     // Check if token is still valid by making a simple API call
     console.log('Checking current token validity...');

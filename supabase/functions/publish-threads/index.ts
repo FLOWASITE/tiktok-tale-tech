@@ -95,12 +95,7 @@ serve(async (req) => {
     }
 
     // Decrypt access token
-    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-    const accessToken = decrypt(connection.access_token, encryptionKey);
-
-    if (!accessToken) {
-      throw new Error('Failed to decrypt access token');
-    }
+    const accessToken = await decryptCredential(connection.access_token);
 
     const threadsUserId = connection.platform_user_id || connection.metadata?.threads_user_id;
     if (!threadsUserId) {
