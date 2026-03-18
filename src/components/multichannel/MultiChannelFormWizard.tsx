@@ -1096,7 +1096,7 @@ export function MultiChannelFormWizard({
               <TopicIdeaHub
                 suggestions={topicSuggestions}
                 source={suggestionsSource}
-                isLoading={isSuggestionsLoading}
+                isLoading={isSuggestionsEnhancing || isSuggestionsLoading}
                 onSelect={(topic) => { setTopicFromQuickAction(false); setFormData(prev => ({ ...prev, topic })); }}
                 onQuickActionSelect={(topic) => { setTopicFromQuickAction(true); setFormData(prev => ({ ...prev, topic })); }}
                 onRefresh={refreshSuggestions}
