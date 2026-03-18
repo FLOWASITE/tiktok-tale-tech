@@ -11,13 +11,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Search, X, Filter, ChevronDown, Facebook, Palette } from 'lucide-react';
-import { Platform, AITool, PLATFORM_OPTIONS, AI_TOOL_OPTIONS } from '@/types/carousel';
+import { Platform, AITool, CarouselStatus, CarouselStyleType, PLATFORM_OPTIONS, AI_TOOL_OPTIONS, CAROUSEL_STATUS_CONFIG, CAROUSEL_STYLE_OPTIONS } from '@/types/carousel';
 import { cn } from '@/lib/utils';
 
 export interface CarouselFiltersState {
   search: string;
   platform: Platform | 'all';
   aiTool: AITool | 'all';
+  status: CarouselStatus | 'all';
+  carouselStyle: CarouselStyleType | 'all';
 }
 
 interface CarouselFiltersProps {
