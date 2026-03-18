@@ -93,7 +93,9 @@ import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSele
 import { CompactChannelGrid } from '@/components/multichannel/CompactChannelGrid';
 import { InlineJourneySelector } from '@/components/multichannel/InlineJourneySelector';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
-import { InlineTopicSuggestions } from '@/components/multichannel/InlineTopicSuggestions';
+import { TopicSuggestionPanel } from '@/components/TopicSuggestionPanel';
+import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
+import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
 import { RoleSelectorCard } from '@/components/core-content/RoleSelectorCard';
 import { CoreContentStreamingCard } from '@/components/multichannel/streaming/CoreContentStreamingCard';
