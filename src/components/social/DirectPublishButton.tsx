@@ -160,7 +160,7 @@ export function DirectPublishButton({
   }
 
   // Check if platform is supported
-  const isSupported = platform === 'twitter' || platform === 'facebook';
+  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin'].includes(platform);
 
   if (!isSupported) {
     return (
