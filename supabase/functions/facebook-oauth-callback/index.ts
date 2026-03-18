@@ -43,8 +43,21 @@ async function decryptCredential(ciphertext: string): Promise<string> {
   throw new Error('Failed to decrypt credential with any method');
 }
 
-// Build frontend URL dynamically
-function getFrontendUrl(): string {
+// Allowed origin patterns for open-redirect prevention
+const ALLOWED_ORIGIN_PATTERNS = [
+  /^https:\/\/[a-z0-9-]+\.lovable\.app$/,
+  /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/,
+  /^https:\/\/(app\.)?flowa\.(one|vn)$/,
+  /^http:\/\/localhost(:\d+)?$/,
+];
+
+function isAllowedOrigin(origin: string): boolean {
+  return ALLOWED_ORIGIN_PATTERNS.some(p => p.test(origin));
+}
+
+// Build frontend URL: prefer state origin > FRONTEND_URL > fallback
+function getFrontendUrl(stateOrigin?: string | null): string {
+  if (stateOrigin && isAllowedOrigin(stateOrigin)) return stateOrigin;
   const configured = Deno.env.get('FRONTEND_URL');
   if (configured) return configured;
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -67,8 +80,11 @@ serve(async (req) => {
 
     if (error) {
       console.error('Facebook OAuth error:', error, errorDescription);
+      // Try to extract origin from state for error redirects
+      let errorOrigin: string | null = null;
+      try { if (state) errorOrigin = JSON.parse(atob(state)).frontendOrigin; } catch { /* ignore */ }
       return Response.redirect(
-        `${getFrontendUrl()}/auth/facebook/callback?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || '')}`,
+        `${getFrontendUrl(errorOrigin)}/auth/facebook/callback?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || '')}`,
         302
       );
     }
@@ -84,8 +100,8 @@ serve(async (req) => {
       throw new Error('Invalid state parameter');
     }
 
-    const { brandTemplateId, organizationId, userId } = stateData;
-    console.log('State decoded:', { brandTemplateId, organizationId, userId });
+    const { brandTemplateId, organizationId, userId, frontendOrigin } = stateData;
+    console.log('State decoded:', { brandTemplateId, organizationId, userId, frontendOrigin });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -175,7 +191,7 @@ serve(async (req) => {
 
     if (pages.length === 0) {
       return Response.redirect(
-        `${getFrontendUrl()}/auth/facebook/callback?error=no_pages&error_description=${encodeURIComponent('Không tìm thấy Facebook Page nào. Bạn cần có quyền quản lý ít nhất một Page.')}`,
+        `${getFrontendUrl(frontendOrigin)}/auth/facebook/callback?error=no_pages&error_description=${encodeURIComponent('Không tìm thấy Facebook Page nào. Bạn cần có quyền quản lý ít nhất một Page.')}&brand_template_id=${brandTemplateId || ''}`,
         302
       );
     }
@@ -251,12 +267,14 @@ serve(async (req) => {
       console.log('Created new Facebook connection:', connection.id);
     }
 
-    const successUrl = `${getFrontendUrl()}/auth/facebook/callback?` + new URLSearchParams({
+    const redirectParams: Record<string, string> = {
       success: 'true',
       platform: 'facebook',
       page_name: pageName,
       connection_id: connection.id,
-    }).toString();
+    };
+    if (brandTemplateId) redirectParams.brand_template_id = brandTemplateId;
+    const successUrl = `${getFrontendUrl(frontendOrigin)}/auth/facebook/callback?` + new URLSearchParams(redirectParams).toString();
 
     console.log('Redirecting to:', successUrl);
     return Response.redirect(successUrl, 302);
@@ -265,7 +283,7 @@ serve(async (req) => {
     console.error('Facebook OAuth callback error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return Response.redirect(
-      `${getFrontendUrl()}/auth/facebook/callback?error=callback_failed&error_description=${encodeURIComponent(errorMessage)}`,
+      `${getFrontendUrl(null)}/auth/facebook/callback?error=callback_failed&error_description=${encodeURIComponent(errorMessage)}`,
       302
     );
   }

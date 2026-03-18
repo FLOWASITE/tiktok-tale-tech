@@ -209,10 +209,44 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
         brandTemplateId: template.id,
       });
       if (result?.requiresOAuth && result?.oauthUrl) {
-        window.open(result.oauthUrl, '_blank', 'width=620,height=720,noopener,noreferrer');
+        const popup = window.open(result.oauthUrl, '_blank', 'width=620,height=720');
         toast.info(`Đã mở trang đăng nhập ${PLATFORM_CONFIG[platform].name}`, {
           description: 'Hoàn tất đăng nhập trong cửa sổ mới để kết nối tài khoản.',
         });
+
+        // Poll for connection completion after OAuth popup opens
+        const pollInterval = setInterval(async () => {
+          try {
+            // Check if popup is closed
+            if (popup && popup.closed) {
+              clearInterval(pollInterval);
+              // Give a moment for backend to finish, then refetch
+              setTimeout(() => {
+                refetch();
+              }, 1500);
+              return;
+            }
+            // Also poll DB for new connection
+            const { data } = await supabase
+              .from('social_connections')
+              .select('id, platform, is_active')
+              .eq('brand_template_id', template.id)
+              .eq('platform', platform)
+              .eq('is_active', true)
+              .maybeSingle();
+            if (data) {
+              clearInterval(pollInterval);
+              refetch();
+              toast.success(`Đã kết nối ${PLATFORM_CONFIG[platform].name} thành công!`);
+              if (popup && !popup.closed) popup.close();
+            }
+          } catch {
+            // Ignore polling errors
+          }
+        }, 3000);
+
+        // Stop polling after 5 minutes
+        setTimeout(() => clearInterval(pollInterval), 5 * 60 * 1000);
       }
     } catch {
       // Error handled in mutation

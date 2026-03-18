@@ -12,6 +12,7 @@ export default function FacebookCallback() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [pageName, setPageName] = useState('');
+  const brandTemplateId = searchParams.get('brand_template_id');
 
   useEffect(() => {
     const success = searchParams.get('success');
@@ -31,7 +32,7 @@ export default function FacebookCallback() {
 
       // Auto redirect after 3 seconds
       setTimeout(() => {
-        navigate('/brands', { replace: true });
+        navigate(brandTemplateId ? `/brands/${brandTemplateId}` : '/brands', { replace: true });
       }, 3000);
     } else if (error) {
       setStatus('error');
@@ -60,11 +61,11 @@ export default function FacebookCallback() {
   }, [searchParams, navigate, toast]);
 
   const handleRetry = () => {
-    navigate('/brands', { replace: true });
+    navigate(brandTemplateId ? `/brands/${brandTemplateId}` : '/brands', { replace: true });
   };
 
   const handleGoToBrands = () => {
-    navigate('/brands', { replace: true });
+    navigate(brandTemplateId ? `/brands/${brandTemplateId}` : '/brands', { replace: true });
   };
 
   return (

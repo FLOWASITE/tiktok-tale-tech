@@ -88,6 +88,8 @@ async function getGlobalPlatformCredentials(
 }
 
 serve(async (req) => {
+  // Capture frontend origin from request headers for OAuth redirect
+  const requestOrigin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/+$/, '').split('/').slice(0, 3).join('/') || '';
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -559,6 +561,7 @@ serve(async (req) => {
         brandTemplateId: brandTemplateId || null,
         organizationId: organizationId || null,
         userId: user.id,
+        frontendOrigin: requestOrigin || null,
       }));
 
       const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?` + new URLSearchParams({
@@ -606,6 +609,7 @@ serve(async (req) => {
         brandTemplateId: brandTemplateId || null,
         organizationId: organizationId || null,
         userId: user.id,
+        frontendOrigin: requestOrigin || null,
       }));
 
       const oauthUrl = `https://threads.net/oauth/authorize?` + new URLSearchParams({

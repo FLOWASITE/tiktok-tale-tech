@@ -19,6 +19,7 @@ export default function ThreadsCallback() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [username, setUsername] = useState('');
+  const brandTemplateId = searchParams.get('brand_template_id');
 
   useEffect(() => {
     const success = searchParams.get('success');
@@ -38,7 +39,7 @@ export default function ThreadsCallback() {
 
       // Auto redirect after 3 seconds
       setTimeout(() => {
-        navigate('/brands', { replace: true });
+        navigate(brandTemplateId ? `/brands/${brandTemplateId}` : '/brands', { replace: true });
       }, 3000);
     } else if (error) {
       setStatus('error');
@@ -65,11 +66,11 @@ export default function ThreadsCallback() {
   }, [searchParams, navigate, toast]);
 
   const handleRetry = () => {
-    navigate('/brands', { replace: true });
+    navigate(brandTemplateId ? `/brands/${brandTemplateId}` : '/brands', { replace: true });
   };
 
   const handleGoToBrands = () => {
-    navigate('/brands', { replace: true });
+    navigate(brandTemplateId ? `/brands/${brandTemplateId}` : '/brands', { replace: true });
   };
 
   return (
