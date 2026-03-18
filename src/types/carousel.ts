@@ -28,6 +28,7 @@ export interface Carousel {
   caption_suggestion: string | null;
   cta_suggestion: string | null;
   status: CarouselStatus;
+  carousel_style: CarouselStyleType;
   user_id: string | null;
   industry_template_id?: string | null;
   industry_template_version?: string | null;
