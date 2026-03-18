@@ -1103,7 +1103,10 @@ export function MultiChannelFormWizard({
                 contentGoal={formData.contentGoal}
                 brandTemplateId={formData.brandTemplateId}
               />
-                  /* Has Content State: Show refinement suggestions */
+
+              {/* ===== DYNAMIC ZONE - Refinement when topic is long enough ===== */}
+              <AnimatePresence mode="wait">
+                {formData.topic.trim().length >= TOPIC_MIN_LENGTH_FOR_REFINEMENT && (
                   <motion.div
                     key="refinement"
                     initial={{ opacity: 0, y: 10 }}
@@ -1152,20 +1155,6 @@ export function MultiChannelFormWizard({
                       onRefresh={refreshRefinement}
                       disabled={isGenerating}
                     />
-
-                    {/* Secondary Brainstorm button */}
-                    <div className="flex justify-center pt-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowBrainstormSheet(true)}
-                        disabled={isGenerating}
-                        className="gap-2 text-muted-foreground hover:text-primary"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        Brainstorm thêm ý tưởng
-                      </Button>
-                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>

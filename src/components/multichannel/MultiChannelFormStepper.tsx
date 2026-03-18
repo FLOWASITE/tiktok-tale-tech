@@ -1130,5 +1130,6 @@ export function MultiChannelFormStepper({
           </p>
         )}
       </div>
+    </TooltipProvider>
   );
 }
