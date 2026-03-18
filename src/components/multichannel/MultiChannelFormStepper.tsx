@@ -472,22 +472,28 @@ export function MultiChannelFormStepper({
                 </div>
 
                 <div className="relative">
-                  <Input
+                  <Textarea
                     ref={topicInputRef}
+                    rows={1}
                     value={formData.topic}
                     onChange={(e) => setFormData(prev => ({ 
                       ...prev, 
                       topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
                     }))}
+                    onInput={(e) => {
+                      const el = e.currentTarget;
+                      el.style.height = 'auto';
+                      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+                    }}
                     placeholder="VD: Skincare mùa hè, Mẹo tiết kiệm chi phí..."
-                    className="h-12 border-2 pr-20 text-base"
+                    className="min-h-[52px] max-h-[120px] resize-none border-2 pr-20 text-base"
                     disabled={isLoading}
                     autoFocus
                   />
                   <Badge
                     variant="secondary"
                     className={cn(
-                      "absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono",
+                      "absolute right-3 bottom-2 text-[10px] font-mono",
                       formData.topic.length < 10 ? 'bg-amber-500/20 text-amber-600' : 'bg-muted text-muted-foreground'
                     )}
                   >

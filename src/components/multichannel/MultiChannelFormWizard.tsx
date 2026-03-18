@@ -1031,21 +1031,27 @@ export function MultiChannelFormWizard({
                 </div>
 
                 <div className="relative">
-                  <Input
+                  <Textarea
                     ref={topicInputRef}
+                    rows={1}
                     value={formData.topic}
                     onChange={(e) => setFormData(prev => ({ 
                       ...prev, 
                       topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
                     }))}
+                    onInput={(e) => {
+                      const el = e.currentTarget;
+                      el.style.height = 'auto';
+                      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+                    }}
                     placeholder="VD: Skincare mùa hè, Mẹo tiết kiệm chi phí..."
-                    className="h-12 border-2 pr-20 text-base"
+                    className="min-h-[52px] max-h-[120px] resize-none border-2 pr-20 text-base"
                     disabled={isGenerating}
                     autoFocus
                   />
                   <Badge 
                     variant="secondary" 
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono pointer-events-none"
+                    className="absolute right-3 bottom-2 text-[10px] font-mono pointer-events-none"
                   >
                     {formData.topic.length}/{MAX_TOPIC_LENGTH}
                   </Badge>
