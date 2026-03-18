@@ -19,6 +19,7 @@ export default function ThreadsCallback() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [username, setUsername] = useState('');
+  const brandTemplateId = searchParams.get('brand_template_id');
 
   useEffect(() => {
     const success = searchParams.get('success');
