@@ -1055,10 +1055,13 @@ export function MultiChannelFormWizard({
                     ref={topicInputRef}
                     rows={1}
                     value={formData.topic}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
-                      topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
-                    }))}
+                    onChange={(e) => {
+                      setTopicFromQuickAction(false);
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
+                      }));
+                    }}
                     onInput={(e) => {
                       const el = e.currentTarget;
                       el.style.height = 'auto';
