@@ -18,6 +18,7 @@ import { CarouselStyleSelector } from '@/components/carousel/CarouselStyleSelect
 import { SlideCountSelector } from '@/components/carousel/SlideCountSelector';
 import { AIToolSelector } from '@/components/carousel/AIToolSelector';
 import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
+import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { 
   Images, 
@@ -25,6 +26,7 @@ import {
   Sparkles, 
   Wand2,
   Book,
+  MessageSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -51,6 +53,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
   const topicInputRef = useRef<HTMLTextAreaElement>(null);
   
   const [topic, setTopic] = useState(initialTopic || '');
+  const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
 
   useEffect(() => {
     if (initialTopic) {
@@ -177,10 +180,23 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
       {/* Topic Input */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
-            Chủ đề Carousel
-            <span className="text-primary">*</span>
-          </Label>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
+              Chủ đề Carousel
+              <span className="text-primary">*</span>
+            </Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowBrainstormSheet(true)}
+              className="h-7 gap-1.5 text-xs bg-gradient-to-r from-primary/10 to-purple-500/10 border-primary/40 text-primary hover:from-primary/20 hover:to-purple-500/20 shadow-sm"
+            >
+              <MessageSquare className="w-3.5 h-3.5 animate-pulse" />
+              Brainstorm AI
+              <Sparkles className="w-3 h-3" />
+            </Button>
+          </div>
           {selectedTemplate?.industry_template_id && (
             <GlossaryQuickLookup
               industryTemplateId={selectedTemplate.industry_template_id}
@@ -338,6 +354,18 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           </p>
         )}
       </div>
+
+      {/* Topic Brainstorm Sheet */}
+      <TopicBrainstormSheet
+        open={showBrainstormSheet}
+        onOpenChange={setShowBrainstormSheet}
+        brandTemplateId={selectedTemplateId && selectedTemplateId !== 'custom' ? selectedTemplateId : undefined}
+        contentGoal="education"
+        onSelectTopic={(t) => {
+          setTopic(t);
+          toast.success('Đã chọn chủ đề từ AI Brainstorm');
+        }}
+      />
     </form>
   );
 }

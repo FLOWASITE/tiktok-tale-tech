@@ -453,10 +453,11 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                     variant="outline"
                     size="sm"
                     onClick={() => setShowBrainstormSheet(true)}
-                    className="h-6 gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10"
+                    className="h-7 gap-1.5 text-xs bg-gradient-to-r from-primary/10 to-purple-500/10 border-primary/40 text-primary hover:from-primary/20 hover:to-purple-500/20 shadow-sm"
                   >
-                    <MessageSquare className="w-3 h-3" />
+                    <MessageSquare className="w-3.5 h-3.5 animate-pulse" />
                     Brainstorm AI
+                    <Sparkles className="w-3 h-3" />
                   </Button>
                 </div>
                 

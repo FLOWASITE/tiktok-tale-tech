@@ -67,6 +67,7 @@ import { PersonaSelector } from '@/components/multichannel/PersonaSelector';
 import { CompactBrandSelector } from '@/components/multichannel/CompactBrandSelector';
 import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSelector';
 import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
+import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { TopicContextBar } from '@/components/multichannel/TopicContextBar';
 import { AIGenerationProgress } from '@/components/multichannel/AIGenerationProgress';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
@@ -184,6 +185,7 @@ export function MultiChannelFormStepper({
   
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState(0);
   
   const [internalElapsedMs, setInternalElapsedMs] = useState(0);
@@ -453,10 +455,23 @@ export function MultiChannelFormStepper({
               {/* Topic Input - Single-line like CarouselForm */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
-                    Chủ đề / Ý tưởng
-                    <span className="text-primary">*</span>
-                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
+                      Chủ đề / Ý tưởng
+                      <span className="text-primary">*</span>
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowBrainstormSheet(true)}
+                      className="h-7 gap-1.5 text-xs bg-gradient-to-r from-primary/10 to-purple-500/10 border-primary/40 text-primary hover:from-primary/20 hover:to-purple-500/20 shadow-sm"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 animate-pulse" />
+                      Brainstorm AI
+                      <Sparkles className="w-3 h-3" />
+                    </Button>
+                  </div>
                   <div className="flex items-center gap-2">
                     <GlossaryQuickLookup
                       industryTemplateId={selectedTemplate?.industry_template_id}
@@ -1136,6 +1151,18 @@ export function MultiChannelFormStepper({
           </p>
         )}
       </div>
+
+      {/* Topic Brainstorm Sheet */}
+      <TopicBrainstormSheet
+        open={showBrainstormSheet}
+        onOpenChange={setShowBrainstormSheet}
+        brandTemplateId={formData.brandTemplateId}
+        contentGoal={formData.contentGoal}
+        onSelectTopic={(topic) => {
+          setFormData(prev => ({ ...prev, topic }));
+          toast.success('Đã chọn chủ đề từ AI Brainstorm');
+        }}
+      />
     </TooltipProvider>
   );
 }

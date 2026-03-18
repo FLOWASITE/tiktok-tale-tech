@@ -94,6 +94,7 @@ import { JourneyStageSelector } from '@/components/multichannel/JourneyStageSele
 import { CompactChannelGrid } from '@/components/multichannel/CompactChannelGrid';
 import { InlineJourneySelector } from '@/components/multichannel/InlineJourneySelector';
 import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
+import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
@@ -274,6 +275,9 @@ export function MultiChannelFormWizard({
   
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+
+  // Brainstorm Sheet state
+  const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
 
   // Intent detection removed - brainstorm is now inline in TopicIdeaHub
 
@@ -1017,17 +1021,30 @@ export function MultiChannelFormWizard({
               {/* Topic Input with char counter Badge - carousel style */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label className="text-foreground font-semibold flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-primary" />
-                    Chủ đề / Ý tưởng
-                    <span className="text-primary">*</span>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-foreground font-semibold flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-primary" />
+                      Chủ đề / Ý tưởng
+                      <span className="text-primary">*</span>
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowBrainstormSheet(true)}
+                      className="h-7 gap-1.5 text-xs bg-gradient-to-r from-primary/10 to-purple-500/10 border-primary/40 text-primary hover:from-primary/20 hover:to-purple-500/20 shadow-sm"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 animate-pulse" />
+                      Brainstorm AI
+                      <Sparkles className="w-3 h-3" />
+                    </Button>
                     <GlossaryQuickLookup
                       industryTemplateId={brandTemplate?.channel_overrides ? undefined : undefined}
                       onInsertTerm={(term) => {
                         setFormData(prev => ({ ...prev, topic: prev.topic ? `${prev.topic} ${term}` : term }));
                       }}
                     />
-                  </Label>
+                  </div>
                 </div>
 
                 <div className="relative">
@@ -2218,6 +2235,18 @@ export function MultiChannelFormWizard({
           )}
         </FloatingStatusStack>
       </div>
+
+      {/* Topic Brainstorm Sheet */}
+      <TopicBrainstormSheet
+        open={showBrainstormSheet}
+        onOpenChange={setShowBrainstormSheet}
+        brandTemplateId={formData.brandTemplateId}
+        contentGoal={formData.contentGoal}
+        onSelectTopic={(topic) => {
+          setFormData(prev => ({ ...prev, topic }));
+          toast.success('Đã chọn chủ đề từ AI Brainstorm');
+        }}
+      />
     </TooltipProvider>
   );
 }
