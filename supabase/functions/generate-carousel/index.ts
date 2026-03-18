@@ -31,6 +31,7 @@ interface CarouselFormData {
   brandTemplateId?: string;
   organization_id?: string;
   campaignId?: string;
+  carouselStyle?: "seamless" | "educational" | "listicle" | "gallery";
 }
 
 interface CarouselSlide {
