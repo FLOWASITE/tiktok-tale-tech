@@ -267,6 +267,20 @@ export function MultiChannelFormStepper({
     enabled: currentStep === 1 && formData.topic.trim().length >= 10,
   });
 
+  // Topic Suggestions (like CarouselForm)
+  const {
+    suggestions: topicSuggestions,
+    source: suggestionsSource,
+    isLoading: suggestionsLoading,
+    refresh: refreshSuggestions,
+    saveSuggestion,
+    submitFeedback,
+  } = useEnhancedTopicSuggestions({
+    brandTemplateId: formData.brandTemplateId,
+    contentGoal: formData.contentGoal || 'engagement',
+    enabled: currentStep === 1 && !!formData.brandTemplateId,
+  });
+
   // Loading phases - only track internal elapsed if external not provided
   useEffect(() => {
     if (!effectiveLoading) {
