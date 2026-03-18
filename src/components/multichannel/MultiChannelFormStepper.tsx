@@ -481,7 +481,7 @@ export function MultiChannelFormStepper({
                       topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
                     }))}
                     placeholder="VD: Skincare mùa hè, Mẹo tiết kiệm chi phí..."
-                    className="h-11 border-2 pr-20 text-sm"
+                    className="h-12 border-2 pr-20 text-base"
                     disabled={isLoading}
                     autoFocus
                   />

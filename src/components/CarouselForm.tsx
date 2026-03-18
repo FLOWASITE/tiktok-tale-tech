@@ -223,7 +223,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
             onChange={(e) => setTopic(e.target.value.slice(0, MAX_TOPIC_LENGTH))}
             disabled={isLoading}
             className={cn(
-              "bg-muted/30 border-2 h-11 text-sm transition-all duration-300",
+              "bg-muted/30 border-2 h-12 text-base transition-all duration-300",
               "focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-background",
               "placeholder:text-muted-foreground/60"
             )}
