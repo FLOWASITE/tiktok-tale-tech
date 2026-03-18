@@ -196,8 +196,7 @@ serve(async (req) => {
 
     if (!consumerKey || !consumerSecret) {
       // Try global admin settings
-      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-      const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter', encryptionKey);
+      const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter');
       
       if (globalCreds.consumerKey && globalCreds.consumerSecret) {
         consumerKey = globalCreds.consumerKey;
