@@ -17,7 +17,7 @@ serve(async (req) => {
   const startTime = performance.now();
 
   try {
-    const { prompt, carouselId, slideNumber, textContent, brandColors, platform } = await req.json();
+    const { prompt, carouselId, slideNumber, textContent, brandColors, platform, carouselStyle, totalSlides } = await req.json();
 
     console.log(`[generate-carousel-image] Starting for carousel ${carouselId}, slide ${slideNumber}`);
 
