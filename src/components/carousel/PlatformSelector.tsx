@@ -41,7 +41,7 @@ export function PlatformSelector({ value, onChange, disabled }: PlatformSelector
             onClick={() => !disabled && onChange(option.value)}
             disabled={disabled}
             className={cn(
-              "relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-300",
+              "relative flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all duration-300",
               "bg-gradient-to-br hover:scale-[1.02] active:scale-[0.98]",
               isSelected 
                 ? platformActiveColors[option.value]
@@ -57,7 +57,7 @@ export function PlatformSelector({ value, onChange, disabled }: PlatformSelector
             )}
             
             <Icon className={cn(
-              "w-8 h-8 transition-transform duration-300",
+              "w-6 h-6 transition-transform duration-300",
               isSelected && "scale-110"
             )} />
             

@@ -1,48 +1,81 @@
+## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
+### Vấn đề
+Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-# Rà soát UI "Thêm mới Carousel" — Kế hoạch cải thiện
+### Đã sửa (3 files)
+1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
+2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
 
-## Vấn đề hiện tại
+---
 
-Sau khi xem UI trực tiếp, tôi nhận thấy các vấn đề sau:
+## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
 
-1. **Form quá dài** — phải scroll nhiều, trải nghiệm trên mobile kém. Có 7 section xếp dọc liên tiếp
-2. **Slide count grid không đều** — 6 options trong 4 cột = hàng cuối chỉ có 2 items, lệch layout
-3. **Brand Template nằm ngoài "Cài đặt nâng cao" nhưng Brand Name/Guideline lại ẩn bên trong** — logic nhóm không nhất quán
-4. **AI Tool selector chiếm diện tích lớn** nhưng đa số user chỉ chọn 1 lần, nên thu gọn
-5. **Campaign selector** chiếm 1 section riêng cho tính năng tùy chọn, không cần thiết ở vị trí chính
-6. **Header icon + title + badge** chiếm 120px chiều cao phía trên, có thể compact hơn
+### Vấn đề
+AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
 
-## Thay đổi
+### Đã sửa (3 files)
+1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
+2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
+3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
 
-### `src/components/CarouselForm.tsx`
+---
 
-**A. Compact header** — Thu gọn icon + title thành 1 dòng ngang thay vì layout dọc centered
+## Feature: Regenerate sử dụng Core Content — đã sửa
 
-**B. Nhóm lại các section hợp lý:**
-- **Nhóm 1 (Bắt buộc):** Chủ đề + Phong cách Carousel (2 field quan trọng nhất)
-- **Nhóm 2 (Cài đặt tạo ảnh):** Platform + Số lượng ảnh + AI Tool — gom vào 1 card có border, layout compact hơn
-- **Nhóm 3 (Cài đặt nâng cao):** Brand Template + Campaign + Brand Name/Guideline/Logo — tất cả vào collapsible section
+### Vấn đề
+Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
 
-**C. Slide count:** Đổi từ `grid-cols-4` sang `grid-cols-3` (3 cột x 2 hàng) cho đều
+### Đã sửa (1 file)
+1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
 
-**D. AI Tool selector:** Chuyển sang dạng `Select` dropdown thay vì 4 cards lớn — tiết kiệm ~150px chiều cao
+---
 
-**E. Platform + Slide count cùng hàng:** Trên màn hình đủ rộng, Platform (2 cards) và Slide count nằm cạnh nhau
+## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
 
-### `src/components/carousel/SlideCountSelector.tsx`
-- Đổi `grid-cols-4` → `grid-cols-3` cho layout 2x3 đều
+### Vấn đề
+1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
+2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
+3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
 
-### `src/components/carousel/AIToolSelector.tsx`
-- Chuyển thành dropdown Select compact thay vì 2x2 grid cards
-- Vẫn giữ icon + description nhưng dạng inline trong SelectItem
+### Đã sửa (4 files)
+1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
+2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
+3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
+4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
 
-### `src/components/carousel/PlatformSelector.tsx`
-- Giảm padding từ `p-4` → `p-3`, icon từ `w-8 h-8` → `w-6 h-6` để compact hơn
+---
 
-## Kết quả dự kiến
-- Giảm ~40% chiều dài scroll form
-- Các section được nhóm logic rõ ràng hơn
-- Brand/Campaign/Advanced gom sạch vào 1 collapsible
-- Trải nghiệm mobile tốt hơn đáng kể
+## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
 
+### Vấn đề
+Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
+
+### Đã sửa (6 files + 2 edge functions)
+1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
+2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
+3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
+4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
+5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
+6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
+7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
+
+---
+
+## Feature: Facebook Webhooks — Nhận engagement realtime — đã sửa
+
+### Vấn đề
+Hệ thống chưa có cách nhận realtime engagement (comment, reaction, share) từ Facebook khi user tương tác trên bài đã đăng qua Flowa.
+
+### Đã sửa (4 files + 1 migration + 1 secret)
+1. **Migration SQL** — Tạo bảng `social_post_engagements` (post_id, event_type, event_data, sender_id, sender_name, facebook_event_id unique) + RLS (org members read, service_role insert)
+2. **`supabase/functions/facebook-webhook/index.ts`** — **Mới**: GET verification (hub.verify_token), POST nhận feed changes → match page_id → social_connections → upsert engagement
+3. **`supabase/functions/connect-social/index.ts`** — Thêm `pages_manage_metadata` vào OAuth scope
+4. **`supabase/functions/facebook-oauth-callback/index.ts`** — Thêm scope + auto-subscribe page tới webhook (`POST /{page_id}/subscribed_apps?subscribed_fields=feed`)
+5. **`supabase/config.toml`** — Thêm `[functions.facebook-webhook]` verify_jwt=false
+6. **Secret** — `FACEBOOK_WEBHOOK_VERIFY_TOKEN` đã được tạo
+
+### Lưu ý
+- Cần cấu hình Webhook URL trên Facebook Developer Console: `https://rllyipiyuptkibqinotz.supabase.co/functions/v1/facebook-webhook`
+- User cần kết nối lại Facebook để cấp thêm permission `pages_manage_metadata`
