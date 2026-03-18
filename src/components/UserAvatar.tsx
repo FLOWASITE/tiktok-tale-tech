@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { User, LogOut, HelpCircle, Check, Shield, Building2, Plus, ExternalLink, Globe } from 'lucide-react';
+import { User, LogOut, HelpCircle, Check, Shield, Building2, Plus, ExternalLink, Globe, Sun, Moon, Leaf, Monitor } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,6 +48,7 @@ export function UserAvatar() {
   const navigate = useNavigate();
   const { isAdmin } = useAdmin();
   const { i18n } = useTranslation();
+  const { theme, setTheme } = useTheme();
   const [createOrgDialogOpen, setCreateOrgDialogOpen] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
   const [creatingOrg, setCreatingOrg] = useState(false);
@@ -60,6 +62,14 @@ export function UserAvatar() {
   ];
   const activeLang = i18n.language?.split('-')[0] || 'vi';
   const currentLang = languages.find((l) => l.code === activeLang) || languages[0];
+
+  const themes = [
+    { key: 'light', label: 'Sáng', icon: Sun },
+    { key: 'dark', label: 'Tối', icon: Moon },
+    { key: 'lime', label: 'Lime', icon: Leaf },
+    { key: 'system', label: 'Hệ thống', icon: Monitor },
+  ];
+  const currentTheme = themes.find((t) => t.key === theme) || themes[0];
 
   const handleLanguageChange = (langCode: string) => {
     localStorage.setItem('flowa_lang_override', langCode);
@@ -309,6 +319,34 @@ export function UserAvatar() {
                     )}
                   </DropdownMenuItem>
                 ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
+
+          {/* Theme Switcher */}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="gap-2">
+              <currentTheme.icon className="h-4 w-4" />
+              <span className="flex-1">{currentTheme.label}</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent className="w-48 bg-popover">
+                {themes.map((t) => {
+                  const Icon = t.icon;
+                  return (
+                    <DropdownMenuItem
+                      key={t.key}
+                      onClick={() => setTheme(t.key)}
+                      className="gap-2"
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="flex-1">{t.label}</span>
+                      {theme === t.key && (
+                        <Check className="w-4 h-4 text-primary shrink-0" />
+                      )}
+                    </DropdownMenuItem>
+                  );
+                })}
               </DropdownMenuSubContent>
             </DropdownMenuPortal>
           </DropdownMenuSub>

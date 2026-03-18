@@ -317,9 +317,10 @@ export function BrandForm({ template, onSubmit, onCancel, isLoading, quickStartM
       try {
         for (const product of localProducts) {
           const { id, ...productData } = product;
+          const { data: { session } } = await supabase.auth.getSession();
           await supabase.from('brand_products').insert({
             brand_template_id: newTemplateId,
-            user_id: (await supabase.auth.getUser()).data.user?.id,
+            user_id: session?.user?.id,
             ...productData,
           });
         }
