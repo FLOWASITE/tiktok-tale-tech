@@ -88,6 +88,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
     }
   }, [initialTopic]);
   const [platform, setPlatform] = useState<Platform>('facebook');
+  const [carouselStyle, setCarouselStyle] = useState<CarouselStyleType>('educational');
   const [slideCount, setSlideCount] = useState(6);
   const [aiTool, setAiTool] = useState<AITool>('ideogram');
   const [brandName, setBrandName] = useState('Thuế Hộ by TAF.vn');
