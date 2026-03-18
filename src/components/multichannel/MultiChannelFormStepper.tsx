@@ -537,7 +537,7 @@ export function MultiChannelFormStepper({
                   onSelect={(topic) => { setTopicFromQuickAction(false); setFormData(prev => ({ ...prev, topic })); }}
                   onQuickActionSelect={(topic) => { setTopicFromQuickAction(true); setFormData(prev => ({ ...prev, topic })); }}
                   onRefresh={refreshSuggestions}
-                  onCategoryRefresh={(category) => { console.log('[TopicIdeaHub] Category refresh:', category); refreshSuggestions(); }}
+                  onCategoryRefresh={(category) => { console.log('[TopicIdeaHub] Category refresh:', category); refreshSuggestions(category); }}
                   onSave={saveSuggestion}
                   onFeedback={submitFeedback}
                   disabled={isLoading}

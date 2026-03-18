@@ -916,10 +916,10 @@ export function useTopicAI(options: UseTopicAIOptions = {}): UseTopicAIResult {
     return () => clearTimeout(timer);
   }, [contentGoal, brandTemplateId, format, enabled, fetchSuggestions]);
 
-  const refreshSuggestions = useCallback(() => {
+  const refreshSuggestions = useCallback((categoryHint?: string) => {
     suggestPrevParamsRef.current = '';
     suggestHasLoadedRef.current = false;
-    fetchSuggestions(true);
+    fetchSuggestions(true, categoryHint);
   }, [fetchSuggestions]);
 
   // Sort and filter suggestions

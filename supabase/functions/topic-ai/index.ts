@@ -1392,10 +1392,20 @@ Trả về JSON array với 8-10 topics:
 
 ## BALANCE: ~40% TOFU, ~35% MOFU, ~25% BOFU | 1 Hero, 2-3 Hub, 5-6 Hygiene`;
 
+  // Build category hint guidance
+  const categoryHintMap: Record<string, string> = {
+    'Viral tuần này': '🔥 HƯỚNG VIRAL: Tập trung vào các chủ đề có khả năng viral cao trong tuần này. Ưu tiên: gây tranh luận nhẹ, số liệu bất ngờ, trend mạng xã hội, câu chuyện gây sốc, so sánh gây tò mò. Tất cả topics PHẢI có tiềm năng chia sẻ cao.',
+    'Theo trend': '📈 THEO TREND: Tập trung vào xu hướng đang hot và trending hiện tại. Ưu tiên: tin tức nóng trong ngành, trend TikTok/Reels, sự kiện đang được bàn tán, hashtag trending. Topics phải bắt kịp xu hướng mới nhất.',
+    'Mùa lễ hội': '🎁 MÙA LỄ HỘI: Tập trung vào các chủ đề liên quan đến mùa lễ, sự kiện, ngày kỷ niệm sắp tới. Ưu tiên: khuyến mãi theo mùa, quà tặng, tips mùa lễ, chia sẻ kỷ niệm, content cảm xúc theo dịp.',
+    'So sánh A vs B': '⚡ SO SÁNH A vs B: Tập trung vào dạng content so sánh, đối chiếu. Ưu tiên: so sánh sản phẩm/dịch vụ, trước vs sau, cách cũ vs cách mới, myth vs fact, expectation vs reality. Format phải dạng đối lập rõ ràng.',
+  };
+  const categoryGuidance = categoryHint ? (categoryHintMap[categoryHint] || `🎯 HƯỚNG ĐI: Tập trung gợi ý các chủ đề theo hướng "${categoryHint}". Tất cả topics phải phù hợp với hướng đi này.`) : '';
+
   const userPrompt = `Gợi ý 8-10 chủ đề content cho:
 - Mục tiêu: ${goalLabels[contentGoal || 'education']}
 - Format: ${format || 'all'}
 ${brandContext ? `- Brand: ${brandContext.brandName}` : ''}
+${categoryGuidance ? `\n${categoryGuidance}` : ''}
 ${query ? `\n🎯 YÊU CẦU CỤ THỂ CỦA USER: "${query}"\n→ ƯU TIÊN CAO: Các topic phải liên quan trực tiếp đến yêu cầu trên.` : ''}
 ${recentTopics?.length ? `\nTRÁNH topics tương tự: ${recentTopics.slice(0, 5).join('; ')}` : ''}
 

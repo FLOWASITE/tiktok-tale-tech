@@ -34,7 +34,7 @@ export function useEnhancedTopicSuggestions(options: {
     setMinScore: suggestionsModule.setMinScore,
     stats: suggestionsModule.stats,
     autoSavedCount: suggestionsModule.autoSavedCount,
-    refresh: suggestionsModule.refresh,
+    refresh: suggestionsModule.refresh as (categoryHint?: string) => void,
     autoSaveSuggestions: suggestionsModule.autoSaveSuggestions,
     submitFeedback: suggestionsModule.submitFeedback,
     saveSuggestion: suggestionsModule.saveSuggestion,
