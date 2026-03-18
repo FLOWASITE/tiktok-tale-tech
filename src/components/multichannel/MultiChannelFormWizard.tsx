@@ -1092,7 +1092,8 @@ export function MultiChannelFormWizard({
                 suggestions={topicSuggestions}
                 source={suggestionsSource}
                 isLoading={isSuggestionsLoading}
-                onSelect={(topic) => setFormData(prev => ({ ...prev, topic }))}
+                onSelect={(topic) => { setTopicFromQuickAction(false); setFormData(prev => ({ ...prev, topic })); }}
+                onQuickActionSelect={(topic) => { setTopicFromQuickAction(true); setFormData(prev => ({ ...prev, topic })); }}
                 onRefresh={refreshSuggestions}
                 onSave={saveSuggestion}
                 onFeedback={submitFeedback}
