@@ -110,9 +110,15 @@ export function GeneratedImagesGallery({
           <ImageIcon className="w-8 h-8 text-muted-foreground" />
         </div>
         <h3 className="font-medium text-lg mb-1">Chưa có ảnh nào</h3>
-        <p className="text-sm text-muted-foreground max-w-sm">
+        <p className="text-sm text-muted-foreground max-w-sm mb-4">
           Vào tab "Slide Prompts" và nhấn "Tạo ảnh với Gemini" trên từng slide để bắt đầu tạo ảnh.
         </p>
+        {onGenerateAll && (
+          <Button onClick={onGenerateAll} className="gap-2">
+            <Sparkles className="w-4 h-4" />
+            Tạo tất cả ảnh
+          </Button>
+        )}
       </div>
     );
   }

@@ -380,6 +380,18 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
               />
             </div>
             <div className="flex gap-1.5 xs:gap-2 shrink-0">
+              {/* Facebook Publish */}
+              {generatedImages.length > 0 && (
+                <DirectPublishButton
+                  content={carousel.caption_suggestion || carousel.topic}
+                  contentId={carousel.id}
+                  channel="facebook"
+                  mediaUrls={generatedImages.map(img => img.imageUrl)}
+                  variant="outline"
+                  size="sm"
+                  className="h-7 xs:h-8 text-[10px] xs:text-xs px-2 xs:px-3"
+                />
+              )}
               {/* Performance Tracking - only when published */}
               {carousel.status === 'published' && (
                 <TopicPerformanceUpdater
