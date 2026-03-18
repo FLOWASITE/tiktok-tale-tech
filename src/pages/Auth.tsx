@@ -7,12 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Loader2, Eye, EyeOff, Zap, Palette, Share2, Bot, AlertCircle, CheckCircle2, Mail } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Zap, Palette, Share2, Bot, AlertCircle, CheckCircle2, Mail, Lock, User } from 'lucide-react';
 import { z } from 'zod';
 import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 import { ForgotPasswordDialog } from '@/components/ForgotPasswordDialog';
 import { lovable } from '@/integrations/lovable/index';
 import logoImage from '@/assets/logo.png';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const emailSchema = z.string().email('Email không hợp lệ');
 const passwordSchema = z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự');
@@ -24,6 +25,15 @@ const features = [
   { icon: Share2, text: 'Nội dung đa kênh tự động' },
   { icon: Bot, text: 'AI hỗ trợ sáng tạo' },
 ];
+
+const staggerChild = {
+  hidden: { opacity: 0, y: 12 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.06, duration: 0.35, ease: 'easeOut' },
+  }),
+};
 
 export default function Auth() {
   const { user, signIn, signUp, loading: authLoading } = useAuth();
@@ -187,14 +197,14 @@ export default function Auth() {
     <Button
       type="button"
       variant="outline"
-      className="w-full gap-2"
+      className="w-full h-12 gap-3 text-sm font-medium border-border/80 hover:bg-muted/60 hover:shadow-md transition-all duration-200"
       onClick={handleGoogleSignIn}
       disabled={googleLoading || isLoading}
     >
       {googleLoading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <Loader2 className="h-5 w-5 animate-spin" />
       ) : (
-        <svg className="h-4 w-4" viewBox="0 0 24 24">
+        <svg className="h-5 w-5" viewBox="0 0 24 24">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
           <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
           <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
@@ -206,13 +216,20 @@ export default function Auth() {
   );
 
   const Divider = () => (
-    <div className="relative my-4">
+    <div className="relative my-6">
       <div className="absolute inset-0 flex items-center">
-        <span className="w-full border-t border-border" />
+        <span className="w-full border-t border-border/60" />
       </div>
       <div className="relative flex justify-center text-xs uppercase">
-        <span className="bg-card px-2 text-muted-foreground">hoặc</span>
+        <span className="bg-card px-3 text-muted-foreground/70 font-medium tracking-wider">hoặc</span>
       </div>
+    </div>
+  );
+
+  const InputWithIcon = ({ icon: Icon, ...props }: { icon: React.ElementType } & React.ComponentProps<typeof Input>) => (
+    <div className="relative">
+      <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+      <Input {...props} className={`pl-10 h-11 ${props.className || ''}`} />
     </div>
   );
 
@@ -233,302 +250,390 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex bg-background relative overflow-hidden">
-      {/* Simple subtle background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
+      {/* Gradient mesh background */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -top-[300px] -left-[200px] w-[700px] h-[700px] rounded-full opacity-30" style={{ background: 'radial-gradient(circle, hsl(var(--primary) / 0.15) 0%, transparent 70%)', filter: 'blur(80px)' }} />
+        <div className="absolute -bottom-[200px] -right-[200px] w-[600px] h-[600px] rounded-full opacity-25" style={{ background: 'radial-gradient(circle, hsl(var(--secondary) / 0.12) 0%, transparent 70%)', filter: 'blur(80px)' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-10" style={{ background: 'radial-gradient(circle, hsl(280 70% 50% / 0.1) 0%, transparent 60%)', filter: 'blur(60px)' }} />
+      </div>
 
       {/* Left side - Branding (hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-12 bg-muted/30">
-        <div className="max-w-md space-y-8">
+      <div className="hidden lg:flex lg:w-[45%] relative items-center justify-center p-12">
+        {/* Decorative gradient blob */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, hsl(var(--primary) / 0.08) 0%, transparent 70%)' }} />
+          <div className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] rounded-full" style={{ background: 'radial-gradient(circle, hsl(var(--secondary) / 0.06) 0%, transparent 70%)' }} />
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          className="relative max-w-md space-y-10"
+        >
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <img src={logoImage} alt="Flowa Logo" className="w-12 h-12 object-contain" />
+            <img src={logoImage} alt="Flowa Logo" className="w-14 h-14 object-contain" />
             <div>
-              <span className="text-3xl font-bold text-primary">Flowa</span>
-              <div className="text-xs text-muted-foreground tracking-wide">Content Platform</div>
+              <span className="text-3xl font-extrabold text-primary tracking-tight">Flowa</span>
+              <div className="text-xs text-muted-foreground tracking-widest uppercase font-medium">Content Platform</div>
             </div>
           </div>
 
           {/* Tagline */}
-          <div className="space-y-3">
-            <h1 className="text-3xl font-bold text-foreground leading-tight">
-              One Flow. <span className="text-primary">All Content.</span>
+          <div className="space-y-4">
+            <h1 className="text-4xl font-extrabold text-foreground leading-[1.15]">
+              One Flow.{' '}
+              <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                All Content.
+              </span>
             </h1>
-            <p className="text-muted-foreground">
-              Nền tảng AI tạo nội dung đa kênh thông minh, giúp bạn tiết kiệm thời gian.
+            <p className="text-muted-foreground text-base leading-relaxed">
+              Nền tảng AI tạo nội dung đa kênh thông minh, giúp bạn tiết kiệm thời gian và nâng cao hiệu quả sáng tạo.
             </p>
           </div>
 
-          {/* Features - simple list */}
-          <div className="space-y-3">
-            {features.map((feature) => (
-              <div key={feature.text} className="flex items-center gap-3">
-                <feature.icon className="h-4 w-4 text-primary" />
-                <span className="text-sm text-foreground">{feature.text}</span>
-              </div>
+          {/* Features with icon circles */}
+          <div className="space-y-4">
+            {features.map((feature, i) => (
+              <motion.div
+                key={feature.text}
+                custom={i}
+                initial="hidden"
+                animate="visible"
+                variants={staggerChild}
+                className="flex items-center gap-4"
+              >
+                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <feature.icon className="h-5 w-5 text-primary" />
+                </div>
+                <span className="text-sm font-medium text-foreground">{feature.text}</span>
+              </motion.div>
             ))}
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Right side - Auth form */}
-      <div className="flex-1 flex items-center justify-center p-4 lg:p-12">
-        <div className="w-full max-w-md">
-          <div className="rounded-xl bg-card border border-border p-6">
-            {/* Mobile logo */}
-            <div className="lg:hidden pb-4 flex items-center justify-center gap-2">
-              <img src={logoImage} alt="Flowa Logo" className="w-8 h-8 object-contain" />
-              <span className="text-xl font-bold text-primary">Flowa</span>
-            </div>
+      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-12">
+        {/* Mobile branding */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="lg:hidden mb-6 text-center space-y-2"
+        >
+          <div className="flex items-center justify-center gap-2.5">
+            <img src={logoImage} alt="Flowa Logo" className="w-10 h-10 object-contain" />
+            <span className="text-2xl font-extrabold text-primary tracking-tight">Flowa</span>
+          </div>
+          <p className="text-sm text-muted-foreground">Nền tảng AI tạo nội dung đa kênh</p>
+        </motion.div>
 
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: 'easeOut' }}
+          className="w-full max-w-[440px]"
+        >
+          <div className="rounded-2xl bg-card border border-border/50 shadow-xl shadow-primary/[0.03] p-7 sm:p-8">
             {/* Header */}
-            <div className="text-center pb-4">
-              <h2 className="text-lg font-semibold text-foreground">
-                {activeTab === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
+            <div className="text-center pb-5">
+              <h2 className="text-xl font-bold text-foreground">
+                {activeTab === 'login' ? 'Chào mừng trở lại' : 'Tạo tài khoản mới'}
               </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {activeTab === 'login' ? 'Đăng nhập để tiếp tục sáng tạo' : 'Bắt đầu hành trình sáng tạo nội dung'}
+              </p>
             </div>
             
-            <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as 'login' | 'register'); setRegisterSuccess(false); }}>
-              <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="login">Đăng nhập</TabsTrigger>
-                <TabsTrigger value="register">Đăng ký</TabsTrigger>
+            <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as 'login' | 'register'); setRegisterSuccess(false); setLoginError(null); setRegisterError(null); }}>
+              <TabsList className="grid w-full grid-cols-2 mb-5 h-11">
+                <TabsTrigger value="login" className="text-sm font-medium">Đăng nhập</TabsTrigger>
+                <TabsTrigger value="register" className="text-sm font-medium">Đăng ký</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="login" className="space-y-4">
-                <GoogleButton />
-                <Divider />
+              <AnimatePresence mode="wait">
+                <TabsContent value="login" className="space-y-4 mt-0" key="login">
+                  <GoogleButton />
+                  <Divider />
 
-                <form onSubmit={handleLogin} className="space-y-4">
-                  {loginError && (
-                    <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                      <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-destructive">{loginError}</p>
-                    </div>
-                  )}
-                  
-                  <div className="space-y-1.5">
-                    <Label htmlFor="login-email" className="text-sm">Email</Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="email@example.com"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-                  
-                  <div className="space-y-1.5">
-                    <Label htmlFor="login-password" className="text-sm">Mật khẩu</Label>
-                    <div className="relative">
-                      <Input
-                        id="login-password"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="••••••••"
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
+                  <form onSubmit={handleLogin} className="space-y-4">
+                    {loginError && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex items-start gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20"
+                      >
+                        <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-destructive">{loginError}</p>
+                      </motion.div>
+                    )}
+                    
+                    <motion.div custom={0} initial="hidden" animate="visible" variants={staggerChild} className="space-y-1.5">
+                      <Label htmlFor="login-email" className="text-sm font-medium">Email</Label>
+                      <InputWithIcon
+                        icon={Mail}
+                        id="login-email"
+                        type="email"
+                        placeholder="email@example.com"
+                        value={loginEmail}
+                        onChange={(e) => setLoginEmail(e.target.value)}
                         required
                         disabled={isLoading}
-                        className="pr-10"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <Checkbox 
-                        id="remember-me" 
-                        checked={rememberMe}
-                        onCheckedChange={(checked) => {
-                          setRememberMe(checked === true);
-                          localStorage.setItem('rememberMe', checked === true ? 'true' : 'false');
-                        }}
-                      />
-                      <Label htmlFor="remember-me" className="text-muted-foreground cursor-pointer">
-                        Ghi nhớ
-                      </Label>
-                    </div>
-                    <button
-                      type="button"
-                      className="text-primary hover:underline"
-                      onClick={() => setShowForgotPassword(true)}
-                    >
-                      Quên mật khẩu?
-                    </button>
-                  </div>
-                  
-                  <ForgotPasswordDialog 
-                    open={showForgotPassword} 
-                    onOpenChange={setShowForgotPassword} 
-                  />
-
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Đang đăng nhập...
-                      </>
-                    ) : (
-                      'Đăng nhập'
-                    )}
-                  </Button>
-                </form>
-              </TabsContent>
-              
-              <TabsContent value="register" className="space-y-4">
-                {registerSuccess ? (
-                  <div className="text-center space-y-4 py-4">
-                    <div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Mail className="h-7 w-7 text-primary" />
-                    </div>
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-foreground">Kiểm tra email của bạn</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Chúng tôi đã gửi email xác nhận đến <span className="font-medium text-foreground">{registerEmail}</span>. 
-                        Vui lòng mở email và nhấn vào liên kết xác nhận để kích hoạt tài khoản.
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="mt-2"
-                      onClick={() => {
-                        setRegisterSuccess(false);
-                        setActiveTab('login');
-                        setLoginEmail(registerEmail);
-                      }}
-                    >
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                      Đã xác nhận? Đăng nhập
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <GoogleButton />
-                    <Divider />
-
-                    <form onSubmit={handleRegister} className="space-y-4">
-                      {registerError && (
-                        <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                          <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
-                          <p className="text-sm text-destructive">{registerError}</p>
-                        </div>
-                      )}
-                      
-                      <div className="space-y-1.5">
-                        <Label htmlFor="register-name" className="text-sm">Họ và tên <span className="text-destructive">*</span></Label>
+                    </motion.div>
+                    
+                    <motion.div custom={1} initial="hidden" animate="visible" variants={staggerChild} className="space-y-1.5">
+                      <Label htmlFor="login-password" className="text-sm font-medium">Mật khẩu</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
                         <Input
-                          id="register-name"
-                          type="text"
-                          placeholder="Nguyễn Văn A"
-                          value={registerFullName}
-                          onChange={(e) => setRegisterFullName(e.target.value)}
+                          id="login-password"
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="••••••••"
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
                           required
                           disabled={isLoading}
+                          className="pl-10 pr-10 h-11"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
                       </div>
+                    </motion.div>
 
-                      <div className="space-y-1.5">
-                        <Label htmlFor="register-email" className="text-sm">Email <span className="text-destructive">*</span></Label>
-                        <Input
-                          id="register-email"
-                          type="email"
-                          placeholder="email@example.com"
-                          value={registerEmail}
-                          onChange={(e) => setRegisterEmail(e.target.value)}
-                          required
-                          disabled={isLoading}
+                    <motion.div custom={2} initial="hidden" animate="visible" variants={staggerChild} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <Checkbox 
+                          id="remember-me" 
+                          checked={rememberMe}
+                          onCheckedChange={(checked) => {
+                            setRememberMe(checked === true);
+                            localStorage.setItem('rememberMe', checked === true ? 'true' : 'false');
+                          }}
                         />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label htmlFor="register-password" className="text-sm">Mật khẩu <span className="text-destructive">*</span></Label>
-                        <div className="relative">
-                          <Input
-                            id="register-password"
-                            type={showPassword ? 'text' : 'password'}
-                            placeholder="Ít nhất 6 ký tự"
-                            value={registerPassword}
-                            onChange={(e) => setRegisterPassword(e.target.value)}
-                            required
-                            disabled={isLoading}
-                            className="pr-10"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                          >
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </button>
-                        </div>
-                        <PasswordStrengthIndicator password={registerPassword} />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <Label htmlFor="register-confirm-password" className="text-sm">Nhập lại mật khẩu <span className="text-destructive">*</span></Label>
-                        <div className="relative">
-                          <Input
-                            id="register-confirm-password"
-                            type={showConfirmPassword ? 'text' : 'password'}
-                            placeholder="Nhập lại mật khẩu"
-                            value={registerConfirmPassword}
-                            onChange={(e) => setRegisterConfirmPassword(e.target.value)}
-                            required
-                            disabled={isLoading}
-                            className="pr-10"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                          >
-                            {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </button>
-                        </div>
-                        {registerConfirmPassword && registerPassword !== registerConfirmPassword && (
-                          <p className="text-xs text-destructive">Mật khẩu không khớp</p>
-                        )}
-                      </div>
-
-                      <div className="flex items-start gap-2">
-                        <Checkbox
-                          id="agree-terms"
-                          checked={agreeToTerms}
-                          onCheckedChange={(checked) => setAgreeToTerms(checked === true)}
-                          className="mt-0.5"
-                        />
-                        <Label htmlFor="agree-terms" className="text-sm text-muted-foreground cursor-pointer leading-snug">
-                          Tôi đồng ý với{' '}
-                          <a href="#" className="text-primary hover:underline">Điều khoản dịch vụ</a>
-                          {' '}và{' '}
-                          <a href="#" className="text-primary hover:underline">Chính sách bảo mật</a>
+                        <Label htmlFor="remember-me" className="text-muted-foreground cursor-pointer font-normal">
+                          Ghi nhớ
                         </Label>
                       </div>
+                      <button
+                        type="button"
+                        className="text-primary hover:underline font-medium"
+                        onClick={() => setShowForgotPassword(true)}
+                      >
+                        Quên mật khẩu?
+                      </button>
+                    </motion.div>
+                    
+                    <ForgotPasswordDialog 
+                      open={showForgotPassword} 
+                      onOpenChange={setShowForgotPassword} 
+                    />
 
-                      <Button type="submit" className="w-full" disabled={isLoading || !agreeToTerms}>
+                    <motion.div custom={3} initial="hidden" animate="visible" variants={staggerChild}>
+                      <Button
+                        type="submit"
+                        className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/85 hover:from-primary/90 hover:to-primary/75 shadow-lg shadow-primary/20 transition-all duration-200"
+                        disabled={isLoading}
+                      >
                         {isLoading ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Đang tạo tài khoản...
+                            Đang đăng nhập...
                           </>
                         ) : (
-                          'Tạo tài khoản'
+                          'Đăng nhập'
                         )}
                       </Button>
-                    </form>
-                  </>
-                )}
-              </TabsContent>
+                    </motion.div>
+                  </form>
+                </TabsContent>
+                
+                <TabsContent value="register" className="space-y-4 mt-0" key="register">
+                  {registerSuccess ? (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="text-center space-y-4 py-6"
+                    >
+                      <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+                        <Mail className="h-8 w-8 text-primary" />
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-lg font-bold text-foreground">Kiểm tra email của bạn</h3>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          Chúng tôi đã gửi email xác nhận đến <span className="font-semibold text-foreground">{registerEmail}</span>. 
+                          Vui lòng mở email và nhấn vào liên kết xác nhận để kích hoạt tài khoản.
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="mt-2 h-11"
+                        onClick={() => {
+                          setRegisterSuccess(false);
+                          setActiveTab('login');
+                          setLoginEmail(registerEmail);
+                        }}
+                      >
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        Đã xác nhận? Đăng nhập
+                      </Button>
+                    </motion.div>
+                  ) : (
+                    <>
+                      <GoogleButton />
+                      <Divider />
+
+                      <form onSubmit={handleRegister} className="space-y-4">
+                        {registerError && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="flex items-start gap-2 p-3 rounded-xl bg-destructive/10 border border-destructive/20"
+                          >
+                            <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                            <p className="text-sm text-destructive">{registerError}</p>
+                          </motion.div>
+                        )}
+                        
+                        {/* Name */}
+                        <motion.div custom={0} initial="hidden" animate="visible" variants={staggerChild} className="space-y-1.5">
+                          <Label htmlFor="register-name" className="text-sm font-medium">Họ và tên <span className="text-destructive">*</span></Label>
+                          <InputWithIcon
+                            icon={User}
+                            id="register-name"
+                            type="text"
+                            placeholder="Nguyễn Văn A"
+                            value={registerFullName}
+                            onChange={(e) => setRegisterFullName(e.target.value)}
+                            required
+                            disabled={isLoading}
+                          />
+                        </motion.div>
+
+                        {/* Email */}
+                        <motion.div custom={1} initial="hidden" animate="visible" variants={staggerChild} className="space-y-1.5">
+                          <Label htmlFor="register-email" className="text-sm font-medium">Email <span className="text-destructive">*</span></Label>
+                          <InputWithIcon
+                            icon={Mail}
+                            id="register-email"
+                            type="email"
+                            placeholder="email@example.com"
+                            value={registerEmail}
+                            onChange={(e) => setRegisterEmail(e.target.value)}
+                            required
+                            disabled={isLoading}
+                          />
+                        </motion.div>
+
+                        {/* Password group */}
+                        <motion.div custom={2} initial="hidden" animate="visible" variants={staggerChild} className="space-y-3 rounded-xl bg-muted/30 border border-border/40 p-4">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="register-password" className="text-sm font-medium">Mật khẩu <span className="text-destructive">*</span></Label>
+                            <div className="relative">
+                              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+                              <Input
+                                id="register-password"
+                                type={showPassword ? 'text' : 'password'}
+                                placeholder="Ít nhất 6 ký tự"
+                                value={registerPassword}
+                                onChange={(e) => setRegisterPassword(e.target.value)}
+                                required
+                                disabled={isLoading}
+                                className="pl-10 pr-10 h-11"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </button>
+                            </div>
+                            <PasswordStrengthIndicator password={registerPassword} />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label htmlFor="register-confirm-password" className="text-sm font-medium">Nhập lại mật khẩu <span className="text-destructive">*</span></Label>
+                            <div className="relative">
+                              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+                              <Input
+                                id="register-confirm-password"
+                                type={showConfirmPassword ? 'text' : 'password'}
+                                placeholder="Nhập lại mật khẩu"
+                                value={registerConfirmPassword}
+                                onChange={(e) => setRegisterConfirmPassword(e.target.value)}
+                                required
+                                disabled={isLoading}
+                                className="pl-10 pr-10 h-11"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </button>
+                            </div>
+                            {registerConfirmPassword && registerPassword !== registerConfirmPassword && (
+                              <p className="text-xs text-destructive flex items-center gap-1">
+                                <AlertCircle className="h-3 w-3" />
+                                Mật khẩu không khớp
+                              </p>
+                            )}
+                          </div>
+                        </motion.div>
+
+                        {/* Terms */}
+                        <motion.div custom={3} initial="hidden" animate="visible" variants={staggerChild} className="flex items-start gap-2.5 rounded-xl bg-muted/20 border border-border/30 p-3.5">
+                          <Checkbox
+                            id="agree-terms"
+                            checked={agreeToTerms}
+                            onCheckedChange={(checked) => setAgreeToTerms(checked === true)}
+                            className="mt-0.5"
+                          />
+                          <Label htmlFor="agree-terms" className="text-sm text-muted-foreground cursor-pointer leading-snug font-normal">
+                            Tôi đồng ý với{' '}
+                            <a href="#" className="text-primary hover:underline font-medium">Điều khoản dịch vụ</a>
+                            {' '}và{' '}
+                            <a href="#" className="text-primary hover:underline font-medium">Chính sách bảo mật</a>
+                          </Label>
+                        </motion.div>
+
+                        <motion.div custom={4} initial="hidden" animate="visible" variants={staggerChild}>
+                          <Button
+                            type="submit"
+                            className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/85 hover:from-primary/90 hover:to-primary/75 shadow-lg shadow-primary/20 transition-all duration-200"
+                            disabled={isLoading || !agreeToTerms}
+                          >
+                            {isLoading ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Đang tạo tài khoản...
+                              </>
+                            ) : (
+                              'Tạo tài khoản'
+                            )}
+                          </Button>
+                        </motion.div>
+                      </form>
+                    </>
+                  )}
+                </TabsContent>
+              </AnimatePresence>
             </Tabs>
           </div>
-        </div>
+
+          {/* Footer text */}
+          <p className="text-center text-xs text-muted-foreground/60 mt-6">
+            © 2026 Flowa. Nền tảng AI tạo nội dung đa kênh.
+          </p>
+        </motion.div>
       </div>
     </div>
   );

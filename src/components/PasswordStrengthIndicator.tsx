@@ -13,11 +13,11 @@ interface PasswordCriteria {
 export function PasswordStrengthIndicator({ password }: PasswordStrengthIndicatorProps) {
   const { strength, criteria, strengthLabel, strengthColor } = useMemo(() => {
     const criteriaList: PasswordCriteria[] = [
-      { label: 'Ít nhất 6 ký tự', met: password.length >= 6 },
-      { label: 'Chữ hoa (A-Z)', met: /[A-Z]/.test(password) },
-      { label: 'Chữ thường (a-z)', met: /[a-z]/.test(password) },
-      { label: 'Số (0-9)', met: /[0-9]/.test(password) },
-      { label: 'Ký tự đặc biệt (!@#$...)', met: /[^A-Za-z0-9]/.test(password) },
+      { label: '≥6 ký tự', met: password.length >= 6 },
+      { label: 'Chữ hoa', met: /[A-Z]/.test(password) },
+      { label: 'Chữ thường', met: /[a-z]/.test(password) },
+      { label: 'Số', met: /[0-9]/.test(password) },
+      { label: 'Ký tự đặc biệt', met: /[^A-Za-z0-9]/.test(password) },
     ];
 
     const metCount = criteriaList.filter(c => c.met).length;
@@ -53,48 +53,45 @@ export function PasswordStrengthIndicator({ password }: PasswordStrengthIndicato
   if (!password) return null;
 
   return (
-    <div className="space-y-3 animate-fade-in">
+    <div className="space-y-2 pt-1">
       {/* Strength bar */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">Độ mạnh mật khẩu</span>
-          <span className={`font-medium ${
-            strength <= 1 ? 'text-destructive' : 
-            strength <= 2 ? 'text-orange-500' : 
-            strength <= 3 ? 'text-yellow-500' : 
-            'text-emerald-500'
-          }`}>
-            {strengthLabel}
-          </span>
-        </div>
-        <div className="flex gap-1">
+      <div className="flex items-center gap-2">
+        <div className="flex gap-0.5 flex-1">
           {[1, 2, 3, 4, 5].map((level) => (
             <div
               key={level}
-              className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+              className={`h-1 flex-1 rounded-full transition-all duration-300 ${
                 level <= strength ? strengthColor : 'bg-muted'
               }`}
             />
           ))}
         </div>
+        <span className={`text-[10px] font-semibold whitespace-nowrap ${
+          strength <= 1 ? 'text-destructive' : 
+          strength <= 2 ? 'text-orange-500' : 
+          strength <= 3 ? 'text-yellow-500' : 
+          'text-emerald-500'
+        }`}>
+          {strengthLabel}
+        </span>
       </div>
 
-      {/* Criteria list */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+      {/* Compact criteria */}
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
         {criteria.map((item) => (
-          <div
+          <span
             key={item.label}
-            className={`flex items-center gap-1.5 text-xs transition-colors duration-200 ${
-              item.met ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'
+            className={`inline-flex items-center gap-1 text-[10px] transition-colors duration-200 ${
+              item.met ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground/60'
             }`}
           >
             {item.met ? (
-              <Check className="h-3 w-3 flex-shrink-0" />
+              <Check className="h-2.5 w-2.5" />
             ) : (
-              <X className="h-3 w-3 flex-shrink-0" />
+              <X className="h-2.5 w-2.5" />
             )}
-            <span>{item.label}</span>
-          </div>
+            {item.label}
+          </span>
         ))}
       </div>
     </div>
