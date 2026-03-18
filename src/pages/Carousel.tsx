@@ -10,6 +10,7 @@ import { CarouselHeroSection } from '@/components/carousel/CarouselHeroSection';
 import { CarouselListView } from '@/components/CarouselListView';
 import { useCarousels } from '@/hooks/useCarousels';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
+import { useCarouselCardImages } from '@/hooks/useCarouselCardImages';
 import { Carousel } from '@/types/carousel';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
