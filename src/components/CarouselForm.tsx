@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -48,7 +48,7 @@ const MAX_TOPIC_LENGTH = 300;
 export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId }: CarouselFormProps) {
   const { templates, loading: templatesLoading } = useBrandTemplates();
   const { currentBrand } = useCurrentBrand();
-  const topicInputRef = useRef<HTMLInputElement>(null);
+  const topicInputRef = useRef<HTMLTextAreaElement>(null);
   
   const [topic, setTopic] = useState(initialTopic || '');
 
@@ -215,21 +215,27 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           )}
         </div>
         <div className="relative group">
-          <Input
+          <Textarea
             ref={topicInputRef}
             id="topic"
+            rows={1}
             placeholder="VD: Bỏ thuế khoán từ 2026 - Hộ kinh doanh cần chuẩn bị gì?"
             value={topic}
             onChange={(e) => setTopic(e.target.value.slice(0, MAX_TOPIC_LENGTH))}
+            onInput={(e) => {
+              const el = e.currentTarget;
+              el.style.height = 'auto';
+              el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+            }}
             disabled={isLoading}
             className={cn(
-              "bg-muted/30 border-2 h-12 text-base transition-all duration-300",
+              "bg-muted/30 border-2 min-h-[52px] max-h-[120px] resize-none text-base transition-all duration-300 pr-20",
               "focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-background",
               "placeholder:text-muted-foreground/60"
             )}
           />
           <div className={cn(
-            "absolute top-1/2 -translate-y-1/2 right-3 text-xs font-medium transition-colors",
+            "absolute bottom-2 right-3 text-xs font-medium transition-colors",
             charCountColor
           )}>
             {topic.length}/{MAX_TOPIC_LENGTH}
