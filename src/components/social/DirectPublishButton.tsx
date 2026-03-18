@@ -258,7 +258,7 @@ export function DirectPublishButton({
 
               {/* Post Content */}
               <div className="px-3 pb-2">
-                <p className="text-sm whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto">
+                <p className="text-sm whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
                   {platform === 'twitter' && content.length > 280
                     ? content.substring(0, 277) + '...'
                     : content}
