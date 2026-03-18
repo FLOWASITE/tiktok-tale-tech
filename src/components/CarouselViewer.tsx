@@ -134,6 +134,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [copiedCta, setCopiedCta] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
+  const [generatingProgress, setGeneratingProgress] = useState(0);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
