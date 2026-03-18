@@ -10,6 +10,7 @@ import { CarouselHeroSection } from '@/components/carousel/CarouselHeroSection';
 import { CarouselListView } from '@/components/CarouselListView';
 import { useCarousels } from '@/hooks/useCarousels';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
+import { useCarouselCardImages } from '@/hooks/useCarouselCardImages';
 import { Carousel } from '@/types/carousel';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -85,15 +86,22 @@ const CarouselPage = () => {
     search: '',
     platform: 'all',
     aiTool: 'all',
+    status: 'all',
+    carouselStyle: 'all',
   });
   const [campaignFilter, setCampaignFilter] = useState<string | undefined>();
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name_asc'>('newest');
+
+  // Fetch thumbnail images
+  const carouselIds = useMemo(() => carousels.map(c => c.id), [carousels]);
+  const { imageMap } = useCarouselCardImages(carouselIds);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
 
   const filteredCarousels = useMemo(() => {
-    return carousels.filter((carousel) => {
+    let result = carousels.filter((carousel) => {
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
         const matchesSearch =
@@ -110,13 +118,36 @@ const CarouselPage = () => {
         return false;
       }
 
+      if (filters.status !== 'all' && carousel.status !== filters.status) {
+        return false;
+      }
+
+      if (filters.carouselStyle !== 'all' && carousel.carousel_style !== filters.carouselStyle) {
+        return false;
+      }
+
       if (campaignFilter && carousel.campaign_id !== campaignFilter) {
         return false;
       }
 
       return true;
     });
-  }, [carousels, filters, campaignFilter]);
+
+    // Sort
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'name_asc':
+          return a.title.localeCompare(b.title, 'vi');
+        case 'newest':
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
+
+    return result;
+  }, [carousels, filters, campaignFilter, sortBy]);
 
   // Paginated carousels
   const paginatedCarousels = useMemo(() => {
@@ -195,12 +226,24 @@ const CarouselPage = () => {
           <div className="flex-1">
             <CarouselFilters filters={filters} onFiltersChange={setFilters} />
           </div>
-          <CampaignSelector
-            value={campaignFilter}
-            onValueChange={setCampaignFilter}
-            placeholder="Lọc theo chiến dịch"
-            className="w-full sm:w-56"
-          />
+          <div className="flex gap-2">
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+              <SelectTrigger className="w-full sm:w-40 h-9 text-xs border-border/50">
+                <SelectValue placeholder="Sắp xếp" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Mới nhất</SelectItem>
+                <SelectItem value="oldest">Cũ nhất</SelectItem>
+                <SelectItem value="name_asc">Tên A-Z</SelectItem>
+              </SelectContent>
+            </Select>
+            <CampaignSelector
+              value={campaignFilter}
+              onValueChange={setCampaignFilter}
+              placeholder="Lọc theo chiến dịch"
+              className="w-full sm:w-56"
+            />
+          </div>
         </div>
 
         {/* Bulk Actions Bar */}
@@ -329,6 +372,8 @@ const CarouselPage = () => {
                 creatorProfile={carousel.user_id ? creatorProfiles[carousel.user_id] : undefined}
                 isLoadingProfile={isLoadingProfiles}
                 index={index}
+                thumbnailUrl={imageMap[carousel.id]?.thumbnailUrl}
+                imageCount={imageMap[carousel.id]?.imageCount}
               />
             ))}
           </div>

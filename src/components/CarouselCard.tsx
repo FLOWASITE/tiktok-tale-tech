@@ -1,11 +1,11 @@
 import { motion } from 'framer-motion';
-import { Carousel, CAROUSEL_STATUS_CONFIG } from '@/types/carousel';
+import { Carousel, CAROUSEL_STATUS_CONFIG, CAROUSEL_STYLE_OPTIONS } from '@/types/carousel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Eye, Trash2, Images, Calendar, Facebook, Palette } from 'lucide-react';
+import { Eye, Trash2, Images, Calendar, Facebook, Palette, ImageIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
@@ -32,6 +32,8 @@ interface CarouselCardProps {
   creatorProfile?: CreatorProfile;
   isLoadingProfile?: boolean;
   index?: number;
+  thumbnailUrl?: string;
+  imageCount?: number;
 }
 
 const platformLabels: Record<string, { label: string; icon: typeof Facebook }> = {
@@ -67,7 +69,9 @@ export function CarouselCard({
   onSelectionChange, 
   creatorProfile, 
   isLoadingProfile,
-  index = 0 
+  index = 0,
+  thumbnailUrl,
+  imageCount,
 }: CarouselCardProps) {
   const timeAgo = formatDistanceToNow(new Date(carousel.created_at), {
     addSuffix: true,
@@ -75,6 +79,9 @@ export function CarouselCard({
   });
 
   const statusConfig = carousel.status ? CAROUSEL_STATUS_CONFIG[carousel.status] : null;
+  const styleOption = carousel.carousel_style 
+    ? CAROUSEL_STYLE_OPTIONS.find(s => s.value === carousel.carousel_style) 
+    : null;
 
   return (
     <motion.div
@@ -118,6 +125,35 @@ export function CarouselCard({
             carousel.status === 'approved' && "bg-gradient-to-r from-blue-500 to-blue-400",
             carousel.status === 'draft' && "bg-gradient-to-r from-muted to-muted-foreground/30"
           )} />
+        )}
+
+        {/* Thumbnail Preview */}
+        {thumbnailUrl ? (
+          <div className="relative aspect-video bg-muted/20 overflow-hidden cursor-pointer" onClick={() => onView(carousel)}>
+            <img
+              src={thumbnailUrl}
+              alt={carousel.title}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              loading="lazy"
+            />
+            {/* Image count badge */}
+            {typeof imageCount === 'number' && (
+              <Badge className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] border-0">
+                <ImageIcon className="w-2.5 h-2.5 mr-1" />
+                {imageCount}/{carousel.slide_count}
+              </Badge>
+            )}
+          </div>
+        ) : (
+          <div 
+            className="relative aspect-video bg-muted/10 flex items-center justify-center cursor-pointer"
+            onClick={() => onView(carousel)}
+          >
+            <div className="text-center">
+              <Images className="w-8 h-8 text-muted-foreground/30 mx-auto mb-1" />
+              <span className="text-[10px] text-muted-foreground/50">Chưa có ảnh</span>
+            </div>
+          </div>
         )}
 
         <CardHeader className="p-3 xs:p-4 sm:p-5 pb-2 xs:pb-3">
@@ -182,6 +218,21 @@ export function CarouselCard({
                 <TooltipContent>Công cụ AI: {aiToolLabels[carousel.ai_tool]}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
+
+            {/* Carousel Style Badge */}
+            {styleOption && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="text-[10px] xs:text-xs px-1.5 xs:px-2 gap-1 bg-accent/30">
+                      <span>{styleOption.icon}</span>
+                      {styleOption.label}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>{styleOption.description}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
 
           {/* Topic */}
@@ -194,7 +245,7 @@ export function CarouselCard({
             <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
           </div>
 
-          {/* Actions - Slide up on hover */}
+          {/* Actions */}
           <div className="flex gap-1.5 xs:gap-2 transform transition-all duration-300 group-hover:translate-y-0">
             <Button
               variant="outline"

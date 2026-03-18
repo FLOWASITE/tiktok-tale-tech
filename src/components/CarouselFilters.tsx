@@ -11,13 +11,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Search, X, Filter, ChevronDown, Facebook, Palette } from 'lucide-react';
-import { Platform, AITool, PLATFORM_OPTIONS, AI_TOOL_OPTIONS } from '@/types/carousel';
+import { Platform, AITool, CarouselStatus, CarouselStyleType, PLATFORM_OPTIONS, AI_TOOL_OPTIONS, CAROUSEL_STATUS_CONFIG, CAROUSEL_STYLE_OPTIONS } from '@/types/carousel';
 import { cn } from '@/lib/utils';
 
 export interface CarouselFiltersState {
   search: string;
   platform: Platform | 'all';
   aiTool: AITool | 'all';
+  status: CarouselStatus | 'all';
+  carouselStyle: CarouselStyleType | 'all';
 }
 
 interface CarouselFiltersProps {
@@ -36,11 +38,13 @@ export function CarouselFilters({ filters, onFiltersChange }: CarouselFiltersPro
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const hasActiveFilters =
-    filters.search || filters.platform !== 'all' || filters.aiTool !== 'all';
+    filters.search || filters.platform !== 'all' || filters.aiTool !== 'all' || filters.status !== 'all' || filters.carouselStyle !== 'all';
 
   const activeFilterCount = [
     filters.platform !== 'all',
     filters.aiTool !== 'all',
+    filters.status !== 'all',
+    filters.carouselStyle !== 'all',
   ].filter(Boolean).length;
 
   const clearFilters = () => {
@@ -48,6 +52,8 @@ export function CarouselFilters({ filters, onFiltersChange }: CarouselFiltersPro
       search: '',
       platform: 'all',
       aiTool: 'all',
+      status: 'all',
+      carouselStyle: 'all',
     });
   };
 
@@ -200,6 +206,46 @@ export function CarouselFilters({ filters, onFiltersChange }: CarouselFiltersPro
                     {AI_TOOL_OPTIONS.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
                         {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Status Select */}
+              <div className="flex-1 min-w-[150px]">
+                <Select
+                  value={filters.status}
+                  onValueChange={(v) => onFiltersChange({ ...filters, status: v as CarouselStatus | 'all' })}
+                >
+                  <SelectTrigger className="w-full bg-background/50 border-border/50">
+                    <SelectValue placeholder="Trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                    {Object.entries(CAROUSEL_STATUS_CONFIG).map(([key, config]) => (
+                      <SelectItem key={key} value={key}>
+                        {config.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Carousel Style Select */}
+              <div className="flex-1 min-w-[150px]">
+                <Select
+                  value={filters.carouselStyle}
+                  onValueChange={(v) => onFiltersChange({ ...filters, carouselStyle: v as CarouselStyleType | 'all' })}
+                >
+                  <SelectTrigger className="w-full bg-background/50 border-border/50">
+                    <SelectValue placeholder="Kiểu carousel" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả kiểu</SelectItem>
+                    {CAROUSEL_STYLE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.icon} {opt.label}
                       </SelectItem>
                     ))}
                   </SelectContent>

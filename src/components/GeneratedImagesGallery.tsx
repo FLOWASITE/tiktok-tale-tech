@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, ExternalLink, Trash2, ImageIcon, FileArchive, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Download, ExternalLink, Trash2, ImageIcon, FileArchive, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { GeneratedImage } from '@/hooks/useImageGeneration';
 import { CarouselSlide } from '@/types/carousel';
 import { toast } from 'sonner';
@@ -15,6 +15,7 @@ interface GeneratedImagesGalleryProps {
   slides?: CarouselSlide[];
   carouselTitle?: string;
   onDeleteImage?: (slideNumber: number) => void;
+  onGenerateAll?: () => void;
 }
 
 export function GeneratedImagesGallery({
@@ -23,6 +24,7 @@ export function GeneratedImagesGallery({
   slides,
   carouselTitle,
   onDeleteImage,
+  onGenerateAll,
 }: GeneratedImagesGalleryProps) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false, align: 'center' });
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -108,9 +110,15 @@ export function GeneratedImagesGallery({
           <ImageIcon className="w-8 h-8 text-muted-foreground" />
         </div>
         <h3 className="font-medium text-lg mb-1">Chưa có ảnh nào</h3>
-        <p className="text-sm text-muted-foreground max-w-sm">
+        <p className="text-sm text-muted-foreground max-w-sm mb-4">
           Vào tab "Slide Prompts" và nhấn "Tạo ảnh với Gemini" trên từng slide để bắt đầu tạo ảnh.
         </p>
+        {onGenerateAll && (
+          <Button onClick={onGenerateAll} className="gap-2">
+            <Sparkles className="w-4 h-4" />
+            Tạo tất cả ảnh
+          </Button>
+        )}
       </div>
     );
   }

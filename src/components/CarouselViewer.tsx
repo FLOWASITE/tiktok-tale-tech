@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Copy, Check, Images, MessageSquare, Megaphone, Download, Sparkles, Loader2, ImageIcon, TrendingUp } from 'lucide-react';
+import { Copy, Check, Images, MessageSquare, Megaphone, Download, Sparkles, Loader2, ImageIcon, TrendingUp, Send } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -40,6 +40,7 @@ import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { CreatorCell } from '@/components/CreatorCell';
 import { IndustryGuardrailBadge } from '@/components/IndustryGuardrailBadge';
 import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
+import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 
 interface CarouselViewerProps {
   carousel: Carousel | null;
@@ -379,6 +380,18 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
               />
             </div>
             <div className="flex gap-1.5 xs:gap-2 shrink-0">
+              {/* Facebook Publish */}
+              {generatedImages.length > 0 && (
+                <DirectPublishButton
+                  content={carousel.caption_suggestion || carousel.topic}
+                  contentId={carousel.id}
+                  channel="facebook"
+                  mediaUrls={generatedImages.map(img => img.imageUrl)}
+                  variant="outline"
+                  size="sm"
+                  className="h-7 xs:h-8 text-[10px] xs:text-xs px-2 xs:px-3"
+                />
+              )}
               {/* Performance Tracking - only when published */}
               {carousel.status === 'published' && (
                 <TopicPerformanceUpdater
@@ -497,6 +510,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                 slides={carousel.slides_content}
                 carouselTitle={carousel.title}
                 onDeleteImage={handleDeleteImage}
+                onGenerateAll={handleGenerateAllImages}
               />
             </TabsContent>
 
