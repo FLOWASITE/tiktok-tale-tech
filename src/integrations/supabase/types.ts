@@ -8533,6 +8533,112 @@ export type Database = {
           },
         ]
       }
+      voucher_usages: {
+        Row: {
+          created_at: string | null
+          discount_amount: number
+          id: string
+          organization_id: string
+          payment_order_id: string | null
+          user_id: string
+          voucher_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          discount_amount: number
+          id?: string
+          organization_id: string
+          payment_order_id?: string | null
+          user_id: string
+          voucher_id: string
+        }
+        Update: {
+          created_at?: string | null
+          discount_amount?: number
+          id?: string
+          organization_id?: string
+          payment_order_id?: string | null
+          user_id?: string
+          voucher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voucher_usages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voucher_usages_payment_order_id_fkey"
+            columns: ["payment_order_id"]
+            isOneToOne: false
+            referencedRelation: "payment_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voucher_usages_voucher_id_fkey"
+            columns: ["voucher_id"]
+            isOneToOne: false
+            referencedRelation: "vouchers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vouchers: {
+        Row: {
+          applicable_plans: string[] | null
+          code: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          discount_type: string
+          discount_value: number
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          max_uses: number | null
+          min_amount: number | null
+          starts_at: string | null
+          updated_at: string | null
+          used_count: number | null
+        }
+        Insert: {
+          applicable_plans?: string[] | null
+          code: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          discount_type: string
+          discount_value: number
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          min_amount?: number | null
+          starts_at?: string | null
+          updated_at?: string | null
+          used_count?: number | null
+        }
+        Update: {
+          applicable_plans?: string[] | null
+          code?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          discount_type?: string
+          discount_value?: number
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          min_amount?: number | null
+          starts_at?: string | null
+          updated_at?: string | null
+          used_count?: number | null
+        }
+        Relationships: []
+      }
       web_search_analytics: {
         Row: {
           cache_hit: boolean | null
