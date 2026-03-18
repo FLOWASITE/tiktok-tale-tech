@@ -89,7 +89,7 @@ export function DirectPublishButton({
     brandTemplateId,
     organizationId: !brandTemplateId ? currentOrganization?.id : undefined,
   });
-  const { publishToTwitter, isPublishing, publishResult } = useDirectPublish();
+  const { publishToTwitter, publishToFacebook, isPublishing, publishResult } = useDirectPublish();
 
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -106,13 +106,18 @@ export function DirectPublishButton({
     setConfirmDialog({ open: false, platform: null });
 
     try {
+      const publishOptions = {
+        connectionId: connection.id,
+        contentId,
+        content,
+      };
+
       switch (platform) {
         case 'twitter':
-          await publishToTwitter({
-            connectionId: connection.id,
-            contentId,
-            content,
-          });
+          await publishToTwitter(publishOptions);
+          break;
+        case 'facebook':
+          await publishToFacebook(publishOptions);
           break;
         default:
           console.warn(`Platform ${platform} not yet supported`);
@@ -139,7 +144,7 @@ export function DirectPublishButton({
   }
 
   // Check if platform is supported
-  const isSupported = platform === 'twitter';
+  const isSupported = platform === 'twitter' || platform === 'facebook';
 
   if (!isSupported) {
     return (
