@@ -180,6 +180,12 @@ export function FooterSection() {
           viewport={{ once: true }}
           transition={{ delay: 0.3 }}
         >
+          <div className="w-full mb-4">
+            <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+              <Shield className="w-3.5 h-3.5 mt-0.5 shrink-0 text-primary/60" />
+              <span>Flowa sử dụng xác thực Google (Google OAuth) để giúp bạn đăng nhập nhanh chóng và an toàn. Chúng tôi chỉ yêu cầu quyền truy cập thông tin cơ bản (email, tên, ảnh đại diện) nhằm mục đích khởi tạo và quản lý tài khoản của bạn trên hệ thống.</span>
+            </p>
+          </div>
           <p className="text-sm text-muted-foreground">
             {t("footer.copyright", { year: new Date().getFullYear() })}
           </p>
