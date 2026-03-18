@@ -106,13 +106,18 @@ export function DirectPublishButton({
     setConfirmDialog({ open: false, platform: null });
 
     try {
+      const publishOptions = {
+        connectionId: connection.id,
+        contentId,
+        content,
+      };
+
       switch (platform) {
         case 'twitter':
-          await publishToTwitter({
-            connectionId: connection.id,
-            contentId,
-            content,
-          });
+          await publishToTwitter(publishOptions);
+          break;
+        case 'facebook':
+          await publishToFacebook(publishOptions);
           break;
         default:
           console.warn(`Platform ${platform} not yet supported`);
