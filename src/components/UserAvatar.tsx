@@ -351,6 +351,7 @@ export function UserAvatar() {
             </DropdownMenuPortal>
           </DropdownMenuSub>
 
+          <DropdownMenuItem onClick={handleSupportClick}>
             <HelpCircle className="mr-2 h-4 w-4" />
             Trợ giúp
             <ExternalLink className="ml-auto h-3 w-3 text-muted-foreground" />
