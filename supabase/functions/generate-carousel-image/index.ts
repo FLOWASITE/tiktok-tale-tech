@@ -250,6 +250,8 @@ serve(async (req) => {
     const requestedModel = aiConfig.model;
     let imageModel = requestedModel;
     let modelUsed = requestedModel;
+    let usedFallback = false;
+    let fallbackFromModel: string | null = null;
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
     console.log(`[generate-carousel-image] Requested model: ${requestedModel}`);
@@ -299,6 +301,8 @@ serve(async (req) => {
         console.log('[generate-carousel-image] PoYo failed, falling back to Lovable AI...');
         imageModel = 'google/gemini-3-pro-image-preview';
         modelUsed = `${imageModel} (fallback from ${requestedModel})`;
+        usedFallback = true;
+        fallbackFromModel = requestedModel;
       }
     }
     // --- KIE routing ---
@@ -335,6 +339,8 @@ serve(async (req) => {
         console.log('[generate-carousel-image] KIE failed, falling back to Lovable AI...');
         imageModel = 'google/gemini-3-pro-image-preview';
         modelUsed = `${imageModel} (fallback from ${requestedModel})`;
+        usedFallback = true;
+        fallbackFromModel = requestedModel;
       }
     }
 
@@ -478,6 +484,7 @@ serve(async (req) => {
         traceId, functionName: 'generate-carousel-image', userId, totalDurationMs,
         aiCallDurationMs: totalDurationMs, inputTokensEstimated: inputTokens, outputTokensEstimated: 0,
         estimatedCostUsd, modelsUsed: { image: imageModel }, hadError: false,
+        usedFallback, fallbackModel: fallbackFromModel,
         contextSources: [], contentId: carouselId, actionType: 'image_generation',
       }).catch(() => {});
 
@@ -615,6 +622,8 @@ serve(async (req) => {
       estimatedCostUsd,
       modelsUsed: { image: model },
       hadError: false,
+      usedFallback,
+      fallbackModel: fallbackFromModel,
       contextSources: [],
       contentId: carouselId,
       actionType: 'image_generation',
