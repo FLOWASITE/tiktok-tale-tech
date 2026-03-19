@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
 import { toast } from 'sonner';
@@ -19,7 +19,7 @@ export function useImageGeneration() {
   const [generating, setGenerating] = useState<number | null>(null);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
 
-  const generateImage = async (
+  const generateImage = useCallback(async (
     prompt: string,
     carouselId: string,
     slideNumber: number,
@@ -99,7 +99,7 @@ export function useImageGeneration() {
     } finally {
       setGenerating(null);
     }
-  };
+  }, []);
 
   const setImages = (images: GeneratedImage[]) => {
     setGeneratedImages(images);
