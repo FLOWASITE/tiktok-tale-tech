@@ -99,7 +99,7 @@ export function BrandManagementDialog() {
           Quản lý Brand
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-[90rem] max-h-[90vh] w-[95vw] overflow-y-auto">
+      <DialogContent className="max-w-[95vw] max-h-[90vh] w-[95vw] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {showForm && (
