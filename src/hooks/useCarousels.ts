@@ -11,6 +11,7 @@ export function useCarousels() {
   const [carousels, setCarousels] = useState<Carousel[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const generatingRef = useRef(false);
 
   const fetchCarousels = async () => {
     if (!user) {
