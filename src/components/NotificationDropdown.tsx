@@ -1,4 +1,4 @@
-import { Bell, Check, Trash2, ArrowUpCircle, UserPlus, CheckCircle2, Flag, Calendar, Target, TrendingUp, PenLine, Images, Sparkles } from 'lucide-react';
+import { Bell, Check, Trash2, ArrowUpCircle, UserPlus, CheckCircle2, Flag, Calendar, Target, TrendingUp, PenLine, Images, Sparkles, FileText, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
