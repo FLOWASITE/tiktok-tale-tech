@@ -33,10 +33,18 @@ interface CarouselFormData {
   visualPreset?: "minimalist" | "flat_design" | "gradient" | "geometric" | "illustration" | "product_only";
 }
 
+interface StructuredTextContent {
+  headline: string;
+  subtitle?: string;
+  caption?: string;
+  dataValue?: string;
+  dataLabel?: string;
+}
+
 interface CarouselSlide {
   slideNumber: number;
   objective: string;
-  textContent: string;
+  textContent: string | StructuredTextContent;
   designStyle: string;
   colorLayout: string;
   aspectRatio: string;
