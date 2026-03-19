@@ -224,11 +224,39 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
     toast.success('Đã xuất file TXT!');
   };
 
+  /** Extract brand colors from carousel brand_guideline for Phase C */
+  const extractBrandColors = (): { textColor?: string; backgroundColor?: string } | undefined => {
+    if (!carousel.brand_guideline) return undefined;
+    try {
+      const parsed = typeof carousel.brand_guideline === 'string' 
+        ? JSON.parse(carousel.brand_guideline) 
+        : carousel.brand_guideline;
+      if (parsed?.colors || parsed?.primaryColor || parsed?.textColor) {
+        return {
+          textColor: parsed.textColor || parsed.colors?.text || parsed.colors?.primary,
+          backgroundColor: parsed.backgroundColor || parsed.colors?.background || parsed.colors?.secondary,
+        };
+      }
+    } catch {
+      // brand_guideline is plain text, try to extract color hints
+      const hexColors = (carousel.brand_guideline as string).match(/#[0-9A-Fa-f]{3,8}/g);
+      if (hexColors && hexColors.length >= 2) {
+        return { textColor: hexColors[0], backgroundColor: hexColors[1] };
+      }
+      if (hexColors && hexColors.length === 1) {
+        return { textColor: hexColors[0] };
+      }
+    }
+    return undefined;
+  };
+
   const handleGenerateImage = async (slideNumber: number, prompt: string) => {
     const slide = carousel.slides_content.find(s => s.slideNumber === slideNumber);
+    const brandColors = extractBrandColors();
     const result = await generateImage(prompt, carousel.id, slideNumber, {
       textContent: slide?.textContent,
       platform: carousel.platform,
+      brandColors,
       carouselStyle: carousel.carousel_style,
       totalSlides: carousel.slides_content.length,
       slideObjective: slide?.objective,
