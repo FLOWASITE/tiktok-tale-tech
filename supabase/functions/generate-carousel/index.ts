@@ -858,34 +858,8 @@ Follow the carousel style guidelines strictly.`;
 
     console.log("Carousel saved with ID:", carousel.id, "fromCache:", fromCache, "critiqueScore:", critiqueResult?.overall_score || 'N/A');
 
-    // ============ SAVE AI METRICS WITH COST ============
-    if (!fromCache) {
-      try {
-        const model = 'google/gemini-2.5-flash';
-        const inputTokensEstimated = 2500; // System prompt + brand context
-        const outputTokensEstimated = formData.slideCount * 400; // ~400 tokens per slide
-        const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
-        
-        await saveMetrics(supabase, {
-          traceId: generateTraceId(),
-          functionName: 'generate-carousel',
-          organizationId: organizationId || undefined,
-          userId: userId || undefined,
-          brandTemplateId: formData.brandTemplateId || undefined,
-          totalDurationMs: 0,
-          inputTokensEstimated,
-          outputTokensEstimated,
-          modelsUsed: { default: model },
-          estimatedCostUsd,
-          hadError: false,
-          cacheHit: false,
-          contextSources: [],
-        });
-        console.log(`[generate-carousel] Metrics saved: cost=$${estimatedCostUsd.toFixed(6)}`);
-      } catch (metricsErr) {
-        console.warn(`[generate-carousel] Failed to save metrics:`, metricsErr);
-      }
-    }
+    // Metrics are now automatically saved by callAIWithMetrics() 
+    // No manual metrics block needed
 
     return new Response(JSON.stringify({ ...carousel, fromCache }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
