@@ -193,6 +193,28 @@ export function CarouselLayoutPreview({ slides, visualPreset, carouselStyle, pla
                 </div>
               )}
 
+              {/* Educational progress dots */}
+              {carouselStyle === 'educational' && role === 'body' && (
+                <div className="absolute top-1 right-1 flex gap-[2px]">
+                  {Array.from({ length: slides.length }).map((_, di) => (
+                    <div
+                      key={di}
+                      className={cn(
+                        "w-1 h-1 rounded-full",
+                        di < i ? "bg-white/80" : di === i ? style.accent : "bg-white/30"
+                      )}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Product HOT badge */}
+              {visualPreset === 'product_only' && role === 'hook' && (
+                <div className="absolute top-1 right-1 bg-red-500 text-white text-[4px] font-bold px-1 py-[1px] rounded-sm">
+                  HOT
+                </div>
+              )}
+
               {/* Role label */}
               <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-1 py-0.5">
                 <span className="text-[5px] text-white/80 font-medium">
