@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
@@ -11,6 +11,7 @@ export function useCarousels() {
   const [carousels, setCarousels] = useState<Carousel[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const generatingRef = useRef(false);
 
   const fetchCarousels = async () => {
     if (!user) {
@@ -48,6 +49,11 @@ export function useCarousels() {
       return null;
     }
 
+    if (generatingRef.current) {
+      console.log('[Carousel] Blocked double-invoke');
+      return null;
+    }
+    generatingRef.current = true;
     setGenerating(true);
     try {
       // Ensure we have a fresh session before calling the function
@@ -102,6 +108,7 @@ export function useCarousels() {
       toast.error('Không thể tạo carousel. Vui lòng thử lại.');
       return null;
     } finally {
+      generatingRef.current = false;
       setGenerating(false);
     }
   };
