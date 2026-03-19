@@ -15,8 +15,8 @@ import { Carousel } from '@/types/carousel';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { SlidePanel } from '@/components/ui/slide-panel';
-import { Images, Sparkles, Plus, Trash2, ChevronLeft, ChevronRight, Wand2 } from 'lucide-react';
+
+import { Images, Sparkles, Plus, Trash2, ChevronLeft, ChevronRight, Wand2, ArrowLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
@@ -203,6 +203,57 @@ const CarouselPage = () => {
     toast.success(`Đã xóa ${selectedIds.length} carousel`);
     setSelectedIds([]);
   };
+
+  if (formSheetOpen) {
+    return (
+      <div className="min-h-screen relative bg-gradient-to-b from-background via-background to-muted/20">
+        <div className="p-3 sm:p-6 space-y-6">
+          {/* Header bar */}
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFormSheetOpen(false)}
+              className="gap-2 text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Quay lại
+            </Button>
+            <div className="h-6 w-px bg-border" />
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-primary/10">
+                <Wand2 className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-foreground">Tạo Carousel mới</h1>
+                <p className="text-xs text-muted-foreground">Nhập chủ đề và tùy chỉnh phong cách để AI tạo carousel chuyên nghiệp</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Form centered */}
+          <div className="max-w-2xl mx-auto">
+            <CarouselForm onSubmit={handleGenerateCarousel} isLoading={generating} initialTopic={initialTopic} topicHistoryId={topicHistoryId} />
+          </div>
+        </div>
+
+        {/* Carousel viewer dialog */}
+        <CarouselViewer
+          carousel={selectedCarousel}
+          open={viewerOpen}
+          onOpenChange={(open) => {
+            setViewerOpen(open);
+            if (!open) setAutoGenerateImages(false);
+          }}
+          onCarouselUpdate={(updated) => {
+            updateCarousel(updated);
+            setSelectedCarousel(updated);
+          }}
+          autoGenerateImages={autoGenerateImages}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen relative bg-gradient-to-b from-background via-background to-muted/20">
@@ -465,22 +516,6 @@ const CarouselPage = () => {
           </>
         )}
       </div>
-
-      {/* Form Panel */}
-      <SlidePanel
-        open={formSheetOpen}
-        onOpenChange={setFormSheetOpen}
-        title={
-          <>
-            <Wand2 className="w-5 h-5 text-primary" />
-            Tạo Carousel mới
-          </>
-        }
-        description="Nhập chủ đề và tùy chỉnh phong cách để AI tạo carousel chuyên nghiệp"
-        className="md:max-w-xl lg:max-w-2xl"
-      >
-        <CarouselForm onSubmit={handleGenerateCarousel} isLoading={generating} initialTopic={initialTopic} topicHistoryId={topicHistoryId} />
-      </SlidePanel>
 
       {/* Carousel viewer dialog */}
       <CarouselViewer
