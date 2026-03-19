@@ -289,6 +289,18 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
         />
       </div>
 
+      {/* Visual Design Preset */}
+      <div className="space-y-2">
+        <Label className="text-foreground font-semibold text-sm flex items-center gap-1.5">
+          🎨 Phong cách thiết kế ảnh
+        </Label>
+        <VisualPresetSelector
+          value={visualPreset}
+          onChange={setVisualPreset}
+          disabled={isLoading}
+        />
+      </div>
+
       {/* Cài đặt tạo ảnh */}
       <div className="space-y-4 p-4 rounded-xl border border-border/60 bg-muted/10">
         <Label className="text-foreground font-semibold text-sm flex items-center gap-1.5">
