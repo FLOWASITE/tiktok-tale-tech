@@ -64,7 +64,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
   const [platform, setPlatform] = useState<Platform>('facebook');
   const [carouselStyle, setCarouselStyle] = useState<CarouselStyleType>('educational');
   const [slideCount, setSlideCount] = useState(6);
-  const [aiTool, setAiTool] = useState<AITool>('ideogram');
+  
   const [visualPreset, setVisualPreset] = useState<VisualPresetType>('minimalist');
   
   // Brand fields - auto-loaded from template, hidden from UI
