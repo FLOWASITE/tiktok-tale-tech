@@ -5,11 +5,14 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
   CarouselFormData,
+  CarouselSlide,
+  StructuredTextContent,
   Platform,
   CarouselStyleType,
   VisualPresetType,
   DEFAULT_BRAND_GUIDELINE,
 } from '@/types/carousel';
+import { CarouselLayoutPreview } from '@/components/carousel/CarouselLayoutPreview';
 import { useBrandTemplates, BrandTemplate } from '@/hooks/useBrandTemplates';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
@@ -52,6 +55,33 @@ const LOADING_PHASES = [
 ];
 
 const MAX_TOPIC_LENGTH = 300;
+
+const ROLE_HEADLINES: Record<string, StructuredTextContent> = {
+  hook: { headline: 'Tiêu đề gây chú ý', subtitle: 'Dòng phụ hook' },
+  body: { headline: 'Nội dung chính', subtitle: 'Giải thích chi tiết' },
+  cta: { headline: 'Hành động ngay!', subtitle: 'Liên hệ / Theo dõi' },
+  visual: { headline: '' },
+  dataPoint: { headline: '85%', subtitle: 'Số liệu nổi bật', dataValue: '85%', dataLabel: 'Tỉ lệ' },
+};
+
+function generateMockSlides(count: number, style: CarouselStyleType): CarouselSlide[] {
+  return Array.from({ length: count }, (_, i) => {
+    const num = i + 1;
+    const role = num === 1 ? 'hook' : num === count ? 'cta'
+      : style === 'gallery' ? 'visual' : 'body';
+    const text = ROLE_HEADLINES[role] || ROLE_HEADLINES.body;
+    return {
+      slideNumber: num,
+      objective: role,
+      textContent: text,
+      designStyle: '',
+      colorLayout: '',
+      aspectRatio: '',
+      technicalRequirements: '',
+      fullPrompt: '',
+    };
+  });
+}
 
 // Step numbering component
 function StepNumber({ step, active = true }: { step: number; active?: boolean }) {
@@ -388,6 +418,29 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           </div>
         </CollapsibleContent>
       </Collapsible>
+
+      {/* ══════════════════════════════════════════════
+          STEP 5: Layout Preview (auto-generated mock)
+         ══════════════════════════════════════════════ */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2.5">
+          <StepNumber step={5} />
+          <Label className="text-foreground font-bold text-sm flex items-center gap-1.5">
+            <Images className="w-3.5 h-3.5 text-muted-foreground" />
+            Xem trước bố cục
+          </Label>
+        </div>
+        <div className="rounded-xl border border-border/50 bg-muted/10 p-4">
+          <CarouselLayoutPreview
+            slides={generateMockSlides(slideCount, carouselStyle)}
+            visualPreset={visualPreset}
+            carouselStyle={carouselStyle}
+            platform={platform}
+          />
+        </div>
+      </section>
+
+      <div className="h-px bg-border/60" />
 
       {/* ══════════════════════════════════════════════
           Submit Buttons & Loading State
