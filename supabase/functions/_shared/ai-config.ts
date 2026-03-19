@@ -139,6 +139,15 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     is_enabled: true,
     priority_level: 'normal',
   },
+  // Carousel image generation
+  'generate-carousel-image': {
+    model: 'google/gemini-3-pro-image-preview',
+    temperature: 0.7,
+    max_tokens: 1024,
+    cache_ttl_seconds: 0,
+    is_enabled: true,
+    priority_level: 'normal',
+  },
   // Background image editing
   'edit-image-background': {
     model: 'google/gemini-2.5-flash-image',

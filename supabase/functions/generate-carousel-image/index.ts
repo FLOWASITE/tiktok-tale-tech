@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateCost, estimateImageCost, isImageModel } from "../_shared/cost-estimator.ts";
+import { getAIConfig } from "../_shared/ai-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,6 +36,11 @@ serve(async (req) => {
       );
     }
 
+    // === STEP 0: Get AI config for model selection ===
+    const aiConfig = await getAIConfig('generate-carousel-image');
+    const imageModel = aiConfig.model;
+    console.log(`[generate-carousel-image] Using model: ${imageModel}`);
+
     // === STEP 1: Generate background image (no text) ===
     const backgroundPrompt = buildBackgroundPrompt(prompt, platform, carouselStyle, slideNumber, totalSlides);
     console.log("[generate-carousel-image] Step 1: Generating background...");
@@ -50,7 +56,7 @@ serve(async (req) => {
           "Authorization": `Bearer ${lovableApiKey}`,
         },
         body: JSON.stringify({
-          model: "google/gemini-3-pro-image-preview",
+          model: imageModel,
           messages: [{ role: "user", content: backgroundPrompt }],
           modalities: ["image", "text"],
         }),
@@ -193,7 +199,7 @@ serve(async (req) => {
 
     // Non-blocking metrics save
     const totalDurationMs = Math.round(performance.now() - startTime);
-    const model = "google/gemini-3-pro-image-preview";
+    const model = imageModel;
     const inputTokens = estimateTokens(backgroundPrompt);
     const estimatedCostUsd = isImageModel(model) ? estimateImageCost(model) : estimateCost(model, inputTokens, 0);
     saveMetrics(supabase, {
