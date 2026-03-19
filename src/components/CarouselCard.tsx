@@ -207,17 +207,6 @@ export function CarouselCard({
               </Tooltip>
             </TooltipProvider>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge variant="outline" className="text-[10px] xs:text-xs bg-primary/10 text-primary border-primary/30 px-1.5 xs:px-2 gap-1">
-                    <Palette className="w-2.5 h-2.5" />
-                    {aiToolLabels[carousel.ai_tool]}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>Công cụ AI: {aiToolLabels[carousel.ai_tool]}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
 
             {/* Carousel Style Badge */}
             {styleOption && (
