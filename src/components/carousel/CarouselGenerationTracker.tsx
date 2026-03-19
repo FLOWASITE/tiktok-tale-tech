@@ -23,6 +23,7 @@ import {
   Search,
   LayoutGrid,
   PenLine,
+  Minimize2,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -48,6 +49,10 @@ type SlideStatus = 'pending' | 'generating' | 'done' | 'error';
 interface CarouselGenerationTrackerProps {
   /** Called when user clicks back */
   onBack: () => void;
+  /** Called when user clicks minimize */
+  onMinimize?: () => void;
+  /** Reports progress changes to parent */
+  onProgressChange?: (data: { overallPercent: number; statusText: string; allDone: boolean }) => void;
   /** The carousel form data topic for display */
   topic: string;
   platform: string;
@@ -88,6 +93,8 @@ function extractBrandColors(carousel: Carousel): { textColor?: string; backgroun
 
 export function CarouselGenerationTracker({
   onBack,
+  onMinimize,
+  onProgressChange,
   topic,
   platform,
   slideCount,
@@ -249,6 +256,11 @@ export function CarouselGenerationTracker({
         ? 'Đang chuẩn bị tạo ảnh...'
         : PROMPT_STEPS[promptStep]?.label || 'Đang xử lý...';
 
+  // Report progress to parent
+  useEffect(() => {
+    onProgressChange?.({ overallPercent, statusText: currentStatusText, allDone });
+  }, [overallPercent, currentStatusText, allDone, onProgressChange]);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
       <div className="p-3 sm:p-6 max-w-2xl mx-auto space-y-5">
@@ -273,6 +285,17 @@ export function CarouselGenerationTracker({
               <span className="text-[10px] text-muted-foreground">{slideCount} slides</span>
             </div>
           </div>
+          {onMinimize && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onMinimize}
+              className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
+              title="Thu nhỏ"
+            >
+              <Minimize2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
 
         {/* Phase 1: Prompt Generation */}

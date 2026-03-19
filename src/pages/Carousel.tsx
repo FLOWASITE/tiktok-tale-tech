@@ -5,6 +5,7 @@ import { CarouselForm } from '@/components/CarouselForm';
 import { CarouselCard } from '@/components/CarouselCard';
 import { CarouselViewer } from '@/components/CarouselViewer';
 import { CarouselGenerationTracker } from '@/components/carousel/CarouselGenerationTracker';
+import { CarouselMiniTracker } from '@/components/carousel/CarouselMiniTracker';
 import { CarouselGalleryView } from '@/components/carousel/CarouselGalleryView';
 import { CarouselFilters, CarouselFiltersState } from '@/components/CarouselFilters';
 import { CarouselHeroSection } from '@/components/carousel/CarouselHeroSection';
@@ -65,6 +66,8 @@ const CarouselPage = () => {
   const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>();
   const [autoGenerateImages, setAutoGenerateImages] = useState(false);
   const [trackerMode, setTrackerMode] = useState(false);
+  const [trackerMinimized, setTrackerMinimized] = useState(false);
+  const [trackerProgress, setTrackerProgress] = useState({ overallPercent: 0, statusText: '', allDone: false });
   const [trackerTopic, setTrackerTopic] = useState('');
   const [trackerPlatform, setTrackerPlatform] = useState('facebook');
   const [trackerSlideCount, setTrackerSlideCount] = useState(6);
@@ -226,16 +229,19 @@ const CarouselPage = () => {
   };
 
   // Tracker mode: full-page generation progress view
-  if (trackerMode) {
+  if (trackerMode && !trackerMinimized) {
     return (
       <>
         <CarouselGenerationTracker
           onBack={() => {
             if (!generating) {
               setTrackerMode(false);
+              setTrackerMinimized(false);
               setFormSheetOpen(true);
             }
           }}
+          onMinimize={() => setTrackerMinimized(true)}
+          onProgressChange={setTrackerProgress}
           topic={trackerTopic}
           platform={trackerPlatform}
           slideCount={trackerSlideCount}
@@ -243,6 +249,7 @@ const CarouselPage = () => {
           carousel={selectedCarousel}
           onViewResults={(carousel) => {
             setTrackerMode(false);
+            setTrackerMinimized(false);
             setSelectedCarousel(carousel);
             setAutoGenerateImages(false);
             setViewerOpen(true);
@@ -313,6 +320,42 @@ const CarouselPage = () => {
           }}
           autoGenerateImages={autoGenerateImages}
         />
+        {/* Minimized tracker overlay */}
+        {trackerMode && trackerMinimized && (
+          <>
+            <div className="hidden">
+              <CarouselGenerationTracker
+                onBack={() => {}}
+                onProgressChange={setTrackerProgress}
+                topic={trackerTopic}
+                platform={trackerPlatform}
+                slideCount={trackerSlideCount}
+                promptGenerating={generating}
+                carousel={selectedCarousel}
+                onViewResults={(carousel) => {
+                  setTrackerMode(false);
+                  setTrackerMinimized(false);
+                  setSelectedCarousel(carousel);
+                  setAutoGenerateImages(false);
+                  setViewerOpen(true);
+                }}
+              />
+            </div>
+            <CarouselMiniTracker
+              overallPercent={trackerProgress.overallPercent}
+              statusText={trackerProgress.statusText}
+              allDone={trackerProgress.allDone}
+              onExpand={() => setTrackerMinimized(false)}
+              onViewResults={trackerProgress.allDone && selectedCarousel ? () => {
+                setTrackerMode(false);
+                setTrackerMinimized(false);
+                setSelectedCarousel(selectedCarousel);
+                setAutoGenerateImages(false);
+                setViewerOpen(true);
+              } : undefined}
+            />
+          </>
+        )}
       </div>
     );
   }
@@ -593,6 +636,42 @@ const CarouselPage = () => {
         }}
         autoGenerateImages={autoGenerateImages}
       />
+      {/* Minimized tracker overlay */}
+      {trackerMode && trackerMinimized && (
+        <>
+          <div className="hidden">
+            <CarouselGenerationTracker
+              onBack={() => {}}
+              onProgressChange={setTrackerProgress}
+              topic={trackerTopic}
+              platform={trackerPlatform}
+              slideCount={trackerSlideCount}
+              promptGenerating={generating}
+              carousel={selectedCarousel}
+              onViewResults={(carousel) => {
+                setTrackerMode(false);
+                setTrackerMinimized(false);
+                setSelectedCarousel(carousel);
+                setAutoGenerateImages(false);
+                setViewerOpen(true);
+              }}
+            />
+          </div>
+          <CarouselMiniTracker
+            overallPercent={trackerProgress.overallPercent}
+            statusText={trackerProgress.statusText}
+            allDone={trackerProgress.allDone}
+            onExpand={() => setTrackerMinimized(false)}
+            onViewResults={trackerProgress.allDone && selectedCarousel ? () => {
+              setTrackerMode(false);
+              setTrackerMinimized(false);
+              setSelectedCarousel(selectedCarousel);
+              setAutoGenerateImages(false);
+              setViewerOpen(true);
+            } : undefined}
+          />
+        </>
+      )}
     </div>
   );
 };
