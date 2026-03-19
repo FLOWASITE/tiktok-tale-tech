@@ -246,7 +246,14 @@ export function validateCarouselResponse(data: unknown): data is CarouselRespons
     if (!slide || typeof slide !== 'object') return false;
     const s = slide as CarouselSlide;
     if (typeof s.slideNumber !== 'number') return false;
-    if (typeof s.textContent !== 'string') return false;
+    // textContent can be string or structured object with headline
+    if (typeof s.textContent === 'string') {
+      // OK — legacy string
+    } else if (s.textContent && typeof s.textContent === 'object' && typeof (s.textContent as any).headline === 'string') {
+      // OK — structured object
+    } else {
+      return false;
+    }
     if (typeof s.fullPrompt !== 'string') return false;
   }
   
