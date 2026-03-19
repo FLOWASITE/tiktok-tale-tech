@@ -99,7 +99,7 @@ export function useImageGeneration() {
     } finally {
       setGenerating(null);
     }
-  };
+  }, []);
 
   const setImages = (images: GeneratedImage[]) => {
     setGeneratedImages(images);

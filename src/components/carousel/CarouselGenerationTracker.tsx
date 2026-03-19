@@ -309,19 +309,29 @@ export function CarouselGenerationTracker({
     onProgressChange?.({ overallPercent, statusText: currentStatusText, allDone });
   }, [overallPercent, currentStatusText, allDone, onProgressChange]);
 
-  // Notification: Phase 1 done
+  // Notification: Phase 1 done (with dedup guard)
   useEffect(() => {
-    if (promptDone && user && !promptNotifiedRef.current) {
+    if (promptDone && user && carousel?.id && !promptNotifiedRef.current) {
       promptNotifiedRef.current = true;
-      supabase.from('notifications').insert({
-        user_id: user.id,
-        type: 'carousel_prompt_done',
-        title: 'Nội dung carousel đã sẵn sàng',
-        message: `Nội dung ${slideCount} slide cho "${topic}" đã được tạo xong. Đang tiến hành tạo ảnh...`,
-        data: { carousel_id: carousel?.id },
-      }).then(({ error }) => { if (error) console.error('Notification insert error:', error); });
+      // Check for existing notification before inserting
+      supabase.from('notifications')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('type', 'carousel_prompt_done')
+        .contains('data', { carousel_id: carousel.id })
+        .limit(1)
+        .then(({ data: existing }) => {
+          if (existing && existing.length > 0) return;
+          supabase.from('notifications').insert({
+            user_id: user.id,
+            type: 'carousel_prompt_done',
+            title: 'Nội dung carousel đã sẵn sàng',
+            message: `Nội dung ${slideCount} slide cho "${topic}" đã được tạo xong. Đang tiến hành tạo ảnh...`,
+            data: { carousel_id: carousel.id },
+          }).then(({ error }) => { if (error) console.error('Notification insert error:', error); });
+        });
     }
-  }, [promptDone, user, carousel, slideCount, topic]);
+  }, [promptDone, user, carousel?.id, slideCount, topic]);
 
   // Notification: All done
   useEffect(() => {
