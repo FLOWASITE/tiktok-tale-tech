@@ -457,10 +457,12 @@ const getTextLengthGuidelines = (visualPreset: string): string => {
 const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, mergedRules?: MergedRules, outputLang: string = 'vi'): string => {
   const langConfig = getLanguageConfig(outputLang);
   const carouselStyle = formData.carouselStyle || 'educational';
+  const visualPreset = formData.visualPreset || 'minimalist';
 
   const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules, outputLang) : "";
   const langName = langConfig.nativeName;
   const styleSection = getCarouselStylePrompt(carouselStyle, formData.slideCount);
+  const textLengthSection = getTextLengthGuidelines(visualPreset);
 
   return `You are a professional Content Strategist for social media, specialized in creating carousels for ${formData.platform === "facebook" ? "Facebook" : "TikTok"}.
 Output ALL content in ${langName} (${langConfig.englishName}).
