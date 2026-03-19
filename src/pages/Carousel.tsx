@@ -5,6 +5,7 @@ import { CarouselForm } from '@/components/CarouselForm';
 import { CarouselCard } from '@/components/CarouselCard';
 import { CarouselViewer } from '@/components/CarouselViewer';
 import { CarouselGenerationTracker } from '@/components/carousel/CarouselGenerationTracker';
+import { CarouselMiniTracker } from '@/components/carousel/CarouselMiniTracker';
 import { CarouselGalleryView } from '@/components/carousel/CarouselGalleryView';
 import { CarouselFilters, CarouselFiltersState } from '@/components/CarouselFilters';
 import { CarouselHeroSection } from '@/components/carousel/CarouselHeroSection';
