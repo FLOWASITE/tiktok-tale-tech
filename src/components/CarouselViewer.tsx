@@ -253,7 +253,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
     for (const slide of carousel.slides_content) {
       const isSeamless = carousel.carousel_style === 'seamless';
 
-      const imageUrl = await generateImage(slide.fullPrompt, carousel.id, slide.slideNumber, {
+      const result = await generateImage(slide.fullPrompt, carousel.id, slide.slideNumber, {
         textContent: slide.textContent,
         platform: carousel.platform,
         carouselStyle: carousel.carousel_style,
@@ -267,13 +267,13 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
           totalInSequence: carousel.slides_content.length,
         } : undefined,
       });
-      if (imageUrl) {
-        await saveImage(slide.slideNumber, imageUrl, slide.fullPrompt);
+      if (result?.imageUrl) {
+        await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt);
       }
 
-      // Update previous scene for next slide's continuity
+      // Phase F: Use AI-extracted scene description for better seamless continuity
       if (isSeamless) {
-        previousSceneDescription = slide.objective || slide.fullPrompt.slice(0, 200);
+        previousSceneDescription = result?.sceneDescription || slide.objective || slide.fullPrompt.slice(0, 200);
       }
 
       setGeneratingProgress(prev => prev + 1);
