@@ -29,7 +29,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { formatAllSlidesPrompt } from '@/utils/parseCarouselSlides';
 import { GeneratedImagesGallery } from './GeneratedImagesGallery';
@@ -48,6 +48,7 @@ interface CarouselViewerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCarouselUpdate?: (updatedCarousel: Carousel) => void;
+  autoGenerateImages?: boolean;
 }
 
 const platformLabels: Record<string, string> = {
@@ -124,12 +125,13 @@ ${carousel.cta_suggestion || 'Chưa có gợi ý'}
   return header + slidesContent + footer;
 };
 
-export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate }: CarouselViewerProps) {
+export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate, autoGenerateImages }: CarouselViewerProps) {
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [copiedCta, setCopiedCta] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
   const [generatingProgress, setGeneratingProgress] = useState(0);
+  const [autoGenTriggered, setAutoGenTriggered] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -160,6 +162,20 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
 
   // Fetch Industry Memory
   const { data: industryMemory, isLoading: isLoadingIndustry } = useIndustryMemoryById(carousel?.industry_template_id);
+
+  // Ref to hold the auto-generate function (defined after early return)
+  const autoGenFnRef = useRef<(() => void) | null>(null);
+
+  // Auto-trigger image generation when autoGenerateImages flag is set
+  useEffect(() => {
+    if (autoGenerateImages && carousel?.id && autoGenTriggered !== carousel.id && open && !generatingAll && generating === null) {
+      setAutoGenTriggered(carousel.id);
+      const timer = setTimeout(() => {
+        autoGenFnRef.current?.();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [autoGenerateImages, carousel?.id, open, generatingAll, generating, autoGenTriggered]);
 
   if (!carousel) return null;
 
@@ -309,7 +325,9 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
     toast.success('Đã tạo xong tất cả ảnh!');
   };
 
-  /** Extract color hints from slide design info */
+  // Set the ref so the auto-trigger effect can call it
+  autoGenFnRef.current = handleGenerateAllImages;
+
   const extractColorPalette = (slide: CarouselSlide): string[] | null => {
     const colorText = slide.colorLayout || '';
     // Match hex colors

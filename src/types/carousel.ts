@@ -66,6 +66,7 @@ export interface CarouselFormData {
   campaignId?: string;
   carouselStyle: CarouselStyleType;
   visualPreset: VisualPresetType;
+  autoGenerateImages?: boolean;
 }
 
 export const DEFAULT_BRAND_GUIDELINE = '';

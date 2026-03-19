@@ -62,6 +62,7 @@ const CarouselPage = () => {
   const [formSheetOpen, setFormSheetOpen] = useState(false);
   const [initialTopic, setInitialTopic] = useState<string>('');
   const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>();
+  const [autoGenerateImages, setAutoGenerateImages] = useState(false);
 
   // Topic Content Links hook
   const { createLink } = useTopicContentLinks({ enabled: false });
@@ -190,6 +191,7 @@ const CarouselPage = () => {
       }
       
       setSelectedCarousel(newCarousel);
+      setAutoGenerateImages(formData.autoGenerateImages || false);
       setViewerOpen(true);
     }
   };
@@ -484,11 +486,15 @@ const CarouselPage = () => {
       <CarouselViewer
         carousel={selectedCarousel}
         open={viewerOpen}
-        onOpenChange={setViewerOpen}
+        onOpenChange={(open) => {
+          setViewerOpen(open);
+          if (!open) setAutoGenerateImages(false);
+        }}
         onCarouselUpdate={(updated) => {
           updateCarousel(updated);
           setSelectedCarousel(updated);
         }}
+        autoGenerateImages={autoGenerateImages}
       />
     </div>
   );
