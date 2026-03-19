@@ -305,6 +305,34 @@ export function CarouselGenerationTracker({
     onProgressChange?.({ overallPercent, statusText: currentStatusText, allDone });
   }, [overallPercent, currentStatusText, allDone, onProgressChange]);
 
+  // Notification: Phase 1 done
+  useEffect(() => {
+    if (promptDone && user && !promptNotifiedRef.current) {
+      promptNotifiedRef.current = true;
+      supabase.from('notifications').insert({
+        user_id: user.id,
+        type: 'carousel_prompt_done',
+        title: 'Nội dung carousel đã sẵn sàng',
+        message: `Nội dung ${slideCount} slide cho "${topic}" đã được tạo xong. Đang tiến hành tạo ảnh...`,
+        data: { carousel_id: carousel?.id },
+      }).then(({ error }) => { if (error) console.error('Notification insert error:', error); });
+    }
+  }, [promptDone, user, carousel, slideCount, topic]);
+
+  // Notification: All done
+  useEffect(() => {
+    if (allDone && user && !doneNotifiedRef.current) {
+      doneNotifiedRef.current = true;
+      supabase.from('notifications').insert({
+        user_id: user.id,
+        type: 'carousel_generation_complete',
+        title: 'Carousel đã hoàn tất!',
+        message: `${successCount}/${slideCount} slide đã tạo ảnh thành công cho "${topic}"`,
+        data: { carousel_id: carousel?.id, success_count: successCount, total_count: slideCount },
+      }).then(({ error }) => { if (error) console.error('Notification insert error:', error); });
+    }
+  }, [allDone, user, carousel, successCount, slideCount, topic]);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
       <div className="p-3 sm:p-6 max-w-2xl mx-auto space-y-5">
