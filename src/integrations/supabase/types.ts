@@ -3058,6 +3058,8 @@ export type Database = {
           organization_id: string | null
           platform: Database["public"]["Enums"]["carousel_platform"]
           refinement_count: number | null
+          seamless_analysis: Json | null
+          seamless_consistency_score: number | null
           slide_count: number
           slides_content: Json
           status: string | null
@@ -3088,6 +3090,8 @@ export type Database = {
           organization_id?: string | null
           platform?: Database["public"]["Enums"]["carousel_platform"]
           refinement_count?: number | null
+          seamless_analysis?: Json | null
+          seamless_consistency_score?: number | null
           slide_count?: number
           slides_content?: Json
           status?: string | null
@@ -3118,6 +3122,8 @@ export type Database = {
           organization_id?: string | null
           platform?: Database["public"]["Enums"]["carousel_platform"]
           refinement_count?: number | null
+          seamless_analysis?: Json | null
+          seamless_consistency_score?: number | null
           slide_count?: number
           slides_content?: Json
           status?: string | null
