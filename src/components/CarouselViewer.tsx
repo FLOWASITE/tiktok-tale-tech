@@ -306,6 +306,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
     });
     if (result?.imageUrl) {
       await saveImage(slideNumber, result.imageUrl, prompt);
+      if (result.modelUsed) setLastModelUsed(result.modelUsed);
     }
   };
 
