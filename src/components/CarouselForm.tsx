@@ -156,6 +156,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
       brandTemplateId: selectedTemplateId && selectedTemplateId !== 'custom' ? selectedTemplateId : undefined,
       topicHistoryId,
       carouselStyle,
+      visualPreset,
     });
   };
 
