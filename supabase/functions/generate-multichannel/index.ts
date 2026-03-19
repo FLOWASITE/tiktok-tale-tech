@@ -4956,6 +4956,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       
       content = result.data;
       dbError = result.error;
+      }
     }
     
     if (industryMemory) {
