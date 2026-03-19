@@ -393,6 +393,29 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
       </Collapsible>
 
       {/* ══════════════════════════════════════════════
+          STEP 5: Layout Preview (auto-generated mock)
+         ══════════════════════════════════════════════ */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2.5">
+          <StepNumber step={5} />
+          <Label className="text-foreground font-bold text-sm flex items-center gap-1.5">
+            <Images className="w-3.5 h-3.5 text-muted-foreground" />
+            Xem trước bố cục
+          </Label>
+        </div>
+        <div className="rounded-xl border border-border/50 bg-muted/10 p-4">
+          <CarouselLayoutPreview
+            slides={generateMockSlides(slideCount, carouselStyle)}
+            visualPreset={visualPreset}
+            carouselStyle={carouselStyle}
+            platform={platform}
+          />
+        </div>
+      </section>
+
+      <div className="h-px bg-border/60" />
+
+      {/* ══════════════════════════════════════════════
           Submit Buttons & Loading State
          ══════════════════════════════════════════════ */}
       <div className="pt-1 space-y-3">
