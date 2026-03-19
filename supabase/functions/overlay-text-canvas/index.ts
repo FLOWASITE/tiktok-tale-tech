@@ -509,7 +509,7 @@ function getContrastTextColor(bgColor: string): string {
  * Smart text fitting: auto-scale font size down when text is too long for available width.
  * Returns a clamped font size that prevents text overflow.
  */
-function fitTextToWidth(text: string, maxWidthPx: number, baseFontSize: number, minFontSize: number = 12): number {
+function fitTextToWidth(text: string, maxWidthPx: number, baseFontSize: number, minFontSize: number = 16): number {
   // Approximate: Vietnamese chars are ~0.55em wide on average
   const avgCharWidth = baseFontSize * 0.55;
   const estimatedTextWidth = text.length * avgCharWidth;
