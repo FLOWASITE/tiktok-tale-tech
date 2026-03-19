@@ -325,7 +325,9 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
     toast.success('Đã tạo xong tất cả ảnh!');
   };
 
-  /** Extract color hints from slide design info */
+  // Set the ref so the auto-trigger effect can call it
+  autoGenFnRef.current = handleGenerateAllImages;
+
   const extractColorPalette = (slide: CarouselSlide): string[] | null => {
     const colorText = slide.colorLayout || '';
     // Match hex colors
