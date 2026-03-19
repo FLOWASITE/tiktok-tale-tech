@@ -1,58 +1,44 @@
 
 
-# Fix: Carousel Tracker không chuyển sang slide tiếp theo
+# Fix: Slide 1 bị tạo lại 4 lần
 
-## Phân tích nguyên nhân
+## Nguyên nhân gốc
 
-Qua phân tích code và network logs, phát hiện 2 vấn đề chính:
+Bug nằm ở **retry pass** (dòng 246-265) trong `CarouselGenerationTracker.tsx`.
 
-### 1. `generateImage` không được memoize → Timer liên tục bị reset
-- `useImageGeneration` hook tạo hàm `generateImage` mới mỗi lần render
-- `runImageGeneration` (useCallback) phụ thuộc vào `generateImage` → identity thay đổi mỗi render
-- Effect tại dòng 271 cleanup timer cũ và tạo timer 500ms mới mỗi render
-- Kết hợp với `elapsed` timer (mỗi 1s), `tipIndex` (6s), `promptStep` (2.5s) → timer bị reset liên tục
-- Khi timer cuối cùng fire được, generation có thể bị gián đoạn bởi closure cũ
+Sau khi main loop tạo ảnh xong tất cả slides thành công, code cố đọc trạng thái hiện tại bằng trick:
+```typescript
+let currentStatuses: SlideStatus[] = [];
+setSlideStatuses(prev => { currentStatuses = [...prev]; return prev; });
+// currentStatuses vẫn = [] tại đây!
+```
 
-### 2. Notification gửi 3 lần (trùng lặp)
-- Network logs cho thấy `carousel_prompt_done` được POST 3 lần cho cùng carousel
-- Nguyên nhân: component có thể bị unmount/remount hoặc ref bị reset
+**Vấn đề**: `setSlideStatuses` trong React 18 là async/batched. Callback chưa chạy ngay lập tức, nên `currentStatuses` vẫn là mảng rỗng `[]` khi đọc ở dòng tiếp theo. Kết quả: `retryIndices` dựa trên mảng rỗng hoặc dữ liệu cũ từ closure `slideStatuses`.
+
+Thêm vào đó, biến `slideStatuses` tại dòng 247 là giá trị **closure cũ** (mảng ban đầu toàn `'pending'`), không phải trạng thái hiện tại.
+
+**Kết quả thực tế** (từ network data):
+- Slide 1 v1: main pass (14:59:52)
+- Slide 2 v1: main pass (15:01:26) -- OK
+- Slide 1 v2, v3, v4: retry pass chạy sai (15:01:28, 33, 38) -- retry 3 lần cho slide đã thành công
 
 ## Giải pháp
 
-### File 1: `src/hooks/useImageGeneration.ts`
-- Wrap `generateImage` trong `useCallback` để ổn định function identity
-- Deps: `[]` (chỉ dùng state setters và supabase client, đều stable)
+Dùng **local variable** (không phải React state) để track kết quả trong `runImageGeneration`, tránh phụ thuộc vào React state batching.
 
-### File 2: `src/hooks/useCarouselImages.ts`  
-- Wrap `saveImage` trong `useCallback` (đã có, nhưng kiểm tra deps đúng)
+### File: `src/components/carousel/CarouselGenerationTracker.tsx`
 
-### File 3: `src/components/carousel/CarouselGenerationTracker.tsx`
-- Thay đổi cách khởi chạy image generation: dùng `useRef` lưu `runImageGeneration` function thay vì đặt nó trong dependency của useEffect
-- Sử dụng pattern `ref.current = fn` + effect chỉ check `promptDone && !imageGenStarted` mà không depend on function identity
-- Fix notification trùng: thêm guard check trước insert (query existing notification trước khi insert)
+Thay đổi trong `runImageGeneration`:
 
-## Chi tiết kỹ thuật
-
+1. Tạo mảng local `const localStatuses: SlideStatus[] = Array(carousel.slides_content.length).fill('pending')` ở đầu hàm
+2. Trong `attemptGenerateSlide`, cập nhật cả `setSlideStatuses` (cho UI) và `localStatuses[i]` (cho logic)
+3. Retry pass đọc từ `localStatuses` thay vì trick `setSlideStatuses`:
 ```typescript
-// useImageGeneration.ts: memoize generateImage
-const generateImage = useCallback(async (prompt, carouselId, slideNumber, options) => {
-  // ... existing logic
-}, []); // stable - only uses setState and supabase
-
-// CarouselGenerationTracker.tsx: stable ref pattern
-const runImageGenRef = useRef<() => Promise<void>>();
-runImageGenRef.current = runImageGeneration; // update ref on every render
-
-useEffect(() => {
-  if (promptDone && !imageGenStarted) {
-    const timer = setTimeout(() => runImageGenRef.current?.(), 500);
-    return () => clearTimeout(timer);
-  }
-}, [promptDone, imageGenStarted]); // no function dependency!
+const retryIndices = localStatuses
+  .map((s, idx) => s === 'error' ? idx : -1)
+  .filter(idx => idx >= 0);
 ```
+4. Xóa trick `setSlideStatuses(prev => { currentStatuses = [...prev]; return prev; })` và biến `errorIndices` cũ
 
-Thay đổi này đảm bảo:
-1. Timer 500ms chỉ set 1 lần khi `promptDone` chuyển sang `true`
-2. Function luôn dùng phiên bản mới nhất qua ref
-3. Generation loop chạy liên tục không bị gián đoạn
+Thay đổi nhỏ, chỉ ảnh hưởng logic bên trong `runImageGeneration`. UI hiển thị không thay đổi.
 
