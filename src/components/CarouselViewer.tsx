@@ -378,6 +378,21 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
 
     if (successCount === carousel.slides_content.length) {
       toast.success(`🎉 Đã tạo xong ${successCount} ảnh!`);
+      
+      // Phase 2: Non-blocking seamless consistency validation
+      if (carousel.carousel_style === 'seamless' && successCount >= 2) {
+        const allImageUrls = carousel.slides_content
+          .map(s => {
+            const img = generatedImages.find(gi => gi.slideNumber === s.slideNumber);
+            return img?.imageUrl;
+          })
+          .filter(Boolean) as string[];
+        
+        if (allImageUrls.length >= 2) {
+          toast.info('🔍 Đang kiểm tra tính liên tục thị giác...');
+          validateSeamless(carousel.id, allImageUrls);
+        }
+      }
     } else if (successCount > 0) {
       toast.warning(`Tạo được ${successCount}/${carousel.slides_content.length} ảnh. Một số slide gặp lỗi.`);
     } else {
