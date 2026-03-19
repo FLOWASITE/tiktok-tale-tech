@@ -2,6 +2,7 @@ export type Platform = 'facebook' | 'tiktok';
 export type AITool = 'ideogram' | 'midjourney' | 'dalle' | 'leonardo';
 export type CarouselStatus = 'draft' | 'review' | 'approved' | 'published';
 export type CarouselStyleType = 'seamless' | 'educational' | 'listicle' | 'gallery';
+export type VisualPresetType = 'minimalist' | 'flat_design' | 'gradient' | 'geometric' | 'illustration' | 'product_only';
 
 export interface CarouselSlide {
   slideNumber: number;
@@ -29,6 +30,7 @@ export interface Carousel {
   cta_suggestion: string | null;
   status: CarouselStatus;
   carousel_style: CarouselStyleType;
+  visual_preset: VisualPresetType;
   user_id: string | null;
   industry_template_id?: string | null;
   industry_template_version?: string | null;
@@ -63,6 +65,7 @@ export interface CarouselFormData {
   topicHistoryId?: string;
   campaignId?: string;
   carouselStyle: CarouselStyleType;
+  visualPreset: VisualPresetType;
 }
 
 export const DEFAULT_BRAND_GUIDELINE = '';
@@ -86,4 +89,13 @@ export const CAROUSEL_STYLE_OPTIONS: { value: CarouselStyleType; label: string; 
   { value: 'educational', label: 'Giáo dục theo bước', description: 'Kể chuyện từng bước: Hook → Giải thích → CTA', icon: '📚' },
   { value: 'listicle', label: 'Danh sách Top-list', description: 'Mỗi slide = 1 điểm, layout đồng nhất, đánh số rõ ràng', icon: '📋' },
   { value: 'gallery', label: 'Bộ sưu tập ảnh', description: 'Tập hợp ảnh cùng chủ đề, minimal text, ưu tiên visual', icon: '🖼️' },
+];
+
+export const VISUAL_PRESET_OPTIONS: { value: VisualPresetType; label: string; description: string; icon: string }[] = [
+  { value: 'minimalist', label: 'Clean Modern', description: 'Tối giản, nhiều khoảng trắng, font Inter', icon: '✨' },
+  { value: 'flat_design', label: 'Bold Infographic', description: 'Blocky, data-driven, font Montserrat', icon: '📊' },
+  { value: 'gradient', label: 'Gradient Flow', description: 'Neon glow, glassmorphism, hiện đại', icon: '🌈' },
+  { value: 'geometric', label: 'Corporate', description: 'Navy gold, chuyên nghiệp, font Playfair', icon: '🏢' },
+  { value: 'illustration', label: 'Story Visual', description: 'Ấm áp, hand-drawn feel, font Nunito', icon: '🎨' },
+  { value: 'product_only', label: 'Product Focus', description: 'Studio quality, sản phẩm trung tâm', icon: '📸' },
 ];

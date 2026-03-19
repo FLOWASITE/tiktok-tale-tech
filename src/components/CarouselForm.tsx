@@ -8,6 +8,7 @@ import {
   Platform,
   AITool,
   CarouselStyleType,
+  VisualPresetType,
   DEFAULT_BRAND_GUIDELINE,
 } from '@/types/carousel';
 import { useBrandTemplates, BrandTemplate } from '@/hooks/useBrandTemplates';
@@ -15,6 +16,7 @@ import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { PlatformSelector } from '@/components/carousel/PlatformSelector';
 import { CarouselStyleSelector } from '@/components/carousel/CarouselStyleSelector';
+import { VisualPresetSelector } from '@/components/carousel/VisualPresetSelector';
 import { SlideCountSelector } from '@/components/carousel/SlideCountSelector';
 import { AIToolSelector } from '@/components/carousel/AIToolSelector';
 import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
@@ -64,6 +66,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
   const [carouselStyle, setCarouselStyle] = useState<CarouselStyleType>('educational');
   const [slideCount, setSlideCount] = useState(6);
   const [aiTool, setAiTool] = useState<AITool>('ideogram');
+  const [visualPreset, setVisualPreset] = useState<VisualPresetType>('minimalist');
   
   // Brand fields - auto-loaded from template, hidden from UI
   const [brandName, setBrandName] = useState('Thuế Hộ by TAF.vn');
@@ -153,6 +156,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
       brandTemplateId: selectedTemplateId && selectedTemplateId !== 'custom' ? selectedTemplateId : undefined,
       topicHistoryId,
       carouselStyle,
+      visualPreset,
     });
   };
 
@@ -281,6 +285,18 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
         <CarouselStyleSelector
           value={carouselStyle}
           onChange={setCarouselStyle}
+          disabled={isLoading}
+        />
+      </div>
+
+      {/* Visual Design Preset */}
+      <div className="space-y-2">
+        <Label className="text-foreground font-semibold text-sm flex items-center gap-1.5">
+          🎨 Phong cách thiết kế ảnh
+        </Label>
+        <VisualPresetSelector
+          value={visualPreset}
+          onChange={setVisualPreset}
           disabled={isLoading}
         />
       </div>

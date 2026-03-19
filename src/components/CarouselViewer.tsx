@@ -1,4 +1,4 @@
-import { Carousel, CarouselStatus, CarouselSlide, CAROUSEL_STYLE_OPTIONS } from '@/types/carousel';
+import { Carousel, CarouselStatus, CarouselSlide, CAROUSEL_STYLE_OPTIONS, VISUAL_PRESET_OPTIONS, VisualPresetType } from '@/types/carousel';
 import { SlidePromptCard } from './SlidePromptCard';
 import { SortableSlideCard } from './SortableSlideCard';
 import {
@@ -232,7 +232,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
       carouselStyle: carousel.carousel_style,
       totalSlides: carousel.slides_content.length,
       slideObjective: slide?.objective,
-      visualPreset: carousel.carousel_style,
+      visualPreset: carousel.visual_preset || 'minimalist',
     });
     if (imageUrl) {
       await saveImage(slideNumber, imageUrl, prompt);
@@ -259,7 +259,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
         carouselStyle: carousel.carousel_style,
         totalSlides: carousel.slides_content.length,
         slideObjective: slide.objective,
-        visualPreset: carousel.carousel_style,
+        visualPreset: carousel.visual_preset || 'minimalist',
         seamlessContext: isSeamless ? {
           colorPalette,
           previousSceneDescription,
@@ -406,6 +406,12 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                   <Badge variant="outline" className="text-[10px] xs:text-xs bg-accent/30">
                     {CAROUSEL_STYLE_OPTIONS.find(s => s.value === carousel.carousel_style)?.icon || '📚'}{' '}
                     {CAROUSEL_STYLE_OPTIONS.find(s => s.value === carousel.carousel_style)?.label || carousel.carousel_style}
+                  </Badge>
+                )}
+                {carousel.visual_preset && (
+                  <Badge variant="outline" className="text-[10px] xs:text-xs bg-primary/10 border-primary/30">
+                    {VISUAL_PRESET_OPTIONS.find(s => s.value === carousel.visual_preset)?.icon || '✨'}{' '}
+                    {VISUAL_PRESET_OPTIONS.find(s => s.value === carousel.visual_preset)?.label || carousel.visual_preset}
                   </Badge>
                 )}
                 <Badge variant="outline" className="text-[10px] xs:text-xs hidden xs:inline-flex">{carousel.brand_name}</Badge>

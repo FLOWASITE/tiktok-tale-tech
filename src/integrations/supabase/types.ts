@@ -3065,6 +3065,7 @@ export type Database = {
           topic: string
           updated_at: string
           user_id: string | null
+          visual_preset: string | null
           was_refined: boolean | null
         }
         Insert: {
@@ -3094,6 +3095,7 @@ export type Database = {
           topic: string
           updated_at?: string
           user_id?: string | null
+          visual_preset?: string | null
           was_refined?: boolean | null
         }
         Update: {
@@ -3123,6 +3125,7 @@ export type Database = {
           topic?: string
           updated_at?: string
           user_id?: string | null
+          visual_preset?: string | null
           was_refined?: boolean | null
         }
         Relationships: [
