@@ -3004,6 +3004,39 @@ export type Database = {
           },
         ]
       }
+      carousel_style_presets: {
+        Row: {
+          created_at: string | null
+          display_name: string
+          id: string
+          is_active: boolean | null
+          overlay_config: Json
+          preset_key: string
+          tokens: Json
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_name: string
+          id?: string
+          is_active?: boolean | null
+          overlay_config: Json
+          preset_key: string
+          tokens: Json
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_name?: string
+          id?: string
+          is_active?: boolean | null
+          overlay_config?: Json
+          preset_key?: string
+          tokens?: Json
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       carousels: {
         Row: {
           ai_tool: Database["public"]["Enums"]["carousel_ai_tool"]
