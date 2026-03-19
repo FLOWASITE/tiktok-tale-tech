@@ -20,6 +20,16 @@ export function useImageGeneration() {
       textContent?: string;
       platform?: string;
       brandColors?: { textColor?: string; backgroundColor?: string };
+      carouselStyle?: string;
+      totalSlides?: number;
+      slideObjective?: string;
+      visualPreset?: string;
+      seamlessContext?: {
+        colorPalette: string[] | null;
+        previousSceneDescription: string | null;
+        sequencePosition: number;
+        totalInSequence: number;
+      };
     }
   ): Promise<string | null> => {
     setGenerating(slideNumber);
@@ -33,6 +43,11 @@ export function useImageGeneration() {
           textContent: options?.textContent,
           platform: options?.platform,
           brandColors: options?.brandColors,
+          carouselStyle: options?.carouselStyle,
+          totalSlides: options?.totalSlides,
+          slideObjective: options?.slideObjective,
+          visualPreset: options?.visualPreset,
+          seamlessContext: options?.seamlessContext,
         },
       });
 
