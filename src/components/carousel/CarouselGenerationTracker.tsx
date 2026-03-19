@@ -213,7 +213,8 @@ export function CarouselGenerationTracker({
           carouselTopic: carousel.topic,
           seamlessContext: {
             colorPalette,
-            previousSceneDescription: sharedVisualWorld || null,
+            previousSceneDescription: seriesBible || null,
+            siblingSlidesSummary: siblingsSummary || null,
             sequencePosition: slide.slideNumber,
             totalInSequence: carousel.slides_content.length,
           },
