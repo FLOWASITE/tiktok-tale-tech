@@ -1,4 +1,4 @@
-import { CarouselSlide } from '@/types/carousel';
+import { CarouselSlide, textContentToString } from '@/types/carousel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
