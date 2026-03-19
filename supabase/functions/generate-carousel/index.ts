@@ -10,7 +10,7 @@ import {
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { createPromptManager, buildPrompt } from "../_shared/prompt-integration.ts";
-import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext, type LanguageConfig } from "../_shared/country-language-map.ts";
+import { getOutputLanguage, getLanguageConfig, getCountryConfig, buildLocalizedDateContext, type LanguageConfig } from "../_shared/country-language-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
