@@ -306,10 +306,18 @@ export function CarouselGenerationTracker({
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
+  const generatingSlides = slideStatuses
+    .map((s, idx) => s === 'generating' ? idx + 1 : -1)
+    .filter(n => n > 0);
+
   const currentStatusText = allDone
     ? '✅ Hoàn tất!'
     : imageGenStarted
-      ? `Đang tạo ảnh slide ${slideStatuses.findIndex(s => s === 'generating') + 1}...`
+      ? generatingSlides.length > 1
+        ? `Đang tạo ảnh slide ${generatingSlides.join(', ')}...`
+        : generatingSlides.length === 1
+          ? `Đang tạo ảnh slide ${generatingSlides[0]}...`
+          : 'Đang xử lý...'
       : promptDone
         ? 'Đang chuẩn bị tạo ảnh...'
         : PROMPT_STEPS[promptStep]?.label || 'Đang xử lý...';
