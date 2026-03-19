@@ -199,6 +199,9 @@ export function CarouselGenerationTracker({
   }, [carousel, slideStatuses.length]);
 
   // Phase 2: Auto-start image generation when prompt is done
+  // Stable ref for attemptGenerateSlide so it can be reused for manual retry
+  const attemptGenerateSlideRef = useRef<((i: number, localStatuses?: SlideStatus[]) => Promise<boolean>) | null>(null);
+
   const runImageGeneration = useCallback(async () => {
     if (!carousel || imageGenRunningRef.current) return;
     imageGenRunningRef.current = true;
@@ -282,6 +285,9 @@ export function CarouselGenerationTracker({
       return false;
     };
 
+    // Store ref for manual retry usage
+    attemptGenerateSlideRef.current = attemptGenerateSlide;
+
     // Main pass — batch parallel (3 slides at a time)
     for (let batchStart = 0; batchStart < carousel.slides_content.length; batchStart += BATCH_SIZE) {
       const batchEnd = Math.min(batchStart + BATCH_SIZE, carousel.slides_content.length);
@@ -313,6 +319,74 @@ export function CarouselGenerationTracker({
     setImageGenDone(true);
     fireConfetti();
   }, [carousel, generateImage, saveImage, fireConfetti]);
+
+  // Manual retry handler for individual failed slides
+  const handleRetrySlide = useCallback(async (slideIndex: number) => {
+    if (!carousel || retryingSlide !== null) return;
+    
+    const slide = carousel.slides_content[slideIndex];
+    if (!slide) return;
+
+    setRetryingSlide(slideIndex);
+    setSlideStatuses(prev => {
+      const next = [...prev];
+      next[slideIndex] = 'generating';
+      return next;
+    });
+
+    try {
+      const colorPalette = carousel.slides_content.length > 0
+        ? extractColorPalette(carousel.slides_content[0])
+        : null;
+      const brandColors = extractBrandColors(carousel);
+      const seriesBible = buildSeriesBible(carousel.slides_content);
+      const siblingsSummary = carousel.slides_content
+        .map(s => `Slide ${s.slideNumber}: ${s.objective}`)
+        .join(' | ');
+
+      const result = await generateImage(slide.fullPrompt, carousel.id, slide.slideNumber, {
+        textContent: slide.textContent,
+        platform: carousel.platform,
+        brandColors,
+        carouselStyle: carousel.carousel_style,
+        totalSlides: carousel.slides_content.length,
+        slideObjective: slide.objective,
+        visualPreset: carousel.visual_preset || 'minimalist',
+        carouselTopic: carousel.topic,
+        seamlessContext: {
+          colorPalette,
+          previousSceneDescription: seriesBible || null,
+          siblingSlidesSummary: siblingsSummary || null,
+          sequencePosition: slide.slideNumber,
+          totalInSequence: carousel.slides_content.length,
+        },
+      });
+
+      if (result?.imageUrl) {
+        await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt);
+        setSlideStatuses(prev => {
+          const next = [...prev];
+          next[slideIndex] = 'done';
+          return next;
+        });
+      } else {
+        setSlideStatuses(prev => {
+          const next = [...prev];
+          next[slideIndex] = 'error';
+          return next;
+        });
+      }
+    } catch (err) {
+      console.error(`[tracker] Manual retry slide ${slideIndex + 1} failed:`, err);
+      setSlideStatuses(prev => {
+        const next = [...prev];
+        next[slideIndex] = 'error';
+        return next;
+      });
+    } finally {
+      setRetryingSlide(null);
+    }
+  }, [carousel, generateImage, saveImage, retryingSlide]);
 
   // Stable ref to avoid timer resets from re-renders
   const runImageGenRef = useRef(runImageGeneration);
