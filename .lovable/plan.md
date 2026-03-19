@@ -1,30 +1,42 @@
 
 
-# Fix: Nút refresh chủ đề gây lỗi "Converting circular structure to JSON"
+# Thêm nút "Tạo lại" cho từng slide lỗi trong CarouselGenerationTracker
 
-## Nguyên nhân gốc
-
-Khi click nút refresh (icon xoay tròn), React truyền **event object** làm tham số đầu tiên:
-
-```
-onClick={onRefresh}  →  onRefresh(MouseEvent)  →  refreshSuggestions(MouseEvent)
-```
-
-`refreshSuggestions` nhận tham số đầu là `categoryHint?: string`, nhưng lại nhận được MouseEvent (chứa HTMLButtonElement) → khi JSON.stringify để gửi lên edge function → lỗi "Converting circular structure to JSON".
+## Vấn đề
+Khi một slide tạo ảnh thất bại (status = `error`), người dùng không có cách nào tạo lại riêng slide đó ngay trong Tracker. Phải đợi toàn bộ hoàn tất rồi vào Viewer mới retry được.
 
 ## Giải pháp
 
-### File: `src/components/TopicSuggestionPanel.tsx` (~line 188)
+### File: `src/components/carousel/CarouselGenerationTracker.tsx`
 
-Thay `onClick={onRefresh}` thành `onClick={() => onRefresh()}` để không truyền event object vào hàm refresh.
+1. **Tách `attemptGenerateSlide` ra khỏi `runImageGeneration`** — chuyển thành một hàm riêng (hoặc dùng `useCallback`) để có thể gọi lại từ UI khi user click retry.
 
-```tsx
-// Trước
-onClick={onRefresh}
+2. **Thêm state `retryingSlide`** (`number | null`) để track slide nào đang được retry thủ công.
 
-// Sau
-onClick={() => onRefresh()}
+3. **Thêm hàm `handleRetrySlide(index)`** — gọi lại logic tạo ảnh cho 1 slide cụ thể (reuse logic đã có trong `attemptGenerateSlide`), cập nhật status tương ứng.
+
+4. **Cập nhật slide grid UI** (line ~532-554) — khi `status === 'error'` và `imageGenDone === true`, hiển thị nút nhỏ "Tạo lại" (icon `RefreshCw`) bên cạnh text "Slide X". Nút này gọi `handleRetrySlide(i)`.
+
+```text
+Trước (error state):
+┌─────────────────┐
+│ ⚠ Slide 3       │
+└─────────────────┘
+
+Sau (error state + retry button):
+┌─────────────────────────┐
+│ ⚠ Slide 3  [↻ Tạo lại] │
+└─────────────────────────┘
 ```
 
-Chỉ cần sửa 1 dòng duy nhất.
+5. **Disable nút retry** khi đang có slide khác đang generating hoặc retrying (`retryingSlide !== null`).
+
+### Thay đổi cụ thể
+
+- Thêm `retryingSlide` state
+- Extract `attemptGenerateSlide` logic thành stable ref/callback
+- Trong slide grid: nếu `status === 'error' && imageGenDone`, render `<Button>` với icon `RefreshCw`, onClick → `handleRetrySlide(i)`
+- Khi retry thành công, cập nhật `slideStatuses[i]` → `'done'`, cập nhật `successCount`/`errorCount`
+
+Chỉ sửa 1 file duy nhất.
 
