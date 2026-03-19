@@ -7,9 +7,7 @@ import {
   CRITIQUE_CONFIG,
   type CritiqueResult,
 } from "../_shared/self-critique.ts";
-import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
-import { estimateCost } from "../_shared/cost-estimator.ts";
-import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
+import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { createPromptManager, buildPrompt } from "../_shared/prompt-integration.ts";
 import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext, type LanguageConfig } from "../_shared/country-language-map.ts";
@@ -412,25 +410,6 @@ LOGIC NỘI DUNG:
 const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, mergedRules?: MergedRules, outputLang: string = 'vi'): string => {
   const langConfig = getLanguageConfig(outputLang);
   const carouselStyle = formData.carouselStyle || 'educational';
-  const aiToolPromptGuide = {
-    ideogram: `Tối ưu cho Ideogram - ưu tiên text clarity:
-- Sử dụng cấu trúc prompt rõ ràng
-- Nhấn mạnh "Text must be perfectly readable"
-- Yêu cầu "No distorted Vietnamese characters"
-- Sử dụng "Flat design, no clutter"`,
-    midjourney: `Tối ưu cho Midjourney - chất lượng cao:
-- Sử dụng các tham số như --ar 1:1 --v 6
-- Thêm style descriptors: "professional", "clean", "modern"
-- Sử dụng negative prompts khi cần`,
-    dalle: `Tối ưu cho DALL·E:
-- Mô tả chi tiết và cụ thể
-- Tránh các yêu cầu về text phức tạp
-- Tập trung vào composition và color`,
-    leonardo: `Tối ưu cho Leonardo:
-- Sử dụng style presets phù hợp
-- Mô tả chi tiết về lighting và mood
-- Chọn model phù hợp với infographic`,
-  };
 
   const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules, outputLang) : "";
   const langName = langConfig.nativeName;
@@ -442,9 +421,10 @@ Output ALL content in ${langName} (${langConfig.englishName}).
 ${brandVoiceSection}
 
 ## VAI TRÒ CỦA BẠN
-1. Viết Prompt tạo ảnh chuyên nghiệp cho ${formData.aiTool}
-2. Tư duy như Content Strategist - chia nội dung theo nhịp đọc mạng xã hội
-3. Chuẩn hóa đầu ra theo format 6 thành phần bắt buộc
+1. Viết nội dung carousel chuyên nghiệp (textContent cho mỗi slide)
+2. Viết Prompt tạo ẢNH NỀN (background image) cho mỗi slide
+3. Tư duy như Content Strategist - chia nội dung theo nhịp đọc mạng xã hội
+4. Chuẩn hóa đầu ra theo format 7 thành phần bắt buộc
 
 ${styleSection}
 
@@ -454,52 +434,32 @@ ${formData.brandGuideline}
 Brand name: ${formData.brandName}
 ${formData.includeLogo ? `Logo: Bao gồm logo "${formData.brandName}" ở góc dưới, subtle và professional.${formData.logoUrl ? `\nLogo URL (reference): ${formData.logoUrl}` : ""}` : "Không có logo."}
 
-## ${aiToolPromptGuide[formData.aiTool]}
+## NGUYÊN TẮC QUAN TRỌNG VỀ fullPrompt
+fullPrompt là prompt để tạo ẢNH NỀN (background image) cho slide.
+Text/chữ sẽ được OVERLAY lên ảnh nền sau bằng hệ thống riêng (Satori SVG).
+Do đó:
+- fullPrompt KHÔNG cần yêu cầu AI vẽ chữ/text trên ảnh
+- fullPrompt tập trung vào: background, mood, colors, composition, visual elements
+- Tránh prompt kiểu "text says..." hoặc "with text..."
+- Thay vào đó, prompt nên mô tả: gradient, texture, abstract shapes, photography style, lighting
 
-## NGUYÊN TẮC VIẾT PROMPT
-1. Mỗi prompt = 1 slide (KHÔNG gộp nhiều slide)
-2. Ưu tiên CHỮ - không ưu tiên hình vẽ phức tạp
+## NGUYÊN TẮC VIẾT NỘI DUNG
+1. textContent: Nội dung chữ sẽ overlay lên ảnh, viết ngắn gọn, dễ đọc trên mobile
+2. fullPrompt: Prompt tạo ảnh nền đẹp, KHÔNG chứa text
 3. Font: Sans-serif, ít chữ, dòng ngắn, khoảng trắng nhiều
-4. Carousel là để ĐỌC - hình chỉ hỗ trợ
-5. Viết nội dung tiếng Việt trên ảnh ngắn gọn, dễ đọc trên mobile
+4. Carousel là để ĐỌC - ảnh nền chỉ hỗ trợ visual
 
 ## FORMAT OUTPUT BẮT BUỘC CHO MỖI SLIDE
 Bạn PHẢI trả về JSON với cấu trúc chính xác như tool definition.
-Mỗi slide phải có đủ 6 thành phần:
+Mỗi slide phải có đủ 7 thành phần:
 [1] objective: Mục tiêu slide
-[2] textContent: Nội dung chữ xuất hiện trên ảnh (tiếng Việt)
+[2] textContent: Nội dung chữ sẽ overlay lên ảnh (${langName})
 [3] designStyle: Phong cách thiết kế
 [4] colorLayout: Màu sắc – bố cục
 [5] aspectRatio: Tỉ lệ khung hình (1:1 cho carousel)
 [6] technicalRequirements: Yêu cầu kỹ thuật
-[7] fullPrompt: Prompt hoàn chỉnh sẵn sàng paste vào ${formData.aiTool}
-
-## VÍ DỤ PROMPT HOÀN CHỈNH CHO IDEOGRAM (Slide 1 - Hook)
-Create a clean, modern infographic slide for social media carousel.
-
-Main text (Vietnamese, large and bold):
-"BỎ THUẾ KHOÁN TỪ 2026"
-
-Sub text:
-"Hộ kinh doanh nếu không chuẩn bị sẽ gặp rủi ro lớn"
-
-Style:
-Minimalist infographic, professional, expert tone
-
-Color palette:
-White background, red and dark blue accents
-
-Layout:
-Text-centered, strong hierarchy, high contrast
-
-Aspect ratio:
-1:1
-
-Requirements:
-- Text must be perfectly readable
-- No distorted Vietnamese characters
-- Flat design, no clutter
-${formData.includeLogo ? `- Include subtle "${formData.brandName}" logo at bottom corner${formData.logoUrl ? ` (Logo reference: ${formData.logoUrl})` : ""}` : ""}`; 
+[7] fullPrompt: Prompt tạo ẢNH NỀN (background only, NO text rendering)
+${formData.includeLogo ? `\nLưu ý: Logo "${formData.brandName}" sẽ được thêm tự động, KHÔNG cần yêu cầu trong fullPrompt.` : ""}`;
 };
 
 serve(async (req) => {
@@ -605,12 +565,12 @@ serve(async (req) => {
 
 Platform: ${formData.platform === "facebook" ? "Facebook" : "TikTok"}
 Carousel Style: ${formData.carouselStyle || 'educational'}
-AI Image Tool: ${formData.aiTool}
 Brand: ${formData.brandName}
 Output Language: ${langConfig.nativeName} (${langConfig.englishName})
 
 Generate all ${formData.slideCount} slides in JSON format as defined by the tool.
 Each slide must have compelling text content in ${langConfig.nativeName}.
+Remember: fullPrompt is for BACKGROUND IMAGE only (no text rendering needed).
 Follow the carousel style guidelines strictly.`;
 
     // Try to fetch prompts from registry
@@ -620,7 +580,6 @@ Follow the carousel style guidelines strictly.`;
       
       systemPrompt = await pm.get('system', {
         platform: formData.platform === "facebook" ? "Facebook" : "TikTok",
-        aiTool: formData.aiTool,
         slideCount: String(formData.slideCount),
         brandName: formData.brandName,
         brandGuideline: formData.brandGuideline,
@@ -633,7 +592,6 @@ Follow the carousel style guidelines strictly.`;
         topic: formData.topic,
         slideCount: String(formData.slideCount),
         platform: formData.platform === "facebook" ? "Facebook" : "TikTok",
-        aiTool: formData.aiTool,
         brandName: formData.brandName,
       });
       
@@ -694,11 +652,14 @@ Follow the carousel style guidelines strictly.`;
 
     // Define AI generation function using multi-provider system
     const generateAIContent = async () => {
-      console.log("Calling AI for carousel via multi-provider system...");
+      console.log("Calling AI for carousel via callAIWithMetrics...");
       
-      const result = await callAIProvider({
+      const result = await callAIWithMetrics(supabase, {
         functionName: 'generate-carousel',
         organizationId: organizationId || undefined,
+        userId: userId || undefined,
+        brandTemplateId: formData.brandTemplateId || undefined,
+        actionType: 'generate',
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -722,7 +683,8 @@ Follow the carousel style guidelines strictly.`;
         throw new Error(`AI Provider error: ${result.error}`);
       }
 
-      console.log('[generate-carousel] AI response from provider:', result.provider, 'model:', result.model);
+      console.log('[generate-carousel] AI response from provider:', result.provider, 'model:', result.model, 
+        'cost:', result.metrics ? `$${result.metrics.estimatedCostUsd.toFixed(6)}` : 'N/A');
 
       const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
       if (!toolCall || toolCall.function.name !== "generate_carousel_slides") {
@@ -875,34 +837,8 @@ Follow the carousel style guidelines strictly.`;
 
     console.log("Carousel saved with ID:", carousel.id, "fromCache:", fromCache, "critiqueScore:", critiqueResult?.overall_score || 'N/A');
 
-    // ============ SAVE AI METRICS WITH COST ============
-    if (!fromCache) {
-      try {
-        const model = 'google/gemini-2.5-flash';
-        const inputTokensEstimated = 2500; // System prompt + brand context
-        const outputTokensEstimated = formData.slideCount * 400; // ~400 tokens per slide
-        const estimatedCostUsd = estimateCost(model, inputTokensEstimated, outputTokensEstimated);
-        
-        await saveMetrics(supabase, {
-          traceId: generateTraceId(),
-          functionName: 'generate-carousel',
-          organizationId: organizationId || undefined,
-          userId: userId || undefined,
-          brandTemplateId: formData.brandTemplateId || undefined,
-          totalDurationMs: 0,
-          inputTokensEstimated,
-          outputTokensEstimated,
-          modelsUsed: { default: model },
-          estimatedCostUsd,
-          hadError: false,
-          cacheHit: false,
-          contextSources: [],
-        });
-        console.log(`[generate-carousel] Metrics saved: cost=$${estimatedCostUsd.toFixed(6)}`);
-      } catch (metricsErr) {
-        console.warn(`[generate-carousel] Failed to save metrics:`, metricsErr);
-      }
-    }
+    // Metrics are now automatically saved by callAIWithMetrics() 
+    // No manual metrics block needed
 
     return new Response(JSON.stringify({ ...carousel, fromCache }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
