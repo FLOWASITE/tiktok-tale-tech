@@ -39,7 +39,7 @@ const PROMPT_STEPS: { id: PromptPhase; label: string; icon: LucideIcon }[] = [
 ];
 
 const TIPS = [
-  'Carousel 6 slides thường mất khoảng 2-3 phút',
+  'Carousel 6 slides thường mất khoảng 1-2 phút',
   'Ảnh AI sẽ tự động áp dụng màu thương hiệu của bạn',
   'Bạn có thể tạo lại ảnh từng slide sau khi hoàn tất',
   'Phong cách "Trượt liền mạch" giữ tính liên tục giữa các slide',
