@@ -517,22 +517,6 @@ const CarouselPage = () => {
         )}
       </div>
 
-      {/* Form Panel */}
-      <SlidePanel
-        open={formSheetOpen}
-        onOpenChange={setFormSheetOpen}
-        title={
-          <>
-            <Wand2 className="w-5 h-5 text-primary" />
-            Tạo Carousel mới
-          </>
-        }
-        description="Nhập chủ đề và tùy chỉnh phong cách để AI tạo carousel chuyên nghiệp"
-        className="md:max-w-xl lg:max-w-2xl"
-      >
-        <CarouselForm onSubmit={handleGenerateCarousel} isLoading={generating} initialTopic={initialTopic} topicHistoryId={topicHistoryId} />
-      </SlidePanel>
-
       {/* Carousel viewer dialog */}
       <CarouselViewer
         carousel={selectedCarousel}
