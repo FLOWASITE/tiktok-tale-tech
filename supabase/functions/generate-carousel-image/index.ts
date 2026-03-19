@@ -35,6 +35,84 @@ function detectSlideRole(
 }
 
 // ============================================
+// Phase B: Parse text into multi-layer hierarchy
+// ============================================
+interface TextLayer {
+  text: string;
+  role: 'headline' | 'subtitle' | 'body' | 'accent';
+}
+
+function parseTextLayers(textContent: string, slideRole: string): TextLayer[] | null {
+  const lines = textContent.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length <= 1) return null; // Single line → use legacy single-text
+
+  switch (slideRole) {
+    case 'hook':
+      return [
+        { text: lines[0], role: 'headline' },
+        ...lines.slice(1).map(l => ({ text: l, role: 'subtitle' as const })),
+      ];
+    case 'cta':
+      return [
+        { text: lines[0], role: 'headline' },
+        ...lines.slice(1).map(l => ({ text: l, role: 'body' as const })),
+      ];
+    case 'dataPoint': {
+      // Check if first line is a number/percentage
+      const isNumeric = /^\d+(\.\d+)?[%+]?$/.test(lines[0].trim());
+      if (isNumeric) {
+        return [
+          { text: lines[0], role: 'accent' },
+          ...lines.slice(1).map(l => ({ text: l, role: 'body' as const })),
+        ];
+      }
+      return [
+        { text: lines[0], role: 'headline' },
+        ...lines.slice(1).map(l => ({ text: l, role: 'body' as const })),
+      ];
+    }
+    case 'body':
+    default:
+      return [
+        { text: lines[0], role: 'headline' },
+        ...lines.slice(1).map(l => ({ text: l, role: 'body' as const })),
+      ];
+  }
+}
+
+// ============================================
+// Phase D: Content-aware text density adjustment
+// ============================================
+function adjustOverlayForTextDensity(
+  overlayConfig: Record<string, any>,
+  textContent: string,
+): Record<string, any> {
+  const len = textContent.length;
+  const adjusted = { ...overlayConfig };
+
+  if (len > 120) {
+    // Long text: shrink font, widen max area
+    const currentFontSize = adjusted.fontSize || '1.5rem';
+    const remMatch = currentFontSize.match?.(/([\d.]+)rem/);
+    if (remMatch) {
+      const scale = Math.max(0.6, 1 - (len - 120) / 400); // gradual shrink
+      adjusted.fontSize = `${(parseFloat(remMatch[1]) * scale).toFixed(2)}rem`;
+    }
+    adjusted.maxWidth = '92%';
+  } else if (len < 20) {
+    // Short text: enlarge for dramatic effect
+    const currentFontSize = adjusted.fontSize || '1.5rem';
+    const remMatch = currentFontSize.match?.(/([\d.]+)rem/);
+    if (remMatch) {
+      adjusted.fontSize = `${(parseFloat(remMatch[1]) * 1.3).toFixed(2)}rem`;
+    }
+    adjusted.maxWidth = '60%';
+  }
+
+  return adjusted;
+}
+
+// ============================================
 // Hardcoded Overlay Matrix (fallback when DB preset unavailable)
 // ============================================
 const FALLBACK_OVERLAY_MATRIX: Record<string, Record<string, any>> = {
@@ -82,16 +160,13 @@ function getOverlayConfig(
   slideRole: string,
   dbOverlayConfig?: Record<string, any> | null
 ): Record<string, any> {
-  // Priority 1: DB preset overlay_config
   if (dbOverlayConfig && dbOverlayConfig[slideRole]) {
     return dbOverlayConfig[slideRole];
   }
-  // Also check DB for 'body' fallback
   if (dbOverlayConfig && dbOverlayConfig['body']) {
     return dbOverlayConfig['body'];
   }
 
-  // Priority 2: Hardcoded fallback
   const styleConfig = FALLBACK_OVERLAY_MATRIX[visualPreset];
   if (!styleConfig) return FALLBACK_OVERLAY_MATRIX.minimalist.body;
   return styleConfig[slideRole] || styleConfig['body'] || FALLBACK_OVERLAY_MATRIX.minimalist.body;
@@ -175,7 +250,7 @@ serve(async (req) => {
     // === STEP 1: Generate background image (no text) ===
     const backgroundPrompt = buildBackgroundPrompt(
       prompt, platform, carouselStyle, slideNumber, totalSlides, slideRole,
-      seamlessContext, dbPreset?.tokens
+      seamlessContext, dbPreset?.tokens, brandColors
     );
     console.log("[generate-carousel-image] Step 1: Generating background...");
     
@@ -243,6 +318,10 @@ serve(async (req) => {
       );
     }
 
+    // === Phase F: Extract scene description from AI response ===
+    const aiResponseText = bgData.choices?.[0]?.message?.content || '';
+    const sceneDescription = aiResponseText.length > 10 ? aiResponseText.slice(0, 300) : null;
+
     // Upload background to storage
     const userId = await resolveUserId(req, supabase);
 
@@ -294,6 +373,7 @@ serve(async (req) => {
           carouselId,
           hasOverlay: false,
           slideRole,
+          sceneDescription,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -306,13 +386,28 @@ serve(async (req) => {
       const dimensions = getPlatformDimensions(platform, carouselStyle);
 
       // Get dynamic overlay config — DB preset takes priority
-      const overlayConfig = getOverlayConfig(
+      let overlayConfig = getOverlayConfig(
         visualPreset || 'minimalist',
         slideRole,
         dbPreset?.overlay_config
       );
+
+      // Phase D: Adjust for text density
+      overlayConfig = adjustOverlayForTextDensity(overlayConfig, textContent);
       console.log(`[generate-carousel-image] Overlay config:`, JSON.stringify(overlayConfig));
-      
+
+      // Phase B: Parse text layers
+      const textLayers = parseTextLayers(textContent, slideRole);
+
+      // Phase A: Gallery hook dark gradient
+      const needsBottomGradient = (carouselStyle === 'gallery' && slideRole === 'hook');
+
+      // Phase E: Listicle decorations
+      const decorations = (carouselStyle === 'listicle' && slideRole === 'body') ? {
+        slideNumberBadge: slideNumber,
+        progressDots: { current: slideNumber, total: totalSlides || 5 },
+      } : undefined;
+
       try {
         const overlayResponse = await fetch(
           `${supabaseUrl}/functions/v1/overlay-text-canvas`,
@@ -335,6 +430,14 @@ serve(async (req) => {
                 background: overlayConfig.background || 'none',
                 textColor: overlayConfig.textColor || brandColors?.textColor || '#FFFFFF',
                 fontFamily: overlayConfig.fontFamily,
+                // Phase A: dark gradient for gallery hook
+                bottomGradient: needsBottomGradient,
+                // Phase B: multi-layer text
+                textLayers: textLayers,
+                // Phase C: brand colors for overlay treatments
+                brandColors: brandColors || undefined,
+                // Phase E: listicle decorations
+                decorations: decorations,
               },
               // Legacy params as fallback
               position: "center",
@@ -362,6 +465,7 @@ serve(async (req) => {
                 carouselId,
                 hasOverlay: true,
                 slideRole,
+                sceneDescription,
               }),
               { headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
@@ -405,6 +509,7 @@ serve(async (req) => {
         carouselId,
         hasOverlay: false,
         slideRole,
+        sceneDescription,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -439,6 +544,7 @@ serve(async (req) => {
  * - Style-specific directives
  * - Seamless continuity context (color palette + previous scene)
  * - DB design tokens (colors, typography hints)
+ * - Phase C: Brand color integration
  */
 function buildBackgroundPrompt(
   originalPrompt: string,
@@ -453,7 +559,8 @@ function buildBackgroundPrompt(
     sequencePosition?: number;
     totalInSequence?: number;
   } | null,
-  dbTokens?: any | null
+  dbTokens?: any | null,
+  brandColors?: { textColor?: string; backgroundColor?: string } | null
 ): string {
   let safeZoneNote = `
 CRITICAL INSTRUCTIONS:
@@ -467,6 +574,21 @@ CRITICAL INSTRUCTIONS:
   // Gallery hook: dark gradient for text readability
   if (carouselStyle === 'gallery' && slideRole === 'hook') {
     safeZoneNote += '\nThe image MUST have a natural dark gradient at the bottom third (like a sunset darkening toward horizon) to ensure white text readability. Do NOT add any text or graphics.';
+  }
+
+  // === Phase C: Brand Color injection into background prompt ===
+  let brandColorDirective = '';
+  if (brandColors) {
+    const parts: string[] = [];
+    if (brandColors.backgroundColor) {
+      parts.push(`Brand primary color: ${brandColors.backgroundColor}`);
+    }
+    if (brandColors.textColor) {
+      parts.push(`Brand accent/text color: ${brandColors.textColor}`);
+    }
+    if (parts.length > 0) {
+      brandColorDirective = `\nBRAND IDENTITY COLORS (incorporate as dominant colors in the composition):\n${parts.map(p => `- ${p}`).join('\n')}\n`;
+    }
   }
 
   // === DB Design Tokens injection ===
@@ -569,7 +691,7 @@ GALLERY / PHOTO DUMP STYLE:
     .replace(/typography.*?(?=\n|$)/gi, '')
     .replace(/font.*?(?=\n|$)/gi, '');
 
-  return `${safeZoneNote}${tokenDirective}${seamlessDirective}${styleDirective}\nVisual concept:\n${cleanedPrompt}`;
+  return `${safeZoneNote}${brandColorDirective}${tokenDirective}${seamlessDirective}${styleDirective}\nVisual concept:\n${cleanedPrompt}`;
 }
 
 function getPlatformDimensions(platform?: string, carouselStyle?: string): { width: number; height: number } {
