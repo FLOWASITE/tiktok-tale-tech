@@ -422,7 +422,7 @@ serve(async (req) => {
 
   try {
     const { prompt, carouselId, slideNumber, textContent, brandColors, platform,
-            carouselStyle, totalSlides, slideObjective, visualPreset, seamlessContext } = requestBody;
+            carouselStyle, totalSlides, slideObjective, visualPreset, seamlessContext, carouselTopic } = requestBody;
 
     console.log(`[generate-carousel-image] Starting for carousel ${carouselId}, slide ${slideNumber}`);
 
