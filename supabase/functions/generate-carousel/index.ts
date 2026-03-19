@@ -10,7 +10,7 @@ import {
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { createPromptManager, buildPrompt } from "../_shared/prompt-integration.ts";
-import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext, type LanguageConfig } from "../_shared/country-language-map.ts";
+import { getOutputLanguage, getLanguageConfig, getCountryConfig, buildLocalizedDateContext, type LanguageConfig } from "../_shared/country-language-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -463,8 +463,9 @@ const getTextLengthGuidelines = (visualPreset: string): string => {
   return guidelines[visualPreset] || guidelines.minimalist;
 };
 
-const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, mergedRules?: MergedRules, outputLang: string = 'vi'): string => {
+const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, mergedRules?: MergedRules, outputLang: string = 'vi', countryCode?: string | null): string => {
   const langConfig = getLanguageConfig(outputLang);
+  const countryConfig = getCountryConfig(countryCode);
   const carouselStyle = formData.carouselStyle || 'educational';
   const visualPreset = formData.visualPreset || 'minimalist';
 
@@ -555,6 +556,15 @@ VÍ DỤ XẤU (tất cả lặp lại):
 - Slide 1: "Spa treatment room with candles..."
 - Slide 2: "Spa treatment area with oils..."
 - Slide 3: "Spa massage room with stones..."
+
+## PEOPLE & CHARACTER LOCALIZATION (CRITICAL)
+If any slide includes people, characters, or human figures in the fullPrompt:
+- They MUST match the brand's target market: ${countryConfig.englishName}.
+- Describe people as "${countryConfig.englishName} people" or use ethnicity-appropriate descriptions.
+- Example: If brand is from Vietnam → "Vietnamese woman in her 30s", NOT "Caucasian woman".
+- Example: If brand is from Thailand → "Thai businessman", NOT generic "Asian man".
+- This applies to ALL human figures: customers, professionals, models, hands, etc.
+- If no people are needed, this rule does not apply — do NOT force people into scenes.
 
 ${textLengthSection}
 
@@ -647,6 +657,7 @@ serve(async (req) => {
     let industryMemory: IndustryMemory | null = null;
     let mergedRules: MergedRules | undefined;
     let outputLang = 'vi'; // Default to Vietnamese for backward compatibility
+    let brandCountryCode: string | null = null;
     
     if (formData.brandTemplateId) {
       const { data: template } = await supabase
@@ -658,6 +669,7 @@ serve(async (req) => {
       if (template) {
         // Extract output language from brand's country_code
         outputLang = getOutputLanguage(template.country_code);
+        brandCountryCode = template.country_code || null;
         console.log("Output language:", outputLang, "from country_code:", template.country_code);
         
         brandVoice = {
@@ -686,7 +698,7 @@ serve(async (req) => {
     const langConfig = getLanguageConfig(outputLang);
 
     // Initialize PromptManager and fetch prompts from registry
-    let systemPrompt = getSystemPrompt(formData, brandVoice, mergedRules, outputLang); // Fallback to hardcoded
+    let systemPrompt = getSystemPrompt(formData, brandVoice, mergedRules, outputLang, brandCountryCode); // Fallback to hardcoded
     let userPrompt = `Create ${formData.slideCount} carousel slides for the topic:
 "${formData.topic}"
 
