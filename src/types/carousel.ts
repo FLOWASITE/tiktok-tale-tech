@@ -30,6 +30,7 @@ export interface Carousel {
   cta_suggestion: string | null;
   status: CarouselStatus;
   carousel_style: CarouselStyleType;
+  visual_preset: VisualPresetType;
   user_id: string | null;
   industry_template_id?: string | null;
   industry_template_version?: string | null;
