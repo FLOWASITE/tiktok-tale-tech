@@ -583,6 +583,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
                   content={carousel.caption_suggestion || carousel.topic}
                   contentId={carousel.id}
                   channel="facebook"
+                  brandTemplateId={brandTemplate?.id}
                   mediaUrls={generatedImages.map(img => img.imageUrl)}
                   variant="outline"
                   size="sm"
