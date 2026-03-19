@@ -42,7 +42,7 @@ interface BrandCardProps {
   onSelectChange?: (id: string, checked: boolean) => void;
   usageStats?: BrandUsageStats | null;
   brandCounts?: BrandCounts;
-  hasSocialConnections?: boolean;
+  connectedPlatforms?: string[];
 }
 
 // Animated Completeness Ring Component
