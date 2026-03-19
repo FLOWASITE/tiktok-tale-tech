@@ -8,7 +8,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Edit2, Trash2, Star, Check, Copy, User, Building2, Eye, Users, Package, Scroll, ChevronDown, ChevronUp, Link2Off } from 'lucide-react';
+import { Edit2, Trash2, Star, Check, Copy, User, Building2, Eye, Users, Package, Scroll, ChevronDown, ChevronUp, Link2Off, Facebook, Instagram, Linkedin, Twitter, Youtube, Globe, MessageCircle } from 'lucide-react';
+import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import {
   AlertDialog,
   AlertDialogAction,
