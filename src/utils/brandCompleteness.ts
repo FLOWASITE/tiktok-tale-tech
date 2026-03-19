@@ -55,7 +55,7 @@ export function calculateBrandCompleteness(
     {
       key: 'positioning',
       label: 'Brand Positioning',
-      completed: !!template.brand_positioning && template.brand_positioning.trim().length > 10,
+      completed: !!template.brand_positioning && template.brand_positioning.trim().length > 0,
       weight: 5,
     },
 
