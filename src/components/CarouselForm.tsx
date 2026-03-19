@@ -40,10 +40,10 @@ interface CarouselFormProps {
 }
 
 const LOADING_PHASES = [
-  'Đang phân tích chủ đề...',
-  'Đang tạo cấu trúc carousel...',
-  'Đang viết nội dung slides...',
-  'Hoàn thiện prompts...',
+  { label: 'Đang phân tích chủ đề...', icon: '🔍', duration: '~5s' },
+  { label: 'Đang tạo cấu trúc carousel...', icon: '🏗️', duration: '~10s' },
+  { label: 'Đang viết nội dung slides...', icon: '✍️', duration: '~15s' },
+  { label: 'Hoàn thiện prompts...', icon: '✨', duration: '~5s' },
 ];
 
 const MAX_TOPIC_LENGTH = 300;
