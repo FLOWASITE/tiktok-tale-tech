@@ -41,7 +41,7 @@ export function useImageGeneration() {
     setGenerating(slideNumber);
     
     try {
-      const { data, error } = await supabase.functions.invoke('generate-carousel-image', {
+      const { data, error: invokeError } = await invokeWithTimeout<any>('generate-carousel-image', {
         body: {
           prompt,
           carouselId,
@@ -55,7 +55,9 @@ export function useImageGeneration() {
           visualPreset: options?.visualPreset,
           seamlessContext: options?.seamlessContext,
         },
+        timeoutMs: 150_000,
       });
+      const error = invokeError;
 
       if (error) {
         console.error('Error generating image:', error);
