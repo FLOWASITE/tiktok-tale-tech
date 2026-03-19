@@ -23,7 +23,7 @@ export function useImageGeneration() {
     carouselId: string,
     slideNumber: number,
     options?: {
-      textContent?: string | { [key: string]: unknown };
+      textContent?: unknown;
       platform?: string;
       brandColors?: { textColor?: string; backgroundColor?: string };
       carouselStyle?: string;
