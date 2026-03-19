@@ -1991,51 +1991,52 @@ export function MultiChannelFormWizard({
                   return <ComplexityWarning analysis={analysis} />;
                 })()}
 
-                {/* Sticky CTA bar */}
+                {/* Auto image generation status */}
                 <div className="sticky bottom-0 z-20 pt-6 pb-2">
                   <div className="absolute inset-0 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none" />
                   <div className="relative flex flex-col items-center gap-3">
-                    <p className="text-sm font-medium text-muted-foreground">🎨 Mọi thứ đã sẵn sàng!</p>
-                    <Button
-                      onClick={() => {
-                        if (onStartImagePipeline && getChannelText) {
-                          const channelTexts: Record<string, string> = {};
-                          formData.channels.forEach(ch => {
-                            channelTexts[ch] = getChannelText(ch);
-                          });
-                          onStartImagePipeline(formData.channels, channelTexts, {
-                            contentGoal: formData.contentGoal,
-                            contentRole: formData.contentRole,
-                            contentAngle: formData.contentAngle,
-                            topic: formData.topic,
-                            promptMode,
-                          });
-                        }
-                      }}
-                      disabled={!onStartImagePipeline}
-                      className={cn(
-                        "w-full gap-3 text-base font-semibold shadow-lg",
-                        generationComplete
-                          ? "gradient-primary glow-primary shadow-primary/25 animate-pulse hover:animate-none"
-                          : "bg-muted text-muted-foreground hover:bg-muted/80"
-                      )}
-                      size="lg"
-                    >
-                      {generationComplete ? (
-                        <>
-                          <Sparkles className="w-6 h-6" />
-                          Tạo ảnh AI
-                          <span className="inline-flex items-center justify-center rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs font-bold">
-                            {formData.channels.length} kênh
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                          Đang chờ nội dung...
-                        </>
-                      )}
-                    </Button>
+                    {imagePhase === 'idle' && !generationComplete && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Đang chờ nội dung hoàn tất...
+                      </div>
+                    )}
+                    {imagePhase === 'idle' && generationComplete && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Đang chuẩn bị tạo ảnh tự động...
+                      </div>
+                    )}
+                    {(imagePhase === 'preparing' || imagePhase === 'generating_images') && (
+                      <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                        <Sparkles className="w-4 h-4 animate-pulse" />
+                        Đang tự động tạo ảnh cho {formData.channels.length} kênh...
+                      </div>
+                    )}
+                    {imagePhase === 'error' && onStartImagePipeline && (
+                      <Button
+                        onClick={() => {
+                          if (getChannelText) {
+                            const channelTexts: Record<string, string> = {};
+                            formData.channels.forEach(ch => {
+                              channelTexts[ch] = getChannelText(ch);
+                            });
+                            onStartImagePipeline(formData.channels, channelTexts, {
+                              contentGoal: formData.contentGoal,
+                              contentRole: formData.contentRole,
+                              contentAngle: formData.contentAngle,
+                              topic: formData.topic,
+                              promptMode,
+                            });
+                          }
+                        }}
+                        className="w-full gap-2 gradient-primary glow-primary shadow-primary/25"
+                        size="lg"
+                      >
+                        <RefreshCw className="w-5 h-5" />
+                        Thử lại tạo ảnh
+                      </Button>
+                    )}
                     <button
                       onClick={() => navigate('/multichannel')}
                       className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
