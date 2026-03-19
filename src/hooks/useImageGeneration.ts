@@ -11,6 +11,7 @@ export interface GeneratedImage {
 export interface GenerateImageResult {
   imageUrl: string;
   sceneDescription?: string | null;
+  modelUsed?: string | null;
 }
 
 export function useImageGeneration() {
