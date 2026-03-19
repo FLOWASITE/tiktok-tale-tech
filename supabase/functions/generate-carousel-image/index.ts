@@ -97,14 +97,17 @@ function parseTextLayers(textContent: string | StructuredTextContent, slideRole:
     if (textContent.dataLabel) {
       layers.push({ text: textContent.dataLabel, role: 'dataLabel' });
     }
-    layers.push({ text: textContent.headline, role: 'headline' });
+    if (textContent.headline?.trim()) {
+      layers.push({ text: textContent.headline, role: 'headline' });
+    }
     if (textContent.subtitle) {
       layers.push({ text: textContent.subtitle, role: 'subtitle' });
     }
     if (textContent.caption) {
       layers.push({ text: textContent.caption, role: 'caption' });
     }
-    return layers.length > 1 ? layers : null; // Single headline → legacy path is fine
+    // Always return layers for structured content (even single headline) to avoid legacy path
+    return layers.length > 0 ? layers : null;
   }
 
   // === Legacy string textContent: heuristic parsing ===
