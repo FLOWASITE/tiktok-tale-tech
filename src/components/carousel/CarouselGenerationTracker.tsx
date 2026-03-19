@@ -93,6 +93,37 @@ function extractBrandColors(carousel: Carousel): { textColor?: string; backgroun
   return undefined;
 }
 
+/**
+ * Build a comprehensive "Series Bible" from ALL slides' prompts.
+ * Aggregates consistency directives, design style, and visual world
+ * so parallel-generated slides share the same visual identity.
+ */
+function buildSeriesBible(slides: CarouselSlide[]): string {
+  // Collect ALL "consistent with..." directives from all slides
+  const consistencyParts: string[] = [];
+  slides.forEach(s => {
+    const match = s.fullPrompt.match(/consistent with (?:previous slides|series):\s*(.+?)$/im);
+    if (match) consistencyParts.push(match[1].trim());
+  });
+  const uniqueParts = [...new Set(consistencyParts)];
+
+  // Extract common visual elements from slide 1's full prompt
+  const slide1Prompt = slides[0]?.fullPrompt || '';
+
+  // Build comprehensive series bible
+  const bible = [
+    `SERIES VISUAL BIBLE (applies to ALL slides):`,
+    uniqueParts.length > 0
+      ? `Visual world: ${uniqueParts.join('. ')}.`
+      : `Visual world: ${slides[0]?.designStyle || 'professional photography'}.`,
+    `Total slides in series: ${slides.length}.`,
+    `All slides share the SAME: lighting direction, color temperature, photography style, environment/setting, and visual mood.`,
+    `Reference scene (slide 1): "${slide1Prompt.slice(0, 200)}..."`,
+  ].join('\n');
+
+  return bible;
+}
+
 export function CarouselGenerationTracker({
   onBack,
   onMinimize,
