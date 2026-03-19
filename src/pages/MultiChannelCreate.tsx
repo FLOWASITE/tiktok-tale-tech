@@ -186,11 +186,37 @@ export default function MultiChannelCreate() {
     }
   };
 
+  // Auto-trigger image pipeline when content generation completes
+  const autoImageTriggeredRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      generationState === 'complete' &&
+      generatedContentId &&
+      selectedBrandId &&
+      !autoImageTriggeredRef.current &&
+      imagePipeline.phase === 'idle'
+    ) {
+      autoImageTriggeredRef.current = true;
+      const channelTexts: Record<string, string> = {};
+      (formData.channels || []).forEach(ch => {
+        channelTexts[ch] = getChannelText(ch);
+      });
+      imagePipeline.startPipeline(generatedContentId, formData.channels || [], channelTexts, {
+        contentGoal: formData.contentGoal,
+        contentRole: formData.contentRole,
+        contentAngle: formData.contentAngle,
+        topic: formData.topic,
+      });
+    }
+  }, [generationState, generatedContentId, selectedBrandId, imagePipeline.phase]);
+
   // Create another
   const handleCreateAnother = () => {
     setGenerationState('idle');
     setSseProgress(null);
     setGeneratedContentId(null);
+    autoImageTriggeredRef.current = false;
     imagePipeline.resetPipeline();
     setFormData(prev => ({
       ...prev,
