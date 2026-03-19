@@ -174,6 +174,15 @@ const CarouselPage = () => {
   };
 
   const handleGenerateCarousel = async (formData: Parameters<typeof generateCarousel>[0]) => {
+    // If autoGenerateImages, switch to tracker view before generating
+    if (formData.autoGenerateImages) {
+      setTrackerTopic(formData.topic);
+      setTrackerPlatform(formData.platform);
+      setTrackerSlideCount(formData.slideCount);
+      setTrackerMode(true);
+      setFormSheetOpen(false);
+    }
+
     const newCarousel = await generateCarousel(formData);
     if (newCarousel) {
       // Create topic-to-content link if came from Topics Hub
@@ -189,14 +198,22 @@ const CarouselPage = () => {
         } catch (error) {
           console.error('Failed to create topic-content link:', error);
         }
-        // Clear topicHistoryId after use
         setTopicHistoryId(undefined);
       }
-      
-      setFormSheetOpen(false);
-      setSelectedCarousel(newCarousel);
-      setAutoGenerateImages(formData.autoGenerateImages || false);
-      setViewerOpen(true);
+
+      if (formData.autoGenerateImages) {
+        // Tracker mode: set carousel for tracker to pick up
+        setSelectedCarousel(newCarousel);
+      } else {
+        // Normal mode: close form, open viewer
+        setFormSheetOpen(false);
+        setSelectedCarousel(newCarousel);
+        setAutoGenerateImages(false);
+        setViewerOpen(true);
+      }
+    } else if (formData.autoGenerateImages) {
+      // Generation failed, exit tracker
+      setTrackerMode(false);
     }
   };
 
