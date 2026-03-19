@@ -813,12 +813,36 @@ Follow the carousel style guidelines strictly.`;
       console.log('[generate-carousel] AI response from provider:', result.provider, 'model:', result.model, 
         'cost:', result.metrics ? `$${result.metrics.estimatedCostUsd.toFixed(6)}` : 'N/A');
 
+      // Try tool_calls first (preferred)
       const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
-      if (!toolCall || toolCall.function.name !== "generate_carousel_slides") {
-        throw new Error("Invalid AI response format");
+      if (toolCall?.function?.arguments) {
+        console.log('[generate-carousel] Parsed via tool_calls');
+        return JSON.parse(toolCall.function.arguments);
       }
 
-      return JSON.parse(toolCall.function.arguments);
+      // Fallback: extract JSON from content text (Gemini sometimes returns content instead of tool_calls)
+      const contentText = result.data?.choices?.[0]?.message?.content;
+      if (contentText && typeof contentText === 'string') {
+        console.log('[generate-carousel] No tool_calls, attempting content text fallback parse');
+        // Try to find JSON in the content (may be wrapped in ```json ... ```)
+        const jsonMatch = contentText.match(/```json\s*([\s\S]*?)```/) || contentText.match(/(\{[\s\S]*\})/);
+        if (jsonMatch?.[1]) {
+          const parsed = JSON.parse(jsonMatch[1].trim());
+          if (parsed && (parsed.slides || Array.isArray(parsed))) {
+            console.log('[generate-carousel] Successfully parsed from content text fallback');
+            return parsed;
+          }
+        }
+      }
+
+      console.error('[generate-carousel] Invalid response structure:', JSON.stringify({
+        hasChoices: !!result.data?.choices,
+        hasMessage: !!result.data?.choices?.[0]?.message,
+        hasToolCalls: !!result.data?.choices?.[0]?.message?.tool_calls,
+        hasContent: !!contentText,
+        contentPreview: contentText?.substring(0, 200),
+      }));
+      throw new Error("Invalid AI response format");
     };
 
     // Use cache wrapper
