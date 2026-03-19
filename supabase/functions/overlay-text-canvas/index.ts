@@ -616,9 +616,62 @@ function buildElement(
   };
 }
 
-/**
- * Build structured multi-block element tree for Satori
- */
+// ============================================
+// Carousel Overlay: Extended Position Mapping
+// ============================================
+function getCarouselPositionStyles(position: string): Record<string, string | number> {
+  switch (position) {
+    case 'center':
+      return { display: 'flex', alignItems: 'center', justifyContent: 'center' };
+    case 'bottom-left':
+      return { display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-start', padding: '0 0 15% 10%' };
+    case 'top-left':
+      return { display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', padding: '12% 0 0 10%' };
+    case 'top-center':
+      return { display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '12%' };
+    case 'bottom-center':
+      return { display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: '15%' };
+    case 'left-column':
+      return { display: 'flex', alignItems: 'center', justifyContent: 'flex-start', paddingLeft: '10%' };
+    case 'asymmetric-left':
+      return { display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', padding: '25% 0 0 12%' };
+    case 'center-left':
+      return { display: 'flex', alignItems: 'center', justifyContent: 'flex-start', paddingLeft: '8%' };
+    default:
+      return { display: 'flex', alignItems: 'center', justifyContent: 'center' };
+  }
+}
+
+// ============================================
+// Carousel Overlay: Background Treatment Styles
+// ============================================
+function getBackgroundTreatmentStyles(background: string): Record<string, string | number> | null {
+  switch (background) {
+    case 'glass':
+      return {
+        background: 'rgba(255,255,255,0.1)',
+        borderRadius: 16,
+        border: '1px solid rgba(255,255,255,0.18)',
+        padding: '20px 28px',
+      };
+    case 'solid-block':
+      return {
+        background: 'rgba(0,0,0,0.85)',
+        padding: '12px 20px',
+      };
+    case 'cta-button':
+      return {
+        background: '#E53E3E',
+        borderRadius: 12,
+        padding: '16px 40px',
+      };
+    case 'none':
+    default:
+      return null;
+  }
+}
+
+
 function buildStructuredElement(
   baseImageUrl: string,
   request: StructuredOverlayRequest,
