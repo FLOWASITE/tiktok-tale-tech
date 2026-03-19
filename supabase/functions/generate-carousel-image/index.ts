@@ -1005,10 +1005,11 @@ GALLERY / PHOTO DUMP STYLE:
   
   // Clean prompt: remove text-rendering directives
   const cleanedPrompt = originalPrompt
-    .replace(/text\s*[:：].*?(?=\n|$)/gi, '')
-    .replace(/chữ\s*[:：].*?(?=\n|$)/gi, '')
-    .replace(/typography.*?(?=\n|$)/gi, '')
-    .replace(/font.*?(?=\n|$)/gi, '');
+    .replace(/\btext\s*[:：]\s*["'].*?["'].*?(?=\n|$)/gi, '')
+    .replace(/\bchữ\s*[:：].*?(?=\n|$)/gi, '')
+    .replace(/\btypography\s*[:：].*?(?=\n|$)/gi, '')
+    .replace(/\bfont[\s-]*(family|size|style|weight|face)\b.*?(?=\n|$)/gi, '')
+    .replace(/\b(render|draw|write|display|show)\s+(text|words|letters|title|heading)\b.*?(?=\n|$)/gi, '');
 
   return `${safeZoneNote}${brandColorDirective}${tokenDirective}${seamlessDirective}${styleDirective}\nVisual concept:\n${cleanedPrompt}`;
 }
