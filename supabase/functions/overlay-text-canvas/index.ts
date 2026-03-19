@@ -1443,7 +1443,7 @@ serve(async (req) => {
       // Phase A: dark gradient for gallery hook
       bottomGradient?: boolean;
       // Phase B: multi-layer text hierarchy
-      textLayers?: Array<{ text: string; role: 'headline' | 'subtitle' | 'body' | 'accent' }>;
+      textLayers?: Array<{ text: string; role: 'headline' | 'subtitle' | 'body' | 'accent' | 'dataValue' | 'dataLabel' | 'caption' }>;
       // Phase C: brand color blending
       brandColors?: { textColor?: string; backgroundColor?: string };
       // Phase E: decorations (listicle, educational, flat_design, product)
