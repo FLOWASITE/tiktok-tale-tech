@@ -584,12 +584,12 @@ serve(async (req) => {
 
 Platform: ${formData.platform === "facebook" ? "Facebook" : "TikTok"}
 Carousel Style: ${formData.carouselStyle || 'educational'}
-AI Image Tool: ${formData.aiTool}
 Brand: ${formData.brandName}
 Output Language: ${langConfig.nativeName} (${langConfig.englishName})
 
 Generate all ${formData.slideCount} slides in JSON format as defined by the tool.
 Each slide must have compelling text content in ${langConfig.nativeName}.
+Remember: fullPrompt is for BACKGROUND IMAGE only (no text rendering needed).
 Follow the carousel style guidelines strictly.`;
 
     // Try to fetch prompts from registry
