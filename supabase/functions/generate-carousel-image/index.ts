@@ -250,6 +250,8 @@ serve(async (req) => {
     const requestedModel = aiConfig.model;
     let imageModel = requestedModel;
     let modelUsed = requestedModel;
+    let usedFallback = false;
+    let fallbackFromModel: string | null = null;
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
     console.log(`[generate-carousel-image] Requested model: ${requestedModel}`);
