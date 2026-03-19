@@ -28,9 +28,14 @@ import {
   Wand2,
   Book,
   MessageSquare,
+  ChevronDown,
+  Palette,
+  Settings2,
+  Type,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface CarouselFormProps {
   onSubmit: (data: CarouselFormData) => void;
@@ -40,13 +45,27 @@ interface CarouselFormProps {
 }
 
 const LOADING_PHASES = [
-  { label: 'Đang phân tích chủ đề...', icon: '🔍', duration: '~5s' },
-  { label: 'Đang tạo cấu trúc carousel...', icon: '🏗️', duration: '~10s' },
-  { label: 'Đang viết nội dung slides...', icon: '✍️', duration: '~15s' },
-  { label: 'Hoàn thiện prompts...', icon: '✨', duration: '~5s' },
+  { label: 'Phân tích chủ đề & ngữ cảnh thương hiệu', icon: '🔍', duration: '~5s' },
+  { label: 'Thiết kế cấu trúc carousel', icon: '🏗️', duration: '~10s' },
+  { label: 'Viết nội dung từng slide', icon: '✍️', duration: '~15s' },
+  { label: 'Hoàn thiện & tối ưu prompt ảnh', icon: '✨', duration: '~5s' },
 ];
 
 const MAX_TOPIC_LENGTH = 300;
+
+// Step numbering component
+function StepNumber({ step, active = true }: { step: number; active?: boolean }) {
+  return (
+    <span className={cn(
+      "inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold shrink-0 transition-colors",
+      active
+        ? "gradient-primary text-primary-foreground shadow-sm"
+        : "bg-muted text-muted-foreground"
+    )}>
+      {step}
+    </span>
+  );
+}
 
 export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId }: CarouselFormProps) {
   const { templates, loading: templatesLoading } = useBrandTemplates();
@@ -55,6 +74,8 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
   
   const [topic, setTopic] = useState(initialTopic || '');
   const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
+  const [designOpen, setDesignOpen] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (initialTopic) {
@@ -161,46 +182,28 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Compact Header */}
-      <div className="flex items-center gap-3 animate-fade-in">
-        <div className="flex items-center justify-center w-10 h-10 rounded-xl gradient-primary shadow-md">
-          <Wand2 className="w-5 h-5 text-primary-foreground" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold text-foreground">Tạo Carousel AI</h2>
-            <Badge variant="secondary" className="gap-1 text-[10px] h-5">
-              <Sparkles className="w-2.5 h-2.5" />
-              AI
-            </Badge>
-          </div>
-          <p className="text-xs text-muted-foreground truncate">
-            Nhập chủ đề và để AI tạo prompts carousel chuyên nghiệp
-          </p>
-        </div>
-      </div>
-
-      {/* Topic Input */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
-              Chủ đề Carousel
-              <span className="text-primary">*</span>
-            </Label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowBrainstormSheet(true)}
-              className="h-7 gap-1.5 text-xs bg-gradient-to-r from-primary/10 to-purple-500/10 border-primary/40 text-primary hover:from-primary/20 hover:to-purple-500/20 shadow-sm"
-            >
-              <MessageSquare className="w-3.5 h-3.5 animate-pulse" />
-              Brainstorm AI
-              <Sparkles className="w-3 h-3" />
-            </Button>
-          </div>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* ══════════════════════════════════════════════
+          STEP 1: Chủ đề
+         ══════════════════════════════════════════════ */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2.5">
+          <StepNumber step={1} />
+          <Label htmlFor="topic" className="text-foreground font-bold text-sm">
+            Chủ đề Carousel
+          </Label>
+          <span className="text-primary text-sm font-bold">*</span>
+          <div className="flex-1" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowBrainstormSheet(true)}
+            className="h-7 gap-1.5 text-xs text-primary hover:text-primary hover:bg-primary/10 font-medium"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            Brainstorm AI
+          </Button>
           {selectedTemplate?.industry_template_id && (
             <GlossaryQuickLookup
               industryTemplateId={selectedTemplate.industry_template_id}
@@ -225,7 +228,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-6 gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
                 >
                   <Book className="h-3 w-3" />
                   Từ điển
@@ -234,6 +237,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
             />
           )}
         </div>
+
         <div className="relative group">
           <Textarea
             ref={topicInputRef}
@@ -249,13 +253,13 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
             }}
             disabled={isLoading}
             className={cn(
-              "bg-muted/30 border-2 min-h-[80px] max-h-[200px] resize-none text-base transition-all duration-300 pr-20",
-              "focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-background",
-              "placeholder:text-muted-foreground/60"
+              "bg-background border border-border/80 min-h-[72px] max-h-[200px] resize-none text-sm transition-all duration-200 pr-16",
+              "focus:border-primary/60 focus:ring-1 focus:ring-primary/20",
+              "placeholder:text-muted-foreground/50"
             )}
           />
           <div className={cn(
-            "absolute bottom-2 right-3 text-xs font-medium transition-colors",
+            "absolute bottom-2 right-3 text-[10px] font-medium transition-colors tabular-nums",
             charCountColor
           )}>
             {topic.length}/{MAX_TOPIC_LENGTH}
@@ -275,65 +279,123 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           brandTemplateId={selectedTemplateId && selectedTemplateId !== 'custom' ? selectedTemplateId : undefined}
           contentGoal="education"
         />
-      </div>
+      </section>
 
-      {/* Carousel Style Selector */}
-      <div className="space-y-2">
-        <Label className="text-foreground font-semibold text-sm">
-          Phong cách Carousel
-        </Label>
+      <div className="h-px bg-border/60" />
+
+      {/* ══════════════════════════════════════════════
+          STEP 2: Phong cách nội dung
+         ══════════════════════════════════════════════ */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2.5">
+          <StepNumber step={2} />
+          <Label className="text-foreground font-bold text-sm flex items-center gap-1.5">
+            <Type className="w-3.5 h-3.5 text-muted-foreground" />
+            Phong cách nội dung
+          </Label>
+        </div>
         <CarouselStyleSelector
           value={carouselStyle}
           onChange={setCarouselStyle}
           disabled={isLoading}
         />
-      </div>
+      </section>
 
-      {/* Visual Design Preset */}
-      <div className="space-y-2">
-        <Label className="text-foreground font-semibold text-sm flex items-center gap-1.5">
-          🎨 Phong cách thiết kế ảnh
-        </Label>
-        <VisualPresetSelector
-          value={visualPreset}
-          onChange={setVisualPreset}
-          disabled={isLoading}
-        />
-      </div>
+      <div className="h-px bg-border/60" />
 
-      {/* Cài đặt tạo ảnh */}
-      <div className="space-y-4 p-4 rounded-xl border border-border/60 bg-muted/10">
-        <Label className="text-foreground font-semibold text-sm flex items-center gap-1.5">
-          <Images className="w-4 h-4" />
-          Cài đặt tạo ảnh
-        </Label>
+      {/* ══════════════════════════════════════════════
+          STEP 3: Phong cách thiết kế (collapsible)
+         ══════════════════════════════════════════════ */}
+      <Collapsible open={designOpen} onOpenChange={setDesignOpen}>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="flex items-center gap-2.5 w-full text-left group"
+          >
+            <StepNumber step={3} />
+            <Label className="text-foreground font-bold text-sm flex items-center gap-1.5 cursor-pointer">
+              <Palette className="w-3.5 h-3.5 text-muted-foreground" />
+              Phong cách thiết kế ảnh
+            </Label>
+            <div className="flex-1" />
+            <ChevronDown className={cn(
+              "w-4 h-4 text-muted-foreground transition-transform duration-200",
+              designOpen && "rotate-180"
+            )} />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-3">
+          <VisualPresetSelector
+            value={visualPreset}
+            onChange={setVisualPreset}
+            disabled={isLoading}
+          />
+        </CollapsibleContent>
+      </Collapsible>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-muted-foreground text-xs font-medium">Nền tảng</Label>
-            <PlatformSelector
-              value={platform}
-              onChange={setPlatform}
-              disabled={isLoading}
-            />
+      <div className="h-px bg-border/60" />
+
+      {/* ══════════════════════════════════════════════
+          STEP 4: Cài đặt (collapsible)
+         ══════════════════════════════════════════════ */}
+      <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="flex items-center gap-2.5 w-full text-left group"
+          >
+            <StepNumber step={4} />
+            <Label className="text-foreground font-bold text-sm flex items-center gap-1.5 cursor-pointer">
+              <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
+              Cài đặt
+            </Label>
+            {/* Inline summary when collapsed */}
+            {!settingsOpen && (
+              <div className="flex items-center gap-2 ml-1">
+                <Badge variant="secondary" className="text-[10px] h-5 font-normal gap-1">
+                  {platform === 'facebook' ? 'Facebook' : 'TikTok'}
+                </Badge>
+                <Badge variant="secondary" className="text-[10px] h-5 font-normal">
+                  {slideCount} slides
+                </Badge>
+              </div>
+            )}
+            <div className="flex-1" />
+            <ChevronDown className={cn(
+              "w-4 h-4 text-muted-foreground transition-transform duration-200",
+              settingsOpen && "rotate-180"
+            )} />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-muted-foreground text-xs font-medium">Nền tảng</Label>
+              <PlatformSelector
+                value={platform}
+                onChange={setPlatform}
+                disabled={isLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-muted-foreground text-xs font-medium">Số lượng slide</Label>
+              <SlideCountSelector
+                value={slideCount}
+                onChange={setSlideCount}
+                disabled={isLoading}
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label className="text-muted-foreground text-xs font-medium">Số lượng ảnh</Label>
-            <SlideCountSelector
-              value={slideCount}
-              onChange={setSlideCount}
-              disabled={isLoading}
-            />
-          </div>
-        </div>
-      </div>
+        </CollapsibleContent>
+      </Collapsible>
 
-      {/* Submit Buttons & Loading State */}
-      <div className="pt-2 space-y-3">
+      {/* ══════════════════════════════════════════════
+          Submit Buttons & Loading State
+         ══════════════════════════════════════════════ */}
+      <div className="pt-1 space-y-3">
         {isLoading ? (
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-4 animate-fade-in">
-            {/* Progress Steps */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {LOADING_PHASES.map((phase, idx) => {
                 const isActive = idx === loadingPhase;
                 const isDone = idx < loadingPhase;
@@ -342,18 +404,18 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
                     key={idx}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-500",
-                      isActive && "bg-primary/10 border border-primary/30 scale-[1.02]",
-                      isDone && "opacity-60",
-                      !isActive && !isDone && "opacity-30"
+                      isActive && "bg-primary/10 border border-primary/20",
+                      isDone && "opacity-50",
+                      !isActive && !isDone && "opacity-25"
                     )}
                   >
-                    <span className="text-base w-6 text-center">
+                    <span className="text-sm w-5 text-center">
                       {isDone ? '✅' : isActive ? (
                         <span className="inline-block animate-pulse">{phase.icon}</span>
                       ) : phase.icon}
                     </span>
                     <span className={cn(
-                      "text-sm flex-1",
+                      "text-xs flex-1",
                       isActive && "font-medium text-foreground",
                       isDone && "text-muted-foreground line-through",
                       !isActive && !isDone && "text-muted-foreground"
@@ -361,36 +423,35 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
                       {phase.label}
                     </span>
                     {isActive && (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                      <Loader2 className="w-3 h-3 animate-spin text-primary" />
                     )}
                   </div>
                 );
               })}
             </div>
-            {/* Overall Progress Bar */}
-            <div className="space-y-1.5">
-              <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+            <div className="space-y-1">
+              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-700 ease-out"
+                  className="h-full rounded-full gradient-primary transition-all duration-700 ease-out"
                   style={{ width: `${Math.min(((loadingPhase + 1) / LOADING_PHASES.length) * 100, 100)}%` }}
                 />
               </div>
-              <p className="text-center text-[11px] text-muted-foreground">
+              <p className="text-center text-[10px] text-muted-foreground">
                 Bước {loadingPhase + 1}/{LOADING_PHASES.length} · Đừng đóng trang này
               </p>
             </div>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <Button
                 type="submit"
                 disabled={!topic.trim()}
                 variant="outline"
-                className="h-12 font-semibold text-sm transition-all duration-300 border-border/80 hover:border-primary/50 hover:bg-primary/5"
+                className="h-11 font-semibold text-xs transition-all duration-200 border-border hover:border-primary/50 hover:bg-primary/5"
               >
-                <MessageSquare className="w-4 h-4 mr-1.5" />
-                <span>Tạo Prompt</span>
+                <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
+                Tạo Prompt
               </Button>
 
               <Button
@@ -398,15 +459,15 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
                 disabled={!topic.trim()}
                 onClick={(e) => handleSubmit(e as any, true)}
                 className={cn(
-                  "h-12 gradient-primary hover:opacity-90 transition-all duration-300 font-semibold text-sm relative overflow-hidden group glow-primary"
+                  "h-11 gradient-primary hover:opacity-90 transition-all duration-200 font-semibold text-xs relative overflow-hidden group"
                 )}
               >
-                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                <Images className="w-4 h-4 mr-1.5" />
-                <span>Tạo Prompt + Ảnh</span>
+                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+                <Images className="w-3.5 h-3.5 mr-1.5" />
+                Tạo Prompt + Ảnh
               </Button>
             </div>
-            <p className="text-center text-xs text-muted-foreground">
+            <p className="text-center text-[10px] text-muted-foreground">
               ⏱ ~20-40s (Prompt) · ~1-2 phút (Prompt + Ảnh)
             </p>
           </>
