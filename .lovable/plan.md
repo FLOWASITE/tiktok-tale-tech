@@ -1,94 +1,42 @@
-## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-### Vấn đề
-Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-### Đã sửa (3 files)
-1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
-2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
+# Tối ưu generate-carousel: Sửa bug metrics + Cải thiện prompt
 
----
+## 1. Sửa bug metrics (hardcoded model & token)
 
-## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
+**Vấn đề**: Lines 878-904 hardcode `google/gemini-2.5-flash` và ước tính token cố định thay vì dùng dữ liệu thực từ AI response.
 
-### Vấn đề
-AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
+**Giải pháp**: Chuyển sang dùng `callAIWithMetrics()` (đã có sẵn trong `ai-provider.ts`) thay vì `callAI()` + `saveMetrics()` thủ công. Function này tự động:
+- Trích xuất token thực từ response (`usage.prompt_tokens`, `usage.completion_tokens`)
+- Dùng đúng model thực tế (từ `result.model`)
+- Tính cost chính xác bằng `estimateCost()`
+- Tự động lưu metrics
 
-### Đã sửa (3 files)
-1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
-2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
+**Thay đổi cụ thể**:
+- Import `callAIWithMetrics` thay vì `callAI`
+- Trong `generateAIContent()`, gọi `callAIWithMetrics(supabase, {...})` với `userId`, `brandTemplateId`
+- Xóa toàn bộ block metrics thủ công (lines 878-904)
 
----
+## 2. Cải thiện chất lượng prompt
 
-## Feature: Regenerate sử dụng Core Content — đã sửa
+**Vấn đề hiện tại**:
+- System prompt quá dài (~100 dòng), chứa cả ví dụ cứng cho Ideogram
+- Vẫn tham chiếu `aiTool` (đã bỏ trên UI) → prompt thừa
+- Không có hướng dẫn rõ về kỹ thuật viết text overlay (vì ảnh carousel dùng Satori overlay, không cần AI vẽ chữ)
 
-### Vấn đề
-Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
+**Giải pháp**:
+- Loại bỏ toàn bộ `aiToolPromptGuide` section vì UI đã bỏ AI Tool selector
+- Đơn giản hóa `fullPrompt` instruction: tập trung vào **background image** (vì text được overlay bằng Satori)
+- Thêm hướng dẫn rõ: "fullPrompt là prompt tạo ảnh nền, KHÔNG cần vẽ chữ trên ảnh vì text sẽ được overlay sau"
+- Cập nhật user prompt bỏ tham chiếu `aiTool`
 
-### Đã sửa (1 file)
-1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
+### Files cần sửa
 
----
+**`supabase/functions/generate-carousel/index.ts`**:
+1. Import `callAIWithMetrics` thay vì `callAI as callAIProvider`
+2. Xóa `aiToolPromptGuide` object (lines 415-433)
+3. Cập nhật system prompt: bỏ AI tool section, thêm hướng dẫn background-only prompt
+4. Cập nhật user prompt: bỏ `AI Image Tool` line
+5. Thay `callAIProvider()` bằng `callAIWithMetrics()` trong `generateAIContent`
+6. Xóa block metrics thủ công (lines 878-904)
 
-## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
-
-### Vấn đề
-1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
-2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
-3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
-
-### Đã sửa (4 files)
-1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
-2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
-3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
-4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
-
----
-
-## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
-
-### Vấn đề
-Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
-
-### Đã sửa (6 files + 2 edge functions)
-1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
-2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
-3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
-4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
-5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
-6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
-7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
-
----
-
-## Feature: Facebook Webhooks — Nhận engagement realtime — đã sửa
-
-### Vấn đề
-Hệ thống chưa có cách nhận realtime engagement (comment, reaction, share) từ Facebook khi user tương tác trên bài đã đăng qua Flowa.
-
-### Đã sửa (4 files + 1 migration + 1 secret)
-1. **Migration SQL** — Tạo bảng `social_post_engagements` (post_id, event_type, event_data, sender_id, sender_name, facebook_event_id unique) + RLS (org members read, service_role insert)
-2. **`supabase/functions/facebook-webhook/index.ts`** — **Mới**: GET verification (hub.verify_token), POST nhận feed changes → match page_id → social_connections → upsert engagement
-3. **`supabase/functions/connect-social/index.ts`** — Thêm `pages_manage_metadata` vào OAuth scope
-4. **`supabase/functions/facebook-oauth-callback/index.ts`** — Thêm scope + auto-subscribe page tới webhook (`POST /{page_id}/subscribed_apps?subscribed_fields=feed`)
-5. **`supabase/config.toml`** — Thêm `[functions.facebook-webhook]` verify_jwt=false
-6. **Secret** — `FACEBOOK_WEBHOOK_VERIFY_TOKEN` đã được tạo
-
-### Lưu ý
-- Cần cấu hình Webhook URL trên Facebook Developer Console: `https://rllyipiyuptkibqinotz.supabase.co/functions/v1/facebook-webhook`
-- User cần kết nối lại Facebook để cấp thêm permission `pages_manage_metadata`
-
----
-
-## Feature: 6 Design Style System cho Image Generation Engine — đã triển khai
-
-### Vấn đề
-Hệ thống dùng font `Be Vietnam Pro` cứng cho mọi style, padding đồng nhất, AI decompose không biết style để chọn layout phù hợp.
-
-### Đã sửa (4 files)
-1. **`supabase/functions/overlay-text-canvas/index.ts`** — Mở rộng `OverlayStyleTheme` thêm `fontFamily`, `headingFontFamily`, `spacingMultiplier`, `preferredLayout`, `ctaBorderRadius`, `cardBoxShadow`, `bannerLetterSpacing`. Cập nhật 6 theme chính (minimalist→Inter, flat_design→Montserrat, gradient→Plus Jakarta Sans, geometric→Open Sans+Playfair Display, illustration→Nunito, product_only→Be Vietnam Pro). Dynamic font loading per style. Spacing multiplier cho padding/gap.
-2. **`supabase/functions/_shared/image-prompt-data.ts`** — Cập nhật keywords 6 presets chính xác hơn theo Design System docs (minimalist→negative space, flat_design→blocky+data-driven, gradient→neon+glow, geometric→corporate+navy, illustration→warm, product_only→studio)
-3. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `imageStyle` param, inject style→layout preference hint vào AI prompt (minimalist→hero_text, flat_design→banner_cards, geometric→split...)
-4. **`src/lib/hybridImageGenerator.ts`** + **`src/components/multichannel/SimpleImageGenerator.tsx`** — Truyền `imageStyle` qua pipeline decompose
