@@ -55,12 +55,6 @@ const platformLabels: Record<string, string> = {
   tiktok: 'TikTok',
 };
 
-const aiToolLabels: Record<string, string> = {
-  ideogram: 'Ideogram',
-  midjourney: 'Midjourney',
-  dalle: 'DALL·E',
-  leonardo: 'Leonardo',
-};
 
 const generateExportContent = (carousel: Carousel): string => {
   const header = `═══════════════════════════════════════════════════════════════
