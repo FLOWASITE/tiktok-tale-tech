@@ -962,7 +962,9 @@ function buildBackgroundPrompt(
     totalInSequence?: number;
   } | null,
   dbTokens?: any | null,
-  brandColors?: { textColor?: string; backgroundColor?: string } | null
+  brandColors?: { textColor?: string; backgroundColor?: string } | null,
+  carouselTopic?: string | null,
+  slideObjective?: string | null,
 ): string {
   let safeZoneNote = `
 CRITICAL INSTRUCTIONS:
