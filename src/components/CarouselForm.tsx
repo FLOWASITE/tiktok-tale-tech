@@ -328,36 +328,57 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
         </div>
       </div>
 
-      {/* Submit Button */}
-      <div className="pt-2">
-        <Button
-          type="submit"
-          disabled={!topic.trim() || isLoading}
-          className={cn(
-            "w-full h-12 gradient-primary hover:opacity-90 transition-all duration-300 font-semibold text-base relative overflow-hidden group",
-            !isLoading && "glow-primary"
-          )}
-        >
-          {!isLoading && (
-            <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-          )}
-          
-          {isLoading ? (
-            <div className="flex items-center gap-2">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="animate-pulse">{LOADING_PHASES[loadingPhase]}</span>
-            </div>
-          ) : (
-            <>
-              <Images className="w-5 h-5 mr-2" />
-              <span>Tạo Prompt Carousel</span>
-            </>
-          )}
-        </Button>
+      {/* Submit Buttons */}
+      <div className="pt-2 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Button
+            type="submit"
+            disabled={!topic.trim() || isLoading}
+            variant="outline"
+            className="h-12 font-semibold text-sm transition-all duration-300 border-border/80 hover:border-primary/50 hover:bg-primary/5"
+          >
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="animate-pulse text-xs">{LOADING_PHASES[loadingPhase]}</span>
+              </div>
+            ) : (
+              <>
+                <MessageSquare className="w-4 h-4 mr-1.5" />
+                <span>Tạo Prompt</span>
+              </>
+            )}
+          </Button>
+
+          <Button
+            type="button"
+            disabled={!topic.trim() || isLoading}
+            onClick={(e) => handleSubmit(e as any, true)}
+            className={cn(
+              "h-12 gradient-primary hover:opacity-90 transition-all duration-300 font-semibold text-sm relative overflow-hidden group",
+              !isLoading && "glow-primary"
+            )}
+          >
+            {!isLoading && (
+              <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+            )}
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="animate-pulse text-xs">{LOADING_PHASES[loadingPhase]}</span>
+              </div>
+            ) : (
+              <>
+                <Images className="w-4 h-4 mr-1.5" />
+                <span>Tạo Prompt + Ảnh</span>
+              </>
+            )}
+          </Button>
+        </div>
         
         {!isLoading && (
-          <p className="text-center text-xs text-muted-foreground mt-2">
-            Thời gian ước tính: ~20-40 giây
+          <p className="text-center text-xs text-muted-foreground">
+            Thời gian ước tính: ~20-40 giây (Prompt) · ~1-2 phút (Prompt + Ảnh)
           </p>
         )}
       </div>
