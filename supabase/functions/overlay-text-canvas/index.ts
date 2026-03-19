@@ -1695,8 +1695,110 @@ serve(async (req) => {
         });
       }
 
+      // Phase E: Educational step indicator (top-right)
+      if (carouselOverlay.decorations?.stepIndicator) {
+        const { current, total } = carouselOverlay.decorations.stepIndicator;
+        const stepFontSize = Math.round(imageWidth * 0.025);
+        const primaryColor = carouselOverlay.brandColors?.backgroundColor || '#3B82F6';
+        rootChildren.push({
+          type: 'div',
+          props: {
+            style: {
+              position: 'absolute',
+              top: Math.round(imageHeight * 0.05),
+              right: Math.round(imageWidth * 0.05),
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              borderRadius: 20,
+              padding: '6px 14px',
+            },
+            children: [
+              {
+                type: 'span',
+                props: {
+                  style: {
+                    color: primaryColor,
+                    fontSize: stepFontSize,
+                    fontFamily: fonts.length > 0 ? fontFamily : 'sans-serif',
+                    fontWeight: 700,
+                  },
+                  children: String(current),
+                },
+              },
+              {
+                type: 'span',
+                props: {
+                  style: {
+                    color: 'rgba(255,255,255,0.5)',
+                    fontSize: stepFontSize * 0.85,
+                    fontFamily: fonts.length > 0 ? fontFamily : 'sans-serif',
+                    fontWeight: 400,
+                  },
+                  children: `/ ${total}`,
+                },
+              },
+            ],
+          },
+        });
+      }
+
+      // Phase E: Product "HOT" badge (top-right corner)
+      if (carouselOverlay.decorations?.hotBadge) {
+        const badgeFontSize = Math.round(imageWidth * 0.025);
+        rootChildren.push({
+          type: 'div',
+          props: {
+            style: {
+              position: 'absolute',
+              top: Math.round(imageHeight * 0.05),
+              right: Math.round(imageWidth * 0.05),
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#E53E3E',
+              borderRadius: 4,
+              padding: '4px 14px',
+              boxShadow: '0 2px 8px rgba(229,62,62,0.4)',
+            },
+            children: {
+              type: 'span',
+              props: {
+                style: {
+                  color: '#FFFFFF',
+                  fontSize: badgeFontSize,
+                  fontFamily: fonts.length > 0 ? fontFamily : 'sans-serif',
+                  fontWeight: 700,
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                },
+                children: 'HOT',
+              },
+            },
+          },
+        });
+      }
+
       // Text content wrapper
       rootChildren.push(textWrapper);
+
+      // Phase E: Accent divider for flat_design (after text wrapper)
+      if (carouselOverlay.decorations?.accentDivider) {
+        const dividerColor = carouselOverlay.brandColors?.backgroundColor || '#F59E0B';
+        rootChildren.push({
+          type: 'div',
+          props: {
+            style: {
+              width: 60,
+              height: 4,
+              backgroundColor: dividerColor,
+              borderRadius: 2,
+              marginTop: 4,
+            },
+          },
+        });
+      }
 
       // Phase E: Listicle progress dots (bottom center)
       if (carouselOverlay.decorations?.progressDots) {
