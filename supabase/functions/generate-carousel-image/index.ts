@@ -9,6 +9,78 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ============================================
+// Slide Role Detection
+// ============================================
+function detectSlideRole(
+  slideNumber: number,
+  totalSlides: number,
+  objective: string,
+  carouselStyle: string
+): string {
+  // Gallery: middle slides are visual-only (no text overlay)
+  if (carouselStyle === 'gallery') {
+    if (slideNumber === 1) return 'hook';
+    if (slideNumber === totalSlides) return 'cta';
+    return 'visual';
+  }
+
+  if (slideNumber === 1) return 'hook';
+  if (slideNumber === totalSlides) return 'cta';
+
+  const objLower = (objective || '').toLowerCase();
+  if (objLower.includes('data') || objLower.includes('số') || objLower.includes('thống kê')) return 'dataPoint';
+  if (objLower.includes('quote') || objLower.includes('trích') || objLower.includes('cảm hứng')) return 'quote';
+
+  return 'body';
+}
+
+// ============================================
+// Overlay Config Matrix — per visual preset + slide role
+// ============================================
+function getOverlayConfig(visualPreset: string, slideRole: string): Record<string, any> {
+  const OVERLAY_MATRIX: Record<string, Record<string, any>> = {
+    minimalist: {
+      hook: { position: "center", fontWeight: 500, fontSize: "2.5rem", textAlign: "center", maxWidth: "70%", textTransform: "none", background: "none", textColor: "#1A1A1A" },
+      body: { position: "bottom-left", fontWeight: 400, fontSize: "1rem", textAlign: "left", maxWidth: "80%", background: "none", textColor: "#1A1A1A" },
+      cta:  { position: "center", fontWeight: 500, fontSize: "1.5rem", textAlign: "center", maxWidth: "60%", background: "none", textColor: "#1A1A1A" },
+      dataPoint: { position: "center", fontWeight: 500, fontSize: "3rem", textAlign: "center", maxWidth: "70%", background: "none", textColor: "#2563EB" },
+      quote: { position: "center", fontWeight: 400, fontSize: "1.75rem", textAlign: "center", maxWidth: "65%", background: "none", textColor: "#6B7280" },
+    },
+    flat_design: {
+      hook:      { position: "center", fontWeight: 900, fontSize: "4rem", textAlign: "center", maxWidth: "90%", textTransform: "uppercase", background: "solid-block", textColor: "#FFFFFF" },
+      body:      { position: "top-left", fontWeight: 700, fontSize: "1.25rem", textAlign: "left", maxWidth: "85%", background: "solid-block", textColor: "#FFFFFF" },
+      dataPoint: { position: "center", fontWeight: 900, fontSize: "6rem", textAlign: "center", maxWidth: "90%", background: "none", textColor: "#FFC107" },
+      cta:       { position: "bottom-center", fontWeight: 800, fontSize: "2rem", textAlign: "center", maxWidth: "90%", textTransform: "uppercase", background: "solid-block", textColor: "#FFFFFF" },
+    },
+    gradient: {
+      hook: { position: "center", fontWeight: 700, fontSize: "3rem", textAlign: "center", maxWidth: "75%", background: "glass", textColor: "#FFFFFF" },
+      body: { position: "center", fontWeight: 400, fontSize: "1.1rem", textAlign: "center", maxWidth: "70%", background: "glass", textColor: "#FFFFFF" },
+      cta:  { position: "bottom-center", fontWeight: 700, fontSize: "1.75rem", textAlign: "center", maxWidth: "65%", background: "glass", textColor: "#FFFFFF" },
+    },
+    geometric: {
+      hook: { position: "left-column", fontWeight: 700, fontSize: "2.75rem", textAlign: "left", maxWidth: "55%", background: "none", textColor: "#FFFFFF" },
+      body: { position: "left-column", fontWeight: 400, fontSize: "1rem", textAlign: "left", maxWidth: "55%", background: "none", textColor: "#CBD5E1" },
+      cta:  { position: "bottom-left", fontWeight: 600, fontSize: "1.5rem", textAlign: "left", maxWidth: "50%", textTransform: "uppercase", background: "none", textColor: "#C9A84C" },
+    },
+    illustration: {
+      hook:  { position: "asymmetric-left", fontWeight: 700, fontSize: "2.5rem", textAlign: "left", maxWidth: "65%", background: "none", textColor: "#3D2C2E" },
+      quote: { position: "center", fontWeight: 400, fontSize: "1.75rem", textAlign: "center", maxWidth: "70%", background: "none", textColor: "#6B5352" },
+      body:  { position: "bottom-left", fontWeight: 400, fontSize: "1rem", textAlign: "left", maxWidth: "75%", background: "none", textColor: "#3D2C2E" },
+      cta:   { position: "center", fontWeight: 600, fontSize: "1.5rem", textAlign: "center", maxWidth: "60%", background: "none", textColor: "#E07A5F" },
+    },
+    product_only: {
+      hook:  { position: "top-center", fontWeight: 800, fontSize: "2.5rem", textAlign: "center", maxWidth: "85%", background: "none", textColor: "#111111" },
+      body:  { position: "center-left", fontWeight: 800, fontSize: "2rem", textAlign: "left", maxWidth: "45%", background: "none", textColor: "#111111" },
+      cta:   { position: "bottom-center", fontWeight: 700, fontSize: "1.25rem", textAlign: "center", maxWidth: "90%", textTransform: "uppercase", background: "cta-button", textColor: "#FFFFFF" },
+    },
+  };
+
+  const styleConfig = OVERLAY_MATRIX[visualPreset];
+  if (!styleConfig) return OVERLAY_MATRIX.minimalist.body;
+  return styleConfig[slideRole] || styleConfig['body'] || OVERLAY_MATRIX.minimalist.body;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -18,7 +90,9 @@ serve(async (req) => {
   const startTime = performance.now();
 
   try {
-    const { prompt, carouselId, slideNumber, textContent, brandColors, platform, carouselStyle, totalSlides } = await req.json();
+    const requestBody = await req.json();
+    const { prompt, carouselId, slideNumber, textContent, brandColors, platform,
+            carouselStyle, totalSlides, slideObjective, visualPreset } = requestBody;
 
     console.log(`[generate-carousel-image] Starting for carousel ${carouselId}, slide ${slideNumber}`);
 
@@ -36,13 +110,22 @@ serve(async (req) => {
       );
     }
 
+    // === Detect slide role ===
+    const slideRole = detectSlideRole(
+      slideNumber,
+      totalSlides || 5,
+      slideObjective || '',
+      carouselStyle || ''
+    );
+    console.log(`[generate-carousel-image] Slide role: ${slideRole} (style=${carouselStyle}, preset=${visualPreset})`);
+
     // === STEP 0: Get AI config for model selection ===
     const aiConfig = await getAIConfig('generate-carousel-image');
     const imageModel = aiConfig.model;
     console.log(`[generate-carousel-image] Using model: ${imageModel}`);
 
     // === STEP 1: Generate background image (no text) ===
-    const backgroundPrompt = buildBackgroundPrompt(prompt, platform, carouselStyle, slideNumber, totalSlides);
+    const backgroundPrompt = buildBackgroundPrompt(prompt, platform, carouselStyle, slideNumber, totalSlides, slideRole);
     console.log("[generate-carousel-image] Step 1: Generating background...");
     
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
@@ -89,12 +172,10 @@ serve(async (req) => {
     let imageBase64: string | null = null;
     let mimeType = "image/png";
 
-    // Parse OpenAI-compatible response with images
     const messageImages = bgData.choices?.[0]?.message?.images;
     if (messageImages && messageImages.length > 0) {
       const imageUrl = messageImages[0].image_url?.url;
       if (imageUrl && imageUrl.startsWith("data:")) {
-        // Extract base64 from data URI: data:image/png;base64,xxxxx
         const match = imageUrl.match(/^data:(image\/\w+);base64,(.+)$/);
         if (match) {
           mimeType = match[1];
@@ -116,7 +197,6 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const userId = await resolveUserId(req, supabase);
-
 
     const binaryString = atob(imageBase64);
     const bytes = new Uint8Array(binaryString.length);
@@ -143,11 +223,43 @@ serve(async (req) => {
     const backgroundUrl = bgUrlData.publicUrl;
     console.log(`[generate-carousel-image] Background uploaded: ${backgroundUrl}`);
 
+    // === Gallery visual slides: skip overlay, return background directly ===
+    if (slideRole === 'visual') {
+      console.log(`[generate-carousel-image] Gallery visual slide — skipping overlay`);
+
+      const totalDurationMs = Math.round(performance.now() - startTime);
+      const inputTokens = estimateTokens(backgroundPrompt);
+      const estimatedCostUsd = isImageModel(imageModel) ? estimateImageCost(imageModel) : estimateCost(imageModel, inputTokens, 0);
+      saveMetrics(supabase, {
+        traceId, functionName: 'generate-carousel-image', userId, totalDurationMs,
+        aiCallDurationMs: totalDurationMs, inputTokensEstimated: inputTokens, outputTokensEstimated: 0,
+        estimatedCostUsd, modelsUsed: { image: imageModel }, hadError: false,
+        contextSources: [], contentId: carouselId, actionType: 'image_generation',
+      }).catch(() => {});
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          imageUrl: backgroundUrl,
+          backgroundUrl,
+          slideNumber,
+          carouselId,
+          hasOverlay: false,
+          slideRole,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // === STEP 2: Overlay text using overlay-text-canvas ===
     if (textContent && textContent.trim()) {
       console.log("[generate-carousel-image] Step 2: Overlaying text via Satori...");
       
       const dimensions = getPlatformDimensions(platform);
+
+      // Get dynamic overlay config based on visual preset + slide role
+      const overlayConfig = getOverlayConfig(visualPreset || 'minimalist', slideRole);
+      console.log(`[generate-carousel-image] Overlay config:`, JSON.stringify(overlayConfig));
       
       try {
         const overlayResponse = await fetch(
@@ -161,6 +273,19 @@ serve(async (req) => {
             body: JSON.stringify({
               baseImageUrl: backgroundUrl,
               text: textContent,
+              // Dynamic overlay params from preset matrix
+              carouselOverlay: {
+                position: overlayConfig.position || 'center',
+                fontWeight: overlayConfig.fontWeight || 600,
+                fontSize: overlayConfig.fontSize || '1.5rem',
+                textAlign: overlayConfig.textAlign || 'center',
+                maxWidth: overlayConfig.maxWidth || '85%',
+                textTransform: overlayConfig.textTransform || 'none',
+                background: overlayConfig.background || 'none',
+                textColor: overlayConfig.textColor || brandColors?.textColor || '#FFFFFF',
+                fontFamily: overlayConfig.fontFamily,
+              },
+              // Legacy params as fallback
               position: "center",
               typographyStyle: "bold",
               textColor: brandColors?.textColor || "#FFFFFF",
@@ -185,6 +310,7 @@ serve(async (req) => {
                 slideNumber,
                 carouselId,
                 hasOverlay: true,
+                slideRole,
               }),
               { headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
@@ -227,6 +353,7 @@ serve(async (req) => {
         slideNumber,
         carouselId,
         hasOverlay: false,
+        slideRole,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -259,8 +386,15 @@ serve(async (req) => {
  * Build a background-only prompt: strips text rendering instructions,
  * focuses on visual composition with safe zones for overlay.
  */
-function buildBackgroundPrompt(originalPrompt: string, platform?: string, carouselStyle?: string, slideNumber?: number, totalSlides?: number): string {
-  const safeZoneNote = `
+function buildBackgroundPrompt(
+  originalPrompt: string,
+  platform?: string,
+  carouselStyle?: string,
+  slideNumber?: number,
+  totalSlides?: number,
+  slideRole?: string
+): string {
+  let safeZoneNote = `
 CRITICAL INSTRUCTIONS:
 - Do NOT render any text, letters, words, or typography on the image.
 - This is a BACKGROUND image only — text will be overlaid programmatically.
@@ -268,6 +402,11 @@ CRITICAL INSTRUCTIONS:
 - Focus on mood, atmosphere, colors, and visual composition.
 - High resolution, professional photography or illustration quality.
 `;
+
+  // Gallery hook: add dark gradient instruction for text readability
+  if (carouselStyle === 'gallery' && slideRole === 'hook') {
+    safeZoneNote += '\nThe image MUST have a natural dark gradient at the bottom third (like a sunset darkening toward horizon) to ensure white text readability. Do NOT add any text or graphics.';
+  }
 
   // Style-specific directives
   let styleDirective = '';
@@ -290,7 +429,18 @@ LISTICLE STYLE:
 - Keep the same color palette and visual style across all slides.
 `;
   } else if (carouselStyle === 'gallery') {
-    styleDirective = `
+    if (slideRole === 'visual') {
+      // Gallery visual slides: maximum cinematic quality
+      styleDirective = `
+GALLERY / CINEMATIC VISUAL:
+- This is a FULL-BLEED cinematic photograph with NO text, NO graphics, NO UI elements, NO overlays whatsoever.
+- Professional editorial photography quality, 8K resolution clarity.
+- Dramatic natural lighting with depth of field.
+- Rich vivid colors, strong composition following rule of thirds.
+- This image will be displayed at full resolution with nothing on top of it — visual quality is the ONLY priority.
+`;
+    } else {
+      styleDirective = `
 GALLERY / PHOTO DUMP STYLE:
 - Focus 100% on VISUAL QUALITY — this is a photo collection.
 - Use realistic, high-quality photography or artistic imagery.
@@ -298,6 +448,7 @@ GALLERY / PHOTO DUMP STYLE:
 - NO infographic elements, NO structured layouts — just beautiful imagery.
 - The image itself IS the content.
 `;
+    }
   }
   
   // Clean prompt: remove text-rendering directives
@@ -313,9 +464,9 @@ GALLERY / PHOTO DUMP STYLE:
 function getPlatformDimensions(platform?: string): { width: number; height: number } {
   switch (platform) {
     case 'tiktok':
-      return { width: 1080, height: 1920 }; // 9:16
+      return { width: 1080, height: 1920 };
     case 'facebook':
     default:
-      return { width: 1080, height: 1080 }; // 1:1
+      return { width: 1080, height: 1080 };
   }
 }
