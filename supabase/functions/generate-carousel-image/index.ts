@@ -400,6 +400,16 @@ serve(async (req) => {
       fetchStylePreset(supabase, visualPreset || carouselStyle || 'minimalist'),
     ]);
 
+    // === Phase 3: Blend brand colors into design tokens ===
+    const presetKey = visualPreset || carouselStyle || 'minimalist';
+    const blendedTokens = dbPreset?.tokens
+      ? blendBrandColors(dbPreset.tokens, presetKey, brandColors)
+      : dbPreset?.tokens || null;
+    
+    if (blendedTokens && brandColors) {
+      console.log(`[generate-carousel-image] Brand colors blended into preset '${presetKey}'`);
+    }
+
     // === Multi-provider routing: PoYo → KIE → Lovable AI ===
     const requestedModel = aiConfig.model;
     let imageModel = requestedModel;
@@ -413,7 +423,7 @@ serve(async (req) => {
     // === STEP 1: Generate background image (no text) ===
     const backgroundPrompt = buildBackgroundPrompt(
       prompt, platform, carouselStyle, slideNumber, totalSlides, slideRole,
-      seamlessContext, dbPreset?.tokens, brandColors
+      seamlessContext, blendedTokens, brandColors
     );
     console.log("[generate-carousel-image] Step 1: Generating background...");
 
