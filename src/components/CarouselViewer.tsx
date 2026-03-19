@@ -163,13 +163,15 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
   // Fetch Industry Memory
   const { data: industryMemory, isLoading: isLoadingIndustry } = useIndustryMemoryById(carousel?.industry_template_id);
 
+  // Ref to hold the auto-generate function (defined after early return)
+  const autoGenFnRef = useRef<(() => void) | null>(null);
+
   // Auto-trigger image generation when autoGenerateImages flag is set
   useEffect(() => {
     if (autoGenerateImages && carousel?.id && autoGenTriggered !== carousel.id && open && !generatingAll && generating === null) {
       setAutoGenTriggered(carousel.id);
-      // Small delay to ensure viewer is fully rendered
       const timer = setTimeout(() => {
-        handleGenerateAllImages();
+        autoGenFnRef.current?.();
       }, 500);
       return () => clearTimeout(timer);
     }
