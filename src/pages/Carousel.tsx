@@ -225,6 +225,47 @@ const CarouselPage = () => {
     setSelectedIds([]);
   };
 
+  // Tracker mode: full-page generation progress view
+  if (trackerMode) {
+    return (
+      <>
+        <CarouselGenerationTracker
+          onBack={() => {
+            if (!generating) {
+              setTrackerMode(false);
+              setFormSheetOpen(true);
+            }
+          }}
+          topic={trackerTopic}
+          platform={trackerPlatform}
+          slideCount={trackerSlideCount}
+          promptGenerating={generating}
+          carousel={selectedCarousel}
+          onViewResults={(carousel) => {
+            setTrackerMode(false);
+            setSelectedCarousel(carousel);
+            setAutoGenerateImages(false);
+            setViewerOpen(true);
+          }}
+        />
+        {/* Keep viewer available for "view results" */}
+        <CarouselViewer
+          carousel={selectedCarousel}
+          open={viewerOpen}
+          onOpenChange={(open) => {
+            setViewerOpen(open);
+            if (!open) setAutoGenerateImages(false);
+          }}
+          onCarouselUpdate={(updated) => {
+            updateCarousel(updated);
+            setSelectedCarousel(updated);
+          }}
+          autoGenerateImages={false}
+        />
+      </>
+    );
+  }
+
   if (formSheetOpen) {
     return (
       <div className="min-h-screen relative bg-gradient-to-b from-background via-background to-muted/20">
