@@ -8,6 +8,11 @@ export interface GeneratedImage {
   generatedAt: string;
 }
 
+export interface GenerateImageResult {
+  imageUrl: string;
+  sceneDescription?: string | null;
+}
+
 export function useImageGeneration() {
   const [generating, setGenerating] = useState<number | null>(null);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
