@@ -907,6 +907,55 @@ Follow the carousel style guidelines strictly.`;
     console.log("Generated carousel:", generatedData.title);
 
     // ============================================
+    // NORMALIZE SLIDES — ensure consistent textContent structure + validate fullPrompt
+    // ============================================
+    const carouselStyle = formData.carouselStyle || 'educational';
+    if (generatedData.slides && Array.isArray(generatedData.slides)) {
+      generatedData.slides = generatedData.slides.map((slide: CarouselSlide, idx: number) => {
+        const slideNum = slide.slideNumber || (idx + 1);
+        
+        // Ensure textContent is structured object
+        if (typeof slide.textContent === 'string') {
+          const lines = slide.textContent.split('\n').map((l: string) => l.trim()).filter((l: string) => l);
+          slide.textContent = {
+            headline: lines[0] || slide.objective || `Slide ${slideNum}`,
+            subtitle: lines.slice(1).join(' ') || undefined,
+          };
+          console.log(`[normalize] Slide ${slideNum}: converted string textContent to structured`);
+        }
+        
+        // Ensure headline is not empty
+        const tc = slide.textContent as StructuredTextContent;
+        if (!tc.headline || !tc.headline.trim()) {
+          tc.headline = slide.objective || `Slide ${slideNum}`;
+          console.warn(`[normalize] Slide ${slideNum}: empty headline, used objective as fallback`);
+        }
+        
+        // Ensure objective is not empty
+        if (!slide.objective || !slide.objective.trim()) {
+          slide.objective = getSlideObjective(slideNum, formData.slideCount, outputLang, carouselStyle);
+          console.warn(`[normalize] Slide ${slideNum}: empty objective, used default`);
+        }
+        
+        // Validate fullPrompt: must be >= 30 words English, no text-rendering instructions
+        if (slide.fullPrompt) {
+          const wordCount = slide.fullPrompt.split(/\s+/).length;
+          if (wordCount < 30) {
+            console.warn(`[normalize] Slide ${slideNum}: fullPrompt too short (${wordCount} words)`);
+          }
+          // Strip text-rendering instructions that may have leaked
+          slide.fullPrompt = slide.fullPrompt
+            .replace(/\btext\s*[:：]\s*["'].*?["'].*?(?=\n|$)/gi, '')
+            .replace(/\b(render|draw|write|display|show)\s+(text|words|letters|title|heading)\b.*?(?=\n|$)/gi, '')
+            .trim();
+        }
+        
+        return slide;
+      });
+      console.log(`[normalize] Processed ${generatedData.slides.length} slides`);
+    }
+
+    // ============================================
     // SELF-CRITIQUE LOOP - Evaluate and refine carousel
     // ============================================
     let critiqueResult: CritiqueResult | null = null;
