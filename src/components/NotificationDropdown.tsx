@@ -36,6 +36,8 @@ const notificationTypeConfig: Record<string, {
   carousel_generation_complete: { icon: <Images className="h-4 w-4" />, bgColor: 'bg-emerald-500/10', textColor: 'text-emerald-500' },
   multichannel_content_done: { icon: <Sparkles className="h-4 w-4" />, bgColor: 'bg-purple-500/10', textColor: 'text-purple-500' },
   multichannel_images_done: { icon: <Images className="h-4 w-4" />, bgColor: 'bg-emerald-500/10', textColor: 'text-emerald-500' },
+  script_generated: { icon: <FileText className="h-4 w-4" />, bgColor: 'bg-indigo-500/10', textColor: 'text-indigo-500' },
+  script_analysis_done: { icon: <BarChart3 className="h-4 w-4" />, bgColor: 'bg-amber-500/10', textColor: 'text-amber-500' },
 };
 
 export const NotificationDropdown = () => {
