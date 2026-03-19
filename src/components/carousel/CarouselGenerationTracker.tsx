@@ -256,6 +256,11 @@ export function CarouselGenerationTracker({
         ? 'Đang chuẩn bị tạo ảnh...'
         : PROMPT_STEPS[promptStep]?.label || 'Đang xử lý...';
 
+  // Report progress to parent
+  useEffect(() => {
+    onProgressChange?.({ overallPercent, statusText: currentStatusText, allDone });
+  }, [overallPercent, currentStatusText, allDone, onProgressChange]);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
       <div className="p-3 sm:p-6 max-w-2xl mx-auto space-y-5">
