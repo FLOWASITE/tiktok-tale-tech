@@ -80,14 +80,18 @@ export default function Brands() {
 
   // Fetch all social connections to check which brands have connections
   const { connections: allSocialConnections } = useSocialConnections();
-  const brandsWithConnections = useMemo(() => {
-    const set = new Set<string>();
+  const brandConnectionsMap = useMemo(() => {
+    const map = new Map<string, string[]>();
     allSocialConnections.forEach(conn => {
-      if (conn.brand_template_id) {
-        set.add(conn.brand_template_id);
+      if (conn.brand_template_id && conn.is_active) {
+        const existing = map.get(conn.brand_template_id) || [];
+        if (!existing.includes(conn.platform)) {
+          existing.push(conn.platform);
+        }
+        map.set(conn.brand_template_id, existing);
       }
     });
-    return set;
+    return map;
   }, [allSocialConnections]);
   
   const [searchQuery, setSearchQuery] = useState('');
