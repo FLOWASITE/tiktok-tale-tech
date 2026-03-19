@@ -244,7 +244,16 @@ serve(async (req) => {
       fetchStylePreset(supabase, visualPreset || carouselStyle || 'minimalist'),
     ]);
 
-    const imageModel = aiConfig.model;
+    // Only allow Lovable AI Gateway compatible models (not PoYo/KIE which need separate APIs)
+    const LOVABLE_COMPATIBLE_MODELS = [
+      'google/gemini-3-pro-image-preview', 'google/gemini-3.1-flash-image-preview',
+      'google/gemini-2.5-flash-image', 'google/gemini-2.5-flash', 'google/gemini-2.5-pro',
+    ];
+    const rawModel = aiConfig.model;
+    const imageModel = LOVABLE_COMPATIBLE_MODELS.includes(rawModel) ? rawModel : 'google/gemini-3-pro-image-preview';
+    if (rawModel !== imageModel) {
+      console.warn(`[generate-carousel-image] Model "${rawModel}" not compatible with Lovable AI Gateway, falling back to ${imageModel}`);
+    }
     console.log(`[generate-carousel-image] Using model: ${imageModel}`);
 
     // === STEP 1: Generate background image (no text) ===
