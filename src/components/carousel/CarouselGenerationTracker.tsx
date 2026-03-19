@@ -410,7 +410,7 @@ export function CarouselGenerationTracker({
             exit={{ opacity: 0, y: -5 }}
             className="flex items-start gap-2 p-3 rounded-lg bg-muted/30 border border-border/30"
           >
-            <Lightbulb className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" />
+            <Lightbulb className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
             <p className="text-[11px] text-muted-foreground">{TIPS[tipIndex]}</p>
           </motion.div>
         </AnimatePresence>
