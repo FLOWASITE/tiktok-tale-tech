@@ -1,6 +1,15 @@
 import { cn } from '@/lib/utils';
-import { Check } from 'lucide-react';
+import { Check, Minus, BarChart3, Blend, Hexagon, Paintbrush, Focus, type LucideIcon } from 'lucide-react';
 import { VisualPresetType, VISUAL_PRESET_OPTIONS } from '@/types/carousel';
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  Minus,
+  BarChart3,
+  Blend,
+  Hexagon,
+  Paintbrush,
+  Focus,
+};
 
 interface VisualPresetSelectorProps {
   value: VisualPresetType;
@@ -8,7 +17,7 @@ interface VisualPresetSelectorProps {
   disabled?: boolean;
 }
 
-/** Mini color/font preview data per preset (matches FALLBACK_OVERLAY_MATRIX in backend) */
+/** Mini color/font preview data per preset */
 const PRESET_PREVIEW: Record<VisualPresetType, { colors: string[]; font: string }> = {
   minimalist: { colors: ['#1a1a1a', '#ffffff', '#6366f1'], font: 'Inter' },
   flat_design: { colors: ['#1e293b', '#f8fafc', '#f59e0b'], font: 'Montserrat' },
@@ -24,6 +33,7 @@ export function VisualPresetSelector({ value, onChange, disabled }: VisualPreset
       {VISUAL_PRESET_OPTIONS.map((option) => {
         const isSelected = value === option.value;
         const preview = PRESET_PREVIEW[option.value];
+        const IconComponent = ICON_MAP[option.icon];
 
         return (
           <button
@@ -47,7 +57,11 @@ export function VisualPresetSelector({ value, onChange, disabled }: VisualPreset
             )}
 
             <div className="flex items-center gap-1.5">
-              <span className="text-sm">{option.icon}</span>
+              {IconComponent && (
+                <IconComponent size={14} className={cn(
+                  isSelected ? "text-primary" : "text-muted-foreground"
+                )} />
+              )}
               <span className={cn(
                 "font-semibold text-xs",
                 isSelected ? "text-foreground" : "text-muted-foreground"

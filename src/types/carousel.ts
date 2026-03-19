@@ -86,17 +86,17 @@ export const AI_TOOL_OPTIONS: { value: AITool; label: string; description: strin
 export const SLIDE_COUNT_OPTIONS = [5, 6, 7, 8, 9, 10];
 
 export const CAROUSEL_STYLE_OPTIONS: { value: CarouselStyleType; label: string; description: string; icon: string }[] = [
-  { value: 'seamless', label: 'Trượt liền mạch', description: 'Các phần tử nối liền giữa các slide, tạo cảm giác bức tranh dài', icon: '🎞️' },
-  { value: 'educational', label: 'Giáo dục theo bước', description: 'Kể chuyện từng bước: Hook → Giải thích → CTA', icon: '📚' },
-  { value: 'listicle', label: 'Danh sách Top-list', description: 'Mỗi slide = 1 điểm, layout đồng nhất, đánh số rõ ràng', icon: '📋' },
-  { value: 'gallery', label: 'Bộ sưu tập ảnh', description: 'Tập hợp ảnh cùng chủ đề, minimal text, ưu tiên visual', icon: '🖼️' },
+  { value: 'seamless', label: 'Trượt liền mạch', description: 'Các phần tử nối liền giữa các slide, tạo cảm giác bức tranh dài', icon: 'Layers' },
+  { value: 'educational', label: 'Giáo dục theo bước', description: 'Kể chuyện từng bước: Hook → Giải thích → CTA', icon: 'GraduationCap' },
+  { value: 'listicle', label: 'Danh sách Top-list', description: 'Mỗi slide = 1 điểm, layout đồng nhất, đánh số rõ ràng', icon: 'ListOrdered' },
+  { value: 'gallery', label: 'Bộ sưu tập ảnh', description: 'Tập hợp ảnh cùng chủ đề, minimal text, ưu tiên visual', icon: 'Images' },
 ];
 
 export const VISUAL_PRESET_OPTIONS: { value: VisualPresetType; label: string; description: string; icon: string }[] = [
-  { value: 'minimalist', label: 'Clean Modern', description: 'Tối giản, nhiều khoảng trắng, font Inter', icon: '✨' },
-  { value: 'flat_design', label: 'Bold Infographic', description: 'Blocky, data-driven, font Montserrat', icon: '📊' },
-  { value: 'gradient', label: 'Gradient Flow', description: 'Neon glow, glassmorphism, hiện đại', icon: '🌈' },
-  { value: 'geometric', label: 'Corporate', description: 'Navy gold, chuyên nghiệp, font Playfair', icon: '🏢' },
-  { value: 'illustration', label: 'Story Visual', description: 'Ấm áp, hand-drawn feel, font Nunito', icon: '🎨' },
-  { value: 'product_only', label: 'Product Focus', description: 'Studio quality, sản phẩm trung tâm', icon: '📸' },
+  { value: 'minimalist', label: 'Clean Modern', description: 'Tối giản, nhiều khoảng trắng, font Inter', icon: 'Minus' },
+  { value: 'flat_design', label: 'Bold Infographic', description: 'Blocky, data-driven, font Montserrat', icon: 'BarChart3' },
+  { value: 'gradient', label: 'Gradient Flow', description: 'Neon glow, glassmorphism, hiện đại', icon: 'Blend' },
+  { value: 'geometric', label: 'Corporate', description: 'Navy gold, chuyên nghiệp, font Playfair', icon: 'Hexagon' },
+  { value: 'illustration', label: 'Story Visual', description: 'Ấm áp, hand-drawn feel, font Nunito', icon: 'Paintbrush' },
+  { value: 'product_only', label: 'Product Focus', description: 'Studio quality, sản phẩm trung tâm', icon: 'Focus' },
 ];
