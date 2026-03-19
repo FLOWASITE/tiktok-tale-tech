@@ -13,6 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Copy, Check, Images, MessageSquare, Megaphone, Download, Sparkles, Loader2, ImageIcon, TrendingUp, Send } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
 import {
   DndContext,
   closestCenter,
@@ -131,6 +132,9 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
   const [copiedCta, setCopiedCta] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
   const [generatingProgress, setGeneratingProgress] = useState(0);
+  const [generatingStartTime, setGeneratingStartTime] = useState<number | null>(null);
+  const [currentGeneratingSlide, setCurrentGeneratingSlide] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const lastAutoGenCarouselIdRef = useRef<string | null>(null);
 
   const sensors = useSensors(
@@ -190,6 +194,18 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
       lastAutoGenCarouselIdRef.current = null;
     }
   }, [open]);
+
+  // Elapsed time ticker for generation progress
+  useEffect(() => {
+    if (!generatingStartTime) {
+      setElapsedSeconds(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - generatingStartTime) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [generatingStartTime]);
 
   if (!carousel) return null;
 
@@ -294,6 +310,8 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
   const handleGenerateAllImages = async () => {
     setGeneratingAll(true);
     setGeneratingProgress(0);
+    setGeneratingStartTime(Date.now());
+    setCurrentGeneratingSlide(null);
 
     // Extract dominant colors from slide design info for seamless continuity
     const colorPalette = carousel.slides_content.length > 0
@@ -301,8 +319,10 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
       : null;
 
     let previousSceneDescription: string | null = null;
+    let successCount = 0;
 
     for (const slide of carousel.slides_content) {
+      setCurrentGeneratingSlide(slide.slideNumber);
       const isSeamless = carousel.carousel_style === 'seamless';
 
       const brandColors = extractBrandColors();
@@ -323,6 +343,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
       });
       if (result?.imageUrl) {
         await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt);
+        successCount++;
       }
 
       // Phase F: Use AI-extracted scene description for better seamless continuity
@@ -336,7 +357,16 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
 
     setGeneratingAll(false);
     setGeneratingProgress(0);
-    toast.success('Đã tạo xong tất cả ảnh!');
+    setCurrentGeneratingSlide(null);
+    setGeneratingStartTime(null);
+
+    if (successCount === carousel.slides_content.length) {
+      toast.success(`🎉 Đã tạo xong ${successCount} ảnh!`);
+    } else if (successCount > 0) {
+      toast.warning(`Tạo được ${successCount}/${carousel.slides_content.length} ảnh. Một số slide gặp lỗi.`);
+    } else {
+      toast.error('Không tạo được ảnh nào. Vui lòng thử lại.');
+    }
   };
 
   // Set the ref so the auto-trigger effect can call it
@@ -591,17 +621,52 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
                   </Button>
                 </div>
                 {generatingAll && (
-                  <div className="space-y-1.5 px-1">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1.5">
-                        <ImageIcon className="w-3.5 h-3.5 text-primary animate-pulse" />
-                        Đang tạo ảnh slide {Math.min(generatingProgress + 1, carousel.slide_count)}/{carousel.slide_count}
-                      </span>
-                      <span className="font-medium text-foreground">
-                        {Math.round((generatingProgress / carousel.slide_count) * 100)}%
-                      </span>
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 xs:p-4 space-y-3 animate-fade-in">
+                    {/* Slide progress steps */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {carousel.slides_content.map((slide) => {
+                        const isDone = generatingProgress > slide.slideNumber - 1;
+                        const isActive = currentGeneratingSlide === slide.slideNumber;
+                        return (
+                          <div
+                            key={slide.slideNumber}
+                            className={cn(
+                              "flex items-center justify-center w-8 h-8 rounded-lg text-xs font-medium transition-all duration-500",
+                              isDone && "bg-primary text-primary-foreground scale-100",
+                              isActive && "bg-primary/20 border-2 border-primary text-primary animate-pulse scale-110",
+                              !isDone && !isActive && "bg-muted text-muted-foreground"
+                            )}
+                          >
+                            {isDone ? '✓' : slide.slideNumber}
+                          </div>
+                        );
+                      })}
                     </div>
-                    <Progress value={(generatingProgress / carousel.slide_count) * 100} className="h-2" />
+                    {/* Progress bar + info */}
+                    <div className="space-y-1.5">
+                      <Progress value={(generatingProgress / carousel.slide_count) * 100} className="h-2.5" />
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-primary animate-pulse" />
+                          Slide {currentGeneratingSlide || '...'}/{carousel.slide_count}
+                          {currentGeneratingSlide && (
+                            <span className="text-muted-foreground/70">
+                              · {carousel.slides_content.find(s => s.slideNumber === currentGeneratingSlide)?.objective?.slice(0, 30) || 'Đang xử lý'}...
+                            </span>
+                          )}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="tabular-nums">{Math.round((generatingProgress / carousel.slide_count) * 100)}%</span>
+                          <span className="text-muted-foreground/60">·</span>
+                          <span className="tabular-nums text-muted-foreground/70">
+                            {Math.floor(elapsedSeconds / 60)}:{String(elapsedSeconds % 60).padStart(2, '0')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-center text-[10px] text-muted-foreground/60">
+                      ⏳ Mỗi slide mất ~15-20s · Đừng đóng cửa sổ này
+                    </p>
                   </div>
                 )}
               </div>

@@ -40,10 +40,10 @@ interface CarouselFormProps {
 }
 
 const LOADING_PHASES = [
-  'Đang phân tích chủ đề...',
-  'Đang tạo cấu trúc carousel...',
-  'Đang viết nội dung slides...',
-  'Hoàn thiện prompts...',
+  { label: 'Đang phân tích chủ đề...', icon: '🔍', duration: '~5s' },
+  { label: 'Đang tạo cấu trúc carousel...', icon: '🏗️', duration: '~10s' },
+  { label: 'Đang viết nội dung slides...', icon: '✍️', duration: '~15s' },
+  { label: 'Hoàn thiện prompts...', icon: '✨', duration: '~5s' },
 ];
 
 const MAX_TOPIC_LENGTH = 300;
@@ -328,58 +328,88 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
         </div>
       </div>
 
-      {/* Submit Buttons */}
+      {/* Submit Buttons & Loading State */}
       <div className="pt-2 space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Button
-            type="submit"
-            disabled={!topic.trim() || isLoading}
-            variant="outline"
-            className="h-12 font-semibold text-sm transition-all duration-300 border-border/80 hover:border-primary/50 hover:bg-primary/5"
-          >
-            {isLoading ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="animate-pulse text-xs">{LOADING_PHASES[loadingPhase]}</span>
+        {isLoading ? (
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-4 animate-fade-in">
+            {/* Progress Steps */}
+            <div className="space-y-2">
+              {LOADING_PHASES.map((phase, idx) => {
+                const isActive = idx === loadingPhase;
+                const isDone = idx < loadingPhase;
+                return (
+                  <div
+                    key={idx}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-500",
+                      isActive && "bg-primary/10 border border-primary/30 scale-[1.02]",
+                      isDone && "opacity-60",
+                      !isActive && !isDone && "opacity-30"
+                    )}
+                  >
+                    <span className="text-base w-6 text-center">
+                      {isDone ? '✅' : isActive ? (
+                        <span className="inline-block animate-pulse">{phase.icon}</span>
+                      ) : phase.icon}
+                    </span>
+                    <span className={cn(
+                      "text-sm flex-1",
+                      isActive && "font-medium text-foreground",
+                      isDone && "text-muted-foreground line-through",
+                      !isActive && !isDone && "text-muted-foreground"
+                    )}>
+                      {phase.label}
+                    </span>
+                    {isActive && (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Overall Progress Bar */}
+            <div className="space-y-1.5">
+              <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-700 ease-out"
+                  style={{ width: `${Math.min(((loadingPhase + 1) / LOADING_PHASES.length) * 100, 100)}%` }}
+                />
               </div>
-            ) : (
-              <>
+              <p className="text-center text-[11px] text-muted-foreground">
+                Bước {loadingPhase + 1}/{LOADING_PHASES.length} · Đừng đóng trang này
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Button
+                type="submit"
+                disabled={!topic.trim()}
+                variant="outline"
+                className="h-12 font-semibold text-sm transition-all duration-300 border-border/80 hover:border-primary/50 hover:bg-primary/5"
+              >
                 <MessageSquare className="w-4 h-4 mr-1.5" />
                 <span>Tạo Prompt</span>
-              </>
-            )}
-          </Button>
+              </Button>
 
-          <Button
-            type="button"
-            disabled={!topic.trim() || isLoading}
-            onClick={(e) => handleSubmit(e as any, true)}
-            className={cn(
-              "h-12 gradient-primary hover:opacity-90 transition-all duration-300 font-semibold text-sm relative overflow-hidden group",
-              !isLoading && "glow-primary"
-            )}
-          >
-            {!isLoading && (
-              <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-            )}
-            {isLoading ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="animate-pulse text-xs">{LOADING_PHASES[loadingPhase]}</span>
-              </div>
-            ) : (
-              <>
+              <Button
+                type="button"
+                disabled={!topic.trim()}
+                onClick={(e) => handleSubmit(e as any, true)}
+                className={cn(
+                  "h-12 gradient-primary hover:opacity-90 transition-all duration-300 font-semibold text-sm relative overflow-hidden group glow-primary"
+                )}
+              >
+                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
                 <Images className="w-4 h-4 mr-1.5" />
                 <span>Tạo Prompt + Ảnh</span>
-              </>
-            )}
-          </Button>
-        </div>
-        
-        {!isLoading && (
-          <p className="text-center text-xs text-muted-foreground">
-            Thời gian ước tính: ~20-40 giây (Prompt) · ~1-2 phút (Prompt + Ảnh)
-          </p>
+              </Button>
+            </div>
+            <p className="text-center text-xs text-muted-foreground">
+              ⏱ ~20-40s (Prompt) · ~1-2 phút (Prompt + Ảnh)
+            </p>
+          </>
         )}
       </div>
 
