@@ -307,6 +307,25 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
   const handleGenerateImage = async (slideNumber: number, prompt: string) => {
     const slide = carousel.slides_content.find(s => s.slideNumber === slideNumber);
     const brandColors = extractBrandColors();
+
+    // Build seamlessContext for single-slide regeneration to maintain visual continuity
+    let seamlessContext = undefined;
+    if (carousel.carousel_style === 'seamless') {
+      const colorPalette = carousel.slides_content.length > 0
+        ? extractColorPalette(carousel.slides_content[0])
+        : null;
+      const prevSlide = carousel.slides_content.find(s => s.slideNumber === slideNumber - 1);
+      const previousSceneDescription = prevSlide
+        ? (prevSlide.objective || (typeof prevSlide.textContent === 'object' ? prevSlide.textContent.headline : null))
+        : null;
+      seamlessContext = {
+        colorPalette,
+        previousSceneDescription,
+        sequencePosition: slideNumber,
+        totalInSequence: carousel.slides_content.length,
+      };
+    }
+
     const result = await generateImage(prompt, carousel.id, slideNumber, {
       textContent: slide?.textContent,
       platform: carousel.platform,
@@ -315,6 +334,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
       totalSlides: carousel.slides_content.length,
       slideObjective: slide?.objective,
       visualPreset: carousel.visual_preset || 'minimalist',
+      seamlessContext,
     });
     if (result?.imageUrl) {
       await saveImage(slideNumber, result.imageUrl, prompt);
