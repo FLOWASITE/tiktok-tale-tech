@@ -60,6 +60,7 @@ const CarouselPage = () => {
   const { profiles: creatorProfiles, isLoading: isLoadingProfiles } = useCreatorProfiles(userIds);
   
   const [selectedCarousel, setSelectedCarousel] = useState<Carousel | null>(null);
+  const [trackerCarousel, setTrackerCarousel] = useState<Carousel | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [formSheetOpen, setFormSheetOpen] = useState(false);
   const [initialTopic, setInitialTopic] = useState<string>('');
@@ -205,8 +206,8 @@ const CarouselPage = () => {
       }
 
       if (formData.autoGenerateImages) {
-        // Tracker mode: set carousel for tracker to pick up
-        setSelectedCarousel(newCarousel);
+        // Tracker mode: set carousel for tracker to pick up (separate from viewer)
+        setTrackerCarousel(newCarousel);
       } else {
         // Normal mode: close form, open viewer
         setFormSheetOpen(false);
@@ -246,10 +247,11 @@ const CarouselPage = () => {
           platform={trackerPlatform}
           slideCount={trackerSlideCount}
           promptGenerating={generating}
-          carousel={selectedCarousel}
+          carousel={trackerCarousel}
           onViewResults={(carousel) => {
             setTrackerMode(false);
             setTrackerMinimized(false);
+            setTrackerCarousel(null);
             setSelectedCarousel(carousel);
             setAutoGenerateImages(false);
             setViewerOpen(true);
@@ -331,10 +333,11 @@ const CarouselPage = () => {
                 platform={trackerPlatform}
                 slideCount={trackerSlideCount}
                 promptGenerating={generating}
-                carousel={selectedCarousel}
+                carousel={trackerCarousel}
                 onViewResults={(carousel) => {
                   setTrackerMode(false);
                   setTrackerMinimized(false);
+                  setTrackerCarousel(null);
                   setSelectedCarousel(carousel);
                   setAutoGenerateImages(false);
                   setViewerOpen(true);
@@ -346,10 +349,11 @@ const CarouselPage = () => {
               statusText={trackerProgress.statusText}
               allDone={trackerProgress.allDone}
               onExpand={() => setTrackerMinimized(false)}
-              onViewResults={trackerProgress.allDone && selectedCarousel ? () => {
+            onViewResults={trackerProgress.allDone && trackerCarousel ? () => {
                 setTrackerMode(false);
                 setTrackerMinimized(false);
-                setSelectedCarousel(selectedCarousel);
+                setTrackerCarousel(null);
+                setSelectedCarousel(trackerCarousel);
                 setAutoGenerateImages(false);
                 setViewerOpen(true);
               } : undefined}
@@ -632,10 +636,11 @@ const CarouselPage = () => {
               platform={trackerPlatform}
               slideCount={trackerSlideCount}
               promptGenerating={generating}
-              carousel={selectedCarousel}
+              carousel={trackerCarousel}
               onViewResults={(carousel) => {
                 setTrackerMode(false);
                 setTrackerMinimized(false);
+                setTrackerCarousel(null);
                 setSelectedCarousel(carousel);
                 setAutoGenerateImages(false);
                 setViewerOpen(true);
@@ -647,10 +652,11 @@ const CarouselPage = () => {
             statusText={trackerProgress.statusText}
             allDone={trackerProgress.allDone}
             onExpand={() => setTrackerMinimized(false)}
-            onViewResults={trackerProgress.allDone && selectedCarousel ? () => {
+            onViewResults={trackerProgress.allDone && trackerCarousel ? () => {
               setTrackerMode(false);
               setTrackerMinimized(false);
-              setSelectedCarousel(selectedCarousel);
+              setTrackerCarousel(null);
+              setSelectedCarousel(trackerCarousel);
               setAutoGenerateImages(false);
               setViewerOpen(true);
             } : undefined}
