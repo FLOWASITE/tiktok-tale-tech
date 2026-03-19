@@ -539,10 +539,6 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
                   <Images className="w-2.5 h-2.5 xs:w-3 xs:h-3 mr-0.5 xs:mr-1" />
                   {carousel.slide_count} slides
                 </Badge>
-                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[10px] xs:text-xs">
-                  <Sparkles className="w-2.5 h-2.5 xs:w-3 xs:h-3 mr-0.5 xs:mr-1" />
-                  Lovable AI
-                </Badge>
                 {carousel.carousel_style && (() => {
                   const styleOpt = CAROUSEL_STYLE_OPTIONS.find(s => s.value === carousel.carousel_style);
                   const StyleIcon = styleOpt ? STYLE_ICON_MAP[styleOpt.icon] : null;
