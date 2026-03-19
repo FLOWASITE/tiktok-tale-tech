@@ -1062,6 +1062,28 @@ GALLERY / PHOTO DUMP STYLE:
 - The image itself IS the content.
 `;
     }
+  } else if (carouselStyle === 'educational') {
+    styleDirective = `
+EDUCATIONAL CAROUSEL STYLE:
+- This is slide ${slideNumber || '?'} of ${totalSlides || '?'} in an educational step-by-step sequence.
+- Composition should feel like a page from a premium business e-book or professional course material.
+- Each slide builds upon the previous one — maintain visual progression:
+  * Slide 1 (Hook): Wide establishing shot, dramatic, attention-grabbing
+  * Slides 2-${(totalSlides || 5) - 1}: Medium shots, focused on specific concepts, gradually brighter/more optimistic
+  * Slide ${totalSlides || 5} (CTA): Open, inviting, forward-looking composition
+- Leave generous clean space for text overlay — this is an EDUCATIONAL format where text readability is paramount.
+- Background should SUPPORT the content, not compete with it. Subtle, professional, not distracting.
+`;
+  }
+
+  // Default fallback for styles without a specific directive
+  if (!styleDirective) {
+    styleDirective = `
+CAROUSEL COMPOSITION:
+- This is slide ${slideNumber || '?'} of ${totalSlides || '?'}.
+- Maintain consistent visual style, color palette, and mood across all slides.
+- Leave clean space for text overlay — background should complement, not overpower text.
+`;
   }
   
   // Clean prompt: remove text-rendering directives
