@@ -49,6 +49,8 @@ type SlideStatus = 'pending' | 'generating' | 'done' | 'error';
 interface CarouselGenerationTrackerProps {
   /** Called when user clicks back */
   onBack: () => void;
+  /** Called when user clicks minimize */
+  onMinimize?: () => void;
   /** The carousel form data topic for display */
   topic: string;
   platform: string;
