@@ -1,4 +1,4 @@
-import { Carousel, CarouselStatus, CarouselSlide, CAROUSEL_STYLE_OPTIONS, VISUAL_PRESET_OPTIONS, VisualPresetType, textContentToString } from '@/types/carousel';
+import { Carousel, CarouselStatus, CarouselSlide, CarouselStyleType, CAROUSEL_STYLE_OPTIONS, VISUAL_PRESET_OPTIONS, VisualPresetType, textContentToString } from '@/types/carousel';
 import { SlidePromptCard } from './SlidePromptCard';
 import { SortableSlideCard } from './SortableSlideCard';
 import {
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Copy, Check, Images, MessageSquare, Megaphone, Download, Sparkles, Loader2, ImageIcon, TrendingUp, Send } from 'lucide-react';
+import { Copy, Check, Images, MessageSquare, Megaphone, Download, Sparkles, Loader2, ImageIcon, TrendingUp, Send, LayoutGrid } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import {
@@ -45,6 +45,7 @@ import { IndustryGuardrailBadge } from '@/components/IndustryGuardrailBadge';
 import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { useSeamlessValidation } from '@/hooks/useSeamlessValidation';
+import { CarouselLayoutPreview } from '@/components/carousel/CarouselLayoutPreview';
 
 interface CarouselViewerProps {
   carousel: Carousel | null;
@@ -604,9 +605,13 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
           </div>
         </DialogHeader>
 
-        <Tabs defaultValue="slides" className="flex-1 flex flex-col overflow-hidden">
+        <Tabs defaultValue="preview" className="flex-1 flex flex-col overflow-hidden">
           <div className="px-3 xs:px-6 pt-2 space-y-2 xs:space-y-3">
             <TabsList className="w-full xs:w-fit h-auto flex-wrap justify-start gap-1">
+              <TabsTrigger value="preview" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
+                <LayoutGrid className="w-3 h-3 xs:w-4 xs:h-4" />
+                <span className="hidden xs:inline">Preview</span>
+              </TabsTrigger>
               <TabsTrigger value="slides" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
                 <Images className="w-3 h-3 xs:w-4 xs:h-4" />
                 <span className="hidden xs:inline">Prompts</span> ({carousel.slides_content.length})
@@ -627,6 +632,25 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
           </div>
 
           <ScrollArea className="flex-1 px-3 xs:px-6 py-3 xs:py-4">
+            <TabsContent value="preview" className="mt-0 space-y-4">
+              <CarouselLayoutPreview
+                slides={carousel.slides_content}
+                visualPreset={carousel.visual_preset as VisualPresetType}
+                carouselStyle={carousel.carousel_style as CarouselStyleType}
+                platform={carousel.platform}
+              />
+              <div className="flex justify-center">
+                <Button
+                  onClick={handleGenerateAllImages}
+                  disabled={generatingAll || generating !== null}
+                  className="gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Hài lòng? Tạo ảnh ngay
+                </Button>
+              </div>
+            </TabsContent>
+
             <TabsContent value="slides" className="mt-0 space-y-3 xs:space-y-4">
               {/* Generate All Button + Progress */}
               <div className="space-y-2">
