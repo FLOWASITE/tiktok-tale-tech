@@ -557,6 +557,15 @@ VÍ DỤ XẤU (tất cả lặp lại):
 - Slide 2: "Spa treatment area with oils..."
 - Slide 3: "Spa massage room with stones..."
 
+## PEOPLE & CHARACTER LOCALIZATION (CRITICAL)
+If any slide includes people, characters, or human figures in the fullPrompt:
+- They MUST match the brand's target market: ${countryConfig.englishName}.
+- Describe people as "${countryConfig.englishName} people" or use ethnicity-appropriate descriptions.
+- Example: If brand is from Vietnam → "Vietnamese woman in her 30s", NOT "Caucasian woman".
+- Example: If brand is from Thailand → "Thai businessman", NOT generic "Asian man".
+- This applies to ALL human figures: customers, professionals, models, hands, etc.
+- If no people are needed, this rule does not apply — do NOT force people into scenes.
+
 ${textLengthSection}
 
 ## NGUYÊN TẮC VIẾT NỘI DUNG
