@@ -993,11 +993,21 @@ RULES FOR TEXT:
     }
 
     if (seamlessContext.previousSceneDescription) {
-      if (isSeamless) {
-        parts.push(`VISUAL WORLD for this series: "${seamlessContext.previousSceneDescription}". This slide MUST exist in the SAME visual world — same environment, same lighting direction, same visual flow, same color temperature. The left edge of this image should seamlessly connect to the right edge of the previous slide.`);
+      const desc = seamlessContext.previousSceneDescription;
+      
+      // If it's a Series Bible (long, comprehensive context), use directly
+      if (desc.length > 100) {
+        parts.push(desc);
+      } else if (isSeamless) {
+        parts.push(`VISUAL WORLD for this series: "${desc}". This slide MUST exist in the SAME visual world — same environment, same lighting direction, same visual flow, same color temperature. The left edge of this image should seamlessly connect to the right edge of the previous slide.`);
       } else {
-        parts.push(`VISUAL WORLD for this series: "${seamlessContext.previousSceneDescription}". Maintain the SAME environment, lighting, photography style, and color temperature. Visual identity must be consistent across all slides.`);
+        parts.push(`VISUAL WORLD for this series: "${desc}". Maintain the SAME environment, lighting, photography style, and color temperature. Visual identity must be consistent across all slides.`);
       }
+    }
+
+    // Sibling slides context — helps AI understand the story arc
+    if (seamlessContext.siblingSlidesSummary) {
+      parts.push(`SERIES CONTEXT: This carousel contains: ${seamlessContext.siblingSlidesSummary}. Your slide must visually belong to this same story arc.`);
     }
 
     const pos = seamlessContext.sequencePosition || slideNumber || 1;

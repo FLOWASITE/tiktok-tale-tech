@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { Carousel } from '@/types/carousel';
+import { Carousel, CarouselSlide } from '@/types/carousel';
 import { useImageGeneration } from '@/hooks/useImageGeneration';
 import { useCarouselImages } from '@/hooks/useCarouselImages';
 import { useConfetti } from '@/hooks/useConfetti';
@@ -91,6 +91,37 @@ function extractBrandColors(carousel: Carousel): { textColor?: string; backgroun
     if (hexColors && hexColors.length === 1) return { textColor: hexColors[0] };
   }
   return undefined;
+}
+
+/**
+ * Build a comprehensive "Series Bible" from ALL slides' prompts.
+ * Aggregates consistency directives, design style, and visual world
+ * so parallel-generated slides share the same visual identity.
+ */
+function buildSeriesBible(slides: CarouselSlide[]): string {
+  // Collect ALL "consistent with..." directives from all slides
+  const consistencyParts: string[] = [];
+  slides.forEach(s => {
+    const match = s.fullPrompt.match(/consistent with (?:previous slides|series):\s*(.+?)$/im);
+    if (match) consistencyParts.push(match[1].trim());
+  });
+  const uniqueParts = [...new Set(consistencyParts)];
+
+  // Extract common visual elements from slide 1's full prompt
+  const slide1Prompt = slides[0]?.fullPrompt || '';
+
+  // Build comprehensive series bible
+  const bible = [
+    `SERIES VISUAL BIBLE (applies to ALL slides):`,
+    uniqueParts.length > 0
+      ? `Visual world: ${uniqueParts.join('. ')}.`
+      : `Visual world: ${slides[0]?.designStyle || 'professional photography'}.`,
+    `Total slides in series: ${slides.length}.`,
+    `All slides share the SAME: lighting direction, color temperature, photography style, environment/setting, and visual mood.`,
+    `Reference scene (slide 1): "${slide1Prompt.slice(0, 200)}..."`,
+  ].join('\n');
+
+  return bible;
 }
 
 export function CarouselGenerationTracker({
@@ -180,15 +211,16 @@ export function CarouselGenerationTracker({
     const BATCH_SIZE = 3;
     const localStatuses: SlideStatus[] = Array(carousel.slides_content.length).fill('pending');
 
-    // Extract shared visual world from first slide's prompt
-    // Gemini Pro already designed all slides in the same "visual world"
-    // Each fullPrompt ends with "consistent with previous slides: [description]"
-    const sharedVisualWorld = (() => {
-      const firstPrompt = carousel.slides_content[0]?.fullPrompt || '';
-      const match = firstPrompt.match(/consistent with (?:previous slides|series):\s*(.+?)$/im);
-      return match?.[1]?.trim() || carousel.slides_content[0]?.designStyle || '';
-    })();
-    console.log(`[tracker] Shared visual world: "${sharedVisualWorld.slice(0, 100)}..."`);
+    // Build comprehensive Series Bible from ALL slides
+    const seriesBible = buildSeriesBible(carousel.slides_content);
+    
+    // Build sibling context for visual coherence
+    const siblingsSummary = carousel.slides_content
+      .map(s => `Slide ${s.slideNumber}: ${s.objective}`)
+      .join(' | ');
+    
+    console.log(`[tracker] Series Bible (${seriesBible.length} chars): "${seriesBible.slice(0, 120)}..."`);
+    console.log(`[tracker] Siblings summary: "${siblingsSummary.slice(0, 100)}..."`);
 
     const attemptGenerateSlide = async (i: number): Promise<boolean> => {
       const slide = carousel.slides_content[i];
@@ -212,7 +244,8 @@ export function CarouselGenerationTracker({
           carouselTopic: carousel.topic,
           seamlessContext: {
             colorPalette,
-            previousSceneDescription: sharedVisualWorld || null,
+            previousSceneDescription: seriesBible || null,
+            siblingSlidesSummary: siblingsSummary || null,
             sequencePosition: slide.slideNumber,
             totalInSequence: carousel.slides_content.length,
           },
