@@ -493,7 +493,7 @@ serve(async (req) => {
     // === STEP 1: Generate background image (no text) ===
     const backgroundPrompt = buildBackgroundPrompt(
       prompt, platform, carouselStyle, slideNumber, totalSlides, slideRole,
-      seamlessContext, blendedTokens, brandColors
+      seamlessContext, blendedTokens, brandColors, carouselTopic, slideObjective
     );
     console.log("[generate-carousel-image] Step 1: Generating background...");
 
