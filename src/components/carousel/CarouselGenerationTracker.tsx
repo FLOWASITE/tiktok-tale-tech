@@ -124,6 +124,9 @@ export function CarouselGenerationTracker({
   const [tipIndex, setTipIndex] = useState(0);
 
   const { fireConfetti } = useConfetti();
+  const { user } = useAuth();
+  const promptNotifiedRef = useRef(false);
+  const doneNotifiedRef = useRef(false);
 
   // Rotate prompt steps during Phase 1
   useEffect(() => {
