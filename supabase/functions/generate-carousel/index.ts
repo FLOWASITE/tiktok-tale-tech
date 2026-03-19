@@ -855,11 +855,16 @@ Follow the carousel style guidelines strictly.`;
       slideCount: formData.slideCount,
       aiTool: formData.aiTool,
       brandName: formData.brandName,
+      carouselStyle: formData.carouselStyle || 'educational',
+      visualPreset: formData.visualPreset || 'minimalist',
+      outputLang,
+      promptSchemaVersion: 'carousel_v5',
       brandVoice: brandVoice ? {
         positioning: brandVoice.brand_positioning,
         tone: brandVoice.tone_of_voice,
         formality: brandVoice.formality_level,
       } : null,
+      brandGuidelineHash: formData.brandGuideline ? formData.brandGuideline.slice(0, 100) : null,
     };
 
     let generatedData: any;
