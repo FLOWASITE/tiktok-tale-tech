@@ -7,6 +7,29 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ─── In-memory font cache — persists across invocations within same Deno isolate ───
+const fontCache = new Map<string, { data: ArrayBuffer; timestamp: number }>();
+const FONT_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const FONT_CACHE_MAX_SIZE = 50; // ~15MB max (50 × ~300KB)
+
+function getCachedFont(key: string): ArrayBuffer | null {
+  const entry = fontCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > FONT_CACHE_TTL) {
+    fontCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCachedFont(key: string, data: ArrayBuffer): void {
+  if (fontCache.size >= FONT_CACHE_MAX_SIZE) {
+    const oldest = fontCache.keys().next().value;
+    if (oldest) fontCache.delete(oldest);
+  }
+  fontCache.set(key, { data, timestamp: Date.now() });
+}
+
 type TextPosition = 'center' | 'top' | 'bottom' | 'top-left' | 'bottom-right';
 type TypographyStyle = 'modern' | 'classic' | 'bold' | 'minimal' | 'clean' | 'outline' | 'glow';
 
@@ -349,6 +372,14 @@ function getTypographyStyles(style: TypographyStyle): {
  */
 async function loadGoogleFont(text: string, weight: number = 600, family: string = 'Be Vietnam Pro'): Promise<ArrayBuffer | null> {
   try {
+    const cacheKey = `${family}-${weight}`;
+    const cached = getCachedFont(cacheKey);
+    if (cached) {
+      console.log(`[Font Cache] HIT: ${cacheKey}`);
+      return cached;
+    }
+    console.log(`[Font Cache] MISS: ${cacheKey}`);
+
     const fontFamily = family.replace(/\s+/g, '+');
     const encodedText = encodeURIComponent(text);
     const url = `https://fonts.googleapis.com/css2?family=${fontFamily}:wght@${weight}&text=${encodedText}`;
@@ -383,6 +414,7 @@ async function loadGoogleFont(text: string, weight: number = 600, family: string
     
     const fontData = await fontResponse.arrayBuffer();
     console.log(`[overlay-text-canvas] Font ${family} wt=${weight} loaded: ${fontData.byteLength} bytes`);
+    setCachedFont(cacheKey, fontData);
     return fontData;
   } catch (error) {
     console.error(`[overlay-text-canvas] Font loading error:`, error);
@@ -2014,6 +2046,8 @@ serve(async (req) => {
     }
 
     console.log(`[overlay-text-canvas] === SUCCESS ===`);
+
+    console.log(`[Font Cache] Size: ${fontCache.size} entries`);
 
     return new Response(
       JSON.stringify({
