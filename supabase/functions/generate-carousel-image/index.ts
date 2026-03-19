@@ -18,7 +18,6 @@ function detectSlideRole(
   objective: string,
   carouselStyle: string
 ): string {
-  // Gallery: middle slides are visual-only (no text overlay)
   if (carouselStyle === 'gallery') {
     if (slideNumber === 1) return 'hook';
     if (slideNumber === totalSlides) return 'cta';
@@ -36,49 +35,90 @@ function detectSlideRole(
 }
 
 // ============================================
-// Overlay Config Matrix — per visual preset + slide role
+// Hardcoded Overlay Matrix (fallback when DB preset unavailable)
 // ============================================
-function getOverlayConfig(visualPreset: string, slideRole: string): Record<string, any> {
-  const OVERLAY_MATRIX: Record<string, Record<string, any>> = {
-    minimalist: {
-      hook: { position: "center", fontWeight: 500, fontSize: "2.5rem", textAlign: "center", maxWidth: "70%", textTransform: "none", background: "none", textColor: "#1A1A1A" },
-      body: { position: "bottom-left", fontWeight: 400, fontSize: "1rem", textAlign: "left", maxWidth: "80%", background: "none", textColor: "#1A1A1A" },
-      cta:  { position: "center", fontWeight: 500, fontSize: "1.5rem", textAlign: "center", maxWidth: "60%", background: "none", textColor: "#1A1A1A" },
-      dataPoint: { position: "center", fontWeight: 500, fontSize: "3rem", textAlign: "center", maxWidth: "70%", background: "none", textColor: "#2563EB" },
-      quote: { position: "center", fontWeight: 400, fontSize: "1.75rem", textAlign: "center", maxWidth: "65%", background: "none", textColor: "#6B7280" },
-    },
-    flat_design: {
-      hook:      { position: "center", fontWeight: 900, fontSize: "4rem", textAlign: "center", maxWidth: "90%", textTransform: "uppercase", background: "solid-block", textColor: "#FFFFFF" },
-      body:      { position: "top-left", fontWeight: 700, fontSize: "1.25rem", textAlign: "left", maxWidth: "85%", background: "solid-block", textColor: "#FFFFFF" },
-      dataPoint: { position: "center", fontWeight: 900, fontSize: "6rem", textAlign: "center", maxWidth: "90%", background: "none", textColor: "#FFC107" },
-      cta:       { position: "bottom-center", fontWeight: 800, fontSize: "2rem", textAlign: "center", maxWidth: "90%", textTransform: "uppercase", background: "solid-block", textColor: "#FFFFFF" },
-    },
-    gradient: {
-      hook: { position: "center", fontWeight: 700, fontSize: "3rem", textAlign: "center", maxWidth: "75%", background: "glass", textColor: "#FFFFFF" },
-      body: { position: "center", fontWeight: 400, fontSize: "1.1rem", textAlign: "center", maxWidth: "70%", background: "glass", textColor: "#FFFFFF" },
-      cta:  { position: "bottom-center", fontWeight: 700, fontSize: "1.75rem", textAlign: "center", maxWidth: "65%", background: "glass", textColor: "#FFFFFF" },
-    },
-    geometric: {
-      hook: { position: "left-column", fontWeight: 700, fontSize: "2.75rem", textAlign: "left", maxWidth: "55%", background: "none", textColor: "#FFFFFF" },
-      body: { position: "left-column", fontWeight: 400, fontSize: "1rem", textAlign: "left", maxWidth: "55%", background: "none", textColor: "#CBD5E1" },
-      cta:  { position: "bottom-left", fontWeight: 600, fontSize: "1.5rem", textAlign: "left", maxWidth: "50%", textTransform: "uppercase", background: "none", textColor: "#C9A84C" },
-    },
-    illustration: {
-      hook:  { position: "asymmetric-left", fontWeight: 700, fontSize: "2.5rem", textAlign: "left", maxWidth: "65%", background: "none", textColor: "#3D2C2E" },
-      quote: { position: "center", fontWeight: 400, fontSize: "1.75rem", textAlign: "center", maxWidth: "70%", background: "none", textColor: "#6B5352" },
-      body:  { position: "bottom-left", fontWeight: 400, fontSize: "1rem", textAlign: "left", maxWidth: "75%", background: "none", textColor: "#3D2C2E" },
-      cta:   { position: "center", fontWeight: 600, fontSize: "1.5rem", textAlign: "center", maxWidth: "60%", background: "none", textColor: "#E07A5F" },
-    },
-    product_only: {
-      hook:  { position: "top-center", fontWeight: 800, fontSize: "2.5rem", textAlign: "center", maxWidth: "85%", background: "none", textColor: "#111111" },
-      body:  { position: "center-left", fontWeight: 800, fontSize: "2rem", textAlign: "left", maxWidth: "45%", background: "none", textColor: "#111111" },
-      cta:   { position: "bottom-center", fontWeight: 700, fontSize: "1.25rem", textAlign: "center", maxWidth: "90%", textTransform: "uppercase", background: "cta-button", textColor: "#FFFFFF" },
-    },
-  };
+const FALLBACK_OVERLAY_MATRIX: Record<string, Record<string, any>> = {
+  minimalist: {
+    hook: { position: "center", fontWeight: 500, fontSize: "2.5rem", textAlign: "center", maxWidth: "70%", textTransform: "none", background: "none", textColor: "#1A1A1A" },
+    body: { position: "bottom-left", fontWeight: 400, fontSize: "1rem", textAlign: "left", maxWidth: "80%", background: "none", textColor: "#1A1A1A" },
+    cta:  { position: "center", fontWeight: 500, fontSize: "1.5rem", textAlign: "center", maxWidth: "60%", background: "none", textColor: "#1A1A1A" },
+    dataPoint: { position: "center", fontWeight: 500, fontSize: "3rem", textAlign: "center", maxWidth: "70%", background: "none", textColor: "#2563EB" },
+    quote: { position: "center", fontWeight: 400, fontSize: "1.75rem", textAlign: "center", maxWidth: "65%", background: "none", textColor: "#6B7280" },
+  },
+  flat_design: {
+    hook:      { position: "center", fontWeight: 900, fontSize: "4rem", textAlign: "center", maxWidth: "90%", textTransform: "uppercase", background: "solid-block", textColor: "#FFFFFF" },
+    body:      { position: "top-left", fontWeight: 700, fontSize: "1.25rem", textAlign: "left", maxWidth: "85%", background: "solid-block", textColor: "#FFFFFF" },
+    dataPoint: { position: "center", fontWeight: 900, fontSize: "6rem", textAlign: "center", maxWidth: "90%", background: "none", textColor: "#FFC107" },
+    cta:       { position: "bottom-center", fontWeight: 800, fontSize: "2rem", textAlign: "center", maxWidth: "90%", textTransform: "uppercase", background: "solid-block", textColor: "#FFFFFF" },
+  },
+  gradient: {
+    hook: { position: "center", fontWeight: 700, fontSize: "3rem", textAlign: "center", maxWidth: "75%", background: "glass", textColor: "#FFFFFF" },
+    body: { position: "center", fontWeight: 400, fontSize: "1.1rem", textAlign: "center", maxWidth: "70%", background: "glass", textColor: "#FFFFFF" },
+    cta:  { position: "bottom-center", fontWeight: 700, fontSize: "1.75rem", textAlign: "center", maxWidth: "65%", background: "glass", textColor: "#FFFFFF" },
+  },
+  geometric: {
+    hook: { position: "left-column", fontWeight: 700, fontSize: "2.75rem", textAlign: "left", maxWidth: "55%", background: "none", textColor: "#FFFFFF" },
+    body: { position: "left-column", fontWeight: 400, fontSize: "1rem", textAlign: "left", maxWidth: "55%", background: "none", textColor: "#CBD5E1" },
+    cta:  { position: "bottom-left", fontWeight: 600, fontSize: "1.5rem", textAlign: "left", maxWidth: "50%", textTransform: "uppercase", background: "none", textColor: "#C9A84C" },
+  },
+  illustration: {
+    hook:  { position: "asymmetric-left", fontWeight: 700, fontSize: "2.5rem", textAlign: "left", maxWidth: "65%", background: "none", textColor: "#3D2C2E" },
+    quote: { position: "center", fontWeight: 400, fontSize: "1.75rem", textAlign: "center", maxWidth: "70%", background: "none", textColor: "#6B5352" },
+    body:  { position: "bottom-left", fontWeight: 400, fontSize: "1rem", textAlign: "left", maxWidth: "75%", background: "none", textColor: "#3D2C2E" },
+    cta:   { position: "center", fontWeight: 600, fontSize: "1.5rem", textAlign: "center", maxWidth: "60%", background: "none", textColor: "#E07A5F" },
+  },
+  product_only: {
+    hook:  { position: "top-center", fontWeight: 800, fontSize: "2.5rem", textAlign: "center", maxWidth: "85%", background: "none", textColor: "#111111" },
+    body:  { position: "center-left", fontWeight: 800, fontSize: "2rem", textAlign: "left", maxWidth: "45%", background: "none", textColor: "#111111" },
+    cta:   { position: "bottom-center", fontWeight: 700, fontSize: "1.25rem", textAlign: "center", maxWidth: "90%", textTransform: "uppercase", background: "cta-button", textColor: "#FFFFFF" },
+  },
+};
 
-  const styleConfig = OVERLAY_MATRIX[visualPreset];
-  if (!styleConfig) return OVERLAY_MATRIX.minimalist.body;
-  return styleConfig[slideRole] || styleConfig['body'] || OVERLAY_MATRIX.minimalist.body;
+// ============================================
+// Get Overlay Config — DB preset first, fallback to hardcoded
+// ============================================
+function getOverlayConfig(
+  visualPreset: string,
+  slideRole: string,
+  dbOverlayConfig?: Record<string, any> | null
+): Record<string, any> {
+  // Priority 1: DB preset overlay_config
+  if (dbOverlayConfig && dbOverlayConfig[slideRole]) {
+    return dbOverlayConfig[slideRole];
+  }
+  // Also check DB for 'body' fallback
+  if (dbOverlayConfig && dbOverlayConfig['body']) {
+    return dbOverlayConfig['body'];
+  }
+
+  // Priority 2: Hardcoded fallback
+  const styleConfig = FALLBACK_OVERLAY_MATRIX[visualPreset];
+  if (!styleConfig) return FALLBACK_OVERLAY_MATRIX.minimalist.body;
+  return styleConfig[slideRole] || styleConfig['body'] || FALLBACK_OVERLAY_MATRIX.minimalist.body;
+}
+
+// ============================================
+// Fetch style preset from DB
+// ============================================
+async function fetchStylePreset(supabase: any, presetKey: string): Promise<{ tokens: any; overlay_config: any } | null> {
+  try {
+    const { data, error } = await supabase
+      .from('carousel_style_presets')
+      .select('tokens, overlay_config')
+      .eq('preset_key', presetKey)
+      .eq('is_active', true)
+      .single();
+
+    if (error || !data) {
+      console.log(`[generate-carousel-image] No DB preset for '${presetKey}', using fallback`);
+      return null;
+    }
+    console.log(`[generate-carousel-image] Loaded DB preset: ${presetKey}`);
+    return data;
+  } catch (e) {
+    console.warn(`[generate-carousel-image] Error fetching preset:`, e);
+    return null;
+  }
 }
 
 serve(async (req) => {
@@ -92,7 +132,7 @@ serve(async (req) => {
   try {
     const requestBody = await req.json();
     const { prompt, carouselId, slideNumber, textContent, brandColors, platform,
-            carouselStyle, totalSlides, slideObjective, visualPreset } = requestBody;
+            carouselStyle, totalSlides, slideObjective, visualPreset, seamlessContext } = requestBody;
 
     console.log(`[generate-carousel-image] Starting for carousel ${carouselId}, slide ${slideNumber}`);
 
@@ -119,13 +159,24 @@ serve(async (req) => {
     );
     console.log(`[generate-carousel-image] Slide role: ${slideRole} (style=${carouselStyle}, preset=${visualPreset})`);
 
-    // === STEP 0: Get AI config for model selection ===
-    const aiConfig = await getAIConfig('generate-carousel-image');
+    // === STEP 0: Get AI config + DB style preset in parallel ===
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const [aiConfig, dbPreset] = await Promise.all([
+      getAIConfig('generate-carousel-image'),
+      fetchStylePreset(supabase, visualPreset || carouselStyle || 'minimalist'),
+    ]);
+
     const imageModel = aiConfig.model;
     console.log(`[generate-carousel-image] Using model: ${imageModel}`);
 
     // === STEP 1: Generate background image (no text) ===
-    const backgroundPrompt = buildBackgroundPrompt(prompt, platform, carouselStyle, slideNumber, totalSlides, slideRole);
+    const backgroundPrompt = buildBackgroundPrompt(
+      prompt, platform, carouselStyle, slideNumber, totalSlides, slideRole,
+      seamlessContext, dbPreset?.tokens
+    );
     console.log("[generate-carousel-image] Step 1: Generating background...");
     
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
@@ -193,9 +244,6 @@ serve(async (req) => {
     }
 
     // Upload background to storage
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const userId = await resolveUserId(req, supabase);
 
     const binaryString = atob(imageBase64);
@@ -255,10 +303,14 @@ serve(async (req) => {
     if (textContent && textContent.trim()) {
       console.log("[generate-carousel-image] Step 2: Overlaying text via Satori...");
       
-      const dimensions = getPlatformDimensions(platform);
+      const dimensions = getPlatformDimensions(platform, carouselStyle);
 
-      // Get dynamic overlay config based on visual preset + slide role
-      const overlayConfig = getOverlayConfig(visualPreset || 'minimalist', slideRole);
+      // Get dynamic overlay config — DB preset takes priority
+      const overlayConfig = getOverlayConfig(
+        visualPreset || 'minimalist',
+        slideRole,
+        dbPreset?.overlay_config
+      );
       console.log(`[generate-carousel-image] Overlay config:`, JSON.stringify(overlayConfig));
       
       try {
@@ -273,7 +325,6 @@ serve(async (req) => {
             body: JSON.stringify({
               baseImageUrl: backgroundUrl,
               text: textContent,
-              // Dynamic overlay params from preset matrix
               carouselOverlay: {
                 position: overlayConfig.position || 'center',
                 fontWeight: overlayConfig.fontWeight || 600,
@@ -383,8 +434,11 @@ serve(async (req) => {
 });
 
 /**
- * Build a background-only prompt: strips text rendering instructions,
- * focuses on visual composition with safe zones for overlay.
+ * Build a background-only prompt with:
+ * - Safe zone instructions
+ * - Style-specific directives
+ * - Seamless continuity context (color palette + previous scene)
+ * - DB design tokens (colors, typography hints)
  */
 function buildBackgroundPrompt(
   originalPrompt: string,
@@ -392,7 +446,14 @@ function buildBackgroundPrompt(
   carouselStyle?: string,
   slideNumber?: number,
   totalSlides?: number,
-  slideRole?: string
+  slideRole?: string,
+  seamlessContext?: {
+    colorPalette?: string[] | null;
+    previousSceneDescription?: string | null;
+    sequencePosition?: number;
+    totalInSequence?: number;
+  } | null,
+  dbTokens?: any | null
 ): string {
   let safeZoneNote = `
 CRITICAL INSTRUCTIONS:
@@ -403,9 +464,58 @@ CRITICAL INSTRUCTIONS:
 - High resolution, professional photography or illustration quality.
 `;
 
-  // Gallery hook: add dark gradient instruction for text readability
+  // Gallery hook: dark gradient for text readability
   if (carouselStyle === 'gallery' && slideRole === 'hook') {
     safeZoneNote += '\nThe image MUST have a natural dark gradient at the bottom third (like a sunset darkening toward horizon) to ensure white text readability. Do NOT add any text or graphics.';
+  }
+
+  // === DB Design Tokens injection ===
+  let tokenDirective = '';
+  if (dbTokens) {
+    const parts: string[] = [];
+    if (dbTokens.colors) {
+      const c = dbTokens.colors;
+      if (c.primary) parts.push(`Primary color: ${c.primary}`);
+      if (c.accent) parts.push(`Accent color: ${c.accent}`);
+      if (c.background) parts.push(`Background tone: ${c.background}`);
+      if (c.mood) parts.push(`Color mood: ${c.mood}`);
+    }
+    if (dbTokens.typography?.mood) {
+      parts.push(`Typography mood: ${dbTokens.typography.mood}`);
+    }
+    if (dbTokens.effects) {
+      const fx: string[] = [];
+      if (dbTokens.effects.grain) fx.push('subtle film grain');
+      if (dbTokens.effects.blur) fx.push('soft depth blur');
+      if (dbTokens.effects.glow) fx.push('neon glow accents');
+      if (dbTokens.effects.shadow) fx.push('dramatic shadows');
+      if (fx.length > 0) parts.push(`Visual effects: ${fx.join(', ')}`);
+    }
+    if (parts.length > 0) {
+      tokenDirective = `\nDESIGN TOKENS (from brand preset):\n${parts.map(p => `- ${p}`).join('\n')}\n`;
+    }
+  }
+
+  // === Seamless Continuity injection ===
+  let seamlessDirective = '';
+  if (seamlessContext && carouselStyle === 'seamless') {
+    const parts: string[] = [];
+
+    if (seamlessContext.colorPalette && seamlessContext.colorPalette.length > 0) {
+      parts.push(`EXACT COLOR PALETTE to maintain visual continuity: ${seamlessContext.colorPalette.join(', ')}. Use ONLY these colors as the dominant palette.`);
+    }
+
+    if (seamlessContext.previousSceneDescription) {
+      parts.push(`PREVIOUS SLIDE depicted: "${seamlessContext.previousSceneDescription}". This slide MUST visually continue from that scene — same environment, same lighting direction, same visual flow. The left edge of this image should seamlessly connect to the right edge of the previous slide.`);
+    }
+
+    const pos = seamlessContext.sequencePosition || slideNumber || 1;
+    const total = seamlessContext.totalInSequence || totalSlides || 5;
+    parts.push(`This is panel ${pos} of ${total} in a continuous panoramic artwork.`);
+
+    if (parts.length > 0) {
+      seamlessDirective = `\nSEAMLESS CONTINUITY (CRITICAL — maintain visual flow between slides):\n${parts.map(p => `- ${p}`).join('\n')}\n`;
+    }
   }
 
   // Style-specific directives
@@ -430,14 +540,15 @@ LISTICLE STYLE:
 `;
   } else if (carouselStyle === 'gallery') {
     if (slideRole === 'visual') {
-      // Gallery visual slides: maximum cinematic quality
       styleDirective = `
-GALLERY / CINEMATIC VISUAL:
+GALLERY / CINEMATIC VISUAL (MAXIMUM QUALITY):
 - This is a FULL-BLEED cinematic photograph with NO text, NO graphics, NO UI elements, NO overlays whatsoever.
-- Professional editorial photography quality, 8K resolution clarity.
-- Dramatic natural lighting with depth of field.
-- Rich vivid colors, strong composition following rule of thirds.
+- Professional editorial photography quality, 8K resolution clarity, award-winning composition.
+- Dramatic natural lighting with cinematic depth of field (shallow DoF for subject isolation).
+- Rich vivid colors with intentional color grading (warm golden hour or cool blue hour tones).
+- Strong composition following rule of thirds, leading lines, or symmetry.
 - This image will be displayed at full resolution with nothing on top of it — visual quality is the ONLY priority.
+- Capture authentic emotion, texture, and atmosphere — this should feel like a National Geographic or Vogue editorial photo.
 `;
     } else {
       styleDirective = `
@@ -458,10 +569,21 @@ GALLERY / PHOTO DUMP STYLE:
     .replace(/typography.*?(?=\n|$)/gi, '')
     .replace(/font.*?(?=\n|$)/gi, '');
 
-  return `${safeZoneNote}\n${styleDirective}\nVisual concept:\n${cleanedPrompt}`;
+  return `${safeZoneNote}${tokenDirective}${seamlessDirective}${styleDirective}\nVisual concept:\n${cleanedPrompt}`;
 }
 
-function getPlatformDimensions(platform?: string): { width: number; height: number } {
+function getPlatformDimensions(platform?: string, carouselStyle?: string): { width: number; height: number } {
+  // Gallery style: use portrait for more visual impact on mobile
+  if (carouselStyle === 'gallery') {
+    switch (platform) {
+      case 'tiktok':
+        return { width: 1080, height: 1920 };
+      case 'facebook':
+      default:
+        return { width: 1080, height: 1350 }; // 4:5 for maximum feed real estate
+    }
+  }
+
   switch (platform) {
     case 'tiktok':
       return { width: 1080, height: 1920 };

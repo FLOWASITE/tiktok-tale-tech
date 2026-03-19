@@ -243,7 +243,16 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
     setGeneratingAll(true);
     setGeneratingProgress(0);
 
+    // Extract dominant colors from slide design info for seamless continuity
+    const colorPalette = carousel.slides_content.length > 0
+      ? extractColorPalette(carousel.slides_content[0])
+      : null;
+
+    let previousSceneDescription: string | null = null;
+
     for (const slide of carousel.slides_content) {
+      const isSeamless = carousel.carousel_style === 'seamless';
+
       const imageUrl = await generateImage(slide.fullPrompt, carousel.id, slide.slideNumber, {
         textContent: slide.textContent,
         platform: carousel.platform,
@@ -251,10 +260,22 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
         totalSlides: carousel.slides_content.length,
         slideObjective: slide.objective,
         visualPreset: carousel.carousel_style,
+        seamlessContext: isSeamless ? {
+          colorPalette,
+          previousSceneDescription,
+          sequencePosition: slide.slideNumber,
+          totalInSequence: carousel.slides_content.length,
+        } : undefined,
       });
       if (imageUrl) {
         await saveImage(slide.slideNumber, imageUrl, slide.fullPrompt);
       }
+
+      // Update previous scene for next slide's continuity
+      if (isSeamless) {
+        previousSceneDescription = slide.objective || slide.fullPrompt.slice(0, 200);
+      }
+
       setGeneratingProgress(prev => prev + 1);
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
@@ -262,6 +283,18 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
     setGeneratingAll(false);
     setGeneratingProgress(0);
     toast.success('Đã tạo xong tất cả ảnh!');
+  };
+
+  /** Extract color hints from slide design info */
+  const extractColorPalette = (slide: CarouselSlide): string[] | null => {
+    const colorText = slide.colorLayout || '';
+    // Match hex colors
+    const hexMatches = colorText.match(/#[0-9A-Fa-f]{3,8}/g);
+    if (hexMatches && hexMatches.length > 0) return hexMatches;
+    // Match common color keywords from design descriptions
+    const colorKeywords = colorText.match(/(?:xanh|đỏ|vàng|cam|tím|hồng|trắng|đen|xám|navy|blue|red|green|yellow|orange|purple|pink|white|black|gray|gold|silver)/gi);
+    if (colorKeywords && colorKeywords.length > 0) return [...new Set(colorKeywords)];
+    return null;
   };
 
   const handleSlideUpdate = async (updatedSlide: CarouselSlide) => {
