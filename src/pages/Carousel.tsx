@@ -349,10 +349,11 @@ const CarouselPage = () => {
               statusText={trackerProgress.statusText}
               allDone={trackerProgress.allDone}
               onExpand={() => setTrackerMinimized(false)}
-              onViewResults={trackerProgress.allDone && selectedCarousel ? () => {
+            onViewResults={trackerProgress.allDone && trackerCarousel ? () => {
                 setTrackerMode(false);
                 setTrackerMinimized(false);
-                setSelectedCarousel(selectedCarousel);
+                setTrackerCarousel(null);
+                setSelectedCarousel(trackerCarousel);
                 setAutoGenerateImages(false);
                 setViewerOpen(true);
               } : undefined}
