@@ -20,15 +20,19 @@ import {
   Clock,
   AlertCircle,
   Sparkles,
+  Search,
+  LayoutGrid,
+  PenLine,
+  type LucideIcon,
 } from 'lucide-react';
 
 type PromptPhase = 'analyzing' | 'structuring' | 'writing' | 'finalizing';
 
-const PROMPT_STEPS: { id: PromptPhase; label: string; icon: string }[] = [
-  { id: 'analyzing', label: 'Phân tích chủ đề & ngữ cảnh', icon: '🔍' },
-  { id: 'structuring', label: 'Thiết kế cấu trúc carousel', icon: '🏗️' },
-  { id: 'writing', label: 'Viết nội dung từng slide', icon: '✍️' },
-  { id: 'finalizing', label: 'Hoàn thiện prompt ảnh', icon: '✨' },
+const PROMPT_STEPS: { id: PromptPhase; label: string; icon: LucideIcon }[] = [
+  { id: 'analyzing', label: 'Phân tích chủ đề & ngữ cảnh', icon: Search },
+  { id: 'structuring', label: 'Thiết kế cấu trúc carousel', icon: LayoutGrid },
+  { id: 'writing', label: 'Viết nội dung từng slide', icon: PenLine },
+  { id: 'finalizing', label: 'Hoàn thiện prompt ảnh', icon: Sparkles },
 ];
 
 const TIPS = [
@@ -310,10 +314,14 @@ export function CarouselGenerationTracker({
                       !isActive && !isDone && "opacity-30"
                     )}
                   >
-                    <span className="w-5 text-center text-sm">
-                      {isDone ? '✅' : isActive ? (
-                        <span className="inline-block animate-pulse">{step.icon}</span>
-                      ) : step.icon}
+                    <span className="w-5 flex items-center justify-center">
+                      {isDone ? (
+                        <Check className="w-4 h-4 text-primary" />
+                      ) : isActive ? (
+                        <step.icon className="w-4 h-4 text-primary animate-pulse" />
+                      ) : (
+                        <step.icon className="w-4 h-4 text-muted-foreground" />
+                      )}
                     </span>
                     <span className={cn(
                       "text-xs flex-1",
