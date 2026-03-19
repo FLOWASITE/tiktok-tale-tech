@@ -131,7 +131,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
   const [copiedCta, setCopiedCta] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
   const [generatingProgress, setGeneratingProgress] = useState(0);
-  const [autoGenTriggered, setAutoGenTriggered] = useState<string | null>(null);
+  const lastAutoGenCarouselIdRef = useRef<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -164,18 +164,32 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
   const { data: industryMemory, isLoading: isLoadingIndustry } = useIndustryMemoryById(carousel?.industry_template_id);
 
   // Ref to hold the auto-generate function (defined after early return)
-  const autoGenFnRef = useRef<(() => void) | null>(null);
+  const autoGenFnRef = useRef<(() => Promise<void>) | null>(null);
 
   // Auto-trigger image generation when autoGenerateImages flag is set
   useEffect(() => {
-    if (autoGenerateImages && carousel?.id && autoGenTriggered !== carousel.id && open && !generatingAll && generating === null) {
-      setAutoGenTriggered(carousel.id);
+    if (
+      autoGenerateImages &&
+      carousel?.id &&
+      open &&
+      lastAutoGenCarouselIdRef.current !== carousel.id
+    ) {
+      lastAutoGenCarouselIdRef.current = carousel.id;
+      // Use a small delay to ensure the component is fully rendered
       const timer = setTimeout(() => {
+        toast.info('🎨 Đang tự động tạo ảnh cho tất cả slides...');
         autoGenFnRef.current?.();
-      }, 500);
+      }, 800);
       return () => clearTimeout(timer);
     }
-  }, [autoGenerateImages, carousel?.id, open, generatingAll, generating, autoGenTriggered]);
+  }, [autoGenerateImages, carousel?.id, open]);
+
+  // Reset auto-gen tracking when viewer closes
+  useEffect(() => {
+    if (!open) {
+      lastAutoGenCarouselIdRef.current = null;
+    }
+  }, [open]);
 
   if (!carousel) return null;
 
