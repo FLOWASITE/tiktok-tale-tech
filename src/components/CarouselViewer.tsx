@@ -163,6 +163,18 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
   // Fetch Industry Memory
   const { data: industryMemory, isLoading: isLoadingIndustry } = useIndustryMemoryById(carousel?.industry_template_id);
 
+  // Auto-trigger image generation when autoGenerateImages flag is set
+  useEffect(() => {
+    if (autoGenerateImages && carousel?.id && autoGenTriggered !== carousel.id && open && !generatingAll && generating === null) {
+      setAutoGenTriggered(carousel.id);
+      // Small delay to ensure viewer is fully rendered
+      const timer = setTimeout(() => {
+        handleGenerateAllImages();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [autoGenerateImages, carousel?.id, open, generatingAll, generating, autoGenTriggered]);
+
   if (!carousel) return null;
 
   const handleDeleteImage = async (slideNumber: number) => {
