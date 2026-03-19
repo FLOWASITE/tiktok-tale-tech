@@ -631,6 +631,8 @@ serve(async (req) => {
         hasOverlay: false,
         slideRole,
         sceneDescription,
+        modelUsed,
+        modelRequested: requestedModel,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
