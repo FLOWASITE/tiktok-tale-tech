@@ -147,7 +147,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
       topic: topic.trim(),
       platform,
       slideCount,
-      aiTool,
+      aiTool: 'ideogram', // Legacy field, backend uses ai_function_configs
       brandName: brandName.trim(),
       brandGuideline: brandGuideline.trim(),
       includeLogo,
