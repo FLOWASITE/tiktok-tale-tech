@@ -553,7 +553,7 @@ Mỗi slide phải có đủ 7 thành phần:
 [4] colorLayout: Màu sắc – bố cục
 [5] aspectRatio: Tỉ lệ khung hình (1:1 cho carousel)
 [6] technicalRequirements: Yêu cầu kỹ thuật
-[7] fullPrompt: Prompt tạo ẢNH NỀN (background only, NO text rendering)
+[7] fullPrompt: Prompt tạo ẢNH SLIDE (mô tả cảnh cụ thể, KHÔNG viết text content, để lại không gian cho text)
 
 ## VÍ DỤ textContent
 Hook slide: { "headline": "AI ĐÃ THAY ĐỔI MARKETING", "subtitle": "3 chiến lược bạn cần biết ngay", "caption": "@flowa.vn" }
