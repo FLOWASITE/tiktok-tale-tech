@@ -484,6 +484,7 @@ serve(async (req) => {
         traceId, functionName: 'generate-carousel-image', userId, totalDurationMs,
         aiCallDurationMs: totalDurationMs, inputTokensEstimated: inputTokens, outputTokensEstimated: 0,
         estimatedCostUsd, modelsUsed: { image: imageModel }, hadError: false,
+        usedFallback, fallbackModel: fallbackFromModel,
         contextSources: [], contentId: carouselId, actionType: 'image_generation',
       }).catch(() => {});
 
