@@ -277,6 +277,25 @@ export function CarouselGenerationTracker({
               <span className="text-[10px] text-muted-foreground">{slideCount} slides</span>
             </div>
           </div>
+          {onMinimize && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onMinimize}
+              className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
+              title="Thu nhỏ"
+            >
+              <Minimize2 className="w-4 h-4" />
+            </Button>
+          )}
+            <h1 className="text-sm font-semibold text-foreground truncate">{topic}</h1>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                {platform === 'facebook' ? 'Facebook' : 'TikTok'}
+              </Badge>
+              <span className="text-[10px] text-muted-foreground">{slideCount} slides</span>
+            </div>
+          </div>
         </div>
 
         {/* Phase 1: Prompt Generation */}
