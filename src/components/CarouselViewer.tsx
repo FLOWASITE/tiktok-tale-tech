@@ -44,6 +44,7 @@ import { CreatorCell } from '@/components/CreatorCell';
 import { IndustryGuardrailBadge } from '@/components/IndustryGuardrailBadge';
 import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
+import { useSeamlessValidation } from '@/hooks/useSeamlessValidation';
 
 interface CarouselViewerProps {
   carousel: Carousel | null;
