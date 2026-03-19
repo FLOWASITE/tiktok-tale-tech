@@ -36,7 +36,7 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
     priority_level: 'normal',
   },
   'generate-carousel': {
-    model: 'google/gemini-2.5-flash',
+    model: 'google/gemini-2.5-pro',
     temperature: 0.7,
     max_tokens: 4096,
     cache_ttl_seconds: 1800,
