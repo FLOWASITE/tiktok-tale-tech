@@ -1,24 +1,30 @@
 
 
-# Fix: Thêm chip "Brainstorm AI" vào TopicIdeaHub trong CarouselForm
+# Fix: Nút refresh chủ đề gây lỗi "Converting circular structure to JSON"
 
-## Nguyên nhân
+## Nguyên nhân gốc
 
-`TopicIdeaHub` trong `CarouselForm.tsx` (dòng 299-311) không truyền prop `onBrainstorm`. Prop này là điều kiện để render chip "Brainstorm AI" gradient bên trong hub (xem `TopicIdeaHub.tsx` dòng 123-135: `{onBrainstorm && (...)}`).
+Khi click nút refresh (icon xoay tròn), React truyền **event object** làm tham số đầu tiên:
+
+```
+onClick={onRefresh}  →  onRefresh(MouseEvent)  →  refreshSuggestions(MouseEvent)
+```
+
+`refreshSuggestions` nhận tham số đầu là `categoryHint?: string`, nhưng lại nhận được MouseEvent (chứa HTMLButtonElement) → khi JSON.stringify để gửi lên edge function → lỗi "Converting circular structure to JSON".
 
 ## Giải pháp
 
-### File: `src/components/CarouselForm.tsx`
+### File: `src/components/TopicSuggestionPanel.tsx` (~line 188)
 
-Thêm prop `onBrainstorm` vào `TopicIdeaHub`, trỏ đến hàm mở Brainstorm Sheet đã có sẵn:
+Thay `onClick={onRefresh}` thành `onClick={() => onRefresh()}` để không truyền event object vào hàm refresh.
 
 ```tsx
-<TopicIdeaHub
-  ...
-  onBrainstorm={() => setShowBrainstormSheet(true)}
-  ...
-/>
+// Trước
+onClick={onRefresh}
+
+// Sau
+onClick={() => onRefresh()}
 ```
 
-Chỉ cần thêm 1 dòng duy nhất. Logic `showBrainstormSheet` và `TopicBrainstormSheet` đã có sẵn trong component.
+Chỉ cần sửa 1 dòng duy nhất.
 
