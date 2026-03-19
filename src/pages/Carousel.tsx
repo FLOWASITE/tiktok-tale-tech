@@ -67,6 +67,7 @@ const CarouselPage = () => {
   const [autoGenerateImages, setAutoGenerateImages] = useState(false);
   const [trackerMode, setTrackerMode] = useState(false);
   const [trackerMinimized, setTrackerMinimized] = useState(false);
+  const [trackerProgress, setTrackerProgress] = useState({ overallPercent: 0, statusText: '', allDone: false });
   const [trackerTopic, setTrackerTopic] = useState('');
   const [trackerPlatform, setTrackerPlatform] = useState('facebook');
   const [trackerSlideCount, setTrackerSlideCount] = useState(6);
