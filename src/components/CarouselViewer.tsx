@@ -603,7 +603,11 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
             <TabsContent value="slides" className="mt-0 space-y-3 xs:space-y-4">
               {/* Generate All Button + Progress */}
               <div className="space-y-2">
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between">
+                  {lastModelUsed && !generatingAll && (
+                    <ModelUsedBadge modelUsed={lastModelUsed} />
+                  )}
+                  {!lastModelUsed && <div />}
                   <Button
                     onClick={handleGenerateAllImages}
                     disabled={generatingAll || generating !== null}
