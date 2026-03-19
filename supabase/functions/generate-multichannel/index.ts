@@ -3228,6 +3228,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               
               savedContent = result.data;
               dbError = result.error;
+              }
             }
             
             if (dbError) {
