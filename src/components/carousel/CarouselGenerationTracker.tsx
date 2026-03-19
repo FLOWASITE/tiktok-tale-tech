@@ -268,12 +268,16 @@ export function CarouselGenerationTracker({
     fireConfetti();
   }, [carousel, generateImage, saveImage, fireConfetti]);
 
+  // Stable ref to avoid timer resets from re-renders
+  const runImageGenRef = useRef(runImageGeneration);
+  runImageGenRef.current = runImageGeneration;
+
   useEffect(() => {
     if (promptDone && !imageGenStarted) {
-      const timer = setTimeout(() => runImageGeneration(), 500);
+      const timer = setTimeout(() => runImageGenRef.current(), 500);
       return () => clearTimeout(timer);
     }
-  }, [promptDone, imageGenStarted, runImageGeneration]);
+  }, [promptDone, imageGenStarted]);
 
   // Progress calculation
   const promptProgress = promptDone ? PROMPT_STEPS.length : promptStep;
