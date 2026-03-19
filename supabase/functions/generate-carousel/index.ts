@@ -492,11 +492,14 @@ Do đó:
 - Tránh prompt kiểu "text says..." hoặc "with text..."
 - Thay vào đó, prompt nên mô tả: gradient, texture, abstract shapes, photography style, lighting
 
+${textLengthSection}
+
 ## NGUYÊN TẮC VIẾT NỘI DUNG
 1. textContent: Nội dung chữ sẽ overlay lên ảnh, viết ngắn gọn, dễ đọc trên mobile
 2. fullPrompt: Prompt tạo ảnh nền đẹp, KHÔNG chứa text
 3. Font: Sans-serif, ít chữ, dòng ngắn, khoảng trắng nhiều
 4. Carousel là để ĐỌC - ảnh nền chỉ hỗ trợ visual
+5. PHẢI tuân thủ TEXT LENGTH CONSTRAINTS ở trên — text quá dài sẽ bị tràn visual space
 
 ## FORMAT OUTPUT BẮT BUỘC CHO MỖI SLIDE
 Bạn PHẢI trả về JSON với cấu trúc chính xác như tool definition.
