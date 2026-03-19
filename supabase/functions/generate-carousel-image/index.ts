@@ -490,10 +490,16 @@ serve(async (req) => {
 
     console.log(`[generate-carousel-image] Requested model: ${requestedModel}`);
 
-    // === STEP 1: Generate background image (no text) ===
+    // === STEP 1: Generate COMPLETE slide image (with text in prompt) ===
+    const overlayConfig = getOverlayConfig(
+      visualPreset || 'minimalist',
+      slideRole,
+      dbPreset?.overlay_config
+    );
     const backgroundPrompt = buildBackgroundPrompt(
       prompt, platform, carouselStyle, slideNumber, totalSlides, slideRole,
-      seamlessContext, blendedTokens, brandColors, carouselTopic, slideObjective
+      seamlessContext, blendedTokens, brandColors, carouselTopic, slideObjective,
+      textContent, overlayConfig
     );
     console.log("[generate-carousel-image] Step 1: Generating background...");
 
