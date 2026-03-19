@@ -306,7 +306,12 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
     });
     if (result?.imageUrl) {
       await saveImage(slideNumber, result.imageUrl, prompt);
-      if (result.modelUsed) setLastModelUsed(result.modelUsed);
+      if (result.modelUsed) {
+        setLastModelUsed(result.modelUsed);
+        if (result.modelUsed.includes('fallback')) {
+          toast.warning('Model được cấu hình thất bại, đã dùng Lovable AI thay thế.');
+        }
+      }
     }
   };
 
