@@ -170,7 +170,6 @@ const CarouselPage = () => {
   };
 
   const handleGenerateCarousel = async (formData: Parameters<typeof generateCarousel>[0]) => {
-    setFormSheetOpen(false);
     const newCarousel = await generateCarousel(formData);
     if (newCarousel) {
       // Create topic-to-content link if came from Topics Hub
