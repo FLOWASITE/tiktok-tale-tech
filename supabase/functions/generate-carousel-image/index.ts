@@ -994,9 +994,9 @@ RULES FOR TEXT:
 
     if (seamlessContext.previousSceneDescription) {
       if (isSeamless) {
-        parts.push(`PREVIOUS SLIDE depicted: "${seamlessContext.previousSceneDescription}". This slide MUST visually continue from that scene — same environment, same lighting direction, same visual flow. The left edge of this image should seamlessly connect to the right edge of the previous slide.`);
+        parts.push(`VISUAL WORLD for this series: "${seamlessContext.previousSceneDescription}". This slide MUST exist in the SAME visual world — same environment, same lighting direction, same visual flow, same color temperature. The left edge of this image should seamlessly connect to the right edge of the previous slide.`);
       } else {
-        parts.push(`PREVIOUS SLIDE depicted: "${seamlessContext.previousSceneDescription}". Maintain the SAME environment, lighting, photography style, and color temperature. Visual identity must be consistent across all slides.`);
+        parts.push(`VISUAL WORLD for this series: "${seamlessContext.previousSceneDescription}". Maintain the SAME environment, lighting, photography style, and color temperature. Visual identity must be consistent across all slides.`);
       }
     }
 
