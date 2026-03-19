@@ -16,7 +16,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SlidePanel } from '@/components/ui/slide-panel';
-import { Images, Sparkles, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Images, Sparkles, Plus, Trash2, ChevronLeft, ChevronRight, Wand2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
