@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { Carousel } from '@/types/carousel';
+import { Carousel, CarouselSlide } from '@/types/carousel';
 import { useImageGeneration } from '@/hooks/useImageGeneration';
 import { useCarouselImages } from '@/hooks/useCarouselImages';
 import { useConfetti } from '@/hooks/useConfetti';
