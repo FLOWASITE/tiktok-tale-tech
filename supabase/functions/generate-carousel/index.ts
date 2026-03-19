@@ -30,6 +30,7 @@ interface CarouselFormData {
   organization_id?: string;
   campaignId?: string;
   carouselStyle?: "seamless" | "educational" | "listicle" | "gallery";
+  visualPreset?: "minimalist" | "flat_design" | "gradient" | "geometric" | "illustration" | "product_only";
 }
 
 interface CarouselSlide {
@@ -407,13 +408,62 @@ LOGIC NỘI DUNG:
   }
 };
 
+// ============================================
+// Phase 6: Text Length Guidelines per Visual Preset
+// ============================================
+const getTextLengthGuidelines = (visualPreset: string): string => {
+  const guidelines: Record<string, string> = {
+    minimalist: `
+## TEXT LENGTH CONSTRAINTS (Clean Modern — lots of whitespace, negative space 40-50%)
+- textContent line 1 (headline): Maximum 5 words. Short, quiet, impactful.
+- textContent line 2 (subtitle): Maximum 10 words or leave empty.
+- Total text per slide MUST NOT exceed 20 words.
+- Prioritize whitespace over content density.`,
+
+    flat_design: `
+## TEXT LENGTH CONSTRAINTS (Bold Infographic — large text, high visual impact)
+- textContent line 1 (headline): Maximum 6 words, UPPERCASE preferred.
+- Use numbers/statistics prominently when relevant (e.g., "2.5M", "340%").
+- textContent line 2 (subtitle): Maximum 12 words.
+- Keep data-focused: numbers > paragraphs.`,
+
+    gradient: `
+## TEXT LENGTH CONSTRAINTS (Gradient Flow — text in glass card container)
+- textContent line 1 (headline): Maximum 7 words.
+- textContent line 2 (subtitle): Maximum 15 words.
+- Text sits inside a glass card overlay — keep concise so card stays compact.`,
+
+    geometric: `
+## TEXT LENGTH CONSTRAINTS (Corporate — text only occupies left column ~55%)
+- textContent line 1 (headline): Maximum 5 words. Professional, no fluff.
+- textContent line 2 (subtitle): Maximum 12 words.
+- Right side is reserved for visuals — text MUST be short.`,
+
+    illustration: `
+## TEXT LENGTH CONSTRAINTS (Story Visual — flexible artistic layout)
+- textContent line 1 (headline): Maximum 7 words, emotional language encouraged.
+- textContent line 2 (subtitle): Maximum 12 words.
+- Handwriting-style font works best with shorter text.`,
+
+    product_only: `
+## TEXT LENGTH CONSTRAINTS (Product Focus — split layout with product image)
+- textContent line 1 (headline): Maximum 5 words — product name or USP.
+- textContent line 2 (subtitle): Maximum 8 words — one standout feature.
+- Keep minimal — product image is the hero.`,
+  };
+
+  return guidelines[visualPreset] || guidelines.minimalist;
+};
+
 const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, mergedRules?: MergedRules, outputLang: string = 'vi'): string => {
   const langConfig = getLanguageConfig(outputLang);
   const carouselStyle = formData.carouselStyle || 'educational';
+  const visualPreset = formData.visualPreset || 'minimalist';
 
   const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules, outputLang) : "";
   const langName = langConfig.nativeName;
   const styleSection = getCarouselStylePrompt(carouselStyle, formData.slideCount);
+  const textLengthSection = getTextLengthGuidelines(visualPreset);
 
   return `You are a professional Content Strategist for social media, specialized in creating carousels for ${formData.platform === "facebook" ? "Facebook" : "TikTok"}.
 Output ALL content in ${langName} (${langConfig.englishName}).
@@ -443,11 +493,14 @@ Do đó:
 - Tránh prompt kiểu "text says..." hoặc "with text..."
 - Thay vào đó, prompt nên mô tả: gradient, texture, abstract shapes, photography style, lighting
 
+${textLengthSection}
+
 ## NGUYÊN TẮC VIẾT NỘI DUNG
 1. textContent: Nội dung chữ sẽ overlay lên ảnh, viết ngắn gọn, dễ đọc trên mobile
 2. fullPrompt: Prompt tạo ảnh nền đẹp, KHÔNG chứa text
 3. Font: Sans-serif, ít chữ, dòng ngắn, khoảng trắng nhiều
 4. Carousel là để ĐỌC - ảnh nền chỉ hỗ trợ visual
+5. PHẢI tuân thủ TEXT LENGTH CONSTRAINTS ở trên — text quá dài sẽ bị tràn visual space
 
 ## FORMAT OUTPUT BẮT BUỘC CHO MỖI SLIDE
 Bạn PHẢI trả về JSON với cấu trúc chính xác như tool definition.

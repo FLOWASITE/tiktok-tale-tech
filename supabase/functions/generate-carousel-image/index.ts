@@ -528,11 +528,31 @@ serve(async (req) => {
       // Phase A: Gallery hook dark gradient
       const needsBottomGradient = (carouselStyle === 'gallery' && slideRole === 'hook');
 
-      // Phase E: Listicle decorations
-      const decorations = (carouselStyle === 'listicle' && slideRole === 'body') ? {
-        slideNumberBadge: slideNumber,
-        progressDots: { current: slideNumber, total: totalSlides || 5 },
-      } : undefined;
+      // Phase E: Decorations based on carouselStyle + visualPreset + slideRole
+      const decorations: Record<string, any> = {};
+
+      // Listicle: slide number badge + progress dots
+      if (carouselStyle === 'listicle' && slideRole === 'body') {
+        decorations.slideNumberBadge = slideNumber;
+        decorations.progressDots = { current: slideNumber, total: totalSlides || 5 };
+      }
+
+      // Educational: step indicator for non-hook slides
+      if (carouselStyle === 'educational' && slideRole !== 'hook') {
+        decorations.stepIndicator = { current: slideNumber, total: totalSlides || 5 };
+      }
+
+      // flat_design: thick accent divider between headline and subtitle
+      if (visualPreset === 'flat_design') {
+        decorations.accentDivider = true;
+      }
+
+      // product_only: badge for hook slide
+      if (visualPreset === 'product_only' && slideRole === 'hook') {
+        decorations.hotBadge = true;
+      }
+
+      const hasDecorations = Object.keys(decorations).length > 0;
 
       try {
         const overlayResponse = await fetch(
@@ -562,8 +582,8 @@ serve(async (req) => {
                 textLayers: textLayers,
                 // Phase C: brand colors for overlay treatments
                 brandColors: brandColors || undefined,
-                // Phase E: listicle decorations
-                decorations: decorations,
+                // Phase E: decorations (listicle, educational, flat_design, product)
+                decorations: hasDecorations ? decorations : undefined,
               },
               // Legacy params as fallback
               position: "center",
