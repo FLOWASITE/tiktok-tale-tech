@@ -229,6 +229,10 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
     const imageUrl = await generateImage(prompt, carousel.id, slideNumber, {
       textContent: slide?.textContent,
       platform: carousel.platform,
+      carouselStyle: carousel.carousel_style,
+      totalSlides: carousel.slides_content.length,
+      slideObjective: slide?.objective,
+      visualPreset: carousel.carousel_style,
     });
     if (imageUrl) {
       await saveImage(slideNumber, imageUrl, prompt);
