@@ -194,6 +194,18 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
     }
   }, [open]);
 
+  // Elapsed time ticker for generation progress
+  useEffect(() => {
+    if (!generatingStartTime) {
+      setElapsedSeconds(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - generatingStartTime) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [generatingStartTime]);
+
   if (!carousel) return null;
 
   const handleDeleteImage = async (slideNumber: number) => {
