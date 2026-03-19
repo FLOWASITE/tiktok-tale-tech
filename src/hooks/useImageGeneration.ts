@@ -86,7 +86,7 @@ export function useImageGeneration() {
       });
 
       toast.success(`Đã tạo ảnh slide ${slideNumber}!`);
-      return { imageUrl: data.imageUrl, sceneDescription: data.sceneDescription || null };
+      return { imageUrl: data.imageUrl, sceneDescription: data.sceneDescription || null, modelUsed: data.modelUsed || null };
     } catch (error) {
       console.error('Error generating image:', error);
       toast.error('Lỗi không xác định khi tạo ảnh');
