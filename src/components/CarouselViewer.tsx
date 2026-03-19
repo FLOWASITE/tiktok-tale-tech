@@ -48,6 +48,7 @@ interface CarouselViewerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCarouselUpdate?: (updatedCarousel: Carousel) => void;
+  autoGenerateImages?: boolean;
 }
 
 const platformLabels: Record<string, string> = {

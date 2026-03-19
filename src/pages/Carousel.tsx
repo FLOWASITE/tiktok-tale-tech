@@ -62,6 +62,7 @@ const CarouselPage = () => {
   const [formSheetOpen, setFormSheetOpen] = useState(false);
   const [initialTopic, setInitialTopic] = useState<string>('');
   const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>();
+  const [autoGenerateImages, setAutoGenerateImages] = useState(false);
 
   // Topic Content Links hook
   const { createLink } = useTopicContentLinks({ enabled: false });
