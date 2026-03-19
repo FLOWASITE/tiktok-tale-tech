@@ -217,6 +217,98 @@ const FALLBACK_OVERLAY_MATRIX: Record<string, Record<string, any>> = {
 };
 
 // ============================================
+// Phase 3: Brand Color Deep Blending into Design Tokens
+// ============================================
+function blendBrandColors(
+  presetTokens: Record<string, any>,
+  presetKey: string,
+  brandColors?: { textColor?: string; backgroundColor?: string } | null,
+): Record<string, any> {
+  if (!brandColors || (!brandColors.backgroundColor && !brandColors.textColor)) {
+    return presetTokens;
+  }
+
+  const blended = JSON.parse(JSON.stringify(presetTokens));
+  const primary = brandColors.backgroundColor || brandColors.textColor || '';
+  const secondary = brandColors.textColor !== primary ? brandColors.textColor : null;
+
+  if (!primary) return blended;
+
+  // Ensure colors object exists
+  if (!blended.colors) blended.colors = {};
+
+  switch (presetKey) {
+    case 'minimalist':
+      // Only replace accent
+      blended.colors.accent = primary;
+      break;
+
+    case 'flat_design':
+      blended.colors.accent = primary;
+      if (secondary) blended.colors.secondary_accent = secondary;
+      if (blended.colors.dataPalette && Array.isArray(blended.colors.dataPalette)) {
+        blended.colors.dataPalette[0] = primary;
+        if (secondary) blended.colors.dataPalette[1] = secondary;
+      }
+      break;
+
+    case 'gradient':
+      // Build brand-tinted gradient
+      if (secondary && secondary !== primary) {
+        blended.colors.gradientFrom = primary;
+        blended.colors.gradientTo = secondary;
+      } else {
+        blended.colors.gradientFrom = primary;
+        blended.colors.gradientTo = darkenHex(primary, 30);
+      }
+      blended.colors.accent = lightenHex(primary, 30);
+      break;
+
+    case 'geometric':
+      // Replace gold accent with brand primary
+      blended.colors.accent = primary;
+      if (blended.effects && blended.effects.diagonalLine) {
+        blended.effects.diagonalLine = `2px solid ${primary}40`;
+      }
+      break;
+
+    case 'illustration':
+      blended.colors.accent = primary;
+      if (secondary) blended.colors.secondary_accent = secondary;
+      break;
+
+    case 'product_only':
+      blended.colors.cta = primary;
+      blended.colors.accent = primary;
+      break;
+  }
+
+  return blended;
+}
+
+function darkenHex(hex: string, percent: number): string {
+  try {
+    const clean = hex.replace('#', '');
+    const num = parseInt(clean, 16);
+    const r = Math.max(0, (num >> 16) - Math.round(255 * percent / 100));
+    const g = Math.max(0, ((num >> 8) & 0xFF) - Math.round(255 * percent / 100));
+    const b = Math.max(0, (num & 0xFF) - Math.round(255 * percent / 100));
+    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+  } catch { return hex; }
+}
+
+function lightenHex(hex: string, percent: number): string {
+  try {
+    const clean = hex.replace('#', '');
+    const num = parseInt(clean, 16);
+    const r = Math.min(255, (num >> 16) + Math.round(255 * percent / 100));
+    const g = Math.min(255, ((num >> 8) & 0xFF) + Math.round(255 * percent / 100));
+    const b = Math.min(255, (num & 0xFF) + Math.round(255 * percent / 100));
+    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+  } catch { return hex; }
+}
+
+// ============================================
 // Get Overlay Config — DB preset first, fallback to hardcoded
 // ============================================
 function getOverlayConfig(
