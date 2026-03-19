@@ -302,6 +302,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
           isLoading={suggestionsLoading}
           onSelect={(suggestion) => setTopic(suggestion)}
           onRefresh={refreshSuggestions}
+          onBrainstorm={() => setShowBrainstormSheet(true)}
           onSave={saveSuggestion}
           onFeedback={submitFeedback}
           disabled={isLoading}
