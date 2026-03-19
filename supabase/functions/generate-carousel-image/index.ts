@@ -628,7 +628,7 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               baseImageUrl: backgroundUrl,
-              text: textContent,
+              text: textStr,
               carouselOverlay: {
                 position: overlayConfig.position || 'center',
                 fontWeight: overlayConfig.fontWeight || 600,
