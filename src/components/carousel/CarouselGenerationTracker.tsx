@@ -39,7 +39,7 @@ const PROMPT_STEPS: { id: PromptPhase; label: string; icon: LucideIcon }[] = [
 ];
 
 const TIPS = [
-  'Carousel 6 slides thường mất khoảng 2-3 phút',
+  'Carousel 6 slides thường mất khoảng 1-2 phút',
   'Ảnh AI sẽ tự động áp dụng màu thương hiệu của bạn',
   'Bạn có thể tạo lại ảnh từng slide sau khi hoàn tất',
   'Phong cách "Trượt liền mạch" giữ tính liên tục giữa các slide',
@@ -175,10 +175,20 @@ export function CarouselGenerationTracker({
       : null;
     const brandColors = extractBrandColors(carousel);
 
-    let previousSceneDescription: string | null = null;
     const MAX_ATTEMPTS = 3;
-    const INTER_SLIDE_DELAY = 2500;
+    const INTER_BATCH_DELAY = 2500;
+    const BATCH_SIZE = 3;
     const localStatuses: SlideStatus[] = Array(carousel.slides_content.length).fill('pending');
+
+    // Extract shared visual world from first slide's prompt
+    // Gemini Pro already designed all slides in the same "visual world"
+    // Each fullPrompt ends with "consistent with previous slides: [description]"
+    const sharedVisualWorld = (() => {
+      const firstPrompt = carousel.slides_content[0]?.fullPrompt || '';
+      const match = firstPrompt.match(/consistent with (?:previous slides|series):\s*(.+?)$/im);
+      return match?.[1]?.trim() || carousel.slides_content[0]?.designStyle || '';
+    })();
+    console.log(`[tracker] Shared visual world: "${sharedVisualWorld.slice(0, 100)}..."`);
 
     const attemptGenerateSlide = async (i: number): Promise<boolean> => {
       const slide = carousel.slides_content[i];
@@ -202,7 +212,7 @@ export function CarouselGenerationTracker({
           carouselTopic: carousel.topic,
           seamlessContext: {
             colorPalette,
-            previousSceneDescription,
+            previousSceneDescription: sharedVisualWorld || null,
             sequencePosition: slide.slideNumber,
             totalInSequence: carousel.slides_content.length,
           },
@@ -216,7 +226,6 @@ export function CarouselGenerationTracker({
             next[i] = 'done';
             return next;
           });
-          previousSceneDescription = result?.sceneDescription || slide.objective || slide.fullPrompt.slice(0, 200);
           return true;
         }
 
@@ -237,17 +246,22 @@ export function CarouselGenerationTracker({
       return false;
     };
 
-    // Main pass
-    for (let i = 0; i < carousel.slides_content.length; i++) {
-      await attemptGenerateSlide(i);
+    // Main pass — batch parallel (3 slides at a time)
+    for (let batchStart = 0; batchStart < carousel.slides_content.length; batchStart += BATCH_SIZE) {
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, carousel.slides_content.length);
+      const batchIndices = Array.from({ length: batchEnd - batchStart }, (_, k) => batchStart + k);
 
-      // Inter-slide delay
-      if (i < carousel.slides_content.length - 1) {
-        await new Promise(r => setTimeout(r, INTER_SLIDE_DELAY));
+      console.log(`[tracker] Batch ${Math.floor(batchStart / BATCH_SIZE) + 1}: slides ${batchIndices.map(i => i + 1).join(', ')}`);
+
+      await Promise.allSettled(batchIndices.map(idx => attemptGenerateSlide(idx)));
+
+      // Inter-batch delay
+      if (batchEnd < carousel.slides_content.length) {
+        await new Promise(r => setTimeout(r, INTER_BATCH_DELAY));
       }
     }
 
-    // Retry pass: use localStatuses (synchronous) instead of React state
+    // Retry pass: sequential for failed slides
     const retryIndices = localStatuses
       .map((s, idx) => s === 'error' ? idx : -1)
       .filter(idx => idx >= 0);
@@ -292,10 +306,18 @@ export function CarouselGenerationTracker({
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
+  const generatingSlides = slideStatuses
+    .map((s, idx) => s === 'generating' ? idx + 1 : -1)
+    .filter(n => n > 0);
+
   const currentStatusText = allDone
     ? '✅ Hoàn tất!'
     : imageGenStarted
-      ? `Đang tạo ảnh slide ${slideStatuses.findIndex(s => s === 'generating') + 1}...`
+      ? generatingSlides.length > 1
+        ? `Đang tạo ảnh slide ${generatingSlides.join(', ')}...`
+        : generatingSlides.length === 1
+          ? `Đang tạo ảnh slide ${generatingSlides[0]}...`
+          : 'Đang xử lý...'
       : promptDone
         ? 'Đang chuẩn bị tạo ảnh...'
         : PROMPT_STEPS[promptStep]?.label || 'Đang xử lý...';
