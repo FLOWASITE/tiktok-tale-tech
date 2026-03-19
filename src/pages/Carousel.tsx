@@ -472,11 +472,11 @@ const CarouselPage = () => {
         onOpenChange={setFormSheetOpen}
         title={
           <>
-            <Sparkles className="w-5 h-5 text-primary" />
-            Tạo Carousel Prompt Mới
+            <Wand2 className="w-5 h-5 text-primary" />
+            Tạo Carousel mới
           </>
         }
-        description="Điền thông tin để AI tạo prompt carousel cho bạn"
+        description="Nhập chủ đề và tùy chỉnh phong cách để AI tạo carousel chuyên nghiệp"
         className="md:max-w-xl lg:max-w-2xl"
       >
         <CarouselForm onSubmit={handleGenerateCarousel} isLoading={generating} initialTopic={initialTopic} topicHistoryId={topicHistoryId} />
