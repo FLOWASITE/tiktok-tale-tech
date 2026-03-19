@@ -20,6 +20,10 @@ import {
   Clock,
   AlertCircle,
   Sparkles,
+  Search,
+  LayoutGrid,
+  PenLine,
+  type LucideIcon,
 } from 'lucide-react';
 
 type PromptPhase = 'analyzing' | 'structuring' | 'writing' | 'finalizing';
