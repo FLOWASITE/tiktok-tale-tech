@@ -1,116 +1,128 @@
-## Fix: Layout luôn chỉ có 1 kiểu — đã sửa
 
-### Vấn đề
-Frontend dùng ternary cứng thay vì lấy layout từ template, khiến tất cả ảnh đều render cùng 1 layout.
 
-### Đã sửa (3 files)
-1. **`src/hooks/useAutoImageGeneration.ts`** — Mở rộng type union thêm `'split' | 'stack'`
-2. **`src/lib/hybridImageGenerator.ts`** — `DecomposedRequest` thêm field `layout?`, `applyTemplate` trả về `layout` từ template
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Dùng `applyResult.layout` thay vì ternary cứng, fallback vẫn giữ logic cũ cho template 'auto'
+## Plan: Carousel Visual Engine — 6 Gap Fixes
 
----
+### Context
+Hệ thống Carousel đã hoàn thành Phases 0-5 (Design Token System, Role Detection, Gallery Skip, Seamless Continuity, DB Presets). Phân tích chuyên sâu phát hiện **6 gaps** còn lại ảnh hưởng trực tiếp đến chất lượng output.
 
-## Feature: AI hiểu sâu nội dung để chọn Layout & Text phù hợp — đã sửa
-
-### Vấn đề
-AI decompose chỉ nhận ~600 ký tự summary chung chung, không biết content_role/goal/angle → layout và text overlay luôn generic.
-
-### Đã sửa (3 files)
-1. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `context` (contentRole/Goal/Angle/topic), thêm chiến lược chọn layout trong system prompt, trả `suggestedLayout` trong response
-2. **`src/lib/hybridImageGenerator.ts`** — Thêm `DecomposeContext` interface, `decomposeRequestWithAI` nhận context param, trả `suggestedLayout`
-3. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Thêm `getFullChannelContent` (2000 chars), truyền full content + strategic context, ưu tiên `suggestedLayout` khi auto mode
+### Gaps & Prioritized Fix Order
 
 ---
 
-## Feature: Regenerate sử dụng Core Content — đã sửa
+### Phase A: Gallery Hook Dark Gradient (Gap #5)
+**Impact: High | Effort: Low**
 
-### Vấn đề
-Regenerate chỉ dùng `topic` (vài từ) để viết lại → nội dung bị generic, mất key messages, mất góc nhìn chiến lược.
+**Problem**: Gallery hook slide prompt chỉ *gợi ý* AI tạo dark gradient ("The image MUST have a natural dark gradient..."). Không có programmatic fallback → text readability phụ thuộc AI luck.
 
-### Đã sửa (1 file)
-1. **`supabase/functions/generate-multichannel/index.ts`** — Fetch core content khi regenerate (content + key_messages + content_role), inject vào system prompt + user prompt, fallback về logic cũ khi không có core content
+**Fix**: Sau khi generate background cho gallery hook, overlay một gradient đen programmatic bằng Satori (transparent → rgba(0,0,0,0.6)) ở bottom 35%, rồi mới overlay text.
 
----
+**File**: `supabase/functions/generate-carousel-image/index.ts`
+- Khi `slideRole === 'hook' && carouselStyle === 'gallery'`: gửi request overlay-text-canvas với thêm param `bottomGradient: true`
 
-## Fix: Layout ảnh chỉ có 1 kiểu (infographic) do thiếu content_role + prompt ép 4 cards — đã sửa
-
-### Vấn đề
-1. `content_role` luôn NULL trong DB → AI decompose không có context chiến lược
-2. System prompt ép "LUÔN tạo đúng 4 thẻ" → autoSelectTemplate luôn chọn infographic
-3. TypeScript interface thiếu `content_role` và `content_angle` → phải dùng `(content as any)`
-
-### Đã sửa (4 files)
-1. **`src/types/multichannel.ts`** — Thêm `content_role: string | null` và `content_angle: string | null` vào `MultiChannelContent`
-2. **`src/hooks/useMultiChannelContents.ts`** — Map `content_role` và `content_angle` từ DB vào interface
-3. **`supabase/functions/decompose-image-request/index.ts`** — Sửa prompt: cards chỉ tạo khi nội dung giáo dục/liệt kê, KHÔNG tạo cho storytelling/quote/awareness
-4. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Bỏ `(content as any)`, thêm fallback fetch `content_role` từ `core_contents` khi bản ghi chính thiếu
+**File**: `supabase/functions/overlay-text-canvas/index.ts`
+- Carousel overlay mode: nếu `bottomGradient: true`, thêm div gradient overlay dưới text element
 
 ---
 
-## Feature: Education Infographic template với numbered cards + summary ribbon — đã sửa
+### Phase B: Multi-layer Text Hierarchy (Gap #1)
+**Impact: Highest | Effort: Medium**
 
-### Vấn đề
-Hệ thống chưa hỗ trợ tạo ảnh infographic phức tạp dạng "banner + numbered cards + ribbon tóm tắt + CTA + footer liên hệ" giống ảnh mẫu giáo dục.
+**Problem**: Carousel overlay hiện chỉ render **1 block text flat** (`textContent` string). Không phân biệt headline/subtitle/data value → output thiếu visual hierarchy.
 
-### Đã sửa (6 files + 2 edge functions)
-1. **`src/lib/hybridImageUtils.ts`** — Thêm `number?: number` vào `OverlayCardItem`, thêm `OverlaySummaryRibbon` interface, thêm `summaryRibbon` vào `StructuredOverlayConfig`
-2. **`src/lib/hybridImageGenerator.ts`** — Tương tự hybridImageUtils + thêm `education_infographic` vào `suggestedLayout` enum, `autoSelectTemplate` detect contact+cards→education_infographic, `applyTemplate` handle numbered cards + summaryRibbon
-3. **`src/config/overlayTemplates.ts`** — Thêm template `education_infographic` (layout stack, requiredSlots: banner+cards+summaryRibbon+cta+footer, cards numbered=true)
-4. **`src/hooks/useAutoImageGeneration.ts`** — Thêm `number` vào card items type, thêm `summaryRibbon` vào structuredOverlay
-5. **`src/components/multichannel/SimpleImageGenerator.tsx`** — Pass `summaryRibbon` qua overlay elements
-6. **`supabase/functions/decompose-image-request/index.ts`** — Thêm `education_infographic` vào enum + strategy, thêm `summaryRibbon` vào tool schema + validation, thêm `number` vào card items schema
-7. **`supabase/functions/overlay-text-canvas/index.ts`** — Render numbered circles (primary color bg) cho cards có `number`, render summary ribbon (gradient bg), update Smart Density cho summaryRibbon
+**Fix**: Parse `textContent` thành structured layers và render multi-block.
 
----
+**File**: `supabase/functions/generate-carousel-image/index.ts`
+- Thêm `parseTextLayers(textContent, slideRole)` function:
+  - Hook: line 1 = headline (3rem, bold), rest = subtitle (1.2rem, regular)
+  - Body: line 1 = heading (1.5rem), rest = body text (1rem)
+  - CTA: line 1 = main CTA (2rem, bold), line 2 = sub-text (1rem)
+  - DataPoint: first number/percentage = hero number (4rem), rest = label
+- Pass `textLayers` array thay vì single `text` string to overlay-text-canvas
 
-## Feature: Facebook Webhooks — Nhận engagement realtime — đã sửa
-
-### Vấn đề
-Hệ thống chưa có cách nhận realtime engagement (comment, reaction, share) từ Facebook khi user tương tác trên bài đã đăng qua Flowa.
-
-### Đã sửa (4 files + 1 migration + 1 secret)
-1. **Migration SQL** — Tạo bảng `social_post_engagements` (post_id, event_type, event_data, sender_id, sender_name, facebook_event_id unique) + RLS (org members read, service_role insert)
-2. **`supabase/functions/facebook-webhook/index.ts`** — **Mới**: GET verification (hub.verify_token), POST nhận feed changes → match page_id → social_connections → upsert engagement
-3. **`supabase/functions/connect-social/index.ts`** — Thêm `pages_manage_metadata` vào OAuth scope
-4. **`supabase/functions/facebook-oauth-callback/index.ts`** — Thêm scope + auto-subscribe page tới webhook (`POST /{page_id}/subscribed_apps?subscribed_fields=feed`)
-5. **`supabase/config.toml`** — Thêm `[functions.facebook-webhook]` verify_jwt=false
-6. **Secret** — `FACEBOOK_WEBHOOK_VERIFY_TOKEN` đã được tạo
-
-### Lưu ý
-- Cần cấu hình Webhook URL trên Facebook Developer Console: `https://rllyipiyuptkibqinotz.supabase.co/functions/v1/facebook-webhook`
-- User cần kết nối lại Facebook để cấp thêm permission `pages_manage_metadata`
+**File**: `supabase/functions/overlay-text-canvas/index.ts`
+- Carousel overlay mode: accept `textLayers?: { text: string; role: 'headline'|'subtitle'|'body'|'accent' }[]`
+- Render each layer with different fontSize, fontWeight, color opacity, spacing
+- Fallback: nếu không có `textLayers`, giữ logic single-text hiện tại
 
 ---
 
-## Feature: 6 Design Style System cho Image Generation Engine — đã triển khai
+### Phase C: Brand Color Blending (Gap #3)
+**Impact: Medium | Effort: Low**
 
-### Vấn đề
-Hệ thống dùng font `Be Vietnam Pro` cứng cho mọi style, padding đồng nhất, AI decompose không biết style để chọn layout phù hợp.
+**Problem**: `brandColors` được truyền nhưng chỉ dùng cho textColor/backgroundColor fallback. 2 brand khác nhau cùng preset → output gần giống nhau.
 
-### Đã sửa (4 files)
-1. **`supabase/functions/overlay-text-canvas/index.ts`** — Mở rộng `OverlayStyleTheme` thêm `fontFamily`, `headingFontFamily`, `spacingMultiplier`, `preferredLayout`, `ctaBorderRadius`, `cardBoxShadow`, `bannerLetterSpacing`. Cập nhật 6 theme chính (minimalist→Inter, flat_design→Montserrat, gradient→Plus Jakarta Sans, geometric→Open Sans+Playfair Display, illustration→Nunito, product_only→Be Vietnam Pro). Dynamic font loading per style. Spacing multiplier cho padding/gap.
-2. **`supabase/functions/_shared/image-prompt-data.ts`** — Cập nhật keywords 6 presets chính xác hơn theo Design System docs (minimalist→negative space, flat_design→blocky+data-driven, gradient→neon+glow, geometric→corporate+navy, illustration→warm, product_only→studio)
-3. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `imageStyle` param, inject style→layout preference hint vào AI prompt (minimalist→hero_text, flat_design→banner_cards, geometric→split...)
-4. **`src/lib/hybridImageGenerator.ts`** + **`src/components/multichannel/SimpleImageGenerator.tsx`** — Truyền `imageStyle` qua pipeline decompose
+**Fix**: Inject brand colors vào cả background prompt và overlay.
+
+**File**: `supabase/functions/generate-carousel-image/index.ts`
+- `buildBackgroundPrompt`: nếu có `brandColors`, thêm directive "Brand identity colors: primary={X}, accent={Y}. Incorporate these as dominant colors."
+- Overlay call: pass `brandColors` xuống overlay-text-canvas
+
+**File**: `supabase/functions/overlay-text-canvas/index.ts`
+- Carousel overlay: nếu có `brandColors.backgroundColor`, dùng nó cho `solid-block` và `glass` background thay vì hardcoded rgba
 
 ---
 
-## Phase 0-3: Carousel Design Token System — đã triển khai
+### Phase D: Content-aware Text Fitting (Gap #6)
+**Impact: Medium | Effort: Low**
 
-### Phase 0: DB Foundation
-- Tạo bảng `carousel_style_presets` + seed 6 presets (minimalist, flat_design, gradient, geometric, illustration, product_only)
-- RLS: authenticated READ, service_role WRITE
-- Frontend helper `src/lib/carouselStylePresets.ts` với in-memory cache 5 phút
+**Problem**: `textContent` có thể 5 từ hoặc 200 từ — cùng layout config. Text dài bị tràn, text ngắn nhìn trống.
 
-### Phase 1: Frontend Parameter Expansion
-- `useImageGeneration.ts` mở rộng options: carouselStyle, totalSlides, slideObjective, visualPreset, seamlessContext
-- `CarouselViewer.tsx` truyền context đầy đủ khi generate
+**Fix**: Dynamic layout adjustment based on text density.
 
-### Phase 2: Upgrade Text Overlay System
-- `generate-carousel-image`: detectSlideRole() + getOverlayConfig() matrix per preset×role
-- `overlay-text-canvas`: 8 vị trí mới, glass/solid-block/cta-button treatments, dynamic font scaling
-- Gallery visual slides skip overlay hoàn toàn
+**File**: `supabase/functions/generate-carousel-image/index.ts`
+- Thêm logic: nếu `textContent.length > 120`, giảm fontSize scale và tăng maxWidth
+- Nếu `textContent.length < 20`, tăng fontSize scale và giảm maxWidth cho dramatic effect
+- Override vào overlayConfig trước khi gửi
 
-### Phase 3: Seamless Continuity + Style Presets + Gallery Optimization
-1. **`supabase/functions/generate-carousel-image/index.ts`** — Fetch `carousel_style_presets` từ DB (parallel với getAIConfig), inject design tokens (colors/effects/typography) vào prompt, seamlessContext (colorPalette + previousSceneDescription) cho visual continuity, gallery 4:5 aspect ratio cho Facebook
-2. **`src/components/CarouselViewer.tsx`** — extractColorPalette() từ slide colorLayout, truyền seamlessContext tuần tự qua các slide khi Generate All, previousSceneDescription chain
+---
+
+### Phase E: Decorative Elements cho Listicle (Gap #4)
+**Impact: Medium | Effort: Medium**
+
+**Problem**: Listicle slides thiếu visual indicators — slide number badge, progress dots, divider lines.
+
+**Fix**: Thêm decorative overlay elements cho listicle style.
+
+**File**: `supabase/functions/generate-carousel-image/index.ts`
+- Khi `carouselStyle === 'listicle'` và `slideRole === 'body'`: thêm `decorations` param
+  - `slideNumber` badge (circle with number)
+  - `progressDots` (filled dots showing position in sequence)
+
+**File**: `supabase/functions/overlay-text-canvas/index.ts`
+- Carousel overlay mode: render `decorations.slideNumberBadge` (top-left circle) và `decorations.progressDots` (bottom center)
+
+---
+
+### Phase F: Seamless Quality Validation (Gap #2)
+**Impact: Low-Medium | Effort: Medium**
+
+**Problem**: Seamless continuity chỉ truyền prompt hints, không validate output. 2 adjacent slides có thể hoàn toàn khác biệt về màu sắc.
+
+**Fix**: Post-generation scene description extraction.
+
+**File**: `supabase/functions/generate-carousel-image/index.ts`
+- Sau khi generate background thành công, extract `sceneDescription` từ AI response text (bgData.choices[0].message.content)
+- Return `sceneDescription` trong response để frontend chain vào slide tiếp theo (thay vì dùng slide.objective)
+
+**File**: `src/components/CarouselViewer.tsx`
+- `handleGenerateAllImages`: dùng `response.sceneDescription` cho `previousSceneDescription` thay vì `slide.objective`
+
+---
+
+### Implementation Order
+```text
+Phase A (Gallery gradient)     → 1-2 giờ
+Phase D (Text fitting)         → 1 giờ  
+Phase C (Brand colors)         → 1-2 giờ
+Phase B (Multi-layer text)     → 3-4 giờ
+Phase E (Listicle decorations) → 2-3 giờ
+Phase F (Seamless validation)  → 2 giờ
+```
+
+### Files Changed Summary
+| File | Phases |
+|------|--------|
+| `generate-carousel-image/index.ts` | A, B, C, D, E, F |
+| `overlay-text-canvas/index.ts` | A, B, C, E |
+| `src/components/CarouselViewer.tsx` | F |
+
