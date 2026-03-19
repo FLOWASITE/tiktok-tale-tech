@@ -1376,6 +1376,21 @@ serve(async (req) => {
     }
 
     // === Simple (legacy) text overlay ===
+    // Check for carousel-specific overlay config
+    const carouselOverlay = body.carouselOverlay as {
+      position?: string;
+      fontWeight?: number;
+      fontSize?: string;
+      textAlign?: string;
+      maxWidth?: string;
+      textTransform?: string;
+      background?: string;
+      textColor?: string;
+      fontFamily?: string;
+    } | undefined;
+
+    const hasCarouselOverlay = !!carouselOverlay;
+
     const body2 = body as OverlayTextRequest;
     const {
       baseImageUrl,
@@ -1407,6 +1422,119 @@ serve(async (req) => {
       );
     }
 
+    // === Carousel Overlay Mode: dynamic position, font, background ===
+    if (hasCarouselOverlay) {
+      console.log(`[overlay-text-canvas] === CAROUSEL OVERLAY MODE ===`);
+      console.log(`[overlay-text-canvas] Config:`, JSON.stringify(carouselOverlay));
+      
+      const cleanText = text.trim();
+      const transform = carouselOverlay.textTransform || 'none';
+      const displayText = transform === 'uppercase' ? cleanText.toUpperCase() : cleanText;
+
+      // Convert rem fontSize to px (base 16, clamp to 15% canvas height)
+      const remMatch = (carouselOverlay.fontSize || '1.5rem').match(/([\d.]+)rem/);
+      let fontSizePx = remMatch ? parseFloat(remMatch[1]) * 16 : 24;
+      const maxFontSize = Math.round(imageHeight * 0.15);
+      fontSizePx = Math.min(fontSizePx, maxFontSize);
+      // Smart fit: scale down if text is too long
+      const maxWidthPercent = parseInt(carouselOverlay.maxWidth || '85%') / 100;
+      fontSizePx = fitTextToWidth(displayText, imageWidth * maxWidthPercent, fontSizePx, 14);
+
+      // Position mapping → flexbox styles
+      const carouselPositionStyles = getCarouselPositionStyles(carouselOverlay.position || 'center');
+
+      // Load font (use specified family or fallback)
+      const fontFamily = carouselOverlay.fontFamily || 'Be Vietnam Pro';
+      const fontWeight = carouselOverlay.fontWeight || 600;
+      type Weight = 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
+      const fontsToLoad = [400, fontWeight, 700].filter((v, i, a) => a.indexOf(v) === i);
+      const fonts: Array<{ name: string; data: ArrayBuffer; weight: Weight; style: 'normal' }> = [];
+
+      const fontResults = await Promise.allSettled(
+        fontsToLoad.map(w => loadGoogleFont(displayText, w, fontFamily))
+      );
+      for (let i = 0; i < fontsToLoad.length; i++) {
+        const result = fontResults[i];
+        if (result.status === 'fulfilled' && result.value) {
+          fonts.push({ name: fontFamily, data: result.value, weight: fontsToLoad[i] as Weight, style: 'normal' });
+        }
+      }
+      // Fallback font
+      if (fonts.length === 0) {
+        const fb = await loadGoogleFont(displayText, 400, 'Be Vietnam Pro');
+        if (fb) fonts.push({ name: 'Be Vietnam Pro', data: fb, weight: 400, style: 'normal' });
+      }
+      if (fonts.length === 0) throw new Error('Could not load any fonts');
+
+      // Build background treatment wrapper styles
+      const bgTreatment = getBackgroundTreatmentStyles(carouselOverlay.background || 'none');
+
+      // Build element tree
+      const textElement: any = {
+        type: 'span',
+        props: {
+          style: {
+            color: carouselOverlay.textColor || '#FFFFFF',
+            fontSize: fontSizePx,
+            fontFamily: fonts.length > 0 ? fontFamily : 'sans-serif',
+            fontWeight: fontWeight,
+            textAlign: carouselOverlay.textAlign || 'center',
+            lineHeight: 1.35,
+            textShadow: (carouselOverlay.background === 'none') 
+              ? '2px 2px 4px rgba(0,0,0,0.7), -1px -1px 2px rgba(0,0,0,0.4)' 
+              : 'none',
+          },
+          children: displayText,
+        },
+      };
+
+      const wrapperChildren = bgTreatment
+        ? { type: 'div', props: { style: { ...bgTreatment, maxWidth: carouselOverlay.maxWidth || '85%', display: 'flex', flexDirection: 'column', alignItems: carouselOverlay.textAlign === 'left' ? 'flex-start' : carouselOverlay.textAlign === 'right' ? 'flex-end' : 'center' }, children: textElement } }
+        : { type: 'div', props: { style: { maxWidth: carouselOverlay.maxWidth || '85%', display: 'flex', flexDirection: 'column', alignItems: carouselOverlay.textAlign === 'left' ? 'flex-start' : carouselOverlay.textAlign === 'right' ? 'flex-end' : 'center' }, children: textElement } };
+
+      const element = {
+        type: 'div',
+        props: {
+          style: {
+            width: imageWidth,
+            height: imageHeight,
+            display: 'flex',
+            backgroundImage: `url(${baseImageUrl})`,
+            backgroundSize: `${imageWidth}px ${imageHeight}px`,
+            backgroundPosition: 'center',
+            ...carouselPositionStyles,
+          },
+          children: wrapperChildren,
+        },
+      };
+
+      const svg = await satori(element as any, { width: imageWidth, height: imageHeight, fonts });
+      const encoder = new TextEncoder();
+      const svgBytes = encoder.encode(svg);
+
+      let finalImageUrl: string;
+      if (contentId && channel) {
+        finalImageUrl = await uploadToStorage(svgBytes, contentId, channel, organizationId);
+      } else {
+        finalImageUrl = `data:image/svg+xml;base64,${btoa(svg)}`;
+      }
+
+      console.log(`[overlay-text-canvas] Carousel overlay complete: ${finalImageUrl.substring(0, 80)}...`);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          imageUrl: finalImageUrl,
+          textRendered: displayText,
+          fontSize: fontSizePx,
+          format: 'svg',
+          dimensions: { width: imageWidth, height: imageHeight },
+          mode: 'carousel_overlay',
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // === Legacy simple text overlay (unchanged) ===
     console.log(`[overlay-text-canvas] === SATORI TEXT OVERLAY ===`);
     console.log(`[overlay-text-canvas] Text: "${text.substring(0, 50)}..."`);
     console.log(`[overlay-text-canvas] Position: ${position}, Style: ${typographyStyle}`);
