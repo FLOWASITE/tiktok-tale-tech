@@ -294,6 +294,8 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
   const handleGenerateAllImages = async () => {
     setGeneratingAll(true);
     setGeneratingProgress(0);
+    setGeneratingStartTime(Date.now());
+    setCurrentGeneratingSlide(null);
 
     // Extract dominant colors from slide design info for seamless continuity
     const colorPalette = carousel.slides_content.length > 0
@@ -301,8 +303,10 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
       : null;
 
     let previousSceneDescription: string | null = null;
+    let successCount = 0;
 
     for (const slide of carousel.slides_content) {
+      setCurrentGeneratingSlide(slide.slideNumber);
       const isSeamless = carousel.carousel_style === 'seamless';
 
       const brandColors = extractBrandColors();
@@ -323,6 +327,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
       });
       if (result?.imageUrl) {
         await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt);
+        successCount++;
       }
 
       // Phase F: Use AI-extracted scene description for better seamless continuity
@@ -336,7 +341,16 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
 
     setGeneratingAll(false);
     setGeneratingProgress(0);
-    toast.success('Đã tạo xong tất cả ảnh!');
+    setCurrentGeneratingSlide(null);
+    setGeneratingStartTime(null);
+
+    if (successCount === carousel.slides_content.length) {
+      toast.success(`🎉 Đã tạo xong ${successCount} ảnh!`);
+    } else if (successCount > 0) {
+      toast.warning(`Tạo được ${successCount}/${carousel.slides_content.length} ảnh. Một số slide gặp lỗi.`);
+    } else {
+      toast.error('Không tạo được ảnh nào. Vui lòng thử lại.');
+    }
   };
 
   // Set the ref so the auto-trigger effect can call it
