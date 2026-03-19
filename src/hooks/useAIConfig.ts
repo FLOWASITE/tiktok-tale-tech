@@ -162,7 +162,8 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
     'poyo/grok-imagine',
   ],
   'image-direct': [
-    'gemini-2.0-flash-exp-image-generation',
+    'google/gemini-3-pro-image-preview',
+    'google/gemini-2.5-flash-image',
   ],
   search: [
     'sonar-pro',
