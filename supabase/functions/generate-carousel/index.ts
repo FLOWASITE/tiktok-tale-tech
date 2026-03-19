@@ -494,44 +494,27 @@ ${formData.includeLogo ? `Logo: Bao gồm logo "${formData.brandName}" ở góc 
 
 ## NGUYÊN TẮC QUAN TRỌNG VỀ fullPrompt
 
-fullPrompt là prompt để tạo ẢNH NỀN cho slide. Text sẽ được overlay sau bằng hệ thống riêng.
+fullPrompt là prompt để tạo ẢNH HOÀN CHỈNH cho slide — bao gồm CẢ background VÀ layout tổng thể.
+Text sẽ được thêm tự động bởi hệ thống — bạn KHÔNG cần viết text content trong fullPrompt.
 
-### LUẬT SỐ 1: fullPrompt PHẢI mô tả CẢNH CỤ THỂ liên quan đến NỘI DUNG slide
-- KHÔNG BAO GIỜ viết fullPrompt chung chung kiểu "modern gradient background" hay "abstract shapes with soft colors"
-- fullPrompt PHẢI chứa: đối tượng cụ thể + bối cảnh + ánh sáng + góc chụp + mood
-- Nội dung ảnh phải TRỰC TIẾP liên quan đến topic và objective của slide đó
+### LUẬT:
+1. fullPrompt mô tả CẢNH CỤ THỂ liên quan đến NỘI DUNG slide (không chung chung)
+2. fullPrompt KHÔNG chứa nội dung text — hệ thống sẽ tự thêm text từ textContent
+3. Tất cả slides phải CÙNG thế giới hình ảnh (cùng setting, palette, phong cách, ánh sáng)
+4. fullPrompt tối thiểu 30 từ tiếng Anh
+5. fullPrompt phải bao gồm: [chủ thể] + [bối cảnh] + [ánh sáng] + [phong cách] + [palette] + [mood]
+6. Mỗi fullPrompt KẾT THÚC bằng: "consistent with previous slides: [mô tả phong cách chung]"
+7. Phải để lại KHÔNG GIAN cho text overlay — ảnh không nên quá chi tiết/busy ở vùng text sẽ xuất hiện
 
-### LUẬT SỐ 2: fullPrompt KHÔNG yêu cầu vẽ text/chữ
-- Không viết: "text says...", "with text...", "title reading..."
-- Tập trung 100% vào visual scene
-
-### LUẬT SỐ 3: Tất cả slides trong 1 carousel phải CÙNG THẾ GIỚI HÌNH ẢNH
-- Cùng phong cách chụp/vẽ (nếu slide 1 là photography thì tất cả phải photography)
-- Cùng palette màu chủ đạo
-- Cùng mood/atmosphere
-- Chỉ thay đổi: đối tượng chính, góc nhìn, cận cảnh vs toàn cảnh
-
-### VÍ DỤ fullPrompt TỐT:
-
+### VÍ DỤ TỐT:
 Topic: "5 Tips Marketing cho Spa"
-- Slide 1 (Hook): "Overhead view of a luxury spa treatment room, white marble countertop with orchid flowers, essential oil bottles arranged elegantly, soft warm golden lighting from candles, steam rising gently, shallow depth of field, professional editorial photography, muted purple and gold color palette"
-- Slide 2 (Tip 1): "Close-up of hands performing a hot stone massage on a client's back, warm amber lighting, smooth river stones arranged in a line, eucalyptus leaves blurred in background, same luxury spa setting, same purple-gold palette, professional photography"
-- Slide 3 (Tip 2): "Spa reception desk with a digital tablet showing booking interface, small succulent plants, branded towels rolled neatly, same warm lighting and marble aesthetic, medium shot, same color palette"
-- Slide 5 (CTA): "Wide shot of the entire spa lobby, inviting entrance with soft lighting, tropical plants framing the doorway, welcoming atmosphere, same purple-gold palette, same photography style"
+- Slide 1 (Hook): "Overhead view of luxury spa treatment room, white marble with orchid flowers, essential oil bottles, warm golden candlelight, steam rising, shallow depth of field, editorial photography, muted purple and gold palette, generous clean space in center for text overlay, consistent with series: luxury spa environment"
+- Slide 2: "Close-up of hot stone massage, warm amber lighting, smooth stones in line, eucalyptus leaves blurred in background, same luxury spa, same purple-gold palette, clean area on left side for text, consistent with previous slides: same spa photography style"
 
-Topic: "Tại sao Doanh nghiệp cần ERP"
-- Slide 1 (Hook): "Modern open-plan office with glass partitions, employees collaborating at standing desks, large monitor showing colorful dashboard graphs, blue and white corporate lighting, wide angle lens, sharp professional photography, navy blue and silver color palette"
-- Slide 2 (Problem): "Cluttered desk with scattered papers, sticky notes everywhere, stressed office worker's hands on keyboard, shallow depth of field on the mess, same office environment but chaotic zone, same navy-silver palette"
-- Slide 3 (Solution): "Clean minimalist workstation with single laptop showing organized data grid, coffee cup, small plant, everything neat and aligned, same office building but organized zone, same palette, calm confident mood"
-
-Topic: "Top 5 món ăn Đà Lạt"
-- Slide 1 (Hook): "Aerial view of Dalat market at golden hour, colorful fresh vegetables and flowers in wooden crates, misty mountain background, warm sunlight filtering through pine trees, food photography style, earth tone and green palette"
-- Slide 2 (Item 1): "Steaming bowl of bánh căn on a rustic wooden table, crispy edges visible, dipping sauce in small ceramic bowl, chopsticks, background showing blurred Dalat street scene, same warm lighting and earth tones, close-up food photography"
-
-### LUẬT SỐ 4: fullPrompt phải đủ dài và chi tiết
-- Tối thiểu 30 từ tiếng Anh
-- Phải bao gồm: [chủ thể chính] + [bối cảnh/setting] + [ánh sáng] + [góc chụp/phong cách] + [palette màu] + [mood/atmosphere]
-- fullPrompt luôn viết bằng TIẾNG ANH (dù nội dung slide là tiếng Việt/Thái)
+### VÍ DỤ XẤU (KHÔNG LÀM):
+- "Modern gradient background with soft colors" ← quá chung, không liên quan topic
+- "Abstract shapes representing digital transformation" ← trừu tượng, không có cảnh cụ thể
+- "Beautiful spa image" ← quá ngắn, không chi tiết
 
 ## QUY TẮC THỐNG NHẤT HÌNH ẢNH (ÁP DỤNG CHO TẤT CẢ CAROUSEL STYLES)
 
@@ -547,18 +530,13 @@ Tất cả slides trong 1 carousel PHẢI tuân theo quy tắc thống nhất sa
 
 5. MỖI fullPrompt PHẢI KẾT THÚC bằng cụm: "consistent with previous slides: [mô tả phong cách chung]"
 
-Ví dụ đúng (carousel về Marketing Spa):
-- Slide 1 fullPrompt kết thúc bằng: "...professional editorial photography, muted purple and gold palette, warm candlelight mood"
-- Slide 2 fullPrompt kết thúc bằng: "...same luxury spa setting, same professional editorial photography, same muted purple and gold palette, warm candlelight mood, consistent with previous slides"
-- Slide 3 fullPrompt kết thúc bằng: "...same spa environment, same photography style, same purple-gold palette, same warm lighting, consistent with previous slides"
-
 ${textLengthSection}
 
 ## NGUYÊN TẮC VIẾT NỘI DUNG
-1. textContent: Nội dung chữ sẽ overlay lên ảnh, viết ngắn gọn, dễ đọc trên mobile
-2. fullPrompt: Prompt tạo ảnh nền đẹp, KHÔNG chứa text
+1. textContent: Nội dung chữ sẽ được render lên ảnh, viết ngắn gọn, dễ đọc trên mobile
+2. fullPrompt: Prompt tạo ảnh slide — mô tả CẢNH cụ thể, KHÔNG viết text content trong đây
 3. Font: Sans-serif, ít chữ, dòng ngắn, khoảng trắng nhiều
-4. Carousel là để ĐỌC - ảnh nền chỉ hỗ trợ visual
+4. Carousel là để ĐỌC - ảnh hỗ trợ visual và render text
 5. PHẢI tuân thủ TEXT LENGTH CONSTRAINTS ở trên — text quá dài sẽ bị tràn visual space
 
 ## FORMAT OUTPUT BẮT BUỘC CHO MỖI SLIDE
