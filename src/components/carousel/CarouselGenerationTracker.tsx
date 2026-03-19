@@ -178,11 +178,13 @@ export function CarouselGenerationTracker({
     let previousSceneDescription: string | null = null;
     const MAX_ATTEMPTS = 3;
     const INTER_SLIDE_DELAY = 2500;
+    const localStatuses: SlideStatus[] = Array(carousel.slides_content.length).fill('pending');
 
     const attemptGenerateSlide = async (i: number): Promise<boolean> => {
       const slide = carousel.slides_content[i];
 
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        localStatuses[i] = 'generating';
         setSlideStatuses(prev => {
           const next = [...prev];
           next[i] = 'generating';
@@ -208,6 +210,7 @@ export function CarouselGenerationTracker({
 
         if (result?.imageUrl) {
           await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt);
+          localStatuses[i] = 'done';
           setSlideStatuses(prev => {
             const next = [...prev];
             next[i] = 'done';
@@ -225,6 +228,7 @@ export function CarouselGenerationTracker({
       }
 
       // All attempts exhausted
+      localStatuses[i] = 'error';
       setSlideStatuses(prev => {
         const next = [...prev];
         next[i] = 'error';
@@ -243,16 +247,8 @@ export function CarouselGenerationTracker({
       }
     }
 
-    // Retry pass: re-attempt any error slides one more time
-    const errorIndices = slideStatuses
-      .map((s, idx) => s === 'error' ? idx : -1)
-      .filter(idx => idx >= 0);
-
-    // Need to read current state via ref-like approach
-    let currentStatuses: SlideStatus[] = [];
-    setSlideStatuses(prev => { currentStatuses = [...prev]; return prev; });
-
-    const retryIndices = currentStatuses
+    // Retry pass: use localStatuses (synchronous) instead of React state
+    const retryIndices = localStatuses
       .map((s, idx) => s === 'error' ? idx : -1)
       .filter(idx => idx >= 0);
 
