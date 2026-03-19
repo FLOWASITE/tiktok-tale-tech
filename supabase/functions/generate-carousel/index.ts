@@ -463,8 +463,9 @@ const getTextLengthGuidelines = (visualPreset: string): string => {
   return guidelines[visualPreset] || guidelines.minimalist;
 };
 
-const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, mergedRules?: MergedRules, outputLang: string = 'vi'): string => {
+const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, mergedRules?: MergedRules, outputLang: string = 'vi', countryCode?: string | null): string => {
   const langConfig = getLanguageConfig(outputLang);
+  const countryConfig = getCountryConfig(countryCode);
   const carouselStyle = formData.carouselStyle || 'educational';
   const visualPreset = formData.visualPreset || 'minimalist';
 
