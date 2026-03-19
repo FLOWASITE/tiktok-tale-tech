@@ -60,6 +60,7 @@ const CarouselPage = () => {
   const { profiles: creatorProfiles, isLoading: isLoadingProfiles } = useCreatorProfiles(userIds);
   
   const [selectedCarousel, setSelectedCarousel] = useState<Carousel | null>(null);
+  const [trackerCarousel, setTrackerCarousel] = useState<Carousel | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [formSheetOpen, setFormSheetOpen] = useState(false);
   const [initialTopic, setInitialTopic] = useState<string>('');
