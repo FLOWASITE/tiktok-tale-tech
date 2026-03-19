@@ -9,6 +9,8 @@ import { Carousel } from '@/types/carousel';
 import { useImageGeneration } from '@/hooks/useImageGeneration';
 import { useCarouselImages } from '@/hooks/useCarouselImages';
 import { useConfetti } from '@/hooks/useConfetti';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import {
   ArrowLeft,
   Check,
