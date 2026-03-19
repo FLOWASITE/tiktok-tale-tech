@@ -36,17 +36,80 @@ function detectSlideRole(
   return 'body';
 }
 
+// CarouselSlide interface (matches generate-carousel output)
+interface CarouselSlide {
+  slideNumber: number;
+  objective: string;
+  textContent: string | StructuredTextContent;
+  designStyle: string;
+  colorLayout: string;
+  aspectRatio: string;
+  technicalRequirements: string;
+  fullPrompt: string;
+}
+
+// ============================================
+// Structured Text Content (Phase 1.1)
+// ============================================
+interface StructuredTextContent {
+  headline: string;
+  subtitle?: string;
+  caption?: string;
+  dataValue?: string;
+  dataLabel?: string;
+}
+
+function isStructuredTextContent(tc: unknown): tc is StructuredTextContent {
+  return !!tc && typeof tc === 'object' && 'headline' in tc && typeof (tc as any).headline === 'string';
+}
+
+/**
+ * Normalize textContent to a flat string for backward-compatible paths
+ */
+function textContentToString(tc: string | StructuredTextContent): string {
+  if (typeof tc === 'string') return tc;
+  const parts: string[] = [];
+  if (tc.dataValue) parts.push(tc.dataValue);
+  if (tc.dataLabel) parts.push(tc.dataLabel);
+  parts.push(tc.headline);
+  if (tc.subtitle) parts.push(tc.subtitle);
+  if (tc.caption) parts.push(tc.caption);
+  return parts.join('\n');
+}
+
 // ============================================
 // Phase B: Parse text into multi-layer hierarchy
+// Now supports structured textContent natively
 // ============================================
 interface TextLayer {
   text: string;
-  role: 'headline' | 'subtitle' | 'body' | 'accent';
+  role: 'headline' | 'subtitle' | 'body' | 'accent' | 'dataValue' | 'dataLabel' | 'caption';
 }
 
-function parseTextLayers(textContent: string, slideRole: string): TextLayer[] | null {
+function parseTextLayers(textContent: string | StructuredTextContent, slideRole: string): TextLayer[] | null {
+  // === Structured textContent: use semantic fields directly ===
+  if (isStructuredTextContent(textContent)) {
+    const layers: TextLayer[] = [];
+
+    if (textContent.dataValue) {
+      layers.push({ text: textContent.dataValue, role: 'dataValue' });
+    }
+    if (textContent.dataLabel) {
+      layers.push({ text: textContent.dataLabel, role: 'dataLabel' });
+    }
+    layers.push({ text: textContent.headline, role: 'headline' });
+    if (textContent.subtitle) {
+      layers.push({ text: textContent.subtitle, role: 'subtitle' });
+    }
+    if (textContent.caption) {
+      layers.push({ text: textContent.caption, role: 'caption' });
+    }
+    return layers.length > 1 ? layers : null; // Single headline → legacy path is fine
+  }
+
+  // === Legacy string textContent: heuristic parsing ===
   const lines = textContent.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  if (lines.length <= 1) return null; // Single line → use legacy single-text
+  if (lines.length <= 1) return null;
 
   switch (slideRole) {
     case 'hook':
@@ -60,11 +123,10 @@ function parseTextLayers(textContent: string, slideRole: string): TextLayer[] | 
         ...lines.slice(1).map(l => ({ text: l, role: 'body' as const })),
       ];
     case 'dataPoint': {
-      // Check if first line is a number/percentage
       const isNumeric = /^\d+(\.\d+)?[%+]?$/.test(lines[0].trim());
       if (isNumeric) {
         return [
-          { text: lines[0], role: 'accent' },
+          { text: lines[0], role: 'dataValue' },
           ...lines.slice(1).map(l => ({ text: l, role: 'body' as const })),
         ];
       }
