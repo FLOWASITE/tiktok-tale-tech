@@ -8,7 +8,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Edit2, Trash2, Star, Check, Copy, User, Building2, Eye, Users, Package, Scroll, ChevronDown, ChevronUp, Link2Off } from 'lucide-react';
+import { Edit2, Trash2, Star, Check, Copy, User, Building2, Eye, Users, Package, Scroll, ChevronDown, ChevronUp, Link2Off, Facebook, Instagram, Linkedin, Twitter, Youtube, Globe, MessageCircle } from 'lucide-react';
+import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,7 +42,7 @@ interface BrandCardProps {
   onSelectChange?: (id: string, checked: boolean) => void;
   usageStats?: BrandUsageStats | null;
   brandCounts?: BrandCounts;
-  hasSocialConnections?: boolean;
+  connectedPlatforms?: string[];
 }
 
 // Animated Completeness Ring Component
@@ -105,7 +106,7 @@ export function BrandCard({
   selected = false,
   onSelectChange,
   brandCounts,
-  hasSocialConnections = false,
+  connectedPlatforms = [],
 }: BrandCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   
@@ -302,7 +303,29 @@ export function BrandCard({
               {brandCounts.industryMemoryName}
             </Badge>
           )}
-          {!hasSocialConnections && (
+          {connectedPlatforms.length > 0 ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link to={`/brands/${template.id}?tab=connections`}>
+                    <div className="flex items-center gap-1 cursor-pointer">
+                      {connectedPlatforms.slice(0, 4).map((platform) => (
+                        <ChannelIcon key={platform} channel={platform} size="sm" />
+                      ))}
+                      {connectedPlatforms.length > 4 && (
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-5">
+                          +{connectedPlatforms.length - 4}
+                        </Badge>
+                      )}
+                    </div>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{connectedPlatforms.length} kênh đã kết nối</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
