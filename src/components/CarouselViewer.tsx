@@ -29,7 +29,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { formatAllSlidesPrompt } from '@/utils/parseCarouselSlides';
 import { GeneratedImagesGallery } from './GeneratedImagesGallery';
