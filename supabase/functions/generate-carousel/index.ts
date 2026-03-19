@@ -696,12 +696,12 @@ Each slide must have compelling text content in ${langConfig.nativeName}.
 Remember: fullPrompt is for BACKGROUND IMAGE only (no text rendering needed).
 Follow the carousel style guidelines strictly.`;
 
-    // Try to fetch prompts from registry
+    // Try to fetch prompts from registry — with safe fallback
     try {
       const pm = createPromptManager(supabase, 'generate-carousel', organizationId || undefined, formData.brandTemplateId);
       const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules, outputLang) : '';
       
-      systemPrompt = await pm.get('system', {
+      const registrySystem = await pm.get('system', {
         platform: formData.platform === "facebook" ? "Facebook" : "TikTok",
         slideCount: String(formData.slideCount),
         brandName: formData.brandName,
@@ -709,16 +709,31 @@ Follow the carousel style guidelines strictly.`;
         includeLogo: formData.includeLogo ? 'true' : 'false',
         logoUrl: formData.logoUrl || '',
         brandVoiceSection,
-      });
+      }).catch(() => null);
       
-      userPrompt = await pm.get('generate', {
+      const registryUser = await pm.get('generate', {
         topic: formData.topic,
         slideCount: String(formData.slideCount),
         platform: formData.platform === "facebook" ? "Facebook" : "TikTok",
         brandName: formData.brandName,
-      });
+      }).catch(() => null);
       
-      console.log('[generate-carousel] Using prompts from registry');
+      // Only use registry prompts if they're valid (non-empty, sufficient length)
+      const isValidPrompt = (p: string | null) => p && p.trim().length >= 50;
+      
+      if (isValidPrompt(registrySystem)) {
+        systemPrompt = registrySystem!;
+        console.log('[generate-carousel] System prompt: REGISTRY ✓');
+      } else {
+        console.warn('[generate-carousel] System prompt: FALLBACK (registry empty/missing/too short)');
+      }
+      
+      if (isValidPrompt(registryUser)) {
+        userPrompt = registryUser!;
+        console.log('[generate-carousel] User prompt: REGISTRY ✓');
+      } else {
+        console.warn('[generate-carousel] User prompt: FALLBACK (registry empty/missing/too short)');
+      }
     } catch (pmErr) {
       console.warn('[generate-carousel] PromptManager fallback to hardcoded:', pmErr);
     }
