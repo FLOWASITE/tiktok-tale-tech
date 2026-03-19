@@ -99,10 +99,10 @@ export function DirectPublishButton({
 }: DirectPublishButtonProps) {
   const navigate = useNavigate();
   const { currentOrganization } = useOrganization();
-  // Prioritize brand-level connections, fallback to organization-level
+  // Always pass organizationId; also pass brandTemplateId if available for brand-level lookup
   const { connections, getConnectionForPlatform } = useSocialConnections({ 
     brandTemplateId,
-    organizationId: !brandTemplateId ? currentOrganization?.id : undefined,
+    organizationId: currentOrganization?.id,
   });
   const { publishToTwitter, publishToFacebook, isPublishing, publishResult } = useDirectPublish();
 
