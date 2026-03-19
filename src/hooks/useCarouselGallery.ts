@@ -26,6 +26,22 @@ export interface GalleryImage {
   brandLogoUrl?: string;
 }
 
+export interface ContentFolder {
+  id: string;
+  title: string;
+  source: ImageSource;
+  thumbnailUrls: string[];
+  imageCount: number;
+  latestDate: string;
+  createdByName?: string;
+  createdByAvatar?: string;
+  createdByUserId?: string;
+  isOrgMember?: boolean;
+  brandName?: string;
+  brandLogoUrl?: string;
+  channel?: string;
+}
+
 export function useCarouselGallery() {
   const { currentOrganization } = useOrganizationContext();
   const [images, setImages] = useState<GalleryImage[]>([]);
@@ -37,6 +53,7 @@ export function useCarouselGallery() {
   const [sortBy, setSortBy] = useState<SortBy>('newest');
   const [creatorFilter, setCreatorFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   const orgId = currentOrganization?.id;
 
@@ -64,7 +81,6 @@ export function useCarouselGallery() {
       if (carouselRes.error) throw carouselRes.error;
       if (channelRes.error) throw channelRes.error;
 
-      // Collect all user IDs and brand_template_ids to batch fetch
       const userIds = new Set<string>();
       const brandTemplateIds = new Set<string>();
 
@@ -78,7 +94,6 @@ export function useCarouselGallery() {
         if (row.multi_channel_contents?.brand_template_id) brandTemplateIds.add(row.multi_channel_contents.brand_template_id);
       });
 
-      // Batch fetch profiles, brands, and org members
       const [profilesRes, brandsRes, membersRes] = await Promise.all([
         userIds.size > 0
           ? supabase.from('profiles').select('id, full_name, email, avatar_url').in('id', Array.from(userIds))
@@ -171,13 +186,100 @@ export function useCarouselGallery() {
     fetchImages();
   }, [orgId]);
 
+  // Group images into content folders
+  const contentFolders = useMemo<ContentFolder[]>(() => {
+    const folderMap = new Map<string, GalleryImage[]>();
+    images.forEach(img => {
+      const existing = folderMap.get(img.carouselId);
+      if (existing) {
+        existing.push(img);
+      } else {
+        folderMap.set(img.carouselId, [img]);
+      }
+    });
+
+    const folders: ContentFolder[] = [];
+    folderMap.forEach((imgs, id) => {
+      const first = imgs[0];
+      // Collect up to 4 unique thumbnail URLs
+      const thumbnailUrls = imgs.slice(0, 4).map(i => i.imageUrl);
+      const latestDate = imgs.reduce((max, i) =>
+        new Date(i.createdAt).getTime() > new Date(max).getTime() ? i.createdAt : max,
+        imgs[0].createdAt
+      );
+
+      folders.push({
+        id,
+        title: first.carouselTitle,
+        source: first.source,
+        thumbnailUrls,
+        imageCount: imgs.length,
+        latestDate,
+        createdByName: first.createdByName,
+        createdByAvatar: first.createdByAvatar,
+        createdByUserId: first.createdByUserId,
+        isOrgMember: first.isOrgMember,
+        brandName: first.brandName,
+        brandLogoUrl: first.brandLogoUrl,
+        channel: first.channel,
+      });
+    });
+
+    return folders;
+  }, [images]);
+
+  // Apply filters to folders (for folder-level view)
+  const filteredFolders = useMemo(() => {
+    let result = contentFolders;
+    if (sourceFilter !== 'all') {
+      result = result.filter(f => f.source === sourceFilter);
+    }
+    if (channelFilter !== 'all') {
+      result = result.filter(f => f.channel === channelFilter);
+    }
+    if (creatorFilter !== 'all') {
+      result = result.filter(f => f.createdByName === creatorFilter);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(f => f.title.toLowerCase().includes(q));
+    }
+    // Sort
+    switch (sortBy) {
+      case 'oldest':
+        result = [...result].sort((a, b) => new Date(a.latestDate).getTime() - new Date(b.latestDate).getTime());
+        break;
+      case 'newest':
+      default:
+        result = [...result].sort((a, b) => new Date(b.latestDate).getTime() - new Date(a.latestDate).getTime());
+        break;
+    }
+    return result;
+  }, [contentFolders, sourceFilter, channelFilter, creatorFilter, searchQuery, sortBy]);
+
+  // Images filtered for inside-folder view
+  const folderImages = useMemo(() => {
+    if (!selectedFolderId) return [];
+    let result = images.filter(img => img.carouselId === selectedFolderId);
+    switch (sortBy) {
+      case 'oldest':
+        result = [...result].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        break;
+      case 'newest':
+      default:
+        result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        break;
+    }
+    return result;
+  }, [images, selectedFolderId, sortBy]);
+
   const creatorOptions = useMemo(() => {
     const map = new Map<string, { label: string; isOrgMember: boolean }>();
     images.forEach(img => {
       if (img.createdByName) {
         const existing = map.get(img.createdByName);
         if (!existing) {
-          map.set(img.createdByName, { 
+          map.set(img.createdByName, {
             label: img.isOrgMember === false ? `${img.createdByName} (QTV)` : img.createdByName,
             isOrgMember: img.isOrgMember !== false,
           });
@@ -189,6 +291,7 @@ export function useCarouselGallery() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [images]);
 
+  // Legacy filteredImages (kept for backward compat but now used only inside folder)
   const filteredImages = useMemo(() => {
     let result = images;
     if (sourceFilter !== 'all') {
@@ -207,7 +310,6 @@ export function useCarouselGallery() {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(img => img.carouselTitle.toLowerCase().includes(q));
     }
-    // Sort
     switch (sortBy) {
       case 'oldest':
         result = [...result].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
@@ -284,12 +386,24 @@ export function useCarouselGallery() {
   }, []);
 
   const selectAll = useCallback(() => {
-    setSelectedIds(new Set(filteredImages.map(i => i.id)));
-  }, [filteredImages]);
+    const target = selectedFolderId ? folderImages : filteredImages;
+    setSelectedIds(new Set(target.map(i => i.id)));
+  }, [filteredImages, folderImages, selectedFolderId]);
 
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
   }, []);
+
+  // Get image IDs for a folder (for bulk select at folder level)
+  const getImageIdsForFolder = useCallback((folderId: string) => {
+    return images.filter(img => img.carouselId === folderId).map(img => img.id);
+  }, [images]);
+
+  // Get selected folder info
+  const selectedFolder = useMemo(() => {
+    if (!selectedFolderId) return null;
+    return contentFolders.find(f => f.id === selectedFolderId) || null;
+  }, [selectedFolderId, contentFolders]);
 
   return {
     images: filteredImages,
@@ -318,5 +432,12 @@ export function useCarouselGallery() {
     deleteImage,
     bulkDelete,
     refetch: fetchImages,
+    // New folder-level exports
+    contentFolders: filteredFolders,
+    selectedFolderId,
+    setSelectedFolderId,
+    selectedFolder,
+    folderImages,
+    getImageIdsForFolder,
   };
 }
