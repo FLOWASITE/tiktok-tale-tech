@@ -580,7 +580,6 @@ Follow the carousel style guidelines strictly.`;
       
       systemPrompt = await pm.get('system', {
         platform: formData.platform === "facebook" ? "Facebook" : "TikTok",
-        aiTool: formData.aiTool,
         slideCount: String(formData.slideCount),
         brandName: formData.brandName,
         brandGuideline: formData.brandGuideline,
