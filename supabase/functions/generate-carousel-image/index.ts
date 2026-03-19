@@ -332,22 +332,39 @@ function getOverlayConfig(
 // Fetch style preset from DB
 // ============================================
 async function fetchStylePreset(supabase: any, presetKey: string): Promise<{ tokens: any; overlay_config: any } | null> {
+  console.log(`[DB Preset] Querying for preset_key: '${presetKey}' (type: ${typeof presetKey})`);
+  
+  if (!presetKey || presetKey === 'undefined' || presetKey === 'null') {
+    console.warn(`[DB Preset] Invalid preset_key: '${presetKey}' — skipping DB query`);
+    return null;
+  }
+
   try {
     const { data, error } = await supabase
       .from('carousel_style_presets')
-      .select('tokens, overlay_config')
+      .select('*')
       .eq('preset_key', presetKey)
       .eq('is_active', true)
       .single();
 
-    if (error || !data) {
-      console.log(`[generate-carousel-image] No DB preset for '${presetKey}', using fallback`);
+    if (error) {
+      console.error(`[DB Preset] ERROR for '${presetKey}':`, error.message, error.details, error.hint, error.code);
       return null;
     }
-    console.log(`[generate-carousel-image] Loaded DB preset: ${presetKey}`);
-    return data;
+    
+    if (!data) {
+      console.warn(`[DB Preset] No data found for preset_key: '${presetKey}'`);
+      return null;
+    }
+    
+    console.log(`[DB Preset] SUCCESS — loaded: ${data.preset_key}`,
+      `| tokens keys: ${Object.keys(data.tokens || {})}`,
+      `| overlay roles: ${Object.keys(data.overlay_config || {})}`,
+      `| colors: ${JSON.stringify(data.tokens?.colors ? { accent: data.tokens.colors.accent, bg: Object.keys(data.tokens.colors.background || {}) } : 'none')}`
+    );
+    return { tokens: data.tokens, overlay_config: data.overlay_config };
   } catch (e) {
-    console.warn(`[generate-carousel-image] Error fetching preset:`, e);
+    console.error(`[DB Preset] UNEXPECTED ERROR for '${presetKey}':`, e);
     return null;
   }
 }
