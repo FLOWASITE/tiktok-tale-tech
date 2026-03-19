@@ -79,7 +79,7 @@ export default function Brands() {
   const { getCountsForBrand } = useBrandCounts(brandsForCounts);
 
   // Fetch all social connections to check which brands have connections
-  const { connections: allSocialConnections } = useSocialConnections();
+  const { connections: allSocialConnections } = useSocialConnections({ organizationId: currentOrganization?.id });
   const brandConnectionsMap = useMemo(() => {
     const map = new Map<string, string[]>();
     allSocialConnections.forEach(conn => {
