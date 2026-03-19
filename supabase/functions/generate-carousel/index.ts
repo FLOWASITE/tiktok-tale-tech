@@ -528,7 +528,33 @@ Tất cả slides trong 1 carousel PHẢI tuân theo quy tắc thống nhất sa
 
 4. CÙNG ÁNH SÁNG VÀ MOOD: Warm lighting xuyên suốt, hoặc cool lighting xuyên suốt. Không slide warm slide cool.
 
-5. MỖI fullPrompt PHẢI KẾT THÚC bằng cụm: "consistent with previous slides: [mô tả phong cách chung]"
+5. MỖI fullPrompt PHẢI KẾT THÚC bằng cụm: "consistent with previous slides: [phong cách chung]. THIS SLIDE UNIQUE ELEMENT: [yếu tố riêng biệt của slide này]"
+
+## QUY TẮC PHÂN BIỆT GIỮA CÁC SLIDE (QUAN TRỌNG NHƯ QUY TẮC THỐNG NHẤT)
+
+Mặc dù tất cả slides cùng "thế giới hình ảnh", MỖI SLIDE PHẢI CÓ:
+
+1. GÓC CHỤP KHÁC NHAU: wide shot → medium → close-up → overhead → side angle. KHÔNG được 2 slide liền nhau có cùng camera angle.
+
+2. CHỦ THỂ/FOCAL POINT KHÁC NHAU: Mỗi slide focus vào 1 yếu tố khác trong cùng thế giới. VD spa: slide 1 = toàn cảnh phòng, slide 2 = close-up đá nóng, slide 3 = tay massage, slide 4 = sản phẩm tinh dầu.
+
+3. BỐ CỤC KHÁC NHAU: Xen kẽ rule of thirds, centered, asymmetric, negative space left/right. Không 2 slide cùng bố cục.
+
+4. KHOẢNG CÁCH KHÁC NHAU: Xen kẽ establishing shot, medium shot, detail/macro shot để tạo nhịp thị giác.
+
+5. Trong fullPrompt, CHỈ RÕ: "[camera angle] + [focal subject] + [composition]" ĐẦU TIÊN, trước phần mô tả chi tiết.
+
+VÍ DỤ TỐT (Topic: "5 Tips Marketing cho Spa"):
+- Slide 1: "Wide establishing shot of luxury spa reception, rule of thirds..."
+- Slide 2: "Close-up overhead view of essential oil bottles on marble tray..."
+- Slide 3: "Medium shot from side angle, therapist hands performing massage..."
+- Slide 4: "Detail macro shot of hot stones arranged on wooden board..."
+- Slide 5: "Wide low-angle shot of spa garden pathway with lanterns..."
+
+VÍ DỤ XẤU (tất cả lặp lại):
+- Slide 1: "Spa treatment room with candles..."
+- Slide 2: "Spa treatment area with oils..."
+- Slide 3: "Spa massage room with stones..."
 
 ${textLengthSection}
 

@@ -1101,7 +1101,8 @@ CAROUSEL COMPOSITION:
     if (slideObjective) {
       topicDirective += ` This slide's objective is: "${slideObjective}".`;
     }
-    topicDirective += ` Do NOT use abstract generic backgrounds unrelated to this topic. Every visual element should reinforce the topic.\n`;
+    topicDirective += ` Do NOT use abstract generic backgrounds unrelated to this topic. Every visual element should reinforce the topic.`;
+    topicDirective += `\nSLIDE UNIQUENESS: This is slide ${slideNumber} of ${totalSlides || 5}. Use a DIFFERENT camera angle and focal subject than other slides. This slide's unique focus: "${slideObjective || 'main topic'}". Vary between wide shot, medium shot, close-up, overhead, and side angle across slides.\n`;
   }
 
   // Assemble prompt: visual concept FIRST, text instruction, then constraints
