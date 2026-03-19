@@ -568,7 +568,8 @@ serve(async (req) => {
     }
 
     // === STEP 2: Overlay text using overlay-text-canvas ===
-    if (textContent && textContent.trim()) {
+    const textStr = textContentToString(textContent);
+    if (textStr && textStr.trim()) {
       console.log("[generate-carousel-image] Step 2: Overlaying text via Satori...");
       
       const dimensions = getPlatformDimensions(platform, carouselStyle);
@@ -581,10 +582,10 @@ serve(async (req) => {
       );
 
       // Phase D: Adjust for text density
-      overlayConfig = adjustOverlayForTextDensity(overlayConfig, textContent);
+      overlayConfig = adjustOverlayForTextDensity(overlayConfig, textStr);
       console.log(`[generate-carousel-image] Overlay config:`, JSON.stringify(overlayConfig));
 
-      // Phase B: Parse text layers
+      // Phase B: Parse text layers (now supports structured textContent)
       const textLayers = parseTextLayers(textContent, slideRole);
 
       // Phase A: Gallery hook dark gradient
