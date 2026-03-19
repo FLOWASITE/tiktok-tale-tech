@@ -632,6 +632,25 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
           </div>
 
           <ScrollArea className="flex-1 px-3 xs:px-6 py-3 xs:py-4">
+            <TabsContent value="preview" className="mt-0 space-y-4">
+              <CarouselLayoutPreview
+                slides={carousel.slides_content}
+                visualPreset={carousel.visual_preset as VisualPresetType}
+                carouselStyle={carousel.carousel_style as CarouselStyleType}
+                platform={carousel.platform}
+              />
+              <div className="flex justify-center">
+                <Button
+                  onClick={handleGenerateAllImages}
+                  disabled={generatingAll || generating !== null}
+                  className="gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Hài lòng? Tạo ảnh ngay
+                </Button>
+              </div>
+            </TabsContent>
+
             <TabsContent value="slides" className="mt-0 space-y-3 xs:space-y-4">
               {/* Generate All Button + Progress */}
               <div className="space-y-2">
