@@ -424,7 +424,8 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                   {carousel.slide_count} slides
                 </Badge>
                 <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[10px] xs:text-xs">
-                  {aiToolLabels[carousel.ai_tool]}
+                  <Sparkles className="w-2.5 h-2.5 xs:w-3 xs:h-3 mr-0.5 xs:mr-1" />
+                  Lovable AI
                 </Badge>
                 {carousel.carousel_style && (
                   <Badge variant="outline" className="text-[10px] xs:text-xs bg-accent/30">
