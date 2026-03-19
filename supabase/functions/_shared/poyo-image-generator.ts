@@ -122,7 +122,7 @@ async function submitPoyoTask(params: PoyoGenerateParams, apiKey: string): Promi
  * Reduced from 120s to leave headroom for fallback within edge function wall clock limit.
  */
 async function pollPoyoTask(taskId: string, apiKey: string): Promise<string> {
-  const maxAttempts = 20; // 20 × 3s = 60s timeout
+  const maxAttempts = 35; // 35 × 3s = 105s timeout (fits within 150s edge function limit)
   const pollInterval = 3000;
 
   console.log(`[poyo-generator] Starting poll: task_id=${taskId}, max=${maxAttempts * pollInterval / 1000}s`);
