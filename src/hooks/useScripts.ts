@@ -72,6 +72,19 @@ export function useScripts() {
       setScripts((prev) => [newScript, ...prev]);
       toast.success('Đã tạo kịch bản thành công!');
 
+      // Send notification
+      if (user) {
+        supabase.from('notifications').insert({
+          user_id: user.id,
+          type: 'script_generated',
+          title: 'Kịch bản đã sẵn sàng!',
+          message: `Kịch bản "${formData.topic}" đã được tạo thành công`,
+          data: { script_id: newScript.id },
+        }).then(({ error: notifError }) => {
+          if (notifError) console.warn('[useScripts] Failed to send script notification:', notifError);
+        });
+      }
+
       // Auto-analyze script in background (non-blocking)
       analyzeScriptInBackground(newScript);
 
@@ -127,6 +140,20 @@ export function useScripts() {
       );
 
       console.log('[useScripts] Script auto-analyzed and cached:', script.id);
+
+      // Send analysis notification
+      if (user) {
+        const score = analysisData?.overallScore || 0;
+        supabase.from('notifications').insert({
+          user_id: user.id,
+          type: 'script_analysis_done',
+          title: 'Phân tích kịch bản hoàn tất!',
+          message: `Kịch bản "${script.topic}" đã được chấm điểm: ${score}/100`,
+          data: { script_id: script.id, score },
+        }).then(({ error: notifError }) => {
+          if (notifError) console.warn('[useScripts] Failed to send analysis notification:', notifError);
+        });
+      }
     } catch (err) {
       console.warn('[useScripts] Auto-analysis error:', err);
     }

@@ -1,4 +1,4 @@
-import { Bell, Check, Trash2, ArrowUpCircle, UserPlus, CheckCircle2, Flag, Calendar, Target, TrendingUp, PenLine, Images, Sparkles } from 'lucide-react';
+import { Bell, Check, Trash2, ArrowUpCircle, UserPlus, CheckCircle2, Flag, Calendar, Target, TrendingUp, PenLine, Images, Sparkles, FileText, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -36,6 +36,8 @@ const notificationTypeConfig: Record<string, {
   carousel_generation_complete: { icon: <Images className="h-4 w-4" />, bgColor: 'bg-emerald-500/10', textColor: 'text-emerald-500' },
   multichannel_content_done: { icon: <Sparkles className="h-4 w-4" />, bgColor: 'bg-purple-500/10', textColor: 'text-purple-500' },
   multichannel_images_done: { icon: <Images className="h-4 w-4" />, bgColor: 'bg-emerald-500/10', textColor: 'text-emerald-500' },
+  script_generated: { icon: <FileText className="h-4 w-4" />, bgColor: 'bg-indigo-500/10', textColor: 'text-indigo-500' },
+  script_analysis_done: { icon: <BarChart3 className="h-4 w-4" />, bgColor: 'bg-amber-500/10', textColor: 'text-amber-500' },
 };
 
 export const NotificationDropdown = () => {
@@ -48,6 +50,7 @@ export const NotificationDropdown = () => {
     if (!notification.read_at) markAsRead(notification.id);
     const data = notification.data as Record<string, any> | null;
     if (data?.campaign_id) navigate(`/campaigns/${data.campaign_id}`);
+    else if (data?.script_id) navigate(`/`);
     else if (data?.carousel_id) navigate(`/carousel`);
     else if (data?.upgrade_url) navigate(data.upgrade_url);
     else if (data?.content_id) navigate(`/multichannel?content=${data.content_id}`);
