@@ -108,6 +108,7 @@ export function useCarousels() {
       toast.error('Không thể tạo carousel. Vui lòng thử lại.');
       return null;
     } finally {
+      generatingRef.current = false;
       setGenerating(false);
     }
   };
