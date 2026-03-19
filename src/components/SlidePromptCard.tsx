@@ -1,8 +1,10 @@
-import { CarouselSlide, textContentToString } from '@/types/carousel';
+import { CarouselSlide, StructuredTextContent, textContentToString } from '@/types/carousel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Copy, Check, Target, Type, Palette, Layout, Square, Settings, Pencil, X, Save } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
@@ -33,7 +35,10 @@ export function SlidePromptCard({
   const [copiedFull, setCopiedFull] = useState(false);
   const [editingField, setEditingField] = useState<EditableField | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [structuredEditValue, setStructuredEditValue] = useState<StructuredTextContent>({ headline: '' });
   const [saving, setSaving] = useState(false);
+
+  const isStructuredText = typeof slide.textContent !== 'string';
 
   const handleCopyFullPrompt = async () => {
     try {
@@ -48,42 +53,66 @@ export function SlidePromptCard({
 
   const startEditing = useCallback((field: EditableField) => {
     setEditingField(field);
-    const val = slide[field];
-    setEditValue(field === 'textContent' ? textContentToString(val as any) : (val as string));
-  }, [slide]);
+    if (field === 'textContent' && isStructuredText) {
+      const tc = slide.textContent as StructuredTextContent;
+      setStructuredEditValue({ ...tc });
+    } else {
+      const val = slide[field];
+      setEditValue(field === 'textContent' ? textContentToString(val as any) : (val as string));
+    }
+  }, [slide, isStructuredText]);
 
   const cancelEditing = useCallback(() => {
     setEditingField(null);
     setEditValue('');
+    setStructuredEditValue({ headline: '' });
   }, []);
 
   const saveEdit = useCallback(async () => {
     if (!editingField || !onSlideUpdate) return;
-    
-    const trimmed = editValue.trim();
-    if (!trimmed) {
-      toast.error('Nội dung không được để trống');
-      return;
-    }
-    
-    if (trimmed === slide[editingField]) {
-      cancelEditing();
-      return;
+
+    let newValue: string | StructuredTextContent;
+
+    if (editingField === 'textContent' && isStructuredText) {
+      if (!structuredEditValue.headline.trim()) {
+        toast.error('Headline không được để trống');
+        return;
+      }
+      // Clean empty optional fields
+      newValue = {
+        headline: structuredEditValue.headline.trim(),
+        ...(structuredEditValue.subtitle?.trim() && { subtitle: structuredEditValue.subtitle.trim() }),
+        ...(structuredEditValue.caption?.trim() && { caption: structuredEditValue.caption.trim() }),
+        ...(structuredEditValue.dataValue?.trim() && { dataValue: structuredEditValue.dataValue.trim() }),
+        ...(structuredEditValue.dataLabel?.trim() && { dataLabel: structuredEditValue.dataLabel.trim() }),
+      };
+    } else {
+      const trimmed = editValue.trim();
+      if (!trimmed) {
+        toast.error('Nội dung không được để trống');
+        return;
+      }
+      if (trimmed === slide[editingField]) {
+        cancelEditing();
+        return;
+      }
+      newValue = trimmed;
     }
 
     setSaving(true);
     try {
-      const updatedSlide: CarouselSlide = { ...slide, [editingField]: trimmed };
+      const updatedSlide: CarouselSlide = { ...slide, [editingField]: newValue };
       await onSlideUpdate(updatedSlide);
       setEditingField(null);
       setEditValue('');
+      setStructuredEditValue({ headline: '' });
       toast.success('Đã cập nhật!');
     } catch {
       toast.error('Không thể lưu thay đổi');
     } finally {
       setSaving(false);
     }
-  }, [editingField, editValue, slide, onSlideUpdate, cancelEditing]);
+  }, [editingField, editValue, structuredEditValue, isStructuredText, slide, onSlideUpdate, cancelEditing]);
 
   const getSlideLabel = () => {
     if (slide.slideNumber === 1) return 'Hook';
@@ -96,6 +125,69 @@ export function SlidePromptCard({
     if (slide.slideNumber === totalSlides) return 'bg-green-500 text-white';
     return 'bg-secondary text-secondary-foreground';
   };
+
+  const renderStructuredTextEditor = () => (
+    <div className="space-y-2 bg-background rounded-lg border border-input p-3">
+      <div className="space-y-1.5">
+        <Label className="text-[10px] xs:text-xs">Headline *</Label>
+        <Input
+          value={structuredEditValue.headline}
+          onChange={(e) => setStructuredEditValue(prev => ({ ...prev, headline: e.target.value }))}
+          className="h-8 text-xs xs:text-sm"
+          autoFocus
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-[10px] xs:text-xs">Subtitle</Label>
+        <Input
+          value={structuredEditValue.subtitle || ''}
+          onChange={(e) => setStructuredEditValue(prev => ({ ...prev, subtitle: e.target.value }))}
+          className="h-8 text-xs xs:text-sm"
+          placeholder="Phụ đề (tùy chọn)"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1.5">
+          <Label className="text-[10px] xs:text-xs">Data Value</Label>
+          <Input
+            value={structuredEditValue.dataValue || ''}
+            onChange={(e) => setStructuredEditValue(prev => ({ ...prev, dataValue: e.target.value }))}
+            className="h-8 text-xs xs:text-sm"
+            placeholder="VD: 85%"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-[10px] xs:text-xs">Data Label</Label>
+          <Input
+            value={structuredEditValue.dataLabel || ''}
+            onChange={(e) => setStructuredEditValue(prev => ({ ...prev, dataLabel: e.target.value }))}
+            className="h-8 text-xs xs:text-sm"
+            placeholder="VD: Tăng trưởng"
+          />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-[10px] xs:text-xs">Caption</Label>
+        <Input
+          value={structuredEditValue.caption || ''}
+          onChange={(e) => setStructuredEditValue(prev => ({ ...prev, caption: e.target.value }))}
+          className="h-8 text-xs xs:text-sm"
+          placeholder="Chú thích nhỏ (tùy chọn)"
+        />
+      </div>
+      <div className="flex items-center gap-1.5 justify-end pt-1">
+        <span className="text-[9px] xs:text-[10px] text-muted-foreground mr-auto">
+          Ctrl+Enter để lưu
+        </span>
+        <Button variant="ghost" size="sm" onClick={cancelEditing} className="h-6 px-2 text-[10px] xs:text-xs" disabled={saving}>
+          <X className="w-3 h-3 mr-0.5" /> Hủy
+        </Button>
+        <Button size="sm" onClick={saveEdit} className="h-6 px-2 text-[10px] xs:text-xs" disabled={saving}>
+          <Save className="w-3 h-3 mr-0.5" /> {saving ? 'Đang lưu...' : 'Lưu'}
+        </Button>
+      </div>
+    </div>
+  );
 
   const renderEditableField = (
     field: EditableField,
@@ -126,42 +218,46 @@ export function SlidePromptCard({
           )}
         </div>
         {isEditing ? (
-          <div className="space-y-1.5">
-            <Textarea
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              className="text-xs xs:text-sm min-h-[60px] resize-y bg-background"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') cancelEditing();
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveEdit();
-              }}
-            />
-            <div className="flex items-center gap-1.5 justify-end">
-              <span className="text-[9px] xs:text-[10px] text-muted-foreground mr-auto">
-                Ctrl+Enter để lưu
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={cancelEditing}
-                className="h-6 px-2 text-[10px] xs:text-xs"
-                disabled={saving}
-              >
-                <X className="w-3 h-3 mr-0.5" />
-                Hủy
-              </Button>
-              <Button
-                size="sm"
-                onClick={saveEdit}
-                className="h-6 px-2 text-[10px] xs:text-xs"
-                disabled={saving}
-              >
-                <Save className="w-3 h-3 mr-0.5" />
-                {saving ? 'Đang lưu...' : 'Lưu'}
-              </Button>
+          field === 'textContent' && isStructuredText ? (
+            renderStructuredTextEditor()
+          ) : (
+            <div className="space-y-1.5">
+              <Textarea
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                className="text-xs xs:text-sm min-h-[60px] resize-y bg-background"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') cancelEditing();
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveEdit();
+                }}
+              />
+              <div className="flex items-center gap-1.5 justify-end">
+                <span className="text-[9px] xs:text-[10px] text-muted-foreground mr-auto">
+                  Ctrl+Enter để lưu
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={cancelEditing}
+                  className="h-6 px-2 text-[10px] xs:text-xs"
+                  disabled={saving}
+                >
+                  <X className="w-3 h-3 mr-0.5" />
+                  Hủy
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={saveEdit}
+                  className="h-6 px-2 text-[10px] xs:text-xs"
+                  disabled={saving}
+                >
+                  <Save className="w-3 h-3 mr-0.5" />
+                  {saving ? 'Đang lưu...' : 'Lưu'}
+                </Button>
+              </div>
             </div>
-          </div>
+          )
         ) : (
           <p className="text-xs xs:text-sm bg-muted/30 p-2 xs:p-2.5 rounded-lg whitespace-pre-wrap cursor-pointer hover:bg-muted/50 transition-colors"
             onDoubleClick={() => onSlideUpdate && startEditing(field)}
