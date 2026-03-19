@@ -17,7 +17,7 @@ import { PlatformSelector } from '@/components/carousel/PlatformSelector';
 import { CarouselStyleSelector } from '@/components/carousel/CarouselStyleSelector';
 import { VisualPresetSelector } from '@/components/carousel/VisualPresetSelector';
 import { SlideCountSelector } from '@/components/carousel/SlideCountSelector';
-import { AIToolSelector } from '@/components/carousel/AIToolSelector';
+
 import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
