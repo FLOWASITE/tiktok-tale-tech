@@ -953,13 +953,15 @@ Follow the carousel style guidelines strictly.`;
       }
     }
 
-    // Dedup check: prevent duplicate carousel within 2 minutes
+    // Dedup check: prevent duplicate carousel within 2 minutes (match style+preset too)
     const { data: existingCarousel } = await supabase
       .from("carousels")
       .select("*")
       .eq("user_id", userId)
       .eq("topic", formData.topic)
       .eq("organization_id", organizationId)
+      .eq("carousel_style", formData.carouselStyle || 'educational')
+      .eq("visual_preset", formData.visualPreset || 'minimalist')
       .gte("created_at", new Date(Date.now() - 2 * 60 * 1000).toISOString())
       .order("created_at", { ascending: false })
       .limit(1)
