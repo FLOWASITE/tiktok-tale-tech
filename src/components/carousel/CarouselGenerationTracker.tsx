@@ -97,7 +97,7 @@ export function CarouselGenerationTracker({
 
   // Phase 2 state
   const { generateImage, generatedImages, setImages } = useImageGeneration();
-  const { savedImages, saveImage } = useCarouselImages(carousel?.id || '');
+  const { images: savedImages, saveImage } = useCarouselImages(carousel?.id || '');
   const [slideStatuses, setSlideStatuses] = useState<SlideStatus[]>([]);
   const [imageGenStarted, setImageGenStarted] = useState(false);
   const [imageGenDone, setImageGenDone] = useState(false);
