@@ -1130,11 +1130,24 @@ CAROUSEL COMPOSITION:
     .replace(/\bfont[\s-]*(family|size|style|weight|face)\b.*?(?=\n|$)/gi, '')
     .replace(/\b(render|draw|write|display|show)\s+(text|words|letters|title|heading)\b.*?(?=\n|$)/gi, '');
 
+  // === Topic Relevance Lock ===
+  let topicDirective = '';
+  if (carouselTopic) {
+    topicDirective = `\nTOPIC RELEVANCE (CRITICAL): The scene MUST be directly relevant to the topic "${carouselTopic}".`;
+    if (slideObjective) {
+      topicDirective += ` This slide's objective is: "${slideObjective}".`;
+    }
+    topicDirective += ` Do NOT use abstract generic backgrounds unrelated to this topic. Every visual element should reinforce the topic.\n`;
+  }
+
   // Visual concept FIRST — this is what the AI should focus on
   // Technical constraints AFTER — these are guardrails
   const prompt = [
     // PART 1: Cảnh chính (AI image model tập trung vào đây)
     cleanedPrompt,
+    
+    // PART 1.5: Topic lock — keep scene relevant
+    topicDirective || '',
     
     // PART 2: Color & Brand (bổ sung, không override cảnh)
     brandColorDirective ? `\nColor guidance: ${brandColorDirective.trim()}` : '',
