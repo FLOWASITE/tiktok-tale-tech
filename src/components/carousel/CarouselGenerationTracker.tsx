@@ -118,6 +118,7 @@ function buildSeriesBible(slides: CarouselSlide[]): string {
       : `Visual world: ${slides[0]?.designStyle || 'professional photography'}.`,
     `Total slides in series: ${slides.length}.`,
     `All slides share the SAME: lighting direction, color temperature, photography style, environment/setting, and visual mood.`,
+    `DIFFERENTIATION: Each slide MUST use a DIFFERENT camera angle (wide/medium/close-up/overhead/side), focal subject, and composition while staying in the same visual world. No two slides should look alike.`,
     `Reference scene (slide 1): "${slide1Prompt.slice(0, 200)}..."`,
   ].join('\n');
 
