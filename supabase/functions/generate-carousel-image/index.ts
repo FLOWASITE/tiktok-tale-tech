@@ -747,6 +747,8 @@ serve(async (req) => {
                 textLayers: textLayers,
                 // Phase C: brand colors for overlay treatments
                 brandColors: brandColors || undefined,
+                // Phase 3: blended accent color from brand tokens
+                brandAccentColor: blendedTokens?.colors?.accent || undefined,
                 // Phase E: decorations (listicle, educational, flat_design, product)
                 decorations: hasDecorations ? decorations : undefined,
               },
