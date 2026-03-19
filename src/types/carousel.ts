@@ -2,6 +2,7 @@ export type Platform = 'facebook' | 'tiktok';
 export type AITool = 'ideogram' | 'midjourney' | 'dalle' | 'leonardo';
 export type CarouselStatus = 'draft' | 'review' | 'approved' | 'published';
 export type CarouselStyleType = 'seamless' | 'educational' | 'listicle' | 'gallery';
+export type VisualPresetType = 'minimalist' | 'flat_design' | 'gradient' | 'geometric' | 'illustration' | 'product_only';
 
 export interface CarouselSlide {
   slideNumber: number;
