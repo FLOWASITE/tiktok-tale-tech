@@ -147,6 +147,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
 
   const { generating, generatedImages, generateImage, getImageForSlide: getGeneratedImage, deleteImage, setImages } = useImageGeneration();
   const { images: savedImages, loading: loadingImages, saveImage, deleteImage: deleteSavedImage, getImageForSlide: getSavedImage } = useCarouselImages(carousel?.id || null);
+  const { validating: seamlessValidating, result: seamlessResult, validate: validateSeamless } = useSeamlessValidation();
 
   // Sync saved images into generatedImages state on load
   const [syncedCarouselId, setSyncedCarouselId] = useState<string | null>(null);
