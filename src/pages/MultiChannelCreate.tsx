@@ -68,7 +68,38 @@ export default function MultiChannelCreate() {
 
   // Chat panel state
   const [showChatPanel, setShowChatPanel] = useState(false);
-  
+
+  // Notify when content generation completes
+  useEffect(() => {
+    if (generationState === 'complete' && user && generatedContentId && !contentNotifiedRef.current) {
+      contentNotifiedRef.current = true;
+      const channelCount = formData.channels?.length || 0;
+      supabase.from('notifications').insert({
+        user_id: user.id,
+        type: 'multichannel_content_done',
+        title: 'Nội dung đa kênh đã sẵn sàng!',
+        message: `Đã tạo ${channelCount} kênh cho "${formData.topic}"`,
+        data: { content_id: generatedContentId },
+      });
+    }
+  }, [generationState, user, generatedContentId]);
+
+  // Notify when image pipeline completes
+  useEffect(() => {
+    if (imagePipeline.phase === 'done' && user && generatedContentId && !imagesNotifiedRef.current) {
+      imagesNotifiedRef.current = true;
+      const successCount = imagePipeline.results?.filter(r => r.status === 'success').length || 0;
+      const totalCount = imagePipeline.results?.length || 0;
+      supabase.from('notifications').insert({
+        user_id: user.id,
+        type: 'multichannel_images_done',
+        title: 'Ảnh đa kênh đã hoàn tất!',
+        message: `${successCount}/${totalCount} ảnh đã tạo thành công cho "${formData.topic}"`,
+        data: { content_id: generatedContentId },
+      });
+    }
+  }, [imagePipeline.phase, user, generatedContentId]);
+
 
   // Generation state
   const [generationState, setGenerationState] = useState<GenerationState>('idle');
