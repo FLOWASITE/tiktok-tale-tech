@@ -45,7 +45,12 @@ export default function MultiChannelCreate() {
   const { refetch } = useMultiChannelContents();
   const { createLink } = useTopicContentLinks({ enabled: false });
   const { currentOrganization } = useOrganizationContext();
+  const { user } = useAuth();
   
+  // Notification refs to prevent duplicates
+  const contentNotifiedRef = useRef(false);
+  const imagesNotifiedRef = useRef(false);
+
   // Form state — default to global brand from header
   const [selectedBrandId, setSelectedBrandId] = useState<string | undefined>(currentBrand?.id);
   const [selectedVoiceVariantId, setSelectedVoiceVariantId] = useState<string | undefined>();
