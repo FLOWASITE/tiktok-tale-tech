@@ -582,8 +582,8 @@ serve(async (req) => {
                 textLayers: textLayers,
                 // Phase C: brand colors for overlay treatments
                 brandColors: brandColors || undefined,
-                // Phase E: listicle decorations
-                decorations: decorations,
+                // Phase E: decorations (listicle, educational, flat_design, product)
+                decorations: hasDecorations ? decorations : undefined,
               },
               // Legacy params as fallback
               position: "center",
