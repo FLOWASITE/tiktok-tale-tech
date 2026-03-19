@@ -171,52 +171,91 @@ export function CarouselGenerationTracker({
     const brandColors = extractBrandColors(carousel);
 
     let previousSceneDescription: string | null = null;
+    const MAX_ATTEMPTS = 3;
+    const INTER_SLIDE_DELAY = 2500;
 
-    for (let i = 0; i < carousel.slides_content.length; i++) {
+    const attemptGenerateSlide = async (i: number): Promise<boolean> => {
       const slide = carousel.slides_content[i];
 
-      setSlideStatuses(prev => {
-        const next = [...prev];
-        next[i] = 'generating';
-        return next;
-      });
-
-      const result = await generateImage(slide.fullPrompt, carousel.id, slide.slideNumber, {
-        textContent: slide.textContent,
-        platform: carousel.platform,
-        brandColors,
-        carouselStyle: carousel.carousel_style,
-        totalSlides: carousel.slides_content.length,
-        slideObjective: slide.objective,
-        visualPreset: carousel.visual_preset || 'minimalist',
-        carouselTopic: carousel.topic,
-        seamlessContext: {
-          colorPalette,
-          previousSceneDescription,
-          sequencePosition: slide.slideNumber,
-          totalInSequence: carousel.slides_content.length,
-        },
-      });
-
-      if (result?.imageUrl) {
-        await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt);
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         setSlideStatuses(prev => {
           const next = [...prev];
-          next[i] = 'done';
+          next[i] = 'generating';
           return next;
         });
-        previousSceneDescription = result?.sceneDescription || slide.objective || slide.fullPrompt.slice(0, 200);
-      } else {
-        setSlideStatuses(prev => {
-          const next = [...prev];
-          next[i] = 'error';
-          return next;
+
+        const result = await generateImage(slide.fullPrompt, carousel.id, slide.slideNumber, {
+          textContent: slide.textContent,
+          platform: carousel.platform,
+          brandColors,
+          carouselStyle: carousel.carousel_style,
+          totalSlides: carousel.slides_content.length,
+          slideObjective: slide.objective,
+          visualPreset: carousel.visual_preset || 'minimalist',
+          carouselTopic: carousel.topic,
+          seamlessContext: {
+            colorPalette,
+            previousSceneDescription,
+            sequencePosition: slide.slideNumber,
+            totalInSequence: carousel.slides_content.length,
+          },
         });
+
+        if (result?.imageUrl) {
+          await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt);
+          setSlideStatuses(prev => {
+            const next = [...prev];
+            next[i] = 'done';
+            return next;
+          });
+          previousSceneDescription = result?.sceneDescription || slide.objective || slide.fullPrompt.slice(0, 200);
+          return true;
+        }
+
+        // Failed — backoff before retry
+        if (attempt < MAX_ATTEMPTS) {
+          console.log(`[tracker] Slide ${i + 1} attempt ${attempt} failed, retrying in ${3000 * attempt}ms...`);
+          await new Promise(r => setTimeout(r, 3000 * attempt));
+        }
       }
 
-      // Small delay between slides
+      // All attempts exhausted
+      setSlideStatuses(prev => {
+        const next = [...prev];
+        next[i] = 'error';
+        return next;
+      });
+      return false;
+    };
+
+    // Main pass
+    for (let i = 0; i < carousel.slides_content.length; i++) {
+      await attemptGenerateSlide(i);
+
+      // Inter-slide delay
       if (i < carousel.slides_content.length - 1) {
-        await new Promise(r => setTimeout(r, 1500));
+        await new Promise(r => setTimeout(r, INTER_SLIDE_DELAY));
+      }
+    }
+
+    // Retry pass: re-attempt any error slides one more time
+    const errorIndices = slideStatuses
+      .map((s, idx) => s === 'error' ? idx : -1)
+      .filter(idx => idx >= 0);
+
+    // Need to read current state via ref-like approach
+    let currentStatuses: SlideStatus[] = [];
+    setSlideStatuses(prev => { currentStatuses = [...prev]; return prev; });
+
+    const retryIndices = currentStatuses
+      .map((s, idx) => s === 'error' ? idx : -1)
+      .filter(idx => idx >= 0);
+
+    if (retryIndices.length > 0) {
+      console.log(`[tracker] Retry pass for ${retryIndices.length} failed slides: ${retryIndices.map(i => i + 1).join(', ')}`);
+      for (const idx of retryIndices) {
+        await new Promise(r => setTimeout(r, 5000));
+        await attemptGenerateSlide(idx);
       }
     }
 
