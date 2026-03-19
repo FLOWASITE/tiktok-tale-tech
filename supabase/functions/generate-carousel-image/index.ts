@@ -490,10 +490,16 @@ serve(async (req) => {
 
     console.log(`[generate-carousel-image] Requested model: ${requestedModel}`);
 
-    // === STEP 1: Generate background image (no text) ===
+    // === STEP 1: Generate COMPLETE slide image (with text in prompt) ===
+    const overlayConfig = getOverlayConfig(
+      visualPreset || 'minimalist',
+      slideRole,
+      dbPreset?.overlay_config
+    );
     const backgroundPrompt = buildBackgroundPrompt(
       prompt, platform, carouselStyle, slideNumber, totalSlides, slideRole,
-      seamlessContext, blendedTokens, brandColors, carouselTopic, slideObjective
+      seamlessContext, blendedTokens, brandColors, carouselTopic, slideObjective,
+      textContent, overlayConfig
     );
     console.log("[generate-carousel-image] Step 1: Generating background...");
 
@@ -739,142 +745,9 @@ serve(async (req) => {
       );
     }
 
-    // === STEP 2: Overlay text using overlay-text-canvas ===
-    const textStr = textContentToString(textContent);
-    if (textStr && textStr.trim()) {
-      console.log("[generate-carousel-image] Step 2: Overlaying text via Satori...");
-      
-      const dimensions = getPlatformDimensions(platform, carouselStyle);
-
-      // Get dynamic overlay config — DB preset takes priority
-      let overlayConfig = getOverlayConfig(
-        visualPreset || 'minimalist',
-        slideRole,
-        dbPreset?.overlay_config
-      );
-
-      // Phase D: Adjust for text density
-      overlayConfig = adjustOverlayForTextDensity(overlayConfig, textStr);
-      console.log(`[generate-carousel-image] Overlay config:`, JSON.stringify(overlayConfig));
-
-      // Phase B: Parse text layers (now supports structured textContent)
-      const rawTextLayers = parseTextLayers(textContent, slideRole);
-      let textLayers = rawTextLayers ? deduplicateTextLayers(rawTextLayers) : null;
-
-      // Validate text layers: remove empty/whitespace-only layers
-      if (textLayers) {
-        textLayers = textLayers.filter(l => l.text && l.text.trim().length > 0);
-        if (textLayers.length === 0) {
-          console.warn(`[generate-carousel-image] All text layers were empty after validation for slide ${slideNumber}`);
-          textLayers = null;
-        }
-      }
-
-      // Phase A: Gallery hook dark gradient
-      const needsBottomGradient = (carouselStyle === 'gallery' && slideRole === 'hook');
-
-      // Phase E: Decorations based on carouselStyle + visualPreset + slideRole
-      const decorations: Record<string, any> = {};
-
-      // Listicle: slide number badge + progress dots
-      if (carouselStyle === 'listicle' && slideRole === 'body') {
-        decorations.slideNumberBadge = slideNumber;
-        decorations.progressDots = { current: slideNumber, total: totalSlides || 5 };
-      }
-
-      // Educational: step indicator for non-hook slides
-      if (carouselStyle === 'educational' && slideRole !== 'hook') {
-        decorations.stepIndicator = { current: slideNumber, total: totalSlides || 5 };
-      }
-
-      // flat_design: thick accent divider between headline and subtitle
-      if (visualPreset === 'flat_design') {
-        decorations.accentDivider = true;
-      }
-
-      // product_only: badge for hook slide
-      if (visualPreset === 'product_only' && slideRole === 'hook') {
-        decorations.hotBadge = true;
-      }
-
-      const hasDecorations = Object.keys(decorations).length > 0;
-
-      try {
-        const overlayResponse = await fetch(
-          `${supabaseUrl}/functions/v1/overlay-text-canvas`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${supabaseServiceKey}`,
-            },
-            body: JSON.stringify({
-              baseImageUrl: backgroundUrl,
-              // Legacy text fallback — only headline, NOT all layers joined by \n
-              text: isStructuredTextContent(textContent) 
-                ? (textContent.headline || '') 
-                : textStr,
-              carouselOverlay: {
-                position: overlayConfig.position || 'center',
-                fontWeight: overlayConfig.fontWeight || 600,
-                fontSize: overlayConfig.fontSize || '1.5rem',
-                textAlign: overlayConfig.textAlign || 'center',
-                maxWidth: overlayConfig.maxWidth || '85%',
-                textTransform: overlayConfig.textTransform || 'none',
-                background: overlayConfig.background || 'none',
-                textColor: overlayConfig.textColor || brandColors?.textColor || '#FFFFFF',
-                fontFamily: overlayConfig.fontFamily,
-                // Phase A: dark gradient for gallery hook
-                bottomGradient: needsBottomGradient,
-                // Phase B: multi-layer text
-                textLayers: textLayers,
-                // Phase C: brand colors for overlay treatments
-                brandColors: brandColors || undefined,
-                // Phase 3: blended accent color from brand tokens
-                brandAccentColor: blendedTokens?.colors?.accent || undefined,
-                // Phase E: decorations (listicle, educational, flat_design, product)
-                decorations: hasDecorations ? decorations : undefined,
-              },
-              // Legacy params as fallback
-              position: "center",
-              typographyStyle: "bold",
-              textColor: brandColors?.textColor || "#FFFFFF",
-              backgroundColor: brandColors?.backgroundColor || "rgba(0,0,0,0.6)",
-              imageWidth: dimensions.width,
-              imageHeight: dimensions.height,
-              contentId: carouselId,
-              channel: `carousel-slide-${slideNumber}`,
-            }),
-          }
-        );
-
-        if (overlayResponse.ok) {
-          const overlayData = await overlayResponse.json();
-          if (overlayData.success && overlayData.imageUrl) {
-            console.log(`[generate-carousel-image] Overlay complete: ${overlayData.imageUrl}`);
-            return new Response(
-              JSON.stringify({
-                success: true,
-                imageUrl: overlayData.imageUrl,
-                backgroundUrl,
-                slideNumber,
-                carouselId,
-                hasOverlay: true,
-                slideRole,
-                sceneDescription,
-                modelUsed,
-                modelRequested: requestedModel,
-              }),
-              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-          }
-        }
-        
-        console.warn("[generate-carousel-image] Overlay failed, returning background only");
-      } catch (overlayError) {
-        console.error("[generate-carousel-image] Overlay error:", overlayError);
-      }
-    }
+    // === Text was rendered by AI directly in the image prompt — no overlay needed ===
+    // (overlay-text-canvas is preserved but not called; text is part of the generated image)
+    console.log(`[generate-carousel-image] Text-in-prompt mode — image already contains text, skipping overlay`);
 
     // Non-blocking metrics save
     const totalDurationMs = Math.round(performance.now() - startTime);
@@ -965,22 +838,109 @@ function buildBackgroundPrompt(
   brandColors?: { textColor?: string; backgroundColor?: string } | null,
   carouselTopic?: string | null,
   slideObjective?: string | null,
+  textContent?: any | null,
+  overlayConfig?: Record<string, any> | null,
 ): string {
+  // === Safe zone note: now a COMPLETE slide (text rendered by AI) ===
   let safeZoneNote = `
-CRITICAL INSTRUCTIONS:
-- Do NOT render any text, letters, words, or typography on the image.
-- This is a BACKGROUND image only — text will be overlaid programmatically.
-- Leave 15% blank space at top and 20% at bottom for text overlay.
-- Focus on mood, atmosphere, colors, and visual composition.
-- High resolution, professional photography or illustration quality.
+CRITICAL: This is a COMPLETE carousel slide image with BOTH visual background AND text rendered on it.
+You MUST render the text exactly as specified below. The text is the most important element.
+High resolution, professional design quality, 1080x1080px.
 `;
 
   // Gallery hook: dark gradient for text readability
   if (carouselStyle === 'gallery' && slideRole === 'hook') {
-    safeZoneNote += '\nThe image MUST have a natural dark gradient at the bottom third (like a sunset darkening toward horizon) to ensure white text readability. Do NOT add any text or graphics.';
+    safeZoneNote += '\nThe image MUST have a natural dark gradient at the bottom third to ensure white text readability.';
   }
 
-  // === Phase C: Brand Color injection into background prompt ===
+  // === TEXT RENDERING INSTRUCTION ===
+  let textInstruction = '';
+  if (textContent && slideRole !== 'visual') {
+    const structured = typeof textContent === 'object' && textContent.headline
+      ? textContent
+      : { headline: typeof textContent === 'string' ? textContent : '' };
+    const { headline, subtitle, caption, dataValue, dataLabel } = structured;
+
+    // Position & background from overlayConfig
+    const position = overlayConfig?.position || 'center';
+    const background = overlayConfig?.background || 'none';
+
+    // Build text block description
+    const textParts: string[] = [];
+
+    if (dataValue) {
+      textParts.push(`— Display "${dataValue}" as a very large, bold number (biggest text on the image)`);
+      if (dataLabel) {
+        textParts.push(`— Below the number, display "${dataLabel}" in small uppercase letters`);
+      }
+    }
+
+    if (headline) {
+      textParts.push(`— Main headline text: "${headline}" — bold, prominent, easy to read`);
+    }
+
+    if (subtitle) {
+      textParts.push(`— Subtitle text below headline: "${subtitle}" — smaller, lighter weight`);
+    }
+
+    if (caption) {
+      textParts.push(`— Small caption at bottom: "${caption}" — subtle, small size`);
+    }
+
+    // Position instruction
+    let positionDesc = 'centered on the image';
+    if (position === 'bottom-left') positionDesc = 'in the bottom-left area';
+    if (position === 'top-left') positionDesc = 'in the top-left area';
+    if (position === 'top-center') positionDesc = 'in the top-center area';
+    if (position === 'bottom-center') positionDesc = 'in the bottom-center area';
+    if (position === 'left-column') positionDesc = 'in the left half of the image';
+    if (position === 'center-left') positionDesc = 'in the center-left area';
+    if (position === 'asymmetric-left') positionDesc = 'in the left area with asymmetric layout';
+
+    // Background treatment
+    let bgTreatment = '';
+    if (background === 'glass') {
+      bgTreatment = 'Place the text inside a frosted glass card (glassmorphism effect: semi-transparent white background with blur, rounded corners, subtle border).';
+    } else if (background === 'solid-block') {
+      bgTreatment = 'Place the text on a solid dark semi-transparent rectangle for high contrast readability.';
+    } else if (background === 'cta-button') {
+      bgTreatment = 'The last line of text should look like a call-to-action button (rounded rectangle, bright contrasting color).';
+    } else {
+      bgTreatment = 'Text should have subtle drop shadow or dark gradient behind it for readability against the background.';
+    }
+
+    // Font style from tokens
+    let fontDesc = 'clean modern sans-serif font';
+    if (dbTokens?.typography?.fontFamily?.heading) {
+      const fontName = dbTokens.typography.fontFamily.heading.split(',')[0].replace(/'/g, '').trim();
+      fontDesc = `${fontName} font or similar style`;
+    }
+
+    // Text color
+    const textColor = overlayConfig?.textColor || '#FFFFFF';
+    const colorDesc = textColor === '#FFFFFF' ? 'white' : textColor === '#1A1A1A' ? 'dark/black' : textColor;
+
+    textInstruction = `
+
+TEXT RENDERING (MANDATORY — this is the most important part):
+All text must be rendered ${positionDesc}.
+Text color: ${colorDesc}.
+Font: ${fontDesc}.
+${bgTreatment}
+
+Text content to render (in EXACT order, top to bottom):
+${textParts.join('\n')}
+
+RULES FOR TEXT:
+- Render the text EXACTLY as written above — do not change, translate, or rephrase any word.
+- Text must be sharp, high-contrast, and perfectly readable.
+- Text hierarchy: dataValue (largest) > headline (large) > subtitle (medium) > caption (small).
+- If text is in Vietnamese, render the diacritics (dấu) correctly: ă, â, ê, ô, ơ, ư, đ and tone marks.
+- DO NOT add any extra text, watermarks, or labels not specified above.
+`;
+  }
+
+  // === Phase C: Brand Color injection ===
   let brandColorDirective = '';
   if (brandColors) {
     const parts: string[] = [];
@@ -1022,7 +982,7 @@ CRITICAL INSTRUCTIONS:
     }
   }
 
-  // === Visual Continuity injection (for ALL carousel styles) ===
+  // === Visual Continuity injection ===
   let seamlessDirective = '';
   if (seamlessContext) {
     const isSeamless = carouselStyle === 'seamless';
@@ -1107,28 +1067,22 @@ EDUCATIONAL CAROUSEL STYLE:
   * Slide 1 (Hook): Wide establishing shot, dramatic, attention-grabbing
   * Slides 2-${(totalSlides || 5) - 1}: Medium shots, focused on specific concepts, gradually brighter/more optimistic
   * Slide ${totalSlides || 5} (CTA): Open, inviting, forward-looking composition
-- Leave generous clean space for text overlay — this is an EDUCATIONAL format where text readability is paramount.
-- Background should SUPPORT the content, not compete with it. Subtle, professional, not distracting.
+- Background should SUPPORT the text content, not compete with it. Subtle, professional, not distracting.
 `;
   }
 
-  // Default fallback for styles without a specific directive
+  // Default fallback
   if (!styleDirective) {
     styleDirective = `
 CAROUSEL COMPOSITION:
 - This is slide ${slideNumber || '?'} of ${totalSlides || '?'}.
 - Maintain consistent visual style, color palette, and mood across all slides.
-- Leave clean space for text overlay — background should complement, not overpower text.
 `;
   }
   
-  // Clean prompt: remove text-rendering directives
+  // Clean prompt: only strip font directives (we WANT text-related content now)
   const cleanedPrompt = originalPrompt
-    .replace(/\btext\s*[:：]\s*["'].*?["'].*?(?=\n|$)/gi, '')
-    .replace(/\bchữ\s*[:：].*?(?=\n|$)/gi, '')
-    .replace(/\btypography\s*[:：].*?(?=\n|$)/gi, '')
-    .replace(/\bfont[\s-]*(family|size|style|weight|face)\b.*?(?=\n|$)/gi, '')
-    .replace(/\b(render|draw|write|display|show)\s+(text|words|letters|title|heading)\b.*?(?=\n|$)/gi, '');
+    .replace(/\bfont[\s-]*(family|size|style|weight|face)\b.*?(?=\n|$)/gi, '');
 
   // === Topic Relevance Lock ===
   let topicDirective = '';
@@ -1140,27 +1094,29 @@ CAROUSEL COMPOSITION:
     topicDirective += ` Do NOT use abstract generic backgrounds unrelated to this topic. Every visual element should reinforce the topic.\n`;
   }
 
-  // Visual concept FIRST — this is what the AI should focus on
-  // Technical constraints AFTER — these are guardrails
+  // Assemble prompt: visual concept FIRST, text instruction, then constraints
   const prompt = [
-    // PART 1: Cảnh chính (AI image model tập trung vào đây)
+    // PART 1: Scene description
     cleanedPrompt,
     
-    // PART 1.5: Topic lock — keep scene relevant
+    // PART 1.5: Topic lock
     topicDirective || '',
     
-    // PART 2: Color & Brand (bổ sung, không override cảnh)
+    // PART 2: Color & Brand
     brandColorDirective ? `\nColor guidance: ${brandColorDirective.trim()}` : '',
     tokenDirective ? `\nDesign mood: ${tokenDirective.trim()}` : '',
     
-    // PART 3: Continuity (nếu seamless)
+    // PART 3: Continuity
     seamlessDirective || '',
     
-    // PART 4: Style directive (nếu có)
+    // PART 4: Style directive
     styleDirective || '',
     
-    // PART 5: Constraints (cuối cùng, ít ảnh hưởng nhất)
-    '\nIMPORTANT: Do NOT render any text, letters, or words on the image. Leave 15% top and 20% bottom blank for text overlay. This is a background image only.',
+    // PART 5: TEXT RENDERING (the key change — text is now part of the image)
+    textInstruction,
+    
+    // PART 6: Final constraints
+    safeZoneNote,
   ].filter(Boolean).join('\n');
 
   return prompt;
