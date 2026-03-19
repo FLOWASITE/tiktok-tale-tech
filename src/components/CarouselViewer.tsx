@@ -131,6 +131,9 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
   const [copiedCta, setCopiedCta] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
   const [generatingProgress, setGeneratingProgress] = useState(0);
+  const [generatingStartTime, setGeneratingStartTime] = useState<number | null>(null);
+  const [currentGeneratingSlide, setCurrentGeneratingSlide] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const lastAutoGenCarouselIdRef = useRef<string | null>(null);
 
   const sensors = useSensors(
