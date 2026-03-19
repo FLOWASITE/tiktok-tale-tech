@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { Package, Star, Tag, Users, Zap, MessageSquare, Hash, Share2, Plus, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import { Package, Star, Tag, Users, Zap, MessageSquare, Hash, Share2, Plus, ChevronDown, ChevronUp, Sparkles, Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useProductCatalog } from '@/hooks/useProductCatalog';
 import { useProductPersonaMappings } from '@/hooks/useProductPersonaMappings';
 import { useCustomerPersonas } from '@/hooks/useCustomerPersonas';
 import { useOrganization } from '@/hooks/useOrganization';
 import { PRODUCT_CATEGORIES, CONTENT_ANGLES, BEST_CHANNELS } from '@/types/product';
+import type { BrandProduct } from '@/types/product';
 import { BrandTemplate } from '@/hooks/useBrandTemplates';
 import { cn } from '@/lib/utils';
 import { ProductQuickAddDialog } from './ProductQuickAddDialog';
@@ -21,21 +23,7 @@ interface BrandViewProductsTabProps {
 
 // Product Card with compact mode and persona badges
 interface ProductCardProps {
-  product: {
-    id: string;
-    name: string;
-    category: string | null;
-    description: string | null;
-    price_display: string | null;
-    target_audience: string | null;
-    unique_selling_points: string[];
-    pain_points_solved: string[];
-    benefits: string[];
-    keywords: string[];
-    suggested_content_angles: string[];
-    best_channels: string[];
-    is_featured: boolean;
-  };
+  product: BrandProduct;
   linkedPersonas: Array<{
     id: string;
     name: string;
@@ -44,9 +32,12 @@ interface ProductCardProps {
     is_primary_product: boolean;
   }>;
   index: number;
+  onEdit: (product: BrandProduct) => void;
+  onDelete: (productId: string) => void;
+  onToggleFeatured: (productId: string, isFeatured: boolean) => void;
 }
 
-function ProductCard({ product, linkedPersonas, index }: ProductCardProps) {
+function ProductCard({ product, linkedPersonas, index, onEdit, onDelete, onToggleFeatured }: ProductCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const categoryLabel = PRODUCT_CATEGORIES.find(c => c.value === product.category)?.label || product.category;
 
@@ -68,6 +59,51 @@ function ProductCard({ product, linkedPersonas, index }: ProductCardProps) {
             </div>
           </div>
         )}
+
+        {/* Action Buttons - visible on hover */}
+        <div className="absolute top-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+          style={product.is_featured ? { top: '1.75rem' } : undefined}
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={(e) => { e.stopPropagation(); onToggleFeatured(product.id, !product.is_featured); }}
+              >
+                <Star className={cn("w-3.5 h-3.5", product.is_featured && "fill-yellow-500 text-yellow-500")} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{product.is_featured ? 'Bỏ nổi bật' : 'Đánh dấu nổi bật'}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={(e) => { e.stopPropagation(); onEdit(product); }}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Chỉnh sửa</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-destructive hover:text-destructive"
+                onClick={(e) => { e.stopPropagation(); onDelete(product.id); }}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Xóa sản phẩm</TooltipContent>
+          </Tooltip>
+        </div>
 
         <CardContent className="p-4">
           {/* Compact Header */}
@@ -124,7 +160,7 @@ function ProductCard({ product, linkedPersonas, index }: ProductCardProps) {
                 <div className="flex items-center gap-2 mt-3 pt-3 border-t">
                   <Users className="w-3.5 h-3.5 text-muted-foreground" />
                   <div className="flex items-center -space-x-2">
-                    {linkedPersonas.slice(0, 4).map((persona, idx) => (
+                    {linkedPersonas.slice(0, 4).map((persona) => (
                       <div
                         key={persona.id}
                         className={cn(
@@ -373,8 +409,10 @@ const EmptyState = ({ onAddClick }: { onAddClick: () => void }) => (
 
 export function BrandViewProductsTab({ template }: BrandViewProductsTabProps) {
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<BrandProduct | null>(null);
+  const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
   const { currentOrganization } = useOrganization();
-  const { products, isLoading: productsLoading, refetch } = useProductCatalog(template.id);
+  const { products, isLoading: productsLoading, refetch, deleteProduct, toggleFeatured } = useProductCatalog(template.id);
   const { mappings, isLoading: mappingsLoading } = useProductPersonaMappings({
     brandTemplateId: template.id,
     enabled: true,
@@ -403,6 +441,21 @@ export function BrandViewProductsTab({ template }: BrandViewProductsTabProps) {
       if (!a.is_primary_product && b.is_primary_product) return 1;
       return b.relevance_score - a.relevance_score;
     });
+  };
+
+  const handleEdit = (product: BrandProduct) => {
+    setEditingProduct(product);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (deleteProductId) {
+      await deleteProduct(deleteProductId);
+      setDeleteProductId(null);
+    }
+  };
+
+  const handleToggleFeatured = async (productId: string, isFeatured: boolean) => {
+    await toggleFeatured(productId, isFeatured);
   };
 
   if (isLoading) {
@@ -483,6 +536,9 @@ export function BrandViewProductsTab({ template }: BrandViewProductsTabProps) {
                 product={product} 
                 linkedPersonas={getLinkedPersonas(product.id)}
                 index={idx}
+                onEdit={handleEdit}
+                onDelete={(id) => setDeleteProductId(id)}
+                onToggleFeatured={handleToggleFeatured}
               />
             ))}
           </div>
@@ -504,20 +560,47 @@ export function BrandViewProductsTab({ template }: BrandViewProductsTabProps) {
                 product={product} 
                 linkedPersonas={getLinkedPersonas(product.id)}
                 index={featuredProducts.length + idx}
+                onEdit={handleEdit}
+                onDelete={(id) => setDeleteProductId(id)}
+                onToggleFeatured={handleToggleFeatured}
               />
             ))}
           </div>
         </div>
       )}
 
-      {/* Quick Add Dialog */}
+      {/* Quick Add / Edit Dialog */}
       <ProductQuickAddDialog
         brandTemplateId={template.id}
         organizationId={currentOrganization?.id}
-        open={showAddDialog}
-        onOpenChange={setShowAddDialog}
+        open={showAddDialog || !!editingProduct}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowAddDialog(false);
+            setEditingProduct(null);
+          }
+        }}
         onSuccess={() => refetch()}
+        editProduct={editingProduct}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteProductId} onOpenChange={(open) => !open && setDeleteProductId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa sản phẩm</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn xóa sản phẩm này? Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Xóa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

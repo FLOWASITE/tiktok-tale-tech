@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, X, Zap, MessageSquare, Tag, Hash, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useProductCatalog } from '@/hooks/useProductCatalog';
-import { ProductFormData, PRODUCT_CATEGORIES, CONTENT_ANGLES, BEST_CHANNELS } from '@/types/product';
+import { ProductFormData, BrandProduct, PRODUCT_CATEGORIES, CONTENT_ANGLES, BEST_CHANNELS } from '@/types/product';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +20,7 @@ interface ProductQuickAddDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  editProduct?: BrandProduct | null;
 }
 
 const defaultFormData: ProductFormData = {
@@ -40,16 +41,48 @@ const defaultFormData: ProductFormData = {
   is_active: true,
 };
 
+function productToFormData(product: BrandProduct): ProductFormData {
+  return {
+    name: product.name || '',
+    sku: product.sku || '',
+    category: product.category || '',
+    description: product.description || '',
+    price_display: product.price_display || '',
+    image_url: product.image_url || '',
+    unique_selling_points: product.unique_selling_points || [],
+    target_audience: product.target_audience || '',
+    pain_points_solved: product.pain_points_solved || [],
+    benefits: product.benefits || [],
+    keywords: product.keywords || [],
+    suggested_content_angles: product.suggested_content_angles || [],
+    best_channels: product.best_channels || [],
+    is_featured: product.is_featured || false,
+    is_active: product.is_active !== false,
+  };
+}
+
 export function ProductQuickAddDialog({
   brandTemplateId,
   open,
   onOpenChange,
   onSuccess,
+  editProduct,
 }: ProductQuickAddDialogProps) {
-  const { createProduct, isSubmitting } = useProductCatalog(brandTemplateId);
+  const { createProduct, updateProduct, isSubmitting } = useProductCatalog(brandTemplateId);
   const [formData, setFormData] = useState<ProductFormData>(defaultFormData);
   const [newItem, setNewItem] = useState('');
   const [activeArrayField, setActiveArrayField] = useState<keyof ProductFormData | null>(null);
+
+  const isEditMode = !!editProduct;
+
+  // Pre-fill form when editing
+  useEffect(() => {
+    if (editProduct && open) {
+      setFormData(productToFormData(editProduct));
+    } else if (!open) {
+      setFormData(defaultFormData);
+    }
+  }, [editProduct, open]);
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
@@ -57,12 +90,22 @@ export function ProductQuickAddDialog({
       return;
     }
 
-    const result = await createProduct(formData);
-    if (result) {
-      toast({ title: 'Thành công', description: 'Đã thêm sản phẩm mới' });
-      setFormData(defaultFormData);
-      onOpenChange(false);
-      onSuccess?.();
+    if (isEditMode && editProduct) {
+      const result = await updateProduct(editProduct.id, formData);
+      if (result) {
+        toast({ title: 'Thành công', description: 'Đã cập nhật sản phẩm' });
+        setFormData(defaultFormData);
+        onOpenChange(false);
+        onSuccess?.();
+      }
+    } else {
+      const result = await createProduct(formData);
+      if (result) {
+        toast({ title: 'Thành công', description: 'Đã thêm sản phẩm mới' });
+        setFormData(defaultFormData);
+        onOpenChange(false);
+        onSuccess?.();
+      }
     }
   };
 
@@ -110,9 +153,9 @@ export function ProductQuickAddDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>Thêm sản phẩm mới</DialogTitle>
+          <DialogTitle>{isEditMode ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới'}</DialogTitle>
           <DialogDescription>
-            Thêm thông tin sản phẩm để AI gợi ý content phù hợp
+            {isEditMode ? 'Cập nhật thông tin sản phẩm' : 'Thêm thông tin sản phẩm để AI gợi ý content phù hợp'}
           </DialogDescription>
         </DialogHeader>
 
@@ -385,7 +428,10 @@ export function ProductQuickAddDialog({
             Hủy
           </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting || !formData.name.trim()}>
-            {isSubmitting ? 'Đang thêm...' : 'Thêm sản phẩm'}
+            {isSubmitting 
+              ? (isEditMode ? 'Đang cập nhật...' : 'Đang thêm...') 
+              : (isEditMode ? 'Cập nhật sản phẩm' : 'Thêm sản phẩm')
+            }
           </Button>
         </DialogFooter>
       </DialogContent>
