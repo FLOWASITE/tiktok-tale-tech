@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import {
   CarouselFormData,
   Platform,
-  AITool,
   CarouselStyleType,
   VisualPresetType,
   DEFAULT_BRAND_GUIDELINE,
@@ -18,7 +17,7 @@ import { PlatformSelector } from '@/components/carousel/PlatformSelector';
 import { CarouselStyleSelector } from '@/components/carousel/CarouselStyleSelector';
 import { VisualPresetSelector } from '@/components/carousel/VisualPresetSelector';
 import { SlideCountSelector } from '@/components/carousel/SlideCountSelector';
-import { AIToolSelector } from '@/components/carousel/AIToolSelector';
+
 import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
@@ -65,7 +64,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
   const [platform, setPlatform] = useState<Platform>('facebook');
   const [carouselStyle, setCarouselStyle] = useState<CarouselStyleType>('educational');
   const [slideCount, setSlideCount] = useState(6);
-  const [aiTool, setAiTool] = useState<AITool>('ideogram');
+  
   const [visualPreset, setVisualPreset] = useState<VisualPresetType>('minimalist');
   
   // Brand fields - auto-loaded from template, hidden from UI
@@ -148,7 +147,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
       topic: topic.trim(),
       platform,
       slideCount,
-      aiTool,
+      aiTool: 'ideogram', // Legacy field, backend uses ai_function_configs
       brandName: brandName.trim(),
       brandGuideline: brandGuideline.trim(),
       includeLogo,

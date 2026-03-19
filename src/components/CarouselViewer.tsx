@@ -55,12 +55,6 @@ const platformLabels: Record<string, string> = {
   tiktok: 'TikTok',
 };
 
-const aiToolLabels: Record<string, string> = {
-  ideogram: 'Ideogram',
-  midjourney: 'Midjourney',
-  dalle: 'DALL·E',
-  leonardo: 'Leonardo',
-};
 
 const generateExportContent = (carousel: Carousel): string => {
   const header = `═══════════════════════════════════════════════════════════════
@@ -70,7 +64,7 @@ CAROUSEL PROMPTS - ${carousel.title}
 📋 Thông tin:
 - Chủ đề: ${carousel.topic}
 - Nền tảng: ${platformLabels[carousel.platform]}
-- Công cụ AI: ${aiToolLabels[carousel.ai_tool]}
+- Công cụ AI: Lovable AI
 - Số slides: ${carousel.slide_count}
 - Brand: ${carousel.brand_name}
 - Ngày tạo: ${new Date(carousel.created_at).toLocaleDateString('vi-VN')}
@@ -430,7 +424,8 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                   {carousel.slide_count} slides
                 </Badge>
                 <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[10px] xs:text-xs">
-                  {aiToolLabels[carousel.ai_tool]}
+                  <Sparkles className="w-2.5 h-2.5 xs:w-3 xs:h-3 mr-0.5 xs:mr-1" />
+                  Lovable AI
                 </Badge>
                 {carousel.carousel_style && (
                   <Badge variant="outline" className="text-[10px] xs:text-xs bg-accent/30">
