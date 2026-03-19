@@ -66,6 +66,7 @@ const CarouselPage = () => {
   const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>();
   const [autoGenerateImages, setAutoGenerateImages] = useState(false);
   const [trackerMode, setTrackerMode] = useState(false);
+  const [trackerMinimized, setTrackerMinimized] = useState(false);
   const [trackerTopic, setTrackerTopic] = useState('');
   const [trackerPlatform, setTrackerPlatform] = useState('facebook');
   const [trackerSlideCount, setTrackerSlideCount] = useState(6);
