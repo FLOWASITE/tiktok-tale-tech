@@ -674,7 +674,18 @@ Follow the carousel style guidelines strictly.`;
                   properties: {
                     slideNumber: { type: "number", description: "Số thứ tự slide" },
                     objective: { type: "string", description: "Mục tiêu của slide này" },
-                    textContent: { type: "string", description: "Nội dung chữ tiếng Việt xuất hiện trên ảnh" },
+                    textContent: {
+                      type: "object",
+                      description: "Nội dung chữ xuất hiện trên ảnh, có cấu trúc phân tầng",
+                      properties: {
+                        headline: { type: "string", description: "Dòng chính — ngắn gọn, đập vào mắt, 3-8 từ (BẮT BUỘC)" },
+                        subtitle: { type: "string", description: "Dòng phụ — giải thích thêm, 1-2 câu ngắn (tùy chọn)" },
+                        caption: { type: "string", description: "Dòng nhỏ — tagline hoặc CTA ngắn (tùy chọn)" },
+                        dataValue: { type: "string", description: "Số liệu lớn nổi bật — ví dụ '150%', '2.5M' (chỉ dùng cho slide data)" },
+                        dataLabel: { type: "string", description: "Nhãn cho số liệu — ví dụ 'Tăng trưởng doanh thu'" },
+                      },
+                      required: ["headline"],
+                    },
                     designStyle: { type: "string", description: "Phong cách thiết kế" },
                     colorLayout: { type: "string", description: "Màu sắc và bố cục" },
                     aspectRatio: { type: "string", description: "Tỉ lệ khung hình" },
