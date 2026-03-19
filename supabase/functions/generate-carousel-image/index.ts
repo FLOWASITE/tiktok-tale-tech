@@ -745,7 +745,8 @@ serve(async (req) => {
       console.log(`[generate-carousel-image] Overlay config:`, JSON.stringify(overlayConfig));
 
       // Phase B: Parse text layers (now supports structured textContent)
-      const textLayers = parseTextLayers(textContent, slideRole);
+      const rawTextLayers = parseTextLayers(textContent, slideRole);
+      const textLayers = rawTextLayers ? deduplicateTextLayers(rawTextLayers) : null;
 
       // Phase A: Gallery hook dark gradient
       const needsBottomGradient = (carouselStyle === 'gallery' && slideRole === 'hook');
