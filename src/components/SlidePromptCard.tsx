@@ -215,7 +215,7 @@ export function SlidePromptCard({
           <Type className="w-3 xs:w-3.5 h-3 xs:h-3.5" />,
           '[2] Nội dung chữ trên ảnh',
           'Nội dung',
-          slide.textContent,
+          textContentToString(slide.textContent),
         )}
 
         {renderEditableField(
