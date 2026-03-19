@@ -125,12 +125,13 @@ ${carousel.cta_suggestion || 'Chưa có gợi ý'}
   return header + slidesContent + footer;
 };
 
-export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate }: CarouselViewerProps) {
+export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate, autoGenerateImages }: CarouselViewerProps) {
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [copiedCta, setCopiedCta] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
   const [generatingProgress, setGeneratingProgress] = useState(0);
+  const [autoGenTriggered, setAutoGenTriggered] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
