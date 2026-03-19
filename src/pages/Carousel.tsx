@@ -229,16 +229,19 @@ const CarouselPage = () => {
   };
 
   // Tracker mode: full-page generation progress view
-  if (trackerMode) {
+  if (trackerMode && !trackerMinimized) {
     return (
       <>
         <CarouselGenerationTracker
           onBack={() => {
             if (!generating) {
               setTrackerMode(false);
+              setTrackerMinimized(false);
               setFormSheetOpen(true);
             }
           }}
+          onMinimize={() => setTrackerMinimized(true)}
+          onProgressChange={setTrackerProgress}
           topic={trackerTopic}
           platform={trackerPlatform}
           slideCount={trackerSlideCount}
@@ -246,6 +249,7 @@ const CarouselPage = () => {
           carousel={selectedCarousel}
           onViewResults={(carousel) => {
             setTrackerMode(false);
+            setTrackerMinimized(false);
             setSelectedCarousel(carousel);
             setAutoGenerateImages(false);
             setViewerOpen(true);
