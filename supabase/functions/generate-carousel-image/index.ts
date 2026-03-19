@@ -97,14 +97,17 @@ function parseTextLayers(textContent: string | StructuredTextContent, slideRole:
     if (textContent.dataLabel) {
       layers.push({ text: textContent.dataLabel, role: 'dataLabel' });
     }
-    layers.push({ text: textContent.headline, role: 'headline' });
+    if (textContent.headline?.trim()) {
+      layers.push({ text: textContent.headline, role: 'headline' });
+    }
     if (textContent.subtitle) {
       layers.push({ text: textContent.subtitle, role: 'subtitle' });
     }
     if (textContent.caption) {
       layers.push({ text: textContent.caption, role: 'caption' });
     }
-    return layers.length > 1 ? layers : null; // Single headline → legacy path is fine
+    // Always return layers for structured content (even single headline) to avoid legacy path
+    return layers.length > 0 ? layers : null;
   }
 
   // === Legacy string textContent: heuristic parsing ===
@@ -756,7 +759,16 @@ serve(async (req) => {
 
       // Phase B: Parse text layers (now supports structured textContent)
       const rawTextLayers = parseTextLayers(textContent, slideRole);
-      const textLayers = rawTextLayers ? deduplicateTextLayers(rawTextLayers) : null;
+      let textLayers = rawTextLayers ? deduplicateTextLayers(rawTextLayers) : null;
+
+      // Validate text layers: remove empty/whitespace-only layers
+      if (textLayers) {
+        textLayers = textLayers.filter(l => l.text && l.text.trim().length > 0);
+        if (textLayers.length === 0) {
+          console.warn(`[generate-carousel-image] All text layers were empty after validation for slide ${slideNumber}`);
+          textLayers = null;
+        }
+      }
 
       // Phase A: Gallery hook dark gradient
       const needsBottomGradient = (carouselStyle === 'gallery' && slideRole === 'hook');
@@ -1008,9 +1020,10 @@ CRITICAL INSTRUCTIONS:
     }
   }
 
-  // === Seamless Continuity injection ===
+  // === Visual Continuity injection (for ALL carousel styles) ===
   let seamlessDirective = '';
-  if (seamlessContext && carouselStyle === 'seamless') {
+  if (seamlessContext) {
+    const isSeamless = carouselStyle === 'seamless';
     const parts: string[] = [];
 
     if (seamlessContext.colorPalette && seamlessContext.colorPalette.length > 0) {
@@ -1018,15 +1031,26 @@ CRITICAL INSTRUCTIONS:
     }
 
     if (seamlessContext.previousSceneDescription) {
-      parts.push(`PREVIOUS SLIDE depicted: "${seamlessContext.previousSceneDescription}". This slide MUST visually continue from that scene — same environment, same lighting direction, same visual flow. The left edge of this image should seamlessly connect to the right edge of the previous slide.`);
+      if (isSeamless) {
+        parts.push(`PREVIOUS SLIDE depicted: "${seamlessContext.previousSceneDescription}". This slide MUST visually continue from that scene — same environment, same lighting direction, same visual flow. The left edge of this image should seamlessly connect to the right edge of the previous slide.`);
+      } else {
+        parts.push(`PREVIOUS SLIDE depicted: "${seamlessContext.previousSceneDescription}". Maintain the SAME environment, lighting, photography style, and color temperature. Visual identity must be consistent across all slides.`);
+      }
     }
 
     const pos = seamlessContext.sequencePosition || slideNumber || 1;
     const total = seamlessContext.totalInSequence || totalSlides || 5;
-    parts.push(`This is panel ${pos} of ${total} in a continuous panoramic artwork.`);
+    if (isSeamless) {
+      parts.push(`This is panel ${pos} of ${total} in a continuous panoramic artwork.`);
+    } else {
+      parts.push(`This is slide ${pos} of ${total} — keep consistent visual identity throughout the series.`);
+    }
 
     if (parts.length > 0) {
-      seamlessDirective = `\nSEAMLESS CONTINUITY (CRITICAL — maintain visual flow between slides):\n${parts.map(p => `- ${p}`).join('\n')}\n`;
+      const header = isSeamless
+        ? 'SEAMLESS CONTINUITY (CRITICAL — maintain visual flow between slides)'
+        : 'VISUAL CONTINUITY (maintain consistent look across all slides)';
+      seamlessDirective = `\n${header}:\n${parts.map(p => `- ${p}`).join('\n')}\n`;
     }
   }
 

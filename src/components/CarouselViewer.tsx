@@ -324,23 +324,20 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
     const slide = carousel.slides_content.find(s => s.slideNumber === slideNumber);
     const brandColors = extractBrandColors();
 
-    // Build seamlessContext for single-slide regeneration to maintain visual continuity
-    let seamlessContext = undefined;
-    if (carousel.carousel_style === 'seamless') {
-      const colorPalette = carousel.slides_content.length > 0
-        ? extractColorPalette(carousel.slides_content[0])
-        : null;
-      const prevSlide = carousel.slides_content.find(s => s.slideNumber === slideNumber - 1);
-      const previousSceneDescription = prevSlide
-        ? (prevSlide.objective || (typeof prevSlide.textContent === 'object' ? prevSlide.textContent.headline : null))
-        : null;
-      seamlessContext = {
-        colorPalette,
-        previousSceneDescription,
-        sequencePosition: slideNumber,
-        totalInSequence: carousel.slides_content.length,
-      };
-    }
+    // Build cross-slide context for visual continuity (all styles, not just seamless)
+    const colorPalette = carousel.slides_content.length > 0
+      ? extractColorPalette(carousel.slides_content[0])
+      : null;
+    const prevSlide = carousel.slides_content.find(s => s.slideNumber === slideNumber - 1);
+    const previousSceneDescription = prevSlide
+      ? (prevSlide.objective || (typeof prevSlide.textContent === 'object' ? prevSlide.textContent.headline : null))
+      : null;
+    const seamlessContext = {
+      colorPalette,
+      previousSceneDescription,
+      sequencePosition: slideNumber,
+      totalInSequence: carousel.slides_content.length,
+    };
 
     const result = await generateImage(prompt, carousel.id, slideNumber, {
       textContent: slide?.textContent,
@@ -380,7 +377,6 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
 
     for (const slide of carousel.slides_content) {
       setCurrentGeneratingSlide(slide.slideNumber);
-      const isSeamless = carousel.carousel_style === 'seamless';
 
       const brandColors = extractBrandColors();
       const result = await generateImage(slide.fullPrompt, carousel.id, slide.slideNumber, {
@@ -391,12 +387,12 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
         totalSlides: carousel.slides_content.length,
         slideObjective: slide.objective,
         visualPreset: carousel.visual_preset || 'minimalist',
-        seamlessContext: isSeamless ? {
+        seamlessContext: {
           colorPalette,
           previousSceneDescription,
           sequencePosition: slide.slideNumber,
           totalInSequence: carousel.slides_content.length,
-        } : undefined,
+        },
       });
       if (result?.imageUrl) {
         await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt);
@@ -410,10 +406,8 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
         }
       }
 
-      // Phase F: Use AI-extracted scene description for better seamless continuity
-      if (isSeamless) {
-        previousSceneDescription = result?.sceneDescription || slide.objective || slide.fullPrompt.slice(0, 200);
-      }
+      // Use AI-extracted scene description for visual continuity across ALL styles
+      previousSceneDescription = result?.sceneDescription || slide.objective || slide.fullPrompt.slice(0, 200);
 
       setGeneratingProgress(prev => prev + 1);
       await new Promise((resolve) => setTimeout(resolve, 2000));
