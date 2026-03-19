@@ -26,6 +26,7 @@ import {
   LayoutGrid,
   PenLine,
   Minimize2,
+  RefreshCw,
   type LucideIcon,
 } from 'lucide-react';
 
