@@ -92,3 +92,25 @@ Hệ thống dùng font `Be Vietnam Pro` cứng cho mọi style, padding đồng
 2. **`supabase/functions/_shared/image-prompt-data.ts`** — Cập nhật keywords 6 presets chính xác hơn theo Design System docs (minimalist→negative space, flat_design→blocky+data-driven, gradient→neon+glow, geometric→corporate+navy, illustration→warm, product_only→studio)
 3. **`supabase/functions/decompose-image-request/index.ts`** — Nhận `imageStyle` param, inject style→layout preference hint vào AI prompt (minimalist→hero_text, flat_design→banner_cards, geometric→split...)
 4. **`src/lib/hybridImageGenerator.ts`** + **`src/components/multichannel/SimpleImageGenerator.tsx`** — Truyền `imageStyle` qua pipeline decompose
+
+---
+
+## Phase 0-3: Carousel Design Token System — đã triển khai
+
+### Phase 0: DB Foundation
+- Tạo bảng `carousel_style_presets` + seed 6 presets (minimalist, flat_design, gradient, geometric, illustration, product_only)
+- RLS: authenticated READ, service_role WRITE
+- Frontend helper `src/lib/carouselStylePresets.ts` với in-memory cache 5 phút
+
+### Phase 1: Frontend Parameter Expansion
+- `useImageGeneration.ts` mở rộng options: carouselStyle, totalSlides, slideObjective, visualPreset, seamlessContext
+- `CarouselViewer.tsx` truyền context đầy đủ khi generate
+
+### Phase 2: Upgrade Text Overlay System
+- `generate-carousel-image`: detectSlideRole() + getOverlayConfig() matrix per preset×role
+- `overlay-text-canvas`: 8 vị trí mới, glass/solid-block/cta-button treatments, dynamic font scaling
+- Gallery visual slides skip overlay hoàn toàn
+
+### Phase 3: Seamless Continuity + Style Presets + Gallery Optimization
+1. **`supabase/functions/generate-carousel-image/index.ts`** — Fetch `carousel_style_presets` từ DB (parallel với getAIConfig), inject design tokens (colors/effects/typography) vào prompt, seamlessContext (colorPalette + previousSceneDescription) cho visual continuity, gallery 4:5 aspect ratio cho Facebook
+2. **`src/components/CarouselViewer.tsx`** — extractColorPalette() từ slide colorLayout, truyền seamlessContext tuần tự qua các slide khi Generate All, previousSceneDescription chain
