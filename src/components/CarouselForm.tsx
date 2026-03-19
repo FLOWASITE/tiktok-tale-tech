@@ -56,6 +56,33 @@ const LOADING_PHASES = [
 
 const MAX_TOPIC_LENGTH = 300;
 
+const ROLE_HEADLINES: Record<string, StructuredTextContent> = {
+  hook: { headline: 'Tiêu đề gây chú ý', subtitle: 'Dòng phụ hook' },
+  body: { headline: 'Nội dung chính', subtitle: 'Giải thích chi tiết' },
+  cta: { headline: 'Hành động ngay!', subtitle: 'Liên hệ / Theo dõi' },
+  visual: { headline: '' },
+  dataPoint: { headline: '85%', subtitle: 'Số liệu nổi bật', dataValue: '85%', dataLabel: 'Tỉ lệ' },
+};
+
+function generateMockSlides(count: number, style: CarouselStyleType): CarouselSlide[] {
+  return Array.from({ length: count }, (_, i) => {
+    const num = i + 1;
+    const role = num === 1 ? 'hook' : num === count ? 'cta'
+      : style === 'gallery' ? 'visual' : 'body';
+    const text = ROLE_HEADLINES[role] || ROLE_HEADLINES.body;
+    return {
+      slideNumber: num,
+      objective: role,
+      textContent: text,
+      designStyle: '',
+      colorLayout: '',
+      aspectRatio: '',
+      technicalRequirements: '',
+      fullPrompt: '',
+    };
+  });
+}
+
 // Step numbering component
 function StepNumber({ step, active = true }: { step: number; active?: boolean }) {
   return (
