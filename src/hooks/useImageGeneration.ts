@@ -8,6 +8,11 @@ export interface GeneratedImage {
   generatedAt: string;
 }
 
+export interface GenerateImageResult {
+  imageUrl: string;
+  sceneDescription?: string | null;
+}
+
 export function useImageGeneration() {
   const [generating, setGenerating] = useState<number | null>(null);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
@@ -31,7 +36,7 @@ export function useImageGeneration() {
         totalInSequence: number;
       };
     }
-  ): Promise<string | null> => {
+  ): Promise<GenerateImageResult | null> => {
     setGenerating(slideNumber);
     
     try {
@@ -80,7 +85,7 @@ export function useImageGeneration() {
       });
 
       toast.success(`Đã tạo ảnh slide ${slideNumber}!`);
-      return data.imageUrl;
+      return { imageUrl: data.imageUrl, sceneDescription: data.sceneDescription || null };
     } catch (error) {
       console.error('Error generating image:', error);
       toast.error('Lỗi không xác định khi tạo ảnh');
