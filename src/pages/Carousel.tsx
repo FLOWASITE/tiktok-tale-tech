@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { CarouselForm } from '@/components/CarouselForm';
 import { CarouselCard } from '@/components/CarouselCard';
 import { CarouselViewer } from '@/components/CarouselViewer';
+import { CarouselGenerationTracker } from '@/components/carousel/CarouselGenerationTracker';
 import { CarouselGalleryView } from '@/components/carousel/CarouselGalleryView';
 import { CarouselFilters, CarouselFiltersState } from '@/components/CarouselFilters';
 import { CarouselHeroSection } from '@/components/carousel/CarouselHeroSection';
@@ -63,7 +64,10 @@ const CarouselPage = () => {
   const [initialTopic, setInitialTopic] = useState<string>('');
   const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>();
   const [autoGenerateImages, setAutoGenerateImages] = useState(false);
-
+  const [trackerMode, setTrackerMode] = useState(false);
+  const [trackerTopic, setTrackerTopic] = useState('');
+  const [trackerPlatform, setTrackerPlatform] = useState('facebook');
+  const [trackerSlideCount, setTrackerSlideCount] = useState(6);
   // Topic Content Links hook
   const { createLink } = useTopicContentLinks({ enabled: false });
 
@@ -170,6 +174,15 @@ const CarouselPage = () => {
   };
 
   const handleGenerateCarousel = async (formData: Parameters<typeof generateCarousel>[0]) => {
+    // If autoGenerateImages, switch to tracker view before generating
+    if (formData.autoGenerateImages) {
+      setTrackerTopic(formData.topic);
+      setTrackerPlatform(formData.platform);
+      setTrackerSlideCount(formData.slideCount);
+      setTrackerMode(true);
+      setFormSheetOpen(false);
+    }
+
     const newCarousel = await generateCarousel(formData);
     if (newCarousel) {
       // Create topic-to-content link if came from Topics Hub
@@ -185,14 +198,22 @@ const CarouselPage = () => {
         } catch (error) {
           console.error('Failed to create topic-content link:', error);
         }
-        // Clear topicHistoryId after use
         setTopicHistoryId(undefined);
       }
-      
-      setFormSheetOpen(false);
-      setSelectedCarousel(newCarousel);
-      setAutoGenerateImages(formData.autoGenerateImages || false);
-      setViewerOpen(true);
+
+      if (formData.autoGenerateImages) {
+        // Tracker mode: set carousel for tracker to pick up
+        setSelectedCarousel(newCarousel);
+      } else {
+        // Normal mode: close form, open viewer
+        setFormSheetOpen(false);
+        setSelectedCarousel(newCarousel);
+        setAutoGenerateImages(false);
+        setViewerOpen(true);
+      }
+    } else if (formData.autoGenerateImages) {
+      // Generation failed, exit tracker
+      setTrackerMode(false);
     }
   };
 
@@ -203,6 +224,47 @@ const CarouselPage = () => {
     toast.success(`Đã xóa ${selectedIds.length} carousel`);
     setSelectedIds([]);
   };
+
+  // Tracker mode: full-page generation progress view
+  if (trackerMode) {
+    return (
+      <>
+        <CarouselGenerationTracker
+          onBack={() => {
+            if (!generating) {
+              setTrackerMode(false);
+              setFormSheetOpen(true);
+            }
+          }}
+          topic={trackerTopic}
+          platform={trackerPlatform}
+          slideCount={trackerSlideCount}
+          promptGenerating={generating}
+          carousel={selectedCarousel}
+          onViewResults={(carousel) => {
+            setTrackerMode(false);
+            setSelectedCarousel(carousel);
+            setAutoGenerateImages(false);
+            setViewerOpen(true);
+          }}
+        />
+        {/* Keep viewer available for "view results" */}
+        <CarouselViewer
+          carousel={selectedCarousel}
+          open={viewerOpen}
+          onOpenChange={(open) => {
+            setViewerOpen(open);
+            if (!open) setAutoGenerateImages(false);
+          }}
+          onCarouselUpdate={(updated) => {
+            updateCarousel(updated);
+            setSelectedCarousel(updated);
+          }}
+          autoGenerateImages={false}
+        />
+      </>
+    );
+  }
 
   if (formSheetOpen) {
     return (
