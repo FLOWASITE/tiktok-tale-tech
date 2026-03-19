@@ -882,6 +882,25 @@ Follow the carousel style guidelines strictly.`;
       }
     }
 
+    // Dedup check: prevent duplicate carousel within 2 minutes
+    const { data: existingCarousel } = await supabase
+      .from("carousels")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("topic", formData.topic)
+      .eq("organization_id", organizationId)
+      .gte("created_at", new Date(Date.now() - 2 * 60 * 1000).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingCarousel) {
+      console.log(`Dedup: returning existing carousel ${existingCarousel.id}`);
+      return new Response(JSON.stringify({ ...existingCarousel, fromCache: true, dedup: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Save to database
     const { data: carousel, error: dbError } = await supabase
       .from("carousels")
