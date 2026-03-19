@@ -28,11 +28,11 @@ import {
 
 type PromptPhase = 'analyzing' | 'structuring' | 'writing' | 'finalizing';
 
-const PROMPT_STEPS: { id: PromptPhase; label: string; icon: string }[] = [
-  { id: 'analyzing', label: 'Phân tích chủ đề & ngữ cảnh', icon: '🔍' },
-  { id: 'structuring', label: 'Thiết kế cấu trúc carousel', icon: '🏗️' },
-  { id: 'writing', label: 'Viết nội dung từng slide', icon: '✍️' },
-  { id: 'finalizing', label: 'Hoàn thiện prompt ảnh', icon: '✨' },
+const PROMPT_STEPS: { id: PromptPhase; label: string; icon: LucideIcon }[] = [
+  { id: 'analyzing', label: 'Phân tích chủ đề & ngữ cảnh', icon: Search },
+  { id: 'structuring', label: 'Thiết kế cấu trúc carousel', icon: LayoutGrid },
+  { id: 'writing', label: 'Viết nội dung từng slide', icon: PenLine },
+  { id: 'finalizing', label: 'Hoàn thiện prompt ảnh', icon: Sparkles },
 ];
 
 const TIPS = [
