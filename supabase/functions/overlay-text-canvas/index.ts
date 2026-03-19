@@ -1440,6 +1440,17 @@ serve(async (req) => {
       background?: string;
       textColor?: string;
       fontFamily?: string;
+      // Phase A: dark gradient for gallery hook
+      bottomGradient?: boolean;
+      // Phase B: multi-layer text hierarchy
+      textLayers?: Array<{ text: string; role: 'headline' | 'subtitle' | 'body' | 'accent' }>;
+      // Phase C: brand color blending
+      brandColors?: { textColor?: string; backgroundColor?: string };
+      // Phase E: listicle decorations
+      decorations?: {
+        slideNumberBadge?: number;
+        progressDots?: { current: number; total: number };
+      };
     } | undefined;
 
     const hasCarouselOverlay = !!carouselOverlay;
@@ -1519,31 +1530,206 @@ serve(async (req) => {
       }
       if (fonts.length === 0) throw new Error('Could not load any fonts');
 
-      // Build background treatment wrapper styles
+      // Phase C: resolve background treatment with brand colors
       const bgTreatment = getBackgroundTreatmentStyles(carouselOverlay.background || 'none');
+      if (bgTreatment && carouselOverlay.brandColors?.backgroundColor) {
+        const brandBg = carouselOverlay.brandColors.backgroundColor;
+        if (carouselOverlay.background === 'solid-block') {
+          bgTreatment.background = brandBg;
+        } else if (carouselOverlay.background === 'glass') {
+          // Extract hex and use as glass tint
+          if (brandBg.startsWith('#')) {
+            const r = parseInt(brandBg.slice(1, 3), 16);
+            const g = parseInt(brandBg.slice(3, 5), 16);
+            const b = parseInt(brandBg.slice(5, 7), 16);
+            bgTreatment.background = `rgba(${r},${g},${b},0.15)`;
+            bgTreatment.border = `1px solid rgba(${r},${g},${b},0.25)`;
+          }
+        }
+      }
 
-      // Build element tree
-      const textElement: any = {
-        type: 'span',
-        props: {
-          style: {
-            color: carouselOverlay.textColor || '#FFFFFF',
-            fontSize: fontSizePx,
-            fontFamily: fonts.length > 0 ? fontFamily : 'sans-serif',
-            fontWeight: fontWeight,
-            textAlign: carouselOverlay.textAlign || 'center',
-            lineHeight: 1.35,
-            textShadow: (carouselOverlay.background === 'none') 
-              ? '2px 2px 4px rgba(0,0,0,0.7), -1px -1px 2px rgba(0,0,0,0.4)' 
-              : 'none',
+      // === Phase B: Build multi-layer text elements OR single text ===
+      const textLayers = carouselOverlay.textLayers;
+      let contentChildren: any;
+
+      if (textLayers && textLayers.length > 0) {
+        // Multi-layer rendering
+        console.log(`[overlay-text-canvas] Multi-layer text: ${textLayers.length} layers`);
+        const layerElements = textLayers.map((layer) => {
+          let layerFontSize = fontSizePx;
+          let layerFontWeight = fontWeight;
+          let layerOpacity = 1;
+          let layerLineHeight = 1.35;
+
+          switch (layer.role) {
+            case 'headline':
+              layerFontSize = Math.round(fontSizePx * 1.4);
+              layerFontWeight = Math.min(fontWeight + 200, 900);
+              break;
+            case 'subtitle':
+              layerFontSize = Math.round(fontSizePx * 0.65);
+              layerFontWeight = 400;
+              layerOpacity = 0.85;
+              layerLineHeight = 1.5;
+              break;
+            case 'body':
+              layerFontSize = Math.round(fontSizePx * 0.7);
+              layerFontWeight = 400;
+              layerOpacity = 0.9;
+              layerLineHeight = 1.5;
+              break;
+            case 'accent':
+              layerFontSize = Math.round(fontSizePx * 2.2);
+              layerFontWeight = 900;
+              break;
+          }
+
+          // Fit each layer independently
+          layerFontSize = fitTextToWidth(layer.text, imageWidth * maxWidthPercent, layerFontSize, 12);
+
+          return {
+            type: 'span',
+            props: {
+              style: {
+                color: carouselOverlay.textColor || '#FFFFFF',
+                fontSize: layerFontSize,
+                fontFamily: fonts.length > 0 ? fontFamily : 'sans-serif',
+                fontWeight: layerFontWeight,
+                textAlign: carouselOverlay.textAlign || 'center',
+                lineHeight: layerLineHeight,
+                opacity: layerOpacity,
+                textShadow: (carouselOverlay.background === 'none')
+                  ? '2px 2px 4px rgba(0,0,0,0.7), -1px -1px 2px rgba(0,0,0,0.4)'
+                  : 'none',
+                marginTop: layer.role === 'headline' ? 0 : 4,
+              },
+              children: layer.text,
+            },
+          };
+        });
+
+        contentChildren = layerElements.length === 1 ? layerElements[0] : layerElements;
+      } else {
+        // Single text (legacy)
+        contentChildren = {
+          type: 'span',
+          props: {
+            style: {
+              color: carouselOverlay.textColor || '#FFFFFF',
+              fontSize: fontSizePx,
+              fontFamily: fonts.length > 0 ? fontFamily : 'sans-serif',
+              fontWeight: fontWeight,
+              textAlign: carouselOverlay.textAlign || 'center',
+              lineHeight: 1.35,
+              textShadow: (carouselOverlay.background === 'none')
+                ? '2px 2px 4px rgba(0,0,0,0.7), -1px -1px 2px rgba(0,0,0,0.4)'
+                : 'none',
+            },
+            children: displayText,
           },
-          children: displayText,
-        },
-      };
+        };
+      }
 
-      const wrapperChildren = bgTreatment
-        ? { type: 'div', props: { style: { ...bgTreatment, maxWidth: carouselOverlay.maxWidth || '85%', display: 'flex', flexDirection: 'column', alignItems: carouselOverlay.textAlign === 'left' ? 'flex-start' : carouselOverlay.textAlign === 'right' ? 'flex-end' : 'center' }, children: textElement } }
-        : { type: 'div', props: { style: { maxWidth: carouselOverlay.maxWidth || '85%', display: 'flex', flexDirection: 'column', alignItems: carouselOverlay.textAlign === 'left' ? 'flex-start' : carouselOverlay.textAlign === 'right' ? 'flex-end' : 'center' }, children: textElement } };
+      const textWrapper = bgTreatment
+        ? { type: 'div', props: { style: { ...bgTreatment, maxWidth: carouselOverlay.maxWidth || '85%', display: 'flex', flexDirection: 'column', alignItems: carouselOverlay.textAlign === 'left' ? 'flex-start' : carouselOverlay.textAlign === 'right' ? 'flex-end' : 'center' }, children: contentChildren } }
+        : { type: 'div', props: { style: { maxWidth: carouselOverlay.maxWidth || '85%', display: 'flex', flexDirection: 'column', alignItems: carouselOverlay.textAlign === 'left' ? 'flex-start' : carouselOverlay.textAlign === 'right' ? 'flex-end' : 'center' }, children: contentChildren } };
+
+      // === Build children array for the root element ===
+      const rootChildren: any[] = [];
+
+      // Phase A: bottom gradient overlay for gallery hook
+      if (carouselOverlay.bottomGradient) {
+        console.log(`[overlay-text-canvas] Adding programmatic dark gradient overlay`);
+        rootChildren.push({
+          type: 'div',
+          props: {
+            style: {
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              width: imageWidth,
+              height: Math.round(imageHeight * 0.4),
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,0.65))',
+            },
+          },
+        });
+      }
+
+      // Phase E: Listicle slide number badge (top-left)
+      if (carouselOverlay.decorations?.slideNumberBadge) {
+        const badgeSize = Math.round(imageWidth * 0.08);
+        const badgeFontSize = Math.round(badgeSize * 0.5);
+        const primaryColor = carouselOverlay.brandColors?.backgroundColor || '#E53E3E';
+        rootChildren.push({
+          type: 'div',
+          props: {
+            style: {
+              position: 'absolute',
+              top: Math.round(imageHeight * 0.06),
+              left: Math.round(imageWidth * 0.06),
+              width: badgeSize,
+              height: badgeSize,
+              borderRadius: badgeSize / 2,
+              backgroundColor: primaryColor,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            },
+            children: {
+              type: 'span',
+              props: {
+                style: {
+                  color: getContrastTextColor(primaryColor),
+                  fontSize: badgeFontSize,
+                  fontFamily: fonts.length > 0 ? fontFamily : 'sans-serif',
+                  fontWeight: 800,
+                },
+                children: String(carouselOverlay.decorations.slideNumberBadge),
+              },
+            },
+          },
+        });
+      }
+
+      // Text content wrapper
+      rootChildren.push(textWrapper);
+
+      // Phase E: Listicle progress dots (bottom center)
+      if (carouselOverlay.decorations?.progressDots) {
+        const { current, total } = carouselOverlay.decorations.progressDots;
+        const dotSize = Math.round(imageWidth * 0.012);
+        const dotElements = [];
+        for (let i = 1; i <= total; i++) {
+          dotElements.push({
+            type: 'div',
+            props: {
+              style: {
+                width: dotSize,
+                height: dotSize,
+                borderRadius: dotSize / 2,
+                backgroundColor: i === current ? (carouselOverlay.textColor || '#FFFFFF') : 'rgba(255,255,255,0.35)',
+              },
+            },
+          });
+        }
+        rootChildren.push({
+          type: 'div',
+          props: {
+            style: {
+              position: 'absolute',
+              bottom: Math.round(imageHeight * 0.04),
+              left: 0,
+              width: imageWidth,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: Math.round(dotSize * 0.8),
+            },
+            children: dotElements,
+          },
+        });
+      }
 
       const element = {
         type: 'div',
@@ -1552,12 +1738,13 @@ serve(async (req) => {
             width: imageWidth,
             height: imageHeight,
             display: 'flex',
+            position: 'relative',
             backgroundImage: `url(${baseImageUrl})`,
             backgroundSize: `${imageWidth}px ${imageHeight}px`,
             backgroundPosition: 'center',
             ...carouselPositionStyles,
           },
-          children: wrapperChildren,
+          children: rootChildren.length === 1 ? rootChildren[0] : rootChildren,
         },
       };
 
