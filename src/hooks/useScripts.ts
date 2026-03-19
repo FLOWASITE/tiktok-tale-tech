@@ -140,6 +140,20 @@ export function useScripts() {
       );
 
       console.log('[useScripts] Script auto-analyzed and cached:', script.id);
+
+      // Send analysis notification
+      if (user) {
+        const score = analysisData?.overallScore || 0;
+        supabase.from('notifications').insert({
+          user_id: user.id,
+          type: 'script_analysis_done',
+          title: 'Phân tích kịch bản hoàn tất!',
+          message: `Kịch bản "${script.topic}" đã được chấm điểm: ${score}/100`,
+          data: { script_id: script.id, score },
+        }).then(({ error: notifError }) => {
+          if (notifError) console.warn('[useScripts] Failed to send analysis notification:', notifError);
+        });
+      }
     } catch (err) {
       console.warn('[useScripts] Auto-analysis error:', err);
     }
