@@ -206,8 +206,8 @@ const CarouselPage = () => {
       }
 
       if (formData.autoGenerateImages) {
-        // Tracker mode: set carousel for tracker to pick up
-        setSelectedCarousel(newCarousel);
+        // Tracker mode: set carousel for tracker to pick up (separate from viewer)
+        setTrackerCarousel(newCarousel);
       } else {
         // Normal mode: close form, open viewer
         setFormSheetOpen(false);
