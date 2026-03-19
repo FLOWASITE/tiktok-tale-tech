@@ -1446,10 +1446,13 @@ serve(async (req) => {
       textLayers?: Array<{ text: string; role: 'headline' | 'subtitle' | 'body' | 'accent' }>;
       // Phase C: brand color blending
       brandColors?: { textColor?: string; backgroundColor?: string };
-      // Phase E: listicle decorations
+      // Phase E: decorations (listicle, educational, flat_design, product)
       decorations?: {
         slideNumberBadge?: number;
         progressDots?: { current: number; total: number };
+        stepIndicator?: { current: number; total: number };
+        accentDivider?: boolean;
+        hotBadge?: boolean;
       };
     } | undefined;
 
