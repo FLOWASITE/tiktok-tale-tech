@@ -5,11 +5,14 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
   CarouselFormData,
+  CarouselSlide,
+  StructuredTextContent,
   Platform,
   CarouselStyleType,
   VisualPresetType,
   DEFAULT_BRAND_GUIDELINE,
 } from '@/types/carousel';
+import { CarouselLayoutPreview } from '@/components/carousel/CarouselLayoutPreview';
 import { useBrandTemplates, BrandTemplate } from '@/hooks/useBrandTemplates';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
