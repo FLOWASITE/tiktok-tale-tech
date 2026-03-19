@@ -199,7 +199,7 @@ serve(async (req) => {
 
     // Non-blocking metrics save
     const totalDurationMs = Math.round(performance.now() - startTime);
-    const model = "google/gemini-3-pro-image-preview";
+    const model = imageModel;
     const inputTokens = estimateTokens(backgroundPrompt);
     const estimatedCostUsd = isImageModel(model) ? estimateImageCost(model) : estimateCost(model, inputTokens, 0);
     saveMetrics(supabase, {
