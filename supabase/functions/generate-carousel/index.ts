@@ -7,9 +7,7 @@ import {
   CRITIQUE_CONFIG,
   type CritiqueResult,
 } from "../_shared/self-critique.ts";
-import { saveMetrics, generateTraceId } from "../_shared/logger.ts";
-import { estimateCost } from "../_shared/cost-estimator.ts";
-import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
+import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { createPromptManager, buildPrompt } from "../_shared/prompt-integration.ts";
 import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext, type LanguageConfig } from "../_shared/country-language-map.ts";
