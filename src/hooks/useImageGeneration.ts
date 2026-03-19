@@ -35,6 +35,7 @@ export function useImageGeneration() {
       seamlessContext?: {
         colorPalette: string[] | null;
         previousSceneDescription: string | null;
+        siblingSlidesSummary?: string | null;
         sequencePosition: number;
         totalInSequence: number;
       };
