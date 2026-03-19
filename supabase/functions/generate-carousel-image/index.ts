@@ -1011,7 +1011,27 @@ GALLERY / PHOTO DUMP STYLE:
     .replace(/\bfont[\s-]*(family|size|style|weight|face)\b.*?(?=\n|$)/gi, '')
     .replace(/\b(render|draw|write|display|show)\s+(text|words|letters|title|heading)\b.*?(?=\n|$)/gi, '');
 
-  return `${safeZoneNote}${brandColorDirective}${tokenDirective}${seamlessDirective}${styleDirective}\nVisual concept:\n${cleanedPrompt}`;
+  // Visual concept FIRST — this is what the AI should focus on
+  // Technical constraints AFTER — these are guardrails
+  const prompt = [
+    // PART 1: Cảnh chính (AI image model tập trung vào đây)
+    cleanedPrompt,
+    
+    // PART 2: Color & Brand (bổ sung, không override cảnh)
+    brandColorDirective ? `\nColor guidance: ${brandColorDirective.trim()}` : '',
+    tokenDirective ? `\nDesign mood: ${tokenDirective.trim()}` : '',
+    
+    // PART 3: Continuity (nếu seamless)
+    seamlessDirective || '',
+    
+    // PART 4: Style directive (nếu có)
+    styleDirective || '',
+    
+    // PART 5: Constraints (cuối cùng, ít ảnh hưởng nhất)
+    '\nIMPORTANT: Do NOT render any text, letters, or words on the image. Leave 15% top and 20% bottom blank for text overlay. This is a background image only.',
+  ].filter(Boolean).join('\n');
+
+  return prompt;
 }
 
 function getPlatformDimensions(platform?: string, carouselStyle?: string): { width: number; height: number } {
