@@ -87,7 +87,7 @@ PROMPTS CHO TỪNG SLIDE
 ${slide.objective}
 
 [2] NỘI DUNG CHỮ TRÊN ẢNH:
-${slide.textContent}
+${textContentToString(slide.textContent)}
 
 [3] PHONG CÁCH THIẾT KẾ:
 ${slide.designStyle}
