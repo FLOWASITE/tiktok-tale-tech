@@ -64,7 +64,7 @@ CAROUSEL PROMPTS - ${carousel.title}
 📋 Thông tin:
 - Chủ đề: ${carousel.topic}
 - Nền tảng: ${platformLabels[carousel.platform]}
-- Công cụ AI: ${aiToolLabels[carousel.ai_tool]}
+- Công cụ AI: Lovable AI
 - Số slides: ${carousel.slide_count}
 - Brand: ${carousel.brand_name}
 - Ngày tạo: ${new Date(carousel.created_at).toLocaleDateString('vi-VN')}
