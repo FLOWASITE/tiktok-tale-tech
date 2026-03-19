@@ -185,7 +185,7 @@ export function TopicSuggestionPanel({
               type="button"
               variant="ghost"
               size="sm"
-              onClick={onRefresh}
+              onClick={() => onRefresh()}
               disabled={isLoading || disabled}
               className="h-5 xs:h-6 w-5 xs:w-6 p-0"
             >
