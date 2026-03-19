@@ -281,9 +281,11 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
     for (const slide of carousel.slides_content) {
       const isSeamless = carousel.carousel_style === 'seamless';
 
+      const brandColors = extractBrandColors();
       const result = await generateImage(slide.fullPrompt, carousel.id, slide.slideNumber, {
         textContent: slide.textContent,
         platform: carousel.platform,
+        brandColors,
         carouselStyle: carousel.carousel_style,
         totalSlides: carousel.slides_content.length,
         slideObjective: slide.objective,
