@@ -64,7 +64,10 @@ const CarouselPage = () => {
   const [initialTopic, setInitialTopic] = useState<string>('');
   const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>();
   const [autoGenerateImages, setAutoGenerateImages] = useState(false);
-
+  const [trackerMode, setTrackerMode] = useState(false);
+  const [trackerTopic, setTrackerTopic] = useState('');
+  const [trackerPlatform, setTrackerPlatform] = useState('facebook');
+  const [trackerSlideCount, setTrackerSlideCount] = useState(6);
   // Topic Content Links hook
   const { createLink } = useTopicContentLinks({ enabled: false });
 
