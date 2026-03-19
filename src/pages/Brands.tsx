@@ -78,15 +78,39 @@ export default function Brands() {
   );
   const { getCountsForBrand } = useBrandCounts(brandsForCounts);
 
-  // Fetch all social connections to check which brands have connections
-  // Query by org AND by brand IDs (connections may have org_id=null but brand_template_id set)
+  // Fetch social connections for all brands (connections may have org_id=null but brand_template_id set)
   const { connections: orgConnections } = useSocialConnections({ organizationId: currentOrganization?.id });
   
+  // Also fetch connections directly by brand_template_ids using a separate query
+  const { data: brandLevelConnections } = useQuery({
+    queryKey: ['social-connections', 'by-brands', brandIds],
+    queryFn: async () => {
+      if (brandIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from('social_connections')
+        .select('*')
+        .in('brand_template_id', brandIds)
+        .eq('is_active', true);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: brandIds.length > 0,
+  });
+
   const brandConnectionsMap = useMemo(() => {
     const map = new Map<string, string[]>();
     
-    // Process org-level connections
-    orgConnections.forEach(conn => {
+    // Merge both org-level and brand-level connections
+    const allConnections = [
+      ...(orgConnections || []),
+      ...(brandLevelConnections || []),
+    ];
+    
+    // Deduplicate by connection id
+    const seen = new Set<string>();
+    allConnections.forEach(conn => {
+      if (seen.has(conn.id)) return;
+      seen.add(conn.id);
       if (conn.brand_template_id && conn.is_active) {
         const existing = map.get(conn.brand_template_id) || [];
         if (!existing.includes(conn.platform)) {
@@ -97,7 +121,7 @@ export default function Brands() {
     });
     
     return map;
-  }, [orgConnections]);
+  }, [orgConnections, brandLevelConnections]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('is_default');
