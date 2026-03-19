@@ -218,6 +218,37 @@ export default function MultiChannelCreate() {
     }
   }, [generationState, generatedContentId, selectedBrandId, imagePipeline.phase]);
 
+  // Notify when content generation completes
+  useEffect(() => {
+    if (generationState === 'complete' && user && generatedContentId && !contentNotifiedRef.current) {
+      contentNotifiedRef.current = true;
+      const channelCount = formData.channels?.length || 0;
+      supabase.from('notifications').insert({
+        user_id: user.id,
+        type: 'multichannel_content_done',
+        title: 'Nội dung đa kênh đã sẵn sàng!',
+        message: `Đã tạo ${channelCount} kênh cho "${formData.topic}"`,
+        data: { content_id: generatedContentId },
+      });
+    }
+  }, [generationState, user, generatedContentId]);
+
+  // Notify when image pipeline completes
+  useEffect(() => {
+    if (imagePipeline.phase === 'complete' && user && generatedContentId && !imagesNotifiedRef.current) {
+      imagesNotifiedRef.current = true;
+      const successCount = imagePipeline.imageResults?.successful?.length || 0;
+      const totalCount = (imagePipeline.imageResults?.successful?.length || 0) + (imagePipeline.imageResults?.failed?.length || 0);
+      supabase.from('notifications').insert({
+        user_id: user.id,
+        type: 'multichannel_images_done',
+        title: 'Ảnh đa kênh đã hoàn tất!',
+        message: `${successCount}/${totalCount} ảnh đã tạo thành công cho "${formData.topic}"`,
+        data: { content_id: generatedContentId },
+      });
+    }
+  }, [imagePipeline.phase, user, generatedContentId]);
+
   // Create another
   const handleCreateAnother = () => {
     setGenerationState('idle');
