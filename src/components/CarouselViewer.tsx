@@ -649,6 +649,21 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
                 carouselStyle={carousel.carousel_style as CarouselStyleType}
                 platform={carousel.platform}
               />
+              {/* Seamless consistency result card */}
+              {carousel.carousel_style === 'seamless' && (
+                <SeamlessConsistencyCard
+                  result={seamlessResult}
+                  validating={seamlessValidating}
+                  onRevalidate={() => {
+                    const urls = generatedImages.map(img => img.imageUrl).filter(Boolean);
+                    if (urls.length >= 2) {
+                      validateSeamless(carousel.id, urls);
+                    } else {
+                      toast.info('Cần ít nhất 2 ảnh để kiểm tra.');
+                    }
+                  }}
+                />
+              )}
               <div className="flex justify-center">
                 <Button
                   onClick={handleGenerateAllImages}
