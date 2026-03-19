@@ -48,7 +48,8 @@ export function SlidePromptCard({
 
   const startEditing = useCallback((field: EditableField) => {
     setEditingField(field);
-    setEditValue(slide[field]);
+    const val = slide[field];
+    setEditValue(field === 'textContent' ? textContentToString(val as any) : (val as string));
   }, [slide]);
 
   const cancelEditing = useCallback(() => {
