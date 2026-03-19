@@ -605,7 +605,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
           </div>
         </DialogHeader>
 
-        <Tabs defaultValue="slides" className="flex-1 flex flex-col overflow-hidden">
+        <Tabs defaultValue="preview" className="flex-1 flex flex-col overflow-hidden">
           <div className="px-3 xs:px-6 pt-2 space-y-2 xs:space-y-3">
             <TabsList className="w-full xs:w-fit h-auto flex-wrap justify-start gap-1">
               <TabsTrigger value="preview" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
