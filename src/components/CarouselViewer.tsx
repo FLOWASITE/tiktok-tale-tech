@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Copy, Check, Images, MessageSquare, Megaphone, Download, Sparkles, Loader2, ImageIcon, TrendingUp, Send, LayoutGrid } from 'lucide-react';
+import { Copy, Check, Images, MessageSquare, Megaphone, Download, Sparkles, Loader2, ImageIcon, TrendingUp, Send, LayoutGrid, Layers, GraduationCap, ListOrdered, Images as ImagesIcon2, Minus, BarChart3, Blend, Hexagon, Paintbrush, Focus, type LucideIcon } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import {
@@ -46,6 +46,15 @@ import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { useSeamlessValidation } from '@/hooks/useSeamlessValidation';
 import { CarouselLayoutPreview } from '@/components/carousel/CarouselLayoutPreview';
+import { SeamlessConsistencyCard } from '@/components/carousel/SeamlessConsistencyCard';
+
+// Icon maps for badge rendering
+const STYLE_ICON_MAP: Record<string, LucideIcon> = {
+  Layers, GraduationCap, ListOrdered, Images: ImagesIcon2,
+};
+const PRESET_ICON_MAP: Record<string, LucideIcon> = {
+  Minus, BarChart3, Blend, Hexagon, Paintbrush, Focus,
+};
 
 interface CarouselViewerProps {
   carousel: Carousel | null;
