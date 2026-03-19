@@ -1407,7 +1407,7 @@ export function MultiChannelViewer({
                                   channel={channel}
                                   content={channelContent || ''}
                                   brandName={content.brand_name}
-                                  logoUrl={undefined}
+                                  logoUrl={brandLogoUrl || undefined}
                                   primaryColor={content.primary_color || undefined}
                                   isLoading={isRegenerating}
                                   seoData={channel === 'website' ? (content as any).website_seo_data : undefined}
