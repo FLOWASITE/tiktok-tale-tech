@@ -145,6 +145,35 @@ function parseTextLayers(textContent: string | StructuredTextContent, slideRole:
 }
 
 // ============================================
+// Phase B.1: Deduplicate text layers
+// Fixes: dataValue "87%" + headline "87% DOANH NGHIỆP..." → "87%" shown twice
+// ============================================
+function deduplicateTextLayers(layers: TextLayer[]): TextLayer[] {
+  const dataValueLayer = layers.find(l => l.role === 'dataValue');
+  const headlineLayer = layers.find(l => l.role === 'headline');
+
+  if (dataValueLayer && headlineLayer) {
+    const dataVal = dataValueLayer.text.trim();
+    const headline = headlineLayer.text.trim();
+
+    if (headline.startsWith(dataVal)) {
+      const remaining = headline.slice(dataVal.length).trim();
+      if (!remaining) {
+        // headline is just the dataValue → remove headline
+        console.log(`[dedup] Headline identical to dataValue "${dataVal}" → removing headline layer`);
+        return layers.filter(l => l.role !== 'headline');
+      } else {
+        // headline starts with dataValue → trim the duplicate prefix
+        console.log(`[dedup] Headline starts with dataValue "${dataVal}" → trimming to "${remaining}"`);
+        headlineLayer.text = remaining;
+      }
+    }
+  }
+
+  return layers;
+}
+
+// ============================================
 // Phase D: Content-aware text density adjustment
 // ============================================
 function adjustOverlayForTextDensity(
