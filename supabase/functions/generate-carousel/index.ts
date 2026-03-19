@@ -410,25 +410,6 @@ LOGIC NỘI DUNG:
 const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, mergedRules?: MergedRules, outputLang: string = 'vi'): string => {
   const langConfig = getLanguageConfig(outputLang);
   const carouselStyle = formData.carouselStyle || 'educational';
-  const aiToolPromptGuide = {
-    ideogram: `Tối ưu cho Ideogram - ưu tiên text clarity:
-- Sử dụng cấu trúc prompt rõ ràng
-- Nhấn mạnh "Text must be perfectly readable"
-- Yêu cầu "No distorted Vietnamese characters"
-- Sử dụng "Flat design, no clutter"`,
-    midjourney: `Tối ưu cho Midjourney - chất lượng cao:
-- Sử dụng các tham số như --ar 1:1 --v 6
-- Thêm style descriptors: "professional", "clean", "modern"
-- Sử dụng negative prompts khi cần`,
-    dalle: `Tối ưu cho DALL·E:
-- Mô tả chi tiết và cụ thể
-- Tránh các yêu cầu về text phức tạp
-- Tập trung vào composition và color`,
-    leonardo: `Tối ưu cho Leonardo:
-- Sử dụng style presets phù hợp
-- Mô tả chi tiết về lighting và mood
-- Chọn model phù hợp với infographic`,
-  };
 
   const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules, outputLang) : "";
   const langName = langConfig.nativeName;
