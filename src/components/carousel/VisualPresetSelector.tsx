@@ -8,11 +8,22 @@ interface VisualPresetSelectorProps {
   disabled?: boolean;
 }
 
+/** Mini color/font preview data per preset (matches FALLBACK_OVERLAY_MATRIX in backend) */
+const PRESET_PREVIEW: Record<VisualPresetType, { colors: string[]; font: string }> = {
+  minimalist: { colors: ['#1a1a1a', '#ffffff', '#6366f1'], font: 'Inter' },
+  flat_design: { colors: ['#1e293b', '#f8fafc', '#f59e0b'], font: 'Montserrat' },
+  gradient: { colors: ['#0f0f23', '#667eea', '#764ba2'], font: 'Poppins' },
+  geometric: { colors: ['#1b2a4a', '#f5f0e8', '#c8a961'], font: 'Playfair' },
+  illustration: { colors: ['#2d2d2d', '#fdf6ec', '#e07a5f'], font: 'Nunito' },
+  product_only: { colors: ['#111111', '#f5f5f5', '#e5e5e5'], font: 'Helvetica' },
+};
+
 export function VisualPresetSelector({ value, onChange, disabled }: VisualPresetSelectorProps) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
       {VISUAL_PRESET_OPTIONS.map((option) => {
         const isSelected = value === option.value;
+        const preview = PRESET_PREVIEW[option.value];
 
         return (
           <button
@@ -42,6 +53,22 @@ export function VisualPresetSelector({ value, onChange, disabled }: VisualPreset
                 isSelected ? "text-foreground" : "text-muted-foreground"
               )}>
                 {option.label}
+              </span>
+            </div>
+
+            {/* Mini preview strip: color dots + font */}
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="flex items-center gap-0.5">
+                {preview.colors.map((color, i) => (
+                  <span
+                    key={i}
+                    className="w-3 h-3 rounded-full border border-border/40 shrink-0"
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+              <span className="text-[9px] text-muted-foreground truncate">
+                {preview.font}
               </span>
             </div>
 
