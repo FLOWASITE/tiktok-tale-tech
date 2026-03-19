@@ -788,7 +788,10 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               baseImageUrl: backgroundUrl,
-              text: textStr,
+              // Legacy text fallback — only headline, NOT all layers joined by \n
+              text: isStructuredTextContent(textContent) 
+                ? (textContent.headline || '') 
+                : textStr,
               carouselOverlay: {
                 position: overlayConfig.position || 'center',
                 fontWeight: overlayConfig.fontWeight || 600,
