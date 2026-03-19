@@ -412,19 +412,30 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    const resolvedPresetKey = visualPreset || carouselStyle || 'minimalist';
+    console.log(`[generate-carousel-image] Resolved preset key: '${resolvedPresetKey}' (visualPreset='${visualPreset}', carouselStyle='${carouselStyle}')`);
+
     const [aiConfig, dbPreset] = await Promise.all([
       getAIConfig('generate-carousel-image'),
-      fetchStylePreset(supabase, visualPreset || carouselStyle || 'minimalist'),
+      fetchStylePreset(supabase, resolvedPresetKey),
     ]);
 
+    console.log(`[generate-carousel-image] DB preset result: ${dbPreset ? 'LOADED' : 'NULL (using fallback)'}`);
+
     // === Phase 3: Blend brand colors into design tokens ===
-    const presetKey = visualPreset || carouselStyle || 'minimalist';
+    const presetKey = resolvedPresetKey;
     const blendedTokens = dbPreset?.tokens
       ? blendBrandColors(dbPreset.tokens, presetKey, brandColors)
-      : dbPreset?.tokens || null;
+      : null;
     
     if (blendedTokens && brandColors) {
-      console.log(`[generate-carousel-image] Brand colors blended into preset '${presetKey}'`);
+      console.log(`[generate-carousel-image] Brand colors blended into preset '${presetKey}':`, JSON.stringify({
+        gradientFrom: blendedTokens.colors?.gradientFrom,
+        gradientTo: blendedTokens.colors?.gradientTo,
+        accent: blendedTokens.colors?.accent,
+      }));
+    } else if (!dbPreset) {
+      console.warn(`[generate-carousel-image] ⚠️ No DB tokens — image prompt will lack design token directives (colors, effects, typography mood)`);
     }
 
     // === Multi-provider routing: PoYo → KIE → Lovable AI ===
