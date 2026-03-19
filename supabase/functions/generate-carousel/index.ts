@@ -657,6 +657,7 @@ serve(async (req) => {
     let industryMemory: IndustryMemory | null = null;
     let mergedRules: MergedRules | undefined;
     let outputLang = 'vi'; // Default to Vietnamese for backward compatibility
+    let brandCountryCode: string | null = null;
     
     if (formData.brandTemplateId) {
       const { data: template } = await supabase
