@@ -320,6 +320,42 @@ const CarouselPage = () => {
           }}
           autoGenerateImages={autoGenerateImages}
         />
+        {/* Minimized tracker overlay */}
+        {trackerMode && trackerMinimized && (
+          <>
+            <div className="hidden">
+              <CarouselGenerationTracker
+                onBack={() => {}}
+                onProgressChange={setTrackerProgress}
+                topic={trackerTopic}
+                platform={trackerPlatform}
+                slideCount={trackerSlideCount}
+                promptGenerating={generating}
+                carousel={selectedCarousel}
+                onViewResults={(carousel) => {
+                  setTrackerMode(false);
+                  setTrackerMinimized(false);
+                  setSelectedCarousel(carousel);
+                  setAutoGenerateImages(false);
+                  setViewerOpen(true);
+                }}
+              />
+            </div>
+            <CarouselMiniTracker
+              overallPercent={trackerProgress.overallPercent}
+              statusText={trackerProgress.statusText}
+              allDone={trackerProgress.allDone}
+              onExpand={() => setTrackerMinimized(false)}
+              onViewResults={trackerProgress.allDone && selectedCarousel ? () => {
+                setTrackerMode(false);
+                setTrackerMinimized(false);
+                setSelectedCarousel(selectedCarousel);
+                setAutoGenerateImages(false);
+                setViewerOpen(true);
+              } : undefined}
+            />
+          </>
+        )}
       </div>
     );
   }
