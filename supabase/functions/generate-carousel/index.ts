@@ -407,6 +407,53 @@ LOGIC NỘI DUNG:
   }
 };
 
+// ============================================
+// Phase 6: Text Length Guidelines per Visual Preset
+// ============================================
+const getTextLengthGuidelines = (visualPreset: string): string => {
+  const guidelines: Record<string, string> = {
+    minimalist: `
+## TEXT LENGTH CONSTRAINTS (Clean Modern — lots of whitespace, negative space 40-50%)
+- textContent line 1 (headline): Maximum 5 words. Short, quiet, impactful.
+- textContent line 2 (subtitle): Maximum 10 words or leave empty.
+- Total text per slide MUST NOT exceed 20 words.
+- Prioritize whitespace over content density.`,
+
+    flat_design: `
+## TEXT LENGTH CONSTRAINTS (Bold Infographic — large text, high visual impact)
+- textContent line 1 (headline): Maximum 6 words, UPPERCASE preferred.
+- Use numbers/statistics prominently when relevant (e.g., "2.5M", "340%").
+- textContent line 2 (subtitle): Maximum 12 words.
+- Keep data-focused: numbers > paragraphs.`,
+
+    gradient: `
+## TEXT LENGTH CONSTRAINTS (Gradient Flow — text in glass card container)
+- textContent line 1 (headline): Maximum 7 words.
+- textContent line 2 (subtitle): Maximum 15 words.
+- Text sits inside a glass card overlay — keep concise so card stays compact.`,
+
+    geometric: `
+## TEXT LENGTH CONSTRAINTS (Corporate — text only occupies left column ~55%)
+- textContent line 1 (headline): Maximum 5 words. Professional, no fluff.
+- textContent line 2 (subtitle): Maximum 12 words.
+- Right side is reserved for visuals — text MUST be short.`,
+
+    illustration: `
+## TEXT LENGTH CONSTRAINTS (Story Visual — flexible artistic layout)
+- textContent line 1 (headline): Maximum 7 words, emotional language encouraged.
+- textContent line 2 (subtitle): Maximum 12 words.
+- Handwriting-style font works best with shorter text.`,
+
+    product_only: `
+## TEXT LENGTH CONSTRAINTS (Product Focus — split layout with product image)
+- textContent line 1 (headline): Maximum 5 words — product name or USP.
+- textContent line 2 (subtitle): Maximum 8 words — one standout feature.
+- Keep minimal — product image is the hero.`,
+  };
+
+  return guidelines[visualPreset] || guidelines.minimalist;
+};
+
 const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, mergedRules?: MergedRules, outputLang: string = 'vi'): string => {
   const langConfig = getLanguageConfig(outputLang);
   const carouselStyle = formData.carouselStyle || 'educational';
