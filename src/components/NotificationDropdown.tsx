@@ -32,6 +32,8 @@ const notificationTypeConfig: Record<string, {
   campaign_ending_soon: { icon: <Calendar className="h-4 w-4" />, bgColor: 'bg-red-500/10', textColor: 'text-red-500' },
   kpi_target_reached: { icon: <Target className="h-4 w-4" />, bgColor: 'bg-green-500/10', textColor: 'text-green-500' },
   kpi_target_exceeded: { icon: <TrendingUp className="h-4 w-4" />, bgColor: 'bg-emerald-500/10', textColor: 'text-emerald-500' },
+  carousel_prompt_done: { icon: <PenLine className="h-4 w-4" />, bgColor: 'bg-blue-500/10', textColor: 'text-blue-500' },
+  carousel_generation_complete: { icon: <Images className="h-4 w-4" />, bgColor: 'bg-emerald-500/10', textColor: 'text-emerald-500' },
 };
 
 export const NotificationDropdown = () => {
