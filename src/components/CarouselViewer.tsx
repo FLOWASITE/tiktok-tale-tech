@@ -45,6 +45,7 @@ import { IndustryGuardrailBadge } from '@/components/IndustryGuardrailBadge';
 import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { useSeamlessValidation } from '@/hooks/useSeamlessValidation';
+import { CarouselLayoutPreview } from '@/components/carousel/CarouselLayoutPreview';
 
 interface CarouselViewerProps {
   carousel: Carousel | null;
