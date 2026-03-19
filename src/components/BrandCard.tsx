@@ -106,7 +106,7 @@ export function BrandCard({
   selected = false,
   onSelectChange,
   brandCounts,
-  hasSocialConnections = false,
+  connectedPlatforms = [],
 }: BrandCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   
