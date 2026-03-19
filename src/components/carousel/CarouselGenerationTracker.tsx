@@ -51,6 +51,8 @@ interface CarouselGenerationTrackerProps {
   onBack: () => void;
   /** Called when user clicks minimize */
   onMinimize?: () => void;
+  /** Reports progress changes to parent */
+  onProgressChange?: (data: { overallPercent: number; statusText: string; allDone: boolean }) => void;
   /** The carousel form data topic for display */
   topic: string;
   platform: string;
