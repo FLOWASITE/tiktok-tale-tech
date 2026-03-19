@@ -114,3 +114,31 @@ Hệ thống dùng font `Be Vietnam Pro` cứng cho mọi style, padding đồng
 ### Phase 3: Seamless Continuity + Style Presets + Gallery Optimization
 1. **`supabase/functions/generate-carousel-image/index.ts`** — Fetch `carousel_style_presets` từ DB (parallel với getAIConfig), inject design tokens (colors/effects/typography) vào prompt, seamlessContext (colorPalette + previousSceneDescription) cho visual continuity, gallery 4:5 aspect ratio cho Facebook
 2. **`src/components/CarouselViewer.tsx`** — extractColorPalette() từ slide colorLayout, truyền seamlessContext tuần tự qua các slide khi Generate All, previousSceneDescription chain
+
+---
+
+## Carousel Visual Engine — 6 Gap Fixes — đã triển khai
+
+### Phase A: Gallery Hook Dark Gradient
+- **`generate-carousel-image/index.ts`** — Detect `gallery + hook` → gửi `bottomGradient: true` xuống overlay
+- **`overlay-text-canvas/index.ts`** — Render gradient div (transparent → rgba(0,0,0,0.65)) ở bottom 40% dưới text
+
+### Phase B: Multi-layer Text Hierarchy
+- **`generate-carousel-image/index.ts`** — `parseTextLayers()` parse textContent thành headline/subtitle/body/accent theo slideRole
+- **`overlay-text-canvas/index.ts`** — Render mỗi layer với fontSize/fontWeight/opacity khác nhau, fallback single-text khi chỉ 1 line
+
+### Phase C: Brand Color Blending
+- **`generate-carousel-image/index.ts`** — Inject `brandColors` vào background prompt ("Brand identity colors...") + truyền xuống overlay
+- **`overlay-text-canvas/index.ts`** — Dùng brand color cho solid-block bg và glass tint thay vì hardcoded rgba
+
+### Phase D: Content-aware Text Fitting
+- **`generate-carousel-image/index.ts`** — `adjustOverlayForTextDensity()`: text >120 chars → shrink font + widen maxWidth; text <20 chars → enlarge font + narrow maxWidth
+
+### Phase E: Listicle Decorative Elements
+- **`generate-carousel-image/index.ts`** — Khi listicle + body: gửi `decorations.slideNumberBadge` + `decorations.progressDots`
+- **`overlay-text-canvas/index.ts`** — Render numbered circle badge (top-left) + progress dots (bottom center)
+
+### Phase F: Seamless Quality Validation
+- **`generate-carousel-image/index.ts`** — Extract `sceneDescription` từ AI response text, return trong response
+- **`src/hooks/useImageGeneration.ts`** — Return type mở rộng thành `GenerateImageResult { imageUrl, sceneDescription }`
+- **`src/components/CarouselViewer.tsx`** — Dùng `result.sceneDescription` cho `previousSceneDescription` thay vì `slide.objective`
