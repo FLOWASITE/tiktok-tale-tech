@@ -226,7 +226,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
 
   const handleGenerateImage = async (slideNumber: number, prompt: string) => {
     const slide = carousel.slides_content.find(s => s.slideNumber === slideNumber);
-    const imageUrl = await generateImage(prompt, carousel.id, slideNumber, {
+    const result = await generateImage(prompt, carousel.id, slideNumber, {
       textContent: slide?.textContent,
       platform: carousel.platform,
       carouselStyle: carousel.carousel_style,
@@ -234,8 +234,8 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
       slideObjective: slide?.objective,
       visualPreset: carousel.visual_preset || 'minimalist',
     });
-    if (imageUrl) {
-      await saveImage(slideNumber, imageUrl, prompt);
+    if (result?.imageUrl) {
+      await saveImage(slideNumber, result.imageUrl, prompt);
     }
   };
 
