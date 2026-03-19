@@ -622,6 +622,8 @@ serve(async (req) => {
       estimatedCostUsd,
       modelsUsed: { image: model },
       hadError: false,
+      usedFallback,
+      fallbackModel: fallbackFromModel,
       contextSources: [],
       contentId: carouselId,
       actionType: 'image_generation',
