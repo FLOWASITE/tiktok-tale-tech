@@ -421,9 +421,10 @@ Output ALL content in ${langName} (${langConfig.englishName}).
 ${brandVoiceSection}
 
 ## VAI TRÒ CỦA BẠN
-1. Viết Prompt tạo ảnh chuyên nghiệp cho ${formData.aiTool}
-2. Tư duy như Content Strategist - chia nội dung theo nhịp đọc mạng xã hội
-3. Chuẩn hóa đầu ra theo format 6 thành phần bắt buộc
+1. Viết nội dung carousel chuyên nghiệp (textContent cho mỗi slide)
+2. Viết Prompt tạo ẢNH NỀN (background image) cho mỗi slide
+3. Tư duy như Content Strategist - chia nội dung theo nhịp đọc mạng xã hội
+4. Chuẩn hóa đầu ra theo format 7 thành phần bắt buộc
 
 ${styleSection}
 
@@ -433,52 +434,32 @@ ${formData.brandGuideline}
 Brand name: ${formData.brandName}
 ${formData.includeLogo ? `Logo: Bao gồm logo "${formData.brandName}" ở góc dưới, subtle và professional.${formData.logoUrl ? `\nLogo URL (reference): ${formData.logoUrl}` : ""}` : "Không có logo."}
 
-## ${aiToolPromptGuide[formData.aiTool]}
+## NGUYÊN TẮC QUAN TRỌNG VỀ fullPrompt
+fullPrompt là prompt để tạo ẢNH NỀN (background image) cho slide.
+Text/chữ sẽ được OVERLAY lên ảnh nền sau bằng hệ thống riêng (Satori SVG).
+Do đó:
+- fullPrompt KHÔNG cần yêu cầu AI vẽ chữ/text trên ảnh
+- fullPrompt tập trung vào: background, mood, colors, composition, visual elements
+- Tránh prompt kiểu "text says..." hoặc "with text..."
+- Thay vào đó, prompt nên mô tả: gradient, texture, abstract shapes, photography style, lighting
 
-## NGUYÊN TẮC VIẾT PROMPT
-1. Mỗi prompt = 1 slide (KHÔNG gộp nhiều slide)
-2. Ưu tiên CHỮ - không ưu tiên hình vẽ phức tạp
+## NGUYÊN TẮC VIẾT NỘI DUNG
+1. textContent: Nội dung chữ sẽ overlay lên ảnh, viết ngắn gọn, dễ đọc trên mobile
+2. fullPrompt: Prompt tạo ảnh nền đẹp, KHÔNG chứa text
 3. Font: Sans-serif, ít chữ, dòng ngắn, khoảng trắng nhiều
-4. Carousel là để ĐỌC - hình chỉ hỗ trợ
-5. Viết nội dung tiếng Việt trên ảnh ngắn gọn, dễ đọc trên mobile
+4. Carousel là để ĐỌC - ảnh nền chỉ hỗ trợ visual
 
 ## FORMAT OUTPUT BẮT BUỘC CHO MỖI SLIDE
 Bạn PHẢI trả về JSON với cấu trúc chính xác như tool definition.
-Mỗi slide phải có đủ 6 thành phần:
+Mỗi slide phải có đủ 7 thành phần:
 [1] objective: Mục tiêu slide
-[2] textContent: Nội dung chữ xuất hiện trên ảnh (tiếng Việt)
+[2] textContent: Nội dung chữ sẽ overlay lên ảnh (${langName})
 [3] designStyle: Phong cách thiết kế
 [4] colorLayout: Màu sắc – bố cục
 [5] aspectRatio: Tỉ lệ khung hình (1:1 cho carousel)
 [6] technicalRequirements: Yêu cầu kỹ thuật
-[7] fullPrompt: Prompt hoàn chỉnh sẵn sàng paste vào ${formData.aiTool}
-
-## VÍ DỤ PROMPT HOÀN CHỈNH CHO IDEOGRAM (Slide 1 - Hook)
-Create a clean, modern infographic slide for social media carousel.
-
-Main text (Vietnamese, large and bold):
-"BỎ THUẾ KHOÁN TỪ 2026"
-
-Sub text:
-"Hộ kinh doanh nếu không chuẩn bị sẽ gặp rủi ro lớn"
-
-Style:
-Minimalist infographic, professional, expert tone
-
-Color palette:
-White background, red and dark blue accents
-
-Layout:
-Text-centered, strong hierarchy, high contrast
-
-Aspect ratio:
-1:1
-
-Requirements:
-- Text must be perfectly readable
-- No distorted Vietnamese characters
-- Flat design, no clutter
-${formData.includeLogo ? `- Include subtle "${formData.brandName}" logo at bottom corner${formData.logoUrl ? ` (Logo reference: ${formData.logoUrl})` : ""}` : ""}`; 
+[7] fullPrompt: Prompt tạo ẢNH NỀN (background only, NO text rendering)
+${formData.includeLogo ? `\nLưu ý: Logo "${formData.brandName}" sẽ được thêm tự động, KHÔNG cần yêu cầu trong fullPrompt.` : ""}`;
 };
 
 serve(async (req) => {
