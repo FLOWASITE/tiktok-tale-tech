@@ -180,15 +180,16 @@ export function CarouselGenerationTracker({
     const BATCH_SIZE = 3;
     const localStatuses: SlideStatus[] = Array(carousel.slides_content.length).fill('pending');
 
-    // Extract shared visual world from first slide's prompt
-    // Gemini Pro already designed all slides in the same "visual world"
-    // Each fullPrompt ends with "consistent with previous slides: [description]"
-    const sharedVisualWorld = (() => {
-      const firstPrompt = carousel.slides_content[0]?.fullPrompt || '';
-      const match = firstPrompt.match(/consistent with (?:previous slides|series):\s*(.+?)$/im);
-      return match?.[1]?.trim() || carousel.slides_content[0]?.designStyle || '';
-    })();
-    console.log(`[tracker] Shared visual world: "${sharedVisualWorld.slice(0, 100)}..."`);
+    // Build comprehensive Series Bible from ALL slides
+    const seriesBible = buildSeriesBible(carousel.slides_content);
+    
+    // Build sibling context for visual coherence
+    const siblingsSummary = carousel.slides_content
+      .map(s => `Slide ${s.slideNumber}: ${s.objective}`)
+      .join(' | ');
+    
+    console.log(`[tracker] Series Bible (${seriesBible.length} chars): "${seriesBible.slice(0, 120)}..."`);
+    console.log(`[tracker] Siblings summary: "${siblingsSummary.slice(0, 100)}..."`);
 
     const attemptGenerateSlide = async (i: number): Promise<boolean> => {
       const slide = carousel.slides_content[i];
