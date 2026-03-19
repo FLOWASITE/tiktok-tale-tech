@@ -1,49 +1,41 @@
 
 
-# Giải pháp: Retry tự động cho slide lỗi trong Tracker
+# Thông báo chuông khi hoàn thành các bước tạo Carousel
 
-## Vấn đề
-Khi tạo ảnh tuần tự, nếu 1 slide bị lỗi (timeout, rate limit, API fail), hệ thống đánh dấu "error" và bỏ qua — không thử lại. Kết quả: thường chỉ tạo được 1-2 slide.
+## Ý tưởng
+Khi các mốc quan trọng trong quá trình tạo carousel hoàn tất, tự động insert notification vào bảng `notifications` trong database. Nhờ realtime subscription đã có sẵn trong `useNotifications`, icon chuông trên header sẽ tự động cập nhật số thông báo chưa đọc.
 
-## Giải pháp
-Thêm **retry logic** vào vòng lặp tạo ảnh trong `CarouselGenerationTracker.tsx`:
+## Các mốc gửi thông báo
+1. **Phase 1 hoàn tất** (prompt done) — "Nội dung carousel đã được tạo xong"
+2. **Toàn bộ hoàn tất** (all done) — "Carousel đã hoàn tất! X/Y slide tạo ảnh thành công"
 
-1. **Retry ngay tại chỗ**: Mỗi slide được thử tối đa **3 lần** trước khi đánh dấu error
-2. **Delay tăng dần**: Lần 1 chờ 3s, lần 2 chờ 6s (exponential backoff) — tránh rate limit
-3. **Retry pass cuối**: Sau khi chạy hết tất cả slides, quét lại các slide bị error và thử lại 1 lần nữa
-4. **Tăng delay giữa slides**: Từ 1.5s lên 2.5s để giảm áp lực rate limit
-
-## Thay đổi cụ thể
+## Thay đổi
 
 ### File: `src/components/carousel/CarouselGenerationTracker.tsx`
+- Import `supabase` client và `useAuth` để lấy `user.id`
+- Thêm 2 `useEffect`:
+  - Khi `promptDone` chuyển `true` → insert notification type `carousel_prompt_done`
+  - Khi `allDone` chuyển `true` → insert notification type `carousel_generation_complete` kèm data `{ carousel_id, success_count, total_count }`
+- Dùng `useRef` để đảm bảo mỗi notification chỉ gửi 1 lần
 
-Sửa hàm `runImageGeneration`:
+### File: `src/components/NotificationDropdown.tsx`
+- Thêm 2 type config mới vào `notificationTypeConfig`:
+  - `carousel_prompt_done`: icon `PenLine`, màu blue
+  - `carousel_generation_complete`: icon `Images`, màu emerald
+- Thêm navigation handler: click vào notification carousel → navigate `/carousel`
 
-```text
-Vòng lặp hiện tại:
-  for slide in slides:
-    generateImage(slide)
-    if fail → mark error
-    delay 1.5s
+## Chi tiết kỹ thuật
 
-Vòng lặp mới:
-  for slide in slides:
-    for attempt in 1..3:
-      generateImage(slide)
-      if success → break
-      else → delay 3s * attempt (backoff)
-    if still fail → mark error
-    delay 2.5s
-  
-  // Retry pass: quét lại slides error
-  for slide in errorSlides:
-    delay 5s
-    generateImage(slide)
-    if success → mark done
+```typescript
+// Insert notification
+await supabase.from('notifications').insert({
+  user_id: user.id,
+  type: 'carousel_generation_complete',
+  title: 'Carousel đã hoàn tất!',
+  message: `${successCount}/${totalCount} slide đã tạo ảnh thành công`,
+  data: { carousel_id: carousel.id }
+});
 ```
 
-### Không thay đổi
-- Edge functions (backend) — giữ nguyên
-- `useImageGeneration` hook — giữ nguyên
-- `invokeWithTimeout` — giữ nguyên (150s đã đủ)
+Realtime subscription trong `useNotifications` sẽ tự động nhận notification mới và cập nhật badge trên icon chuông — không cần thay đổi gì thêm.
 
