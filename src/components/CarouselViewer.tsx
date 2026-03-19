@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Copy, Check, Images, MessageSquare, Megaphone, Download, Sparkles, Loader2, ImageIcon, TrendingUp, Send, LayoutGrid } from 'lucide-react';
+import { Copy, Check, Images, MessageSquare, Megaphone, Download, Sparkles, Loader2, ImageIcon, TrendingUp, Send, LayoutGrid, Layers, GraduationCap, ListOrdered, Images as ImagesIcon2, Minus, BarChart3, Blend, Hexagon, Paintbrush, Focus, type LucideIcon } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import {
@@ -46,6 +46,15 @@ import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { useSeamlessValidation } from '@/hooks/useSeamlessValidation';
 import { CarouselLayoutPreview } from '@/components/carousel/CarouselLayoutPreview';
+import { SeamlessConsistencyCard } from '@/components/carousel/SeamlessConsistencyCard';
+
+// Icon maps for badge rendering
+const STYLE_ICON_MAP: Record<string, LucideIcon> = {
+  Layers, GraduationCap, ListOrdered, Images: ImagesIcon2,
+};
+const PRESET_ICON_MAP: Record<string, LucideIcon> = {
+  Minus, BarChart3, Blend, Hexagon, Paintbrush, Focus,
+};
 
 interface CarouselViewerProps {
   carousel: Carousel | null;
@@ -331,6 +340,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
 
     let previousSceneDescription: string | null = null;
     let successCount = 0;
+    const collectedUrls: string[] = [];
 
     for (const slide of carousel.slides_content) {
       setCurrentGeneratingSlide(slide.slideNumber);
@@ -355,6 +365,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
       if (result?.imageUrl) {
         await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt);
         successCount++;
+        collectedUrls.push(result.imageUrl);
         if (result.modelUsed) {
           setLastModelUsed(result.modelUsed);
           if (result.modelUsed.includes('fallback') && successCount === 1) {
@@ -380,19 +391,10 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
     if (successCount === carousel.slides_content.length) {
       toast.success(`🎉 Đã tạo xong ${successCount} ảnh!`);
       
-      // Phase 2: Non-blocking seamless consistency validation
-      if (carousel.carousel_style === 'seamless' && successCount >= 2) {
-        const allImageUrls = carousel.slides_content
-          .map(s => {
-            const img = generatedImages.find(gi => gi.slideNumber === s.slideNumber);
-            return img?.imageUrl;
-          })
-          .filter(Boolean) as string[];
-        
-        if (allImageUrls.length >= 2) {
-          toast.info('🔍 Đang kiểm tra tính liên tục thị giác...');
-          validateSeamless(carousel.id, allImageUrls);
-        }
+      // Phase 2: Non-blocking seamless consistency validation — use collected URLs
+      if (carousel.carousel_style === 'seamless' && collectedUrls.length >= 2) {
+        toast.info('🔍 Đang kiểm tra tính liên tục thị giác...');
+        validateSeamless(carousel.id, collectedUrls);
       }
     } else if (successCount > 0) {
       toast.warning(`Tạo được ${successCount}/${carousel.slides_content.length} ảnh. Một số slide gặp lỗi.`);
@@ -521,18 +523,26 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
                   <Sparkles className="w-2.5 h-2.5 xs:w-3 xs:h-3 mr-0.5 xs:mr-1" />
                   Lovable AI
                 </Badge>
-                {carousel.carousel_style && (
-                  <Badge variant="outline" className="text-[10px] xs:text-xs bg-accent/30">
-                    {CAROUSEL_STYLE_OPTIONS.find(s => s.value === carousel.carousel_style)?.icon || '📚'}{' '}
-                    {CAROUSEL_STYLE_OPTIONS.find(s => s.value === carousel.carousel_style)?.label || carousel.carousel_style}
-                  </Badge>
-                )}
-                {carousel.visual_preset && (
-                  <Badge variant="outline" className="text-[10px] xs:text-xs bg-primary/10 border-primary/30">
-                    {VISUAL_PRESET_OPTIONS.find(s => s.value === carousel.visual_preset)?.icon || '✨'}{' '}
-                    {VISUAL_PRESET_OPTIONS.find(s => s.value === carousel.visual_preset)?.label || carousel.visual_preset}
-                  </Badge>
-                )}
+                {carousel.carousel_style && (() => {
+                  const styleOpt = CAROUSEL_STYLE_OPTIONS.find(s => s.value === carousel.carousel_style);
+                  const StyleIcon = styleOpt ? STYLE_ICON_MAP[styleOpt.icon] : null;
+                  return (
+                    <Badge variant="outline" className="text-[10px] xs:text-xs bg-accent/30 gap-1">
+                      {StyleIcon ? <StyleIcon className="w-3 h-3" /> : '📚'}
+                      {styleOpt?.label || carousel.carousel_style}
+                    </Badge>
+                  );
+                })()}
+                {carousel.visual_preset && (() => {
+                  const presetOpt = VISUAL_PRESET_OPTIONS.find(s => s.value === carousel.visual_preset);
+                  const PresetIcon = presetOpt ? PRESET_ICON_MAP[presetOpt.icon] : null;
+                  return (
+                    <Badge variant="outline" className="text-[10px] xs:text-xs bg-primary/10 border-primary/30 gap-1">
+                      {PresetIcon ? <PresetIcon className="w-3 h-3" /> : '✨'}
+                      {presetOpt?.label || carousel.visual_preset}
+                    </Badge>
+                  );
+                })()}
                 <Badge variant="outline" className="text-[10px] xs:text-xs hidden xs:inline-flex">{carousel.brand_name}</Badge>
               </div>
               {/* Creator & Time - Hidden on very small screens */}
@@ -639,6 +649,21 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
                 carouselStyle={carousel.carousel_style as CarouselStyleType}
                 platform={carousel.platform}
               />
+              {/* Seamless consistency result card */}
+              {carousel.carousel_style === 'seamless' && (
+                <SeamlessConsistencyCard
+                  result={seamlessResult}
+                  validating={seamlessValidating}
+                  onRevalidate={() => {
+                    const urls = generatedImages.map(img => img.imageUrl).filter(Boolean);
+                    if (urls.length >= 2) {
+                      validateSeamless(carousel.id, urls);
+                    } else {
+                      toast.info('Cần ít nhất 2 ảnh để kiểm tra.');
+                    }
+                  }}
+                />
+              )}
               <div className="flex justify-center">
                 <Button
                   onClick={handleGenerateAllImages}
