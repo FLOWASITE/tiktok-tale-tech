@@ -741,7 +741,7 @@ Follow the carousel style guidelines strictly.`;
                     colorLayout: { type: "string", description: "Màu sắc và bố cục" },
                     aspectRatio: { type: "string", description: "Tỉ lệ khung hình" },
                     technicalRequirements: { type: "string", description: "Yêu cầu kỹ thuật" },
-                    fullPrompt: { type: "string", description: "Prompt hoàn chỉnh sẵn sàng sử dụng" },
+                    fullPrompt: { type: "string", description: "Prompt TIẾNG ANH chi tiết (tối thiểu 30 từ) mô tả CẢNH CỤ THỂ cho ảnh nền. PHẢI bao gồm: chủ thể liên quan đến nội dung slide + bối cảnh + ánh sáng + phong cách chụp + bảng màu. KHÔNG mô tả text/chữ. Tất cả slides phải cùng phong cách hình ảnh và palette màu." },
                   },
                   required: ["slideNumber", "objective", "textContent", "designStyle", "colorLayout", "aspectRatio", "technicalRequirements", "fullPrompt"],
                 },
