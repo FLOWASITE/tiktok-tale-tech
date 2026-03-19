@@ -533,6 +533,25 @@ Topic: "Top 5 món ăn Đà Lạt"
 - Phải bao gồm: [chủ thể chính] + [bối cảnh/setting] + [ánh sáng] + [góc chụp/phong cách] + [palette màu] + [mood/atmosphere]
 - fullPrompt luôn viết bằng TIẾNG ANH (dù nội dung slide là tiếng Việt/Thái)
 
+## QUY TẮC THỐNG NHẤT HÌNH ẢNH (ÁP DỤNG CHO TẤT CẢ CAROUSEL STYLES)
+
+Tất cả slides trong 1 carousel PHẢI tuân theo quy tắc thống nhất sau:
+
+1. CÙNG PHONG CÁCH HÌNH ẢNH: Nếu slide 1 dùng photography → tất cả slides dùng photography. Nếu slide 1 dùng illustration → tất cả dùng illustration. KHÔNG MIX.
+
+2. CÙNG PALETTE MÀU: Xác định 3-4 màu chủ đạo từ slide đầu tiên, tất cả slides còn lại PHẢI sử dụng đúng palette đó. Ghi rõ palette vào mỗi fullPrompt (ví dụ: "navy blue and gold color palette" phải xuất hiện trong MỌI fullPrompt).
+
+3. CÙNG SETTING/THẾ GIỚI: Tất cả slides diễn ra trong cùng 1 "thế giới". Ví dụ: nếu topic về spa, tất cả slides đều trong cùng spa đó (không nhảy sang văn phòng hay ngoài trời). Nếu topic về công nghệ, tất cả trong cùng office/lab.
+
+4. CÙNG ÁNH SÁNG VÀ MOOD: Warm lighting xuyên suốt, hoặc cool lighting xuyên suốt. Không slide warm slide cool.
+
+5. MỖI fullPrompt PHẢI KẾT THÚC bằng cụm: "consistent with previous slides: [mô tả phong cách chung]"
+
+Ví dụ đúng (carousel về Marketing Spa):
+- Slide 1 fullPrompt kết thúc bằng: "...professional editorial photography, muted purple and gold palette, warm candlelight mood"
+- Slide 2 fullPrompt kết thúc bằng: "...same luxury spa setting, same professional editorial photography, same muted purple and gold palette, warm candlelight mood, consistent with previous slides"
+- Slide 3 fullPrompt kết thúc bằng: "...same spa environment, same photography style, same purple-gold palette, same warm lighting, consistent with previous slides"
+
 ${textLengthSection}
 
 ## NGUYÊN TẮC VIẾT NỘI DUNG
