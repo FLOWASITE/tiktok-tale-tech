@@ -680,28 +680,6 @@ function getBackgroundTreatmentStyles(background: string): Record<string, string
   }
 }
 
-// ─── In-memory font cache — persists across invocations within same Deno isolate ───
-const fontCache = new Map<string, { data: ArrayBuffer; timestamp: number }>();
-const FONT_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
-const FONT_CACHE_MAX_SIZE = 50; // ~15MB max (50 × ~300KB)
-
-function getCachedFont(key: string): ArrayBuffer | null {
-  const entry = fontCache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.timestamp > FONT_CACHE_TTL) {
-    fontCache.delete(key);
-    return null;
-  }
-  return entry.data;
-}
-
-function setCachedFont(key: string, data: ArrayBuffer): void {
-  if (fontCache.size >= FONT_CACHE_MAX_SIZE) {
-    const oldest = fontCache.keys().next().value;
-    if (oldest) fontCache.delete(oldest);
-  }
-  fontCache.set(key, { data, timestamp: Date.now() });
-}
 
 function buildStructuredElement(
   baseImageUrl: string,
