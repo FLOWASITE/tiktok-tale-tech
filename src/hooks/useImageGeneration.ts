@@ -31,6 +31,7 @@ export function useImageGeneration() {
       totalSlides?: number;
       slideObjective?: string;
       visualPreset?: string;
+      carouselTopic?: string;
       seamlessContext?: {
         colorPalette: string[] | null;
         previousSceneDescription: string | null;
@@ -54,6 +55,7 @@ export function useImageGeneration() {
           totalSlides: options?.totalSlides,
           slideObjective: options?.slideObjective,
           visualPreset: options?.visualPreset,
+          carouselTopic: options?.carouselTopic,
           seamlessContext: options?.seamlessContext,
         },
         timeoutMs: 150_000,

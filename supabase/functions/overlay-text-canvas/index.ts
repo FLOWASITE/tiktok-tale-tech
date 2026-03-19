@@ -1544,6 +1544,14 @@ serve(async (req) => {
       const transform = carouselOverlay.textTransform || 'none';
       const displayText = transform === 'uppercase' ? cleanText.toUpperCase() : cleanText;
 
+      // Build font loading text from ALL text layers (not just headline/displayText)
+      // This ensures all Vietnamese glyphs needed for subtitle/caption/dataLabel are loaded
+      let fontLoadText = displayText;
+      if (carouselOverlay.textLayers && carouselOverlay.textLayers.length > 0) {
+        fontLoadText = carouselOverlay.textLayers.map(l => l.text).join(' ');
+        if (transform === 'uppercase') fontLoadText = fontLoadText.toUpperCase();
+      }
+
       // Convert rem fontSize to px (base 16, clamp to 15% canvas height)
       const remMatch = (carouselOverlay.fontSize || '1.5rem').match(/([\d.]+)rem/);
       let fontSizePx = remMatch ? parseFloat(remMatch[1]) * 16 : 24;
@@ -1551,12 +1559,12 @@ serve(async (req) => {
       fontSizePx = Math.min(fontSizePx, maxFontSize);
       // Smart fit: scale down if text is too long
       const maxWidthPercent = parseInt(carouselOverlay.maxWidth || '85%') / 100;
-      fontSizePx = fitTextToWidth(displayText, imageWidth * maxWidthPercent, fontSizePx, 14);
+      fontSizePx = fitTextToWidth(displayText, imageWidth * maxWidthPercent, fontSizePx, 16);
 
       // Position mapping → flexbox styles
       const carouselPositionStyles = getCarouselPositionStyles(carouselOverlay.position || 'center');
 
-      // Load font (use specified family or fallback)
+      // Load font (use specified family or fallback) — use fontLoadText for glyph coverage
       const fontFamily = carouselOverlay.fontFamily || 'Be Vietnam Pro';
       const fontWeight = carouselOverlay.fontWeight || 600;
       type Weight = 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
@@ -1564,7 +1572,7 @@ serve(async (req) => {
       const fonts: Array<{ name: string; data: ArrayBuffer; weight: Weight; style: 'normal' }> = [];
 
       const fontResults = await Promise.allSettled(
-        fontsToLoad.map(w => loadGoogleFont(displayText, w, fontFamily))
+        fontsToLoad.map(w => loadGoogleFont(fontLoadText, w, fontFamily))
       );
       for (let i = 0; i < fontsToLoad.length; i++) {
         const result = fontResults[i];

@@ -696,12 +696,12 @@ Each slide must have compelling text content in ${langConfig.nativeName}.
 Remember: fullPrompt is for BACKGROUND IMAGE only (no text rendering needed).
 Follow the carousel style guidelines strictly.`;
 
-    // Try to fetch prompts from registry
+    // Try to fetch prompts from registry — with safe fallback
     try {
       const pm = createPromptManager(supabase, 'generate-carousel', organizationId || undefined, formData.brandTemplateId);
       const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules, outputLang) : '';
       
-      systemPrompt = await pm.get('system', {
+      const registrySystem = await pm.get('system', {
         platform: formData.platform === "facebook" ? "Facebook" : "TikTok",
         slideCount: String(formData.slideCount),
         brandName: formData.brandName,
@@ -709,16 +709,31 @@ Follow the carousel style guidelines strictly.`;
         includeLogo: formData.includeLogo ? 'true' : 'false',
         logoUrl: formData.logoUrl || '',
         brandVoiceSection,
-      });
+      }).catch(() => null);
       
-      userPrompt = await pm.get('generate', {
+      const registryUser = await pm.get('generate', {
         topic: formData.topic,
         slideCount: String(formData.slideCount),
         platform: formData.platform === "facebook" ? "Facebook" : "TikTok",
         brandName: formData.brandName,
-      });
+      }).catch(() => null);
       
-      console.log('[generate-carousel] Using prompts from registry');
+      // Only use registry prompts if they're valid (non-empty, sufficient length)
+      const isValidPrompt = (p: string | null) => p && p.trim().length >= 50;
+      
+      if (isValidPrompt(registrySystem)) {
+        systemPrompt = registrySystem!;
+        console.log('[generate-carousel] System prompt: REGISTRY ✓');
+      } else {
+        console.warn('[generate-carousel] System prompt: FALLBACK (registry empty/missing/too short)');
+      }
+      
+      if (isValidPrompt(registryUser)) {
+        userPrompt = registryUser!;
+        console.log('[generate-carousel] User prompt: REGISTRY ✓');
+      } else {
+        console.warn('[generate-carousel] User prompt: FALLBACK (registry empty/missing/too short)');
+      }
     } catch (pmErr) {
       console.warn('[generate-carousel] PromptManager fallback to hardcoded:', pmErr);
     }
@@ -840,11 +855,16 @@ Follow the carousel style guidelines strictly.`;
       slideCount: formData.slideCount,
       aiTool: formData.aiTool,
       brandName: formData.brandName,
+      carouselStyle: formData.carouselStyle || 'educational',
+      visualPreset: formData.visualPreset || 'minimalist',
+      outputLang,
+      promptSchemaVersion: 'carousel_v5',
       brandVoice: brandVoice ? {
         positioning: brandVoice.brand_positioning,
         tone: brandVoice.tone_of_voice,
         formality: brandVoice.formality_level,
       } : null,
+      brandGuidelineHash: formData.brandGuideline ? formData.brandGuideline.slice(0, 100) : null,
     };
 
     let generatedData: any;
@@ -885,6 +905,55 @@ Follow the carousel style guidelines strictly.`;
     }
 
     console.log("Generated carousel:", generatedData.title);
+
+    // ============================================
+    // NORMALIZE SLIDES — ensure consistent textContent structure + validate fullPrompt
+    // ============================================
+    const carouselStyle = formData.carouselStyle || 'educational';
+    if (generatedData.slides && Array.isArray(generatedData.slides)) {
+      generatedData.slides = generatedData.slides.map((slide: CarouselSlide, idx: number) => {
+        const slideNum = slide.slideNumber || (idx + 1);
+        
+        // Ensure textContent is structured object
+        if (typeof slide.textContent === 'string') {
+          const lines = slide.textContent.split('\n').map((l: string) => l.trim()).filter((l: string) => l);
+          slide.textContent = {
+            headline: lines[0] || slide.objective || `Slide ${slideNum}`,
+            subtitle: lines.slice(1).join(' ') || undefined,
+          };
+          console.log(`[normalize] Slide ${slideNum}: converted string textContent to structured`);
+        }
+        
+        // Ensure headline is not empty
+        const tc = slide.textContent as StructuredTextContent;
+        if (!tc.headline || !tc.headline.trim()) {
+          tc.headline = slide.objective || `Slide ${slideNum}`;
+          console.warn(`[normalize] Slide ${slideNum}: empty headline, used objective as fallback`);
+        }
+        
+        // Ensure objective is not empty
+        if (!slide.objective || !slide.objective.trim()) {
+          slide.objective = getSlideObjective(slideNum, formData.slideCount, outputLang, carouselStyle);
+          console.warn(`[normalize] Slide ${slideNum}: empty objective, used default`);
+        }
+        
+        // Validate fullPrompt: must be >= 30 words English, no text-rendering instructions
+        if (slide.fullPrompt) {
+          const wordCount = slide.fullPrompt.split(/\s+/).length;
+          if (wordCount < 30) {
+            console.warn(`[normalize] Slide ${slideNum}: fullPrompt too short (${wordCount} words)`);
+          }
+          // Strip text-rendering instructions that may have leaked
+          slide.fullPrompt = slide.fullPrompt
+            .replace(/\btext\s*[:：]\s*["'].*?["'].*?(?=\n|$)/gi, '')
+            .replace(/\b(render|draw|write|display|show)\s+(text|words|letters|title|heading)\b.*?(?=\n|$)/gi, '')
+            .trim();
+        }
+        
+        return slide;
+      });
+      console.log(`[normalize] Processed ${generatedData.slides.length} slides`);
+    }
 
     // ============================================
     // SELF-CRITIQUE LOOP - Evaluate and refine carousel
@@ -933,13 +1002,15 @@ Follow the carousel style guidelines strictly.`;
       }
     }
 
-    // Dedup check: prevent duplicate carousel within 2 minutes
+    // Dedup check: prevent duplicate carousel within 2 minutes (match style+preset too)
     const { data: existingCarousel } = await supabase
       .from("carousels")
       .select("*")
       .eq("user_id", userId)
       .eq("topic", formData.topic)
       .eq("organization_id", organizationId)
+      .eq("carousel_style", formData.carouselStyle || 'educational')
+      .eq("visual_preset", formData.visualPreset || 'minimalist')
       .gte("created_at", new Date(Date.now() - 2 * 60 * 1000).toISOString())
       .order("created_at", { ascending: false })
       .limit(1)
