@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
-import { CampaignSelector } from '@/components/campaign/CampaignSelector';
+
 
 interface LocationState {
   prefillTopic?: string;
@@ -380,29 +380,14 @@ const CarouselPage = () => {
         ) : (
           <>
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1">
-            <CarouselFilters filters={filters} onFiltersChange={setFilters} />
-          </div>
-          <div className="flex gap-2">
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-              <SelectTrigger className="w-full sm:w-40 h-9 text-xs border-border/50">
-                <SelectValue placeholder="Sắp xếp" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">Mới nhất</SelectItem>
-                <SelectItem value="oldest">Cũ nhất</SelectItem>
-                <SelectItem value="name_asc">Tên A-Z</SelectItem>
-              </SelectContent>
-            </Select>
-            <CampaignSelector
-              value={campaignFilter}
-              onValueChange={setCampaignFilter}
-              placeholder="Lọc theo chiến dịch"
-              className="w-full sm:w-56"
-            />
-          </div>
-        </div>
+        <CarouselFilters 
+          filters={filters} 
+          onFiltersChange={setFilters}
+          sortBy={sortBy}
+          onSortChange={(v) => setSortBy(v as typeof sortBy)}
+          campaignFilter={campaignFilter}
+          onCampaignFilterChange={setCampaignFilter}
+        />
 
         {/* Bulk Actions Bar */}
         {selectedIds.length > 0 && (
