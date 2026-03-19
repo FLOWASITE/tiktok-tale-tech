@@ -147,6 +147,7 @@ export function CarouselGenerationTracker({
   const [slideStatuses, setSlideStatuses] = useState<SlideStatus[]>([]);
   const [imageGenStarted, setImageGenStarted] = useState(false);
   const [imageGenDone, setImageGenDone] = useState(false);
+  const [retryingSlide, setRetryingSlide] = useState<number | null>(null);
   const imageGenRunningRef = useRef(false);
 
   // Timer
