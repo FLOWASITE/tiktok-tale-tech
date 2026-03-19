@@ -347,6 +347,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
       totalSlides: carousel.slides_content.length,
       slideObjective: slide?.objective,
       visualPreset: carousel.visual_preset || 'minimalist',
+      carouselTopic: carousel.topic,
       seamlessContext,
     });
     if (result?.imageUrl) {
