@@ -4890,7 +4890,22 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       dbError = result.error;
       console.log(`[expand-mode] Updated content ${formData.contentId} with ${formData.channels.length} new channels`);
     } else {
-      // CREATE MODE: Insert new content
+      // CREATE MODE: Dedup check before insert
+      const dedupWindow = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+      const { data: existingContent } = await supabase
+        .from('multi_channel_contents')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('topic', formData.topic)
+        .gte('created_at', dedupWindow)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingContent) {
+        console.log(`[non-streaming] Dedup: returning existing content ${existingContent.id}`);
+        content = existingContent;
+        dbError = null;
+      } else {
       const result = await supabase
         .from("multi_channel_contents")
         .insert({
