@@ -247,10 +247,11 @@ const CarouselPage = () => {
           platform={trackerPlatform}
           slideCount={trackerSlideCount}
           promptGenerating={generating}
-          carousel={selectedCarousel}
+          carousel={trackerCarousel}
           onViewResults={(carousel) => {
             setTrackerMode(false);
             setTrackerMinimized(false);
+            setTrackerCarousel(null);
             setSelectedCarousel(carousel);
             setAutoGenerateImages(false);
             setViewerOpen(true);
