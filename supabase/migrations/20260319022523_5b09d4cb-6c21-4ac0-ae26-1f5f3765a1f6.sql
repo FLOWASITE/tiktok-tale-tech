@@ -1,0 +1,1 @@
+UPDATE ai_function_configs SET model_override = 'google/gemini-3-pro-image-preview' WHERE function_name = 'generate-carousel-image' AND model_override = 'poyo/nano-banana-2';
