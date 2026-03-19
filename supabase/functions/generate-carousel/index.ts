@@ -493,13 +493,45 @@ Brand name: ${formData.brandName}
 ${formData.includeLogo ? `Logo: Bao gồm logo "${formData.brandName}" ở góc dưới, subtle và professional.${formData.logoUrl ? `\nLogo URL (reference): ${formData.logoUrl}` : ""}` : "Không có logo."}
 
 ## NGUYÊN TẮC QUAN TRỌNG VỀ fullPrompt
-fullPrompt là prompt để tạo ẢNH NỀN (background image) cho slide.
-Text/chữ sẽ được OVERLAY lên ảnh nền sau bằng hệ thống riêng (Satori SVG).
-Do đó:
-- fullPrompt KHÔNG cần yêu cầu AI vẽ chữ/text trên ảnh
-- fullPrompt tập trung vào: background, mood, colors, composition, visual elements
-- Tránh prompt kiểu "text says..." hoặc "with text..."
-- Thay vào đó, prompt nên mô tả: gradient, texture, abstract shapes, photography style, lighting
+
+fullPrompt là prompt để tạo ẢNH NỀN cho slide. Text sẽ được overlay sau bằng hệ thống riêng.
+
+### LUẬT SỐ 1: fullPrompt PHẢI mô tả CẢNH CỤ THỂ liên quan đến NỘI DUNG slide
+- KHÔNG BAO GIỜ viết fullPrompt chung chung kiểu "modern gradient background" hay "abstract shapes with soft colors"
+- fullPrompt PHẢI chứa: đối tượng cụ thể + bối cảnh + ánh sáng + góc chụp + mood
+- Nội dung ảnh phải TRỰC TIẾP liên quan đến topic và objective của slide đó
+
+### LUẬT SỐ 2: fullPrompt KHÔNG yêu cầu vẽ text/chữ
+- Không viết: "text says...", "with text...", "title reading..."
+- Tập trung 100% vào visual scene
+
+### LUẬT SỐ 3: Tất cả slides trong 1 carousel phải CÙNG THẾ GIỚI HÌNH ẢNH
+- Cùng phong cách chụp/vẽ (nếu slide 1 là photography thì tất cả phải photography)
+- Cùng palette màu chủ đạo
+- Cùng mood/atmosphere
+- Chỉ thay đổi: đối tượng chính, góc nhìn, cận cảnh vs toàn cảnh
+
+### VÍ DỤ fullPrompt TỐT:
+
+Topic: "5 Tips Marketing cho Spa"
+- Slide 1 (Hook): "Overhead view of a luxury spa treatment room, white marble countertop with orchid flowers, essential oil bottles arranged elegantly, soft warm golden lighting from candles, steam rising gently, shallow depth of field, professional editorial photography, muted purple and gold color palette"
+- Slide 2 (Tip 1): "Close-up of hands performing a hot stone massage on a client's back, warm amber lighting, smooth river stones arranged in a line, eucalyptus leaves blurred in background, same luxury spa setting, same purple-gold palette, professional photography"
+- Slide 3 (Tip 2): "Spa reception desk with a digital tablet showing booking interface, small succulent plants, branded towels rolled neatly, same warm lighting and marble aesthetic, medium shot, same color palette"
+- Slide 5 (CTA): "Wide shot of the entire spa lobby, inviting entrance with soft lighting, tropical plants framing the doorway, welcoming atmosphere, same purple-gold palette, same photography style"
+
+Topic: "Tại sao Doanh nghiệp cần ERP"
+- Slide 1 (Hook): "Modern open-plan office with glass partitions, employees collaborating at standing desks, large monitor showing colorful dashboard graphs, blue and white corporate lighting, wide angle lens, sharp professional photography, navy blue and silver color palette"
+- Slide 2 (Problem): "Cluttered desk with scattered papers, sticky notes everywhere, stressed office worker's hands on keyboard, shallow depth of field on the mess, same office environment but chaotic zone, same navy-silver palette"
+- Slide 3 (Solution): "Clean minimalist workstation with single laptop showing organized data grid, coffee cup, small plant, everything neat and aligned, same office building but organized zone, same palette, calm confident mood"
+
+Topic: "Top 5 món ăn Đà Lạt"
+- Slide 1 (Hook): "Aerial view of Dalat market at golden hour, colorful fresh vegetables and flowers in wooden crates, misty mountain background, warm sunlight filtering through pine trees, food photography style, earth tone and green palette"
+- Slide 2 (Item 1): "Steaming bowl of bánh căn on a rustic wooden table, crispy edges visible, dipping sauce in small ceramic bowl, chopsticks, background showing blurred Dalat street scene, same warm lighting and earth tones, close-up food photography"
+
+### LUẬT SỐ 4: fullPrompt phải đủ dài và chi tiết
+- Tối thiểu 30 từ tiếng Anh
+- Phải bao gồm: [chủ thể chính] + [bối cảnh/setting] + [ánh sáng] + [góc chụp/phong cách] + [palette màu] + [mood/atmosphere]
+- fullPrompt luôn viết bằng TIẾNG ANH (dù nội dung slide là tiếng Việt/Thái)
 
 ${textLengthSection}
 
