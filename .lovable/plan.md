@@ -1,32 +1,27 @@
 
 
-# Thông báo chuông khi tạo Content đa kênh
+# Thông báo chuông tự động khi tạo Script Video
 
 ## Thay đổi
 
-### File: `src/pages/MultiChannelCreate.tsx`
-Thêm logic insert notification vào database tại 2 mốc:
-
-1. **Nội dung text hoàn tất** (khi `generationState` chuyển sang `'complete'`):
-   - Insert notification type `multichannel_content_done`
-   - Title: "Nội dung đa kênh đã sẵn sàng!"
-   - Message: `Đã tạo X kênh cho "{topic}"`
-   - Data: `{ content_id: generatedContentId }`
-
-2. **Ảnh đa kênh hoàn tất** (khi `imagePipeline.phase === 'done'`):
-   - Insert notification type `multichannel_images_done`
-   - Title: "Ảnh đa kênh đã hoàn tất!"
-   - Message: `X/Y ảnh đã tạo thành công cho "{topic}"`
-   - Data: `{ content_id: generatedContentId }`
-
-- Import `supabase` và `useAuth`
-- Dùng `useRef` để đảm bảo mỗi notification chỉ gửi 1 lần
+### File: `src/hooks/useScripts.ts`
+- Import `supabase` (đã có) và `useAuth` (đã có)
+- Sau khi `generateScript` thành công (dòng 71-76), insert notification type `script_generated`:
+  - Title: "Kịch bản đã sẵn sàng!"
+  - Message: `Kịch bản "{topic}" đã được tạo thành công`
+  - Data: `{ script_id: newScript.id }`
+- Sau khi `analyzeScriptInBackground` hoàn tất thành công (dòng ~129), insert notification type `script_analysis_done`:
+  - Title: "Phân tích kịch bản hoàn tất!"  
+  - Message: `Kịch bản "{title}" đã được chấm điểm: {score}/100`
+  - Data: `{ script_id: script.id, score }`
 
 ### File: `src/components/NotificationDropdown.tsx`
+- Import thêm icon `FileText, BarChart3` từ lucide-react
 - Thêm 2 type config:
-  - `multichannel_content_done`: icon `Sparkles`, màu purple
-  - `multichannel_images_done`: icon `Images`, màu emerald
-- Navigation: click → navigate `/multichannel?content={content_id}`
+  - `script_generated`: icon `FileText`, màu indigo
+  - `script_analysis_done`: icon `BarChart3`, màu amber
+- Navigation: click → navigate `/` (trang Scripts)
 
-Realtime subscription trong `useNotifications` sẽ tự động cập nhật badge chuông — không cần thay đổi thêm.
+## Chi tiết
+Không cần `useRef` vì `generateScript` và `analyzeScriptInBackground` là hàm gọi 1 lần (không phải useEffect loop). Insert notification ngay sau khi có kết quả thành công. Realtime subscription trong `useNotifications` sẽ tự động cập nhật badge chuông.
 
