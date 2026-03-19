@@ -303,7 +303,29 @@ export function BrandCard({
               {brandCounts.industryMemoryName}
             </Badge>
           )}
-          {!hasSocialConnections && (
+          {connectedPlatforms.length > 0 ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link to={`/brands/${template.id}?tab=connections`}>
+                    <div className="flex items-center gap-1 cursor-pointer">
+                      {connectedPlatforms.slice(0, 4).map((platform) => (
+                        <ChannelIcon key={platform} channel={platform} size="sm" />
+                      ))}
+                      {connectedPlatforms.length > 4 && (
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0 h-5">
+                          +{connectedPlatforms.length - 4}
+                        </Badge>
+                      )}
+                    </div>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{connectedPlatforms.length} kênh đã kết nối</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>

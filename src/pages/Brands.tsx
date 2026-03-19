@@ -571,7 +571,7 @@ export default function Brands() {
                     onSelectChange={handleSelectChange}
                     usageStats={getUsageForBrand(template.id)}
                     brandCounts={getCountsForBrand(template.id)}
-                    hasSocialConnections={brandsWithConnections.has(template.id)}
+                    connectedPlatforms={brandConnectionsMap.get(template.id) || []}
                   />
                 </SwipeableBrandCard>
               </motion.div>
