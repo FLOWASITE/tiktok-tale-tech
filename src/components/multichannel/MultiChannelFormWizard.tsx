@@ -871,6 +871,15 @@ export function MultiChannelFormWizard({
     }
   }, [coreContentData?.id, formData.coreContentId, pendingMultiChannelGeneration, isGenerating, isGeneratingCoreContent]);
 
+  // Auto-select suggested Content Role when entering step 3 (if not already set)
+  useEffect(() => {
+    if (currentStep === 3 && !formData.contentRole) {
+      const goal = coreContentData?.contentGoal || formData.contentGoal || 'education';
+      const suggestedRole = GOAL_TO_ROLE_MAP[goal as ContentGoal] || 'sprout';
+      setFormData(prev => ({ ...prev, contentRole: suggestedRole as ContentRole }));
+    }
+  }, [currentStep]);
+
   // Auto-advance to Step 5 (AI Control) when multichannel generation completes
   useEffect(() => {
     if (generationComplete && currentStep === 4) {
