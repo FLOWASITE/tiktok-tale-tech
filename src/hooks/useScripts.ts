@@ -72,6 +72,19 @@ export function useScripts() {
       setScripts((prev) => [newScript, ...prev]);
       toast.success('Đã tạo kịch bản thành công!');
 
+      // Send notification
+      if (user) {
+        supabase.from('notifications').insert({
+          user_id: user.id,
+          type: 'script_generated',
+          title: 'Kịch bản đã sẵn sàng!',
+          message: `Kịch bản "${formData.topic}" đã được tạo thành công`,
+          data: { script_id: newScript.id },
+        }).then(({ error: notifError }) => {
+          if (notifError) console.warn('[useScripts] Failed to send script notification:', notifError);
+        });
+      }
+
       // Auto-analyze script in background (non-blocking)
       analyzeScriptInBackground(newScript);
 
