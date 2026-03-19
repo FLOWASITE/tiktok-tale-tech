@@ -8,6 +8,7 @@ import {
   Platform,
   AITool,
   CarouselStyleType,
+  VisualPresetType,
   DEFAULT_BRAND_GUIDELINE,
 } from '@/types/carousel';
 import { useBrandTemplates, BrandTemplate } from '@/hooks/useBrandTemplates';
