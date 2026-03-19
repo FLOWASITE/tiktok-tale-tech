@@ -406,8 +406,18 @@ serve(async (req) => {
   const traceId = generateTraceId();
   const startTime = performance.now();
 
+  let requestBody: any;
   try {
-    const requestBody = await req.json();
+    requestBody = await req.json();
+  } catch (bodyError) {
+    console.error("[generate-carousel-image] Failed to read request body:", bodyError);
+    return new Response(
+      JSON.stringify({ error: "Failed to read request body" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  try {
     const { prompt, carouselId, slideNumber, textContent, brandColors, platform,
             carouselStyle, totalSlides, slideObjective, visualPreset, seamlessContext } = requestBody;
 

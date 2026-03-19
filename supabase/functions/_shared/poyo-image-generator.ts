@@ -118,10 +118,11 @@ async function submitPoyoTask(params: PoyoGenerateParams, apiKey: string): Promi
 
 /**
  * Step 2: Poll PoYo.ai until image is ready
- * Polls every 3 seconds, max 120 seconds (40 attempts)
+ * Polls every 3 seconds, max 60 seconds (20 attempts)
+ * Reduced from 120s to leave headroom for fallback within edge function wall clock limit.
  */
 async function pollPoyoTask(taskId: string, apiKey: string): Promise<string> {
-  const maxAttempts = 40; // 40 × 3s = 120s timeout
+  const maxAttempts = 20; // 20 × 3s = 60s timeout
   const pollInterval = 3000;
 
   console.log(`[poyo-generator] Starting poll: task_id=${taskId}, max=${maxAttempts * pollInterval / 1000}s`);
