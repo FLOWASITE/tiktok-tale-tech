@@ -530,18 +530,26 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
                   <Sparkles className="w-2.5 h-2.5 xs:w-3 xs:h-3 mr-0.5 xs:mr-1" />
                   Lovable AI
                 </Badge>
-                {carousel.carousel_style && (
-                  <Badge variant="outline" className="text-[10px] xs:text-xs bg-accent/30">
-                    {CAROUSEL_STYLE_OPTIONS.find(s => s.value === carousel.carousel_style)?.icon || '📚'}{' '}
-                    {CAROUSEL_STYLE_OPTIONS.find(s => s.value === carousel.carousel_style)?.label || carousel.carousel_style}
-                  </Badge>
-                )}
-                {carousel.visual_preset && (
-                  <Badge variant="outline" className="text-[10px] xs:text-xs bg-primary/10 border-primary/30">
-                    {VISUAL_PRESET_OPTIONS.find(s => s.value === carousel.visual_preset)?.icon || '✨'}{' '}
-                    {VISUAL_PRESET_OPTIONS.find(s => s.value === carousel.visual_preset)?.label || carousel.visual_preset}
-                  </Badge>
-                )}
+                {carousel.carousel_style && (() => {
+                  const styleOpt = CAROUSEL_STYLE_OPTIONS.find(s => s.value === carousel.carousel_style);
+                  const StyleIcon = styleOpt ? STYLE_ICON_MAP[styleOpt.icon] : null;
+                  return (
+                    <Badge variant="outline" className="text-[10px] xs:text-xs bg-accent/30 gap-1">
+                      {StyleIcon ? <StyleIcon className="w-3 h-3" /> : '📚'}
+                      {styleOpt?.label || carousel.carousel_style}
+                    </Badge>
+                  );
+                })()}
+                {carousel.visual_preset && (() => {
+                  const presetOpt = VISUAL_PRESET_OPTIONS.find(s => s.value === carousel.visual_preset);
+                  const PresetIcon = presetOpt ? PRESET_ICON_MAP[presetOpt.icon] : null;
+                  return (
+                    <Badge variant="outline" className="text-[10px] xs:text-xs bg-primary/10 border-primary/30 gap-1">
+                      {PresetIcon ? <PresetIcon className="w-3 h-3" /> : '✨'}
+                      {presetOpt?.label || carousel.visual_preset}
+                    </Badge>
+                  );
+                })()}
                 <Badge variant="outline" className="text-[10px] xs:text-xs hidden xs:inline-flex">{carousel.brand_name}</Badge>
               </div>
               {/* Creator & Time - Hidden on very small screens */}
