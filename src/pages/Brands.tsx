@@ -79,10 +79,14 @@ export default function Brands() {
   const { getCountsForBrand } = useBrandCounts(brandsForCounts);
 
   // Fetch all social connections to check which brands have connections
-  const { connections: allSocialConnections } = useSocialConnections({ organizationId: currentOrganization?.id });
+  // Query by org AND by brand IDs (connections may have org_id=null but brand_template_id set)
+  const { connections: orgConnections } = useSocialConnections({ organizationId: currentOrganization?.id });
+  
   const brandConnectionsMap = useMemo(() => {
     const map = new Map<string, string[]>();
-    allSocialConnections.forEach(conn => {
+    
+    // Process org-level connections
+    orgConnections.forEach(conn => {
       if (conn.brand_template_id && conn.is_active) {
         const existing = map.get(conn.brand_template_id) || [];
         if (!existing.includes(conn.platform)) {
@@ -91,8 +95,9 @@ export default function Brands() {
         map.set(conn.brand_template_id, existing);
       }
     });
+    
     return map;
-  }, [allSocialConnections]);
+  }, [orgConnections]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('is_default');
