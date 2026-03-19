@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Wand2, X, MessageSquare, PanelRightClose } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -43,7 +45,12 @@ export default function MultiChannelCreate() {
   const { refetch } = useMultiChannelContents();
   const { createLink } = useTopicContentLinks({ enabled: false });
   const { currentOrganization } = useOrganizationContext();
+  const { user } = useAuth();
   
+  // Notification refs to prevent duplicates
+  const contentNotifiedRef = useRef(false);
+  const imagesNotifiedRef = useRef(false);
+
   // Form state — default to global brand from header
   const [selectedBrandId, setSelectedBrandId] = useState<string | undefined>(currentBrand?.id);
   const [selectedVoiceVariantId, setSelectedVoiceVariantId] = useState<string | undefined>();
@@ -61,7 +68,7 @@ export default function MultiChannelCreate() {
 
   // Chat panel state
   const [showChatPanel, setShowChatPanel] = useState(false);
-  
+
 
   // Generation state
   const [generationState, setGenerationState] = useState<GenerationState>('idle');
@@ -211,12 +218,45 @@ export default function MultiChannelCreate() {
     }
   }, [generationState, generatedContentId, selectedBrandId, imagePipeline.phase]);
 
+  // Notify when content generation completes
+  useEffect(() => {
+    if (generationState === 'complete' && user && generatedContentId && !contentNotifiedRef.current) {
+      contentNotifiedRef.current = true;
+      const channelCount = formData.channels?.length || 0;
+      supabase.from('notifications').insert({
+        user_id: user.id,
+        type: 'multichannel_content_done',
+        title: 'Nội dung đa kênh đã sẵn sàng!',
+        message: `Đã tạo ${channelCount} kênh cho "${formData.topic}"`,
+        data: { content_id: generatedContentId },
+      });
+    }
+  }, [generationState, user, generatedContentId]);
+
+  // Notify when image pipeline completes
+  useEffect(() => {
+    if (imagePipeline.phase === 'complete' && user && generatedContentId && !imagesNotifiedRef.current) {
+      imagesNotifiedRef.current = true;
+      const successCount = imagePipeline.imageResults?.successful?.length || 0;
+      const totalCount = (imagePipeline.imageResults?.successful?.length || 0) + (imagePipeline.imageResults?.failed?.length || 0);
+      supabase.from('notifications').insert({
+        user_id: user.id,
+        type: 'multichannel_images_done',
+        title: 'Ảnh đa kênh đã hoàn tất!',
+        message: `${successCount}/${totalCount} ảnh đã tạo thành công cho "${formData.topic}"`,
+        data: { content_id: generatedContentId },
+      });
+    }
+  }, [imagePipeline.phase, user, generatedContentId]);
+
   // Create another
   const handleCreateAnother = () => {
     setGenerationState('idle');
     setSseProgress(null);
     setGeneratedContentId(null);
     autoImageTriggeredRef.current = false;
+    contentNotifiedRef.current = false;
+    imagesNotifiedRef.current = false;
     imagePipeline.resetPipeline();
     setFormData(prev => ({
       ...prev,

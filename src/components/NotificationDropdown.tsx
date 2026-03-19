@@ -1,4 +1,4 @@
-import { Bell, Check, Trash2, ArrowUpCircle, UserPlus, CheckCircle2, Flag, Calendar, Target, TrendingUp, PenLine, Images } from 'lucide-react';
+import { Bell, Check, Trash2, ArrowUpCircle, UserPlus, CheckCircle2, Flag, Calendar, Target, TrendingUp, PenLine, Images, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -34,6 +34,8 @@ const notificationTypeConfig: Record<string, {
   kpi_target_exceeded: { icon: <TrendingUp className="h-4 w-4" />, bgColor: 'bg-emerald-500/10', textColor: 'text-emerald-500' },
   carousel_prompt_done: { icon: <PenLine className="h-4 w-4" />, bgColor: 'bg-blue-500/10', textColor: 'text-blue-500' },
   carousel_generation_complete: { icon: <Images className="h-4 w-4" />, bgColor: 'bg-emerald-500/10', textColor: 'text-emerald-500' },
+  multichannel_content_done: { icon: <Sparkles className="h-4 w-4" />, bgColor: 'bg-purple-500/10', textColor: 'text-purple-500' },
+  multichannel_images_done: { icon: <Images className="h-4 w-4" />, bgColor: 'bg-emerald-500/10', textColor: 'text-emerald-500' },
 };
 
 export const NotificationDropdown = () => {
