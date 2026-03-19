@@ -1,4 +1,4 @@
-import { Carousel, CarouselStatus, CarouselSlide, CAROUSEL_STYLE_OPTIONS, VISUAL_PRESET_OPTIONS, VisualPresetType } from '@/types/carousel';
+import { Carousel, CarouselStatus, CarouselSlide, CAROUSEL_STYLE_OPTIONS, VISUAL_PRESET_OPTIONS, VisualPresetType, textContentToString } from '@/types/carousel';
 import { SlidePromptCard } from './SlidePromptCard';
 import { SortableSlideCard } from './SortableSlideCard';
 import {
