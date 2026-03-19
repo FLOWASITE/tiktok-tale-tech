@@ -2037,6 +2037,9 @@ serve(async (req) => {
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+
+    console.log(`[Font Cache] Size: ${fontCache.size} entries`);
+    return response;
   } catch (error) {
     console.error("[overlay-text-canvas] Error:", error);
     return new Response(
