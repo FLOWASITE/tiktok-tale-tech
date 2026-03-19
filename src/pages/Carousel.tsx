@@ -189,6 +189,7 @@ const CarouselPage = () => {
         setTopicHistoryId(undefined);
       }
       
+      setFormSheetOpen(false);
       setSelectedCarousel(newCarousel);
       setAutoGenerateImages(formData.autoGenerateImages || false);
       setViewerOpen(true);
