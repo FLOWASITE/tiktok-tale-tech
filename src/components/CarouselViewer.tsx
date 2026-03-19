@@ -31,6 +31,7 @@ import {
 } from '@dnd-kit/sortable';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { ModelUsedBadge } from '@/components/ui/ModelUsedBadge';
 import { toast } from 'sonner';
 import { formatAllSlidesPrompt } from '@/utils/parseCarouselSlides';
 import { GeneratedImagesGallery } from './GeneratedImagesGallery';
@@ -135,6 +136,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
   const [generatingStartTime, setGeneratingStartTime] = useState<number | null>(null);
   const [currentGeneratingSlide, setCurrentGeneratingSlide] = useState<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [lastModelUsed, setLastModelUsed] = useState<string | null>(null);
   const lastAutoGenCarouselIdRef = useRef<string | null>(null);
 
   const sensors = useSensors(
@@ -304,6 +306,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
     });
     if (result?.imageUrl) {
       await saveImage(slideNumber, result.imageUrl, prompt);
+      if (result.modelUsed) setLastModelUsed(result.modelUsed);
     }
   };
 
@@ -344,6 +347,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
       if (result?.imageUrl) {
         await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt);
         successCount++;
+        if (result.modelUsed) setLastModelUsed(result.modelUsed);
       }
 
       // Phase F: Use AI-extracted scene description for better seamless continuity
@@ -599,7 +603,11 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
             <TabsContent value="slides" className="mt-0 space-y-3 xs:space-y-4">
               {/* Generate All Button + Progress */}
               <div className="space-y-2">
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between">
+                  {lastModelUsed && !generatingAll && (
+                    <ModelUsedBadge modelUsed={lastModelUsed} />
+                  )}
+                  {!lastModelUsed && <div />}
                   <Button
                     onClick={handleGenerateAllImages}
                     disabled={generatingAll || generating !== null}
@@ -664,9 +672,12 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
                         </div>
                       </div>
                     </div>
-                    <p className="text-center text-[10px] text-muted-foreground/60">
-                      ⏳ Mỗi slide mất ~15-20s · Đừng đóng cửa sổ này
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] text-muted-foreground/60">
+                        ⏳ Mỗi slide mất ~15-20s · Đừng đóng cửa sổ này
+                      </p>
+                      {lastModelUsed && <ModelUsedBadge modelUsed={lastModelUsed} />}
+                    </div>
                   </div>
                 )}
               </div>

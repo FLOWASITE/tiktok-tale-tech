@@ -3,6 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateCost, estimateImageCost, isImageModel } from "../_shared/cost-estimator.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared/kie-image-generator.ts";
+import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_shared/poyo-image-generator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -244,17 +246,13 @@ serve(async (req) => {
       fetchStylePreset(supabase, visualPreset || carouselStyle || 'minimalist'),
     ]);
 
-    // Only allow Lovable AI Gateway compatible models (not PoYo/KIE which need separate APIs)
-    const LOVABLE_COMPATIBLE_MODELS = [
-      'google/gemini-3-pro-image-preview', 'google/gemini-3.1-flash-image-preview',
-      'google/gemini-2.5-flash-image', 'google/gemini-2.5-flash', 'google/gemini-2.5-pro',
-    ];
-    const rawModel = aiConfig.model;
-    const imageModel = LOVABLE_COMPATIBLE_MODELS.includes(rawModel) ? rawModel : 'google/gemini-3-pro-image-preview';
-    if (rawModel !== imageModel) {
-      console.warn(`[generate-carousel-image] Model "${rawModel}" not compatible with Lovable AI Gateway, falling back to ${imageModel}`);
-    }
-    console.log(`[generate-carousel-image] Using model: ${imageModel}`);
+    // === Multi-provider routing: PoYo → KIE → Lovable AI ===
+    const requestedModel = aiConfig.model;
+    let imageModel = requestedModel;
+    let modelUsed = requestedModel;
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+
+    console.log(`[generate-carousel-image] Requested model: ${requestedModel}`);
 
     // === STEP 1: Generate background image (no text) ===
     const backgroundPrompt = buildBackgroundPrompt(
@@ -262,102 +260,212 @@ serve(async (req) => {
       seamlessContext, dbPreset?.tokens, brandColors
     );
     console.log("[generate-carousel-image] Step 1: Generating background...");
-    
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-    
-    const bgResponse = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${lovableApiKey}`,
-        },
-        body: JSON.stringify({
-          model: imageModel,
-          messages: [{ role: "user", content: backgroundPrompt }],
-          modalities: ["image", "text"],
-        }),
-      }
-    );
 
-    if (!bgResponse.ok) {
-      const errorText = await bgResponse.text();
-      console.error("[generate-carousel-image] Background gen error:", bgResponse.status, errorText);
-      
-      if (bgResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Đã vượt giới hạn API. Vui lòng thử lại sau.", errorCode: "RATE_LIMIT" }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (bgResponse.status === 402 || errorText.includes("CREDITS_EXHAUSTED") || errorText.includes("credits")) {
-        return new Response(
-          JSON.stringify({ error: "Đã hết credits AI. Vui lòng nâng cấp.", errorCode: "CREDITS_EXHAUSTED" }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      return new Response(
-        JSON.stringify({ error: "Lỗi tạo ảnh nền: " + errorText }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const bgData = await bgResponse.json();
     let imageBase64: string | null = null;
     let mimeType = "image/png";
+    let externalImageUrl: string | null = null;
+    let sceneDescription: string | null = null;
 
-    const messageImages = bgData.choices?.[0]?.message?.images;
-    if (messageImages && messageImages.length > 0) {
-      const imageUrl = messageImages[0].image_url?.url;
-      if (imageUrl && imageUrl.startsWith("data:")) {
-        const match = imageUrl.match(/^data:(image\/\w+);base64,(.+)$/);
-        if (match) {
-          mimeType = match[1];
-          imageBase64 = match[2];
+    // --- PoYo routing ---
+    if (isPoyoModel(requestedModel)) {
+      const POYO_API_KEY = Deno.env.get('POYO_API_KEY');
+      if (!POYO_API_KEY) {
+        return new Response(
+          JSON.stringify({ error: 'POYO_API_KEY chưa được cấu hình. Vui lòng thêm trong project secrets.', errorCode: 'MISSING_API_KEY' }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`[generate-carousel-image] Routing to PoYo.ai: ${requestedModel}`);
+      try {
+        externalImageUrl = await generateImageViaPoyo({
+          prompt: backgroundPrompt,
+          model: requestedModel,
+          aspectRatio: mapAspectRatioToPoyo(platform === 'tiktok' ? '9:16' : '1:1'),
+        }, POYO_API_KEY);
+        modelUsed = requestedModel;
+      } catch (poyoErr) {
+        const errMsg = poyoErr instanceof Error ? poyoErr.message : String(poyoErr);
+        console.error(`[generate-carousel-image] PoYo.ai failed: ${errMsg}`);
+
+        if (errMsg.includes('POYO_AUTH_ERROR') || errMsg.includes('POYO_CREDITS_EXHAUSTED') || errMsg.includes('POYO_RATE_LIMIT')) {
+          return new Response(
+            JSON.stringify({ error: errMsg, errorCode: 'PROVIDER_ERROR' }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
+
+        // Fallback to Lovable AI
+        console.log('[generate-carousel-image] PoYo failed, falling back to Lovable AI...');
+        imageModel = 'google/gemini-3-pro-image-preview';
+        modelUsed = `${imageModel} (fallback from ${requestedModel})`;
+      }
+    }
+    // --- KIE routing ---
+    else if (isKieModel(requestedModel)) {
+      const KIE_API_KEY = Deno.env.get('KIE_API_KEY');
+      if (!KIE_API_KEY) {
+        return new Response(
+          JSON.stringify({ error: 'KIE_API_KEY chưa được cấu hình. Vui lòng thêm trong project secrets.', errorCode: 'MISSING_API_KEY' }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`[generate-carousel-image] Routing to KIE.ai: ${requestedModel}`);
+      try {
+        externalImageUrl = await generateImageViaKie({
+          prompt: backgroundPrompt,
+          model: requestedModel,
+          aspectRatio: mapAspectRatioToKie(platform === 'tiktok' ? '9:16' : '1:1'),
+          outputFormat: 'jpeg',
+        }, KIE_API_KEY);
+        modelUsed = requestedModel;
+      } catch (kieErr) {
+        const errMsg = kieErr instanceof Error ? kieErr.message : String(kieErr);
+        console.error(`[generate-carousel-image] KIE.ai failed: ${errMsg}`);
+
+        if (errMsg.includes('KIE_AUTH_ERROR') || errMsg.includes('KIE_CREDITS_EXHAUSTED') || errMsg.includes('KIE_RATE_LIMIT')) {
+          return new Response(
+            JSON.stringify({ error: errMsg, errorCode: 'PROVIDER_ERROR' }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Fallback to Lovable AI
+        console.log('[generate-carousel-image] KIE failed, falling back to Lovable AI...');
+        imageModel = 'google/gemini-3-pro-image-preview';
+        modelUsed = `${imageModel} (fallback from ${requestedModel})`;
       }
     }
 
-    if (!imageBase64) {
-      console.error("[generate-carousel-image] No image data in background response");
-      return new Response(
-        JSON.stringify({ error: "Không thể tạo ảnh nền. AI không trả về dữ liệu ảnh." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    // --- Lovable AI Gateway (default or fallback) ---
+    if (!externalImageUrl) {
+      const bgResponse = await fetch(
+        "https://ai.gateway.lovable.dev/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${lovableApiKey}`,
+          },
+          body: JSON.stringify({
+            model: imageModel,
+            messages: [{ role: "user", content: backgroundPrompt }],
+            modalities: ["image", "text"],
+          }),
+        }
       );
+
+      if (!bgResponse.ok) {
+        const errorText = await bgResponse.text();
+        console.error("[generate-carousel-image] Background gen error:", bgResponse.status, errorText);
+        
+        if (bgResponse.status === 429) {
+          return new Response(
+            JSON.stringify({ error: "Đã vượt giới hạn API. Vui lòng thử lại sau.", errorCode: "RATE_LIMIT" }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (bgResponse.status === 402 || errorText.includes("CREDITS_EXHAUSTED") || errorText.includes("credits")) {
+          return new Response(
+            JSON.stringify({ error: "Đã hết credits AI. Vui lòng nâng cấp.", errorCode: "CREDITS_EXHAUSTED" }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        return new Response(
+          JSON.stringify({ error: "Lỗi tạo ảnh nền: " + errorText }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const bgData = await bgResponse.json();
+      const messageImages = bgData.choices?.[0]?.message?.images;
+      if (messageImages && messageImages.length > 0) {
+        const imgUrl = messageImages[0].image_url?.url;
+        if (imgUrl && imgUrl.startsWith("data:")) {
+          const match = imgUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+          if (match) {
+            mimeType = match[1];
+            imageBase64 = match[2];
+          }
+        }
+      }
+
+      if (!imageBase64) {
+        console.error("[generate-carousel-image] No image data in background response");
+        return new Response(
+          JSON.stringify({ error: "Không thể tạo ảnh nền. AI không trả về dữ liệu ảnh." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Extract scene description from AI text response
+      const aiResponseText = bgData.choices?.[0]?.message?.content || '';
+      sceneDescription = aiResponseText.length > 10 ? aiResponseText.slice(0, 300) : null;
+
+      if (!modelUsed.includes('fallback')) {
+        modelUsed = imageModel;
+      }
     }
 
-    // === Phase F: Extract scene description from AI response ===
-    const aiResponseText = bgData.choices?.[0]?.message?.content || '';
-    const sceneDescription = aiResponseText.length > 10 ? aiResponseText.slice(0, 300) : null;
-
-    // Upload background to storage
+    // Upload to storage
     const userId = await resolveUserId(req, supabase);
+    let backgroundUrl: string;
 
-    const binaryString = atob(imageBase64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+    if (externalImageUrl) {
+      // PoYo/KIE returned a public URL — download and re-upload to our storage for consistency
+      try {
+        const imgResponse = await fetch(externalImageUrl);
+        if (!imgResponse.ok) throw new Error(`Failed to download: ${imgResponse.status}`);
+        const imgBlob = await imgResponse.arrayBuffer();
+        const imgBytes = new Uint8Array(imgBlob);
+        const contentType = imgResponse.headers.get('content-type') || 'image/jpeg';
+        const ext = contentType.includes('png') ? 'png' : 'jpg';
+        const bgFileName = `${carouselId}/slide-${slideNumber}-bg-${Date.now()}.${ext}`;
+
+        const { error: uploadErr } = await supabase.storage
+          .from("carousel-images")
+          .upload(bgFileName, imgBytes, { contentType, upsert: true });
+
+        if (uploadErr) {
+          console.warn("[generate-carousel-image] Upload failed, using external URL:", uploadErr);
+          backgroundUrl = externalImageUrl;
+        } else {
+          const { data: urlData } = supabase.storage.from("carousel-images").getPublicUrl(bgFileName);
+          backgroundUrl = urlData.publicUrl;
+        }
+      } catch (dlErr) {
+        console.warn("[generate-carousel-image] Download/upload failed, using external URL:", dlErr);
+        backgroundUrl = externalImageUrl;
+      }
+    } else {
+      // Lovable AI: upload base64
+      const binaryString = atob(imageBase64!);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const extension = mimeType.split("/")[1] || "png";
+      const bgFileName = `${carouselId}/slide-${slideNumber}-bg-${Date.now()}.${extension}`;
+
+      const { error: bgUploadError } = await supabase.storage
+        .from("carousel-images")
+        .upload(bgFileName, bytes, { contentType: mimeType, upsert: true });
+
+      if (bgUploadError) {
+        console.error("[generate-carousel-image] Background upload error:", bgUploadError);
+        return new Response(
+          JSON.stringify({ error: "Lỗi upload ảnh nền: " + bgUploadError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: bgUrlData } = supabase.storage.from("carousel-images").getPublicUrl(bgFileName);
+      backgroundUrl = bgUrlData.publicUrl;
     }
 
-    const extension = mimeType.split("/")[1] || "png";
-    const bgFileName = `${carouselId}/slide-${slideNumber}-bg-${Date.now()}.${extension}`;
-
-    const { error: bgUploadError } = await supabase.storage
-      .from("carousel-images")
-      .upload(bgFileName, bytes, { contentType: mimeType, upsert: true });
-
-    if (bgUploadError) {
-      console.error("[generate-carousel-image] Background upload error:", bgUploadError);
-      return new Response(
-        JSON.stringify({ error: "Lỗi upload ảnh nền: " + bgUploadError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const { data: bgUrlData } = supabase.storage.from("carousel-images").getPublicUrl(bgFileName);
-    const backgroundUrl = bgUrlData.publicUrl;
-    console.log(`[generate-carousel-image] Background uploaded: ${backgroundUrl}`);
+    console.log(`[generate-carousel-image] Background uploaded: ${backgroundUrl}, model: ${modelUsed}`);
 
     // === Gallery visual slides: skip overlay, return background directly ===
     if (slideRole === 'visual') {
@@ -383,6 +491,8 @@ serve(async (req) => {
           hasOverlay: false,
           slideRole,
           sceneDescription,
+          modelUsed,
+          modelRequested: requestedModel,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -475,6 +585,8 @@ serve(async (req) => {
                 hasOverlay: true,
                 slideRole,
                 sceneDescription,
+                modelUsed,
+                modelRequested: requestedModel,
               }),
               { headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
@@ -519,6 +631,8 @@ serve(async (req) => {
         hasOverlay: false,
         slideRole,
         sceneDescription,
+        modelUsed,
+        modelRequested: requestedModel,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
