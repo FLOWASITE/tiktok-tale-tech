@@ -49,7 +49,6 @@ export const NotificationDropdown = () => {
     const data = notification.data as Record<string, any> | null;
     if (data?.campaign_id) navigate(`/campaigns/${data.campaign_id}`);
     else if (data?.carousel_id) navigate(`/carousel`);
-    else if (data?.content_id) navigate(`/multichannel?content=${data.content_id}`);
     else if (data?.upgrade_url) navigate(data.upgrade_url);
     else if (data?.content_id) navigate(`/multichannel?content=${data.content_id}`);
   };
