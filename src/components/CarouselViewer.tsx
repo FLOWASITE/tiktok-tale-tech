@@ -347,6 +347,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
       if (result?.imageUrl) {
         await saveImage(slide.slideNumber, result.imageUrl, slide.fullPrompt);
         successCount++;
+        if (result.modelUsed) setLastModelUsed(result.modelUsed);
       }
 
       // Phase F: Use AI-extracted scene description for better seamless continuity
