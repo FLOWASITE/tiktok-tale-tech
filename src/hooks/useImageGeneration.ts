@@ -55,6 +55,7 @@ export function useImageGeneration() {
           totalSlides: options?.totalSlides,
           slideObjective: options?.slideObjective,
           visualPreset: options?.visualPreset,
+          carouselTopic: options?.carouselTopic,
           seamlessContext: options?.seamlessContext,
         },
         timeoutMs: 150_000,
