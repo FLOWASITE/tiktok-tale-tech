@@ -30,7 +30,7 @@ interface CarouselFormData {
   organization_id?: string;
   campaignId?: string;
   carouselStyle?: "seamless" | "educational" | "listicle" | "gallery";
-}
+  visualPreset?: "minimalist" | "flat_design" | "gradient" | "geometric" | "illustration" | "product_only";
 
 interface CarouselSlide {
   slideNumber: number;
