@@ -141,7 +141,7 @@ function BrandManagementDialogInner({ open, onOpenChange }: { open: boolean; onO
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[80vw] w-[80vw] max-h-[90vh] overflow-y-auto overflow-x-hidden">
+      <DialogContent className="max-w-[65vw] w-[65vw] max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {showForm && (
