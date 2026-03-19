@@ -19,7 +19,7 @@ export function useImageGeneration() {
   const [generating, setGenerating] = useState<number | null>(null);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
 
-  const generateImage = async (
+  const generateImage = useCallback(async (
     prompt: string,
     carouselId: string,
     slideNumber: number,
