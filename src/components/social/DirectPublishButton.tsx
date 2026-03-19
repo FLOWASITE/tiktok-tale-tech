@@ -1,14 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from '@/components/ui/dropdown-menu';
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -17,9 +9,18 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { useOrganization } from '@/hooks/useOrganization';
 import { useSocialConnections, SocialPlatform } from '@/hooks/useSocialConnections';
 import { useDirectPublish } from '@/hooks/useDirectPublish';
+import { useContentSchedules } from '@/hooks/useContentSchedules';
+import { Channel } from '@/types/multichannel';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 import { 
   Send, 
   Twitter, 
@@ -31,6 +32,9 @@ import {
   ExternalLink,
   AlertCircle,
   Settings,
+  CalendarClock,
+  CalendarIcon,
+  Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -99,17 +103,23 @@ export function DirectPublishButton({
 }: DirectPublishButtonProps) {
   const navigate = useNavigate();
   const { currentOrganization } = useOrganization();
-  // Always pass organizationId; also pass brandTemplateId if available for brand-level lookup
   const { connections, getConnectionForPlatform } = useSocialConnections({ 
     brandTemplateId,
     organizationId: currentOrganization?.id,
   });
   const { publishToTwitter, publishToFacebook, isPublishing, publishResult } = useDirectPublish();
+  const { upsertSchedule } = useContentSchedules(contentId);
 
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     platform: SocialPlatform | null;
   }>({ open: false, platform: null });
+
+  const [scheduleDialog, setScheduleDialog] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState<Date | undefined>();
+  const [scheduleTime, setScheduleTime] = useState('09:00');
+  const [scheduleNotes, setScheduleNotes] = useState('');
+  const [isScheduling, setIsScheduling] = useState(false);
 
   const platform = CHANNEL_TO_PLATFORM[channel];
   const connection = platform ? getConnectionForPlatform(platform) : null;
@@ -145,13 +155,48 @@ export function DirectPublishButton({
 
   const handleClick = () => {
     if (!connection) {
-      // No connection, open settings
       navigate('/settings?tab=social');
       return;
     }
-
-    // Show confirmation dialog
     setConfirmDialog({ open: true, platform });
+  };
+
+  const handleScheduleClick = () => {
+    if (!connection) {
+      navigate('/settings?tab=social');
+      return;
+    }
+    // Default to tomorrow 9:00 AM
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setScheduleDate(tomorrow);
+    setScheduleTime('09:00');
+    setScheduleNotes('');
+    setScheduleDialog(true);
+  };
+
+  const handleScheduleSubmit = async () => {
+    if (!scheduleDate || !contentId || !platform) return;
+
+    setIsScheduling(true);
+    try {
+      const [hours, minutes] = scheduleTime.split(':').map(Number);
+      const scheduledAt = new Date(scheduleDate);
+      scheduledAt.setHours(hours, minutes, 0, 0);
+
+      await upsertSchedule(contentId, {
+        channel: channel as Channel,
+        scheduled_at: scheduledAt.toISOString(),
+        timezone: 'Asia/Ho_Chi_Minh',
+        notes: scheduleNotes || undefined,
+      });
+
+      setScheduleDialog(false);
+    } catch (error) {
+      console.error('Schedule error:', error);
+    } finally {
+      setIsScheduling(false);
+    }
   };
 
   // If no platform mapping for this channel, don't show button
@@ -178,23 +223,42 @@ export function DirectPublishButton({
 
   return (
     <>
-      <Button
-        variant={variant}
-        size={size}
-        disabled={disabled || isPublishing || !content}
-        onClick={handleClick}
-        className={cn(
-          variant === 'outline' && connection ? 'text-primary border-primary/30 hover:bg-primary/10' : '',
-          className
+      <div className="flex items-center gap-1">
+        {/* Main Publish Button */}
+        <Button
+          variant={variant}
+          size={size}
+          disabled={disabled || isPublishing || !content}
+          onClick={handleClick}
+          className={cn(
+            variant === 'outline' && connection ? 'text-primary border-primary/30 hover:bg-primary/10' : '',
+            className
+          )}
+        >
+          {isPublishing ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-1" />
+          ) : (
+            <Icon className="h-4 w-4 mr-1" />
+          )}
+          {connection ? 'Đăng ngay' : 'Kết nối để đăng'}
+        </Button>
+
+        {/* Schedule Button - only show when connected */}
+        {connection && contentId && (
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={disabled || !content}
+            onClick={handleScheduleClick}
+            className={cn(
+              'h-7 w-7 xs:h-8 xs:w-8 text-muted-foreground hover:text-primary hover:bg-primary/10',
+            )}
+            title="Lên lịch đăng"
+          >
+            <CalendarClock className="h-3.5 w-3.5" />
+          </Button>
         )}
-      >
-        {isPublishing ? (
-          <Loader2 className="h-4 w-4 animate-spin mr-1" />
-        ) : (
-          <Icon className="h-4 w-4 mr-1" />
-        )}
-        {connection ? 'Đăng ngay' : 'Kết nối để đăng'}
-      </Button>
+      </div>
 
       {/* Confirmation Dialog */}
       <Dialog 
@@ -350,6 +414,115 @@ export function DirectPublishButton({
               {isPublishing ? 'Đang đăng...' : 'Đăng ngay'}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Dialog */}
+      <Dialog open={scheduleDialog} onOpenChange={setScheduleDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5 text-primary" />
+              Lên lịch đăng bài
+            </DialogTitle>
+            <DialogDescription>
+              Chọn ngày giờ để tự động đăng lên {PLATFORM_DISPLAY_NAMES[platform!] || platform}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Date Picker */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Ngày đăng</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      'w-full justify-start text-left font-normal',
+                      !scheduleDate && 'text-muted-foreground'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {scheduleDate 
+                      ? format(scheduleDate, 'dd/MM/yyyy (EEEE)', { locale: vi })
+                      : 'Chọn ngày'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={scheduleDate}
+                    onSelect={setScheduleDate}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Time Picker */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Giờ đăng</Label>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="time"
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Múi giờ: Asia/Ho_Chi_Minh (GMT+7)</p>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Ghi chú (tuỳ chọn)</Label>
+              <Textarea
+                placeholder="VD: Đăng sau khi review xong..."
+                value={scheduleNotes}
+                onChange={(e) => setScheduleNotes(e.target.value)}
+                rows={2}
+                className="resize-none"
+              />
+            </div>
+
+            {/* Preview summary */}
+            {scheduleDate && (
+              <div className="rounded-lg bg-primary/5 border border-primary/10 p-3 flex items-start gap-2">
+                <CalendarClock className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium text-foreground">
+                    {format(scheduleDate, 'dd/MM/yyyy', { locale: vi })} lúc {scheduleTime}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Sẽ đăng lên {PLATFORM_DISPLAY_NAMES[platform!] || platform}
+                    {connection?.platform_username && ` (@${connection.platform_username})`}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setScheduleDialog(false)}>
+              Hủy
+            </Button>
+            <Button
+              onClick={handleScheduleSubmit}
+              disabled={!scheduleDate || isScheduling}
+              className="gap-2"
+            >
+              {isScheduling ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CalendarClock className="h-4 w-4" />
+              )}
+              {isScheduling ? 'Đang lên lịch...' : 'Lên lịch'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

@@ -31,6 +31,7 @@ import {
 } from '@dnd-kit/sortable';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ModelUsedBadge } from '@/components/ui/ModelUsedBadge';
 import { toast } from 'sonner';
 import { formatAllSlidesPrompt } from '@/utils/parseCarouselSlides';
@@ -180,6 +181,21 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
 
   // Fetch Industry Memory
   const { data: industryMemory, isLoading: isLoadingIndustry } = useIndustryMemoryById(carousel?.industry_template_id);
+
+  // Lookup brand_template_id from brand_name for social connection resolution
+  const { data: brandTemplate } = useQuery({
+    queryKey: ['brand-template-by-name', carousel?.brand_name],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('brand_templates')
+        .select('id')
+        .eq('brand_name', carousel!.brand_name)
+        .limit(1)
+        .single();
+      return data;
+    },
+    enabled: !!carousel?.brand_name,
+  });
 
   // Ref to hold the auto-generate function (defined after early return)
   const autoGenFnRef = useRef<(() => Promise<void>) | null>(null);
@@ -582,6 +598,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
                   content={carousel.caption_suggestion || carousel.topic}
                   contentId={carousel.id}
                   channel="facebook"
+                  brandTemplateId={brandTemplate?.id}
                   mediaUrls={generatedImages.map(img => img.imageUrl)}
                   variant="outline"
                   size="sm"
