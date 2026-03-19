@@ -36,7 +36,7 @@ export function useImageGeneration() {
         totalInSequence: number;
       };
     }
-  ): Promise<string | null> => {
+  ): Promise<GenerateImageResult | null> => {
     setGenerating(slideNumber);
     
     try {
