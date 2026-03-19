@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import {
   CarouselFormData,
   Platform,
-  AITool,
   CarouselStyleType,
   VisualPresetType,
   DEFAULT_BRAND_GUIDELINE,
