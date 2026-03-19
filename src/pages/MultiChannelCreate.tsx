@@ -255,6 +255,8 @@ export default function MultiChannelCreate() {
     setSseProgress(null);
     setGeneratedContentId(null);
     autoImageTriggeredRef.current = false;
+    contentNotifiedRef.current = false;
+    imagesNotifiedRef.current = false;
     imagePipeline.resetPipeline();
     setFormData(prev => ({
       ...prev,
