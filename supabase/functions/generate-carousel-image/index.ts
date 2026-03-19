@@ -339,6 +339,8 @@ serve(async (req) => {
         console.log('[generate-carousel-image] KIE failed, falling back to Lovable AI...');
         imageModel = 'google/gemini-3-pro-image-preview';
         modelUsed = `${imageModel} (fallback from ${requestedModel})`;
+        usedFallback = true;
+        fallbackFromModel = requestedModel;
       }
     }
 
