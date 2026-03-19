@@ -673,11 +673,14 @@ Follow the carousel style guidelines strictly.`;
 
     // Define AI generation function using multi-provider system
     const generateAIContent = async () => {
-      console.log("Calling AI for carousel via multi-provider system...");
+      console.log("Calling AI for carousel via callAIWithMetrics...");
       
-      const result = await callAIProvider({
+      const result = await callAIWithMetrics(supabase, {
         functionName: 'generate-carousel',
         organizationId: organizationId || undefined,
+        userId: userId || undefined,
+        brandTemplateId: formData.brandTemplateId || undefined,
+        actionType: 'generate',
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -701,7 +704,8 @@ Follow the carousel style guidelines strictly.`;
         throw new Error(`AI Provider error: ${result.error}`);
       }
 
-      console.log('[generate-carousel] AI response from provider:', result.provider, 'model:', result.model);
+      console.log('[generate-carousel] AI response from provider:', result.provider, 'model:', result.model, 
+        'cost:', result.metrics ? `$${result.metrics.estimatedCostUsd.toFixed(6)}` : 'N/A');
 
       const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
       if (!toolCall || toolCall.function.name !== "generate_carousel_slides") {
