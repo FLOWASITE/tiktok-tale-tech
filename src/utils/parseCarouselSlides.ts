@@ -1,4 +1,4 @@
-import { CarouselSlide } from '@/types/carousel';
+import { CarouselSlide, textContentToString } from '@/types/carousel';
 
 export function formatSlidePrompt(slide: CarouselSlide): string {
   return `[Slide ${slide.slideNumber}]
@@ -7,7 +7,7 @@ export function formatSlidePrompt(slide: CarouselSlide): string {
 ${slide.objective}
 
 [2] Nội dung chữ xuất hiện trên ảnh:
-${slide.textContent}
+${textContentToString(slide.textContent)}
 
 [3] Phong cách thiết kế:
 ${slide.designStyle}
