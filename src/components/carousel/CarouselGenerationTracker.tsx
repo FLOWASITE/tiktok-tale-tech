@@ -23,6 +23,7 @@ import {
   Search,
   LayoutGrid,
   PenLine,
+  Minimize2,
   type LucideIcon,
 } from 'lucide-react';
 
