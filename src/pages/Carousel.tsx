@@ -190,6 +190,7 @@ const CarouselPage = () => {
       }
       
       setSelectedCarousel(newCarousel);
+      setAutoGenerateImages(formData.autoGenerateImages || false);
       setViewerOpen(true);
     }
   };
