@@ -408,6 +408,12 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
                     {CAROUSEL_STYLE_OPTIONS.find(s => s.value === carousel.carousel_style)?.label || carousel.carousel_style}
                   </Badge>
                 )}
+                {carousel.visual_preset && (
+                  <Badge variant="outline" className="text-[10px] xs:text-xs bg-primary/10 border-primary/30">
+                    {VISUAL_PRESET_OPTIONS.find(s => s.value === carousel.visual_preset)?.icon || '✨'}{' '}
+                    {VISUAL_PRESET_OPTIONS.find(s => s.value === carousel.visual_preset)?.label || carousel.visual_preset}
+                  </Badge>
+                )}
                 <Badge variant="outline" className="text-[10px] xs:text-xs hidden xs:inline-flex">{carousel.brand_name}</Badge>
               </div>
               {/* Creator & Time - Hidden on very small screens */}
