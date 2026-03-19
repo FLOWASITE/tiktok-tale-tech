@@ -592,7 +592,6 @@ Follow the carousel style guidelines strictly.`;
         topic: formData.topic,
         slideCount: String(formData.slideCount),
         platform: formData.platform === "facebook" ? "Facebook" : "TikTok",
-        aiTool: formData.aiTool,
         brandName: formData.brandName,
       });
       
