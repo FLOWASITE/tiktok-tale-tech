@@ -97,7 +97,6 @@ export function MultiChannelFilters({
     return 'Chọn ngày';
   };
 
-  // Quick date presets
   const setQuickDate = (days: number) => {
     const now = new Date();
     onDateRangeChange({
@@ -107,68 +106,74 @@ export function MultiChannelFilters({
   };
 
   return (
-    <div className="space-y-3">
-      {/* Main Filter Bar - Glassmorphism */}
-      <div className="relative p-3 rounded-xl bg-background/60 backdrop-blur-sm border border-border/50">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Search with animated icon */}
-          <div className={cn(
-            "relative flex-1 min-w-[180px] max-w-[280px] transition-all duration-300",
-            searchFocused && "flex-[2]"
-          )}>
-            <Search className={cn(
-              "absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 transition-colors duration-200",
-              searchFocused ? "text-primary" : "text-muted-foreground"
-            )} />
-            <Input
-              placeholder="Tìm kiếm nội dung..."
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              className={cn(
-                "pl-9 h-9 text-sm bg-background/50 border-border/50 transition-all duration-200",
-                searchFocused && "ring-2 ring-primary/20 border-primary/50"
-              )}
-            />
-            {searchQuery && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
-                onClick={() => onSearchChange('')}
-              >
-                <X className="w-3 h-3" />
-              </Button>
+    <div className="space-y-2">
+      {/* Single compact row */}
+      <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-lg bg-background/60 backdrop-blur-sm border border-border/40">
+        {/* Search */}
+        <div className={cn(
+          "relative flex-1 min-w-[140px] max-w-[220px] transition-all duration-200",
+          searchFocused && "max-w-[280px]"
+        )}>
+          <Search className={cn(
+            "absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 transition-colors",
+            searchFocused ? "text-primary" : "text-muted-foreground"
+          )} />
+          <Input
+            placeholder="Tìm kiếm..."
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            className={cn(
+              "pl-8 h-8 text-xs bg-background/50 border-border/40",
+              searchFocused && "ring-1 ring-primary/20 border-primary/40"
             )}
-          </div>
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-0.5 top-1/2 -translate-y-1/2 h-5 w-5"
+              onClick={() => onSearchChange('')}
+            >
+              <X className="w-3 h-3" />
+            </Button>
+          )}
+        </div>
 
-          {/* Status Filter Chips */}
-          <div className="flex items-center gap-1">
-            {(['all', ...CONTENT_STATUSES.map(s => s.value)] as const).map((status) => {
-              const isActive = statusFilter === status;
-              const label = status === 'all' ? 'Tất cả' : CONTENT_STATUSES.find(s => s.value === status)?.label;
-              return (
-                <button
-                  key={status}
-                  data-active={isActive}
-                  onClick={() => onStatusFilterChange(status as ContentStatus | 'all')}
-                  className={cn(
-                    "px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200",
-                    statusColors[status],
-                    isActive && "scale-105"
-                  )}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
+        {/* Divider */}
+        <div className="w-px h-5 bg-border/40 hidden sm:block" />
 
-          {/* Goal Filter */}
+        {/* Status chips - scrollable on mobile */}
+        <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
+          {(['all', ...CONTENT_STATUSES.map(s => s.value)] as const).map((status) => {
+            const isActive = statusFilter === status;
+            const label = status === 'all' ? 'Tất cả' : CONTENT_STATUSES.find(s => s.value === status)?.label;
+            return (
+              <button
+                key={status}
+                data-active={isActive}
+                onClick={() => onStatusFilterChange(status as ContentStatus | 'all')}
+                className={cn(
+                  "px-2 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-all",
+                  statusColors[status],
+                  isActive && "scale-[1.02]"
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Divider */}
+        <div className="w-px h-5 bg-border/40 hidden sm:block" />
+
+        {/* Goal + Filter toggle */}
+        <div className="flex items-center gap-1">
           <Select value={goalFilter} onValueChange={(v) => onGoalFilterChange(v as ContentGoal | 'all')}>
-            <SelectTrigger className="w-[110px] h-9 text-xs bg-background/50 border-border/50">
-              <SelectValue placeholder="Mục tiêu" />
+            <SelectTrigger className="w-[100px] h-8 text-[11px] bg-background/50 border-border/40 gap-1">
+              <SelectValue placeholder="Tất cả mục.." />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả mục tiêu</SelectItem>
@@ -180,36 +185,33 @@ export function MultiChannelFilters({
             </SelectContent>
           </Select>
 
-          {/* Advanced Filters Toggle */}
           <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
             <CollapsibleTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className={cn(
-                  "h-9 gap-1.5 text-xs bg-background/50 border-border/50 transition-all duration-200",
+                  "h-8 gap-1 px-2 text-[11px] bg-background/50 border-border/40",
                   isExpanded && "bg-primary/10 border-primary/30 text-primary"
                 )}
               >
-                <Filter className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Bộ lọc</span>
+                <Filter className="w-3 h-3" />
                 {activeFilterCount > 0 && (
-                  <Badge 
-                    variant="secondary" 
-                    className="h-4 min-w-4 p-0 flex items-center justify-center text-[10px] bg-primary text-primary-foreground animate-pulse"
+                  <Badge
+                    variant="secondary"
+                    className="h-3.5 min-w-3.5 p-0 flex items-center justify-center text-[9px] bg-primary text-primary-foreground"
                   >
                     {activeFilterCount}
                   </Badge>
                 )}
                 <ChevronDown className={cn(
-                  "w-3 h-3 transition-transform duration-200", 
+                  "w-2.5 h-2.5 transition-transform duration-200",
                   isExpanded && "rotate-180"
                 )} />
               </Button>
             </CollapsibleTrigger>
           </Collapsible>
 
-          {/* Clear All */}
           <AnimatePresence>
             {activeFilterCount > 0 && (
               <motion.div
@@ -219,57 +221,32 @@ export function MultiChannelFilters({
               >
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="icon"
                   onClick={onClearFilters}
-                  className="h-9 px-2.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  title="Xóa bộ lọc"
                 >
-                  <X className="w-3.5 h-3.5 mr-1" />
-                  Xóa bộ lọc
+                  <X className="w-3.5 h-3.5" />
                 </Button>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-
-        {/* Quick Date Filters */}
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/30">
-          <Zap className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground mr-1">Nhanh:</span>
-          <div className="flex flex-wrap gap-1.5">
-            {[
-              { label: 'Hôm nay', days: 0 },
-              { label: '7 ngày', days: 7 },
-              { label: '30 ngày', days: 30 },
-            ].map((preset) => (
-              <button
-                key={preset.days}
-                onClick={() => setQuickDate(preset.days)}
-                className={cn(
-                  "px-2 py-1 rounded-md text-xs font-medium transition-all duration-200",
-                  "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground",
-                  dateRange.from && !dateRange.to && "bg-primary/10 text-primary"
-                )}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
-      {/* Advanced Filters (Collapsible) */}
+      {/* Advanced Filters Panel */}
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleContent>
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="p-3 rounded-xl bg-background/40 backdrop-blur-sm border border-border/30"
+            exit={{ opacity: 0, y: -6 }}
+            className="p-2.5 rounded-lg bg-background/40 backdrop-blur-sm border border-border/30"
           >
             <div className="flex flex-wrap items-center gap-2">
-              {/* Channel Filter */}
+              {/* Channel */}
               <Select value={channelFilter} onValueChange={(v) => onChannelFilterChange(v as Channel | 'all')}>
-                <SelectTrigger className="w-[130px] h-9 text-xs bg-background/50 border-border/50">
+                <SelectTrigger className="w-[120px] h-8 text-xs bg-background/50 border-border/40">
                   <SelectValue placeholder="Kênh" />
                 </SelectTrigger>
                 <SelectContent>
@@ -282,9 +259,9 @@ export function MultiChannelFilters({
                 </SelectContent>
               </Select>
 
-              {/* Brand Template Filter */}
+              {/* Brand */}
               <Select value={brandFilter} onValueChange={(v) => onBrandFilterChange(v)}>
-                <SelectTrigger className="w-[130px] h-9 text-xs bg-background/50 border-border/50">
+                <SelectTrigger className="w-[120px] h-8 text-xs bg-background/50 border-border/40">
                   <SelectValue placeholder="Thương hiệu" />
                 </SelectTrigger>
                 <SelectContent>
@@ -297,18 +274,18 @@ export function MultiChannelFilters({
                 </SelectContent>
               </Select>
 
-              {/* Date Range Filter */}
+              {/* Date Range */}
               <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     size="sm"
                     className={cn(
-                      "h-9 text-xs justify-start bg-background/50 border-border/50",
+                      "h-8 text-xs justify-start bg-background/50 border-border/40",
                       !dateRange.from && "text-muted-foreground"
                     )}
                   >
-                    <Calendar className="mr-1.5 h-3.5 w-3.5" />
+                    <Calendar className="mr-1 h-3 w-3" />
                     {formatDateRange()}
                   </Button>
                 </PopoverTrigger>
@@ -346,10 +323,10 @@ export function MultiChannelFilters({
                 </PopoverContent>
               </Popover>
 
-              {/* Tag Filter */}
+              {/* Tags */}
               {availableTags.length > 0 && (
                 <Select value={tagFilter} onValueChange={onTagFilterChange}>
-                  <SelectTrigger className="w-[110px] h-9 text-xs bg-background/50 border-border/50">
+                  <SelectTrigger className="w-[100px] h-8 text-xs bg-background/50 border-border/40">
                     <SelectValue placeholder="Tag" />
                   </SelectTrigger>
                   <SelectContent>
@@ -362,6 +339,31 @@ export function MultiChannelFilters({
                   </SelectContent>
                 </Select>
               )}
+
+              {/* Divider */}
+              <div className="w-px h-5 bg-border/30" />
+
+              {/* Quick dates inline */}
+              <div className="flex items-center gap-1">
+                <Zap className="w-3 h-3 text-muted-foreground" />
+                {[
+                  { label: 'Hôm nay', days: 0 },
+                  { label: '7 ngày', days: 7 },
+                  { label: '30 ngày', days: 30 },
+                ].map((preset) => (
+                  <button
+                    key={preset.days}
+                    onClick={() => setQuickDate(preset.days)}
+                    className={cn(
+                      "px-1.5 py-0.5 rounded text-[10px] font-medium transition-all",
+                      "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground",
+                      dateRange.from && !dateRange.to && "bg-primary/10 text-primary"
+                    )}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </motion.div>
         </CollapsibleContent>
