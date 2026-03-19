@@ -4,15 +4,37 @@ export type CarouselStatus = 'draft' | 'review' | 'approved' | 'published';
 export type CarouselStyleType = 'seamless' | 'educational' | 'listicle' | 'gallery';
 export type VisualPresetType = 'minimalist' | 'flat_design' | 'gradient' | 'geometric' | 'illustration' | 'product_only';
 
+export interface StructuredTextContent {
+  headline: string;
+  subtitle?: string;
+  caption?: string;
+  dataValue?: string;
+  dataLabel?: string;
+}
+
 export interface CarouselSlide {
   slideNumber: number;
   objective: string;        // [1] Mục tiêu slide
-  textContent: string;      // [2] Nội dung chữ xuất hiện trên ảnh
+  textContent: string | StructuredTextContent; // [2] Nội dung chữ xuất hiện trên ảnh
   designStyle: string;      // [3] Phong cách thiết kế
   colorLayout: string;      // [4] Màu sắc – bố cục
   aspectRatio: string;      // [5] Tỉ lệ khung hình
   technicalRequirements: string; // [6] Yêu cầu kỹ thuật
   fullPrompt: string;       // Prompt đầy đủ cho AI tool
+}
+
+/**
+ * Convert textContent (string or structured) to display string
+ */
+export function textContentToString(tc: string | StructuredTextContent): string {
+  if (typeof tc === 'string') return tc;
+  const parts: string[] = [];
+  if (tc.dataValue) parts.push(tc.dataValue);
+  if (tc.dataLabel) parts.push(tc.dataLabel);
+  parts.push(tc.headline);
+  if (tc.subtitle) parts.push(tc.subtitle);
+  if (tc.caption) parts.push(tc.caption);
+  return parts.join('\n');
 }
 
 export interface Carousel {
