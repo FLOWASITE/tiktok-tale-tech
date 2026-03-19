@@ -668,9 +668,12 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
                         </div>
                       </div>
                     </div>
-                    <p className="text-center text-[10px] text-muted-foreground/60">
-                      ⏳ Mỗi slide mất ~15-20s · Đừng đóng cửa sổ này
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] text-muted-foreground/60">
+                        ⏳ Mỗi slide mất ~15-20s · Đừng đóng cửa sổ này
+                      </p>
+                      {lastModelUsed && <ModelUsedBadge modelUsed={lastModelUsed} />}
+                    </div>
                   </div>
                 )}
               </div>
