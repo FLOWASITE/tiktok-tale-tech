@@ -10,8 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, X, Filter, ChevronDown, Facebook, Palette } from 'lucide-react';
+import { Search, X, Filter, ChevronDown, Facebook, Palette, SortAsc } from 'lucide-react';
 import { Platform, AITool, CarouselStatus, CarouselStyleType, PLATFORM_OPTIONS, AI_TOOL_OPTIONS, CAROUSEL_STATUS_CONFIG, CAROUSEL_STYLE_OPTIONS } from '@/types/carousel';
+import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { cn } from '@/lib/utils';
 
 export interface CarouselFiltersState {
@@ -25,15 +26,20 @@ export interface CarouselFiltersState {
 interface CarouselFiltersProps {
   filters: CarouselFiltersState;
   onFiltersChange: (filters: CarouselFiltersState) => void;
+  sortBy?: string;
+  onSortChange?: (value: string) => void;
+  campaignFilter?: string;
+  onCampaignFilterChange?: (value: string) => void;
 }
 
-const slideCountPresets = [
-  { label: '5 slides', value: 5 },
-  { label: '7 slides', value: 7 },
-  { label: '10 slides', value: 10 },
-];
-
-export function CarouselFilters({ filters, onFiltersChange }: CarouselFiltersProps) {
+export function CarouselFilters({ 
+  filters, 
+  onFiltersChange,
+  sortBy,
+  onSortChange,
+  campaignFilter,
+  onCampaignFilterChange,
+}: CarouselFiltersProps) {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -58,39 +64,30 @@ export function CarouselFilters({ filters, onFiltersChange }: CarouselFiltersPro
   };
 
   return (
-    <div className="space-y-3">
-      {/* Main Filter Bar */}
-      <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-border/50 bg-background/50 backdrop-blur-sm">
-        {/* Search Input */}
-        <div className="relative flex-1 min-w-[200px]">
-          <motion.div
-            animate={{ 
-              scale: isSearchFocused ? 1.02 : 1,
-              x: isSearchFocused ? 2 : 0 
-            }}
-            transition={{ duration: 0.2 }}
-            className="absolute left-3 top-1/2 -translate-y-1/2"
-          >
-            <Search className={cn(
-              "w-4 h-4 transition-colors duration-200",
-              isSearchFocused ? "text-primary" : "text-muted-foreground"
-            )} />
-          </motion.div>
+    <div className="space-y-2">
+      {/* Compact single-row filter bar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[140px] max-w-xs">
+          <Search className={cn(
+            "absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 transition-colors",
+            isSearchFocused ? "text-primary" : "text-muted-foreground"
+          )} />
           <Input
-            placeholder="Tìm theo chủ đề, tiêu đề..."
+            placeholder="Tìm kiếm..."
             value={filters.search}
             onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => setIsSearchFocused(false)}
             className={cn(
-              "pl-9 bg-transparent border-border/50 transition-all duration-200",
+              "h-8 pl-8 pr-3 text-xs bg-background border-border/50",
               isSearchFocused && "border-primary/50 ring-1 ring-primary/20"
             )}
           />
         </div>
 
-        {/* Platform Quick Filters */}
-        <div className="hidden sm:flex items-center gap-1.5">
+        {/* Platform chips - inline */}
+        <div className="hidden sm:flex items-center gap-1">
           {PLATFORM_OPTIONS.map((platform) => (
             <Button
               key={platform.value}
@@ -101,7 +98,7 @@ export function CarouselFilters({ filters, onFiltersChange }: CarouselFiltersPro
                 platform: filters.platform === platform.value ? 'all' : platform.value 
               })}
               className={cn(
-                "h-8 px-3 text-xs gap-1.5 transition-all duration-200",
+                "h-7 px-2 text-[11px] gap-1",
                 filters.platform === platform.value && "bg-primary/10 text-primary border border-primary/30"
               )}
             >
@@ -111,48 +108,64 @@ export function CarouselFilters({ filters, onFiltersChange }: CarouselFiltersPro
           ))}
         </div>
 
-        {/* Advanced Filter Toggle */}
+        {/* Sort Select */}
+        {onSortChange && (
+          <Select value={sortBy} onValueChange={onSortChange}>
+            <SelectTrigger className="w-28 h-8 text-[11px] border-border/50 gap-1">
+              <SortAsc className="w-3 h-3 text-muted-foreground shrink-0" />
+              <SelectValue placeholder="Sắp xếp" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Mới nhất</SelectItem>
+              <SelectItem value="oldest">Cũ nhất</SelectItem>
+              <SelectItem value="name_asc">Tên A-Z</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* Campaign Filter */}
+        {onCampaignFilterChange && (
+          <CampaignSelector
+            value={campaignFilter || ''}
+            onValueChange={onCampaignFilterChange}
+            placeholder="Chiến dịch"
+            className="w-36 sm:w-40 [&_button]:h-8 [&_button]:text-[11px]"
+          />
+        )}
+
+        {/* Advanced toggle */}
         <Button
           variant="outline"
           size="sm"
           onClick={() => setShowAdvanced(!showAdvanced)}
           className={cn(
-            "h-8 px-3 text-xs gap-1.5 border-border/50",
+            "h-7 px-2 text-[11px] gap-1 border-border/50",
             showAdvanced && "bg-primary/10 border-primary/30"
           )}
         >
           <Filter className="w-3 h-3" />
-          <span className="hidden sm:inline">Bộ lọc</span>
           {activeFilterCount > 0 && (
             <Badge 
               variant="secondary" 
-              className="h-4 w-4 p-0 flex items-center justify-center text-[10px] bg-primary text-primary-foreground"
+              className="h-4 w-4 p-0 flex items-center justify-center text-[9px] bg-primary text-primary-foreground"
             >
               {activeFilterCount}
             </Badge>
           )}
-          <ChevronDown className={cn(
-            "w-3 h-3 transition-transform duration-200",
-            showAdvanced && "rotate-180"
-          )} />
+          <ChevronDown className={cn("w-3 h-3 transition-transform", showAdvanced && "rotate-180")} />
         </Button>
 
-        {/* Clear Filters */}
+        {/* Clear */}
         <AnimatePresence>
           {hasActiveFilters && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-            >
+            <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={clearFilters}
-                className="h-8 px-3 text-xs gap-1.5 text-muted-foreground hover:text-destructive"
+                className="h-7 px-2 text-[11px] gap-1 text-muted-foreground hover:text-destructive"
               >
                 <X className="w-3 h-3" />
-                Xóa bộ lọc
               </Button>
             </motion.div>
           )}
@@ -169,108 +182,78 @@ export function CarouselFilters({ filters, onFiltersChange }: CarouselFiltersPro
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl border border-border/50 bg-muted/30">
-              {/* Platform Select (Mobile) */}
-              <div className="sm:hidden w-full">
+            <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-lg border border-border/50 bg-muted/30">
+              {/* Platform (mobile) */}
+              <div className="sm:hidden flex-1 min-w-[120px]">
                 <Select
                   value={filters.platform}
                   onValueChange={(v) => onFiltersChange({ ...filters, platform: v as Platform | 'all' })}
                 >
-                  <SelectTrigger className="w-full bg-background/50 border-border/50">
-                    <Facebook className="w-4 h-4 mr-2 text-muted-foreground" />
+                  <SelectTrigger className="w-full h-8 text-xs bg-background/50 border-border/50">
                     <SelectValue placeholder="Nền tảng" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tất cả nền tảng</SelectItem>
                     {PLATFORM_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* AI Tool Select */}
-              <div className="flex-1 min-w-[150px]">
+              {/* AI Tool */}
+              <div className="flex-1 min-w-[120px]">
                 <Select
                   value={filters.aiTool}
                   onValueChange={(v) => onFiltersChange({ ...filters, aiTool: v as AITool | 'all' })}
                 >
-                  <SelectTrigger className="w-full bg-background/50 border-border/50">
-                    <Palette className="w-4 h-4 mr-2 text-muted-foreground" />
+                  <SelectTrigger className="w-full h-8 text-xs bg-background/50 border-border/50">
+                    <Palette className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
                     <SelectValue placeholder="Công cụ AI" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tất cả công cụ</SelectItem>
                     {AI_TOOL_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Status Select */}
-              <div className="flex-1 min-w-[150px]">
+              {/* Status */}
+              <div className="flex-1 min-w-[120px]">
                 <Select
                   value={filters.status}
                   onValueChange={(v) => onFiltersChange({ ...filters, status: v as CarouselStatus | 'all' })}
                 >
-                  <SelectTrigger className="w-full bg-background/50 border-border/50">
+                  <SelectTrigger className="w-full h-8 text-xs bg-background/50 border-border/50">
                     <SelectValue placeholder="Trạng thái" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tất cả trạng thái</SelectItem>
                     {Object.entries(CAROUSEL_STATUS_CONFIG).map(([key, config]) => (
-                      <SelectItem key={key} value={key}>
-                        {config.label}
-                      </SelectItem>
+                      <SelectItem key={key} value={key}>{config.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Carousel Style Select */}
-              <div className="flex-1 min-w-[150px]">
+              {/* Style */}
+              <div className="flex-1 min-w-[120px]">
                 <Select
                   value={filters.carouselStyle}
                   onValueChange={(v) => onFiltersChange({ ...filters, carouselStyle: v as CarouselStyleType | 'all' })}
                 >
-                  <SelectTrigger className="w-full bg-background/50 border-border/50">
+                  <SelectTrigger className="w-full h-8 text-xs bg-background/50 border-border/50">
                     <SelectValue placeholder="Kiểu carousel" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tất cả kiểu</SelectItem>
                     {CAROUSEL_STYLE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.icon} {opt.label}
-                      </SelectItem>
+                      <SelectItem key={opt.value} value={opt.value}>{opt.icon} {opt.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-
-              {/* AI Tool Quick Chips */}
-              <div className="hidden md:flex items-center gap-1.5">
-                {AI_TOOL_OPTIONS.slice(0, 3).map((tool) => (
-                  <Button
-                    key={tool.value}
-                    variant={filters.aiTool === tool.value ? "secondary" : "ghost"}
-                    size="sm"
-                    onClick={() => onFiltersChange({ 
-                      ...filters, 
-                      aiTool: filters.aiTool === tool.value ? 'all' : tool.value 
-                    })}
-                    className={cn(
-                      "h-7 px-2.5 text-xs transition-all duration-200",
-                      filters.aiTool === tool.value && "bg-primary/10 text-primary border border-primary/30"
-                    )}
-                  >
-                    {tool.label}
-                  </Button>
-                ))}
               </div>
             </div>
           </motion.div>
