@@ -36,6 +36,11 @@ serve(async (req) => {
       );
     }
 
+    // === STEP 0: Get AI config for model selection ===
+    const aiConfig = await getAIConfig('generate-carousel-image');
+    const imageModel = aiConfig.model;
+    console.log(`[generate-carousel-image] Using model: ${imageModel}`);
+
     // === STEP 1: Generate background image (no text) ===
     const backgroundPrompt = buildBackgroundPrompt(prompt, platform, carouselStyle, slideNumber, totalSlides);
     console.log("[generate-carousel-image] Step 1: Generating background...");
@@ -51,7 +56,7 @@ serve(async (req) => {
           "Authorization": `Bearer ${lovableApiKey}`,
         },
         body: JSON.stringify({
-          model: "google/gemini-3-pro-image-preview",
+          model: imageModel,
           messages: [{ role: "user", content: backgroundPrompt }],
           modalities: ["image", "text"],
         }),
