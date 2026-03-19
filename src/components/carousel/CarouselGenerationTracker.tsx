@@ -94,6 +94,7 @@ function extractBrandColors(carousel: Carousel): { textColor?: string; backgroun
 export function CarouselGenerationTracker({
   onBack,
   onMinimize,
+  onProgressChange,
   topic,
   platform,
   slideCount,
