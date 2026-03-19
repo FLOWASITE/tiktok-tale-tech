@@ -349,6 +349,14 @@ function getTypographyStyles(style: TypographyStyle): {
  */
 async function loadGoogleFont(text: string, weight: number = 600, family: string = 'Be Vietnam Pro'): Promise<ArrayBuffer | null> {
   try {
+    const cacheKey = `${family}-${weight}`;
+    const cached = getCachedFont(cacheKey);
+    if (cached) {
+      console.log(`[Font Cache] HIT: ${cacheKey}`);
+      return cached;
+    }
+    console.log(`[Font Cache] MISS: ${cacheKey}`);
+
     const fontFamily = family.replace(/\s+/g, '+');
     const encodedText = encodeURIComponent(text);
     const url = `https://fonts.googleapis.com/css2?family=${fontFamily}:wght@${weight}&text=${encodedText}`;
@@ -383,6 +391,7 @@ async function loadGoogleFont(text: string, weight: number = 600, family: string
     
     const fontData = await fontResponse.arrayBuffer();
     console.log(`[overlay-text-canvas] Font ${family} wt=${weight} loaded: ${fontData.byteLength} bytes`);
+    setCachedFont(cacheKey, fontData);
     return fontData;
   } catch (error) {
     console.error(`[overlay-text-canvas] Font loading error:`, error);
