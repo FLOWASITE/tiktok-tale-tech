@@ -136,7 +136,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
     return null;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent, autoGenerateImages = false) => {
     e.preventDefault();
     if (!topic.trim()) {
       toast.error('Vui lòng nhập chủ đề carousel');
@@ -156,6 +156,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
       topicHistoryId,
       carouselStyle,
       visualPreset,
+      autoGenerateImages,
     });
   };
 
