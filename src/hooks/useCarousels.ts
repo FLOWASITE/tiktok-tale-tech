@@ -49,6 +49,11 @@ export function useCarousels() {
       return null;
     }
 
+    if (generatingRef.current) {
+      console.log('[Carousel] Blocked double-invoke');
+      return null;
+    }
+    generatingRef.current = true;
     setGenerating(true);
     try {
       // Ensure we have a fresh session before calling the function
