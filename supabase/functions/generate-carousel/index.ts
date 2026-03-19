@@ -506,12 +506,23 @@ ${textLengthSection}
 Bạn PHẢI trả về JSON với cấu trúc chính xác như tool definition.
 Mỗi slide phải có đủ 7 thành phần:
 [1] objective: Mục tiêu slide
-[2] textContent: Nội dung chữ sẽ overlay lên ảnh (${langName})
+[2] textContent: Object có cấu trúc phân tầng (${langName}):
+    - headline (BẮT BUỘC): Dòng chính — ngắn gọn, 3-8 từ
+    - subtitle (tùy chọn): Dòng phụ — 1-2 câu ngắn
+    - caption (tùy chọn): Dòng nhỏ — tagline/CTA ngắn, ví dụ "@flowa.vn"
+    - dataValue (chỉ cho data slides): Số liệu lớn — "150%", "2.5M"
+    - dataLabel (đi kèm dataValue): Nhãn — "Tăng trưởng doanh thu"
 [3] designStyle: Phong cách thiết kế
 [4] colorLayout: Màu sắc – bố cục
 [5] aspectRatio: Tỉ lệ khung hình (1:1 cho carousel)
 [6] technicalRequirements: Yêu cầu kỹ thuật
 [7] fullPrompt: Prompt tạo ẢNH NỀN (background only, NO text rendering)
+
+## VÍ DỤ textContent
+Hook slide: { "headline": "AI ĐÃ THAY ĐỔI MARKETING", "subtitle": "3 chiến lược bạn cần biết ngay", "caption": "@flowa.vn" }
+Data slide: { "headline": "Hiệu quả quảng cáo", "dataValue": "340%", "dataLabel": "ROI trung bình", "caption": "Khảo sát Q3/2025" }
+CTA slide: { "headline": "Bắt đầu ngay hôm nay", "subtitle": "Đăng ký miễn phí tại flowa.vn", "caption": "Link in bio 👇" }
+Body slide: { "headline": "Tối ưu chi phí", "subtitle": "Giảm 40% ngân sách quảng cáo nhờ AI targeting" }
 ${formData.includeLogo ? `\nLưu ý: Logo "${formData.brandName}" sẽ được thêm tự động, KHÔNG cần yêu cầu trong fullPrompt.` : ""}`;
 };
 
@@ -674,7 +685,18 @@ Follow the carousel style guidelines strictly.`;
                   properties: {
                     slideNumber: { type: "number", description: "Số thứ tự slide" },
                     objective: { type: "string", description: "Mục tiêu của slide này" },
-                    textContent: { type: "string", description: "Nội dung chữ tiếng Việt xuất hiện trên ảnh" },
+                    textContent: {
+                      type: "object",
+                      description: "Nội dung chữ xuất hiện trên ảnh, có cấu trúc phân tầng",
+                      properties: {
+                        headline: { type: "string", description: "Dòng chính — ngắn gọn, đập vào mắt, 3-8 từ (BẮT BUỘC)" },
+                        subtitle: { type: "string", description: "Dòng phụ — giải thích thêm, 1-2 câu ngắn (tùy chọn)" },
+                        caption: { type: "string", description: "Dòng nhỏ — tagline hoặc CTA ngắn (tùy chọn)" },
+                        dataValue: { type: "string", description: "Số liệu lớn nổi bật — ví dụ '150%', '2.5M' (chỉ dùng cho slide data)" },
+                        dataLabel: { type: "string", description: "Nhãn cho số liệu — ví dụ 'Tăng trưởng doanh thu'" },
+                      },
+                      required: ["headline"],
+                    },
                     designStyle: { type: "string", description: "Phong cách thiết kế" },
                     colorLayout: { type: "string", description: "Màu sắc và bố cục" },
                     aspectRatio: { type: "string", description: "Tỉ lệ khung hình" },

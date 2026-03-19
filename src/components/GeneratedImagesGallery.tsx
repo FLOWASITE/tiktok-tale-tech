@@ -164,7 +164,7 @@ export function GeneratedImagesGallery({
                     {slides && slides[image.slideNumber - 1] && (
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 xs:p-4">
                         <p className="text-white text-xs xs:text-sm font-medium line-clamp-2">
-                          {slides[image.slideNumber - 1].textContent}
+                          {typeof slides[image.slideNumber - 1].textContent === 'string' ? slides[image.slideNumber - 1].textContent : (slides[image.slideNumber - 1].textContent as any)?.headline || ''}
                         </p>
                       </div>
                     )}

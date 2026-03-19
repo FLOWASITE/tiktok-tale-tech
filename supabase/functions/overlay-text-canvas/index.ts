@@ -1,4 +1,4 @@
-import satori from "https://esm.sh/satori@0.10.14";
+import satori from "https://esm.sh/satori@0.10.14?bundle";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -1443,7 +1443,7 @@ serve(async (req) => {
       // Phase A: dark gradient for gallery hook
       bottomGradient?: boolean;
       // Phase B: multi-layer text hierarchy
-      textLayers?: Array<{ text: string; role: 'headline' | 'subtitle' | 'body' | 'accent' }>;
+      textLayers?: Array<{ text: string; role: 'headline' | 'subtitle' | 'body' | 'accent' | 'dataValue' | 'dataLabel' | 'caption' }>;
       // Phase C: brand color blending
       brandColors?: { textColor?: string; backgroundColor?: string };
       // Phase E: decorations (listicle, educational, flat_design, product)
@@ -1563,8 +1563,25 @@ serve(async (req) => {
           let layerFontWeight = fontWeight;
           let layerOpacity = 1;
           let layerLineHeight = 1.35;
+          let layerLetterSpacing = 'normal';
+          let layerColor = carouselOverlay.textColor || '#FFFFFF';
 
           switch (layer.role) {
+            case 'dataValue':
+              // Very large, bold, accent color — the hero number
+              layerFontSize = Math.round(fontSizePx * 3.0);
+              layerFontWeight = 900;
+              layerLineHeight = 1.0;
+              layerLetterSpacing = '-0.03em';
+              layerColor = carouselOverlay.brandColors?.backgroundColor || '#FFC107';
+              break;
+            case 'dataLabel':
+              // Small caps label above/below the data value
+              layerFontSize = Math.round(fontSizePx * 0.55);
+              layerFontWeight = 500;
+              layerOpacity = 0.7;
+              layerLetterSpacing = '0.08em';
+              break;
             case 'headline':
               layerFontSize = Math.round(fontSizePx * 1.4);
               layerFontWeight = Math.min(fontWeight + 200, 900);
@@ -1574,6 +1591,14 @@ serve(async (req) => {
               layerFontWeight = 400;
               layerOpacity = 0.85;
               layerLineHeight = 1.5;
+              break;
+            case 'caption':
+              // Small muted text at bottom — brand tagline
+              layerFontSize = Math.round(fontSizePx * 0.45);
+              layerFontWeight = 400;
+              layerOpacity = 0.5;
+              layerLineHeight = 1.3;
+              layerLetterSpacing = '0.04em';
               break;
             case 'body':
               layerFontSize = Math.round(fontSizePx * 0.7);
@@ -1594,17 +1619,18 @@ serve(async (req) => {
             type: 'span',
             props: {
               style: {
-                color: carouselOverlay.textColor || '#FFFFFF',
+                color: layerColor,
                 fontSize: layerFontSize,
                 fontFamily: fonts.length > 0 ? fontFamily : 'sans-serif',
                 fontWeight: layerFontWeight,
                 textAlign: carouselOverlay.textAlign || 'center',
                 lineHeight: layerLineHeight,
                 opacity: layerOpacity,
+                letterSpacing: layerLetterSpacing,
                 textShadow: (carouselOverlay.background === 'none')
                   ? '2px 2px 4px rgba(0,0,0,0.7), -1px -1px 2px rgba(0,0,0,0.4)'
                   : 'none',
-                marginTop: layer.role === 'headline' ? 0 : 4,
+                marginTop: layer.role === 'dataValue' ? 0 : (layer.role === 'headline' ? 8 : (layer.role === 'caption' ? 12 : 4)),
               },
               children: layer.text,
             },

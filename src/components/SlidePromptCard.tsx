@@ -1,4 +1,4 @@
-import { CarouselSlide } from '@/types/carousel';
+import { CarouselSlide, textContentToString } from '@/types/carousel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -48,7 +48,8 @@ export function SlidePromptCard({
 
   const startEditing = useCallback((field: EditableField) => {
     setEditingField(field);
-    setEditValue(slide[field]);
+    const val = slide[field];
+    setEditValue(field === 'textContent' ? textContentToString(val as any) : (val as string));
   }, [slide]);
 
   const cancelEditing = useCallback(() => {
@@ -214,7 +215,7 @@ export function SlidePromptCard({
           <Type className="w-3 xs:w-3.5 h-3 xs:h-3.5" />,
           '[2] Nội dung chữ trên ảnh',
           'Nội dung',
-          slide.textContent,
+          textContentToString(slide.textContent),
         )}
 
         {renderEditableField(
