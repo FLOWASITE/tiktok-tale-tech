@@ -453,17 +453,31 @@ async function loadMultipleFontWeights(
     }
   }
   
-  // Fallback: if primary font failed, try Be Vietnam Pro
+  // Fallback: if primary font failed, try Be Vietnam Pro with retry
   if (fonts.length === 0 && bodyFamily !== 'Be Vietnam Pro') {
-    console.log(`[overlay-text-canvas] Primary font ${bodyFamily} failed, falling back to Be Vietnam Pro`);
-    const fb = await loadGoogleFont(text, 400, 'Be Vietnam Pro');
-    if (fb) fonts.push({ name: 'Be Vietnam Pro', data: fb, weight: 400, style: 'normal' });
+    console.warn(`[overlay-text-canvas] Primary font ${bodyFamily} failed, falling back to Be Vietnam Pro`);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const fb = await loadGoogleFont(text, 400, 'Be Vietnam Pro');
+      if (fb) {
+        fonts.push({ name: 'Be Vietnam Pro', data: fb, weight: 400, style: 'normal' });
+        const fb2 = await loadGoogleFont(text, 700, 'Be Vietnam Pro');
+        if (fb2) fonts.push({ name: 'Be Vietnam Pro', data: fb2, weight: 700, style: 'normal' });
+        break;
+      }
+      if (attempt === 0) await new Promise(r => setTimeout(r, 500));
+    }
   }
   
-  // Last resort fallback
+  // Last resort fallback with retry
   if (fonts.length === 0) {
-    const fb = await loadGoogleFont(text, 400);
-    if (fb) fonts.push({ name: 'Be Vietnam Pro', data: fb, weight: 400, style: 'normal' });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const fb = await loadGoogleFont(text, 400);
+      if (fb) {
+        fonts.push({ name: 'Be Vietnam Pro', data: fb, weight: 400, style: 'normal' });
+        break;
+      }
+      if (attempt === 0) await new Promise(r => setTimeout(r, 500));
+    }
   }
   
   console.log(`[overlay-text-canvas] Loaded ${fonts.length} font weights: ${fonts.map(f => `${f.name}@${f.weight}`).join(', ')}`);

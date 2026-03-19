@@ -759,7 +759,16 @@ serve(async (req) => {
 
       // Phase B: Parse text layers (now supports structured textContent)
       const rawTextLayers = parseTextLayers(textContent, slideRole);
-      const textLayers = rawTextLayers ? deduplicateTextLayers(rawTextLayers) : null;
+      let textLayers = rawTextLayers ? deduplicateTextLayers(rawTextLayers) : null;
+
+      // Validate text layers: remove empty/whitespace-only layers
+      if (textLayers) {
+        textLayers = textLayers.filter(l => l.text && l.text.trim().length > 0);
+        if (textLayers.length === 0) {
+          console.warn(`[generate-carousel-image] All text layers were empty after validation for slide ${slideNumber}`);
+          textLayers = null;
+        }
+      }
 
       // Phase A: Gallery hook dark gradient
       const needsBottomGradient = (carouselStyle === 'gallery' && slideRole === 'hook');
