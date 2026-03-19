@@ -259,7 +259,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate 
         carouselStyle: carousel.carousel_style,
         totalSlides: carousel.slides_content.length,
         slideObjective: slide.objective,
-        visualPreset: carousel.carousel_style,
+        visualPreset: carousel.visual_preset || 'minimalist',
         seamlessContext: isSeamless ? {
           colorPalette,
           previousSceneDescription,
