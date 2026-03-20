@@ -1098,6 +1098,30 @@ Follow the carousel style guidelines strictly.`;
       });
     }
 
+    // Embed brand colors into brand_guideline for downstream use
+    let brandGuidelineToSave = formData.brandGuideline || '';
+    {
+      // Collect brand colors from template or form data
+      const primaryColor = (formData as any).brandPrimaryColor || (template as any)?.primary_color || null;
+      const secondaryColors = (formData as any).brandSecondaryColors || (template as any)?.secondary_colors || [];
+      if (primaryColor) {
+        try {
+          const existing = brandGuidelineToSave ? JSON.parse(brandGuidelineToSave) : {};
+          existing.primaryColor = primaryColor;
+          if (secondaryColors.length > 0) existing.secondaryColors = secondaryColors;
+          brandGuidelineToSave = JSON.stringify(existing);
+        } catch {
+          // brand_guideline is plain text, wrap it
+          brandGuidelineToSave = JSON.stringify({
+            text: brandGuidelineToSave,
+            primaryColor,
+            ...(secondaryColors.length > 0 ? { secondaryColors } : {}),
+          });
+        }
+        console.log('[generate-carousel] Brand colors embedded:', primaryColor, secondaryColors);
+      }
+    }
+
     // Save to database
     const { data: carousel, error: dbError } = await supabase
       .from("carousels")
@@ -1110,7 +1134,7 @@ Follow the carousel style guidelines strictly.`;
         slide_count: formData.slideCount,
         ai_tool: formData.aiTool,
         brand_name: formData.brandName,
-        brand_guideline: formData.brandGuideline,
+        brand_guideline: brandGuidelineToSave,
         include_logo: formData.includeLogo,
         slides_content: generatedData.slides,
         caption_suggestion: generatedData.captionSuggestion,

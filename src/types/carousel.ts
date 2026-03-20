@@ -89,6 +89,8 @@ export interface CarouselFormData {
   carouselStyle: CarouselStyleType;
   visualPreset: VisualPresetType;
   autoGenerateImages?: boolean;
+  brandPrimaryColor?: string;
+  brandSecondaryColors?: string[];
 }
 
 export const DEFAULT_BRAND_GUIDELINE = '';

@@ -214,6 +214,8 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
       carouselStyle,
       visualPreset,
       autoGenerateImages,
+      brandPrimaryColor: brandPrimaryColor || undefined,
+      brandSecondaryColors: brandSecondaryColors.length > 0 ? brandSecondaryColors : undefined,
     });
   };
 

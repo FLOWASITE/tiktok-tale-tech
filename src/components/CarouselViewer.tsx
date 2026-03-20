@@ -372,28 +372,46 @@ export function CarouselViewer({
     toast.success('Đã xuất file TXT!');
   };
 
-  /** Extract brand colors from carousel brand_guideline for Phase C */
+  /** Extract brand colors from carousel brand_guideline or brand template fallback */
   const extractBrandColors = (): { textColor?: string; backgroundColor?: string } | undefined => {
-    if (!carousel.brand_guideline) return undefined;
-    try {
-      const parsed = typeof carousel.brand_guideline === 'string' 
-        ? JSON.parse(carousel.brand_guideline) 
-        : carousel.brand_guideline;
-      if (parsed?.colors || parsed?.primaryColor || parsed?.textColor) {
-        return {
-          textColor: parsed.textColor || parsed.colors?.text || parsed.colors?.primary,
-          backgroundColor: parsed.backgroundColor || parsed.colors?.background || parsed.colors?.secondary,
-        };
-      }
-    } catch {
-      const hexColors = (carousel.brand_guideline as string).match(/#[0-9A-Fa-f]{3,8}/g);
-      if (hexColors && hexColors.length >= 2) {
-        return { textColor: hexColors[0], backgroundColor: hexColors[1] };
-      }
-      if (hexColors && hexColors.length === 1) {
-        return { textColor: hexColors[0] };
+    // Try parsing brand_guideline first (may contain embedded colors)
+    if (carousel.brand_guideline) {
+      try {
+        const parsed = typeof carousel.brand_guideline === 'string' 
+          ? JSON.parse(carousel.brand_guideline) 
+          : carousel.brand_guideline;
+        if (parsed?.primaryColor) {
+          const secondaries = parsed.secondaryColors as string[] | undefined;
+          return {
+            textColor: parsed.primaryColor,
+            backgroundColor: secondaries?.[0] || parsed.backgroundColor || undefined,
+          };
+        }
+        if (parsed?.colors || parsed?.textColor) {
+          return {
+            textColor: parsed.textColor || parsed.colors?.text || parsed.colors?.primary,
+            backgroundColor: parsed.backgroundColor || parsed.colors?.background || parsed.colors?.secondary,
+          };
+        }
+      } catch {
+        const hexColors = (carousel.brand_guideline as string).match(/#[0-9A-Fa-f]{3,8}/g);
+        if (hexColors && hexColors.length >= 2) {
+          return { textColor: hexColors[0], backgroundColor: hexColors[1] };
+        }
+        if (hexColors && hexColors.length === 1) {
+          return { textColor: hexColors[0] };
+        }
       }
     }
+
+    // Fallback: use brand template colors
+    if (brandTemplate?.primary_color) {
+      return {
+        textColor: brandTemplate.primary_color,
+        backgroundColor: (brandTemplate as any).secondary_colors?.[0] || undefined,
+      };
+    }
+
     return undefined;
   };
 
