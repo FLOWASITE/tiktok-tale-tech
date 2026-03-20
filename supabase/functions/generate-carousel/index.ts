@@ -750,7 +750,8 @@ serve(async (req) => {
     const langConfig = getLanguageConfig(outputLang);
 
     // Initialize PromptManager and fetch prompts from registry
-    let systemPrompt = getSystemPrompt(formData, brandVoice, mergedRules, outputLang, brandCountryCode); // Fallback to hardcoded
+    const brandColorsForPrompt = templatePrimaryColor ? { primary: templatePrimaryColor, secondary: templateSecondaryColors } : undefined;
+    let systemPrompt = getSystemPrompt(formData, brandVoice, mergedRules, outputLang, brandCountryCode, brandColorsForPrompt); // Fallback to hardcoded
     let userPrompt = `Create ${formData.slideCount} carousel slides for the topic:
 "${formData.topic}"
 
