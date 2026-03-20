@@ -572,6 +572,25 @@ export const buildLocalizationSuffix: PromptBuilder = (ctx) => {
 };
 
 // ============================================
+// 11. Brand Color Reinforcement (suffix) — sandwich technique
+// ============================================
+
+export const buildBrandColorReinforcement: PromptBuilder = (ctx) => {
+  const { brand, promptMode = 'full' } = ctx.params;
+  if (promptMode === 'raw') return null;
+  if (!brand?.brandColors?.primary) return null;
+
+  const colorList = [brand.brandColors.primary, ...(brand.brandColors.secondary || [])].join(', ');
+
+  return {
+    id: 'brand_color_reinforcement',
+    position: 'suffix',
+    priority: 99,
+    content: `⚠️ FINAL COLOR CHECK: The image MUST prominently feature these brand colors: ${colorList}. If the image appears mostly blue, black, teal, or gray and those are NOT the brand colors above, regenerate with the correct palette.`,
+  };
+};
+
+// ============================================
 // DEFAULT BUILDER REGISTRY
 // ============================================
 
@@ -586,4 +605,5 @@ export const DEFAULT_BUILDERS: PromptBuilder[] = [
   buildNegativePrompt,
   buildCriticalRules,
   buildLocalizationSuffix,
+  buildBrandColorReinforcement,
 ];
