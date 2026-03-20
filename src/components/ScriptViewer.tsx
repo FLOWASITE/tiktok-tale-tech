@@ -210,51 +210,104 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
               "flex flex-col min-h-0",
               showAnalytics ? "flex-1 w-0" : "w-full"
             )}>
-              {/* Metadata badges */}
-              <div className="flex flex-wrap items-center gap-1.5 xs:gap-2 text-xs xs:text-sm">
-                {/* Script Purpose Badge */}
-                {script.script_purpose && SCRIPT_PURPOSE_CONFIG[script.script_purpose as ScriptPurpose] && (
-                  <span className="inline-flex items-center gap-0.5 xs:gap-1 px-2 xs:px-3 py-1 xs:py-1.5 rounded-full bg-gradient-to-r from-primary/20 to-secondary/20 text-primary border border-primary/30">
-                    <Target className="w-3 h-3 xs:w-4 xs:h-4" />
-                    <span className="hidden xs:inline">
+              {/* Compact metadata & actions bar */}
+              <div className="flex items-center justify-between gap-3 py-2 border-b border-border/40">
+                {/* Left: metadata pills */}
+                <div className="flex items-center gap-1.5 flex-wrap min-w-0 text-[11px] xs:text-xs">
+                  {script.script_purpose && SCRIPT_PURPOSE_CONFIG[script.script_purpose as ScriptPurpose] && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/8 text-primary font-medium">
+                      <Target className="w-3 h-3" />
                       {SCRIPT_PURPOSE_CONFIG[script.script_purpose as ScriptPurpose].label}
                     </span>
-                    <span className="xs:hidden">
-                      {SCRIPT_PURPOSE_CONFIG[script.script_purpose as ScriptPurpose].label.split(' ')[0]}
+                  )}
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-muted-foreground">
+                    <Clock className="w-3 h-3" />
+                    {DURATION_LABELS[script.duration as keyof typeof DURATION_LABELS]}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-muted-foreground">
+                    <Film className="w-3 h-3" />
+                    <span className="truncate max-w-[80px]">
+                      {VIDEO_TYPE_LABELS[script.video_type as keyof typeof VIDEO_TYPE_LABELS]}
                     </span>
                   </span>
-                )}
-                <span className="inline-flex items-center gap-0.5 xs:gap-1 px-2 xs:px-3 py-1 xs:py-1.5 rounded-full bg-primary/10 text-primary">
-                  <Clock className="w-3 h-3 xs:w-4 xs:h-4" />
-                  <span className="hidden xs:inline">{DURATION_LABELS[script.duration as keyof typeof DURATION_LABELS]}</span>
-                  <span className="xs:hidden">{script.duration}s</span>
-                </span>
-                <span className="inline-flex items-center gap-0.5 xs:gap-1 px-2 xs:px-3 py-1 xs:py-1.5 rounded-full bg-secondary/10 text-secondary">
-                  <Film className="w-3 h-3 xs:w-4 xs:h-4" />
-                  <span className="truncate max-w-[60px] xs:max-w-none">
-                    {VIDEO_TYPE_LABELS[script.video_type as keyof typeof VIDEO_TYPE_LABELS]}
-                  </span>
-                </span>
-                <span className="inline-flex items-center gap-0.5 xs:gap-1 px-2 xs:px-3 py-1 xs:py-1.5 rounded-full bg-muted text-muted-foreground">
-                  <User className="w-3 h-3 xs:w-4 xs:h-4" />
-                  <span className="hidden xs:inline">
+                  <span className="hidden xs:inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-muted-foreground">
+                    <User className="w-3 h-3" />
                     {CHARACTER_TYPE_LABELS[script.character_type as keyof typeof CHARACTER_TYPE_LABELS]}
                   </span>
-                </span>
-                {promptCount > 0 && (
-                  <span className="inline-flex items-center gap-0.5 xs:gap-1 px-2 xs:px-3 py-1 xs:py-1.5 rounded-full bg-accent/10 text-accent-foreground">
-                    <Hash className="w-3 h-3 xs:w-4 xs:h-4" />
-                    {promptCount}
+                  {promptCount > 0 && (
+                    <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">
+                      <Hash className="w-3 h-3" />
+                      {promptCount}
+                    </span>
+                  )}
+                  <span className="hidden xs:inline text-muted-foreground/60">·</span>
+                  <span className="hidden xs:inline-flex items-center gap-1 text-muted-foreground">
+                    <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
                   </span>
-                )}
-              </div>
+                  <span className="hidden xs:inline text-muted-foreground/60">·</span>
+                  <span className="hidden xs:inline text-muted-foreground">
+                    {new Date(script.created_at).toLocaleDateString('vi-VN')}
+                  </span>
+                </div>
 
-              {/* Creator & Time - Visible on larger screens */}
-              <div className="hidden xs:flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mt-2">
-                <span>Tạo bởi:</span>
-                <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
-                <span className="mx-1">•</span>
-                <span>{new Date(script.created_at).toLocaleDateString('vi-VN')}</span>
+                {/* Right: action icons */}
+                <div className="flex items-center gap-0.5 flex-shrink-0">
+                  {isEditing ? (
+                    <>
+                      <Button variant="ghost" size="icon" onClick={handleSaveEdit} disabled={isSaving} className="h-7 w-7 text-primary">
+                        <Save className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={handleCancelEdit} disabled={isSaving} className="h-7 w-7 text-destructive">
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <TooltipProvider delayDuration={300}>
+                        <Tooltip><TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" onClick={() => setShowTeleprompter(true)} className="h-7 w-7">
+                            <Monitor className="w-3.5 h-3.5" />
+                          </Button>
+                        </TooltipTrigger><TooltipContent side="bottom"><p>Teleprompter</p></TooltipContent></Tooltip>
+
+                        <Tooltip><TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" onClick={handleStartEdit} className="h-7 w-7">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </TooltipTrigger><TooltipContent side="bottom"><p>Chỉnh sửa</p></TooltipContent></Tooltip>
+
+                        <Tooltip><TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" onClick={handleCopy} className="h-7 w-7">
+                            {copied ? <Check className="w-3.5 h-3.5 text-primary" /> : <Copy className="w-3.5 h-3.5" />}
+                          </Button>
+                        </TooltipTrigger><TooltipContent side="bottom"><p>{copied ? 'Đã copy' : 'Copy'}</p></TooltipContent></Tooltip>
+                      </TooltipProvider>
+
+                      <ScriptExportMenu script={script} />
+
+                      {script.status === 'published' && (
+                        <TopicPerformanceUpdater
+                          contentId={script.id}
+                          onUpdate={() => {}}
+                          trigger={
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-500">
+                              <TrendingUp className="w-3.5 h-3.5" />
+                            </Button>
+                          }
+                        />
+                      )}
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowAnalytics(!showAnalytics)}
+                        className={cn("sm:hidden h-7 w-7", showAnalytics && "text-primary bg-primary/10")}
+                      >
+                        <PanelRightOpen className="w-3.5 h-3.5" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Industry Guardrail Badge */}
@@ -263,98 +316,6 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                 isLoading={isLoadingIndustry}
                 className="mt-2"
               />
-
-              {/* Action buttons */}
-              <div className="flex gap-1.5 xs:gap-2 flex-wrap mt-2 xs:mt-3">
-                {isEditing ? (
-                  <>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleSaveEdit}
-                      disabled={isSaving}
-                      className="gradient-primary h-7 xs:h-8 text-xs xs:text-sm"
-                    >
-                      <Save className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1" />
-                      {isSaving ? 'Lưu...' : 'Lưu'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCancelEdit}
-                      disabled={isSaving}
-                      className="border-border hover:border-destructive hover:bg-destructive/10 h-7 xs:h-8 text-xs xs:text-sm"
-                    >
-                      <X className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1" />
-                      Hủy
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowTeleprompter(true)}
-                      className="border-border hover:border-primary hover:bg-primary/10 h-7 xs:h-8 text-xs xs:text-sm"
-                    >
-                      <Monitor className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1" />
-                      <span className="hidden xs:inline">Teleprompter</span>
-                      <span className="xs:hidden">Đọc</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleStartEdit}
-                      className="border-border hover:border-primary hover:bg-primary/10 h-7 xs:h-8 text-xs xs:text-sm"
-                    >
-                      <Edit2 className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1" />
-                      <span className="hidden xs:inline">Chỉnh sửa</span>
-                      <span className="xs:hidden">Sửa</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCopy}
-                      className="border-border hover:border-primary hover:bg-primary/10 h-7 xs:h-8 text-xs xs:text-sm"
-                    >
-                      {copied ? <Check className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1" /> : <Copy className="w-3.5 h-3.5 xs:w-4 xs:h-4 mr-1" />}
-                      <span className="hidden xs:inline">{copied ? 'Đã copy' : 'Copy'}</span>
-                    </Button>
-                    <ScriptExportMenu script={script} />
-                    {/* Performance Tracking - only when published */}
-                    {script.status === 'published' && (
-                      <TopicPerformanceUpdater
-                        contentId={script.id}
-                        onUpdate={() => {}}
-                        trigger={
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-border hover:border-emerald-500 hover:bg-emerald-500/10 h-7 xs:h-8 text-xs xs:text-sm gap-1"
-                          >
-                            <TrendingUp className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
-                            <span className="hidden xs:inline">Hiệu suất</span>
-                          </Button>
-                        }
-                      />
-                    )}
-                    {/* Mobile: AI Analyze button */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowAnalytics(!showAnalytics)}
-                      className={cn(
-                        "sm:hidden border-border h-7 text-xs",
-                        showAnalytics && "bg-primary/10 text-primary border-primary"
-                      )}
-                    >
-                      <PanelRightOpen className="w-3.5 h-3.5 mr-1" />
-                      AI
-                    </Button>
-                  </>
-                )}
-              </div>
-
               {/* Script content with tabs */}
               <div className="flex-1 min-h-0 mt-3 xs:mt-4">
                 {isEditing ? (
