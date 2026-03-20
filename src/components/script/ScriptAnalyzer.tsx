@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 interface ScriptAnalyzerProps {
   script: Script;
+  initialAnalysis?: ScriptAnalysis | null;
   className?: string;
 }
 
@@ -173,9 +174,17 @@ const SuggestionItem = ({ suggestion }: {
   );
 };
 
-export function ScriptAnalyzer({ script, className }: ScriptAnalyzerProps) {
-  const { analysis, isAnalyzing, error, analyzeScript, clearAnalysis } = useScriptAnalysis();
+export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAnalyzerProps) {
+  const { analysis, isAnalyzing, error, analyzeScript, setInitialAnalysis, clearAnalysis } = useScriptAnalysis();
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
+
+  // Load cached analysis on mount
+  useEffect(() => {
+    if (initialAnalysis && !analysis) {
+      setInitialAnalysis(initialAnalysis);
+      setHasAnalyzed(true);
+    }
+  }, [initialAnalysis]);
 
   const handleAnalyze = async () => {
     await analyzeScript(script);

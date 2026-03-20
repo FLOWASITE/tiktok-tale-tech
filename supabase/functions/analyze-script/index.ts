@@ -3,30 +3,60 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
-import { buildLocalizedDateContext } from "../_shared/country-language-map.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface ScriptAnalysis {
-  hookScore: number;
-  clarityScore: number;
-  viralPotential: number;
-  pacingScore: number;
-  ctaEffectiveness: number;
-  overallScore: number;
-  emotionalArc: { prompt: number; emotion: string; intensity: number }[];
-  suggestions: {
-    type: 'hook' | 'clarity' | 'pacing' | 'cta' | 'engagement';
-    priority: 'high' | 'medium' | 'low';
-    message: string;
-    promptNumber?: number;
-  }[];
-  strengths: string[];
-  weaknesses: string[];
-}
+// Tool definition for structured output
+const ANALYSIS_TOOL = {
+  type: "function",
+  function: {
+    name: "submit_script_analysis",
+    description: "Submit the structured analysis of a video script",
+    parameters: {
+      type: "object",
+      properties: {
+        hookScore: { type: "number", description: "Hook strength score 0-100" },
+        clarityScore: { type: "number", description: "Message clarity score 0-100" },
+        viralPotential: { type: "number", description: "Viral potential score 0-100" },
+        pacingScore: { type: "number", description: "Pacing score 0-100" },
+        ctaEffectiveness: { type: "number", description: "CTA effectiveness score 0-100" },
+        overallScore: { type: "number", description: "Overall score 0-100" },
+        emotionalArc: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              prompt: { type: "number" },
+              emotion: { type: "string" },
+              intensity: { type: "number" },
+            },
+            required: ["prompt", "emotion", "intensity"],
+          },
+        },
+        suggestions: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              type: { type: "string", enum: ["hook", "clarity", "pacing", "cta", "engagement"] },
+              priority: { type: "string", enum: ["high", "medium", "low"] },
+              message: { type: "string" },
+              promptNumber: { type: "number" },
+            },
+            required: ["type", "priority", "message"],
+          },
+        },
+        strengths: { type: "array", items: { type: "string" } },
+        weaknesses: { type: "array", items: { type: "string" } },
+      },
+      required: ["hookScore", "clarityScore", "viralPotential", "pacingScore", "ctaEffectiveness", "overallScore", "emotionalArc", "suggestions", "strengths", "weaknesses"],
+      additionalProperties: false,
+    },
+  },
+};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -60,35 +90,14 @@ serve(async (req) => {
       console.warn('[analyze-script] Failed to fetch prompt from registry, using hardcoded');
     }
 
-    const systemPrompt = baseSystemPrompt || `Bạn là chuyên gia phân tích kịch bản video với hơn 10 năm kinh nghiệm. 
-Phân tích kịch bản và trả về JSON với cấu trúc sau:
-
-{
-  "hookScore": <số từ 0-100, đánh giá độ mạnh của hook đầu tiên>,
-  "clarityScore": <số từ 0-100, độ rõ ràng của thông điệp>,
-  "viralPotential": <số từ 0-100, khả năng viral>,
-  "pacingScore": <số từ 0-100, nhịp điệu video>,
-  "ctaEffectiveness": <số từ 0-100, hiệu quả của CTA>,
-  "overallScore": <số từ 0-100, điểm tổng thể>,
-  "emotionalArc": [
-    {"prompt": 1, "emotion": "tò mò", "intensity": 70},
-    {"prompt": 2, "emotion": "hứng thú", "intensity": 80}
-  ],
-  "suggestions": [
-    {"type": "hook", "priority": "high", "message": "Gợi ý cải thiện...", "promptNumber": 1}
-  ],
-  "strengths": ["Điểm mạnh 1", "Điểm mạnh 2"],
-  "weaknesses": ["Điểm yếu 1", "Điểm yếu 2"]
-}
-
-Tiêu chí đánh giá:
+    const systemPrompt = baseSystemPrompt || `Bạn là chuyên gia phân tích kịch bản video với hơn 10 năm kinh nghiệm.
+Phân tích kịch bản video và đánh giá theo các tiêu chí:
 - hookScore: Hook có gây tò mò không? Có giữ chân người xem trong 3 giây đầu không?
 - clarityScore: Thông điệp có rõ ràng không? Có bị lan man không?
 - viralPotential: Có yếu tố khiến người xem muốn chia sẻ không?
 - pacingScore: Nhịp điệu có phù hợp với độ dài video không?
 - ctaEffectiveness: CTA có rõ ràng và thúc đẩy hành động không?
-
-CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC.`;
+Hãy đánh giá khách quan, chính xác. Đưa ra gợi ý cụ thể và hữu ích bằng tiếng Việt.`;
 
     const userPrompt = `Phân tích kịch bản video sau:
 
@@ -100,13 +109,11 @@ Nhân vật: ${characterType || 'Không xác định'}
 NỘI DUNG KỊCH BẢN:
 ${scriptContent}`;
 
-    console.log('Calling AI for script analysis...');
+    console.log('Calling AI for script analysis with tool calling...');
 
-    // Get AI config from Admin Panel
     const aiConfig = await getAIConfig('analyze-script');
     const adminModel = aiConfig?.model || undefined;
 
-    // Use multi-provider system with auto metrics
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -118,6 +125,8 @@ ${scriptContent}`;
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
+      tools: [ANALYSIS_TOOL],
+      toolChoice: { type: "function", function: { name: "submit_script_analysis" } },
       modelOverride: adminModel,
       temperatureOverride: aiConfig?.temperature,
     });
@@ -141,39 +150,38 @@ ${scriptContent}`;
       throw new Error(aiResult.error || 'AI call failed');
     }
 
-    const content = aiResult.data?.choices?.[0]?.message?.content || '';
+    // Extract from tool_calls first, fallback to content parsing
+    const message = aiResult.data?.choices?.[0]?.message;
+    let analysis: any = null;
 
-    console.log('AI response:', content);
-
-    // Parse JSON from response
-    let analysis: ScriptAnalysis;
-    try {
-      // Extract JSON from response (handle potential markdown code blocks)
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        analysis = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No JSON found in response');
+    // Primary: tool_calls
+    if (message?.tool_calls?.[0]?.function?.arguments) {
+      try {
+        analysis = JSON.parse(message.tool_calls[0].function.arguments);
+        console.log('[analyze-script] Parsed from tool_calls successfully');
+      } catch (e) {
+        console.warn('[analyze-script] Failed to parse tool_calls arguments:', e);
       }
-    } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError);
-      // Return default analysis if parsing fails
-      analysis = {
-        hookScore: 65,
-        clarityScore: 70,
-        viralPotential: 55,
-        pacingScore: 68,
-        ctaEffectiveness: 60,
-        overallScore: 64,
-        emotionalArc: [
-          { prompt: 1, emotion: 'trung tính', intensity: 50 }
-        ],
-        suggestions: [
-          { type: 'hook', priority: 'medium', message: 'Không thể phân tích chi tiết. Hãy thử lại.', promptNumber: 1 }
-        ],
-        strengths: ['Nội dung có cấu trúc'],
-        weaknesses: ['Cần xem xét thêm']
-      };
+    }
+
+    // Fallback: try content (some models return JSON in content even with tool_choice)
+    if (!analysis && message?.content) {
+      try {
+        const jsonMatch = message.content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          analysis = JSON.parse(jsonMatch[0]);
+          console.log('[analyze-script] Parsed from content fallback');
+        }
+      } catch (e) {
+        console.warn('[analyze-script] Content fallback parse failed:', e);
+      }
+    }
+
+    if (!analysis) {
+      return new Response(
+        JSON.stringify({ error: 'AI không trả về kết quả phân tích hợp lệ. Vui lòng thử lại.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     return new Response(
