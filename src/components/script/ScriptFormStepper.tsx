@@ -147,17 +147,19 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     enabled: currentStep === 3 && formData.topic.length >= 10,
   });
 
-  // Topic Refinement - now on step 2
+  // Enhanced Topic Suggestions (same as Carousel)
   const {
-    refinedTopics,
-    isLoading: isLoadingRefinement,
-    refresh: refreshRefinement,
-    elapsedMs: refinementElapsedMs,
-  } = useTopicRefinement({
-    rawTopic: formData.topic,
-    videoType: formData.video_type,
+    suggestions: enhancedSuggestions,
+    source: suggestionsSource,
+    isLoading: suggestionsLoading,
+    refresh: refreshSuggestions,
+    saveSuggestion,
+    submitFeedback,
+  } = useEnhancedTopicSuggestions({
     brandTemplateId: formData.brandTemplateId,
-    enabled: currentStep === 2 && formData.topic.trim().length >= TOPIC_MIN_LENGTH_FOR_REFINEMENT,
+    contentGoal: scriptContentGoal,
+    format: 'script',
+    enabled: currentStep === 2,
   });
 
   // Map script purpose to content goal for AI suggestions
