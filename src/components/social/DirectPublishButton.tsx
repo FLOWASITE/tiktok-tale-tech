@@ -314,7 +314,7 @@ export function DirectPublishButton({
             <>
               {/* Platform Header */}
               <div className={cn(
-                'px-6 py-4 flex items-center gap-3',
+                'px-4 py-3 sm:px-6 sm:py-4 flex items-center gap-3',
                 platform === 'facebook' && 'bg-[hsl(220,46%,48%)]/10',
                 platform === 'twitter' && 'bg-foreground/5',
                 platform === 'instagram' && 'bg-[hsl(330,70%,50%)]/10',
