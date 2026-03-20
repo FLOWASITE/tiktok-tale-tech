@@ -1777,7 +1777,7 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
         duration,
         video_type,
         character_type,
-        script_purpose: script_purpose || 'ai_video_veo3',
+        script_purpose: script_purpose || 'ai_video',
         voice_region: voice_region || 'northern',
         dialogue_style: dialogue_style || 'monologue',
         content,
