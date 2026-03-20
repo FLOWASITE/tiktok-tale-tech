@@ -627,9 +627,9 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                       disabled={isLoading}
                     />
                     <Collapsible>
-                      <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                        <span>Xem tất cả</span>
-                        <ChevronDown className="w-3 h-3 [[data-state=open]>&]:rotate-180 transition-transform" />
+                      <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors duration-300">
+                        <span className="tracking-wide">Xem tất cả</span>
+                        <ChevronDown className="w-3 h-3 [[data-state=open]>&]:rotate-180 transition-transform duration-300" />
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <VideoTypeSelector
