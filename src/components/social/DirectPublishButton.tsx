@@ -285,13 +285,13 @@ export function DirectPublishButton({
         <DialogContent className="sm:max-w-2xl p-0 overflow-hidden">
           {dialogState === 'success' ? (
             /* ===== SUCCESS STATE ===== */
-            <div className="flex flex-col items-center justify-center py-10 px-6 text-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/15 flex items-center justify-center">
-                <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+            <div className="flex flex-col items-center justify-center py-6 px-4 sm:py-10 sm:px-6 text-center gap-3 sm:gap-4">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                <CheckCircle2 className="h-6 w-6 sm:h-8 sm:w-8 text-emerald-500" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold">Đăng bài thành công! 🎉</h3>
-                <p className="text-sm text-muted-foreground mt-1">
+                <h3 className="text-base sm:text-lg font-semibold">Đăng bài thành công! 🎉</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                   Bài viết đã được đăng lên {PLATFORM_DISPLAY_NAMES[platform!] || platform}
                 </p>
               </div>
@@ -314,24 +314,24 @@ export function DirectPublishButton({
             <>
               {/* Platform Header */}
               <div className={cn(
-                'px-6 py-4 flex items-center gap-3',
+                'px-4 py-3 sm:px-6 sm:py-4 flex items-center gap-3',
                 platform === 'facebook' && 'bg-[hsl(220,46%,48%)]/10',
                 platform === 'twitter' && 'bg-foreground/5',
                 platform === 'instagram' && 'bg-[hsl(330,70%,50%)]/10',
                 platform === 'linkedin' && 'bg-[hsl(201,100%,35%)]/10',
               )}>
                 <div className={cn(
-                  'flex items-center justify-center w-10 h-10 rounded-xl',
+                  'flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl',
                   platform === 'facebook' && 'bg-[hsl(220,46%,48%)] text-white',
                   platform === 'twitter' && 'bg-foreground text-background',
                   platform === 'instagram' && 'bg-gradient-to-br from-[hsl(37,97%,60%)] via-[hsl(330,70%,50%)] to-[hsl(270,70%,55%)] text-white',
                   platform === 'linkedin' && 'bg-[hsl(201,100%,35%)] text-white',
                   !['facebook','twitter','instagram','linkedin'].includes(platform || '') && 'bg-primary text-primary-foreground',
                 )}>
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <DialogTitle className="text-base font-semibold">
+                  <DialogTitle className="text-sm sm:text-base font-semibold">
                     Đăng lên {PLATFORM_DISPLAY_NAMES[platform!] || platform}
                   </DialogTitle>
                   <DialogDescription className="text-xs mt-0.5 flex items-center gap-1">
@@ -339,20 +339,22 @@ export function DirectPublishButton({
                     {connection?.platform_username 
                       ? `@${connection.platform_username}` 
                       : 'Tài khoản đã kết nối'}
-                    {' · '}{new Date().toLocaleDateString('vi-VN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    <span className="hidden sm:inline">
+                      {' · '}{new Date().toLocaleDateString('vi-VN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
                   </DialogDescription>
                 </div>
               </div>
 
               {/* Editable Content */}
-              <div className="px-6 pb-2 space-y-3">
+              <div className="px-4 sm:px-6 pb-2 space-y-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-muted-foreground">Nội dung bài đăng</Label>
                   <Textarea
                     value={editableContent}
                     onChange={(e) => setEditableContent(e.target.value)}
-                    rows={6}
-                    className="resize-none text-sm leading-relaxed"
+                    rows={4}
+                    className="resize-none text-sm leading-relaxed max-h-[120px] sm:max-h-[200px]"
                     placeholder="Nhập nội dung..."
                   />
                   {/* Character Count */}
@@ -417,7 +419,7 @@ export function DirectPublishButton({
 
               {/* Warning Banners */}
               {charLimit && editableContent.length > charLimit && (
-                <div className="mx-6 px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-start gap-2">
+                <div className="mx-4 sm:mx-6 px-3 py-2 sm:py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                   <p className="text-xs text-amber-700 dark:text-amber-400">
                     {platform === 'twitter' 
@@ -429,7 +431,7 @@ export function DirectPublishButton({
               )}
 
               {/* Footer */}
-              <div className="px-6 py-4 border-t border-border flex flex-col sm:flex-row gap-2">
+              <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-border flex flex-col sm:flex-row gap-2">
                 <Button variant="outline" onClick={handleCloseDialog} className="sm:flex-1">
                   Hủy
                 </Button>
