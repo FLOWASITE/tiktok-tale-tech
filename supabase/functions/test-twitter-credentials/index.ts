@@ -16,6 +16,12 @@ interface TestRequest {
   consumerSecret?: string;
 }
 
+function sanitizeCredential(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 function decryptLegacyCBC(encryptedText: string, key: string): string {
   const [ivHex, encryptedHex] = encryptedText.split(':');
   if (!ivHex || !encryptedHex) {
@@ -101,8 +107,8 @@ serve(async (req) => {
       throw new Error('platform is required');
     }
 
-    let consumerKey = rawKey;
-    let consumerSecret = rawSecret;
+    let consumerKey = sanitizeCredential(rawKey);
+    let consumerSecret = sanitizeCredential(rawSecret);
 
     // If using stored credentials, fetch and decrypt them
     if (useStoredCredentials || (!consumerKey && !consumerSecret)) {
@@ -129,8 +135,8 @@ serve(async (req) => {
         decryptCredential(settings.consumer_secret, encryptionKey),
       ]);
 
-      consumerKey = decryptedKey || undefined;
-      consumerSecret = decryptedSecret || undefined;
+      consumerKey = sanitizeCredential(decryptedKey);
+      consumerSecret = sanitizeCredential(decryptedSecret);
 
       if (!consumerKey || !consumerSecret) {
         throw new Error('Không thể giải mã credentials - kiểm tra encryption key');
@@ -139,6 +145,10 @@ serve(async (req) => {
 
     if (!consumerKey || !consumerSecret) {
       throw new Error('consumerKey và consumerSecret là bắt buộc');
+    }
+
+    if (consumerKey.includes('*') || consumerSecret.includes('*')) {
+      throw new Error('Credentials đang ở dạng masked (****). Vui lòng nhập lại Consumer Key/Secret thật trong phần Admin settings');
     }
 
     console.log('Testing Twitter credentials...');
@@ -169,6 +179,9 @@ serve(async (req) => {
         }
       } catch (e) {
         if (e instanceof Error && e.message.startsWith('Twitter API:')) throw e;
+      }
+      if (tokenResponse.status === 403) {
+        throw new Error('Twitter API: Credentials bị từ chối (403). Kiểm tra lại API Key/Secret đúng app và app đã có API access trên X Developer Portal');
       }
       throw new Error(`Twitter credentials không hợp lệ (HTTP ${tokenResponse.status})`);
     }
