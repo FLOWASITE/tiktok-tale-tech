@@ -9,12 +9,10 @@ import {
   Sparkles, 
   Loader2, 
   ChevronDown, 
-  ChevronUp, 
   ArrowRight, 
   ArrowLeft,
   FileText,
   Zap,
-  Settings,
   CheckCircle2,
   X,
   Target,
@@ -49,8 +47,11 @@ import { HookStepContent } from '@/components/script/HookStepContent';
 import { ScriptPurposeSelector } from '@/components/script/ScriptPurposeSelector';
 import { VoiceRegionSelector } from '@/components/script/VoiceRegionSelector';
 import { DialogueStyleSelector } from '@/components/script/DialogueStyleSelector';
+import { ConfigChipSelector } from '@/components/script/ConfigChipSelector';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
+import { useVideoTypeRecommendations } from '@/hooks/useVideoTypeRecommendations';
+import { useCharacterTypeRecommendations } from '@/hooks/useCharacterTypeRecommendations';
 import { cn } from '@/lib/utils';
 import { 
   ScriptFormData, 
@@ -58,10 +59,16 @@ import {
   TopicAngle,
   TOPIC_ANGLE_LABELS,
   ScriptPurpose,
+  SCRIPT_PURPOSE_CONFIG,
   VoiceRegion,
+  VOICE_REGION_CONFIG,
   DialogueStyle,
+  DIALOGUE_STYLE_CONFIG,
+  VIDEO_TYPE_LABELS,
+  CHARACTER_TYPE_LABELS,
+  DURATION_LABELS,
 } from '@/types/script';
-import { FRAMEWORK_LABELS, FRAMEWORK_ICONS } from '@/types/hook';
+import { FRAMEWORK_ICONS } from '@/types/hook';
 
 interface ScriptFormStepperProps {
   onSubmit: (data: ScriptFormData) => Promise<void>;
@@ -72,8 +79,7 @@ interface ScriptFormStepperProps {
 
 const STEPS: Step[] = [
   { id: 1, title: 'Nội dung', icon: <FileText className="w-4 h-4" /> },
-  { id: 2, title: 'Cấu hình', icon: <Settings className="w-4 h-4" /> },
-  { id: 3, title: 'Tạo', icon: <CheckCircle2 className="w-4 h-4" /> },
+  { id: 2, title: 'Tạo kịch bản', icon: <Sparkles className="w-4 h-4" /> },
 ];
 
 const LOADING_PHASES = [
@@ -98,6 +104,9 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
   const [complianceCheckResult, setComplianceCheckResult] = useState<PreCheckResult | null>(null);
   const [isSuggestingCompliant, setIsSuggestingCompliant] = useState(false);
+  // Track if user manually changed video_type or character_type
+  const [userOverrodeVideoType, setUserOverrodeVideoType] = useState(false);
+  const [userOverrodeCharacterType, setUserOverrodeCharacterType] = useState(false);
 
   const [formData, setFormData] = useState<ScriptFormData>({
     topic: initialTopic || '',
@@ -123,7 +132,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
 
   const selectedTemplate = templates.find((t) => t.id === formData.brandTemplateId);
 
-  // Memoize brandVoiceForHook to prevent infinite re-renders
+  // Memoize brandVoiceForHook
   const brandVoiceForHook = useMemo(() => {
     if (!selectedTemplate) return undefined;
     return {
@@ -133,7 +142,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     };
   }, [selectedTemplate?.id, selectedTemplate?.brand_name, selectedTemplate?.tone_of_voice, selectedTemplate?.formality_level]);
 
-  // Quick hook suggestions - now on step 3
+  // Quick hook suggestions
   const {
     suggestions: quickHookSuggestions,
     isLoading: isLoadingHooks,
@@ -143,7 +152,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     enabled: currentStep === 1 && formData.topic.length >= 10,
   });
 
-  // Map script purpose to content goal for AI suggestions
+  // Map script purpose to content goal
   const scriptContentGoal: ContentGoal = useMemo(() => {
     switch (formData.script_purpose) {
       case 'ai_video_veo3':
@@ -159,7 +168,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     }
   }, [formData.script_purpose]);
 
-  // Enhanced Topic Suggestions (same as Carousel)
+  // Enhanced Topic Suggestions
   const {
     suggestions: enhancedSuggestions,
     source: suggestionsSource,
@@ -174,7 +183,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     enabled: currentStep === 1,
   });
 
-  // Compliance pre-check hook
+  // Compliance pre-check
   const complianceOptions = useMemo(() => ({
     industryForbiddenTerms: [],
     brandForbiddenWords: [],
@@ -182,7 +191,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
 
   const { fullCheck, suggestCompliantTopic, isChecking: isCheckingCompliance } = useCompliancePrecheck(complianceOptions);
 
-  // Run compliance check when topic changes
   useEffect(() => {
     if (formData.topic.trim().length >= TOPIC_MIN_LENGTH_FOR_REFINEMENT) {
       const result = fullCheck(formData.topic);
@@ -192,7 +200,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     }
   }, [formData.topic, fullCheck]);
 
-  // Handle suggest compliant topic
   const handleSuggestCompliant = useCallback(async () => {
     if (!complianceCheckResult?.issues?.length) return;
     setIsSuggestingCompliant(true);
@@ -207,21 +214,46 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     }
   }, [formData.topic, complianceCheckResult, suggestCompliantTopic]);
 
+  // AI Recommendations - auto-apply smart defaults
+  const { recommendations: videoRecs, topRecommendation: topVideoRec } = useVideoTypeRecommendations({
+    topic: formData.topic,
+    industry: selectedTemplate?.industry?.[0],
+    enabled: formData.topic.trim().length >= 10,
+  });
+
+  const { recommendations: charRecs, topRecommendation: topCharRec } = useCharacterTypeRecommendations({
+    topic: formData.topic,
+    videoType: formData.video_type,
+    industry: selectedTemplate?.industry?.[0],
+    enabled: formData.topic.trim().length >= 10,
+  });
+
+  // Auto-apply top recommendations (only if user hasn't manually overridden)
+  useEffect(() => {
+    if (topVideoRec && !userOverrodeVideoType) {
+      setFormData(prev => ({ ...prev, video_type: topVideoRec.videoType }));
+    }
+  }, [topVideoRec?.videoType, userOverrodeVideoType]);
+
+  useEffect(() => {
+    if (topCharRec && !userOverrodeCharacterType) {
+      setFormData(prev => ({ ...prev, character_type: topCharRec.characterType }));
+    }
+  }, [topCharRec?.characterType, userOverrodeCharacterType]);
+
   // Loading phases
   useEffect(() => {
     if (!isLoading) {
       setLoadingPhase(0);
       return;
     }
-    
     const interval = setInterval(() => {
       setLoadingPhase((prev) => (prev + 1) % LOADING_PHASES.length);
     }, 2000);
-    
     return () => clearInterval(interval);
   }, [isLoading]);
 
-  // Sync brandTemplateId from global brand context (Header switcher)
+  // Sync brandTemplateId from global brand context
   useEffect(() => {
     if (templatesLoading || templates.length === 0) return;
     const brand = currentBrand 
@@ -247,15 +279,13 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         return formData.topic.trim().length >= 10;
       case 2:
         return true;
-      case 3:
-        return true;
       default:
         return false;
     }
   }, [currentStep, formData.topic]);
 
   const handleNext = () => {
-    if (currentStep < 3 && canProceed) {
+    if (currentStep < 2 && canProceed) {
       setCompletedSteps(prev => [...prev.filter(s => s !== currentStep), currentStep]);
       setCurrentStep(prev => prev + 1);
     }
@@ -283,10 +313,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     toast.success('Đã xóa hook');
   };
 
-  const handleSkipHook = () => {
-    // Hook is now in step 1, no skip needed
-  };
-
   const handleSubmit = async () => {
     if (!formData.topic.trim()) {
       toast.error('Vui lòng nhập chủ đề video');
@@ -295,6 +321,14 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     }
     await onSubmit({ ...formData, topicHistoryId });
   };
+
+  // Labels for chips
+  const purposeLabel = SCRIPT_PURPOSE_CONFIG[formData.script_purpose]?.label || formData.script_purpose;
+  const durationLabel = DURATION_LABELS[formData.duration] || `${formData.duration}s`;
+  const videoTypeLabel = VIDEO_TYPE_LABELS[formData.video_type] || formData.video_type;
+  const characterLabel = CHARACTER_TYPE_LABELS[formData.character_type] || formData.character_type;
+  const voiceLabel = VOICE_REGION_CONFIG[formData.voice_region]?.label || formData.voice_region;
+  const dialogueLabel = DIALOGUE_STYLE_CONFIG[formData.dialogue_style]?.label || formData.dialogue_style;
 
   return (
     <div className="space-y-6">
@@ -308,7 +342,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
 
       {/* Step Content */}
       <div className="min-h-[300px]">
-        {/* Step 1: Nội dung (Purpose + Topic + Hook) */}
+        {/* ====== Step 1: Nội dung (Purpose + Topic + Hook) ====== */}
         {currentStep === 1 && (
           <div className="space-y-4 animate-fade-in">
             
@@ -333,7 +367,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               </div>
             </div>
 
-            {/* Gradient divider */}
             <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
             {/* Section 02: Chủ đề */}
@@ -390,7 +423,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 </div>
               </div>
               <div className="p-4 space-y-3">
-                {/* Premium textarea with gradient border on focus */}
+                {/* Premium textarea */}
                 <div className="relative group rounded-lg p-[1.5px] transition-all duration-300 bg-border/40 focus-within:bg-gradient-to-r focus-within:from-primary/60 focus-within:via-accent/50 focus-within:to-primary/60">
                   <Textarea
                     ref={topicTextareaRef}
@@ -481,7 +514,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
             )}
 
-            {/* Section 03: Hook — Collapsible elegant */}
+            {/* Section 03: Hook — Collapsible */}
             {formData.topic.trim().length >= 10 && (
               <Collapsible>
                 <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
@@ -531,268 +564,206 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           </div>
         )}
 
-        {/* Step 2: Configuration */}
+        {/* ====== Step 2: Smart Summary + Generate ====== */}
         {currentStep === 2 && (
-          <div className="space-y-4 animate-fade-in">
-            {formData.hook && (
-              <Card className="border-primary/30 bg-primary/5">
-                <CardContent className="p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{FRAMEWORK_ICONS[formData.hook.framework || ''] || '🎣'}</span>
-                    <span className="text-sm font-medium truncate max-w-[200px]">
-                      "{formData.hook.opening_line}"
-                    </span>
+          <div className="space-y-5 animate-fade-in">
+            {/* Header */}
+            <div className="text-center py-3">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-3">
+                <CheckCircle2 className="w-7 h-7 text-primary" />
+              </div>
+              <h3 className="font-semibold text-lg text-foreground">Sẵn sàng tạo kịch bản</h3>
+              <p className="text-sm text-muted-foreground">AI đã tự chọn cấu hình tối ưu — bạn có thể điều chỉnh nếu muốn</p>
+            </div>
+
+            {/* Topic summary */}
+            <div className="rounded-xl border border-border/40 bg-card/50 p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <FileText className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-muted-foreground">Chủ đề</p>
+                  <p className="text-sm font-medium text-foreground">{formData.topic}</p>
+                </div>
+              </div>
+
+              {formData.hook && (
+                <div className="flex items-start gap-3">
+                  <Zap className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground">Hook</p>
+                    <p className="text-sm text-foreground">"{formData.hook.opening_line}"</p>
                   </div>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
                     onClick={handleRemoveHook}
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3.5 w-3.5" />
                   </Button>
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              )}
 
-            {/* Section 04: Thời lượng */}
-            <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
-              <div className="px-4 py-3 flex items-center gap-3 border-b border-border/30">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shrink-0">
-                  <Clock className="w-4 h-4 text-primary-foreground" />
+              {formData.angle && (
+                <div className="flex items-start gap-3">
+                  <Target className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground">Góc tiếp cận</p>
+                    <p className="text-sm text-foreground">{TOPIC_ANGLE_LABELS[formData.angle].icon} {TOPIC_ANGLE_LABELS[formData.angle].label}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">Thời lượng video</p>
-                  <p className="text-xs text-muted-foreground">Chọn độ dài phù hợp nền tảng</p>
-                </div>
-                <span className="text-xs font-mono text-muted-foreground/40">04</span>
+              )}
+            </div>
+
+            {/* Smart Config Chips */}
+            <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-transparent to-transparent p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span>Cấu hình</span>
               </div>
-              <div className="p-4">
-                <DurationSelector
-                  value={formData.duration}
-                  onChange={(value) => setFormData((prev) => ({ ...prev, duration: value }))}
-                  disabled={isLoading}
-                />
+              
+              <div className="flex flex-wrap gap-2">
+                {/* Duration chip */}
+                <ConfigChipSelector
+                  label={`${formData.duration}s`}
+                  icon={<Clock className="w-3.5 h-3.5" />}
+                >
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Thời lượng video</p>
+                    <DurationSelector
+                      value={formData.duration}
+                      onChange={(value) => setFormData((prev) => ({ ...prev, duration: value }))}
+                      disabled={isLoading}
+                    />
+                  </div>
+                </ConfigChipSelector>
+
+                {/* Video Type chip */}
+                <ConfigChipSelector
+                  label={videoTypeLabel}
+                  icon={<Film className="w-3.5 h-3.5" />}
+                  isAiSuggested={!userOverrodeVideoType && !!topVideoRec}
+                  popoverClassName="min-w-[320px] max-w-[460px]"
+                >
+                  <div className="space-y-3">
+                    <p className="text-xs font-medium text-muted-foreground">Thể loại video</p>
+                    <VideoTypeRecommendations
+                      topic={formData.topic}
+                      industry={selectedTemplate?.industry?.[0]}
+                      currentValue={formData.video_type}
+                      onSelect={(value) => {
+                        setFormData((prev) => ({ ...prev, video_type: value }));
+                        setUserOverrodeVideoType(true);
+                      }}
+                      disabled={isLoading}
+                    />
+                    <VideoTypeSelector
+                      value={formData.video_type}
+                      onChange={(value) => {
+                        setFormData((prev) => ({ ...prev, video_type: value }));
+                        setUserOverrodeVideoType(true);
+                      }}
+                      disabled={isLoading}
+                    />
+                  </div>
+                </ConfigChipSelector>
+
+                {/* Character chip */}
+                <ConfigChipSelector
+                  label={characterLabel}
+                  icon={<Users className="w-3.5 h-3.5" />}
+                  isAiSuggested={!userOverrodeCharacterType && !!topCharRec}
+                  popoverClassName="min-w-[320px] max-w-[460px]"
+                >
+                  <div className="space-y-3">
+                    <p className="text-xs font-medium text-muted-foreground">Nhân vật</p>
+                    <CharacterTypeRecommendations
+                      topic={formData.topic}
+                      videoType={formData.video_type}
+                      industry={selectedTemplate?.industry?.[0]}
+                      selectedCharacterType={formData.character_type}
+                      onSelect={(value) => {
+                        setFormData((prev) => ({ ...prev, character_type: value }));
+                        setUserOverrodeCharacterType(true);
+                      }}
+                      enabled={!isLoading}
+                    />
+                    <CharacterTypeSelector
+                      value={formData.character_type}
+                      onChange={(value) => {
+                        setFormData((prev) => ({ ...prev, character_type: value }));
+                        setUserOverrodeCharacterType(true);
+                      }}
+                      disabled={isLoading}
+                    />
+                  </div>
+                </ConfigChipSelector>
+
+                {/* Voice & Dialogue chip */}
+                <ConfigChipSelector
+                  label={`${voiceLabel.replace('Giọng ', '')} • ${dialogueLabel}`}
+                  icon={<Mic className="w-3.5 h-3.5" />}
+                >
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Giọng vùng miền</p>
+                      <VoiceRegionSelector
+                        value={formData.voice_region}
+                        onChange={(value) => setFormData((prev) => ({ ...prev, voice_region: value }))}
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <div className="h-px bg-border/30" />
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Phong cách hội thoại</p>
+                      <DialogueStyleSelector
+                        value={formData.dialogue_style}
+                        onChange={(value) => setFormData((prev) => ({ ...prev, dialogue_style: value }))}
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </div>
+                </ConfigChipSelector>
               </div>
             </div>
 
-            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-
-            {/* Section 05: Thể loại */}
-            <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
-              <div className="px-4 py-3 flex items-center gap-3 border-b border-border/30">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/80 to-purple-500/80 flex items-center justify-center shrink-0">
-                  <Film className="w-4 h-4 text-primary-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">Thể loại video</p>
-                  <p className="text-xs text-muted-foreground">Chọn format nội dung</p>
-                </div>
-                <span className="text-xs font-mono text-muted-foreground/40">05</span>
-              </div>
-              <div className="p-4 space-y-3">
-                <VideoTypeRecommendations
-                  topic={formData.topic}
-                  industry={selectedTemplate?.industry?.[0]}
-                  currentValue={formData.video_type}
-                  onSelect={(value) => setFormData((prev) => ({ ...prev, video_type: value }))}
-                  disabled={isLoading}
-                />
-                <VideoTypeSelector
-                  value={formData.video_type}
-                  onChange={(value) => setFormData((prev) => ({ ...prev, video_type: value }))}
-                  disabled={isLoading}
-                />
-              </div>
-            </div>
-
-            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-
-            {/* Section 06: Nhân vật */}
-            <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
-              <div className="px-4 py-3 flex items-center gap-3 border-b border-border/30">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/80 to-green-500/80 flex items-center justify-center shrink-0">
-                  <Users className="w-4 h-4 text-primary-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">Nhân vật</p>
-                  <p className="text-xs text-muted-foreground">Ai sẽ xuất hiện trong video</p>
-                </div>
-                <span className="text-xs font-mono text-muted-foreground/40">06</span>
-              </div>
-              <div className="p-4 space-y-3">
-                <CharacterTypeRecommendations
-                  topic={formData.topic}
-                  videoType={formData.video_type}
-                  industry={selectedTemplate?.industry?.[0]}
-                  selectedCharacterType={formData.character_type}
-                  onSelect={(value) => setFormData((prev) => ({ ...prev, character_type: value }))}
-                  enabled={!isLoading}
-                />
-                <CharacterTypeSelector
-                  value={formData.character_type}
-                  onChange={(value) => setFormData((prev) => ({ ...prev, character_type: value }))}
-                  disabled={isLoading}
-                />
-              </div>
-            </div>
-
-            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-
-            {/* Section 07: Giọng & Phong cách */}
-            <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
-              <div className="px-4 py-3 flex items-center gap-3 border-b border-border/30">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/80 to-orange-500/80 flex items-center justify-center shrink-0">
-                  <Mic className="w-4 h-4 text-primary-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">Giọng & Phong cách</p>
-                  <p className="text-xs text-muted-foreground">Chọn vùng miền và cách trình bày</p>
-                </div>
-                <span className="text-xs font-mono text-muted-foreground/40">07</span>
-              </div>
-              <div className="p-4 space-y-4">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Giọng vùng miền</p>
-                  <VoiceRegionSelector
-                    value={formData.voice_region}
-                    onChange={(value) => setFormData((prev) => ({ ...prev, voice_region: value }))}
-                    disabled={isLoading}
-                  />
-                </div>
-                <div className="h-px bg-border/30" />
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Phong cách hội thoại</p>
-                  <DialogueStyleSelector
-                    value={formData.dialogue_style}
-                    onChange={(value) => setFormData((prev) => ({ ...prev, dialogue_style: value }))}
-                    disabled={isLoading}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Advanced settings toggle */}
+            {/* Campaign selector */}
             <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
               <CollapsibleTrigger className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm hover:bg-accent/30 transition-colors">
                 <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-muted-foreground flex-1 text-left">Cài đặt nâng cao</span>
+                <span className="text-sm font-medium text-muted-foreground flex-1 text-left">Tùy chỉnh nâng cao</span>
                 <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform duration-200", showAdvanced && "rotate-180")} />
               </CollapsibleTrigger>
               <CollapsibleContent>
-                {/* Advanced content renders here if any */}
+                <div className="mt-3 space-y-3 p-4 rounded-xl border border-border/40 bg-card/50">
+                  <div className="space-y-2">
+                    <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
+                      <Megaphone className="w-4 h-4" />
+                      Liên kết với Chiến dịch
+                      <span className="text-xs text-muted-foreground">(tùy chọn)</span>
+                    </Label>
+                    <CampaignSelector
+                      value={formData.campaignId}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, campaignId: value }))}
+                      disabled={isLoading}
+                      placeholder="Chọn chiến dịch..."
+                      showActiveOnly={true}
+                    />
+                  </div>
+
+                  {selectedTemplate && (
+                    <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
+                      <Sparkles className="w-4 h-4 text-primary mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">Brand</p>
+                        <p className="text-sm font-medium">{selectedTemplate.name}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </CollapsibleContent>
             </Collapsible>
-          </div>
-        )}
-
-        {/* Step 3: Review & Generate */}
-        {currentStep === 3 && (
-          <div className="space-y-4 animate-fade-in">
-            <div className="text-center py-4">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-                <CheckCircle2 className="w-8 h-8 text-primary" />
-              </div>
-              <h3 className="font-semibold text-lg text-foreground">Sẵn sàng tạo kịch bản!</h3>
-              <p className="text-sm text-muted-foreground">Xem lại thông tin trước khi tạo</p>
-            </div>
-
-            <Card className="border-border">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-start gap-3">
-                  <Target className="w-4 h-4 text-primary mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-xs text-muted-foreground">Mục đích</p>
-                    <p className="text-sm font-medium">
-                      {formData.script_purpose === 'ai_video_veo3' && 'Video AI (VEO 3)'}
-                      {formData.script_purpose === 'ai_video_minimax' && 'Video AI (Minimax)'}
-                      {formData.script_purpose === 'teleprompter' && 'Quay người thật'}
-                      {formData.script_purpose === 'voiceover' && 'Voice-Over / TTS'}
-                      {formData.script_purpose === 'production' && 'Production Script'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <FileText className="w-4 h-4 text-muted-foreground mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-xs text-muted-foreground">Chủ đề</p>
-                    <p className="text-sm font-medium">{formData.topic}</p>
-                  </div>
-                </div>
-
-                {formData.hook && (
-                  <div className="flex items-start gap-3">
-                    <Zap className="w-4 h-4 text-amber-500 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Hook</p>
-                      <p className="text-sm">"{formData.hook.opening_line}"</p>
-                    </div>
-                  </div>
-                )}
-
-                {formData.angle && (
-                  <div className="flex items-start gap-3">
-                    <Target className="w-4 h-4 text-primary mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Góc tiếp cận</p>
-                      <p className="text-sm">{TOPIC_ANGLE_LABELS[formData.angle].icon} {TOPIC_ANGLE_LABELS[formData.angle].label}</p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-start gap-3">
-                  <Settings className="w-4 h-4 text-muted-foreground mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-xs text-muted-foreground">Cấu hình</p>
-                    <p className="text-sm">{formData.duration}s • {formData.video_type}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Mic className="w-4 h-4 text-muted-foreground mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-xs text-muted-foreground">Giọng & Phong cách</p>
-                    <p className="text-sm">
-                      {formData.voice_region === 'northern' && 'Miền Bắc'}
-                      {formData.voice_region === 'central' && 'Miền Trung'}
-                      {formData.voice_region === 'southern' && 'Miền Nam'}
-                      {' • '}
-                      {formData.dialogue_style === 'monologue' && 'Độc thoại'}
-                      {formData.dialogue_style === 'conversational' && 'Trò chuyện'}
-                      {formData.dialogue_style === 'internal' && 'Suy tư'}
-                      {formData.dialogue_style === 'narrative' && 'Kể chuyện'}
-                    </p>
-                  </div>
-                </div>
-
-                {selectedTemplate && (
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="w-4 h-4 text-primary mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Brand</p>
-                      <p className="text-sm">{selectedTemplate.name}</p>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <div className="space-y-2">
-              <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
-                <Megaphone className="w-4 h-4" />
-                Liên kết với Chiến dịch
-                <span className="text-xs text-muted-foreground">(tùy chọn)</span>
-              </Label>
-              <CampaignSelector
-                value={formData.campaignId}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, campaignId: value }))}
-                disabled={isLoading}
-                placeholder="Chọn chiến dịch..."
-                showActiveOnly={true}
-              />
-            </div>
           </div>
         )}
       </div>
@@ -810,7 +781,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           Quay lại
         </Button>
 
-        {currentStep < 3 ? (
+        {currentStep < 2 ? (
           <Button
             type="button"
             onClick={handleNext}
@@ -845,7 +816,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         )}
       </div>
 
-      {currentStep === 3 && !isLoading && (
+      {currentStep === 2 && !isLoading && (
         <p className="text-center text-xs text-muted-foreground">
           Thời gian ước tính: ~15-30 giây
         </p>
