@@ -2,8 +2,6 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
   Sparkles, 
@@ -26,7 +24,6 @@ import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useQuickHookSuggestions } from '@/hooks/useQuickHookSuggestions';
-import { BrandPreviewCard } from '@/components/BrandPreviewCard';
 import { TopicAngleSelector } from '@/components/script/TopicAngleSelector';
 import { TopicAnglePreview } from '@/components/script/TopicAnglePreview';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
@@ -46,7 +43,6 @@ import { ScriptPurposeSelector } from '@/components/script/ScriptPurposeSelector
 import { VoiceRegionSelector } from '@/components/script/VoiceRegionSelector';
 import { DialogueStyleSelector } from '@/components/script/DialogueStyleSelector';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
-import { BrandVoiceVariantSelector } from '@/components/BrandVoiceVariantSelector';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { cn } from '@/lib/utils';
 import { 
@@ -92,8 +88,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
-  const [brandValue, setBrandValue] = useState<string>('none');
-  const [brandTouched, setBrandTouched] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState(0);
   const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
@@ -222,21 +216,16 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     return () => clearInterval(interval);
   }, [isLoading]);
 
-  // Set default template from global brand context or default template
+  // Sync brandTemplateId from global brand context (Header switcher)
   useEffect(() => {
-    if (templatesLoading || brandTouched || templates.length === 0) return;
-    
-    // If brandValue is still 'none', set from global context or default
-    if (brandValue === 'none') {
-      const initialBrand = currentBrand 
-        ? templates.find(t => t.id === currentBrand.id)
-        : (templates.find(t => t.is_default) ?? templates[0]);
-      if (initialBrand) {
-        setBrandValue(initialBrand.id);
-        setFormData(prev => ({ ...prev, brandTemplateId: initialBrand.id }));
-      }
+    if (templatesLoading || templates.length === 0) return;
+    const brand = currentBrand 
+      ? templates.find(t => t.id === currentBrand.id)
+      : (templates.find(t => t.is_default) ?? templates[0]);
+    if (brand) {
+      setFormData(prev => ({ ...prev, brandTemplateId: brand.id }));
     }
-  }, [templatesLoading, templates, brandTouched, brandValue, currentBrand]);
+  }, [templatesLoading, templates, currentBrand]);
 
   // Character count color
   const topicLength = formData.topic.length;
@@ -355,82 +344,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         {/* Step 2: Topic */}
         {currentStep === 2 && (
           <div className="space-y-4 animate-fade-in">
-            {/* Brand Template Selection - First */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="brandTemplate" className="text-foreground font-semibold text-sm">
-                  Chọn thương hiệu
-                  <span className="text-xs text-muted-foreground ml-2">(ảnh hưởng đến gợi ý chủ đề)</span>
-                </Label>
-                {selectedTemplate && (
-                  <Badge variant="outline" className="text-xs gap-1 border-primary/30 text-primary">
-                    <Sparkles className="w-3 h-3" />
-                    Brand Voice Applied
-                  </Badge>
-                )}
-              </div>
-              
-              {templatesLoading ? (
-                <div className="h-10 bg-muted/50 border border-border rounded-lg flex items-center px-3 animate-pulse">
-                  <span className="text-sm text-muted-foreground">Đang tải templates...</span>
-                </div>
-              ) : (
-                <Select
-                  value={brandValue}
-                  onValueChange={(value) => {
-                    setBrandTouched(true);
-                    setBrandValue(value);
-                    setFormData((prev) => ({
-                      ...prev,
-                      brandTemplateId: value === 'none' ? undefined : value,
-                    }));
-                  }}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger className="bg-muted/30 border-2 border-border focus:border-primary text-sm h-10 transition-all">
-                    <SelectValue placeholder="Chọn Brand Template..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none" textValue="Không sử dụng" className="text-sm">
-                      Không sử dụng
-                    </SelectItem>
-                    {templates.map((template) => (
-                      <SelectItem
-                        key={template.id}
-                        value={template.id}
-                        textValue={template.name}
-                        className="text-sm"
-                      >
-                        <span className="flex items-center gap-2">
-                          {template.primary_color && (
-                            <span
-                              className="w-3 h-3 rounded-full inline-block ring-2 ring-offset-1 ring-offset-background"
-                              style={{ backgroundColor: template.primary_color }}
-                            />
-                          )}
-                          <span className="truncate">{template.name}</span>
-                          {template.is_default && (
-                            <Badge variant="secondary" className="text-[10px] h-4 px-1">Mặc định</Badge>
-                          )}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              
-              {selectedTemplate && (
-                <BrandPreviewCard template={selectedTemplate} defaultOpen={false} />
-              )}
-              
-              {/* A/B Testing Voice Variant Selector */}
-              <BrandVoiceVariantSelector
-                brandTemplateId={formData.brandTemplateId}
-                value={formData.brandVoiceVariantId}
-                onValueChange={(variantId) => setFormData(prev => ({ ...prev, brandVoiceVariantId: variantId }))}
-                disabled={isLoading}
-              />
-            </div>
 
             {/* Topic Input - Second */}
             <div className="space-y-3">
