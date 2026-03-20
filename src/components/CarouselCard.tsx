@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Eye, Trash2, Images, Calendar, Facebook, Instagram, Linkedin, Palette, ImageIcon } from 'lucide-react';
+import { Eye, Trash2, Images, Calendar, Facebook, Instagram, Linkedin, Palette, ImageIcon, Building2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
@@ -34,6 +34,8 @@ interface CarouselCardProps {
   index?: number;
   thumbnailUrl?: string;
   imageCount?: number;
+  brandName?: string;
+  brandLogoUrl?: string | null;
 }
 
 const platformLabels: Record<string, { label: string; icon: typeof Facebook }> = {
@@ -74,6 +76,8 @@ export function CarouselCard({
   index = 0,
   thumbnailUrl,
   imageCount,
+  brandName,
+  brandLogoUrl,
 }: CarouselCardProps) {
   const timeAgo = formatDistanceToNow(new Date(carousel.created_at), {
     addSuffix: true,
@@ -230,6 +234,26 @@ export function CarouselCard({
           <p className="text-xs xs:text-sm text-muted-foreground line-clamp-2 mb-2 xs:mb-3">
             {carousel.topic}
           </p>
+
+          {/* Brand */}
+          {brandName && (
+            <div className="flex items-center gap-1.5 mb-2">
+              {brandLogoUrl ? (
+                <img
+                  src={brandLogoUrl}
+                  alt={brandName}
+                  className="w-4 h-4 xs:w-5 xs:h-5 rounded-full object-cover border border-border/50"
+                />
+              ) : (
+                <div className="w-4 h-4 xs:w-5 xs:h-5 rounded-full bg-muted flex items-center justify-center">
+                  <Building2 className="w-2.5 h-2.5 text-muted-foreground" />
+                </div>
+              )}
+              <span className="text-[10px] xs:text-xs text-muted-foreground font-medium truncate">
+                {brandName}
+              </span>
+            </div>
+          )}
 
           {/* Creator */}
           <div className="flex items-center gap-1 xs:gap-1.5 mb-3 text-[9px] xs:text-[10px]">

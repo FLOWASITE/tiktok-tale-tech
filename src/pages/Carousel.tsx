@@ -13,6 +13,7 @@ import { CarouselListView } from '@/components/CarouselListView';
 import { useCarousels } from '@/hooks/useCarousels';
 import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { useCarouselCardImages } from '@/hooks/useCarouselCardImages';
+import { useCarouselBrands } from '@/hooks/useCarouselBrands';
 import { Carousel } from '@/types/carousel';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -104,6 +105,10 @@ const CarouselPage = () => {
   // Fetch thumbnail images
   const carouselIds = useMemo(() => carousels.map(c => c.id), [carousels]);
   const { imageMap } = useCarouselCardImages(carouselIds);
+
+  // Fetch brand info for cards
+  const brandTemplateIds = useMemo(() => carousels.map(c => c.brand_template_id), [carousels]);
+  const { brandMap } = useCarouselBrands(brandTemplateIds);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -521,6 +526,8 @@ const CarouselPage = () => {
                 index={index}
                 thumbnailUrl={imageMap[carousel.id]?.thumbnailUrl}
                 imageCount={imageMap[carousel.id]?.imageCount}
+                brandName={carousel.brand_template_id ? brandMap[carousel.brand_template_id]?.brand_name : undefined}
+                brandLogoUrl={carousel.brand_template_id ? brandMap[carousel.brand_template_id]?.logo_url : undefined}
               />
             ))}
           </div>
