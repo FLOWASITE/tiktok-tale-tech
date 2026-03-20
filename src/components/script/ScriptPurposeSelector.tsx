@@ -8,6 +8,7 @@ interface ScriptPurposeSelectorProps {
   value: ScriptPurpose;
   onChange: (value: ScriptPurpose) => void;
   disabled?: boolean;
+  compact?: boolean;
 }
 
 const ICON_MAP: Record<ScriptPurpose, LucideIcon> = {
