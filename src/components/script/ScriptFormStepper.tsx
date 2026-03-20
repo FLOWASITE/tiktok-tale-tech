@@ -248,7 +248,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   }, [currentStep, formData.topic]);
 
   const handleNext = () => {
-    if (currentStep < 5 && canProceed) {
+    if (currentStep < 3 && canProceed) {
       setCompletedSteps(prev => [...prev.filter(s => s !== currentStep), currentStep]);
       setCurrentStep(prev => prev + 1);
     }
