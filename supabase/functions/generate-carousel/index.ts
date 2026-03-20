@@ -1105,24 +1105,22 @@ Follow the carousel style guidelines strictly.`;
     // Embed brand colors into brand_guideline for downstream use
     let brandGuidelineToSave = formData.brandGuideline || '';
     {
-      // Collect brand colors from template or form data
-      const primaryColor = (formData as any).brandPrimaryColor || (template as any)?.primary_color || null;
-      const secondaryColors = (formData as any).brandSecondaryColors || (template as any)?.secondary_colors || [];
+      const primaryColor = (formData as any).brandPrimaryColor || templatePrimaryColor || null;
+      const secColors = (formData as any).brandSecondaryColors || (templateSecondaryColors.length > 0 ? templateSecondaryColors : []);
       if (primaryColor) {
         try {
           const existing = brandGuidelineToSave ? JSON.parse(brandGuidelineToSave) : {};
           existing.primaryColor = primaryColor;
-          if (secondaryColors.length > 0) existing.secondaryColors = secondaryColors;
+          if (secColors.length > 0) existing.secondaryColors = secColors;
           brandGuidelineToSave = JSON.stringify(existing);
         } catch {
-          // brand_guideline is plain text, wrap it
           brandGuidelineToSave = JSON.stringify({
             text: brandGuidelineToSave,
             primaryColor,
-            ...(secondaryColors.length > 0 ? { secondaryColors } : {}),
+            ...(secColors.length > 0 ? { secondaryColors: secColors } : {}),
           });
         }
-        console.log('[generate-carousel] Brand colors embedded:', primaryColor, secondaryColors);
+        console.log('[generate-carousel] Brand colors embedded:', primaryColor, secColors);
       }
     }
 
