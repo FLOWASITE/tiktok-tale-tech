@@ -533,7 +533,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
 
         {/* Step 2: Configuration */}
         {currentStep === 2 && (
-          <div className="space-y-6 animate-fade-in">
+          <div className="space-y-4 animate-fade-in">
             {formData.hook && (
               <Card className="border-primary/30 bg-primary/5">
                 <CardContent className="p-3 flex items-center justify-between">
@@ -556,71 +556,134 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               </Card>
             )}
 
-            <div className="space-y-3">
-              <Label className="text-foreground font-semibold text-sm">Thời lượng video</Label>
-              <DurationSelector
-                value={formData.duration}
-                onChange={(value) => setFormData((prev) => ({ ...prev, duration: value }))}
-                disabled={isLoading}
-              />
+            {/* Section 04: Thời lượng */}
+            <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
+              <div className="px-4 py-3 flex items-center gap-3 border-b border-border/30">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shrink-0">
+                  <Clock className="w-4 h-4 text-primary-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Thời lượng video</p>
+                  <p className="text-xs text-muted-foreground">Chọn độ dài phù hợp nền tảng</p>
+                </div>
+                <span className="text-xs font-mono text-muted-foreground/40">04</span>
+              </div>
+              <div className="p-4">
+                <DurationSelector
+                  value={formData.duration}
+                  onChange={(value) => setFormData((prev) => ({ ...prev, duration: value }))}
+                  disabled={isLoading}
+                />
+              </div>
             </div>
 
-            <div className="space-y-3">
-              <Label className="text-foreground font-semibold text-sm">Thể loại video</Label>
-              <VideoTypeRecommendations
-                topic={formData.topic}
-                industry={selectedTemplate?.industry?.[0]}
-                currentValue={formData.video_type}
-                onSelect={(value) => setFormData((prev) => ({ ...prev, video_type: value }))}
-                disabled={isLoading}
-              />
-              <VideoTypeSelector
-                value={formData.video_type}
-                onChange={(value) => setFormData((prev) => ({ ...prev, video_type: value }))}
-                disabled={isLoading}
-              />
+            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+            {/* Section 05: Thể loại */}
+            <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
+              <div className="px-4 py-3 flex items-center gap-3 border-b border-border/30">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/80 to-purple-500/80 flex items-center justify-center shrink-0">
+                  <Film className="w-4 h-4 text-primary-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Thể loại video</p>
+                  <p className="text-xs text-muted-foreground">Chọn format nội dung</p>
+                </div>
+                <span className="text-xs font-mono text-muted-foreground/40">05</span>
+              </div>
+              <div className="p-4 space-y-3">
+                <VideoTypeRecommendations
+                  topic={formData.topic}
+                  industry={selectedTemplate?.industry?.[0]}
+                  currentValue={formData.video_type}
+                  onSelect={(value) => setFormData((prev) => ({ ...prev, video_type: value }))}
+                  disabled={isLoading}
+                />
+                <VideoTypeSelector
+                  value={formData.video_type}
+                  onChange={(value) => setFormData((prev) => ({ ...prev, video_type: value }))}
+                  disabled={isLoading}
+                />
+              </div>
             </div>
 
-            <div className="space-y-3">
-              <Label className="text-foreground font-semibold text-sm">Nhân vật</Label>
-              <CharacterTypeRecommendations
-                topic={formData.topic}
-                videoType={formData.video_type}
-                industry={selectedTemplate?.industry?.[0]}
-                selectedCharacterType={formData.character_type}
-                onSelect={(value) => setFormData((prev) => ({ ...prev, character_type: value }))}
-                enabled={!isLoading}
-              />
-              <CharacterTypeSelector
-                value={formData.character_type}
-                onChange={(value) => setFormData((prev) => ({ ...prev, character_type: value }))}
-                disabled={isLoading}
-              />
+            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+            {/* Section 06: Nhân vật */}
+            <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
+              <div className="px-4 py-3 flex items-center gap-3 border-b border-border/30">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/80 to-green-500/80 flex items-center justify-center shrink-0">
+                  <Users className="w-4 h-4 text-primary-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Nhân vật</p>
+                  <p className="text-xs text-muted-foreground">Ai sẽ xuất hiện trong video</p>
+                </div>
+                <span className="text-xs font-mono text-muted-foreground/40">06</span>
+              </div>
+              <div className="p-4 space-y-3">
+                <CharacterTypeRecommendations
+                  topic={formData.topic}
+                  videoType={formData.video_type}
+                  industry={selectedTemplate?.industry?.[0]}
+                  selectedCharacterType={formData.character_type}
+                  onSelect={(value) => setFormData((prev) => ({ ...prev, character_type: value }))}
+                  enabled={!isLoading}
+                />
+                <CharacterTypeSelector
+                  value={formData.character_type}
+                  onChange={(value) => setFormData((prev) => ({ ...prev, character_type: value }))}
+                  disabled={isLoading}
+                />
+              </div>
             </div>
 
-            <VoiceRegionSelector
-              value={formData.voice_region}
-              onChange={(value) => setFormData((prev) => ({ ...prev, voice_region: value }))}
-              disabled={isLoading}
-            />
+            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
-            <DialogueStyleSelector
-              value={formData.dialogue_style}
-              onChange={(value) => setFormData((prev) => ({ ...prev, dialogue_style: value }))}
-              disabled={isLoading}
-            />
+            {/* Section 07: Giọng & Phong cách */}
+            <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
+              <div className="px-4 py-3 flex items-center gap-3 border-b border-border/30">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/80 to-orange-500/80 flex items-center justify-center shrink-0">
+                  <Mic className="w-4 h-4 text-primary-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Giọng & Phong cách</p>
+                  <p className="text-xs text-muted-foreground">Chọn vùng miền và cách trình bày</p>
+                </div>
+                <span className="text-xs font-mono text-muted-foreground/40">07</span>
+              </div>
+              <div className="p-4 space-y-4">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Giọng vùng miền</p>
+                  <VoiceRegionSelector
+                    value={formData.voice_region}
+                    onChange={(value) => setFormData((prev) => ({ ...prev, voice_region: value }))}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="h-px bg-border/30" />
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Phong cách hội thoại</p>
+                  <DialogueStyleSelector
+                    value={formData.dialogue_style}
+                    onChange={(value) => setFormData((prev) => ({ ...prev, dialogue_style: value }))}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+            </div>
 
-            {/* Advanced toggle kept if present */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="gap-2 text-muted-foreground"
-            >
-              {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              Cài đặt nâng cao
-            </Button>
+            {/* Advanced settings toggle */}
+            <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
+              <CollapsibleTrigger className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm hover:bg-accent/30 transition-colors">
+                <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground flex-1 text-left">Cài đặt nâng cao</span>
+                <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform duration-200", showAdvanced && "rotate-180")} />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                {/* Advanced content renders here if any */}
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         )}
 
