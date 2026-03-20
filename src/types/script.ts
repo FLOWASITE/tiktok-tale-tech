@@ -166,12 +166,12 @@ export type TopicAngle =
   | 'myth_busting'
   | 'data_driven';
 
-export const TOPIC_ANGLE_LABELS: Record<TopicAngle, { label: string; description: string; icon: string }> = {
-  beginner: { label: 'Beginner', description: 'Giải thích từ cơ bản', icon: '🎓' },
-  expert: { label: 'Expert', description: 'Deep dive nâng cao', icon: '👔' },
-  quick_tips: { label: 'Quick Tips', description: 'Dễ áp dụng ngay', icon: '⚡' },
-  myth_busting: { label: 'Myth-bust', description: 'Bóc sai lầm phổ biến', icon: '🔥' },
-  data_driven: { label: 'Data-driven', description: 'Có số liệu minh chứng', icon: '📊' },
+export const TOPIC_ANGLE_LABELS: Record<TopicAngle, { label: string; description: string; icon: string; tooltip: string }> = {
+  beginner: { label: 'Beginner', description: 'Giải thích từ cơ bản', icon: 'GraduationCap', tooltip: 'Phù hợp cho người mới — giải thích khái niệm từ A-Z, dễ hiểu, không dùng thuật ngữ phức tạp' },
+  expert: { label: 'Expert', description: 'Deep dive nâng cao', icon: 'BrainCircuit', tooltip: 'Dành cho người có kinh nghiệm — chia sẻ insight chuyên sâu, case study, chiến lược nâng cao' },
+  quick_tips: { label: 'Quick Tips', description: 'Dễ áp dụng ngay', icon: 'Zap', tooltip: 'Nội dung ngắn gọn, thực tế — 3-5 tips có thể áp dụng ngay, tiết kiệm thời gian người xem' },
+  myth_busting: { label: 'Myth-bust', description: 'Bóc sai lầm phổ biến', icon: 'ShieldAlert', tooltip: 'Bóc trần những quan niệm sai lầm — tạo bất ngờ, tăng tương tác bằng "sự thật trái ngược"' },
+  data_driven: { label: 'Data-driven', description: 'Có số liệu minh chứng', icon: 'BarChart3', tooltip: 'Dựa trên dữ liệu & nghiên cứu — tăng uy tín với con số cụ thể, biểu đồ, thống kê' },
 };
 
 export interface ScriptFormData {
