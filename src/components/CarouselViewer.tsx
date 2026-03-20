@@ -224,17 +224,20 @@ export function CarouselViewer({
   } = useCarouselImages(carousel?.id || null);
   const { validating: seamlessValidating, result: seamlessResult, validate: validateSeamless } = useSeamlessValidation();
 
-  // Sync saved images into generatedImages state on load
+  // Sync saved images into generatedImages state on load — single effect to avoid race condition
   const [syncedCarouselId, setSyncedCarouselId] = useState<string | null>(null);
+  const prevCarouselIdRef = useRef<string | null>(null);
 
-  // Clear generatedImages when switching carousels
   useEffect(() => {
-    setImages([]);
-    setSyncedCarouselId(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [carousel?.id]);
-  
-  useEffect(() => {
+    // Detect carousel switch → clear and bail out (sync on next render when new data arrives)
+    if (carousel?.id !== prevCarouselIdRef.current) {
+      setImages([]);
+      setSyncedCarouselId(null);
+      prevCarouselIdRef.current = carousel?.id || null;
+      return;
+    }
+
+    // Only sync after loading completes for the NEW carousel
     if (!loadingImages && carousel?.id && syncedCarouselId !== carousel.id) {
       if (savedImages.length > 0) {
         const mapped = savedImages.map(img => ({
@@ -243,6 +246,8 @@ export function CarouselViewer({
           generatedAt: img.created_at,
         }));
         setImages(mapped);
+      } else {
+        setImages([]);
       }
       setSyncedCarouselId(carousel.id);
     }
