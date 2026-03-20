@@ -321,7 +321,7 @@ export function DirectPublishButton({
                 platform === 'linkedin' && 'bg-[hsl(201,100%,35%)]/10',
               )}>
                 <div className={cn(
-                  'flex items-center justify-center w-10 h-10 rounded-xl',
+                  'flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl',
                   platform === 'facebook' && 'bg-[hsl(220,46%,48%)] text-white',
                   platform === 'twitter' && 'bg-foreground text-background',
                   platform === 'instagram' && 'bg-gradient-to-br from-[hsl(37,97%,60%)] via-[hsl(330,70%,50%)] to-[hsl(270,70%,55%)] text-white',
