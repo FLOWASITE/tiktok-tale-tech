@@ -52,6 +52,7 @@ import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { useVideoTypeRecommendations } from '@/hooks/useVideoTypeRecommendations';
 import { useCharacterTypeRecommendations } from '@/hooks/useCharacterTypeRecommendations';
+import { useTopicAngleRecommendations } from '@/hooks/useTopicAngleRecommendations';
 import { cn } from '@/lib/utils';
 import { 
   ScriptFormData, 
@@ -224,6 +225,12 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     videoType: formData.video_type,
     industry: selectedTemplate?.industry?.[0],
     enabled: formData.topic.trim().length >= 10,
+  });
+  // Topic angle recommendations
+  const { topRecommendation: topAngleRec } = useTopicAngleRecommendations({
+    topic: formData.topic,
+    videoType: formData.video_type,
+    enabled: formData.topic.trim().length >= 20,
   });
 
   // Auto-apply top recommendations (only if user hasn't manually overridden)
@@ -484,6 +491,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                       value={formData.angle}
                       onChange={(angle) => setFormData((prev) => ({ ...prev, angle }))}
                       disabled={isLoading}
+                      recommendedAngle={topAngleRec?.angle}
+                      recommendedReason={topAngleRec?.reason}
                     />
                     {formData.angle && (
                       <TopicAnglePreview 
