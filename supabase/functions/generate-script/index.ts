@@ -1009,8 +1009,8 @@ const SCRIPT_PURPOSE_LABELS: Record<string, string> = {
   ai_video: 'Video AI',
   ai_video_veo3: 'Video AI', // legacy
   ai_video_minimax: 'Video AI', // legacy
-  teleprompter: 'Quay người thật (Teleprompter)',
-  voiceover: 'Voice-Over / TTS',
+  teleprompter: 'Người thật / Voice',
+  voiceover: 'Người thật / Voice', // legacy → teleprompter
   production: 'Production Script',
 };
 
