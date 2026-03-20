@@ -290,11 +290,12 @@ export function GeneratedImagesGallery({
                       : 'border-border hover:border-primary/50'
                   )}
                 >
-                  <img
+                  <OptimizedImage
                     src={image.imageUrl}
                     alt={`Slide ${image.slideNumber}`}
                     className="w-full h-full object-cover"
                     loading="lazy"
+                    fadeDuration={200}
                   />
                   <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] text-center py-0.5">
                     {image.slideNumber}
