@@ -25,7 +25,6 @@ import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useQuickHookSuggestions } from '@/hooks/useQuickHookSuggestions';
 import { TopicAngleSelector } from '@/components/script/TopicAngleSelector';
-import { TopicAngleSelector } from '@/components/script/TopicAngleSelector';
 import { TopicAnglePreview } from '@/components/script/TopicAnglePreview';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
 import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
