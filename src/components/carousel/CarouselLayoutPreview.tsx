@@ -75,7 +75,7 @@ interface CarouselLayoutPreviewProps {
   slides: CarouselSlide[];
   visualPreset: VisualPresetType;
   carouselStyle: CarouselStyleType;
-  platform: 'facebook' | 'tiktok';
+  platform: 'facebook' | 'tiktok' | 'instagram' | 'linkedin';
 }
 
 export function CarouselLayoutPreview({ slides, visualPreset, carouselStyle, platform }: CarouselLayoutPreviewProps) {
