@@ -226,7 +226,7 @@ const Index = () => {
                 : 'Thử thay đổi bộ lọc để xem thêm kịch bản.'}
             </p>
             {scripts.length === 0 && (
-              <Button onClick={() => setFormSheetOpen(true)} className="gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90">
+              <Button onClick={() => navigate('/scripts/new')} className="gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90">
                 <Plus className="w-4 h-4" />
                 Tạo kịch bản đầu tiên
               </Button>
