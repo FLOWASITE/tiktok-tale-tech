@@ -1016,7 +1016,9 @@ const SCRIPT_PURPOSE_LABELS: Record<string, string> = {
 
 function getOutputFormat(purpose: string, characterTypeName: string, duration: number, promptCount: string, voiceRegionLabel: string): string {
   switch(purpose) {
+    case 'ai_video':
     case 'ai_video_veo3':
+    case 'ai_video_minimax':
       return `PROMPT X [00:00-00:08]:
 
 [VISUAL DIRECTION]
