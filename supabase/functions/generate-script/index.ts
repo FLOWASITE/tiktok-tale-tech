@@ -1006,8 +1006,9 @@ interface HookDetails {
 // SCRIPT PURPOSE - Multi-format output
 // ============================================
 const SCRIPT_PURPOSE_LABELS: Record<string, string> = {
-  ai_video_veo3: 'Video AI (VEO 3)',
-  ai_video_minimax: 'Video AI (Minimax/Hailuo)',
+  ai_video: 'Video AI',
+  ai_video_veo3: 'Video AI', // legacy
+  ai_video_minimax: 'Video AI', // legacy
   teleprompter: 'Quay người thật (Teleprompter)',
   voiceover: 'Voice-Over / TTS',
   production: 'Production Script',
@@ -1015,7 +1016,9 @@ const SCRIPT_PURPOSE_LABELS: Record<string, string> = {
 
 function getOutputFormat(purpose: string, characterTypeName: string, duration: number, promptCount: string, voiceRegionLabel: string): string {
   switch(purpose) {
+    case 'ai_video':
     case 'ai_video_veo3':
+    case 'ai_video_minimax':
       return `PROMPT X [00:00-00:08]:
 
 [VISUAL DIRECTION]
@@ -1037,19 +1040,6 @@ ${voiceRegionLabel}, theo đặc trưng ${characterTypeName}, nhấn mạnh từ
 • Ambience: [âm thanh môi trường phù hợp bối cảnh]
 • SFX: None (hoặc hiệu ứng cụ thể nếu cần)
 • Music mood: [subtle/building/emotional tùy theo nội dung]`;
-
-    case 'ai_video_minimax':
-      return `CLIP X:
-
-[SCENE]
-Medium shot, professional studio. Person speaking ${characterTypeName === 'the_virtuoso' ? 'authoritatively' : 'confidently'}. Soft lighting.
-[Camera motion: Pan left/Zoom in slowly/Static - chọn phù hợp]
-
-[VOICE]
-"..." (Lời thoại theo ${characterTypeName})
-
-[DURATION]
-~${Math.round(duration / parseInt(promptCount.split('-')[0]))} giây`;
 
     case 'teleprompter':
       return `--- ĐOẠN X ---
@@ -1159,8 +1149,9 @@ function buildSystemPrompt(
   const promptCount = getPromptCount(duration);
   const videoTypeName = VIDEO_TYPE_LABELS[videoType] || "Chuyên gia chia sẻ";
   const characterTypeName = CHARACTER_TYPE_LABELS[characterType] || "Chuyên gia";
-  const purposeName = SCRIPT_PURPOSE_LABELS[scriptPurpose || 'ai_video_veo3'] || "Video AI (VEO 3)";
-  const effectivePurpose = scriptPurpose || 'ai_video_veo3';
+  const purposeName = SCRIPT_PURPOSE_LABELS[scriptPurpose || 'ai_video'] || "Video AI";
+  // Normalize legacy values
+  const effectivePurpose = (scriptPurpose === 'ai_video_veo3' || scriptPurpose === 'ai_video_minimax') ? 'ai_video' : (scriptPurpose || 'ai_video');
   
   // Voice Region - default to northern if not specified
   const effectiveVoiceRegion = voiceRegion || 'northern';
@@ -1436,7 +1427,7 @@ serve(async (req) => {
 
     console.log("Generating script for topic:", topic);
     console.log("Duration:", duration, "Video type:", video_type, "Character:", character_type);
-    console.log("Script purpose:", script_purpose || 'ai_video_veo3');
+    console.log("Script purpose:", script_purpose || 'ai_video');
     console.log("Hook provided:", hook ? "Yes" : "No", hook?.framework || "");
     console.log("Angle:", angle || "None");
     
@@ -1786,7 +1777,7 @@ ${m.avoid_topics?.length ? `- ⚠️ TRÁNH: ${m.avoid_topics.join(', ')}` : ''}
         duration,
         video_type,
         character_type,
-        script_purpose: script_purpose || 'ai_video_veo3',
+        script_purpose: script_purpose || 'ai_video',
         voice_region: voice_region || 'northern',
         dialogue_style: dialogue_style || 'monologue',
         content,

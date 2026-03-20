@@ -39,30 +39,26 @@ export interface ParsedPrompt {
 // Get block pattern based on script purpose
 function getBlockPattern(purpose?: ScriptPurpose): RegExp {
   switch(purpose) {
-    case 'ai_video_minimax':
-      return /(?=CLIP\s*\d+)/i;
     case 'teleprompter':
     case 'voiceover':
       return /(?=---\s*ĐOẠN\s*\d+|ĐOẠN\s*\d+)/i;
     case 'production':
       return /(?=SCENE\s*\d+|SHOT\s*\d+)/i;
-    default: // ai_video_veo3
-      return /(?=PROMPT\s*\d+)/i;
+    default: // ai_video — try PROMPT first, fallback CLIP handled in parseScriptContent
+      return /(?=PROMPT\s*\d+|CLIP\s*\d+)/i;
   }
 }
 
 // Get block number pattern based on purpose
 function getBlockNumberPattern(purpose?: ScriptPurpose): RegExp {
   switch(purpose) {
-    case 'ai_video_minimax':
-      return /CLIP\s*(\d+)/i;
     case 'teleprompter':
     case 'voiceover':
       return /ĐOẠN\s*(\d+)/i;
     case 'production':
       return /(?:SCENE|SHOT)\s*(\d+)/i;
-    default:
-      return /PROMPT\s*(\d+)/i;
+    default: // ai_video — match both PROMPT and CLIP
+      return /(?:PROMPT|CLIP)\s*(\d+)/i;
   }
 }
 
@@ -326,9 +322,6 @@ export function parseScriptContent(content: string, purpose?: ScriptPurpose): Pa
     // Parse based on purpose
     let parsed: ParsedPrompt;
     switch(purpose) {
-      case 'ai_video_minimax':
-        parsed = parseMinimaxBlock(block, promptNumber);
-        break;
       case 'teleprompter':
         parsed = parseTeleprompterBlock(block, promptNumber);
         break;
@@ -338,8 +331,13 @@ export function parseScriptContent(content: string, purpose?: ScriptPurpose): Pa
       case 'production':
         parsed = parseProductionBlock(block, promptNumber);
         break;
-      default: // ai_video_veo3
-        parsed = parseVeo3Block(block, promptNumber);
+      default: { // ai_video — detect CLIP vs PROMPT format
+        const isClipFormat = /^CLIP\s*\d+/i.test(block.trim());
+        parsed = isClipFormat 
+          ? parseMinimaxBlock(block, promptNumber)
+          : parseVeo3Block(block, promptNumber);
+        break;
+      }
     }
     
     prompts.push(parsed);
@@ -358,8 +356,6 @@ export function getPromptCount(content: string, purpose?: ScriptPurpose): number
 // Get block label based on purpose
 export function getBlockLabel(purpose?: ScriptPurpose): string {
   switch(purpose) {
-    case 'ai_video_minimax':
-      return 'Clip';
     case 'teleprompter':
     case 'voiceover':
       return 'Đoạn';

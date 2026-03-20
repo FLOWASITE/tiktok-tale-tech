@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Video, Film, User, Mic, Clapperboard, LucideIcon } from 'lucide-react';
+import { Video, User, Mic, Clapperboard, LucideIcon } from 'lucide-react';
 import { ScriptPurpose, SCRIPT_PURPOSE_CONFIG } from '@/types/script';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -12,8 +12,7 @@ interface ScriptPurposeSelectorProps {
 }
 
 const ICON_MAP: Record<ScriptPurpose, LucideIcon> = {
-  ai_video_veo3: Video,
-  ai_video_minimax: Film,
+  ai_video: Video,
   teleprompter: User,
   voiceover: Mic,
   production: Clapperboard,
@@ -49,11 +48,6 @@ export function ScriptPurposeSelector({ value, onChange, disabled, compact }: Sc
             >
               <Icon className={compact ? "w-3 h-3" : "w-3.5 h-3.5"} />
               <span>{config.label}</span>
-              {key === 'ai_video_veo3' && !isSelected && !compact && (
-                <Badge variant="secondary" className="text-[9px] h-3.5 px-1 py-0 leading-none">
-                  Hot
-                </Badge>
-              )}
             </button>
           );
         })}

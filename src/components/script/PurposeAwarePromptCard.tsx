@@ -1,5 +1,5 @@
 import { ParsedPrompt, getBlockLabel } from '@/utils/parsePrompts';
-import { ScriptPurpose } from '@/types/script';
+import { ScriptPurpose, normalizePurpose } from '@/types/script';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -168,13 +168,14 @@ function FallbackCard({ prompt }: { prompt: ParsedPrompt }) {
 
 export function PurposeAwarePromptCard({ 
   prompt, 
-  purpose = 'ai_video_veo3',
+  purpose: rawPurpose = 'ai_video',
   totalPrompts = 8,
   videoType,
   characterType,
   fullScriptContext,
   onApplySuggestion
 }: PurposeAwarePromptCardProps) {
+  const purpose = normalizePurpose(rawPurpose);
   const [copied, setCopied] = useState(false);
   const blockLabel = getBlockLabel(purpose);
 
@@ -194,16 +195,14 @@ export function PurposeAwarePromptCard({
   // Check if we have meaningful parsed content
   const hasParsedContent = () => {
     switch(purpose) {
-      case 'ai_video_minimax':
-        return prompt.scene || prompt.cameraMotion || prompt.voice || prompt.dialogue;
       case 'teleprompter':
         return prompt.cue || prompt.dialogue || prompt.emphasis;
       case 'voiceover':
         return prompt.dialogue || prompt.voiceGuide || prompt.tone;
       case 'production':
         return prompt.camera || prompt.lighting || prompt.motion || prompt.dialogue;
-      default: // veo3
-        return prompt.motion || prompt.dialogue || prompt.tone || prompt.shotType || prompt.characterAction;
+      default: // ai_video — check both veo3 and minimax fields
+        return prompt.motion || prompt.dialogue || prompt.tone || prompt.shotType || prompt.characterAction || prompt.scene || prompt.cameraMotion;
     }
   };
 
@@ -214,15 +213,16 @@ export function PurposeAwarePromptCard({
     }
 
     switch(purpose) {
-      case 'ai_video_minimax':
-        return <MinimaxCard prompt={prompt} />;
       case 'teleprompter':
         return <TeleprompterCard prompt={prompt} />;
       case 'voiceover':
         return <VoiceoverCard prompt={prompt} />;
       case 'production':
         return <ProductionCard prompt={prompt} />;
-      default:
+      default: // ai_video — detect minimax vs veo3 based on parsed fields
+        if (prompt.scene && !prompt.shotType) {
+          return <MinimaxCard prompt={prompt} />;
+        }
         return <Veo3Card prompt={prompt} />;
     }
   };

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Script, VIDEO_TYPE_LABELS, CHARACTER_TYPE_LABELS, DURATION_LABELS, STATUS_CONFIG, SCRIPT_PURPOSE_CONFIG, DIALOGUE_STYLE_CONFIG, ScriptPurpose, VoiceRegion, DialogueStyle } from '@/types/script';
+import { Script, VIDEO_TYPE_LABELS, CHARACTER_TYPE_LABELS, DURATION_LABELS, STATUS_CONFIG, SCRIPT_PURPOSE_CONFIG, DIALOGUE_STYLE_CONFIG, ScriptPurpose, VoiceRegion, DialogueStyle, normalizePurpose } from '@/types/script';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,8 +28,7 @@ import type { CreatorProfile } from '@/hooks/useCreatorProfiles';
 import { cn } from '@/lib/utils';
 
 const PURPOSE_ICONS: Record<ScriptPurpose, React.ElementType> = {
-  ai_video_veo3: Wand2,
-  ai_video_minimax: Film,
+  ai_video: Wand2,
   teleprompter: MonitorPlay,
   voiceover: Mic,
   production: Clapperboard,
@@ -68,7 +67,7 @@ interface ScriptCardProps {
 }
 
 export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate, creatorProfile, isLoadingProfile, index = 0 }: ScriptCardProps) {
-  const purpose = script.script_purpose as ScriptPurpose;
+  const purpose = normalizePurpose(script.script_purpose || 'ai_video');
   const PurposeIcon = PURPOSE_ICONS[purpose] || Wand2;
   const purposeConfig = SCRIPT_PURPOSE_CONFIG[purpose];
 
