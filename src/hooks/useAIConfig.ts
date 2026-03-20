@@ -1058,6 +1058,7 @@ export function useAIConfig(organizationId?: string) {
         temperature: (f as any).temperature ?? null,
         maxTokens: (f as any).max_tokens ?? null,
         customSystemPrompt: (f as any).custom_system_prompt ?? null,
+        forceProvider: (f as any).force_provider ?? null,
         createdAt: f.created_at,
         updatedAt: f.updated_at,
       }));
