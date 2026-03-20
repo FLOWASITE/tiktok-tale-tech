@@ -3,16 +3,16 @@
 // ============================================
 export type ScriptPurpose = 
   | 'ai_video'          // Video AI (VEO 3 / Minimax / etc.)
-  | 'teleprompter'      // Quay người thật (Teleprompter)
-  | 'voiceover'         // Voice-Over / TTS
+  | 'teleprompter'      // Người thật / Voice (Teleprompter + Voice-Over)
   | 'production';       // Production Script cho team
 
 // Legacy types kept for backward compatibility with DB records
-export type ScriptPurposeLegacy = ScriptPurpose | 'ai_video_veo3' | 'ai_video_minimax';
+export type ScriptPurposeLegacy = ScriptPurpose | 'ai_video_veo3' | 'ai_video_minimax' | 'voiceover';
 
 /** Normalize legacy purpose values to current ones */
 export function normalizePurpose(purpose: string): ScriptPurpose {
   if (purpose === 'ai_video_veo3' || purpose === 'ai_video_minimax') return 'ai_video';
+  if (purpose === 'voiceover') return 'teleprompter';
   return purpose as ScriptPurpose;
 }
 
@@ -31,16 +31,9 @@ export const SCRIPT_PURPOSE_CONFIG: Record<ScriptPurpose, {
     blockLabelVi: 'Prompt',
   },
   teleprompter: {
-    label: 'Quay người thật (Teleprompter)',
-    description: 'Script cho quay video thật - dialogue + cue cards, không cần visual AI',
-    outputHint: 'Dialogue + Cue cards + Emphasis markers',
-    blockLabel: 'Đoạn',
-    blockLabelVi: 'Đoạn',
-  },
-  voiceover: {
-    label: 'Voice-Over / TTS',
-    description: 'Script thu âm - clean dialogue + hướng dẫn tone',
-    outputHint: 'Clean dialogue + Tone guidance + Pause markers',
+    label: 'Người thật / Voice',
+    description: 'Script quay người thật hoặc thu âm — dialogue + cue cards + hướng dẫn giọng',
+    outputHint: 'Dialogue + Cue cards + Tone/Tempo + Emphasis + Pause markers',
     blockLabel: 'Đoạn',
     blockLabelVi: 'Đoạn',
   },

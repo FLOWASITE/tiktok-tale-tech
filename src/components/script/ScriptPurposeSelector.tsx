@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Video, User, Mic, Clapperboard, LucideIcon } from 'lucide-react';
+import { Video, User, Clapperboard, LucideIcon } from 'lucide-react';
 import { ScriptPurpose, SCRIPT_PURPOSE_CONFIG } from '@/types/script';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -14,7 +14,6 @@ interface ScriptPurposeSelectorProps {
 const ICON_MAP: Record<ScriptPurpose, LucideIcon> = {
   ai_video: Video,
   teleprompter: User,
-  voiceover: Mic,
   production: Clapperboard,
 };
 

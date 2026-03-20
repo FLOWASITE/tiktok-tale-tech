@@ -56,13 +56,11 @@ const PURPOSE_EXPORT_OPTIONS: Record<ScriptPurpose, {
   minimax?: boolean;
   dialogue?: boolean;
   teleprompter?: boolean;
-  voiceover?: boolean;
   production?: boolean;
   standard?: boolean;
 }> = {
   ai_video: { veo3: true, minimax: true, dialogue: true, standard: true },
   teleprompter: { teleprompter: true, dialogue: true, standard: true },
-  voiceover: { voiceover: true, dialogue: true, standard: true },
   production: { production: true, veo3: true, minimax: true, dialogue: true, standard: true },
 };
 
@@ -375,26 +373,8 @@ export function ScriptExportMenu({ script, className }: ScriptExportMenuProps) {
             </>
           )}
 
-          {/* Voice-Over Section */}
-          {exportOptions.voiceover && (
-            <>
-              <DropdownMenuLabel className="flex items-center gap-2 text-green-500">
-                <Mic className="w-4 h-4" />
-                Voice-Over / TTS
-              </DropdownMenuLabel>
-              <DropdownMenuGroup>
-                <DropdownMenuItem onClick={handlePreviewVoiceover}>
-                  <Eye className="w-4 h-4 mr-2" />
-                  VO Script
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handlePreviewDialogueNumbered}>
-                  <Eye className="w-4 h-4 mr-2" />
-                  Clean Dialogue
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-            </>
-          )}
+
+
 
           {/* Production Section */}
           {exportOptions.production && (

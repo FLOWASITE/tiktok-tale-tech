@@ -3,7 +3,7 @@ import { Script, VIDEO_TYPE_LABELS, CHARACTER_TYPE_LABELS, DURATION_LABELS, STAT
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Trash2, Clock, Wand2, Film, MonitorPlay, Mic, Clapperboard, Calendar, Palette } from 'lucide-react';
+import { Eye, Trash2, Clock, Wand2, Film, MonitorPlay, Clapperboard, Calendar, Palette } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
@@ -30,7 +30,6 @@ import { cn } from '@/lib/utils';
 const PURPOSE_ICONS: Record<ScriptPurpose, React.ElementType> = {
   ai_video: Wand2,
   teleprompter: MonitorPlay,
-  voiceover: Mic,
   production: Clapperboard,
 };
 

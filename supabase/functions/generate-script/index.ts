@@ -1009,8 +1009,8 @@ const SCRIPT_PURPOSE_LABELS: Record<string, string> = {
   ai_video: 'Video AI',
   ai_video_veo3: 'Video AI', // legacy
   ai_video_minimax: 'Video AI', // legacy
-  teleprompter: 'Quay người thật (Teleprompter)',
-  voiceover: 'Voice-Over / TTS',
+  teleprompter: 'Người thật / Voice',
+  voiceover: 'Người thật / Voice', // legacy → teleprompter
   production: 'Production Script',
 };
 
@@ -1042,6 +1042,7 @@ ${voiceRegionLabel}, theo đặc trưng ${characterTypeName}, nhấn mạnh từ
 • Music mood: [subtle/building/emotional tùy theo nội dung]`;
 
     case 'teleprompter':
+    case 'voiceover': // legacy → same format as teleprompter
       return `--- ĐOẠN X ---
 
 [CUE: Mô tả hành động/biểu cảm trước khi nói - theo ${characterTypeName}]
@@ -1051,19 +1052,9 @@ ${voiceRegionLabel}, theo đặc trưng ${characterTypeName}, nhấn mạnh từ
 [NHẤN MẠNH: từ khóa quan trọng cần nhấn]
 [PAUSE: vị trí nghỉ nếu cần]
 
+GIỌNG: Tone [Tự tin/Ấm áp/Nghiêm túc] · Tempo [Vừa phải/Nhanh/Chậm] · Cảm xúc [mô tả]
+
 ---`;
-
-    case 'voiceover':
-      return `ĐOẠN X:
-
-"Lời thoại ở đây..." (Giọng điệu theo ${characterTypeName})
-
-HƯỚNG DẪN GIỌNG:
-- Tone: [Tự tin/Ấm áp/Nghiêm túc - theo ${characterTypeName}]
-- Tempo: [Vừa phải/Nhanh/Chậm]
-- Nhấn mạnh: [từ khóa cần nhấn]
-- Pause: [vị trí nghỉ]
-- Cảm xúc: [Mô tả cảm xúc trong giọng]`;
 
     case 'production':
       return `SCENE X / SHOT X [00:00-00:08]:

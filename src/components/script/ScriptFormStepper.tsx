@@ -158,7 +158,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
       case 'ai_video':
         return 'engagement';
       case 'teleprompter':
-      case 'voiceover':
         return 'education';
       case 'production':
         return 'expertise';
