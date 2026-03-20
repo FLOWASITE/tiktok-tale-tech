@@ -463,7 +463,7 @@ const getTextLengthGuidelines = (visualPreset: string): string => {
   return guidelines[visualPreset] || guidelines.minimalist;
 };
 
-const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, mergedRules?: MergedRules, outputLang: string = 'vi', countryCode?: string | null): string => {
+const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, mergedRules?: MergedRules, outputLang: string = 'vi', countryCode?: string | null, brandColors?: { primary?: string; secondary?: string[] }): string => {
   const langConfig = getLanguageConfig(outputLang);
   const countryConfig = getCountryConfig(countryCode);
   const carouselStyle = formData.carouselStyle || 'educational';
@@ -474,11 +474,24 @@ const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, me
   const styleSection = getCarouselStylePrompt(carouselStyle, formData.slideCount);
   const textLengthSection = getTextLengthGuidelines(visualPreset);
 
+  // Brand color directive for fullPrompt
+  let brandColorDirective = '';
+  if (brandColors?.primary) {
+    const allColors = [brandColors.primary, ...(brandColors.secondary || [])].join(', ');
+    brandColorDirective = `\n## 🎨 BRAND COLOR PALETTE (BẮT BUỘC TRONG fullPrompt)
+Thương hiệu sử dụng palette: ${allColors}
+- MỌI fullPrompt PHẢI sử dụng palette này làm accent colors chủ đạo
+- Ghi rõ palette vào fullPrompt, ví dụ: "color palette: ${allColors}"
+- Không để AI tự chọn màu — phải ép đúng brand colors
+- Accent, gradient, overlay, shapes đều phải dựa trên palette trên\n`;
+  }
+
   const platformName: Record<string, string> = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', linkedin: 'LinkedIn' };
   return `You are a professional Content Strategist for social media, specialized in creating carousels for ${platformName[formData.platform] || 'Facebook'}.
 Output ALL content in ${langName} (${langConfig.englishName}).
 
 ${brandVoiceSection}
+${brandColorDirective}
 
 ## VAI TRÒ CỦA BẠN
 1. Viết nội dung carousel chuyên nghiệp (textContent cho mỗi slide)
