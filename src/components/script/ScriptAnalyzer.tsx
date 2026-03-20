@@ -15,16 +15,23 @@ import {
   ChevronRight,
   ArrowUpRight,
   ArrowDownRight,
+  Wand2,
+  Check,
+  X as XIcon,
 } from 'lucide-react';
 import { Script } from '@/types/script';
 import { useScriptAnalysis, ScriptAnalysis } from '@/hooks/useScriptAnalysis';
+import { useScriptImprovement } from '@/hooks/useScriptImprovement';
 import { cn } from '@/lib/utils';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 interface ScriptAnalyzerProps {
   script: Script;
   initialAnalysis?: ScriptAnalysis | null;
+  onScriptUpdate?: (updatedScript: Script) => void;
   className?: string;
 }
 
@@ -202,8 +209,10 @@ const SuggestionCard = ({ suggestion }: {
 };
 
 /* ───────── Main Component ───────── */
-export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAnalyzerProps) {
+export function ScriptAnalyzer({ script, initialAnalysis, onScriptUpdate, className }: ScriptAnalyzerProps) {
   const { analysis, isAnalyzing, error, analyzeScript, setInitialAnalysis, clearAnalysis } = useScriptAnalysis();
+  const { isImproving, improvedContent, error: improveError, improveScript, applyImprovement, clearImprovement } = useScriptImprovement();
+  const [showPreview, setShowPreview] = useState(false);
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
 
   useEffect(() => {
@@ -474,7 +483,83 @@ export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAna
             </div>
           </div>
         )}
+
+        {/* AI Improve Button */}
+        {(a.suggestions.length > 0 || a.weaknesses.length > 0) && (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Button
+              onClick={async () => {
+                const result = await improveScript(script, a);
+                if (result) setShowPreview(true);
+              }}
+              disabled={isImproving}
+              className="w-full gap-2 h-11 rounded-2xl bg-gradient-to-r from-primary to-secondary text-primary-foreground hover:opacity-90 transition-opacity shadow-sm"
+            >
+              {isImproving ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Đang cải thiện kịch bản…
+                </>
+              ) : (
+                <>
+                  <Wand2 className="w-4 h-4" />
+                  AI Cải thiện kịch bản
+                </>
+              )}
+            </Button>
+            {improveError && (
+              <p className="text-xs text-destructive mt-2 text-center">{improveError}</p>
+            )}
+          </motion.div>
+        )}
       </div>
+
+      {/* Improvement Preview Dialog */}
+      <Dialog open={showPreview} onOpenChange={(open) => { if (!open) { setShowPreview(false); clearImprovement(); } }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="w-5 h-5 text-primary" />
+              Kịch bản đã cải thiện
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="flex-1 min-h-0 rounded-xl bg-muted/30 border border-border p-4">
+            <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">
+              {improvedContent}
+            </pre>
+          </ScrollArea>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { setShowPreview(false); clearImprovement(); }}
+              className="gap-1.5 rounded-xl"
+            >
+              <XIcon className="w-4 h-4" />
+              Hủy
+            </Button>
+            <Button
+              onClick={async () => {
+                const updated = await applyImprovement(script);
+                if (updated) {
+                  onScriptUpdate?.(updated);
+                  setShowPreview(false);
+                  toast.success('Đã áp dụng kịch bản cải thiện!');
+                  // Re-analyze the new script
+                  setTimeout(() => analyzeScript(updated), 500);
+                }
+              }}
+              className="gap-1.5 rounded-xl bg-primary text-primary-foreground"
+            >
+              <Check className="w-4 h-4" />
+              Áp dụng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </ScrollArea>
   );
 }
