@@ -1,54 +1,38 @@
 
 
-# Sửa lỗi ảnh Carousel không có màu thương hiệu
+# Tối ưu load ảnh — Sửa lỗi ảnh chủ đề khác hiển thị sai
 
-## Nguyên nhân gốc
+## Nguyên nhân
 
-Luồng truyền màu thương hiệu bị **đứt đoạn**:
+Có 2 bug gây ra hiện tượng ảnh "chủ đề cũ" hiện trong "chủ đề mới":
 
 ```text
-Brand Template (primary_color: "#E53E3E", secondary_colors: ["#FFD700"])
-        ↓
-CarouselForm.applyTemplate() ← CHỈ copy brand_name, brand_guideline, include_logo
-        ↓                        ❌ KHÔNG copy primary_color, secondary_colors
-Carousel DB record (brand_guideline = "")
-        ↓
-extractBrandColors() ← Parse brand_guideline → tìm hex colors → KHÔNG CÓ
-        ↓
-brandColors = undefined ← AI không nhận được màu nào
-        ↓
-Ảnh mặc định xanh/đen (do AI tự chọn)
+Mở Carousel A → savedImages = [ảnh A1, A2, A3]
+                 generatedImages = [ảnh A1, A2, A3] (synced)
+                 
+Chuyển sang Carousel B →
+  useCarouselImages bắt đầu fetch... (loading = true)
+  ❌ savedImages VẪN = [ảnh A1, A2, A3] (chưa clear)
+  ❌ generatedImages VẪN = [ảnh A1, A2, A3] (không bao giờ clear)
+  → User thấy ảnh Carousel A trong Carousel B
 ```
 
-**Không phải do phong cách thiết kế** — hệ thống `blendBrandColors()` và `brandColorDirective` trong prompt đều hoạt động đúng, nhưng không bao giờ nhận được dữ liệu màu.
+**Bug 1**: `useCarouselImages` không reset `images = []` khi `carouselId` thay đổi.  
+**Bug 2**: `useImageGeneration` không có cơ chế clear khi carousel thay đổi — sync effect chỉ ghi đè khi có data mới, không clear khi `savedImages` rỗng.
 
 ## Giải pháp
 
-### 1. `src/types/carousel.ts` — Thêm fields màu vào `CarouselFormData`
-- Thêm `brandPrimaryColor?: string` và `brandSecondaryColors?: string[]`
+### 1. `src/hooks/useCarouselImages.ts` — Clear images khi carouselId thay đổi
+- Thêm `useEffect` reset `setImages([])` khi `carouselId` thay đổi, trước khi fetch mới chạy.
 
-### 2. `src/components/CarouselForm.tsx` — Copy màu từ template
-- `applyTemplate()`: thêm `setPrimaryColor(template.primary_color)` và `setSecondaryColors(template.secondary_colors)`  
-- Truyền vào `onSubmit()` cùng form data
-
-### 3. `supabase/functions/generate-carousel/index.ts` — Lưu màu vào DB
-- Lưu `primary_color` và `secondary_colors` vào record carousel (hoặc nhúng vào `brand_guideline` JSON)
-
-### 4. `src/components/CarouselViewer.tsx` — Sửa `extractBrandColors()`
-- Ưu tiên đọc từ `carousel.brand_guideline` parsed JSON
-- **Fallback**: Tra cứu brand template gốc bằng `carousel.brand_template_id` để lấy `primary_color`
-
-### 5. `supabase/functions/generate-carousel-image/index.ts` — Không cần sửa
-- Logic `blendBrandColors()` và `brandColorDirective` đã hoạt động đúng, chỉ cần nhận đúng data
-
-## Tổng hợp
+### 2. `src/components/CarouselViewer.tsx` — Clear generatedImages khi carousel thay đổi
+- Thêm `useEffect` gọi `setImages([])` (từ `useImageGeneration`) + reset `syncedCarouselId` khi `carousel.id` thay đổi.
+- Xử lý case `savedImages.length === 0` (carousel chưa có ảnh) — cũng phải clear `generatedImages`.
 
 | File | Thay đổi |
 |------|----------|
-| `types/carousel.ts` | Thêm `brandPrimaryColor`, `brandSecondaryColors` vào form data |
-| `CarouselForm.tsx` | Copy `primary_color`/`secondary_colors` từ brand template |
-| `generate-carousel/index.ts` | Lưu brand colors vào record carousel |
-| `CarouselViewer.tsx` | Sửa `extractBrandColors()` fallback từ brand template |
+| `useCarouselImages.ts` | Reset images state khi carouselId thay đổi |
+| `CarouselViewer.tsx` | Clear generatedImages + syncedCarouselId khi carousel thay đổi |
 
-Sửa 4 file, không cần migration.
+Sửa 2 file, thay đổi nhỏ (~10 dòng).
 
