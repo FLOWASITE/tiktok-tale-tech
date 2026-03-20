@@ -149,7 +149,7 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className={cn(
           "w-[95vw] max-h-[95vh] xs:max-h-[90vh] gradient-card border-border overflow-hidden flex flex-col",
-          showAnalytics ? "max-w-6xl" : "max-w-4xl"
+          showAnalytics ? "max-w-7xl" : "max-w-4xl"
         )}>
           <DialogHeader className="pb-2 xs:pb-4">
             <div className="flex flex-col xs:flex-row xs:items-start justify-between gap-2 xs:gap-4">
@@ -427,19 +427,19 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
 
             {/* Analytics Sidebar */}
             {showAnalytics && (
-              <div className="w-full sm:w-72 md:w-80 flex-shrink-0 border-l border-border pl-4 min-h-0 overflow-y-auto">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold">AI Script Analyzer</h3>
+              <div className="w-full sm:w-[380px] md:w-[420px] flex-shrink-0 border-l border-border/40 pl-5 min-h-0 overflow-y-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold tracking-wide">AI Script Analyzer</h3>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6"
+                    className="h-7 w-7 rounded-lg"
                     onClick={() => setShowAnalytics(false)}
                   >
                     <X className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-                <ScriptAnalyzer script={script} initialAnalysis={script.analysis_cache as any} className="mb-4" />
+                <ScriptAnalyzer script={script} initialAnalysis={script.analysis_cache as any} className="mb-5" />
                 
                 {/* Collaboration Panel */}
                 <ScriptCollaborationPanel 

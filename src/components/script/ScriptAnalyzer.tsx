@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
@@ -11,7 +10,6 @@ import {
   Target, 
   BarChart3,
   AlertCircle,
-  CheckCircle2,
   Lightbulb,
   RefreshCw,
   ChevronRight,
@@ -22,7 +20,7 @@ import { Script } from '@/types/script';
 import { useScriptAnalysis, ScriptAnalysis } from '@/hooks/useScriptAnalysis';
 import { cn } from '@/lib/utils';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface ScriptAnalyzerProps {
   script: Script;
@@ -31,9 +29,10 @@ interface ScriptAnalyzerProps {
 }
 
 /* ───────── Score Ring ───────── */
-const ScoreRing = ({ score, label, icon: Icon, size = 56 }: { 
+const ScoreRing = ({ score, label, description, icon: Icon, size = 64 }: { 
   score: number; 
-  label: string; 
+  label: string;
+  description?: string;
   icon: React.ElementType;
   size?: number;
 }) => {
@@ -49,13 +48,13 @@ const ScoreRing = ({ score, label, icon: Icon, size = 56 }: {
   };
 
   return (
-    <div className="flex flex-col items-center gap-1.5 group">
+    <div className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-card/50 border border-border/40 hover:border-border/80 transition-colors">
       <div className="relative flex items-center justify-center">
         <svg width={size} height={size} className="transform -rotate-90">
           <circle
             cx={size / 2} cy={size / 2} r={radius}
             fill="none"
-            stroke="hsl(var(--border))"
+            stroke="hsl(var(--muted))"
             strokeWidth={3}
           />
           <circle
@@ -70,12 +69,17 @@ const ScoreRing = ({ score, label, icon: Icon, size = 56 }: {
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-sm font-semibold text-foreground">{score}</span>
+          <span className="text-base font-bold text-foreground tabular-nums">{score}</span>
         </div>
       </div>
-      <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium tracking-wide uppercase">
-        <Icon className="w-3 h-3" />
-        {label}
+      <div className="text-center space-y-0.5">
+        <div className="flex items-center justify-center gap-1 text-[11px] text-foreground/80 font-medium tracking-wide">
+          <Icon className="w-3 h-3 text-muted-foreground" />
+          {label}
+        </div>
+        {description && (
+          <p className="text-[9px] text-muted-foreground leading-tight">{description}</p>
+        )}
       </div>
     </div>
   );
@@ -93,13 +97,13 @@ const EmotionalArcChart = ({ items }: {
   }));
 
   return (
-    <div className="w-full h-36">
+    <div className="w-full h-44">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
           <defs>
             <linearGradient id="arcGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.25} />
+              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.02} />
             </linearGradient>
           </defs>
           <XAxis 
@@ -136,7 +140,7 @@ const EmotionalArcChart = ({ items }: {
             stroke="hsl(var(--primary))"
             strokeWidth={2}
             fill="url(#arcGradient)"
-            dot={{ fill: 'hsl(var(--primary))', r: 3, strokeWidth: 0 }}
+            dot={{ fill: 'hsl(var(--primary))', r: 3.5, strokeWidth: 0 }}
             activeDot={{ r: 5, strokeWidth: 2, stroke: 'hsl(var(--background))' }}
           />
         </AreaChart>
@@ -149,7 +153,7 @@ const EmotionalArcChart = ({ items }: {
 const SuggestionCard = ({ suggestion }: { 
   suggestion: ScriptAnalysis['suggestions'][0] 
 }) => {
-  const priorityConfig = {
+  const priorityConfig: Record<string, { bg: string; border: string; dot: string; label: string }> = {
     high: { bg: 'bg-destructive/[0.04]', border: 'border-destructive/20', dot: 'bg-destructive', label: 'Quan trọng' },
     medium: { bg: 'bg-secondary/[0.04]', border: 'border-secondary/20', dot: 'bg-secondary', label: 'Nên làm' },
     low: { bg: 'bg-muted/50', border: 'border-border', dot: 'bg-muted-foreground', label: 'Gợi ý' },
@@ -169,26 +173,26 @@ const SuggestionCard = ({ suggestion }: {
 
   return (
     <div className={cn(
-      "p-3 rounded-xl border transition-colors",
+      "p-4 rounded-2xl border transition-colors",
       config.bg, config.border
     )}>
-      <div className="flex items-start gap-2.5">
-        <div className="mt-0.5 w-6 h-6 rounded-lg bg-background flex items-center justify-center border border-border/50 shrink-0">
-          <TypeIcon className="w-3 h-3 text-muted-foreground" />
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5 w-8 h-8 rounded-xl bg-background flex items-center justify-center border border-border/50 shrink-0">
+          <TypeIcon className="w-3.5 h-3.5 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-1">
+          <div className="flex items-center gap-1.5 mb-1.5">
             <div className={cn("w-1.5 h-1.5 rounded-full", config.dot)} />
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
               {config.label}
             </span>
             {suggestion.promptNumber && (
-              <span className="text-[10px] text-muted-foreground/70">
+              <span className="text-[10px] text-muted-foreground/60">
                 · P{suggestion.promptNumber}
               </span>
             )}
           </div>
-          <p className="text-xs text-foreground/80 leading-relaxed">
+          <p className="text-sm text-foreground/80 leading-relaxed">
             {suggestion.message}
           </p>
         </div>
@@ -226,26 +230,26 @@ export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAna
   /* ── Empty State ── */
   if (!hasAnalyzed && !analysis) {
     return (
-      <div className={cn("flex flex-col items-center justify-center py-8 gap-6", className)}>
+      <div className={cn("flex flex-col items-center justify-center py-12 gap-8", className)}>
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.4, ease: 'easeOut' }}
           className="relative"
         >
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20 flex items-center justify-center">
-            <Sparkles className="w-9 h-9 text-primary/70" />
+          <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20 flex items-center justify-center">
+            <Sparkles className="w-10 h-10 text-primary/70" />
           </div>
-          <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-lg bg-secondary/10 border border-secondary/20 flex items-center justify-center">
-            <BarChart3 className="w-3 h-3 text-secondary" />
+          <div className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center justify-center">
+            <BarChart3 className="w-3.5 h-3.5 text-secondary" />
           </div>
         </motion.div>
         
-        <div className="text-center space-y-1.5">
-          <h3 className="font-semibold text-sm text-foreground">
+        <div className="text-center space-y-2">
+          <h3 className="font-semibold text-base text-foreground">
             Phân tích kịch bản
           </h3>
-          <p className="text-xs text-muted-foreground max-w-[200px] leading-relaxed">
+          <p className="text-sm text-muted-foreground max-w-[260px] leading-relaxed">
             AI đánh giá chất lượng hook, nhịp điệu, CTA và đưa ra gợi ý cải thiện
           </p>
         </div>
@@ -253,17 +257,16 @@ export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAna
         <Button 
           onClick={handleAnalyze} 
           disabled={isAnalyzing}
-          size="sm"
-          className="rounded-xl gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+          className="rounded-xl gap-2 px-6 h-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
         >
           {isAnalyzing ? (
             <>
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              <RefreshCw className="w-4 h-4 animate-spin" />
               Đang phân tích…
             </>
           ) : (
             <>
-              <Sparkles className="w-3.5 h-3.5" />
+              <Sparkles className="w-4 h-4" />
               Phân tích ngay
             </>
           )}
@@ -275,19 +278,19 @@ export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAna
   /* ── Loading State ── */
   if (isAnalyzing) {
     return (
-      <div className={cn("flex flex-col items-center justify-center py-10 gap-5", className)}>
+      <div className={cn("flex flex-col items-center justify-center py-16 gap-6", className)}>
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-          className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20 flex items-center justify-center"
+          className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20 flex items-center justify-center"
         >
-          <Sparkles className="w-7 h-7 text-primary" />
+          <Sparkles className="w-8 h-8 text-primary" />
         </motion.div>
-        <div className="text-center space-y-1">
-          <p className="text-sm font-medium text-foreground">
+        <div className="text-center space-y-1.5">
+          <p className="text-base font-medium text-foreground">
             Đang phân tích…
           </p>
-          <p className="text-xs text-muted-foreground">AI đang đánh giá kịch bản</p>
+          <p className="text-sm text-muted-foreground">AI đang đánh giá kịch bản</p>
         </div>
       </div>
     );
@@ -296,14 +299,14 @@ export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAna
   /* ── Error State ── */
   if (error) {
     return (
-      <div className={cn("flex flex-col items-center justify-center py-8 gap-4", className)}>
-        <div className="w-14 h-14 rounded-2xl bg-destructive/10 border border-destructive/20 flex items-center justify-center">
-          <AlertCircle className="w-6 h-6 text-destructive" />
+      <div className={cn("flex flex-col items-center justify-center py-12 gap-5", className)}>
+        <div className="w-16 h-16 rounded-2xl bg-destructive/10 border border-destructive/20 flex items-center justify-center">
+          <AlertCircle className="w-7 h-7 text-destructive" />
         </div>
-        <div className="text-center space-y-2">
-          <p className="text-xs text-destructive">{error}</p>
-          <Button variant="outline" size="sm" onClick={handleAnalyze} className="rounded-xl gap-1.5 text-xs">
-            <RefreshCw className="w-3 h-3" />
+        <div className="text-center space-y-3">
+          <p className="text-sm text-destructive">{error}</p>
+          <Button variant="outline" size="sm" onClick={handleAnalyze} className="rounded-xl gap-1.5">
+            <RefreshCw className="w-3.5 h-3.5" />
             Thử lại
           </Button>
         </div>
@@ -326,67 +329,76 @@ export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAna
   /* ── Results ── */
   return (
     <ScrollArea className={cn("h-full", className)}>
-      <div className="space-y-5 p-0.5">
+      <div className="space-y-6 p-1">
         {/* Overall Score Hero */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/[0.06] via-background to-secondary/[0.06] border border-border/50 p-5"
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/[0.06] via-background to-secondary/[0.06] border border-border/50 p-6"
         >
-          <div className="flex items-center justify-between">
+          {/* Decorative radial */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-radial from-primary/[0.08] to-transparent rounded-full -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+          
+          <div className="relative flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground mb-1">
+              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-2">
                 Điểm tổng thể
               </p>
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-bold text-foreground tabular-nums">
+              <div className="flex items-baseline gap-3">
+                <span className="text-5xl font-bold text-foreground tabular-nums leading-none">
                   {a.overallScore}
                 </span>
-                <span className={cn("text-lg font-bold", grade.color)}>
-                  {grade.grade}
-                </span>
+                <div className="flex flex-col">
+                  <span className={cn("text-xl font-bold leading-none", grade.color)}>
+                    {grade.grade}
+                  </span>
+                  <span className={cn("text-xs mt-0.5", grade.color)}>
+                    {grade.label}
+                  </span>
+                </div>
               </div>
-              <p className={cn("text-xs mt-0.5", grade.color)}>
-                {grade.label}
-              </p>
             </div>
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={handleAnalyze}
               disabled={isAnalyzing}
-              className="rounded-xl text-xs text-muted-foreground hover:text-foreground gap-1"
+              className="rounded-xl text-xs text-muted-foreground hover:text-foreground gap-1.5"
             >
-              <RefreshCw className={cn("w-3 h-3", isAnalyzing && "animate-spin")} />
+              <RefreshCw className={cn("w-3.5 h-3.5", isAnalyzing && "animate-spin")} />
               Phân tích lại
             </Button>
           </div>
         </motion.div>
 
-        {/* Score Grid */}
-        <div className="grid grid-cols-5 gap-1">
-          <ScoreRing score={a.hookScore} label="Hook" icon={Eye} size={52} />
-          <ScoreRing score={a.clarityScore} label="Clarity" icon={Target} size={52} />
-          <ScoreRing score={a.viralPotential} label="Viral" icon={TrendingUp} size={52} />
-          <ScoreRing score={a.pacingScore} label="Pace" icon={Zap} size={52} />
-          <ScoreRing score={a.ctaEffectiveness} label="CTA" icon={BarChart3} size={52} />
+        {/* Score Grid — 3 + 2 layout */}
+        <div className="space-y-2">
+          <div className="grid grid-cols-3 gap-2">
+            <ScoreRing score={a.hookScore} label="Hook" description="3s đầu tiên" icon={Eye} size={64} />
+            <ScoreRing score={a.clarityScore} label="Clarity" description="Rõ ràng" icon={Target} size={64} />
+            <ScoreRing score={a.viralPotential} label="Viral" description="Tiềm năng" icon={TrendingUp} size={64} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <ScoreRing score={a.pacingScore} label="Pace" description="Nhịp điệu" icon={Zap} size={64} />
+            <ScoreRing score={a.ctaEffectiveness} label="CTA" description="Kêu gọi hành động" icon={BarChart3} size={64} />
+          </div>
         </div>
 
         {/* Strengths & Weaknesses */}
         <div className="space-y-3">
           {a.strengths.length > 0 && (
-            <div className="rounded-xl bg-primary/[0.03] border border-primary/10 p-3">
-              <div className="flex items-center gap-1.5 mb-2">
-                <ArrowUpRight className="w-3.5 h-3.5 text-primary" />
-                <span className="text-[10px] font-medium uppercase tracking-wider text-primary">
+            <div className="rounded-2xl bg-primary/[0.03] border border-primary/10 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <ArrowUpRight className="w-4 h-4 text-primary" />
+                <span className="text-xs font-semibold uppercase tracking-widest text-primary">
                   Điểm mạnh
                 </span>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2.5">
                 {a.strengths.map((s, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs text-foreground/75 leading-relaxed">
-                    <ChevronRight className="w-3 h-3 text-primary/50 mt-0.5 shrink-0" />
+                  <div key={i} className="flex items-start gap-2.5 text-sm text-foreground/80 leading-relaxed">
+                    <ChevronRight className="w-3.5 h-3.5 text-primary/40 mt-0.5 shrink-0" />
                     {s}
                   </div>
                 ))}
@@ -395,17 +407,17 @@ export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAna
           )}
 
           {a.weaknesses.length > 0 && (
-            <div className="rounded-xl bg-destructive/[0.03] border border-destructive/10 p-3">
-              <div className="flex items-center gap-1.5 mb-2">
-                <ArrowDownRight className="w-3.5 h-3.5 text-destructive/70" />
-                <span className="text-[10px] font-medium uppercase tracking-wider text-destructive/70">
+            <div className="rounded-2xl bg-destructive/[0.03] border border-destructive/10 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <ArrowDownRight className="w-4 h-4 text-destructive/70" />
+                <span className="text-xs font-semibold uppercase tracking-widest text-destructive/70">
                   Cần cải thiện
                 </span>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2.5">
                 {a.weaknesses.map((w, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs text-foreground/75 leading-relaxed">
-                    <ChevronRight className="w-3 h-3 text-destructive/30 mt-0.5 shrink-0" />
+                  <div key={i} className="flex items-start gap-2.5 text-sm text-foreground/80 leading-relaxed">
+                    <ChevronRight className="w-3.5 h-3.5 text-destructive/30 mt-0.5 shrink-0" />
                     {w}
                   </div>
                 ))}
@@ -416,23 +428,26 @@ export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAna
 
         {/* Emotional Arc */}
         {a.emotionalArc.length > 0 && (
-          <div className="rounded-xl border border-border/50 p-3">
-            <div className="flex items-center gap-1.5 mb-3">
-              <TrendingUp className="w-3.5 h-3.5 text-primary" />
-              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="rounded-2xl border border-border/50 p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingUp className="w-4 h-4 text-primary" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Cung cảm xúc
               </span>
             </div>
+            <p className="text-[11px] text-muted-foreground/70 mb-3">
+              Biểu đồ thể hiện cường độ cảm xúc qua từng prompt
+            </p>
             <EmotionalArcChart items={a.emotionalArc} />
             {/* Emotion pills */}
-            <div className="flex flex-wrap gap-1.5 mt-2">
+            <div className="flex flex-wrap gap-1.5 mt-3">
               {a.emotionalArc.map((item, i) => (
                 <div 
                   key={i} 
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/50 text-[10px] text-muted-foreground"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-muted/60 text-[11px] text-muted-foreground"
                 >
-                  <span className="font-medium">P{item.prompt}</span>
-                  <span className="text-muted-foreground/60">·</span>
+                  <span className="font-semibold">P{item.prompt}</span>
+                  <span className="text-muted-foreground/40">·</span>
                   <span>{item.emotion}</span>
                 </div>
               ))}
@@ -443,16 +458,16 @@ export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAna
         {/* Suggestions */}
         {a.suggestions.length > 0 && (
           <div>
-            <div className="flex items-center gap-1.5 mb-3">
-              <Lightbulb className="w-3.5 h-3.5 text-secondary" />
-              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            <div className="flex items-center gap-2 mb-4">
+              <Lightbulb className="w-4 h-4 text-secondary" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Gợi ý cải thiện
               </span>
-              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 ml-auto">
+              <Badge variant="secondary" className="text-[10px] px-2 py-0 h-5 ml-auto rounded-full">
                 {a.suggestions.length}
               </Badge>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {a.suggestions.map((suggestion, i) => (
                 <SuggestionCard key={i} suggestion={suggestion} />
               ))}
