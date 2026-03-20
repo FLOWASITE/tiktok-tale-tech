@@ -957,31 +957,41 @@ RULES FOR TEXT:
 `;
   }
 
-  // === Phase C: Brand Color injection ===
+  // === Phase C: Brand Color injection (STRONG directive) ===
   let brandColorDirective = '';
   if (brandColors) {
-    const parts: string[] = [];
+    const colorParts: string[] = [];
     if (brandColors.backgroundColor) {
-      parts.push(`Brand primary color: ${brandColors.backgroundColor}`);
+      colorParts.push(`PRIMARY BRAND COLOR: ${brandColors.backgroundColor} — This color MUST dominate the image (40-60% of visible color area). Use it for backgrounds, gradients, overlays, or large color blocks.`);
     }
     if (brandColors.textColor) {
-      parts.push(`Brand accent/text color: ${brandColors.textColor}`);
+      colorParts.push(`SECONDARY BRAND COLOR: ${brandColors.textColor} — Use for accents, highlights, and contrast elements.`);
     }
-    if (parts.length > 0) {
-      brandColorDirective = `\nBRAND IDENTITY COLORS (incorporate as dominant colors in the composition):\n${parts.map(p => `- ${p}`).join('\n')}\n`;
+    if (colorParts.length > 0) {
+      brandColorDirective = `
+⚠️ MANDATORY BRAND COLOR DIRECTIVE (HIGHEST PRIORITY):
+${colorParts.map(p => `- ${p}`).join('\n')}
+- FORBIDDEN: Do NOT default to generic blue (#3B82F6), teal, dark navy, or corporate black unless those exact colors are listed above.
+- The brand colors above MUST be clearly visible and dominant in the final image.
+- If the brand color is warm (red, orange, yellow), the image MUST feel warm. If cool (green, purple), reflect that temperature.
+`;
     }
   }
 
-  // === DB Design Tokens injection ===
+  // === DB Design Tokens injection (filtered when brand colors exist) ===
   let tokenDirective = '';
   if (dbTokens) {
     const parts: string[] = [];
-    if (dbTokens.colors) {
+    // When brand colors are present, skip token colors to avoid conflict
+    if (dbTokens.colors && !brandColors) {
       const c = dbTokens.colors;
       if (c.primary) parts.push(`Primary color: ${c.primary}`);
       if (c.accent) parts.push(`Accent color: ${c.accent}`);
       if (c.background) parts.push(`Background tone: ${c.background}`);
-      if (c.mood) parts.push(`Color mood: ${c.mood}`);
+    }
+    // Always keep mood — it doesn't conflict with brand colors
+    if (dbTokens.colors?.mood) {
+      parts.push(`Color mood: ${dbTokens.colors.mood}`);
     }
     if (dbTokens.typography?.mood) {
       parts.push(`Typography mood: ${dbTokens.typography.mood}`);
@@ -995,7 +1005,7 @@ RULES FOR TEXT:
       if (fx.length > 0) parts.push(`Visual effects: ${fx.join(', ')}`);
     }
     if (parts.length > 0) {
-      tokenDirective = `\nDESIGN TOKENS (from brand preset):\n${parts.map(p => `- ${p}`).join('\n')}\n`;
+      tokenDirective = `\nDESIGN TOKENS (supplementary mood/effects only):\n${parts.map(p => `- ${p}`).join('\n')}\n`;
     }
   }
 
@@ -1122,16 +1132,22 @@ CAROUSEL COMPOSITION:
     topicDirective += `\nSLIDE UNIQUENESS: This is slide ${slideNumber} of ${totalSlides || 5}. Use a DIFFERENT camera angle and focal subject than other slides. This slide's unique focus: "${slideObjective || 'main topic'}". Vary between wide shot, medium shot, close-up, overhead, and side angle across slides.\n`;
   }
 
-  // Assemble prompt: visual concept FIRST, text instruction, then constraints
+  // Assemble prompt: BRAND COLORS FIRST (AI prioritizes beginning of prompt)
+  const brandColorReinforcement = brandColorDirective
+    ? `\n⚠️ FINAL REMINDER: The brand colors specified at the top of this prompt MUST be clearly dominant. Do NOT produce a blue/black/teal image unless those are the brand colors.`
+    : '';
+
   const prompt = [
+    // PART 0: Brand colors FIRST — highest priority position
+    brandColorDirective || '',
+
     // PART 1: Scene description
     cleanedPrompt,
     
     // PART 1.5: Topic lock
     topicDirective || '',
     
-    // PART 2: Color & Brand
-    brandColorDirective ? `\nColor guidance: ${brandColorDirective.trim()}` : '',
+    // PART 2: Design tokens (mood/effects only when brand colors present)
     tokenDirective ? `\nDesign mood: ${tokenDirective.trim()}` : '',
     
     // PART 3: Continuity
@@ -1140,11 +1156,14 @@ CAROUSEL COMPOSITION:
     // PART 4: Style directive
     styleDirective || '',
     
-    // PART 5: TEXT RENDERING (the key change — text is now part of the image)
+    // PART 5: TEXT RENDERING
     textInstruction,
     
     // PART 6: Final constraints
     safeZoneNote,
+
+    // PART 7: Brand color reinforcement (sandwich technique — end of prompt)
+    brandColorReinforcement,
   ].filter(Boolean).join('\n');
 
   return prompt;

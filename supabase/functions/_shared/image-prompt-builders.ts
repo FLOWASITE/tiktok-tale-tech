@@ -158,14 +158,15 @@ export const buildBrandColors: PromptBuilder = (ctx) => {
       parts.push(`- Brand colors should complement, not overpower the image`);
     }
   } else {
-    // full mode — dominant colors
+    // full mode — STRONG dominant color directive
     if (brand.brandColors?.primary) {
-      parts.push(`\n## COLOR PALETTE (CRITICAL - MUST USE):`);
-      parts.push(`- PRIMARY COLOR: ${brand.brandColors.primary} - Use this as the dominant accent color`);
+      parts.push(`\n## ⚠️ COLOR PALETTE (MANDATORY — HIGHEST PRIORITY):`);
+      parts.push(`- PRIMARY COLOR: ${brand.brandColors.primary} — This MUST be the dominant color in the image (40-60% of visible color area). Use for backgrounds, gradients, large shapes, or tonal washes.`);
       if (brand.brandColors.secondary && brand.brandColors.secondary.length > 0) {
-        parts.push(`- SECONDARY COLORS: ${brand.brandColors.secondary.join(', ')} - Use as complementary accents`);
+        parts.push(`- SECONDARY COLORS: ${brand.brandColors.secondary.join(', ')} — Use as complementary accents (20-30% of color area)`);
       }
-      parts.push(`- Create a cohesive color harmony using these brand colors`);
+      parts.push(`- FORBIDDEN: Do NOT use generic blue (#3B82F6), teal, dark navy, or corporate black/gray unless they match the brand palette above.`);
+      parts.push(`- The brand colors MUST be clearly recognizable in the final image — not hidden or muted.`);
       parts.push(`- Ensure sufficient contrast for readability if text is overlaid`);
     }
   }
@@ -571,6 +572,25 @@ export const buildLocalizationSuffix: PromptBuilder = (ctx) => {
 };
 
 // ============================================
+// 11. Brand Color Reinforcement (suffix) — sandwich technique
+// ============================================
+
+export const buildBrandColorReinforcement: PromptBuilder = (ctx) => {
+  const { brand, promptMode = 'full' } = ctx.params;
+  if (promptMode === 'raw') return null;
+  if (!brand?.brandColors?.primary) return null;
+
+  const colorList = [brand.brandColors.primary, ...(brand.brandColors.secondary || [])].join(', ');
+
+  return {
+    id: 'brand_color_reinforcement',
+    position: 'suffix',
+    priority: 99,
+    content: `⚠️ FINAL COLOR CHECK: The image MUST prominently feature these brand colors: ${colorList}. If the image appears mostly blue, black, teal, or gray and those are NOT the brand colors above, regenerate with the correct palette.`,
+  };
+};
+
+// ============================================
 // DEFAULT BUILDER REGISTRY
 // ============================================
 
@@ -585,4 +605,5 @@ export const DEFAULT_BUILDERS: PromptBuilder[] = [
   buildNegativePrompt,
   buildCriticalRules,
   buildLocalizationSuffix,
+  buildBrandColorReinforcement,
 ];
