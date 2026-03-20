@@ -179,7 +179,7 @@ export function CarouselCard({
           </div>
         ) : (
           <div 
-            className="relative aspect-video bg-muted/10 flex items-center justify-center cursor-pointer"
+            className="relative aspect-[4/3] bg-muted/10 flex items-center justify-center cursor-pointer"
             onClick={() => onView(carousel)}
           >
             <div className="text-center">
