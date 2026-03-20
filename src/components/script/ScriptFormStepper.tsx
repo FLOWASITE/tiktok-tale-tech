@@ -220,21 +220,16 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     return () => clearInterval(interval);
   }, [isLoading]);
 
-  // Set default template from global brand context or default template
+  // Sync brandTemplateId from global brand context (Header switcher)
   useEffect(() => {
-    if (templatesLoading || brandTouched || templates.length === 0) return;
-    
-    // If brandValue is still 'none', set from global context or default
-    if (brandValue === 'none') {
-      const initialBrand = currentBrand 
-        ? templates.find(t => t.id === currentBrand.id)
-        : (templates.find(t => t.is_default) ?? templates[0]);
-      if (initialBrand) {
-        setBrandValue(initialBrand.id);
-        setFormData(prev => ({ ...prev, brandTemplateId: initialBrand.id }));
-      }
+    if (templatesLoading || templates.length === 0) return;
+    const brand = currentBrand 
+      ? templates.find(t => t.id === currentBrand.id)
+      : (templates.find(t => t.is_default) ?? templates[0]);
+    if (brand) {
+      setFormData(prev => ({ ...prev, brandTemplateId: brand.id }));
     }
-  }, [templatesLoading, templates, brandTouched, brandValue, currentBrand]);
+  }, [templatesLoading, templates, currentBrand]);
 
   // Character count color
   const topicLength = formData.topic.length;
