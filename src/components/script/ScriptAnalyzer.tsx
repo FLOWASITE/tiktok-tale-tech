@@ -23,6 +23,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 interface ScriptAnalyzerProps {
   script: Script;
+  initialAnalysis?: ScriptAnalysis | null;
   className?: string;
 }
 
