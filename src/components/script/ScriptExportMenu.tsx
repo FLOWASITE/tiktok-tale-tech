@@ -373,26 +373,8 @@ export function ScriptExportMenu({ script, className }: ScriptExportMenuProps) {
             </>
           )}
 
-          {/* Voice-Over Section */}
-          {exportOptions.voiceover && (
-            <>
-              <DropdownMenuLabel className="flex items-center gap-2 text-green-500">
-                <Mic className="w-4 h-4" />
-                Voice-Over / TTS
-              </DropdownMenuLabel>
-              <DropdownMenuGroup>
-                <DropdownMenuItem onClick={handlePreviewVoiceover}>
-                  <Eye className="w-4 h-4 mr-2" />
-                  VO Script
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handlePreviewDialogueNumbered}>
-                  <Eye className="w-4 h-4 mr-2" />
-                  Clean Dialogue
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-            </>
-          )}
+
+
 
           {/* Production Section */}
           {exportOptions.production && (
