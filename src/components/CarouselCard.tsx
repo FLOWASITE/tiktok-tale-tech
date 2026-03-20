@@ -189,7 +189,7 @@ export function CarouselCard({
           </div>
         )}
 
-        <CardHeader className="p-3 xs:p-4 sm:p-5 pb-2 xs:pb-3">
+        <CardHeader className="p-2 xs:p-3 sm:p-3 pb-1.5 xs:pb-2">
           <div className="flex items-start justify-between gap-1.5 xs:gap-2">
             <CardTitle className="text-sm xs:text-base font-semibold line-clamp-2 group-hover:text-primary transition-colors">
               {carousel.title}
