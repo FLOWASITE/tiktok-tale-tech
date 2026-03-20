@@ -830,11 +830,11 @@ Follow the carousel style guidelines strictly.`;
               },
               captionSuggestion: {
                 type: "string",
-                description: "Gợi ý caption đăng bài phù hợp với nền tảng",
+                description: "Caption đăng bài theo công thức HOOK-BODY-CTA-HASHTAG. Dòng 1: Hook line gây tò mò (<125 ký tự, kỹ thuật: câu hỏi/số liệu sốc/statement ngược đời). Dòng 2-4: Body với emoji đầu dòng (✅📌💡🔥), mỗi dòng 1 ý, tóm tắt giá trị carousel. Dòng cuối: CTA line (💾 Save/↗️ Share/💬 Comment). Cuối cùng: hashtags phù hợp nền tảng (Facebook: 3-5, TikTok: 5-8). Dùng line breaks (\\n) giữa các phần.",
               },
               ctaSuggestion: {
                 type: "string",
-                description: "Gợi ý CTA kéo tương tác (save, share, comment)",
+                description: "CTA đa tầng gồm 3 dòng có label: (1) 🎯 CTA chính — hành động trực tiếp (Save/Follow/Đăng ký), (2) 💬 Engagement — câu hỏi mở kéo comment, (3) 👥 Share — lý do tag bạn bè/chia sẻ. Mỗi dòng cách nhau bằng line break (\\n). Ngôn ngữ phù hợp nền tảng và tone thương hiệu.",
               },
             },
             required: ["title", "slides", "captionSuggestion", "ctaSuggestion"],
