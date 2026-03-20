@@ -150,7 +150,7 @@ export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate
 
             {/* Content preview */}
             {contentPreview && (
-              <p className="text-xs text-muted-foreground/50 line-clamp-1 leading-relaxed">
+              <p className="text-xs text-muted-foreground/70 line-clamp-1 leading-relaxed">
                 {contentPreview}…
               </p>
             )}
