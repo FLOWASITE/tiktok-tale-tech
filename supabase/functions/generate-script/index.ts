@@ -1041,20 +1041,7 @@ ${voiceRegionLabel}, theo đặc trưng ${characterTypeName}, nhấn mạnh từ
 • SFX: None (hoặc hiệu ứng cụ thể nếu cần)
 • Music mood: [subtle/building/emotional tùy theo nội dung]`;
 
-    case 'ai_video_minimax':
-      return `CLIP X:
-
-[SCENE]
-Medium shot, professional studio. Person speaking ${characterTypeName === 'the_virtuoso' ? 'authoritatively' : 'confidently'}. Soft lighting.
-[Camera motion: Pan left/Zoom in slowly/Static - chọn phù hợp]
-
-[VOICE]
-"..." (Lời thoại theo ${characterTypeName})
-
-[DURATION]
-~${Math.round(duration / parseInt(promptCount.split('-')[0]))} giây`;
-
-    case 'teleprompter':
+    // ai_video_minimax legacy — now handled by ai_video case above
       return `--- ĐOẠN X ---
 
 [CUE: Mô tả hành động/biểu cảm trước khi nói - theo ${characterTypeName}]
