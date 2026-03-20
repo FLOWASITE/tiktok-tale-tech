@@ -692,19 +692,23 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
 
                 {/* Voice & Dialogue chip */}
                 <ConfigChipSelector
-                  label={`${voiceLabel.replace('Giọng ', '')} • ${dialogueLabel}`}
+                  label={formData.script_purpose === 'teleprompter' ? dialogueLabel : `${voiceLabel.replace('Giọng ', '')} • ${dialogueLabel}`}
                   icon={<Mic className="w-3.5 h-3.5" />}
                 >
                   <div className="space-y-4">
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase mb-3">Giọng vùng miền</p>
-                      <VoiceRegionSelector
-                        value={formData.voice_region}
-                        onChange={(value) => setFormData((prev) => ({ ...prev, voice_region: value }))}
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <div className="h-px bg-border/20" />
+                    {formData.script_purpose !== 'teleprompter' && (
+                      <>
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase mb-3">Giọng vùng miền</p>
+                          <VoiceRegionSelector
+                            value={formData.voice_region}
+                            onChange={(value) => setFormData((prev) => ({ ...prev, voice_region: value }))}
+                            disabled={isLoading}
+                          />
+                        </div>
+                        <div className="h-px bg-border/20" />
+                      </>
+                    )}
                     <div>
                       <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase mb-3">Phong cách hội thoại</p>
                       <DialogueStyleSelector
