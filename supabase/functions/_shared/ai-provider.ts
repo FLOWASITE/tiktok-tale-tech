@@ -304,15 +304,18 @@ async function callLovableGateway(
         return { success: false, error: "Empty response from AI gateway", provider: "lovable", model };
       }
     
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch (parseErr) {
-      console.error("[ai-provider] Failed to parse Lovable Gateway response:", responseText.substring(0, 200));
-      return { success: false, error: "Invalid JSON response from AI gateway", provider: "lovable", model };
-    }
-    
-    return { success: true, data, provider: "lovable", model };
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseErr) {
+        console.error("[ai-provider] Failed to parse Lovable Gateway response:", responseText.substring(0, 200));
+        return { success: false, error: "Invalid JSON response from AI gateway", provider: "lovable", model };
+      }
+      
+      return { success: true, data, provider: "lovable", model };
+    } // end retry loop
+
+    return { success: false, error: "Empty response from AI gateway after retries", provider: "lovable", model };
   } catch (err) {
     console.error("[ai-provider] Lovable Gateway call failed:", err);
     return { success: false, error: String(err), provider: "lovable", model };
