@@ -75,6 +75,8 @@ export interface AICallOptions {
   // Per-channel model overrides (Admin-configured)
   modelOverride?: string;
   temperatureOverride?: number;
+  // Force routing to a specific provider (bypasses auto-detection)
+  forceProvider?: string | null;
   // Distributed tracing (Sprint 2)
   traceId?: string;
   spanId?: string;
