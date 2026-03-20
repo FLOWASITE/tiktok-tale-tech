@@ -80,7 +80,7 @@ interface CarouselLayoutPreviewProps {
 
 export function CarouselLayoutPreview({ slides, visualPreset, carouselStyle, platform }: CarouselLayoutPreviewProps) {
   const style = PRESET_MOCK_STYLES[visualPreset] || PRESET_MOCK_STYLES.minimalist;
-  const aspectClass = platform === 'tiktok' ? 'aspect-[9/16]' : carouselStyle === 'gallery' ? 'aspect-[4/5]' : 'aspect-square';
+  const aspectClass = platform === 'tiktok' ? 'aspect-[9/16]' : platform === 'instagram' ? 'aspect-[4/5]' : carouselStyle === 'gallery' ? 'aspect-[4/5]' : 'aspect-square';
 
   return (
     <div className="space-y-3">
