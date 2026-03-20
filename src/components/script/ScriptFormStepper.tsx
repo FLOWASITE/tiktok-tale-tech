@@ -1,12 +1,10 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { 
   Sparkles, 
   Loader2, 
@@ -23,23 +21,19 @@ import {
   Target,
   Book,
   Megaphone,
-  MessageSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { useQuickHookSuggestions } from '@/hooks/useQuickHookSuggestions';
-import { useTopicRefinement } from '@/hooks/useTopicRefinement';
 import { BrandPreviewCard } from '@/components/BrandPreviewCard';
-import { ScriptTopicDiscoveryPanel } from '@/components/script/ScriptTopicDiscoveryPanel';
-import { TopicRefinementSuggestions } from '@/components/script/TopicRefinementSuggestions';
 import { TopicAngleSelector } from '@/components/script/TopicAngleSelector';
 import { TopicAnglePreview } from '@/components/script/TopicAnglePreview';
 import { TopicBrainstormSheet } from '@/components/multichannel/TopicBrainstormSheet';
-import { InlineTopicSuggestions } from '@/components/multichannel/InlineTopicSuggestions';
 import { ComplianceWarningBadge } from '@/components/multichannel/ComplianceWarningBadge';
+import { TopicIdeaHub } from '@/components/topic/TopicIdeaHub';
+import { useEnhancedTopicSuggestions } from '@/hooks/useEnhancedTopicSuggestions';
 import { useCompliancePrecheck, PreCheckResult } from '@/hooks/useCompliancePrecheck';
-import { EnhancedTopicSuggestion } from '@/types/topicDiscovery';
 import { ContentGoal } from '@/types/multichannel';
 import { DurationSelector } from '@/components/script/DurationSelector';
 import { VideoTypeSelector } from '@/components/script/VideoTypeSelector';
@@ -150,19 +144,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     enabled: currentStep === 3 && formData.topic.length >= 10,
   });
 
-  // Topic Refinement - now on step 2
-  const {
-    refinedTopics,
-    isLoading: isLoadingRefinement,
-    refresh: refreshRefinement,
-    elapsedMs: refinementElapsedMs,
-  } = useTopicRefinement({
-    rawTopic: formData.topic,
-    videoType: formData.video_type,
-    brandTemplateId: formData.brandTemplateId,
-    enabled: currentStep === 2 && formData.topic.trim().length >= TOPIC_MIN_LENGTH_FOR_REFINEMENT,
-  });
-
   // Map script purpose to content goal for AI suggestions
   const scriptContentGoal: ContentGoal = useMemo(() => {
     switch (formData.script_purpose) {
@@ -178,6 +159,21 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         return 'education';
     }
   }, [formData.script_purpose]);
+
+  // Enhanced Topic Suggestions (same as Carousel)
+  const {
+    suggestions: enhancedSuggestions,
+    source: suggestionsSource,
+    isLoading: suggestionsLoading,
+    refresh: refreshSuggestions,
+    saveSuggestion,
+    submitFeedback,
+  } = useEnhancedTopicSuggestions({
+    brandTemplateId: formData.brandTemplateId,
+    contentGoal: scriptContentGoal,
+    format: 'script',
+    enabled: currentStep === 2,
+  });
 
   // Compliance pre-check hook
   const complianceOptions = useMemo(() => ({
@@ -211,9 +207,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
       setIsSuggestingCompliant(false);
     }
   }, [formData.topic, complianceCheckResult, suggestCompliantTopic]);
-
-  // Check if topic is substantial enough
-  const isTopicSubstantial = formData.topic.trim().length >= TOPIC_MIN_LENGTH_FOR_REFINEMENT;
 
   // Loading phases
   useEffect(() => {
@@ -441,25 +434,12 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
 
             {/* Topic Input - Second */}
             <div className="space-y-3">
-              {/* Topic Label with Brainstorm Button */}
+              {/* Topic Label */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
-                    Chủ đề video
-                    <span className="text-primary">*</span>
-                  </Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowBrainstormSheet(true)}
-                    className="h-7 gap-1.5 text-xs bg-gradient-to-r from-primary/10 to-purple-500/10 border-primary/40 text-primary hover:from-primary/20 hover:to-purple-500/20 shadow-sm"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 animate-pulse" />
-                    Brainstorm AI
-                    <Sparkles className="w-3 h-3" />
-                  </Button>
-                </div>
+                <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
+                  Chủ đề video
+                  <span className="text-primary">*</span>
+                </Label>
                 
                 <div className="flex items-center gap-2">
                   {selectedTemplate?.industry_template_id && (
@@ -511,12 +491,17 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                   id="topic"
                   placeholder="Nhập chủ đề video của bạn, ví dụ: 5 sai lầm phổ biến khi đầu tư chứng khoán mà người mới thường mắc phải..."
                   value={formData.topic}
-                  onChange={(e) => setFormData((prev) => ({ 
-                    ...prev, 
-                    topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
-                  }))}
+                  onChange={(e) => {
+                    setFormData((prev) => ({ 
+                      ...prev, 
+                      topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
+                    }));
+                    // Auto-resize
+                    e.target.style.height = 'auto';
+                    e.target.style.height = e.target.scrollHeight + 'px';
+                  }}
                   className={cn(
-                    "min-h-[120px] bg-muted/30 border-2 resize-none text-sm transition-all duration-300",
+                    "min-h-[72px] bg-muted/30 border-2 resize-none text-sm transition-all duration-300",
                     "focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-background",
                     "placeholder:text-muted-foreground/60"
                   )}
@@ -531,128 +516,48 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 </div>
               </div>
 
-              {/* Dynamic Zone with AnimatePresence */}
-              <AnimatePresence mode="wait">
-                {!isTopicSubstantial ? (
-                  /* Empty/Short Topic State - Show Hero Card + Quick Suggestions */
-                  <motion.div
-                    key="empty-state"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                    className="space-y-4"
-                  >
-                    {/* Hero Brainstorm Card */}
-                    <Card 
-                      className="border-dashed border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 cursor-pointer transition-all duration-200"
-                      onClick={() => setShowBrainstormSheet(true)}
-                    >
-                      <CardContent className="p-4 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
-                          <MessageSquare className="w-6 h-6 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-sm text-foreground">Brainstorm với AI</h4>
-                          <p className="text-xs text-muted-foreground">
-                            Trò chuyện với AI để khám phá ý tưởng chủ đề hay, phù hợp với thương hiệu và mục tiêu của bạn
-                          </p>
-                        </div>
-                        <ArrowRight className="w-5 h-5 text-primary shrink-0" />
-                      </CardContent>
-                    </Card>
+              {/* Compliance Warning Badge */}
+              {complianceCheckResult && complianceCheckResult.issues.length > 0 && (
+                <ComplianceWarningBadge
+                  result={complianceCheckResult}
+                  onSuggestCompliant={handleSuggestCompliant}
+                  isSuggesting={isSuggestingCompliant}
+                />
+              )}
 
-                    {/* Separator */}
-                    <div className="flex items-center gap-3">
-                      <Separator className="flex-1" />
-                      <span className="text-xs text-muted-foreground shrink-0">Hoặc chọn gợi ý nhanh</span>
-                      <Separator className="flex-1" />
-                    </div>
-
-                    {/* Inline Topic Suggestions - Compact */}
-                    <InlineTopicSuggestions
-                      brandTemplateId={formData.brandTemplateId}
-                      contentGoal={scriptContentGoal}
-                      onSelectTopic={(topic) => setFormData(prev => ({ ...prev, topic }))}
-                      disabled={isLoading}
-                      compact
-                    />
-                  </motion.div>
-                ) : (
-                  /* Substantial Topic State - Show Refinement + Compliance */
-                  <motion.div
-                    key="substantial-state"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                    className="space-y-4"
-                  >
-                    {/* Compliance Warning Badge */}
-                    {complianceCheckResult && complianceCheckResult.issues.length > 0 && (
-                      <ComplianceWarningBadge
-                        result={complianceCheckResult}
-                        onSuggestCompliant={handleSuggestCompliant}
-                        isSuggesting={isSuggestingCompliant}
-                      />
-                    )}
-
-                    {/* Topic Refinement Suggestions */}
-                    <TopicRefinementSuggestions
-                      refinedTopics={refinedTopics}
-                      isLoading={isLoadingRefinement}
-                      elapsedMs={refinementElapsedMs}
-                      onSelect={(topic) => {
-                        setFormData((prev) => ({ ...prev, topic }));
-                        toast.success('Đã chọn chủ đề cải thiện');
-                      }}
-                      onRefresh={refreshRefinement}
-                      disabled={isLoading}
-                    />
-
-                    {/* Topic Angle Selector */}
-                    {formData.topic.trim().length >= 20 && (
-                      <div>
-                        <TopicAngleSelector
-                          value={formData.angle}
-                          onChange={(angle) => setFormData((prev) => ({ ...prev, angle }))}
-                          disabled={isLoading}
-                        />
-                        {formData.angle && (
-                          <TopicAnglePreview 
-                            angle={formData.angle} 
-                            topic={formData.topic}
-                          />
-                        )}
-                      </div>
-                    )}
-
-                    {/* Secondary Brainstorm Button */}
-                    <div className="flex justify-center pt-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowBrainstormSheet(true)}
-                        className="gap-2 text-muted-foreground hover:text-primary"
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                        Cần thêm ý tưởng? Brainstorm với AI
-                      </Button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Topic Discovery Panel - Always visible at bottom */}
-              <ScriptTopicDiscoveryPanel
-                onSelect={(topic: EnhancedTopicSuggestion) => {
-                  setFormData((prev) => ({ ...prev, topic: topic.topic }));
-                  toast.success('Đã chọn chủ đề gợi ý');
-                }}
+              {/* Topic Idea Hub - Same as Carousel */}
+              <TopicIdeaHub
+                suggestions={enhancedSuggestions}
+                source={suggestionsSource}
+                isLoading={suggestionsLoading}
+                onSelect={(topic) => setFormData(prev => ({ ...prev, topic }))}
+                onRefresh={() => refreshSuggestions()}
+                onCategoryRefresh={(category) => refreshSuggestions(category)}
+                onBrainstorm={() => setShowBrainstormSheet(true)}
+                onSave={saveSuggestion}
+                onFeedback={submitFeedback}
                 disabled={isLoading}
+                showEnhancedInfo={true}
                 brandTemplateId={formData.brandTemplateId}
+                contentGoal={scriptContentGoal}
               />
+
+              {/* Topic Angle Selector - Script specific */}
+              {formData.topic.trim().length >= 20 && (
+                <div>
+                  <TopicAngleSelector
+                    value={formData.angle}
+                    onChange={(angle) => setFormData((prev) => ({ ...prev, angle }))}
+                    disabled={isLoading}
+                  />
+                  {formData.angle && (
+                    <TopicAnglePreview 
+                      angle={formData.angle} 
+                      topic={formData.topic}
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Topic Brainstorm Sheet */}
