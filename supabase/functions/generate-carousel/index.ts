@@ -851,7 +851,7 @@ Follow the carousel style guidelines strictly.`;
                       required: ["headline"],
                     },
                     designStyle: { type: "string", description: "Phong cách thiết kế" },
-                    colorLayout: { type: "string", description: "Màu sắc và bố cục" },
+                    colorLayout: { type: "string", description: "Màu sắc (PHẢI bắt đầu bằng brand hex codes nếu có) và bố cục. KHÔNG tự chọn màu ngoài brand palette." },
                     aspectRatio: { type: "string", description: "Tỉ lệ khung hình" },
                     technicalRequirements: { type: "string", description: "Yêu cầu kỹ thuật" },
                     fullPrompt: { type: "string", description: "Prompt TIẾNG ANH chi tiết (tối thiểu 30 từ) mô tả CẢNH CỤ THỂ cho ảnh slide. PHẢI bao gồm: chủ thể liên quan đến nội dung slide + bối cảnh + ánh sáng + phong cách + bảng màu + để lại không gian cho text. KHÔNG viết nội dung text trong prompt. Kết thúc bằng 'consistent with previous slides: [style description]'." },
