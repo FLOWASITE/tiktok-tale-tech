@@ -283,7 +283,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   const handleSubmit = async () => {
     if (!formData.topic.trim()) {
       toast.error('Vui lòng nhập chủ đề video');
-      setCurrentStep(2);
+      setCurrentStep(1);
       return;
     }
     await onSubmit({ ...formData, topicHistoryId });
