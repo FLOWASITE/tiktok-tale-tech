@@ -177,14 +177,14 @@ const SuggestionItem = ({ suggestion }: {
 export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAnalyzerProps) {
   const { analysis, isAnalyzing, error, analyzeScript, setInitialAnalysis, clearAnalysis } = useScriptAnalysis();
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
-  const [initialized, setInitialized] = useState(false);
 
   // Load cached analysis on mount
-  if (!initialized && initialAnalysis && !analysis) {
-    setInitialAnalysis(initialAnalysis);
-    setHasAnalyzed(true);
-    setInitialized(true);
-  }
+  useEffect(() => {
+    if (initialAnalysis && !analysis) {
+      setInitialAnalysis(initialAnalysis);
+      setHasAnalyzed(true);
+    }
+  }, [initialAnalysis]);
 
   const handleAnalyze = async () => {
     await analyzeScript(script);
