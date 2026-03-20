@@ -353,8 +353,8 @@ export function DirectPublishButton({
                   <Textarea
                     value={editableContent}
                     onChange={(e) => setEditableContent(e.target.value)}
-                    rows={4}
-                    className="resize-none text-sm leading-relaxed max-h-[120px] sm:max-h-[200px]"
+                    rows={8}
+                    className="resize-none text-sm leading-relaxed max-h-[250px] sm:max-h-[400px]"
                     placeholder="Nhập nội dung..."
                   />
                   {/* Character Count */}
