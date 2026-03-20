@@ -86,6 +86,7 @@ export function useChannelModelConfig(organizationId?: string) {
         costPriority: row.cost_priority,
         preferredHookTypes: row.preferred_hook_types,
         allowUserOverride: row.allow_user_override ?? true,
+        forceProvider: row.force_provider ?? null,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       })) as ChannelModelConfig[];
