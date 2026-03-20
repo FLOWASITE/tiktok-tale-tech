@@ -693,6 +693,8 @@ serve(async (req) => {
     let mergedRules: MergedRules | undefined;
     let outputLang = 'vi'; // Default to Vietnamese for backward compatibility
     let brandCountryCode: string | null = null;
+    let templatePrimaryColor: string | null = null;
+    let templateSecondaryColors: string[] = [];
     
     if (formData.brandTemplateId) {
       const { data: template } = await supabase
