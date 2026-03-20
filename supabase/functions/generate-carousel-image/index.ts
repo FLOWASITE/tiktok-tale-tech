@@ -957,18 +957,24 @@ RULES FOR TEXT:
 `;
   }
 
-  // === Phase C: Brand Color injection ===
+  // === Phase C: Brand Color injection (STRONG directive) ===
   let brandColorDirective = '';
   if (brandColors) {
-    const parts: string[] = [];
+    const colorParts: string[] = [];
     if (brandColors.backgroundColor) {
-      parts.push(`Brand primary color: ${brandColors.backgroundColor}`);
+      colorParts.push(`PRIMARY BRAND COLOR: ${brandColors.backgroundColor} — This color MUST dominate the image (40-60% of visible color area). Use it for backgrounds, gradients, overlays, or large color blocks.`);
     }
     if (brandColors.textColor) {
-      parts.push(`Brand accent/text color: ${brandColors.textColor}`);
+      colorParts.push(`SECONDARY BRAND COLOR: ${brandColors.textColor} — Use for accents, highlights, and contrast elements.`);
     }
-    if (parts.length > 0) {
-      brandColorDirective = `\nBRAND IDENTITY COLORS (incorporate as dominant colors in the composition):\n${parts.map(p => `- ${p}`).join('\n')}\n`;
+    if (colorParts.length > 0) {
+      brandColorDirective = `
+⚠️ MANDATORY BRAND COLOR DIRECTIVE (HIGHEST PRIORITY):
+${colorParts.map(p => `- ${p}`).join('\n')}
+- FORBIDDEN: Do NOT default to generic blue (#3B82F6), teal, dark navy, or corporate black unless those exact colors are listed above.
+- The brand colors above MUST be clearly visible and dominant in the final image.
+- If the brand color is warm (red, orange, yellow), the image MUST feel warm. If cool (green, purple), reflect that temperature.
+`;
     }
   }
 
