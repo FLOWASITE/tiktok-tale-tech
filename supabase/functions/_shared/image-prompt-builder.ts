@@ -64,6 +64,7 @@ export {
   buildNegativePrompt,
   buildCriticalRules,
   buildLocalizationSuffix,
+  buildBrandColorReinforcement,
   DEFAULT_BUILDERS,
 } from './image-prompt-builders.ts';
 
