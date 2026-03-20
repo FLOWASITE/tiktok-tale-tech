@@ -765,7 +765,7 @@ Follow the carousel style guidelines strictly.`;
       const registryUser = await pm.get('generate', {
         topic: formData.topic,
         slideCount: String(formData.slideCount),
-        platform: formData.platform === "facebook" ? "Facebook" : "TikTok",
+        platform: platformName[formData.platform] || formData.platform,
         brandName: formData.brandName,
       }).catch(() => null);
       
