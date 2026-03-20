@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { 
   Sparkles, 
   TrendingUp, 
@@ -14,12 +13,16 @@ import {
   AlertCircle,
   CheckCircle2,
   Lightbulb,
-  RefreshCw
+  RefreshCw,
+  ChevronRight,
+  ArrowUpRight,
+  ArrowDownRight,
 } from 'lucide-react';
 import { Script } from '@/types/script';
 import { useScriptAnalysis, ScriptAnalysis } from '@/hooks/useScriptAnalysis';
 import { cn } from '@/lib/utils';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ScriptAnalyzerProps {
   script: Script;
@@ -27,42 +30,62 @@ interface ScriptAnalyzerProps {
   className?: string;
 }
 
-const ScoreCircle = ({ score, label, icon: Icon, color }: { 
+/* ───────── Score Ring ───────── */
+const ScoreRing = ({ score, label, icon: Icon, size = 56 }: { 
   score: number; 
   label: string; 
   icon: React.ElementType;
-  color: string;
+  size?: number;
 }) => {
-  const getScoreColor = (s: number) => {
-    if (s >= 80) return 'text-green-500';
-    if (s >= 60) return 'text-yellow-500';
-    if (s >= 40) return 'text-orange-500';
-    return 'text-red-500';
+  const radius = (size - 8) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
+
+  const getColor = (s: number) => {
+    if (s >= 80) return 'hsl(var(--primary))';
+    if (s >= 60) return 'hsl(var(--secondary))';
+    if (s >= 40) return 'hsl(38, 92%, 50%)';
+    return 'hsl(var(--destructive))';
   };
 
   return (
-    <div className="flex flex-col items-center gap-1.5">
-      <div className={cn(
-        "relative w-14 h-14 rounded-full flex items-center justify-center",
-        "bg-gradient-to-br from-muted/50 to-muted border border-border"
-      )}>
-        <Icon className={cn("w-4 h-4 absolute top-1 right-1", color)} />
-        <span className={cn("text-lg font-bold", getScoreColor(score))}>
-          {score}
-        </span>
+    <div className="flex flex-col items-center gap-1.5 group">
+      <div className="relative flex items-center justify-center">
+        <svg width={size} height={size} className="transform -rotate-90">
+          <circle
+            cx={size / 2} cy={size / 2} r={radius}
+            fill="none"
+            stroke="hsl(var(--border))"
+            strokeWidth={3}
+          />
+          <circle
+            cx={size / 2} cy={size / 2} r={radius}
+            fill="none"
+            stroke={getColor(score)}
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            className="transition-all duration-700 ease-out"
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-sm font-semibold text-foreground">{score}</span>
+        </div>
       </div>
-      <span className="text-xs text-muted-foreground text-center leading-tight">
+      <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium tracking-wide uppercase">
+        <Icon className="w-3 h-3" />
         {label}
-      </span>
+      </div>
     </div>
   );
 };
 
+/* ───────── Emotional Arc Chart ───────── */
 const EmotionalArcChart = ({ items }: { 
   items: { prompt: number; emotion: string; intensity: number }[] 
 }) => {
   const safeItems = Array.isArray(items) ? items : [];
-
   const chartData = safeItems.map((item) => ({
     prompt: `P${item.prompt}`,
     intensity: item.intensity,
@@ -70,115 +93,114 @@ const EmotionalArcChart = ({ items }: {
   }));
 
   return (
-    <div className="w-full h-48">
+    <div className="w-full h-36">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+          <defs>
+            <linearGradient id="arcGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+            </linearGradient>
+          </defs>
           <XAxis 
             dataKey="prompt" 
             stroke="hsl(var(--muted-foreground))"
-            style={{ fontSize: '11px' }}
+            style={{ fontSize: '10px' }}
+            tickLine={false}
+            axisLine={false}
           />
           <YAxis 
             domain={[0, 100]} 
             stroke="hsl(var(--muted-foreground))"
-            style={{ fontSize: '11px' }}
+            style={{ fontSize: '10px' }}
+            tickLine={false}
+            axisLine={false}
           />
           <Tooltip 
             contentStyle={{ 
-              backgroundColor: 'hsl(var(--background))',
+              backgroundColor: 'hsl(var(--popover))',
               border: '1px solid hsl(var(--border))',
-              borderRadius: '8px'
+              borderRadius: '12px',
+              fontSize: '12px',
+              boxShadow: '0 4px 20px -4px hsl(var(--foreground) / 0.08)',
             }}
-            formatter={(value: number) => [`${value}%`, 'Intensity']}
+            formatter={(value: number, _name: string, props: any) => [
+              `${value}% — ${props.payload.emotion}`,
+              'Cảm xúc'
+            ]}
             labelFormatter={(label) => `Prompt ${String(label).replace('P', '')}`}
           />
-          <Line 
-            type="monotone" 
-            dataKey="intensity" 
-            stroke="hsl(var(--primary))" 
+          <Area
+            type="monotone"
+            dataKey="intensity"
+            stroke="hsl(var(--primary))"
             strokeWidth={2}
-            dot={{ fill: 'hsl(var(--primary))', r: 4 }}
-            activeDot={{ r: 6 }}
-            isAnimationActive={true}
+            fill="url(#arcGradient)"
+            dot={{ fill: 'hsl(var(--primary))', r: 3, strokeWidth: 0 }}
+            activeDot={{ r: 5, strokeWidth: 2, stroke: 'hsl(var(--background))' }}
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );
 };
 
-const EmotionalArcItem = ({ item }: { 
-  item: { prompt: number; emotion: string; intensity: number } 
-}) => (
-  <div className="flex items-center gap-2 text-xs">
-    <Badge variant="outline" className="w-8 justify-center text-[10px]">
-      P{item.prompt}
-    </Badge>
-    <span className="flex-1 text-muted-foreground">{item.emotion}</span>
-    <div className="w-16">
-      <Progress value={item.intensity} className="h-1.5" />
-    </div>
-    <span className="w-8 text-right text-muted-foreground">{item.intensity}%</span>
-  </div>
-);
-
-const SuggestionItem = ({ suggestion }: { 
+/* ───────── Suggestion Card ───────── */
+const SuggestionCard = ({ suggestion }: { 
   suggestion: ScriptAnalysis['suggestions'][0] 
 }) => {
-  const priorityColors = {
-    high: 'border-red-500/50 bg-red-500/5',
-    medium: 'border-yellow-500/50 bg-yellow-500/5',
-    low: 'border-blue-500/50 bg-blue-500/5',
+  const priorityConfig = {
+    high: { bg: 'bg-destructive/[0.04]', border: 'border-destructive/20', dot: 'bg-destructive', label: 'Quan trọng' },
+    medium: { bg: 'bg-secondary/[0.04]', border: 'border-secondary/20', dot: 'bg-secondary', label: 'Nên làm' },
+    low: { bg: 'bg-muted/50', border: 'border-border', dot: 'bg-muted-foreground', label: 'Gợi ý' },
   };
 
-  const priorityLabels = {
-    high: 'Quan trọng',
-    medium: 'Nên làm',
-    low: 'Gợi ý',
+  const typeIcons: Record<string, React.ElementType> = {
+    hook: Eye,
+    clarity: Target,
+    pacing: Zap,
+    cta: BarChart3,
+    engagement: TrendingUp,
   };
 
-  const typeLabels = {
-    hook: 'Hook',
-    clarity: 'Rõ ràng',
-    pacing: 'Nhịp điệu',
-    cta: 'CTA',
-    engagement: 'Tương tác',
-  };
+  const config = priorityConfig[suggestion.priority];
+  const TypeIcon = typeIcons[suggestion.type] || Lightbulb;
 
   return (
     <div className={cn(
-      "p-2.5 rounded-lg border",
-      priorityColors[suggestion.priority]
+      "p-3 rounded-xl border transition-colors",
+      config.bg, config.border
     )}>
-      <div className="flex items-center gap-2 mb-1.5">
-        <Badge variant="outline" className="text-[10px]">
-          {typeLabels[suggestion.type]}
-        </Badge>
-        {suggestion.promptNumber && (
-          <Badge variant="secondary" className="text-[10px]">
-            Prompt {suggestion.promptNumber}
-          </Badge>
-        )}
-        <Badge 
-          variant={suggestion.priority === 'high' ? 'destructive' : 'secondary'}
-          className="text-[10px] ml-auto"
-        >
-          {priorityLabels[suggestion.priority]}
-        </Badge>
+      <div className="flex items-start gap-2.5">
+        <div className="mt-0.5 w-6 h-6 rounded-lg bg-background flex items-center justify-center border border-border/50 shrink-0">
+          <TypeIcon className="w-3 h-3 text-muted-foreground" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 mb-1">
+            <div className={cn("w-1.5 h-1.5 rounded-full", config.dot)} />
+            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+              {config.label}
+            </span>
+            {suggestion.promptNumber && (
+              <span className="text-[10px] text-muted-foreground/70">
+                · P{suggestion.promptNumber}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-foreground/80 leading-relaxed">
+            {suggestion.message}
+          </p>
+        </div>
       </div>
-      <p className="text-xs text-foreground leading-relaxed">
-        {suggestion.message}
-      </p>
     </div>
   );
 };
 
+/* ───────── Main Component ───────── */
 export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAnalyzerProps) {
   const { analysis, isAnalyzing, error, analyzeScript, setInitialAnalysis, clearAnalysis } = useScriptAnalysis();
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
 
-  // Load cached analysis on mount
   useEffect(() => {
     if (initialAnalysis && !analysis) {
       setInitialAnalysis(initialAnalysis);
@@ -191,83 +213,56 @@ export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAna
     setHasAnalyzed(true);
   };
 
-  const getOverallScoreLabel = (score: number) => {
-    if (score >= 80) return { label: 'Xuất sắc', color: 'text-green-500' };
-    if (score >= 70) return { label: 'Tốt', color: 'text-emerald-500' };
-    if (score >= 60) return { label: 'Khá', color: 'text-yellow-500' };
-    if (score >= 50) return { label: 'Trung bình', color: 'text-orange-500' };
-    return { label: 'Cần cải thiện', color: 'text-red-500' };
+  const getOverallGrade = (score: number) => {
+    if (score >= 90) return { grade: 'A+', label: 'Xuất sắc', color: 'text-primary' };
+    if (score >= 80) return { grade: 'A', label: 'Rất tốt', color: 'text-primary' };
+    if (score >= 70) return { grade: 'B+', label: 'Tốt', color: 'text-secondary' };
+    if (score >= 60) return { grade: 'B', label: 'Khá', color: 'text-secondary' };
+    if (score >= 50) return { grade: 'C', label: 'Trung bình', color: 'text-muted-foreground' };
+    return { grade: 'D', label: 'Cần cải thiện', color: 'text-destructive' };
   };
 
+  /* ── Empty State ── */
   if (!hasAnalyzed && !analysis) {
     return (
-      <div className={cn("flex flex-col items-center justify-center py-6 gap-5", className)}>
-        {/* IMPRESSIVE AI Analyzer Icon - Large & Eye-catching */}
-        <div className="relative group cursor-pointer" onClick={handleAnalyze}>
-          {/* Outer pulsing rings */}
-          <div className="absolute inset-[-12px] rounded-full bg-gradient-to-r from-violet-500/20 via-fuchsia-500/20 to-cyan-500/20 blur-xl animate-pulse" />
-          <div className="absolute inset-[-6px] rounded-full bg-gradient-to-r from-fuchsia-500/30 via-violet-500/30 to-cyan-500/30 blur-lg animate-pulse" style={{ animationDelay: '0.5s' }} />
-          
-          {/* Rotating gradient border */}
-          <div className="absolute inset-[-3px] rounded-3xl bg-gradient-conic from-violet-600 via-fuchsia-500 via-cyan-400 via-violet-500 to-violet-600 animate-spin" style={{ animationDuration: '4s' }} />
-          
-          {/* Main icon container - LARGER */}
-          <div className="relative w-28 h-28 rounded-3xl bg-gradient-to-br from-violet-600 via-fuchsia-500 to-cyan-500 p-[3px] shadow-2xl shadow-fuchsia-500/40">
-            <div className="w-full h-full rounded-3xl bg-gradient-to-br from-background via-background/98 to-background/95 backdrop-blur-xl flex items-center justify-center overflow-hidden">
-              {/* Inner glow */}
-              <div className="absolute inset-0 bg-gradient-to-br from-violet-500/10 via-transparent to-cyan-500/10" />
-              
-              {/* Central brain-like AI icon composition */}
-              <div className="relative z-10">
-                {/* Main sparkle - center */}
-                <Sparkles className="w-12 h-12 text-fuchsia-500 drop-shadow-[0_0_12px_rgba(217,70,239,0.6)]" />
-                
-                {/* Orbiting elements */}
-                <div className="absolute -top-3 -left-3 animate-bounce" style={{ animationDuration: '2s' }}>
-                  <BarChart3 className="w-6 h-6 text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
-                </div>
-                <div className="absolute -bottom-2 -right-3 animate-bounce" style={{ animationDuration: '1.5s', animationDelay: '0.3s' }}>
-                  <Zap className="w-5 h-5 text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
-                </div>
-                <div className="absolute -top-2 -right-4 animate-bounce" style={{ animationDuration: '1.8s', animationDelay: '0.6s' }}>
-                  <Target className="w-4 h-4 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.5)]" />
-                </div>
-              </div>
-            </div>
+      <div className={cn("flex flex-col items-center justify-center py-8 gap-6", className)}>
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+          className="relative"
+        >
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20 flex items-center justify-center">
+            <Sparkles className="w-9 h-9 text-primary/70" />
           </div>
-          
-          {/* Floating orbs */}
-          <div className="absolute -top-3 -right-2 w-4 h-4 rounded-full bg-gradient-to-br from-fuchsia-400 to-violet-500 shadow-lg shadow-fuchsia-500/50 animate-bounce" style={{ animationDelay: '0.1s' }} />
-          <div className="absolute -bottom-2 -left-3 w-3 h-3 rounded-full bg-gradient-to-br from-cyan-400 to-fuchsia-500 shadow-lg shadow-cyan-500/50 animate-bounce" style={{ animationDelay: '0.4s' }} />
-          <div className="absolute top-1/2 -right-4 w-2 h-2 rounded-full bg-gradient-to-br from-violet-400 to-cyan-400 shadow-lg animate-bounce" style={{ animationDelay: '0.7s' }} />
-          
-          {/* Hover effect overlay */}
-          <div className="absolute inset-0 rounded-3xl bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-        </div>
+          <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-lg bg-secondary/10 border border-secondary/20 flex items-center justify-center">
+            <BarChart3 className="w-3 h-3 text-secondary" />
+          </div>
+        </motion.div>
         
-        <div className="text-center space-y-2">
-          <h3 className="font-bold text-lg bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 bg-clip-text text-transparent">
-            AI Script Analyzer
+        <div className="text-center space-y-1.5">
+          <h3 className="font-semibold text-sm text-foreground">
+            Phân tích kịch bản
           </h3>
-          <p className="text-xs text-muted-foreground max-w-[220px] leading-relaxed">
-            Phân tích kịch bản với AI để nhận điểm số và gợi ý cải thiện chuyên sâu
+          <p className="text-xs text-muted-foreground max-w-[200px] leading-relaxed">
+            AI đánh giá chất lượng hook, nhịp điệu, CTA và đưa ra gợi ý cải thiện
           </p>
         </div>
         
         <Button 
           onClick={handleAnalyze} 
           disabled={isAnalyzing}
-          className="bg-gradient-to-r from-violet-600 via-fuchsia-500 to-cyan-500 hover:from-violet-500 hover:via-fuchsia-400 hover:to-cyan-400 text-white shadow-lg shadow-fuchsia-500/30 hover:shadow-fuchsia-500/50 transition-all duration-300 hover:scale-105"
-          size="default"
+          size="sm"
+          className="rounded-xl gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
         >
           {isAnalyzing ? (
             <>
-              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-              Đang phân tích...
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              Đang phân tích…
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4 mr-2" />
+              <Sparkles className="w-3.5 h-3.5" />
               Phân tích ngay
             </>
           )}
@@ -276,50 +271,38 @@ export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAna
     );
   }
 
+  /* ── Loading State ── */
   if (isAnalyzing) {
     return (
-      <div className={cn("flex flex-col items-center justify-center py-6 gap-5", className)}>
-        {/* Analyzing state - Large impressive icon */}
-        <div className="relative">
-          {/* Pulsing outer rings */}
-          <div className="absolute inset-[-12px] rounded-full bg-gradient-to-r from-violet-500/30 via-fuchsia-500/30 to-cyan-500/30 blur-xl animate-pulse" />
-          <div className="absolute inset-[-6px] rounded-full bg-gradient-to-r from-fuchsia-500/40 via-violet-500/40 to-cyan-500/40 blur-lg animate-pulse" style={{ animationDelay: '0.3s' }} />
-          
-          {/* Rotating border */}
-          <div className="absolute inset-[-3px] rounded-3xl bg-gradient-conic from-violet-600 via-fuchsia-500 via-cyan-400 via-violet-500 to-violet-600 animate-spin" style={{ animationDuration: '2s' }} />
-          
-          {/* Main container */}
-          <div className="relative w-28 h-28 rounded-3xl bg-gradient-to-br from-violet-600 via-fuchsia-500 to-cyan-500 p-[3px] shadow-2xl shadow-fuchsia-500/50 animate-pulse">
-            <div className="w-full h-full rounded-3xl bg-gradient-to-br from-background via-background/98 to-background/95 backdrop-blur-xl flex items-center justify-center">
-              <RefreshCw className="w-12 h-12 text-fuchsia-500 animate-spin drop-shadow-[0_0_15px_rgba(217,70,239,0.7)]" />
-            </div>
-          </div>
-          
-          {/* Orbiting particles */}
-          <div className="absolute -top-3 -right-2 w-4 h-4 rounded-full bg-gradient-to-br from-fuchsia-400 to-violet-500 shadow-lg shadow-fuchsia-500/50 animate-bounce" />
-          <div className="absolute -bottom-2 -left-3 w-3 h-3 rounded-full bg-gradient-to-br from-cyan-400 to-fuchsia-500 shadow-lg shadow-cyan-500/50 animate-bounce" style={{ animationDelay: '0.2s' }} />
-        </div>
-        
+      <div className={cn("flex flex-col items-center justify-center py-10 gap-5", className)}>
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+          className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 border border-primary/20 flex items-center justify-center"
+        >
+          <Sparkles className="w-7 h-7 text-primary" />
+        </motion.div>
         <div className="text-center space-y-1">
-          <p className="font-semibold bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 bg-clip-text text-transparent animate-pulse">
-            Đang phân tích kịch bản...
+          <p className="text-sm font-medium text-foreground">
+            Đang phân tích…
           </p>
-          <p className="text-xs text-muted-foreground">AI đang đánh giá nội dung của bạn</p>
+          <p className="text-xs text-muted-foreground">AI đang đánh giá kịch bản</p>
         </div>
       </div>
     );
   }
 
+  /* ── Error State ── */
   if (error) {
     return (
       <div className={cn("flex flex-col items-center justify-center py-8 gap-4", className)}>
-        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
-          <AlertCircle className="w-8 h-8 text-destructive" />
+        <div className="w-14 h-14 rounded-2xl bg-destructive/10 border border-destructive/20 flex items-center justify-center">
+          <AlertCircle className="w-6 h-6 text-destructive" />
         </div>
-        <div className="text-center">
-          <p className="text-sm text-destructive mb-2">{error}</p>
-          <Button variant="outline" size="sm" onClick={handleAnalyze}>
-            <RefreshCw className="w-4 h-4 mr-2" />
+        <div className="text-center space-y-2">
+          <p className="text-xs text-destructive">{error}</p>
+          <Button variant="outline" size="sm" onClick={handleAnalyze} className="rounded-xl gap-1.5 text-xs">
+            <RefreshCw className="w-3 h-3" />
             Thử lại
           </Button>
         </div>
@@ -337,135 +320,144 @@ export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAna
     suggestions: Array.isArray(analysis.suggestions) ? analysis.suggestions : [],
   };
 
-  const overallLabel = getOverallScoreLabel(a.overallScore);
+  const grade = getOverallGrade(a.overallScore);
 
+  /* ── Results ── */
   return (
     <ScrollArea className={cn("h-full", className)}>
-      <div className="space-y-4 p-1">
-        {/* Overall Score */}
-        <div className="text-center p-4 rounded-xl bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10 border border-border">
-          <div className="text-4xl font-bold text-gradient mb-1">
-            {a.overallScore}
+      <div className="space-y-5 p-0.5">
+        {/* Overall Score Hero */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/[0.06] via-background to-secondary/[0.06] border border-border/50 p-5"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground mb-1">
+                Điểm tổng thể
+              </p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-bold text-foreground tabular-nums">
+                  {a.overallScore}
+                </span>
+                <span className={cn("text-lg font-bold", grade.color)}>
+                  {grade.grade}
+                </span>
+              </div>
+              <p className={cn("text-xs mt-0.5", grade.color)}>
+                {grade.label}
+              </p>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleAnalyze}
+              disabled={isAnalyzing}
+              className="rounded-xl text-xs text-muted-foreground hover:text-foreground gap-1"
+            >
+              <RefreshCw className={cn("w-3 h-3", isAnalyzing && "animate-spin")} />
+              Phân tích lại
+            </Button>
           </div>
-          <div className={cn("text-sm font-medium", overallLabel.color)}>
-            {overallLabel.label}
-          </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={handleAnalyze}
-            className="mt-2 text-xs"
-          >
-            <RefreshCw className="w-3 h-3 mr-1" />
-            Phân tích lại
-          </Button>
-        </div>
+        </motion.div>
 
         {/* Score Grid */}
-        <div className="grid grid-cols-3 gap-2">
-          <ScoreCircle 
-            score={a.hookScore} 
-            label="Hook" 
-            icon={Eye}
-            color="text-purple-500"
-          />
-          <ScoreCircle 
-            score={a.clarityScore} 
-            label="Rõ ràng" 
-            icon={Target}
-            color="text-blue-500"
-          />
-          <ScoreCircle 
-            score={a.viralPotential} 
-            label="Viral" 
-            icon={TrendingUp}
-            color="text-pink-500"
-          />
-          <ScoreCircle 
-            score={a.pacingScore} 
-            label="Nhịp điệu" 
-            icon={Zap}
-            color="text-yellow-500"
-          />
-          <ScoreCircle 
-            score={a.ctaEffectiveness} 
-            label="CTA" 
-            icon={BarChart3}
-            color="text-green-500"
-          />
+        <div className="grid grid-cols-5 gap-1">
+          <ScoreRing score={a.hookScore} label="Hook" icon={Eye} size={52} />
+          <ScoreRing score={a.clarityScore} label="Clarity" icon={Target} size={52} />
+          <ScoreRing score={a.viralPotential} label="Viral" icon={TrendingUp} size={52} />
+          <ScoreRing score={a.pacingScore} label="Pace" icon={Zap} size={52} />
+          <ScoreRing score={a.ctaEffectiveness} label="CTA" icon={BarChart3} size={52} />
         </div>
-
-        <Separator />
 
         {/* Strengths & Weaknesses */}
         <div className="space-y-3">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle2 className="w-4 h-4 text-green-500" />
-              <span className="text-xs font-medium">Điểm mạnh</span>
+          {a.strengths.length > 0 && (
+            <div className="rounded-xl bg-primary/[0.03] border border-primary/10 p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <ArrowUpRight className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[10px] font-medium uppercase tracking-wider text-primary">
+                  Điểm mạnh
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {a.strengths.map((s, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-foreground/75 leading-relaxed">
+                    <ChevronRight className="w-3 h-3 text-primary/50 mt-0.5 shrink-0" />
+                    {s}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="space-y-1.5">
-              {a.strengths.map((strength, i) => (
-                <div key={i} className="text-xs text-muted-foreground pl-6 flex items-start gap-2">
-                  <span className="text-green-500 mt-0.5">•</span>
-                  {strength}
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
 
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <AlertCircle className="w-4 h-4 text-orange-500" />
-              <span className="text-xs font-medium">Cần cải thiện</span>
+          {a.weaknesses.length > 0 && (
+            <div className="rounded-xl bg-destructive/[0.03] border border-destructive/10 p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <ArrowDownRight className="w-3.5 h-3.5 text-destructive/70" />
+                <span className="text-[10px] font-medium uppercase tracking-wider text-destructive/70">
+                  Cần cải thiện
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {a.weaknesses.map((w, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-foreground/75 leading-relaxed">
+                    <ChevronRight className="w-3 h-3 text-destructive/30 mt-0.5 shrink-0" />
+                    {w}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="space-y-1.5">
-              {a.weaknesses.map((weakness, i) => (
-                <div key={i} className="text-xs text-muted-foreground pl-6 flex items-start gap-2">
-                  <span className="text-orange-500 mt-0.5">•</span>
-                  {weakness}
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
-
-        <Separator />
 
         {/* Emotional Arc */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-4 h-4 text-primary" />
-            <span className="text-xs font-medium">Biểu đồ cảm xúc</span>
-          </div>
-          
-          {/* Visual Chart */}
-          <div className="mb-3 bg-muted/30 rounded-lg p-2">
+        {a.emotionalArc.length > 0 && (
+          <div className="rounded-xl border border-border/50 p-3">
+            <div className="flex items-center gap-1.5 mb-3">
+              <TrendingUp className="w-3.5 h-3.5 text-primary" />
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Cung cảm xúc
+              </span>
+            </div>
             <EmotionalArcChart items={a.emotionalArc} />
+            {/* Emotion pills */}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {a.emotionalArc.map((item, i) => (
+                <div 
+                  key={i} 
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/50 text-[10px] text-muted-foreground"
+                >
+                  <span className="font-medium">P{item.prompt}</span>
+                  <span className="text-muted-foreground/60">·</span>
+                  <span>{item.emotion}</span>
+                </div>
+              ))}
+            </div>
           </div>
-
-          {/* Detail List */}
-          <div className="space-y-2">
-            {a.emotionalArc.map((item, i) => (
-              <EmotionalArcItem key={i} item={item} />
-            ))}
-          </div>
-        </div>
-
-        <Separator />
+        )}
 
         {/* Suggestions */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Lightbulb className="w-4 h-4 text-yellow-500" />
-            <span className="text-xs font-medium">Gợi ý cải thiện</span>
+        {a.suggestions.length > 0 && (
+          <div>
+            <div className="flex items-center gap-1.5 mb-3">
+              <Lightbulb className="w-3.5 h-3.5 text-secondary" />
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Gợi ý cải thiện
+              </span>
+              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 ml-auto">
+                {a.suggestions.length}
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              {a.suggestions.map((suggestion, i) => (
+                <SuggestionCard key={i} suggestion={suggestion} />
+              ))}
+            </div>
           </div>
-          <div className="space-y-2">
-            {a.suggestions.map((suggestion, i) => (
-              <SuggestionItem key={i} suggestion={suggestion} />
-            ))}
-          </div>
-        </div>
+        )}
       </div>
     </ScrollArea>
   );
