@@ -1,7 +1,3 @@
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
-import { MessageSquare, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DialogueStyle, DIALOGUE_STYLE_CONFIG } from '@/types/script';
 
@@ -22,49 +18,29 @@ export function DialogueStyleSelector({ value, onChange, disabled }: DialogueSty
   const styles = Object.entries(DIALOGUE_STYLE_CONFIG) as [DialogueStyle, typeof DIALOGUE_STYLE_CONFIG[DialogueStyle]][];
 
   return (
-    <div className="space-y-2">
-      <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
-        <MessageSquare className="w-4 h-4 text-primary" />
-        Phong cách hội thoại
-      </Label>
-      <div className="grid grid-cols-2 gap-2">
-        {styles.map(([key, config]) => {
-          const isSelected = value === key;
-          return (
-            <Card
-              key={key}
-              className={cn(
-                "p-3 cursor-pointer transition-all relative",
-                "hover:border-primary/50 hover:shadow-sm",
-                isSelected && "border-primary bg-primary/5 ring-1 ring-primary/30",
-                disabled && "opacity-50 pointer-events-none"
-              )}
-              onClick={() => !disabled && onChange(key)}
-            >
-              {isSelected && (
-                <div className="absolute top-2 right-2">
-                  <Check className="w-3.5 h-3.5 text-primary" />
-                </div>
-              )}
-              <div className="flex items-start gap-2">
-                <span className="text-lg">{STYLE_ICONS[key]}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-foreground">{config.label}</p>
-                  <p className="text-[10px] text-muted-foreground line-clamp-2">{config.description}</p>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-      
-      {/* Preview selected style instruction */}
-      {value && (
-        <div className="mt-2 p-2 bg-muted/30 rounded-lg border border-border">
-          <p className="text-xs text-muted-foreground mb-1">Hướng dẫn AI:</p>
-          <p className="text-xs text-foreground italic">"{DIALOGUE_STYLE_CONFIG[value].prompt_instruction}"</p>
-        </div>
-      )}
+    <div className="flex flex-wrap gap-2">
+      {styles.map(([key, config]) => {
+        const isSelected = value === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => !disabled && onChange(key)}
+            disabled={disabled}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-medium transition-all duration-200",
+              "hover:border-primary/40",
+              isSelected
+                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                : "bg-card/80 text-muted-foreground border-border/60 hover:bg-accent/30",
+              disabled && "opacity-50 pointer-events-none"
+            )}
+          >
+            <span className="text-sm">{STYLE_ICONS[key]}</span>
+            <span>{config.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
