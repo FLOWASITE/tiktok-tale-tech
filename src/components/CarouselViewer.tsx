@@ -187,6 +187,7 @@ export function CarouselViewer({
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [copiedCta, setCopiedCta] = useState(false);
+  const [copiedCaptionAll, setCopiedCaptionAll] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
   const [generatingProgress, setGeneratingProgress] = useState(0);
   const [generatingStartTime, setGeneratingStartTime] = useState<number | null>(null);
@@ -331,6 +332,21 @@ export function CarouselViewer({
       setCopiedCta(true);
       toast.success('Đã copy CTA!');
       setTimeout(() => setCopiedCta(false), 2000);
+    } catch {
+      toast.error('Không thể copy');
+    }
+  };
+
+  const handleCopyCaptionAll = async () => {
+    const parts: string[] = [];
+    if (carousel.caption_suggestion) parts.push(carousel.caption_suggestion);
+    if (carousel.cta_suggestion) parts.push(carousel.cta_suggestion);
+    if (parts.length === 0) return;
+    try {
+      await navigator.clipboard.writeText(parts.join('\n\n---\n\n'));
+      setCopiedCaptionAll(true);
+      toast.success('Đã copy Caption & CTA!');
+      setTimeout(() => setCopiedCaptionAll(false), 2000);
     } catch {
       toast.error('Không thể copy');
     }
@@ -705,11 +721,7 @@ export function CarouselViewer({
               </TabsTrigger>
               <TabsTrigger value="caption" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
                 <MessageSquare className="w-3 h-3 xs:w-4 xs:h-4" />
-                <span className="hidden xs:inline">Caption</span>
-              </TabsTrigger>
-              <TabsTrigger value="cta" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
-                <Megaphone className="w-3 h-3 xs:w-4 xs:h-4" />
-                <span className="hidden xs:inline">CTA</span>
+                <span className="hidden xs:inline">Caption & CTA</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -865,7 +877,20 @@ export function CarouselViewer({
               />
             </TabsContent>
 
-            <TabsContent value="caption" className="mt-0">
+            <TabsContent value="caption" className="mt-0 space-y-4">
+              {(carousel.caption_suggestion || carousel.cta_suggestion) && (
+                <div className="flex justify-end">
+                  <Button variant="outline" size="sm" onClick={handleCopyCaptionAll} className="h-7 xs:h-8 text-xs">
+                    {copiedCaptionAll ? (
+                      <Check className="w-3.5 h-3.5 xs:w-4 xs:h-4 text-green-500" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
+                    )}
+                    <span className="ml-1 xs:ml-1.5">Copy tất cả</span>
+                  </Button>
+                </div>
+              )}
+
               <div className="gradient-card border border-border/50 rounded-lg p-4 xs:p-6">
                 <div className="flex items-center justify-between mb-3 xs:mb-4">
                   <h3 className="font-semibold flex items-center gap-1.5 xs:gap-2 text-sm xs:text-base">
@@ -891,9 +916,7 @@ export function CarouselViewer({
                   <p className="text-muted-foreground text-xs xs:text-sm">Chưa có gợi ý caption</p>
                 )}
               </div>
-            </TabsContent>
 
-            <TabsContent value="cta" className="mt-0">
               <div className="gradient-card border border-border/50 rounded-lg p-4 xs:p-6">
                 <div className="flex items-center justify-between mb-3 xs:mb-4">
                   <h3 className="font-semibold flex items-center gap-1.5 xs:gap-2 text-sm xs:text-base">
