@@ -1,64 +1,51 @@
 
 
-# Đồng bộ UI/UX phần Chủ đề Video Script với Carousel
+# Nâng cấp UI bước "Nội dung" — Premium & Professional
 
-## Tóm tắt
+## Hiện trạng
 
-Hiện tại phần chủ đề Video Script (Step 2) dùng `ScriptTopicDiscoveryPanel` (panel nặng với bộ lọc, slider điểm) và `InlineTopicSuggestions` (khi topic trống). Carousel dùng `TopicIdeaHub` — gọn, có quick action chips (Viral, Trend, Lễ hội...), nút Brainstorm AI gradient, và SWR. Cần thay thế để đồng nhất trải nghiệm.
+Bước 1 hiện tại khá "flat": các section (Mục đích, Chủ đề, Ý tưởng, Hook) xếp chồng liên tục không có phân tách rõ ràng, label dùng icon + text đơn giản, textarea và cards thiếu chiều sâu visual.
 
 ## Thay đổi — 1 file: `src/components/script/ScriptFormStepper.tsx`
 
-### 1. Thêm `useEnhancedTopicSuggestions` hook (giống Carousel)
+### 1. Bọc mỗi section trong Card với header sang trọng
 
-Import `useEnhancedTopicSuggestions` và `TopicIdeaHub` thay cho `ScriptTopicDiscoveryPanel` và `InlineTopicSuggestions`. Khởi tạo hook với `format: 'script'` và `contentGoal` từ `scriptContentGoal`.
+Thay vì Label + content xếp liền, mỗi phần (Mục đích / Chủ đề / Hook) được bọc trong Card riêng với:
+- Header có icon trong circle gradient, tiêu đề đậm, mô tả phụ mờ
+- Đường viền tinh tế `border-border/40` + `bg-card/50 backdrop-blur-sm`
+- Số thứ tự nhỏ (01, 02, 03) hiển thị dạng badge mờ ở góc
 
-### 2. Cập nhật Topic Textarea style
+### 2. Nâng cấp ScriptPurposeSelector layout
 
-Thay textarea `min-h-[120px]` thành `min-h-[72px]` với auto-resize (`onInput` tự điều chỉnh height) giống Carousel — gọn hơn, tự mở rộng khi nhập nhiều.
+Chuyển grid từ `grid-cols-2` sang layout compact hơn: chỉ hiện icon + label trên 1 hàng ngang (dạng pill/chip chọn), giảm chiếm không gian. Card mở rộng description chỉ cho item đang chọn.
 
-### 3. Thay thế Dynamic Zone (empty/substantial state)
+### 3. Textarea chủ đề premium
 
-**Xóa hoàn toàn** khối `AnimatePresence` chứa:
-- Hero Brainstorm Card (khi topic trống)
-- `InlineTopicSuggestions` (compact)
-- `TopicRefinementSuggestions` (khi topic đủ dài)
-- Secondary Brainstorm Button
+- Thêm gradient border khi focus (`focus:border-transparent` + wrapper có `bg-gradient-to-r from-primary/50 to-accent/50 p-[1px] rounded-lg`)
+- Placeholder text nhẹ hơn, font-size lớn hơn cho nội dung nhập (`text-base`)
+- Character counter dạng progress bar mỏng ở bottom thay vì text số
 
-**Thay bằng** `TopicIdeaHub` đặt ngay dưới textarea (luôn hiển thị), giống Carousel:
+### 4. Divider giữa các section
+
+Thêm subtle divider giữa Purpose → Topic → Hook: dùng `<div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />` tạo hiệu ứng fade-in-out.
+
+### 5. Hook section — collapsible elegant
+
+Wrap Hook trong Collapsible mặc định đóng, với trigger dạng banner nhẹ:
 ```
-<TopicIdeaHub
-  suggestions={enhancedSuggestions}
-  source={suggestionsSource}
-  isLoading={suggestionsLoading}
-  onSelect={(topic) => setFormData(prev => ({ ...prev, topic }))}
-  onRefresh={refreshSuggestions}
-  onBrainstorm={() => setShowBrainstormSheet(true)}
-  onSave={saveSuggestion}
-  onFeedback={submitFeedback}
-  disabled={isLoading}
-  showEnhancedInfo={true}
-  brandTemplateId={formData.brandTemplateId}
-  contentGoal={scriptContentGoal}
-/>
+⚡ Thêm Hook mở đầu (tùy chọn) — Thu hút 3 giây đầu tiên
 ```
+Khi mở ra mới hiện HookStepContent. Giảm noise khi user chưa cần.
 
-### 4. Xóa `ScriptTopicDiscoveryPanel` ở cuối
+### 6. Bỏ header icon lớn + text "Tạo kịch bản AI" ở đầu form
 
-Xóa block `ScriptTopicDiscoveryPanel` (dòng ~648-655) — không cần nữa vì `TopicIdeaHub` đã thay thế.
+Header hiện tại chiếm nhiều không gian (icon 56px + h2 + p). Loại bỏ hoàn toàn — StepIndicator đã đủ context. Tiết kiệm ~100px vertical space.
 
-### 5. Giữ lại các tính năng riêng của Script
+## Kết quả
 
-- `TopicAngleSelector` + `TopicAnglePreview` — vẫn giữ, hiển thị khi topic ≥ 20 ký tự
-- `ComplianceWarningBadge` — vẫn giữ
-- `TopicBrainstormSheet` — vẫn giữ (được trigger từ TopicIdeaHub)
-
-### 6. Dọn import không dùng
-
-Xóa import `ScriptTopicDiscoveryPanel`, `InlineTopicSuggestions`, `EnhancedTopicSuggestion` (type cũ). Thêm import `TopicIdeaHub`, `useEnhancedTopicSuggestions`.
-
-## Kết quả mong đợi
-
-- Phần chủ đề Script trông giống hệt Carousel: textarea gọn + TopicIdeaHub với quick chips
-- Vẫn giữ TopicAngle + Compliance riêng cho Script
-- Code đơn giản hơn, bớt 1 component (`ScriptTopicDiscoveryPanel`) và logic AnimatePresence phức tạp
+- Mỗi section có visual boundary rõ ràng (card riêng)
+- Gradient accents tạo cảm giác premium
+- Hook ẩn mặc định giảm cognitive load
+- Bỏ header thừa — form gọn hơn, pro hơn
+- Tổng thể sang trọng theo chuẩn "Clean UI" của project
 
