@@ -438,25 +438,12 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
 
             {/* Topic Input - Second */}
             <div className="space-y-3">
-              {/* Topic Label with Brainstorm Button */}
+              {/* Topic Label */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
-                    Chủ đề video
-                    <span className="text-primary">*</span>
-                  </Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowBrainstormSheet(true)}
-                    className="h-7 gap-1.5 text-xs bg-gradient-to-r from-primary/10 to-purple-500/10 border-primary/40 text-primary hover:from-primary/20 hover:to-purple-500/20 shadow-sm"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 animate-pulse" />
-                    Brainstorm AI
-                    <Sparkles className="w-3 h-3" />
-                  </Button>
-                </div>
+                <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
+                  Chủ đề video
+                  <span className="text-primary">*</span>
+                </Label>
                 
                 <div className="flex items-center gap-2">
                   {selectedTemplate?.industry_template_id && (
