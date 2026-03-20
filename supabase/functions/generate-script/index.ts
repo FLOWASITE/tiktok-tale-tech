@@ -1427,7 +1427,7 @@ serve(async (req) => {
 
     console.log("Generating script for topic:", topic);
     console.log("Duration:", duration, "Video type:", video_type, "Character:", character_type);
-    console.log("Script purpose:", script_purpose || 'ai_video_veo3');
+    console.log("Script purpose:", script_purpose || 'ai_video');
     console.log("Hook provided:", hook ? "Yes" : "No", hook?.framework || "");
     console.log("Angle:", angle || "None");
     
