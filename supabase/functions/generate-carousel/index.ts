@@ -753,7 +753,7 @@ Follow the carousel style guidelines strictly.`;
       const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules, outputLang) : '';
       
       const registrySystem = await pm.get('system', {
-        platform: formData.platform === "facebook" ? "Facebook" : "TikTok",
+        platform: platformName[formData.platform] || formData.platform,
         slideCount: String(formData.slideCount),
         brandName: formData.brandName,
         brandGuideline: formData.brandGuideline,
