@@ -39,15 +39,13 @@ export interface ParsedPrompt {
 // Get block pattern based on script purpose
 function getBlockPattern(purpose?: ScriptPurpose): RegExp {
   switch(purpose) {
-    case 'ai_video_minimax':
-      return /(?=CLIP\s*\d+)/i;
     case 'teleprompter':
     case 'voiceover':
       return /(?=---\s*ĐOẠN\s*\d+|ĐOẠN\s*\d+)/i;
     case 'production':
       return /(?=SCENE\s*\d+|SHOT\s*\d+)/i;
-    default: // ai_video_veo3
-      return /(?=PROMPT\s*\d+)/i;
+    default: // ai_video — try PROMPT first, fallback CLIP handled in parseScriptContent
+      return /(?=PROMPT\s*\d+|CLIP\s*\d+)/i;
   }
 }
 
