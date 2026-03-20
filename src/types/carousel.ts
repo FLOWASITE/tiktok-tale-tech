@@ -1,4 +1,4 @@
-export type Platform = 'facebook' | 'tiktok';
+export type Platform = 'facebook' | 'tiktok' | 'instagram' | 'linkedin';
 export type AITool = 'ideogram' | 'midjourney' | 'dalle' | 'leonardo';
 export type CarouselStatus = 'draft' | 'review' | 'approved' | 'published';
 export type CarouselStyleType = 'seamless' | 'educational' | 'listicle' | 'gallery';
