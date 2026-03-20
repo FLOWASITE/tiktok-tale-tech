@@ -338,23 +338,6 @@ const Index = () => {
         )}
       </div>
 
-      {/* Form Dialog */}
-      <Dialog open={formSheetOpen} onOpenChange={(open) => !generating && setFormSheetOpen(open)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
-          <DialogHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur px-6 py-4 border-b">
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
-              Tạo Kịch Bản Video Mới
-            </DialogTitle>
-            <DialogDescription>
-              Điền thông tin để AI tạo kịch bản video chuyên nghiệp
-            </DialogDescription>
-          </DialogHeader>
-          <div className="p-6">
-            <ScriptForm onSubmit={handleGenerateScript} isLoading={generating} initialTopic={initialTopic} topicHistoryId={topicHistoryId} />
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Script viewer dialog */}
       <ScriptViewer
