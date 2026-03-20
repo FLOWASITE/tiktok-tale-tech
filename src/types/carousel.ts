@@ -1,4 +1,4 @@
-export type Platform = 'facebook' | 'tiktok';
+export type Platform = 'facebook' | 'tiktok' | 'instagram' | 'linkedin';
 export type AITool = 'ideogram' | 'midjourney' | 'dalle' | 'leonardo';
 export type CarouselStatus = 'draft' | 'review' | 'approved' | 'published';
 export type CarouselStyleType = 'seamless' | 'educational' | 'listicle' | 'gallery';
@@ -95,7 +95,9 @@ export const DEFAULT_BRAND_GUIDELINE = '';
 
 export const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
   { value: 'facebook', label: 'Facebook' },
+  { value: 'instagram', label: 'Instagram' },
   { value: 'tiktok', label: 'TikTok' },
+  { value: 'linkedin', label: 'LinkedIn' },
 ];
 
 export const AI_TOOL_OPTIONS: { value: AITool; label: string; description: string }[] = [

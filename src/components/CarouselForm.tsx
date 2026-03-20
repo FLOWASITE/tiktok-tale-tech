@@ -384,7 +384,7 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
             {!settingsOpen && (
               <div className="flex items-center gap-2 ml-1">
                 <Badge variant="secondary" className="text-[10px] h-5 font-normal gap-1">
-                  {platform === 'facebook' ? 'Facebook' : 'TikTok'}
+                  {platform === 'facebook' ? 'Facebook' : platform === 'instagram' ? 'Instagram' : platform === 'linkedin' ? 'LinkedIn' : 'TikTok'}
                 </Badge>
                 <Badge variant="secondary" className="text-[10px] h-5 font-normal">
                   {slideCount} slides

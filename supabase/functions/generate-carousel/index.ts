@@ -19,7 +19,7 @@ const corsHeaders = {
 
 interface CarouselFormData {
   topic: string;
-  platform: "facebook" | "tiktok";
+  platform: "facebook" | "tiktok" | "instagram" | "linkedin";
   slideCount: number;
   aiTool: "ideogram" | "midjourney" | "dalle" | "leonardo";
   brandName: string;
@@ -474,7 +474,8 @@ const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, me
   const styleSection = getCarouselStylePrompt(carouselStyle, formData.slideCount);
   const textLengthSection = getTextLengthGuidelines(visualPreset);
 
-  return `You are a professional Content Strategist for social media, specialized in creating carousels for ${formData.platform === "facebook" ? "Facebook" : "TikTok"}.
+  const platformName: Record<string, string> = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', linkedin: 'LinkedIn' };
+  return `You are a professional Content Strategist for social media, specialized in creating carousels for ${platformName[formData.platform] || 'Facebook'}.
 Output ALL content in ${langName} (${langConfig.englishName}).
 
 ${brandVoiceSection}
@@ -594,7 +595,9 @@ ${textLengthSection}
 
 4. HASHTAGS:
    - Facebook: 3-5 hashtags (ít, targeted, liên quan trực tiếp)
+   - Instagram: 5-10 hashtags (mix trending + niche + branded + community)
    - TikTok: 5-8 hashtags (mix trending + niche + branded)
+   - LinkedIn: 3-5 hashtags (professional, industry-specific)
    - Hashtags phải viết liền, không dấu cách: #ContentMarketing #MẹoKinhDoanh
 
 ### CTA SUGGESTION — Công thức đa tầng:
@@ -603,7 +606,7 @@ Viết 3 dòng CTA alternatives, mỗi dòng có label rõ ràng:
 2. 💬 Engagement: Câu hỏi mở kéo comment ("Bạn đã thử tip nào rồi? Comment cho mình biết!")
 3. 👥 Share: Lý do chia sẻ + tag ("Tag ngay người bạn đang cần biết điều này 👇")
 
-Nền tảng ${formData.platform === 'tiktok' ? 'TikTok — ưu tiên ngôn ngữ Gen Z, trend-driven, dùng "Follow để xem thêm"' : 'Facebook — ưu tiên storytelling, community, dùng "Save/Share bài viết"'}.
+Nền tảng ${formData.platform === 'tiktok' ? 'TikTok — ưu tiên ngôn ngữ Gen Z, trend-driven, dùng "Follow để xem thêm"' : formData.platform === 'instagram' ? 'Instagram — ưu tiên visual storytelling, aesthetic, dùng "Save & Share"' : formData.platform === 'linkedin' ? 'LinkedIn — ưu tiên professional insights, thought leadership, dùng ngôn ngữ chuyên nghiệp' : 'Facebook — ưu tiên storytelling, community, dùng "Save/Share bài viết"'}.
 
 ## FORMAT OUTPUT BẮT BUỘC CHO MỖI SLIDE
 Bạn PHẢI trả về JSON với cấu trúc chính xác như tool definition.
@@ -734,7 +737,7 @@ serve(async (req) => {
     let userPrompt = `Create ${formData.slideCount} carousel slides for the topic:
 "${formData.topic}"
 
-Platform: ${formData.platform === "facebook" ? "Facebook" : "TikTok"}
+Platform: ${platformName[formData.platform] || formData.platform}
 Carousel Style: ${formData.carouselStyle || 'educational'}
 Brand: ${formData.brandName}
 Output Language: ${langConfig.nativeName} (${langConfig.englishName})
@@ -750,7 +753,7 @@ Follow the carousel style guidelines strictly.`;
       const brandVoiceSection = brandVoice ? getBrandVoicePrompt(brandVoice, mergedRules, outputLang) : '';
       
       const registrySystem = await pm.get('system', {
-        platform: formData.platform === "facebook" ? "Facebook" : "TikTok",
+        platform: platformName[formData.platform] || formData.platform,
         slideCount: String(formData.slideCount),
         brandName: formData.brandName,
         brandGuideline: formData.brandGuideline,
@@ -762,7 +765,7 @@ Follow the carousel style guidelines strictly.`;
       const registryUser = await pm.get('generate', {
         topic: formData.topic,
         slideCount: String(formData.slideCount),
-        platform: formData.platform === "facebook" ? "Facebook" : "TikTok",
+        platform: platformName[formData.platform] || formData.platform,
         brandName: formData.brandName,
       }).catch(() => null);
       

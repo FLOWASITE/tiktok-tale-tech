@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Eye, Trash2, Images, Calendar, Facebook, Palette, ImageIcon } from 'lucide-react';
+import { Eye, Trash2, Images, Calendar, Facebook, Instagram, Linkedin, Palette, ImageIcon } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
@@ -38,7 +38,9 @@ interface CarouselCardProps {
 
 const platformLabels: Record<string, { label: string; icon: typeof Facebook }> = {
   facebook: { label: 'Facebook', icon: Facebook },
+  instagram: { label: 'Instagram', icon: Instagram },
   tiktok: { label: 'TikTok', icon: Facebook },
+  linkedin: { label: 'LinkedIn', icon: Linkedin },
 };
 
 const aiToolLabels: Record<string, string> = {
