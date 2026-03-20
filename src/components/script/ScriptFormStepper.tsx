@@ -557,51 +557,29 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         {/* ====== Step 2: Smart Summary + Generate ====== */}
         {currentStep === 2 && (
           <div className="space-y-5 animate-fade-in">
-            {/* Header */}
+            {/* Header with topic context */}
             <div className="text-center py-3">
               <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-3">
                 <CheckCircle2 className="w-7 h-7 text-primary" />
               </div>
               <h3 className="font-semibold text-lg text-foreground">Sẵn sàng tạo kịch bản</h3>
-              <p className="text-sm text-muted-foreground">AI đã tự chọn cấu hình tối ưu — bạn có thể điều chỉnh nếu muốn</p>
-            </div>
-
-            {/* Topic summary */}
-            <div className="rounded-xl border border-border/40 bg-card/50 p-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <FileText className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-muted-foreground">Chủ đề</p>
-                  <p className="text-sm font-medium text-foreground">{formData.topic}</p>
-                </div>
-              </div>
-
-              {formData.hook && (
-                <div className="flex items-start gap-3">
-                  <Zap className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">Hook</p>
-                    <p className="text-sm text-foreground">"{formData.hook.opening_line}"</p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
-                    onClick={handleRemoveHook}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              )}
-
-              {formData.angle && (
-                <div className="flex items-start gap-3">
-                  <Target className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">Góc tiếp cận</p>
-                    <p className="text-sm text-foreground">{TOPIC_ANGLE_LABELS[formData.angle].icon} {TOPIC_ANGLE_LABELS[formData.angle].label}</p>
-                  </div>
+              <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto truncate">
+                Chủ đề: <span className="text-foreground font-medium">{formData.topic.length > 60 ? formData.topic.slice(0, 60) + '...' : formData.topic}</span>
+              </p>
+              {(formData.hook || formData.angle) && (
+                <div className="flex items-center justify-center gap-3 mt-2 text-xs text-muted-foreground">
+                  {formData.hook && (
+                    <span className="flex items-center gap-1">
+                      <Zap className="w-3 h-3 text-amber-500" />
+                      Hook đã chọn
+                    </span>
+                  )}
+                  {formData.angle && (
+                    <span className="flex items-center gap-1">
+                      <Target className="w-3 h-3 text-primary" />
+                      {TOPIC_ANGLE_LABELS[formData.angle].label}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -648,14 +626,22 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                       }}
                       disabled={isLoading}
                     />
-                    <VideoTypeSelector
-                      value={formData.video_type}
-                      onChange={(value) => {
-                        setFormData((prev) => ({ ...prev, video_type: value }));
-                        setUserOverrodeVideoType(true);
-                      }}
-                      disabled={isLoading}
-                    />
+                    <Collapsible>
+                      <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                        <span>Xem tất cả</span>
+                        <ChevronDown className="w-3 h-3 [[data-state=open]>&]:rotate-180 transition-transform" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <VideoTypeSelector
+                          value={formData.video_type}
+                          onChange={(value) => {
+                            setFormData((prev) => ({ ...prev, video_type: value }));
+                            setUserOverrodeVideoType(true);
+                          }}
+                          disabled={isLoading}
+                        />
+                      </CollapsibleContent>
+                    </Collapsible>
                   </div>
                 </ConfigChipSelector>
 
@@ -679,14 +665,22 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                       }}
                       enabled={!isLoading}
                     />
-                    <CharacterTypeSelector
-                      value={formData.character_type}
-                      onChange={(value) => {
-                        setFormData((prev) => ({ ...prev, character_type: value }));
-                        setUserOverrodeCharacterType(true);
-                      }}
-                      disabled={isLoading}
-                    />
+                    <Collapsible>
+                      <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                        <span>Xem tất cả</span>
+                        <ChevronDown className="w-3 h-3 [[data-state=open]>&]:rotate-180 transition-transform" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CharacterTypeSelector
+                          value={formData.character_type}
+                          onChange={(value) => {
+                            setFormData((prev) => ({ ...prev, character_type: value }));
+                            setUserOverrodeCharacterType(true);
+                          }}
+                          disabled={isLoading}
+                        />
+                      </CollapsibleContent>
+                    </Collapsible>
                   </div>
                 </ConfigChipSelector>
 
