@@ -534,12 +534,98 @@ function InstagramMockup({ content, brandName, logoUrl, isGenerating, channelIma
 }
 
 // TikTok Post Mockup - Match official TikTok design
-function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage, channelImages }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const username = brandName.toLowerCase().replace(/\s+/g, '');
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [following, setFollowing] = useState(false);
+  const allImages = channelImages?.length ? channelImages : channelImage ? [channelImage] : [];
+  const isCarouselMode = channelImages !== undefined;
   
+  // TikTok carousel uses 4:5 aspect ratio (not 9:16 video)
+  if (isCarouselMode) {
+    return (
+      <div className="bg-black rounded-xl shadow-lg overflow-hidden font-['TikTokFont','Proxima_Nova',sans-serif]">
+        {/* TikTok Header */}
+        <div className="px-3 py-2.5 flex items-center gap-2.5">
+          <Avatar className="h-9 w-9 border border-white/20 cursor-pointer">
+            {logoUrl ? <AvatarImage src={logoUrl} alt={brandName} /> : null}
+            <AvatarFallback className="bg-gradient-to-br from-[#25f4ee] to-[#fe2c55] text-white font-bold text-xs">
+              {brandName.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-sm text-white">@{username}</p>
+          </div>
+          <button 
+            onClick={() => setFollowing(!following)}
+            className={cn(
+              "px-4 py-1 rounded text-xs font-semibold transition-all",
+              following 
+                ? "bg-[#252525] text-white/70" 
+                : "bg-[#fe2c55] text-white hover:bg-[#e0284e]"
+            )}
+          >
+            {following ? 'Đang follow' : 'Follow'}
+          </button>
+        </div>
+
+        {/* Caption - shown before carousel in TikTok carousel posts */}
+        <div className="px-3 pb-2">
+          {isGenerating ? (
+            <div className="space-y-1.5 animate-pulse">
+              <div className="h-3 bg-white/20 rounded w-full" />
+              <div className="h-3 bg-white/20 rounded w-3/4" />
+            </div>
+          ) : (
+            <div className="text-sm text-white/90 leading-[1.4] line-clamp-3">
+              <ReactMarkdown components={{
+                p: ({ children }) => <span>{children}</span>,
+                strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+              }}>{content}</ReactMarkdown>
+            </div>
+          )}
+        </div>
+
+        {/* Carousel Slider - 4:5 aspect ratio */}
+        <CarouselImageSlider 
+          images={allImages} 
+          totalSlides={Math.max(allImages.length, 1)}
+          aspectRatio="aspect-[4/5]"
+          emptyGradient="from-[#1a1a1a] to-[#2a2a2a]"
+        />
+
+        {/* Action bar */}
+        <div className="px-3 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-5">
+            <button onClick={() => setLiked(!liked)} className="flex items-center gap-1.5 group">
+              <Heart className={cn("w-5 h-5 transition-all", liked ? "text-[#fe2c55] fill-[#fe2c55]" : "text-white group-hover:scale-110")} />
+              <span className="text-white text-xs">{liked ? '12.6K' : '12.5K'}</span>
+            </button>
+            <button className="flex items-center gap-1.5">
+              <MessageCircle className="w-5 h-5 text-white -scale-x-100" />
+              <span className="text-white text-xs">456</span>
+            </button>
+            <button onClick={() => setSaved(!saved)} className="flex items-center gap-1.5">
+              <Bookmark className={cn("w-5 h-5", saved ? "text-[#f7d835] fill-[#f7d835]" : "text-white")} />
+              <span className="text-white text-xs">{saved ? '235' : '234'}</span>
+            </button>
+            <button className="flex items-center gap-1.5">
+              <Share2 className="w-5 h-5 text-white" />
+            </button>
+          </div>
+          {/* Music disc */}
+          <div className="w-7 h-7 rounded-full border border-[#252525] animate-spin-slow overflow-hidden">
+            <div className="w-full h-full bg-gradient-to-br from-[#25f4ee] to-[#fe2c55] flex items-center justify-center">
+              <div className="w-2.5 h-2.5 rounded-full bg-black" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Default TikTok video layout (9:16)
   return (
     <div className="bg-black rounded-xl shadow-lg overflow-hidden relative aspect-[9/16] max-h-[450px] font-['TikTokFont','Proxima_Nova',sans-serif]">
       {/* Video background with image or gradient */}
@@ -563,7 +649,6 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage 
       
       {/* Right sidebar actions */}
       <div className="absolute right-3 bottom-28 flex flex-col items-center gap-5">
-        {/* Profile */}
         <div className="relative">
           <Avatar className="h-12 w-12 border-2 border-white cursor-pointer transition-transform duration-200 hover:scale-105">
             {logoUrl ? <AvatarImage src={logoUrl} alt={brandName} /> : null}
@@ -584,24 +669,13 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage 
           </button>
         </div>
         
-        {/* Like */}
-        <button 
-          onClick={() => setLiked(!liked)}
-          className="flex flex-col items-center group"
-        >
-          <div className={cn(
-            "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90",
-            liked ? "bg-[#fe2c55]/20" : "bg-[#252525]/80 group-hover:bg-[#353535]/80"
-          )}>
-            <Heart className={cn(
-              "w-6 h-6 transition-all duration-300 group-hover:scale-110",
-              liked ? "text-[#fe2c55] fill-[#fe2c55]" : "text-white"
-            )} />
+        <button onClick={() => setLiked(!liked)} className="flex flex-col items-center group">
+          <div className={cn("w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90", liked ? "bg-[#fe2c55]/20" : "bg-[#252525]/80 group-hover:bg-[#353535]/80")}>
+            <Heart className={cn("w-6 h-6 transition-all duration-300 group-hover:scale-110", liked ? "text-[#fe2c55] fill-[#fe2c55]" : "text-white")} />
           </div>
           <span className="text-white text-xs mt-1 font-medium">{liked ? '12.6K' : '12.5K'}</span>
         </button>
         
-        {/* Comment */}
         <button className="flex flex-col items-center group">
           <div className="w-11 h-11 rounded-full bg-[#252525]/80 flex items-center justify-center transition-all duration-200 group-hover:bg-[#353535]/80 group-hover:scale-105 active:scale-95">
             <MessageCircle className="w-6 h-6 text-white -scale-x-100" />
@@ -609,24 +683,13 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage 
           <span className="text-white text-xs mt-1 font-medium">456</span>
         </button>
         
-        {/* Bookmark */}
-        <button 
-          onClick={() => setSaved(!saved)}
-          className="flex flex-col items-center group"
-        >
-          <div className={cn(
-            "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90",
-            saved ? "bg-[#f7d835]/20" : "bg-[#252525]/80 group-hover:bg-[#353535]/80"
-          )}>
-            <Bookmark className={cn(
-              "w-6 h-6 transition-all duration-300 group-hover:scale-110",
-              saved ? "text-[#f7d835] fill-[#f7d835]" : "text-white"
-            )} />
+        <button onClick={() => setSaved(!saved)} className="flex flex-col items-center group">
+          <div className={cn("w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90", saved ? "bg-[#f7d835]/20" : "bg-[#252525]/80 group-hover:bg-[#353535]/80")}>
+            <Bookmark className={cn("w-6 h-6 transition-all duration-300 group-hover:scale-110", saved ? "text-[#f7d835] fill-[#f7d835]" : "text-white")} />
           </div>
           <span className="text-white text-xs mt-1 font-medium">{saved ? '235' : '234'}</span>
         </button>
         
-        {/* Share */}
         <button className="flex flex-col items-center group">
           <div className="w-11 h-11 rounded-full bg-[#252525]/80 flex items-center justify-center transition-all duration-200 group-hover:bg-[#353535]/80 group-hover:scale-105 active:scale-95">
             <Share2 className="w-6 h-6 text-white transition-transform duration-200 group-hover:rotate-12" />
@@ -634,7 +697,6 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage 
           <span className="text-white text-xs mt-1 font-medium">Share</span>
         </button>
         
-        {/* Music disc */}
         <div className="w-11 h-11 rounded-full border-2 border-[#252525] animate-spin-slow overflow-hidden cursor-pointer hover:animate-none transition-transform hover:scale-105">
           <div className="w-full h-full bg-gradient-to-br from-[#25f4ee] to-[#fe2c55] flex items-center justify-center">
             <div className="w-4 h-4 rounded-full bg-black" />
@@ -644,20 +706,18 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage 
       
       {/* Bottom content */}
       <div className="absolute bottom-0 left-0 right-16 p-4 text-white">
-        {/* Username */}
         <div className="flex items-center gap-2 mb-2">
           <p className="font-bold text-base hover:opacity-80 cursor-pointer transition-opacity">@{username}</p>
           <span className="text-xs text-white/70">· 2 giờ</span>
         </div>
 
-        {/* Caption */}
         {isGenerating ? (
           <div className="space-y-1.5 animate-pulse">
             <div className="h-3 bg-white/30 rounded w-full" />
             <div className="h-3 bg-white/30 rounded w-3/4" />
           </div>
         ) : (
-          <div className="text-sm mb-3 line-clamp-2 leading-[1.3]">
+          <div className="text-sm mb-3 line-clamp-3 leading-[1.3]">
             <ReactMarkdown components={{
               p: ({ children }) => <span>{children}</span>,
               strong: ({ children }) => <strong className="font-bold">{children}</strong>,
@@ -665,7 +725,6 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage 
           </div>
         )}
 
-        {/* Music */}
         <div className="flex items-center gap-2 text-sm">
           <Music2 className="w-4 h-4 animate-bounce-subtle" />
           <div className="overflow-hidden">
