@@ -665,14 +665,22 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                       }}
                       enabled={!isLoading}
                     />
-                    <CharacterTypeSelector
-                      value={formData.character_type}
-                      onChange={(value) => {
-                        setFormData((prev) => ({ ...prev, character_type: value }));
-                        setUserOverrodeCharacterType(true);
-                      }}
-                      disabled={isLoading}
-                    />
+                    <Collapsible>
+                      <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                        <span>Xem tất cả</span>
+                        <ChevronDown className="w-3 h-3 [[data-state=open]>&]:rotate-180 transition-transform" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CharacterTypeSelector
+                          value={formData.character_type}
+                          onChange={(value) => {
+                            setFormData((prev) => ({ ...prev, character_type: value }));
+                            setUserOverrodeCharacterType(true);
+                          }}
+                          disabled={isLoading}
+                        />
+                      </CollapsibleContent>
+                    </Collapsible>
                   </div>
                 </ConfigChipSelector>
 
