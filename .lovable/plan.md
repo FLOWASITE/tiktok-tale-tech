@@ -1,40 +1,61 @@
 
 
-# Hoàn thiện chức năng Phân tích AI
+# Cải thiện UI/UX AI Script Analyzer — Rộng rãi, Chuyên nghiệp, Sang trọng
 
 ## Vấn đề hiện tại
 
-1. **Không dùng cache**: `ScriptAnalyzer` luôn yêu cầu phân tích mới, bỏ qua `analysis_cache` đã lưu trên bảng `scripts` (auto-analyze chạy khi tạo script nhưng kết quả không được hiển thị)
-2. **JSON parsing không ổn định**: Edge function dùng regex `content.match(/\{[\s\S]*\}/)` để parse JSON từ free-text — dễ lỗi. Nên dùng tool calling để nhận structured output
-3. **Fallback trả dữ liệu giả**: Khi parse lỗi, trả về điểm cố định (65, 70, 55...) — gây hiểu nhầm cho user
-4. **Không lưu kết quả khi phân tích thủ công**: Khi user nhấn "Phân tích ngay" trong ScriptAnalyzer, kết quả không được lưu vào `analysis_cache`
+Analyzer panel bị hẹp (w-72 / w-80 ~ 288-320px), khiến Score Rings co lại, biểu đồ nhỏ, nội dung chen chúc. Layout sidebar hạn chế khả năng hiển thị dữ liệu phân tích chuyên nghiệp.
 
 ## Giải pháp
 
-### A. ScriptAnalyzer — Dùng cached analysis
-- Nhận thêm prop `initialAnalysis` từ `script.analysis_cache`
-- Nếu đã có cache → hiển thị ngay, không cần nhấn nút
-- Nút "Phân tích lại" để gọi AI mới
-- Sau khi phân tích xong → cập nhật `analysis_cache` trên DB
+### 1. Mở rộng panel sidebar
+- Tăng từ `w-72 md:w-80` lên `sm:w-[380px] md:w-[420px]` trong `ScriptViewer.tsx`
+- Tăng `max-w-6xl` thành `max-w-7xl` khi panel mở để có đủ không gian
 
-### B. Edge function — Chuyển sang tool calling
-- Thay vì yêu cầu AI trả JSON trong text, dùng `tools` + `tool_choice` để nhận structured output chính xác
-- Loại bỏ regex parsing và fallback dữ liệu giả
-- Khi tool call không trả về → báo lỗi rõ ràng thay vì trả dữ liệu fake
+### 2. Redesign ScriptAnalyzer — Soft Luxury style
 
-### C. useScriptAnalysis — Lưu kết quả
-- Sau khi phân tích thành công → gọi `supabase.from('scripts').update({ analysis_cache, analyzed_at })` để cache
-- Nhận `scriptId` làm tham số
+**Overall Score Hero Section:**
+- Card rộng hơn với padding `p-6`, gradient background tinh tế hơn
+- Thêm decorative element (subtle radial gradient hoặc dot pattern)
+- Score hiển thị lớn hơn (text-5xl), grade badge sang trọng hơn với background riêng
+- Thêm timestamp "Phân tích lúc..." nhỏ bên dưới
 
-### D. ScriptViewer — Truyền cache
-- Truyền `script.analysis_cache` vào `ScriptAnalyzer` để hiển thị ngay khi mở panel
+**Score Rings → Score Cards:**
+- Chuyển từ grid 5 cols (quá chật) sang layout 2 hàng: 3+2 hoặc grid responsive
+- Tăng kích thước ring (size 64-68), thêm score label rõ ràng hơn
+- Mỗi ring có subtle background card riêng với hover effect
+- Thêm micro-description cho mỗi metric (vd: "Hook — 3s đầu", "CTA — Kêu gọi hành động")
 
-## Chi tiết kỹ thuật
+**Strengths & Weaknesses:**
+- Card rộng rãi hơn với padding p-4, icon lớn hơn
+- Typography nổi bật: header text-xs → text-sm
+- Bullet items spacing thoáng hơn (space-y-2.5)
+- Thêm divider line tinh tế giữa các items
+
+**Emotional Arc Chart:**
+- Chart cao hơn: h-36 → h-44
+- Thêm header description nhỏ giải thích biểu đồ
+- Emotion pills lớn hơn, rõ ràng hơn
+
+**Suggestion Cards:**
+- Padding tăng p-3 → p-4
+- Icon container lớn hơn (w-8 h-8)
+- Message text size tăng lên text-sm
+- Thêm subtle separator giữa các cards
+
+**Empty/Loading States:**
+- Icon lớn hơn, spacing rộng rãi hơn
+- Description text rõ ràng, font-size lớn hơn
+
+### 3. Spacing & Typography tổng thể
+- Section gap: space-y-5 → space-y-6
+- Section headers: thêm bottom margin, font-size lên text-xs tracking-widest
+- Tất cả border-radius thống nhất rounded-2xl cho major cards
+
+## Files cần sửa
 
 | File | Thay đổi |
 |------|----------|
-| `supabase/functions/analyze-script/index.ts` | Chuyển sang tool calling, bỏ regex parse, bỏ fallback giả |
-| `src/hooks/useScriptAnalysis.ts` | Thêm `scriptId`, lưu kết quả vào DB sau phân tích |
-| `src/components/script/ScriptAnalyzer.tsx` | Nhận `initialAnalysis` prop, hiển thị cache, nút "Phân tích lại" |
-| `src/components/ScriptViewer.tsx` | Truyền `script.analysis_cache` vào ScriptAnalyzer |
+| `src/components/ScriptViewer.tsx` | Mở rộng sidebar width, max-w dialog |
+| `src/components/script/ScriptAnalyzer.tsx` | Redesign toàn bộ layout với spacing rộng rãi, typography sang trọng |
 
