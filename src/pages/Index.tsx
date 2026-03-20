@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileVideo, Sparkles, Plus, X, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
+
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 
 type ViewMode = 'grid' | 'list';
