@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { ensureMarkdownFormat } from '@/utils/contentFormatter';
 import ReactMarkdown from 'react-markdown';
 import { motion } from 'framer-motion';
@@ -24,7 +24,10 @@ import {
   Star,
   Trash2,
   MoreVertical,
-  Check
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ImageIcon,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -51,6 +54,8 @@ interface ChannelMockupFrameProps {
   // Website-specific props
   seoData?: WebsiteSEOData;
   channelImage?: string;
+  /** Multiple carousel images for slider mode */
+  channelImages?: string[];
 }
 
 // Reusable animated button component
@@ -88,9 +93,98 @@ function ActionButton({
   );
 }
 
+// Carousel Image Slider - reusable across Facebook/TikTok mockups
+function CarouselImageSlider({ 
+  images, 
+  totalSlides,
+  aspectRatio = 'aspect-square',
+  emptyGradient = 'from-muted/30 to-muted/50',
+}: { 
+  images: string[]; 
+  totalSlides: number;
+  aspectRatio?: string;
+  emptyGradient?: string;
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const slideCount = Math.max(totalSlides, images.length, 1);
+  
+  const goNext = useCallback(() => setCurrentIndex(i => Math.min(slideCount - 1, i + 1)), [slideCount]);
+  const goPrev = useCallback(() => setCurrentIndex(i => Math.max(0, i - 1)), []);
+
+  return (
+    <div className="relative group/slider">
+      <div className={cn(aspectRatio, 'w-full overflow-hidden relative bg-muted/10')}>
+        {images[currentIndex] ? (
+          <img 
+            src={images[currentIndex]} 
+            alt={`Slide ${currentIndex + 1}`} 
+            className="w-full h-full object-cover transition-opacity duration-300"
+          />
+        ) : (
+          <div className={cn('w-full h-full flex flex-col items-center justify-center bg-gradient-to-br', emptyGradient)}>
+            <ImageIcon className="w-10 h-10 text-muted-foreground/30" />
+            <span className="text-xs text-muted-foreground/50 mt-2">Slide {currentIndex + 1}</span>
+          </div>
+        )}
+        
+        {/* Counter badge */}
+        <div className="absolute top-2.5 right-2.5 bg-black/60 text-white text-[11px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm">
+          {currentIndex + 1}/{slideCount}
+        </div>
+        
+        {/* Navigation arrows */}
+        {slideCount > 1 && (
+          <>
+            <button 
+              onClick={goPrev}
+              disabled={currentIndex === 0}
+              className={cn(
+                "absolute left-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/80 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center shadow-md transition-all duration-200",
+                currentIndex === 0 ? "opacity-0" : "opacity-0 group-hover/slider:opacity-100 hover:scale-110 active:scale-95"
+              )}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={goNext}
+              disabled={currentIndex === slideCount - 1}
+              className={cn(
+                "absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/80 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center shadow-md transition-all duration-200",
+                currentIndex === slideCount - 1 ? "opacity-0" : "opacity-0 group-hover/slider:opacity-100 hover:scale-110 active:scale-95"
+              )}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </>
+        )}
+      </div>
+      
+      {/* Indicator dots */}
+      {slideCount > 1 && slideCount <= 10 && (
+        <div className="flex items-center justify-center gap-1 py-2">
+          {Array.from({ length: slideCount }).map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrentIndex(i)}
+              className={cn(
+                "rounded-full transition-all duration-200",
+                i === currentIndex 
+                  ? "w-1.5 h-1.5 bg-primary" 
+                  : "w-1 h-1 bg-muted-foreground/30 hover:bg-muted-foreground/50"
+              )}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Facebook Post Mockup - Match official FB design
-function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImage }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImage, channelImages }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const [liked, setLiked] = useState(false);
+  const allImages = channelImages?.length ? channelImages : channelImage ? [channelImage] : [];
+  const isCarousel = allImages.length > 1 || (!allImages.length && (channelImages !== undefined));
   
   return (
     <div className="bg-white dark:bg-[#242526] rounded-lg shadow-md border border-[#dadde1] dark:border-[#3e4042] overflow-hidden font-['Segoe_UI',system-ui,sans-serif]">
@@ -135,16 +229,19 @@ function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImag
         )}
       </div>
 
-      {/* Image - show if available */}
-      {channelImage && (
+      {/* Carousel Image Slider or Single Image */}
+      {isCarousel ? (
+        <CarouselImageSlider 
+          images={allImages} 
+          totalSlides={Math.max(allImages.length, 1)}
+          aspectRatio="aspect-square"
+          emptyGradient="from-[#f0f2f5] to-[#e4e6eb]"
+        />
+      ) : allImages.length === 1 ? (
         <div className="w-full aspect-video bg-[#f0f2f5] dark:bg-[#3a3b3c]">
-          <img 
-            src={channelImage} 
-            alt="Post image" 
-            className="w-full h-full object-cover"
-          />
+          <img src={allImages[0]} alt="Post image" className="w-full h-full object-cover" />
         </div>
-      )}
+      ) : null}
 
       {/* Reactions bar */}
       <div className="px-4 py-2.5 flex items-center justify-between border-b border-[#dadde1] dark:border-[#3e4042]">
@@ -437,12 +534,98 @@ function InstagramMockup({ content, brandName, logoUrl, isGenerating, channelIma
 }
 
 // TikTok Post Mockup - Match official TikTok design
-function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage, channelImages }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const username = brandName.toLowerCase().replace(/\s+/g, '');
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [following, setFollowing] = useState(false);
+  const allImages = channelImages?.length ? channelImages : channelImage ? [channelImage] : [];
+  const isCarouselMode = channelImages !== undefined;
   
+  // TikTok carousel uses 4:5 aspect ratio (not 9:16 video)
+  if (isCarouselMode) {
+    return (
+      <div className="bg-black rounded-xl shadow-lg overflow-hidden font-['TikTokFont','Proxima_Nova',sans-serif]">
+        {/* TikTok Header */}
+        <div className="px-3 py-2.5 flex items-center gap-2.5">
+          <Avatar className="h-9 w-9 border border-white/20 cursor-pointer">
+            {logoUrl ? <AvatarImage src={logoUrl} alt={brandName} /> : null}
+            <AvatarFallback className="bg-gradient-to-br from-[#25f4ee] to-[#fe2c55] text-white font-bold text-xs">
+              {brandName.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-sm text-white">@{username}</p>
+          </div>
+          <button 
+            onClick={() => setFollowing(!following)}
+            className={cn(
+              "px-4 py-1 rounded text-xs font-semibold transition-all",
+              following 
+                ? "bg-[#252525] text-white/70" 
+                : "bg-[#fe2c55] text-white hover:bg-[#e0284e]"
+            )}
+          >
+            {following ? 'Đang follow' : 'Follow'}
+          </button>
+        </div>
+
+        {/* Caption - shown before carousel in TikTok carousel posts */}
+        <div className="px-3 pb-2">
+          {isGenerating ? (
+            <div className="space-y-1.5 animate-pulse">
+              <div className="h-3 bg-white/20 rounded w-full" />
+              <div className="h-3 bg-white/20 rounded w-3/4" />
+            </div>
+          ) : (
+            <div className="text-sm text-white/90 leading-[1.4] line-clamp-3">
+              <ReactMarkdown components={{
+                p: ({ children }) => <span>{children}</span>,
+                strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+              }}>{content}</ReactMarkdown>
+            </div>
+          )}
+        </div>
+
+        {/* Carousel Slider - 4:5 aspect ratio */}
+        <CarouselImageSlider 
+          images={allImages} 
+          totalSlides={Math.max(allImages.length, 1)}
+          aspectRatio="aspect-[4/5]"
+          emptyGradient="from-[#1a1a1a] to-[#2a2a2a]"
+        />
+
+        {/* Action bar */}
+        <div className="px-3 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-5">
+            <button onClick={() => setLiked(!liked)} className="flex items-center gap-1.5 group">
+              <Heart className={cn("w-5 h-5 transition-all", liked ? "text-[#fe2c55] fill-[#fe2c55]" : "text-white group-hover:scale-110")} />
+              <span className="text-white text-xs">{liked ? '12.6K' : '12.5K'}</span>
+            </button>
+            <button className="flex items-center gap-1.5">
+              <MessageCircle className="w-5 h-5 text-white -scale-x-100" />
+              <span className="text-white text-xs">456</span>
+            </button>
+            <button onClick={() => setSaved(!saved)} className="flex items-center gap-1.5">
+              <Bookmark className={cn("w-5 h-5", saved ? "text-[#f7d835] fill-[#f7d835]" : "text-white")} />
+              <span className="text-white text-xs">{saved ? '235' : '234'}</span>
+            </button>
+            <button className="flex items-center gap-1.5">
+              <Share2 className="w-5 h-5 text-white" />
+            </button>
+          </div>
+          {/* Music disc */}
+          <div className="w-7 h-7 rounded-full border border-[#252525] animate-spin-slow overflow-hidden">
+            <div className="w-full h-full bg-gradient-to-br from-[#25f4ee] to-[#fe2c55] flex items-center justify-center">
+              <div className="w-2.5 h-2.5 rounded-full bg-black" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Default TikTok video layout (9:16)
   return (
     <div className="bg-black rounded-xl shadow-lg overflow-hidden relative aspect-[9/16] max-h-[450px] font-['TikTokFont','Proxima_Nova',sans-serif]">
       {/* Video background with image or gradient */}
@@ -466,7 +649,6 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage 
       
       {/* Right sidebar actions */}
       <div className="absolute right-3 bottom-28 flex flex-col items-center gap-5">
-        {/* Profile */}
         <div className="relative">
           <Avatar className="h-12 w-12 border-2 border-white cursor-pointer transition-transform duration-200 hover:scale-105">
             {logoUrl ? <AvatarImage src={logoUrl} alt={brandName} /> : null}
@@ -487,24 +669,13 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage 
           </button>
         </div>
         
-        {/* Like */}
-        <button 
-          onClick={() => setLiked(!liked)}
-          className="flex flex-col items-center group"
-        >
-          <div className={cn(
-            "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90",
-            liked ? "bg-[#fe2c55]/20" : "bg-[#252525]/80 group-hover:bg-[#353535]/80"
-          )}>
-            <Heart className={cn(
-              "w-6 h-6 transition-all duration-300 group-hover:scale-110",
-              liked ? "text-[#fe2c55] fill-[#fe2c55]" : "text-white"
-            )} />
+        <button onClick={() => setLiked(!liked)} className="flex flex-col items-center group">
+          <div className={cn("w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90", liked ? "bg-[#fe2c55]/20" : "bg-[#252525]/80 group-hover:bg-[#353535]/80")}>
+            <Heart className={cn("w-6 h-6 transition-all duration-300 group-hover:scale-110", liked ? "text-[#fe2c55] fill-[#fe2c55]" : "text-white")} />
           </div>
           <span className="text-white text-xs mt-1 font-medium">{liked ? '12.6K' : '12.5K'}</span>
         </button>
         
-        {/* Comment */}
         <button className="flex flex-col items-center group">
           <div className="w-11 h-11 rounded-full bg-[#252525]/80 flex items-center justify-center transition-all duration-200 group-hover:bg-[#353535]/80 group-hover:scale-105 active:scale-95">
             <MessageCircle className="w-6 h-6 text-white -scale-x-100" />
@@ -512,24 +683,13 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage 
           <span className="text-white text-xs mt-1 font-medium">456</span>
         </button>
         
-        {/* Bookmark */}
-        <button 
-          onClick={() => setSaved(!saved)}
-          className="flex flex-col items-center group"
-        >
-          <div className={cn(
-            "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90",
-            saved ? "bg-[#f7d835]/20" : "bg-[#252525]/80 group-hover:bg-[#353535]/80"
-          )}>
-            <Bookmark className={cn(
-              "w-6 h-6 transition-all duration-300 group-hover:scale-110",
-              saved ? "text-[#f7d835] fill-[#f7d835]" : "text-white"
-            )} />
+        <button onClick={() => setSaved(!saved)} className="flex flex-col items-center group">
+          <div className={cn("w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 active:scale-90", saved ? "bg-[#f7d835]/20" : "bg-[#252525]/80 group-hover:bg-[#353535]/80")}>
+            <Bookmark className={cn("w-6 h-6 transition-all duration-300 group-hover:scale-110", saved ? "text-[#f7d835] fill-[#f7d835]" : "text-white")} />
           </div>
           <span className="text-white text-xs mt-1 font-medium">{saved ? '235' : '234'}</span>
         </button>
         
-        {/* Share */}
         <button className="flex flex-col items-center group">
           <div className="w-11 h-11 rounded-full bg-[#252525]/80 flex items-center justify-center transition-all duration-200 group-hover:bg-[#353535]/80 group-hover:scale-105 active:scale-95">
             <Share2 className="w-6 h-6 text-white transition-transform duration-200 group-hover:rotate-12" />
@@ -537,7 +697,6 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage 
           <span className="text-white text-xs mt-1 font-medium">Share</span>
         </button>
         
-        {/* Music disc */}
         <div className="w-11 h-11 rounded-full border-2 border-[#252525] animate-spin-slow overflow-hidden cursor-pointer hover:animate-none transition-transform hover:scale-105">
           <div className="w-full h-full bg-gradient-to-br from-[#25f4ee] to-[#fe2c55] flex items-center justify-center">
             <div className="w-4 h-4 rounded-full bg-black" />
@@ -547,20 +706,18 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage 
       
       {/* Bottom content */}
       <div className="absolute bottom-0 left-0 right-16 p-4 text-white">
-        {/* Username */}
         <div className="flex items-center gap-2 mb-2">
           <p className="font-bold text-base hover:opacity-80 cursor-pointer transition-opacity">@{username}</p>
           <span className="text-xs text-white/70">· 2 giờ</span>
         </div>
 
-        {/* Caption */}
         {isGenerating ? (
           <div className="space-y-1.5 animate-pulse">
             <div className="h-3 bg-white/30 rounded w-full" />
             <div className="h-3 bg-white/30 rounded w-3/4" />
           </div>
         ) : (
-          <div className="text-sm mb-3 line-clamp-2 leading-[1.3]">
+          <div className="text-sm mb-3 line-clamp-3 leading-[1.3]">
             <ReactMarkdown components={{
               p: ({ children }) => <span>{children}</span>,
               strong: ({ children }) => <strong className="font-bold">{children}</strong>,
@@ -568,7 +725,6 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage 
           </div>
         )}
 
-        {/* Music */}
         <div className="flex items-center gap-2 text-sm">
           <Music2 className="w-4 h-4 animate-bounce-subtle" />
           <div className="overflow-hidden">
@@ -1455,7 +1611,7 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
 }
 
 export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
-  const { channel, seoData, channelImage, brandName: rawBrandName, ...rest } = props;
+  const { channel, seoData, channelImage, channelImages, brandName: rawBrandName, ...rest } = props;
   
   const safeBrandName = typeof rawBrandName === 'string' && rawBrandName.trim() 
     ? rawBrandName.trim() 
@@ -1463,13 +1619,13 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
 
   switch (channel) {
     case 'facebook':
-      return <FacebookMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
+      return <FacebookMockup {...rest} brandName={safeBrandName} channelImage={channelImage} channelImages={channelImages} />;
     case 'linkedin':
       return <LinkedInMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'instagram':
       return <InstagramMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'tiktok':
-      return <TikTokMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
+      return <TikTokMockup {...rest} brandName={safeBrandName} channelImage={channelImage} channelImages={channelImages} />;
     case 'twitter':
       return <TwitterMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'threads':
