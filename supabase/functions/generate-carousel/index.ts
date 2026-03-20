@@ -737,7 +737,7 @@ serve(async (req) => {
     let userPrompt = `Create ${formData.slideCount} carousel slides for the topic:
 "${formData.topic}"
 
-Platform: ${formData.platform === "facebook" ? "Facebook" : "TikTok"}
+Platform: ${platformName[formData.platform] || formData.platform}
 Carousel Style: ${formData.carouselStyle || 'educational'}
 Brand: ${formData.brandName}
 Output Language: ${langConfig.nativeName} (${langConfig.englishName})
