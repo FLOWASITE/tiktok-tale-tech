@@ -163,7 +163,8 @@ const SuggestionCard = ({ suggestion }: {
     engagement: TrendingUp,
   };
 
-  const config = priorityConfig[suggestion.priority];
+  const defaultConfig = { bg: 'bg-muted/50', border: 'border-border', dot: 'bg-muted-foreground', label: suggestion.priority || 'Gợi ý' };
+  const config = priorityConfig[suggestion.priority] || defaultConfig;
   const TypeIcon = typeIcons[suggestion.type] || Lightbulb;
 
   return (
