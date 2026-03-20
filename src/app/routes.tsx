@@ -9,6 +9,7 @@ import { TopicErrorBoundary } from "@/components/topic/TopicErrorBoundary";
 import Dashboard from "@/pages/Dashboard";
 import Topics from "@/pages/Topics";
 import Index from "@/pages/Index";
+import ScriptNew from "@/pages/ScriptNew";
 import Carousel from "@/pages/Carousel";
 import Brands from "@/pages/Brands";
 import BrandView from "@/pages/BrandView";
