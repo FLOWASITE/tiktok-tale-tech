@@ -138,11 +138,12 @@ export function CarouselCard({
         {imageUrls && imageUrls.length > 0 ? (
           <div className="relative aspect-[4/3] overflow-hidden cursor-pointer rounded-t-lg" onClick={() => onView(carousel)}>
             {imageUrls.length === 1 && (
-              <img
+              <OptimizedImage
                 src={imageUrls[0]}
                 alt={carousel.title}
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 rounded-t-lg"
-                loading="lazy"
+                skeletonClassName="w-full h-full"
+                preloadSrc={imageUrls[1]}
               />
             )}
             {imageUrls.length === 2 && (
