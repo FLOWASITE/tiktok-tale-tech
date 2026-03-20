@@ -32,7 +32,7 @@ interface CarouselCardProps {
   creatorProfile?: CreatorProfile;
   isLoadingProfile?: boolean;
   index?: number;
-  thumbnailUrl?: string;
+  imageUrls?: string[];
   imageCount?: number;
   brandName?: string;
   brandLogoUrl?: string | null;
@@ -74,7 +74,7 @@ export function CarouselCard({
   creatorProfile, 
   isLoadingProfile,
   index = 0,
-  thumbnailUrl,
+  imageUrls,
   imageCount,
   brandName,
   brandLogoUrl,
@@ -133,15 +133,42 @@ export function CarouselCard({
           )} />
         )}
 
-        {/* Thumbnail Preview */}
-        {thumbnailUrl ? (
+        {/* Image Grid Preview */}
+        {imageUrls && imageUrls.length > 0 ? (
           <div className="relative aspect-video bg-muted/20 overflow-hidden cursor-pointer" onClick={() => onView(carousel)}>
-            <img
-              src={thumbnailUrl}
-              alt={carousel.title}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              loading="lazy"
-            />
+            {imageUrls.length === 1 && (
+              <img
+                src={imageUrls[0]}
+                alt={carousel.title}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                loading="lazy"
+              />
+            )}
+            {imageUrls.length === 2 && (
+              <div className="grid grid-cols-2 gap-0.5 h-full">
+                {imageUrls.slice(0, 2).map((url, i) => (
+                  <img key={i} src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                ))}
+              </div>
+            )}
+            {imageUrls.length >= 3 && (
+              <div className="grid grid-cols-2 gap-0.5 h-full">
+                <img src={imageUrls[0]} alt="" className="w-full h-full object-cover row-span-2" loading="lazy" style={{ gridRow: '1 / 3' }} />
+                <img src={imageUrls[1]} alt="" className="w-full h-full object-cover" loading="lazy" />
+                {imageUrls.length === 3 ? (
+                  <img src={imageUrls[2]} alt="" className="w-full h-full object-cover" loading="lazy" />
+                ) : (
+                  <div className="relative">
+                    <img src={imageUrls[2]} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    {imageUrls.length > 3 && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                        <span className="text-white font-semibold text-sm">+{imageUrls.length - 3}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             {/* Image count badge */}
             {typeof imageCount === 'number' && (
               <Badge className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] border-0">

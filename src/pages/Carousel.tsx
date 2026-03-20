@@ -524,7 +524,7 @@ const CarouselPage = () => {
                 creatorProfile={carousel.user_id ? creatorProfiles[carousel.user_id] : undefined}
                 isLoadingProfile={isLoadingProfiles}
                 index={index}
-                thumbnailUrl={imageMap[carousel.id]?.thumbnailUrl}
+                imageUrls={imageMap[carousel.id]?.imageUrls}
                 imageCount={imageMap[carousel.id]?.imageCount}
                 brandName={carousel.brand_template_id ? brandMap[carousel.brand_template_id]?.brand_name : undefined}
                 brandLogoUrl={carousel.brand_template_id ? brandMap[carousel.brand_template_id]?.logo_url : undefined}
