@@ -1002,6 +1002,7 @@ RULES FOR TEXT:
       brandColorDirective = `
 ⚠️ MANDATORY BRAND COLOR DIRECTIVE (HIGHEST PRIORITY):
 ${colorParts.map(p => `- ${p}`).join('\n')}
+- CRITICAL: The IMAGE BACKGROUND itself MUST use brand colors or tints/shades derived from them. Do NOT use preset default backgrounds like dark navy (#1A1A2E), corporate black (#0A1628), or blue-purple gradients (#667eea).
 - FORBIDDEN: Do NOT default to generic blue (#3B82F6), teal, dark navy, or corporate black unless those exact colors are listed above.
 - The brand colors above MUST be clearly visible and dominant in the final image.
 - If the brand color is warm (red, orange, yellow), the image MUST feel warm. If cool (green, purple), reflect that temperature.
