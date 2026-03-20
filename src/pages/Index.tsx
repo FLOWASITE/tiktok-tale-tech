@@ -125,23 +125,6 @@ const Index = () => {
     setViewerOpen(true);
   };
 
-  const handleGenerateScript = async (formData: Parameters<typeof generateScript>[0]) => {
-    const newScript = await generateScript(formData);
-    if (newScript) {
-      if (formData.topicHistoryId) {
-        try {
-          await createLink(formData.topicHistoryId, newScript.id, 'script', newScript.title, newScript.status || 'draft');
-        } catch (error) {
-          console.error('Failed to create topic-content link:', error);
-        }
-        setTopicHistoryId(undefined);
-      }
-      setFormSheetOpen(false);
-      setSelectedScript(newScript);
-      setViewerOpen(true);
-    }
-  };
-
   const handleScriptUpdate = (updatedScript: Script) => {
     updateScript(updatedScript);
     setSelectedScript(updatedScript);
