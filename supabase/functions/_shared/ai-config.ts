@@ -366,7 +366,7 @@ export async function getChannelModelConfigs(
   try {
     let query = supabase
       .from('ai_channel_model_configs')
-      .select('channel, model_override, temperature, max_tokens, is_enabled')
+      .select('channel, model_override, temperature, max_tokens, is_enabled, force_provider')
       .eq('is_enabled', true);
 
     if (organizationId) {
