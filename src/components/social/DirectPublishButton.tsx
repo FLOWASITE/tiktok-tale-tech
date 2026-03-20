@@ -282,7 +282,7 @@ export function DirectPublishButton({
 
       {/* Confirmation / Success Dialog */}
       <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && handleCloseDialog()}>
-        <DialogContent className="sm:max-w-2xl p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-2xl p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
           {dialogState === 'success' ? (
             /* ===== SUCCESS STATE ===== */
             <div className="flex flex-col items-center justify-center py-6 px-4 sm:py-10 sm:px-6 text-center gap-3 sm:gap-4">
