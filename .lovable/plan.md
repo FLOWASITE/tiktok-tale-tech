@@ -1,58 +1,54 @@
 
 
-# Bổ sung thêm nền tảng Social cho Carousel
+# Sửa lỗi ảnh Carousel không có màu thương hiệu
 
-## Các nền tảng thêm mới
-- **Instagram** — carousel phổ biến nhất (tỷ lệ 4:5)
-- **LinkedIn** — carousel dạng document/slide (tỷ lệ 1:1 hoặc 4:5)
+## Nguyên nhân gốc
 
-## Thay đổi cần thực hiện
+Luồng truyền màu thương hiệu bị **đứt đoạn**:
 
-### 1. Database Migration
-Thêm giá trị mới vào enum `carousel_platform`:
-```sql
-ALTER TYPE public.carousel_platform ADD VALUE 'instagram';
-ALTER TYPE public.carousel_platform ADD VALUE 'linkedin';
+```text
+Brand Template (primary_color: "#E53E3E", secondary_colors: ["#FFD700"])
+        ↓
+CarouselForm.applyTemplate() ← CHỈ copy brand_name, brand_guideline, include_logo
+        ↓                        ❌ KHÔNG copy primary_color, secondary_colors
+Carousel DB record (brand_guideline = "")
+        ↓
+extractBrandColors() ← Parse brand_guideline → tìm hex colors → KHÔNG CÓ
+        ↓
+brandColors = undefined ← AI không nhận được màu nào
+        ↓
+Ảnh mặc định xanh/đen (do AI tự chọn)
 ```
 
-### 2. `src/types/carousel.ts`
-- Mở rộng `Platform` type: `'facebook' | 'tiktok' | 'instagram' | 'linkedin'`
-- Thêm vào `PLATFORM_OPTIONS` với label tiếng Việt
+**Không phải do phong cách thiết kế** — hệ thống `blendBrandColors()` và `brandColorDirective` trong prompt đều hoạt động đúng, nhưng không bao giờ nhận được dữ liệu màu.
 
-### 3. `src/components/carousel/PlatformSelector.tsx`
-- Thêm icon cho Instagram (lucide `Instagram`) và LinkedIn (lucide `Linkedin`)
-- Thêm màu sắc cho mỗi nền tảng mới (Instagram: gradient tím-hồng, LinkedIn: xanh sky)
-- Đổi grid từ `grid-cols-2` sang `grid-cols-4` (hoặc `grid-cols-2 sm:grid-cols-4`)
+## Giải pháp
 
-### 4. `src/components/CarouselViewer.tsx`
-- Cập nhật `platformLabels` thêm instagram, linkedin
-- Cập nhật mockup channel mapping: `carousel.platform` → `ChannelMockupFrame` channel (instagram, linkedin đã có sẵn mockup trong `ChannelMockupFrame`)
+### 1. `src/types/carousel.ts` — Thêm fields màu vào `CarouselFormData`
+- Thêm `brandPrimaryColor?: string` và `brandSecondaryColors?: string[]`
 
-### 5. `src/components/CarouselCard.tsx`
-- Cập nhật `platformLabels` record thêm instagram, linkedin với icon tương ứng
+### 2. `src/components/CarouselForm.tsx` — Copy màu từ template
+- `applyTemplate()`: thêm `setPrimaryColor(template.primary_color)` và `setSecondaryColors(template.secondary_colors)`  
+- Truyền vào `onSubmit()` cùng form data
 
-### 6. `src/components/CarouselListView.tsx`
-- Cập nhật `platformLabels` và `platformColors` thêm 2 nền tảng mới
+### 3. `supabase/functions/generate-carousel/index.ts` — Lưu màu vào DB
+- Lưu `primary_color` và `secondary_colors` vào record carousel (hoặc nhúng vào `brand_guideline` JSON)
 
-### 7. `supabase/functions/generate-carousel/index.ts`
-- Mở rộng prompt hệ thống để hỗ trợ Instagram và LinkedIn (thay ternary `facebook ? "Facebook" : "TikTok"` bằng mapping object)
-- Điều chỉnh aspect ratio guidance theo nền tảng (Instagram: 4:5, LinkedIn: 1:1)
+### 4. `src/components/CarouselViewer.tsx` — Sửa `extractBrandColors()`
+- Ưu tiên đọc từ `carousel.brand_guideline` parsed JSON
+- **Fallback**: Tra cứu brand template gốc bằng `carousel.brand_template_id` để lấy `primary_color`
 
-### 8. `src/pages/Carousel.tsx` (nếu có filter theo platform)
-- Cập nhật filter options thêm instagram, linkedin
+### 5. `supabase/functions/generate-carousel-image/index.ts` — Không cần sửa
+- Logic `blendBrandColors()` và `brandColorDirective` đã hoạt động đúng, chỉ cần nhận đúng data
 
 ## Tổng hợp
 
 | File | Thay đổi |
 |------|----------|
-| DB Migration | Thêm `instagram`, `linkedin` vào enum `carousel_platform` |
-| `types/carousel.ts` | Mở rộng `Platform` type + `PLATFORM_OPTIONS` |
-| `PlatformSelector.tsx` | Thêm icon, màu, grid 4 cột |
-| `CarouselViewer.tsx` | Cập nhật labels + mockup channel mapping |
-| `CarouselCard.tsx` | Cập nhật `platformLabels` |
-| `CarouselListView.tsx` | Cập nhật labels + colors |
-| `generate-carousel/index.ts` | Mở rộng prompt cho Instagram/LinkedIn |
-| `Carousel.tsx` | Cập nhật filter options |
+| `types/carousel.ts` | Thêm `brandPrimaryColor`, `brandSecondaryColors` vào form data |
+| `CarouselForm.tsx` | Copy `primary_color`/`secondary_colors` từ brand template |
+| `generate-carousel/index.ts` | Lưu brand colors vào record carousel |
+| `CarouselViewer.tsx` | Sửa `extractBrandColors()` fallback từ brand template |
 
-Sửa 7 file + 1 migration.
+Sửa 4 file, không cần migration.
 
