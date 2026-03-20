@@ -212,7 +212,7 @@ export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 w-7 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/5"
+                        className="h-7 w-7 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/5"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
