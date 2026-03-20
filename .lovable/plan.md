@@ -1,55 +1,54 @@
 
 
-# Tự động cải thiện kịch bản theo gợi ý AI
+# Redesign ScriptCard — Sang trọng & Gọn gàng
 
-## Ý tưởng
-Sau khi AI Analyzer đưa ra gợi ý (suggestions, weaknesses), thêm nút **"Áp dụng gợi ý"** để hệ thống tự động gọi AI viết lại kịch bản dựa trên các gợi ý đó — rồi cập nhật nội dung script.
+## Vấn đề hiện tại
 
-## Luồng hoạt động
+Card hiện tại quá **rối** với 6 dòng thông tin riêng biệt:
+1. Purpose badge + Status badge
+2. Title
+3. Topic + Brand
+4. Content preview (italic quote)
+5. Badge row 1: Duration, Video Type, Character (3 pills)
+6. Badge row 2: Voice Region, Dialogue Style, Industry (3 pills)
+7. Creator + timestamps
+8. Action buttons
+
+Tổng cộng **~8 dòng nội dung** với quá nhiều màu sắc (hồng, xanh, cam, vàng, cyan, tím) — thiếu hierarchy, mắt không biết focus vào đâu.
+
+## Giải pháp: Minimal Luxury Card
 
 ```text
-[Phân tích AI] → Gợi ý cải thiện
-       ↓
-[Nút "AI Cải thiện"] → Gọi Edge Function "improve-script"
-       ↓
-AI nhận: script gốc + suggestions + weaknesses
-       ↓
-AI trả về: script đã cải thiện
-       ↓
-Hiển thị diff/preview → User xác nhận "Áp dụng"
-       ↓
-Lưu script mới + Re-analyze tự động
+┌─────────────────────────────────────┐
+│  VEO 3              ● Đã duyệt     │  ← Purpose text nhỏ + Status dot
+│                                     │
+│  Case Study 2026: Agency X tăng...  │  ← Title — focus chính
+│  "PROMPT 1 [00:00–00:09]..."        │  ← Preview mờ, 1 dòng
+│                                     │
+│  60s · Hỏi đáp · Bắc · Độc thoại   │  ← 1 dòng metadata duy nhất
+│                                     │
+│  👤 Võ Duy · 35 phút trước          │  ← Creator + time gộp 1 dòng
+│  ─────────────────────────────────  │
+│  [👁 Xem]                    [🗑]   │  ← Actions compact
+└─────────────────────────────────────┘
 ```
 
-## Chi tiết kỹ thuật
+### Thay đổi chi tiết
 
-### 1. Tạo Edge Function `improve-script`
-- **Input**: `scriptContent`, `suggestions`, `weaknesses`, `topic`, `duration`, `videoType`, `scriptPurpose`
-- **Logic**: Gửi script gốc + danh sách gợi ý cho AI, yêu cầu viết lại kịch bản giữ nguyên format (Prompt 1, Prompt 2...) nhưng cải thiện theo từng gợi ý
-- **Output**: Script đã cải thiện (text)
-- Dùng Lovable AI Gateway, model `google/gemini-3-flash-preview`
+1. **Purpose**: Bỏ badge nặng → text nhỏ `text-[10px] uppercase tracking-wide text-muted-foreground` ở góc trái
+2. **Status**: Giữ Badge nhưng style nhẹ hơn, nhỏ hơn
+3. **Xóa Badge rows 1 & 2** (6 pills colorful) → Gộp thành **1 dòng text** phân cách bằng `·`: `60s · Hỏi đáp nhanh · Bắc · Độc thoại`
+4. **Xóa Topic row** riêng — title đã đủ context
+5. **Content preview**: Giữ nhưng đơn giản hóa — bỏ border-left, bỏ italic nặng → `text-muted-foreground/60 line-clamp-1`
+6. **Creator + Timestamp**: Gộp 1 dòng, bỏ icon update riêng
+7. **Actions**: Bỏ hover show/hide animation phức tạp, luôn hiển thị nhẹ nhàng
+8. **Card style**: `rounded-2xl border-border/30 bg-card/80 backdrop-blur-sm` — đồng bộ Soft Luxury
+9. **Bỏ gradient overlay on hover** và status glow ring — thay bằng subtle `hover:shadow-lg hover:border-border/60`
+10. **Brand template**: Nếu có, hiển thị dot color nhỏ cạnh purpose text
 
-### 2. Tạo hook `useScriptImprovement`
-- State: `isImproving`, `improvedContent`, `error`
-- Function `improveScript(script, analysis)` → gọi edge function
-- Function `applyImprovement()` → lưu `improvedContent` vào DB, cập nhật `script.content`
-
-### 3. Cập nhật `ScriptAnalyzer.tsx`
-- Thêm nút **"AI Cải thiện kịch bản"** ở cuối phần suggestions (chỉ hiện khi có suggestions hoặc weaknesses)
-- Khi nhấn → gọi `improveScript`
-- Hiển thị trạng thái loading "Đang cải thiện..."
-- Khi có kết quả → hiện preview nội dung mới trong modal/sheet với 2 nút: "Áp dụng" và "Hủy"
-
-### 4. Cập nhật `ScriptViewer.tsx`
-- Truyền thêm `onScriptUpdate` callback vào `ScriptAnalyzer` để sau khi áp dụng cải thiện → cập nhật script hiển thị
-- Sau khi áp dụng → tự động re-analyze script mới
-
-## Files cần tạo/sửa
+## File thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| `supabase/functions/improve-script/index.ts` | **Tạo mới** — Edge function nhận script + gợi ý, trả về script cải thiện |
-| `src/hooks/useScriptImprovement.ts` | **Tạo mới** — Hook quản lý flow cải thiện |
-| `src/components/script/ScriptAnalyzer.tsx` | Thêm nút "AI Cải thiện" + preview modal |
-| `src/components/ScriptViewer.tsx` | Truyền `onScriptUpdate` vào ScriptAnalyzer |
+| `src/components/ScriptCard.tsx` | Redesign toàn bộ layout: gộp metadata thành 1 dòng text, bỏ colorful pills, minimal luxury style |
 
