@@ -491,6 +491,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                       value={formData.angle}
                       onChange={(angle) => setFormData((prev) => ({ ...prev, angle }))}
                       disabled={isLoading}
+                      recommendedAngle={topAngleRec?.angle}
+                      recommendedReason={topAngleRec?.reason}
                     />
                     {formData.angle && (
                       <TopicAnglePreview 
