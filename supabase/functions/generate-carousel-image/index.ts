@@ -1048,7 +1048,17 @@ ${colorParts.map(p => `- ${p}`).join('\n')}
     const parts: string[] = [];
 
     if (seamlessContext.colorPalette && seamlessContext.colorPalette.length > 0) {
-      parts.push(`EXACT COLOR PALETTE to maintain visual continuity: ${seamlessContext.colorPalette.join(', ')}. Use ONLY these colors as the dominant palette.`);
+      // When brand colors exist, inject them at the front of the palette and soften the lock
+      if (brandColors) {
+        const brandHexes: string[] = [];
+        if (brandColors.backgroundColor) brandHexes.push(brandColors.backgroundColor);
+        if (brandColors.textColor && brandColors.textColor !== brandColors.backgroundColor) brandHexes.push(brandColors.textColor);
+        // Merge: brand colors first, then palette colors (deduplicated)
+        const mergedPalette = [...brandHexes, ...seamlessContext.colorPalette.filter(c => !brandHexes.includes(c))];
+        parts.push(`COLOR PALETTE for visual continuity: ${mergedPalette.join(', ')}. The first ${brandHexes.length} color(s) are BRAND COLORS and must remain dominant. Other colors support continuity.`);
+      } else {
+        parts.push(`EXACT COLOR PALETTE to maintain visual continuity: ${seamlessContext.colorPalette.join(', ')}. Use ONLY these colors as the dominant palette.`);
+      }
     }
 
     if (seamlessContext.previousSceneDescription) {
