@@ -241,12 +241,18 @@ async function callLovableGateway(
   }
 
   try {
+    const cleanModel = model.replace(/^openai\/|^google\/|^anthropic\//, '');
+    const skipTemperature = cleanModel.includes("gpt-5") || cleanModel.includes("o3") || cleanModel.includes("o4");
+    
     const body: any = {
       model,
       messages,
-      temperature: config.temperature,
       max_completion_tokens: options.maxTokensOverride || config.max_tokens,
     };
+
+    if (!skipTemperature && config.temperature !== undefined) {
+      body.temperature = config.temperature;
+    }
 
     if (options.tools) {
       body.tools = options.tools;
