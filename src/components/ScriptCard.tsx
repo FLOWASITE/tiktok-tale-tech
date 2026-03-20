@@ -156,10 +156,10 @@ export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate
             )}
 
             {/* Metadata line */}
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60 flex-wrap">
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/80 flex-wrap">
               {metaParts.map((part, i) => (
                 <span key={i} className="flex items-center gap-1.5">
-                  {i > 0 && <span className="text-muted-foreground/25">·</span>}
+                  {i > 0 && <span className="text-muted-foreground/50">·</span>}
                   <span className="truncate">{part}</span>
                 </span>
               ))}
