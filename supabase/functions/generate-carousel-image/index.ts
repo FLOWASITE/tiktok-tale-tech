@@ -624,7 +624,24 @@ serve(async (req) => {
         );
       }
 
-      const bgData = await bgResponse.json();
+      let bgData: any;
+      try {
+        const bgText = await bgResponse.text();
+        if (!bgText || bgText.trim().length === 0) {
+          console.error("[generate-carousel-image] Empty response body from AI gateway");
+          return new Response(
+            JSON.stringify({ error: "AI gateway trả về response rỗng. Vui lòng thử lại.", errorCode: "EMPTY_RESPONSE" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        bgData = JSON.parse(bgText);
+      } catch (parseErr) {
+        console.error("[generate-carousel-image] Failed to parse AI gateway response:", parseErr);
+        return new Response(
+          JSON.stringify({ error: "Không thể đọc phản hồi từ AI. Vui lòng thử lại.", errorCode: "PARSE_ERROR" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       const messageImages = bgData.choices?.[0]?.message?.images;
       if (messageImages && messageImages.length > 0) {
         const imgUrl = messageImages[0].image_url?.url;
