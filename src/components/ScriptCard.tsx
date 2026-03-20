@@ -107,8 +107,8 @@ export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate
             {/* Row 1: Purpose + Brand dot + Status */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <PurposeIcon className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium truncate">
+                <PurposeIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">
                   {purposeConfig?.label || purpose}
                 </span>
                 {brandTemplate && (
