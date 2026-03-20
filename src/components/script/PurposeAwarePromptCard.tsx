@@ -168,13 +168,14 @@ function FallbackCard({ prompt }: { prompt: ParsedPrompt }) {
 
 export function PurposeAwarePromptCard({ 
   prompt, 
-  purpose = 'ai_video_veo3',
+  purpose: rawPurpose = 'ai_video',
   totalPrompts = 8,
   videoType,
   characterType,
   fullScriptContext,
   onApplySuggestion
 }: PurposeAwarePromptCardProps) {
+  const purpose = normalizePurpose(rawPurpose);
   const [copied, setCopied] = useState(false);
   const blockLabel = getBlockLabel(purpose);
 
