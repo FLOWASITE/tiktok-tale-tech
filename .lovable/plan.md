@@ -1,51 +1,43 @@
 
 
-# Nâng cấp UI bước "Nội dung" — Premium & Professional
+# Nâng cấp UI "Góc tiếp cận" (TopicAngleSelector) — Premium Style
 
 ## Hiện trạng
 
-Bước 1 hiện tại khá "flat": các section (Mục đích, Chủ đề, Ý tưởng, Hook) xếp chồng liên tục không có phân tách rõ ràng, label dùng icon + text đơn giản, textarea và cards thiếu chiều sâu visual.
+TopicAngleSelector dùng grid cards với emoji icons, border-2, bg-muted/30 — trông "flat" và thiếu chiều sâu so với phần còn lại đã được nâng cấp premium.
 
-## Thay đổi — 1 file: `src/components/script/ScriptFormStepper.tsx`
+## Thay đổi — 1 file: `src/components/script/TopicAngleSelector.tsx`
 
-### 1. Bọc mỗi section trong Card với header sang trọng
+### 1. Chuyển từ grid cards sang horizontal pill/chip layout
 
-Thay vì Label + content xếp liền, mỗi phần (Mục đích / Chủ đề / Hook) được bọc trong Card riêng với:
-- Header có icon trong circle gradient, tiêu đề đậm, mô tả phụ mờ
-- Đường viền tinh tế `border-border/40` + `bg-card/50 backdrop-blur-sm`
-- Số thứ tự nhỏ (01, 02, 03) hiển thị dạng badge mờ ở góc
+Thay grid 5 cột (chiếm nhiều không gian) bằng `flex flex-wrap gap-2` — mỗi angle là một pill nhỏ gọn với icon + label, giống style ScriptPurposeSelector đã nâng cấp.
 
-### 2. Nâng cấp ScriptPurposeSelector layout
+### 2. Premium visual treatment
 
-Chuyển grid từ `grid-cols-2` sang layout compact hơn: chỉ hiện icon + label trên 1 hàng ngang (dạng pill/chip chọn), giảm chiếm không gian. Card mở rộng description chỉ cho item đang chọn.
+- **Unselected**: `bg-card/60 backdrop-blur-sm border border-border/40` — tinh tế, không nặng nề
+- **Selected**: `bg-primary/10 border-primary/60 shadow-sm` kèm subtle ring
+- **Hover**: `hover:bg-accent/40 hover:border-primary/30` — transition mượt
 
-### 3. Textarea chủ đề premium
+### 3. Thay emoji icons bằng styled icon container
 
-- Thêm gradient border khi focus (`focus:border-transparent` + wrapper có `bg-gradient-to-r from-primary/50 to-accent/50 p-[1px] rounded-lg`)
-- Placeholder text nhẹ hơn, font-size lớn hơn cho nội dung nhập (`text-base`)
-- Character counter dạng progress bar mỏng ở bottom thay vì text số
+Thay emoji (🎓⚡🔥📊) bằng icon text nhỏ trong circle gradient nhẹ, hoặc giữ emoji nhưng trong container có background mờ — tạo visual consistency với các section 01, 02, 03 ở trên.
 
-### 4. Divider giữa các section
+### 4. Label header upgrade
 
-Thêm subtle divider giữa Purpose → Topic → Hook: dùng `<div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />` tạo hiệu ứng fade-in-out.
+Thay label đơn giản (`Target icon + text`) bằng style đồng bộ: icon trong circle gradient nhỏ + text semibold + description phụ mờ, giống header các section khác.
 
-### 5. Hook section — collapsible elegant
+### 5. Selected state: expand description
 
-Wrap Hook trong Collapsible mặc định đóng, với trigger dạng banner nhẹ:
-```
-⚡ Thêm Hook mở đầu (tùy chọn) — Thu hút 3 giây đầu tiên
-```
-Khi mở ra mới hiện HookStepContent. Giảm noise khi user chưa cần.
+Khi chọn angle, hiển thị description dạng `AnimatePresence` motion div nhẹ bên dưới (giống ScriptPurposeSelector) thay vì hiển thị description truncated trên mỗi card.
 
-### 6. Bỏ header icon lớn + text "Tạo kịch bản AI" ở đầu form
+### 6. Nút "Xóa lựa chọn" → icon X nhỏ trên pill selected
 
-Header hiện tại chiếm nhiều không gian (icon 56px + h2 + p). Loại bỏ hoàn toàn — StepIndicator đã đủ context. Tiết kiệm ~100px vertical space.
+Thay text link "Xóa lựa chọn" bằng icon X nhỏ tích hợp trên pill đang chọn — gọn hơn, ít noise.
 
 ## Kết quả
 
-- Mỗi section có visual boundary rõ ràng (card riêng)
-- Gradient accents tạo cảm giác premium
-- Hook ẩn mặc định giảm cognitive load
-- Bỏ header thừa — form gọn hơn, pro hơn
-- Tổng thể sang trọng theo chuẩn "Clean UI" của project
+- Góc tiếp cận chuyển từ grid cards nặng → horizontal pills gọn gàng
+- Visual đồng bộ với ScriptPurposeSelector và các section card khác
+- Tiết kiệm ~60% vertical space
+- Animation mượt khi chọn/bỏ chọn
 
