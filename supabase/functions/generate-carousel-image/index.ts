@@ -608,94 +608,109 @@ serve(async (req) => {
 
     // --- Lovable AI Gateway (default or fallback) ---
     if (!externalImageUrl) {
-      const bgResponse = await fetch(
-        "https://ai.gateway.lovable.dev/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${lovableApiKey}`,
-          },
-          body: JSON.stringify({
-            model: imageModel,
-            messages: [{ role: "user", content: backgroundPrompt }],
-            modalities: ["image", "text"],
-          }),
+      const MAX_GATEWAY_RETRIES = 2;
+      for (let gatewayAttempt = 0; gatewayAttempt <= MAX_GATEWAY_RETRIES; gatewayAttempt++) {
+        if (gatewayAttempt > 0) {
+          console.log(`[generate-carousel-image] Gateway retry ${gatewayAttempt}/${MAX_GATEWAY_RETRIES}...`);
+          await new Promise(r => setTimeout(r, 2000 * gatewayAttempt));
         }
-      );
 
-      if (!bgResponse.ok) {
-        const errorText = await bgResponse.text();
-        console.error("[generate-carousel-image] Background gen error:", bgResponse.status, errorText);
-        
-        if (bgResponse.status === 429) {
+        const bgResponse = await fetch(
+          "https://ai.gateway.lovable.dev/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${lovableApiKey}`,
+            },
+            body: JSON.stringify({
+              model: imageModel,
+              messages: [{ role: "user", content: backgroundPrompt }],
+              modalities: ["image", "text"],
+            }),
+          }
+        );
+
+        if (!bgResponse.ok) {
+          const errorText = await bgResponse.text();
+          console.error("[generate-carousel-image] Background gen error:", bgResponse.status, errorText);
+          
+          if (bgResponse.status === 429) {
+            if (gatewayAttempt < MAX_GATEWAY_RETRIES) continue;
+            return new Response(
+              JSON.stringify({ error: "Đã vượt giới hạn API. Vui lòng thử lại sau.", errorCode: "RATE_LIMIT" }),
+              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          if (bgResponse.status === 402 || errorText.includes("CREDITS_EXHAUSTED") || errorText.includes("credits")) {
+            return new Response(
+              JSON.stringify({ error: "Đã hết credits AI. Vui lòng nâng cấp.", errorCode: "CREDITS_EXHAUSTED" }),
+              { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          if (gatewayAttempt < MAX_GATEWAY_RETRIES) continue;
           return new Response(
-            JSON.stringify({ error: "Đã vượt giới hạn API. Vui lòng thử lại sau.", errorCode: "RATE_LIMIT" }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            JSON.stringify({ error: "Lỗi tạo ảnh nền: " + errorText }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        if (bgResponse.status === 402 || errorText.includes("CREDITS_EXHAUSTED") || errorText.includes("credits")) {
+
+        let bgData: any;
+        let bgText: string;
+        try {
+          bgText = await bgResponse.text();
+        } catch (bodyReadErr) {
+          console.error("[generate-carousel-image] Failed to read response body:", bodyReadErr);
+          if (gatewayAttempt < MAX_GATEWAY_RETRIES) continue;
           return new Response(
-            JSON.stringify({ error: "Đã hết credits AI. Vui lòng nâng cấp.", errorCode: "CREDITS_EXHAUSTED" }),
-            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            JSON.stringify({ error: "Kết nối tới AI bị gián đoạn. Vui lòng thử lại.", errorCode: "CONNECTION_ERROR" }),
+            { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        return new Response(
-          JSON.stringify({ error: "Lỗi tạo ảnh nền: " + errorText }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      let bgData: any;
-      let bgText: string;
-      try {
-        bgText = await bgResponse.text();
-      } catch (bodyReadErr) {
-        console.error("[generate-carousel-image] Failed to read response body (connection dropped):", bodyReadErr);
-        return new Response(
-          JSON.stringify({ error: "Kết nối tới AI bị gián đoạn. Vui lòng thử lại.", errorCode: "CONNECTION_ERROR" }),
-          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (!bgText || bgText.trim().length === 0) {
-        console.error("[generate-carousel-image] Empty response body from AI gateway");
-        return new Response(
-          JSON.stringify({ error: "AI gateway trả về response rỗng. Vui lòng thử lại.", errorCode: "EMPTY_RESPONSE" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      try {
-        bgData = JSON.parse(bgText);
-      } catch (parseErr) {
-        console.error("[generate-carousel-image] Failed to parse AI gateway response:", parseErr, "Raw:", bgText.slice(0, 200));
-        return new Response(
-          JSON.stringify({ error: "Không thể đọc phản hồi từ AI. Vui lòng thử lại.", errorCode: "PARSE_ERROR" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const messageImages = bgData.choices?.[0]?.message?.images;
-      if (messageImages && messageImages.length > 0) {
-        const imgUrl = messageImages[0].image_url?.url;
-        if (imgUrl && imgUrl.startsWith("data:")) {
-          const match = imgUrl.match(/^data:(image\/\w+);base64,(.+)$/);
-          if (match) {
-            mimeType = match[1];
-            imageBase64 = match[2];
+        if (!bgText || bgText.trim().length === 0) {
+          console.error("[generate-carousel-image] Empty response body from AI gateway");
+          if (gatewayAttempt < MAX_GATEWAY_RETRIES) continue;
+          return new Response(
+            JSON.stringify({ error: "AI gateway trả về response rỗng. Vui lòng thử lại.", errorCode: "EMPTY_RESPONSE" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        try {
+          bgData = JSON.parse(bgText);
+        } catch (parseErr) {
+          console.error("[generate-carousel-image] Failed to parse AI gateway response:", parseErr, "Raw:", bgText.slice(0, 200));
+          if (gatewayAttempt < MAX_GATEWAY_RETRIES) continue;
+          return new Response(
+            JSON.stringify({ error: "Không thể đọc phản hồi từ AI. Vui lòng thử lại.", errorCode: "PARSE_ERROR" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        const messageImages = bgData.choices?.[0]?.message?.images;
+        if (messageImages && messageImages.length > 0) {
+          const imgUrl = messageImages[0].image_url?.url;
+          if (imgUrl && imgUrl.startsWith("data:")) {
+            const match = imgUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+            if (match) {
+              mimeType = match[1];
+              imageBase64 = match[2];
+            }
           }
         }
-      }
 
-      if (!imageBase64) {
-        console.error("[generate-carousel-image] No image data in background response");
-        return new Response(
-          JSON.stringify({ error: "Không thể tạo ảnh nền. AI không trả về dữ liệu ảnh." }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+        if (!imageBase64) {
+          console.error(`[generate-carousel-image] No image data in response (attempt ${gatewayAttempt + 1})`);
+          if (gatewayAttempt < MAX_GATEWAY_RETRIES) continue;
+          return new Response(
+            JSON.stringify({ error: "Không thể tạo ảnh nền. AI không trả về dữ liệu ảnh." }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
 
-      // Extract scene description from AI text response
-      const aiResponseText = bgData.choices?.[0]?.message?.content || '';
-      sceneDescription = aiResponseText.length > 10 ? aiResponseText.slice(0, 300) : null;
+        // Extract scene description from AI text response
+        const aiResponseText = bgData.choices?.[0]?.message?.content || '';
+        sceneDescription = aiResponseText.length > 10 ? aiResponseText.slice(0, 300) : null;
+        break; // Success — exit retry loop
+      }
 
       if (!modelUsed.includes('fallback')) {
         modelUsed = imageModel;
