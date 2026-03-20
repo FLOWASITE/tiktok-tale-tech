@@ -14,7 +14,6 @@ interface ScriptPurposeSelectorProps {
 const ICON_MAP: Record<ScriptPurpose, LucideIcon> = {
   ai_video: Video,
   teleprompter: User,
-  voiceover: Mic,
   production: Clapperboard,
 };
 
