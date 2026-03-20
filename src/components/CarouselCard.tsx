@@ -76,6 +76,8 @@ export function CarouselCard({
   index = 0,
   thumbnailUrl,
   imageCount,
+  brandName,
+  brandLogoUrl,
 }: CarouselCardProps) {
   const timeAgo = formatDistanceToNow(new Date(carousel.created_at), {
     addSuffix: true,
