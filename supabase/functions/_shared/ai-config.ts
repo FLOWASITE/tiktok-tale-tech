@@ -394,6 +394,7 @@ export async function getChannelModelConfigs(
           temperature: row.temperature ?? 0.7,
           maxTokens: row.max_tokens,
           isEnabled: row.is_enabled ?? true,
+          forceProvider: row.force_provider || null,
         });
       }
     }
