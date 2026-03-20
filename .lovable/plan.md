@@ -1,73 +1,54 @@
 
 
-# Sửa lỗi nhiễm chéo ảnh carousel — Race condition giữa 2 effects
+# Sửa lỗi màu Brand không áp dụng vào ảnh Carousel
 
 ## Nguyên nhân gốc
 
-Hai `useEffect` riêng biệt (clear + sync) chạy trong **cùng một render cycle** khi `carousel.id` thay đổi, gây race condition:
+Có 3 vấn đề trong chuỗi truyền màu brand:
 
 ```text
-Render khi carousel.id thay đổi:
-  loadingImages = false (giá trị CŨ, chưa update)
-  savedImages = [ảnh Carousel A] (giá trị CŨ, chưa clear)
-  
-  Effect 1 chạy: setImages([])          ← clear đúng
-  Effect 2 chạy: loadingImages=false → true
-                  savedImages.length > 0 → true (VẪN ảnh cũ!)
-                  → setImages([ảnh Carousel A]) ← ghi đè lại!
-  
-  React batch cả 2 setState → ảnh cũ THẮNG
+CarouselForm → generate-carousel → DB (brand_guideline) → CarouselViewer → generate-carousel-image
+
+❌ Vấn đề 1: Hầu hết carousel cũ lưu brand_guideline dưới dạng TEXT thuần
+   (không phải JSON), nên extractBrandColors() không lấy được màu hex.
+
+❌ Vấn đề 2: Fallback query brand_templates theo brand_name thất bại
+   vì tên không khớp (VD: "Công ty TNHH Tư vấn Kiểm toán TAF" ≠ "Thuế Hộ by TAF.vn")
+
+❌ Vấn đề 3: CarouselGenerationTracker.extractBrandColors() không có
+   fallback nào — trả về undefined luôn khi brand_guideline là text.
 ```
 
-Effect 2 không biết `savedImages` thuộc carousel nào — nó chỉ thấy `loadingImages=false` + có data → sync ngay.
+**Bằng chứng từ DB**: 9/10 carousel gần nhất có `brand_guideline` là text thuần (`is_json: false`), chỉ 1 carousel Flowa mới nhất có JSON.
 
 ## Giải pháp
 
-Gộp 2 effects thành 1 effect duy nhất, dùng `useRef` để phát hiện carousel vừa chuyển và **bỏ qua sync trong render đó**:
+### 1. Thêm cột `brand_template_id` vào bảng `carousels`
+- Migration: thêm cột `brand_template_id UUID REFERENCES brand_templates(id)`
+- Đây là cách chính xác nhất để truy vết brand template gốc
 
-### `src/components/CarouselViewer.tsx`
+### 2. `supabase/functions/generate-carousel/index.ts` — Lưu brand_template_id
+- Lưu `formData.brandTemplateId` vào cột mới khi insert carousel
 
-Thay thế 2 `useEffect` (line 230-250) bằng 1 effect:
+### 3. `src/components/CarouselViewer.tsx` — Sửa fallback query
+- Thay query by `brand_name` bằng query by `carousel.brand_template_id` (nếu có)
+- Giữ fallback by `brand_name` cho carousel cũ
+- `extractBrandColors()` thêm `brandTemplate` param fallback mạnh hơn
 
-```typescript
-const prevCarouselIdRef = useRef<string | null>(null);
+### 4. `src/components/carousel/CarouselGenerationTracker.tsx` — Thêm brand template lookup
+- Thêm query `brand_templates` by carousel's `brand_template_id` hoặc `brand_name`
+- Truyền `primary_color` vào `brandColors` khi `extractBrandColors()` trả về undefined
 
-useEffect(() => {
-  // Detect carousel switch → clear and bail out (sync on next render)
-  if (carousel?.id !== prevCarouselIdRef.current) {
-    setImages([]);
-    setSyncedCarouselId(null);
-    prevCarouselIdRef.current = carousel?.id || null;
-    return;
-  }
-
-  // Only sync after loading completes for the NEW carousel
-  if (!loadingImages && carousel?.id && syncedCarouselId !== carousel.id) {
-    if (savedImages.length > 0) {
-      const mapped = savedImages.map(img => ({
-        slideNumber: img.slide_number,
-        imageUrl: img.image_url,
-        generatedAt: img.created_at,
-      }));
-      setImages(mapped);
-    } else {
-      setImages([]);
-    }
-    setSyncedCarouselId(carousel.id);
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [loadingImages, savedImages, carousel?.id, syncedCarouselId]);
-```
-
-Khi `carousel.id` thay đổi:
-1. Render 1: ref khác → clear + return (không sync)
-2. `useCarouselImages` reset → `loadingImages=true` 
-3. Fetch xong → `loadingImages=false`, `savedImages=[ảnh mới]`
-4. Render N: ref giống → sync ảnh mới đúng carousel
+### 5. Cập nhật TypeScript types
+- Thêm `brand_template_id` vào Carousel type
 
 | File | Thay đổi |
 |------|----------|
-| `CarouselViewer.tsx` | Gộp 2 effects thành 1, thêm `prevCarouselIdRef` chống race condition |
+| Migration SQL | Thêm cột `brand_template_id` |
+| `generate-carousel/index.ts` | Lưu `brandTemplateId` vào DB |
+| `CarouselViewer.tsx` | Sửa fallback: query by template ID + brand_name |
+| `CarouselGenerationTracker.tsx` | Thêm brand template lookup + fallback |
+| `src/types/carousel.ts` | Thêm `brand_template_id` vào type |
 
-Sửa 1 file, ~20 dòng thay đổi.
+Thay đổi ~50 dòng, 5 file + 1 migration.
 
