@@ -48,11 +48,6 @@ export function ScriptPurposeSelector({ value, onChange, disabled, compact }: Sc
             >
               <Icon className={compact ? "w-3 h-3" : "w-3.5 h-3.5"} />
               <span>{config.label}</span>
-              {key === 'ai_video_veo3' && !isSelected && !compact && (
-                <Badge variant="secondary" className="text-[9px] h-3.5 px-1 py-0 leading-none">
-                  Hot
-                </Badge>
-              )}
             </button>
           );
         })}

@@ -155,8 +155,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   // Map script purpose to content goal
   const scriptContentGoal: ContentGoal = useMemo(() => {
     switch (formData.script_purpose) {
-      case 'ai_video_veo3':
-      case 'ai_video_minimax':
+      case 'ai_video':
         return 'engagement';
       case 'teleprompter':
       case 'voiceover':

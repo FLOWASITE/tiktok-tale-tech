@@ -2,11 +2,19 @@
 // SCRIPT PURPOSE - Multi-format output
 // ============================================
 export type ScriptPurpose = 
-  | 'ai_video_veo3'     // Video AI với VEO 3
-  | 'ai_video_minimax'  // Video AI với Minimax/Hailuo
+  | 'ai_video'          // Video AI (VEO 3 / Minimax / etc.)
   | 'teleprompter'      // Quay người thật (Teleprompter)
   | 'voiceover'         // Voice-Over / TTS
   | 'production';       // Production Script cho team
+
+// Legacy types kept for backward compatibility with DB records
+export type ScriptPurposeLegacy = ScriptPurpose | 'ai_video_veo3' | 'ai_video_minimax';
+
+/** Normalize legacy purpose values to current ones */
+export function normalizePurpose(purpose: string): ScriptPurpose {
+  if (purpose === 'ai_video_veo3' || purpose === 'ai_video_minimax') return 'ai_video';
+  return purpose as ScriptPurpose;
+}
 
 export const SCRIPT_PURPOSE_CONFIG: Record<ScriptPurpose, { 
   label: string; 
@@ -15,19 +23,12 @@ export const SCRIPT_PURPOSE_CONFIG: Record<ScriptPurpose, {
   blockLabel: string;
   blockLabelVi: string;
 }> = {
-  ai_video_veo3: {
-    label: 'Video AI (VEO 3)',
-    description: 'Tạo video bằng VEO 3 - có full visual direction, camera, lighting',
+  ai_video: {
+    label: 'Video AI',
+    description: 'Tạo kịch bản video AI — tự động tối ưu cho VEO 3, Minimax, và các provider khác',
     outputHint: 'Visual Direction + Character Action + Dialogue + Audio Notes',
     blockLabel: 'Prompt',
     blockLabelVi: 'Prompt',
-  },
-  ai_video_minimax: {
-    label: 'Video AI (Minimax/Hailuo)',
-    description: 'Tạo video bằng Minimax - format ngắn gọn, camera motion syntax',
-    outputHint: 'Scene description + Camera motion + Voice',
-    blockLabel: 'Clip',
-    blockLabelVi: 'Clip',
   },
   teleprompter: {
     label: 'Quay người thật (Teleprompter)',
