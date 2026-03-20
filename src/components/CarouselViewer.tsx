@@ -337,7 +337,6 @@ export function CarouselViewer({
     }
   };
 
-  const [copiedCaptionAll, setCopiedCaptionAll] = useState(false);
   const handleCopyCaptionAll = async () => {
     const parts: string[] = [];
     if (carousel.caption_suggestion) parts.push(carousel.caption_suggestion);
