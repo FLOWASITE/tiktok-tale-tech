@@ -597,8 +597,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                   label={`${formData.duration}s`}
                   icon={<Clock className="w-3.5 h-3.5" />}
                 >
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Thời lượng video</p>
+                  <div className="space-y-3">
+                    <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">Thời lượng</p>
                     <DurationSelector
                       value={formData.duration}
                       onChange={(value) => setFormData((prev) => ({ ...prev, duration: value }))}
