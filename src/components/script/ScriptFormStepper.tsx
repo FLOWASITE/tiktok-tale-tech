@@ -164,7 +164,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     brandTemplateId: formData.brandTemplateId,
     contentGoal: scriptContentGoal,
     format: 'script',
-    enabled: currentStep === 2,
+    enabled: currentStep === 1,
   });
 
   // Compliance pre-check hook
