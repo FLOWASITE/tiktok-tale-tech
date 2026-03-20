@@ -251,7 +251,7 @@ export function CarouselGenerationTracker({
     const colorPalette = carousel.slides_content.length > 0
       ? extractColorPalette(carousel.slides_content[0])
       : null;
-    const brandColors = extractBrandColors(carousel);
+    const brandColors = await extractBrandColorsWithFallback(carousel);
 
     const MAX_ATTEMPTS = 3;
     const INTER_BATCH_DELAY = 2500;
