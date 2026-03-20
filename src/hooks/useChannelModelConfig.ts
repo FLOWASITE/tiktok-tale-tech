@@ -124,6 +124,7 @@ export function useChannelModelConfig(organizationId?: string) {
         cost_priority: config.costPriority,
         preferred_hook_types: config.preferredHookTypes,
         allow_user_override: config.allowUserOverride ?? true,
+        force_provider: config.forceProvider ?? null,
       };
 
       if (existingData?.id) {
