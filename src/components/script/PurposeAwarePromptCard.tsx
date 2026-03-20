@@ -1,5 +1,5 @@
 import { ParsedPrompt, getBlockLabel } from '@/utils/parsePrompts';
-import { ScriptPurpose } from '@/types/script';
+import { ScriptPurpose, normalizePurpose } from '@/types/script';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
