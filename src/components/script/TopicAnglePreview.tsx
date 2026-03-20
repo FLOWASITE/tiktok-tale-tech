@@ -1,7 +1,11 @@
 import React from 'react';
 import { TopicAngle, TOPIC_ANGLE_LABELS } from '@/types/script';
 import { Card, CardContent } from '@/components/ui/card';
-import { Eye, Sparkles } from 'lucide-react';
+import { Eye, Sparkles, GraduationCap, BrainCircuit, Zap, ShieldAlert, BarChart3, LucideIcon } from 'lucide-react';
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  GraduationCap, BrainCircuit, Zap, ShieldAlert, BarChart3,
+};
 
 interface TopicAnglePreviewProps {
   angle: TopicAngle;
