@@ -704,13 +704,9 @@ export function CarouselViewer({
           </div>
         </DialogHeader>
 
-        <Tabs defaultValue="preview" className="flex-1 flex flex-col overflow-hidden">
+        <Tabs defaultValue="slides" className="flex-1 flex flex-col overflow-hidden">
           <div className="px-3 xs:px-5 pt-1.5">
             <TabsList className="w-full xs:w-fit h-auto flex-wrap justify-start gap-1">
-              <TabsTrigger value="preview" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
-                <LayoutGrid className="w-3 h-3 xs:w-4 xs:h-4" />
-                <span className="hidden xs:inline">Preview</span>
-              </TabsTrigger>
               <TabsTrigger value="slides" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
                 <Images className="w-3 h-3 xs:w-4 xs:h-4" />
                 <span className="hidden xs:inline">Prompts</span> ({carousel.slides_content.length})
@@ -722,6 +718,10 @@ export function CarouselViewer({
               <TabsTrigger value="caption" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
                 <MessageSquare className="w-3 h-3 xs:w-4 xs:h-4" />
                 <span className="hidden xs:inline">Caption & CTA</span>
+              </TabsTrigger>
+              <TabsTrigger value="preview" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
+                <LayoutGrid className="w-3 h-3 xs:w-4 xs:h-4" />
+                <span className="hidden xs:inline">Preview</span>
               </TabsTrigger>
             </TabsList>
           </div>
