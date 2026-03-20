@@ -1006,8 +1006,9 @@ interface HookDetails {
 // SCRIPT PURPOSE - Multi-format output
 // ============================================
 const SCRIPT_PURPOSE_LABELS: Record<string, string> = {
-  ai_video_veo3: 'Video AI (VEO 3)',
-  ai_video_minimax: 'Video AI (Minimax/Hailuo)',
+  ai_video: 'Video AI',
+  ai_video_veo3: 'Video AI', // legacy
+  ai_video_minimax: 'Video AI', // legacy
   teleprompter: 'Quay người thật (Teleprompter)',
   voiceover: 'Voice-Over / TTS',
   production: 'Production Script',
