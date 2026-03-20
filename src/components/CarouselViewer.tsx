@@ -744,6 +744,9 @@ export function CarouselViewer({
                         ? generatedImages.map(img => img.imageUrl) 
                         : []
                     }
+                    slideTitles={carousel.slides_content.map(s => 
+                      typeof s.textContent === 'string' ? s.textContent : s.textContent.headline
+                    )}
                   />
                 </div>
               </div>

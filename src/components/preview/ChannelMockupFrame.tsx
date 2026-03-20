@@ -1673,7 +1673,7 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
 }
 
 export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
-  const { channel, seoData, channelImage, channelImages, brandName: rawBrandName, ...rest } = props;
+  const { channel, seoData, channelImage, channelImages, slideTitles, brandName: rawBrandName, ...rest } = props;
   
   const safeBrandName = typeof rawBrandName === 'string' && rawBrandName.trim() 
     ? rawBrandName.trim() 
@@ -1681,7 +1681,7 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
 
   switch (channel) {
     case 'facebook':
-      return <FacebookMockup {...rest} brandName={safeBrandName} channelImage={channelImage} channelImages={channelImages} />;
+      return <FacebookMockup {...rest} brandName={safeBrandName} channelImage={channelImage} channelImages={channelImages} slideTitles={slideTitles} />;
     case 'linkedin':
       return <LinkedInMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'instagram':
