@@ -233,7 +233,7 @@ export function CarouselLayoutPreview({ slides, visualPreset, carouselStyle, pla
           {visualPreset.replace('_', ' ')}
         </span>
         <span>
-          {platform === 'tiktok' ? '9:16' : carouselStyle === 'gallery' ? '4:5' : '1:1'}
+          {platform === 'tiktok' ? '9:16' : platform === 'instagram' ? '4:5' : carouselStyle === 'gallery' ? '4:5' : '1:1'}
         </span>
         <span>
           {carouselStyle}
