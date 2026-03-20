@@ -56,24 +56,13 @@ const Index = () => {
   
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
-  const [formSheetOpen, setFormSheetOpen] = useState(false);
-  const [initialTopic, setInitialTopic] = useState<string>('');
-  const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>();
 
-  // Topic Content Links hook
-  const { createLink } = useTopicContentLinks({ enabled: false });
-
-  // Handle prefill from Topics Hub
+  // Handle prefill from Topics Hub - redirect to /scripts/new
   useEffect(() => {
     if (prefillData?.prefillTopic) {
-      setInitialTopic(prefillData.prefillTopic);
-      if (prefillData.topicHistoryId) {
-        setTopicHistoryId(prefillData.topicHistoryId);
-      }
-      setFormSheetOpen(true);
-      window.history.replaceState({}, document.title);
+      navigate('/scripts/new', { state: prefillData, replace: true });
     }
-  }, [prefillData]);
+  }, [prefillData, navigate]);
 
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
