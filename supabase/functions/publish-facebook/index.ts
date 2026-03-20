@@ -11,10 +11,12 @@ const corsHeaders = {
 
 interface PublishRequest {
   connectionId: string;
+  contentId?: string;
   content: string;
   mediaUrls?: string[];
   linkUrl?: string;
   scheduleTime?: string;
+  scheduleId?: string;
 }
 
 // Legacy CBC decrypt
@@ -48,6 +50,63 @@ async function decryptCredential(ciphertext: string): Promise<string> {
   throw new Error('Failed to decrypt credential with any method');
 }
 
+async function publishToFacebook(
+  pageId: string,
+  accessToken: string,
+  content: string,
+  options: { mediaUrls?: string[]; linkUrl?: string; scheduleTime?: string }
+): Promise<{ postId: string; postUrl: string }> {
+  const { mediaUrls, linkUrl, scheduleTime } = options;
+
+  if (mediaUrls && mediaUrls.length > 0) {
+    // Photo post
+    const photoParams: Record<string, string> = {
+      access_token: accessToken,
+      url: mediaUrls[0],
+      caption: content,
+    };
+    if (scheduleTime) {
+      photoParams.published = 'false';
+      photoParams.scheduled_publish_time = Math.floor(new Date(scheduleTime).getTime() / 1000).toString();
+    }
+    const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(photoParams),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || 'Failed to publish photo');
+    }
+    const data = await res.json();
+    const postId = data.post_id || data.id;
+    return { postId, postUrl: `https://www.facebook.com/${postId}` };
+  }
+
+  // Text or link post
+  const params: Record<string, string> = {
+    access_token: accessToken,
+    message: content,
+  };
+  if (linkUrl) params.link = linkUrl;
+  if (scheduleTime) {
+    params.published = 'false';
+    params.scheduled_publish_time = Math.floor(new Date(scheduleTime).getTime() / 1000).toString();
+  }
+
+  const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(params),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error?.message || 'Failed to publish post');
+  }
+  const data = await res.json();
+  return { postId: data.id, postUrl: `https://www.facebook.com/${data.id}` };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -60,25 +119,18 @@ serve(async (req) => {
 
     // Verify user authentication
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Missing authorization header');
-    }
+    if (!authHeader) throw new Error('Missing authorization header');
 
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      throw new Error('Unauthorized');
-    }
+    if (authError || !user) throw new Error('Unauthorized');
 
     const body: PublishRequest = await req.json();
-    const { connectionId, content, mediaUrls, linkUrl, scheduleTime } = body;
+    const { connectionId, contentId, content, mediaUrls, linkUrl, scheduleTime, scheduleId } = body;
 
     if (!connectionId || !content) {
       throw new Error('connectionId and content are required');
     }
-
-    console.log('Publishing to Facebook:', { connectionId, hasMedia: !!mediaUrls?.length, hasLink: !!linkUrl });
 
     // Get connection details
     const { data: connection, error: connectionError } = await supabase
@@ -88,15 +140,10 @@ serve(async (req) => {
       .eq('platform', 'facebook')
       .single();
 
-    if (connectionError || !connection) {
-      throw new Error('Facebook connection not found');
-    }
+    if (connectionError || !connection) throw new Error('Facebook connection not found');
+    if (!connection.is_active) throw new Error('Facebook connection is not active');
 
-    if (!connection.is_active) {
-      throw new Error('Facebook connection is not active');
-    }
-
-    // Decrypt access token (GCM first, fallback CBC)
+    // Decrypt access token
     let accessToken: string;
     try {
       accessToken = await decryptCredential(connection.access_token);
@@ -106,160 +153,126 @@ serve(async (req) => {
     }
 
     const pageId = connection.platform_user_id || connection.metadata?.page_id;
-    if (!pageId) {
-      throw new Error('Page ID not found in connection');
-    }
+    if (!pageId) throw new Error('Page ID not found in connection');
 
-    let postId: string;
-    let postUrl: string;
-
-    // Determine post type and publish accordingly
-    if (mediaUrls && mediaUrls.length > 0) {
-      // Photo post (single image for now)
-      console.log('Publishing photo post...');
-      
-      const photoUrl = mediaUrls[0];
-      const photoParams: Record<string, string> = {
-        access_token: accessToken,
-        url: photoUrl,
-        caption: content,
-      };
-
-      if (scheduleTime) {
-        const scheduledTimestamp = Math.floor(new Date(scheduleTime).getTime() / 1000);
-        photoParams.published = 'false';
-        photoParams.scheduled_publish_time = scheduledTimestamp.toString();
-      }
-
-      const photoResponse = await fetch(
-        `https://graph.facebook.com/v21.0/${pageId}/photos`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams(photoParams),
-        }
-      );
-
-      if (!photoResponse.ok) {
-        const errorData = await photoResponse.json();
-        console.error('Facebook photo post failed:', errorData);
-        throw new Error(errorData.error?.message || 'Failed to publish photo');
-      }
-
-      const photoData = await photoResponse.json();
-      postId = photoData.post_id || photoData.id;
-      postUrl = `https://www.facebook.com/${postId}`;
-      console.log('Photo post published:', postId);
-
-    } else if (linkUrl) {
-      // Link post
-      console.log('Publishing link post...');
-      
-      const linkParams: Record<string, string> = {
-        access_token: accessToken,
-        message: content,
-        link: linkUrl,
-      };
-
-      if (scheduleTime) {
-        const scheduledTimestamp = Math.floor(new Date(scheduleTime).getTime() / 1000);
-        linkParams.published = 'false';
-        linkParams.scheduled_publish_time = scheduledTimestamp.toString();
-      }
-
-      const linkResponse = await fetch(
-        `https://graph.facebook.com/v21.0/${pageId}/feed`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams(linkParams),
-        }
-      );
-
-      if (!linkResponse.ok) {
-        const errorData = await linkResponse.json();
-        console.error('Facebook link post failed:', errorData);
-        throw new Error(errorData.error?.message || 'Failed to publish link');
-      }
-
-      const linkData = await linkResponse.json();
-      postId = linkData.id;
-      postUrl = `https://www.facebook.com/${postId}`;
-      console.log('Link post published:', postId);
-
-    } else {
-      // Text-only post
-      console.log('Publishing text post...');
-      
-      const textParams: Record<string, string> = {
-        access_token: accessToken,
-        message: content,
-      };
-
-      if (scheduleTime) {
-        const scheduledTimestamp = Math.floor(new Date(scheduleTime).getTime() / 1000);
-        textParams.published = 'false';
-        textParams.scheduled_publish_time = scheduledTimestamp.toString();
-      }
-
-      const textResponse = await fetch(
-        `https://graph.facebook.com/v21.0/${pageId}/feed`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams(textParams),
-        }
-      );
-
-      if (!textResponse.ok) {
-        const errorData = await textResponse.json();
-        console.error('Facebook text post failed:', errorData);
-        throw new Error(errorData.error?.message || 'Failed to publish text');
-      }
-
-      const textData = await textResponse.json();
-      postId = textData.id;
-      postUrl = `https://www.facebook.com/${postId}`;
-      console.log('Text post published:', postId);
-    }
-
-    // Update connection last_used timestamp
-    await supabase
-      .from('social_connections')
-      .update({ 
-        metadata: {
-          ...connection.metadata,
-          last_post_at: new Date().toISOString(),
-          last_post_id: postId,
-        }
-      })
-      .eq('id', connectionId);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
+    // Create publish attempt record
+    const { data: attempt } = await supabase
+      .from('publish_attempts')
+      .insert({
+        schedule_id: scheduleId || null,
+        content_id: contentId || null,
+        connection_id: connectionId,
+        organization_id: connection.organization_id,
         platform: 'facebook',
-        postId: postId,
-        postUrl: postUrl,
-        scheduled: !!scheduleTime,
-        message: scheduleTime ? 'Bài viết đã được lên lịch' : 'Đã đăng bài thành công lên Facebook Page',
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+        channel: 'facebook',
+        status: 'processing',
+        request_payload: { text: content.substring(0, 100) + '...', hasMedia: !!mediaUrls?.length, hasLink: !!linkUrl },
+      })
+      .select()
+      .single();
 
+    try {
+      const result = await publishToFacebook(pageId, accessToken, content, { mediaUrls, linkUrl, scheduleTime });
+
+      console.log('Facebook post published:', result.postId);
+
+      // Update publish attempt with success
+      if (attempt) {
+        await supabase
+          .from('publish_attempts')
+          .update({
+            status: 'success',
+            external_post_id: result.postId,
+            external_post_url: result.postUrl,
+            response_payload: result,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', attempt.id);
+      }
+
+      // Update connection last_used_at
+      await supabase
+        .from('social_connections')
+        .update({
+          last_used_at: new Date().toISOString(),
+          last_error: null,
+          metadata: {
+            ...connection.metadata,
+            last_post_at: new Date().toISOString(),
+            last_post_id: result.postId,
+          },
+        })
+        .eq('id', connectionId);
+
+      // Update schedule if provided
+      if (scheduleId) {
+        await supabase
+          .from('content_schedules')
+          .update({
+            publish_status: 'published',
+            published_at: new Date().toISOString(),
+            external_post_id: result.postId,
+          })
+          .eq('id', scheduleId);
+      }
+
+      // Log publishing action
+      await supabase
+        .from('content_publishing_logs')
+        .insert({
+          content_id: contentId || null,
+          schedule_id: scheduleId || null,
+          organization_id: connection.organization_id,
+          channel: 'facebook',
+          action: 'published',
+          details: {
+            post_id: result.postId,
+            post_url: result.postUrl,
+            scheduled: !!scheduleTime,
+          },
+        });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            postId: result.postId,
+            postUrl: result.postUrl,
+          },
+          scheduled: !!scheduleTime,
+          message: scheduleTime ? 'Bài viết đã được lên lịch' : 'Đã đăng bài thành công lên Facebook Page',
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (fbError: any) {
+      console.error('Facebook API error:', fbError);
+
+      // Update publish attempt with failure
+      if (attempt) {
+        await supabase
+          .from('publish_attempts')
+          .update({
+            status: 'failed',
+            error_message: fbError.message,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', attempt.id);
+      }
+
+      // Update connection with last error
+      await supabase
+        .from('social_connections')
+        .update({ last_error: fbError.message })
+        .eq('id', connectionId);
+
+      throw fbError;
+    }
   } catch (error) {
     console.error('Facebook publish error:', error);
-    
     const errorMessage = error instanceof Error ? error.message : 'Failed to publish to Facebook';
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: errorMessage,
-      }),
-      { 
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ success: false, error: errorMessage }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

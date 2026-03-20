@@ -11,11 +11,12 @@ interface PublishResult {
   error?: string;
 }
 
-interface PublishOptions {
+export interface PublishOptions {
   connectionId: string;
   contentId?: string;
   content: string;
   mediaUrls?: string[];
+  linkUrl?: string;
   scheduleId?: string;
 }
 
@@ -46,11 +47,14 @@ export function useDirectPublish() {
         throw new Error(response.data?.error || 'Failed to publish');
       }
 
+      // Support both nested (data.data.postId) and flat (data.postId) response formats
+      const resultData = response.data.data || response.data;
+
       return {
         success: true,
         platform,
-        postId: response.data.data?.tweetId || response.data.data?.postId,
-        postUrl: response.data.data?.tweetUrl || response.data.data?.postUrl,
+        postId: resultData.tweetId || resultData.postId,
+        postUrl: resultData.tweetUrl || resultData.postUrl,
       };
     },
     onSuccess: (result) => {
@@ -79,7 +83,6 @@ export function useDirectPublish() {
     });
   };
 
-  // Placeholder for future platforms
   const publishToFacebook = async (options: PublishOptions) => {
     return publishMutation.mutateAsync({
       platform: 'facebook',
