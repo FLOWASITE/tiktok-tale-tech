@@ -136,6 +136,7 @@ export function AppRoutes() {
       <Route path="/core-content" element={<ProtectedRoute><AppLayout><CoreContentPage /></AppLayout></ProtectedRoute>} />
       <Route path="/tasks" element={<ProtectedRoute><AppLayout><Tasks /></AppLayout></ProtectedRoute>} />
       <Route path="/scripts" element={<ProtectedRoute><AppLayout><Index /></AppLayout></ProtectedRoute>} />
+      <Route path="/scripts/new" element={<ProtectedRoute><AppLayout><ScriptNew /></AppLayout></ProtectedRoute>} />
       <Route path="/carousel" element={<ProtectedRoute><AppLayout><Carousel /></AppLayout></ProtectedRoute>} />
       <Route path="/gallery" element={<ProtectedRoute><AppLayout><Gallery /></AppLayout></ProtectedRoute>} />
       <Route path="/brands" element={<ProtectedRoute><AppLayout><Brands /></AppLayout></ProtectedRoute>} />
