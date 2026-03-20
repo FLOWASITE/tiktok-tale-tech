@@ -269,13 +269,21 @@ function blendBrandColors(
   // Ensure colors object exists
   if (!blended.colors) blended.colors = {};
 
+  // Ensure background object exists
+  if (!blended.colors.background) blended.colors.background = {};
+
   switch (presetKey) {
     case 'minimalist':
-      // Only replace accent
+      // Light tint of brand as background, brand as accent
+      blended.colors.background.primary = lightenHex(primary, 85);
+      blended.colors.background.secondary = lightenHex(primary, 75);
       blended.colors.accent = primary;
       break;
 
     case 'flat_design':
+      // Dark brand-tinted background for bold infographic look
+      blended.colors.background.primary = darkenHex(primary, 40);
+      blended.colors.background.secondary = darkenHex(primary, 30);
       blended.colors.accent = primary;
       if (secondary) blended.colors.secondary_accent = secondary;
       if (blended.colors.dataPalette && Array.isArray(blended.colors.dataPalette)) {
@@ -285,7 +293,7 @@ function blendBrandColors(
       break;
 
     case 'gradient':
-      // Build brand-tinted gradient
+      // Brand-derived gradient
       if (secondary && secondary !== primary) {
         blended.colors.gradientFrom = primary;
         blended.colors.gradientTo = secondary;
@@ -293,11 +301,15 @@ function blendBrandColors(
         blended.colors.gradientFrom = primary;
         blended.colors.gradientTo = darkenHex(primary, 30);
       }
+      blended.colors.background.primary = primary;
+      blended.colors.background.secondary = darkenHex(primary, 20);
       blended.colors.accent = lightenHex(primary, 30);
       break;
 
     case 'geometric':
-      // Replace gold accent with brand primary
+      // Dark brand-tinted background for corporate look
+      blended.colors.background.primary = darkenHex(primary, 50);
+      blended.colors.background.secondary = darkenHex(primary, 40);
       blended.colors.accent = primary;
       if (blended.effects && blended.effects.diagonalLine) {
         blended.effects.diagonalLine = `2px solid ${primary}40`;
@@ -305,12 +317,22 @@ function blendBrandColors(
       break;
 
     case 'illustration':
+      // Light brand-tinted background for illustration
+      blended.colors.background.primary = lightenHex(primary, 80);
+      blended.colors.background.secondary = lightenHex(primary, 70);
       blended.colors.accent = primary;
       if (secondary) blended.colors.secondary_accent = secondary;
       break;
 
     case 'product_only':
+      blended.colors.background.primary = lightenHex(primary, 90);
       blended.colors.cta = primary;
+      blended.colors.accent = primary;
+      break;
+
+    default:
+      // For any unrecognized preset, still apply brand to background + accent
+      blended.colors.background.primary = lightenHex(primary, 70);
       blended.colors.accent = primary;
       break;
   }
