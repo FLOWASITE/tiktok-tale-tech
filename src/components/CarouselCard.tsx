@@ -34,6 +34,8 @@ interface CarouselCardProps {
   index?: number;
   thumbnailUrl?: string;
   imageCount?: number;
+  brandName?: string;
+  brandLogoUrl?: string | null;
 }
 
 const platformLabels: Record<string, { label: string; icon: typeof Facebook }> = {
