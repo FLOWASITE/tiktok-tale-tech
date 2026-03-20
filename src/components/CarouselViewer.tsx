@@ -877,7 +877,20 @@ export function CarouselViewer({
               />
             </TabsContent>
 
-            <TabsContent value="caption" className="mt-0">
+            <TabsContent value="caption" className="mt-0 space-y-4">
+              {(carousel.caption_suggestion || carousel.cta_suggestion) && (
+                <div className="flex justify-end">
+                  <Button variant="outline" size="sm" onClick={handleCopyCaptionAll} className="h-7 xs:h-8 text-xs">
+                    {copiedCaptionAll ? (
+                      <Check className="w-3.5 h-3.5 xs:w-4 xs:h-4 text-green-500" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5 xs:w-4 xs:h-4" />
+                    )}
+                    <span className="ml-1 xs:ml-1.5">Copy tất cả</span>
+                  </Button>
+                </div>
+              )}
+
               <div className="gradient-card border border-border/50 rounded-lg p-4 xs:p-6">
                 <div className="flex items-center justify-between mb-3 xs:mb-4">
                   <h3 className="font-semibold flex items-center gap-1.5 xs:gap-2 text-sm xs:text-base">
@@ -903,9 +916,7 @@ export function CarouselViewer({
                   <p className="text-muted-foreground text-xs xs:text-sm">Chưa có gợi ý caption</p>
                 )}
               </div>
-            </TabsContent>
 
-            <TabsContent value="cta" className="mt-0">
               <div className="gradient-card border border-border/50 rounded-lg p-4 xs:p-6">
                 <div className="flex items-center justify-between mb-3 xs:mb-4">
                   <h3 className="font-semibold flex items-center gap-1.5 xs:gap-2 text-sm xs:text-base">
