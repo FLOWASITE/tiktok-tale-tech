@@ -474,16 +474,25 @@ const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, me
   const styleSection = getCarouselStylePrompt(carouselStyle, formData.slideCount);
   const textLengthSection = getTextLengthGuidelines(visualPreset);
 
-  // Brand color directive for fullPrompt
+  // Brand color directive for BOTH colorLayout AND fullPrompt
   let brandColorDirective = '';
   if (brandColors?.primary) {
     const allColors = [brandColors.primary, ...(brandColors.secondary || [])].join(', ');
-    brandColorDirective = `\n## 🎨 BRAND COLOR PALETTE (BẮT BUỘC TRONG fullPrompt)
+    const primaryHex = brandColors.primary;
+    brandColorDirective = `\n## 🎨 BRAND COLOR PALETTE — BẮT BUỘC CHO CẢ colorLayout VÀ fullPrompt
 Thương hiệu sử dụng palette: ${allColors}
-- MỌI fullPrompt PHẢI sử dụng palette này làm accent colors chủ đạo
-- Ghi rõ palette vào fullPrompt, ví dụ: "color palette: ${allColors}"
-- Không để AI tự chọn màu — phải ép đúng brand colors
-- Accent, gradient, overlay, shapes đều phải dựa trên palette trên\n`;
+
+### QUY TẮC colorLayout (CRITICAL):
+- colorLayout PHẢI BẮT ĐẦU bằng brand hex codes: ${allColors}
+- Ví dụ đúng: "Brand ${primaryHex}, complementary #FFF5E6. Centered layout with high contrast."
+- Ví dụ SAI: "Deep blue (#0A2540), electric teal (#00D4FF)" — TUYỆT ĐỐI KHÔNG tự chọn màu ngoài palette
+- Nếu cần màu bổ sung, chỉ dùng tints/shades của brand colors (lighten/darken ${primaryHex})
+
+### QUY TẮC fullPrompt (CRITICAL):
+- fullPrompt PHẢI dùng brand palette làm COLOR PALETTE CHÍNH (không chỉ accent)
+- Ghi rõ: "color palette: ${allColors}" trong mọi fullPrompt
+- Background, gradient, shapes, overlays đều PHẢI dựa trên ${allColors}
+- KHÔNG được dùng "deep blue", "navy", "teal", "electric blue" hay bất kỳ màu nào ngoài brand palette\n`;
   }
 
   const platformName: Record<string, string> = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', linkedin: 'LinkedIn' };
