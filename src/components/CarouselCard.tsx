@@ -135,7 +135,7 @@ export function CarouselCard({
 
         {/* Image Grid Preview */}
         {imageUrls && imageUrls.length > 0 ? (
-          <div className="relative aspect-video bg-muted/20 overflow-hidden cursor-pointer" onClick={() => onView(carousel)}>
+          <div className="relative aspect-[4/3] bg-muted/20 overflow-hidden cursor-pointer" onClick={() => onView(carousel)}>
             {imageUrls.length === 1 && (
               <img
                 src={imageUrls[0]}
