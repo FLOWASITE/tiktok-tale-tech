@@ -698,9 +698,9 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                         disabled={isLoading}
                       />
                     </div>
-                    <div className="h-px bg-border/30" />
+                    <div className="h-px bg-border/20" />
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-2">Phong cách hội thoại</p>
+                      <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase mb-3">Phong cách hội thoại</p>
                       <DialogueStyleSelector
                         value={formData.dialogue_style}
                         onChange={(value) => setFormData((prev) => ({ ...prev, dialogue_style: value }))}
