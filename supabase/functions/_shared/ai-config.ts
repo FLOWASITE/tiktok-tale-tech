@@ -262,7 +262,7 @@ export async function getAIConfig(
     // Optimized query with minimal select
     let query = supabase
       .from('ai_function_configs')
-      .select('model_override, temperature, max_tokens, cache_ttl_hours, custom_system_prompt, is_enabled, priority_level')
+      .select('model_override, temperature, max_tokens, cache_ttl_hours, custom_system_prompt, is_enabled, priority_level, force_provider')
       .eq('function_name', functionName)
       .eq('is_enabled', true);
 
