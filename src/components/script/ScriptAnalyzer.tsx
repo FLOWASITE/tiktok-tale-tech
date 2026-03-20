@@ -174,9 +174,17 @@ const SuggestionItem = ({ suggestion }: {
   );
 };
 
-export function ScriptAnalyzer({ script, className }: ScriptAnalyzerProps) {
-  const { analysis, isAnalyzing, error, analyzeScript, clearAnalysis } = useScriptAnalysis();
+export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAnalyzerProps) {
+  const { analysis, isAnalyzing, error, analyzeScript, setInitialAnalysis, clearAnalysis } = useScriptAnalysis();
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+
+  // Load cached analysis on mount
+  if (!initialized && initialAnalysis && !analysis) {
+    setInitialAnalysis(initialAnalysis);
+    setHasAnalyzed(true);
+    setInitialized(true);
+  }
 
   const handleAnalyze = async () => {
     await analyzeScript(script);

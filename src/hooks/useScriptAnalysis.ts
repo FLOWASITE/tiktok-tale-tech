@@ -49,6 +49,20 @@ export function useScriptAnalysis() {
       }
 
       setAnalysis(data);
+
+      // Persist to DB
+      try {
+        await supabase
+          .from('scripts')
+          .update({
+            analysis_cache: data as any,
+            analyzed_at: new Date().toISOString(),
+          })
+          .eq('id', script.id);
+      } catch (saveErr) {
+        console.warn('Failed to save analysis cache:', saveErr);
+      }
+
       return data;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Lỗi phân tích kịch bản';
@@ -58,6 +72,10 @@ export function useScriptAnalysis() {
     } finally {
       setIsAnalyzing(false);
     }
+  }, []);
+
+  const setInitialAnalysis = useCallback((cached: ScriptAnalysis) => {
+    setAnalysis(cached);
   }, []);
 
   const clearAnalysis = useCallback(() => {
@@ -70,6 +88,7 @@ export function useScriptAnalysis() {
     isAnalyzing,
     error,
     analyzeScript,
+    setInitialAnalysis,
     clearAnalysis,
   };
 }
