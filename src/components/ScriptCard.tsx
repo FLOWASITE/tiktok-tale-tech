@@ -28,8 +28,7 @@ import type { CreatorProfile } from '@/hooks/useCreatorProfiles';
 import { cn } from '@/lib/utils';
 
 const PURPOSE_ICONS: Record<ScriptPurpose, React.ElementType> = {
-  ai_video_veo3: Wand2,
-  ai_video_minimax: Film,
+  ai_video: Wand2,
   teleprompter: MonitorPlay,
   voiceover: Mic,
   production: Clapperboard,
