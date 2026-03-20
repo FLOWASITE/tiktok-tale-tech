@@ -606,7 +606,7 @@ Viết 3 dòng CTA alternatives, mỗi dòng có label rõ ràng:
 2. 💬 Engagement: Câu hỏi mở kéo comment ("Bạn đã thử tip nào rồi? Comment cho mình biết!")
 3. 👥 Share: Lý do chia sẻ + tag ("Tag ngay người bạn đang cần biết điều này 👇")
 
-Nền tảng ${formData.platform === 'tiktok' ? 'TikTok — ưu tiên ngôn ngữ Gen Z, trend-driven, dùng "Follow để xem thêm"' : 'Facebook — ưu tiên storytelling, community, dùng "Save/Share bài viết"'}.
+Nền tảng ${formData.platform === 'tiktok' ? 'TikTok — ưu tiên ngôn ngữ Gen Z, trend-driven, dùng "Follow để xem thêm"' : formData.platform === 'instagram' ? 'Instagram — ưu tiên visual storytelling, aesthetic, dùng "Save & Share"' : formData.platform === 'linkedin' ? 'LinkedIn — ưu tiên professional insights, thought leadership, dùng ngôn ngữ chuyên nghiệp' : 'Facebook — ưu tiên storytelling, community, dùng "Save/Share bài viết"'}.
 
 ## FORMAT OUTPUT BẮT BUỘC CHO MỖI SLIDE
 Bạn PHẢI trả về JSON với cấu trúc chính xác như tool definition.
