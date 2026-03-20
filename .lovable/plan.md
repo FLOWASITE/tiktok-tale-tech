@@ -1,87 +1,48 @@
 
 
-# Gộp Voice-Over vào Teleprompter — 4 định dạng → 3
+# Cải thiện ScriptPurposeSelector UI — Soft Luxury
 
-## Phân tích
+## Vấn đề hiện tại
 
-**Voice-Over** và **Teleprompter** trùng lặp ~80%:
+Selector hiện tại chỉ là 3 pills nhỏ giống nhau, khó phân biệt. Description chỉ hiện khi chọn — user không thấy được sự khác biệt trước khi chọn. Icon quá nhỏ (3.5x3.5) và generic.
 
-| Thành phần | Teleprompter | Voice-Over |
-|-----------|:---:|:---:|
-| Dialogue | ✓ | ✓ |
-| Nhấn mạnh (Emphasis) | ✓ | ✓ |
-| Pause markers | ✓ | ✓ |
-| CUE (hành động on-camera) | ✓ | ✗ |
-| Tone/Tempo/Cảm xúc | ✗ | ✓ |
+## Giải pháp: Card-based selector
 
-**Thêm nữa:** TTS Preview (`TTSPreview.tsx`) hoạt động độc lập — dùng Web Speech API trên `script.content`, **không phụ thuộc** vào purpose Voice-Over. Bất kỳ script nào cũng có thể nghe thử TTS.
-
-**Kết luận:** Voice-Over chỉ là Teleprompter + thêm hướng dẫn giọng. Hoàn toàn có thể gộp thành 1 format "Người thật" có cả CUE lẫn Voice guidance.
-
-## Giải pháp: Gộp thành "Người thật / Voice"
+Chuyển từ pills sang **3 mini-cards** ngang, mỗi card có icon lớn + tên + mô tả 1 dòng. Khi compact mode (trong form stepper), giữ pills nhưng cải thiện icon.
 
 ```text
-TRƯỚC (4 options):
-[Video AI] [Teleprompter] [Voice-Over] [Production]
+NON-COMPACT (standalone):
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│  🎬           │ │  🎤           │ │  🎥           │
+│  Video AI    │ │  Người thật  │ │  Production  │
+│  VEO 3,      │ │  Quay/thu âm │ │  Team chuyên │
+│  Minimax...  │ │  trực tiếp   │ │  nghiệp      │
+└──────────────┘ └──────────────┘ └──────────────┘
 
-SAU (3 options):
-[Video AI] [Người thật] [Production]
-```
-
-Format mới "Người thật" kết hợp cả hai:
-```
---- ĐOẠN X ---
-[CUE: Hành động/biểu cảm]
-"Lời thoại..." 
-[NHẤN MẠNH: từ khóa]
-[PAUSE: vị trí nghỉ]
-GIỌNG: Tone · Tempo · Cảm xúc
----
+COMPACT (trong form stepper - giữ pills nhưng icon rõ hơn):
+[🎬 Video AI] [🎤 Người thật] [🎥 Production]
 ```
 
 ### Thay đổi chi tiết
 
-#### 1. `src/types/script.ts`
-- Xóa `'voiceover'` khỏi `ScriptPurpose` → còn `'ai_video' | 'teleprompter' | 'production'`
-- Thêm `'voiceover'` vào `ScriptPurposeLegacy` 
-- Cập nhật `normalizePurpose`: `'voiceover'` → `'teleprompter'`
-- Đổi label teleprompter: `"Người thật / Voice"` với description bao gồm cả teleprompter + voice-over
+#### `ScriptPurposeSelector.tsx`
+1. **Icon cải thiện**: `ai_video` → `Wand2` (AI magic), `teleprompter` → `Mic` (microphone/voice), `production` → `Clapperboard` (giữ nguyên)
+2. **Non-compact mode**: Chuyển sang grid 3 cols, mỗi item là card nhỏ với:
+   - Icon container `w-10 h-10 rounded-xl` với gradient background riêng mỗi loại
+   - Label bold + 1 dòng subtitle mô tả ngắn
+   - Selected state: border-primary + subtle glow
+   - Style: `rounded-2xl border-border/30 backdrop-blur-sm` (Soft Luxury)
+3. **Compact mode**: Giữ pills nhưng dùng icon mới, thêm subtle color tint cho selected
+4. **Bỏ phần description panel AnimatePresence** ở dưới — thông tin đã nằm trong card
+5. **Thêm subtitle ngắn** vào `SCRIPT_PURPOSE_CONFIG` hoặc inline: `ai_video: "VEO 3, Minimax..."`, `teleprompter: "Quay & thu âm"`, `production: "Team sản xuất"`
 
-#### 2. `supabase/functions/generate-script/index.ts`
-- Gộp output format `teleprompter`: thêm mục GIỌNG (Tone, Tempo, Cảm xúc) từ voice-over
-- Xóa case `'voiceover'` riêng
+#### `src/types/script.ts`
+- Thêm field `subtitle` vào `SCRIPT_PURPOSE_CONFIG` cho mô tả ngắn 1 dòng hiển thị trên card
 
-#### 3. `src/utils/parsePrompts.ts`
-- Xóa case `'voiceover'` riêng → normalize về `'teleprompter'`
-- Gộp `parseVoiceoverBlock` vào `parseTeleprompterBlock` (thêm parse Tone/Tempo)
-
-#### 4. `src/components/script/PurposeAwarePromptCard.tsx`
-- Gộp `VoiceoverCard` vào `TeleprompterCard` — thêm hiển thị Tone/Tempo nếu có
-- Xóa case `'voiceover'`
-
-#### 5. `src/components/script/ScriptPurposeSelector.tsx`
-- Xóa entry `voiceover` khỏi `ICON_MAP` → còn 3 options
-
-#### 6. `src/components/script/ScriptExportMenu.tsx`
-- Gộp export options voice-over vào teleprompter
-- Xóa section Voice-Over riêng
-
-#### 7. `src/components/ScriptCard.tsx`
-- Xóa `voiceover` khỏi `PURPOSE_ICONS`, giữ backward compat qua normalize
-
-#### 8. Backward compatibility
-- Scripts cũ `script_purpose = 'voiceover'` → `normalizePurpose` trả về `'teleprompter'`
-- Parse logic fallback: nếu block có Tone/Tempo → hiển thị thêm voice guidance
-
-## Files thay đổi
+## File thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| `src/types/script.ts` | Xóa voiceover, cập nhật normalizePurpose |
-| `supabase/functions/generate-script/index.ts` | Gộp output format |
-| `src/utils/parsePrompts.ts` | Gộp parse logic |
-| `src/components/script/PurposeAwarePromptCard.tsx` | Gộp card render |
-| `src/components/script/ScriptPurposeSelector.tsx` | 3 options |
-| `src/components/script/ScriptExportMenu.tsx` | Gộp export |
-| `src/components/ScriptCard.tsx` | Cleanup icon map |
+| `src/types/script.ts` | Thêm `subtitle` field vào config |
+| `src/components/script/ScriptPurposeSelector.tsx` | Redesign card-based layout, icon mới, Soft Luxury style |
 
