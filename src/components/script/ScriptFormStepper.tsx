@@ -21,6 +21,11 @@ import {
   Book,
   Megaphone,
   ChevronRight,
+  Clock,
+  Film,
+  Users,
+  Mic,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
