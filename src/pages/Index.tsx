@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileVideo, Sparkles, Plus, X, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileVideo, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 
