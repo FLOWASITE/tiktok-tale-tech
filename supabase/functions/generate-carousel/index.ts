@@ -641,7 +641,7 @@ Mỗi slide phải có đủ 7 thành phần:
     - dataValue (chỉ cho data slides): Số liệu lớn — "150%", "2.5M"
     - dataLabel (đi kèm dataValue): Nhãn — "Tăng trưởng doanh thu"
 [3] designStyle: Phong cách thiết kế
-[4] colorLayout: Màu sắc – bố cục
+[4] colorLayout: Màu sắc – bố cục (PHẢI dùng brand colors hex làm màu chủ đạo, KHÔNG tự chọn màu khác)
 [5] aspectRatio: Tỉ lệ khung hình (1:1 cho carousel)
 [6] technicalRequirements: Yêu cầu kỹ thuật
 [7] fullPrompt: Prompt tạo ẢNH SLIDE (mô tả cảnh cụ thể, KHÔNG viết text content, để lại không gian cho text)
