@@ -52,6 +52,12 @@ export function TopicAngleSelector({ value, onChange, disabled = false }: TopicA
                 <TooltipTrigger asChild>
                   <button
                     type="button"
+                    onPointerDown={(e) => {
+                      if (e.pointerType === 'touch') {
+                        e.preventDefault();
+                        onChange(isSelected ? (undefined as any) : angle);
+                      }
+                    }}
                     onClick={() => onChange(isSelected ? (undefined as any) : angle)}
                     disabled={disabled}
                     className={cn(
@@ -68,7 +74,7 @@ export function TopicAngleSelector({ value, onChange, disabled = false }: TopicA
                     {isSelected && <X className="w-3 h-3 ml-0.5 opacity-70" />}
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs text-xs leading-relaxed">
+                <TooltipContent side="bottom" className="max-w-xs text-xs leading-relaxed z-[100]">
                   <p className="font-semibold mb-1">{config.label} — {config.description}</p>
                   <p className="text-muted-foreground">{config.tooltip}</p>
                 </TooltipContent>
