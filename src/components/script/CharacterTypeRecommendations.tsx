@@ -3,7 +3,7 @@ import { useCharacterTypeRecommendations } from '@/hooks/useCharacterTypeRecomme
 import { CharacterType, CHARACTER_TYPE_LABELS, CHARACTER_CATEGORIES, VideoType } from '@/types/script';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, User, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface CharacterTypeRecommendationsProps {
@@ -34,25 +34,22 @@ export function CharacterTypeRecommendations({
     return null;
   }
 
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 dark:text-green-400';
-    if (score >= 60) return 'text-amber-600 dark:text-amber-400';
-    return 'text-muted-foreground';
-  };
-
-  const getScoreBg = (score: number) => {
-    if (score >= 80) return 'bg-green-100 dark:bg-green-900/30';
-    if (score >= 60) return 'bg-amber-100 dark:bg-amber-900/30';
-    return 'bg-muted';
+  const getScoreStyle = (score: number) => {
+    if (score >= 80) return 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40';
+    if (score >= 60) return 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40';
+    return 'text-muted-foreground bg-muted/50';
   };
 
   return (
-    <div className="space-y-3 p-4 rounded-lg bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/30 dark:to-fuchsia-950/30 border border-violet-200 dark:border-violet-800">
-      <div className="flex items-center gap-2 text-sm font-medium text-violet-700 dark:text-violet-300">
-        <Sparkles className="h-4 w-4" />
-        <span>Gợi ý Character phù hợp</span>
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+          <Sparkles className="w-3 h-3 text-primary" />
+        </div>
+        <span className="text-xs font-medium text-muted-foreground tracking-wide uppercase">Gợi ý AI</span>
         {videoType && (
-          <Badge variant="secondary" className="text-xs">
+          <Badge variant="secondary" className="text-[10px] h-4 px-1.5 bg-muted/50 border-0 font-normal">
             Dựa trên Video Type
           </Badge>
         )}
@@ -60,66 +57,66 @@ export function CharacterTypeRecommendations({
 
       {/* Top Recommendation */}
       {topRecommendation && (
-        <div 
+        <button
+          type="button"
           className={cn(
-            "p-3 rounded-lg border-2 transition-all cursor-pointer",
+            "w-full p-4 rounded-xl text-left transition-all duration-300",
             selectedCharacterType === topRecommendation.characterType
-              ? "border-violet-500 bg-violet-100 dark:bg-violet-900/40"
-              : "border-violet-300 dark:border-violet-700 bg-white dark:bg-background hover:border-violet-400"
+              ? "border-2 border-primary/30 bg-primary/[0.04] shadow-sm"
+              : "border border-border/30 bg-muted/20 hover:border-primary/20 hover:bg-muted/40"
           )}
           onClick={() => onSelect(topRecommendation.characterType)}
         >
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-violet-600" />
-                <span className="font-medium">
-                  {CHARACTER_TYPE_LABELS[topRecommendation.characterType]}
-                </span>
-                <Badge className={cn("text-xs", getScoreBg(topRecommendation.score), getScoreColor(topRecommendation.score))}>
-                  {topRecommendation.score}%
-                </Badge>
-                {selectedCharacterType === topRecommendation.characterType && (
-                  <CheckCircle2 className="h-4 w-4 text-violet-600" />
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                {topRecommendation.reason}
-              </p>
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm text-foreground tracking-tight">
+                {CHARACTER_TYPE_LABELS[topRecommendation.characterType]}
+              </span>
+              <Badge variant="secondary" className={cn("text-[10px] h-5 font-semibold border-0", getScoreStyle(topRecommendation.score))}>
+                {topRecommendation.score}%
+              </Badge>
+              {selectedCharacterType === topRecommendation.characterType && (
+                <div className="w-4 h-4 rounded-full bg-primary/15 flex items-center justify-center">
+                  <Check className="w-2.5 h-2.5 text-primary" />
+                </div>
+              )}
             </div>
-            <Badge variant="outline" className="text-xs shrink-0">
+            <Badge variant="secondary" className="text-[10px] h-5 bg-muted/50 border-0 font-normal">
               {CHARACTER_CATEGORIES[topRecommendation.category].label}
             </Badge>
           </div>
-        </div>
+          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+            {topRecommendation.reason}
+          </p>
+        </button>
       )}
 
       {/* Other Recommendations */}
       {recommendations.length > 1 && (
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">Các lựa chọn khác:</p>
-          <div className="flex flex-wrap gap-2">
-            {recommendations.slice(1, 4).map((rec) => (
-              <Button
-                key={rec.characterType}
-                variant={selectedCharacterType === rec.characterType ? "secondary" : "outline"}
-                size="sm"
-                className={cn(
-                  "h-auto py-1.5 px-3 text-xs",
-                  selectedCharacterType === rec.characterType && "ring-2 ring-violet-500"
-                )}
-                onClick={() => onSelect(rec.characterType)}
+        <div className="flex flex-wrap gap-1.5">
+          {recommendations.slice(1, 4).map((rec) => (
+            <Button
+              key={rec.characterType}
+              type="button"
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "h-8 text-xs gap-1.5 rounded-xl",
+                selectedCharacterType === rec.characterType
+                  ? "border-2 border-primary/30 bg-primary/5"
+                  : "border border-border/30 bg-muted/30 hover:bg-muted/60 hover:border-border/50"
+              )}
+              onClick={() => onSelect(rec.characterType)}
+            >
+              {CHARACTER_TYPE_LABELS[rec.characterType]}
+              <Badge 
+                variant="secondary" 
+                className={cn("text-[10px] h-4 px-1.5 border-0", getScoreStyle(rec.score))}
               >
-                <span>{CHARACTER_TYPE_LABELS[rec.characterType]}</span>
-                <Badge 
-                  variant="secondary" 
-                  className={cn("ml-1.5 text-[10px] px-1.5", getScoreBg(rec.score), getScoreColor(rec.score))}
-                >
-                  {rec.score}%
-                </Badge>
-              </Button>
-            ))}
-          </div>
+                {rec.score}%
+              </Badge>
+            </Button>
+          ))}
         </div>
       )}
     </div>

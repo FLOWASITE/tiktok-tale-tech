@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { Mic, MessageCircle, Brain, BookOpen } from 'lucide-react';
+import { Mic, MessageCircle, Brain, BookOpen, Check } from 'lucide-react';
 import { DialogueStyle, DIALOGUE_STYLE_CONFIG } from '@/types/script';
 
 interface DialogueStyleSelectorProps {
@@ -30,16 +30,17 @@ export function DialogueStyleSelector({ value, onChange, disabled }: DialogueSty
             onClick={() => !disabled && onChange(key)}
             disabled={disabled}
             className={cn(
-              "inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-all duration-200",
-              "hover:border-primary/40",
+              "inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all duration-300",
+              "hover:shadow-sm hover:-translate-y-px active:translate-y-0",
               isSelected
-                ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                : "bg-card/80 text-foreground border-border/60 hover:bg-accent/30",
+                ? "bg-primary/[0.06] text-primary border-primary/25 shadow-sm shadow-primary/5"
+                : "bg-background text-muted-foreground border-border/30 hover:border-border/50 hover:text-foreground",
               disabled && "opacity-50 pointer-events-none"
             )}
           >
-            <Icon className="w-3.5 h-3.5" />
-            <span>{config.label}</span>
+            <Icon className={cn("w-3.5 h-3.5", isSelected ? "text-primary" : "opacity-50")} />
+            <span className="tracking-tight">{config.label}</span>
+            {isSelected && <Check className="w-3 h-3 text-primary/60" />}
           </button>
         );
       })}

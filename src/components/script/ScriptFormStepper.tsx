@@ -597,8 +597,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                   label={`${formData.duration}s`}
                   icon={<Clock className="w-3.5 h-3.5" />}
                 >
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Thời lượng video</p>
+                  <div className="space-y-3">
+                    <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">Thời lượng</p>
                     <DurationSelector
                       value={formData.duration}
                       onChange={(value) => setFormData((prev) => ({ ...prev, duration: value }))}
@@ -615,7 +615,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                   popoverClassName="min-w-[320px] max-w-[460px]"
                 >
                   <div className="space-y-3">
-                    <p className="text-xs font-medium text-muted-foreground">Thể loại video</p>
+                    <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">Thể loại</p>
                     <VideoTypeRecommendations
                       topic={formData.topic}
                       industry={selectedTemplate?.industry?.[0]}
@@ -627,9 +627,9 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                       disabled={isLoading}
                     />
                     <Collapsible>
-                      <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                        <span>Xem tất cả</span>
-                        <ChevronDown className="w-3 h-3 [[data-state=open]>&]:rotate-180 transition-transform" />
+                      <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors duration-300">
+                        <span className="tracking-wide">Xem tất cả</span>
+                        <ChevronDown className="w-3 h-3 [[data-state=open]>&]:rotate-180 transition-transform duration-300" />
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <VideoTypeSelector
@@ -653,7 +653,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                   popoverClassName="min-w-[320px] max-w-[460px]"
                 >
                   <div className="space-y-3">
-                    <p className="text-xs font-medium text-muted-foreground">Nhân vật</p>
+                    <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">Nhân vật</p>
                     <CharacterTypeRecommendations
                       topic={formData.topic}
                       videoType={formData.video_type}
@@ -666,9 +666,9 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                       enabled={!isLoading}
                     />
                     <Collapsible>
-                      <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                        <span>Xem tất cả</span>
-                        <ChevronDown className="w-3 h-3 [[data-state=open]>&]:rotate-180 transition-transform" />
+                      <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors duration-300">
+                        <span className="tracking-wide">Xem tất cả</span>
+                        <ChevronDown className="w-3 h-3 [[data-state=open]>&]:rotate-180 transition-transform duration-300" />
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <CharacterTypeSelector
@@ -691,16 +691,16 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 >
                   <div className="space-y-4">
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-2">Giọng vùng miền</p>
+                      <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase mb-3">Giọng vùng miền</p>
                       <VoiceRegionSelector
                         value={formData.voice_region}
                         onChange={(value) => setFormData((prev) => ({ ...prev, voice_region: value }))}
                         disabled={isLoading}
                       />
                     </div>
-                    <div className="h-px bg-border/30" />
+                    <div className="h-px bg-border/20" />
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-2">Phong cách hội thoại</p>
+                      <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase mb-3">Phong cách hội thoại</p>
                       <DialogueStyleSelector
                         value={formData.dialogue_style}
                         onChange={(value) => setFormData((prev) => ({ ...prev, dialogue_style: value }))}
