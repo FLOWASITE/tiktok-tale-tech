@@ -30,7 +30,6 @@ import { cn } from '@/lib/utils';
 const PURPOSE_ICONS: Record<ScriptPurpose, React.ElementType> = {
   ai_video: Wand2,
   teleprompter: MonitorPlay,
-  voiceover: Mic,
   production: Clapperboard,
 };
 
