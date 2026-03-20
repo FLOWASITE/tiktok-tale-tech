@@ -209,8 +209,10 @@ const SuggestionCard = ({ suggestion }: {
 };
 
 /* ───────── Main Component ───────── */
-export function ScriptAnalyzer({ script, initialAnalysis, className }: ScriptAnalyzerProps) {
+export function ScriptAnalyzer({ script, initialAnalysis, onScriptUpdate, className }: ScriptAnalyzerProps) {
   const { analysis, isAnalyzing, error, analyzeScript, setInitialAnalysis, clearAnalysis } = useScriptAnalysis();
+  const { isImproving, improvedContent, error: improveError, improveScript, applyImprovement, clearImprovement } = useScriptImprovement();
+  const [showPreview, setShowPreview] = useState(false);
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
 
   useEffect(() => {
