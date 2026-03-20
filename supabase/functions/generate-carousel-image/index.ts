@@ -1132,16 +1132,22 @@ CAROUSEL COMPOSITION:
     topicDirective += `\nSLIDE UNIQUENESS: This is slide ${slideNumber} of ${totalSlides || 5}. Use a DIFFERENT camera angle and focal subject than other slides. This slide's unique focus: "${slideObjective || 'main topic'}". Vary between wide shot, medium shot, close-up, overhead, and side angle across slides.\n`;
   }
 
-  // Assemble prompt: visual concept FIRST, text instruction, then constraints
+  // Assemble prompt: BRAND COLORS FIRST (AI prioritizes beginning of prompt)
+  const brandColorReinforcement = brandColorDirective
+    ? `\n⚠️ FINAL REMINDER: The brand colors specified at the top of this prompt MUST be clearly dominant. Do NOT produce a blue/black/teal image unless those are the brand colors.`
+    : '';
+
   const prompt = [
+    // PART 0: Brand colors FIRST — highest priority position
+    brandColorDirective || '',
+
     // PART 1: Scene description
     cleanedPrompt,
     
     // PART 1.5: Topic lock
     topicDirective || '',
     
-    // PART 2: Color & Brand
-    brandColorDirective ? `\nColor guidance: ${brandColorDirective.trim()}` : '',
+    // PART 2: Design tokens (mood/effects only when brand colors present)
     tokenDirective ? `\nDesign mood: ${tokenDirective.trim()}` : '',
     
     // PART 3: Continuity
@@ -1150,11 +1156,14 @@ CAROUSEL COMPOSITION:
     // PART 4: Style directive
     styleDirective || '',
     
-    // PART 5: TEXT RENDERING (the key change — text is now part of the image)
+    // PART 5: TEXT RENDERING
     textInstruction,
     
     // PART 6: Final constraints
     safeZoneNote,
+
+    // PART 7: Brand color reinforcement (sandwich technique — end of prompt)
+    brandColorReinforcement,
   ].filter(Boolean).join('\n');
 
   return prompt;
