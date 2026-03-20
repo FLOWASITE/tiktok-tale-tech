@@ -1,42 +1,15 @@
 
+# Tăng chiều dọc Form đăng Facebook Page
 
-# Tối ưu load ảnh Carousel
+## Thay đổi
 
-## Phân tích hiện tại
+### `src/components/social/DirectPublishButton.tsx`
 
-Các `<img>` tag đã có `loading="lazy"` nhưng thiếu:
-- Skeleton/placeholder khi ảnh đang tải → user thấy khoảng trắng
-- `decoding="async"` → block main thread khi decode ảnh lớn
-- Preload ảnh kế tiếp trong swipe carousel → swipe bị giật
-- Thumbnail strip dùng ảnh full-size → tải thừa bandwidth
+1. **Textarea "Nội dung bài đăng"** (line 356-357): Tăng `rows` từ 4 → 8, tăng `max-h` từ `120px/200px` → `250px/400px`
+2. **DialogContent** (line 285): Thêm `max-h-[90vh] overflow-y-auto` để dialog có thể scroll khi nội dung dài
 
-## Giải pháp
+| Dòng | Trước | Sau |
+|------|-------|-----|
+| 356-357 | `rows={4}`, `max-h-[120px] sm:max-h-[200px]` | `rows={8}`, `max-h-[250px] sm:max-h-[400px]` |
 
-### 1. Tạo component `OptimizedImage` tái sử dụng
-- Hiển thị skeleton placeholder trong khi ảnh đang tải
-- Fade-in animation khi ảnh load xong
-- Thêm `decoding="async"` để không block UI
-- Xử lý lỗi load ảnh với fallback icon
-
-### 2. Áp dụng vào `GeneratedImagesGallery`
-- Swipe view: dùng `OptimizedImage` thay `<img>` trực tiếp
-- Grid view: tương tự
-- Thumbnail strip: thêm skeleton nhỏ
-
-### 3. Áp dụng vào `SlidePromptCard` và `ImageGeneratorButton`
-- Thumbnail nhỏ trong header card
-- Ảnh preview lớn trong ImageGeneratorButton
-
-### 4. Preload ảnh kế tiếp trong swipe view
-- Khi user đang xem slide N, preload slide N+1 bằng `new Image()`
-- Giúp swipe mượt hơn
-
-| File | Thay đổi |
-|------|----------|
-| `src/components/ui/OptimizedImage.tsx` | Tạo mới — skeleton + fade-in + async decode |
-| `src/components/GeneratedImagesGallery.tsx` | Thay `<img>` bằng `OptimizedImage` + preload logic |
-| `src/components/ImageGeneratorButton.tsx` | Thay `<img>` bằng `OptimizedImage` |
-| `src/components/SlidePromptCard.tsx` | Thay thumbnail `<img>` bằng `OptimizedImage` |
-
-Tạo 1 file mới, sửa 3 file, ~80 dòng thay đổi.
-
+Sửa 1 file, ~2 dòng thay đổi.
