@@ -285,13 +285,13 @@ export function DirectPublishButton({
         <DialogContent className="sm:max-w-2xl p-0 overflow-hidden">
           {dialogState === 'success' ? (
             /* ===== SUCCESS STATE ===== */
-            <div className="flex flex-col items-center justify-center py-10 px-6 text-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/15 flex items-center justify-center">
-                <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+            <div className="flex flex-col items-center justify-center py-6 px-4 sm:py-10 sm:px-6 text-center gap-3 sm:gap-4">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                <CheckCircle2 className="h-6 w-6 sm:h-8 sm:w-8 text-emerald-500" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold">Đăng bài thành công! 🎉</h3>
-                <p className="text-sm text-muted-foreground mt-1">
+                <h3 className="text-base sm:text-lg font-semibold">Đăng bài thành công! 🎉</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                   Bài viết đã được đăng lên {PLATFORM_DISPLAY_NAMES[platform!] || platform}
                 </p>
               </div>
