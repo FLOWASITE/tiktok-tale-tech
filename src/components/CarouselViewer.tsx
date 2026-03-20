@@ -261,19 +261,32 @@ export function CarouselViewer({
   // Fetch Industry Memory
   const { data: industryMemory, isLoading: isLoadingIndustry } = useIndustryMemoryById(carousel?.industry_template_id);
 
-  // Lookup brand template from brand_name for social connection + color fallback
+  // Lookup brand template by brand_template_id (preferred) or fallback to brand_name
   const { data: brandTemplate } = useQuery({
-    queryKey: ['brand-template-by-name', carousel?.brand_name],
+    queryKey: ['brand-template-for-carousel', carousel?.brand_template_id, carousel?.brand_name],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('brand_templates')
-        .select('id, primary_color, secondary_colors')
-        .eq('brand_name', carousel!.brand_name)
-        .limit(1)
-        .single();
-      return data;
+      // Prefer direct ID lookup
+      if (carousel?.brand_template_id) {
+        const { data } = await supabase
+          .from('brand_templates')
+          .select('id, primary_color, secondary_colors')
+          .eq('id', carousel.brand_template_id)
+          .single();
+        if (data) return data;
+      }
+      // Fallback: match by brand_name for older carousels
+      if (carousel?.brand_name) {
+        const { data } = await supabase
+          .from('brand_templates')
+          .select('id, primary_color, secondary_colors')
+          .or(`brand_name.eq.${carousel.brand_name},name.eq.${carousel.brand_name}`)
+          .limit(1)
+          .maybeSingle();
+        return data;
+      }
+      return null;
     },
-    enabled: !!carousel?.brand_name,
+    enabled: !!(carousel?.brand_template_id || carousel?.brand_name),
   });
 
   // Ref to hold the auto-generate function (defined after early return)

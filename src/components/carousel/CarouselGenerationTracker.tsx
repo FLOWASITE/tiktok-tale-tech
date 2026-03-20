@@ -74,23 +74,64 @@ function extractColorPalette(slide: any): string[] | null {
   return hexColors && hexColors.length > 0 ? hexColors : null;
 }
 
-function extractBrandColors(carousel: Carousel): { textColor?: string; backgroundColor?: string } | undefined {
-  if (!carousel.brand_guideline) return undefined;
+async function extractBrandColorsWithFallback(
+  carousel: Carousel,
+): Promise<{ textColor?: string; backgroundColor?: string } | undefined> {
+  // 1. Try parsing brand_guideline (may contain embedded JSON colors)
+  if (carousel.brand_guideline) {
+    try {
+      const parsed = typeof carousel.brand_guideline === 'string'
+        ? JSON.parse(carousel.brand_guideline)
+        : carousel.brand_guideline;
+      if (parsed?.primaryColor) {
+        return {
+          textColor: parsed.primaryColor,
+          backgroundColor: parsed.secondaryColors?.[0] || parsed.backgroundColor,
+        };
+      }
+      if (parsed?.colors || parsed?.textColor) {
+        return {
+          textColor: parsed.textColor || parsed.colors?.text || parsed.colors?.primary,
+          backgroundColor: parsed.backgroundColor || parsed.colors?.background || parsed.colors?.secondary,
+        };
+      }
+    } catch {
+      const hexColors = (carousel.brand_guideline as string).match(/#[0-9A-Fa-f]{3,8}/g);
+      if (hexColors && hexColors.length >= 2) return { textColor: hexColors[0], backgroundColor: hexColors[1] };
+      if (hexColors && hexColors.length === 1) return { textColor: hexColors[0] };
+    }
+  }
+
+  // 2. Fallback: query brand_templates by ID or name
   try {
-    const parsed = typeof carousel.brand_guideline === 'string'
-      ? JSON.parse(carousel.brand_guideline)
-      : carousel.brand_guideline;
-    if (parsed?.colors || parsed?.primaryColor || parsed?.textColor) {
+    let template: any = null;
+    if (carousel.brand_template_id) {
+      const { data } = await supabase
+        .from('brand_templates')
+        .select('primary_color, secondary_colors')
+        .eq('id', carousel.brand_template_id)
+        .single();
+      template = data;
+    }
+    if (!template && carousel.brand_name) {
+      const { data } = await supabase
+        .from('brand_templates')
+        .select('primary_color, secondary_colors')
+        .or(`brand_name.eq.${carousel.brand_name},name.eq.${carousel.brand_name}`)
+        .limit(1)
+        .maybeSingle();
+      template = data;
+    }
+    if (template?.primary_color) {
       return {
-        textColor: parsed.textColor || parsed.colors?.text || parsed.colors?.primary,
-        backgroundColor: parsed.backgroundColor || parsed.colors?.background || parsed.colors?.secondary,
+        textColor: template.primary_color,
+        backgroundColor: (template.secondary_colors as string[])?.[0],
       };
     }
-  } catch {
-    const hexColors = (carousel.brand_guideline as string).match(/#[0-9A-Fa-f]{3,8}/g);
-    if (hexColors && hexColors.length >= 2) return { textColor: hexColors[0], backgroundColor: hexColors[1] };
-    if (hexColors && hexColors.length === 1) return { textColor: hexColors[0] };
+  } catch (err) {
+    console.warn('[extractBrandColors] fallback query failed:', err);
   }
+
   return undefined;
 }
 

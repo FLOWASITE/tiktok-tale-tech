@@ -1157,6 +1157,7 @@ Follow the carousel style guidelines strictly.`;
         caption_suggestion: generatedData.captionSuggestion,
         cta_suggestion: generatedData.ctaSuggestion,
         status: initialStatus,
+        brand_template_id: formData.brandTemplateId || null,
         industry_template_id: industryMemory?.id || null,
         industry_template_version: industryMemory?.version || null,
         campaign_id: formData.campaignId || null,
