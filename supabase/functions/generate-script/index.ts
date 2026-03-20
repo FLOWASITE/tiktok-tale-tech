@@ -1041,7 +1041,7 @@ ${voiceRegionLabel}, theo đặc trưng ${characterTypeName}, nhấn mạnh từ
 • SFX: None (hoặc hiệu ứng cụ thể nếu cần)
 • Music mood: [subtle/building/emotional tùy theo nội dung]`;
 
-    // ai_video_minimax legacy — now handled by ai_video case above
+    case 'teleprompter':
       return `--- ĐOẠN X ---
 
 [CUE: Mô tả hành động/biểu cảm trước khi nói - theo ${characterTypeName}]
