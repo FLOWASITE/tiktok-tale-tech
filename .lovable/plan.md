@@ -1,24 +1,25 @@
 
 
-# Cải thiện độ rõ chữ trên ScriptCard
+# Sửa hiển thị "Chưa rõ" trên ScriptCard
 
-## Vấn đề
+## Nguyên nhân
 
-Nhiều text trên ScriptCard dùng opacity quá thấp (`/25`, `/40`, `/50`, `/60`), khiến chữ mờ khó đọc, đặc biệt trên mobile.
+22/55 scripts trong database có `user_id = NULL` → `CreatorCell` nhận `profile = undefined` → hiển thị "Chưa rõ" (italic, khó hiểu).
 
-## Giải pháp: Tăng opacity cho tất cả text elements
+## Giải pháp: 2 bước
 
-### `src/components/ScriptCard.tsx`
+### A. Sửa UI — thay "Chưa rõ" thành text rõ nghĩa hơn
+- **`src/components/CreatorCell.tsx`**: Khi `!profile`, hiển thị "Tôi" (nếu script thuộc current user) hoặc ẩn luôn CreatorCell thay vì hiện chữ mơ hồ.
+- **`src/components/ScriptCard.tsx`**: Nếu không có `creatorProfile` và không loading, ẩn CreatorCell + dấu chấm phân cách, chỉ hiện timestamp.
 
-| Dòng | Hiện tại | Sửa thành | Element |
-|------|----------|-----------|---------|
-| 111 | `text-muted-foreground/70` | `text-muted-foreground` | Purpose label |
-| 153 | `text-muted-foreground/50` | `text-muted-foreground/70` | Content preview |
-| 159 | `text-muted-foreground/60` | `text-muted-foreground/80` | Metadata line |
-| 162 | `text-muted-foreground/25` | `text-muted-foreground/50` | Dot separator |
-| 172 | `text-muted-foreground/25` | `text-muted-foreground/50` | Dot separator |
-| 173 | `text-muted-foreground/50` | `text-muted-foreground/70` | Time text |
-| 215 | `text-muted-foreground/40` | `text-muted-foreground/60` | Delete button |
+### B. Backfill data — gán user_id cho scripts cũ
+- Chạy migration SQL: UPDATE scripts SET `user_id` = (user hiện tại) WHERE `user_id IS NULL` — vì theo data, chỉ có 1 user (`c618b2dc...`) trong hệ thống, nên các script NULL rất có thể là của user đó.
 
-Chỉ thay đổi 1 file, không ảnh hưởng logic.
+## Files thay đổi
+
+| File | Thay đổi |
+|------|----------|
+| `src/components/ScriptCard.tsx` | Ẩn CreatorCell khi không có profile |
+| `src/components/CreatorCell.tsx` | Fallback text rõ nghĩa hơn |
+| Migration SQL | Backfill `user_id` cho 22 scripts thiếu |
 
