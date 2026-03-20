@@ -266,36 +266,43 @@ async function callLovableGateway(
     if (options.traceId) headers["x-trace-id"] = options.traceId;
     if (options.spanId) headers["x-span-id"] = options.spanId;
 
-    const response = await fetch(PROVIDER_ENDPOINTS.lovable, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[ai-provider] Lovable Gateway error:", response.status, errorText);
-      
-      if (response.status === 429) {
-        return { success: false, error: "Rate limit exceeded", provider: "lovable", model };
+    const MAX_EMPTY_RETRIES = 2;
+    for (let attempt = 0; attempt <= MAX_EMPTY_RETRIES; attempt++) {
+      if (attempt > 0) {
+        console.warn(`[ai-provider] Retrying Lovable Gateway (attempt ${attempt + 1}/${MAX_EMPTY_RETRIES + 1}) after empty response`);
+        await new Promise(r => setTimeout(r, 1500 * attempt));
       }
-      if (response.status === 402) {
-        return { success: false, error: "Payment required", provider: "lovable", model };
+
+      const response = await fetch(PROVIDER_ENDPOINTS.lovable, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[ai-provider] Lovable Gateway error:", response.status, errorText);
+        
+        if (response.status === 429) {
+          return { success: false, error: "Rate limit exceeded", provider: "lovable", model };
+        }
+        if (response.status === 402) {
+          return { success: false, error: "Payment required", provider: "lovable", model };
+        }
+        return { success: false, error: `API error: ${response.status}`, provider: "lovable", model };
       }
-      return { success: false, error: `API error: ${response.status}`, provider: "lovable", model };
-    }
 
-    if (options.stream) {
-      // Return the response body for streaming
-      return { success: true, data: response.body, provider: "lovable", model };
-    }
+      if (options.stream) {
+        return { success: true, data: response.body, provider: "lovable", model };
+      }
 
-    // Safely parse JSON response
-    const responseText = await response.text();
-    if (!responseText || responseText.trim() === '') {
-      console.error("[ai-provider] Lovable Gateway returned empty response");
-      return { success: false, error: "Empty response from AI gateway", provider: "lovable", model };
-    }
+      // Safely parse JSON response
+      const responseText = await response.text();
+      if (!responseText || responseText.trim() === '') {
+        console.error("[ai-provider] Lovable Gateway returned empty response (attempt " + (attempt + 1) + ")");
+        if (attempt < MAX_EMPTY_RETRIES) continue; // retry
+        return { success: false, error: "Empty response from AI gateway", provider: "lovable", model };
+      }
     
     let data;
     try {
