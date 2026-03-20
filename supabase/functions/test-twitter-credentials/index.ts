@@ -116,7 +116,7 @@ serve(async (req) => {
     // Use OAuth 2.0 App-Only authentication to verify credentials
     const credentials = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
 
-    const tokenResponse = await fetch('https://api.twitter.com/oauth2/token', {
+    const tokenResponse = await fetch('https://api.x.com/oauth2/token', {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${credentials}`,
