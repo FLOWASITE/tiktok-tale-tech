@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Eye, Trash2, Images, Calendar, Facebook, Instagram, Linkedin, Palette, ImageIcon } from 'lucide-react';
+import { Eye, Trash2, Images, Calendar, Facebook, Instagram, Linkedin, Palette, ImageIcon, Building2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
