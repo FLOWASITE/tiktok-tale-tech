@@ -3,16 +3,16 @@
 // ============================================
 export type ScriptPurpose = 
   | 'ai_video'          // Video AI (VEO 3 / Minimax / etc.)
-  | 'teleprompter'      // Quay người thật (Teleprompter)
-  | 'voiceover'         // Voice-Over / TTS
+  | 'teleprompter'      // Người thật / Voice (Teleprompter + Voice-Over)
   | 'production';       // Production Script cho team
 
 // Legacy types kept for backward compatibility with DB records
-export type ScriptPurposeLegacy = ScriptPurpose | 'ai_video_veo3' | 'ai_video_minimax';
+export type ScriptPurposeLegacy = ScriptPurpose | 'ai_video_veo3' | 'ai_video_minimax' | 'voiceover';
 
 /** Normalize legacy purpose values to current ones */
 export function normalizePurpose(purpose: string): ScriptPurpose {
   if (purpose === 'ai_video_veo3' || purpose === 'ai_video_minimax') return 'ai_video';
+  if (purpose === 'voiceover') return 'teleprompter';
   return purpose as ScriptPurpose;
 }
 
