@@ -1197,46 +1197,8 @@ NGUYÊN TẮC:
   // Build Character Type Instructions section
   const characterTypeInstructions = CHARACTER_TYPE_INSTRUCTIONS[characterType] || "";
 
-  // Build Self-Correction Checklist
-  const selfCorrectionChecklist = `
-# ✅ SELF-CORRECTION CHECKLIST (AI PHẢI TỰ KIỂM TRA TRƯỚC KHI XUẤT)
-
-⚠️ TRƯỚC KHI XUẤT KỊCH BẢN, AI PHẢI TỰ KIỂM TRA TẤT CẢ CÁC MỤC SAU:
-
-□ **HOOK ĐÚNG THỂ LOẠI?**
-  - Nếu là "expert_share" → Hook PHẢI có authority claim (kinh nghiệm, năm trong nghề, "tôi đã...")
-  - Nếu là "listicle" → Hook PHẢI có số lượng ("5 điều...", "Top 7...", "3 bí mật...")
-  - Nếu là "warning_mistake" → Hook PHẢI có cảnh báo urgent ("ĐỪNG...", "SAI LẦM...", "DỪNG LẠI...")
-  - Nếu là "tutorial_howto" → Hook PHẢI nêu kết quả sẽ đạt được
-  - Nếu là "myth_busting" → Hook PHẢI nêu myth phổ biến rồi phản bác
-
-□ **CẤU TRÚC ĐÚNG THỂ LOẠI "${videoTypeName}"?**
-  - Số lượng prompt có đúng ${promptCount}?
-  - Mỗi prompt có map với yêu cầu cấu trúc không? (PROMPT 1 = Hook, PROMPT 2-3 = theo cấu trúc thể loại)
-  - Không dùng cấu trúc của thể loại khác?
-
-□ **CÂU NÓI ĐẶC TRƯNG "${characterTypeName}" XUẤT HIỆN ĐỦ?**
-  - Có ít nhất 3-4 câu nói đặc trưng của nhân vật?
-  - Phân bố tự nhiên, không gượng ép?
-  - Xuyên suốt kịch bản, không chỉ ở đầu?
-
-□ **XƯNG HÔ NHẤT QUÁN?**
-  - Kiểm tra xưng hô trong TẤT CẢ các prompt
-  - KHÔNG thay đổi giữa "tôi/mình/bạn" 
-  - Phù hợp với CHARACTER INSTRUCTIONS
-
-□ **BODY LANGUAGE PHÙ HỢP?**
-  - Mỗi prompt có action phù hợp với nhân vật ${characterTypeName}?
-  - Theo đúng BODY LANGUAGE trong CHARACTER INSTRUCTIONS?
-  - Không có chuyển động đột ngột?
-
-□ **BRAND VOICE TUÂN THỦ?**
-  - Không dùng từ cấm?
-  - Tone phù hợp với định vị thương hiệu?
-  - Compliance rules được tuân thủ?
-
-⛔ NẾU BẤT KỲ MỤC NÀO KHÔNG ĐẠT, AI PHẢI SỬA LẠI TRƯỚC KHI XUẤT!
-`;
+  // Build Self-Correction Checklist — purpose-aware
+  const selfCorrectionChecklist = getPurposeSelfCheck(effectivePurpose, videoTypeName, characterTypeName, promptCount);
 
   // Build Negative Examples
   const negativeExamples = `
@@ -1253,17 +1215,6 @@ NGUYÊN TẮC:
 - ❌ PROMPT 1 xưng "tôi", PROMPT 3 xưng "mình" → PHẢI nhất quán
 - ❌ Bắt đầu với giọng tự tin (the_virtuoso) nhưng kết thúc với giọng friendly (the_coach)
 - ❌ Câu nói đặc trưng chỉ xuất hiện ở PROMPT 1 rồi biến mất
-- ❌ Body language không phù hợp với character type
-
-## SAI: Hook không đúng
-- ❌ expert_share nhưng không có authority claim (không mention kinh nghiệm, năm trong nghề)
-- ❌ listicle nhưng hook không có số lượng cụ thể
-- ❌ warning_mistake nhưng hook không tạo urgency
-
-## ĐÚNG: Ví dụ đúng
-- ✅ expert_share: "Với 10 năm kinh nghiệm trong ngành thuế, tôi có thể khẳng định..."
-- ✅ listicle: "5 sai lầm nghiêm trọng nhất về thuế mà 90% hộ kinh doanh mắc phải..."
-- ✅ warning_mistake: "ĐỪNG mắc sai lầm này! Có thể khiến bạn bị phạt hàng chục triệu..."
 `;
 
   // Build Priority Order section
@@ -1281,7 +1232,13 @@ NGUYÊN TẮC:
   // Inject current date context
   const dateContextSection = buildDateContextSection();
 
-  return `Bạn là một hệ thống AI chuyên tạo KỊCH BẢN & PROMPT VIDEO cho video ngắn TikTok (1–3 phút), phục vụ quy trình sản xuất: VEO 3 (HÌNH ẢNH) → Minimax (GIỌNG NÓI) → CapCut (DỰNG).
+  // Purpose-specific sections
+  const purposeIntro = getPurposeIntro(effectivePurpose, videoTypeName);
+  const purposeVisualRules = getPurposeVisualRules(effectivePurpose, videoTypeName, voiceRegionInfo);
+  const purposeOutputReqs = getPurposeOutputRequirements(effectivePurpose, videoTypeName, characterTypeName);
+  const blockLabel = effectivePurpose === 'production' ? 'SCENE' : effectivePurpose === 'teleprompter' ? 'ĐOẠN' : 'PROMPT';
+
+  return `${purposeIntro}
 
 ${dateContextSection}
 
@@ -1294,8 +1251,7 @@ ${videoTypeInstructions}
 
 **⚠️ BẮT BUỘC CHO THỂ LOẠI NÀY:**
 - Cấu trúc kịch bản PHẢI tuân theo CẤU TRÚC BẮT BUỘC của thể loại "${videoTypeName}" ở trên
-- Hook style PHẢI theo HOOK STYLE MẪU của thể loại này - KHÔNG ĐƯỢC dùng hook style của thể loại khác
-- Tone & Style PHẢI phù hợp với đặc trưng thể loại
+- Hook style PHẢI theo HOOK STYLE MẪU của thể loại này
 - KHÔNG được dùng cấu trúc hoặc hook của thể loại khác
 
 ## 🎭 NHÂN VẬT: ${characterTypeName}
@@ -1303,9 +1259,9 @@ ${characterTypeInstructions}
 
 **⚠️ BẮT BUỘC CHO NHÂN VẬT NÀY:**
 - Mọi lời thoại PHẢI dùng xưng hô và ngôn ngữ của nhân vật "${characterTypeName}"
-- Giọng điệu PHẢI nhất quán theo mô tả nhân vật - KHÔNG thay đổi giữa các prompt
-- Câu nói đặc trưng PHẢI xuất hiện TỰ NHIÊN trong kịch bản (ít nhất 3-4 lần, phân bố đều)
-- Body language trong MỖI prompt PHẢI phù hợp với character type
+- Giọng điệu PHẢI nhất quán - KHÔNG thay đổi giữa các phần
+- Câu nói đặc trưng PHẢI xuất hiện TỰ NHIÊN (ít nhất 3-4 lần)
+${effectivePurpose === 'teleprompter' ? '- CUE (hành động/biểu cảm) PHẢI phù hợp với character type' : '- Body language trong MỖI phần PHẢI phù hợp với character type'}
 
 ${negativeExamples}
 
@@ -1318,80 +1274,50 @@ ${hookSection}
 # THÔNG TIN ĐẦU VÀO
 - Chủ đề: ${topic}
 - Thời lượng: ${duration} giây
-- Thể loại: ${videoTypeName} ⬅️ CẤU TRÚC KỊCH BẢN THEO THỂ LOẠI NÀY
-- Nhân vật: ${characterTypeName} ⬅️ XƯNG HÔ VÀ GIỌNG ĐIỆU THEO NHÂN VẬT NÀY
-- Số lượng prompt cần tạo: ${promptCount} prompt
+- Thể loại: ${videoTypeName}
+- Nhân vật: ${characterTypeName}
+- Định dạng: ${purposeName}
+- Số lượng ${blockLabel.toLowerCase()}: ${promptCount}
 ${angle ? `- Góc tiếp cận: ${TOPIC_ANGLE_LABELS[angle] || angle}` : ''}
-${hook?.opening_line ? '- Hook: Đã có sẵn (sử dụng nguyên văn cho PROMPT 1)' : `- Hook: AI tự tạo THEO HOOK STYLE MẪU của thể loại "${videoTypeName}" - KHÔNG ĐƯỢC dùng hook style của thể loại khác`}
+${hook?.opening_line ? '- Hook: Đã có sẵn (sử dụng nguyên văn)' : `- Hook: AI tự tạo THEO HOOK STYLE MẪU của thể loại "${videoTypeName}"`}
 
 # NGUYÊN TẮC TẠO KỊCH BẢN
 
 ## 1. CẤU TRÚC (Theo thể loại ${videoTypeName})
 - PHẢI tuân theo CẤU TRÚC BẮT BUỘC trong VIDEO TYPE INSTRUCTIONS
 - Tổng thời lượng: ${duration} giây
-- Mỗi PROMPT ≈ 8 giây
-- Số prompt: ${promptCount}
-- Mỗi prompt = 1 ý hoàn chỉnh
+- Mỗi ${blockLabel} ≈ 8 giây
+- Số lượng: ${promptCount}
 
 ## 2. NHÂN VẬT (Theo ${characterTypeName})
-- Xưng hô: THEO CHARACTER INSTRUCTIONS - NHẤT QUÁN 100%
-- Giọng điệu: THEO CHARACTER INSTRUCTIONS - KHÔNG thay đổi
-- Câu nói đặc trưng: SỬ DỤNG TỰ NHIÊN - ít nhất 3-4 lần
-- Body language: THEO CHARACTER INSTRUCTIONS - mỗi prompt phải có
+- Xưng hô: NHẤT QUÁN 100%
+- Giọng điệu: KHÔNG thay đổi
+- Câu nói đặc trưng: ít nhất 3-4 lần
 
 ## 3. QUY ƯỚC GIỌNG NÓI
 - Giọng: ${voiceRegionInfo.label}
 - Đặc điểm: ${voiceRegionInfo.dialect_notes}
 - Phong cách hội thoại: ${dialogueStyleInfo.label} - ${dialogueStyleInfo.prompt_instruction}
-- Phong cách: Theo nhân vật ${characterTypeName}
-- Ngữ điệu: Nhấn mạnh từ khóa, nhịp nghỉ tự nhiên
 
-## 4. QUY ƯỚC VISUAL (VEO 3 COMPATIBLE)
-- Shot mặc định: Medium shot (35mm)
-- Camera: Static with subtle breathing movement
-- Lighting: Soft natural lighting
-- Background: Phù hợp với thể loại ${videoTypeName}
+${purposeVisualRules}
 
-# ĐỊNH DẠNG CHUẨN MỖI PROMPT (${purposeName})
+# ĐỊNH DẠNG CHUẨN MỖI ${blockLabel} (${purposeName})
 
 ${getOutputFormat(effectivePurpose, characterTypeName, duration, promptCount, voiceRegionInfo.label)}
 
 # NGUYÊN TẮC TIMESTAMP
-- Tính timestamp dựa trên thời lượng ${duration} giây chia đều cho ${promptCount} prompt
-- Mỗi prompt ≈ ${Math.round(duration / (parseInt(promptCount.split('-')[0])) )} giây
-
-[CHARACTER ACTION]
-(Theo body language của ${characterTypeName} - mô tả chi tiết tư thế, chuyển động tay, gật đầu, ánh mắt)
-
-[DIALOGUE - Verbatim for Minimax]
-"..." (Xưng hô và giọng điệu theo ${characterTypeName}, có câu nói đặc trưng nếu phù hợp)
-
-[TONE & DELIVERY]
-${voiceRegionInfo.label}, theo đặc trưng ${characterTypeName}, nhấn mạnh từ khóa: [từ cần nhấn mạnh], pause: [vị trí nghỉ]
-
-[AUDIO NOTES - For VEO 3]
-• Ambience: [âm thanh môi trường phù hợp bối cảnh]
-• SFX: None (hoặc hiệu ứng cụ thể nếu cần)
-• Music mood: [subtle/building/emotional tùy theo nội dung]
-
-# NGUYÊN TẮC TIMESTAMP
-- Tính timestamp dựa trên thời lượng ${duration} giây chia đều cho ${promptCount} prompt
-- Mỗi prompt ≈ ${Math.round(duration / (parseInt(promptCount.split('-')[0])) )} giây
+- Tính timestamp dựa trên ${duration} giây chia đều cho ${promptCount} ${blockLabel.toLowerCase()}
+- Mỗi phần ≈ ${Math.round(duration / (parseInt(promptCount.split('-')[0])))} giây
 - Format: [MM:SS-MM:SS]
 
 # NGUYÊN TẮC NỐI MẠCH
-- Prompt sau kế thừa từ prompt trước
+- Phần sau kế thừa từ phần trước
 - Không chào hỏi lại, không reset
 - Nghe như MỘT NGƯỜI NÓI LIÊN TỤC
 
 ${selfCorrectionChecklist}
 
-# YÊU CẦU ĐẦU RA
-– Chỉ xuất danh sách PROMPT theo định dạng VEO 3 ở trên
-– Mỗi PROMPT PHẢI có đầy đủ: timestamp, VISUAL DIRECTION, CHARACTER ACTION, DIALOGUE, TONE & DELIVERY, AUDIO NOTES
-– PHẢI theo cấu trúc của thể loại "${videoTypeName}" (đã kiểm tra qua Self-Correction Checklist)
-– PHẢI theo xưng hô và giọng điệu của "${characterTypeName}" (đã kiểm tra qua Self-Correction Checklist)
-– Không giải thích, không bình luận`;
+${purposeOutputReqs}`;
 }
 
 serve(async (req) => {
