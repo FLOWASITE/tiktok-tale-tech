@@ -264,7 +264,7 @@ export function CarouselCard({
 
           {/* Brand */}
           {brandName && (
-            <div className="flex items-center gap-1.5 mb-2">
+            <div className="flex items-center gap-1.5 mb-1.5">
               {brandLogoUrl ? (
                 <img
                   src={brandLogoUrl}
