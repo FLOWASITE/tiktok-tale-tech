@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { ImageGeneratorButton } from './ImageGeneratorButton';
 import { GeneratedImage } from '@/hooks/useImageGeneration';
 import { cn } from '@/lib/utils';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 interface SlidePromptCardProps {
   slide: CarouselSlide;
