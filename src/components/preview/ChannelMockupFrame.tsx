@@ -181,8 +181,10 @@ function CarouselImageSlider({
 }
 
 // Facebook Post Mockup - Match official FB design
-function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImage }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImage, channelImages }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const [liked, setLiked] = useState(false);
+  const allImages = channelImages?.length ? channelImages : channelImage ? [channelImage] : [];
+  const isCarousel = allImages.length > 1 || (!allImages.length && (channelImages !== undefined));
   
   return (
     <div className="bg-white dark:bg-[#242526] rounded-lg shadow-md border border-[#dadde1] dark:border-[#3e4042] overflow-hidden font-['Segoe_UI',system-ui,sans-serif]">
@@ -227,16 +229,19 @@ function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImag
         )}
       </div>
 
-      {/* Image - show if available */}
-      {channelImage && (
+      {/* Carousel Image Slider or Single Image */}
+      {isCarousel ? (
+        <CarouselImageSlider 
+          images={allImages} 
+          totalSlides={Math.max(allImages.length, 1)}
+          aspectRatio="aspect-square"
+          emptyGradient="from-[#f0f2f5] to-[#e4e6eb]"
+        />
+      ) : allImages.length === 1 ? (
         <div className="w-full aspect-video bg-[#f0f2f5] dark:bg-[#3a3b3c]">
-          <img 
-            src={channelImage} 
-            alt="Post image" 
-            className="w-full h-full object-cover"
-          />
+          <img src={allImages[0]} alt="Post image" className="w-full h-full object-cover" />
         </div>
-      )}
+      ) : null}
 
       {/* Reactions bar */}
       <div className="px-4 py-2.5 flex items-center justify-between border-b border-[#dadde1] dark:border-[#3e4042]">
