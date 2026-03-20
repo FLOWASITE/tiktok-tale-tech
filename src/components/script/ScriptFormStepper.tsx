@@ -92,8 +92,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
-  const [brandValue, setBrandValue] = useState<string>('none');
-  const [brandTouched, setBrandTouched] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState(0);
   const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
