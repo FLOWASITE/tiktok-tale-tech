@@ -520,7 +520,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                         {formData.hook ? 'Đã chọn hook — nhấn để thay đổi' : 'Tuỳ chọn — Thu hút 3 giây đầu tiên'}
                       </p>
                     </div>
-                    <span className="text-xs font-mono text-muted-foreground/40 mr-2">03</span>
+                    <span className="text-xs font-mono text-muted-foreground/40 mr-2">02</span>
                     <ChevronRight className="w-4 h-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
                   </CollapsibleTrigger>
                   <CollapsibleContent>
