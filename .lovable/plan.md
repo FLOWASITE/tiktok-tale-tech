@@ -1,48 +1,56 @@
 
 
-# Cải thiện ScriptPurposeSelector UI — Soft Luxury
+# Tối ưu Prompt theo từng Định dạng Kịch bản
 
 ## Vấn đề hiện tại
 
-Selector hiện tại chỉ là 3 pills nhỏ giống nhau, khó phân biệt. Description chỉ hiện khi chọn — user không thấy được sự khác biệt trước khi chọn. Icon quá nhỏ (3.5x3.5) và generic.
+Hàm `buildSystemPrompt` trong edge function `generate-script` luôn dùng **cùng một prompt** cho cả 3 định dạng. Cụ thể:
 
-## Giải pháp: Card-based selector
+1. **Intro luôn nói "VEO 3 → Minimax → CapCut"** — sai cho Teleprompter và Production
+2. **Section "QUY ƯỚC VISUAL"** (shot, camera, lighting) luôn xuất hiện — không cần cho Teleprompter
+3. **Lines 1363-1380 bị duplicate** — hardcode lại format VEO 3 SAU `getOutputFormat()`, gây nhiễu cho Teleprompter/Production
+4. **Self-correction checklist** luôn check "BODY LANGUAGE" — không phù hợp với Teleprompter
+5. **"YÊU CẦU ĐẦU RA"** luôn nói "VEO 3", "VISUAL DIRECTION, CHARACTER ACTION..." — sai cho 2 format kia
 
-Chuyển từ pills sang **3 mini-cards** ngang, mỗi card có icon lớn + tên + mô tả 1 dòng. Khi compact mode (trong form stepper), giữ pills nhưng cải thiện icon.
+## Giải pháp
+
+Tách prompt thành các **section có điều kiện theo `effectivePurpose`**, giữ phần chung (video type, character, brand voice) nhưng thay đổi:
+
+### Thay đổi trong `buildSystemPrompt()`:
+
+#### A. Intro — tùy purpose
+- `ai_video`: "chuyên tạo PROMPT VIDEO cho AI video generators (VEO 3, Minimax)"
+- `teleprompter`: "chuyên tạo KỊCH BẢN ĐỌC cho người thật quay/thu âm trực tiếp"
+- `production`: "chuyên tạo KỊCH BẢN SẢN XUẤT cho team chuyên nghiệp (đạo diễn, quay phim, biên tập)"
+
+#### B. Section Visual — chỉ cho `ai_video` và `production`
+- `teleprompter`: Bỏ "QUY ƯỚC VISUAL", thay bằng "QUY ƯỚC TRÌNH BÀY" (font size lớn, đánh dấu nhấn mạnh, pause markers)
+
+#### C. Xóa duplicate lines 1363-1380
+- Đoạn `[CHARACTER ACTION]`, `[DIALOGUE]`, `[TONE & DELIVERY]`, `[AUDIO NOTES]` bị hardcode lại sau `getOutputFormat()` → xóa
+
+#### D. Self-correction checklist — tùy purpose
+- `ai_video`: Giữ check BODY LANGUAGE, VISUAL DIRECTION
+- `teleprompter`: Thay bằng check CUE, NHẤN MẠNH, PAUSE, GIỌNG
+- `production`: Check CAMERA, LIGHTING, AUDIO setup, EDITOR NOTES
+
+#### E. "YÊU CẦU ĐẦU RA" — tùy purpose
+- `ai_video`: "Mỗi PROMPT có: timestamp, VISUAL DIRECTION, CHARACTER ACTION, DIALOGUE, TONE & DELIVERY, AUDIO NOTES"
+- `teleprompter`: "Mỗi ĐOẠN có: CUE, Lời thoại, NHẤN MẠNH, PAUSE, GIỌNG"
+- `production`: "Mỗi SCENE có: CAMERA, LIGHTING, AUDIO, ACTION, DIALOGUE, NOTES FOR EDITOR"
+
+### Tạo helper functions mới:
 
 ```text
-NON-COMPACT (standalone):
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│  🎬           │ │  🎤           │ │  🎥           │
-│  Video AI    │ │  Người thật  │ │  Production  │
-│  VEO 3,      │ │  Quay/thu âm │ │  Team chuyên │
-│  Minimax...  │ │  trực tiếp   │ │  nghiệp      │
-└──────────────┘ └──────────────┘ └──────────────┘
-
-COMPACT (trong form stepper - giữ pills nhưng icon rõ hơn):
-[🎬 Video AI] [🎤 Người thật] [🎥 Production]
+getPurposeIntro(purpose, videoTypeName) → string
+getPurposeVisualRules(purpose, videoTypeName) → string
+getPurposeSelfCheck(purpose, videoTypeName, characterTypeName, promptCount) → string
+getPurposeOutputRequirements(purpose, videoTypeName, characterTypeName) → string
 ```
-
-### Thay đổi chi tiết
-
-#### `ScriptPurposeSelector.tsx`
-1. **Icon cải thiện**: `ai_video` → `Wand2` (AI magic), `teleprompter` → `Mic` (microphone/voice), `production` → `Clapperboard` (giữ nguyên)
-2. **Non-compact mode**: Chuyển sang grid 3 cols, mỗi item là card nhỏ với:
-   - Icon container `w-10 h-10 rounded-xl` với gradient background riêng mỗi loại
-   - Label bold + 1 dòng subtitle mô tả ngắn
-   - Selected state: border-primary + subtle glow
-   - Style: `rounded-2xl border-border/30 backdrop-blur-sm` (Soft Luxury)
-3. **Compact mode**: Giữ pills nhưng dùng icon mới, thêm subtle color tint cho selected
-4. **Bỏ phần description panel AnimatePresence** ở dưới — thông tin đã nằm trong card
-5. **Thêm subtitle ngắn** vào `SCRIPT_PURPOSE_CONFIG` hoặc inline: `ai_video: "VEO 3, Minimax..."`, `teleprompter: "Quay & thu âm"`, `production: "Team sản xuất"`
-
-#### `src/types/script.ts`
-- Thêm field `subtitle` vào `SCRIPT_PURPOSE_CONFIG` cho mô tả ngắn 1 dòng hiển thị trên card
 
 ## File thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| `src/types/script.ts` | Thêm `subtitle` field vào config |
-| `src/components/script/ScriptPurposeSelector.tsx` | Redesign card-based layout, icon mới, Soft Luxury style |
+| `supabase/functions/generate-script/index.ts` | Tách prompt theo purpose: intro, visual rules, self-check, output requirements. Xóa duplicate lines 1363-1380 |
 
