@@ -133,7 +133,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   } = useQuickHookSuggestions({
     topic: formData.topic,
     brandVoice: brandVoiceForHook,
-    enabled: currentStep === 3 && formData.topic.length >= 10,
+    enabled: currentStep === 1 && formData.topic.length >= 10,
   });
 
   // Map script purpose to content goal for AI suggestions
