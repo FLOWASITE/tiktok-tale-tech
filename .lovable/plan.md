@@ -1,61 +1,55 @@
 
 
-# Cải thiện UI/UX AI Script Analyzer — Rộng rãi, Chuyên nghiệp, Sang trọng
+# Tự động cải thiện kịch bản theo gợi ý AI
 
-## Vấn đề hiện tại
+## Ý tưởng
+Sau khi AI Analyzer đưa ra gợi ý (suggestions, weaknesses), thêm nút **"Áp dụng gợi ý"** để hệ thống tự động gọi AI viết lại kịch bản dựa trên các gợi ý đó — rồi cập nhật nội dung script.
 
-Analyzer panel bị hẹp (w-72 / w-80 ~ 288-320px), khiến Score Rings co lại, biểu đồ nhỏ, nội dung chen chúc. Layout sidebar hạn chế khả năng hiển thị dữ liệu phân tích chuyên nghiệp.
+## Luồng hoạt động
 
-## Giải pháp
+```text
+[Phân tích AI] → Gợi ý cải thiện
+       ↓
+[Nút "AI Cải thiện"] → Gọi Edge Function "improve-script"
+       ↓
+AI nhận: script gốc + suggestions + weaknesses
+       ↓
+AI trả về: script đã cải thiện
+       ↓
+Hiển thị diff/preview → User xác nhận "Áp dụng"
+       ↓
+Lưu script mới + Re-analyze tự động
+```
 
-### 1. Mở rộng panel sidebar
-- Tăng từ `w-72 md:w-80` lên `sm:w-[380px] md:w-[420px]` trong `ScriptViewer.tsx`
-- Tăng `max-w-6xl` thành `max-w-7xl` khi panel mở để có đủ không gian
+## Chi tiết kỹ thuật
 
-### 2. Redesign ScriptAnalyzer — Soft Luxury style
+### 1. Tạo Edge Function `improve-script`
+- **Input**: `scriptContent`, `suggestions`, `weaknesses`, `topic`, `duration`, `videoType`, `scriptPurpose`
+- **Logic**: Gửi script gốc + danh sách gợi ý cho AI, yêu cầu viết lại kịch bản giữ nguyên format (Prompt 1, Prompt 2...) nhưng cải thiện theo từng gợi ý
+- **Output**: Script đã cải thiện (text)
+- Dùng Lovable AI Gateway, model `google/gemini-3-flash-preview`
 
-**Overall Score Hero Section:**
-- Card rộng hơn với padding `p-6`, gradient background tinh tế hơn
-- Thêm decorative element (subtle radial gradient hoặc dot pattern)
-- Score hiển thị lớn hơn (text-5xl), grade badge sang trọng hơn với background riêng
-- Thêm timestamp "Phân tích lúc..." nhỏ bên dưới
+### 2. Tạo hook `useScriptImprovement`
+- State: `isImproving`, `improvedContent`, `error`
+- Function `improveScript(script, analysis)` → gọi edge function
+- Function `applyImprovement()` → lưu `improvedContent` vào DB, cập nhật `script.content`
 
-**Score Rings → Score Cards:**
-- Chuyển từ grid 5 cols (quá chật) sang layout 2 hàng: 3+2 hoặc grid responsive
-- Tăng kích thước ring (size 64-68), thêm score label rõ ràng hơn
-- Mỗi ring có subtle background card riêng với hover effect
-- Thêm micro-description cho mỗi metric (vd: "Hook — 3s đầu", "CTA — Kêu gọi hành động")
+### 3. Cập nhật `ScriptAnalyzer.tsx`
+- Thêm nút **"AI Cải thiện kịch bản"** ở cuối phần suggestions (chỉ hiện khi có suggestions hoặc weaknesses)
+- Khi nhấn → gọi `improveScript`
+- Hiển thị trạng thái loading "Đang cải thiện..."
+- Khi có kết quả → hiện preview nội dung mới trong modal/sheet với 2 nút: "Áp dụng" và "Hủy"
 
-**Strengths & Weaknesses:**
-- Card rộng rãi hơn với padding p-4, icon lớn hơn
-- Typography nổi bật: header text-xs → text-sm
-- Bullet items spacing thoáng hơn (space-y-2.5)
-- Thêm divider line tinh tế giữa các items
+### 4. Cập nhật `ScriptViewer.tsx`
+- Truyền thêm `onScriptUpdate` callback vào `ScriptAnalyzer` để sau khi áp dụng cải thiện → cập nhật script hiển thị
+- Sau khi áp dụng → tự động re-analyze script mới
 
-**Emotional Arc Chart:**
-- Chart cao hơn: h-36 → h-44
-- Thêm header description nhỏ giải thích biểu đồ
-- Emotion pills lớn hơn, rõ ràng hơn
-
-**Suggestion Cards:**
-- Padding tăng p-3 → p-4
-- Icon container lớn hơn (w-8 h-8)
-- Message text size tăng lên text-sm
-- Thêm subtle separator giữa các cards
-
-**Empty/Loading States:**
-- Icon lớn hơn, spacing rộng rãi hơn
-- Description text rõ ràng, font-size lớn hơn
-
-### 3. Spacing & Typography tổng thể
-- Section gap: space-y-5 → space-y-6
-- Section headers: thêm bottom margin, font-size lên text-xs tracking-widest
-- Tất cả border-radius thống nhất rounded-2xl cho major cards
-
-## Files cần sửa
+## Files cần tạo/sửa
 
 | File | Thay đổi |
 |------|----------|
-| `src/components/ScriptViewer.tsx` | Mở rộng sidebar width, max-w dialog |
-| `src/components/script/ScriptAnalyzer.tsx` | Redesign toàn bộ layout với spacing rộng rãi, typography sang trọng |
+| `supabase/functions/improve-script/index.ts` | **Tạo mới** — Edge function nhận script + gợi ý, trả về script cải thiện |
+| `src/hooks/useScriptImprovement.ts` | **Tạo mới** — Hook quản lý flow cải thiện |
+| `src/components/script/ScriptAnalyzer.tsx` | Thêm nút "AI Cải thiện" + preview modal |
+| `src/components/ScriptViewer.tsx` | Truyền `onScriptUpdate` vào ScriptAnalyzer |
 
