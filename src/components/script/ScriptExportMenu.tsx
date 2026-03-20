@@ -56,13 +56,11 @@ const PURPOSE_EXPORT_OPTIONS: Record<ScriptPurpose, {
   minimax?: boolean;
   dialogue?: boolean;
   teleprompter?: boolean;
-  voiceover?: boolean;
   production?: boolean;
   standard?: boolean;
 }> = {
   ai_video: { veo3: true, minimax: true, dialogue: true, standard: true },
   teleprompter: { teleprompter: true, dialogue: true, standard: true },
-  voiceover: { voiceover: true, dialogue: true, standard: true },
   production: { production: true, veo3: true, minimax: true, dialogue: true, standard: true },
 };
 

@@ -197,8 +197,6 @@ export function PurposeAwarePromptCard({
     switch(purpose) {
       case 'teleprompter':
         return <TeleprompterCard prompt={prompt} />;
-      case 'voiceover':
-        return <VoiceoverCard prompt={prompt} />;
       case 'production':
         return <ProductionCard prompt={prompt} />;
       default: // ai_video — detect minimax vs veo3 based on parsed fields
