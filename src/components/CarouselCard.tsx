@@ -281,10 +281,6 @@ export function CarouselCard({
             )}
           </div>
 
-          {/* Topic */}
-          <p className="text-xs xs:text-sm text-muted-foreground line-clamp-1 mb-1.5">
-            {carousel.topic}
-          </p>
 
           {/* Brand */}
           {brandName && (
