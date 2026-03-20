@@ -474,16 +474,25 @@ const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, me
   const styleSection = getCarouselStylePrompt(carouselStyle, formData.slideCount);
   const textLengthSection = getTextLengthGuidelines(visualPreset);
 
-  // Brand color directive for fullPrompt
+  // Brand color directive for BOTH colorLayout AND fullPrompt
   let brandColorDirective = '';
   if (brandColors?.primary) {
     const allColors = [brandColors.primary, ...(brandColors.secondary || [])].join(', ');
-    brandColorDirective = `\n## 🎨 BRAND COLOR PALETTE (BẮT BUỘC TRONG fullPrompt)
+    const primaryHex = brandColors.primary;
+    brandColorDirective = `\n## 🎨 BRAND COLOR PALETTE — BẮT BUỘC CHO CẢ colorLayout VÀ fullPrompt
 Thương hiệu sử dụng palette: ${allColors}
-- MỌI fullPrompt PHẢI sử dụng palette này làm accent colors chủ đạo
-- Ghi rõ palette vào fullPrompt, ví dụ: "color palette: ${allColors}"
-- Không để AI tự chọn màu — phải ép đúng brand colors
-- Accent, gradient, overlay, shapes đều phải dựa trên palette trên\n`;
+
+### QUY TẮC colorLayout (CRITICAL):
+- colorLayout PHẢI BẮT ĐẦU bằng brand hex codes: ${allColors}
+- Ví dụ đúng: "Brand ${primaryHex}, complementary #FFF5E6. Centered layout with high contrast."
+- Ví dụ SAI: "Deep blue (#0A2540), electric teal (#00D4FF)" — TUYỆT ĐỐI KHÔNG tự chọn màu ngoài palette
+- Nếu cần màu bổ sung, chỉ dùng tints/shades của brand colors (lighten/darken ${primaryHex})
+
+### QUY TẮC fullPrompt (CRITICAL):
+- fullPrompt PHẢI dùng brand palette làm COLOR PALETTE CHÍNH (không chỉ accent)
+- Ghi rõ: "color palette: ${allColors}" trong mọi fullPrompt
+- Background, gradient, shapes, overlays đều PHẢI dựa trên ${allColors}
+- KHÔNG được dùng "deep blue", "navy", "teal", "electric blue" hay bất kỳ màu nào ngoài brand palette\n`;
   }
 
   const platformName: Record<string, string> = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', linkedin: 'LinkedIn' };
@@ -632,7 +641,7 @@ Mỗi slide phải có đủ 7 thành phần:
     - dataValue (chỉ cho data slides): Số liệu lớn — "150%", "2.5M"
     - dataLabel (đi kèm dataValue): Nhãn — "Tăng trưởng doanh thu"
 [3] designStyle: Phong cách thiết kế
-[4] colorLayout: Màu sắc – bố cục
+[4] colorLayout: Màu sắc – bố cục (PHẢI dùng brand colors hex làm màu chủ đạo, KHÔNG tự chọn màu khác)
 [5] aspectRatio: Tỉ lệ khung hình (1:1 cho carousel)
 [6] technicalRequirements: Yêu cầu kỹ thuật
 [7] fullPrompt: Prompt tạo ẢNH SLIDE (mô tả cảnh cụ thể, KHÔNG viết text content, để lại không gian cho text)
@@ -842,7 +851,7 @@ Follow the carousel style guidelines strictly.`;
                       required: ["headline"],
                     },
                     designStyle: { type: "string", description: "Phong cách thiết kế" },
-                    colorLayout: { type: "string", description: "Màu sắc và bố cục" },
+                    colorLayout: { type: "string", description: "Màu sắc (PHẢI bắt đầu bằng brand hex codes nếu có) và bố cục. KHÔNG tự chọn màu ngoài brand palette." },
                     aspectRatio: { type: "string", description: "Tỉ lệ khung hình" },
                     technicalRequirements: { type: "string", description: "Yêu cầu kỹ thuật" },
                     fullPrompt: { type: "string", description: "Prompt TIẾNG ANH chi tiết (tối thiểu 30 từ) mô tả CẢNH CỤ THỂ cho ảnh slide. PHẢI bao gồm: chủ thể liên quan đến nội dung slide + bối cảnh + ánh sáng + phong cách + bảng màu + để lại không gian cho text. KHÔNG viết nội dung text trong prompt. Kết thúc bằng 'consistent with previous slides: [style description]'." },
