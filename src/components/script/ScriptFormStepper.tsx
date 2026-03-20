@@ -45,7 +45,7 @@ import { ScriptPurposeSelector } from '@/components/script/ScriptPurposeSelector
 import { VoiceRegionSelector } from '@/components/script/VoiceRegionSelector';
 import { DialogueStyleSelector } from '@/components/script/DialogueStyleSelector';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
-import { BrandVoiceVariantSelector } from '@/components/BrandVoiceVariantSelector';
+import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { cn } from '@/lib/utils';
 import { 
