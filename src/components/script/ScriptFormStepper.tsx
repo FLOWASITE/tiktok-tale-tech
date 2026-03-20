@@ -277,8 +277,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   };
 
   const handleSkipHook = () => {
-    setCompletedSteps(prev => [...prev.filter(s => s !== 3), 3]);
-    setCurrentStep(4);
+    // Hook is now in step 1, no skip needed
   };
 
   const handleSubmit = async () => {
