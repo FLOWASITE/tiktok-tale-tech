@@ -1,40 +1,36 @@
 
 
-# Thiết kế lại Carousel Card — Thẩm mỹ & Sang trọng
+# Tăng cường hiển thị màu Brand trong ảnh AI
 
-## Vấn đề
-Card hiện tại trông khá "flat" và có quá nhiều badge/tag chen chúc, thiếu hierarchy rõ ràng. Cần redesign để tạo cảm giác premium, thoáng, dễ scan.
+## Nguyên nhân gốc
+Prompt hiện tại dùng ngôn ngữ yếu cho brand colors ("accent color", "incorporate"), và DB design tokens có thể ghi đè bằng màu mặc định (xanh/đen). AI ưu tiên tokens hơn brand colors → kết quả thiếu màu thương hiệu.
 
-## Thiết kế mới
+## Giải pháp
 
-### Layout Structure
-```text
-┌──────────────────────────────┐
-│  [Image Grid 4:3]            │  ← Giữ nguyên grid ảnh
-│  Status pill (góc phải trên) │
-│  Image count (góc trái dưới) │
-├──────────────────────────────┤
-│  Platform icon + Brand logo  │  ← Dòng nhỏ, subtle
-│                              │
-│  Title (2 dòng max)          │  ← Font lớn hơn, medium weight
-│  "3 giờ trước"               │  ← Muted, nhỏ
-│                              │
-│  ┌─ Avatar ── Creator Name ─┐│  ← Bottom row
-│  │           [👁 Xem] [🗑] ││
-│  └──────────────────────────┘│
-└──────────────────────────────┘
-```
+### 1. `supabase/functions/generate-carousel-image/index.ts` — Tăng cường brandColorDirective
 
-### Thay đổi chính: `src/components/CarouselCard.tsx`
+**Line 960-973**: Viết lại directive mạnh hơn:
+- Thay "incorporate as dominant colors" → "These are the PRIMARY colors — they MUST dominate the image"
+- Thêm chỉ dẫn cụ thể: "At least 40-60% of the image's color area must use these brand colors"
+- Thêm negative: "Do NOT default to blue, black, or generic corporate colors unless they ARE the brand colors"
 
-1. **Loại bỏ badge overload**: Xóa hàng badge (platform, slide count, style) — chuyển platform + brand thành dòng icon nhỏ subtle phía trên title
-2. **Status badge**: Di chuyển vào overlay góc phải trên ảnh (glass effect) thay vì cạnh title
-3. **Typography upgrade**: Title dùng `font-medium tracking-tight`, không bold quá
-4. **Spacing thoáng hơn**: Tăng padding, giảm clutter
-5. **Bottom bar**: Creator + Actions trên cùng 1 dòng, Actions chỉ hiện khi hover
-6. **Card style**: Thêm subtle border-radius lớn hơn (`rounded-xl`), shadow nhẹ hơn, hover effect tinh tế
-7. **Bỏ status indicator line trên cùng** — đã có status pill trên ảnh
-8. **Bỏ glow effect** — thay bằng subtle shadow transition
+**Line 1126-1148**: Đưa brandColorDirective lên VỊ TRÍ ĐẦU TIÊN trong prompt assembly (trước scene description) vì AI ưu tiên thông tin đầu prompt.
 
-Sửa 1 file `src/components/CarouselCard.tsx`, redesign toàn bộ phần content bên dưới ảnh.
+**Line 975-999**: Khi có brandColors, ép DB tokens phải nhường — chỉ giữ `mood`, `effects`, loại bỏ các `colors.primary`, `colors.accent` từ tokens để tránh conflict.
+
+### 2. `supabase/functions/_shared/image-prompt-builders.ts` — Tăng sức ép trong full mode
+
+**Line 161-170**: Viết lại phần COLOR PALETTE:
+- "PRIMARY COLOR: {hex} — This MUST be the dominant color in the image (40-60% color area)"
+- Thêm: "FORBIDDEN: Do not use blue (#3B82F6), teal, or generic dark themes unless they match the brand palette above"
+- Sandwich technique: lặp lại brand colors ở cuối prompt (suffix position)
+
+### 3. `supabase/functions/_shared/image-prompt-builders.ts` — Thêm Brand Color Reinforcement builder (suffix)
+
+Thêm builder mới `buildBrandColorReinforcement` ở position `suffix` để nhắc lại brand colors ở cuối prompt (sandwich technique — AI nhớ đầu và cuối prompt rõ nhất).
+
+## Tóm tắt
+- Sửa 2 file
+- `generate-carousel-image/index.ts`: Tăng cường directive + đổi vị trí trong prompt + lọc token conflict
+- `image-prompt-builders.ts`: Viết lại color section mạnh hơn + thêm suffix reinforcement builder
 
