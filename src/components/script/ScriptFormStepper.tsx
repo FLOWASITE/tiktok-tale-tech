@@ -332,7 +332,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
             <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
             {/* Section 02: Chủ đề */}
-            <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
+            <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-visible">
               <div className="px-4 py-3 flex items-center gap-3 border-b border-border/30">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shrink-0">
                   <FileText className="w-4 h-4 text-primary-foreground" />

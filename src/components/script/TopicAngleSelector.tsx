@@ -74,7 +74,7 @@ export function TopicAngleSelector({ value, onChange, disabled = false }: TopicA
                     {isSelected && <X className="w-3 h-3 ml-0.5 opacity-70" />}
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs text-xs leading-relaxed z-[100]">
+                <TooltipContent side="bottom" sideOffset={8} className="max-w-xs text-xs leading-relaxed z-[100]">
                   <p className="font-semibold mb-1">{config.label} — {config.description}</p>
                   <p className="text-muted-foreground">{config.tooltip}</p>
                 </TooltipContent>
