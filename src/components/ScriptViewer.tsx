@@ -149,7 +149,7 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className={cn(
           "w-[95vw] max-h-[95vh] xs:max-h-[90vh] gradient-card border-border overflow-hidden flex flex-col",
-          showAnalytics ? "max-w-6xl" : "max-w-4xl"
+          showAnalytics ? "max-w-7xl" : "max-w-4xl"
         )}>
           <DialogHeader className="pb-2 xs:pb-4">
             <div className="flex flex-col xs:flex-row xs:items-start justify-between gap-2 xs:gap-4">
