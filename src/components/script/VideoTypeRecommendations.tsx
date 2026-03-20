@@ -71,7 +71,7 @@ export function VideoTypeRecommendations({
                 {VIDEO_TYPE_LABELS[topRecommendation.videoType]}
               </span>
               <Badge className={cn("text-[10px] h-5", CATEGORY_COLORS[topRecommendation.category])}>
-                {VIDEO_TYPE_CATEGORIES[topRecommendation.category].icon} {VIDEO_TYPE_CATEGORIES[topRecommendation.category].label}
+                {VIDEO_TYPE_CATEGORIES[topRecommendation.category].label}
               </Badge>
             </div>
             <div className="flex items-center gap-2">
