@@ -1,49 +1,31 @@
 
 
-# Tối ưu Step 1 trong luồng 2 bước
+# Phân tích trùng lặp & Phương án gộp
 
-## Vấn đề hiện tại
+## Phát hiện trùng lặp
 
-Step 1 vẫn nặng vì **"Mục đích kịch bản" chiếm nguyên 1 card section** (Section 01) với header gradient, icon, description — chỉ để chọn 1 trong 5 pill. Điều này đẩy Topic textarea (phần quan trọng nhất) xuống thấp và tạo cảm giác form dài.
+### 1. **Topic Summary (Step 2) ↔ Topic Input (Step 1)** — TRÙNG
+Step 2 có card "Topic summary" (dòng 570-607) hiển thị lại chủ đề, hook, góc tiếp cận mà user vừa nhập ở Step 1. Đây là thông tin lặp 100% — user vừa nhập xong, chuyển sang Step 2 lại thấy hiển thị lại y hệt.
 
-## Giải pháp: Gộp Purpose vào Topic card
+### 2. **VideoTypeRecommendations + VideoTypeSelector** — TƯƠNG ĐỒNG
+Trong popover "Thể loại video" (dòng 641-658), hiện có **2 component cùng chức năng**: `VideoTypeRecommendations` (gợi ý AI, 3-5 items) và `VideoTypeSelector` (danh sách đầy đủ 15 loại). User phải cuộn qua 2 danh sách chồng nhau.
 
-```text
-TRƯỚC Step 1:
-┌─ Card 01: Mục đích ────────────────┐
-│  [VEO 3] [MiniMax] [Teleprompter]  │
-│  [Voiceover] [Production]          │
-└────────────────────────────────────┘
-┌─ Card 02: Chủ đề ─────────────────┐
-│  [textarea]                        │
-│  [TopicIdeaHub] [TopicAngle]       │
-└────────────────────────────────────┘
-┌─ Card 03: Hook (collapsible) ─────┐
+### 3. **CharacterTypeRecommendations + CharacterTypeSelector** — TƯƠNG ĐỒNG
+Tương tự, popover "Nhân vật" (dòng 671-690) có `CharacterTypeRecommendations` + `CharacterTypeSelector` chồng nhau.
 
-SAU Step 1:
-┌─ Card: Chủ đề video ──────────────┐
-│  Định dạng: [VEO 3] [MiniMax] ... │ ← Purpose pills inline, compact
-│  ─────────────────────────────────  │
-│  [textarea]                        │
-│  [TopicIdeaHub] [TopicAngle]       │
-└────────────────────────────────────┘
-┌─ Hook (collapsible) ──────────────┐
-```
+## Phương án gộp
 
-### Thay đổi chi tiết
+### A. Xóa Topic Summary card ở Step 2
+- Bỏ hoàn toàn card hiển thị lại topic/hook/angle (dòng 570-607)
+- Thay bằng **1 dòng text ngắn** trong header: `"Chủ đề: {topic.slice(0,60)}..."` — đủ để user biết context mà không lặp
 
-#### `ScriptFormStepper.tsx`
-
-1. **Xóa Section 01 card riêng** cho Purpose — gộp `ScriptPurposeSelector` vào đầu Section 02 (Topic card), hiển thị dạng inline pills nhỏ gọn với label "Định dạng:" phía trước
-2. **Xóa gradient divider** giữa Section 01 và 02
-3. **Đổi số thứ tự**: Card chủ đề thành 01, Hook thành 02
-4. Purpose pills row nằm ngay trên textarea, cách bằng 1 border nhẹ
-
-Kết quả: Step 1 giảm ~30% chiều cao, topic textarea hiện ngay trên cùng, user focus vào việc quan trọng nhất — nhập chủ đề.
+### B. Gộp Recommendations vào Selector
+- Trong popover VideoType: Hiển thị `VideoTypeRecommendations` ở trên (AI gợi ý, tối đa 3), sau đó 1 nút "Xem tất cả ▾" mở `VideoTypeSelector` (collapsible). Tránh hiện cả 2 danh sách cùng lúc.
+- Tương tự cho CharacterType popover.
 
 ## File thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| `ScriptFormStepper.tsx` | Gộp Purpose vào Topic card, xóa Section 01 riêng |
+| `ScriptFormStepper.tsx` | Xóa Topic Summary card, thêm 1 dòng context text vào header. Gộp Recommendations + Selector trong mỗi popover bằng collapsible "Xem tất cả" |
 
