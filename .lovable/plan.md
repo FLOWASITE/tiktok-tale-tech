@@ -1,36 +1,18 @@
 
 
-# Hiển thị tất cả ảnh trên Carousel Card
+# Tăng diện tích ảnh, giảm diện tích chữ trên Carousel Card
 
-## Hiện tại
-- Hook `useCarouselCardImages` chỉ lưu `thumbnailUrl` (ảnh đầu tiên) + `imageCount`
-- Card hiển thị 1 ảnh duy nhất với badge đếm số ảnh
+## Thay đổi trong `src/components/CarouselCard.tsx`
 
-## Giải pháp: Layout dạng grid ảnh nhỏ
+### 1. Phần ảnh — tăng kích thước
+- Đổi `aspect-video` (16:9) → `aspect-[4/3]` để ảnh cao hơn, chiếm nhiều diện tích hơn trên card
 
-Thay vì 1 ảnh lớn, hiển thị **grid tất cả ảnh** trên card. Nếu có nhiều ảnh sẽ dùng layout grid linh hoạt:
-- 1 ảnh: full width
-- 2 ảnh: 2 cột
-- 3 ảnh: 1 lớn + 2 nhỏ
-- 4+ ảnh: 1 lớn + 2 nhỏ + badge "+N"
+### 2. Phần chữ — thu gọn
+- **CardHeader** (line 192): Giảm padding từ `p-3 xs:p-4 sm:p-5` → `p-2 xs:p-3 sm:p-3`
+- **CardContent** (line 216): Giảm padding từ `p-3 xs:p-4 sm:p-5` → `p-2 xs:p-3 sm:p-3`
+- **Topic** (line 261): Giảm `line-clamp-2` → `line-clamp-1` và giảm margin
+- **Tags** (line 218): Giảm margin `mb-2 xs:mb-3` → `mb-1.5`
+- **Brand + Creator**: Giảm margin giữa các section
 
-```text
-┌─────────────────┐  ┌────────┬────────┐  ┌────────┬───────┐
-│                 │  │        │        │  │        │  img2 │
-│    1 ảnh        │  │  img1  │  img2  │  │  img1  ├───────┤
-│    full         │  │        │        │  │        │  img3 │
-│                 │  │        │        │  │        ├───────┤
-└─────────────────┘  └────────┴────────┘  └────────┘  +2   │
-     1 image            2 images              4+ images
-```
-
-### Thay đổi
-
-| File | Nội dung |
-|------|----------|
-| `src/hooks/useCarouselCardImages.ts` | Trả về mảng `imageUrls: string[]` thay vì chỉ `thumbnailUrl` |
-| `src/components/CarouselCard.tsx` | Thay section thumbnail bằng grid layout hiển thị nhiều ảnh |
-| `src/pages/Carousel.tsx` | Truyền `imageUrls` thay vì `thumbnailUrl` + `imageCount` |
-
-Sửa 3 file, ~60 dòng thay đổi.
+Sửa 1 file, ~10 dòng thay đổi. Ảnh sẽ chiếm ~60% card thay vì ~40% như hiện tại.
 
