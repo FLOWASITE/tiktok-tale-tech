@@ -74,7 +74,7 @@ export function CarouselCard({
   creatorProfile, 
   isLoadingProfile,
   index = 0,
-  thumbnailUrl,
+  imageUrls,
   imageCount,
   brandName,
   brandLogoUrl,
