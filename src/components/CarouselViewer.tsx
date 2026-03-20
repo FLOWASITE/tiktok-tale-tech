@@ -231,7 +231,8 @@ export function CarouselViewer({
   useEffect(() => {
     setImages([]);
     setSyncedCarouselId(null);
-  }, [carousel?.id, setImages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carousel?.id]);
   
   useEffect(() => {
     if (!loadingImages && carousel?.id && syncedCarouselId !== carousel.id) {
@@ -245,7 +246,8 @@ export function CarouselViewer({
       }
       setSyncedCarouselId(carousel.id);
     }
-  }, [loadingImages, savedImages, carousel?.id, syncedCarouselId, setImages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingImages, savedImages, carousel?.id, syncedCarouselId]);
 
   // Fetch creator profile
   const { profiles, isLoading: isLoadingProfile } = useCreatorProfiles([carousel?.user_id]);
