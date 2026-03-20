@@ -625,18 +625,27 @@ serve(async (req) => {
       }
 
       let bgData: any;
+      let bgText: string;
       try {
-        const bgText = await bgResponse.text();
-        if (!bgText || bgText.trim().length === 0) {
-          console.error("[generate-carousel-image] Empty response body from AI gateway");
-          return new Response(
-            JSON.stringify({ error: "AI gateway trả về response rỗng. Vui lòng thử lại.", errorCode: "EMPTY_RESPONSE" }),
-            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
+        bgText = await bgResponse.text();
+      } catch (bodyReadErr) {
+        console.error("[generate-carousel-image] Failed to read response body (connection dropped):", bodyReadErr);
+        return new Response(
+          JSON.stringify({ error: "Kết nối tới AI bị gián đoạn. Vui lòng thử lại.", errorCode: "CONNECTION_ERROR" }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!bgText || bgText.trim().length === 0) {
+        console.error("[generate-carousel-image] Empty response body from AI gateway");
+        return new Response(
+          JSON.stringify({ error: "AI gateway trả về response rỗng. Vui lòng thử lại.", errorCode: "EMPTY_RESPONSE" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      try {
         bgData = JSON.parse(bgText);
       } catch (parseErr) {
-        console.error("[generate-carousel-image] Failed to parse AI gateway response:", parseErr);
+        console.error("[generate-carousel-image] Failed to parse AI gateway response:", parseErr, "Raw:", bgText.slice(0, 200));
         return new Response(
           JSON.stringify({ error: "Không thể đọc phản hồi từ AI. Vui lòng thử lại.", errorCode: "PARSE_ERROR" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
