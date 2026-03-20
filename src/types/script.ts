@@ -18,6 +18,7 @@ export function normalizePurpose(purpose: string): ScriptPurpose {
 
 export const SCRIPT_PURPOSE_CONFIG: Record<ScriptPurpose, { 
   label: string; 
+  subtitle: string;
   description: string; 
   outputHint: string;
   blockLabel: string;
@@ -25,6 +26,7 @@ export const SCRIPT_PURPOSE_CONFIG: Record<ScriptPurpose, {
 }> = {
   ai_video: {
     label: 'Video AI',
+    subtitle: 'VEO 3, Minimax, Kling...',
     description: 'Tạo kịch bản video AI — tự động tối ưu cho VEO 3, Minimax, và các provider khác',
     outputHint: 'Visual Direction + Character Action + Dialogue + Audio Notes',
     blockLabel: 'Prompt',
@@ -32,13 +34,15 @@ export const SCRIPT_PURPOSE_CONFIG: Record<ScriptPurpose, {
   },
   teleprompter: {
     label: 'Người thật / Voice',
+    subtitle: 'Quay & thu âm trực tiếp',
     description: 'Script quay người thật hoặc thu âm — dialogue + cue cards + hướng dẫn giọng',
     outputHint: 'Dialogue + Cue cards + Tone/Tempo + Emphasis + Pause markers',
     blockLabel: 'Đoạn',
     blockLabelVi: 'Đoạn',
   },
   production: {
-    label: 'Production Script',
+    label: 'Production',
+    subtitle: 'Team sản xuất chuyên nghiệp',
     description: 'Full script cho team sản xuất - có shot list, storyboard notes',
     outputHint: 'Camera setup + Lighting + Audio + Dialogue + Editor notes',
     blockLabel: 'Scene',
