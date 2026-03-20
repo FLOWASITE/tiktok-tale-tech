@@ -1,36 +1,46 @@
 
 
-# Tăng cường hiển thị màu Brand trong ảnh AI
+# Tăng cường màu Brand — Xử lý gốc rễ: Design Token Backgrounds
 
-## Nguyên nhân gốc
-Prompt hiện tại dùng ngôn ngữ yếu cho brand colors ("accent color", "incorporate"), và DB design tokens có thể ghi đè bằng màu mặc định (xanh/đen). AI ưu tiên tokens hơn brand colors → kết quả thiếu màu thương hiệu.
+## Chẩn đoán
 
-## Giải pháp
+Bạn đúng. Vấn đề chính nằm ở **màu nền cứng trong DB presets** — chúng vẫn được truyền vào prompt dù brand colors đã có:
 
-### 1. `supabase/functions/generate-carousel-image/index.ts` — Tăng cường brandColorDirective
+| Preset | Background mặc định | Accent |
+|--------|---------------------|--------|
+| Bold Infographic (`flat_design`) | `#1A1A2E` (navy đen) | `#E94560` |
+| Corporate (`geometric`) | `#0A1628` (đen xanh) | `#C9A84C` |
+| Gradient Flow | `#667eea → #764ba2` (xanh tím) | `#00f2fe` |
+| Clean Modern | `#FFFFFF` | `#2563EB` (xanh) |
 
-**Line 960-973**: Viết lại directive mạnh hơn:
-- Thay "incorporate as dominant colors" → "These are the PRIMARY colors — they MUST dominate the image"
-- Thêm chỉ dẫn cụ thể: "At least 40-60% of the image's color area must use these brand colors"
-- Thêm negative: "Do NOT default to blue, black, or generic corporate colors unless they ARE the brand colors"
+Hàm `blendBrandColors()` hiện tại **chỉ thay accent**, **không thay background**. Kết quả: nền vẫn xanh/đen của preset, brand color chỉ xuất hiện ở chi tiết nhỏ.
 
-**Line 1126-1148**: Đưa brandColorDirective lên VỊ TRÍ ĐẦU TIÊN trong prompt assembly (trước scene description) vì AI ưu tiên thông tin đầu prompt.
+Ngoài ra, `seamlessContext.colorPalette` có thể ghi đè brand colors bằng câu "Use ONLY these colors" — nếu palette này chứa màu từ slide 1 (đã bị xanh/đen), tất cả slide sau đều bị ảnh hưởng.
 
-**Line 975-999**: Khi có brandColors, ép DB tokens phải nhường — chỉ giữ `mood`, `effects`, loại bỏ các `colors.primary`, `colors.accent` từ tokens để tránh conflict.
+## Giải pháp (2 file)
 
-### 2. `supabase/functions/_shared/image-prompt-builders.ts` — Tăng sức ép trong full mode
+### 1. `generate-carousel-image/index.ts` — `blendBrandColors()` thay cả background
 
-**Line 161-170**: Viết lại phần COLOR PALETTE:
-- "PRIMARY COLOR: {hex} — This MUST be the dominant color in the image (40-60% color area)"
-- Thêm: "FORBIDDEN: Do not use blue (#3B82F6), teal, or generic dark themes unless they match the brand palette above"
-- Sandwich technique: lặp lại brand colors ở cuối prompt (suffix position)
+Mở rộng logic blend để **thay thế background chính** bằng brand primary color (hoặc biến thể sáng/tối) cho mỗi preset:
 
-### 3. `supabase/functions/_shared/image-prompt-builders.ts` — Thêm Brand Color Reinforcement builder (suffix)
+- `minimalist`: background.primary → lighten(brand, 95%), accent → brand
+- `flat_design`: background.primary → darken(brand, 40%), background.secondary → darken(brand, 30%)
+- `gradient`: gradient từ brand primary → brand secondary (hoặc darken)
+- `geometric`: background.primary → darken(brand, 50%), accent → brand
+- `illustration`: background.primary → lighten(brand, 90%)
+- `product_only`: cta + accent → brand
 
-Thêm builder mới `buildBrandColorReinforcement` ở position `suffix` để nhắc lại brand colors ở cuối prompt (sandwich technique — AI nhớ đầu và cuối prompt rõ nhất).
+### 2. `generate-carousel-image/index.ts` — Seamless palette ưu tiên brand
 
-## Tóm tắt
-- Sửa 2 file
-- `generate-carousel-image/index.ts`: Tăng cường directive + đổi vị trí trong prompt + lọc token conflict
-- `image-prompt-builders.ts`: Viết lại color section mạnh hơn + thêm suffix reinforcement builder
+Khi có `brandColors`, lọc `seamlessContext.colorPalette` để **thêm brand colors vào đầu palette** và loại bỏ câu "Use ONLY these colors" để tránh khóa cứng palette cũ.
+
+### 3. `generate-carousel-image/index.ts` — Tăng cường brandColorDirective thêm 1 bước
+
+Thêm dòng rõ ràng: "The IMAGE BACKGROUND itself must use brand colors or tints/shades of brand colors. Do NOT use preset default backgrounds like dark navy, black, or blue gradients."
+
+## Tóm tắt thay đổi
+- **1 file**: `supabase/functions/generate-carousel-image/index.ts`
+- Sửa `blendBrandColors()` để thay background, không chỉ accent
+- Sửa seamless palette để không ghi đè brand colors
+- Bổ sung chỉ dẫn background vào brandColorDirective
 
