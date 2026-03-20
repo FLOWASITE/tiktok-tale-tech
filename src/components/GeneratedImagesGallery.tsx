@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { cn } from '@/lib/utils';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 interface GeneratedImagesGalleryProps {
   images: GeneratedImage[];
@@ -190,11 +191,12 @@ export function GeneratedImagesGallery({
                 {images.map((image) => (
                   <div key={image.slideNumber} className="flex-[0_0_100%] min-w-0 relative">
                     <div className="aspect-square xs:aspect-[4/5] relative bg-muted/20">
-                      <img
+                      <OptimizedImage
                         src={image.imageUrl}
                         alt={`Slide ${image.slideNumber}`}
                         className="w-full h-full object-contain"
                         loading="lazy"
+                        preloadSrc={images[images.indexOf(image) + 1]?.imageUrl}
                       />
                       {slides && slides[image.slideNumber - 1] && (
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 xs:p-4">
@@ -288,11 +290,12 @@ export function GeneratedImagesGallery({
                       : 'border-border hover:border-primary/50'
                   )}
                 >
-                  <img
+                  <OptimizedImage
                     src={image.imageUrl}
                     alt={`Slide ${image.slideNumber}`}
                     className="w-full h-full object-cover"
                     loading="lazy"
+                    fadeDuration={200}
                   />
                   <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] text-center py-0.5">
                     {image.slideNumber}
@@ -313,7 +316,7 @@ export function GeneratedImagesGallery({
               return (
                 <div key={slideNum} className="relative rounded-lg overflow-hidden border border-border group">
                   <div className="aspect-square bg-muted/20">
-                    <img
+                    <OptimizedImage
                       src={image.imageUrl}
                       alt={`Slide ${slideNum}`}
                       className="w-full h-full object-cover"

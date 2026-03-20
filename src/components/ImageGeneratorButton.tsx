@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Loader2, Sparkles, RefreshCw, Download, ExternalLink } from 'lucide-react';
 import { GeneratedImage } from '@/hooks/useImageGeneration';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 interface ImageGeneratorButtonProps {
   slideNumber: number;
@@ -74,7 +75,7 @@ export function ImageGeneratorButton({
       {generatedImage && (
         <div className="space-y-2">
           <div className="relative group rounded-lg overflow-hidden border border-border">
-            <img
+            <OptimizedImage
               src={generatedImage.imageUrl}
               alt={`Slide ${slideNumber}`}
               className="w-full h-auto object-cover"
