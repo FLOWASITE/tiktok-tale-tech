@@ -1,32 +1,40 @@
 
 
-# Cải thiện Grid Layout cho Carousel Card
+# Hỗ trợ đăng nhiều ảnh lên Facebook
 
-## Hiện trạng
-Từ screenshot: Grid ảnh hiện tại có nền xám, gap nhỏ (0.5), overlay "+N" đơn giản, và thiếu bo góc cho từng ảnh con. Layout trông khá "flat" và thiếu chiều sâu.
+## Vấn đề
+Hiện tại `publish-facebook` chỉ dùng `mediaUrls[0]` — luôn chỉ post 1 ảnh duy nhất, bỏ qua các ảnh còn lại.
 
-## Thay đổi trong `src/components/CarouselCard.tsx`
+## Giải pháp
+Sử dụng **Facebook Multi-Photo Upload API**:
+1. Upload từng ảnh dưới dạng "unpublished" (`published=false`) qua `/{pageId}/photos`
+2. Thu thập tất cả `photo_id` trả về
+3. Tạo 1 feed post kèm tất cả ảnh via `/{pageId}/feed` với `attached_media[0]={media_fbid:id1}&attached_media[1]={media_fbid:id2}...`
 
-### 1. Bo góc thông minh cho ảnh trong grid
-- Ảnh đơn: bo góc trên cả 2 bên (`rounded-t-lg`)
-- Grid 2 ảnh: ảnh trái bo góc trên-trái, ảnh phải bo góc trên-phải
-- Grid 3+: ảnh featured bo góc trên-trái, ảnh phải-trên bo góc trên-phải
+## Thay đổi
 
-### 2. Tăng gap và thêm hiệu ứng
-- Tăng `gap-0.5` → `gap-1` cho grid rõ ràng hơn
-- Thêm `group-hover:scale-105` cho từng ảnh con tạo hiệu ứng zoom nhẹ
+### `supabase/functions/publish-facebook/index.ts`
+Cập nhật hàm `publishToFacebook`:
 
-### 3. Nâng cấp overlay "+N"
-- Thêm gradient overlay thay vì `bg-black/60` đơn giản
-- Dùng backdrop-blur nhẹ
-- Tăng kích thước font và thêm text nhỏ "ảnh" bên dưới số
+- **1 ảnh**: Giữ nguyên logic hiện tại (post trực tiếp qua `/photos`)
+- **2+ ảnh**: 
+  1. Upload song song từng ảnh với `published=false` → lấy `id`
+  2. Gọi `/{pageId}/feed` với `message` + `attached_media` array
+  3. Return `postId` và `postUrl` như bình thường
 
-### 4. Cải thiện badge đếm ảnh
-- Chuyển từ badge đơn giản → badge có backdrop-blur + border nhẹ
-- Thêm icon rõ ràng hơn
+```text
+// Pseudo-code cho multi-photo:
+const photoIds = await Promise.all(
+  mediaUrls.map(url => uploadUnpublished(pageId, accessToken, url))
+);
 
-### 5. Placeholder "Chưa có ảnh" đẹp hơn
-- Thêm gradient background nhẹ và pattern subtle
+const params = { access_token, message: content };
+photoIds.forEach((id, i) => {
+  params[`attached_media[${i}]`] = `{"media_fbid":"${id}"}`;
+});
 
-Sửa 1 file `src/components/CarouselCard.tsx`, ~30 dòng thay đổi trong phần image grid (line 136-189).
+POST /{pageId}/feed with params
+```
+
+Sửa 1 file edge function, ~30 dòng thay đổi trong hàm `publishToFacebook` (line 53-84).
 
