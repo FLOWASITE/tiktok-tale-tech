@@ -575,6 +575,36 @@ ${textLengthSection}
 4. Carousel là để ĐỌC - ảnh hỗ trợ visual và render text
 5. PHẢI tuân thủ TEXT LENGTH CONSTRAINTS ở trên — text quá dài sẽ bị tràn visual space
 
+## NGUYÊN TẮC VIẾT CAPTION & CTA (CHUẨN MARKETING)
+
+### CAPTION — Công thức HOOK-BODY-CTA-HASHTAG:
+1. HOOK LINE (dòng đầu tiên):
+   - PHẢI gây TÒ MÒ hoặc SHOCK — khiến người đọc nhấn "Xem thêm"
+   - Dưới 125 ký tự (Facebook cắt sau 125 ký tự trên mobile)
+   - Kỹ thuật: câu hỏi gây tranh cãi, số liệu gây sốc, statement ngược đời, "Đừng...", "Sai lầm...", "X% người không biết..."
+
+2. BODY (2-4 dòng):
+   - Mỗi dòng 1 ý, dùng emoji đầu dòng (✅ 📌 💡 🔥 ⚡ 🎯)
+   - Tạo nhịp đọc bằng line breaks
+   - Tóm tắt giá trị carousel mang lại — tại sao nên xem hết?
+
+3. CTA LINE:
+   - Kêu gọi hành động cụ thể: 💾 Save lại, ↗️ Share cho bạn bè, 💬 Comment ý kiến
+   - Hoặc câu hỏi mở kéo tương tác
+
+4. HASHTAGS:
+   - Facebook: 3-5 hashtags (ít, targeted, liên quan trực tiếp)
+   - TikTok: 5-8 hashtags (mix trending + niche + branded)
+   - Hashtags phải viết liền, không dấu cách: #ContentMarketing #MẹoKinhDoanh
+
+### CTA SUGGESTION — Công thức đa tầng:
+Viết 3 dòng CTA alternatives, mỗi dòng có label rõ ràng:
+1. 🎯 CTA chính: Hành động trực tiếp ("💾 Save ngay để áp dụng khi cần!")
+2. 💬 Engagement: Câu hỏi mở kéo comment ("Bạn đã thử tip nào rồi? Comment cho mình biết!")
+3. 👥 Share: Lý do chia sẻ + tag ("Tag ngay người bạn đang cần biết điều này 👇")
+
+Nền tảng ${formData.platform === 'tiktok' ? 'TikTok — ưu tiên ngôn ngữ Gen Z, trend-driven, dùng "Follow để xem thêm"' : 'Facebook — ưu tiên storytelling, community, dùng "Save/Share bài viết"'}.
+
 ## FORMAT OUTPUT BẮT BUỘC CHO MỖI SLIDE
 Bạn PHẢI trả về JSON với cấu trúc chính xác như tool definition.
 Mỗi slide phải có đủ 7 thành phần:
@@ -596,6 +626,8 @@ Hook slide: { "headline": "AI ĐÃ THAY ĐỔI MARKETING", "subtitle": "3 chiế
 Data slide: { "headline": "Hiệu quả quảng cáo", "dataValue": "340%", "dataLabel": "ROI trung bình", "caption": "Khảo sát Q3/2025" }
 CTA slide: { "headline": "Bắt đầu ngay hôm nay", "subtitle": "Đăng ký miễn phí tại flowa.vn", "caption": "Link in bio 👇" }
 Body slide: { "headline": "Tối ưu chi phí", "subtitle": "Giảm 40% ngân sách quảng cáo nhờ AI targeting" }
+
+QUAN TRỌNG: captionSuggestion và ctaSuggestion PHẢI tuân thủ công thức HOOK-BODY-CTA-HASHTAG và CTA đa tầng ở trên. Đây là yếu tố quyết định tương tác bài đăng.
 ${formData.includeLogo ? `\nLưu ý: Logo "${formData.brandName}" sẽ được thêm tự động, KHÔNG cần yêu cầu trong fullPrompt.` : ""}`;
 };
 
@@ -798,11 +830,11 @@ Follow the carousel style guidelines strictly.`;
               },
               captionSuggestion: {
                 type: "string",
-                description: "Gợi ý caption đăng bài phù hợp với nền tảng",
+                description: "Caption đăng bài theo công thức HOOK-BODY-CTA-HASHTAG. Dòng 1: Hook line gây tò mò (<125 ký tự, kỹ thuật: câu hỏi/số liệu sốc/statement ngược đời). Dòng 2-4: Body với emoji đầu dòng (✅📌💡🔥), mỗi dòng 1 ý, tóm tắt giá trị carousel. Dòng cuối: CTA line (💾 Save/↗️ Share/💬 Comment). Cuối cùng: hashtags phù hợp nền tảng (Facebook: 3-5, TikTok: 5-8). Dùng line breaks (\\n) giữa các phần.",
               },
               ctaSuggestion: {
                 type: "string",
-                description: "Gợi ý CTA kéo tương tác (save, share, comment)",
+                description: "CTA đa tầng gồm 3 dòng có label: (1) 🎯 CTA chính — hành động trực tiếp (Save/Follow/Đăng ký), (2) 💬 Engagement — câu hỏi mở kéo comment, (3) 👥 Share — lý do tag bạn bè/chia sẻ. Mỗi dòng cách nhau bằng line break (\\n). Ngôn ngữ phù hợp nền tảng và tone thương hiệu.",
               },
             },
             required: ["title", "slides", "captionSuggestion", "ctaSuggestion"],
