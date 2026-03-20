@@ -52,6 +52,12 @@ export function TopicAngleSelector({ value, onChange, disabled = false }: TopicA
                 <TooltipTrigger asChild>
                   <button
                     type="button"
+                    onPointerDown={(e) => {
+                      if (e.pointerType === 'touch') {
+                        e.preventDefault();
+                        onChange(isSelected ? (undefined as any) : angle);
+                      }
+                    }}
                     onClick={() => onChange(isSelected ? (undefined as any) : angle)}
                     disabled={disabled}
                     className={cn(
