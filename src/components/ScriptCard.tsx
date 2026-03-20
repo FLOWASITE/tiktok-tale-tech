@@ -107,8 +107,8 @@ export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate
             {/* Row 1: Purpose + Brand dot + Status */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <PurposeIcon className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium truncate">
+                <PurposeIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium truncate">
                   {purposeConfig?.label || purpose}
                 </span>
                 {brandTemplate && (
@@ -150,16 +150,16 @@ export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate
 
             {/* Content preview */}
             {contentPreview && (
-              <p className="text-xs text-muted-foreground/50 line-clamp-1 leading-relaxed">
+              <p className="text-xs text-muted-foreground/70 line-clamp-1 leading-relaxed">
                 {contentPreview}…
               </p>
             )}
 
             {/* Metadata line */}
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60 flex-wrap">
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/80 flex-wrap">
               {metaParts.map((part, i) => (
                 <span key={i} className="flex items-center gap-1.5">
-                  {i > 0 && <span className="text-muted-foreground/25">·</span>}
+                  {i > 0 && <span className="text-muted-foreground/50">·</span>}
                   <span className="truncate">{part}</span>
                 </span>
               ))}
@@ -169,8 +169,8 @@ export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate
             <div className="flex items-center justify-between gap-2 pt-0.5">
               <div className="flex items-center gap-1.5 min-w-0">
                 <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
-                <span className="text-muted-foreground/25">·</span>
-                <span className="text-[10px] text-muted-foreground/50 shrink-0 flex items-center gap-1">
+                <span className="text-muted-foreground/50">·</span>
+                <span className="text-[10px] text-muted-foreground/70 shrink-0 flex items-center gap-1">
                   <Clock className="w-2.5 h-2.5" />
                   {formatDistanceToNow(createdDate, { addSuffix: true, locale: vi })}
                 </span>
@@ -212,7 +212,7 @@ export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 w-7 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/5"
+                        className="h-7 w-7 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/5"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
