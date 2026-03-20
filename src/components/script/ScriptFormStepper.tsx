@@ -398,14 +398,13 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 </div>
               </div>
               <div className="p-4 space-y-3">
-                {/* Purpose pills inline */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-medium text-muted-foreground shrink-0">Định dạng:</span>
+                {/* Purpose selector */}
+                <div className="space-y-2">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Định dạng kịch bản</span>
                   <ScriptPurposeSelector
                     value={formData.script_purpose}
                     onChange={(value) => setFormData((prev) => ({ ...prev, script_purpose: value }))}
                     disabled={isLoading}
-                    compact
                   />
                 </div>
                 
