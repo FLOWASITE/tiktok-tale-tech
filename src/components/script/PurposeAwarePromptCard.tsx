@@ -213,15 +213,16 @@ export function PurposeAwarePromptCard({
     }
 
     switch(purpose) {
-      case 'ai_video_minimax':
-        return <MinimaxCard prompt={prompt} />;
       case 'teleprompter':
         return <TeleprompterCard prompt={prompt} />;
       case 'voiceover':
         return <VoiceoverCard prompt={prompt} />;
       case 'production':
         return <ProductionCard prompt={prompt} />;
-      default:
+      default: // ai_video — detect minimax vs veo3 based on parsed fields
+        if (prompt.scene && !prompt.shotType) {
+          return <MinimaxCard prompt={prompt} />;
+        }
         return <Veo3Card prompt={prompt} />;
     }
   };

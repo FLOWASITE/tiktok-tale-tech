@@ -356,8 +356,6 @@ export function getPromptCount(content: string, purpose?: ScriptPurpose): number
 // Get block label based on purpose
 export function getBlockLabel(purpose?: ScriptPurpose): string {
   switch(purpose) {
-    case 'ai_video_minimax':
-      return 'Clip';
     case 'teleprompter':
     case 'voiceover':
       return 'Đoạn';

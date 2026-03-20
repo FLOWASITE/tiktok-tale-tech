@@ -81,9 +81,10 @@ export function ScriptExportMenu({ script, className }: ScriptExportMenuProps) {
   const minimaxPrompts = formatForMinimax(parsedPrompts, script);
   const filename = sanitizeFilename(script.title);
   
-  // Get script purpose with fallback
-  const scriptPurpose = (script.script_purpose || 'ai_video_veo3') as ScriptPurpose;
-  const exportOptions = PURPOSE_EXPORT_OPTIONS[scriptPurpose] || PURPOSE_EXPORT_OPTIONS.ai_video_veo3;
+  // Get script purpose with fallback + normalize legacy values
+  const rawPurpose = script.script_purpose || 'ai_video';
+  const scriptPurpose = (rawPurpose === 'ai_video_veo3' || rawPurpose === 'ai_video_minimax' ? 'ai_video' : rawPurpose) as ScriptPurpose;
+  const exportOptions = PURPOSE_EXPORT_OPTIONS[scriptPurpose] || PURPOSE_EXPORT_OPTIONS.ai_video;
 
   const handleCopy = async (content: string, label: string) => {
     await navigator.clipboard.writeText(content);
