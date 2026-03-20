@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface CarouselImageInfo {
-  thumbnailUrl: string;
+  imageUrls: string[];
   imageCount: number;
 }
 
@@ -19,7 +19,6 @@ export function useCarouselCardImages(carouselIds: string[]) {
     const fetchImages = async () => {
       setLoading(true);
       try {
-        // Get all images for these carousels (selected ones)
         const { data, error } = await supabase
           .from('carousel_images')
           .select('carousel_id, slide_number, image_url, is_selected')
@@ -32,14 +31,14 @@ export function useCarouselCardImages(carouselIds: string[]) {
         const map: Record<string, CarouselImageInfo> = {};
         
         if (data) {
-          // Group by carousel_id
           for (const img of data) {
             if (!map[img.carousel_id]) {
               map[img.carousel_id] = {
-                thumbnailUrl: img.image_url,
+                imageUrls: [img.image_url],
                 imageCount: 1,
               };
             } else {
+              map[img.carousel_id].imageUrls.push(img.image_url);
               map[img.carousel_id].imageCount++;
             }
           }

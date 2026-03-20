@@ -32,7 +32,7 @@ interface CarouselCardProps {
   creatorProfile?: CreatorProfile;
   isLoadingProfile?: boolean;
   index?: number;
-  thumbnailUrl?: string;
+  imageUrls?: string[];
   imageCount?: number;
   brandName?: string;
   brandLogoUrl?: string | null;
