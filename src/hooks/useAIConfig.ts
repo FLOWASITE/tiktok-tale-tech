@@ -1128,6 +1128,7 @@ export function useAIConfig(organizationId?: string) {
         temperature: config.temperature ?? null,
         max_tokens: config.maxTokens ?? null,
         custom_system_prompt: config.customSystemPrompt ?? null,
+        force_provider: config.forceProvider ?? null,
       };
 
       // Check if record exists for this function_name + organization_id
