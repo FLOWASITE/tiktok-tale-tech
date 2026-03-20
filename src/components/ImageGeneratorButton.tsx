@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Loader2, Sparkles, RefreshCw, Download, ExternalLink } from 'lucide-react';
 import { GeneratedImage } from '@/hooks/useImageGeneration';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 interface ImageGeneratorButtonProps {
   slideNumber: number;
