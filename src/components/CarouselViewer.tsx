@@ -711,10 +711,6 @@ export function CarouselViewer({
                 <Images className="w-3 h-3 xs:w-4 xs:h-4" />
                 <span className="hidden xs:inline">Prompts</span> ({carousel.slides_content.length})
               </TabsTrigger>
-              <TabsTrigger value="slides" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
-                <Images className="w-3 h-3 xs:w-4 xs:h-4" />
-                <span className="hidden xs:inline">Prompts</span> ({carousel.slides_content.length})
-              </TabsTrigger>
               <TabsTrigger value="images" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
                 <ImageIcon className="w-3 h-3 xs:w-4 xs:h-4" />
                 <span className="hidden xs:inline">Ảnh</span> ({generatedImages.length})
@@ -722,6 +718,10 @@ export function CarouselViewer({
               <TabsTrigger value="caption" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
                 <MessageSquare className="w-3 h-3 xs:w-4 xs:h-4" />
                 <span className="hidden xs:inline">Caption & CTA</span>
+              </TabsTrigger>
+              <TabsTrigger value="preview" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
+                <LayoutGrid className="w-3 h-3 xs:w-4 xs:h-4" />
+                <span className="hidden xs:inline">Preview</span>
               </TabsTrigger>
             </TabsList>
           </div>
