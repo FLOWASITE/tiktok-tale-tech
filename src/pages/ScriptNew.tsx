@@ -46,21 +46,16 @@ export default function ScriptNew() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {/* Back button + Title */}
-      <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/scripts')}
-          className="h-9 w-9 shrink-0"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex items-center gap-2">
-          <Wand2 className="w-5 h-5 text-primary" />
-          <h1 className="text-lg font-semibold text-foreground">Tạo Kịch Bản Video Mới</h1>
-        </div>
-      </div>
+      {/* Back button */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate('/scripts')}
+        className="gap-2 text-muted-foreground hover:text-foreground -ml-2"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Quay lại danh sách
+      </Button>
 
       {/* Form */}
       <ScriptForm
