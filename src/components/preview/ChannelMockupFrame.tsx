@@ -245,7 +245,7 @@ function CarouselImageSlider({
 }
 
 // Facebook Post Mockup - Match official FB design
-function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImage, channelImages }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImage, channelImages, slideTitles }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const [liked, setLiked] = useState(false);
   const allImages = channelImages?.length ? channelImages : channelImage ? [channelImage] : [];
   const isCarousel = allImages.length > 1 || (!allImages.length && (channelImages !== undefined));
