@@ -30,6 +30,7 @@ export interface AIFunctionConfig {
   temperature: number | null;
   maxTokens: number | null;
   customSystemPrompt: string | null;
+  forceProvider: string | null;
   createdAt: string;
   updatedAt: string;
 }
