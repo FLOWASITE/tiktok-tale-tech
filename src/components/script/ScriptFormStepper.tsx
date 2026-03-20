@@ -688,6 +688,9 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
             </div>
           </div>
         )}
+      </div>
+
+      {/* Navigation */}
       <div className="flex items-center justify-between pt-4 border-t border-border">
         <Button
           type="button"
@@ -700,7 +703,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           Quay lại
         </Button>
 
-        {currentStep < 5 ? (
+        {currentStep < 3 ? (
           <Button
             type="button"
             onClick={handleNext}
@@ -735,8 +738,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         )}
       </div>
 
-      {/* Estimated time */}
-      {currentStep === 5 && !isLoading && (
+      {currentStep === 3 && !isLoading && (
         <p className="text-center text-xs text-muted-foreground">
           Thời gian ước tính: ~15-30 giây
         </p>
