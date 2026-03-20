@@ -1124,7 +1124,168 @@ const DIALOGUE_STYLE_CONFIG: Record<string, { label: string; prompt_instruction:
   }
 };
 
-function buildSystemPrompt(
+// ============================================
+// PURPOSE-SPECIFIC PROMPT HELPERS
+// ============================================
+
+function getPurposeIntro(purpose: string, videoTypeName: string): string {
+  switch (purpose) {
+    case 'teleprompter':
+      return `Bạn là một hệ thống AI chuyên tạo KỊCH BẢN ĐỌC cho người thật quay/thu âm trực tiếp.
+Kịch bản phải tối ưu cho việc ĐỌC TRƯỚC CAMERA hoặc THU ÂM VOICE-OVER: rõ ràng, dễ đọc, có đánh dấu nhấn mạnh và pause.
+Thể loại video: ${videoTypeName}.`;
+
+    case 'production':
+      return `Bạn là một hệ thống AI chuyên tạo KỊCH BẢN SẢN XUẤT cho team chuyên nghiệp (đạo diễn, quay phim, biên tập).
+Kịch bản phải có đầy đủ thông tin kỹ thuật: CAMERA setup, LIGHTING, AUDIO, ghi chú cho EDITOR.
+Thể loại video: ${videoTypeName}.`;
+
+    case 'ai_video':
+    default:
+      return `Bạn là một hệ thống AI chuyên tạo PROMPT VIDEO cho AI video generators (VEO 3, Minimax, Kling).
+Mỗi PROMPT phải có đầy đủ: VISUAL DIRECTION, CHARACTER ACTION, DIALOGUE, TONE & DELIVERY, AUDIO NOTES.
+Phục vụ quy trình: AI Video Generator (hình ảnh) → TTS (giọng nói) → Editor (dựng). Thể loại video: ${videoTypeName}.`;
+  }
+}
+
+function getPurposeVisualRules(purpose: string, videoTypeName: string, voiceRegionInfo: { label: string; dialect_notes: string }): string {
+  switch (purpose) {
+    case 'teleprompter':
+      return `## 4. QUY ƯỚC TRÌNH BÀY (TELEPROMPTER)
+- Lời thoại phải dễ đọc, câu ngắn gọn, tự nhiên khi đọc thành tiếng
+- Đánh dấu [NHẤN MẠNH] cho từ khóa cần nhấn giọng
+- Đánh dấu [PAUSE] cho vị trí cần nghỉ/hít thở
+- [CUE] mô tả hành động/biểu cảm trước mỗi đoạn
+- GIỌNG: Ghi rõ Tone, Tempo, Cảm xúc cho mỗi đoạn
+- Không cần mô tả camera, lighting, hoặc visual direction`;
+
+    case 'production':
+      return `## 4. QUY ƯỚC KỸ THUẬT (PRODUCTION)
+- CAMERA: Shot type, lens, movement, framing chi tiết
+- LIGHTING: Key light, fill, separation, mood
+- AUDIO: Boom position, ambience notes, room tone
+- ACTION: Mô tả chi tiết hành động diễn viên
+- NOTES FOR EDITOR: Cut points, B-roll suggestions, transition notes
+- Background: Phù hợp với thể loại ${videoTypeName}`;
+
+    case 'ai_video':
+    default:
+      return `## 4. QUY ƯỚC VISUAL (VEO 3 COMPATIBLE)
+- Shot mặc định: Medium shot (35mm)
+- Camera: Static with subtle breathing movement
+- Lighting: Soft natural lighting
+- Background: Phù hợp với thể loại ${videoTypeName}`;
+  }
+}
+
+function getPurposeSelfCheck(purpose: string, videoTypeName: string, characterTypeName: string, promptCount: string): string {
+  const commonChecks = `
+□ **HOOK ĐÚNG THỂ LOẠI?**
+  - Hook style PHẢI theo HOOK STYLE MẪU của thể loại "${videoTypeName}"
+
+□ **CẤU TRÚC ĐÚNG THỂ LOẠI "${videoTypeName}"?**
+  - Số lượng phần có đúng ${promptCount}?
+  - Mỗi phần có map với yêu cầu cấu trúc không?
+
+□ **CÂU NÓI ĐẶC TRƯNG "${characterTypeName}" XUẤT HIỆN ĐỦ?**
+  - Có ít nhất 3-4 câu nói đặc trưng?
+  - Phân bố tự nhiên, xuyên suốt?
+
+□ **XƯNG HÔ NHẤT QUÁN?**
+  - KHÔNG thay đổi giữa "tôi/mình/bạn"
+
+□ **BRAND VOICE TUÂN THỦ?**
+  - Không dùng từ cấm?
+  - Tone phù hợp với định vị thương hiệu?`;
+
+  let purposeChecks = '';
+  switch (purpose) {
+    case 'teleprompter':
+      purposeChecks = `
+□ **CUE CÓ ĐẦY ĐỦ?**
+  - Mỗi đoạn có [CUE] mô tả hành động/biểu cảm?
+  - CUE phù hợp với character "${characterTypeName}"?
+
+□ **NHẤN MẠNH & PAUSE?**
+  - Mỗi đoạn có [NHẤN MẠNH] cho từ khóa quan trọng?
+  - Có [PAUSE] ở vị trí cần nghỉ?
+
+□ **GIỌNG ĐỌC?**
+  - Mỗi đoạn có chỉ dẫn GIỌNG (Tone · Tempo · Cảm xúc)?
+  - Phù hợp với nội dung đoạn đó?`;
+      break;
+
+    case 'production':
+      purposeChecks = `
+□ **CAMERA & LIGHTING ĐẦY ĐỦ?**
+  - Mỗi SCENE có CAMERA (shot, movement, framing)?
+  - Mỗi SCENE có LIGHTING setup?
+
+□ **AUDIO SETUP?**
+  - Boom position, ambience notes có rõ ràng?
+
+□ **NOTES FOR EDITOR?**
+  - Cut points, B-roll suggestions có hữu ích?`;
+      break;
+
+    case 'ai_video':
+    default:
+      purposeChecks = `
+□ **VISUAL DIRECTION ĐẦY ĐỦ?**
+  - Mỗi PROMPT có shot, camera, lighting, background?
+
+□ **BODY LANGUAGE PHÙ HỢP?**
+  - Mỗi PROMPT có CHARACTER ACTION phù hợp với "${characterTypeName}"?
+
+□ **AUDIO NOTES?**
+  - Ambience, SFX, Music mood có phù hợp?`;
+      break;
+  }
+
+  return `
+# ✅ SELF-CORRECTION CHECKLIST (AI PHẢI TỰ KIỂM TRA TRƯỚC KHI XUẤT)
+
+⚠️ TRƯỚC KHI XUẤT KỊCH BẢN, AI PHẢI TỰ KIỂM TRA:
+
+${commonChecks}
+
+${purposeChecks}
+
+⛔ NẾU BẤT KỲ MỤC NÀO KHÔNG ĐẠT, AI PHẢI SỬA LẠI TRƯỚC KHI XUẤT!`;
+}
+
+function getPurposeOutputRequirements(purpose: string, videoTypeName: string, characterTypeName: string): string {
+  switch (purpose) {
+    case 'teleprompter':
+      return `# YÊU CẦU ĐẦU RA
+– Chỉ xuất danh sách ĐOẠN theo định dạng Teleprompter ở trên
+– Mỗi ĐOẠN PHẢI có đầy đủ: CUE, Lời thoại, NHẤN MẠNH, PAUSE, GIỌNG
+– PHẢI theo cấu trúc của thể loại "${videoTypeName}"
+– PHẢI theo xưng hô và giọng điệu của "${characterTypeName}"
+– Không giải thích, không bình luận
+– Lời thoại phải tự nhiên khi đọc thành tiếng`;
+
+    case 'production':
+      return `# YÊU CẦU ĐẦU RA
+– Chỉ xuất danh sách SCENE theo định dạng Production Script ở trên
+– Mỗi SCENE PHẢI có đầy đủ: CAMERA, LIGHTING, AUDIO, ACTION, DIALOGUE, NOTES FOR EDITOR
+– PHẢI theo cấu trúc của thể loại "${videoTypeName}"
+– PHẢI theo xưng hô và giọng điệu của "${characterTypeName}"
+– Không giải thích, không bình luận
+– Thông tin kỹ thuật phải đủ chi tiết để team sản xuất có thể quay ngay`;
+
+    case 'ai_video':
+    default:
+      return `# YÊU CẦU ĐẦU RA
+– Chỉ xuất danh sách PROMPT theo định dạng Video AI ở trên
+– Mỗi PROMPT PHẢI có đầy đủ: timestamp, VISUAL DIRECTION, CHARACTER ACTION, DIALOGUE, TONE & DELIVERY, AUDIO NOTES
+– PHẢI theo cấu trúc của thể loại "${videoTypeName}"
+– PHẢI theo xưng hô và giọng điệu của "${characterTypeName}"
+– Không giải thích, không bình luận`;
+  }
+}
+
+
   topic: string,
   duration: number,
   videoType: string,
