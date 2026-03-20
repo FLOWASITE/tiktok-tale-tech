@@ -1,34 +1,64 @@
 
 
-# Sửa lỗi: Brand colors không xuất hiện trong colorLayout và fullPrompt
+# Đồng bộ UI/UX phần Chủ đề Video Script với Carousel
 
-## Vấn đề gốc
+## Tóm tắt
 
-Trong `generate-carousel/index.ts`, `brandColorDirective` chỉ yêu cầu AI dùng brand colors trong `fullPrompt` nhưng **không ép vào `colorLayout`**. AI tự chọn "Deep blue (#0A2540), electric teal (#00D4FF)" cho `colorLayout`, rồi `fullPrompt` cũng bị ảnh hưởng theo.
+Hiện tại phần chủ đề Video Script (Step 2) dùng `ScriptTopicDiscoveryPanel` (panel nặng với bộ lọc, slider điểm) và `InlineTopicSuggestions` (khi topic trống). Carousel dùng `TopicIdeaHub` — gọn, có quick action chips (Viral, Trend, Lễ hội...), nút Brainstorm AI gradient, và SWR. Cần thay thế để đồng nhất trải nghiệm.
 
-Dòng 481-486 hiện tại chỉ nói "accent colors chủ đạo" — quá mềm, AI vẫn tự ý chọn màu khác.
+## Thay đổi — 1 file: `src/components/script/ScriptFormStepper.tsx`
 
-## Giải pháp — 1 file: `supabase/functions/generate-carousel/index.ts`
+### 1. Thêm `useEnhancedTopicSuggestions` hook (giống Carousel)
 
-### 1. Tăng cường `brandColorDirective` (dòng ~478-487)
+Import `useEnhancedTopicSuggestions` và `TopicIdeaHub` thay cho `ScriptTopicDiscoveryPanel` và `InlineTopicSuggestions`. Khởi tạo hook với `format: 'script'` và `contentGoal` từ `scriptContentGoal`.
 
-Thêm quy tắc bắt buộc cho `colorLayout`:
+### 2. Cập nhật Topic Textarea style
 
-- `colorLayout` **PHẢI bắt đầu bằng** brand colors hex codes
-- `fullPrompt` **PHẢI dùng** brand palette làm **color palette chính** (không chỉ accent)
-- Thêm ví dụ cụ thể: nếu brand color là `#FF6B35`, thì `colorLayout` phải là `"Brand orange (#FF6B35), warm cream (#FFF5E6). High contrast."` — không được tự chọn Deep blue hay electric teal
+Thay textarea `min-h-[120px]` thành `min-h-[72px]` với auto-resize (`onInput` tự điều chỉnh height) giống Carousel — gọn hơn, tự mở rộng khi nhập nhiều.
 
-### 2. Cập nhật schema description cho `colorLayout` (dòng ~845)
+### 3. Thay thế Dynamic Zone (empty/substantial state)
 
-Thay description từ "Màu sắc và bố cục" thành "Màu sắc (PHẢI dùng brand palette) và bố cục"
+**Xóa hoàn toàn** khối `AnimatePresence` chứa:
+- Hero Brainstorm Card (khi topic trống)
+- `InlineTopicSuggestions` (compact)
+- `TopicRefinementSuggestions` (khi topic đủ dài)
+- Secondary Brainstorm Button
 
-### 3. Bổ sung vào phần format 7 thành phần (dòng ~635)
+**Thay bằng** `TopicIdeaHub` đặt ngay dưới textarea (luôn hiển thị), giống Carousel:
+```
+<TopicIdeaHub
+  suggestions={enhancedSuggestions}
+  source={suggestionsSource}
+  isLoading={suggestionsLoading}
+  onSelect={(topic) => setFormData(prev => ({ ...prev, topic }))}
+  onRefresh={refreshSuggestions}
+  onBrainstorm={() => setShowBrainstormSheet(true)}
+  onSave={saveSuggestion}
+  onFeedback={submitFeedback}
+  disabled={isLoading}
+  showEnhancedInfo={true}
+  brandTemplateId={formData.brandTemplateId}
+  contentGoal={scriptContentGoal}
+/>
+```
 
-Thêm ghi chú tại `[4] colorLayout`: "PHẢI sử dụng brand colors làm màu chủ đạo. Không tự chọn màu khác."
+### 4. Xóa `ScriptTopicDiscoveryPanel` ở cuối
+
+Xóa block `ScriptTopicDiscoveryPanel` (dòng ~648-655) — không cần nữa vì `TopicIdeaHub` đã thay thế.
+
+### 5. Giữ lại các tính năng riêng của Script
+
+- `TopicAngleSelector` + `TopicAnglePreview` — vẫn giữ, hiển thị khi topic ≥ 20 ký tự
+- `ComplianceWarningBadge` — vẫn giữ
+- `TopicBrainstormSheet` — vẫn giữ (được trigger từ TopicIdeaHub)
+
+### 6. Dọn import không dùng
+
+Xóa import `ScriptTopicDiscoveryPanel`, `InlineTopicSuggestions`, `EnhancedTopicSuggestion` (type cũ). Thêm import `TopicIdeaHub`, `useEnhancedTopicSuggestions`.
 
 ## Kết quả mong đợi
 
-- `colorLayout` sẽ hiển thị đúng mã hex brand (VD: `#FF6B35` thay vì `#0A2540`)
-- `fullPrompt` sẽ tham chiếu brand palette thay vì tự chọn deep blue/teal
-- Ảnh sinh ra sẽ phản ánh đúng màu thương hiệu từ gốc
+- Phần chủ đề Script trông giống hệt Carousel: textarea gọn + TopicIdeaHub với quick chips
+- Vẫn giữ TopicAngle + Compliance riêng cho Script
+- Code đơn giản hơn, bớt 1 component (`ScriptTopicDiscoveryPanel`) và logic AnimatePresence phức tạp
 
