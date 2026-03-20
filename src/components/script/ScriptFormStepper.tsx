@@ -653,7 +653,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                   popoverClassName="min-w-[320px] max-w-[460px]"
                 >
                   <div className="space-y-3">
-                    <p className="text-xs font-medium text-muted-foreground">Nhân vật</p>
+                    <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">Nhân vật</p>
                     <CharacterTypeRecommendations
                       topic={formData.topic}
                       videoType={formData.video_type}
