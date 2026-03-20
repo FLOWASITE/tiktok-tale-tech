@@ -73,8 +73,9 @@ import { IndustryGuardrailBadge } from '@/components/IndustryGuardrailBadge';
 import { useIndustryMemoryById } from '@/hooks/useIndustryMemory';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { useSeamlessValidation } from '@/hooks/useSeamlessValidation';
-import { CarouselLayoutPreview } from '@/components/carousel/CarouselLayoutPreview';
+import { ChannelMockupFrame } from '@/components/preview/ChannelMockupFrame';
 import { SeamlessConsistencyCard } from '@/components/carousel/SeamlessConsistencyCard';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Icon maps for badge rendering
 const STYLE_ICON_MAP: Record<string, LucideIcon> = {
