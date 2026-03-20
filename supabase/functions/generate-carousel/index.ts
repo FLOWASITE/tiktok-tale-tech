@@ -707,6 +707,8 @@ serve(async (req) => {
         // Extract output language from brand's country_code
         outputLang = getOutputLanguage(template.country_code);
         brandCountryCode = template.country_code || null;
+        templatePrimaryColor = (template as any).primary_color || null;
+        templateSecondaryColors = (template as any).secondary_colors || [];
         console.log("Output language:", outputLang, "from country_code:", template.country_code);
         
         brandVoice = {
