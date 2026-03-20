@@ -1,62 +1,80 @@
 
 
-# Preview Tab → Social Mockup chuẩn Facebook/TikTok
+# Hoàn thiện Preview Tab cho Carousel
 
 ## Vấn đề hiện tại
-Tab Preview hiển thị các ô CSS nhỏ (CarouselLayoutPreview) — không thực tế, không giống giao diện thật của Facebook hay TikTok.
+1. **Không có empty state** — khi chưa có ảnh, mockup hiển thị trống (không có `channelImage`)
+2. **Facebook mockup hiển thị ảnh đơn** — carousel là bài đăng nhiều ảnh, cần hiển thị dạng carousel swipeable thay vì 1 ảnh
+3. **TikTok mockup dùng aspect-ratio 9:16** — không phù hợp với carousel (TikTok carousel là dạng slide ngang)
+4. **Caption bị cắt trên TikTok mockup** (line-clamp-2) — cần hiển thị đầy đủ hơn
+5. **Thiếu carousel indicator dots** trên Facebook mockup
+6. **Thiếu slide counter** (1/5) trên mockup
 
 ## Giải pháp
-Thay `CarouselLayoutPreview` bằng mockup social thực tế sử dụng `ChannelMockupFrame` (đã có sẵn cho Facebook và TikTok). Hiển thị carousel như một bài đăng thật trên nền tảng tương ứng.
 
 ### File: `src/components/CarouselViewer.tsx`
 
-**1. Thay nội dung TabsContent "preview"** (dòng ~730-761)
+**1. Tích hợp carousel swipe vào mockup**
+- Thay vì truyền 1 `channelImage`, truyền toàn bộ danh sách ảnh
+- Tích hợp swipe trực tiếp trong preview (left/right arrows overlay trên ảnh trong mockup)
+- Hiển thị indicator dots (● ○ ○ ○ ○) bên dưới ảnh
 
-Thay `CarouselLayoutPreview` bằng:
-- Dùng `ChannelMockupFrame` với `channel` = `carousel.platform` (facebook hoặc tiktok)
-- `content` = `carousel.caption_suggestion` (caption đã tạo)
-- `brandName` = `carousel.brand_name`
-- `channelImage` = ảnh đầu tiên đã generate (nếu có) — lấy từ `generatedImages[0]?.imageUrl`
-- Nếu chưa có caption, hiển thị placeholder text từ topic
+**2. Empty state khi chưa có ảnh**
+- Hiển thị placeholder slides với số thứ tự (Slide 1, Slide 2...) dùng gradient background
+- Kèm text "Tạo ảnh để xem preview đầy đủ"
 
-**2. Hiển thị carousel images trong mockup**
-- Nếu có nhiều ảnh, hiển thị gallery/swiper nhỏ bên dưới mockup để xem qua các slide
-- Mockup chính hiển thị ảnh slide đang chọn
+**3. Carousel counter overlay**
+- Hiển thị badge "1/5" góc trên phải ảnh trong mockup
 
-**3. Giữ lại SeamlessConsistencyCard và nút "Tạo ảnh"**
-- SeamlessConsistencyCard vẫn hiển thị bên dưới mockup (cho seamless style)
-- Nút "Hài lòng? Tạo ảnh ngay" vẫn giữ nguyên
+### File: `src/components/preview/ChannelMockupFrame.tsx`
 
-**4. Import thay đổi**
-- Thêm import `ChannelMockupFrame` từ `@/components/preview/ChannelMockupFrame`
-- Có thể bỏ import `CarouselLayoutPreview` nếu không dùng ở nơi khác (kiểm tra trước)
+**4. Mở rộng props hỗ trợ multiple images**
+- Thêm prop `channelImages?: string[]` (danh sách ảnh carousel)
+- FacebookMockup: thay section ảnh đơn bằng carousel slider với dots + counter
+- TikTokMockup: chuyển sang layout carousel (aspect 4:5 thay vì 9:16) khi có nhiều ảnh
 
-### Cấu trúc UI mới cho tab Preview:
+### File: `src/components/CarouselViewer.tsx` (Preview tab)
 
-```text
-┌─────────────────────────┐
-│   [Facebook/TikTok      │
-│    Mockup Frame]        │
-│    - Brand avatar       │
-│    - Caption text       │
-│    - Ảnh carousel       │
-│    - Like/Comment/Share │
-└─────────────────────────┘
-│  ◄ Slide 1/5 thumbnails ►│  ← chọn ảnh hiển thị
-├─────────────────────────┤
-│  [SeamlessCard] (nếu có)│
-├─────────────────────────┤
-│  [Tạo ảnh ngay] button  │
-└─────────────────────────┘
+**5. Truyền data mới**
+```tsx
+<ChannelMockupFrame
+  channel={carousel.platform === 'tiktok' ? 'tiktok' : 'facebook'}
+  content={carousel.caption_suggestion || `📌 ${carousel.topic}`}
+  brandName={carousel.brand_name || 'Brand'}
+  channelImages={generatedImages.map(img => img.imageUrl)}
+/>
 ```
 
-### Thay đổi tổng hợp
+**6. Bỏ slide selector thumbnails bên ngoài** — vì navigation đã tích hợp trong mockup
 
-| Vị trí | Thay đổi |
-|--------|----------|
-| Import | Thêm `ChannelMockupFrame` |
-| TabsContent "preview" | Thay `CarouselLayoutPreview` → `ChannelMockupFrame` + slide selector |
-| State | Thêm `previewSlideIndex` để chọn slide hiển thị trong mockup |
+**7. Giữ nguyên** SeamlessConsistencyCard và nút "Tạo ảnh ngay"
 
-Chỉ sửa 1 file: `src/components/CarouselViewer.tsx`
+## Cấu trúc UI mới
+
+```text
+┌──────────────────────────┐
+│  [Facebook Mockup]       │
+│   Brand ✓  · 2 giờ · 🌐 │
+│   Caption text...        │
+│  ┌────────────────────┐  │
+│  │◄  [Slide Image] ►  │  │
+│  │            1/5     │  │
+│  └────────────────────┘  │
+│     ● ○ ○ ○ ○            │
+│  👍 1,2K  💬89  ↗️34     │
+│  Thích  Bình luận  Chia sẻ│
+└──────────────────────────┘
+│  [SeamlessCard] (nếu có) │
+│  [Tạo ảnh ngay] button   │
+└──────────────────────────┘
+```
+
+## Tổng hợp
+
+| File | Thay đổi |
+|------|----------|
+| `ChannelMockupFrame.tsx` | Thêm prop `channelImages`, carousel slider cho Facebook + TikTok mockup |
+| `CarouselViewer.tsx` | Truyền `channelImages`, bỏ slide selector ngoài, thêm empty state |
+
+Sửa 2 file.
 
