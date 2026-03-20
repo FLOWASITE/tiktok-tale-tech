@@ -748,6 +748,7 @@ serve(async (req) => {
     }
 
     const langConfig = getLanguageConfig(outputLang);
+    const platformName: Record<string, string> = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', linkedin: 'LinkedIn' };
 
     // Initialize PromptManager and fetch prompts from registry
     const brandColorsForPrompt = templatePrimaryColor ? { primary: templatePrimaryColor, secondary: templateSecondaryColors } : undefined;
