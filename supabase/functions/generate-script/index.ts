@@ -1285,7 +1285,7 @@ function getPurposeOutputRequirements(purpose: string, videoTypeName: string, ch
   }
 }
 
-
+function buildSystemPrompt(
   topic: string,
   duration: number,
   videoType: string,
