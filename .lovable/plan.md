@@ -1,43 +1,24 @@
 
 
-# Nâng cấp UI "Góc tiếp cận" (TopicAngleSelector) — Premium Style
+# Fix Tooltip bị che — TopicAngleSelector
 
-## Hiện trạng
+## Nguyên nhân
 
-TopicAngleSelector dùng grid cards với emoji icons, border-2, bg-muted/30 — trông "flat" và thiếu chiều sâu so với phần còn lại đã được nâng cấp premium.
+Section 02 ("Chủ đề") có `overflow-hidden` (dòng 335 trong `ScriptFormStepper.tsx`), khiến tooltip của Góc tiếp cận bị cắt vì tooltip render bên trong container này.
 
-## Thay đổi — 1 file: `src/components/script/TopicAngleSelector.tsx`
+Radix Tooltip dùng Portal mặc định nên `z-index` không phải vấn đề — nhưng nếu Portal bị disable hoặc container có `overflow-hidden` kết hợp với stacking context thì tooltip vẫn có thể bị ảnh hưởng.
 
-### 1. Chuyển từ grid cards sang horizontal pill/chip layout
+## Giải pháp
 
-Thay grid 5 cột (chiếm nhiều không gian) bằng `flex flex-wrap gap-2` — mỗi angle là một pill nhỏ gọn với icon + label, giống style ScriptPurposeSelector đã nâng cấp.
+### 1. `ScriptFormStepper.tsx` — Bỏ `overflow-hidden` ở Section 02
 
-### 2. Premium visual treatment
+Thay `overflow-hidden` bằng `overflow-visible` trên card Section 02 (dòng 335). Header border-radius vẫn giữ nguyên nhờ border-radius của parent.
 
-- **Unselected**: `bg-card/60 backdrop-blur-sm border border-border/40` — tinh tế, không nặng nề
-- **Selected**: `bg-primary/10 border-primary/60 shadow-sm` kèm subtle ring
-- **Hover**: `hover:bg-accent/40 hover:border-primary/30` — transition mượt
+### 2. `TopicAngleSelector.tsx` — Đảm bảo Tooltip dùng Portal
 
-### 3. Thay emoji icons bằng styled icon container
-
-Thay emoji (🎓⚡🔥📊) bằng icon text nhỏ trong circle gradient nhẹ, hoặc giữ emoji nhưng trong container có background mờ — tạo visual consistency với các section 01, 02, 03 ở trên.
-
-### 4. Label header upgrade
-
-Thay label đơn giản (`Target icon + text`) bằng style đồng bộ: icon trong circle gradient nhỏ + text semibold + description phụ mờ, giống header các section khác.
-
-### 5. Selected state: expand description
-
-Khi chọn angle, hiển thị description dạng `AnimatePresence` motion div nhẹ bên dưới (giống ScriptPurposeSelector) thay vì hiển thị description truncated trên mỗi card.
-
-### 6. Nút "Xóa lựa chọn" → icon X nhỏ trên pill selected
-
-Thay text link "Xóa lựa chọn" bằng icon X nhỏ tích hợp trên pill đang chọn — gọn hơn, ít noise.
+Thêm thuộc tính `portal` cho `TooltipContent` (mặc định Radix đã portal, nhưng sẽ verify). Giữ `z-[100]` và thêm `sideOffset={8}` để tooltip không bị dính sát vào button.
 
 ## Kết quả
-
-- Góc tiếp cận chuyển từ grid cards nặng → horizontal pills gọn gàng
-- Visual đồng bộ với ScriptPurposeSelector và các section card khác
-- Tiết kiệm ~60% vertical space
-- Animation mượt khi chọn/bỏ chọn
+- Tooltip hiển thị đầy đủ, không bị cắt bởi container
+- Layout Section 02 không thay đổi visual
 
