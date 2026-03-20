@@ -11,7 +11,34 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Copy, Check, Images, MessageSquare, Megaphone, Download, Sparkles, Loader2, ImageIcon, TrendingUp, Send, LayoutGrid, Layers, GraduationCap, ListOrdered, Images as ImagesIcon2, Minus, BarChart3, Blend, Hexagon, Paintbrush, Focus, type LucideIcon } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Copy,
+  Check,
+  Images,
+  MessageSquare,
+  Megaphone,
+  Download,
+  Sparkles,
+  Loader2,
+  ImageIcon,
+  TrendingUp,
+  Send,
+  LayoutGrid,
+  Layers,
+  GraduationCap,
+  ListOrdered,
+  Images as ImagesIcon2,
+  Minus,
+  BarChart3,
+  Blend,
+  Hexagon,
+  Paintbrush,
+  Focus,
+  Info,
+  type LucideIcon,
+} from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import {
@@ -51,10 +78,18 @@ import { SeamlessConsistencyCard } from '@/components/carousel/SeamlessConsisten
 
 // Icon maps for badge rendering
 const STYLE_ICON_MAP: Record<string, LucideIcon> = {
-  Layers, GraduationCap, ListOrdered, Images: ImagesIcon2,
+  Layers,
+  GraduationCap,
+  ListOrdered,
+  Images: ImagesIcon2,
 };
 const PRESET_ICON_MAP: Record<string, LucideIcon> = {
-  Minus, BarChart3, Blend, Hexagon, Paintbrush, Focus,
+  Minus,
+  BarChart3,
+  Blend,
+  Hexagon,
+  Paintbrush,
+  Focus,
 };
 
 interface CarouselViewerProps {
@@ -69,7 +104,6 @@ const platformLabels: Record<string, string> = {
   facebook: 'Facebook',
   tiktok: 'TikTok',
 };
-
 
 const generateExportContent = (carousel: Carousel): string => {
   const header = `═══════════════════════════════════════════════════════════════
@@ -90,7 +124,9 @@ PROMPTS CHO TỪNG SLIDE
 
 `;
 
-  const slidesContent = carousel.slides_content.map((slide) => `
+  const slidesContent = carousel.slides_content
+    .map(
+      (slide) => `
 ───────────────────────────────────────────────────────────────
 📌 SLIDE ${slide.slideNumber}/${carousel.slide_count}
 ───────────────────────────────────────────────────────────────
@@ -117,7 +153,9 @@ ${slide.technicalRequirements}
 ────────────────────────────────────────
 ${slide.fullPrompt}
 ────────────────────────────────────────
-`).join('\n');
+`
+    )
+    .join('\n');
 
   const footer = `
 
@@ -139,7 +177,13 @@ ${carousel.cta_suggestion || 'Chưa có gợi ý'}
   return header + slidesContent + footer;
 };
 
-export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate, autoGenerateImages }: CarouselViewerProps) {
+export function CarouselViewer({
+  carousel,
+  open,
+  onOpenChange,
+  onCarouselUpdate,
+  autoGenerateImages,
+}: CarouselViewerProps) {
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [copiedCta, setCopiedCta] = useState(false);
@@ -156,8 +200,21 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const { generating, generatedImages, generateImage, getImageForSlide: getGeneratedImage, deleteImage, setImages } = useImageGeneration();
-  const { images: savedImages, loading: loadingImages, saveImage, deleteImage: deleteSavedImage, getImageForSlide: getSavedImage } = useCarouselImages(carousel?.id || null);
+  const {
+    generating,
+    generatedImages,
+    generateImage,
+    getImageForSlide: getGeneratedImage,
+    deleteImage,
+    setImages,
+  } = useImageGeneration();
+  const {
+    images: savedImages,
+    loading: loadingImages,
+    saveImage,
+    deleteImage: deleteSavedImage,
+    getImageForSlide: getSavedImage,
+  } = useCarouselImages(carousel?.id || null);
   const { validating: seamlessValidating, result: seamlessResult, validate: validateSeamless } = useSeamlessValidation();
 
   // Sync saved images into generatedImages state on load
@@ -209,7 +266,6 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
       lastAutoGenCarouselIdRef.current !== carousel.id
     ) {
       lastAutoGenCarouselIdRef.current = carousel.id;
-      // Use a small delay to ensure the component is fully rendered
       const timer = setTimeout(() => {
         toast.info('🎨 Đang tự động tạo ảnh cho tất cả slides...');
         autoGenFnRef.current?.();
@@ -308,7 +364,6 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
         };
       }
     } catch {
-      // brand_guideline is plain text, try to extract color hints
       const hexColors = (carousel.brand_guideline as string).match(/#[0-9A-Fa-f]{3,8}/g);
       if (hexColors && hexColors.length >= 2) {
         return { textColor: hexColors[0], backgroundColor: hexColors[1] };
@@ -324,7 +379,6 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
     const slide = carousel.slides_content.find(s => s.slideNumber === slideNumber);
     const brandColors = extractBrandColors();
 
-    // Build cross-slide context for visual continuity (all styles, not just seamless)
     const colorPalette = carousel.slides_content.length > 0
       ? extractColorPalette(carousel.slides_content[0])
       : null;
@@ -367,7 +421,6 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
     setGeneratingStartTime(Date.now());
     setCurrentGeneratingSlide(null);
 
-    // Extract dominant colors from slide design info for seamless continuity
     const colorPalette = carousel.slides_content.length > 0
       ? extractColorPalette(carousel.slides_content[0])
       : null;
@@ -408,7 +461,6 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
         }
       }
 
-      // Use AI-extracted scene description for visual continuity across ALL styles
       previousSceneDescription = result?.sceneDescription || slide.objective || slide.fullPrompt.slice(0, 200);
 
       setGeneratingProgress(prev => prev + 1);
@@ -423,7 +475,6 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
     if (successCount === carousel.slides_content.length) {
       toast.success(`🎉 Đã tạo xong ${successCount} ảnh!`);
       
-      // Phase 2: Non-blocking seamless consistency validation — use collected URLs
       if (carousel.carousel_style === 'seamless' && collectedUrls.length >= 2) {
         toast.info('🔍 Đang kiểm tra tính liên tục thị giác...');
         validateSeamless(carousel.id, collectedUrls);
@@ -440,10 +491,8 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
 
   const extractColorPalette = (slide: CarouselSlide): string[] | null => {
     const colorText = slide.colorLayout || '';
-    // Match hex colors
     const hexMatches = colorText.match(/#[0-9A-Fa-f]{3,8}/g);
     if (hexMatches && hexMatches.length > 0) return hexMatches;
-    // Match common color keywords from design descriptions
     const colorKeywords = colorText.match(/(?:xanh|đỏ|vàng|cam|tím|hồng|trắng|đen|xám|navy|blue|red|green|yellow|orange|purple|pink|white|black|gray|gold|silver)/gi);
     if (colorKeywords && colorKeywords.length > 0) return [...new Set(colorKeywords)];
     return null;
@@ -485,7 +534,6 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
     if (oldIndex === -1 || newIndex === -1) return;
 
     const reordered = arrayMove([...carousel.slides_content], oldIndex, newIndex);
-    // Re-assign slideNumbers
     const renumbered = reordered.map((slide, i) => ({ ...slide, slideNumber: i + 1 }));
 
     try {
@@ -528,14 +576,20 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
     }
   };
 
+  // Build compact detail badges for popover
+  const styleOpt = CAROUSEL_STYLE_OPTIONS.find(s => s.value === carousel.carousel_style);
+  const presetOpt = VISUAL_PRESET_OPTIONS.find(s => s.value === carousel.visual_preset);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl w-[95vw] xs:w-full h-[95vh] xs:h-[90vh] flex flex-col p-0">
-        <DialogHeader className="px-3 xs:px-6 pt-3 xs:pt-6 pb-3 xs:pb-4 border-b border-border/50">
-          <div className="flex flex-col xs:flex-row xs:items-start xs:justify-between gap-3">
+        {/* ===== COMPACT HEADER ===== */}
+        <DialogHeader className="px-3 xs:px-5 pt-2.5 xs:pt-4 pb-2 xs:pb-3 border-b border-border/50">
+          {/* Row 1: Title + Status + Actions */}
+          <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <div className="flex flex-col xs:flex-row xs:items-start justify-between gap-2 mb-2">
-                <DialogTitle className="text-base xs:text-xl font-bold line-clamp-2">
+              <div className="flex items-center gap-2 mb-0.5">
+                <DialogTitle className="text-sm xs:text-base font-bold truncate">
                   {carousel.title}
                 </DialogTitle>
                 <StatusSelector 
@@ -544,51 +598,10 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
                   disabled={generatingAll}
                 />
               </div>
-              <p className="text-xs xs:text-sm text-muted-foreground mb-2 xs:mb-3 line-clamp-2">{carousel.topic}</p>
-              <div className="flex flex-wrap items-center gap-1.5 xs:gap-2">
-                <Badge variant="secondary" className="text-[10px] xs:text-xs">{platformLabels[carousel.platform]}</Badge>
-                <Badge variant="outline" className="text-[10px] xs:text-xs">
-                  <Images className="w-2.5 h-2.5 xs:w-3 xs:h-3 mr-0.5 xs:mr-1" />
-                  {carousel.slide_count} slides
-                </Badge>
-                {carousel.carousel_style && (() => {
-                  const styleOpt = CAROUSEL_STYLE_OPTIONS.find(s => s.value === carousel.carousel_style);
-                  const StyleIcon = styleOpt ? STYLE_ICON_MAP[styleOpt.icon] : null;
-                  return (
-                    <Badge variant="outline" className="text-[10px] xs:text-xs bg-accent/30 gap-1">
-                      {StyleIcon ? <StyleIcon className="w-3 h-3" /> : '📚'}
-                      {styleOpt?.label || carousel.carousel_style}
-                    </Badge>
-                  );
-                })()}
-                {carousel.visual_preset && (() => {
-                  const presetOpt = VISUAL_PRESET_OPTIONS.find(s => s.value === carousel.visual_preset);
-                  const PresetIcon = presetOpt ? PRESET_ICON_MAP[presetOpt.icon] : null;
-                  return (
-                    <Badge variant="outline" className="text-[10px] xs:text-xs bg-primary/10 border-primary/30 gap-1">
-                      {PresetIcon ? <PresetIcon className="w-3 h-3" /> : '✨'}
-                      {presetOpt?.label || carousel.visual_preset}
-                    </Badge>
-                  );
-                })()}
-                <Badge variant="outline" className="text-[10px] xs:text-xs hidden xs:inline-flex">{carousel.brand_name}</Badge>
-              </div>
-              {/* Creator & Time - Hidden on very small screens */}
-              <div className="hidden xs:flex flex-wrap items-center gap-1.5 mt-2 text-xs text-muted-foreground">
-                <span>Tạo bởi:</span>
-                <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
-                <span className="mx-1">•</span>
-                <span>{new Date(carousel.created_at).toLocaleDateString('vi-VN')}</span>
-              </div>
-              {/* Industry Guardrail Badge */}
-              <IndustryGuardrailBadge 
-                industryMemory={industryMemory} 
-                isLoading={isLoadingIndustry}
-                className="mt-2"
-              />
+              <p className="text-[10px] xs:text-xs text-muted-foreground truncate">{carousel.topic}</p>
             </div>
-            <div className="flex gap-1.5 xs:gap-2 shrink-0">
-              {/* Facebook Publish */}
+            {/* Action buttons - compact row */}
+            <div className="flex items-center gap-1 shrink-0">
               {generatedImages.length > 0 && (
                 <DirectPublishButton
                   content={carousel.caption_suggestion || carousel.topic}
@@ -598,54 +611,85 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
                   mediaUrls={generatedImages.map(img => img.imageUrl)}
                   variant="outline"
                   size="sm"
-                  className="h-7 xs:h-8 text-[10px] xs:text-xs px-2 xs:px-3"
+                  className="h-7 text-[10px] xs:text-xs px-2"
                 />
               )}
-              {/* Performance Tracking - only when published */}
               {carousel.status === 'published' && (
                 <TopicPerformanceUpdater
                   contentId={carousel.id}
                   onUpdate={() => {}}
                   trigger={
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-border hover:border-emerald-500 hover:bg-emerald-500/10 h-7 xs:h-8 text-[10px] xs:text-xs px-2 xs:px-3"
-                    >
-                      <TrendingUp className="w-3 h-3 xs:w-4 xs:h-4" />
-                      <span className="hidden xs:inline ml-1.5">Hiệu suất</span>
+                    <Button variant="outline" size="sm" className="h-7 text-[10px] xs:text-xs px-2">
+                      <TrendingUp className="w-3 h-3" />
                     </Button>
                   }
                 />
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportTxt}
-                className="h-7 xs:h-8 text-[10px] xs:text-xs px-2 xs:px-3"
-              >
-                <Download className="w-3 h-3 xs:w-4 xs:h-4" />
-                <span className="hidden xs:inline ml-1.5">Export</span>
+              <Button variant="outline" size="sm" onClick={handleExportTxt} className="h-7 px-2">
+                <Download className="w-3 h-3" />
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCopyAll}
-                className="h-7 xs:h-8 text-[10px] xs:text-xs px-2 xs:px-3"
-              >
-                {copiedAll ? (
-                  <Check className="w-3 h-3 xs:w-4 xs:h-4 text-green-500" />
-                ) : (
-                  <Copy className="w-3 h-3 xs:w-4 xs:h-4" />
-                )}
-                <span className="hidden xs:inline ml-1.5">Copy</span>
+              <Button variant="outline" size="sm" onClick={handleCopyAll} className="h-7 px-2">
+                {copiedAll ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
               </Button>
             </div>
+          </div>
+
+          {/* Row 2: Key badges + detail popover */}
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{platformLabels[carousel.platform]}</Badge>
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+              {carousel.slide_count} slides
+            </Badge>
+            {/* Detail popover for secondary info */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1 py-0.5 rounded hover:bg-muted/50">
+                  <Info className="w-3 h-3" />
+                  <span className="hidden xs:inline">Chi tiết</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-3 space-y-2 text-xs" align="start">
+                {styleOpt && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground w-16 shrink-0">Style:</span>
+                    <Badge variant="outline" className="text-[10px] gap-1">
+                      {(() => { const I = STYLE_ICON_MAP[styleOpt.icon]; return I ? <I className="w-3 h-3" /> : null; })()}
+                      {styleOpt.label}
+                    </Badge>
+                  </div>
+                )}
+                {presetOpt && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground w-16 shrink-0">Preset:</span>
+                    <Badge variant="outline" className="text-[10px] gap-1">
+                      {(() => { const I = PRESET_ICON_MAP[presetOpt.icon]; return I ? <I className="w-3 h-3" /> : null; })()}
+                      {presetOpt.label}
+                    </Badge>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground w-16 shrink-0">Brand:</span>
+                  <span>{carousel.brand_name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground w-16 shrink-0">Tạo bởi:</span>
+                  <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground w-16 shrink-0">Ngày:</span>
+                  <span>{new Date(carousel.created_at).toLocaleDateString('vi-VN')}</span>
+                </div>
+                <IndustryGuardrailBadge 
+                  industryMemory={industryMemory} 
+                  isLoading={isLoadingIndustry}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </DialogHeader>
 
         <Tabs defaultValue="preview" className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-3 xs:px-6 pt-2 space-y-2 xs:space-y-3">
+          <div className="px-3 xs:px-5 pt-1.5">
             <TabsList className="w-full xs:w-fit h-auto flex-wrap justify-start gap-1">
               <TabsTrigger value="preview" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
                 <LayoutGrid className="w-3 h-3 xs:w-4 xs:h-4" />
@@ -670,7 +714,7 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
             </TabsList>
           </div>
 
-          <ScrollArea className="flex-1 px-3 xs:px-6 py-3 xs:py-4">
+          <ScrollArea className="flex-1 px-3 xs:px-5 py-3 xs:py-4">
             <TabsContent value="preview" className="mt-0 space-y-4">
               <CarouselLayoutPreview
                 slides={carousel.slides_content}
@@ -678,7 +722,6 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
                 carouselStyle={carousel.carousel_style as CarouselStyleType}
                 platform={carousel.platform}
               />
-              {/* Seamless consistency result card */}
               {carousel.carousel_style === 'seamless' && (
                 <SeamlessConsistencyCard
                   result={seamlessResult}
@@ -735,7 +778,6 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
                 </div>
                 {generatingAll && (
                   <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 xs:p-4 space-y-3 animate-fade-in">
-                    {/* Slide progress steps */}
                     <div className="flex flex-wrap gap-1.5">
                       {carousel.slides_content.map((slide) => {
                         const isDone = generatingProgress > slide.slideNumber - 1;
@@ -755,7 +797,6 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
                         );
                       })}
                     </div>
-                    {/* Progress bar + info */}
                     <div className="space-y-1.5">
                       <Progress value={(generatingProgress / carousel.slide_count) * 100} className="h-2.5" />
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -816,6 +857,11 @@ export function CarouselViewer({ carousel, open, onOpenChange, onCarouselUpdate,
                 carouselTitle={carousel.title}
                 onDeleteImage={handleDeleteImage}
                 onGenerateAll={handleGenerateAllImages}
+                onGenerateSingle={(slideNumber) => {
+                  const slide = carousel.slides_content.find(s => s.slideNumber === slideNumber);
+                  if (slide) handleGenerateImage(slideNumber, slide.fullPrompt);
+                }}
+                isGenerating={generating !== null || generatingAll}
               />
             </TabsContent>
 
