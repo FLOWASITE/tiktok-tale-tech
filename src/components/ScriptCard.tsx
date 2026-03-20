@@ -168,8 +168,12 @@ export function ScriptCard({ script, onView, onDelete, onSchedule, brandTemplate
             {/* Creator + Time */}
             <div className="flex items-center justify-between gap-2 pt-0.5">
               <div className="flex items-center gap-1.5 min-w-0">
-                <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
-                <span className="text-muted-foreground/50">·</span>
+                {(creatorProfile || isLoadingProfile) && (
+                  <>
+                    <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
+                    <span className="text-muted-foreground/50">·</span>
+                  </>
+                )}
                 <span className="text-[10px] text-muted-foreground/70 shrink-0 flex items-center gap-1">
                   <Clock className="w-2.5 h-2.5" />
                   {formatDistanceToNow(createdDate, { addSuffix: true, locale: vi })}
