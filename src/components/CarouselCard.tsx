@@ -235,6 +235,26 @@ export function CarouselCard({
             {carousel.topic}
           </p>
 
+          {/* Brand */}
+          {brandName && (
+            <div className="flex items-center gap-1.5 mb-2">
+              {brandLogoUrl ? (
+                <img
+                  src={brandLogoUrl}
+                  alt={brandName}
+                  className="w-4 h-4 xs:w-5 xs:h-5 rounded-full object-cover border border-border/50"
+                />
+              ) : (
+                <div className="w-4 h-4 xs:w-5 xs:h-5 rounded-full bg-muted flex items-center justify-center">
+                  <Building2 className="w-2.5 h-2.5 text-muted-foreground" />
+                </div>
+              )}
+              <span className="text-[10px] xs:text-xs text-muted-foreground font-medium truncate">
+                {brandName}
+              </span>
+            </div>
+          )}
+
           {/* Creator */}
           <div className="flex items-center gap-1 xs:gap-1.5 mb-3 text-[9px] xs:text-[10px]">
             <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
