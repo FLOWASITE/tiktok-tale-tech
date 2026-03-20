@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ScriptForm } from '@/components/ScriptForm';
+
 import { ScriptCard } from '@/components/ScriptCard';
 import { ScriptViewer } from '@/components/ScriptViewer';
 import { ScriptFilters, ScriptFilters as ScriptFiltersType } from '@/components/ScriptFilters';
@@ -13,10 +13,10 @@ import { Script } from '@/types/script';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileVideo, Sparkles, Plus, X, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
+import { FileVideo, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 
 type ViewMode = 'grid' | 'list';
@@ -32,7 +32,7 @@ const Index = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const prefillData = location.state as LocationState | null;
-  const { scripts, loading, generating, generateScript, deleteScript, updateScript } = useScripts();
+  const { scripts, loading, deleteScript, updateScript } = useScripts();
   const { templates: brandTemplates } = useBrandTemplates();
   
   // Create brand template lookup map
@@ -56,24 +56,13 @@ const Index = () => {
   
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
-  const [formSheetOpen, setFormSheetOpen] = useState(false);
-  const [initialTopic, setInitialTopic] = useState<string>('');
-  const [topicHistoryId, setTopicHistoryId] = useState<string | undefined>();
 
-  // Topic Content Links hook
-  const { createLink } = useTopicContentLinks({ enabled: false });
-
-  // Handle prefill from Topics Hub
+  // Handle prefill from Topics Hub - redirect to /scripts/new
   useEffect(() => {
     if (prefillData?.prefillTopic) {
-      setInitialTopic(prefillData.prefillTopic);
-      if (prefillData.topicHistoryId) {
-        setTopicHistoryId(prefillData.topicHistoryId);
-      }
-      setFormSheetOpen(true);
-      window.history.replaceState({}, document.title);
+      navigate('/scripts/new', { state: prefillData, replace: true });
     }
-  }, [prefillData]);
+  }, [prefillData, navigate]);
 
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -136,48 +125,20 @@ const Index = () => {
     setViewerOpen(true);
   };
 
-  const handleGenerateScript = async (formData: Parameters<typeof generateScript>[0]) => {
-    const newScript = await generateScript(formData);
-    if (newScript) {
-      if (formData.topicHistoryId) {
-        try {
-          await createLink(formData.topicHistoryId, newScript.id, 'script', newScript.title, newScript.status || 'draft');
-        } catch (error) {
-          console.error('Failed to create topic-content link:', error);
-        }
-        setTopicHistoryId(undefined);
-      }
-      setFormSheetOpen(false);
-      setSelectedScript(newScript);
-      setViewerOpen(true);
-    }
-  };
-
   const handleScriptUpdate = (updatedScript: Script) => {
     updateScript(updatedScript);
     setSelectedScript(updatedScript);
   };
 
   return (
-    <div className="min-h-screen relative bg-gradient-to-br from-background via-background to-muted/20">
-      {/* Close Button - Fixed top right */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => navigate('/dashboard')}
-        className="fixed top-3 right-3 z-50 h-8 w-8 bg-background/80 backdrop-blur-sm border border-border/50 shadow-sm"
-        title="Đóng"
-      >
-        <X className="h-4 w-4" />
-      </Button>
-
-      <div className="p-3 sm:p-4 lg:p-6 space-y-4">
+    <div className="space-y-4">
+      <div className="space-y-4">
         {/* Hero Section with Stats */}
         <ScriptHeroSection
           scripts={scripts}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          onAddNew={() => setFormSheetOpen(true)}
+          onAddNew={() => navigate('/scripts/new')}
           isLoading={loading}
         />
 
@@ -254,7 +215,7 @@ const Index = () => {
                 : 'Thử thay đổi bộ lọc để xem thêm kịch bản.'}
             </p>
             {scripts.length === 0 && (
-              <Button onClick={() => setFormSheetOpen(true)} className="gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90">
+              <Button onClick={() => navigate('/scripts/new')} className="gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90">
                 <Plus className="w-4 h-4" />
                 Tạo kịch bản đầu tiên
               </Button>
@@ -366,23 +327,6 @@ const Index = () => {
         )}
       </div>
 
-      {/* Form Dialog */}
-      <Dialog open={formSheetOpen} onOpenChange={(open) => !generating && setFormSheetOpen(open)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
-          <DialogHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur px-6 py-4 border-b">
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
-              Tạo Kịch Bản Video Mới
-            </DialogTitle>
-            <DialogDescription>
-              Điền thông tin để AI tạo kịch bản video chuyên nghiệp
-            </DialogDescription>
-          </DialogHeader>
-          <div className="p-6">
-            <ScriptForm onSubmit={handleGenerateScript} isLoading={generating} initialTopic={initialTopic} topicHistoryId={topicHistoryId} />
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Script viewer dialog */}
       <ScriptViewer
