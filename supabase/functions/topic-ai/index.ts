@@ -1364,7 +1364,16 @@ function buildSuggestPrompts(params: {
     learningSection = buildLearningSection(learningContext) || '';
   }
 
+  const now = new Date();
+  const currentDate = now.toLocaleDateString('vi-VN', { day: 'numeric', month: 'numeric', year: 'numeric' });
+  const currentMonth = now.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' });
+
   const systemPrompt = `Bạn là Content Strategist chuyên nghiệp với 10+ năm kinh nghiệm content marketing tại Việt Nam.
+
+⚠️ NGÀY HIỆN TẠI: ${currentDate}. Chúng ta đang ở ${currentMonth}.
+- TẤT CẢ topics PHẢI phản ánh thời điểm hiện tại (${now.getFullYear()}).
+- TUYỆT ĐỐI KHÔNG đề cập năm cũ (2024, 2025) trừ khi so sánh với hiện tại.
+- Nếu đề cập năm, PHẢI dùng ${now.getFullYear()} hoặc ${now.getFullYear() + 1}.
 ${brandSection}
 ${realDataSection}
 ${audienceQASection}
