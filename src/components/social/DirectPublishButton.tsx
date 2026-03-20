@@ -282,7 +282,7 @@ export function DirectPublishButton({
 
       {/* Confirmation / Success Dialog */}
       <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && handleCloseDialog()}>
-        <DialogContent className="sm:max-w-2xl p-0 overflow-hidden">
+        <DialogContent className="sm:max-w-2xl p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
           {dialogState === 'success' ? (
             /* ===== SUCCESS STATE ===== */
             <div className="flex flex-col items-center justify-center py-6 px-4 sm:py-10 sm:px-6 text-center gap-3 sm:gap-4">
@@ -353,8 +353,8 @@ export function DirectPublishButton({
                   <Textarea
                     value={editableContent}
                     onChange={(e) => setEditableContent(e.target.value)}
-                    rows={4}
-                    className="resize-none text-sm leading-relaxed max-h-[120px] sm:max-h-[200px]"
+                    rows={8}
+                    className="resize-none text-sm leading-relaxed max-h-[250px] sm:max-h-[400px]"
                     placeholder="Nhập nội dung..."
                   />
                   {/* Character Count */}
