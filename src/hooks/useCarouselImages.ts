@@ -117,6 +117,12 @@ export function useCarouselImages(carouselId: string | null) {
     return images.find(img => img.slide_number === slideNumber);
   }, [images]);
 
+  // Clear stale images immediately when carouselId changes
+  useEffect(() => {
+    setImages([]);
+    setLoading(true);
+  }, [carouselId]);
+
   useEffect(() => {
     fetchImages();
   }, [fetchImages]);

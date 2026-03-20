@@ -226,15 +226,23 @@ export function CarouselViewer({
 
   // Sync saved images into generatedImages state on load
   const [syncedCarouselId, setSyncedCarouselId] = useState<string | null>(null);
+
+  // Clear generatedImages when switching carousels
+  useEffect(() => {
+    setImages([]);
+    setSyncedCarouselId(null);
+  }, [carousel?.id, setImages]);
   
   useEffect(() => {
-    if (!loadingImages && savedImages.length > 0 && carousel?.id && syncedCarouselId !== carousel.id) {
-      const mapped = savedImages.map(img => ({
-        slideNumber: img.slide_number,
-        imageUrl: img.image_url,
-        generatedAt: img.created_at || new Date().toISOString(),
-      }));
-      setImages(mapped);
+    if (!loadingImages && carousel?.id && syncedCarouselId !== carousel.id) {
+      if (savedImages.length > 0) {
+        const mapped = savedImages.map(img => ({
+          slideNumber: img.slide_number,
+          imageUrl: img.image_url,
+          generatedAt: img.created_at,
+        }));
+        setImages(mapped);
+      }
       setSyncedCarouselId(carousel.id);
     }
   }, [loadingImages, savedImages, carousel?.id, syncedCarouselId, setImages]);
