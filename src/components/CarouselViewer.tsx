@@ -187,6 +187,7 @@ export function CarouselViewer({
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [copiedCta, setCopiedCta] = useState(false);
+  const [copiedCaptionAll, setCopiedCaptionAll] = useState(false);
   const [generatingAll, setGeneratingAll] = useState(false);
   const [generatingProgress, setGeneratingProgress] = useState(0);
   const [generatingStartTime, setGeneratingStartTime] = useState<number | null>(null);
