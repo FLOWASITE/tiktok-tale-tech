@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { cn } from '@/lib/utils';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 
 interface GeneratedImagesGalleryProps {
   images: GeneratedImage[];
