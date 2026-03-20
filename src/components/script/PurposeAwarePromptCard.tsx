@@ -180,12 +180,10 @@ export function PurposeAwarePromptCard({
   const hasParsedContent = () => {
     switch(purpose) {
       case 'teleprompter':
-        return prompt.cue || prompt.dialogue || prompt.emphasis;
-      case 'voiceover':
-        return prompt.dialogue || prompt.voiceGuide || prompt.tone;
+        return prompt.cue || prompt.dialogue || prompt.emphasis || prompt.voiceGuide || prompt.tone;
       case 'production':
         return prompt.camera || prompt.lighting || prompt.motion || prompt.dialogue;
-      default: // ai_video — check both veo3 and minimax fields
+      default: // ai_video
         return prompt.motion || prompt.dialogue || prompt.tone || prompt.shotType || prompt.characterAction || prompt.scene || prompt.cameraMotion;
     }
   };
