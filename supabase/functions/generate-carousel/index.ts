@@ -595,7 +595,9 @@ ${textLengthSection}
 
 4. HASHTAGS:
    - Facebook: 3-5 hashtags (ít, targeted, liên quan trực tiếp)
+   - Instagram: 5-10 hashtags (mix trending + niche + branded + community)
    - TikTok: 5-8 hashtags (mix trending + niche + branded)
+   - LinkedIn: 3-5 hashtags (professional, industry-specific)
    - Hashtags phải viết liền, không dấu cách: #ContentMarketing #MẹoKinhDoanh
 
 ### CTA SUGGESTION — Công thức đa tầng:
