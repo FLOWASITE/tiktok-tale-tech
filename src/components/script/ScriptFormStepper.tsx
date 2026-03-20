@@ -52,6 +52,7 @@ import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { useVideoTypeRecommendations } from '@/hooks/useVideoTypeRecommendations';
 import { useCharacterTypeRecommendations } from '@/hooks/useCharacterTypeRecommendations';
+import { useTopicAngleRecommendations } from '@/hooks/useTopicAngleRecommendations';
 import { cn } from '@/lib/utils';
 import { 
   ScriptFormData, 
