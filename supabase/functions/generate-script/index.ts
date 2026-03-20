@@ -1456,9 +1456,9 @@ ${hook?.opening_line ? '- Hook: Đã có sẵn (sử dụng nguyên văn)' : `- 
 - Câu nói đặc trưng: ít nhất 3-4 lần
 
 ## 3. QUY ƯỚC GIỌNG NÓI
-- Giọng: ${voiceRegionInfo.label}
+${effectivePurpose !== 'teleprompter' ? `- Giọng: ${voiceRegionInfo.label}
 - Đặc điểm: ${voiceRegionInfo.dialect_notes}
-- Phong cách hội thoại: ${dialogueStyleInfo.label} - ${dialogueStyleInfo.prompt_instruction}
+` : ''}- Phong cách hội thoại: ${dialogueStyleInfo.label} - ${dialogueStyleInfo.prompt_instruction}
 
 ${purposeVisualRules}
 
