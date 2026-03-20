@@ -1,68 +1,87 @@
 
 
-# Gộp VEO 3 + Minimax → "Video AI" (5 định dạng → 4)
+# Gộp Voice-Over vào Teleprompter — 4 định dạng → 3
 
-## Ý tưởng
+## Phân tích
 
-Gộp `ai_video_veo3` và `ai_video_minimax` thành 1 option duy nhất `ai_video`. Hệ thống tự chọn output format (VEO 3 hoặc Minimax) dựa trên nội dung — hoặc luôn dùng VEO 3 format (đầy đủ hơn) rồi export ra Minimax khi cần.
+**Voice-Over** và **Teleprompter** trùng lặp ~80%:
 
-## Phân tích kỹ thuật
+| Thành phần | Teleprompter | Voice-Over |
+|-----------|:---:|:---:|
+| Dialogue | ✓ | ✓ |
+| Nhấn mạnh (Emphasis) | ✓ | ✓ |
+| Pause markers | ✓ | ✓ |
+| CUE (hành động on-camera) | ✓ | ✗ |
+| Tone/Tempo/Cảm xúc | ✗ | ✓ |
 
-**Sự khác biệt thực tế giữa VEO 3 và Minimax:**
-- VEO 3: Output chi tiết (Visual Direction, Camera, Lighting, Character Action, Dialogue, Audio Notes) — block label "PROMPT"
-- Minimax: Output gọn (Scene, Camera motion, Voice, Duration) — block label "CLIP"
+**Thêm nữa:** TTS Preview (`TTSPreview.tsx`) hoạt động độc lập — dùng Web Speech API trên `script.content`, **không phụ thuộc** vào purpose Voice-Over. Bất kỳ script nào cũng có thể nghe thử TTS.
 
-**Nhận xét:** VEO 3 format **bao trùm** Minimax. Từ VEO 3 hoàn toàn có thể extract ra Minimax format (đã có sẵn `formatForMinimax` trong ScriptExportMenu). Vậy chỉ cần giữ 1 format VEO 3, và export ra Minimax khi cần.
+**Kết luận:** Voice-Over chỉ là Teleprompter + thêm hướng dẫn giọng. Hoàn toàn có thể gộp thành 1 format "Người thật" có cả CUE lẫn Voice guidance.
 
-## Giải pháp
+## Giải pháp: Gộp thành "Người thật / Voice"
 
-### 1. `src/types/script.ts` — Gộp type
-- Thay `'ai_video_veo3' | 'ai_video_minimax'` → `'ai_video'`
-- Cập nhật `SCRIPT_PURPOSE_CONFIG`: 1 entry `ai_video` với label "Video AI", description "Tạo kịch bản video AI — tự động tối ưu cho VEO 3, Minimax, và các provider khác"
-- `blockLabel`: "Prompt", `blockLabelVi`: "Prompt"
+```text
+TRƯỚC (4 options):
+[Video AI] [Teleprompter] [Voice-Over] [Production]
 
-### 2. `src/components/script/ScriptPurposeSelector.tsx`
-- Xóa entry `ai_video_minimax` khỏi `ICON_MAP`
-- Thêm entry `ai_video` với icon `Video`
-- Bỏ badge "Hot" (không cần phân biệt nữa)
+SAU (3 options):
+[Video AI] [Người thật] [Production]
+```
 
-### 3. `src/components/script/ScriptFormStepper.tsx`
-- Default `script_purpose` từ `'ai_video_veo3'` → `'ai_video'`
+Format mới "Người thật" kết hợp cả hai:
+```
+--- ĐOẠN X ---
+[CUE: Hành động/biểu cảm]
+"Lời thoại..." 
+[NHẤN MẠNH: từ khóa]
+[PAUSE: vị trí nghỉ]
+GIỌNG: Tone · Tempo · Cảm xúc
+---
+```
 
-### 4. `supabase/functions/generate-script/index.ts`
-- `SCRIPT_PURPOSE_LABELS`: gộp thành `ai_video: 'Video AI'`
-- `getOutputFormat`: case `'ai_video'` dùng format VEO 3 (đầy đủ nhất)
-- `buildSystemPrompt`: xử lý `'ai_video'` thay vì 2 case riêng
+### Thay đổi chi tiết
 
-### 5. `src/utils/parsePrompts.ts` — Backward compatible
-- `getBlockPattern`: default case vẫn match `PROMPT`, thêm fallback match `CLIP` cho scripts cũ dạng Minimax
-- `getBlockNumberPattern`: tương tự
-- Parse logic: `'ai_video'` → dùng `parseVeo3Block`, fallback `parseMinimaxBlock` nếu không tìm thấy PROMPT blocks
+#### 1. `src/types/script.ts`
+- Xóa `'voiceover'` khỏi `ScriptPurpose` → còn `'ai_video' | 'teleprompter' | 'production'`
+- Thêm `'voiceover'` vào `ScriptPurposeLegacy` 
+- Cập nhật `normalizePurpose`: `'voiceover'` → `'teleprompter'`
+- Đổi label teleprompter: `"Người thật / Voice"` với description bao gồm cả teleprompter + voice-over
 
-### 6. `src/components/script/ScriptExportMenu.tsx`
-- `PURPOSE_EXPORT_OPTIONS`: `ai_video: { veo3: true, minimax: true, dialogue: true, standard: true }` — cho phép export cả 2 format
+#### 2. `supabase/functions/generate-script/index.ts`
+- Gộp output format `teleprompter`: thêm mục GIỌNG (Tone, Tempo, Cảm xúc) từ voice-over
+- Xóa case `'voiceover'` riêng
 
-### 7. `src/components/ScriptCard.tsx`
-- `PURPOSE_ICONS`: thêm `ai_video`, giữ backward compat cho `ai_video_veo3`/`ai_video_minimax`
+#### 3. `src/utils/parsePrompts.ts`
+- Xóa case `'voiceover'` riêng → normalize về `'teleprompter'`
+- Gộp `parseVoiceoverBlock` vào `parseTeleprompterBlock` (thêm parse Tone/Tempo)
 
-### 8. `src/components/script/PurposeAwarePromptCard.tsx`
-- Case `'ai_video'` → render VEO3Card, fallback MinimaxCard cho scripts cũ
+#### 4. `src/components/script/PurposeAwarePromptCard.tsx`
+- Gộp `VoiceoverCard` vào `TeleprompterCard` — thêm hiển thị Tone/Tempo nếu có
+- Xóa case `'voiceover'`
 
-### 9. Backward compatibility
-- Scripts cũ trong DB vẫn có `script_purpose = 'ai_video_veo3'` hoặc `'ai_video_minimax'`
-- Tất cả các file sẽ thêm mapping: nếu gặp `'ai_video_veo3'` hoặc `'ai_video_minimax'` → xử lý như `'ai_video'`
-- Helper function `normalizePurpose(purpose)` trong `types/script.ts` để chuẩn hóa
+#### 5. `src/components/script/ScriptPurposeSelector.tsx`
+- Xóa entry `voiceover` khỏi `ICON_MAP` → còn 3 options
+
+#### 6. `src/components/script/ScriptExportMenu.tsx`
+- Gộp export options voice-over vào teleprompter
+- Xóa section Voice-Over riêng
+
+#### 7. `src/components/ScriptCard.tsx`
+- Xóa `voiceover` khỏi `PURPOSE_ICONS`, giữ backward compat qua normalize
+
+#### 8. Backward compatibility
+- Scripts cũ `script_purpose = 'voiceover'` → `normalizePurpose` trả về `'teleprompter'`
+- Parse logic fallback: nếu block có Tone/Tempo → hiển thị thêm voice guidance
 
 ## Files thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| `src/types/script.ts` | Gộp type, thêm `normalizePurpose()` helper |
-| `src/components/script/ScriptPurposeSelector.tsx` | 4 options thay vì 5 |
-| `src/components/script/ScriptFormStepper.tsx` | Default purpose → `'ai_video'` |
-| `supabase/functions/generate-script/index.ts` | Gộp labels + output format |
-| `src/utils/parsePrompts.ts` | Backward compat parsing |
-| `src/components/script/ScriptExportMenu.tsx` | Gộp export options |
-| `src/components/ScriptCard.tsx` | Gộp icon mapping |
-| `src/components/script/PurposeAwarePromptCard.tsx` | Gộp render case |
+| `src/types/script.ts` | Xóa voiceover, cập nhật normalizePurpose |
+| `supabase/functions/generate-script/index.ts` | Gộp output format |
+| `src/utils/parsePrompts.ts` | Gộp parse logic |
+| `src/components/script/PurposeAwarePromptCard.tsx` | Gộp card render |
+| `src/components/script/ScriptPurposeSelector.tsx` | 3 options |
+| `src/components/script/ScriptExportMenu.tsx` | Gộp export |
+| `src/components/ScriptCard.tsx` | Cleanup icon map |
 
