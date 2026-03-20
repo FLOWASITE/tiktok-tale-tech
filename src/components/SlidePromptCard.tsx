@@ -5,11 +5,13 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Copy, Check, Target, Type, Palette, Layout, Square, Settings, Pencil, X, Save } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Copy, Check, Target, Type, Palette, Layout, Square, Settings, Pencil, X, Save, ChevronDown } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { ImageGeneratorButton } from './ImageGeneratorButton';
 import { GeneratedImage } from '@/hooks/useImageGeneration';
+import { cn } from '@/lib/utils';
 
 interface SlidePromptCardProps {
   slide: CarouselSlide;
@@ -37,6 +39,7 @@ export function SlidePromptCard({
   const [editValue, setEditValue] = useState('');
   const [structuredEditValue, setStructuredEditValue] = useState<StructuredTextContent>({ headline: '' });
   const [saving, setSaving] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const isStructuredText = typeof slide.textContent !== 'string';
 
@@ -78,7 +81,6 @@ export function SlidePromptCard({
         toast.error('Headline không được để trống');
         return;
       }
-      // Clean empty optional fields
       newValue = {
         headline: structuredEditValue.headline.trim(),
         ...(structuredEditValue.subtitle?.trim() && { subtitle: structuredEditValue.subtitle.trim() }),
@@ -236,24 +238,11 @@ export function SlidePromptCard({
                 <span className="text-[9px] xs:text-[10px] text-muted-foreground mr-auto">
                   Ctrl+Enter để lưu
                 </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={cancelEditing}
-                  className="h-6 px-2 text-[10px] xs:text-xs"
-                  disabled={saving}
-                >
-                  <X className="w-3 h-3 mr-0.5" />
-                  Hủy
+                <Button variant="ghost" size="sm" onClick={cancelEditing} className="h-6 px-2 text-[10px] xs:text-xs" disabled={saving}>
+                  <X className="w-3 h-3 mr-0.5" /> Hủy
                 </Button>
-                <Button
-                  size="sm"
-                  onClick={saveEdit}
-                  className="h-6 px-2 text-[10px] xs:text-xs"
-                  disabled={saving}
-                >
-                  <Save className="w-3 h-3 mr-0.5" />
-                  {saving ? 'Đang lưu...' : 'Lưu'}
+                <Button size="sm" onClick={saveEdit} className="h-6 px-2 text-[10px] xs:text-xs" disabled={saving}>
+                  <Save className="w-3 h-3 mr-0.5" /> {saving ? 'Đang lưu...' : 'Lưu'}
                 </Button>
               </div>
             </div>
@@ -274,13 +263,21 @@ export function SlidePromptCard({
     <Card className="gradient-card border-border/50">
       <CardHeader className="pb-2 xs:pb-3 px-3 xs:px-4 sm:px-6">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 xs:gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 xs:gap-2 min-w-0 flex-1">
             <Badge className={`${getSlideColor()} text-[10px] xs:text-xs px-1.5 xs:px-2`}>
               {getSlideLabel()}
             </Badge>
             <CardTitle className="text-xs xs:text-sm font-medium text-muted-foreground truncate">
               Ảnh {slide.slideNumber}/{totalSlides}
             </CardTitle>
+            {/* Thumbnail preview if image exists */}
+            {generatedImage && (
+              <img
+                src={generatedImage.imageUrl}
+                alt={`Slide ${slide.slideNumber}`}
+                className="w-8 h-8 xs:w-10 xs:h-10 rounded object-cover border border-border/50 ml-auto shrink-0"
+              />
+            )}
           </div>
           <Button
             variant="outline"
@@ -293,19 +290,12 @@ export function SlidePromptCard({
             ) : (
               <Copy className="w-3 xs:w-4 h-3 xs:h-4" />
             )}
-            <span className="ml-1 xs:ml-1.5 hidden xs:inline">Copy Prompt</span>
+            <span className="ml-1 xs:ml-1.5 hidden xs:inline">Copy</span>
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-2.5 xs:space-y-3 sm:space-y-4 px-3 xs:px-4 sm:px-6 py-2 xs:py-3">
-        {renderEditableField(
-          'objective',
-          <Target className="w-3 xs:w-3.5 h-3 xs:h-3.5" />,
-          '[1] Mục tiêu slide',
-          'Mục tiêu',
-          slide.objective,
-        )}
-
+      <CardContent className="space-y-2.5 xs:space-y-3 px-3 xs:px-4 sm:px-6 py-2 xs:py-3">
+        {/* Always visible: textContent (headline) */}
         {renderEditableField(
           'textContent',
           <Type className="w-3 xs:w-3.5 h-3 xs:h-3.5" />,
@@ -314,39 +304,7 @@ export function SlidePromptCard({
           textContentToString(slide.textContent),
         )}
 
-        {renderEditableField(
-          'designStyle',
-          <Palette className="w-3 xs:w-3.5 h-3 xs:h-3.5" />,
-          '[3] Phong cách thiết kế',
-          'Phong cách',
-          slide.designStyle,
-        )}
-
-        {renderEditableField(
-          'colorLayout',
-          <Layout className="w-3 xs:w-3.5 h-3 xs:h-3.5" />,
-          '[4] Màu sắc – bố cục',
-          'Màu sắc',
-          slide.colorLayout,
-        )}
-
-        {renderEditableField(
-          'aspectRatio',
-          <Square className="w-3 xs:w-3.5 h-3 xs:h-3.5" />,
-          '[5] Tỉ lệ khung hình',
-          'Tỉ lệ',
-          slide.aspectRatio,
-        )}
-
-        {renderEditableField(
-          'technicalRequirements',
-          <Settings className="w-3 xs:w-3.5 h-3 xs:h-3.5" />,
-          '[6] Yêu cầu kỹ thuật',
-          'Kỹ thuật',
-          slide.technicalRequirements,
-        )}
-
-        {/* Full Prompt */}
+        {/* Full Prompt - always visible */}
         <div className="pt-2 border-t border-border/50">
           <div className="flex items-center justify-between mb-1.5 xs:mb-2">
             <span className="text-[10px] xs:text-xs font-medium text-primary">PROMPT HOÀN CHỈNH</span>
@@ -396,6 +354,60 @@ export function SlidePromptCard({
             </div>
           )}
         </div>
+
+        {/* Collapsible details: objective, designStyle, colorLayout, aspectRatio, technicalRequirements */}
+        <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-1.5 text-[10px] xs:text-xs text-muted-foreground hover:text-foreground transition-colors w-full py-1">
+              <ChevronDown className={cn("w-3 h-3 transition-transform", detailsOpen && "rotate-180")} />
+              {detailsOpen ? 'Ẩn chi tiết' : 'Xem chi tiết (Mục tiêu, Phong cách, Màu sắc...)'}
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-2.5 xs:space-y-3 pt-2">
+            {renderEditableField(
+              'objective',
+              <Target className="w-3 xs:w-3.5 h-3 xs:h-3.5" />,
+              '[1] Mục tiêu slide',
+              'Mục tiêu',
+              slide.objective,
+            )}
+
+            {renderEditableField(
+              'designStyle',
+              <Palette className="w-3 xs:w-3.5 h-3 xs:h-3.5" />,
+              '[3] Phong cách thiết kế',
+              'Phong cách',
+              slide.designStyle,
+            )}
+
+            {renderEditableField(
+              'colorLayout',
+              <Layout className="w-3 xs:w-3.5 h-3 xs:h-3.5" />,
+              '[4] Màu sắc – bố cục',
+              'Màu sắc',
+              slide.colorLayout,
+            )}
+
+            {/* AspectRatio + TechnicalRequirements in 2-col grid */}
+            <div className="grid grid-cols-1 xs:grid-cols-2 gap-2.5 xs:gap-3">
+              {renderEditableField(
+                'aspectRatio',
+                <Square className="w-3 xs:w-3.5 h-3 xs:h-3.5" />,
+                '[5] Tỉ lệ khung hình',
+                'Tỉ lệ',
+                slide.aspectRatio,
+              )}
+
+              {renderEditableField(
+                'technicalRequirements',
+                <Settings className="w-3 xs:w-3.5 h-3 xs:h-3.5" />,
+                '[6] Yêu cầu kỹ thuật',
+                'Kỹ thuật',
+                slide.technicalRequirements,
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* Image Generation Section */}
         {onGenerateImage && (
