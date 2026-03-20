@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import { Carousel, CAROUSEL_STATUS_CONFIG, CAROUSEL_STYLE_OPTIONS } from '@/types/carousel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -137,17 +138,18 @@ export function CarouselCard({
         {imageUrls && imageUrls.length > 0 ? (
           <div className="relative aspect-[4/3] overflow-hidden cursor-pointer rounded-t-lg" onClick={() => onView(carousel)}>
             {imageUrls.length === 1 && (
-              <img
+              <OptimizedImage
                 src={imageUrls[0]}
                 alt={carousel.title}
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 rounded-t-lg"
-                loading="lazy"
+                skeletonClassName="w-full h-full"
+                preloadSrc={imageUrls[1]}
               />
             )}
             {imageUrls.length === 2 && (
               <div className="grid grid-cols-2 gap-1 h-full">
                 {imageUrls.slice(0, 2).map((url, i) => (
-                  <img
+                  <OptimizedImage
                     key={i}
                     src={url}
                     alt=""
@@ -156,31 +158,33 @@ export function CarouselCard({
                       i === 0 && "rounded-tl-lg",
                       i === 1 && "rounded-tr-lg"
                     )}
-                    loading="lazy"
+                    skeletonClassName="w-full h-full"
                   />
                 ))}
               </div>
             )}
             {imageUrls.length >= 3 && (
               <div className="grid grid-cols-2 gap-1 h-full">
-                <img
+                <OptimizedImage
                   src={imageUrls[0]}
                   alt=""
                   className="w-full h-full object-cover row-span-2 rounded-tl-lg transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
+                  skeletonClassName="w-full h-full"
                   style={{ gridRow: '1 / 3' }}
+                  preloadSrc={imageUrls[1]}
                 />
-                <img
+                <OptimizedImage
                   src={imageUrls[1]}
                   alt=""
                   className="w-full h-full object-cover rounded-tr-lg transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
+                  skeletonClassName="w-full h-full"
+                  preloadSrc={imageUrls[2]}
                 />
                 {imageUrls.length === 3 ? (
-                  <img src={imageUrls[2]} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+                  <OptimizedImage src={imageUrls[2]} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" skeletonClassName="w-full h-full" />
                 ) : (
                   <div className="relative overflow-hidden">
-                    <img src={imageUrls[2]} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+                    <OptimizedImage src={imageUrls[2]} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" skeletonClassName="w-full h-full" />
                     {imageUrls.length > 3 && (
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/30 backdrop-blur-[2px] flex flex-col items-center justify-center">
                         <span className="text-white font-bold text-base leading-none">+{imageUrls.length - 3}</span>
