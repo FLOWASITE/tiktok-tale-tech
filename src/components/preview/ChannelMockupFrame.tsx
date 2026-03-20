@@ -93,6 +93,93 @@ function ActionButton({
   );
 }
 
+// Carousel Image Slider - reusable across Facebook/TikTok mockups
+function CarouselImageSlider({ 
+  images, 
+  totalSlides,
+  aspectRatio = 'aspect-square',
+  emptyGradient = 'from-muted/30 to-muted/50',
+}: { 
+  images: string[]; 
+  totalSlides: number;
+  aspectRatio?: string;
+  emptyGradient?: string;
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const slideCount = Math.max(totalSlides, images.length, 1);
+  
+  const goNext = useCallback(() => setCurrentIndex(i => Math.min(slideCount - 1, i + 1)), [slideCount]);
+  const goPrev = useCallback(() => setCurrentIndex(i => Math.max(0, i - 1)), []);
+
+  return (
+    <div className="relative group/slider">
+      <div className={cn(aspectRatio, 'w-full overflow-hidden relative bg-muted/10')}>
+        {images[currentIndex] ? (
+          <img 
+            src={images[currentIndex]} 
+            alt={`Slide ${currentIndex + 1}`} 
+            className="w-full h-full object-cover transition-opacity duration-300"
+          />
+        ) : (
+          <div className={cn('w-full h-full flex flex-col items-center justify-center bg-gradient-to-br', emptyGradient)}>
+            <ImageIcon className="w-10 h-10 text-muted-foreground/30" />
+            <span className="text-xs text-muted-foreground/50 mt-2">Slide {currentIndex + 1}</span>
+          </div>
+        )}
+        
+        {/* Counter badge */}
+        <div className="absolute top-2.5 right-2.5 bg-black/60 text-white text-[11px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm">
+          {currentIndex + 1}/{slideCount}
+        </div>
+        
+        {/* Navigation arrows */}
+        {slideCount > 1 && (
+          <>
+            <button 
+              onClick={goPrev}
+              disabled={currentIndex === 0}
+              className={cn(
+                "absolute left-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/80 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center shadow-md transition-all duration-200",
+                currentIndex === 0 ? "opacity-0" : "opacity-0 group-hover/slider:opacity-100 hover:scale-110 active:scale-95"
+              )}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={goNext}
+              disabled={currentIndex === slideCount - 1}
+              className={cn(
+                "absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/80 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center shadow-md transition-all duration-200",
+                currentIndex === slideCount - 1 ? "opacity-0" : "opacity-0 group-hover/slider:opacity-100 hover:scale-110 active:scale-95"
+              )}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </>
+        )}
+      </div>
+      
+      {/* Indicator dots */}
+      {slideCount > 1 && slideCount <= 10 && (
+        <div className="flex items-center justify-center gap-1 py-2">
+          {Array.from({ length: slideCount }).map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrentIndex(i)}
+              className={cn(
+                "rounded-full transition-all duration-200",
+                i === currentIndex 
+                  ? "w-1.5 h-1.5 bg-primary" 
+                  : "w-1 h-1 bg-muted-foreground/30 hover:bg-muted-foreground/50"
+              )}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Facebook Post Mockup - Match official FB design
 function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImage }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const [liked, setLiked] = useState(false);
