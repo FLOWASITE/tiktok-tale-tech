@@ -474,12 +474,118 @@ function LinkedInMockup({ content, brandName, logoUrl, isGenerating, channelImag
   );
 }
 
-// Instagram Post Mockup - Match official IG design
-function InstagramMockup({ content, brandName, logoUrl, isGenerating, channelImage }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+// Instagram caption with "thêm" truncation
+function InstagramCaption({ content, username }: { content: string; username: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = content.length > 100;
+  
+  return (
+    <div className="text-sm text-[#262626] dark:text-white">
+      <span className="font-semibold mr-1 hover:opacity-60 cursor-pointer transition-opacity">{username}</span>
+      {isLong && !expanded ? (
+        <>
+          <span className="line-clamp-2 inline">
+            <ReactMarkdown components={{
+              p: ({ children }) => <span className="inline">{children}</span>,
+              strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+            }}>{content.slice(0, 80)}</ReactMarkdown>
+          </span>
+          <span className="text-[#8e8e8e] cursor-pointer" onClick={() => setExpanded(true)}>... thêm</span>
+        </>
+      ) : (
+        <ReactMarkdown components={{
+          p: ({ children }) => <span className="inline">{children}</span>,
+          strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+        }}>{content}</ReactMarkdown>
+      )}
+    </div>
+  );
+}
+
+// Instagram Carousel Slider - with IG-style dots
+function InstagramCarouselSlider({
+  images,
+  totalSlides,
+}: {
+  images: string[];
+  totalSlides: number;
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const slideCount = Math.max(totalSlides, images.length, 1);
+  
+  const goNext = useCallback(() => setCurrentIndex(i => Math.min(slideCount - 1, i + 1)), [slideCount]);
+  const goPrev = useCallback(() => setCurrentIndex(i => Math.max(0, i - 1)), []);
+
+  return (
+    <div className="relative">
+      <div className="aspect-[4/5] w-full overflow-hidden relative bg-[#efefef] dark:bg-[#1a1a1a]">
+        {images[currentIndex] ? (
+          <img 
+            src={images[currentIndex]} 
+            alt={`Slide ${currentIndex + 1}`} 
+            className="w-full h-full object-cover transition-opacity duration-300"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#833ab4]/10 via-[#fd1d1d]/10 to-[#fcb045]/10">
+            <ImageIcon className="w-10 h-10 text-[#262626]/20 dark:text-white/20" />
+            <span className="text-xs text-[#262626]/40 dark:text-white/40 mt-2">Slide {currentIndex + 1}</span>
+          </div>
+        )}
+        
+        {/* Navigation arrows */}
+        {slideCount > 1 && (
+          <>
+            <button 
+              onClick={goPrev}
+              className={cn(
+                "absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center shadow-md transition-all duration-200 hover:scale-110 active:scale-95",
+                currentIndex === 0 && "opacity-0 pointer-events-none"
+              )}
+            >
+              <ChevronLeft className="w-4 h-4 text-[#262626] dark:text-white" />
+            </button>
+            <button 
+              onClick={goNext}
+              className={cn(
+                "absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center shadow-md transition-all duration-200 hover:scale-110 active:scale-95",
+                currentIndex === slideCount - 1 && "opacity-0 pointer-events-none"
+              )}
+            >
+              <ChevronRight className="w-4 h-4 text-[#262626] dark:text-white" />
+            </button>
+          </>
+        )}
+      </div>
+      
+      {/* Instagram-style dots below image */}
+      {slideCount > 1 && slideCount <= 12 && (
+        <div className="flex items-center justify-center gap-1 py-2">
+          {Array.from({ length: slideCount }).map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrentIndex(i)}
+              className={cn(
+                "rounded-full transition-all duration-200",
+                i === currentIndex 
+                  ? "w-[6px] h-[6px] bg-[#0095f6]" 
+                  : "w-[5px] h-[5px] bg-[#c7c7c7] dark:bg-[#4d4d4d]"
+              )}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Instagram Post Mockup - Match official IG design with carousel support
+function InstagramMockup({ content, brandName, logoUrl, isGenerating, channelImage, channelImages, slideTitles }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const username = brandName.toLowerCase().replace(/\s+/g, '');
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
+  const allImages = channelImages?.length ? channelImages : channelImage ? [channelImage] : [];
+  const isCarousel = allImages.length > 1 || (channelImages !== undefined);
   
   const handleDoubleClick = () => {
     if (!liked) {
@@ -511,32 +617,43 @@ function InstagramMockup({ content, brandName, logoUrl, isGenerating, channelIma
         </button>
       </div>
 
-      {/* Image */}
-      <div 
-        className="aspect-square bg-gradient-to-br from-[#833ab4]/20 via-[#fd1d1d]/20 to-[#fcb045]/20 dark:from-[#833ab4]/30 dark:via-[#fd1d1d]/30 dark:to-[#fcb045]/30 flex items-center justify-center relative cursor-pointer select-none overflow-hidden"
-        onDoubleClick={handleDoubleClick}
-      >
-        {channelImage ? (
-          <img 
-            src={channelImage} 
-            alt="Post" 
-            className="w-full h-full object-cover"
+      {/* Carousel or Single Image */}
+      {isCarousel ? (
+        <div onDoubleClick={handleDoubleClick} className="relative cursor-pointer select-none">
+          <InstagramCarouselSlider 
+            images={allImages} 
+            totalSlides={Math.max(allImages.length, 1)} 
           />
-        ) : (
-          <div className="text-center">
-            <Instagram className="w-16 h-16 text-[#262626]/20 dark:text-white/20 mx-auto" />
-            <p className="text-sm text-[#262626]/40 dark:text-white/40 mt-2">Nhấp đúp để thích</p>
+          {/* Heart animation */}
+          <div className={cn(
+            "absolute inset-0 flex items-center justify-center pointer-events-none transition-all duration-300",
+            showHeart ? "opacity-100 scale-100" : "opacity-0 scale-50"
+          )}>
+            <Heart className="w-24 h-24 text-white fill-white drop-shadow-lg" />
           </div>
-        )}
-        
-        {/* Heart animation on double click */}
-        <div className={cn(
-          "absolute inset-0 flex items-center justify-center pointer-events-none transition-all duration-300",
-          showHeart ? "opacity-100 scale-100" : "opacity-0 scale-50"
-        )}>
-          <Heart className="w-24 h-24 text-white fill-white drop-shadow-lg animate-ping-once" />
         </div>
-      </div>
+      ) : (
+        <div 
+          className="aspect-[4/5] bg-gradient-to-br from-[#833ab4]/20 via-[#fd1d1d]/20 to-[#fcb045]/20 dark:from-[#833ab4]/30 dark:via-[#fd1d1d]/30 dark:to-[#fcb045]/30 flex items-center justify-center relative cursor-pointer select-none overflow-hidden"
+          onDoubleClick={handleDoubleClick}
+        >
+          {allImages[0] ? (
+            <img src={allImages[0]} alt="Post" className="w-full h-full object-cover" />
+          ) : (
+            <div className="text-center">
+              <Instagram className="w-16 h-16 text-[#262626]/20 dark:text-white/20 mx-auto" />
+              <p className="text-sm text-[#262626]/40 dark:text-white/40 mt-2">Nhấp đúp để thích</p>
+            </div>
+          )}
+          {/* Heart animation */}
+          <div className={cn(
+            "absolute inset-0 flex items-center justify-center pointer-events-none transition-all duration-300",
+            showHeart ? "opacity-100 scale-100" : "opacity-0 scale-50"
+          )}>
+            <Heart className="w-24 h-24 text-white fill-white drop-shadow-lg" />
+          </div>
+        </div>
+      )}
 
       {/* Action icons */}
       <div className="p-3 flex items-center justify-between">
@@ -573,7 +690,7 @@ function InstagramMockup({ content, brandName, logoUrl, isGenerating, channelIma
         <p className="text-sm font-semibold text-[#262626] dark:text-white">{liked ? '3.457' : '3.456'} lượt thích</p>
       </div>
 
-      {/* Caption */}
+      {/* Caption with truncation */}
       <div className="px-3 pb-3 pt-1">
         {isGenerating ? (
           <div className="space-y-1.5 animate-pulse">
@@ -581,13 +698,7 @@ function InstagramMockup({ content, brandName, logoUrl, isGenerating, channelIma
             <div className="h-3 bg-[#efefef] dark:bg-[#262626] rounded w-4/5" />
           </div>
         ) : (
-          <div className="text-sm text-[#262626] dark:text-white">
-            <span className="font-semibold mr-1 hover:opacity-60 cursor-pointer transition-opacity">{username}</span>
-            <ReactMarkdown components={{
-              p: ({ children }) => <span className="inline">{children}</span>,
-              strong: ({ children }) => <strong className="font-bold">{children}</strong>,
-            }}>{content}</ReactMarkdown>
-          </div>
+          <InstagramCaption content={content} username={username} />
         )}
         <p className="text-[10px] text-[#8e8e8e] uppercase mt-2 tracking-wide">2 GIỜ TRƯỚC</p>
       </div>
@@ -595,8 +706,37 @@ function InstagramMockup({ content, brandName, logoUrl, isGenerating, channelIma
   );
 }
 
-// TikTok Post Mockup - Match official TikTok design
-function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage, channelImages }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+// TikTok caption with "...thêm" truncation
+function TikTokCaption({ content }: { content: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = content.length > 100;
+  
+  if (isLong && !expanded) {
+    return (
+      <div className="text-sm text-white/90 leading-[1.4]">
+        <span className="line-clamp-2">
+          <ReactMarkdown components={{
+            p: ({ children }) => <span>{children}</span>,
+            strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+          }}>{content.slice(0, 80)}</ReactMarkdown>
+        </span>
+        <button className="text-white/60 text-sm font-medium" onClick={() => setExpanded(true)}>... thêm</button>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="text-sm text-white/90 leading-[1.4]">
+      <ReactMarkdown components={{
+        p: ({ children }) => <span>{children}</span>,
+        strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+      }}>{content}</ReactMarkdown>
+    </div>
+  );
+}
+
+// TikTok Post Mockup - Match official TikTok design with carousel
+function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage, channelImages, slideTitles }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const username = brandName.toLowerCase().replace(/\s+/g, '');
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -640,12 +780,7 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage,
               <div className="h-3 bg-white/20 rounded w-3/4" />
             </div>
           ) : (
-            <div className="text-sm text-white/90 leading-[1.4] line-clamp-3">
-              <ReactMarkdown components={{
-                p: ({ children }) => <span>{children}</span>,
-                strong: ({ children }) => <strong className="font-bold">{children}</strong>,
-              }}>{content}</ReactMarkdown>
-            </div>
+            <TikTokCaption content={content} />
           )}
         </div>
 
@@ -779,15 +914,10 @@ function TikTokMockup({ content, brandName, logoUrl, isGenerating, channelImage,
             <div className="h-3 bg-white/30 rounded w-3/4" />
           </div>
         ) : (
-          <div className="text-sm mb-3 line-clamp-3 leading-[1.3]">
-            <ReactMarkdown components={{
-              p: ({ children }) => <span>{children}</span>,
-              strong: ({ children }) => <strong className="font-bold">{children}</strong>,
-            }}>{content}</ReactMarkdown>
-          </div>
+          <TikTokCaption content={content} />
         )}
 
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-sm mt-2">
           <Music2 className="w-4 h-4 animate-bounce-subtle" />
           <div className="overflow-hidden">
             <p className="whitespace-nowrap animate-marquee">🎵 Original Sound - {brandName}</p>
@@ -1685,9 +1815,9 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
     case 'linkedin':
       return <LinkedInMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'instagram':
-      return <InstagramMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
+      return <InstagramMockup {...rest} brandName={safeBrandName} channelImage={channelImage} channelImages={channelImages} slideTitles={slideTitles} />;
     case 'tiktok':
-      return <TikTokMockup {...rest} brandName={safeBrandName} channelImage={channelImage} channelImages={channelImages} />;
+      return <TikTokMockup {...rest} brandName={safeBrandName} channelImage={channelImage} channelImages={channelImages} slideTitles={slideTitles} />;
     case 'twitter':
       return <TwitterMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'threads':
