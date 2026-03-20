@@ -1,28 +1,40 @@
 
 
-# Tối ưu tải ảnh trên Carousel Card Grid
+# Thiết kế lại Carousel Card — Thẩm mỹ & Sang trọng
 
 ## Vấn đề
-Card đang dùng thẻ `<img>` thuần với `loading="lazy"` — không có skeleton placeholder, không fade-in, không preload. Khi ảnh vừa tạo xong, grid trống trơn cho đến khi ảnh tải xong, tạo cảm giác chậm.
+Card hiện tại trông khá "flat" và có quá nhiều badge/tag chen chúc, thiếu hierarchy rõ ràng. Cần redesign để tạo cảm giác premium, thoáng, dễ scan.
 
-## Giải pháp
+## Thiết kế mới
 
-### 1. `src/components/CarouselCard.tsx` — Dùng `OptimizedImage` thay `<img>`
-- Thay tất cả thẻ `<img>` trong phần Image Grid (line 140-191) bằng component `OptimizedImage` đã có sẵn
-- `OptimizedImage` cung cấp: skeleton loading, fade-in animation, error fallback, async decoding
-- Giữ nguyên tất cả className, rounded corners, hover effects
+### Layout Structure
+```text
+┌──────────────────────────────┐
+│  [Image Grid 4:3]            │  ← Giữ nguyên grid ảnh
+│  Status pill (góc phải trên) │
+│  Image count (góc trái dưới) │
+├──────────────────────────────┤
+│  Platform icon + Brand logo  │  ← Dòng nhỏ, subtle
+│                              │
+│  Title (2 dòng max)          │  ← Font lớn hơn, medium weight
+│  "3 giờ trước"               │  ← Muted, nhỏ
+│                              │
+│  ┌─ Avatar ── Creator Name ─┐│  ← Bottom row
+│  │           [👁 Xem] [🗑] ││
+│  └──────────────────────────┘│
+└──────────────────────────────┘
+```
 
-### 2. `src/hooks/useCarouselCardImages.ts` — Thêm realtime subscription + cache thông minh
-- Thêm Supabase realtime subscription lắng nghe `carousel_images` INSERT events
-- Khi có ảnh mới được tạo → cập nhật `imageMap` ngay lập tức thay vì đợi refetch
-- Merge incremental updates vào state hiện tại thay vì replace toàn bộ
-- Giữ data cũ khi `carouselIds` thay đổi (tránh flash trống)
+### Thay đổi chính: `src/components/CarouselCard.tsx`
 
-### 3. `src/components/CarouselCard.tsx` — Preload ảnh đầu tiên
-- Truyền `preloadSrc` cho ảnh thứ 2 trong grid (ảnh đầu tiên preload ảnh kế tiếp)
+1. **Loại bỏ badge overload**: Xóa hàng badge (platform, slide count, style) — chuyển platform + brand thành dòng icon nhỏ subtle phía trên title
+2. **Status badge**: Di chuyển vào overlay góc phải trên ảnh (glass effect) thay vì cạnh title
+3. **Typography upgrade**: Title dùng `font-medium tracking-tight`, không bold quá
+4. **Spacing thoáng hơn**: Tăng padding, giảm clutter
+5. **Bottom bar**: Creator + Actions trên cùng 1 dòng, Actions chỉ hiện khi hover
+6. **Card style**: Thêm subtle border-radius lớn hơn (`rounded-xl`), shadow nhẹ hơn, hover effect tinh tế
+7. **Bỏ status indicator line trên cùng** — đã có status pill trên ảnh
+8. **Bỏ glow effect** — thay bằng subtle shadow transition
 
-## Tóm tắt
-- Sửa 2 file
-- `CarouselCard.tsx`: thay `<img>` → `OptimizedImage` (~6 chỗ), thêm import
-- `useCarouselCardImages.ts`: thêm realtime subscription + incremental update (~20 dòng)
+Sửa 1 file `src/components/CarouselCard.tsx`, redesign toàn bộ phần content bên dưới ảnh.
 
