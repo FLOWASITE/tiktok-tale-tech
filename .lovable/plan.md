@@ -1,15 +1,36 @@
 
-# Tăng chiều dọc Form đăng Facebook Page
 
-## Thay đổi
+# Hiển thị tất cả ảnh trên Carousel Card
 
-### `src/components/social/DirectPublishButton.tsx`
+## Hiện tại
+- Hook `useCarouselCardImages` chỉ lưu `thumbnailUrl` (ảnh đầu tiên) + `imageCount`
+- Card hiển thị 1 ảnh duy nhất với badge đếm số ảnh
 
-1. **Textarea "Nội dung bài đăng"** (line 356-357): Tăng `rows` từ 4 → 8, tăng `max-h` từ `120px/200px` → `250px/400px`
-2. **DialogContent** (line 285): Thêm `max-h-[90vh] overflow-y-auto` để dialog có thể scroll khi nội dung dài
+## Giải pháp: Layout dạng grid ảnh nhỏ
 
-| Dòng | Trước | Sau |
-|------|-------|-----|
-| 356-357 | `rows={4}`, `max-h-[120px] sm:max-h-[200px]` | `rows={8}`, `max-h-[250px] sm:max-h-[400px]` |
+Thay vì 1 ảnh lớn, hiển thị **grid tất cả ảnh** trên card. Nếu có nhiều ảnh sẽ dùng layout grid linh hoạt:
+- 1 ảnh: full width
+- 2 ảnh: 2 cột
+- 3 ảnh: 1 lớn + 2 nhỏ
+- 4+ ảnh: 1 lớn + 2 nhỏ + badge "+N"
 
-Sửa 1 file, ~2 dòng thay đổi.
+```text
+┌─────────────────┐  ┌────────┬────────┐  ┌────────┬───────┐
+│                 │  │        │        │  │        │  img2 │
+│    1 ảnh        │  │  img1  │  img2  │  │  img1  ├───────┤
+│    full         │  │        │        │  │        │  img3 │
+│                 │  │        │        │  │        ├───────┤
+└─────────────────┘  └────────┴────────┘  └────────┘  +2   │
+     1 image            2 images              4+ images
+```
+
+### Thay đổi
+
+| File | Nội dung |
+|------|----------|
+| `src/hooks/useCarouselCardImages.ts` | Trả về mảng `imageUrls: string[]` thay vì chỉ `thumbnailUrl` |
+| `src/components/CarouselCard.tsx` | Thay section thumbnail bằng grid layout hiển thị nhiều ảnh |
+| `src/pages/Carousel.tsx` | Truyền `imageUrls` thay vì `thumbnailUrl` + `imageCount` |
+
+Sửa 3 file, ~60 dòng thay đổi.
+
