@@ -51,6 +51,8 @@ interface ChannelMockupFrameProps {
   // Website-specific props
   seoData?: WebsiteSEOData;
   channelImage?: string;
+  /** Multiple carousel images for slider mode */
+  channelImages?: string[];
 }
 
 // Reusable animated button component
