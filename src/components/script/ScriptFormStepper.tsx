@@ -64,11 +64,9 @@ interface ScriptFormStepperProps {
 }
 
 const STEPS: Step[] = [
-  { id: 1, title: 'Mục đích', icon: <Target className="w-4 h-4" /> },
-  { id: 2, title: 'Chủ đề', icon: <FileText className="w-4 h-4" /> },
-  { id: 3, title: 'Hook', icon: <Zap className="w-4 h-4" />, optional: true },
-  { id: 4, title: 'Cấu hình', icon: <Settings className="w-4 h-4" /> },
-  { id: 5, title: 'Tạo', icon: <CheckCircle2 className="w-4 h-4" /> },
+  { id: 1, title: 'Nội dung', icon: <FileText className="w-4 h-4" /> },
+  { id: 2, title: 'Cấu hình', icon: <Settings className="w-4 h-4" /> },
+  { id: 3, title: 'Tạo', icon: <CheckCircle2 className="w-4 h-4" /> },
 ];
 
 const LOADING_PHASES = [
