@@ -56,6 +56,8 @@ interface ChannelMockupFrameProps {
   channelImage?: string;
   /** Multiple carousel images for slider mode */
   channelImages?: string[];
+  /** Per-slide titles for carousel card overlays */
+  slideTitles?: string[];
 }
 
 // Reusable animated button component
