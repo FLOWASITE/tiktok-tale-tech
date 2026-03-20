@@ -226,6 +226,12 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     industry: selectedTemplate?.industry?.[0],
     enabled: formData.topic.trim().length >= 10,
   });
+  // Topic angle recommendations
+  const { topRecommendation: topAngleRec } = useTopicAngleRecommendations({
+    topic: formData.topic,
+    videoType: formData.video_type,
+    enabled: formData.topic.trim().length >= 20,
+  });
 
   // Auto-apply top recommendations (only if user hasn't manually overridden)
   useEffect(() => {
