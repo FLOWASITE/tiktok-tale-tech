@@ -171,10 +171,10 @@ function parseMinimaxBlock(block: string, promptNumber: number): ParsedPrompt {
   };
 }
 
-// Parse Teleprompter format
+// Parse Teleprompter format (unified with voice-over)
 function parseTeleprompterBlock(block: string, promptNumber: number): ParsedPrompt {
   // Cue card
-  const cueMatch = block.match(/(?:Cue|Gợi ý|Cue card)[\s:]*([^\n]+)/i);
+  const cueMatch = block.match(/(?:Cue|Gợi ý|Cue card|CUE)[\s:]*([^\n]+)/i);
   const cue = cueMatch ? cueMatch[1].trim() : undefined;
   
   // Main dialogue/script text
@@ -194,16 +194,32 @@ function parseTeleprompterBlock(block: string, promptNumber: number): ParsedProm
   const durationMatch = block.match(/(?:Duration|Thời lượng)[\s:]*([^\n]+)/i);
   const duration = durationMatch ? durationMatch[1].trim() : '';
 
+  // Voice guidance fields (merged from voice-over)
+  const voiceGuideMatch = block.match(/(?:Voice guide|Hướng dẫn giọng|HƯỚNG DẪN GIỌNG)[\s:]*([^\n]+(?:\n(?![A-Z]+:)[^\n]+)*)/i);
+  const voiceGuide = voiceGuideMatch ? voiceGuideMatch[1].trim() : undefined;
+
+  const toneMatch = block.match(/(?:Tone|Giọng điệu|Emotion|Cảm xúc)[\s:]*([^\n]+)/i);
+  const tone = toneMatch ? toneMatch[1].trim() : '';
+
+  const tempoMatch = block.match(/(?:Tempo|Nhịp độ|Speed)[\s:]*([^\n]+)/i);
+  const tempo = tempoMatch ? tempoMatch[1].trim() : undefined;
+
+  const emotionMatch = block.match(/(?:Emotion|Cảm xúc giọng)[\s:]*([^\n]+)/i);
+  const emotion = emotionMatch ? emotionMatch[1].trim() : undefined;
+
   return {
     promptNumber,
     duration,
     motion: '',
     dialogue,
-    tone: '',
+    tone,
     rawContent: block.trim(),
     cue,
     emphasis,
     pause,
+    voiceGuide,
+    tempo,
+    emotion,
   };
 }
 
