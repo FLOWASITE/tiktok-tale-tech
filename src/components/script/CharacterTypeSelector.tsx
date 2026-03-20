@@ -162,7 +162,7 @@ export function CharacterTypeSelector({ value, onChange, disabled }: CharacterTy
                     "text-sm font-medium",
                     hasSelectedInCategory && "text-primary"
                   )}>
-                    {categoryConfig.icon} {categoryConfig.label}
+                    {categoryConfig.label}
                   </span>
                   {hasSelectedInCategory && (
                     <span className="ml-auto mr-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
