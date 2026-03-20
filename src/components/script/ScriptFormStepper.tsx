@@ -508,12 +508,17 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                   id="topic"
                   placeholder="Nhập chủ đề video của bạn, ví dụ: 5 sai lầm phổ biến khi đầu tư chứng khoán mà người mới thường mắc phải..."
                   value={formData.topic}
-                  onChange={(e) => setFormData((prev) => ({ 
-                    ...prev, 
-                    topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
-                  }))}
+                  onChange={(e) => {
+                    setFormData((prev) => ({ 
+                      ...prev, 
+                      topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
+                    }));
+                    // Auto-resize
+                    e.target.style.height = 'auto';
+                    e.target.style.height = e.target.scrollHeight + 'px';
+                  }}
                   className={cn(
-                    "min-h-[120px] bg-muted/30 border-2 resize-none text-sm transition-all duration-300",
+                    "min-h-[72px] bg-muted/30 border-2 resize-none text-sm transition-all duration-300",
                     "focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-background",
                     "placeholder:text-muted-foreground/60"
                   )}
