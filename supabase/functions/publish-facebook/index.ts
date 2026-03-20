@@ -50,6 +50,28 @@ async function decryptCredential(ciphertext: string): Promise<string> {
   throw new Error('Failed to decrypt credential with any method');
 }
 
+async function uploadUnpublishedPhoto(
+  pageId: string,
+  accessToken: string,
+  imageUrl: string,
+): Promise<string> {
+  const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/photos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      access_token: accessToken,
+      url: imageUrl,
+      published: 'false',
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error?.message || 'Failed to upload photo');
+  }
+  const data = await res.json();
+  return data.id;
+}
+
 async function publishToFacebook(
   pageId: string,
   accessToken: string,
@@ -58,8 +80,8 @@ async function publishToFacebook(
 ): Promise<{ postId: string; postUrl: string }> {
   const { mediaUrls, linkUrl, scheduleTime } = options;
 
-  if (mediaUrls && mediaUrls.length > 0) {
-    // Photo post
+  if (mediaUrls && mediaUrls.length === 1) {
+    // Single photo post — direct upload
     const photoParams: Record<string, string> = {
       access_token: accessToken,
       url: mediaUrls[0],
@@ -81,6 +103,39 @@ async function publishToFacebook(
     const data = await res.json();
     const postId = data.post_id || data.id;
     return { postId, postUrl: `https://www.facebook.com/${postId}` };
+  }
+
+  if (mediaUrls && mediaUrls.length > 1) {
+    // Multi-photo post — upload unpublished then attach to feed post
+    console.log(`Uploading ${mediaUrls.length} photos as unpublished...`);
+    const photoIds = await Promise.all(
+      mediaUrls.map(url => uploadUnpublishedPhoto(pageId, accessToken, url))
+    );
+    console.log('Unpublished photo IDs:', photoIds);
+
+    const params: Record<string, string> = {
+      access_token: accessToken,
+      message: content,
+    };
+    photoIds.forEach((id, i) => {
+      params[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id });
+    });
+    if (scheduleTime) {
+      params.published = 'false';
+      params.scheduled_publish_time = Math.floor(new Date(scheduleTime).getTime() / 1000).toString();
+    }
+
+    const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}/feed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(params),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || 'Failed to publish multi-photo post');
+    }
+    const data = await res.json();
+    return { postId: data.id, postUrl: `https://www.facebook.com/${data.id}` };
   }
 
   // Text or link post
