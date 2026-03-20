@@ -292,6 +292,7 @@ export async function getAIConfig(
       custom_system_prompt: dbConfig?.custom_system_prompt || undefined,
       is_enabled: dbConfig?.is_enabled ?? defaultConfig.is_enabled,
       priority_level: dbConfig?.priority_level || defaultConfig.priority_level,
+      force_provider: dbConfig?.force_provider || null,
     };
 
     // Update cache
