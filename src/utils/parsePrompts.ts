@@ -322,9 +322,6 @@ export function parseScriptContent(content: string, purpose?: ScriptPurpose): Pa
     // Parse based on purpose
     let parsed: ParsedPrompt;
     switch(purpose) {
-      case 'ai_video_minimax':
-        parsed = parseMinimaxBlock(block, promptNumber);
-        break;
       case 'teleprompter':
         parsed = parseTeleprompterBlock(block, promptNumber);
         break;
@@ -334,8 +331,13 @@ export function parseScriptContent(content: string, purpose?: ScriptPurpose): Pa
       case 'production':
         parsed = parseProductionBlock(block, promptNumber);
         break;
-      default: // ai_video_veo3
-        parsed = parseVeo3Block(block, promptNumber);
+      default: { // ai_video — detect CLIP vs PROMPT format
+        const isClipFormat = /^CLIP\s*\d+/i.test(block.trim());
+        parsed = isClipFormat 
+          ? parseMinimaxBlock(block, promptNumber)
+          : parseVeo3Block(block, promptNumber);
+        break;
+      }
     }
     
     prompts.push(parsed);
