@@ -554,7 +554,7 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
 
                   {/* Current Selection Info */}
                   {editingFunction.modelOverride && (
-                    <div className="p-3 rounded-lg bg-muted/50 border">
+                    <div className="p-3 rounded-lg bg-muted/50 border space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           <ProviderIndicator provider={currentModelInfo.provider} />
@@ -564,14 +564,37 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                           variant="ghost"
                           size="sm"
                           className="h-7 text-xs"
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: null })}
+                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: null, forceProvider: null })}
                         >
                           Reset
                         </Button>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1 font-mono truncate">
+                      <p className="text-xs text-muted-foreground font-mono truncate">
                         {editingFunction.modelOverride}
                       </p>
+                      
+                      {/* Force Provider Toggle */}
+                      <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                        <div className="space-y-0.5">
+                          <Label className="text-xs font-medium">Force OpenRouter</Label>
+                          <p className="text-[10px] text-muted-foreground leading-tight">
+                            Bỏ qua Lovable Gateway, dùng OpenRouter API key
+                          </p>
+                        </div>
+                        <Switch
+                          checked={editingFunction.forceProvider === 'openrouter'}
+                          onCheckedChange={(checked) => setEditingFunction({
+                            ...editingFunction,
+                            forceProvider: checked ? 'openrouter' : null,
+                          })}
+                          disabled={!hasOpenRouterApiKey}
+                        />
+                      </div>
+                      {editingFunction.forceProvider === 'openrouter' && (
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                          ⚠ Model sẽ được route qua OpenRouter (cần API key)
+                        </p>
+                      )}
                     </div>
                   )}
                 </TabsContent>
