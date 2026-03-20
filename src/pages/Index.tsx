@@ -13,7 +13,7 @@ import { Script } from '@/types/script';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileVideo, Sparkles, Plus, X, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTopicContentLinks } from '@/hooks/useTopicContentLinks';
