@@ -135,34 +135,56 @@ export function CarouselCard({
 
         {/* Image Grid Preview */}
         {imageUrls && imageUrls.length > 0 ? (
-          <div className="relative aspect-[4/3] bg-muted/20 overflow-hidden cursor-pointer" onClick={() => onView(carousel)}>
+          <div className="relative aspect-[4/3] overflow-hidden cursor-pointer rounded-t-lg" onClick={() => onView(carousel)}>
             {imageUrls.length === 1 && (
               <img
                 src={imageUrls[0]}
                 alt={carousel.title}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 rounded-t-lg"
                 loading="lazy"
               />
             )}
             {imageUrls.length === 2 && (
-              <div className="grid grid-cols-2 gap-0.5 h-full">
+              <div className="grid grid-cols-2 gap-1 h-full">
                 {imageUrls.slice(0, 2).map((url, i) => (
-                  <img key={i} src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  <img
+                    key={i}
+                    src={url}
+                    alt=""
+                    className={cn(
+                      "w-full h-full object-cover transition-transform duration-500 group-hover:scale-105",
+                      i === 0 && "rounded-tl-lg",
+                      i === 1 && "rounded-tr-lg"
+                    )}
+                    loading="lazy"
+                  />
                 ))}
               </div>
             )}
             {imageUrls.length >= 3 && (
-              <div className="grid grid-cols-2 gap-0.5 h-full">
-                <img src={imageUrls[0]} alt="" className="w-full h-full object-cover row-span-2" loading="lazy" style={{ gridRow: '1 / 3' }} />
-                <img src={imageUrls[1]} alt="" className="w-full h-full object-cover" loading="lazy" />
+              <div className="grid grid-cols-2 gap-1 h-full">
+                <img
+                  src={imageUrls[0]}
+                  alt=""
+                  className="w-full h-full object-cover row-span-2 rounded-tl-lg transition-transform duration-500 group-hover:scale-105"
+                  loading="lazy"
+                  style={{ gridRow: '1 / 3' }}
+                />
+                <img
+                  src={imageUrls[1]}
+                  alt=""
+                  className="w-full h-full object-cover rounded-tr-lg transition-transform duration-500 group-hover:scale-105"
+                  loading="lazy"
+                />
                 {imageUrls.length === 3 ? (
-                  <img src={imageUrls[2]} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  <img src={imageUrls[2]} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
                 ) : (
-                  <div className="relative">
-                    <img src={imageUrls[2]} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  <div className="relative overflow-hidden">
+                    <img src={imageUrls[2]} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
                     {imageUrls.length > 3 && (
-                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                        <span className="text-white font-semibold text-sm">+{imageUrls.length - 3}</span>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/30 backdrop-blur-[2px] flex flex-col items-center justify-center">
+                        <span className="text-white font-bold text-base leading-none">+{imageUrls.length - 3}</span>
+                        <span className="text-white/70 text-[9px] mt-0.5">ảnh</span>
                       </div>
                     )}
                   </div>
@@ -171,20 +193,22 @@ export function CarouselCard({
             )}
             {/* Image count badge */}
             {typeof imageCount === 'number' && (
-              <Badge className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] border-0">
+              <Badge className="absolute bottom-2 left-2 bg-black/50 backdrop-blur-sm text-white text-[10px] border border-white/10">
                 <ImageIcon className="w-2.5 h-2.5 mr-1" />
                 {imageCount}/{carousel.slide_count}
               </Badge>
             )}
           </div>
         ) : (
-          <div 
-            className="relative aspect-[4/3] bg-muted/10 flex items-center justify-center cursor-pointer"
+          <div
+            className="relative aspect-[4/3] bg-gradient-to-br from-muted/30 to-muted/10 flex items-center justify-center cursor-pointer rounded-t-lg"
             onClick={() => onView(carousel)}
           >
             <div className="text-center">
-              <Images className="w-8 h-8 text-muted-foreground/30 mx-auto mb-1" />
-              <span className="text-[10px] text-muted-foreground/50">Chưa có ảnh</span>
+              <div className="w-12 h-12 rounded-full bg-muted/40 flex items-center justify-center mx-auto mb-2">
+                <Images className="w-6 h-6 text-muted-foreground/40" />
+              </div>
+              <span className="text-[11px] text-muted-foreground/50 font-medium">Chưa có ảnh</span>
             </div>
           </div>
         )}
