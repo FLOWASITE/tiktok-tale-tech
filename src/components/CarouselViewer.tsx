@@ -705,11 +705,7 @@ export function CarouselViewer({
               </TabsTrigger>
               <TabsTrigger value="caption" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
                 <MessageSquare className="w-3 h-3 xs:w-4 xs:h-4" />
-                <span className="hidden xs:inline">Caption</span>
-              </TabsTrigger>
-              <TabsTrigger value="cta" className="gap-1 xs:gap-1.5 text-[10px] xs:text-sm px-2 xs:px-3 py-1.5">
-                <Megaphone className="w-3 h-3 xs:w-4 xs:h-4" />
-                <span className="hidden xs:inline">CTA</span>
+                <span className="hidden xs:inline">Caption & CTA</span>
               </TabsTrigger>
             </TabsList>
           </div>
