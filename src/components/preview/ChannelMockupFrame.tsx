@@ -56,6 +56,8 @@ interface ChannelMockupFrameProps {
   channelImage?: string;
   /** Multiple carousel images for slider mode */
   channelImages?: string[];
+  /** Per-slide titles for carousel card overlays */
+  slideTitles?: string[];
 }
 
 // Reusable animated button component
@@ -93,17 +95,49 @@ function ActionButton({
   );
 }
 
+// Facebook caption with "Xem thêm" truncation
+function FacebookCaption({ content }: { content: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = content.length > 150;
+  
+  return (
+    <div className="text-[15px] text-[#050505] dark:text-[#e4e6eb] leading-[1.3333]">
+      {isLong && !expanded ? (
+        <>
+          <div className="line-clamp-3">
+            <ReactMarkdown components={mockupMarkdownComponents}>{content}</ReactMarkdown>
+          </div>
+          <button 
+            onClick={() => setExpanded(true)}
+            className="text-[#65676b] dark:text-[#b0b3b8] text-[15px] font-normal hover:underline cursor-pointer mt-0.5"
+          >
+            Xem thêm
+          </button>
+        </>
+      ) : (
+        <ReactMarkdown components={mockupMarkdownComponents}>{content}</ReactMarkdown>
+      )}
+    </div>
+  );
+}
+
 // Carousel Image Slider - reusable across Facebook/TikTok mockups
 function CarouselImageSlider({ 
   images, 
   totalSlides,
   aspectRatio = 'aspect-square',
   emptyGradient = 'from-muted/30 to-muted/50',
+  slideTitles,
+  brandDomain,
+  showCardOverlay = false,
 }: { 
   images: string[]; 
   totalSlides: number;
   aspectRatio?: string;
   emptyGradient?: string;
+  slideTitles?: string[];
+  brandDomain?: string;
+  showCardOverlay?: boolean;
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const slideCount = Math.max(totalSlides, images.length, 1);
@@ -131,36 +165,66 @@ function CarouselImageSlider({
         <div className="absolute top-2.5 right-2.5 bg-black/60 text-white text-[11px] font-medium px-2 py-0.5 rounded-full backdrop-blur-sm">
           {currentIndex + 1}/{slideCount}
         </div>
+
+        {/* Indicator dots inside image (for Facebook card overlay mode) */}
+        {showCardOverlay && slideCount > 1 && slideCount <= 10 && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+            {Array.from({ length: slideCount }).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentIndex(i)}
+                className={cn(
+                  "rounded-full transition-all duration-200",
+                  i === currentIndex 
+                    ? "w-2 h-2 bg-[#1877f2]" 
+                    : "w-1.5 h-1.5 bg-white/60 hover:bg-white/80"
+                )}
+              />
+            ))}
+          </div>
+        )}
         
-        {/* Navigation arrows */}
+        {/* Navigation arrows - always visible */}
         {slideCount > 1 && (
           <>
             <button 
               onClick={goPrev}
               disabled={currentIndex === 0}
               className={cn(
-                "absolute left-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/80 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center shadow-md transition-all duration-200",
-                currentIndex === 0 ? "opacity-0" : "opacity-0 group-hover/slider:opacity-100 hover:scale-110 active:scale-95"
+                "absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 active:scale-95",
+                currentIndex === 0 && "opacity-0 pointer-events-none"
               )}
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-5 h-5 text-[#050505]" />
             </button>
             <button 
               onClick={goNext}
               disabled={currentIndex === slideCount - 1}
               className={cn(
-                "absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/80 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center shadow-md transition-all duration-200",
-                currentIndex === slideCount - 1 ? "opacity-0" : "opacity-0 group-hover/slider:opacity-100 hover:scale-110 active:scale-95"
+                "absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 active:scale-95",
+                currentIndex === slideCount - 1 && "opacity-0 pointer-events-none"
               )}
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-5 h-5 text-[#050505]" />
             </button>
           </>
         )}
       </div>
+
+      {/* Facebook-style card overlay below image */}
+      {showCardOverlay && (
+        <div className="bg-[#f0f2f5] dark:bg-[#3a3b3c] px-3 py-2.5 border-t border-[#dadde1] dark:border-[#3e4042]">
+          {brandDomain && (
+            <p className="text-[11px] text-[#65676b] dark:text-[#b0b3b8] uppercase tracking-wide mb-0.5">{brandDomain}</p>
+          )}
+          <p className="text-[14px] font-semibold text-[#050505] dark:text-[#e4e6eb] leading-tight line-clamp-2">
+            {slideTitles?.[currentIndex] || `Slide ${currentIndex + 1}`}
+          </p>
+        </div>
+      )}
       
-      {/* Indicator dots */}
-      {slideCount > 1 && slideCount <= 10 && (
+      {/* Indicator dots outside (for non-Facebook mockups) */}
+      {!showCardOverlay && slideCount > 1 && slideCount <= 10 && (
         <div className="flex items-center justify-center gap-1 py-2">
           {Array.from({ length: slideCount }).map((_, i) => (
             <button
@@ -181,7 +245,7 @@ function CarouselImageSlider({
 }
 
 // Facebook Post Mockup - Match official FB design
-function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImage, channelImages }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
+function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImage, channelImages, slideTitles }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const [liked, setLiked] = useState(false);
   const allImages = channelImages?.length ? channelImages : channelImage ? [channelImage] : [];
   const isCarousel = allImages.length > 1 || (!allImages.length && (channelImages !== undefined));
@@ -214,7 +278,7 @@ function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImag
         </button>
       </div>
 
-      {/* Content */}
+      {/* Content with "Xem thêm" truncation */}
       <div className="px-4 pb-3">
         {isGenerating ? (
           <div className="space-y-2 animate-pulse">
@@ -223,9 +287,7 @@ function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImag
             <div className="h-4 bg-[#e4e6eb] dark:bg-[#3a3b3c] rounded w-4/6" />
           </div>
         ) : (
-          <div className="text-[15px] text-[#050505] dark:text-[#e4e6eb] leading-[1.3333]">
-            <ReactMarkdown components={mockupMarkdownComponents}>{content}</ReactMarkdown>
-          </div>
+          <FacebookCaption content={content} />
         )}
       </div>
 
@@ -236,6 +298,9 @@ function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImag
           totalSlides={Math.max(allImages.length, 1)}
           aspectRatio="aspect-square"
           emptyGradient="from-[#f0f2f5] to-[#e4e6eb]"
+          slideTitles={slideTitles}
+          brandDomain={brandName ? `${brandName.toLowerCase().replace(/\s+/g, '')}.com` : undefined}
+          showCardOverlay={true}
         />
       ) : allImages.length === 1 ? (
         <div className="w-full aspect-video bg-[#f0f2f5] dark:bg-[#3a3b3c]">
@@ -255,9 +320,6 @@ function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImag
             </div>
             <div className="w-[18px] h-[18px] rounded-full bg-[#f7b928] flex items-center justify-center border-2 border-white dark:border-[#242526] text-[10px]">
               😂
-            </div>
-            <div className="w-[18px] h-[18px] rounded-full bg-[#f7b928] flex items-center justify-center border-2 border-white dark:border-[#242526] text-[10px]">
-              😮
             </div>
           </div>
           <span className="text-[15px] text-[#65676b] dark:text-[#b0b3b8] ml-1.5 hover:underline">{liked ? '1,3K' : '1,2K'}</span>
@@ -1611,7 +1673,7 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
 }
 
 export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
-  const { channel, seoData, channelImage, channelImages, brandName: rawBrandName, ...rest } = props;
+  const { channel, seoData, channelImage, channelImages, slideTitles, brandName: rawBrandName, ...rest } = props;
   
   const safeBrandName = typeof rawBrandName === 'string' && rawBrandName.trim() 
     ? rawBrandName.trim() 
@@ -1619,7 +1681,7 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
 
   switch (channel) {
     case 'facebook':
-      return <FacebookMockup {...rest} brandName={safeBrandName} channelImage={channelImage} channelImages={channelImages} />;
+      return <FacebookMockup {...rest} brandName={safeBrandName} channelImage={channelImage} channelImages={channelImages} slideTitles={slideTitles} />;
     case 'linkedin':
       return <LinkedInMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'instagram':
