@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createDecipheriv } from "node:crypto";
 import { Buffer } from "node:buffer";
+import { decrypt as decryptModern } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,23 +16,53 @@ interface TestRequest {
   consumerSecret?: string;
 }
 
-// Decrypt encrypted credentials
-function decrypt(encryptedText: string, key: string): string {
+function sanitizeCredential(value?: string | null): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function decryptLegacyCBC(encryptedText: string, key: string): string {
+  const [ivHex, encryptedHex] = encryptedText.split(':');
+  if (!ivHex || !encryptedHex) {
+    throw new Error('Invalid legacy encrypted format');
+  }
+
+  const iv = Buffer.from(ivHex, 'hex');
+  const encryptedData = Buffer.from(encryptedHex, 'hex');
+  const keyBuffer = Buffer.from(key.padEnd(32).slice(0, 32));
+
+  const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
+  let decrypted = decipher.update(encryptedData);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
+}
+
+async function decryptCredential(encryptedValue: string | null, key: string): Promise<string | null> {
+  if (!encryptedValue) return null;
+
   try {
-    const textParts = encryptedText.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    
-    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-    let decrypted = decipher.update(encryptedData);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
+    return await decryptModern(encryptedValue);
+  } catch (primaryError) {
+    if (!encryptedValue.includes(':')) {
+      throw primaryError;
+    }
+
+    const keyCandidates = [...new Set([
+      key,
+      'default-encryption-key-change-me',
+      'default-key',
+    ].filter(Boolean))];
+
+    for (const candidate of keyCandidates) {
+      try {
+        return decryptLegacyCBC(encryptedValue, candidate);
+      } catch {
+        // Try next candidate key
+      }
+    }
+
+    throw primaryError;
   }
 }
 
@@ -76,8 +107,8 @@ serve(async (req) => {
       throw new Error('platform is required');
     }
 
-    let consumerKey = rawKey;
-    let consumerSecret = rawSecret;
+    let consumerKey = sanitizeCredential(rawKey);
+    let consumerSecret = sanitizeCredential(rawSecret);
 
     // If using stored credentials, fetch and decrypt them
     if (useStoredCredentials || (!consumerKey && !consumerSecret)) {
@@ -98,9 +129,14 @@ serve(async (req) => {
         throw new Error('Consumer Key/Secret chưa được cấu hình');
       }
 
-      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-      consumerKey = decrypt(settings.consumer_key, encryptionKey);
-      consumerSecret = decrypt(settings.consumer_secret, encryptionKey);
+      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-encryption-key-change-me';
+      const [decryptedKey, decryptedSecret] = await Promise.all([
+        decryptCredential(settings.consumer_key, encryptionKey),
+        decryptCredential(settings.consumer_secret, encryptionKey),
+      ]);
+
+      consumerKey = sanitizeCredential(decryptedKey);
+      consumerSecret = sanitizeCredential(decryptedSecret);
 
       if (!consumerKey || !consumerSecret) {
         throw new Error('Không thể giải mã credentials - kiểm tra encryption key');
@@ -109,6 +145,10 @@ serve(async (req) => {
 
     if (!consumerKey || !consumerSecret) {
       throw new Error('consumerKey và consumerSecret là bắt buộc');
+    }
+
+    if (consumerKey.includes('*') || consumerSecret.includes('*')) {
+      throw new Error('Credentials đang ở dạng masked (****). Vui lòng nhập lại Consumer Key/Secret thật trong phần Admin settings');
     }
 
     console.log('Testing Twitter credentials...');
@@ -140,6 +180,9 @@ serve(async (req) => {
       } catch (e) {
         if (e instanceof Error && e.message.startsWith('Twitter API:')) throw e;
       }
+      if (tokenResponse.status === 403) {
+        throw new Error('Twitter API: Credentials bị từ chối (403). Kiểm tra lại API Key/Secret đúng app và app đã có API access trên X Developer Portal');
+      }
       throw new Error(`Twitter credentials không hợp lệ (HTTP ${tokenResponse.status})`);
     }
 
@@ -170,7 +213,7 @@ serve(async (req) => {
         error: error.message,
         hint: 'Kiểm tra lại Consumer Key và Consumer Secret từ Twitter Developer Portal',
       }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
