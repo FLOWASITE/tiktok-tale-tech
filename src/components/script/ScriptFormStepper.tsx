@@ -44,7 +44,6 @@ import { VoiceRegionSelector } from '@/components/script/VoiceRegionSelector';
 import { DialogueStyleSelector } from '@/components/script/DialogueStyleSelector';
 import { GlossaryQuickLookup } from '@/components/GlossaryQuickLookup';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
-import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { cn } from '@/lib/utils';
 import { 
   ScriptFormData, 
