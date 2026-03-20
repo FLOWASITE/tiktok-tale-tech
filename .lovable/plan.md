@@ -1,28 +1,24 @@
 
 
-# Sửa Logic Voice Region & Dialogue Style theo Định dạng
+# Cải thiện độ rõ chữ trên ScriptCard
 
-## Vấn đề (đã sửa lại đúng)
+## Vấn đề
 
-- **Video AI**: Voice Region **CÓ ý nghĩa** — AI TTS gen được giọng Bắc/Trung/Nam
-- **Người thật (Teleprompter)**: Voice Region **VÔ nghĩa** — người đọc có giọng gì thì đọc giọng đó, không cần chỉ định
-- **Production**: Tùy casting diễn viên, nhưng có thể ghi chú — giữ lại
+Nhiều text trên ScriptCard dùng opacity quá thấp (`/25`, `/40`, `/50`, `/60`), khiến chữ mờ khó đọc, đặc biệt trên mobile.
 
-## Giải pháp
+## Giải pháp: Tăng opacity cho tất cả text elements
 
-### A. Ẩn Voice Region khi chọn Teleprompter
-- **`ScriptFormStepper.tsx`**: Chỉ hiển thị Voice Region khi `script_purpose !== 'teleprompter'`
+### `src/components/ScriptCard.tsx`
 
-### B. Prompt bỏ dialect notes cho Teleprompter
-- **`generate-script/index.ts`**: Không inject `dialect_notes` / `example_phrases` khi purpose = `teleprompter`
+| Dòng | Hiện tại | Sửa thành | Element |
+|------|----------|-----------|---------|
+| 111 | `text-muted-foreground/70` | `text-muted-foreground` | Purpose label |
+| 153 | `text-muted-foreground/50` | `text-muted-foreground/70` | Content preview |
+| 159 | `text-muted-foreground/60` | `text-muted-foreground/80` | Metadata line |
+| 162 | `text-muted-foreground/25` | `text-muted-foreground/50` | Dot separator |
+| 172 | `text-muted-foreground/25` | `text-muted-foreground/50` | Dot separator |
+| 173 | `text-muted-foreground/50` | `text-muted-foreground/70` | Time text |
+| 215 | `text-muted-foreground/40` | `text-muted-foreground/60` | Delete button |
 
-### C. Dialogue Style — giữ nguyên cả 3 format
-- "Suy tư nội tâm" hợp lệ cho cả 3 (AI render được, người thật đọc được, production quay được) → không cần warning
-
-## Files thay đổi
-
-| File | Thay đổi |
-|------|----------|
-| `src/components/script/ScriptFormStepper.tsx` | Ẩn VoiceRegion khi `teleprompter` |
-| `supabase/functions/generate-script/index.ts` | Bỏ dialect prompt khi `teleprompter` |
+Chỉ thay đổi 1 file, không ảnh hưởng logic.
 
