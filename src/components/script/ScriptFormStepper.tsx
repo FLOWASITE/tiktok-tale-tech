@@ -292,19 +292,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="text-center space-y-2 animate-fade-in">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl gradient-primary shadow-lg glow-primary animate-pulse-glow">
-          <Wand2 className="w-7 h-7 text-primary-foreground" />
-        </div>
-        <div>
-          <h2 className="text-xl font-bold text-foreground">Tạo kịch bản AI</h2>
-          <p className="text-sm text-muted-foreground">
-            Làm theo các bước để tạo kịch bản chuyên nghiệp
-          </p>
-        </div>
-      </div>
-
       {/* Step Indicator */}
       <StepIndicator
         steps={STEPS}
@@ -317,29 +304,42 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
       <div className="min-h-[300px]">
         {/* Step 1: Nội dung (Purpose + Topic + Hook) */}
         {currentStep === 1 && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Purpose */}
-            <div className="space-y-3">
-              <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
-                <Target className="w-4 h-4 text-primary" />
-                Mục đích sử dụng kịch bản
-              </Label>
-              <ScriptPurposeSelector
-                value={formData.script_purpose}
-                onChange={(value) => setFormData((prev) => ({ ...prev, script_purpose: value }))}
-                disabled={isLoading}
-              />
+          <div className="space-y-4 animate-fade-in">
+            
+            {/* Section 01: Mục đích */}
+            <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
+              <div className="px-4 py-3 flex items-center gap-3 border-b border-border/30">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shrink-0">
+                  <Target className="w-4 h-4 text-primary-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Mục đích kịch bản</p>
+                  <p className="text-xs text-muted-foreground">Chọn định dạng output phù hợp</p>
+                </div>
+                <span className="text-xs font-mono text-muted-foreground/40">01</span>
+              </div>
+              <div className="p-4">
+                <ScriptPurposeSelector
+                  value={formData.script_purpose}
+                  onChange={(value) => setFormData((prev) => ({ ...prev, script_purpose: value }))}
+                  disabled={isLoading}
+                />
+              </div>
             </div>
 
-            {/* Topic */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-primary" />
-                  Chủ đề video
-                  <span className="text-primary">*</span>
-                </Label>
-                
+            {/* Gradient divider */}
+            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+            {/* Section 02: Chủ đề */}
+            <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
+              <div className="px-4 py-3 flex items-center gap-3 border-b border-border/30">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shrink-0">
+                  <FileText className="w-4 h-4 text-primary-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Chủ đề video <span className="text-primary">*</span></p>
+                  <p className="text-xs text-muted-foreground">Mô tả nội dung bạn muốn tạo kịch bản</p>
+                </div>
                 <div className="flex items-center gap-2">
                   {selectedTemplate?.industry_template_id && (
                     <GlossaryQuickLookup
@@ -380,99 +380,136 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                       }
                     />
                   )}
+                  <span className="text-xs font-mono text-muted-foreground/40">02</span>
                 </div>
               </div>
-              
-              <div className="relative group">
-                <Textarea
-                  ref={topicTextareaRef}
-                  id="topic"
-                  placeholder="Nhập chủ đề video của bạn, ví dụ: 5 sai lầm phổ biến khi đầu tư chứng khoán mà người mới thường mắc phải..."
-                  value={formData.topic}
-                  onChange={(e) => {
-                    setFormData((prev) => ({ 
-                      ...prev, 
-                      topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
-                    }));
-                    e.target.style.height = 'auto';
-                    e.target.style.height = e.target.scrollHeight + 'px';
-                  }}
-                  className={cn(
-                    "min-h-[72px] bg-muted/30 border-2 resize-none text-sm transition-all duration-300",
-                    "focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-background",
-                    "placeholder:text-muted-foreground/60"
-                  )}
-                  disabled={isLoading}
-                />
-                
-                <div className={cn(
-                  "absolute bottom-2 right-3 text-xs font-medium transition-colors",
-                  charCountColor
-                )}>
-                  {topicLength}/{MAX_TOPIC_LENGTH}
-                </div>
-              </div>
-
-              {complianceCheckResult && complianceCheckResult.issues.length > 0 && (
-                <ComplianceWarningBadge
-                  result={complianceCheckResult}
-                  onSuggestCompliant={handleSuggestCompliant}
-                  isSuggesting={isSuggestingCompliant}
-                />
-              )}
-
-              <TopicIdeaHub
-                suggestions={enhancedSuggestions}
-                source={suggestionsSource}
-                isLoading={suggestionsLoading}
-                onSelect={(topic) => setFormData(prev => ({ ...prev, topic }))}
-                onRefresh={() => refreshSuggestions()}
-                onCategoryRefresh={(category) => refreshSuggestions(category)}
-                onBrainstorm={() => setShowBrainstormSheet(true)}
-                onSave={saveSuggestion}
-                onFeedback={submitFeedback}
-                disabled={isLoading}
-                showEnhancedInfo={true}
-                brandTemplateId={formData.brandTemplateId}
-                contentGoal={scriptContentGoal}
-              />
-
-              {formData.topic.trim().length >= 20 && (
-                <div>
-                  <TopicAngleSelector
-                    value={formData.angle}
-                    onChange={(angle) => setFormData((prev) => ({ ...prev, angle }))}
+              <div className="p-4 space-y-3">
+                {/* Premium textarea with gradient border on focus */}
+                <div className="relative group rounded-lg p-[1.5px] transition-all duration-300 bg-border/40 focus-within:bg-gradient-to-r focus-within:from-primary/60 focus-within:via-accent/50 focus-within:to-primary/60">
+                  <Textarea
+                    ref={topicTextareaRef}
+                    id="topic"
+                    placeholder="Nhập chủ đề video của bạn, ví dụ: 5 sai lầm phổ biến khi đầu tư chứng khoán mà người mới thường mắc phải..."
+                    value={formData.topic}
+                    onChange={(e) => {
+                      setFormData((prev) => ({ 
+                        ...prev, 
+                        topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
+                      }));
+                      e.target.style.height = 'auto';
+                      e.target.style.height = e.target.scrollHeight + 'px';
+                    }}
+                    className={cn(
+                      "min-h-[72px] bg-background border-0 resize-none text-base transition-all duration-300",
+                      "focus-visible:ring-0 focus-visible:ring-offset-0",
+                      "placeholder:text-muted-foreground/50 rounded-[5px]"
+                    )}
                     disabled={isLoading}
                   />
-                  {formData.angle && (
-                    <TopicAnglePreview 
-                      angle={formData.angle} 
-                      topic={formData.topic}
-                    />
-                  )}
                 </div>
-              )}
+                
+                {/* Progress bar character counter */}
+                <div className="space-y-1">
+                  <Progress 
+                    value={Math.min((topicLength / MAX_TOPIC_LENGTH) * 100, 100)} 
+                    className={cn(
+                      "h-1",
+                      topicLength > MAX_TOPIC_LENGTH * 0.9 ? "[&>div]:bg-destructive" : 
+                      topicLength >= 20 ? "[&>div]:bg-primary" : "[&>div]:bg-muted-foreground/30"
+                    )}
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground/60">
+                      {topicLength < 10 ? 'Tối thiểu 10 ký tự' : topicLength < 20 ? 'Thêm chi tiết để gợi ý tốt hơn' : ''}
+                    </span>
+                    <span className={cn("text-[10px] font-mono", charCountColor)}>
+                      {topicLength}/{MAX_TOPIC_LENGTH}
+                    </span>
+                  </div>
+                </div>
+
+                {complianceCheckResult && complianceCheckResult.issues.length > 0 && (
+                  <ComplianceWarningBadge
+                    result={complianceCheckResult}
+                    onSuggestCompliant={handleSuggestCompliant}
+                    isSuggesting={isSuggestingCompliant}
+                  />
+                )}
+
+                <TopicIdeaHub
+                  suggestions={enhancedSuggestions}
+                  source={suggestionsSource}
+                  isLoading={suggestionsLoading}
+                  onSelect={(topic) => setFormData(prev => ({ ...prev, topic }))}
+                  onRefresh={() => refreshSuggestions()}
+                  onCategoryRefresh={(category) => refreshSuggestions(category)}
+                  onBrainstorm={() => setShowBrainstormSheet(true)}
+                  onSave={saveSuggestion}
+                  onFeedback={submitFeedback}
+                  disabled={isLoading}
+                  showEnhancedInfo={true}
+                  brandTemplateId={formData.brandTemplateId}
+                  contentGoal={scriptContentGoal}
+                />
+
+                {formData.topic.trim().length >= 20 && (
+                  <div>
+                    <TopicAngleSelector
+                      value={formData.angle}
+                      onChange={(angle) => setFormData((prev) => ({ ...prev, angle }))}
+                      disabled={isLoading}
+                    />
+                    {formData.angle && (
+                      <TopicAnglePreview 
+                        angle={formData.angle} 
+                        topic={formData.topic}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Hook (optional, inline) */}
+            {/* Gradient divider */}
             {formData.topic.trim().length >= 10 && (
-              <div className="space-y-3">
-                <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-primary" />
-                  Hook mở đầu
-                  <span className="text-xs text-muted-foreground font-normal">(tuỳ chọn)</span>
-                </Label>
-                <HookStepContent
-                  topic={formData.topic}
-                  selectedHook={formData.hook}
-                  onSelectHook={(hook) => handleSelectHook(hook)}
-                  onSkip={() => {}}
-                  brandTemplateId={formData.brandTemplateId}
-                  brandVoice={brandVoiceForHook}
-                  quickSuggestions={quickHookSuggestions}
-                  isLoadingSuggestions={isLoadingHooks}
-                />
-              </div>
+              <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+            )}
+
+            {/* Section 03: Hook — Collapsible elegant */}
+            {formData.topic.trim().length >= 10 && (
+              <Collapsible>
+                <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
+                  <CollapsibleTrigger className="w-full px-4 py-3 flex items-center gap-3 hover:bg-accent/30 transition-colors">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/80 to-orange-500/80 flex items-center justify-center shrink-0">
+                      <Zap className="w-4 h-4 text-primary-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-sm font-semibold text-foreground">
+                        {formData.hook ? `Hook: "${formData.hook.opening_line.slice(0, 40)}..."` : 'Thêm Hook mở đầu'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formData.hook ? 'Đã chọn hook — nhấn để thay đổi' : 'Tuỳ chọn — Thu hút 3 giây đầu tiên'}
+                      </p>
+                    </div>
+                    <span className="text-xs font-mono text-muted-foreground/40 mr-2">03</span>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="border-t border-border/30 p-4">
+                      <HookStepContent
+                        topic={formData.topic}
+                        selectedHook={formData.hook}
+                        onSelectHook={(hook) => handleSelectHook(hook)}
+                        onSkip={() => {}}
+                        brandTemplateId={formData.brandTemplateId}
+                        brandVoice={brandVoiceForHook}
+                        quickSuggestions={quickHookSuggestions}
+                        isLoadingSuggestions={isLoadingHooks}
+                      />
+                    </div>
+                  </CollapsibleContent>
+                </div>
+              </Collapsible>
             )}
 
             <TopicBrainstormSheet
