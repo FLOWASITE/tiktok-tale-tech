@@ -419,7 +419,7 @@ export function DirectPublishButton({
 
               {/* Warning Banners */}
               {charLimit && editableContent.length > charLimit && (
-                <div className="mx-6 px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-start gap-2">
+                <div className="mx-4 sm:mx-6 px-3 py-2 sm:py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                   <p className="text-xs text-amber-700 dark:text-amber-400">
                     {platform === 'twitter' 
