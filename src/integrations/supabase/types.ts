@@ -3042,6 +3042,7 @@ export type Database = {
           ai_tool: Database["public"]["Enums"]["carousel_ai_tool"]
           brand_guideline: string | null
           brand_name: string
+          brand_template_id: string | null
           campaign_id: string | null
           caption_suggestion: string | null
           carousel_style: string
@@ -3074,6 +3075,7 @@ export type Database = {
           ai_tool?: Database["public"]["Enums"]["carousel_ai_tool"]
           brand_guideline?: string | null
           brand_name?: string
+          brand_template_id?: string | null
           campaign_id?: string | null
           caption_suggestion?: string | null
           carousel_style?: string
@@ -3106,6 +3108,7 @@ export type Database = {
           ai_tool?: Database["public"]["Enums"]["carousel_ai_tool"]
           brand_guideline?: string | null
           brand_name?: string
+          brand_template_id?: string | null
           campaign_id?: string | null
           caption_suggestion?: string | null
           carousel_style?: string
@@ -3135,6 +3138,13 @@ export type Database = {
           was_refined?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "carousels_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "carousels_campaign_id_fkey"
             columns: ["campaign_id"]

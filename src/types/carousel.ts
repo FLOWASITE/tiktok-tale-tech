@@ -54,6 +54,7 @@ export interface Carousel {
   carousel_style: CarouselStyleType;
   visual_preset: VisualPresetType;
   user_id: string | null;
+  brand_template_id?: string | null;
   industry_template_id?: string | null;
   industry_template_version?: string | null;
   campaign_id?: string | null;
