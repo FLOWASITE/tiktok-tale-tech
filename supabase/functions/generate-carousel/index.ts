@@ -697,7 +697,7 @@ serve(async (req) => {
     if (formData.brandTemplateId) {
       const { data: template } = await supabase
         .from("brand_templates")
-        .select("brand_positioning, tone_of_voice, formality_level, language_style, preferred_words, forbidden_words, allow_emoji, compliance_rules, industry_template_id, country_code")
+        .select("brand_positioning, tone_of_voice, formality_level, language_style, preferred_words, forbidden_words, allow_emoji, compliance_rules, industry_template_id, country_code, primary_color, secondary_colors")
         .eq("id", formData.brandTemplateId)
         .single();
 
