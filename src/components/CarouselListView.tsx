@@ -55,12 +55,16 @@ type SortDirection = 'asc' | 'desc';
 
 const platformLabels: Record<Platform, string> = {
   facebook: 'Facebook',
+  instagram: 'Instagram',
   tiktok: 'TikTok',
+  linkedin: 'LinkedIn',
 };
 
 const platformColors: Record<Platform, string> = {
   facebook: 'bg-blue-500/20 text-blue-700 dark:text-blue-400',
+  instagram: 'bg-pink-500/20 text-pink-700 dark:text-pink-400',
   tiktok: 'bg-pink-500/20 text-pink-700 dark:text-pink-400',
+  linkedin: 'bg-sky-500/20 text-sky-700 dark:text-sky-400',
 };
 
 const aiToolLabels: Record<AITool, string> = {

@@ -38,7 +38,9 @@ interface CarouselCardProps {
 
 const platformLabels: Record<string, { label: string; icon: typeof Facebook }> = {
   facebook: { label: 'Facebook', icon: Facebook },
+  instagram: { label: 'Instagram', icon: Instagram },
   tiktok: { label: 'TikTok', icon: Facebook },
+  linkedin: { label: 'LinkedIn', icon: Linkedin },
 };
 
 const aiToolLabels: Record<string, string> = {

@@ -738,7 +738,7 @@ export function CarouselViewer({
               <div className="flex justify-center items-start bg-gradient-to-b from-muted/5 to-muted/20 rounded-xl p-3 min-h-[400px]">
                 <div className="w-full max-w-xl">
                   <ChannelMockupFrame
-                    channel={carousel.platform === 'tiktok' ? 'tiktok' : 'facebook'}
+                    channel={carousel.platform}
                     content={carousel.caption_suggestion || `📌 ${carousel.topic}`}
                     brandName={carousel.brand_name || 'Brand'}
                     channelImages={

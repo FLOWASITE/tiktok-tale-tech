@@ -9380,7 +9380,7 @@ export type Database = {
         | "instagram_reels"
       app_role: "user" | "pro" | "admin"
       carousel_ai_tool: "ideogram" | "midjourney" | "dalle" | "leonardo"
-      carousel_platform: "facebook" | "tiktok"
+      carousel_platform: "facebook" | "tiktok" | "instagram" | "linkedin"
       industry_pack_status: "draft" | "stable" | "deprecated"
       org_role: "owner" | "admin" | "member" | "viewer"
       plan_type: "free" | "starter" | "pro" | "enterprise"
@@ -9562,7 +9562,7 @@ export const Constants = {
       ],
       app_role: ["user", "pro", "admin"],
       carousel_ai_tool: ["ideogram", "midjourney", "dalle", "leonardo"],
-      carousel_platform: ["facebook", "tiktok"],
+      carousel_platform: ["facebook", "tiktok", "instagram", "linkedin"],
       industry_pack_status: ["draft", "stable", "deprecated"],
       org_role: ["owner", "admin", "member", "viewer"],
       plan_type: ["free", "starter", "pro", "enterprise"],
