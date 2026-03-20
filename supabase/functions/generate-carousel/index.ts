@@ -19,7 +19,7 @@ const corsHeaders = {
 
 interface CarouselFormData {
   topic: string;
-  platform: "facebook" | "tiktok";
+  platform: "facebook" | "tiktok" | "instagram" | "linkedin";
   slideCount: number;
   aiTool: "ideogram" | "midjourney" | "dalle" | "leonardo";
   brandName: string;
