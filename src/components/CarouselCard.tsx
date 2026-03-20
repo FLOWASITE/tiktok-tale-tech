@@ -215,7 +215,7 @@ export function CarouselCard({
 
         <CardContent className="p-2 xs:p-3 sm:p-3 pt-0">
           {/* Tags */}
-          <div className="flex flex-wrap gap-1 xs:gap-1.5 mb-2 xs:mb-3">
+          <div className="flex flex-wrap gap-1 xs:gap-1.5 mb-1.5">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
