@@ -131,19 +131,8 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen relative bg-gradient-to-br from-background via-background to-muted/20">
-      {/* Close Button - Fixed top right */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => navigate('/dashboard')}
-        className="fixed top-3 right-3 z-50 h-8 w-8 bg-background/80 backdrop-blur-sm border border-border/50 shadow-sm"
-        title="Đóng"
-      >
-        <X className="h-4 w-4" />
-      </Button>
-
-      <div className="p-3 sm:p-4 lg:p-6 space-y-4">
+    <div className="space-y-4">
+      <div className="space-y-4">
         {/* Hero Section with Stats */}
         <ScriptHeroSection
           scripts={scripts}
