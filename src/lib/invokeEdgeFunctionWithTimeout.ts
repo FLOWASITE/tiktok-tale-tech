@@ -61,8 +61,20 @@ export async function invokeWithTimeout<T = unknown>(
       };
     }
 
-    const data = (await response.json()) as T;
-    return { data, error: null };
+    const responseText = await response.text();
+    if (!responseText || !responseText.trim()) {
+      return { data: null, error: null };
+    }
+
+    try {
+      const data = JSON.parse(responseText) as T;
+      return { data, error: null };
+    } catch {
+      return {
+        data: null,
+        error: new Error('Edge Function returned invalid JSON response'),
+      };
+    }
   } catch (err) {
     clearTimeout(timer);
 
