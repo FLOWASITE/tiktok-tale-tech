@@ -246,13 +246,13 @@ export function CarouselViewer({
   // Fetch Industry Memory
   const { data: industryMemory, isLoading: isLoadingIndustry } = useIndustryMemoryById(carousel?.industry_template_id);
 
-  // Lookup brand_template_id from brand_name for social connection resolution
+  // Lookup brand template from brand_name for social connection + color fallback
   const { data: brandTemplate } = useQuery({
     queryKey: ['brand-template-by-name', carousel?.brand_name],
     queryFn: async () => {
       const { data } = await supabase
         .from('brand_templates')
-        .select('id')
+        .select('id, primary_color, secondary_colors')
         .eq('brand_name', carousel!.brand_name)
         .limit(1)
         .single();
