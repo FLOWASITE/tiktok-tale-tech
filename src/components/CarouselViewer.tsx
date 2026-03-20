@@ -336,6 +336,22 @@ export function CarouselViewer({
     }
   };
 
+  const [copiedCaptionAll, setCopiedCaptionAll] = useState(false);
+  const handleCopyCaptionAll = async () => {
+    const parts: string[] = [];
+    if (carousel.caption_suggestion) parts.push(carousel.caption_suggestion);
+    if (carousel.cta_suggestion) parts.push(carousel.cta_suggestion);
+    if (parts.length === 0) return;
+    try {
+      await navigator.clipboard.writeText(parts.join('\n\n---\n\n'));
+      setCopiedCaptionAll(true);
+      toast.success('Đã copy Caption & CTA!');
+      setTimeout(() => setCopiedCaptionAll(false), 2000);
+    } catch {
+      toast.error('Không thể copy');
+    }
+  };
+
   const handleExportTxt = () => {
     const content = generateExportContent(carousel);
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
