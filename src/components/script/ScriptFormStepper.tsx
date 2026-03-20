@@ -208,9 +208,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     }
   }, [formData.topic, complianceCheckResult, suggestCompliantTopic]);
 
-  // Check if topic is substantial enough
-  const isTopicSubstantial = formData.topic.trim().length >= TOPIC_MIN_LENGTH_FOR_REFINEMENT;
-
   // Loading phases
   useEffect(() => {
     if (!isLoading) {
