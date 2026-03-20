@@ -149,7 +149,7 @@ export function CarouselCard({
             {imageUrls.length === 2 && (
               <div className="grid grid-cols-2 gap-1 h-full">
                 {imageUrls.slice(0, 2).map((url, i) => (
-                  <img
+                  <OptimizedImage
                     key={i}
                     src={url}
                     alt=""
@@ -158,7 +158,7 @@ export function CarouselCard({
                       i === 0 && "rounded-tl-lg",
                       i === 1 && "rounded-tr-lg"
                     )}
-                    loading="lazy"
+                    skeletonClassName="w-full h-full"
                   />
                 ))}
               </div>
