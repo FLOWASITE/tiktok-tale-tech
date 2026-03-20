@@ -431,7 +431,7 @@ export function DirectPublishButton({
               )}
 
               {/* Footer */}
-              <div className="px-6 py-4 border-t border-border flex flex-col sm:flex-row gap-2">
+              <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-border flex flex-col sm:flex-row gap-2">
                 <Button variant="outline" onClick={handleCloseDialog} className="sm:flex-1">
                   Hủy
                 </Button>
