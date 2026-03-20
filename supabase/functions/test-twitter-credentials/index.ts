@@ -213,7 +213,7 @@ serve(async (req) => {
         error: error.message,
         hint: 'Kiểm tra lại Consumer Key và Consumer Secret từ Twitter Developer Portal',
       }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
