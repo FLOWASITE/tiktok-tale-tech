@@ -1,31 +1,40 @@
 
 
-# Phân tích trùng lặp & Phương án gộp
+# Hoàn thiện chức năng Phân tích AI
 
-## Phát hiện trùng lặp
+## Vấn đề hiện tại
 
-### 1. **Topic Summary (Step 2) ↔ Topic Input (Step 1)** — TRÙNG
-Step 2 có card "Topic summary" (dòng 570-607) hiển thị lại chủ đề, hook, góc tiếp cận mà user vừa nhập ở Step 1. Đây là thông tin lặp 100% — user vừa nhập xong, chuyển sang Step 2 lại thấy hiển thị lại y hệt.
+1. **Không dùng cache**: `ScriptAnalyzer` luôn yêu cầu phân tích mới, bỏ qua `analysis_cache` đã lưu trên bảng `scripts` (auto-analyze chạy khi tạo script nhưng kết quả không được hiển thị)
+2. **JSON parsing không ổn định**: Edge function dùng regex `content.match(/\{[\s\S]*\}/)` để parse JSON từ free-text — dễ lỗi. Nên dùng tool calling để nhận structured output
+3. **Fallback trả dữ liệu giả**: Khi parse lỗi, trả về điểm cố định (65, 70, 55...) — gây hiểu nhầm cho user
+4. **Không lưu kết quả khi phân tích thủ công**: Khi user nhấn "Phân tích ngay" trong ScriptAnalyzer, kết quả không được lưu vào `analysis_cache`
 
-### 2. **VideoTypeRecommendations + VideoTypeSelector** — TƯƠNG ĐỒNG
-Trong popover "Thể loại video" (dòng 641-658), hiện có **2 component cùng chức năng**: `VideoTypeRecommendations` (gợi ý AI, 3-5 items) và `VideoTypeSelector` (danh sách đầy đủ 15 loại). User phải cuộn qua 2 danh sách chồng nhau.
+## Giải pháp
 
-### 3. **CharacterTypeRecommendations + CharacterTypeSelector** — TƯƠNG ĐỒNG
-Tương tự, popover "Nhân vật" (dòng 671-690) có `CharacterTypeRecommendations` + `CharacterTypeSelector` chồng nhau.
+### A. ScriptAnalyzer — Dùng cached analysis
+- Nhận thêm prop `initialAnalysis` từ `script.analysis_cache`
+- Nếu đã có cache → hiển thị ngay, không cần nhấn nút
+- Nút "Phân tích lại" để gọi AI mới
+- Sau khi phân tích xong → cập nhật `analysis_cache` trên DB
 
-## Phương án gộp
+### B. Edge function — Chuyển sang tool calling
+- Thay vì yêu cầu AI trả JSON trong text, dùng `tools` + `tool_choice` để nhận structured output chính xác
+- Loại bỏ regex parsing và fallback dữ liệu giả
+- Khi tool call không trả về → báo lỗi rõ ràng thay vì trả dữ liệu fake
 
-### A. Xóa Topic Summary card ở Step 2
-- Bỏ hoàn toàn card hiển thị lại topic/hook/angle (dòng 570-607)
-- Thay bằng **1 dòng text ngắn** trong header: `"Chủ đề: {topic.slice(0,60)}..."` — đủ để user biết context mà không lặp
+### C. useScriptAnalysis — Lưu kết quả
+- Sau khi phân tích thành công → gọi `supabase.from('scripts').update({ analysis_cache, analyzed_at })` để cache
+- Nhận `scriptId` làm tham số
 
-### B. Gộp Recommendations vào Selector
-- Trong popover VideoType: Hiển thị `VideoTypeRecommendations` ở trên (AI gợi ý, tối đa 3), sau đó 1 nút "Xem tất cả ▾" mở `VideoTypeSelector` (collapsible). Tránh hiện cả 2 danh sách cùng lúc.
-- Tương tự cho CharacterType popover.
+### D. ScriptViewer — Truyền cache
+- Truyền `script.analysis_cache` vào `ScriptAnalyzer` để hiển thị ngay khi mở panel
 
-## File thay đổi
+## Chi tiết kỹ thuật
 
 | File | Thay đổi |
 |------|----------|
-| `ScriptFormStepper.tsx` | Xóa Topic Summary card, thêm 1 dòng context text vào header. Gộp Recommendations + Selector trong mỗi popover bằng collapsible "Xem tất cả" |
+| `supabase/functions/analyze-script/index.ts` | Chuyển sang tool calling, bỏ regex parse, bỏ fallback giả |
+| `src/hooks/useScriptAnalysis.ts` | Thêm `scriptId`, lưu kết quả vào DB sau phân tích |
+| `src/components/script/ScriptAnalyzer.tsx` | Nhận `initialAnalysis` prop, hiển thị cache, nút "Phân tích lại" |
+| `src/components/ScriptViewer.tsx` | Truyền `script.analysis_cache` vào ScriptAnalyzer |
 
