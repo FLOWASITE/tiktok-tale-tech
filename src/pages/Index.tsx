@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ScriptForm } from '@/components/ScriptForm';
+
 import { ScriptCard } from '@/components/ScriptCard';
 import { ScriptViewer } from '@/components/ScriptViewer';
 import { ScriptFilters, ScriptFilters as ScriptFiltersType } from '@/components/ScriptFilters';
