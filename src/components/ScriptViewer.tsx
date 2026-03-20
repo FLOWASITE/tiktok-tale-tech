@@ -439,13 +439,7 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                     <X className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-                <ScriptAnalyzer script={script} initialAnalysis={script.analysis_cache as any} onScriptUpdate={onScriptUpdate} className="mb-5" />
-                
-                {/* Collaboration Panel */}
-                <ScriptCollaborationPanel 
-                  script={script} 
-                  onScriptUpdate={() => onScriptUpdate?.(script)}
-                />
+                <ScriptAnalyzer script={script} initialAnalysis={script.analysis_cache as any} onScriptUpdate={onScriptUpdate} />
               </div>
             )}
           </div>
