@@ -105,7 +105,9 @@ interface CarouselViewerProps {
 
 const platformLabels: Record<string, string> = {
   facebook: 'Facebook',
+  instagram: 'Instagram',
   tiktok: 'TikTok',
+  linkedin: 'LinkedIn',
 };
 
 const generateExportContent = (carousel: Carousel): string => {
