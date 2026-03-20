@@ -165,24 +165,26 @@ export function CarouselCard({
             )}
             {imageUrls.length >= 3 && (
               <div className="grid grid-cols-2 gap-1 h-full">
-                <img
+                <OptimizedImage
                   src={imageUrls[0]}
                   alt=""
                   className="w-full h-full object-cover row-span-2 rounded-tl-lg transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
+                  skeletonClassName="w-full h-full"
                   style={{ gridRow: '1 / 3' }}
+                  preloadSrc={imageUrls[1]}
                 />
-                <img
+                <OptimizedImage
                   src={imageUrls[1]}
                   alt=""
                   className="w-full h-full object-cover rounded-tr-lg transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
+                  skeletonClassName="w-full h-full"
+                  preloadSrc={imageUrls[2]}
                 />
                 {imageUrls.length === 3 ? (
-                  <img src={imageUrls[2]} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+                  <OptimizedImage src={imageUrls[2]} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" skeletonClassName="w-full h-full" />
                 ) : (
                   <div className="relative overflow-hidden">
-                    <img src={imageUrls[2]} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+                    <OptimizedImage src={imageUrls[2]} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" skeletonClassName="w-full h-full" />
                     {imageUrls.length > 3 && (
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/30 backdrop-blur-[2px] flex flex-col items-center justify-center">
                         <span className="text-white font-bold text-base leading-none">+{imageUrls.length - 3}</span>
