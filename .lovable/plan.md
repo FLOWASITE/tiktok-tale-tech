@@ -1,54 +1,42 @@
 
 
-# Sửa lỗi màu Brand không áp dụng vào ảnh Carousel
+# Tối ưu load ảnh Carousel
 
-## Nguyên nhân gốc
+## Phân tích hiện tại
 
-Có 3 vấn đề trong chuỗi truyền màu brand:
-
-```text
-CarouselForm → generate-carousel → DB (brand_guideline) → CarouselViewer → generate-carousel-image
-
-❌ Vấn đề 1: Hầu hết carousel cũ lưu brand_guideline dưới dạng TEXT thuần
-   (không phải JSON), nên extractBrandColors() không lấy được màu hex.
-
-❌ Vấn đề 2: Fallback query brand_templates theo brand_name thất bại
-   vì tên không khớp (VD: "Công ty TNHH Tư vấn Kiểm toán TAF" ≠ "Thuế Hộ by TAF.vn")
-
-❌ Vấn đề 3: CarouselGenerationTracker.extractBrandColors() không có
-   fallback nào — trả về undefined luôn khi brand_guideline là text.
-```
-
-**Bằng chứng từ DB**: 9/10 carousel gần nhất có `brand_guideline` là text thuần (`is_json: false`), chỉ 1 carousel Flowa mới nhất có JSON.
+Các `<img>` tag đã có `loading="lazy"` nhưng thiếu:
+- Skeleton/placeholder khi ảnh đang tải → user thấy khoảng trắng
+- `decoding="async"` → block main thread khi decode ảnh lớn
+- Preload ảnh kế tiếp trong swipe carousel → swipe bị giật
+- Thumbnail strip dùng ảnh full-size → tải thừa bandwidth
 
 ## Giải pháp
 
-### 1. Thêm cột `brand_template_id` vào bảng `carousels`
-- Migration: thêm cột `brand_template_id UUID REFERENCES brand_templates(id)`
-- Đây là cách chính xác nhất để truy vết brand template gốc
+### 1. Tạo component `OptimizedImage` tái sử dụng
+- Hiển thị skeleton placeholder trong khi ảnh đang tải
+- Fade-in animation khi ảnh load xong
+- Thêm `decoding="async"` để không block UI
+- Xử lý lỗi load ảnh với fallback icon
 
-### 2. `supabase/functions/generate-carousel/index.ts` — Lưu brand_template_id
-- Lưu `formData.brandTemplateId` vào cột mới khi insert carousel
+### 2. Áp dụng vào `GeneratedImagesGallery`
+- Swipe view: dùng `OptimizedImage` thay `<img>` trực tiếp
+- Grid view: tương tự
+- Thumbnail strip: thêm skeleton nhỏ
 
-### 3. `src/components/CarouselViewer.tsx` — Sửa fallback query
-- Thay query by `brand_name` bằng query by `carousel.brand_template_id` (nếu có)
-- Giữ fallback by `brand_name` cho carousel cũ
-- `extractBrandColors()` thêm `brandTemplate` param fallback mạnh hơn
+### 3. Áp dụng vào `SlidePromptCard` và `ImageGeneratorButton`
+- Thumbnail nhỏ trong header card
+- Ảnh preview lớn trong ImageGeneratorButton
 
-### 4. `src/components/carousel/CarouselGenerationTracker.tsx` — Thêm brand template lookup
-- Thêm query `brand_templates` by carousel's `brand_template_id` hoặc `brand_name`
-- Truyền `primary_color` vào `brandColors` khi `extractBrandColors()` trả về undefined
-
-### 5. Cập nhật TypeScript types
-- Thêm `brand_template_id` vào Carousel type
+### 4. Preload ảnh kế tiếp trong swipe view
+- Khi user đang xem slide N, preload slide N+1 bằng `new Image()`
+- Giúp swipe mượt hơn
 
 | File | Thay đổi |
 |------|----------|
-| Migration SQL | Thêm cột `brand_template_id` |
-| `generate-carousel/index.ts` | Lưu `brandTemplateId` vào DB |
-| `CarouselViewer.tsx` | Sửa fallback: query by template ID + brand_name |
-| `CarouselGenerationTracker.tsx` | Thêm brand template lookup + fallback |
-| `src/types/carousel.ts` | Thêm `brand_template_id` vào type |
+| `src/components/ui/OptimizedImage.tsx` | Tạo mới — skeleton + fade-in + async decode |
+| `src/components/GeneratedImagesGallery.tsx` | Thay `<img>` bằng `OptimizedImage` + preload logic |
+| `src/components/ImageGeneratorButton.tsx` | Thay `<img>` bằng `OptimizedImage` |
+| `src/components/SlidePromptCard.tsx` | Thay thumbnail `<img>` bằng `OptimizedImage` |
 
-Thay đổi ~50 dòng, 5 file + 1 migration.
+Tạo 1 file mới, sửa 3 file, ~80 dòng thay đổi.
 
