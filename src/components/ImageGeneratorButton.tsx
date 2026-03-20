@@ -75,7 +75,7 @@ export function ImageGeneratorButton({
       {generatedImage && (
         <div className="space-y-2">
           <div className="relative group rounded-lg overflow-hidden border border-border">
-            <img
+            <OptimizedImage
               src={generatedImage.imageUrl}
               alt={`Slide ${slideNumber}`}
               className="w-full h-auto object-cover"

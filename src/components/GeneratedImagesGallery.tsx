@@ -316,7 +316,7 @@ export function GeneratedImagesGallery({
               return (
                 <div key={slideNum} className="relative rounded-lg overflow-hidden border border-border group">
                   <div className="aspect-square bg-muted/20">
-                    <img
+                    <OptimizedImage
                       src={image.imageUrl}
                       alt={`Slide ${slideNum}`}
                       className="w-full h-full object-cover"

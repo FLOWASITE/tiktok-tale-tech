@@ -273,10 +273,12 @@ export function SlidePromptCard({
             </CardTitle>
             {/* Thumbnail preview if image exists */}
             {generatedImage && (
-              <img
+              <OptimizedImage
                 src={generatedImage.imageUrl}
                 alt={`Slide ${slide.slideNumber}`}
                 className="w-8 h-8 xs:w-10 xs:h-10 rounded object-cover border border-border/50 ml-auto shrink-0"
+                fadeDuration={200}
+                skeleton={false}
               />
             )}
           </div>
