@@ -20,6 +20,8 @@ import {
   X,
   Target,
   Book,
+  Megaphone,
+  MessageSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
