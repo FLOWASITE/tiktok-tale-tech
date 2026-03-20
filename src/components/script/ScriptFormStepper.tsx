@@ -147,21 +147,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     enabled: currentStep === 3 && formData.topic.length >= 10,
   });
 
-  // Enhanced Topic Suggestions (same as Carousel)
-  const {
-    suggestions: enhancedSuggestions,
-    source: suggestionsSource,
-    isLoading: suggestionsLoading,
-    refresh: refreshSuggestions,
-    saveSuggestion,
-    submitFeedback,
-  } = useEnhancedTopicSuggestions({
-    brandTemplateId: formData.brandTemplateId,
-    contentGoal: scriptContentGoal,
-    format: 'script',
-    enabled: currentStep === 2,
-  });
-
   // Map script purpose to content goal for AI suggestions
   const scriptContentGoal: ContentGoal = useMemo(() => {
     switch (formData.script_purpose) {
@@ -177,6 +162,21 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         return 'education';
     }
   }, [formData.script_purpose]);
+
+  // Enhanced Topic Suggestions (same as Carousel)
+  const {
+    suggestions: enhancedSuggestions,
+    source: suggestionsSource,
+    isLoading: suggestionsLoading,
+    refresh: refreshSuggestions,
+    saveSuggestion,
+    submitFeedback,
+  } = useEnhancedTopicSuggestions({
+    brandTemplateId: formData.brandTemplateId,
+    contentGoal: scriptContentGoal,
+    format: 'script',
+    enabled: currentStep === 2,
+  });
 
   // Compliance pre-check hook
   const complianceOptions = useMemo(() => ({
