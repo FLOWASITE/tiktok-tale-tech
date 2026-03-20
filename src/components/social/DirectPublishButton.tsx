@@ -328,10 +328,10 @@ export function DirectPublishButton({
                   platform === 'linkedin' && 'bg-[hsl(201,100%,35%)] text-white',
                   !['facebook','twitter','instagram','linkedin'].includes(platform || '') && 'bg-primary text-primary-foreground',
                 )}>
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <DialogTitle className="text-base font-semibold">
+                  <DialogTitle className="text-sm sm:text-base font-semibold">
                     Đăng lên {PLATFORM_DISPLAY_NAMES[platform!] || platform}
                   </DialogTitle>
                   <DialogDescription className="text-xs mt-0.5 flex items-center gap-1">
@@ -339,7 +339,9 @@ export function DirectPublishButton({
                     {connection?.platform_username 
                       ? `@${connection.platform_username}` 
                       : 'Tài khoản đã kết nối'}
-                    {' · '}{new Date().toLocaleDateString('vi-VN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    <span className="hidden sm:inline">
+                      {' · '}{new Date().toLocaleDateString('vi-VN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
                   </DialogDescription>
                 </div>
               </div>
