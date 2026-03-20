@@ -95,24 +95,17 @@ function MinimaxCard({ prompt }: { prompt: ParsedPrompt }) {
   );
 }
 
-// Teleprompter card layout
+// Teleprompter card layout (unified with voice-over)
 function TeleprompterCard({ prompt }: { prompt: ParsedPrompt }) {
+  const hasVoiceGuide = prompt.voiceGuide || prompt.tone || prompt.tempo || prompt.emotion;
+  
   return (
     <div className="space-y-1.5 xs:space-y-2">
       <Section icon={Lightbulb} label="Cue" content={prompt.cue} iconColor="text-yellow-500" />
       <Section icon={MessageSquare} label="Lời thoại" content={prompt.dialogue} iconColor="text-primary" contentClass="text-base font-medium" />
       <Section icon={Type} label="Nhấn mạnh" content={prompt.emphasis} iconColor="text-orange-500" />
       <Section icon={Pause} label="Nghỉ" content={prompt.pause} iconColor="text-muted-foreground" />
-    </div>
-  );
-}
-
-// Voice-over card layout
-function VoiceoverCard({ prompt }: { prompt: ParsedPrompt }) {
-  return (
-    <div className="space-y-1.5 xs:space-y-2">
-      <Section icon={MessageSquare} label="Lời thoại" content={prompt.dialogue} iconColor="text-primary" contentClass="text-base" />
-      {prompt.voiceGuide && (
+      {hasVoiceGuide && (
         <div className="mt-2 p-2 rounded-md bg-muted/50 border border-border/50">
           <span className="text-muted-foreground text-[10px] xs:text-xs flex items-center gap-1 mb-1">
             <Mic className="w-3 h-3" /> Hướng dẫn giọng
@@ -120,18 +113,9 @@ function VoiceoverCard({ prompt }: { prompt: ParsedPrompt }) {
           <div className="grid grid-cols-2 gap-1 text-xs">
             <Section icon={Smile} label="Tone" content={prompt.tone} iconColor="text-yellow-500" />
             <Section icon={Gauge} label="Tempo" content={prompt.tempo} iconColor="text-blue-500" />
-            <Section icon={Type} label="Nhấn mạnh" content={prompt.emphasis} iconColor="text-orange-500" />
-            <Section icon={Pause} label="Pause" content={prompt.pause} iconColor="text-muted-foreground" />
             <Section icon={Heart} label="Cảm xúc" content={prompt.emotion} iconColor="text-red-500" />
           </div>
         </div>
-      )}
-      {!prompt.voiceGuide && (
-        <>
-          <Section icon={Smile} label="Tone" content={prompt.tone} iconColor="text-yellow-500" />
-          <Section icon={Gauge} label="Tempo" content={prompt.tempo} iconColor="text-blue-500" />
-          <Section icon={Type} label="Nhấn mạnh" content={prompt.emphasis} iconColor="text-orange-500" />
-        </>
       )}
     </div>
   );
