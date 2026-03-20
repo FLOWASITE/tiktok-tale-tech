@@ -23,6 +23,7 @@ export interface ChannelModelConfig {
   costPriority: CostPriority | null;
   preferredHookTypes: string[] | null;
   allowUserOverride: boolean;
+  forceProvider: string | null;
   createdAt: string;
   updatedAt: string;
 }
