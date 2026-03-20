@@ -1,38 +1,26 @@
 
 
-# Sửa UI Post Facebook trên điện thoại
+# Gộp Tab Caption & CTA trong CarouselViewer
 
-## Vấn đề
-Dialog `DirectPublishButton` (`sm:max-w-2xl`) trên mobile bị tràn/chật do:
-- Padding `px-6` quá rộng cho màn hình nhỏ
-- Textarea `rows={6}` chiếm quá nhiều chiều cao
-- Header icon + text cồng kềnh
-- Media preview grid không responsive tốt
-- Success state padding `py-10` quá lớn
+## Thay đổi
 
-## Thay đổi — File: `src/components/social/DirectPublishButton.tsx`
+Gộp 2 tab "Caption" và "CTA" thành 1 tab duy nhất "Caption & CTA", giảm số tab từ 5 xuống 4.
 
-### 1. Giảm padding trên mobile
-- Header: `px-6 py-4` → `px-4 py-3 sm:px-6 sm:py-4`
-- Content area: `px-6 pb-2` → `px-4 pb-2 sm:px-6`
-- Footer: `px-6 py-4` → `px-4 py-3 sm:px-6 sm:py-4`
-- Warning banner: `mx-6` → `mx-4 sm:mx-6`
+### File: `src/components/CarouselViewer.tsx`
 
-### 2. Thu nhỏ header trên mobile
-- Icon container: `w-10 h-10` → `w-8 h-8 sm:w-10 sm:h-10`
-- Title: `text-base` → `text-sm sm:text-base`
-- Ẩn date/time trên mobile (chỉ hiện username)
+**Tab bar (dòng ~706-713)**:
+- Xóa TabsTrigger `value="cta"` 
+- Đổi TabsTrigger `value="caption"` thành hiển thị "Caption & CTA" (trên desktop), icon giữ `MessageSquare`
 
-### 3. Textarea responsive
-- `rows={6}` → `rows={4}` trên mobile (dùng className `max-h-[120px] sm:max-h-none`)
+**Tab content (dòng ~868-922)**:
+- Gộp 2 `TabsContent` thành 1 `TabsContent value="caption"`
+- Bên trong chứa 2 section xếp dọc (gap-4):
+  - Section 1: Caption (giữ nguyên card + copy button)
+  - Section 2: CTA (giữ nguyên card + copy button)
+- Thêm nút "Copy tất cả" ở trên cùng để copy cả caption + CTA cùng lúc
 
-### 4. Success state gọn hơn
-- `py-10 px-6` → `py-6 px-4 sm:py-10 sm:px-6`
-- Icon success: `w-16 h-16` → `w-12 h-12 sm:w-16 sm:h-16`
-
-### 5. Schedule Dialog
-- Cũng áp dụng padding responsive tương tự
-- Calendar component: thêm `className` scale nhỏ hơn trên mobile nếu cần
+**Copy all handler**: 
+- Copy format: `{caption}\n\n---\n\n{cta}`
 
 Chỉ sửa 1 file duy nhất.
 
