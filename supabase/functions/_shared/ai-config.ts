@@ -338,6 +338,7 @@ export interface ChannelModelConfig {
   temperature: number;
   maxTokens: number | null;
   isEnabled: boolean;
+  forceProvider?: string | null;
 }
 
 // In-memory cache for channel configs
