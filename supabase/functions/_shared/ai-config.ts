@@ -14,6 +14,7 @@ export interface AIFunctionConfig {
   custom_system_prompt?: string;
   is_enabled: boolean;
   priority_level: string;
+  force_provider?: string | null;
 }
 
 // Default configs when DB is empty or query fails
