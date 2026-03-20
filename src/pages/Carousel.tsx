@@ -106,6 +106,10 @@ const CarouselPage = () => {
   const carouselIds = useMemo(() => carousels.map(c => c.id), [carousels]);
   const { imageMap } = useCarouselCardImages(carouselIds);
 
+  // Fetch brand info for cards
+  const brandTemplateIds = useMemo(() => carousels.map(c => c.brand_template_id), [carousels]);
+  const { brandMap } = useCarouselBrands(brandTemplateIds);
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
