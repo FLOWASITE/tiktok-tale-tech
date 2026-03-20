@@ -339,9 +339,6 @@ export function parseScriptContent(content: string, purpose?: ScriptPurpose): Pa
       case 'teleprompter':
         parsed = parseTeleprompterBlock(block, promptNumber);
         break;
-      case 'voiceover':
-        parsed = parseVoiceoverBlock(block, promptNumber);
-        break;
       case 'production':
         parsed = parseProductionBlock(block, promptNumber);
         break;
