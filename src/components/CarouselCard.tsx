@@ -135,7 +135,7 @@ export function CarouselCard({
 
         {/* Image Grid Preview */}
         {imageUrls && imageUrls.length > 0 ? (
-          <div className="relative aspect-video bg-muted/20 overflow-hidden cursor-pointer" onClick={() => onView(carousel)}>
+          <div className="relative aspect-[4/3] bg-muted/20 overflow-hidden cursor-pointer" onClick={() => onView(carousel)}>
             {imageUrls.length === 1 && (
               <img
                 src={imageUrls[0]}
@@ -179,7 +179,7 @@ export function CarouselCard({
           </div>
         ) : (
           <div 
-            className="relative aspect-video bg-muted/10 flex items-center justify-center cursor-pointer"
+            className="relative aspect-[4/3] bg-muted/10 flex items-center justify-center cursor-pointer"
             onClick={() => onView(carousel)}
           >
             <div className="text-center">
@@ -189,7 +189,7 @@ export function CarouselCard({
           </div>
         )}
 
-        <CardHeader className="p-3 xs:p-4 sm:p-5 pb-2 xs:pb-3">
+        <CardHeader className="p-2 xs:p-3 sm:p-3 pb-1.5 xs:pb-2">
           <div className="flex items-start justify-between gap-1.5 xs:gap-2">
             <CardTitle className="text-sm xs:text-base font-semibold line-clamp-2 group-hover:text-primary transition-colors">
               {carousel.title}
@@ -213,9 +213,9 @@ export function CarouselCard({
           </div>
         </CardHeader>
 
-        <CardContent className="p-3 xs:p-4 sm:p-5 pt-0">
+        <CardContent className="p-2 xs:p-3 sm:p-3 pt-0">
           {/* Tags */}
-          <div className="flex flex-wrap gap-1 xs:gap-1.5 mb-2 xs:mb-3">
+          <div className="flex flex-wrap gap-1 xs:gap-1.5 mb-1.5">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -258,13 +258,13 @@ export function CarouselCard({
           </div>
 
           {/* Topic */}
-          <p className="text-xs xs:text-sm text-muted-foreground line-clamp-2 mb-2 xs:mb-3">
+          <p className="text-xs xs:text-sm text-muted-foreground line-clamp-1 mb-1.5">
             {carousel.topic}
           </p>
 
           {/* Brand */}
           {brandName && (
-            <div className="flex items-center gap-1.5 mb-2">
+            <div className="flex items-center gap-1.5 mb-1.5">
               {brandLogoUrl ? (
                 <img
                   src={brandLogoUrl}
@@ -283,7 +283,7 @@ export function CarouselCard({
           )}
 
           {/* Creator */}
-          <div className="flex items-center gap-1 xs:gap-1.5 mb-3 text-[9px] xs:text-[10px]">
+          <div className="flex items-center gap-1 xs:gap-1.5 mb-2 text-[9px] xs:text-[10px]">
             <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
           </div>
 
