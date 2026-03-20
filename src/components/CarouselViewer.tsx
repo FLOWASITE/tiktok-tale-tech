@@ -37,6 +37,8 @@ import {
   Paintbrush,
   Focus,
   Info,
+  ChevronLeft,
+  ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
