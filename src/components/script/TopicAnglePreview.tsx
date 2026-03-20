@@ -48,8 +48,8 @@ export function TopicAnglePreview({ angle, topic }: TopicAnglePreviewProps) {
           <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10">
             <Eye className="w-3.5 h-3.5 text-primary" />
           </div>
-          <span className="text-sm font-medium text-foreground">
-            Preview: {config.icon} {config.label}
+          <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
+            Preview: {(() => { const I = ICON_MAP[config.icon]; return I ? <I className="w-4 h-4 text-primary" /> : null; })()} {config.label}
           </span>
           <Sparkles className="w-3.5 h-3.5 text-amber-500" />
         </div>
