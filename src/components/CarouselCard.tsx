@@ -283,7 +283,7 @@ export function CarouselCard({
           )}
 
           {/* Creator */}
-          <div className="flex items-center gap-1 xs:gap-1.5 mb-3 text-[9px] xs:text-[10px]">
+          <div className="flex items-center gap-1 xs:gap-1.5 mb-2 text-[9px] xs:text-[10px]">
             <CreatorCell profile={creatorProfile} isLoading={isLoadingProfile} />
           </div>
 
