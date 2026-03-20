@@ -1815,9 +1815,9 @@ export function ChannelMockupFrame(props: ChannelMockupFrameProps) {
     case 'linkedin':
       return <LinkedInMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'instagram':
-      return <InstagramMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
+      return <InstagramMockup {...rest} brandName={safeBrandName} channelImage={channelImage} channelImages={channelImages} slideTitles={slideTitles} />;
     case 'tiktok':
-      return <TikTokMockup {...rest} brandName={safeBrandName} channelImage={channelImage} channelImages={channelImages} />;
+      return <TikTokMockup {...rest} brandName={safeBrandName} channelImage={channelImage} channelImages={channelImages} slideTitles={slideTitles} />;
     case 'twitter':
       return <TwitterMockup {...rest} brandName={safeBrandName} channelImage={channelImage} />;
     case 'threads':
