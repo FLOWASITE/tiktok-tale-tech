@@ -191,11 +191,12 @@ export function GeneratedImagesGallery({
                 {images.map((image) => (
                   <div key={image.slideNumber} className="flex-[0_0_100%] min-w-0 relative">
                     <div className="aspect-square xs:aspect-[4/5] relative bg-muted/20">
-                      <img
+                      <OptimizedImage
                         src={image.imageUrl}
                         alt={`Slide ${image.slideNumber}`}
                         className="w-full h-full object-contain"
                         loading="lazy"
+                        preloadSrc={images[images.indexOf(image) + 1]?.imageUrl}
                       />
                       {slides && slides[image.slideNumber - 1] && (
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 xs:p-4">
