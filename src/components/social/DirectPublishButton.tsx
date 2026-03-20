@@ -347,14 +347,14 @@ export function DirectPublishButton({
               </div>
 
               {/* Editable Content */}
-              <div className="px-6 pb-2 space-y-3">
+              <div className="px-4 sm:px-6 pb-2 space-y-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-muted-foreground">Nội dung bài đăng</Label>
                   <Textarea
                     value={editableContent}
                     onChange={(e) => setEditableContent(e.target.value)}
-                    rows={6}
-                    className="resize-none text-sm leading-relaxed"
+                    rows={4}
+                    className="resize-none text-sm leading-relaxed max-h-[120px] sm:max-h-[200px]"
                     placeholder="Nhập nội dung..."
                   />
                   {/* Character Count */}
