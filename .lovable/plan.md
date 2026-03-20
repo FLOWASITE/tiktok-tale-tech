@@ -1,78 +1,58 @@
 
 
-# Nâng cấp Facebook Carousel Mockup chuẩn hơn
+# Bổ sung thêm nền tảng Social cho Carousel
 
-## Vấn đề hiện tại
+## Các nền tảng thêm mới
+- **Instagram** — carousel phổ biến nhất (tỷ lệ 4:5)
+- **LinkedIn** — carousel dạng document/slide (tỷ lệ 1:1 hoặc 4:5)
 
-Facebook carousel mockup thiếu nhiều chi tiết quan trọng so với giao diện thật:
+## Thay đổi cần thực hiện
 
-1. **Caption bị hiển thị toàn bộ** — Facebook thật chỉ hiển thị 3-4 dòng rồi có nút "Xem thêm"
-2. **Carousel slider quá đơn giản** — Facebook thật có: card overlay với tiêu đề + mô tả bên dưới mỗi ảnh carousel, nút mũi tên lớn hơn, dots ở giữa ảnh
-3. **Thiếu "Xem thêm" link** cho caption dài
-4. **Thiếu card title/description** dưới mỗi ảnh carousel (Facebook carousel thật có 1 dải card bên dưới ảnh hiển thị headline + link)
-5. **Reaction emoji thiếu thực tế** — có 4 emoji reactions nhưng thật thường chỉ hiện 3
-6. **Không có "Sponsored" / "Được tài trợ" label** option
-
-## Giải pháp
-
-### File: `src/components/preview/ChannelMockupFrame.tsx`
-
-**1. Facebook Carousel Card Overlay**
-
-Thêm dải card bên dưới mỗi ảnh carousel giống Facebook thật:
-```text
-┌──────────────────────┐
-│                      │
-│    [Carousel Image]  │
-│              1/5     │
-│                      │
-├──────────────────────┤
-│ Slide headline here  │  ← Card overlay (bg xám nhạt)
-│ brandname.com        │
-│                      │
-└──────────────────────┘
+### 1. Database Migration
+Thêm giá trị mới vào enum `carousel_platform`:
+```sql
+ALTER TYPE public.carousel_platform ADD VALUE 'instagram';
+ALTER TYPE public.carousel_platform ADD VALUE 'linkedin';
 ```
 
-Truyền `slides_content` (headline từ mỗi slide) vào mockup để hiển thị tiêu đề card.
+### 2. `src/types/carousel.ts`
+- Mở rộng `Platform` type: `'facebook' | 'tiktok' | 'instagram' | 'linkedin'`
+- Thêm vào `PLATFORM_OPTIONS` với label tiếng Việt
 
-**2. Caption "Xem thêm" truncation**
+### 3. `src/components/carousel/PlatformSelector.tsx`
+- Thêm icon cho Instagram (lucide `Instagram`) và LinkedIn (lucide `Linkedin`)
+- Thêm màu sắc cho mỗi nền tảng mới (Instagram: gradient tím-hồng, LinkedIn: xanh sky)
+- Đổi grid từ `grid-cols-2` sang `grid-cols-4` (hoặc `grid-cols-2 sm:grid-cols-4`)
 
-- Giới hạn caption hiển thị 3 dòng (line-clamp-3)
-- Thêm nút "Xem thêm" màu xám khi nội dung dài
-- Click "Xem thêm" → mở rộng toàn bộ caption
+### 4. `src/components/CarouselViewer.tsx`
+- Cập nhật `platformLabels` thêm instagram, linkedin
+- Cập nhật mockup channel mapping: `carousel.platform` → `ChannelMockupFrame` channel (instagram, linkedin đã có sẵn mockup trong `ChannelMockupFrame`)
 
-**3. Nâng cấp CarouselImageSlider cho Facebook**
+### 5. `src/components/CarouselCard.tsx`
+- Cập nhật `platformLabels` record thêm instagram, linkedin với icon tương ứng
 
-- Mũi tên navigation lớn hơn (w-9 h-9), luôn hiển thị (không chỉ hover)
-- Dots chuyển vào bên trong ảnh (bottom, trên card overlay)
-- Bỏ 1 emoji reaction (giữ 3: Like, Love, Haha)
+### 6. `src/components/CarouselListView.tsx`
+- Cập nhật `platformLabels` và `platformColors` thêm 2 nền tảng mới
 
-**4. Truyền slide titles từ CarouselViewer**
+### 7. `supabase/functions/generate-carousel/index.ts`
+- Mở rộng prompt hệ thống để hỗ trợ Instagram và LinkedIn (thay ternary `facebook ? "Facebook" : "TikTok"` bằng mapping object)
+- Điều chỉnh aspect ratio guidance theo nền tảng (Instagram: 4:5, LinkedIn: 1:1)
 
-Thêm prop `slidesTitles?: string[]` vào `ChannelMockupFrame` để hiển thị headline trên mỗi card.
-
-### File: `src/components/CarouselViewer.tsx`
-
-**5. Truyền slide titles vào mockup**
-
-```tsx
-<ChannelMockupFrame
-  channel={...}
-  content={carousel.caption_suggestion || ...}
-  brandName={carousel.brand_name || 'Brand'}
-  channelImages={generatedImages.map(img => img.imageUrl)}
-  slideTitles={carousel.slides_content.map(s => 
-    typeof s.textContent === 'string' ? s.textContent : s.textContent.headline
-  )}
-/>
-```
+### 8. `src/pages/Carousel.tsx` (nếu có filter theo platform)
+- Cập nhật filter options thêm instagram, linkedin
 
 ## Tổng hợp
 
 | File | Thay đổi |
 |------|----------|
-| `ChannelMockupFrame.tsx` | Thêm prop `slideTitles`, Facebook carousel card overlay, caption truncation + "Xem thêm", nâng cấp slider arrows/dots, giảm reactions về 3 |
-| `CarouselViewer.tsx` | Truyền `slideTitles` từ `slides_content` vào mockup |
+| DB Migration | Thêm `instagram`, `linkedin` vào enum `carousel_platform` |
+| `types/carousel.ts` | Mở rộng `Platform` type + `PLATFORM_OPTIONS` |
+| `PlatformSelector.tsx` | Thêm icon, màu, grid 4 cột |
+| `CarouselViewer.tsx` | Cập nhật labels + mockup channel mapping |
+| `CarouselCard.tsx` | Cập nhật `platformLabels` |
+| `CarouselListView.tsx` | Cập nhật labels + colors |
+| `generate-carousel/index.ts` | Mở rộng prompt cho Instagram/LinkedIn |
+| `Carousel.tsx` | Cập nhật filter options |
 
-Sửa 2 file.
+Sửa 7 file + 1 migration.
 
