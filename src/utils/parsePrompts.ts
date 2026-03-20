@@ -52,15 +52,13 @@ function getBlockPattern(purpose?: ScriptPurpose): RegExp {
 // Get block number pattern based on purpose
 function getBlockNumberPattern(purpose?: ScriptPurpose): RegExp {
   switch(purpose) {
-    case 'ai_video_minimax':
-      return /CLIP\s*(\d+)/i;
     case 'teleprompter':
     case 'voiceover':
       return /ĐOẠN\s*(\d+)/i;
     case 'production':
       return /(?:SCENE|SHOT)\s*(\d+)/i;
-    default:
-      return /PROMPT\s*(\d+)/i;
+    default: // ai_video — match both PROMPT and CLIP
+      return /(?:PROMPT|CLIP)\s*(\d+)/i;
   }
 }
 
