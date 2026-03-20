@@ -278,7 +278,7 @@ function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImag
         </button>
       </div>
 
-      {/* Content */}
+      {/* Content with "Xem thêm" truncation */}
       <div className="px-4 pb-3">
         {isGenerating ? (
           <div className="space-y-2 animate-pulse">
@@ -287,9 +287,7 @@ function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImag
             <div className="h-4 bg-[#e4e6eb] dark:bg-[#3a3b3c] rounded w-4/6" />
           </div>
         ) : (
-          <div className="text-[15px] text-[#050505] dark:text-[#e4e6eb] leading-[1.3333]">
-            <ReactMarkdown components={mockupMarkdownComponents}>{content}</ReactMarkdown>
-          </div>
+          <FacebookCaption content={content} />
         )}
       </div>
 
@@ -300,6 +298,9 @@ function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImag
           totalSlides={Math.max(allImages.length, 1)}
           aspectRatio="aspect-square"
           emptyGradient="from-[#f0f2f5] to-[#e4e6eb]"
+          slideTitles={slideTitles}
+          brandDomain={brandName ? `${brandName.toLowerCase().replace(/\s+/g, '')}.com` : undefined}
+          showCardOverlay={true}
         />
       ) : allImages.length === 1 ? (
         <div className="w-full aspect-video bg-[#f0f2f5] dark:bg-[#3a3b3c]">
