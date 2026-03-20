@@ -526,6 +526,8 @@ const CarouselPage = () => {
                 index={index}
                 thumbnailUrl={imageMap[carousel.id]?.thumbnailUrl}
                 imageCount={imageMap[carousel.id]?.imageCount}
+                brandName={carousel.brand_template_id ? brandMap[carousel.brand_template_id]?.brand_name : undefined}
+                brandLogoUrl={carousel.brand_template_id ? brandMap[carousel.brand_template_id]?.logo_url : undefined}
               />
             ))}
           </div>
