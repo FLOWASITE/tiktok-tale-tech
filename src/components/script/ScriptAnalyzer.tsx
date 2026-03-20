@@ -15,16 +15,23 @@ import {
   ChevronRight,
   ArrowUpRight,
   ArrowDownRight,
+  Wand2,
+  Check,
+  X as XIcon,
 } from 'lucide-react';
 import { Script } from '@/types/script';
 import { useScriptAnalysis, ScriptAnalysis } from '@/hooks/useScriptAnalysis';
+import { useScriptImprovement } from '@/hooks/useScriptImprovement';
 import { cn } from '@/lib/utils';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 interface ScriptAnalyzerProps {
   script: Script;
   initialAnalysis?: ScriptAnalysis | null;
+  onScriptUpdate?: (updatedScript: Script) => void;
   className?: string;
 }
 
