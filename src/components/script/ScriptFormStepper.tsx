@@ -346,30 +346,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         {currentStep === 1 && (
           <div className="space-y-4 animate-fade-in">
             
-            {/* Section 01: Mục đích */}
-            <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden">
-              <div className="px-4 py-3 flex items-center gap-3 border-b border-border/30">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shrink-0">
-                  <Target className="w-4 h-4 text-primary-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">Mục đích kịch bản</p>
-                  <p className="text-xs text-muted-foreground">Chọn định dạng output phù hợp</p>
-                </div>
-                <span className="text-xs font-mono text-muted-foreground/40">01</span>
-              </div>
-              <div className="p-4">
-                <ScriptPurposeSelector
-                  value={formData.script_purpose}
-                  onChange={(value) => setFormData((prev) => ({ ...prev, script_purpose: value }))}
-                  disabled={isLoading}
-                />
-              </div>
-            </div>
-
-            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-
-            {/* Section 02: Chủ đề */}
+            {/* Section 01: Chủ đề + Mục đích (gộp) */}
             <div className="rounded-xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-visible relative z-10">
               <div className="px-4 py-3 flex items-center gap-3 border-b border-border/30">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shrink-0">
@@ -419,10 +396,23 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                       }
                     />
                   )}
-                  <span className="text-xs font-mono text-muted-foreground/40">02</span>
+                  <span className="text-xs font-mono text-muted-foreground/40">01</span>
                 </div>
               </div>
               <div className="p-4 space-y-3">
+                {/* Purpose pills inline */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-medium text-muted-foreground shrink-0">Định dạng:</span>
+                  <ScriptPurposeSelector
+                    value={formData.script_purpose}
+                    onChange={(value) => setFormData((prev) => ({ ...prev, script_purpose: value }))}
+                    disabled={isLoading}
+                    compact
+                  />
+                </div>
+                
+                <div className="h-px bg-border/30" />
+
                 {/* Premium textarea */}
                 <div className="relative group rounded-lg p-[1.5px] transition-all duration-300 bg-border/40 focus-within:bg-gradient-to-r focus-within:from-primary/60 focus-within:via-accent/50 focus-within:to-primary/60">
                   <Textarea
@@ -530,7 +520,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                         {formData.hook ? 'Đã chọn hook — nhấn để thay đổi' : 'Tuỳ chọn — Thu hút 3 giây đầu tiên'}
                       </p>
                     </div>
-                    <span className="text-xs font-mono text-muted-foreground/40 mr-2">03</span>
+                    <span className="text-xs font-mono text-muted-foreground/40 mr-2">02</span>
                     <ChevronRight className="w-4 h-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
                   </CollapsibleTrigger>
                   <CollapsibleContent>
