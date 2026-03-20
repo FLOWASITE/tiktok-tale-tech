@@ -978,16 +978,20 @@ ${colorParts.map(p => `- ${p}`).join('\n')}
     }
   }
 
-  // === DB Design Tokens injection ===
+  // === DB Design Tokens injection (filtered when brand colors exist) ===
   let tokenDirective = '';
   if (dbTokens) {
     const parts: string[] = [];
-    if (dbTokens.colors) {
+    // When brand colors are present, skip token colors to avoid conflict
+    if (dbTokens.colors && !brandColors) {
       const c = dbTokens.colors;
       if (c.primary) parts.push(`Primary color: ${c.primary}`);
       if (c.accent) parts.push(`Accent color: ${c.accent}`);
       if (c.background) parts.push(`Background tone: ${c.background}`);
-      if (c.mood) parts.push(`Color mood: ${c.mood}`);
+    }
+    // Always keep mood — it doesn't conflict with brand colors
+    if (dbTokens.colors?.mood) {
+      parts.push(`Color mood: ${dbTokens.colors.mood}`);
     }
     if (dbTokens.typography?.mood) {
       parts.push(`Typography mood: ${dbTokens.typography.mood}`);
@@ -1001,7 +1005,7 @@ ${colorParts.map(p => `- ${p}`).join('\n')}
       if (fx.length > 0) parts.push(`Visual effects: ${fx.join(', ')}`);
     }
     if (parts.length > 0) {
-      tokenDirective = `\nDESIGN TOKENS (from brand preset):\n${parts.map(p => `- ${p}`).join('\n')}\n`;
+      tokenDirective = `\nDESIGN TOKENS (supplementary mood/effects only):\n${parts.map(p => `- ${p}`).join('\n')}\n`;
     }
   }
 
