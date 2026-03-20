@@ -75,6 +75,8 @@ export interface AICallOptions {
   // Per-channel model overrides (Admin-configured)
   modelOverride?: string;
   temperatureOverride?: number;
+  // Force routing to a specific provider (bypasses auto-detection)
+  forceProvider?: string | null;
   // Distributed tracing (Sprint 2)
   traceId?: string;
   spanId?: string;
@@ -683,9 +685,10 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
   
   console.log(`[ai-provider] Function: ${functionName}, Model: ${effectiveModel}${modelOverride ? ' (override)' : ''}${usingFallback ? ' (fallback)' : ''}`);
 
-  // Determine provider from model
-  const primaryProvider = getProviderFromModel(effectiveModel);
-  console.log(`[ai-provider] Primary provider: ${primaryProvider}`);
+  // Determine provider: forceProvider > auto-detection from model name
+  const forceProvider = options.forceProvider || config.force_provider;
+  const primaryProvider = forceProvider || getProviderFromModel(effectiveModel);
+  console.log(`[ai-provider] Primary provider: ${primaryProvider}${forceProvider ? ' (forced)' : ''}`);
 
   // Initialize Supabase client
   const supabaseUrl = Deno.env.get("SUPABASE_URL");

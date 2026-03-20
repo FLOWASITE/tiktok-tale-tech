@@ -30,6 +30,7 @@ export interface AIFunctionConfig {
   temperature: number | null;
   maxTokens: number | null;
   customSystemPrompt: string | null;
+  forceProvider: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1057,6 +1058,7 @@ export function useAIConfig(organizationId?: string) {
         temperature: (f as any).temperature ?? null,
         maxTokens: (f as any).max_tokens ?? null,
         customSystemPrompt: (f as any).custom_system_prompt ?? null,
+        forceProvider: (f as any).force_provider ?? null,
         createdAt: f.created_at,
         updatedAt: f.updated_at,
       }));
@@ -1126,6 +1128,7 @@ export function useAIConfig(organizationId?: string) {
         temperature: config.temperature ?? null,
         max_tokens: config.maxTokens ?? null,
         custom_system_prompt: config.customSystemPrompt ?? null,
+        force_provider: config.forceProvider ?? null,
       };
 
       // Check if record exists for this function_name + organization_id

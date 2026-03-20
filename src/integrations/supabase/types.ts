@@ -1318,6 +1318,7 @@ export type Database = {
           channel: string
           cost_priority: string | null
           created_at: string | null
+          force_provider: string | null
           hook_intensity: string | null
           id: string
           is_enabled: boolean | null
@@ -1336,6 +1337,7 @@ export type Database = {
           channel: string
           cost_priority?: string | null
           created_at?: string | null
+          force_provider?: string | null
           hook_intensity?: string | null
           id?: string
           is_enabled?: boolean | null
@@ -1354,6 +1356,7 @@ export type Database = {
           channel?: string
           cost_priority?: string | null
           created_at?: string | null
+          force_provider?: string | null
           hook_intensity?: string | null
           id?: string
           is_enabled?: boolean | null
@@ -1429,6 +1432,7 @@ export type Database = {
           cache_ttl_hours: number | null
           created_at: string | null
           custom_system_prompt: string | null
+          force_provider: string | null
           function_name: string
           id: string
           is_enabled: boolean | null
@@ -1445,6 +1449,7 @@ export type Database = {
           cache_ttl_hours?: number | null
           created_at?: string | null
           custom_system_prompt?: string | null
+          force_provider?: string | null
           function_name: string
           id?: string
           is_enabled?: boolean | null
@@ -1461,6 +1466,7 @@ export type Database = {
           cache_ttl_hours?: number | null
           created_at?: string | null
           custom_system_prompt?: string | null
+          force_provider?: string | null
           function_name?: string
           id?: string
           is_enabled?: boolean | null

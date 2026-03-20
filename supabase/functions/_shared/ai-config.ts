@@ -14,6 +14,7 @@ export interface AIFunctionConfig {
   custom_system_prompt?: string;
   is_enabled: boolean;
   priority_level: string;
+  force_provider?: string | null;
 }
 
 // Default configs when DB is empty or query fails
@@ -261,7 +262,7 @@ export async function getAIConfig(
     // Optimized query with minimal select
     let query = supabase
       .from('ai_function_configs')
-      .select('model_override, temperature, max_tokens, cache_ttl_hours, custom_system_prompt, is_enabled, priority_level')
+      .select('model_override, temperature, max_tokens, cache_ttl_hours, custom_system_prompt, is_enabled, priority_level, force_provider')
       .eq('function_name', functionName)
       .eq('is_enabled', true);
 
@@ -291,6 +292,7 @@ export async function getAIConfig(
       custom_system_prompt: dbConfig?.custom_system_prompt || undefined,
       is_enabled: dbConfig?.is_enabled ?? defaultConfig.is_enabled,
       priority_level: dbConfig?.priority_level || defaultConfig.priority_level,
+      force_provider: dbConfig?.force_provider || null,
     };
 
     // Update cache
@@ -336,6 +338,7 @@ export interface ChannelModelConfig {
   temperature: number;
   maxTokens: number | null;
   isEnabled: boolean;
+  forceProvider?: string | null;
 }
 
 // In-memory cache for channel configs
@@ -364,7 +367,7 @@ export async function getChannelModelConfigs(
   try {
     let query = supabase
       .from('ai_channel_model_configs')
-      .select('channel, model_override, temperature, max_tokens, is_enabled')
+      .select('channel, model_override, temperature, max_tokens, is_enabled, force_provider')
       .eq('is_enabled', true);
 
     if (organizationId) {
@@ -391,6 +394,7 @@ export async function getChannelModelConfigs(
           temperature: row.temperature ?? 0.7,
           maxTokens: row.max_tokens,
           isEnabled: row.is_enabled ?? true,
+          forceProvider: row.force_provider || null,
         });
       }
     }

@@ -23,6 +23,7 @@ export interface ChannelModelConfig {
   costPriority: CostPriority | null;
   preferredHookTypes: string[] | null;
   allowUserOverride: boolean;
+  forceProvider: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -85,6 +86,7 @@ export function useChannelModelConfig(organizationId?: string) {
         costPriority: row.cost_priority,
         preferredHookTypes: row.preferred_hook_types,
         allowUserOverride: row.allow_user_override ?? true,
+        forceProvider: row.force_provider ?? null,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       })) as ChannelModelConfig[];
@@ -122,6 +124,7 @@ export function useChannelModelConfig(organizationId?: string) {
         cost_priority: config.costPriority,
         preferred_hook_types: config.preferredHookTypes,
         allow_user_override: config.allowUserOverride ?? true,
+        force_provider: config.forceProvider ?? null,
       };
 
       if (existingData?.id) {
