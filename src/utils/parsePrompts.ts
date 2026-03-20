@@ -40,7 +40,6 @@ export interface ParsedPrompt {
 function getBlockPattern(purpose?: ScriptPurpose): RegExp {
   switch(purpose) {
     case 'teleprompter':
-    case 'voiceover':
       return /(?=---\s*ĐOẠN\s*\d+|ĐOẠN\s*\d+)/i;
     case 'production':
       return /(?=SCENE\s*\d+|SHOT\s*\d+)/i;
@@ -53,7 +52,6 @@ function getBlockPattern(purpose?: ScriptPurpose): RegExp {
 function getBlockNumberPattern(purpose?: ScriptPurpose): RegExp {
   switch(purpose) {
     case 'teleprompter':
-    case 'voiceover':
       return /ĐOẠN\s*(\d+)/i;
     case 'production':
       return /(?:SCENE|SHOT)\s*(\d+)/i;
