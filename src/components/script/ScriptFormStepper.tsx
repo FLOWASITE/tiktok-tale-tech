@@ -113,7 +113,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     duration: 60,
     video_type: 'expert_share',
     character_type: 'the_virtuoso',
-    script_purpose: 'ai_video_veo3',
+    script_purpose: 'ai_video',
     voice_region: 'northern',
     dialogue_style: 'monologue',
     brandTemplateId: undefined,
