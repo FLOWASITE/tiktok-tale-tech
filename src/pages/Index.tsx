@@ -32,7 +32,7 @@ const Index = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const prefillData = location.state as LocationState | null;
-  const { scripts, loading, generating, generateScript, deleteScript, updateScript } = useScripts();
+  const { scripts, loading, deleteScript, updateScript } = useScripts();
   const { templates: brandTemplates } = useBrandTemplates();
   
   // Create brand template lookup map
