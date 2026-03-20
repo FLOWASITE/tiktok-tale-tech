@@ -88,7 +88,7 @@ export function CharacterTypeRecommendations({
               </p>
             </div>
             <Badge variant="outline" className="text-xs shrink-0">
-              {CHARACTER_CATEGORIES[topRecommendation.category].icon} {CHARACTER_CATEGORIES[topRecommendation.category].label}
+              {CHARACTER_CATEGORIES[topRecommendation.category].label}
             </Badge>
           </div>
         </div>

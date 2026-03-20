@@ -751,18 +751,18 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <Settings className="w-4 h-4 text-muted-foreground mt-0.5" />
+                  <Mic className="w-4 h-4 text-muted-foreground mt-0.5" />
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Giọng & Phong cách</p>
                     <p className="text-sm">
-                      {formData.voice_region === 'northern' && '🏛️ Miền Bắc'}
-                      {formData.voice_region === 'central' && '🏯 Miền Trung'}
-                      {formData.voice_region === 'southern' && '🌴 Miền Nam'}
+                      {formData.voice_region === 'northern' && 'Miền Bắc'}
+                      {formData.voice_region === 'central' && 'Miền Trung'}
+                      {formData.voice_region === 'southern' && 'Miền Nam'}
                       {' • '}
-                      {formData.dialogue_style === 'monologue' && '🎤 Độc thoại'}
-                      {formData.dialogue_style === 'conversational' && '💬 Trò chuyện'}
-                      {formData.dialogue_style === 'internal' && '🧠 Suy tư'}
-                      {formData.dialogue_style === 'narrative' && '📖 Kể chuyện'}
+                      {formData.dialogue_style === 'monologue' && 'Độc thoại'}
+                      {formData.dialogue_style === 'conversational' && 'Trò chuyện'}
+                      {formData.dialogue_style === 'internal' && 'Suy tư'}
+                      {formData.dialogue_style === 'narrative' && 'Kể chuyện'}
                     </p>
                   </div>
                 </div>

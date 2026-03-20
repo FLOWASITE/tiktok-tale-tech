@@ -71,7 +71,7 @@ export function VideoTypeRecommendations({
                 {VIDEO_TYPE_LABELS[topRecommendation.videoType]}
               </span>
               <Badge className={cn("text-[10px] h-5", CATEGORY_COLORS[topRecommendation.category])}>
-                {VIDEO_TYPE_CATEGORIES[topRecommendation.category].icon} {VIDEO_TYPE_CATEGORIES[topRecommendation.category].label}
+                {VIDEO_TYPE_CATEGORIES[topRecommendation.category].label}
               </Badge>
             </div>
             <div className="flex items-center gap-2">
@@ -104,7 +104,7 @@ export function VideoTypeRecommendations({
                   "hover:border-primary/50 hover:bg-primary/5"
                 )}
               >
-                <span className="text-[10px] opacity-70">{VIDEO_TYPE_CATEGORIES[rec.category].icon}</span>
+                <span className="text-[10px] opacity-70">•</span>
                 {VIDEO_TYPE_LABELS[rec.videoType]}
                 <span className="text-[10px] text-muted-foreground">({rec.score}%)</span>
               </Button>
