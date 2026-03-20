@@ -115,7 +115,7 @@ export function CarouselFilters({
                 filters.platform === platform.value && "bg-primary/10 text-primary border border-primary/30"
               )}
             >
-              <Facebook className="w-3 h-3" />
+              {(() => { const Icon = platformIcons[platform.value] || Facebook; return <Icon className="w-3 h-3" />; })()}
               {platform.label}
             </Button>
           ))}
