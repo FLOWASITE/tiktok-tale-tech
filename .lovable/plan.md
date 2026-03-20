@@ -1,80 +1,78 @@
 
 
-# Hoàn thiện Preview Tab cho Carousel
+# Nâng cấp Facebook Carousel Mockup chuẩn hơn
 
 ## Vấn đề hiện tại
-1. **Không có empty state** — khi chưa có ảnh, mockup hiển thị trống (không có `channelImage`)
-2. **Facebook mockup hiển thị ảnh đơn** — carousel là bài đăng nhiều ảnh, cần hiển thị dạng carousel swipeable thay vì 1 ảnh
-3. **TikTok mockup dùng aspect-ratio 9:16** — không phù hợp với carousel (TikTok carousel là dạng slide ngang)
-4. **Caption bị cắt trên TikTok mockup** (line-clamp-2) — cần hiển thị đầy đủ hơn
-5. **Thiếu carousel indicator dots** trên Facebook mockup
-6. **Thiếu slide counter** (1/5) trên mockup
+
+Facebook carousel mockup thiếu nhiều chi tiết quan trọng so với giao diện thật:
+
+1. **Caption bị hiển thị toàn bộ** — Facebook thật chỉ hiển thị 3-4 dòng rồi có nút "Xem thêm"
+2. **Carousel slider quá đơn giản** — Facebook thật có: card overlay với tiêu đề + mô tả bên dưới mỗi ảnh carousel, nút mũi tên lớn hơn, dots ở giữa ảnh
+3. **Thiếu "Xem thêm" link** cho caption dài
+4. **Thiếu card title/description** dưới mỗi ảnh carousel (Facebook carousel thật có 1 dải card bên dưới ảnh hiển thị headline + link)
+5. **Reaction emoji thiếu thực tế** — có 4 emoji reactions nhưng thật thường chỉ hiện 3
+6. **Không có "Sponsored" / "Được tài trợ" label** option
 
 ## Giải pháp
 
-### File: `src/components/CarouselViewer.tsx`
-
-**1. Tích hợp carousel swipe vào mockup**
-- Thay vì truyền 1 `channelImage`, truyền toàn bộ danh sách ảnh
-- Tích hợp swipe trực tiếp trong preview (left/right arrows overlay trên ảnh trong mockup)
-- Hiển thị indicator dots (● ○ ○ ○ ○) bên dưới ảnh
-
-**2. Empty state khi chưa có ảnh**
-- Hiển thị placeholder slides với số thứ tự (Slide 1, Slide 2...) dùng gradient background
-- Kèm text "Tạo ảnh để xem preview đầy đủ"
-
-**3. Carousel counter overlay**
-- Hiển thị badge "1/5" góc trên phải ảnh trong mockup
-
 ### File: `src/components/preview/ChannelMockupFrame.tsx`
 
-**4. Mở rộng props hỗ trợ multiple images**
-- Thêm prop `channelImages?: string[]` (danh sách ảnh carousel)
-- FacebookMockup: thay section ảnh đơn bằng carousel slider với dots + counter
-- TikTokMockup: chuyển sang layout carousel (aspect 4:5 thay vì 9:16) khi có nhiều ảnh
+**1. Facebook Carousel Card Overlay**
 
-### File: `src/components/CarouselViewer.tsx` (Preview tab)
-
-**5. Truyền data mới**
-```tsx
-<ChannelMockupFrame
-  channel={carousel.platform === 'tiktok' ? 'tiktok' : 'facebook'}
-  content={carousel.caption_suggestion || `📌 ${carousel.topic}`}
-  brandName={carousel.brand_name || 'Brand'}
-  channelImages={generatedImages.map(img => img.imageUrl)}
-/>
+Thêm dải card bên dưới mỗi ảnh carousel giống Facebook thật:
+```text
+┌──────────────────────┐
+│                      │
+│    [Carousel Image]  │
+│              1/5     │
+│                      │
+├──────────────────────┤
+│ Slide headline here  │  ← Card overlay (bg xám nhạt)
+│ brandname.com        │
+│                      │
+└──────────────────────┘
 ```
 
-**6. Bỏ slide selector thumbnails bên ngoài** — vì navigation đã tích hợp trong mockup
+Truyền `slides_content` (headline từ mỗi slide) vào mockup để hiển thị tiêu đề card.
 
-**7. Giữ nguyên** SeamlessConsistencyCard và nút "Tạo ảnh ngay"
+**2. Caption "Xem thêm" truncation**
 
-## Cấu trúc UI mới
+- Giới hạn caption hiển thị 3 dòng (line-clamp-3)
+- Thêm nút "Xem thêm" màu xám khi nội dung dài
+- Click "Xem thêm" → mở rộng toàn bộ caption
 
-```text
-┌──────────────────────────┐
-│  [Facebook Mockup]       │
-│   Brand ✓  · 2 giờ · 🌐 │
-│   Caption text...        │
-│  ┌────────────────────┐  │
-│  │◄  [Slide Image] ►  │  │
-│  │            1/5     │  │
-│  └────────────────────┘  │
-│     ● ○ ○ ○ ○            │
-│  👍 1,2K  💬89  ↗️34     │
-│  Thích  Bình luận  Chia sẻ│
-└──────────────────────────┘
-│  [SeamlessCard] (nếu có) │
-│  [Tạo ảnh ngay] button   │
-└──────────────────────────┘
+**3. Nâng cấp CarouselImageSlider cho Facebook**
+
+- Mũi tên navigation lớn hơn (w-9 h-9), luôn hiển thị (không chỉ hover)
+- Dots chuyển vào bên trong ảnh (bottom, trên card overlay)
+- Bỏ 1 emoji reaction (giữ 3: Like, Love, Haha)
+
+**4. Truyền slide titles từ CarouselViewer**
+
+Thêm prop `slidesTitles?: string[]` vào `ChannelMockupFrame` để hiển thị headline trên mỗi card.
+
+### File: `src/components/CarouselViewer.tsx`
+
+**5. Truyền slide titles vào mockup**
+
+```tsx
+<ChannelMockupFrame
+  channel={...}
+  content={carousel.caption_suggestion || ...}
+  brandName={carousel.brand_name || 'Brand'}
+  channelImages={generatedImages.map(img => img.imageUrl)}
+  slideTitles={carousel.slides_content.map(s => 
+    typeof s.textContent === 'string' ? s.textContent : s.textContent.headline
+  )}
+/>
 ```
 
 ## Tổng hợp
 
 | File | Thay đổi |
 |------|----------|
-| `ChannelMockupFrame.tsx` | Thêm prop `channelImages`, carousel slider cho Facebook + TikTok mockup |
-| `CarouselViewer.tsx` | Truyền `channelImages`, bỏ slide selector ngoài, thêm empty state |
+| `ChannelMockupFrame.tsx` | Thêm prop `slideTitles`, Facebook carousel card overlay, caption truncation + "Xem thêm", nâng cấp slider arrows/dots, giảm reactions về 3 |
+| `CarouselViewer.tsx` | Truyền `slideTitles` từ `slides_content` vào mockup |
 
 Sửa 2 file.
 
