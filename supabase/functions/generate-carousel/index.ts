@@ -463,7 +463,7 @@ const getTextLengthGuidelines = (visualPreset: string): string => {
   return guidelines[visualPreset] || guidelines.minimalist;
 };
 
-const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, mergedRules?: MergedRules, outputLang: string = 'vi', countryCode?: string | null): string => {
+const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, mergedRules?: MergedRules, outputLang: string = 'vi', countryCode?: string | null, brandColors?: { primary?: string; secondary?: string[] }): string => {
   const langConfig = getLanguageConfig(outputLang);
   const countryConfig = getCountryConfig(countryCode);
   const carouselStyle = formData.carouselStyle || 'educational';
@@ -474,11 +474,24 @@ const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, me
   const styleSection = getCarouselStylePrompt(carouselStyle, formData.slideCount);
   const textLengthSection = getTextLengthGuidelines(visualPreset);
 
+  // Brand color directive for fullPrompt
+  let brandColorDirective = '';
+  if (brandColors?.primary) {
+    const allColors = [brandColors.primary, ...(brandColors.secondary || [])].join(', ');
+    brandColorDirective = `\n## 🎨 BRAND COLOR PALETTE (BẮT BUỘC TRONG fullPrompt)
+Thương hiệu sử dụng palette: ${allColors}
+- MỌI fullPrompt PHẢI sử dụng palette này làm accent colors chủ đạo
+- Ghi rõ palette vào fullPrompt, ví dụ: "color palette: ${allColors}"
+- Không để AI tự chọn màu — phải ép đúng brand colors
+- Accent, gradient, overlay, shapes đều phải dựa trên palette trên\n`;
+  }
+
   const platformName: Record<string, string> = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', linkedin: 'LinkedIn' };
   return `You are a professional Content Strategist for social media, specialized in creating carousels for ${platformName[formData.platform] || 'Facebook'}.
 Output ALL content in ${langName} (${langConfig.englishName}).
 
 ${brandVoiceSection}
+${brandColorDirective}
 
 ## VAI TRÒ CỦA BẠN
 1. Viết nội dung carousel chuyên nghiệp (textContent cho mỗi slide)
@@ -693,11 +706,13 @@ serve(async (req) => {
     let mergedRules: MergedRules | undefined;
     let outputLang = 'vi'; // Default to Vietnamese for backward compatibility
     let brandCountryCode: string | null = null;
+    let templatePrimaryColor: string | null = null;
+    let templateSecondaryColors: string[] = [];
     
     if (formData.brandTemplateId) {
       const { data: template } = await supabase
         .from("brand_templates")
-        .select("brand_positioning, tone_of_voice, formality_level, language_style, preferred_words, forbidden_words, allow_emoji, compliance_rules, industry_template_id, country_code")
+        .select("brand_positioning, tone_of_voice, formality_level, language_style, preferred_words, forbidden_words, allow_emoji, compliance_rules, industry_template_id, country_code, primary_color, secondary_colors")
         .eq("id", formData.brandTemplateId)
         .single();
 
@@ -705,6 +720,8 @@ serve(async (req) => {
         // Extract output language from brand's country_code
         outputLang = getOutputLanguage(template.country_code);
         brandCountryCode = template.country_code || null;
+        templatePrimaryColor = (template as any).primary_color || null;
+        templateSecondaryColors = (template as any).secondary_colors || [];
         console.log("Output language:", outputLang, "from country_code:", template.country_code);
         
         brandVoice = {
@@ -733,7 +750,8 @@ serve(async (req) => {
     const langConfig = getLanguageConfig(outputLang);
 
     // Initialize PromptManager and fetch prompts from registry
-    let systemPrompt = getSystemPrompt(formData, brandVoice, mergedRules, outputLang, brandCountryCode); // Fallback to hardcoded
+    const brandColorsForPrompt = templatePrimaryColor ? { primary: templatePrimaryColor, secondary: templateSecondaryColors } : undefined;
+    let systemPrompt = getSystemPrompt(formData, brandVoice, mergedRules, outputLang, brandCountryCode, brandColorsForPrompt); // Fallback to hardcoded
     let userPrompt = `Create ${formData.slideCount} carousel slides for the topic:
 "${formData.topic}"
 
@@ -1098,6 +1116,28 @@ Follow the carousel style guidelines strictly.`;
       });
     }
 
+    // Embed brand colors into brand_guideline for downstream use
+    let brandGuidelineToSave = formData.brandGuideline || '';
+    {
+      const primaryColor = (formData as any).brandPrimaryColor || templatePrimaryColor || null;
+      const secColors = (formData as any).brandSecondaryColors || (templateSecondaryColors.length > 0 ? templateSecondaryColors : []);
+      if (primaryColor) {
+        try {
+          const existing = brandGuidelineToSave ? JSON.parse(brandGuidelineToSave) : {};
+          existing.primaryColor = primaryColor;
+          if (secColors.length > 0) existing.secondaryColors = secColors;
+          brandGuidelineToSave = JSON.stringify(existing);
+        } catch {
+          brandGuidelineToSave = JSON.stringify({
+            text: brandGuidelineToSave,
+            primaryColor,
+            ...(secColors.length > 0 ? { secondaryColors: secColors } : {}),
+          });
+        }
+        console.log('[generate-carousel] Brand colors embedded:', primaryColor, secColors);
+      }
+    }
+
     // Save to database
     const { data: carousel, error: dbError } = await supabase
       .from("carousels")
@@ -1110,7 +1150,7 @@ Follow the carousel style guidelines strictly.`;
         slide_count: formData.slideCount,
         ai_tool: formData.aiTool,
         brand_name: formData.brandName,
-        brand_guideline: formData.brandGuideline,
+        brand_guideline: brandGuidelineToSave,
         include_logo: formData.includeLogo,
         slides_content: generatedData.slides,
         caption_suggestion: generatedData.captionSuggestion,
