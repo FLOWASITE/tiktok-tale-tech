@@ -231,6 +231,13 @@ export function CarouselCard({
             {carousel.title}
           </h3>
 
+          {/* Caption */}
+          {carousel.caption_suggestion && (
+            <p className="text-[12px] text-muted-foreground leading-relaxed line-clamp-2 mt-1.5">
+              {carousel.caption_suggestion}
+            </p>
+          )}
+
           {/* Time */}
           <p className="text-[11px] text-muted-foreground/60 mt-1">{timeAgo}</p>
 
