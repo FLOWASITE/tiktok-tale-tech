@@ -474,7 +474,8 @@ const getSystemPrompt = (formData: CarouselFormData, brandVoice?: BrandVoice, me
   const styleSection = getCarouselStylePrompt(carouselStyle, formData.slideCount);
   const textLengthSection = getTextLengthGuidelines(visualPreset);
 
-  return `You are a professional Content Strategist for social media, specialized in creating carousels for ${formData.platform === "facebook" ? "Facebook" : "TikTok"}.
+  const platformName: Record<string, string> = { facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', linkedin: 'LinkedIn' };
+  return `You are a professional Content Strategist for social media, specialized in creating carousels for ${platformName[formData.platform] || 'Facebook'}.
 Output ALL content in ${langName} (${langConfig.englishName}).
 
 ${brandVoiceSection}
