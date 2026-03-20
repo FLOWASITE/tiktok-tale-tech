@@ -321,9 +321,6 @@ function FacebookMockup({ content, brandName, logoUrl, isGenerating, channelImag
             <div className="w-[18px] h-[18px] rounded-full bg-[#f7b928] flex items-center justify-center border-2 border-white dark:border-[#242526] text-[10px]">
               😂
             </div>
-            <div className="w-[18px] h-[18px] rounded-full bg-[#f7b928] flex items-center justify-center border-2 border-white dark:border-[#242526] text-[10px]">
-              😮
-            </div>
           </div>
           <span className="text-[15px] text-[#65676b] dark:text-[#b0b3b8] ml-1.5 hover:underline">{liked ? '1,3K' : '1,2K'}</span>
         </div>
