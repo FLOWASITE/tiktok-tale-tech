@@ -166,7 +166,7 @@ const Index = () => {
           scripts={scripts}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          onAddNew={() => setFormSheetOpen(true)}
+          onAddNew={() => navigate('/scripts/new')}
           isLoading={loading}
         />
 
