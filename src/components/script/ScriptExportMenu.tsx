@@ -82,7 +82,7 @@ export function ScriptExportMenu({ script, className }: ScriptExportMenuProps) {
   const filename = sanitizeFilename(script.title);
   
   // Get script purpose with fallback + normalize legacy values
-  const rawPurpose = script.script_purpose || 'ai_video';
+  const rawPurpose = (script.script_purpose || 'ai_video') as string;
   const scriptPurpose = (rawPurpose === 'ai_video_veo3' || rawPurpose === 'ai_video_minimax' ? 'ai_video' : rawPurpose) as ScriptPurpose;
   const exportOptions = PURPOSE_EXPORT_OPTIONS[scriptPurpose] || PURPOSE_EXPORT_OPTIONS.ai_video;
 
