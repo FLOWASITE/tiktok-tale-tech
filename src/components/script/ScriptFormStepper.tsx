@@ -691,7 +691,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 >
                   <div className="space-y-4">
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-2">Giọng vùng miền</p>
+                      <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase mb-3">Giọng vùng miền</p>
                       <VoiceRegionSelector
                         value={formData.voice_region}
                         onChange={(value) => setFormData((prev) => ({ ...prev, voice_region: value }))}
