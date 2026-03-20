@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { Mic, MessageCircle, Brain, BookOpen } from 'lucide-react';
 import { DialogueStyle, DIALOGUE_STYLE_CONFIG } from '@/types/script';
 
 interface DialogueStyleSelectorProps {
@@ -7,11 +8,11 @@ interface DialogueStyleSelectorProps {
   disabled?: boolean;
 }
 
-const STYLE_ICONS: Record<DialogueStyle, string> = {
-  monologue: '🎤',
-  conversational: '💬',
-  internal: '🧠',
-  narrative: '📖',
+const STYLE_ICONS: Record<DialogueStyle, typeof Mic> = {
+  monologue: Mic,
+  conversational: MessageCircle,
+  internal: Brain,
+  narrative: BookOpen,
 };
 
 export function DialogueStyleSelector({ value, onChange, disabled }: DialogueStyleSelectorProps) {
@@ -21,6 +22,7 @@ export function DialogueStyleSelector({ value, onChange, disabled }: DialogueSty
     <div className="flex flex-wrap gap-2">
       {styles.map(([key, config]) => {
         const isSelected = value === key;
+        const Icon = STYLE_ICONS[key];
         return (
           <button
             key={key}
@@ -28,15 +30,15 @@ export function DialogueStyleSelector({ value, onChange, disabled }: DialogueSty
             onClick={() => !disabled && onChange(key)}
             disabled={disabled}
             className={cn(
-              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-medium transition-all duration-200",
+              "inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-all duration-200",
               "hover:border-primary/40",
               isSelected
                 ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                : "bg-card/80 text-muted-foreground border-border/60 hover:bg-accent/30",
+                : "bg-card/80 text-foreground border-border/60 hover:bg-accent/30",
               disabled && "opacity-50 pointer-events-none"
             )}
           >
-            <span className="text-sm">{STYLE_ICONS[key]}</span>
+            <Icon className="w-3.5 h-3.5" />
             <span>{config.label}</span>
           </button>
         );
