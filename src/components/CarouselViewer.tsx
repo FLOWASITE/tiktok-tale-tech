@@ -730,12 +730,65 @@ export function CarouselViewer({
 
           <ScrollArea className="flex-1 px-3 xs:px-5 py-3 xs:py-4">
             <TabsContent value="preview" className="mt-0 space-y-4">
-              <CarouselLayoutPreview
-                slides={carousel.slides_content}
-                visualPreset={carousel.visual_preset as VisualPresetType}
-                carouselStyle={carousel.carousel_style as CarouselStyleType}
-                platform={carousel.platform}
-              />
+              {/* Social Mockup Preview */}
+              <div className="flex justify-center items-start bg-gradient-to-b from-muted/5 to-muted/20 rounded-xl p-3 min-h-[400px]">
+                <div className="w-full max-w-xl">
+                  <ChannelMockupFrame
+                    channel={carousel.platform === 'tiktok' ? 'tiktok' : 'facebook'}
+                    content={carousel.caption_suggestion || `📌 ${carousel.topic}`}
+                    brandName={carousel.brand_name || 'Brand'}
+                    channelImage={generatedImages[previewSlideIndex]?.imageUrl}
+                  />
+                </div>
+              </div>
+
+              {/* Slide Selector Thumbnails */}
+              {generatedImages.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Slide {previewSlideIndex + 1}/{generatedImages.length}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={previewSlideIndex === 0}
+                        onClick={() => setPreviewSlideIndex(i => Math.max(0, i - 1))}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={previewSlideIndex === generatedImages.length - 1}
+                        onClick={() => setPreviewSlideIndex(i => Math.min(generatedImages.length - 1, i + 1))}
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1">
+                    {generatedImages.map((img, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setPreviewSlideIndex(idx)}
+                        className={cn(
+                          "shrink-0 w-14 h-14 rounded-md overflow-hidden border-2 transition-all",
+                          idx === previewSlideIndex
+                            ? "border-primary ring-1 ring-primary/30"
+                            : "border-border/50 hover:border-primary/40 opacity-70 hover:opacity-100"
+                        )}
+                      >
+                        <img src={img.imageUrl} alt={`Slide ${idx + 1}`} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {carousel.carousel_style === 'seamless' && (
                 <SeamlessConsistencyCard
                   result={seamlessResult}
