@@ -64,11 +64,9 @@ interface ScriptFormStepperProps {
 }
 
 const STEPS: Step[] = [
-  { id: 1, title: 'Mục đích', icon: <Target className="w-4 h-4" /> },
-  { id: 2, title: 'Chủ đề', icon: <FileText className="w-4 h-4" /> },
-  { id: 3, title: 'Hook', icon: <Zap className="w-4 h-4" />, optional: true },
-  { id: 4, title: 'Cấu hình', icon: <Settings className="w-4 h-4" /> },
-  { id: 5, title: 'Tạo', icon: <CheckCircle2 className="w-4 h-4" /> },
+  { id: 1, title: 'Nội dung', icon: <FileText className="w-4 h-4" /> },
+  { id: 2, title: 'Cấu hình', icon: <Settings className="w-4 h-4" /> },
+  { id: 3, title: 'Tạo', icon: <CheckCircle2 className="w-4 h-4" /> },
 ];
 
 const LOADING_PHASES = [
@@ -135,7 +133,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   } = useQuickHookSuggestions({
     topic: formData.topic,
     brandVoice: brandVoiceForHook,
-    enabled: currentStep === 3 && formData.topic.length >= 10,
+    enabled: currentStep === 1 && formData.topic.length >= 10,
   });
 
   // Map script purpose to content goal for AI suggestions
@@ -166,7 +164,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
     brandTemplateId: formData.brandTemplateId,
     contentGoal: scriptContentGoal,
     format: 'script',
-    enabled: currentStep === 2,
+    enabled: currentStep === 1,
   });
 
   // Compliance pre-check hook
@@ -239,14 +237,10 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   const canProceed = useMemo(() => {
     switch (currentStep) {
       case 1:
-        return true; // Purpose always has default
-      case 2:
         return formData.topic.trim().length >= 10;
-      case 3:
-        return true; // Hook is optional
-      case 4:
+      case 2:
         return true;
-      case 5:
+      case 3:
         return true;
       default:
         return false;
@@ -254,7 +248,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   }, [currentStep, formData.topic]);
 
   const handleNext = () => {
-    if (currentStep < 5 && canProceed) {
+    if (currentStep < 3 && canProceed) {
       setCompletedSteps(prev => [...prev.filter(s => s !== currentStep), currentStep]);
       setCurrentStep(prev => prev + 1);
     }
@@ -283,14 +277,13 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   };
 
   const handleSkipHook = () => {
-    setCompletedSteps(prev => [...prev.filter(s => s !== 3), 3]);
-    setCurrentStep(4);
+    // Hook is now in step 1, no skip needed
   };
 
   const handleSubmit = async () => {
     if (!formData.topic.trim()) {
       toast.error('Vui lòng nhập chủ đề video');
-      setCurrentStep(2);
+      setCurrentStep(1);
       return;
     }
     await onSubmit({ ...formData, topicHistoryId });
@@ -321,35 +314,27 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
 
       {/* Step Content */}
       <div className="min-h-[300px]">
-        {/* Step 1: Purpose */}
+        {/* Step 1: Nội dung (Purpose + Topic + Hook) */}
         {currentStep === 1 && (
-          <div className="space-y-4 animate-fade-in">
+          <div className="space-y-6 animate-fade-in">
+            {/* Purpose */}
             <div className="space-y-3">
               <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
+                <Target className="w-4 h-4 text-primary" />
                 Mục đích sử dụng kịch bản
-                <span className="text-primary">*</span>
               </Label>
-              <p className="text-xs text-muted-foreground">
-                Chọn mục đích để AI tạo kịch bản với định dạng phù hợp
-              </p>
               <ScriptPurposeSelector
                 value={formData.script_purpose}
                 onChange={(value) => setFormData((prev) => ({ ...prev, script_purpose: value }))}
                 disabled={isLoading}
               />
             </div>
-          </div>
-        )}
 
-        {/* Step 2: Topic */}
-        {currentStep === 2 && (
-          <div className="space-y-4 animate-fade-in">
-
-            {/* Topic Input - Second */}
+            {/* Topic */}
             <div className="space-y-3">
-              {/* Topic Label */}
               <div className="flex items-center justify-between">
                 <Label htmlFor="topic" className="text-foreground font-semibold text-sm flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary" />
                   Chủ đề video
                   <span className="text-primary">*</span>
                 </Label>
@@ -397,7 +382,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 </div>
               </div>
               
-              {/* Topic Textarea */}
               <div className="relative group">
                 <Textarea
                   ref={topicTextareaRef}
@@ -409,7 +393,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                       ...prev, 
                       topic: e.target.value.slice(0, MAX_TOPIC_LENGTH) 
                     }));
-                    // Auto-resize
                     e.target.style.height = 'auto';
                     e.target.style.height = e.target.scrollHeight + 'px';
                   }}
@@ -429,7 +412,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 </div>
               </div>
 
-              {/* Compliance Warning Badge */}
               {complianceCheckResult && complianceCheckResult.issues.length > 0 && (
                 <ComplianceWarningBadge
                   result={complianceCheckResult}
@@ -438,7 +420,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 />
               )}
 
-              {/* Topic Idea Hub - Same as Carousel */}
               <TopicIdeaHub
                 suggestions={enhancedSuggestions}
                 source={suggestionsSource}
@@ -455,7 +436,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 contentGoal={scriptContentGoal}
               />
 
-              {/* Topic Angle Selector - Script specific */}
               {formData.topic.trim().length >= 20 && (
                 <div>
                   <TopicAngleSelector
@@ -473,7 +453,27 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               )}
             </div>
 
-            {/* Topic Brainstorm Sheet */}
+            {/* Hook (optional, inline) */}
+            {formData.topic.trim().length >= 10 && (
+              <div className="space-y-3">
+                <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-primary" />
+                  Hook mở đầu
+                  <span className="text-xs text-muted-foreground font-normal">(tuỳ chọn)</span>
+                </Label>
+                <HookStepContent
+                  topic={formData.topic}
+                  selectedHook={formData.hook}
+                  onSelectHook={(hook) => handleSelectHook(hook)}
+                  onSkip={() => {}}
+                  brandTemplateId={formData.brandTemplateId}
+                  brandVoice={brandVoiceForHook}
+                  quickSuggestions={quickHookSuggestions}
+                  isLoadingSuggestions={isLoadingHooks}
+                />
+              </div>
+            )}
+
             <TopicBrainstormSheet
               open={showBrainstormSheet}
               onOpenChange={setShowBrainstormSheet}
@@ -487,29 +487,9 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           </div>
         )}
 
-        {/* Step 3: Hook */}
-        {currentStep === 3 && (
-          <div className="animate-fade-in">
-            <HookStepContent
-              topic={formData.topic}
-              selectedHook={formData.hook}
-              onSelectHook={(hook) => {
-                handleSelectHook(hook);
-                setCompletedSteps(prev => [...prev.filter(s => s !== 3), 3]);
-              }}
-              onSkip={handleSkipHook}
-              brandTemplateId={formData.brandTemplateId}
-              brandVoice={brandVoiceForHook}
-              quickSuggestions={quickHookSuggestions}
-              isLoadingSuggestions={isLoadingHooks}
-            />
-          </div>
-        )}
-
-        {/* Step 4: Configuration */}
-        {currentStep === 4 && (
+        {/* Step 2: Configuration */}
+        {currentStep === 2 && (
           <div className="space-y-6 animate-fade-in">
-            {/* Selected Hook Display (if any) */}
             {formData.hook && (
               <Card className="border-primary/30 bg-primary/5">
                 <CardContent className="p-3 flex items-center justify-between">
@@ -532,11 +512,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               </Card>
             )}
 
-            {/* Duration */}
             <div className="space-y-3">
-              <Label className="text-foreground font-semibold text-sm">
-                Thời lượng video
-              </Label>
+              <Label className="text-foreground font-semibold text-sm">Thời lượng video</Label>
               <DurationSelector
                 value={formData.duration}
                 onChange={(value) => setFormData((prev) => ({ ...prev, duration: value }))}
@@ -544,13 +521,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               />
             </div>
 
-            {/* Video Type */}
             <div className="space-y-3">
-              <Label className="text-foreground font-semibold text-sm">
-                Thể loại video
-              </Label>
-              
-              {/* Smart Recommendations */}
+              <Label className="text-foreground font-semibold text-sm">Thể loại video</Label>
               <VideoTypeRecommendations
                 topic={formData.topic}
                 industry={selectedTemplate?.industry?.[0]}
@@ -558,7 +530,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 onSelect={(value) => setFormData((prev) => ({ ...prev, video_type: value }))}
                 disabled={isLoading}
               />
-              
               <VideoTypeSelector
                 value={formData.video_type}
                 onChange={(value) => setFormData((prev) => ({ ...prev, video_type: value }))}
@@ -566,13 +537,8 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               />
             </div>
 
-            {/* Character Type - Now visible by default */}
             <div className="space-y-3">
-              <Label className="text-foreground font-semibold text-sm">
-                Nhân vật
-              </Label>
-              
-              {/* Smart Character Recommendations */}
+              <Label className="text-foreground font-semibold text-sm">Nhân vật</Label>
               <CharacterTypeRecommendations
                 topic={formData.topic}
                 videoType={formData.video_type}
@@ -581,7 +547,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 onSelect={(value) => setFormData((prev) => ({ ...prev, character_type: value }))}
                 enabled={!isLoading}
               />
-              
               <CharacterTypeSelector
                 value={formData.character_type}
                 onChange={(value) => setFormData((prev) => ({ ...prev, character_type: value }))}
@@ -589,24 +554,34 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               />
             </div>
 
-            {/* Voice Region */}
             <VoiceRegionSelector
               value={formData.voice_region}
               onChange={(value) => setFormData((prev) => ({ ...prev, voice_region: value }))}
               disabled={isLoading}
             />
 
-            {/* Dialogue Style */}
             <DialogueStyleSelector
               value={formData.dialogue_style}
               onChange={(value) => setFormData((prev) => ({ ...prev, dialogue_style: value }))}
               disabled={isLoading}
             />
+
+            {/* Advanced toggle kept if present */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="gap-2 text-muted-foreground"
+            >
+              {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              Cài đặt nâng cao
+            </Button>
           </div>
         )}
 
-        {/* Step 5: Review & Generate */}
-        {currentStep === 5 && (
+        {/* Step 3: Review & Generate */}
+        {currentStep === 3 && (
           <div className="space-y-4 animate-fade-in">
             <div className="text-center py-4">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
@@ -616,7 +591,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               <p className="text-sm text-muted-foreground">Xem lại thông tin trước khi tạo</p>
             </div>
 
-            {/* Summary */}
             <Card className="border-border">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-start gap-3">
@@ -698,7 +672,6 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
               </CardContent>
             </Card>
 
-            {/* Campaign Selector */}
             <div className="space-y-2">
               <Label className="text-foreground font-semibold text-sm flex items-center gap-2">
                 <Megaphone className="w-4 h-4" />
@@ -730,7 +703,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
           Quay lại
         </Button>
 
-        {currentStep < 5 ? (
+        {currentStep < 3 ? (
           <Button
             type="button"
             onClick={handleNext}
@@ -765,8 +738,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         )}
       </div>
 
-      {/* Estimated time */}
-      {currentStep === 5 && !isLoading && (
+      {currentStep === 3 && !isLoading && (
         <p className="text-center text-xs text-muted-foreground">
           Thời gian ước tính: ~15-30 giây
         </p>
