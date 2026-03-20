@@ -412,7 +412,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
                 </div>
                 
                 <div className="h-px bg-border/30" />
-              <div className="p-4 space-y-3">
+
                 {/* Premium textarea */}
                 <div className="relative group rounded-lg p-[1.5px] transition-all duration-300 bg-border/40 focus-within:bg-gradient-to-r focus-within:from-primary/60 focus-within:via-accent/50 focus-within:to-primary/60">
                   <Textarea
