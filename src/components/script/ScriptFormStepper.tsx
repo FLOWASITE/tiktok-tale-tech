@@ -237,14 +237,10 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
   const canProceed = useMemo(() => {
     switch (currentStep) {
       case 1:
-        return true; // Purpose always has default
-      case 2:
         return formData.topic.trim().length >= 10;
-      case 3:
-        return true; // Hook is optional
-      case 4:
+      case 2:
         return true;
-      case 5:
+      case 3:
         return true;
       default:
         return false;
