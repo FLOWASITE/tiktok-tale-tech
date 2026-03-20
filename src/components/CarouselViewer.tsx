@@ -739,55 +739,21 @@ export function CarouselViewer({
                     channel={carousel.platform === 'tiktok' ? 'tiktok' : 'facebook'}
                     content={carousel.caption_suggestion || `📌 ${carousel.topic}`}
                     brandName={carousel.brand_name || 'Brand'}
-                    channelImage={generatedImages[previewSlideIndex]?.imageUrl}
+                    channelImages={
+                      generatedImages.length > 0 
+                        ? generatedImages.map(img => img.imageUrl) 
+                        : []
+                    }
                   />
                 </div>
               </div>
 
-              {/* Slide Selector Thumbnails */}
-              {generatedImages.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      Slide {previewSlideIndex + 1}/{generatedImages.length}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        disabled={previewSlideIndex === 0}
-                        onClick={() => setPreviewSlideIndex(i => Math.max(0, i - 1))}
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        disabled={previewSlideIndex === generatedImages.length - 1}
-                        onClick={() => setPreviewSlideIndex(i => Math.min(generatedImages.length - 1, i + 1))}
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="flex gap-1.5 overflow-x-auto pb-1">
-                    {generatedImages.map((img, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setPreviewSlideIndex(idx)}
-                        className={cn(
-                          "shrink-0 w-14 h-14 rounded-md overflow-hidden border-2 transition-all",
-                          idx === previewSlideIndex
-                            ? "border-primary ring-1 ring-primary/30"
-                            : "border-border/50 hover:border-primary/40 opacity-70 hover:opacity-100"
-                        )}
-                      >
-                        <img src={img.imageUrl} alt={`Slide ${idx + 1}`} className="w-full h-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
+              {/* Empty state hint */}
+              {generatedImages.length === 0 && (
+                <div className="text-center py-2">
+                  <p className="text-xs text-muted-foreground">
+                    Tạo ảnh để xem preview đầy đủ trên {carousel.platform === 'tiktok' ? 'TikTok' : 'Facebook'}
+                  </p>
                 </div>
               )}
 
