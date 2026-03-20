@@ -173,10 +173,16 @@ export function CarouselForm({ onSubmit, isLoading, initialTopic, topicHistoryId
     return 'text-green-500';
   }, [topic.length]);
 
+  // Brand color fields populated from template
+  const [brandPrimaryColor, setBrandPrimaryColor] = useState<string>('');
+  const [brandSecondaryColors, setBrandSecondaryColors] = useState<string[]>([]);
+
   const applyTemplate = (template: BrandTemplate) => {
     setBrandName(template.brand_name);
     setBrandGuideline(template.brand_guideline);
     setIncludeLogo(template.include_logo);
+    setBrandPrimaryColor(template.primary_color || '');
+    setBrandSecondaryColors((template as any).secondary_colors || []);
   };
 
   const getSelectedLogoUrl = (): string | null => {
