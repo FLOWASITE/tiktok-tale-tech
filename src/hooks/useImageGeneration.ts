@@ -69,6 +69,8 @@ export function useImageGeneration() {
           toast.error('Đã vượt giới hạn API. Vui lòng thử lại sau.');
         } else if (error.message?.includes('CREDITS_EXHAUSTED')) {
           toast.error('Đã hết credits AI. Vui lòng nâng cấp hoặc chờ reset.');
+        } else if (error.message?.includes('CONNECTION_ERROR') || error.message?.includes('502')) {
+          toast.error('Kết nối AI bị gián đoạn. Hệ thống sẽ tự retry.');
         } else {
           toast.error('Không thể tạo ảnh: ' + error.message);
         }
