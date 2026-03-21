@@ -65,9 +65,8 @@ serve(async (req) => {
         throw new Error('App ID/Secret Key chưa được cấu hình');
       }
 
-      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-      appId = decrypt(settings.consumer_key, encryptionKey);
-      secretKey = decrypt(settings.consumer_secret, encryptionKey);
+      const appId = await decryptCredential(settings.consumer_key);
+      const secretKey = await decryptCredential(settings.consumer_secret);
 
       if (!appId || !secretKey) {
         throw new Error('Không thể giải mã credentials - kiểm tra encryption key');
