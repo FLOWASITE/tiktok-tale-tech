@@ -80,14 +80,14 @@ const PLATFORM_DISPLAY_NAMES: Record<string, string> = {
 };
 
 const PLATFORM_ICONS: Record<SocialPlatform, React.ElementType> = {
-  twitter: Twitter,
+  twitter: XIcon,
   facebook: Facebook,
   instagram: Instagram,
   linkedin: Linkedin,
   tiktok: () => <span>🎵</span>,
   threads: () => <span>🧵</span>,
   youtube: () => <span>▶️</span>,
-  zalo_oa: () => <span>💬</span>,
+  zalo_oa: ZaloIcon,
   google_business: () => <span>📍</span>,
   website: () => <span>🌐</span>,
 };
