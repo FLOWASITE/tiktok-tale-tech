@@ -103,10 +103,18 @@ export function useDirectPublish() {
     throw new Error('Instagram not yet supported');
   };
 
+  const publishToZaloOA = async (options: PublishOptions) => {
+    return publishMutation.mutateAsync({
+      platform: 'zalo_oa',
+      options,
+    });
+  };
+
   return {
     publishToTwitter,
     publishToFacebook,
     publishToInstagram,
+    publishToZaloOA,
     isPublishing: publishMutation.isPending,
     publishResult: publishMutation.data,
     publishError: publishMutation.error,

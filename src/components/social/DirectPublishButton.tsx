@@ -165,6 +165,9 @@ export function DirectPublishButton({
         case 'facebook':
           result = await publishToFacebook(publishOptions);
           break;
+        case 'zalo_oa':
+          result = await publishToZaloOA(publishOptions);
+          break;
         default:
           console.warn(`Platform ${platform} not yet supported`);
           return;
