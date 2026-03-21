@@ -2,9 +2,10 @@ import { cn } from '@/lib/utils';
 import { Channel } from '@/types/multichannel';
 import { Badge } from '@/components/ui/badge';
 import {
-  Facebook, Instagram, Linkedin, Twitter, Globe, MapPin,
-  Youtube, Mail, MessageCircle, Music2, AtSign, Send,
+  Facebook, Instagram, Linkedin, Globe, MapPin,
+  Youtube, Mail, Music2, AtSign, Send,
 } from 'lucide-react';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 
 interface ImageChannelPickerProps {
   availableChannels: Channel[];
