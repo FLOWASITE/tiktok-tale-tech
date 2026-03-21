@@ -213,15 +213,31 @@ export function BrandChannelOptimizationEditor({ brandTemplateId }: BrandChannel
     <>
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Zap className="w-4 h-4 text-primary" />
-            AI Optimization per Channel
-            {optimizations.length > 0 && (
-              <Badge variant="secondary" className="ml-2">
-                {optimizations.length} kênh tùy chỉnh
-              </Badge>
-            )}
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Zap className="w-4 h-4 text-primary" />
+              AI Optimization per Channel
+              {optimizations.length > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {optimizations.length} kênh tùy chỉnh
+                </Badge>
+              )}
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-8"
+              onClick={() => {
+                const targetChannel = channelsWithoutOptimization.length > 0 
+                  ? channelsWithoutOptimization[0] 
+                  : optimizations[0]?.channel;
+                if (targetChannel) handleEditChannel(targetChannel);
+              }}
+            >
+              <Settings2 className="w-3.5 h-3.5" />
+              Chỉnh sửa kênh
+            </Button>
+          </div>
           <CardDescription>
             Tùy chỉnh cách AI tạo nội dung cho từng kênh của thương hiệu này
           </CardDescription>
