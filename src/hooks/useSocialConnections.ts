@@ -88,6 +88,25 @@ export function useSocialConnections(options: UseSocialConnectionsOptions = {}) 
           },
         });
 
+      const getErrorStatus = (error: unknown): number | null => {
+        const maybeError = error as { context?: { status?: number }; status?: number } | null;
+        return maybeError?.context?.status ?? maybeError?.status ?? null;
+      };
+
+      const getErrorMessage = async (error: unknown): Promise<string> => {
+        const maybeError = error as { message?: string; context?: Response } | null;
+        if (maybeError?.context instanceof Response) {
+          try {
+            const payload = await maybeError.context.clone().json();
+            if (payload?.hint) return String(payload.hint);
+            if (payload?.error) return String(payload.error);
+          } catch {
+            // ignore parse errors and fall back to generic message
+          }
+        }
+        return maybeError?.message || 'Kết nối thất bại';
+      };
+
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session?.access_token) {
         const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
@@ -99,19 +118,36 @@ export function useSocialConnections(options: UseSocialConnectionsOptions = {}) 
       let result = await invokeConnect();
 
       const isUnauthorized =
-        result.error?.message?.includes('Unauthorized') ||
-        (typeof result.data?.error === 'string' && result.data.error.includes('Unauthorized'));
+        getErrorStatus(result.error) === 401 ||
+        /unauthorized/i.test(result.error?.message || '') ||
+        (typeof result.data?.error === 'string' && /unauthorized/i.test(result.data.error));
 
       if (isUnauthorized) {
         const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError || !refreshed.session?.access_token) {
+          await supabase.auth.signOut();
           throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
         }
         result = await invokeConnect();
       }
 
-      if (result.error) throw result.error;
-      if (result.data?.error) throw new Error(result.data.error);
+      if (result.error) {
+        const status = getErrorStatus(result.error);
+        if (status === 401) {
+          await supabase.auth.signOut();
+          throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+        }
+        throw new Error(await getErrorMessage(result.error));
+      }
+
+      if (result.data?.error) {
+        if (/unauthorized/i.test(result.data.error)) {
+          await supabase.auth.signOut();
+          throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+        }
+        throw new Error(result.data.error);
+      }
+
       return result.data;
     },
     onSuccess: (data) => {
