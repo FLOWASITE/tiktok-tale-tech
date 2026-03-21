@@ -323,6 +323,7 @@ export function DirectPublishButton({
                 platform === 'twitter' && 'bg-foreground/5',
                 platform === 'instagram' && 'bg-[hsl(330,70%,50%)]/10',
                 platform === 'linkedin' && 'bg-[hsl(201,100%,35%)]/10',
+                platform === 'zalo_oa' && 'bg-[hsl(210,100%,50%)]/10',
               )}>
                 <div className={cn(
                   'flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl',
@@ -330,7 +331,8 @@ export function DirectPublishButton({
                   platform === 'twitter' && 'bg-foreground text-background',
                   platform === 'instagram' && 'bg-gradient-to-br from-[hsl(37,97%,60%)] via-[hsl(330,70%,50%)] to-[hsl(270,70%,55%)] text-white',
                   platform === 'linkedin' && 'bg-[hsl(201,100%,35%)] text-white',
-                  !['facebook','twitter','instagram','linkedin'].includes(platform || '') && 'bg-primary text-primary-foreground',
+                  platform === 'zalo_oa' && 'bg-[hsl(210,100%,50%)] text-white',
+                  !['facebook','twitter','instagram','linkedin','zalo_oa'].includes(platform || '') && 'bg-primary text-primary-foreground',
                 )}>
                   <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
