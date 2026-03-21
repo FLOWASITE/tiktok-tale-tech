@@ -44,7 +44,29 @@ export function useDirectPublish() {
       });
 
       if (response.error) {
-        throw new Error(response.error.message || 'Failed to publish');
+        let errorMessage = response.error.message || 'Failed to publish';
+        let errorCode: string | undefined;
+
+        const maybeContext = (response.error as { context?: Response } | null)?.context;
+        if (maybeContext instanceof Response) {
+          try {
+            const payload = await maybeContext.clone().json();
+            if (payload?.error) {
+              errorMessage = String(payload.error);
+            }
+            if (payload?.errorCode) {
+              errorCode = String(payload.errorCode);
+            }
+          } catch {
+            // Keep fallback message from response.error.message
+          }
+        }
+
+        const err = new Error(errorMessage);
+        if (errorCode) {
+          (err as any).errorCode = errorCode;
+        }
+        throw err;
       }
 
       if (!response.data?.success) {
