@@ -221,14 +221,14 @@ async function uploadToStorage(
 
   const timestamp = Date.now();
   const orgPath = organizationId ? `org-${organizationId}` : 'unassigned';
-  const fileName = `social/${orgPath}/${contentId}/${channel}-with-logo-${timestamp}.png`;
+  const fileName = `social/${orgPath}/${contentId}/${channel}-with-logo-${timestamp}.jpg`;
 
   console.log(`[overlay-logo-canvas] Uploading to storage: ${fileName}`);
 
   const { error: uploadError } = await supabase.storage
     .from("carousel-images")
     .upload(fileName, imageBytes, {
-      contentType: "image/png",
+      contentType: "image/jpeg",
       upsert: true,
     });
 
