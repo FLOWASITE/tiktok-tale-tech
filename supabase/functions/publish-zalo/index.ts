@@ -118,14 +118,47 @@ serve(async (req) => {
     });
 
     // Upload cover image to Zalo first (Zalo can't fetch external URLs directly)
+    // Zalo limit: 1MB max. Use Supabase image transform to resize if needed.
     let zaloCoverUrl = coverImageUrl;
     try {
-      console.log('Downloading cover image to upload to Zalo...');
-      const imgResponse = await fetch(coverImageUrl);
-      if (!imgResponse.ok) {
-        throw new Error(`Failed to download cover image: ${imgResponse.status}`);
+      // Try to get a smaller version via Supabase storage transform
+      let downloadUrl = coverImageUrl;
+      const supabaseStorageBase = Deno.env.get('SUPABASE_URL') + '/storage/v1/object/public/';
+      if (coverImageUrl.includes('/storage/v1/object/public/')) {
+        // Convert to render URL for resizing
+        downloadUrl = coverImageUrl.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+        downloadUrl += (downloadUrl.includes('?') ? '&' : '?') + 'width=800&quality=70';
+        console.log('Using resized image URL:', downloadUrl);
       }
-      const imgBlob = await imgResponse.blob();
+
+      console.log('Downloading cover image to upload to Zalo...');
+      const imgResponse = await fetch(downloadUrl);
+      if (!imgResponse.ok) {
+        // Fallback to original URL if transform fails
+        const origResponse = await fetch(coverImageUrl);
+        if (!origResponse.ok) throw new Error(`Failed to download cover image: ${origResponse.status}`);
+        var imgBlob = await origResponse.blob();
+      } else {
+        var imgBlob = await imgResponse.blob();
+      }
+      
+      console.log(`Image size: ${(imgBlob.size / 1024).toFixed(0)}KB`);
+      
+      // If still > 1MB, try even smaller
+      if (imgBlob.size > 1000000 && coverImageUrl.includes('/storage/v1/object/public/')) {
+        const smallUrl = coverImageUrl.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') 
+          + (coverImageUrl.includes('?') ? '&' : '?') + 'width=600&quality=50';
+        console.log('Image too large, trying smaller version...');
+        const smallRes = await fetch(smallUrl);
+        if (smallRes.ok) {
+          imgBlob = await smallRes.blob();
+          console.log(`Resized image size: ${(imgBlob.size / 1024).toFixed(0)}KB`);
+        }
+      }
+
+      if (imgBlob.size > 1000000) {
+        console.warn('Image still > 1MB after resize, Zalo may reject it');
+      }
       
       const formData = new FormData();
       formData.append('file', imgBlob, 'cover.jpg');
@@ -144,10 +177,26 @@ serve(async (req) => {
         zaloCoverUrl = uploadResult.data.url;
         console.log('Using Zalo-hosted cover URL:', zaloCoverUrl);
       } else {
-        console.warn('Image upload failed, falling back to original URL:', uploadResult.message);
+        // If upload fails, return clear error instead of falling back to broken URL
+        return new Response(
+          JSON.stringify({
+            success: false,
+            errorCode: 'IMAGE_UPLOAD_FAILED',
+            error: `Không thể upload ảnh bìa lên Zalo (${uploadResult.message || 'unknown'}). Ảnh cần nhỏ hơn 1MB.`,
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
     } catch (uploadErr: any) {
-      console.warn('Image upload error, using original URL:', uploadErr.message);
+      console.warn('Image upload error:', uploadErr.message);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          errorCode: 'IMAGE_UPLOAD_FAILED', 
+          error: `Lỗi tải ảnh bìa: ${uploadErr.message}`,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const createArticlePayload = {
