@@ -170,7 +170,7 @@ const channelConfig: Record<Channel, {
   zalo_oa: { 
     label: 'Zalo OA', 
     shortLabel: 'Zalo',
-    icon: <MessageCircle className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
+    icon: <ZaloIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/10',
     maxLength: '60-150 chữ'
