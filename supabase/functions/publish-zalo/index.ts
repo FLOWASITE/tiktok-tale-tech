@@ -117,15 +117,8 @@ serve(async (req) => {
       return { type: 'text', content: trimmed };
     });
 
-    // Zalo Article API cover.photo_url requires a publicly accessible image URL.
-    // Use Supabase image transform to resize (< 1MB) and convert to JPG.
-    let finalCoverUrl = coverImageUrl;
-    if (coverImageUrl.includes('/storage/v1/object/public/')) {
-      // Use Supabase render to get a resized, optimized version
-      finalCoverUrl = coverImageUrl.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
-      finalCoverUrl += (finalCoverUrl.includes('?') ? '&' : '?') + 'width=800&quality=75';
-      console.log('Using resized cover URL:', finalCoverUrl);
-    }
+    // Use cover image URL directly — image is already resized to <1MB JPEG by overlay-logo-canvas
+    const finalCoverUrl = coverImageUrl;
 
     const createArticlePayload = {
       type: 'normal',

@@ -145,6 +145,13 @@ async function compositeImages(
   console.log(`[overlay-logo-canvas] Decoding base image (${baseImageBytes.length} bytes)...`);
   const baseImg = await Image.decode(baseImageBytes);
   console.log(`[overlay-logo-canvas] Base image dimensions: ${baseImg.width}x${baseImg.height}`);
+
+  // Resize base image to max 800px width for Zalo OA compatibility (<1MB)
+  if (baseImg.width > 800) {
+    const newHeight = Math.floor(baseImg.height * (800 / baseImg.width));
+    console.log(`[overlay-logo-canvas] Resizing base image from ${baseImg.width}x${baseImg.height} to 800x${newHeight}`);
+    baseImg.resize(800, newHeight);
+  }
   
   // Validate base image
   if (baseImg.width === 0 || baseImg.height === 0) {
@@ -192,9 +199,9 @@ async function compositeImages(
   // Composite logo onto base image
   baseImg.composite(logoImg, x, y);
   
-  // Encode to PNG
-  const resultBytes = await baseImg.encode();
-  console.log(`[overlay-logo-canvas] Composite complete, output size: ${resultBytes.length} bytes`);
+  // Encode to JPEG (quality 80%) for smaller file size (<1MB for Zalo OA)
+  const resultBytes = await baseImg.encodeJPEG(80);
+  console.log(`[overlay-logo-canvas] Composite complete, output size: ${resultBytes.length} bytes (JPEG)`);
   
   return resultBytes;
 }
@@ -214,14 +221,14 @@ async function uploadToStorage(
 
   const timestamp = Date.now();
   const orgPath = organizationId ? `org-${organizationId}` : 'unassigned';
-  const fileName = `social/${orgPath}/${contentId}/${channel}-with-logo-${timestamp}.png`;
+  const fileName = `social/${orgPath}/${contentId}/${channel}-with-logo-${timestamp}.jpg`;
 
   console.log(`[overlay-logo-canvas] Uploading to storage: ${fileName}`);
 
   const { error: uploadError } = await supabase.storage
     .from("carousel-images")
     .upload(fileName, imageBytes, {
-      contentType: "image/png",
+      contentType: "image/jpeg",
       upsert: true,
     });
 
@@ -309,7 +316,7 @@ serve(async (req) => {
     } else {
       // Return as base64 data URL
       const base64 = btoa(String.fromCharCode(...compositedBytes));
-      finalImageUrl = `data:image/png;base64,${base64}`;
+      finalImageUrl = `data:image/jpeg;base64,${base64}`;
     }
 
     console.log(`[overlay-logo-canvas] Success - Final URL length: ${finalImageUrl.length}`);
