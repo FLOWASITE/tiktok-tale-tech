@@ -1,39 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createDecipheriv } from "node:crypto";
-import { Buffer } from "node:buffer";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-interface TestRequest {
-  platform: string;
-  useStoredCredentials?: boolean;
-  consumerKey?: string;
-  consumerSecret?: string;
-}
-
-// Decrypt encrypted credentials
-function decrypt(encryptedText: string, key: string): string {
-  try {
-    const textParts = encryptedText.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    
-    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-    let decrypted = decipher.update(encryptedData);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
-}
+import { decryptCredential } from "../_shared/crypto.ts";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -98,9 +65,8 @@ serve(async (req) => {
         throw new Error('App ID/Secret Key chưa được cấu hình');
       }
 
-      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-      appId = decrypt(settings.consumer_key, encryptionKey);
-      secretKey = decrypt(settings.consumer_secret, encryptionKey);
+      appId = await decryptCredential(settings.consumer_key);
+      secretKey = await decryptCredential(settings.consumer_secret);
 
       if (!appId || !secretKey) {
         throw new Error('Không thể giải mã credentials - kiểm tra encryption key');
