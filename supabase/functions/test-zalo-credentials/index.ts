@@ -65,8 +65,8 @@ serve(async (req) => {
         throw new Error('App ID/Secret Key chưa được cấu hình');
       }
 
-      const appId = await decryptCredential(settings.consumer_key);
-      const secretKey = await decryptCredential(settings.consumer_secret);
+      appId = await decryptCredential(settings.consumer_key);
+      secretKey = await decryptCredential(settings.consumer_secret);
 
       if (!appId || !secretKey) {
         throw new Error('Không thể giải mã credentials - kiểm tra encryption key');
