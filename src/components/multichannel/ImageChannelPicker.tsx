@@ -2,9 +2,10 @@ import { cn } from '@/lib/utils';
 import { Channel } from '@/types/multichannel';
 import { Badge } from '@/components/ui/badge';
 import {
-  Facebook, Instagram, Linkedin, Twitter, Globe, MapPin,
-  Youtube, Mail, MessageCircle, Music2, AtSign, Send,
+  Facebook, Instagram, Linkedin, Globe, MapPin,
+  Youtube, Mail, Music2, AtSign, Send,
 } from 'lucide-react';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 
 interface ImageChannelPickerProps {
   availableChannels: Channel[];
@@ -17,13 +18,13 @@ const CHANNEL_META: Record<Channel, { icon: React.ReactNode; label: string }> = 
   facebook: { icon: <Facebook className="w-3.5 h-3.5" />, label: 'FB' },
   instagram: { icon: <Instagram className="w-3.5 h-3.5" />, label: 'IG' },
   linkedin: { icon: <Linkedin className="w-3.5 h-3.5" />, label: 'LI' },
-  twitter: { icon: <Twitter className="w-3.5 h-3.5" />, label: 'X' },
+  twitter: { icon: <XIcon className="w-3.5 h-3.5" />, label: 'X' },
   website: { icon: <Globe className="w-3.5 h-3.5" />, label: 'Web' },
   google_maps: { icon: <MapPin className="w-3.5 h-3.5" />, label: 'Maps' },
   youtube: { icon: <Youtube className="w-3.5 h-3.5" />, label: 'YT' },
   email: { icon: <Mail className="w-3.5 h-3.5" />, label: 'Mail' },
   tiktok: { icon: <Music2 className="w-3.5 h-3.5" />, label: 'TT' },
-  zalo_oa: { icon: <MessageCircle className="w-3.5 h-3.5" />, label: 'Zalo' },
+  zalo_oa: { icon: <ZaloIcon className="w-3.5 h-3.5" />, label: 'Zalo' },
   telegram: { icon: <Send className="w-3.5 h-3.5" />, label: 'TG' },
   threads: { icon: <AtSign className="w-3.5 h-3.5" />, label: 'Th' },
 };

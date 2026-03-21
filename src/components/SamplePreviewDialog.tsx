@@ -57,7 +57,7 @@ const CHANNEL_CONFIG: Record<ChannelType, { label: string; icon: React.ReactNode
     color: 'text-amber-600',
     bgColor: 'bg-amber-500/10'
   },
-  twitter: { label: 'Twitter', icon: null, color: '', bgColor: '' },
+  twitter: { label: 'X', icon: null, color: '', bgColor: '' },
   general: { label: 'General', icon: null, color: '', bgColor: '' },
 };
 

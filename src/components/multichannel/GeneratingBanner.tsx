@@ -9,17 +9,16 @@ import {
   Facebook,
   Instagram,
   Linkedin,
-  Twitter,
   Youtube,
   Mail,
   Globe,
-  MessageCircle,
   Send,
   Music2,
   AtSign,
   FileText,
   type LucideIcon,
 } from 'lucide-react';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { 
@@ -50,15 +49,16 @@ const CHANNEL_DISPLAY_NAMES: Record<string, string> = {
 };
 
 // Channel icons mapping
-const CHANNEL_ICONS: Record<string, LucideIcon> = {
+const CHANNEL_ICONS: Record<string, LucideIcon | (({ className, ...props }: any) => JSX.Element)> = {
   facebook: Facebook,
   instagram: Instagram,
   linkedin: Linkedin,
-  twitter: Twitter,
+  twitter: XIcon as any,
   youtube: Youtube,
   email: Mail,
   blog: FileText,
-  zalo: MessageCircle,
+  zalo: ZaloIcon as any,
+  zalo_oa: ZaloIcon as any,
   telegram: Send,
   tiktok: Music2,
   threads: AtSign,

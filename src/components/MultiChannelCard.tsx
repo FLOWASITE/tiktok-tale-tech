@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react';
 import { formatDistanceToNow, isPast, parseISO, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { motion } from 'framer-motion';
-import { Eye, Trash2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, Tag, Image, Building, FileText, RefreshCw, CalendarClock, Music2, AtSign, Star, AlertTriangle, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
+import { Eye, Trash2, Globe, Facebook, Instagram, MapPin, Linkedin, Mail, Youtube, Send, Tag, Image, Building, FileText, RefreshCw, CalendarClock, Music2, AtSign, Star, AlertTriangle, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -43,12 +44,12 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
   facebook: <Facebook className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
   instagram: <Instagram className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-  twitter: <Twitter className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
+  twitter: <XIcon className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
   google_maps: <MapPin className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
   linkedin: <Linkedin className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
   email: <Mail className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
   youtube: <Youtube className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
-  zalo_oa: <MessageCircle className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
+  zalo_oa: <ZaloIcon className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
   telegram: <Send className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
   tiktok: <Music2 className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
   threads: <AtSign className="w-3 h-3 xs:w-3.5 xs:h-3.5" />,
