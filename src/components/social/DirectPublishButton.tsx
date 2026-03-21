@@ -146,7 +146,15 @@ export function DirectPublishButton({
   // Sync editableContent when content prop changes
   useEffect(() => {
     setEditableContent(content);
+    // Auto-extract title and description for Zalo
+    const lines = content.split('\n').filter(l => l.trim());
+    const firstLine = (lines[0] || '').replace(/^#+\s*/, '').trim();
+    setZaloTitle(firstLine.substring(0, 100));
+    setZaloDescription(lines.slice(0, 3).join(' ').substring(0, 200));
   }, [content]);
+
+  const zaloCoverUrl = useMemo(() => mediaUrls?.[0] || null, [mediaUrls]);
+  const isZaloMissingCover = platform === 'zalo_oa' && !zaloCoverUrl;
 
   const handlePublish = async () => {
     if (!connection || !platform) return;
