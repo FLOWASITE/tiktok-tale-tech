@@ -349,11 +349,46 @@ export function DirectPublishButton({
               {/* Editable Content */}
               <div className="px-4 sm:px-6 pb-2 space-y-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground">Nội dung bài đăng</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium text-muted-foreground">Nội dung bài đăng</Label>
+                    {platform === 'twitter' && editableContent.length > 280 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs text-amber-600 hover:text-amber-700 px-2"
+                        onClick={() => {
+                          // Smart truncate: cut at nearest sentence/word boundary
+                          let truncated = editableContent.substring(0, 277);
+                          const lastSentence = Math.max(
+                            truncated.lastIndexOf('。'),
+                            truncated.lastIndexOf('. '),
+                            truncated.lastIndexOf('! '),
+                            truncated.lastIndexOf('? '),
+                            truncated.lastIndexOf('\n'),
+                          );
+                          if (lastSentence > 200) {
+                            truncated = truncated.substring(0, lastSentence + 1).trimEnd();
+                          } else {
+                            const lastSpace = truncated.lastIndexOf(' ');
+                            if (lastSpace > 200) {
+                              truncated = truncated.substring(0, lastSpace).trimEnd();
+                            }
+                          }
+                          if (truncated.length < editableContent.length) {
+                            truncated = truncated + '...';
+                          }
+                          setEditableContent(truncated.substring(0, 280));
+                        }}
+                      >
+                        ✂️ Rút gọn
+                      </Button>
+                    )}
+                  </div>
                   <Textarea
                     value={editableContent}
                     onChange={(e) => setEditableContent(e.target.value)}
                     rows={8}
+                    maxLength={platform === 'twitter' ? 280 : undefined}
                     className="resize-none text-sm leading-relaxed max-h-[250px] sm:max-h-[400px]"
                     placeholder="Nhập nội dung..."
                   />
@@ -363,9 +398,10 @@ export function DirectPublishButton({
                       <span className={cn(
                         'text-xs font-mono tabular-nums',
                         editableContent.length > charLimit ? 'text-destructive font-semibold' : 
-                        editableContent.length > charLimit * 0.9 ? 'text-amber-500' : 'text-muted-foreground'
+                        editableContent.length > (charLimit * 0.96) ? 'text-destructive' :
+                        editableContent.length > (charLimit * 0.89) ? 'text-amber-500' : 'text-muted-foreground'
                       )}>
-                        {editableContent.length.toLocaleString()}/{charLimit.toLocaleString()}
+                        {editableContent.length}/{charLimit}
                       </span>
                     </div>
                   )}
@@ -416,19 +452,6 @@ export function DirectPublishButton({
                   </div>
                 )}
               </div>
-
-              {/* Warning Banners */}
-              {charLimit && editableContent.length > charLimit && (
-                <div className="mx-4 sm:mx-6 px-3 py-2 sm:py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                  <p className="text-xs text-amber-700 dark:text-amber-400">
-                    {platform === 'twitter' 
-                      ? 'Nội dung vượt quá 280 ký tự và sẽ được cắt ngắn khi đăng lên Twitter / X.'
-                      : `Nội dung vượt quá ${charLimit.toLocaleString()} ký tự — giới hạn của ${PLATFORM_DISPLAY_NAMES[platform!]}.`
-                    }
-                  </p>
-                </div>
-              )}
 
               {/* Footer */}
               <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-border flex flex-col sm:flex-row gap-2">
