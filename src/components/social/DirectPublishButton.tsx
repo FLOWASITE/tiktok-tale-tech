@@ -166,6 +166,13 @@ export function DirectPublishButton({
         content: editableContent,
         mediaUrls,
         ...(platform === 'facebook' && linkUrl ? { linkUrl } : {}),
+        ...(platform === 'zalo_oa' ? {
+          articleData: {
+            title: zaloTitle || 'Bài viết mới',
+            description: zaloDescription || editableContent.substring(0, 200),
+            coverUrl: zaloCoverUrl || undefined,
+          },
+        } : {}),
       };
 
       let result;
