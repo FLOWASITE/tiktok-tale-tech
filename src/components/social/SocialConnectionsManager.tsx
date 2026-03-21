@@ -313,6 +313,17 @@ export function SocialConnectionsManager() {
                           {connection.last_error}
                         </p>
                       )}
+                      {connection && platform === 'zalo_oa' && (connection as any).metadata?.oa_package && ['Cơ bản', 'Basic'].includes((connection as any).metadata.oa_package) && (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <AlertTriangle className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
+                          <span className="text-xs text-yellow-700 dark:text-yellow-300">
+                            Gói cơ bản — Hạn chế đăng bài API.{' '}
+                            <a href="https://oa.zalo.me/home/pricing" target="_blank" rel="noopener noreferrer" className="underline">
+                              Nâng cấp
+                            </a>
+                          </span>
+                        </div>
+                      )}
                       {!connection && (
                         <p className="text-sm text-muted-foreground">{config.description}</p>
                       )}

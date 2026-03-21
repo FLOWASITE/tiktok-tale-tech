@@ -148,6 +148,16 @@ serve(async (req) => {
     console.log('Zalo publish result:', result);
 
     if (result.error && result.error !== 0) {
+      if (result.error === -224) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            errorCode: 'OA_TIER_LIMITED',
+            error: 'Zalo OA đang dùng gói Cơ bản, không hỗ trợ đăng bài qua API. Vui lòng nâng cấp gói tại https://oa.zalo.me/home/pricing',
+          }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       throw new Error(result.message || 'Failed to publish to Zalo OA');
     }
 
