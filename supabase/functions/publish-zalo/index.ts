@@ -164,8 +164,8 @@ serve(async (req) => {
       return { type: 'text', content: trimmed };
     });
 
-    // Use cover image URL directly — image is already resized to <1MB JPEG by overlay-logo-canvas
-    const finalCoverUrl = coverImageUrl;
+    // Ensure cover URL is Zalo-compatible (optimize legacy PNG or >1MB images)
+    const finalCoverUrl = await ensureZaloCompatibleCoverUrl(coverImageUrl, supabase);
 
     const createArticlePayload = {
       type: 'normal',
