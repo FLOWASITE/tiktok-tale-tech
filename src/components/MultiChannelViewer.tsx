@@ -1290,6 +1290,33 @@ export function MultiChannelViewer({
                       </div>
                     </div>
 
+                    {/* Action Bar: Schedule + Post Now */}
+                    {!isEditing && (
+                      <div className="flex justify-end gap-2 px-3 py-1.5 border-b border-border/30">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => { setShowSchedule(true); setShowGallery(false); setShowTeamPanel(false); }}
+                          className="gap-2"
+                        >
+                          <CalendarClock className="w-4 h-4" />
+                          Lên lịch đăng bài
+                        </Button>
+                        <DirectPublishButton
+                          content={channelContent || ''}
+                          contentId={content.id}
+                          channel={channel}
+                          brandTemplateId={content.brand_template_id || undefined}
+                          mediaUrls={(() => {
+                            const imgUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
+                            return imgUrl ? [imgUrl] : undefined;
+                          })()}
+                          variant="default"
+                          size="sm"
+                        />
+                      </div>
+                    )}
+
                     {/* Content Area */}
                       <ScrollArea className="flex-1">
                         <div className="p-2">
