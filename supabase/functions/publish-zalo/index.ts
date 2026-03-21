@@ -156,18 +156,24 @@ serve(async (req) => {
 
     console.log(`Publishing article to Zalo OA: ${connection.platform_username}, cover: ${coverImageUrl?.substring(0, 80)}...`);
 
-    // Extract title from content (first line or first 100 chars)
-    const lines = content.split('\n').filter(l => l.trim());
-    const rawTitle = articleData?.title || lines[0] || 'Bài viết mới';
-    const articleTitle = rawTitle.replace(/[*#_~`]/g, '').trim().substring(0, 100);
-    const articleDescription = articleData?.description || lines.slice(0, 2).join(' ').replace(/[*#_~`]/g, '').trim().substring(0, 200);
+    // Extract title from content — skip channel-name headers like "# ZALO_OA"
+    const CHANNEL_HEADER_RE = /^(📱\s*)?ZALO[_\s]?OA$/i;
+    const lines = content.split('\n').filter((l: string) => l.trim());
+    const meaningfulLines = lines
+      .map((l: string) => l.replace(/^#+\s*/, '').replace(/[*_~`]/g, '').trim())
+      .filter((l: string) => l && !CHANNEL_HEADER_RE.test(l));
+    const rawTitle = articleData?.title || meaningfulLines[0] || 'Bài viết mới';
+    const articleTitle = rawTitle.substring(0, 100);
+    const articleDescription = articleData?.description || meaningfulLines.slice(0, 2).join(' ').substring(0, 200);
 
-    // Build article body
-    const articleBody = content.split('\n').map(line => {
-      const trimmed = line.trim();
-      if (!trimmed) return { type: 'text', content: ' ' };
-      return { type: 'text', content: trimmed };
-    });
+    // Build article body — skip channel-name header lines
+    const articleBody = lines
+      .filter((line: string) => !CHANNEL_HEADER_RE.test(line.replace(/^#+\s*/, '').replace(/[*_~`📱]/g, '').trim()))
+      .map((line: string) => {
+        const trimmed = line.trim();
+        if (!trimmed) return { type: 'text', content: ' ' };
+        return { type: 'text', content: trimmed };
+      });
 
     // Ensure cover URL is Zalo-compatible (optimize legacy PNG or >1MB images)
     const finalCoverUrl = await ensureZaloCompatibleCoverUrl(coverImageUrl, supabase);
