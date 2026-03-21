@@ -1,36 +1,40 @@
 
 
-# Sửa lỗi: Zalo OA báo thành công nhưng bài không được đăng
+# Tối ưu UI Đăng lên Zalo OA
 
-## Nguyên nhân gốc
+## Vấn đề hiện tại
+1. **Icon sai** — Dialog dùng emoji `💬` cho Zalo thay vì `ZaloIcon` SVG chuẩn
+2. **Không có UI cho ảnh bìa** — Zalo OA bắt buộc ảnh bìa nhưng dialog không có phần chọn/hiển thị ảnh bìa rõ ràng, user không biết tại sao bị lỗi
+3. **Không tách title/description** — Zalo article cần title riêng (max 100 ký tự) và description (max 200 ký tự), hiện tại tự trích từ content, user không kiểm soát được
+4. **Thiếu cảnh báo yêu cầu** — Không hiển thị rõ các yêu cầu đặc biệt của Zalo OA
 
-Từ edge logs:
-1. `article/create` → **Success** (error: 0), trả về token
-2. `article/verify` → **Error -214**: `"Media is being processed. Please wait for a moment"`
+## Thay đổi
 
-Code hiện tại (dòng 189) chỉ `console.warn` lỗi `-214` rồi vẫn trả `success: true`. Bài viết chưa thực sự được publish vì Zalo chưa xử lý xong ảnh bìa.
+### File: `src/components/social/DirectPublishButton.tsx`
 
-## Giải pháp
+**1. Sửa icon Zalo:**
+- Import `ZaloIcon` từ `@/components/icons/SocialIcons`
+- Thay `zalo_oa: () => <span>💬</span>` bằng `zalo_oa: ZaloIcon`
 
-### Sửa `supabase/functions/publish-zalo/index.ts`
+**2. Thêm fields riêng cho Zalo OA trong confirm dialog:**
+- Input **Tiêu đề bài viết** (max 100 ký tự) — tự trích dòng đầu, cho phép sửa
+- Input **Mô tả ngắn** (max 200 ký tự) — tự trích 2 dòng đầu, cho phép sửa
+- Phần **Ảnh bìa** nổi bật:
+  - Nếu có `mediaUrls[0]` → hiển thị preview ảnh bìa với badge "Ảnh bìa"
+  - Nếu không có → hiển thị warning box: "⚠️ Zalo OA yêu cầu ảnh bìa. Vui lòng thêm ảnh vào nội dung trước khi đăng."
+  - Disable nút "Đăng ngay" khi không có ảnh bìa
 
-**Retry verify với delay**: Khi gặp error `-214` (media processing), chờ 3-5 giây rồi retry verify tối đa 3 lần. Nếu vẫn thất bại → trả lỗi rõ ràng thay vì `success: true`.
+**3. Truyền title/description vào publishOptions:**
+- Thêm `articleData: { title, description, coverUrl }` vào `PublishOptions` khi platform là `zalo_oa`
 
-Cụ thể:
-- Thay block verify đơn lẻ (dòng 166-191) bằng retry loop
-- Mỗi lần gặp `-214` → `await sleep(4000)` rồi gọi lại `/article/verify`
-- Tối đa 3 lần retry (tổng ~12-16 giây chờ)
-- Nếu sau 3 lần vẫn `-214` → trả `success: false` với message: "Zalo đang xử lý ảnh bìa, vui lòng thử lại sau vài phút"
-- Các lỗi khác (không phải `-214`) → xử lý như hiện tại
+### File: `src/hooks/useDirectPublish.ts`
 
-### Sửa `src/hooks/useDirectPublish.ts`
+- Cập nhật `PublishOptions` interface thêm optional `articleData` field
 
-Thêm nhận diện errorCode `MEDIA_PROCESSING` → toast thân thiện hướng dẫn user thử lại.
-
-## Files thay đổi
+## Tóm tắt files
 
 | File | Thay đổi |
 |------|----------|
-| `supabase/functions/publish-zalo/index.ts` | Retry verify loop khi gặp -214 |
-| `src/hooks/useDirectPublish.ts` | Xử lý errorCode MEDIA_PROCESSING |
+| `src/components/social/DirectPublishButton.tsx` | Icon ZaloIcon, thêm fields title/description/cover cho Zalo, disable publish khi thiếu ảnh |
+| `src/hooks/useDirectPublish.ts` | Thêm `articleData` vào `PublishOptions` |
 
