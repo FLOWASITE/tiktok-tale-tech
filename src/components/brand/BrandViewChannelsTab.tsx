@@ -16,12 +16,10 @@ import {
   Globe,
   Facebook,
   Instagram,
-  Twitter,
   MapPin,
   Linkedin,
   Mail,
   Youtube,
-  MessageCircle,
   Send,
   ChevronDown,
   ChevronUp,
@@ -34,6 +32,7 @@ import {
   Music2,
   AtSign,
 } from 'lucide-react';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 
 const ALL_CHANNELS: Channel[] = [
   'website', 'facebook', 'instagram', 'twitter', 'google_maps',
