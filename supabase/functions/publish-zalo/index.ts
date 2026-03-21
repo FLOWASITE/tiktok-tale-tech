@@ -162,20 +162,44 @@ serve(async (req) => {
 
     const articleToken = createResult.data?.token;
 
-    // Step 4: Verify article (publish it)
+    // Step 4: Verify article (publish it) with retry for media processing
     if (articleToken) {
-      const verifyRes = await fetch('https://openapi.zalo.me/v2.0/article/verify', {
-        method: 'POST',
-        headers: {
-          'access_token': accessToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ token: articleToken }),
-      });
-      const verifyResult = await verifyRes.json();
-      console.log('Zalo article verify result:', JSON.stringify(verifyResult));
+      let verifyResult: any = null;
+      const MAX_VERIFY_RETRIES = 3;
+      const RETRY_DELAY_MS = 4000;
 
-      if (verifyResult.error && verifyResult.error !== 0) {
+      for (let attempt = 1; attempt <= MAX_VERIFY_RETRIES; attempt++) {
+        const verifyRes = await fetch('https://openapi.zalo.me/v2.0/article/verify', {
+          method: 'POST',
+          headers: {
+            'access_token': accessToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ token: articleToken }),
+        });
+        verifyResult = await verifyRes.json();
+        console.log(`Zalo article verify attempt ${attempt}/${MAX_VERIFY_RETRIES}:`, JSON.stringify(verifyResult));
+
+        // -214 = media still processing, retry after delay
+        if (verifyResult.error === -214 && attempt < MAX_VERIFY_RETRIES) {
+          console.log(`Media processing, waiting ${RETRY_DELAY_MS}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+          continue;
+        }
+        break;
+      }
+
+      if (verifyResult?.error && verifyResult.error !== 0) {
+        if (verifyResult.error === -214) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              errorCode: 'MEDIA_PROCESSING',
+              error: 'Zalo đang xử lý ảnh bìa, vui lòng thử lại sau 1-2 phút.',
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
         if (verifyResult.error === -224) {
           return new Response(
             JSON.stringify({
@@ -186,7 +210,7 @@ serve(async (req) => {
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        console.warn('Article verify warning:', verifyResult.message);
+        throw new Error(verifyResult.message || `Zalo verify error ${verifyResult.error}`);
       }
     }
 

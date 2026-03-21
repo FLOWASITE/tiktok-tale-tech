@@ -99,8 +99,15 @@ export function useDirectPublish() {
       const errorCode = (error as any).errorCode;
       const isOaTierLimited = errorCode === 'OA_TIER_LIMITED' || error.message?.includes('upgrade OA Tier');
       const isMissingCover = errorCode === 'MISSING_COVER_IMAGE';
+      const isMediaProcessing = errorCode === 'MEDIA_PROCESSING';
       
-      if (isMissingCover) {
+      if (isMediaProcessing) {
+        toast({
+          title: 'Zalo đang xử lý ảnh',
+          description: 'Ảnh bìa đang được xử lý. Vui lòng thử lại sau 1-2 phút.',
+          variant: 'destructive',
+        });
+      } else if (isMissingCover) {
         toast({
           title: 'Zalo OA: Thiếu ảnh bìa',
           description: 'Zalo OA yêu cầu ảnh bìa để đăng bài viết. Vui lòng thêm ảnh cho bài viết.',
