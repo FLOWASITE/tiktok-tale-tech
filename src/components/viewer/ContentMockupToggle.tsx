@@ -1,5 +1,6 @@
 import { ChannelMockupFrame } from '@/components/preview/ChannelMockupFrame';
 import { GoogleMapsMockup } from '@/components/preview/GoogleMapsMockup';
+import { ZaloOAMockup } from '@/components/preview/ZaloOAMockup';
 import { Channel, WebsiteSEOData } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 import { normalizeMarkdownText } from '@/utils/normalizeMarkdownText';
@@ -60,6 +61,23 @@ export function ContentMockupToggle({
       <div className={cn('flex justify-center items-start p-2 bg-gradient-to-b from-muted/5 to-muted/20 rounded-xl min-h-[500px]', className)}>
         <div className="w-full max-w-xl">
           <GoogleMapsMockup
+            content={safeContent}
+            brandName={safeBrandName}
+            logoUrl={logoUrl}
+            isGenerating={isLoading}
+            channelImage={channelImage}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Use dedicated Zalo OA mockup
+  if (channel === 'zalo_oa') {
+    return (
+      <div className={cn('flex justify-center items-start p-2 bg-gradient-to-b from-muted/5 to-muted/20 rounded-xl min-h-[500px]', className)}>
+        <div className="w-full max-w-xl">
+          <ZaloOAMockup
             content={safeContent}
             brandName={safeBrandName}
             logoUrl={logoUrl}
