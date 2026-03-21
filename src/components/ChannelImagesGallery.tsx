@@ -77,8 +77,8 @@ const channelConfig: Record<Channel, {
     bgColor: 'bg-pink-500/20',
   },
   twitter: { 
-    label: 'Twitter', 
-    icon: <Twitter className="w-3 h-3" />, 
+    label: 'X', 
+    icon: <XIcon className="w-3 h-3" />, 
     color: 'text-slate-400',
     bgColor: 'bg-slate-500/20',
   },
