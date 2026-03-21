@@ -36,6 +36,7 @@ export default function ZaloOAuthProxy() {
             platform: 'zalo_oa',
             ...(data.username ? { username: data.username } : {}),
             ...(data.brand_template_id ? { brand_template_id: data.brand_template_id } : {}),
+            ...(data.package_name ? { package_name: data.package_name } : {}),
             ...(data.warning ? { warning: data.warning } : {}),
           });
           navigate(`/auth/zalo/callback?${params}`, { replace: true });

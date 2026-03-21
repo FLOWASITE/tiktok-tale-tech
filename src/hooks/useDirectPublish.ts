@@ -48,7 +48,9 @@ export function useDirectPublish() {
       }
 
       if (!response.data?.success) {
-        throw new Error(response.data?.error || 'Failed to publish');
+        const err = new Error(response.data?.error || 'Failed to publish');
+        (err as any).errorCode = response.data?.errorCode;
+        throw err;
       }
 
       // Support both nested (data.data.postId) and flat (data.postId) response formats
@@ -72,9 +74,12 @@ export function useDirectPublish() {
       });
     },
     onError: (error: Error) => {
+      const isOaTierLimited = (error as any).errorCode === 'OA_TIER_LIMITED' || error.message?.includes('upgrade OA Tier');
       toast({
-        title: 'Đăng bài thất bại',
-        description: error.message,
+        title: isOaTierLimited ? 'Zalo OA: Gói cơ bản không hỗ trợ' : 'Đăng bài thất bại',
+        description: isOaTierLimited
+          ? 'Zalo OA đang dùng gói Cơ bản, không hỗ trợ đăng bài qua API. Nâng cấp tại oa.zalo.me/home/pricing'
+          : error.message,
         variant: 'destructive',
       });
     },

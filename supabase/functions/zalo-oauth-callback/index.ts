@@ -180,6 +180,7 @@ serve(async (req) => {
         oa_id: oaIdFinal,
         oa_name: oaName,
         oa_avatar: oaInfo.data?.avatar || null,
+        oa_package: oaInfo.data?.package_name || null,
         uses_global_credentials: true,
       },
     };
@@ -208,12 +209,16 @@ serve(async (req) => {
 
     // POST from proxy → return JSON
     if (isPostFromProxy) {
+      const packageName = oaInfo.data?.package_name || null;
+      const isBasicPackage = packageName && ['Cơ bản', 'Basic'].includes(packageName);
       return new Response(
         JSON.stringify({
           success: true,
           message: 'Kết nối Zalo OA thành công!',
           username: oaName,
           brand_template_id: brandTemplateId,
+          package_name: packageName,
+          ...(isBasicPackage ? { warning: 'OA đang dùng gói Cơ bản. Tính năng đăng bài qua API yêu cầu nâng cấp gói.' } : {}),
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
