@@ -13,16 +13,15 @@ import {
   Globe,
   Facebook,
   Instagram,
-  Twitter,
   MapPin,
   Linkedin,
   Mail,
   Youtube,
-  MessageCircle,
   Send,
   Music2,
   AtSign,
 } from 'lucide-react';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import { MultiChannelContent, Channel, CONTENT_GOALS, CHANNELS } from '@/types/multichannel';
 import { format, subDays, startOfDay, isAfter } from 'date-fns';
 import { vi } from 'date-fns/locale';
