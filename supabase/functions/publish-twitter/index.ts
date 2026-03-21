@@ -150,32 +150,46 @@ async function postTweet(
   return result.data;
 }
 
-// Post tweet using OAuth 2.0 Bearer token
+// Post tweet using OAuth 2.0 Bearer token (with retry for 5xx)
 async function postTweetOAuth2(
   tweetText: string,
-  accessToken: string
+  accessToken: string,
+  maxRetries = 3
 ): Promise<{ id: string; text: string }> {
   const url = "https://api.x.com/2/tweets";
-  console.log("Posting tweet via OAuth 2.0 Bearer...");
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ text: tweetText }),
-  });
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    console.log(`Posting tweet via OAuth 2.0 Bearer... (attempt ${attempt + 1})`);
 
-  const responseText = await response.text();
-  console.log("Twitter API Response:", response.status, responseText);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ text: tweetText }),
+    });
 
-  if (!response.ok) {
+    const responseText = await response.text();
+    console.log("Twitter API Response:", response.status, responseText);
+
+    if (response.ok) {
+      const result = JSON.parse(responseText);
+      return result.data;
+    }
+
+    // Retry on 5xx server errors
+    if (response.status >= 500 && attempt < maxRetries) {
+      const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+      console.log(`Server error ${response.status}, retrying in ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+      continue;
+    }
+
     throw new Error(`Twitter API error: ${response.status} - ${responseText}`);
   }
 
-  const result = JSON.parse(responseText);
-  return result.data;
+  throw new Error('Max retries exceeded');
 }
 
 // Refresh OAuth 2.0 token
