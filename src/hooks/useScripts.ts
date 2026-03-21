@@ -13,7 +13,7 @@ export function useScripts() {
   const [generating, setGenerating] = useState(false);
 
   const fetchScripts = async () => {
-    if (!user) {
+    if (!user || !currentOrganization) {
       setScripts([]);
       setLoading(false);
       return;
@@ -23,6 +23,7 @@ export function useScripts() {
       const { data, error } = await supabase
         .from('scripts')
         .select('*')
+        .eq('organization_id', currentOrganization.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -173,7 +174,7 @@ export function useScripts() {
 
   useEffect(() => {
     fetchScripts();
-  }, [user]);
+  }, [user, currentOrganization?.id]);
 
   const updateScript = (updatedScript: Script) => {
     setScripts((prev) =>
