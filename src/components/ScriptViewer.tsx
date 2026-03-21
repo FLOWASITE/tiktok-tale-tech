@@ -372,9 +372,9 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                         "rounded-lg bg-muted/30 p-3 xs:p-4 border border-border",
                         showAnalytics ? "h-[35vh] xs:h-[45vh]" : "h-[40vh] xs:h-[50vh]"
                       )}>
-                        <pre className="whitespace-pre-wrap font-sans text-xs xs:text-sm text-foreground leading-relaxed">
-                          {script.content}
-                        </pre>
+                        <div className="font-sans text-xs xs:text-sm leading-relaxed space-y-0">
+                          {highlightScriptContent(script.content)}
+                        </div>
                       </ScrollArea>
                     </TabsContent>
 
