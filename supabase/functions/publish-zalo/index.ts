@@ -120,6 +120,7 @@ serve(async (req) => {
     // Upload cover image to Zalo first (Zalo can't fetch external URLs directly)
     // Zalo limit: 1MB max. Use Supabase image transform to resize if needed.
     let zaloCoverUrl = coverImageUrl;
+    let zaloCoverAttachmentId = '';
     try {
       // Try to get a smaller version via Supabase storage transform
       let downloadUrl = coverImageUrl;
@@ -173,7 +174,6 @@ serve(async (req) => {
       const uploadResult = await uploadRes.json();
       console.log('Zalo image upload result:', JSON.stringify(uploadResult));
       
-      let zaloCoverAttachmentId = '';
       if (uploadResult.error === 0 && uploadResult.data?.attachment_id) {
         zaloCoverAttachmentId = uploadResult.data.attachment_id;
         console.log('Using Zalo attachment_id:', zaloCoverAttachmentId);
