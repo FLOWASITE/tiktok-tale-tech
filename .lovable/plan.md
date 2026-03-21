@@ -1,45 +1,49 @@
 
 
-# Hoàn thiện Mockup Zalo OA
+# Thông báo rõ cho User về giới hạn gói Zalo OA
 
-## Hiện trạng
-Mockup hiện tại đã có cấu trúc cơ bản nhưng chưa sát giao diện thật của Zalo OA. Cần nâng cấp để giống giao diện Zalo thực tế hơn (tương tự mức độ chi tiết của GoogleMapsMockup).
+## Vấn đề
+Khi Zalo OA đang dùng gói "Cơ bản" (miễn phí), API đăng bài trả lỗi `-224: OA needs to upgrade OA Tier Package`. Hiện tại user không biết nguyên nhân, chỉ thấy "Failed to send" chung chung.
 
-## Cải tiến
+## Giải pháp
 
-### 1. Header chính xác hơn
-- Thêm nút **Back** (←) bên trái header
-- Icon **Quan tâm** nổi bật hơn (nút xanh viền trắng, giống Zalo thật)
-- Thêm nút **Chat** (nhắn tin cho OA) trong header
+### 1. Lưu `package_name` khi kết nối OA
+**File:** `supabase/functions/zalo-oauth-callback/index.ts`
+- Thêm `oa_package: oaInfo.data?.package_name || null` vào `metadata` của `connectionData` (dòng 179-184)
+- Thêm `package_name` vào response JSON trả về proxy (dòng ~200)
 
-### 2. Tách Title & Body từ content
-- Tự động trích dòng đầu tiên (heading hoặc dòng text đầu) làm **tiêu đề bài viết** hiển thị đậm, lớn
-- Phần còn lại render markdown bên dưới
-- Thêm thời gian đọc ước tính ("3 phút đọc")
+### 2. Hiển thị cảnh báo gói OA trên callback thành công
+**File:** `src/pages/ZaloCallback.tsx`
+- Đọc thêm param `package_name` từ query
+- Nếu `package_name` là "Cơ bản" hoặc "Basic" → hiển thị alert vàng: "OA của bạn đang dùng gói Cơ bản. Tính năng đăng bài qua API yêu cầu nâng cấp gói tại oa.zalo.me/home/pricing"
+- Vẫn hiển thị kết nối thành công (vì OAuth đã OK, chỉ publish bị giới hạn)
 
-### 3. Bài viết dạng Article (giống Zalo thật)
-- Cover image full-width
-- Tiêu đề bài viết font lớn, đậm bên dưới ảnh
-- Tên OA + thời gian + badge xác thực ngay dưới title
-- Body content với typography chuẩn article
-- Thêm tag/category badge phía trên title ("Tin tức", "Khuyến mãi")
+### 3. Hiển thị badge cảnh báo trong SocialConnectionsManager
+**File:** `src/components/social/SocialConnectionsManager.tsx`
+- Khi hiển thị connection Zalo OA đã kết nối, kiểm tra `metadata.oa_package`
+- Nếu gói "Cơ bản" → hiển thị badge vàng "Gói cơ bản - Hạn chế đăng bài API" + link nâng cấp
 
-### 4. Engagement section cải tiến
-- Reaction icons đúng Zalo: ❤️ 😆 😮 😢 😡 (thay vì chỉ ThumbsUp/Heart)
-- Hiển thị "Bạn và 846 người khác" khi liked
-- Số lượt xem bài viết (👁 1.2K lượt xem)
+### 4. Xử lý lỗi publish rõ ràng hơn
+**File:** `supabase/functions/publish-zalo/index.ts`
+- Bắt error code `-224` cụ thể → trả message tiếng Việt: "Zalo OA đang dùng gói Cơ bản, không hỗ trợ đăng bài qua API. Vui lòng nâng cấp gói tại oa.zalo.me/home/pricing"
+- Thêm field `errorCode: 'OA_TIER_LIMITED'` để frontend xử lý riêng
 
-### 5. Bottom section
-- Thêm phần **"Bài viết liên quan"** với 2 thumbnail nhỏ (giả lập)
-- CTA "Nhắn tin cho OA" nổi bật cuối bài
-- Footer: "Xem trước Zalo Official Account"
+### 5. Frontend hiển thị lỗi OA Tier thân thiện
+**File:** `src/hooks/useDirectPublish.ts`
+- Kiểm tra nếu error chứa `OA_TIER_LIMITED` hoặc "upgrade OA Tier" → toast riêng với link nâng cấp và mô tả rõ ràng thay vì lỗi generic
 
-### 6. Bottom nav bar chuẩn Zalo
-- Đổi icons + labels đúng: Tin nhắn, Danh bạ, Khám phá, Nhật ký, Cá nhân (5 tab thay vì 4)
+### 6. Cập nhật proxy page
+**File:** `src/pages/ZaloOAuthProxy.tsx`
+- Forward `package_name` từ response sang redirect params
 
-## File thay đổi
+## Files thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| `src/components/preview/ZaloOAMockup.tsx` | Viết lại toàn bộ với cấu trúc article mới, engagement cải tiến, bottom nav 5 tab |
+| `supabase/functions/zalo-oauth-callback/index.ts` | Lưu `oa_package` vào metadata, trả `package_name` trong response |
+| `supabase/functions/publish-zalo/index.ts` | Bắt error `-224`, trả message tiếng Việt + errorCode |
+| `src/pages/ZaloCallback.tsx` | Hiển thị cảnh báo gói Cơ bản |
+| `src/pages/ZaloOAuthProxy.tsx` | Forward `package_name` param |
+| `src/components/social/SocialConnectionsManager.tsx` | Badge cảnh báo gói OA |
+| `src/hooks/useDirectPublish.ts` | Toast thân thiện cho lỗi OA Tier |
 
