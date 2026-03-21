@@ -1,46 +1,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { Buffer } from "node:buffer";
+import { decryptCredential, encrypt } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Encryption helpers
-function encrypt(text: string, key: string): string {
-  const iv = randomBytes(16);
-  const keyBuffer = Buffer.alloc(32);
-  Buffer.from(key).copy(keyBuffer);
-  const cipher = createCipheriv('aes-256-cbc', keyBuffer, iv);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return iv.toString('hex') + ':' + encrypted;
-}
-
-function decrypt(encryptedText: string, key: string): string {
-  try {
-    const textParts = encryptedText.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-    let decrypted = decipher.update(encryptedData);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
-}
-
 const ALLOWED_ORIGIN_PATTERNS = [
   /^https:\/\/.*\.lovable\.app$/,
   /^https:\/\/.*\.lovableproject\.com$/,
   /^http:\/\/localhost(:\d+)?$/,
   /^https:\/\/.*\.supabase\.co$/,
+  /^https:\/\/.*\.flowa\.one$/,
+  /^https:\/\/.*\.flowa\.vn$/,
 ];
 
 function isAllowedOrigin(origin: string): boolean {
@@ -59,10 +32,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Determine if this is a POST (from proxy page) or GET (direct redirect)
   const isPostFromProxy = req.method === 'POST';
-
-  // Try to parse state early for error redirects
   let frontendOrigin: string | null = null;
 
   try {
@@ -100,7 +70,6 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get Zalo credentials from social_platform_settings
@@ -115,8 +84,9 @@ serve(async (req) => {
       throw new Error('Zalo OA chưa được cấu hình. Liên hệ Admin.');
     }
 
-    const appId = decrypt(settings.consumer_key, encryptionKey);
-    const secretKey = decrypt(settings.consumer_secret, encryptionKey);
+    // Use shared crypto helper (supports GCM + CBC fallback)
+    const appId = await decryptCredential(settings.consumer_key);
+    const secretKey = await decryptCredential(settings.consumer_secret);
 
     if (!appId || !secretKey) {
       throw new Error('Invalid Zalo credentials');
@@ -189,8 +159,9 @@ serve(async (req) => {
 
     const { data: existingConnection } = await query.maybeSingle();
 
-    const encryptedAccessToken = encrypt(accessToken, encryptionKey);
-    const encryptedRefreshToken = refreshToken ? encrypt(refreshToken, encryptionKey) : null;
+    // Encrypt tokens using shared GCM helper
+    const encryptedAccessToken = await encrypt(accessToken);
+    const encryptedRefreshToken = refreshToken ? await encrypt(refreshToken) : null;
 
     const connectionData = {
       organization_id: organizationId || null,
@@ -264,7 +235,6 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('Zalo OAuth callback error:', error);
 
-    // POST from proxy → return JSON error
     if (isPostFromProxy) {
       return new Response(
         JSON.stringify({ success: false, error: error.message || 'Zalo OAuth failed' }),

@@ -1,39 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { Buffer } from "node:buffer";
+import { decryptCredential, encrypt } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-function encrypt(text: string, key: string): string {
-  const iv = randomBytes(16);
-  const keyBuffer = Buffer.alloc(32);
-  Buffer.from(key).copy(keyBuffer);
-  const cipher = createCipheriv('aes-256-cbc', keyBuffer, iv);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return iv.toString('hex') + ':' + encrypted;
-}
-
-function decrypt(encryptedText: string, key: string): string {
-  try {
-    const textParts = encryptedText.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-    let decrypted = decipher.update(encryptedData);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -43,7 +15,6 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { connectionId } = await req.json();
@@ -52,7 +23,6 @@ serve(async (req) => {
       throw new Error('connectionId is required');
     }
 
-    // Get connection
     const { data: connection, error: connError } = await supabase
       .from('social_connections')
       .select('*')
@@ -65,7 +35,6 @@ serve(async (req) => {
     }
 
     if (!connection.refresh_token) {
-      // No refresh token - mark as needs_reauth
       await supabase
         .from('social_connections')
         .update({
@@ -92,9 +61,10 @@ serve(async (req) => {
       throw new Error('Zalo OA settings not found');
     }
 
-    const appId = decrypt(settings.consumer_key, encryptionKey);
-    const secretKey = decrypt(settings.consumer_secret, encryptionKey);
-    const refreshToken = decrypt(connection.refresh_token, encryptionKey);
+    // Use shared crypto helper
+    const appId = await decryptCredential(settings.consumer_key);
+    const secretKey = await decryptCredential(settings.consumer_secret);
+    const refreshToken = await decryptCredential(connection.refresh_token);
 
     if (!appId || !secretKey || !refreshToken) {
       throw new Error('Invalid credentials');
@@ -102,7 +72,6 @@ serve(async (req) => {
 
     console.log(`Refreshing Zalo token for connection: ${connectionId}`);
 
-    // Refresh the token
     const tokenResponse = await fetch('https://oauth.zaloapp.com/v4/oa/access_token', {
       method: 'POST',
       headers: {
@@ -119,7 +88,6 @@ serve(async (req) => {
     const tokenData = await tokenResponse.json();
 
     if (!tokenData.access_token) {
-      // Failed to refresh - mark as needs_reauth
       await supabase
         .from('social_connections')
         .update({
@@ -142,14 +110,13 @@ serve(async (req) => {
       );
     }
 
-    // Calculate new expiry
     const expiresIn = tokenData.expires_in || 3600;
     const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-    // Encrypt and update tokens
-    const encryptedAccessToken = encrypt(tokenData.access_token, encryptionKey);
+    // Encrypt tokens using shared GCM helper
+    const encryptedAccessToken = await encrypt(tokenData.access_token);
     const encryptedRefreshToken = tokenData.refresh_token 
-      ? encrypt(tokenData.refresh_token, encryptionKey) 
+      ? await encrypt(tokenData.refresh_token) 
       : connection.refresh_token;
 
     await supabase

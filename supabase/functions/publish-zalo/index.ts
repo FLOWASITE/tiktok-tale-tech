@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createDecipheriv } from "node:crypto";
-import { Buffer } from "node:buffer";
+import { decryptCredential } from "../_shared/crypto.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,23 +21,6 @@ interface PublishRequest {
   };
 }
 
-function decrypt(encryptedText: string, key: string): string {
-  try {
-    const textParts = encryptedText.split(':');
-    const iv = Buffer.from(textParts.shift()!, 'hex');
-    const encryptedData = Buffer.from(textParts.join(':'), 'hex');
-    const keyBuffer = Buffer.alloc(32);
-    Buffer.from(key).copy(keyBuffer);
-    const decipher = createDecipheriv('aes-256-cbc', keyBuffer, iv);
-    let decrypted = decipher.update(encryptedData);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
-  } catch (error) {
-    console.error('Decryption error:', error);
-    return '';
-  }
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -47,7 +29,6 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Verify auth
@@ -86,15 +67,14 @@ serve(async (req) => {
       throw new Error('Connection is not active');
     }
 
-    // Decrypt access token
-    const accessToken = decrypt(connection.access_token, encryptionKey);
+    // Decrypt access token using shared helper
+    const accessToken = await decryptCredential(connection.access_token);
     if (!accessToken) {
       throw new Error('Failed to decrypt access token');
     }
 
     // Check if token is expired
     if (connection.token_expires_at && new Date(connection.token_expires_at) < new Date()) {
-      // Mark as needs_reauth
       await supabase
         .from('social_connections')
         .update({ 
@@ -110,10 +90,7 @@ serve(async (req) => {
 
     let result;
 
-    // Zalo OA uses broadcast messages for posting content
-    // For OA broadcast, we use the article/post API
     if (messageType === 'article' && articleData) {
-      // Create article/post on OA
       const response = await fetch('https://openapi.zalo.me/v2.0/article/create', {
         method: 'POST',
         headers: {
@@ -130,47 +107,26 @@ serve(async (req) => {
             status: 'show',
           },
           description: articleData.description,
-          body: [
-            {
-              type: 'text',
-              content: content,
-            },
-          ],
+          body: [{ type: 'text', content }],
           status: 'show',
         }),
       });
-
       result = await response.json();
     } else if (mediaUrl && mediaType === 'image') {
-      // Upload image first, then broadcast
-      // Step 1: Upload image
       const uploadResponse = await fetch('https://openapi.zalo.me/v2.0/article/upload_video_or_image?type=image', {
         method: 'POST',
         headers: {
           'access_token': accessToken,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          file: mediaUrl,
-        }),
+        body: JSON.stringify({ file: mediaUrl }),
       });
-
       const uploadResult = await uploadResponse.json();
-      
       if (uploadResult.error) {
         throw new Error(uploadResult.message || 'Failed to upload image');
       }
-
-      // For OA, image posts are typically articles with images
-      result = { 
-        success: true, 
-        message: 'Image uploaded',
-        data: uploadResult 
-      };
+      result = { success: true, message: 'Image uploaded', data: uploadResult };
     } else {
-      // Text-only broadcast message
-      // Note: Zalo OA broadcast requires recipients or is for followers
-      // For now, we'll create a text article/update
       const response = await fetch('https://openapi.zalo.me/v2.0/article/create', {
         method: 'POST',
         headers: {
@@ -182,16 +138,10 @@ serve(async (req) => {
           title: content.substring(0, 100),
           author: connection.platform_username || 'OA',
           description: content.substring(0, 200),
-          body: [
-            {
-              type: 'text',
-              content: content,
-            },
-          ],
+          body: [{ type: 'text', content }],
           status: 'show',
         }),
       });
-
       result = await response.json();
     }
 
