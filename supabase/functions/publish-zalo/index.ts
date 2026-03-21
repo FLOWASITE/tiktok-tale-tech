@@ -117,14 +117,46 @@ serve(async (req) => {
       return { type: 'text', content: trimmed };
     });
 
-    // Use photo_url directly (no upload step needed)
+    // Upload cover image to Zalo first (Zalo can't fetch external URLs directly)
+    let zaloCoverUrl = coverImageUrl;
+    try {
+      console.log('Downloading cover image to upload to Zalo...');
+      const imgResponse = await fetch(coverImageUrl);
+      if (!imgResponse.ok) {
+        throw new Error(`Failed to download cover image: ${imgResponse.status}`);
+      }
+      const imgBlob = await imgResponse.blob();
+      
+      const formData = new FormData();
+      formData.append('file', imgBlob, 'cover.jpg');
+      
+      const uploadRes = await fetch('https://openapi.zalo.me/v2.0/oa/upload/image', {
+        method: 'POST',
+        headers: {
+          'access_token': accessToken,
+        },
+        body: formData,
+      });
+      const uploadResult = await uploadRes.json();
+      console.log('Zalo image upload result:', JSON.stringify(uploadResult));
+      
+      if (uploadResult.error === 0 && uploadResult.data?.url) {
+        zaloCoverUrl = uploadResult.data.url;
+        console.log('Using Zalo-hosted cover URL:', zaloCoverUrl);
+      } else {
+        console.warn('Image upload failed, falling back to original URL:', uploadResult.message);
+      }
+    } catch (uploadErr: any) {
+      console.warn('Image upload error, using original URL:', uploadErr.message);
+    }
+
     const createArticlePayload = {
       type: 'normal',
       title: articleTitle,
       author: connection.platform_username || 'OA',
       cover: {
         cover_type: 'photo',
-        photo_url: coverImageUrl,
+        photo_url: zaloCoverUrl,
         status: 'show',
       },
       description: articleDescription,
