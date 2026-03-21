@@ -204,6 +204,13 @@ export function DirectPublishButton({
       navigate('/settings?tab=social');
       return;
     }
+
+    // Zalo OA: publish directly without confirmation dialog
+    if (platform === 'zalo_oa') {
+      handlePublish();
+      return;
+    }
+
     setEditableContent(content);
     setLinkUrl('');
     setPublishedResult(null);
