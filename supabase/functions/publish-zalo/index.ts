@@ -37,16 +37,17 @@ async function ensureZaloCompatibleCoverUrl(coverUrl: string, supabase: ReturnTy
 
     const image = await Image.decode(originalBytes);
     
-    // Zalo OA requires exactly 500x320px cover image, max 1MB
-    const needsResize = image.width !== 500 || image.height !== 320;
+    // Zalo OA: ensure max 1280px width, 16:9 ratio, max 1MB
+    const needsResize = image.width > 1280;
 
     if (!shouldOptimize && !needsResize) {
       return coverUrl;
     }
 
-    // Resize to exact 500x320 for Zalo OA
+    // Resize to max 1280px width keeping aspect ratio
     if (needsResize) {
-      image.resize(500, 320);
+      const newHeight = Math.floor(image.height * (1280 / image.width));
+      image.resize(1280, newHeight);
     }
 
     const optimizedBytes = await image.encodeJPEG(80);
