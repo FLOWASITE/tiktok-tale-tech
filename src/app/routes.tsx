@@ -52,6 +52,7 @@ import FacebookCallback from "@/pages/FacebookCallback";
 import ThreadsCallback from "@/pages/ThreadsCallback";
 import ZaloCallback from "@/pages/ZaloCallback";
 import GoogleBusinessCallback from "@/pages/GoogleBusinessCallback";
+import XCallback from "@/pages/XCallback";
 import CoreContentPage from "@/pages/CoreContentPage";
 import FlowaChatPage from "@/pages/FlowaChatPage";
 import Gallery from "@/pages/Gallery";
