@@ -150,6 +150,79 @@ async function postTweet(
   return result.data;
 }
 
+// Post tweet using OAuth 2.0 Bearer token
+async function postTweetOAuth2(
+  tweetText: string,
+  accessToken: string
+): Promise<{ id: string; text: string }> {
+  const url = "https://api.x.com/2/tweets";
+  console.log("Posting tweet via OAuth 2.0 Bearer...");
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text: tweetText }),
+  });
+
+  const responseText = await response.text();
+  console.log("Twitter API Response:", response.status, responseText);
+
+  if (!response.ok) {
+    throw new Error(`Twitter API error: ${response.status} - ${responseText}`);
+  }
+
+  const result = JSON.parse(responseText);
+  return result.data;
+}
+
+// Refresh OAuth 2.0 token
+async function refreshOAuth2Token(
+  supabase: any,
+  connectionId: string,
+  refreshToken: string
+): Promise<string> {
+  const clientId = Deno.env.get('X_CLIENT_ID')!;
+  const clientSecret = Deno.env.get('X_CLIENT_SECRET')!;
+
+  const tokenBody = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+    client_id: clientId,
+  });
+
+  const tokenResponse = await fetch('https://api.x.com/2/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': 'Basic ' + btoa(`${clientId}:${clientSecret}`),
+    },
+    body: tokenBody.toString(),
+  });
+
+  const tokenText = await tokenResponse.text();
+  if (!tokenResponse.ok) {
+    throw new Error(`Token refresh failed: ${tokenText}`);
+  }
+
+  const tokenData = JSON.parse(tokenText);
+  const tokenExpiresAt = new Date(Date.now() + (tokenData.expires_in || 7200) * 1000).toISOString();
+
+  await supabase
+    .from('social_connections')
+    .update({
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token || refreshToken,
+      token_expires_at: tokenExpiresAt,
+      last_error: null,
+    })
+    .eq('id', connectionId);
+
+  return tokenData.access_token;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -185,44 +258,7 @@ serve(async (req) => {
       throw new Error('Invalid platform for this endpoint');
     }
 
-    // Get Twitter credentials
-    const accessToken = connection.access_token;
-    const accessTokenSecret = connection.refresh_token;
-    
-    // Credential hierarchy: connection-specific > global admin settings > ENV
-    let consumerKey = connection.consumer_key;
-    let consumerSecret = connection.consumer_secret;
-    let credentialSource = 'brand-specific';
-
-    if (!consumerKey || !consumerSecret) {
-      // Try global admin settings
-      const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter');
-      
-      if (globalCreds.consumerKey && globalCreds.consumerSecret) {
-        consumerKey = globalCreds.consumerKey;
-        consumerSecret = globalCreds.consumerSecret;
-        credentialSource = 'global-admin';
-      }
-    }
-
-    // Final fallback to ENV
-    if (!consumerKey || !consumerSecret) {
-      consumerKey = consumerKey || Deno.env.get('TWITTER_CONSUMER_KEY');
-      consumerSecret = consumerSecret || Deno.env.get('TWITTER_CONSUMER_SECRET');
-      if (consumerKey && consumerSecret) {
-        credentialSource = 'environment';
-      }
-    }
-
-    if (!consumerKey || !consumerSecret) {
-      throw new Error('Twitter app credentials not configured. Please contact Admin to setup Twitter API keys.');
-    }
-
-    if (!accessToken || !accessTokenSecret) {
-      throw new Error('Twitter user credentials not found in connection');
-    }
-
-    console.log(`Using ${credentialSource} consumer keys`);
+    const isOAuth2 = connection.metadata?.oauth2_pkce === true;
 
     // Create publish attempt record
     const { data: attempt, error: attemptError } = await supabase
@@ -245,98 +281,96 @@ serve(async (req) => {
     }
 
     try {
-      // Truncate content to Twitter's 280 character limit
       const tweetContent = content.length > 280 ? content.substring(0, 277) + '...' : content;
+      let tweetResult;
 
-      // Post tweet
-      const tweetResult = await postTweet(
-        tweetContent,
-        consumerKey,
-        consumerSecret,
-        accessToken,
-        accessTokenSecret
-      );
+      if (isOAuth2) {
+        // OAuth 2.0 Bearer token flow
+        let accessToken = connection.access_token;
+
+        // Check if token expired and refresh
+        if (connection.token_expires_at && new Date(connection.token_expires_at) <= new Date()) {
+          console.log('Token expired, refreshing...');
+          if (!connection.refresh_token) throw new Error('Token expired and no refresh token available');
+          accessToken = await refreshOAuth2Token(supabase, connectionId, connection.refresh_token);
+        }
+
+        tweetResult = await postTweetOAuth2(tweetContent, accessToken);
+      } else {
+        // Legacy OAuth 1.0a flow
+        const accessToken = connection.access_token;
+        const accessTokenSecret = connection.refresh_token;
+
+        let consumerKey = connection.consumer_key;
+        let consumerSecret = connection.consumer_secret;
+        let credentialSource = 'brand-specific';
+
+        if (!consumerKey || !consumerSecret) {
+          const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter');
+          if (globalCreds.consumerKey && globalCreds.consumerSecret) {
+            consumerKey = globalCreds.consumerKey;
+            consumerSecret = globalCreds.consumerSecret;
+            credentialSource = 'global-admin';
+          }
+        }
+
+        if (!consumerKey || !consumerSecret) {
+          consumerKey = consumerKey || Deno.env.get('TWITTER_CONSUMER_KEY');
+          consumerSecret = consumerSecret || Deno.env.get('TWITTER_CONSUMER_SECRET');
+          if (consumerKey && consumerSecret) credentialSource = 'environment';
+        }
+
+        if (!consumerKey || !consumerSecret) throw new Error('Twitter app credentials not configured.');
+        if (!accessToken || !accessTokenSecret) throw new Error('Twitter user credentials not found.');
+
+        console.log(`Using ${credentialSource} consumer keys (OAuth 1.0a)`);
+        tweetResult = await postTweet(tweetContent, consumerKey, consumerSecret, accessToken, accessTokenSecret);
+      }
 
       console.log('Tweet posted successfully:', tweetResult);
 
-      // Update publish attempt with success
       if (attempt) {
-        await supabase
-          .from('publish_attempts')
-          .update({
-            status: 'success',
-            external_post_id: tweetResult.id,
-            external_post_url: `https://twitter.com/i/web/status/${tweetResult.id}`,
-            response_payload: tweetResult,
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', attempt.id);
+        await supabase.from('publish_attempts').update({
+          status: 'success',
+          external_post_id: tweetResult.id,
+          external_post_url: `https://twitter.com/i/web/status/${tweetResult.id}`,
+          response_payload: tweetResult,
+          completed_at: new Date().toISOString(),
+        }).eq('id', attempt.id);
       }
 
-      // Update connection last_used_at
-      await supabase
-        .from('social_connections')
-        .update({ last_used_at: new Date().toISOString() })
-        .eq('id', connectionId);
+      await supabase.from('social_connections').update({ last_used_at: new Date().toISOString() }).eq('id', connectionId);
 
-      // Update schedule if provided
       if (scheduleId) {
-        await supabase
-          .from('content_schedules')
-          .update({
-            publish_status: 'published',
-            published_at: new Date().toISOString(),
-            external_post_id: tweetResult.id,
-          })
-          .eq('id', scheduleId);
+        await supabase.from('content_schedules').update({
+          publish_status: 'published',
+          published_at: new Date().toISOString(),
+          external_post_id: tweetResult.id,
+        }).eq('id', scheduleId);
       }
 
-      // Log publishing action
-      await supabase
-        .from('content_publishing_logs')
-        .insert({
-          content_id: contentId || null,
-          schedule_id: scheduleId || null,
-          organization_id: connection.organization_id,
-          channel: 'twitter',
-          action: 'published',
-          details: {
-            tweet_id: tweetResult.id,
-            tweet_url: `https://twitter.com/i/web/status/${tweetResult.id}`,
-          },
-        });
+      await supabase.from('content_publishing_logs').insert({
+        content_id: contentId || null,
+        schedule_id: scheduleId || null,
+        organization_id: connection.organization_id,
+        channel: 'twitter',
+        action: 'published',
+        details: { tweet_id: tweetResult.id, tweet_url: `https://twitter.com/i/web/status/${tweetResult.id}` },
+      });
 
       return new Response(
         JSON.stringify({
           success: true,
-          data: {
-            tweetId: tweetResult.id,
-            tweetUrl: `https://twitter.com/i/web/status/${tweetResult.id}`,
-          },
+          data: { tweetId: tweetResult.id, tweetUrl: `https://twitter.com/i/web/status/${tweetResult.id}` },
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (twitterError: any) {
       console.error('Twitter API error:', twitterError);
-
-      // Update publish attempt with failure
       if (attempt) {
-        await supabase
-          .from('publish_attempts')
-          .update({
-            status: 'failed',
-            error_message: twitterError.message,
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', attempt.id);
+        await supabase.from('publish_attempts').update({ status: 'failed', error_message: twitterError.message, completed_at: new Date().toISOString() }).eq('id', attempt.id);
       }
-
-      // Update connection with last error
-      await supabase
-        .from('social_connections')
-        .update({ last_error: twitterError.message })
-        .eq('id', connectionId);
-
+      await supabase.from('social_connections').update({ last_error: twitterError.message }).eq('id', connectionId);
       throw twitterError;
     }
   } catch (error: any) {

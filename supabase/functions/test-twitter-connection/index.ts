@@ -125,7 +125,7 @@ function generateOAuthHeader(
   );
 }
 
-// Get current user from Twitter API
+// Get current user from Twitter API (OAuth 1.0a)
 async function getTwitterUser(
   consumerKey: string,
   consumerSecret: string,
@@ -133,35 +133,22 @@ async function getTwitterUser(
   accessTokenSecret: string
 ): Promise<{ id: string; name: string; username: string; profile_image_url?: string }> {
   const url = "https://api.x.com/2/users/me?user.fields=profile_image_url";
-  const method = "GET";
-
-  const oauthHeader = generateOAuthHeader(
-    method,
-    url.split('?')[0],
-    consumerKey,
-    consumerSecret,
-    accessToken,
-    accessTokenSecret
-  );
-
-  console.log("Fetching Twitter user info...");
-
-  const response = await fetch(url, {
-    method: method,
-    headers: {
-      Authorization: oauthHeader,
-    },
-  });
-
+  const oauthHeader = generateOAuthHeader("GET", url.split('?')[0], consumerKey, consumerSecret, accessToken, accessTokenSecret);
+  const response = await fetch(url, { headers: { Authorization: oauthHeader } });
   const responseText = await response.text();
-  console.log("Twitter API Response:", response.status, responseText);
+  if (!response.ok) throw new Error(`Twitter API error: ${response.status} - ${responseText}`);
+  return JSON.parse(responseText).data;
+}
 
-  if (!response.ok) {
-    throw new Error(`Twitter API error: ${response.status} - ${responseText}`);
-  }
-
-  const result = JSON.parse(responseText);
-  return result.data;
+// Get current user from Twitter API (OAuth 2.0 Bearer)
+async function getTwitterUserOAuth2(
+  accessToken: string
+): Promise<{ id: string; name: string; username: string; profile_image_url?: string }> {
+  const url = "https://api.x.com/2/users/me?user.fields=profile_image_url";
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const responseText = await response.text();
+  if (!response.ok) throw new Error(`Twitter API error: ${response.status} - ${responseText}`);
+  return JSON.parse(responseText).data;
 }
 
 serve(async (req) => {
@@ -198,57 +185,84 @@ serve(async (req) => {
       throw new Error('Invalid platform for this endpoint');
     }
 
-    // Get credentials
-    const accessToken = connection.access_token;
-    const accessTokenSecret = connection.refresh_token;
-    
-    // Credential hierarchy: connection-specific > global admin settings > ENV
-    let consumerKey = connection.consumer_key;
-    let consumerSecret = connection.consumer_secret;
-    let credentialSource = 'brand-specific';
+    const isOAuth2 = connection.metadata?.oauth2_pkce === true;
+    let twitterUser;
 
-    if (!consumerKey || !consumerSecret) {
-      // Try global admin settings
-      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-      const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter', encryptionKey);
-      
-      if (globalCreds.consumerKey && globalCreds.consumerSecret) {
-        consumerKey = globalCreds.consumerKey;
-        consumerSecret = globalCreds.consumerSecret;
-        credentialSource = 'global-admin';
+    if (isOAuth2) {
+      // OAuth 2.0 flow - use Bearer token
+      let accessToken = connection.access_token;
+
+      // Check token expiry and refresh if needed
+      if (connection.token_expires_at && new Date(connection.token_expires_at) <= new Date()) {
+        console.log('Token expired, attempting refresh...');
+        if (!connection.refresh_token) throw new Error('Token expired and no refresh token');
+
+        const clientId = Deno.env.get('X_CLIENT_ID')!;
+        const clientSecret = Deno.env.get('X_CLIENT_SECRET')!;
+
+        const tokenBody = new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: connection.refresh_token,
+          client_id: clientId,
+        });
+
+        const tokenResponse = await fetch('https://api.x.com/2/oauth2/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': 'Basic ' + btoa(`${clientId}:${clientSecret}`),
+          },
+          body: tokenBody.toString(),
+        });
+
+        const tokenText = await tokenResponse.text();
+        if (!tokenResponse.ok) throw new Error(`Token refresh failed: ${tokenText}`);
+        const tokenData = JSON.parse(tokenText);
+        accessToken = tokenData.access_token;
+
+        await supabase.from('social_connections').update({
+          access_token: tokenData.access_token,
+          refresh_token: tokenData.refresh_token || connection.refresh_token,
+          token_expires_at: new Date(Date.now() + (tokenData.expires_in || 7200) * 1000).toISOString(),
+        }).eq('id', connectionId);
       }
-    }
 
-    // Final fallback to ENV
-    if (!consumerKey || !consumerSecret) {
-      consumerKey = consumerKey || Deno.env.get('TWITTER_CONSUMER_KEY');
-      consumerSecret = consumerSecret || Deno.env.get('TWITTER_CONSUMER_SECRET');
-      if (consumerKey && consumerSecret) {
-        credentialSource = 'environment';
+      console.log('Testing via OAuth 2.0 Bearer token');
+      twitterUser = await getTwitterUserOAuth2(accessToken);
+    } else {
+      // Legacy OAuth 1.0a flow
+      const accessToken = connection.access_token;
+      const accessTokenSecret = connection.refresh_token;
+
+      let consumerKey = connection.consumer_key;
+      let consumerSecret = connection.consumer_secret;
+      let credentialSource = 'brand-specific';
+
+      if (!consumerKey || !consumerSecret) {
+        const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+        const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter', encryptionKey);
+        if (globalCreds.consumerKey && globalCreds.consumerSecret) {
+          consumerKey = globalCreds.consumerKey;
+          consumerSecret = globalCreds.consumerSecret;
+          credentialSource = 'global-admin';
+        }
       }
+
+      if (!consumerKey || !consumerSecret) {
+        consumerKey = consumerKey || Deno.env.get('TWITTER_CONSUMER_KEY');
+        consumerSecret = consumerSecret || Deno.env.get('TWITTER_CONSUMER_SECRET');
+        if (consumerKey && consumerSecret) credentialSource = 'environment';
+      }
+
+      if (!consumerKey || !consumerSecret) throw new Error('Twitter app credentials not configured.');
+      if (!accessToken || !accessTokenSecret) throw new Error('Twitter user credentials not found');
+
+      console.log(`Testing via OAuth 1.0a (${credentialSource} consumer keys)`);
+      twitterUser = await getTwitterUser(consumerKey, consumerSecret, accessToken, accessTokenSecret);
     }
-
-    if (!consumerKey || !consumerSecret) {
-      throw new Error('Twitter app credentials not configured. Please contact Admin to setup Twitter API keys.');
-    }
-
-    if (!accessToken || !accessTokenSecret) {
-      throw new Error('Twitter user credentials not found');
-    }
-
-    console.log(`Using ${credentialSource} consumer keys`);
-
-    // Test by fetching user info
-    const twitterUser = await getTwitterUser(
-      consumerKey,
-      consumerSecret,
-      accessToken,
-      accessTokenSecret
-    );
 
     console.log('Twitter user verified:', twitterUser);
 
-    // Update connection with verified user info
     const { error: updateError } = await supabase
       .from('social_connections')
       .update({
@@ -261,9 +275,7 @@ serve(async (req) => {
       })
       .eq('id', connectionId);
 
-    if (updateError) {
-      console.error('Failed to update connection:', updateError);
-    }
+    if (updateError) console.error('Failed to update connection:', updateError);
 
     return new Response(
       JSON.stringify({

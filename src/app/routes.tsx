@@ -52,6 +52,7 @@ import FacebookCallback from "@/pages/FacebookCallback";
 import ThreadsCallback from "@/pages/ThreadsCallback";
 import ZaloCallback from "@/pages/ZaloCallback";
 import GoogleBusinessCallback from "@/pages/GoogleBusinessCallback";
+import XCallback from "@/pages/XCallback";
 import CoreContentPage from "@/pages/CoreContentPage";
 import FlowaChatPage from "@/pages/FlowaChatPage";
 import Gallery from "@/pages/Gallery";
@@ -98,6 +99,7 @@ export function AppRoutes() {
       <Route path="/auth/threads/callback" element={<ThreadsCallback />} />
       <Route path="/auth/zalo/callback" element={<ZaloCallback />} />
       <Route path="/auth/google-business/callback" element={<GoogleBusinessCallback />} />
+      <Route path="/auth/x/callback" element={<XCallback />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/payment/result" element={<ProtectedRoute><AppLayout><PaymentResult /></AppLayout></ProtectedRoute>} />
 
