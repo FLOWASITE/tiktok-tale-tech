@@ -316,7 +316,10 @@ serve(async (req) => {
     }
 
     try {
-      const tweetContent = content.length > 280 ? content.substring(0, 277) + '...' : content;
+      if (content.length > 280) {
+        throw new Error('Nội dung vượt quá 280 ký tự. Vui lòng rút gọn trước khi đăng.');
+      }
+      const tweetContent = content;
       let tweetResult;
 
       if (isOAuth2) {
