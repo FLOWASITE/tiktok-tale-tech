@@ -307,7 +307,8 @@ serve(async (req) => {
       logoStyle,
       logoSizePercent,
       logoOpacity,
-      padding
+      padding,
+      channel
     );
 
     let finalImageUrl: string;
