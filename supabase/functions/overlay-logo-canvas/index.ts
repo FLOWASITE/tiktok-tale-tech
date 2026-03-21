@@ -149,10 +149,11 @@ async function compositeImages(
 
   // Channel-specific resize for optimal output
   if (channel === 'zalo_oa') {
-    // Zalo OA requires exactly 500x320px cover, max 1MB
-    if (baseImg.width !== 500 || baseImg.height !== 320) {
-      console.log(`[overlay-logo-canvas] Resizing for Zalo OA: ${baseImg.width}x${baseImg.height} → 500x320`);
-      baseImg.resize(500, 320);
+    // Zalo OA: resize to max 1280px width, 16:9 ratio, max 1MB
+    if (baseImg.width > 1280) {
+      const newHeight = Math.floor(baseImg.height * (1280 / baseImg.width));
+      console.log(`[overlay-logo-canvas] Resizing for Zalo OA: ${baseImg.width}x${baseImg.height} → 1280x${newHeight}`);
+      baseImg.resize(1280, newHeight);
     }
   } else if (baseImg.width > 1200) {
     const newHeight = Math.floor(baseImg.height * (1200 / baseImg.width));
