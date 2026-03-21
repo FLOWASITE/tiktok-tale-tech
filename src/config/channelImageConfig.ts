@@ -239,7 +239,7 @@ export function getChannelImageSpec(channel: Channel): ChannelImageSpec {
  * Aspect ratio options for UI selectors
  */
 export const ASPECT_RATIO_OPTIONS = [
-  { value: '1:1', label: '1:1 (Vuông)', description: 'Facebook, Zalo, Telegram' },
+  { value: '1:1', label: '1:1 (Vuông)', description: 'Facebook, Telegram' },
   { value: '16:9', label: '16:9 (Ngang)', description: 'YouTube, LinkedIn, Twitter, Website' },
   { value: '9:16', label: '9:16 (Dọc)', description: 'TikTok, Reels, Stories' },
   { value: '4:5', label: '4:5 (Portrait)', description: 'Instagram Feed Portrait' },
