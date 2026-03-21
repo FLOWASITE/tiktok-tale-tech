@@ -750,9 +750,14 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('Connect Social error:', error);
+    const isUnauthorized = error?.message === 'Unauthorized' || error?.message === 'Missing authorization header';
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        success: false,
+        error: isUnauthorized ? 'Unauthorized' : error.message,
+        hint: isUnauthorized ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại rồi thử kết nối lại.' : undefined,
+      }),
+      { status: isUnauthorized ? 401 : 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
