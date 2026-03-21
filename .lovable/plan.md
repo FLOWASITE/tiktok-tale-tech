@@ -1,40 +1,42 @@
 
 
-# Tối ưu UI Đăng lên Zalo OA
+# Sửa bug: Zalo upload ảnh bìa trả `attachment_id`, code đọc `url`
 
-## Vấn đề hiện tại
-1. **Icon sai** — Dialog dùng emoji `💬` cho Zalo thay vì `ZaloIcon` SVG chuẩn
-2. **Không có UI cho ảnh bìa** — Zalo OA bắt buộc ảnh bìa nhưng dialog không có phần chọn/hiển thị ảnh bìa rõ ràng, user không biết tại sao bị lỗi
-3. **Không tách title/description** — Zalo article cần title riêng (max 100 ký tự) và description (max 200 ký tự), hiện tại tự trích từ content, user không kiểm soát được
-4. **Thiếu cảnh báo yêu cầu** — Không hiển thị rõ các yêu cầu đặc biệt của Zalo OA
+## Nguyên nhân
 
-## Thay đổi
+Từ edge logs, Zalo upload API (`/v2.0/oa/upload/image`) trả về:
+```json
+{"data":{"attachment_id":"AFaH3Zv..."},"error":0,"message":"Success"}
+```
 
-### File: `src/components/social/DirectPublishButton.tsx`
+Code hiện tại (dòng 176) kiểm tra `uploadResult.data?.url` → không tìm thấy → coi là lỗi → hiển thị "Không thể upload ảnh bìa lên Zalo (Success)".
 
-**1. Sửa icon Zalo:**
-- Import `ZaloIcon` từ `@/components/icons/SocialIcons`
-- Thay `zalo_oa: () => <span>💬</span>` bằng `zalo_oa: ZaloIcon`
+**Ảnh bìa = ảnh đầu tiên đính kèm bài đăng** (`mediaUrls[0]`). User không cần làm gì thêm, chỉ cần có ảnh trong bài.
 
-**2. Thêm fields riêng cho Zalo OA trong confirm dialog:**
-- Input **Tiêu đề bài viết** (max 100 ký tự) — tự trích dòng đầu, cho phép sửa
-- Input **Mô tả ngắn** (max 200 ký tự) — tự trích 2 dòng đầu, cho phép sửa
-- Phần **Ảnh bìa** nổi bật:
-  - Nếu có `mediaUrls[0]` → hiển thị preview ảnh bìa với badge "Ảnh bìa"
-  - Nếu không có → hiển thị warning box: "⚠️ Zalo OA yêu cầu ảnh bìa. Vui lòng thêm ảnh vào nội dung trước khi đăng."
-  - Disable nút "Đăng ngay" khi không có ảnh bìa
+## Sửa `supabase/functions/publish-zalo/index.ts`
 
-**3. Truyền title/description vào publishOptions:**
-- Thêm `articleData: { title, description, coverUrl }` vào `PublishOptions` khi platform là `zalo_oa`
+### 1. Đọc `attachment_id` thay vì `url` (dòng 176-178)
+```typescript
+// Trước (sai):
+if (uploadResult.error === 0 && uploadResult.data?.url) {
+  zaloCoverUrl = uploadResult.data.url;
 
-### File: `src/hooks/useDirectPublish.ts`
+// Sau (đúng):
+if (uploadResult.error === 0 && uploadResult.data?.attachment_id) {
+  zaloCoverAttachmentId = uploadResult.data.attachment_id;
+```
 
-- Cập nhật `PublishOptions` interface thêm optional `articleData` field
+### 2. Dùng `attachment_id` trong article create payload (dòng 206-208)
+Thay `photo_url` bằng `attachment_id` khi có:
+```typescript
+cover: zaloCoverAttachmentId 
+  ? { cover_type: 'photo', photo_url: zaloCoverAttachmentId, status: 'show' }
+  : { cover_type: 'photo', photo_url: coverImageUrl, status: 'show' },
+```
 
-## Tóm tắt files
+## File thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| `src/components/social/DirectPublishButton.tsx` | Icon ZaloIcon, thêm fields title/description/cover cho Zalo, disable publish khi thiếu ảnh |
-| `src/hooks/useDirectPublish.ts` | Thêm `articleData` vào `PublishOptions` |
+| `supabase/functions/publish-zalo/index.ts` | Đọc `attachment_id` từ upload response, dùng trong article cover |
 
