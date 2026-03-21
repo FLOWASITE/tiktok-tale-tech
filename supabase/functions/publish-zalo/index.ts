@@ -145,7 +145,7 @@ serve(async (req) => {
     console.log('Zalo publish result:', result);
 
     if (result.error && result.error !== 0) {
-      if (result.error === -224) {
+      if (result.error === -224 || result.error === -201) {
         return new Response(
           JSON.stringify({
             success: false,
