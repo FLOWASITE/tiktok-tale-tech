@@ -448,8 +448,79 @@ export function DirectPublishButton({
                   </div>
                 )}
 
-                {/* Media Preview */}
-                {mediaUrls && mediaUrls.length > 0 && (
+                {/* Zalo OA Article Fields */}
+                {platform === 'zalo_oa' && (
+                  <div className="space-y-3 rounded-lg border border-border p-3 bg-muted/20">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <ZaloIcon className="h-3.5 w-3.5" />
+                      Thông tin bài viết Zalo OA
+                    </div>
+
+                    {/* Cover Image */}
+                    {zaloCoverUrl ? (
+                      <div className="relative rounded-md overflow-hidden">
+                        <img src={zaloCoverUrl} alt="Ảnh bìa" className="w-full h-32 object-cover" />
+                        <Badge className="absolute top-2 left-2 bg-background/80 backdrop-blur-sm text-foreground text-[10px]">
+                          Ảnh bìa
+                        </Badge>
+                      </div>
+                    ) : (
+                      <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 flex items-start gap-2">
+                        <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                        <div className="text-xs">
+                          <p className="font-medium text-amber-600">Thiếu ảnh bìa</p>
+                          <p className="text-muted-foreground mt-0.5">
+                            Zalo OA yêu cầu ảnh bìa để đăng bài viết. Vui lòng thêm ảnh vào nội dung trước khi đăng.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Title */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs text-muted-foreground">Tiêu đề bài viết</Label>
+                        <span className={cn(
+                          'text-[10px] font-mono tabular-nums',
+                          zaloTitle.length > 100 ? 'text-destructive' : 'text-muted-foreground'
+                        )}>
+                          {zaloTitle.length}/100
+                        </span>
+                      </div>
+                      <Input
+                        value={zaloTitle}
+                        onChange={(e) => setZaloTitle(e.target.value.substring(0, 100))}
+                        placeholder="Tiêu đề bài viết..."
+                        className="text-sm"
+                        maxLength={100}
+                      />
+                    </div>
+
+                    {/* Description */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs text-muted-foreground">Mô tả ngắn</Label>
+                        <span className={cn(
+                          'text-[10px] font-mono tabular-nums',
+                          zaloDescription.length > 200 ? 'text-destructive' : 'text-muted-foreground'
+                        )}>
+                          {zaloDescription.length}/200
+                        </span>
+                      </div>
+                      <Textarea
+                        value={zaloDescription}
+                        onChange={(e) => setZaloDescription(e.target.value.substring(0, 200))}
+                        placeholder="Mô tả ngắn cho bài viết..."
+                        rows={2}
+                        className="resize-none text-sm"
+                        maxLength={200}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Media Preview (non-Zalo platforms) */}
+                {mediaUrls && mediaUrls.length > 0 && platform !== 'zalo_oa' && (
                   <div className="rounded-lg border border-border overflow-hidden">
                     <div className="px-3 py-1.5 bg-muted/30">
                       <span className="text-xs text-muted-foreground">📷 {mediaUrls.length} ảnh đính kèm</span>
