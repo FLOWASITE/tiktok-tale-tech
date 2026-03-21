@@ -1055,98 +1055,158 @@ function TwitterMockup({ content, brandName, logoUrl, isGenerating, channelImage
   );
 }
 
-// Threads Post Mockup - Match official Threads design
+// Threads Post Mockup - Accurate Threads by Meta design
 function ThreadsMockup({ content, brandName, logoUrl, isGenerating, channelImage }: Omit<ChannelMockupFrameProps, 'channel' | 'primaryColor'>) {
   const username = brandName.toLowerCase().replace(/\s+/g, '');
   const [liked, setLiked] = useState(false);
 
   return (
-    <div className="bg-white dark:bg-[#101010] rounded-xl overflow-hidden font-['system-ui','-apple-system',sans-serif] border border-[#e0e0e0] dark:border-[#2e2e2e]">
-      {/* Post header */}
-      <div className="px-4 pt-4 pb-2 flex items-start gap-3">
-        <Avatar className="h-9 w-9 shrink-0">
-          {logoUrl ? <AvatarImage src={logoUrl} alt={brandName} /> : null}
-          <AvatarFallback className="bg-gradient-to-br from-[#000] to-[#333] text-white font-bold text-xs">
-            {brandName.charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-sm text-[#000] dark:text-white">{username}</span>
-              <Check className="w-3.5 h-3.5 text-[#0095f6]" />
+    <div className="bg-[#ffffff] dark:bg-[#101010] rounded-xl overflow-hidden font-['system-ui','-apple-system',sans-serif] border border-[#e0e0e0] dark:border-[#2e2e2e] max-w-[420px] mx-auto">
+      
+      {/* Status Bar */}
+      <div className="bg-[#ffffff] dark:bg-[#101010] px-4 py-1.5 flex items-center justify-between">
+        <span className="text-[10px] font-semibold text-[#000] dark:text-[#f5f5f5]">9:41</span>
+        <div className="flex items-center gap-1">
+          <div className="flex gap-0.5">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className={cn("w-[3px] rounded-full bg-[#000] dark:bg-white", i === 1 ? "h-1.5" : i === 2 ? "h-2" : i === 3 ? "h-2.5" : "h-3")} />
+            ))}
+          </div>
+          <div className="w-5 h-2.5 border border-[#000] dark:border-white rounded-sm ml-1">
+            <div className="w-3.5 h-full bg-[#000] dark:bg-white rounded-sm" />
+          </div>
+        </div>
+      </div>
+
+      {/* App Header */}
+      <div className="px-4 py-2 flex items-center justify-between border-b border-[#e0e0e0] dark:border-[#2e2e2e]">
+        <ChevronLeft className="w-5 h-5 text-[#000] dark:text-[#f5f5f5]" />
+        <span className="font-bold text-[15px] text-[#000] dark:text-[#f5f5f5]">Thread</span>
+        <MoreHorizontal className="w-5 h-5 text-[#000] dark:text-[#f5f5f5]" />
+      </div>
+
+      {/* Post */}
+      <div className="flex px-4 pt-3 pb-0 gap-3">
+        {/* Left column: avatar + thread line */}
+        <div className="flex flex-col items-center gap-1.5 shrink-0">
+          <Avatar className="h-9 w-9">
+            {logoUrl ? <AvatarImage src={logoUrl} alt={brandName} /> : null}
+            <AvatarFallback className="bg-gradient-to-br from-[#000] to-[#444] text-white font-bold text-xs">
+              {brandName.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          {/* Thread line */}
+          <div className="w-[2px] flex-1 bg-[#e0e0e0] dark:bg-[#333] rounded-full min-h-[20px]" />
+        </div>
+
+        {/* Right column: content */}
+        <div className="flex-1 min-w-0 pb-3">
+          {/* Username + time + menu */}
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-1">
+              <span className="font-bold text-[14px] text-[#000] dark:text-[#f5f5f5]">{username}</span>
+              <div className="w-4 h-4 bg-[#0095f6] rounded-full flex items-center justify-center">
+                <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-[#999]">
-              <span className="text-xs">2 giờ</span>
-              <MoreHorizontal className="w-5 h-5 cursor-pointer" />
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-[#999]">2h</span>
+              <MoreHorizontal className="w-5 h-5 text-[#999] cursor-pointer" />
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Content text */}
-      <div className="px-4 pb-3">
-        {isGenerating ? (
-          <div className="space-y-2 animate-pulse">
-            <div className="h-3.5 bg-[#f0f0f0] dark:bg-[#2a2a2a] rounded w-full" />
-            <div className="h-3.5 bg-[#f0f0f0] dark:bg-[#2a2a2a] rounded w-5/6" />
-            <div className="h-3.5 bg-[#f0f0f0] dark:bg-[#2a2a2a] rounded w-3/4" />
+          {/* Content */}
+          {isGenerating ? (
+            <div className="space-y-2 animate-pulse">
+              <div className="h-3.5 bg-[#f0f0f0] dark:bg-[#2a2a2a] rounded w-full" />
+              <div className="h-3.5 bg-[#f0f0f0] dark:bg-[#2a2a2a] rounded w-5/6" />
+              <div className="h-3.5 bg-[#f0f0f0] dark:bg-[#2a2a2a] rounded w-3/4" />
+            </div>
+          ) : (
+            <div className="text-[14px] text-[#000] dark:text-[#f5f5f5] leading-[1.45] whitespace-pre-wrap">
+              <ReactMarkdown components={mockupMarkdownComponents}>{content}</ReactMarkdown>
+            </div>
+          )}
+
+          {/* Image */}
+          {channelImage && (
+            <div className="mt-2.5 rounded-lg overflow-hidden border border-[#e0e0e0] dark:border-[#2e2e2e]">
+              <img src={channelImage} alt="Post" className="w-full aspect-[4/3] object-cover" />
+            </div>
+          )}
+
+          {/* Action buttons - inline with content */}
+          <div className="flex items-center gap-4 mt-3 -ml-1">
+            <button 
+              onClick={() => setLiked(!liked)}
+              className="transition-all duration-200 hover:scale-110 active:scale-90"
+            >
+              <Heart className={cn(
+                "w-[20px] h-[20px] transition-all duration-300",
+                liked ? "text-[#ff3040] fill-[#ff3040]" : "text-[#000] dark:text-[#999]"
+              )} />
+            </button>
+            <button className="transition-all duration-200 hover:scale-110 active:scale-90">
+              <MessageCircle className="w-[20px] h-[20px] text-[#000] dark:text-[#999]" />
+            </button>
+            <button className="transition-all duration-200 hover:scale-110 active:scale-90">
+              <Repeat2 className="w-[20px] h-[20px] text-[#000] dark:text-[#999]" />
+            </button>
+            <button className="transition-all duration-200 hover:scale-110 active:scale-90">
+              <Send className="w-[20px] h-[20px] text-[#000] dark:text-[#999]" />
+            </button>
           </div>
-        ) : (
-          <div className="text-[15px] text-[#000] dark:text-[#f5f5f5] leading-[1.4] whitespace-pre-wrap">
-            <ReactMarkdown components={mockupMarkdownComponents}>{content}</ReactMarkdown>
-          </div>
-        )}
+        </div>
       </div>
 
-      {/* Image - show if available */}
-      {channelImage && (
-        <div className="mx-4 mb-3 rounded-lg overflow-hidden border border-[#e0e0e0] dark:border-[#2e2e2e]">
-          <img 
-            src={channelImage} 
-            alt="Post image" 
-            className="w-full aspect-square object-cover"
-          />
+      {/* Reply avatars + stats */}
+      <div className="flex items-center gap-3 px-4 pb-3 pl-[52px]">
+        {/* Stacked reply avatars */}
+        <div className="flex -space-x-2">
+          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#833ab4] to-[#fd1d1d] border-[1.5px] border-white dark:border-[#101010]" />
+          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#0095f6] to-[#00d4ff] border-[1.5px] border-white dark:border-[#101010]" />
+          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#f77737] to-[#fcaf45] border-[1.5px] border-white dark:border-[#101010]" />
         </div>
-      )}
-
-      {/* Action buttons */}
-      <div className="px-4 pb-3 flex items-center gap-5">
-        <button 
-          onClick={() => setLiked(!liked)}
-          className="transition-all duration-200 hover:scale-110 active:scale-90"
-        >
-          <Heart className={cn(
-            "w-5 h-5 transition-all duration-300",
-            liked ? "text-[#ff3040] fill-[#ff3040]" : "text-[#000] dark:text-[#f5f5f5]"
-          )} />
-        </button>
-        <button className="transition-all duration-200 hover:scale-110 active:scale-90">
-          <MessageCircle className="w-5 h-5 text-[#000] dark:text-[#f5f5f5]" />
-        </button>
-        <button className="transition-all duration-200 hover:scale-110 active:scale-90">
-          <Repeat2 className="w-5 h-5 text-[#000] dark:text-[#f5f5f5]" />
-        </button>
-        <button className="transition-all duration-200 hover:scale-110 active:scale-90">
-          <Send className="w-5 h-5 text-[#000] dark:text-[#f5f5f5]" />
-        </button>
-      </div>
-
-      {/* Engagement stats */}
-      <div className="px-4 pb-3 flex items-center gap-2">
-        <div className="flex -space-x-1.5">
-          <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#833ab4] to-[#fd1d1d] border border-white dark:border-[#101010]" />
-          <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#0095f6] to-[#00d4ff] border border-white dark:border-[#101010]" />
-        </div>
-        <span className="text-xs text-[#999]">42 lượt thích · 8 trả lời</span>
+        <span className="text-[12px] text-[#999]">{liked ? '43' : '42'} lượt thích · 8 trả lời</span>
       </div>
 
       {/* Divider */}
-      <div className="border-t border-[#e0e0e0] dark:border-[#2e2e2e] mx-4" />
+      <div className="border-t border-[#e0e0e0] dark:border-[#2e2e2e]" />
 
-      {/* Reply prompt */}
-      <div className="px-4 py-3">
-        <p className="text-sm text-[#999]">Trả lời {username}...</p>
+      {/* Reply section */}
+      <div className="flex items-center gap-3 px-4 py-3">
+        <Avatar className="h-6 w-6 shrink-0">
+          <AvatarFallback className="bg-[#e0e0e0] dark:bg-[#333] text-[#666] dark:text-[#999] text-[8px] font-medium">
+            U
+          </AvatarFallback>
+        </Avatar>
+        <span className="text-[14px] text-[#999]">Trả lời {username}</span>
+      </div>
+
+      {/* Bottom Navigation - Threads style */}
+      <div className="border-t border-[#e0e0e0] dark:border-[#2e2e2e] px-2 py-2 grid grid-cols-5 gap-0">
+        {[
+          { icon: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[22px] h-[22px]"><path d="M3 12L5 10M5 10L12 3L19 10M5 10V20C5 20.5523 5.44772 21 6 21H9M19 10L21 12M19 10V20C19 20.5523 18.5523 21 18 21H15M9 21C9 21 9 15.5 12 15.5C15 15.5 15 21 15 21M9 21H15"/></svg>, active: false },
+          { icon: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[22px] h-[22px]"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>, active: false },
+          { icon: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-[22px] h-[22px]"><path d="M12 5v14M5 12h14"/></svg>, active: false },
+          { icon: () => <Heart className="w-[22px] h-[22px]" />, active: false },
+          { icon: () => <svg viewBox="0 0 24 24" fill="currentColor" className="w-[22px] h-[22px]"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm0-14a6 6 0 100 12 6 6 0 000-12z"/></svg>, active: true },
+        ].map((item, i) => (
+          <button
+            key={i}
+            className={cn(
+              "flex items-center justify-center py-1.5 transition-colors",
+              item.active ? "text-[#000] dark:text-[#f5f5f5]" : "text-[#b8b8b8] dark:text-[#555]"
+            )}
+          >
+            {item.icon()}
+          </button>
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div className="bg-[#fafafa] dark:bg-[#0a0a0a] px-3 py-1.5 text-center border-t border-[#e0e0e0] dark:border-[#2e2e2e]">
+        <span className="text-[9px] text-[#999]/50">Xem trước · Threads by Meta</span>
       </div>
     </div>
   );
