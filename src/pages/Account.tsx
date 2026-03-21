@@ -18,9 +18,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   User, Mail, Calendar, Crown, Zap, FileText, 
   Images, Layers, Wand2, Upload, Save, CreditCard, History,
-  Globe, MessageCircle, Youtube, Send, Building2
+  Globe, Youtube, Send, Building2
 } from "lucide-react";
-import { Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
+import { Facebook, Instagram, Linkedin } from "lucide-react";
+import { ZaloIcon, XIcon } from "@/components/icons/SocialIcons";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import type { Channel } from "@/types/multichannel";
