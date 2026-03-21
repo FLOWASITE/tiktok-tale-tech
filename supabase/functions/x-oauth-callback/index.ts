@@ -18,8 +18,7 @@ function getFrontendUrl(stateOrigin?: string | null): string {
   if (stateOrigin && isAllowedOrigin(stateOrigin)) return stateOrigin;
   const configured = Deno.env.get('FRONTEND_URL');
   if (configured) return configured;
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-  return supabaseUrl.replace('.supabase.co', '.lovableproject.com');
+  return 'https://tiktok-tale-tech.lovable.app';
 }
 
 serve(async (req) => {
