@@ -59,16 +59,29 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Determine if this is a POST (from proxy page) or GET (direct redirect)
+  const isPostFromProxy = req.method === 'POST';
+
   // Try to parse state early for error redirects
   let frontendOrigin: string | null = null;
 
   try {
-    const url = new URL(req.url);
-    const code = url.searchParams.get('code');
-    const state = url.searchParams.get('state');
-    const oaId = url.searchParams.get('oa_id');
+    let code: string | null;
+    let state: string | null;
+    let oaId: string | null = null;
 
-    console.log('Zalo OAuth callback received:', { code: !!code, state: !!state, oaId });
+    if (isPostFromProxy) {
+      const body = await req.json();
+      code = body.code || null;
+      state = body.state || null;
+    } else {
+      const url = new URL(req.url);
+      code = url.searchParams.get('code');
+      state = url.searchParams.get('state');
+      oaId = url.searchParams.get('oa_id');
+    }
+
+    console.log('Zalo OAuth callback received:', { code: !!code, state: !!state, oaId, isPostFromProxy });
 
     if (!code || !state) {
       throw new Error('Missing code or state parameter');
@@ -109,9 +122,13 @@ serve(async (req) => {
       throw new Error('Invalid Zalo credentials');
     }
 
+    // Build redirect URI matching what was used in connect-social
+    const isProductionOrigin = frontendOrigin && (frontendOrigin.includes('flowa.one') || frontendOrigin.includes('flowa.vn'));
+    const redirectUri = isProductionOrigin
+      ? 'https://app.flowa.one/api/zalo/callback'
+      : `${supabaseUrl}/functions/v1/zalo-oauth-callback`;
+
     // Exchange code for access token
-    const redirectUri = `${supabaseUrl}/functions/v1/zalo-oauth-callback`;
-    
     const tokenResponse = await fetch('https://oauth.zaloapp.com/v4/oa/access_token', {
       method: 'POST',
       headers: {
@@ -218,6 +235,20 @@ serve(async (req) => {
 
     console.log('Zalo OA connection saved:', connection.id);
 
+    // POST from proxy → return JSON
+    if (isPostFromProxy) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Kết nối Zalo OA thành công!',
+          username: oaName,
+          brand_template_id: brandTemplateId,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // GET direct redirect → 302
     const redirectParams = new URLSearchParams({
       success: 'true',
       platform: 'zalo_oa',
@@ -232,6 +263,14 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('Zalo OAuth callback error:', error);
+
+    // POST from proxy → return JSON error
+    if (isPostFromProxy) {
+      return new Response(
+        JSON.stringify({ success: false, error: error.message || 'Zalo OAuth failed' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     const frontendUrl = getFrontendUrl(frontendOrigin);
     const redirectParams = new URLSearchParams({
