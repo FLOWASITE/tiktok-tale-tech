@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import {
   Dialog,
   DialogContent,
