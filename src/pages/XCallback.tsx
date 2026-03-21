@@ -7,9 +7,9 @@ import { useToast } from '@/hooks/use-toast';
 
 const ERROR_MAP: Record<string, { title: string; message: string; hint?: string }> = {
   x_client_not_enrolled: {
-    title: 'Ứng dụng X chưa cấu hình đúng',
-    message: 'App X chưa được gắn vào Project trên Developer Portal.',
-    hint: 'Vào developer.x.com → tạo Project → gắn App vào Project đó, sau đó thử lại.',
+    title: 'App X chưa đủ quyền truy cập',
+    message: 'App X chưa đủ quyền API v2. Có thể do chưa gắn Project, API tier không phù hợp, hoặc Client ID/Secret không khớp.',
+    hint: 'Checklist: (1) App phải nằm trong Project trên developer.x.com, (2) Project cần API access Basic trở lên, (3) X_CLIENT_ID và X_CLIENT_SECRET phải khớp app đã gắn Project.',
   },
   x_token_exchange_failed: {
     title: 'Không thể xác thực',
@@ -34,9 +34,10 @@ export default function XCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'success' | 'warning' | 'error'>('loading');
   const [errorInfo, setErrorInfo] = useState<{ title: string; message: string; hint?: string } | null>(null);
   const [username, setUsername] = useState('');
+  const [warningCode, setWarningCode] = useState<string | null>(null);
   const brandTemplateId = searchParams.get('brand_template_id');
 
   const goBack = () => navigate(brandTemplateId ? `/brands/${brandTemplateId}` : '/brands', { replace: true });
@@ -48,12 +49,21 @@ export default function XCallback() {
     const errorHint = searchParams.get('error_hint');
     const usernameParam = searchParams.get('username');
     const displayName = searchParams.get('display_name');
+    const warning = searchParams.get('warning');
 
     if (success === 'true') {
-      setStatus('success');
-      setUsername(usernameParam || displayName || 'X Account');
-      toast({ title: 'Kết nối thành công!', description: `Tài khoản X @${usernameParam} đã được kết nối.` });
-      setTimeout(goBack, 3000);
+      if (warning) {
+        setStatus('warning');
+        setWarningCode(warning);
+        setUsername(usernameParam || displayName || 'X Account');
+        toast({ title: 'Kết nối hạn chế', description: 'Token đã lưu nhưng chưa lấy được thông tin profile. Kiểm tra API access trên X Developer Portal.' });
+        setTimeout(goBack, 5000);
+      } else {
+        setStatus('success');
+        setUsername(usernameParam || displayName || 'X Account');
+        toast({ title: 'Kết nối thành công!', description: `Tài khoản X @${usernameParam} đã được kết nối.` });
+        setTimeout(goBack, 3000);
+      }
     } else if (error) {
       setStatus('error');
       const mapped = ERROR_MAP[error] || {
@@ -78,6 +88,7 @@ export default function XCallback() {
           <CardTitle className="text-xl">
             {status === 'loading' && 'Đang kết nối X...'}
             {status === 'success' && 'Kết nối thành công!'}
+            {status === 'warning' && 'Kết nối hạn chế'}
             {status === 'error' && (errorInfo?.title || 'Kết nối thất bại')}
           </CardTitle>
         </CardHeader>
@@ -96,6 +107,31 @@ export default function XCallback() {
                 <p className="font-medium">@{username}</p>
                 <p className="text-xs text-muted-foreground">Tự động chuyển hướng sau 3 giây...</p>
               </div>
+              <Button onClick={goBack} className="w-full">Đi đến Thương hiệu</Button>
+            </>
+          )}
+
+          {status === 'warning' && (
+            <>
+              <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto" />
+              <div className="space-y-2">
+                <p className="font-medium text-amber-600">Token đã lưu thành công</p>
+                <p className="text-sm text-muted-foreground">
+                  Kết nối đã được lưu nhưng chưa lấy được thông tin profile từ X.
+                </p>
+              </div>
+              <div className="flex items-start gap-2 text-left bg-muted/50 rounded-lg p-3">
+                <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p className="font-medium">Để hoạt động đầy đủ, kiểm tra:</p>
+                  <ol className="list-decimal list-inside space-y-0.5">
+                    <li>App đã gắn vào Project trên developer.x.com</li>
+                    <li>Project có API access <strong>Basic</strong> trở lên</li>
+                    <li>Client ID/Secret khớp đúng app trong Project</li>
+                  </ol>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Tự động chuyển hướng sau 5 giây...</p>
               <Button onClick={goBack} className="w-full">Đi đến Thương hiệu</Button>
             </>
           )}
