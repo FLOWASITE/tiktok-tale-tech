@@ -1573,30 +1573,6 @@ export function MultiChannelViewer({
                                 />
                               )}
                               
-                              {/* Quick Actions: Schedule + Post Now */}
-                              <div className="flex justify-center gap-2 pt-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => { setShowSchedule(true); setShowGallery(false); setShowTeamPanel(false); }}
-                                  className="gap-2"
-                                >
-                                  <CalendarClock className="w-4 h-4" />
-                                  Lên lịch đăng bài
-                                </Button>
-                                <DirectPublishButton
-                                  content={channelContent || ''}
-                                  contentId={content.id}
-                                  channel={channel}
-                                  brandTemplateId={content.brand_template_id || undefined}
-                                  mediaUrls={(() => {
-                                    const imgUrl = generatedImages[channel] || content.channel_images?.[channel]?.url;
-                                    return imgUrl ? [imgUrl] : undefined;
-                                  })()}
-                                  variant="default"
-                                  size="sm"
-                                />
-                              </div>
                             </div>
                           )
                         )}
