@@ -1,42 +1,38 @@
 
 
-# Sửa bug: Zalo upload ảnh bìa trả `attachment_id`, code đọc `url`
+# Fix: Resize ảnh trong overlay-logo-canvas + Bỏ render URL trong publish-zalo
 
 ## Nguyên nhân
+- `overlay-logo-canvas` encode output là **PNG** (dòng 196), file 2MB+
+- `publish-zalo` chuyển sang `/render/image/public/` để resize (dòng 123-128), nhưng Zalo không tải được từ endpoint này → lỗi `-200`
 
-Từ edge logs, Zalo upload API (`/v2.0/oa/upload/image`) trả về:
-```json
-{"data":{"attachment_id":"AFaH3Zv..."},"error":0,"message":"Success"}
-```
+## Thay đổi
 
-Code hiện tại (dòng 176) kiểm tra `uploadResult.data?.url` → không tìm thấy → coi là lỗi → hiển thị "Không thể upload ảnh bìa lên Zalo (Success)".
+### 1. `supabase/functions/overlay-logo-canvas/index.ts`
 
-**Ảnh bìa = ảnh đầu tiên đính kèm bài đăng** (`mediaUrls[0]`). User không cần làm gì thêm, chỉ cần có ảnh trong bài.
+**Resize ảnh gốc xuống max 800px width trước khi composite** (dòng 146, trong `compositeImages`):
+- Sau khi decode base image, nếu `baseImg.width > 800` → `baseImg.resize(800, auto)` giữ tỷ lệ
+- Giữ nguyên nếu ảnh đã ≤ 800px
 
-## Sửa `supabase/functions/publish-zalo/index.ts`
+**Encode sang JPEG thay PNG** (dòng 196):
+- Thay `baseImg.encode()` (PNG) bằng `baseImg.encodeJPEG(80)` (JPEG quality 80%)
+- Output < 200KB thay vì 2MB
 
-### 1. Đọc `attachment_id` thay vì `url` (dòng 176-178)
-```typescript
-// Trước (sai):
-if (uploadResult.error === 0 && uploadResult.data?.url) {
-  zaloCoverUrl = uploadResult.data.url;
+**Cập nhật upload path** (dòng 217):
+- Đổi extension từ `.png` sang `.jpg`
+- Đổi `contentType` từ `image/png` sang `image/jpeg`
 
-// Sau (đúng):
-if (uploadResult.error === 0 && uploadResult.data?.attachment_id) {
-  zaloCoverAttachmentId = uploadResult.data.attachment_id;
-```
+### 2. `supabase/functions/publish-zalo/index.ts`
 
-### 2. Dùng `attachment_id` trong article create payload (dòng 206-208)
-Thay `photo_url` bằng `attachment_id` khi có:
-```typescript
-cover: zaloCoverAttachmentId 
-  ? { cover_type: 'photo', photo_url: zaloCoverAttachmentId, status: 'show' }
-  : { cover_type: 'photo', photo_url: coverImageUrl, status: 'show' },
-```
+**Bỏ logic render URL** (dòng 120-128):
+- Xóa toàn bộ block chuyển `/object/public/` → `/render/image/public/`
+- Dùng `coverImageUrl` gốc trực tiếp làm `photo_url` cho Zalo
+- Ảnh đã được resize sẵn ở bước overlay, không cần transform nữa
 
-## File thay đổi
+## Files thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| `supabase/functions/publish-zalo/index.ts` | Đọc `attachment_id` từ upload response, dùng trong article cover |
+| `supabase/functions/overlay-logo-canvas/index.ts` | Resize base image ≤800px, encode JPEG 80%, upload `.jpg` |
+| `supabase/functions/publish-zalo/index.ts` | Bỏ render URL transform, dùng URL gốc |
 
