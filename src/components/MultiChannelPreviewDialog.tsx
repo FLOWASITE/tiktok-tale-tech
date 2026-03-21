@@ -14,12 +14,10 @@ import {
   Globe, 
   Facebook, 
   Instagram, 
-  Twitter, 
   MapPin, 
   Linkedin, 
   Mail, 
   Youtube, 
-  MessageCircle, 
   Send, 
   Music2, 
   AtSign,
@@ -31,6 +29,7 @@ import {
   RotateCcw,
   Wand2
 } from "lucide-react";
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Channel, ContentGoal, CONTENT_GOALS, CHANNELS } from "@/types/multichannel";
