@@ -125,7 +125,7 @@ function generateOAuthHeader(
   );
 }
 
-// Get current user from Twitter API
+// Get current user from Twitter API (OAuth 1.0a)
 async function getTwitterUser(
   consumerKey: string,
   consumerSecret: string,
@@ -133,35 +133,22 @@ async function getTwitterUser(
   accessTokenSecret: string
 ): Promise<{ id: string; name: string; username: string; profile_image_url?: string }> {
   const url = "https://api.x.com/2/users/me?user.fields=profile_image_url";
-  const method = "GET";
-
-  const oauthHeader = generateOAuthHeader(
-    method,
-    url.split('?')[0],
-    consumerKey,
-    consumerSecret,
-    accessToken,
-    accessTokenSecret
-  );
-
-  console.log("Fetching Twitter user info...");
-
-  const response = await fetch(url, {
-    method: method,
-    headers: {
-      Authorization: oauthHeader,
-    },
-  });
-
+  const oauthHeader = generateOAuthHeader("GET", url.split('?')[0], consumerKey, consumerSecret, accessToken, accessTokenSecret);
+  const response = await fetch(url, { headers: { Authorization: oauthHeader } });
   const responseText = await response.text();
-  console.log("Twitter API Response:", response.status, responseText);
+  if (!response.ok) throw new Error(`Twitter API error: ${response.status} - ${responseText}`);
+  return JSON.parse(responseText).data;
+}
 
-  if (!response.ok) {
-    throw new Error(`Twitter API error: ${response.status} - ${responseText}`);
-  }
-
-  const result = JSON.parse(responseText);
-  return result.data;
+// Get current user from Twitter API (OAuth 2.0 Bearer)
+async function getTwitterUserOAuth2(
+  accessToken: string
+): Promise<{ id: string; name: string; username: string; profile_image_url?: string }> {
+  const url = "https://api.x.com/2/users/me?user.fields=profile_image_url";
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const responseText = await response.text();
+  if (!response.ok) throw new Error(`Twitter API error: ${response.status} - ${responseText}`);
+  return JSON.parse(responseText).data;
 }
 
 serve(async (req) => {

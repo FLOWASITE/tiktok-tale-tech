@@ -189,12 +189,6 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       return;
     }
 
-    if (platform === 'twitter') {
-      setSelectedPlatform(platform);
-      setSetupDialogOpen(true);
-      return;
-    }
-
     if (platform === 'website') {
       setSelectedPlatform(platform);
       setWebsiteDialogOpen(true);
