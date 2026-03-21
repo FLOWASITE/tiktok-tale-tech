@@ -129,6 +129,8 @@ export function DirectPublishButton({
   const [editableContent, setEditableContent] = useState(content);
   const [linkUrl, setLinkUrl] = useState('');
   const [publishedResult, setPublishedResult] = useState<{ postId?: string; postUrl?: string } | null>(null);
+  const [zaloTitle, setZaloTitle] = useState('');
+  const [zaloDescription, setZaloDescription] = useState('');
 
   const [scheduleDialog, setScheduleDialog] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>();
