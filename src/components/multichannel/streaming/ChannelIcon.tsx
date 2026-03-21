@@ -2,14 +2,32 @@ import {
   Facebook, 
   Instagram, 
   Mail, 
-  MessageCircle,
   Globe,
   Linkedin,
-  Twitter,
   Youtube,
+  MapPin,
+  Send,
+  Music2,
+  AtSign,
   LucideIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ZaloIcon, XIcon } from "@/components/icons/SocialIcons";
+
+/* Wrapper to make custom SVG icons behave like LucideIcon */
+const ZaloLucide: LucideIcon = Object.assign(
+  ({ size = 24, className, ...props }: any) => (
+    <ZaloIcon width={size} height={size} className={className} {...props} />
+  ),
+  { displayName: 'ZaloLucide' }
+) as unknown as LucideIcon;
+
+const XLucide: LucideIcon = Object.assign(
+  ({ size = 24, className, ...props }: any) => (
+    <XIcon width={size} height={size} className={className} {...props} />
+  ),
+  { displayName: 'XLucide' }
+) as unknown as LucideIcon;
 
 const channelConfig: Record<string, { 
   icon: LucideIcon; 
@@ -27,13 +45,13 @@ const channelConfig: Record<string, {
     label: "Instagram"
   },
   tiktok: { 
-    icon: Globe, 
+    icon: Music2, 
     bgClass: "bg-black text-white",
     label: "TikTok"
   },
   threads: { 
-    icon: MessageCircle, 
-    bgClass: "bg-gray-900 text-white",
+    icon: AtSign, 
+    bgClass: "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900",
     label: "Threads"
   },
   email: { 
@@ -42,9 +60,14 @@ const channelConfig: Record<string, {
     label: "Email"
   },
   zalo: { 
-    icon: MessageCircle, 
-    bgClass: "bg-blue-600 text-white",
+    icon: ZaloLucide, 
+    bgClass: "bg-[#0068FF] text-white",
     label: "Zalo"
+  },
+  zalo_oa: { 
+    icon: ZaloLucide, 
+    bgClass: "bg-[#0068FF] text-white",
+    label: "Zalo OA"
   },
   linkedin: { 
     icon: Linkedin, 
@@ -52,13 +75,13 @@ const channelConfig: Record<string, {
     label: "LinkedIn"
   },
   twitter: { 
-    icon: Twitter, 
-    bgClass: "bg-sky-500 text-white",
-    label: "Twitter"
+    icon: XLucide, 
+    bgClass: "bg-black text-white dark:bg-white dark:text-black",
+    label: "X"
   },
   x: { 
-    icon: Twitter, 
-    bgClass: "bg-black text-white",
+    icon: XLucide, 
+    bgClass: "bg-black text-white dark:bg-white dark:text-black",
     label: "X"
   },
   youtube: { 
@@ -70,6 +93,16 @@ const channelConfig: Record<string, {
     icon: Globe, 
     bgClass: "bg-primary text-primary-foreground",
     label: "Website"
+  },
+  google_maps: { 
+    icon: MapPin, 
+    bgClass: "bg-green-600 text-white",
+    label: "Google Maps"
+  },
+  telegram: { 
+    icon: Send, 
+    bgClass: "bg-sky-500 text-white",
+    label: "Telegram"
   },
 };
 

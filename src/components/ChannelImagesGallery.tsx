@@ -12,12 +12,10 @@ import {
   Globe,
   Facebook,
   Instagram,
-  Twitter,
   MapPin,
   Linkedin,
   Mail,
   Youtube,
-  MessageCircle,
   Send,
   Loader2,
   Music2,
@@ -25,6 +23,7 @@ import {
   RefreshCw,
   Info
 } from 'lucide-react';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import { Channel, ChannelImage, ChannelImages } from '@/types/multichannel';
 import { toast } from 'sonner';
 import {
@@ -78,8 +77,8 @@ const channelConfig: Record<Channel, {
     bgColor: 'bg-pink-500/20',
   },
   twitter: { 
-    label: 'Twitter', 
-    icon: <Twitter className="w-3 h-3" />, 
+    label: 'X', 
+    icon: <XIcon className="w-3 h-3" />, 
     color: 'text-slate-400',
     bgColor: 'bg-slate-500/20',
   },
@@ -109,7 +108,7 @@ const channelConfig: Record<Channel, {
   },
   zalo_oa: { 
     label: 'Zalo OA', 
-    icon: <MessageCircle className="w-3 h-3" />, 
+    icon: <ZaloIcon className="w-3 h-3" />, 
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/20',
   },

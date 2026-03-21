@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, ChevronDown, ChevronUp, RotateCcw, Info, Music2, AtSign, Zap, FileText, Eye, Copy, Check, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Globe, Facebook, Instagram, MapPin, Linkedin, Mail, Youtube, Send, ChevronDown, ChevronUp, RotateCcw, Info, Music2, AtSign, Zap, FileText, Eye, Copy, Check, AlertTriangle, AlertCircle } from 'lucide-react';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -65,12 +66,12 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-4 h-4" />,
   facebook: <Facebook className="w-4 h-4" />,
   instagram: <Instagram className="w-4 h-4" />,
-  twitter: <Twitter className="w-4 h-4" />,
+  twitter: <XIcon className="w-4 h-4" />,
   google_maps: <MapPin className="w-4 h-4" />,
   linkedin: <Linkedin className="w-4 h-4" />,
   email: <Mail className="w-4 h-4" />,
   youtube: <Youtube className="w-4 h-4" />,
-  zalo_oa: <MessageCircle className="w-4 h-4" />,
+  zalo_oa: <ZaloIcon className="w-4 h-4" />,
   telegram: <Send className="w-4 h-4" />,
   tiktok: <Music2 className="w-4 h-4" />,
   threads: <AtSign className="w-4 h-4" />,

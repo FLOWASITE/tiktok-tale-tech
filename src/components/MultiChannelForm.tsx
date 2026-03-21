@@ -12,7 +12,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Loader2, Sparkles, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, CheckSquare, Square, Timer, Info, Music2, AtSign, Eye, ChevronDown, ChevronUp, Book } from 'lucide-react';
+import { Loader2, Sparkles, Globe, Facebook, Instagram, MapPin, Linkedin, Mail, Youtube, Send, CheckSquare, Square, Timer, Info, Music2, AtSign, Eye, ChevronDown, ChevronUp, Book } from 'lucide-react';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import { MultiChannelFormData, ContentGoal, ContentAngle, Channel, CHANNELS } from '@/types/multichannel';
 import { ContentAngleSelector } from '@/components/multichannel/ContentAngleSelector';
 import { MultiChannelHookGenerator } from '@/components/multichannel/MultiChannelHookGenerator';
@@ -49,12 +50,12 @@ const channelIcons: Record<Channel, React.ReactNode> = {
   website: <Globe className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   facebook: <Facebook className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   instagram: <Instagram className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-  twitter: <Twitter className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  twitter: <XIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   google_maps: <MapPin className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   linkedin: <Linkedin className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   email: <Mail className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   youtube: <Youtube className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
-  zalo_oa: <MessageCircle className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
+  zalo_oa: <ZaloIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   telegram: <Send className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   tiktok: <Music2 className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
   threads: <AtSign className="w-3.5 h-3.5 xs:w-4 xs:h-4" />,
