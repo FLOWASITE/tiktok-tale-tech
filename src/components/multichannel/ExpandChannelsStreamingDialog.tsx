@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, CheckCircle2, X, Loader2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, Music2, AtSign, Sparkles } from 'lucide-react';
+import { Plus, CheckCircle2, X, Loader2, Globe, Facebook, Instagram, MapPin, Linkedin, Mail, Youtube, Send, Music2, AtSign, Sparkles } from 'lucide-react';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import {
   Dialog,
   DialogContent,
