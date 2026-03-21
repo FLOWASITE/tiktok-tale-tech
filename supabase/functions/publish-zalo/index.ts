@@ -139,35 +139,13 @@ serve(async (req) => {
           message: { text: content },
         }),
       });
-      const csResult = await response.json();
-      
-      // Fallback: if broadcast fails, try creating article without cover
-      if (csResult.error && csResult.error !== 0) {
-        const articleResponse = await fetch('https://openapi.zalo.me/v2.0/article/create', {
-          method: 'POST',
-          headers: {
-            'access_token': accessToken,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            type: 'normal',
-            title: content.substring(0, 100),
-            author: connection.platform_username || 'OA',
-            description: content.substring(0, 200),
-            body: [{ type: 'text', content }],
-            status: 'show',
-          }),
-        });
-        result = await articleResponse.json();
-      } else {
-        result = csResult;
-      }
+      result = await response.json();
     }
 
     console.log('Zalo publish result:', result);
 
     if (result.error && result.error !== 0) {
-      if (result.error === -224) {
+      if (result.error === -224 || result.error === -201) {
         return new Response(
           JSON.stringify({
             success: false,
