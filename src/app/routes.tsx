@@ -51,6 +51,7 @@ import LinkedInCallback from "@/pages/LinkedInCallback";
 import FacebookCallback from "@/pages/FacebookCallback";
 import ThreadsCallback from "@/pages/ThreadsCallback";
 import ZaloCallback from "@/pages/ZaloCallback";
+import ZaloOAuthProxy from "@/pages/ZaloOAuthProxy";
 import GoogleBusinessCallback from "@/pages/GoogleBusinessCallback";
 import XCallback from "@/pages/XCallback";
 import CoreContentPage from "@/pages/CoreContentPage";
@@ -98,6 +99,7 @@ export function AppRoutes() {
       <Route path="/auth/facebook/callback" element={<FacebookCallback />} />
       <Route path="/auth/threads/callback" element={<ThreadsCallback />} />
       <Route path="/auth/zalo/callback" element={<ZaloCallback />} />
+      <Route path="/api/zalo/callback" element={<ZaloOAuthProxy />} />
       <Route path="/auth/google-business/callback" element={<GoogleBusinessCallback />} />
       <Route path="/auth/x/callback" element={<XCallback />} />
       <Route path="/reset-password" element={<ResetPassword />} />
