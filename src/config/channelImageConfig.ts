@@ -258,7 +258,7 @@ export const CHANNEL_OPTIMAL_ASPECT_RATIO: Record<Channel, string> = {
   twitter: '16:9',
   linkedin: '16:9',
   email: '16:9',
-  zalo_oa: '1:1',
+  zalo_oa: '25:16',
   telegram: '1:1',
   google_maps: '1:1',
 };
