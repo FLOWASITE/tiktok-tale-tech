@@ -174,7 +174,7 @@ export function useScripts() {
 
   useEffect(() => {
     fetchScripts();
-  }, [user]);
+  }, [user, currentOrganization?.id]);
 
   const updateScript = (updatedScript: Script) => {
     setScripts((prev) =>
