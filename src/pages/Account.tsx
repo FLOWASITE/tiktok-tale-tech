@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   User, Mail, Calendar, Crown, Zap, FileText, 
   Images, Layers, Wand2, Upload, Save, CreditCard, History,
-  Globe, Youtube, Send, Building2
+  Globe, Youtube, Send, Building2, AtSign
 } from "lucide-react";
 import { Facebook, Instagram, Linkedin } from "lucide-react";
 import { ZaloIcon, XIcon } from "@/components/icons/SocialIcons";
