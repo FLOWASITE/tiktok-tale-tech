@@ -140,17 +140,24 @@ async function compositeImages(
   logoStyle: LogoStyle,
   logoSizePercent: number,
   logoOpacity: number,
-  padding: number
+  padding: number,
+  channel?: string
 ): Promise<Uint8Array> {
   console.log(`[overlay-logo-canvas] Decoding base image (${baseImageBytes.length} bytes)...`);
   const baseImg = await Image.decode(baseImageBytes);
   console.log(`[overlay-logo-canvas] Base image dimensions: ${baseImg.width}x${baseImg.height}`);
 
-  // Resize base image to max 800px width for Zalo OA compatibility (<1MB)
-  if (baseImg.width > 800) {
-    const newHeight = Math.floor(baseImg.height * (800 / baseImg.width));
-    console.log(`[overlay-logo-canvas] Resizing base image from ${baseImg.width}x${baseImg.height} to 800x${newHeight}`);
-    baseImg.resize(800, newHeight);
+  // Channel-specific resize for optimal output
+  if (channel === 'zalo_oa') {
+    // Zalo OA requires exactly 500x320px cover, max 1MB
+    if (baseImg.width !== 500 || baseImg.height !== 320) {
+      console.log(`[overlay-logo-canvas] Resizing for Zalo OA: ${baseImg.width}x${baseImg.height} → 500x320`);
+      baseImg.resize(500, 320);
+    }
+  } else if (baseImg.width > 1200) {
+    const newHeight = Math.floor(baseImg.height * (1200 / baseImg.width));
+    console.log(`[overlay-logo-canvas] Resizing base image from ${baseImg.width}x${baseImg.height} to 1200x${newHeight}`);
+    baseImg.resize(1200, newHeight);
   }
   
   // Validate base image
