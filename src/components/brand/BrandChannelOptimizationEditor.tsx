@@ -223,17 +223,20 @@ export function BrandChannelOptimizationEditor({ brandTemplateId }: BrandChannel
                 </Badge>
               )}
             </CardTitle>
-            {channelsWithoutOptimization.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 h-8"
-                onClick={() => handleEditChannel(channelsWithoutOptimization[0])}
-              >
-                <Settings2 className="w-3.5 h-3.5" />
-                Chỉnh sửa kênh
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-8"
+              onClick={() => {
+                const targetChannel = channelsWithoutOptimization.length > 0 
+                  ? channelsWithoutOptimization[0] 
+                  : optimizations[0]?.channel;
+                if (targetChannel) handleEditChannel(targetChannel);
+              }}
+            >
+              <Settings2 className="w-3.5 h-3.5" />
+              Chỉnh sửa kênh
+            </Button>
           </div>
           <CardDescription>
             Tùy chỉnh cách AI tạo nội dung cho từng kênh của thương hiệu này
