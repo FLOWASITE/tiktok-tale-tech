@@ -44,6 +44,7 @@ import { CharacterTypeSelector } from '@/components/script/CharacterTypeSelector
 import { CharacterTypeRecommendations } from '@/components/script/CharacterTypeRecommendations';
 import { StepIndicator, Step } from '@/components/script/StepIndicator';
 import { HookStepContent } from '@/components/script/HookStepContent';
+import { ScriptGenerationProgress } from '@/components/script/ScriptGenerationProgress';
 import { ScriptPurposeSelector } from '@/components/script/ScriptPurposeSelector';
 import { VoiceRegionSelector } from '@/components/script/VoiceRegionSelector';
 import { DialogueStyleSelector } from '@/components/script/DialogueStyleSelector';
@@ -561,7 +562,15 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         )}
 
         {/* ====== Step 2: Smart Summary + Generate ====== */}
-        {currentStep === 2 && (
+        {currentStep === 2 && isLoading && (
+          <ScriptGenerationProgress
+            isActive={isLoading}
+            topic={formData.topic}
+            videoType={formData.video_type}
+            duration={formData.duration}
+          />
+        )}
+        {currentStep === 2 && !isLoading && (
           <div className="space-y-5 animate-fade-in">
             {/* Header with topic context */}
             <div className="text-center py-3">
@@ -798,7 +807,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="animate-pulse">{LOADING_PHASES[loadingPhase]}</span>
+                <span>Đang tạo...</span>
               </>
             ) : (
               <>
