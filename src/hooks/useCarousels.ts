@@ -14,7 +14,7 @@ export function useCarousels() {
   const generatingRef = useRef(false);
 
   const fetchCarousels = async () => {
-    if (!user) {
+    if (!user || !currentOrganization) {
       setCarousels([]);
       setLoading(false);
       return;
@@ -24,6 +24,7 @@ export function useCarousels() {
       const { data, error } = await supabase
         .from('carousels')
         .select('*')
+        .eq('organization_id', currentOrganization.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
