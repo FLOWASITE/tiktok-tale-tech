@@ -19,8 +19,10 @@ export function autoSelectLogoPosition(
   if (channel === 'tiktok') return 'top-right';
   // YouTube 16:9: top-left (traditional placement)
   if (channel === 'youtube') return 'top-left';
-  // Instagram/Threads/Zalo (1:1): bottom-right
-  if (channel === 'instagram' || channel === 'threads' || channel === 'zalo_oa') return 'bottom-right';
+  // Zalo OA (25:16 banner): bottom-right
+  if (channel === 'zalo_oa') return 'bottom-right';
+  // Instagram/Threads (1:1): bottom-right
+  if (channel === 'instagram' || channel === 'threads') return 'bottom-right';
   // Facebook/LinkedIn (16:9): bottom-right
   if (channel === 'facebook' || channel === 'linkedin') return 'bottom-right';
   // Default

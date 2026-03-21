@@ -173,20 +173,21 @@ export const CHANNEL_IMAGE_CONFIG: Record<Channel, ChannelImageSpec> = {
     avoidElements: ['heavy gradients', 'complex animations', 'too many colors', 'small text'],
   },
   zalo_oa: {
-    size: '1080x1080',
-    aspectRatio: '1:1',
+    size: '500x320',
+    aspectRatio: '25:16',
     style: 'friendly, approachable, Vietnamese context',
-    tips: 'Mobile-optimized, local appeal, clear CTA',
+    tips: 'Mobile-optimized, local appeal, clear CTA. Zalo OA yêu cầu ảnh 500x320px, tối đa 1MB.',
     mood: 'familiar, trustworthy, local',
-    composition: 'clear focal point, works on mobile screens',
+    composition: 'clear focal point, works on mobile screens, optimized for 500x320 banner format',
     visualDirections: [
       'Mobile-first design for Vietnamese users',
       'Culturally appropriate imagery',
       'Clear and simple messaging through visuals',
       'Family and community themes resonate well',
       'Consider Vietnamese color preferences (red for luck, gold for prosperity)',
+      'Image must be exactly 500x320px for Zalo OA article cover',
     ],
-    avoidElements: ['Western-centric imagery', 'overly complex compositions', 'culturally insensitive elements'],
+    avoidElements: ['Western-centric imagery', 'overly complex compositions', 'culturally insensitive elements', 'images larger than 1MB'],
   },
   telegram: {
     size: '1080x1080',
@@ -238,7 +239,7 @@ export function getChannelImageSpec(channel: Channel): ChannelImageSpec {
  * Aspect ratio options for UI selectors
  */
 export const ASPECT_RATIO_OPTIONS = [
-  { value: '1:1', label: '1:1 (Vuông)', description: 'Facebook, Zalo, Telegram' },
+  { value: '1:1', label: '1:1 (Vuông)', description: 'Facebook, Telegram' },
   { value: '16:9', label: '16:9 (Ngang)', description: 'YouTube, LinkedIn, Twitter, Website' },
   { value: '9:16', label: '9:16 (Dọc)', description: 'TikTok, Reels, Stories' },
   { value: '4:5', label: '4:5 (Portrait)', description: 'Instagram Feed Portrait' },
@@ -257,7 +258,7 @@ export const CHANNEL_OPTIMAL_ASPECT_RATIO: Record<Channel, string> = {
   twitter: '16:9',
   linkedin: '16:9',
   email: '16:9',
-  zalo_oa: '1:1',
+  zalo_oa: '25:16',
   telegram: '1:1',
   google_maps: '1:1',
 };
