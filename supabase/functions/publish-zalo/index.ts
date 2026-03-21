@@ -104,62 +104,27 @@ serve(async (req) => {
 
     console.log(`Publishing article to Zalo OA: ${connection.platform_username}, cover: ${coverImageUrl?.substring(0, 80)}...`);
 
-    // Step 1: Upload cover image to Zalo
-    const uploadFormData = new FormData();
-    const imageResponse = await fetch(coverImageUrl);
-    const imageBlob = await imageResponse.blob();
-    uploadFormData.append('file', imageBlob, 'cover.png');
-
-    const uploadRes = await fetch('https://openapi.zalo.me/v2.0/article/upload_video_or_image?type=image', {
-      method: 'POST',
-      headers: {
-        'access_token': accessToken,
-      },
-      body: uploadFormData,
-    });
-    const uploadResult = await uploadRes.json();
-    console.log('Zalo image upload result:', JSON.stringify(uploadResult));
-
-    if (uploadResult.error && uploadResult.error !== 0) {
-      // Check for tier limitation on upload
-      if (uploadResult.error === -224) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            errorCode: 'OA_TIER_LIMITED',
-            error: 'Zalo OA đang dùng gói Cơ bản, không hỗ trợ đăng bài qua API. Vui lòng nâng cấp gói tại https://oa.zalo.me/home/pricing',
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      throw new Error(uploadResult.message || 'Failed to upload cover image to Zalo');
-    }
-
-    const zaloPhotoId = uploadResult.data?.photo_id;
-    if (!zaloPhotoId) {
-      throw new Error('Zalo did not return a photo_id after upload');
-    }
-
-    // Step 2: Extract title from content (first line or first 100 chars)
+    // Extract title from content (first line or first 100 chars)
     const lines = content.split('\n').filter(l => l.trim());
     const rawTitle = articleData?.title || lines[0] || 'Bài viết mới';
     const articleTitle = rawTitle.replace(/[*#_~`]/g, '').trim().substring(0, 100);
     const articleDescription = articleData?.description || lines.slice(0, 2).join(' ').replace(/[*#_~`]/g, '').trim().substring(0, 200);
 
-    // Step 3: Create article with uploaded photo as cover
+    // Build article body
     const articleBody = content.split('\n').map(line => {
       const trimmed = line.trim();
       if (!trimmed) return { type: 'text', content: ' ' };
       return { type: 'text', content: trimmed };
     });
 
+    // Use photo_url directly (no upload step needed)
     const createArticlePayload = {
       type: 'normal',
       title: articleTitle,
       author: connection.platform_username || 'OA',
       cover: {
         cover_type: 'photo',
-        photo_id: zaloPhotoId,
+        photo_url: coverImageUrl,
         status: 'show',
       },
       description: articleDescription,
