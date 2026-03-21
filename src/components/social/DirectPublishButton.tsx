@@ -116,7 +116,7 @@ export function DirectPublishButton({
     brandTemplateId,
     organizationId: currentOrganization?.id,
   });
-  const { publishToTwitter, publishToFacebook, isPublishing } = useDirectPublish();
+  const { publishToTwitter, publishToFacebook, publishToZaloOA, isPublishing } = useDirectPublish();
   const { upsertSchedule } = useContentSchedules(contentId);
 
   const [confirmDialog, setConfirmDialog] = useState<{
