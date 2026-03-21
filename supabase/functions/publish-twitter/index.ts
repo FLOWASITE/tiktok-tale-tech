@@ -16,6 +16,27 @@ interface PublishRequest {
   scheduleId?: string;
 }
 
+function extractTwitterStatusCode(message?: string): number | null {
+  if (!message) return null;
+  const match = message.match(/Twitter API error:\s*(\d{3})/);
+  if (!match) return null;
+  const code = Number(match[1]);
+  return Number.isFinite(code) ? code : null;
+}
+
+function isTransientTwitterError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  const statusCode = extractTwitterStatusCode(message);
+  return statusCode !== null && statusCode >= 500 && statusCode < 600;
+}
+
+function buildTransientTwitterMessage(statusCode: number | null): string {
+  if (statusCode === 503) {
+    return 'X API đang tạm thời gián đoạn (503). Hệ thống đã thử lại tự động, vui lòng thử lại sau 1-2 phút.';
+  }
+  return 'X API đang tạm thời lỗi (5xx). Hệ thống đã thử lại tự động, vui lòng thử lại sau ít phút.';
+}
+
 // Get global platform credentials from social_platform_settings
 async function getGlobalPlatformCredentials(
   supabase: any,
@@ -381,14 +402,66 @@ serve(async (req) => {
       );
     } catch (twitterError: any) {
       console.error('Twitter API error:', twitterError);
+
       if (attempt) {
-        await supabase.from('publish_attempts').update({ status: 'failed', error_message: twitterError.message, completed_at: new Date().toISOString() }).eq('id', attempt.id);
+        await supabase.from('publish_attempts').update({
+          status: 'failed',
+          error_message: twitterError.message,
+          completed_at: new Date().toISOString(),
+        }).eq('id', attempt.id);
       }
-      await supabase.from('social_connections').update({ last_error: twitterError.message }).eq('id', connectionId);
+
+      await supabase.from('social_connections').update({
+        last_error: twitterError.message,
+      }).eq('id', connectionId);
+
+      if (scheduleId) {
+        await supabase.from('content_schedules').update({
+          publish_status: 'failed',
+          last_error: twitterError.message,
+          last_attempt_at: new Date().toISOString(),
+        }).eq('id', scheduleId);
+      }
+
+      const transient = isTransientTwitterError(twitterError);
+      if (transient) {
+        const statusCode = extractTwitterStatusCode(twitterError?.message);
+        const friendlyMessage = buildTransientTwitterMessage(statusCode);
+
+        return new Response(
+          JSON.stringify({
+            success: false,
+            retryable: true,
+            transient: true,
+            error: friendlyMessage,
+            details: { provider_status: statusCode, provider: 'x' },
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       throw twitterError;
     }
   } catch (error: any) {
     console.error('Publish Twitter error:', error);
+
+    const transient = isTransientTwitterError(error);
+    if (transient) {
+      const statusCode = extractTwitterStatusCode(error?.message);
+      const friendlyMessage = buildTransientTwitterMessage(statusCode);
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          retryable: true,
+          transient: true,
+          error: friendlyMessage,
+          details: { provider_status: statusCode, provider: 'x' },
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ success: false, error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
