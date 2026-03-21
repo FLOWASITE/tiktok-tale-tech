@@ -75,24 +75,44 @@ export function useSocialConnections(options: UseSocialConnectionsOptions = {}) 
       consumerKey?: string;
       consumerSecret?: string;
     }) => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('Not authenticated');
+      const invokeConnect = () =>
+        supabase.functions.invoke('connect-social', {
+          body: {
+            platform,
+            organizationId: connectOrgId || organizationId,
+            brandTemplateId: connectBrandTemplateId || brandTemplateId,
+            accessToken,
+            accessTokenSecret,
+            consumerKey,
+            consumerSecret,
+          },
+        });
 
-      const { data, error } = await supabase.functions.invoke('connect-social', {
-        body: {
-          platform,
-          organizationId: connectOrgId || organizationId,
-          brandTemplateId: connectBrandTemplateId || brandTemplateId,
-          accessToken,
-          accessTokenSecret,
-          consumerKey,
-          consumerSecret,
-        },
-      });
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.access_token) {
+        const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError || !refreshed.session?.access_token) {
+          throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+        }
+      }
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data;
+      let result = await invokeConnect();
+
+      const isUnauthorized =
+        result.error?.message?.includes('Unauthorized') ||
+        (typeof result.data?.error === 'string' && result.data.error.includes('Unauthorized'));
+
+      if (isUnauthorized) {
+        const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError || !refreshed.session?.access_token) {
+          throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+        }
+        result = await invokeConnect();
+      }
+
+      if (result.error) throw result.error;
+      if (result.data?.error) throw new Error(result.data.error);
+      return result.data;
     },
     onSuccess: (data) => {
       if (data.requiresManualSetup || data.requiresOAuth) {
