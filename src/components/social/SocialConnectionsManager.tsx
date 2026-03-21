@@ -313,17 +313,28 @@ export function SocialConnectionsManager() {
                           {connection.last_error}
                         </p>
                       )}
-                      {connection && platform === 'zalo_oa' && (connection as any).metadata?.oa_package && ['Cơ bản', 'Basic'].includes((connection as any).metadata.oa_package) && (
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <AlertTriangle className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
-                          <span className="text-xs text-yellow-700 dark:text-yellow-300">
-                            Gói cơ bản — Hạn chế đăng bài API.{' '}
-                            <a href="https://oa.zalo.me/home/pricing" target="_blank" rel="noopener noreferrer" className="underline">
-                              Nâng cấp
-                            </a>
-                          </span>
-                        </div>
-                      )}
+                      {connection && platform === 'zalo_oa' && (connection as any).metadata?.oa_package && (() => {
+                        const pkg = (connection as any).metadata.oa_package;
+                        const isBasic = ['Cơ bản', 'Basic'].includes(pkg);
+                        return isBasic ? (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <AlertTriangle className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
+                            <span className="text-xs text-yellow-700 dark:text-yellow-300">
+                              Gói Cơ bản — Hạn chế đăng bài API.{' '}
+                              <a href="https://oa.zalo.me/home/pricing" target="_blank" rel="noopener noreferrer" className="underline">
+                                Nâng cấp
+                              </a>
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
+                            <span className="text-xs text-green-700 dark:text-green-300">
+                              Gói {pkg} ✓
+                            </span>
+                          </div>
+                        );
+                      })()}
                       {!connection && (
                         <p className="text-sm text-muted-foreground">{config.description}</p>
                       )}

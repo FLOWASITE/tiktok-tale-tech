@@ -10,6 +10,7 @@ const corsHeaders = {
 interface PublishRequest {
   connectionId: string;
   content: string;
+  mediaUrls?: string[];
   mediaUrl?: string;
   mediaType?: 'image' | 'file';
   messageType?: 'text' | 'image' | 'file' | 'article';
@@ -45,7 +46,7 @@ serve(async (req) => {
     }
 
     const body: PublishRequest = await req.json();
-    const { connectionId, content, mediaUrl, mediaType, messageType = 'text', articleData } = body;
+    const { connectionId, content, mediaUrls, mediaUrl, mediaType, messageType, articleData } = body;
 
     if (!connectionId || !content) {
       throw new Error('connectionId and content are required');
@@ -86,66 +87,42 @@ serve(async (req) => {
       throw new Error('Token expired. Please reconnect Zalo OA.');
     }
 
-    console.log(`Publishing to Zalo OA: ${connection.platform_username}, type: ${messageType}`);
+    // Determine cover image URL from various sources
+    const coverImageUrl = articleData?.coverUrl || mediaUrls?.[0] || mediaUrl || null;
 
-    let result;
-
-    if (messageType === 'article' && articleData) {
-      const response = await fetch('https://openapi.zalo.me/v2.0/article/create', {
-        method: 'POST',
-        headers: {
-          'access_token': accessToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type: 'normal',
-          title: articleData.title,
-          author: connection.platform_username || 'OA',
-          cover: {
-            cover_type: 'photo',
-            photo_url: articleData.coverUrl,
-            status: 'show',
-          },
-          description: articleData.description,
-          body: [{ type: 'text', content }],
-          status: 'show',
+    // Zalo OA Article API requires a cover image
+    if (!coverImageUrl) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          errorCode: 'MISSING_COVER_IMAGE',
+          error: 'Zalo OA yêu cầu ảnh bìa để đăng bài viết. Vui lòng thêm ảnh cho bài viết.',
         }),
-      });
-      result = await response.json();
-    } else if (mediaUrl && mediaType === 'image') {
-      const uploadResponse = await fetch('https://openapi.zalo.me/v2.0/article/upload_video_or_image?type=image', {
-        method: 'POST',
-        headers: {
-          'access_token': accessToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ file: mediaUrl }),
-      });
-      const uploadResult = await uploadResponse.json();
-      if (uploadResult.error) {
-        throw new Error(uploadResult.message || 'Failed to upload image');
-      }
-      result = { success: true, message: 'Image uploaded', data: uploadResult };
-    } else {
-      // Use broadcast API for text-only posts (no cover image required)
-      const response = await fetch('https://openapi.zalo.me/v3.0/oa/message/cs', {
-        method: 'POST',
-        headers: {
-          'access_token': accessToken,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          recipient: { user_id: 'all' },
-          message: { text: content },
-        }),
-      });
-      result = await response.json();
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    console.log('Zalo publish result:', result);
+    console.log(`Publishing article to Zalo OA: ${connection.platform_username}, cover: ${coverImageUrl?.substring(0, 80)}...`);
 
-    if (result.error && result.error !== 0) {
-      if (result.error === -224 || result.error === -201) {
+    // Step 1: Upload cover image to Zalo
+    const uploadFormData = new FormData();
+    const imageResponse = await fetch(coverImageUrl);
+    const imageBlob = await imageResponse.blob();
+    uploadFormData.append('file', imageBlob, 'cover.png');
+
+    const uploadRes = await fetch('https://openapi.zalo.me/v2.0/article/upload_video_or_image?type=image', {
+      method: 'POST',
+      headers: {
+        'access_token': accessToken,
+      },
+      body: uploadFormData,
+    });
+    const uploadResult = await uploadRes.json();
+    console.log('Zalo image upload result:', JSON.stringify(uploadResult));
+
+    if (uploadResult.error && uploadResult.error !== 0) {
+      // Check for tier limitation on upload
+      if (uploadResult.error === -224) {
         return new Response(
           JSON.stringify({
             success: false,
@@ -155,15 +132,105 @@ serve(async (req) => {
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      throw new Error(result.message || 'Failed to publish to Zalo OA');
+      throw new Error(uploadResult.message || 'Failed to upload cover image to Zalo');
+    }
+
+    const zaloPhotoId = uploadResult.data?.photo_id;
+    if (!zaloPhotoId) {
+      throw new Error('Zalo did not return a photo_id after upload');
+    }
+
+    // Step 2: Extract title from content (first line or first 100 chars)
+    const lines = content.split('\n').filter(l => l.trim());
+    const rawTitle = articleData?.title || lines[0] || 'Bài viết mới';
+    const articleTitle = rawTitle.replace(/[*#_~`]/g, '').trim().substring(0, 100);
+    const articleDescription = articleData?.description || lines.slice(0, 2).join(' ').replace(/[*#_~`]/g, '').trim().substring(0, 200);
+
+    // Step 3: Create article with uploaded photo as cover
+    const articleBody = content.split('\n').map(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return { type: 'text', content: ' ' };
+      return { type: 'text', content: trimmed };
+    });
+
+    const createArticlePayload = {
+      type: 'normal',
+      title: articleTitle,
+      author: connection.platform_username || 'OA',
+      cover: {
+        cover_type: 'photo',
+        photo_id: zaloPhotoId,
+        status: 'show',
+      },
+      description: articleDescription,
+      body: articleBody,
+      status: 'show',
+    };
+
+    console.log('Creating Zalo article with payload:', JSON.stringify({ ...createArticlePayload, body: `[${articleBody.length} paragraphs]` }));
+
+    const createRes = await fetch('https://openapi.zalo.me/v2.0/article/create', {
+      method: 'POST',
+      headers: {
+        'access_token': accessToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(createArticlePayload),
+    });
+    const createResult = await createRes.json();
+    console.log('Zalo article create result:', JSON.stringify(createResult));
+
+    if (createResult.error && createResult.error !== 0) {
+      // Only -224 is a true tier limitation
+      if (createResult.error === -224) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            errorCode: 'OA_TIER_LIMITED',
+            error: 'Zalo OA đang dùng gói Cơ bản, không hỗ trợ đăng bài qua API. Vui lòng nâng cấp gói tại https://oa.zalo.me/home/pricing',
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw new Error(createResult.message || `Zalo API error ${createResult.error}`);
+    }
+
+    const articleToken = createResult.data?.token;
+
+    // Step 4: Verify article (publish it)
+    if (articleToken) {
+      const verifyRes = await fetch('https://openapi.zalo.me/v2.0/article/verify', {
+        method: 'POST',
+        headers: {
+          'access_token': accessToken,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token: articleToken }),
+      });
+      const verifyResult = await verifyRes.json();
+      console.log('Zalo article verify result:', JSON.stringify(verifyResult));
+
+      if (verifyResult.error && verifyResult.error !== 0) {
+        if (verifyResult.error === -224) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              errorCode: 'OA_TIER_LIMITED',
+              error: 'Zalo OA đang dùng gói Cơ bản, không hỗ trợ đăng bài qua API. Vui lòng nâng cấp gói tại https://oa.zalo.me/home/pricing',
+            }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        console.warn('Article verify warning:', verifyResult.message);
+      }
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         platform: 'zalo_oa',
-        postId: result.data?.token || result.data?.article_id,
-        message: 'Đã đăng bài thành công lên Zalo OA',
+        postId: articleToken || createResult.data?.article_id,
+        message: 'Đã đăng bài viết thành công lên Zalo OA',
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
