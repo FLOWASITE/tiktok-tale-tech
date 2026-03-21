@@ -134,7 +134,7 @@ export function useCarousels() {
 
   useEffect(() => {
     fetchCarousels();
-  }, [user]);
+  }, [user, currentOrganization?.id]);
 
   return {
     carousels,
