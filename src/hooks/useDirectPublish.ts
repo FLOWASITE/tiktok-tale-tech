@@ -48,7 +48,9 @@ export function useDirectPublish() {
       }
 
       if (!response.data?.success) {
-        throw new Error(response.data?.error || 'Failed to publish');
+        const err = new Error(response.data?.error || 'Failed to publish');
+        (err as any).errorCode = response.data?.errorCode;
+        throw err;
       }
 
       // Support both nested (data.data.postId) and flat (data.postId) response formats
