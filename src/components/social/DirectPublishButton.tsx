@@ -235,7 +235,7 @@ export function DirectPublishButton({
 
   if (!platform) return null;
 
-  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin'].includes(platform);
+  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'zalo_oa'].includes(platform);
 
   if (!isSupported) {
     return (
