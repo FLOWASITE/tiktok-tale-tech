@@ -31,7 +31,11 @@ export function useDirectPublish() {
       platform: SocialPlatform;
       options: PublishOptions;
     }): Promise<PublishResult> => {
-      const functionName = `publish-${platform}`;
+      // Map platform names to actual edge function names
+      const PLATFORM_FUNCTION_MAP: Record<string, string> = {
+        'zalo_oa': 'publish-zalo',
+      };
+      const functionName = PLATFORM_FUNCTION_MAP[platform] || `publish-${platform}`;
       
       console.log(`Publishing to ${platform}...`, options);
 
@@ -99,10 +103,18 @@ export function useDirectPublish() {
     throw new Error('Instagram not yet supported');
   };
 
+  const publishToZaloOA = async (options: PublishOptions) => {
+    return publishMutation.mutateAsync({
+      platform: 'zalo_oa',
+      options,
+    });
+  };
+
   return {
     publishToTwitter,
     publishToFacebook,
     publishToInstagram,
+    publishToZaloOA,
     isPublishing: publishMutation.isPending,
     publishResult: publishMutation.data,
     publishError: publishMutation.error,

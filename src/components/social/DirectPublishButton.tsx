@@ -94,6 +94,7 @@ const PLATFORM_ICONS: Record<SocialPlatform, React.ElementType> = {
 const PLATFORM_CHAR_LIMITS: Partial<Record<SocialPlatform, number>> = {
   twitter: 280,
   facebook: 63206,
+  zalo_oa: 2000,
 };
 
 type DialogState = 'confirm' | 'success';
@@ -115,7 +116,7 @@ export function DirectPublishButton({
     brandTemplateId,
     organizationId: currentOrganization?.id,
   });
-  const { publishToTwitter, publishToFacebook, isPublishing } = useDirectPublish();
+  const { publishToTwitter, publishToFacebook, publishToZaloOA, isPublishing } = useDirectPublish();
   const { upsertSchedule } = useContentSchedules(contentId);
 
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -163,6 +164,9 @@ export function DirectPublishButton({
           break;
         case 'facebook':
           result = await publishToFacebook(publishOptions);
+          break;
+        case 'zalo_oa':
+          result = await publishToZaloOA(publishOptions);
           break;
         default:
           console.warn(`Platform ${platform} not yet supported`);
@@ -234,7 +238,7 @@ export function DirectPublishButton({
 
   if (!platform) return null;
 
-  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin'].includes(platform);
+  const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'zalo_oa'].includes(platform);
 
   if (!isSupported) {
     return (
@@ -319,6 +323,7 @@ export function DirectPublishButton({
                 platform === 'twitter' && 'bg-foreground/5',
                 platform === 'instagram' && 'bg-[hsl(330,70%,50%)]/10',
                 platform === 'linkedin' && 'bg-[hsl(201,100%,35%)]/10',
+                platform === 'zalo_oa' && 'bg-[hsl(210,100%,50%)]/10',
               )}>
                 <div className={cn(
                   'flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl',
@@ -326,7 +331,8 @@ export function DirectPublishButton({
                   platform === 'twitter' && 'bg-foreground text-background',
                   platform === 'instagram' && 'bg-gradient-to-br from-[hsl(37,97%,60%)] via-[hsl(330,70%,50%)] to-[hsl(270,70%,55%)] text-white',
                   platform === 'linkedin' && 'bg-[hsl(201,100%,35%)] text-white',
-                  !['facebook','twitter','instagram','linkedin'].includes(platform || '') && 'bg-primary text-primary-foreground',
+                  platform === 'zalo_oa' && 'bg-[hsl(210,100%,50%)] text-white',
+                  !['facebook','twitter','instagram','linkedin','zalo_oa'].includes(platform || '') && 'bg-primary text-primary-foreground',
                 )}>
                   <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
@@ -466,6 +472,7 @@ export function DirectPublishButton({
                     platform === 'facebook' && 'bg-[hsl(220,46%,48%)] hover:bg-[hsl(220,46%,42%)] text-white',
                     platform === 'twitter' && 'bg-foreground hover:bg-foreground/90 text-background',
                     platform === 'linkedin' && 'bg-[hsl(201,100%,35%)] hover:bg-[hsl(201,100%,30%)] text-white',
+                    platform === 'zalo_oa' && 'bg-[hsl(210,100%,50%)] hover:bg-[hsl(210,100%,45%)] text-white',
                   )}
                 >
                   {isPublishing ? (

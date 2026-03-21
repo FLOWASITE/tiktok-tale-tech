@@ -649,7 +649,7 @@ serve(async (req) => {
 
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const redirectUri = `${supabaseUrl}/functions/v1/zalo-oauth-callback`;
-      const state = btoa(JSON.stringify({ brandTemplateId, organizationId, userId: user.id }));
+      const state = btoa(JSON.stringify({ brandTemplateId, organizationId, userId: user.id, frontendOrigin: requestOrigin || null }));
 
       const oauthUrl = `https://oauth.zaloapp.com/v4/oa/permission?` + new URLSearchParams({
         app_id: globalCreds.consumerKey,
