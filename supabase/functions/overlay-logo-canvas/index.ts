@@ -316,7 +316,7 @@ serve(async (req) => {
     } else {
       // Return as base64 data URL
       const base64 = btoa(String.fromCharCode(...compositedBytes));
-      finalImageUrl = `data:image/png;base64,${base64}`;
+      finalImageUrl = `data:image/jpeg;base64,${base64}`;
     }
 
     console.log(`[overlay-logo-canvas] Success - Final URL length: ${finalImageUrl.length}`);
