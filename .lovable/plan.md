@@ -1,46 +1,36 @@
 
 
-# Sửa lỗi Zalo OA: Nhầm lỗi user_id thành lỗi gói Cơ bản
+# Sửa lỗi: Zalo OA báo thành công nhưng bài không được đăng
 
 ## Nguyên nhân gốc
 
-Từ edge logs, Zalo API trả về `{ error: -201, message: "user_id is invalid" }`. Đây là lỗi do gửi `recipient: { user_id: 'all' }` vào broadcast API — giá trị `'all'` không hợp lệ. **Không phải lỗi gói OA.**
+Từ edge logs:
+1. `article/create` → **Success** (error: 0), trả về token
+2. `article/verify` → **Error -214**: `"Media is being processed. Please wait for a moment"`
 
-Nhưng code hiện tại gộp error `-201` vào cùng nhóm `-224` (OA_TIER_LIMITED), nên hiển thị nhầm "Zalo OA đang dùng gói Cơ bản".
+Code hiện tại (dòng 189) chỉ `console.warn` lỗi `-214` rồi vẫn trả `success: true`. Bài viết chưa thực sự được publish vì Zalo chưa xử lý xong ảnh bìa.
 
-DB xác nhận: `oa_package = 'Nâng cao'` — OA này đã nâng cấp rồi.
+## Giải pháp
 
-## Kế hoạch sửa
+### Sửa `supabase/functions/publish-zalo/index.ts`
 
-### 1. Sửa `publish-zalo` Edge Function — Dùng Article API thay Broadcast
-- Bỏ fallback broadcast API (`/v3.0/oa/message/cs`) vì API đó dùng để gửi tin nhắn cho user cụ thể, không phải đăng bài
-- Dùng **Article API** (`/v2.0/article/create`) làm phương thức đăng bài chính
-- Yêu cầu bắt buộc có `mediaUrls[0]` hoặc `articleData.coverUrl` làm ảnh bìa
-- Nếu không có ảnh → trả lỗi rõ ràng: "Zalo OA yêu cầu ảnh bìa để đăng bài. Vui lòng thêm ảnh."
-- Tách riêng error `-201` (user_id invalid) khỏi `-224` (tier limit)
+**Retry verify với delay**: Khi gặp error `-214` (media processing), chờ 3-5 giây rồi retry verify tối đa 3 lần. Nếu vẫn thất bại → trả lỗi rõ ràng thay vì `success: true`.
 
-### 2. Sửa `SocialConnectionsManager.tsx` — Hiển thị đúng gói OA
-- Thay vì chỉ cảnh báo khi gói "Cơ bản"/"Basic", hiển thị badge thông tin gói thực tế (VD: "Gói Nâng cao ✓")
-- Chỉ cảnh báo vàng khi thực sự là gói Cơ bản
+Cụ thể:
+- Thay block verify đơn lẻ (dòng 166-191) bằng retry loop
+- Mỗi lần gặp `-214` → `await sleep(4000)` rồi gọi lại `/article/verify`
+- Tối đa 3 lần retry (tổng ~12-16 giây chờ)
+- Nếu sau 3 lần vẫn `-214` → trả `success: false` với message: "Zalo đang xử lý ảnh bìa, vui lòng thử lại sau vài phút"
+- Các lỗi khác (không phải `-214`) → xử lý như hiện tại
 
-### 3. Sửa `BrandViewConnectionsTab.tsx` — Hiển thị gói OA
-- Thêm hiển thị tương tự: badge gói OA trong phần connection info
+### Sửa `src/hooks/useDirectPublish.ts`
 
-### 4. Sửa `useDirectPublish.ts` — Xử lý lỗi thiếu ảnh
-- Thêm nhận diện errorCode `MISSING_COVER_IMAGE` → toast hướng dẫn thêm ảnh
-- Giữ nhận diện `OA_TIER_LIMITED` cho error `-224` thực sự
-
-### 5. Sửa `ZaloCallback.tsx` — Hiển thị chính xác gói
-- Không hardcode cảnh báo cho "Cơ bản" nữa
-- Hiển thị badge gói thực tế từ `package_name` param
+Thêm nhận diện errorCode `MEDIA_PROCESSING` → toast thân thiện hướng dẫn user thử lại.
 
 ## Files thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| `supabase/functions/publish-zalo/index.ts` | Dùng Article API, bắt buộc cover image, tách error codes |
-| `src/hooks/useDirectPublish.ts` | Xử lý errorCode `MISSING_COVER_IMAGE` |
-| `src/components/social/SocialConnectionsManager.tsx` | Badge gói OA chính xác |
-| `src/components/brand/BrandViewConnectionsTab.tsx` | Badge gói OA |
-| `src/pages/ZaloCallback.tsx` | Hiển thị gói thực tế |
+| `supabase/functions/publish-zalo/index.ts` | Retry verify loop khi gặp -214 |
+| `src/hooks/useDirectPublish.ts` | Xử lý errorCode MEDIA_PROCESSING |
 
