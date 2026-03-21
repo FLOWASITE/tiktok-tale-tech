@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
@@ -11,44 +10,23 @@ export default function ZaloCallback() {
   const [message, setMessage] = useState('Đang xử lý kết nối Zalo OA...');
 
   useEffect(() => {
-    const handleCallback = async () => {
-      const code = searchParams.get('code');
-      const state = searchParams.get('state');
-      const error = searchParams.get('error');
+    const success = searchParams.get('success');
+    const error = searchParams.get('error');
+    const username = searchParams.get('username');
+    const brandTemplateId = searchParams.get('brand_template_id');
 
-      if (error) {
-        setStatus('error');
-        setMessage(`Lỗi từ Zalo: ${error}`);
-        return;
-      }
-
-      if (!code || !state) {
-        setStatus('error');
-        setMessage('Thiếu thông tin xác thực từ Zalo');
-        return;
-      }
-
-      try {
-        const { data, error: fnError } = await supabase.functions.invoke('zalo-oauth-callback', {
-          body: { code, state }
-        });
-
-        if (fnError) throw fnError;
-
-        if (data?.success) {
-          setStatus('success');
-          setMessage(data.message || 'Kết nối Zalo OA thành công!');
-          setTimeout(() => navigate('/settings/connections'), 2000);
-        } else {
-          throw new Error(data?.error || 'Kết nối thất bại');
-        }
-      } catch (err: any) {
-        setStatus('error');
-        setMessage(err.message || 'Có lỗi xảy ra khi kết nối Zalo OA');
-      }
-    };
-
-    handleCallback();
+    if (success === 'true') {
+      setStatus('success');
+      setMessage(username ? `Kết nối ${username} thành công!` : 'Kết nối Zalo OA thành công!');
+      const redirectPath = brandTemplateId ? `/brands/${brandTemplateId}` : '/brands';
+      setTimeout(() => navigate(redirectPath), 2000);
+    } else if (success === 'false' || error) {
+      setStatus('error');
+      setMessage(error || 'Kết nối Zalo OA thất bại');
+    } else {
+      setStatus('error');
+      setMessage('Thiếu thông tin phản hồi từ Zalo');
+    }
   }, [searchParams, navigate]);
 
   return (
@@ -73,10 +51,10 @@ export default function ZaloCallback() {
               <XCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
               <p className="text-destructive font-medium">{message}</p>
               <button
-                onClick={() => navigate('/settings/connections')}
+                onClick={() => navigate('/brands')}
                 className="mt-4 text-sm text-primary hover:underline"
               >
-                Quay lại cài đặt
+                Quay lại
               </button>
             </>
           )}
