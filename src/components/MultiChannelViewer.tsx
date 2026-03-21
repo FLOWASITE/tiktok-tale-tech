@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
-import { Copy, Check, Download, Globe, Facebook, Instagram, Twitter, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, MessageCircle, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight, Wand2, Plus, Type } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight, Wand2, Plus, Type } from 'lucide-react';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
 import { Button } from '@/components/ui/button';
@@ -129,7 +130,7 @@ const channelConfig: Record<Channel, {
   twitter: { 
     label: 'X (Twitter)', 
     shortLabel: 'X',
-    icon: <Twitter className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
+    icon: <XIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-slate-400',
     bgColor: 'bg-slate-500/10',
     maxLength: 'Thread 5-7 tweets'
@@ -169,7 +170,7 @@ const channelConfig: Record<Channel, {
   zalo_oa: { 
     label: 'Zalo OA', 
     shortLabel: 'Zalo',
-    icon: <MessageCircle className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
+    icon: <ZaloIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/10',
     maxLength: '60-150 chữ'
