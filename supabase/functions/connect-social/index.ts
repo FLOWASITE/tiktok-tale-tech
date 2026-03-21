@@ -100,9 +100,9 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get user from auth header using getClaims for session resilience
-    const authHeader = req.headers.get('Authorization');
+    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
-      throw new Error('Missing authorization header');
+      throw new Error('Unauthorized');
     }
 
     const token = authHeader.replace('Bearer ', '');
