@@ -44,6 +44,7 @@ import { CharacterTypeSelector } from '@/components/script/CharacterTypeSelector
 import { CharacterTypeRecommendations } from '@/components/script/CharacterTypeRecommendations';
 import { StepIndicator, Step } from '@/components/script/StepIndicator';
 import { HookStepContent } from '@/components/script/HookStepContent';
+import { ScriptGenerationProgress } from '@/components/script/ScriptGenerationProgress';
 import { ScriptPurposeSelector } from '@/components/script/ScriptPurposeSelector';
 import { VoiceRegionSelector } from '@/components/script/VoiceRegionSelector';
 import { DialogueStyleSelector } from '@/components/script/DialogueStyleSelector';
