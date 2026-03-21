@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Allowed origin patterns for open-redirect prevention
 const ALLOWED_ORIGIN_PATTERNS = [
   /^https:\/\/[a-z0-9-]+\.lovable\.app$/,
   /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/,
@@ -21,65 +20,115 @@ function getFrontendUrl(stateOrigin?: string | null): string {
   return 'https://tiktok-tale-tech.lovable.app';
 }
 
+function extractFrontendOrigin(req: Request): string | null {
+  try {
+    const url = new URL(req.url);
+    const state = url.searchParams.get('state');
+    if (state) return JSON.parse(atob(state)).frontendOrigin;
+  } catch { /* ignore */ }
+  return null;
+}
+
+interface NormalizedError {
+  code: string;
+  message: string;
+  hint?: string;
+}
+
+function normalizeXError(rawText: string, context: string): NormalizedError {
+  try {
+    const parsed = JSON.parse(rawText);
+    if (parsed.reason === 'client-not-enrolled') {
+      return {
+        code: 'x_client_not_enrolled',
+        message: 'Ứng dụng X chưa được gắn vào Project trên Developer Portal',
+        hint: 'Vào developer.x.com, tạo Project và gắn App vào đó',
+      };
+    }
+    if (parsed.error === 'invalid_request' || parsed.error === 'invalid_grant') {
+      return {
+        code: 'x_token_exchange_failed',
+        message: 'Không thể đổi mã xác thực từ X',
+        hint: 'Thử kết nối lại. Nếu vẫn lỗi, kiểm tra cấu hình Redirect URI',
+      };
+    }
+  } catch { /* not JSON */ }
+
+  return {
+    code: context === 'token' ? 'x_token_exchange_failed' : 'x_callback_failed',
+    message: context === 'token' ? 'Lỗi khi đổi mã xác thực' : 'Lỗi khi lấy thông tin tài khoản X',
+  };
+}
+
+function buildErrorRedirect(frontendOrigin: string | null, error: NormalizedError, brandTemplateId?: string): Response {
+  const params = new URLSearchParams({
+    error: error.code,
+    error_description: error.message,
+  });
+  if (error.hint) params.set('error_hint', error.hint);
+  if (brandTemplateId) params.set('brand_template_id', brandTemplateId);
+  return Response.redirect(`${getFrontendUrl(frontendOrigin)}/auth/x/callback?${params}`, 302);
+}
+
 serve(async (req) => {
+  let frontendOrigin: string | null = null;
+  let brandTemplateId: string | undefined;
+
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get('code');
     const state = url.searchParams.get('state');
     const error = url.searchParams.get('error');
-    const errorDescription = url.searchParams.get('error_description');
 
+    frontendOrigin = extractFrontendOrigin(req);
     console.log('X OAuth callback received:', { hasCode: !!code, hasState: !!state, error });
 
     if (error) {
-      console.error('X OAuth error:', error, errorDescription);
-      let errorOrigin: string | null = null;
-      try { if (state) errorOrigin = JSON.parse(atob(state)).frontendOrigin; } catch { /* ignore */ }
-      return Response.redirect(
-        `${getFrontendUrl(errorOrigin)}/auth/x/callback?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || '')}`,
-        302
-      );
+      const normalized: NormalizedError = error === 'access_denied'
+        ? { code: 'access_denied', message: 'Bạn đã từ chối quyền truy cập' }
+        : { code: 'x_oauth_error', message: `Lỗi từ X: ${error}` };
+      return buildErrorRedirect(frontendOrigin, normalized);
     }
 
     if (!code || !state) {
-      throw new Error('Missing code or state parameter');
+      return buildErrorRedirect(frontendOrigin, { code: 'x_missing_params', message: 'Thiếu thông tin xác thực từ X' });
     }
 
     let stateData;
     try {
       stateData = JSON.parse(atob(state));
     } catch {
-      throw new Error('Invalid state parameter');
+      return buildErrorRedirect(frontendOrigin, { code: 'x_invalid_state', message: 'Dữ liệu state không hợp lệ' });
     }
 
-    const { brandTemplateId, organizationId, userId, frontendOrigin, codeVerifier } = stateData;
+    const { organizationId, userId, codeVerifier } = stateData;
+    brandTemplateId = stateData.brandTemplateId;
+    frontendOrigin = stateData.frontendOrigin || frontendOrigin;
     console.log('State decoded:', { brandTemplateId, organizationId, userId, hasFrontendOrigin: !!frontendOrigin, hasCodeVerifier: !!codeVerifier });
 
     if (!codeVerifier) {
-      throw new Error('Missing code_verifier in state');
+      return buildErrorRedirect(frontendOrigin, { code: 'x_missing_verifier', message: 'Thiếu code_verifier' }, brandTemplateId);
     }
 
     const clientId = Deno.env.get('X_CLIENT_ID')!;
     const clientSecret = Deno.env.get('X_CLIENT_SECRET')!;
     const callbackUrl = Deno.env.get('X_CALLBACK_URL')!;
 
-    // Exchange authorization code for tokens
+    // Exchange code for tokens
     console.log('Exchanging code for tokens...');
-    const tokenBody = new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: callbackUrl,
-      client_id: clientId,
-      code_verifier: codeVerifier,
-    });
-
     const tokenResponse = await fetch('https://api.x.com/2/oauth2/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Authorization': 'Basic ' + btoa(`${clientId}:${clientSecret}`),
       },
-      body: tokenBody.toString(),
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: callbackUrl,
+        client_id: clientId,
+        code_verifier: codeVerifier,
+      }).toString(),
     });
 
     const tokenText = await tokenResponse.text();
@@ -87,7 +136,7 @@ serve(async (req) => {
 
     if (!tokenResponse.ok) {
       console.error('Token exchange failed:', tokenText);
-      throw new Error(`Token exchange failed: ${tokenText}`);
+      return buildErrorRedirect(frontendOrigin, normalizeXError(tokenText, 'token'), brandTemplateId);
     }
 
     const tokenData = JSON.parse(tokenText);
@@ -97,40 +146,26 @@ serve(async (req) => {
     // Fetch user profile
     console.log('Fetching X user profile...');
     const userResponse = await fetch('https://api.x.com/2/users/me?user.fields=profile_image_url,name,username', {
-      headers: {
-        'Authorization': `Bearer ${access_token}`,
-      },
+      headers: { 'Authorization': `Bearer ${access_token}` },
     });
 
     const userText = await userResponse.text();
     if (!userResponse.ok) {
       console.error('User fetch failed:', userText);
-      throw new Error(`Failed to fetch user: ${userText}`);
+      return buildErrorRedirect(frontendOrigin, normalizeXError(userText, 'user'), brandTemplateId);
     }
 
-    const userData = JSON.parse(userText);
-    const xUser = userData.data;
+    const xUser = JSON.parse(userText).data;
     console.log('X user:', { id: xUser.id, username: xUser.username, name: xUser.name });
 
-    // Calculate token expiry
     const tokenExpiresAt = new Date(Date.now() + (expires_in || 7200) * 1000).toISOString();
 
     // Save to database
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-    // Check for existing connection
-    let query = supabase
-      .from('social_connections')
-      .select('id')
-      .eq('platform', 'twitter');
-
-    if (brandTemplateId) {
-      query = query.eq('brand_template_id', brandTemplateId);
-    } else if (organizationId) {
-      query = query.eq('organization_id', organizationId);
-    }
+    let query = supabase.from('social_connections').select('id').eq('platform', 'twitter');
+    if (brandTemplateId) query = query.eq('brand_template_id', brandTemplateId);
+    else if (organizationId) query = query.eq('organization_id', organizationId);
 
     const { data: existingConnection } = await query.maybeSingle();
 
@@ -150,35 +185,20 @@ serve(async (req) => {
       connected_at: new Date().toISOString(),
       last_verified_at: new Date().toISOString(),
       scopes: ['tweet.read', 'tweet.write', 'users.read', 'offline.access'],
-      metadata: {
-        oauth2_pkce: true,
-        token_type: 'bearer',
-      },
+      metadata: { oauth2_pkce: true, token_type: 'bearer' },
     };
 
     let connection;
     if (existingConnection) {
-      const { data, error: updateError } = await supabase
-        .from('social_connections')
-        .update(connectionData)
-        .eq('id', existingConnection.id)
-        .select()
-        .single();
+      const { data, error: updateError } = await supabase.from('social_connections').update(connectionData).eq('id', existingConnection.id).select().single();
       if (updateError) throw updateError;
       connection = data;
-      console.log('Updated existing X connection:', connection.id);
     } else {
-      const { data, error: insertError } = await supabase
-        .from('social_connections')
-        .insert(connectionData)
-        .select()
-        .single();
+      const { data, error: insertError } = await supabase.from('social_connections').insert(connectionData).select().single();
       if (insertError) throw insertError;
       connection = data;
-      console.log('Created new X connection:', connection.id);
     }
 
-    // Redirect to frontend callback page
     const redirectParams: Record<string, string> = {
       success: 'true',
       username: xUser.username,
@@ -187,23 +207,13 @@ serve(async (req) => {
     };
     if (brandTemplateId) redirectParams.brand_template_id = brandTemplateId;
 
-    const successUrl = `${getFrontendUrl(frontendOrigin)}/auth/x/callback?` + new URLSearchParams(redirectParams).toString();
-    console.log('Redirecting to:', successUrl);
-    return Response.redirect(successUrl, 302);
+    return Response.redirect(`${getFrontendUrl(frontendOrigin)}/auth/x/callback?${new URLSearchParams(redirectParams)}`, 302);
 
   } catch (error) {
     console.error('X OAuth callback error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    // Try to extract frontendOrigin from state for proper redirect
-    let errorOrigin: string | null = null;
-    try {
-      const url = new URL(req.url);
-      const state = url.searchParams.get('state');
-      if (state) errorOrigin = JSON.parse(atob(state)).frontendOrigin;
-    } catch { /* ignore */ }
-    return Response.redirect(
-      `${getFrontendUrl(errorOrigin)}/auth/x/callback?error=callback_failed&error_description=${encodeURIComponent(errorMessage)}`,
-      302
-    );
+    return buildErrorRedirect(frontendOrigin, {
+      code: 'x_callback_failed',
+      message: 'Đã xảy ra lỗi khi kết nối X. Vui lòng thử lại.',
+    }, brandTemplateId);
   }
 });
