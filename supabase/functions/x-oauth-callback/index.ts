@@ -7,6 +7,7 @@ const ALLOWED_ORIGIN_PATTERNS = [
   /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/,
   /^https:\/\/(app\.)?flowa\.(one|vn)$/,
   /^http:\/\/localhost(:\d+)?$/,
+  /^https:\/\/id-preview--[a-z0-9-]+\.lovable\.app$/,
 ];
 
 function isAllowedOrigin(origin: string): boolean {
@@ -17,8 +18,7 @@ function getFrontendUrl(stateOrigin?: string | null): string {
   if (stateOrigin && isAllowedOrigin(stateOrigin)) return stateOrigin;
   const configured = Deno.env.get('FRONTEND_URL');
   if (configured) return configured;
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-  return supabaseUrl.replace('.supabase.co', '.lovableproject.com');
+  return 'https://tiktok-tale-tech.lovable.app';
 }
 
 serve(async (req) => {
@@ -194,8 +194,15 @@ serve(async (req) => {
   } catch (error) {
     console.error('X OAuth callback error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    // Try to extract frontendOrigin from state for proper redirect
+    let errorOrigin: string | null = null;
+    try {
+      const url = new URL(req.url);
+      const state = url.searchParams.get('state');
+      if (state) errorOrigin = JSON.parse(atob(state)).frontendOrigin;
+    } catch { /* ignore */ }
     return Response.redirect(
-      `${getFrontendUrl(null)}/auth/x/callback?error=callback_failed&error_description=${encodeURIComponent(errorMessage)}`,
+      `${getFrontendUrl(errorOrigin)}/auth/x/callback?error=callback_failed&error_description=${encodeURIComponent(errorMessage)}`,
       302
     );
   }
