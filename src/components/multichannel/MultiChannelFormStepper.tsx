@@ -31,7 +31,7 @@ import {
   Globe,
   Facebook,
   Instagram,
-  Twitter,
+  // Twitter removed - using XIcon
   MapPin,
   Linkedin,
   Mail,
