@@ -194,8 +194,15 @@ serve(async (req) => {
   } catch (error) {
     console.error('X OAuth callback error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    // Try to extract frontendOrigin from state for proper redirect
+    let errorOrigin: string | null = null;
+    try {
+      const url = new URL(req.url);
+      const state = url.searchParams.get('state');
+      if (state) errorOrigin = JSON.parse(atob(state)).frontendOrigin;
+    } catch { /* ignore */ }
     return Response.redirect(
-      `${getFrontendUrl(null)}/auth/x/callback?error=callback_failed&error_description=${encodeURIComponent(errorMessage)}`,
+      `${getFrontendUrl(errorOrigin)}/auth/x/callback?error=callback_failed&error_description=${encodeURIComponent(errorMessage)}`,
       302
     );
   }
