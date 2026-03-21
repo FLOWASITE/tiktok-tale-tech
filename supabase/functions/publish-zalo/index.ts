@@ -173,7 +173,11 @@ serve(async (req) => {
       const uploadResult = await uploadRes.json();
       console.log('Zalo image upload result:', JSON.stringify(uploadResult));
       
-      if (uploadResult.error === 0 && uploadResult.data?.url) {
+      let zaloCoverAttachmentId = '';
+      if (uploadResult.error === 0 && uploadResult.data?.attachment_id) {
+        zaloCoverAttachmentId = uploadResult.data.attachment_id;
+        console.log('Using Zalo attachment_id:', zaloCoverAttachmentId);
+      } else if (uploadResult.error === 0 && uploadResult.data?.url) {
         zaloCoverUrl = uploadResult.data.url;
         console.log('Using Zalo-hosted cover URL:', zaloCoverUrl);
       } else {
@@ -199,13 +203,14 @@ serve(async (req) => {
       );
     }
 
+    const coverValue = zaloCoverAttachmentId || zaloCoverUrl;
     const createArticlePayload = {
       type: 'normal',
       title: articleTitle,
       author: connection.platform_username || 'OA',
       cover: {
         cover_type: 'photo',
-        photo_url: zaloCoverUrl,
+        photo_url: coverValue,
         status: 'show',
       },
       description: articleDescription,
