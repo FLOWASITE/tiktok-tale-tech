@@ -1,0 +1,2 @@
+ALTER TABLE public.social_connections DROP CONSTRAINT social_connections_platform_check;
+ALTER TABLE public.social_connections ADD CONSTRAINT social_connections_platform_check CHECK (platform = ANY (ARRAY['twitter'::text, 'facebook'::text, 'instagram'::text, 'linkedin'::text, 'tiktok'::text, 'threads'::text, 'youtube'::text, 'zalo_oa'::text, 'google_business'::text]));
