@@ -1,38 +1,34 @@
 
 
-# Fix: Resize ảnh trong overlay-logo-canvas + Bỏ render URL trong publish-zalo
+# Di chuyển nút "Đăng ngay" & "Lịch đăng" lên trên
 
-## Nguyên nhân
-- `overlay-logo-canvas` encode output là **PNG** (dòng 196), file 2MB+
-- `publish-zalo` chuyển sang `/render/image/public/` để resize (dòng 123-128), nhưng Zalo không tải được từ endpoint này → lỗi `-200`
+## Vấn đề
+Hiện tại nút **"Lên lịch đăng bài"** và **"Đăng ngay"** nằm ở cuối nội dung kênh (dòng 1549-1572), user phải cuộn xuống dưới cùng mới thấy.
 
 ## Thay đổi
 
-### 1. `supabase/functions/overlay-logo-canvas/index.ts`
+### File: `src/components/MultiChannelViewer.tsx`
 
-**Resize ảnh gốc xuống max 800px width trước khi composite** (dòng 146, trong `compositeImages`):
-- Sau khi decode base image, nếu `baseImg.width > 800` → `baseImg.resize(800, auto)` giữ tỷ lệ
-- Giữ nguyên nếu ảnh đã ≤ 800px
+1. **Xóa** block nút "Lên lịch đăng bài" + `DirectPublishButton` ở vị trí cuối (dòng 1549-1572)
 
-**Encode sang JPEG thay PNG** (dòng 196):
-- Thay `baseImg.encode()` (PNG) bằng `baseImg.encodeJPEG(80)` (JPEG quality 80%)
-- Output < 200KB thay vì 2MB
+2. **Thêm** block tương tự ngay **trên ScrollArea** (sau dòng 1291 — sau toolbar), dưới dạng một thanh action bar nhỏ gọn:
 
-**Cập nhật upload path** (dòng 217):
-- Đổi extension từ `.png` sang `.jpg`
-- Đổi `contentType` từ `image/png` sang `image/jpeg`
+```
+┌─────────────────────────────────┐
+│ Toolbar: Sửa | Copy | Regenerate│
+├─────────────────────────────────┤
+│ [📅 Lên lịch đăng] [🚀 Đăng ngay]│  ← MỚI
+├─────────────────────────────────┤
+│ ScrollArea: Nội dung kênh...    │
+└─────────────────────────────────┘
+```
 
-### 2. `supabase/functions/publish-zalo/index.ts`
+- Hiển thị khi **không đang edit** (cùng điều kiện với toolbar view mode)
+- Style: `flex justify-end gap-2 px-2 py-1.5 border-b border-border/30`
 
-**Bỏ logic render URL** (dòng 120-128):
-- Xóa toàn bộ block chuyển `/object/public/` → `/render/image/public/`
-- Dùng `coverImageUrl` gốc trực tiếp làm `photo_url` cho Zalo
-- Ảnh đã được resize sẵn ở bước overlay, không cần transform nữa
-
-## Files thay đổi
+## File thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| `supabase/functions/overlay-logo-canvas/index.ts` | Resize base image ≤800px, encode JPEG 80%, upload `.jpg` |
-| `supabase/functions/publish-zalo/index.ts` | Bỏ render URL transform, dùng URL gốc |
+| `src/components/MultiChannelViewer.tsx` | Di chuyển 2 nút từ cuối lên trên ScrollArea |
 
