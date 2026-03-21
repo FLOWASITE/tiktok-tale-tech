@@ -648,7 +648,11 @@ serve(async (req) => {
       }
 
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const redirectUri = `${supabaseUrl}/functions/v1/zalo-oauth-callback`;
+      // Use production domain proxy if origin is flowa.one, otherwise fallback to edge function URL
+      const isProductionOrigin = requestOrigin && (requestOrigin.includes('flowa.one') || requestOrigin.includes('flowa.vn'));
+      const redirectUri = isProductionOrigin
+        ? 'https://app.flowa.one/api/zalo/callback'
+        : `${supabaseUrl}/functions/v1/zalo-oauth-callback`;
       const state = btoa(JSON.stringify({ brandTemplateId, organizationId, userId: user.id, frontendOrigin: requestOrigin || null }));
 
       const oauthUrl = `https://oauth.zaloapp.com/v4/oa/permission?` + new URLSearchParams({
