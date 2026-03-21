@@ -280,19 +280,25 @@ export function DirectPublishButton({
         <Button
           variant={variant}
           size={size}
-          disabled={disabled || isPublishing || !content}
+          disabled={disabled || isPublishing || !content || isZaloMissingCover}
           onClick={handleClick}
+          title={isZaloMissingCover ? 'Cần thêm ảnh bìa để đăng lên Zalo OA' : undefined}
           className={cn(
             variant === 'outline' && connection ? 'text-primary border-primary/30 hover:bg-primary/10' : '',
             className
           )}
         >
-          {isPublishing ? (
+          {isPublishing && platform === 'zalo_oa' ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              Đang đăng...
+            </>
+          ) : isPublishing ? (
             <Loader2 className="h-4 w-4 animate-spin mr-1" />
           ) : (
             <Icon className="h-4 w-4 mr-1" />
           )}
-          {connection ? 'Đăng ngay' : 'Kết nối để đăng'}
+          {!isPublishing && (connection ? 'Đăng ngay' : 'Kết nối để đăng')}
         </Button>
 
         {connection && contentId && (
