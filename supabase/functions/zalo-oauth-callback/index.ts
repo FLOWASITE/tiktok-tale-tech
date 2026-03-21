@@ -180,6 +180,7 @@ serve(async (req) => {
         oa_id: oaIdFinal,
         oa_name: oaName,
         oa_avatar: oaInfo.data?.avatar || null,
+        oa_package: oaInfo.data?.package_name || null,
         uses_global_credentials: true,
       },
     };
