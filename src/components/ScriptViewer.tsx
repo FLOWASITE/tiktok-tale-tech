@@ -49,6 +49,77 @@ interface ScriptViewerProps {
   onScriptUpdate?: (updatedScript: Script) => void;
 }
 
+function highlightScriptContent(text: string) {
+  const lines = text.split('\n');
+  return lines.map((line, index) => {
+    // Separator lines ===
+    if (line.match(/^={3,}$/)) {
+      return <span key={index} className="text-border block">{line}</span>;
+    }
+    // PROMPT / SCENE / CẢN headers
+    if (line.match(/^(PROMPT|SCENE|CẢN|CẢNH|SHOT)\s*\d+/i)) {
+      return <span key={index} className="text-primary font-bold block mt-3 mb-1">{line}</span>;
+    }
+    // Section headers [VISUAL DIRECTION], [DIALOGUE], etc.
+    if (line.match(/^\[.+\]$/)) {
+      return <span key={index} className="text-primary/80 font-semibold block mt-1">{line}</span>;
+    }
+    // Bullet labels like "• Camera:" or "- Mood:"
+    if (line.match(/^[•\-]\s*\w+:/)) {
+      const colonIdx = line.indexOf(':');
+      return (
+        <span key={index} className="block">
+          <span className="text-muted-foreground font-medium">{line.substring(0, colonIdx + 1)}</span>
+          <span className="text-foreground">{line.substring(colonIdx + 1)}</span>
+        </span>
+      );
+    }
+    // Dialogue in quotes
+    if (line.match(/^[""\u201C].+[""\u201D]$/)) {
+      return <span key={index} className="text-accent-foreground italic block">{line}</span>;
+    }
+    // Parenthetical stage directions
+    if (line.match(/^\(.+\)$/)) {
+      return <span key={index} className="text-muted-foreground/80 block">{line}</span>;
+    }
+    // Timestamps [00:00-00:08]
+    if (line.match(/\[\d{2}:\d{2}[–\-]\d{2}:\d{2}\]/)) {
+      const parts = line.split(/(\[\d{2}:\d{2}[–\-]\d{2}:\d{2}\])/g);
+      return (
+        <span key={index} className="block">
+          {parts.map((part, i) =>
+            part.match(/^\[\d{2}:\d{2}[–\-]\d{2}:\d{2}\]$/) ? (
+              <span key={i} className="text-muted-foreground font-mono text-[10px] xs:text-xs bg-muted/50 px-1 rounded">{part}</span>
+            ) : (
+              <span key={i}>{part}</span>
+            )
+          )}
+        </span>
+      );
+    }
+    // Inline brackets [Camera: ...], [Pan left]
+    if (line.includes('[') && line.includes(']')) {
+      const parts = line.split(/(\[[^\]]+\])/g);
+      return (
+        <span key={index} className="block">
+          {parts.map((part, i) =>
+            part.match(/^\[.+\]$/) ? (
+              <span key={i} className="text-primary/70 font-medium">{part}</span>
+            ) : (
+              <span key={i}>{part}</span>
+            )
+          )}
+        </span>
+      );
+    }
+    // Empty line → smaller gap
+    if (!line.trim()) {
+      return <span key={index} className="block h-2" />;
+    }
+    return <span key={index} className="block text-foreground">{line}</span>;
+  });
+}
+
 export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: ScriptViewerProps) {
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
