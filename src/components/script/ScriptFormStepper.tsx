@@ -807,7 +807,7 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="animate-pulse">{LOADING_PHASES[loadingPhase]}</span>
+                <span>Đang tạo...</span>
               </>
             ) : (
               <>
