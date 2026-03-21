@@ -54,6 +54,7 @@ import {
   Settings2,
   Megaphone,
 } from 'lucide-react';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import { toast } from 'sonner';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { useTopicRefinement, RefinedTopic } from '@/hooks/useTopicRefinement';
