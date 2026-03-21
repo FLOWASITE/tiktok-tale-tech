@@ -127,22 +127,41 @@ serve(async (req) => {
       }
       result = { success: true, message: 'Image uploaded', data: uploadResult };
     } else {
-      const response = await fetch('https://openapi.zalo.me/v2.0/article/create', {
+      // Use broadcast API for text-only posts (no cover image required)
+      const response = await fetch('https://openapi.zalo.me/v3.0/oa/message/cs', {
         method: 'POST',
         headers: {
           'access_token': accessToken,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          type: 'normal',
-          title: content.substring(0, 100),
-          author: connection.platform_username || 'OA',
-          description: content.substring(0, 200),
-          body: [{ type: 'text', content }],
-          status: 'show',
+          recipient: { user_id: 'all' },
+          message: { text: content },
         }),
       });
-      result = await response.json();
+      const csResult = await response.json();
+      
+      // Fallback: if broadcast fails, try creating article without cover
+      if (csResult.error && csResult.error !== 0) {
+        const articleResponse = await fetch('https://openapi.zalo.me/v2.0/article/create', {
+          method: 'POST',
+          headers: {
+            'access_token': accessToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'normal',
+            title: content.substring(0, 100),
+            author: connection.platform_username || 'OA',
+            description: content.substring(0, 200),
+            body: [{ type: 'text', content }],
+            status: 'show',
+          }),
+        });
+        result = await articleResponse.json();
+      } else {
+        result = csResult;
+      }
     }
 
     console.log('Zalo publish result:', result);
