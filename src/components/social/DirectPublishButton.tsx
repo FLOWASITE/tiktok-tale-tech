@@ -146,11 +146,15 @@ export function DirectPublishButton({
   // Sync editableContent when content prop changes
   useEffect(() => {
     setEditableContent(content);
-    // Auto-extract title and description for Zalo
+    // Auto-extract title and description for Zalo — skip channel-name headers
+    const CHANNEL_HEADER_RE = /^(📱\s*)?ZALO[_\s]?OA$/i;
     const lines = content.split('\n').filter(l => l.trim());
-    const firstLine = (lines[0] || '').replace(/^#+\s*/, '').trim();
+    const meaningfulLines = lines
+      .map(l => l.replace(/^#+\s*/, '').replace(/[*_~`]/g, '').trim())
+      .filter(l => l && !CHANNEL_HEADER_RE.test(l));
+    const firstLine = meaningfulLines[0] || '';
     setZaloTitle(firstLine.substring(0, 100));
-    setZaloDescription(lines.slice(0, 3).join(' ').substring(0, 200));
+    setZaloDescription(meaningfulLines.slice(0, 3).join(' ').substring(0, 200));
   }, [content]);
 
   const zaloCoverUrl = useMemo(() => mediaUrls?.[0] || null, [mediaUrls]);
