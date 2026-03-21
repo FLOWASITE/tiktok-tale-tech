@@ -9,17 +9,16 @@ import {
   Facebook,
   Instagram,
   Linkedin,
-  Twitter,
   Youtube,
   Mail,
   Globe,
-  MessageCircle,
   Send,
   Music2,
   AtSign,
   FileText,
   type LucideIcon,
 } from 'lucide-react';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { 
