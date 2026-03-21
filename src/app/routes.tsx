@@ -51,6 +51,7 @@ import LinkedInCallback from "@/pages/LinkedInCallback";
 import FacebookCallback from "@/pages/FacebookCallback";
 import ThreadsCallback from "@/pages/ThreadsCallback";
 import ZaloCallback from "@/pages/ZaloCallback";
+import ZaloOAuthProxy from "@/pages/ZaloOAuthProxy";
 import GoogleBusinessCallback from "@/pages/GoogleBusinessCallback";
 import XCallback from "@/pages/XCallback";
 import CoreContentPage from "@/pages/CoreContentPage";
