@@ -130,7 +130,7 @@ const channelConfig: Record<Channel, {
   twitter: { 
     label: 'X (Twitter)', 
     shortLabel: 'X',
-    icon: <Twitter className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
+    icon: <XIcon className="w-3.5 h-3.5 xs:w-4 xs:h-4" />, 
     color: 'text-slate-400',
     bgColor: 'bg-slate-500/10',
     maxLength: 'Thread 5-7 tweets'
