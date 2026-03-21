@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
 import { saveMetrics, generateTraceId, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
-import { getLanguageForCountry, getLanguageConfig } from "../_shared/country-language-map.ts";
+import { getOutputLanguage, getLanguageConfig } from "../_shared/country-language-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -105,7 +105,7 @@ serve(async (req) => {
     const { scriptContent, scriptTitle, duration, videoType, characterType, brandName, organizationId, outputLanguage: reqLang, countryCode } = await req.json();
 
     // Determine output language
-    const outputLanguage = reqLang || getLanguageForCountry(countryCode || 'VN');
+    const outputLanguage = reqLang || getOutputLanguage(countryCode || 'VN');
     const langConfig = getLanguageConfig(outputLanguage);
 
     if (!scriptContent) {
