@@ -23,6 +23,52 @@ interface PublishRequest {
   };
 }
 
+async function ensureZaloCompatibleCoverUrl(coverUrl: string, supabase: ReturnType<typeof createClient>): Promise<string> {
+  try {
+    const imageRes = await fetch(coverUrl);
+    if (!imageRes.ok) {
+      console.warn(`Cover fetch failed (${imageRes.status}), using original URL`);
+      return coverUrl;
+    }
+
+    const originalBytes = new Uint8Array(await imageRes.arrayBuffer());
+    const isPng = /\.png(\?|$)/i.test(coverUrl);
+    const shouldOptimize = isPng || originalBytes.length > 900_000;
+
+    if (!shouldOptimize) {
+      return coverUrl;
+    }
+
+    const image = await Image.decode(originalBytes);
+    if (image.width > 800) {
+      const newHeight = Math.floor(image.height * (800 / image.width));
+      image.resize(800, newHeight);
+    }
+
+    const optimizedBytes = await image.encodeJPEG(80);
+    const filePath = `social/zalo-optimized/${Date.now()}-${crypto.randomUUID()}.jpg`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('carousel-images')
+      .upload(filePath, optimizedBytes, {
+        contentType: 'image/jpeg',
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.warn(`Optimized cover upload failed: ${uploadError.message}, using original URL`);
+      return coverUrl;
+    }
+
+    const { data: urlData } = supabase.storage.from('carousel-images').getPublicUrl(filePath);
+    console.log(`Using optimized Zalo cover: ${urlData.publicUrl}`);
+    return urlData.publicUrl;
+  } catch (error) {
+    console.warn('Cover optimization failed, using original URL:', error);
+    return coverUrl;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
