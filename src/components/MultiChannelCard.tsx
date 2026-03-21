@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react';
 import { formatDistanceToNow, isPast, parseISO, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { motion } from 'framer-motion';
-import { Eye, Trash2, Globe, Facebook, Instagram, Twitter, MapPin, Linkedin, Mail, Youtube, MessageCircle, Send, Tag, Image, Building, FileText, RefreshCw, CalendarClock, Music2, AtSign, Star, AlertTriangle, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
+import { Eye, Trash2, Globe, Facebook, Instagram, MapPin, Linkedin, Mail, Youtube, Send, Tag, Image, Building, FileText, RefreshCw, CalendarClock, Music2, AtSign, Star, AlertTriangle, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
