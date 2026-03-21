@@ -1,49 +1,46 @@
 
 
-# Thông báo rõ cho User về giới hạn gói Zalo OA
+# Sửa lỗi Zalo OA: Nhầm lỗi user_id thành lỗi gói Cơ bản
 
-## Vấn đề
-Khi Zalo OA đang dùng gói "Cơ bản" (miễn phí), API đăng bài trả lỗi `-224: OA needs to upgrade OA Tier Package`. Hiện tại user không biết nguyên nhân, chỉ thấy "Failed to send" chung chung.
+## Nguyên nhân gốc
 
-## Giải pháp
+Từ edge logs, Zalo API trả về `{ error: -201, message: "user_id is invalid" }`. Đây là lỗi do gửi `recipient: { user_id: 'all' }` vào broadcast API — giá trị `'all'` không hợp lệ. **Không phải lỗi gói OA.**
 
-### 1. Lưu `package_name` khi kết nối OA
-**File:** `supabase/functions/zalo-oauth-callback/index.ts`
-- Thêm `oa_package: oaInfo.data?.package_name || null` vào `metadata` của `connectionData` (dòng 179-184)
-- Thêm `package_name` vào response JSON trả về proxy (dòng ~200)
+Nhưng code hiện tại gộp error `-201` vào cùng nhóm `-224` (OA_TIER_LIMITED), nên hiển thị nhầm "Zalo OA đang dùng gói Cơ bản".
 
-### 2. Hiển thị cảnh báo gói OA trên callback thành công
-**File:** `src/pages/ZaloCallback.tsx`
-- Đọc thêm param `package_name` từ query
-- Nếu `package_name` là "Cơ bản" hoặc "Basic" → hiển thị alert vàng: "OA của bạn đang dùng gói Cơ bản. Tính năng đăng bài qua API yêu cầu nâng cấp gói tại oa.zalo.me/home/pricing"
-- Vẫn hiển thị kết nối thành công (vì OAuth đã OK, chỉ publish bị giới hạn)
+DB xác nhận: `oa_package = 'Nâng cao'` — OA này đã nâng cấp rồi.
 
-### 3. Hiển thị badge cảnh báo trong SocialConnectionsManager
-**File:** `src/components/social/SocialConnectionsManager.tsx`
-- Khi hiển thị connection Zalo OA đã kết nối, kiểm tra `metadata.oa_package`
-- Nếu gói "Cơ bản" → hiển thị badge vàng "Gói cơ bản - Hạn chế đăng bài API" + link nâng cấp
+## Kế hoạch sửa
 
-### 4. Xử lý lỗi publish rõ ràng hơn
-**File:** `supabase/functions/publish-zalo/index.ts`
-- Bắt error code `-224` cụ thể → trả message tiếng Việt: "Zalo OA đang dùng gói Cơ bản, không hỗ trợ đăng bài qua API. Vui lòng nâng cấp gói tại oa.zalo.me/home/pricing"
-- Thêm field `errorCode: 'OA_TIER_LIMITED'` để frontend xử lý riêng
+### 1. Sửa `publish-zalo` Edge Function — Dùng Article API thay Broadcast
+- Bỏ fallback broadcast API (`/v3.0/oa/message/cs`) vì API đó dùng để gửi tin nhắn cho user cụ thể, không phải đăng bài
+- Dùng **Article API** (`/v2.0/article/create`) làm phương thức đăng bài chính
+- Yêu cầu bắt buộc có `mediaUrls[0]` hoặc `articleData.coverUrl` làm ảnh bìa
+- Nếu không có ảnh → trả lỗi rõ ràng: "Zalo OA yêu cầu ảnh bìa để đăng bài. Vui lòng thêm ảnh."
+- Tách riêng error `-201` (user_id invalid) khỏi `-224` (tier limit)
 
-### 5. Frontend hiển thị lỗi OA Tier thân thiện
-**File:** `src/hooks/useDirectPublish.ts`
-- Kiểm tra nếu error chứa `OA_TIER_LIMITED` hoặc "upgrade OA Tier" → toast riêng với link nâng cấp và mô tả rõ ràng thay vì lỗi generic
+### 2. Sửa `SocialConnectionsManager.tsx` — Hiển thị đúng gói OA
+- Thay vì chỉ cảnh báo khi gói "Cơ bản"/"Basic", hiển thị badge thông tin gói thực tế (VD: "Gói Nâng cao ✓")
+- Chỉ cảnh báo vàng khi thực sự là gói Cơ bản
 
-### 6. Cập nhật proxy page
-**File:** `src/pages/ZaloOAuthProxy.tsx`
-- Forward `package_name` từ response sang redirect params
+### 3. Sửa `BrandViewConnectionsTab.tsx` — Hiển thị gói OA
+- Thêm hiển thị tương tự: badge gói OA trong phần connection info
+
+### 4. Sửa `useDirectPublish.ts` — Xử lý lỗi thiếu ảnh
+- Thêm nhận diện errorCode `MISSING_COVER_IMAGE` → toast hướng dẫn thêm ảnh
+- Giữ nhận diện `OA_TIER_LIMITED` cho error `-224` thực sự
+
+### 5. Sửa `ZaloCallback.tsx` — Hiển thị chính xác gói
+- Không hardcode cảnh báo cho "Cơ bản" nữa
+- Hiển thị badge gói thực tế từ `package_name` param
 
 ## Files thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| `supabase/functions/zalo-oauth-callback/index.ts` | Lưu `oa_package` vào metadata, trả `package_name` trong response |
-| `supabase/functions/publish-zalo/index.ts` | Bắt error `-224`, trả message tiếng Việt + errorCode |
-| `src/pages/ZaloCallback.tsx` | Hiển thị cảnh báo gói Cơ bản |
-| `src/pages/ZaloOAuthProxy.tsx` | Forward `package_name` param |
-| `src/components/social/SocialConnectionsManager.tsx` | Badge cảnh báo gói OA |
-| `src/hooks/useDirectPublish.ts` | Toast thân thiện cho lỗi OA Tier |
+| `supabase/functions/publish-zalo/index.ts` | Dùng Article API, bắt buộc cover image, tách error codes |
+| `src/hooks/useDirectPublish.ts` | Xử lý errorCode `MISSING_COVER_IMAGE` |
+| `src/components/social/SocialConnectionsManager.tsx` | Badge gói OA chính xác |
+| `src/components/brand/BrandViewConnectionsTab.tsx` | Badge gói OA |
+| `src/pages/ZaloCallback.tsx` | Hiển thị gói thực tế |
 
