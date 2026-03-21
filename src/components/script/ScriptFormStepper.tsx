@@ -562,7 +562,15 @@ export function ScriptFormStepper({ onSubmit, isLoading, initialTopic, topicHist
         )}
 
         {/* ====== Step 2: Smart Summary + Generate ====== */}
-        {currentStep === 2 && (
+        {currentStep === 2 && isLoading && (
+          <ScriptGenerationProgress
+            isActive={isLoading}
+            topic={formData.topic}
+            videoType={formData.video_type}
+            duration={formData.duration}
+          />
+        )}
+        {currentStep === 2 && !isLoading && (
           <div className="space-y-5 animate-fade-in">
             {/* Header with topic context */}
             <div className="text-center py-3">
