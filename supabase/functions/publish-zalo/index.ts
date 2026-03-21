@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 import { decryptCredential } from "../_shared/crypto.ts";
 
 const corsHeaders = {
@@ -20,6 +21,52 @@ interface PublishRequest {
     coverUrl: string;
     url: string;
   };
+}
+
+async function ensureZaloCompatibleCoverUrl(coverUrl: string, supabase: ReturnType<typeof createClient>): Promise<string> {
+  try {
+    const imageRes = await fetch(coverUrl);
+    if (!imageRes.ok) {
+      console.warn(`Cover fetch failed (${imageRes.status}), using original URL`);
+      return coverUrl;
+    }
+
+    const originalBytes = new Uint8Array(await imageRes.arrayBuffer());
+    const isPng = /\.png(\?|$)/i.test(coverUrl);
+    const shouldOptimize = isPng || originalBytes.length > 900_000;
+
+    if (!shouldOptimize) {
+      return coverUrl;
+    }
+
+    const image = await Image.decode(originalBytes);
+    if (image.width > 800) {
+      const newHeight = Math.floor(image.height * (800 / image.width));
+      image.resize(800, newHeight);
+    }
+
+    const optimizedBytes = await image.encodeJPEG(80);
+    const filePath = `social/zalo-optimized/${Date.now()}-${crypto.randomUUID()}.jpg`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('carousel-images')
+      .upload(filePath, optimizedBytes, {
+        contentType: 'image/jpeg',
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.warn(`Optimized cover upload failed: ${uploadError.message}, using original URL`);
+      return coverUrl;
+    }
+
+    const { data: urlData } = supabase.storage.from('carousel-images').getPublicUrl(filePath);
+    console.log(`Using optimized Zalo cover: ${urlData.publicUrl}`);
+    return urlData.publicUrl;
+  } catch (error) {
+    console.warn('Cover optimization failed, using original URL:', error);
+    return coverUrl;
+  }
 }
 
 serve(async (req) => {
@@ -117,8 +164,8 @@ serve(async (req) => {
       return { type: 'text', content: trimmed };
     });
 
-    // Use cover image URL directly — image is already resized to <1MB JPEG by overlay-logo-canvas
-    const finalCoverUrl = coverImageUrl;
+    // Ensure cover URL is Zalo-compatible (optimize legacy PNG or >1MB images)
+    const finalCoverUrl = await ensureZaloCompatibleCoverUrl(coverImageUrl, supabase);
 
     const createArticlePayload = {
       type: 'normal',
