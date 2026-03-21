@@ -38,16 +38,15 @@ import {
   Globe,
   Facebook,
   Instagram,
-  Twitter,
   Linkedin,
   Mail,
   Youtube,
-  MessageCircle,
   Send,
   MapPin,
   Music2,
   AtSign,
 } from 'lucide-react';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import {
   useBrandChannelOptimizations,
   type BrandChannelOptimization,
