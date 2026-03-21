@@ -7,6 +7,7 @@ const ALLOWED_ORIGIN_PATTERNS = [
   /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/,
   /^https:\/\/(app\.)?flowa\.(one|vn)$/,
   /^http:\/\/localhost(:\d+)?$/,
+  /^https:\/\/id-preview--[a-z0-9-]+\.lovable\.app$/,
 ];
 
 function isAllowedOrigin(origin: string): boolean {
