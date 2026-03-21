@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { 
   Copy, 
   Clock, 
@@ -405,9 +406,10 @@ export function ScriptViewer({ script, open, onOpenChange, onScriptUpdate }: Scr
                       <TabsTrigger value="full" className="data-[state=active]:bg-primary/10 text-xs xs:text-sm px-2 xs:px-3 py-1.5">
                         Toàn bộ
                       </TabsTrigger>
-                      <TabsTrigger value="storyboard" className="data-[state=active]:bg-primary/10 text-xs xs:text-sm px-2 xs:px-3 py-1.5">
+                      <TabsTrigger value="storyboard" disabled className="data-[state=active]:bg-primary/10 text-xs xs:text-sm px-2 xs:px-3 py-1.5 opacity-50 cursor-not-allowed">
                         <Clapperboard className="w-3 h-3 mr-1" />
                         Storyboard
+                        <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 h-4 border-amber-500/50 text-amber-600">Soon</Badge>
                       </TabsTrigger>
                     </TabsList>
                     
