@@ -105,7 +105,7 @@ serve(async (req) => {
     const { scriptContent, scriptTitle, duration, videoType, characterType, brandName, organizationId, outputLanguage: reqLang, countryCode } = await req.json();
 
     // Determine output language
-    const outputLanguage = reqLang || getLanguageForCountry(countryCode || 'VN');
+    const outputLanguage = reqLang || getOutputLanguage(countryCode || 'VN');
     const langConfig = getLanguageConfig(outputLanguage);
 
     if (!scriptContent) {
