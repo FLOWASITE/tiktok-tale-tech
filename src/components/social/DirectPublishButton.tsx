@@ -472,6 +472,7 @@ export function DirectPublishButton({
                     platform === 'facebook' && 'bg-[hsl(220,46%,48%)] hover:bg-[hsl(220,46%,42%)] text-white',
                     platform === 'twitter' && 'bg-foreground hover:bg-foreground/90 text-background',
                     platform === 'linkedin' && 'bg-[hsl(201,100%,35%)] hover:bg-[hsl(201,100%,30%)] text-white',
+                    platform === 'zalo_oa' && 'bg-[hsl(210,100%,50%)] hover:bg-[hsl(210,100%,45%)] text-white',
                   )}
                 >
                   {isPublishing ? (
