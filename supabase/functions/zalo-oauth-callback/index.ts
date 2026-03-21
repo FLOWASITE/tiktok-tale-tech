@@ -36,16 +36,37 @@ function decrypt(encryptedText: string, key: string): string {
   }
 }
 
+const ALLOWED_ORIGIN_PATTERNS = [
+  /^https:\/\/.*\.lovable\.app$/,
+  /^https:\/\/.*\.lovableproject\.com$/,
+  /^http:\/\/localhost(:\d+)?$/,
+  /^https:\/\/.*\.supabase\.co$/,
+];
+
+function isAllowedOrigin(origin: string): boolean {
+  return ALLOWED_ORIGIN_PATTERNS.some(p => p.test(origin));
+}
+
+function getFrontendUrl(frontendOrigin: string | null): string {
+  if (frontendOrigin && isAllowedOrigin(frontendOrigin)) {
+    return frontendOrigin;
+  }
+  return 'https://tiktok-tale-tech.lovable.app';
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Try to parse state early for error redirects
+  let frontendOrigin: string | null = null;
+
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get('code');
     const state = url.searchParams.get('state');
-    const oaId = url.searchParams.get('oa_id'); // Zalo returns selected OA ID
+    const oaId = url.searchParams.get('oa_id');
 
     console.log('Zalo OAuth callback received:', { code: !!code, state: !!state, oaId });
 
@@ -53,15 +74,16 @@ serve(async (req) => {
       throw new Error('Missing code or state parameter');
     }
 
-    // Decode state
-    let stateData: { brandTemplateId: string | null; organizationId: string | null; userId: string };
+    let stateData: { brandTemplateId: string | null; organizationId: string | null; userId: string; frontendOrigin?: string | null };
     try {
       stateData = JSON.parse(atob(state));
+      frontendOrigin = stateData.frontendOrigin || null;
     } catch (e) {
       throw new Error('Invalid state parameter');
     }
 
     const { brandTemplateId, organizationId, userId } = stateData;
+    const frontendUrl = getFrontendUrl(frontendOrigin);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -88,7 +110,6 @@ serve(async (req) => {
     }
 
     // Exchange code for access token
-    // Zalo OA uses different endpoint than Zalo Login
     const redirectUri = `${supabaseUrl}/functions/v1/zalo-oauth-callback`;
     
     const tokenResponse = await fetch('https://oauth.zaloapp.com/v4/oa/access_token', {
@@ -117,13 +138,11 @@ serve(async (req) => {
 
     const accessToken = tokenData.access_token;
     const refreshToken = tokenData.refresh_token;
-    const expiresIn = tokenData.expires_in || 3600; // Default 1 hour
+    const expiresIn = tokenData.expires_in || 3600;
 
-    // Get OA info using the access token
+    // Get OA info
     const oaInfoResponse = await fetch('https://openapi.zalo.me/v2.0/oa/getoa', {
-      headers: {
-        'access_token': accessToken,
-      },
+      headers: { 'access_token': accessToken },
     });
 
     const oaInfo = await oaInfoResponse.json();
@@ -137,7 +156,6 @@ serve(async (req) => {
       oaIdFinal = oaInfo.data.oa_id || oaIdFinal;
     }
 
-    // Calculate token expiry
     const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
     // Check for existing connection
@@ -154,7 +172,6 @@ serve(async (req) => {
 
     const { data: existingConnection } = await query.maybeSingle();
 
-    // Encrypt tokens before storing
     const encryptedAccessToken = encrypt(accessToken, encryptionKey);
     const encryptedRefreshToken = refreshToken ? encrypt(refreshToken, encryptionKey) : null;
 
@@ -187,7 +204,6 @@ serve(async (req) => {
         .eq('id', existingConnection.id)
         .select()
         .single();
-      
       if (error) throw error;
       connection = data;
     } else {
@@ -196,38 +212,36 @@ serve(async (req) => {
         .insert(connectionData)
         .select()
         .single();
-      
       if (error) throw error;
       connection = data;
     }
 
     console.log('Zalo OA connection saved:', connection.id);
 
-    // Redirect to frontend with success
-    const frontendUrl = Deno.env.get('FRONTEND_URL') || supabaseUrl.replace('.supabase.co', '.lovableproject.com');
-    const redirectUrl = `${frontendUrl}/auth/zalo/callback?success=true&platform=zalo_oa&username=${encodeURIComponent(oaName)}`;
+    const redirectParams = new URLSearchParams({
+      success: 'true',
+      platform: 'zalo_oa',
+      username: oaName,
+      ...(brandTemplateId ? { brand_template_id: brandTemplateId } : {}),
+    });
 
     return new Response(null, {
       status: 302,
-      headers: {
-        ...corsHeaders,
-        'Location': redirectUrl,
-      },
+      headers: { ...corsHeaders, 'Location': `${frontendUrl}/auth/zalo/callback?${redirectParams}` },
     });
 
   } catch (error: any) {
     console.error('Zalo OAuth callback error:', error);
     
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const frontendUrl = Deno.env.get('FRONTEND_URL') || supabaseUrl.replace('.supabase.co', '.lovableproject.com');
-    const redirectUrl = `${frontendUrl}/auth/zalo/callback?success=false&error=${encodeURIComponent(error.message)}`;
+    const frontendUrl = getFrontendUrl(frontendOrigin);
+    const redirectParams = new URLSearchParams({
+      success: 'false',
+      error: error.message || 'Zalo OAuth failed',
+    });
 
     return new Response(null, {
       status: 302,
-      headers: {
-        ...corsHeaders,
-        'Location': redirectUrl,
-      },
+      headers: { ...corsHeaders, 'Location': `${frontendUrl}/auth/zalo/callback?${redirectParams}` },
     });
   }
 });
