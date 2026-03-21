@@ -99,6 +99,7 @@ export function AppRoutes() {
       <Route path="/auth/threads/callback" element={<ThreadsCallback />} />
       <Route path="/auth/zalo/callback" element={<ZaloCallback />} />
       <Route path="/auth/google-business/callback" element={<GoogleBusinessCallback />} />
+      <Route path="/auth/x/callback" element={<XCallback />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/payment/result" element={<ProtectedRoute><AppLayout><PaymentResult /></AppLayout></ProtectedRoute>} />
 

@@ -74,6 +74,7 @@ const PLATFORM_HELP: Record<SocialPlatform, { url: string; instructions: string 
 };
 
 const CALLBACK_URL_MAP: Partial<Record<SocialPlatform, string>> = {
+  twitter: 'x-oauth-callback',
   facebook: 'facebook-oauth-callback',
   instagram: 'instagram-oauth-callback',
   threads: 'threads-oauth-callback',

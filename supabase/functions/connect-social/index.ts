@@ -168,111 +168,111 @@ serve(async (req) => {
       }
     }
 
-    // For Twitter - using global credentials + user tokens
+    // For Twitter/X - OAuth 2.0 PKCE flow (preferred) or legacy manual token
     if (platform === 'twitter') {
-      // Only require access tokens from user (consumer keys come from Admin settings)
-      if (!accessToken || !accessTokenSecret) {
+      // If accessToken provided, use legacy manual flow (backward compatible)
+      if (accessToken && accessTokenSecret) {
+        const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+        const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter', encryptionKey);
+        
+        const effectiveConsumerKey = consumerKey || globalCreds.consumerKey || Deno.env.get('TWITTER_CONSUMER_KEY');
+        const effectiveConsumerSecret = consumerSecret || globalCreds.consumerSecret || Deno.env.get('TWITTER_CONSUMER_SECRET');
+
+        if (!effectiveConsumerKey || !effectiveConsumerSecret) {
+          throw new Error('Twitter chưa được cấu hình. Liên hệ Admin để thiết lập Consumer Key/Secret trong Admin Settings.');
+        }
+
+        // Check for existing connection
+        let query = supabase.from('social_connections').select('id').eq('platform', 'twitter');
+        if (brandTemplateId) query = query.eq('brand_template_id', brandTemplateId);
+        else query = query.eq('organization_id', organizationId);
+        const { data: existingConnection } = await query.maybeSingle();
+
+        const connectionData = {
+          organization_id: organizationId || null,
+          brand_template_id: brandTemplateId || null,
+          user_id: user.id,
+          platform: 'twitter',
+          platform_username: username || null,
+          access_token: accessToken,
+          refresh_token: accessTokenSecret,
+          consumer_key: consumerKey || null,
+          consumer_secret: consumerSecret || null,
+          is_active: true,
+          connected_at: new Date().toISOString(),
+          scopes: ['tweet.read', 'tweet.write', 'users.read'],
+          metadata: { manual_setup: true, uses_global_credentials: !consumerKey && !consumerSecret },
+        };
+
+        let connection;
+        if (existingConnection) {
+          const { data, error } = await supabase.from('social_connections').update(connectionData).eq('id', existingConnection.id).select().single();
+          if (error) throw error;
+          connection = data;
+        } else {
+          const { data, error } = await supabase.from('social_connections').insert(connectionData).select().single();
+          if (error) throw error;
+          connection = data;
+        }
+
         return new Response(
-          JSON.stringify({
-            success: true,
-            requiresManualSetup: true,
-            instructions: {
-              steps: [
-                '1. Truy cập developer.twitter.com và tạo/sử dụng App của bạn',
-                '2. Trong App Settings, đảm bảo có "Read and Write" permissions',
-                '3. Trong Keys and Tokens, tạo Access Token and Secret',
-                '4. Copy Access Token và Access Token Secret',
-              ],
-              fields: [
-                { key: 'accessToken', label: 'Access Token', required: true },
-                { key: 'accessTokenSecret', label: 'Access Token Secret', required: true },
-              ],
-              note: 'Consumer Key/Secret đã được Admin cấu hình sẵn. Bạn chỉ cần cung cấp Access Token của tài khoản Twitter.',
-            },
-          }),
+          JSON.stringify({ success: true, connection: { id: connection.id, platform: connection.platform, username: connection.platform_username, isActive: connection.is_active } }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Get effective consumer keys (user-provided > global > ENV)
-      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-      const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter', encryptionKey);
-      
-      const effectiveConsumerKey = consumerKey || globalCreds.consumerKey || Deno.env.get('TWITTER_CONSUMER_KEY');
-      const effectiveConsumerSecret = consumerSecret || globalCreds.consumerSecret || Deno.env.get('TWITTER_CONSUMER_SECRET');
+      // OAuth 2.0 PKCE flow
+      const xClientId = Deno.env.get('X_CLIENT_ID');
+      const xCallbackUrl = Deno.env.get('X_CALLBACK_URL');
 
-      if (!effectiveConsumerKey || !effectiveConsumerSecret) {
-        throw new Error('Twitter chưa được cấu hình. Liên hệ Admin để thiết lập Consumer Key/Secret trong Admin Settings.');
+      if (!xClientId || !xCallbackUrl) {
+        throw new Error('X OAuth chưa được cấu hình (X_CLIENT_ID / X_CALLBACK_URL). Liên hệ Admin.');
       }
 
-      console.log(`Using ${consumerKey ? 'user-provided' : globalCreds.consumerKey ? 'global-admin' : 'environment'} consumer keys`);
+      // Generate PKCE code_verifier and code_challenge on server
+      const array = new Uint8Array(32);
+      crypto.getRandomValues(array);
+      const codeVerifier = btoa(String.fromCharCode(...array))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-      // Check for existing connection
-      let query = supabase
-        .from('social_connections')
-        .select('id')
-        .eq('platform', 'twitter');
+      // SHA-256 hash for code_challenge
+      const encoder = new TextEncoder();
+      const data = encoder.encode(codeVerifier);
+      const digest = await crypto.subtle.digest('SHA-256', data);
+      const codeChallenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-      if (brandTemplateId) {
-        query = query.eq('brand_template_id', brandTemplateId);
-      } else {
-        query = query.eq('organization_id', organizationId);
-      }
+      // Encode state with all needed info including codeVerifier
+      const state = btoa(JSON.stringify({
+        brandTemplateId: brandTemplateId || null,
+        organizationId: organizationId || null,
+        userId: user.id,
+        frontendOrigin: requestOrigin || null,
+        codeVerifier,
+      }));
 
-      const { data: existingConnection } = await query.maybeSingle();
-
-      // Only save user-provided consumer keys (if any), not global ones
-      const connectionData = {
-        organization_id: organizationId || null,
-        brand_template_id: brandTemplateId || null,
-        user_id: user.id,
-        platform: 'twitter',
-        platform_username: username || null,
-        access_token: accessToken,
-        refresh_token: accessTokenSecret,
-        consumer_key: consumerKey || null, // Only save if user explicitly provided
-        consumer_secret: consumerSecret || null, // Only save if user explicitly provided
-        is_active: true,
-        connected_at: new Date().toISOString(),
-        scopes: ['tweet.read', 'tweet.write', 'users.read'],
-        metadata: { 
-          manual_setup: true,
-          uses_global_credentials: !consumerKey && !consumerSecret
-        },
-      };
-
-      let connection;
-      if (existingConnection) {
-        const { data, error } = await supabase
-          .from('social_connections')
-          .update(connectionData)
-          .eq('id', existingConnection.id)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        connection = data;
-      } else {
-        const { data, error } = await supabase
-          .from('social_connections')
-          .insert(connectionData)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        connection = data;
-      }
-
-      console.log('Twitter connection saved:', connection.id);
+      const oauthUrl = `https://x.com/i/oauth2/authorize?` + new URLSearchParams({
+        response_type: 'code',
+        client_id: xClientId,
+        redirect_uri: xCallbackUrl,
+        scope: 'tweet.read tweet.write users.read offline.access',
+        state,
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256',
+      }).toString();
 
       return new Response(
         JSON.stringify({
           success: true,
-          connection: {
-            id: connection.id,
-            platform: connection.platform,
-            username: connection.platform_username,
-            isActive: connection.is_active,
+          requiresOAuth: true,
+          oauthUrl,
+          instructions: {
+            steps: [
+              '1. Click nút bên dưới để đăng nhập X',
+              '2. Cho phép ứng dụng truy cập tài khoản của bạn',
+              '3. Bạn sẽ được redirect về sau khi hoàn tất',
+            ],
+            note: 'Đăng nhập bằng tài khoản X mà bạn muốn sử dụng để đăng bài.',
           },
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
