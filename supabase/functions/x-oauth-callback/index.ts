@@ -41,8 +41,8 @@ function normalizeXError(rawText: string, context: string): NormalizedError {
     if (parsed.reason === 'client-not-enrolled') {
       return {
         code: 'x_client_not_enrolled',
-        message: 'Ứng dụng X chưa được gắn vào Project trên Developer Portal',
-        hint: 'Vào developer.x.com, tạo Project và gắn App vào đó',
+        message: 'App X chưa đủ quyền truy cập API v2',
+        hint: `Kiểm tra: (1) App đã gắn vào Project, (2) Project có API access phù hợp (Basic trở lên), (3) Client ID/Secret khớp app đã gắn Project. Required: ${parsed.required_enrollment || 'N/A'}`,
       };
     }
     if (parsed.error === 'invalid_request' || parsed.error === 'invalid_grant') {
@@ -60,14 +60,19 @@ function normalizeXError(rawText: string, context: string): NormalizedError {
   };
 }
 
+function buildRedirect(frontendOrigin: string | null, params: Record<string, string>): Response {
+  const searchParams = new URLSearchParams(params);
+  return Response.redirect(`${getFrontendUrl(frontendOrigin)}/auth/x/callback?${searchParams}`, 302);
+}
+
 function buildErrorRedirect(frontendOrigin: string | null, error: NormalizedError, brandTemplateId?: string): Response {
-  const params = new URLSearchParams({
+  const params: Record<string, string> = {
     error: error.code,
     error_description: error.message,
-  });
-  if (error.hint) params.set('error_hint', error.hint);
-  if (brandTemplateId) params.set('brand_template_id', brandTemplateId);
-  return Response.redirect(`${getFrontendUrl(frontendOrigin)}/auth/x/callback?${params}`, 302);
+  };
+  if (error.hint) params.error_hint = error.hint;
+  if (brandTemplateId) params.brand_template_id = brandTemplateId;
+  return buildRedirect(frontendOrigin, params);
 }
 
 serve(async (req) => {
@@ -143,24 +148,28 @@ serve(async (req) => {
     const { access_token, refresh_token, expires_in } = tokenData;
     console.log('Tokens obtained, expires_in:', expires_in);
 
-    // Fetch user profile
+    // Fetch user profile — tolerate failure
     console.log('Fetching X user profile...');
+    let xUser: { id: string; username: string; name: string; profile_image_url?: string } | null = null;
+    let profileWarning: string | null = null;
+
     const userResponse = await fetch('https://api.x.com/2/users/me?user.fields=profile_image_url,name,username', {
       headers: { 'Authorization': `Bearer ${access_token}` },
     });
 
     const userText = await userResponse.text();
-    if (!userResponse.ok) {
-      console.error('User fetch failed:', userText);
-      return buildErrorRedirect(frontendOrigin, normalizeXError(userText, 'user'), brandTemplateId);
+    if (userResponse.ok) {
+      xUser = JSON.parse(userText).data;
+      console.log('X user:', { id: xUser!.id, username: xUser!.username, name: xUser!.name });
+    } else {
+      console.warn('User fetch failed (will save limited connection):', userText);
+      const normalized = normalizeXError(userText, 'user');
+      profileWarning = normalized.code;
     }
-
-    const xUser = JSON.parse(userText).data;
-    console.log('X user:', { id: xUser.id, username: xUser.username, name: xUser.name });
 
     const tokenExpiresAt = new Date(Date.now() + (expires_in || 7200) * 1000).toISOString();
 
-    // Save to database
+    // Save to database — even if profile fetch failed
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
     let query = supabase.from('social_connections').select('id').eq('platform', 'twitter');
@@ -169,23 +178,27 @@ serve(async (req) => {
 
     const { data: existingConnection } = await query.maybeSingle();
 
-    const connectionData = {
+    const connectionData: Record<string, unknown> = {
       organization_id: organizationId || null,
       brand_template_id: brandTemplateId || null,
       user_id: userId,
       platform: 'twitter',
-      platform_user_id: xUser.id,
-      platform_username: xUser.username,
-      platform_display_name: xUser.name,
-      platform_avatar_url: xUser.profile_image_url?.replace('_normal', '_400x400') || null,
+      platform_user_id: xUser?.id || null,
+      platform_username: xUser?.username || null,
+      platform_display_name: xUser?.name || null,
+      platform_avatar_url: xUser?.profile_image_url?.replace('_normal', '_400x400') || null,
       access_token,
       refresh_token: refresh_token || null,
       token_expires_at: tokenExpiresAt,
       is_active: true,
       connected_at: new Date().toISOString(),
-      last_verified_at: new Date().toISOString(),
+      last_verified_at: xUser ? new Date().toISOString() : null,
       scopes: ['tweet.read', 'tweet.write', 'users.read', 'offline.access'],
-      metadata: { oauth2_pkce: true, token_type: 'bearer' },
+      metadata: {
+        oauth2_pkce: true,
+        token_type: 'bearer',
+        ...(profileWarning ? { profile_status: 'unavailable', oauth_warning_code: profileWarning } : {}),
+      },
     };
 
     let connection;
@@ -201,13 +214,14 @@ serve(async (req) => {
 
     const redirectParams: Record<string, string> = {
       success: 'true',
-      username: xUser.username,
-      display_name: xUser.name,
+      username: xUser?.username || 'unknown',
+      display_name: xUser?.name || 'X Account',
       connection_id: connection.id,
     };
     if (brandTemplateId) redirectParams.brand_template_id = brandTemplateId;
+    if (profileWarning) redirectParams.warning = profileWarning;
 
-    return Response.redirect(`${getFrontendUrl(frontendOrigin)}/auth/x/callback?${new URLSearchParams(redirectParams)}`, 302);
+    return buildRedirect(frontendOrigin, redirectParams);
 
   } catch (error) {
     console.error('X OAuth callback error:', error);

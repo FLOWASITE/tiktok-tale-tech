@@ -228,7 +228,32 @@ serve(async (req) => {
       }
 
       console.log('Testing via OAuth 2.0 Bearer token');
-      twitterUser = await getTwitterUserOAuth2(accessToken);
+      try {
+        twitterUser = await getTwitterUserOAuth2(accessToken);
+      } catch (e: any) {
+        // If client-not-enrolled, return success with warning instead of failing
+        if (e.message?.includes('client-not-enrolled') || e.message?.includes('Client Forbidden')) {
+          console.warn('users/me blocked (client-not-enrolled), returning limited success');
+          await supabase.from('social_connections').update({
+            last_verified_at: new Date().toISOString(),
+            last_error: 'client-not-enrolled: profile API blocked',
+          }).eq('id', connectionId);
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              warning: 'client-not-enrolled',
+              message: 'Token hợp lệ nhưng API profile bị chặn. Kiểm tra API access trên X Developer Portal.',
+              data: {
+                username: connection.platform_username || 'unknown',
+                displayName: connection.platform_display_name || 'X Account',
+              },
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        throw e;
+      }
     } else {
       // Legacy OAuth 1.0a flow
       const accessToken = connection.access_token;
