@@ -1,57 +1,69 @@
 
+Mình đã rà lại logs + code hiện tại, và nguyên nhân chính của lỗi “vẫn lỗi” đã rõ:
 
-# Tạo Proxy Route cho Zalo OA Callback qua domain `app.flowa.one`
+- `connect-social` chạy và OAuth callback đã đi vào `zalo-oauth-callback` (không còn kẹt ở bước redirect URI).
+- Lỗi thật sự đang xảy ra ở `zalo-oauth-callback` khi giải mã credentials:
+  - `TypeError: Invalid initialization vector`
+  - sau đó ném `Invalid Zalo credentials`.
+- Dữ liệu trong `social_platform_settings` của `zalo_oa` đang ở format mới (AES-GCM/base64), nhưng các function Zalo vẫn dùng decrypt CBC cũ ở nhiều chỗ.
 
-## Vấn đề
+## Kế hoạch xử lý
 
-Zalo yêu cầu **Official Account Callback URL** phải nằm trên domain đã xác thực (`app.flowa.one`), nhưng Edge Function callback hiện tại nằm trên `rllyipiyuptkibqinotz.supabase.co`. Cần tạo route proxy để Zalo redirect về `app.flowa.one`, sau đó forward sang Edge Function.
+### 1) Chuẩn hóa mã hóa/giải mã cho toàn bộ luồng Zalo OA
+**Files:**
+- `supabase/functions/zalo-oauth-callback/index.ts`
+- `supabase/functions/publish-zalo/index.ts`
+- `supabase/functions/test-zalo-connection/index.ts`
+- `supabase/functions/refresh-zalo-token/index.ts`
 
-## Giải pháp
+**Thực hiện:**
+- Bỏ helper CBC cục bộ (`createDecipheriv/createCipheriv` kiểu cũ) trong 4 function trên.
+- Dùng shared helper:
+  - `decryptCredential(...)` để đọc `consumer_key`, `consumer_secret`, `access_token`, `refresh_token`
+  - `encrypt(...)` để lưu token mới
+- Giữ khả năng tương thích ngược nhờ fallback CBC có sẵn trong `_shared/crypto.ts`.
 
-### Luồng hoạt động mới
+**Kết quả mong đợi:**
+- Không còn lỗi `Invalid initialization vector`.
+- OAuth callback giải mã được App ID/Secret và lưu connection thành công.
 
-```text
-Zalo OAuth → app.flowa.one/api/zalo/callback?code=...&state=...
-         → Frontend route bắt params
-         → Gọi Edge Function zalo-oauth-callback (POST)
-         → Redirect về /auth/zalo/callback?success=true
-```
+---
 
-### Bước 1: Tạo page proxy `src/pages/ZaloOAuthProxy.tsx`
+### 2) Sửa callback UI để tương thích đúng với proxy flow mới
+**File:** `src/pages/ZaloCallback.tsx`
 
-- Route: `/api/zalo/callback`
-- Nhận `code` + `state` từ query params (Zalo redirect GET)
-- Gọi Edge Function `zalo-oauth-callback` qua POST với `{ code, state }`
-- Xử lý response: redirect về `/auth/zalo/callback` với kết quả
+**Vấn đề hiện tại:**
+- Page này vẫn yêu cầu `code/state` và gọi lại function lần 2.
+- Nhưng proxy (`/api/zalo/callback`) đã gọi function rồi, sau đó điều hướng về `/auth/zalo/callback?success=true...`.
+- Vì vậy page đang tự báo lỗi “Thiếu thông tin xác thực từ Zalo” dù flow có thể đã thành công.
 
-### Bước 2: Thêm route trong `src/app/routes.tsx`
+**Thực hiện:**
+- Đổi logic giống pattern `XCallback`:
+  - Nếu có `success=true` thì hiển thị thành công ngay.
+  - Nếu có `error` thì hiển thị lỗi từ query.
+  - Chỉ fallback gọi function khi thực sự nhận `code/state` trực tiếp.
+- Redirect về đúng brand (`/brands/:brandTemplateId`) thay vì route cũ `/settings/connections`.
 
-- Thêm `<Route path="/api/zalo/callback" element={<ZaloOAuthProxy />} />`
+---
 
-### Bước 3: Cập nhật `connect-social` redirect URI
+### 3) Cải thiện thông báo lỗi ở proxy để dễ debug
+**File:** `src/pages/ZaloOAuthProxy.tsx`
 
-- Thay `${supabaseUrl}/functions/v1/zalo-oauth-callback` → logic chọn redirect URI:
-  - Nếu `frontendOrigin` chứa `flowa.one` → dùng `https://app.flowa.one/api/zalo/callback`
-  - Fallback: giữ nguyên Edge Function URL cho dev/preview
+**Thực hiện:**
+- Khi function trả lỗi, giữ nguyên message gốc từ backend và điều hướng về callback page với `success=false&error=...` thay vì chỉ hiển thị generic.
+- Đồng bộ cách hiển thị với `ZaloCallback` mới để user thấy đúng nguyên nhân thay vì lỗi mơ hồ.
 
-### Bước 4: Cập nhật `zalo-oauth-callback` Edge Function
+---
 
-- Thêm hỗ trợ nhận request POST (từ proxy page) bên cạnh GET (redirect trực tiếp)
-- POST body: `{ code, state }` → xử lý như cũ → trả JSON thay vì redirect 302
+### 4) Checklist xác minh sau khi sửa
+1. Từ Brand -> Kết nối Zalo OA -> popup OAuth mở bình thường.
+2. Callback chạy qua `https://app.flowa.one/api/zalo/callback`.
+3. Edge logs `zalo-oauth-callback` không còn `Invalid initialization vector`.
+4. Bảng `social_connections` có bản ghi `platform='zalo_oa'`, `is_active=true`.
+5. Nút **Test** Zalo OA pass.
+6. Thử publish Zalo OA không còn lỗi decrypt token.
 
-## Callback URL cho Zalo Developer Portal
-
-Sau khi hoàn tất, URL cần cấu hình trên Zalo:
-```
-https://app.flowa.one/api/zalo/callback
-```
-
-## Files thay đổi
-
-| File | Thay đổi |
-|------|----------|
-| `src/pages/ZaloOAuthProxy.tsx` | Tạo mới — proxy page nhận GET từ Zalo, gọi Edge Function |
-| `src/app/routes.tsx` | Thêm route `/api/zalo/callback` |
-| `supabase/functions/connect-social/index.ts` | Đổi redirect URI sang `app.flowa.one` cho production |
-| `supabase/functions/zalo-oauth-callback/index.ts` | Thêm xử lý POST request từ proxy |
-
+## Chi tiết kỹ thuật (tóm tắt)
+- Đây là lỗi **mismatch crypto format** (GCM mới vs CBC cũ), không phải lỗi OAuth redirect ở bước hiện tại.
+- Không cần migration DB.
+- Trọng tâm là đồng bộ toàn bộ Zalo functions sang shared crypto helper để nhất quán với cách credentials đang được lưu bởi admin settings.
