@@ -18,6 +18,11 @@ export interface PublishOptions {
   mediaUrls?: string[];
   linkUrl?: string;
   scheduleId?: string;
+  articleData?: {
+    title: string;
+    description: string;
+    coverUrl?: string;
+  };
 }
 
 export function useDirectPublish() {
