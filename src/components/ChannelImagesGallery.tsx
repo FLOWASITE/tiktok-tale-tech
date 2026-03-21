@@ -108,7 +108,7 @@ const channelConfig: Record<Channel, {
   },
   zalo_oa: { 
     label: 'Zalo OA', 
-    icon: <MessageCircle className="w-3 h-3" />, 
+    icon: <ZaloIcon className="w-3 h-3" />, 
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/20',
   },
