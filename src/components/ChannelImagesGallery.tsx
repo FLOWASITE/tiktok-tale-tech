@@ -12,12 +12,10 @@ import {
   Globe,
   Facebook,
   Instagram,
-  Twitter,
   MapPin,
   Linkedin,
   Mail,
   Youtube,
-  MessageCircle,
   Send,
   Loader2,
   Music2,
@@ -25,6 +23,7 @@ import {
   RefreshCw,
   Info
 } from 'lucide-react';
+import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import { Channel, ChannelImage, ChannelImages } from '@/types/multichannel';
 import { toast } from 'sonner';
 import {
