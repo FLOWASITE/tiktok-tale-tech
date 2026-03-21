@@ -96,14 +96,29 @@ export function useDirectPublish() {
       });
     },
     onError: (error: Error) => {
-      const isOaTierLimited = (error as any).errorCode === 'OA_TIER_LIMITED' || error.message?.includes('upgrade OA Tier');
-      toast({
-        title: isOaTierLimited ? 'Zalo OA: Gói cơ bản không hỗ trợ' : 'Đăng bài thất bại',
-        description: isOaTierLimited
-          ? 'Zalo OA đang dùng gói Cơ bản, không hỗ trợ đăng bài qua API. Nâng cấp tại oa.zalo.me/home/pricing'
-          : error.message,
-        variant: 'destructive',
-      });
+      const errorCode = (error as any).errorCode;
+      const isOaTierLimited = errorCode === 'OA_TIER_LIMITED' || error.message?.includes('upgrade OA Tier');
+      const isMissingCover = errorCode === 'MISSING_COVER_IMAGE';
+      
+      if (isMissingCover) {
+        toast({
+          title: 'Zalo OA: Thiếu ảnh bìa',
+          description: 'Zalo OA yêu cầu ảnh bìa để đăng bài viết. Vui lòng thêm ảnh cho bài viết.',
+          variant: 'destructive',
+        });
+      } else if (isOaTierLimited) {
+        toast({
+          title: 'Zalo OA: Gói cơ bản không hỗ trợ',
+          description: 'Zalo OA đang dùng gói Cơ bản, không hỗ trợ đăng bài qua API. Nâng cấp tại oa.zalo.me/home/pricing',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Đăng bài thất bại',
+          description: error.message,
+          variant: 'destructive',
+        });
+      }
     },
   });
 

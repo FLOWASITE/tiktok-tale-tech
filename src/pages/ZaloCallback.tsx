@@ -27,6 +27,9 @@ export default function ZaloCallback() {
         setWarning(warningParam);
       } else if (packageName && ['Cơ bản', 'Basic'].includes(packageName)) {
         setWarning('OA đang dùng gói Cơ bản. Tính năng đăng bài qua API yêu cầu nâng cấp gói tại oa.zalo.me/home/pricing');
+      } else if (packageName) {
+        // Show package info for non-basic packages
+        setMessage(username ? `Kết nối ${username} thành công! (Gói ${packageName})` : `Kết nối Zalo OA thành công! (Gói ${packageName})`);
       }
 
       const redirectPath = brandTemplateId ? `/brands/${brandTemplateId}` : '/brands';
