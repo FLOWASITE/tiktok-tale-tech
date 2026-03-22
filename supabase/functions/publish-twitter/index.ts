@@ -291,28 +291,18 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
       throw new Error('Invalid platform for this endpoint');
     }
 
-    const isOAuth2 = connection.metadata?.oauth2_pkce === true;
+    const isOAuth1 = !connection.metadata?.oauth2_pkce || connection.metadata?.oauth_version === '1.0a';
 
     // === DETAILED TOKEN DIAGNOSTICS ===
     const now = new Date();
     const tokenExpiresAt = connection.token_expires_at ? new Date(connection.token_expires_at) : null;
-    const hasRefreshToken = !!connection.refresh_token;
-    const tokenAge = tokenExpiresAt ? Math.round((now.getTime() - tokenExpiresAt.getTime()) / 1000) : null;
     
     console.log('[TOKEN DIAG]', JSON.stringify({
       connectionId,
-      isOAuth2,
+      isOAuth1,
       hasAccessToken: !!connection.access_token,
-      accessTokenPrefix: connection.access_token ? connection.access_token.substring(0, 20) + '...' : null,
-      hasRefreshToken,
-      tokenExpiresAt: connection.token_expires_at || 'NOT SET',
-      tokenExpired: tokenExpiresAt ? tokenExpiresAt <= now : 'UNKNOWN',
-      tokenAgeSeconds: tokenAge,
-      tokenAgeHuman: tokenAge !== null
-        ? (tokenAge > 0 ? `expired ${Math.abs(tokenAge)}s ago` : `valid for ${Math.abs(tokenAge)}s`)
-        : 'unknown',
-      lastVerifiedAt: connection.last_verified_at || 'NOT SET',
-      connectedAt: connection.connected_at || 'NOT SET',
+      hasTokenSecret: !!connection.refresh_token,
+      tokenExpiresAt: connection.token_expires_at || 'NOT SET (OAuth 1.0a - no expiry)',
       metadata: connection.metadata,
     }));
 
@@ -343,65 +333,34 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
       const tweetContent = content;
       let tweetResult;
 
-      if (isOAuth2) {
-        // OAuth 2.0 Bearer token flow
-        let accessToken = connection.access_token;
+      // Always use OAuth 1.0a
+      const accessToken = connection.access_token;
+      const accessTokenSecret = connection.refresh_token; // stored in refresh_token field
 
-        // Proactive refresh: if token expires within 5 minutes OR already expired
-        const shouldRefresh = tokenExpiresAt 
-          ? tokenExpiresAt.getTime() - now.getTime() < 5 * 60 * 1000 
-          : false;
+      let consumerKey = connection.consumer_key;
+      let consumerSecret = connection.consumer_secret;
+      let credentialSource = 'brand-specific';
 
-        if (shouldRefresh || (tokenExpiresAt && tokenExpiresAt <= now)) {
-          const reason = tokenExpiresAt && tokenExpiresAt <= now ? 'EXPIRED' : 'EXPIRING_SOON';
-          console.log(`[TOKEN REFRESH] Reason: ${reason}, expires_at: ${connection.token_expires_at}`);
-          
-          if (!connection.refresh_token) {
-            throw new Error('Token expired and no refresh token available. Please reconnect X account.');
-          }
-          
-          try {
-            accessToken = await refreshOAuth2Token(supabase, connectionId, connection.refresh_token);
-            console.log('[TOKEN REFRESH] SUCCESS - new token obtained');
-          } catch (refreshErr: any) {
-            console.error('[TOKEN REFRESH] FAILED:', refreshErr.message);
-            throw new Error(`Token refresh failed: ${refreshErr.message}. Please reconnect X account.`);
-          }
-        } else {
-          console.log('[TOKEN] Using existing token (still valid)');
+      if (!consumerKey || !consumerSecret) {
+        const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter');
+        if (globalCreds.consumerKey && globalCreds.consumerSecret) {
+          consumerKey = globalCreds.consumerKey;
+          consumerSecret = globalCreds.consumerSecret;
+          credentialSource = 'global-admin';
         }
-
-        tweetResult = await postTweetOAuth2(tweetContent, accessToken);
-      } else {
-        // Legacy OAuth 1.0a flow
-        const accessToken = connection.access_token;
-        const accessTokenSecret = connection.refresh_token;
-
-        let consumerKey = connection.consumer_key;
-        let consumerSecret = connection.consumer_secret;
-        let credentialSource = 'brand-specific';
-
-        if (!consumerKey || !consumerSecret) {
-          const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter');
-          if (globalCreds.consumerKey && globalCreds.consumerSecret) {
-            consumerKey = globalCreds.consumerKey;
-            consumerSecret = globalCreds.consumerSecret;
-            credentialSource = 'global-admin';
-          }
-        }
-
-        if (!consumerKey || !consumerSecret) {
-          consumerKey = consumerKey || Deno.env.get('TWITTER_CONSUMER_KEY');
-          consumerSecret = consumerSecret || Deno.env.get('TWITTER_CONSUMER_SECRET');
-          if (consumerKey && consumerSecret) credentialSource = 'environment';
-        }
-
-        if (!consumerKey || !consumerSecret) throw new Error('Twitter app credentials not configured.');
-        if (!accessToken || !accessTokenSecret) throw new Error('Twitter user credentials not found.');
-
-        console.log(`Using ${credentialSource} consumer keys (OAuth 1.0a)`);
-        tweetResult = await postTweet(tweetContent, consumerKey, consumerSecret, accessToken, accessTokenSecret);
       }
+
+      if (!consumerKey || !consumerSecret) {
+        consumerKey = consumerKey || Deno.env.get('TWITTER_CONSUMER_KEY');
+        consumerSecret = consumerSecret || Deno.env.get('TWITTER_CONSUMER_SECRET');
+        if (consumerKey && consumerSecret) credentialSource = 'environment';
+      }
+
+      if (!consumerKey || !consumerSecret) throw new Error('Twitter app credentials not configured.');
+      if (!accessToken || !accessTokenSecret) throw new Error('Twitter user credentials not found. Please reconnect X account.');
+
+      console.log(`Using ${credentialSource} consumer keys (OAuth 1.0a)`);
+      tweetResult = await postTweet(tweetContent, consumerKey, consumerSecret, accessToken, accessTokenSecret);
 
       console.log('Tweet posted successfully:', tweetResult);
 
