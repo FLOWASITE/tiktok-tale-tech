@@ -161,4 +161,4 @@ Deno.serve(withPerf({ functionName: 'refresh-threads-token' }, async (req) => {
       }
     );
   }
-});
+}));

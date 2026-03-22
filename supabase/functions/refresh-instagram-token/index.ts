@@ -251,4 +251,4 @@ Deno.serve(withPerf({ functionName: 'refresh-instagram-token' }, async (req) => 
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

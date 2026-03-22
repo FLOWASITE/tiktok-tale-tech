@@ -179,4 +179,4 @@ Deno.serve(withPerf({ functionName: 'refresh-facebook-token' }, async (req) => {
       }
     );
   }
-});
+}));

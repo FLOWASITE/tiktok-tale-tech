@@ -174,4 +174,4 @@ Deno.serve(withPerf({ functionName: 'refresh-google-business-token' }, async (re
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));
