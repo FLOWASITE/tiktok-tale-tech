@@ -720,7 +720,7 @@ Hãy đưa ra đề xuất điều chỉnh phù hợp.`;
 
 // ============= MAIN HANDLER =============
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'kpi-ai' }, async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
