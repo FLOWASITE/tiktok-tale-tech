@@ -2,6 +2,7 @@ import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { withSemanticCache } from "../_shared/cache/semantic-cache.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -449,15 +450,32 @@ Rules:
         const aiConfig = await getAIConfig('chat-conversations', convData?.organization_id);
         console.log('[chat-conversations] extract_learnings using AI config:', { model: aiConfig.model });
 
-        // Call AI via multi-provider system
-        const result = await callAIProvider({
-          functionName: 'chat-conversations',
-          organizationId: convData?.organization_id,
-          messages: [{ role: 'user', content: extractionPrompt }],
-          modelOverride: aiConfig.model || undefined,
-          maxTokensOverride: 500,
-          temperatureOverride: 0.3,
-        });
+        // Call AI via multi-provider system with semantic cache
+        const serviceSupabase = getServiceClient();
+        const cacheInputText = `extract-learnings:${conversationText.substring(0, 300)}`;
+
+        const semanticResult = await withSemanticCache(
+          serviceSupabase,
+          cacheInputText,
+          { functionName: 'chat-conversations', organizationId: convData?.organization_id, similarityThreshold: 0.90 },
+          async () => {
+            return await callAIProvider({
+              functionName: 'chat-conversations',
+              organizationId: convData?.organization_id,
+              messages: [{ role: 'user', content: extractionPrompt }],
+              modelOverride: aiConfig.model || undefined,
+              maxTokensOverride: 500,
+              temperatureOverride: 0.3,
+            });
+          },
+          3, // TTL 3 days
+        );
+
+        if (semanticResult.fromCache) {
+          console.log(`[chat-conversations] Semantic cache hit for extract_learnings (similarity: ${semanticResult.similarity?.toFixed(3)})`);
+        }
+
+        const result = semanticResult.data;
 
         if (!result.success) {
           console.error('AI extraction error:', result.error);

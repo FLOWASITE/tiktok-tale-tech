@@ -1,4 +1,5 @@
-import { withPerf } from "../_shared/middleware/perf.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { withSemanticCache } from "../_shared/cache/semantic-cache.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -61,50 +62,68 @@ Examples:
 - "Bí quyết giúp bạn tăng doanh số bán hàng lên 200% chỉ trong 30 ngày" → "Tăng 200% doanh số\\ntrong 30 ngày"
 - "Tại sao những người thành công luôn thức dậy lúc 5 giờ sáng" → "Bí mật 5AM\\ncủa người thành công"`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Optimize this text for a social graphic overlay:\n\n"${text}"` }
-        ],
-        temperature: 0.7,
-        max_tokens: 100,
-      }),
-    });
+    // Use semantic cache for similar text optimization requests
+    const serviceSupabase = getServiceClient();
+    const cacheInputText = `optimize-text:${style}:${maxLength}:${text.substring(0, 300)}`;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI API error:', errorText);
-      throw new Error('Failed to optimize text with AI');
+    const cacheResult = await withSemanticCache(
+      serviceSupabase,
+      cacheInputText,
+      { functionName: 'optimize-social-text', similarityThreshold: 0.92 },
+      async () => {
+        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash-lite',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: `Optimize this text for a social graphic overlay:\n\n"${text}"` }
+            ],
+            temperature: 0.7,
+            max_tokens: 100,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('AI API error:', errorText);
+          throw new Error('Failed to optimize text with AI');
+        }
+
+        const data = await response.json();
+        const optimizedText = data.choices?.[0]?.message?.content?.trim() || text;
+
+        // Clean up any quotes that AI might add
+        const cleanedText = optimizedText
+          .replace(/^["']|["']$/g, '') // Remove surrounding quotes
+          .replace(/^Optimized:?\s*/i, '') // Remove "Optimized:" prefix
+          .replace(/\\n/g, '\n') // Convert literal \n to real newlines
+          .replace(/\/n/g, '\n') // Convert /n typo to real newlines
+          .trim();
+
+        console.log('[optimize-social-text] Original:', text.length, 'chars → Optimized:', cleanedText.length, 'chars');
+
+        return {
+          success: true,
+          optimizedText: cleanedText,
+          wasOptimized: true,
+          originalLength: text.length,
+          optimizedLength: cleanedText.length,
+        };
+      },
+      5, // TTL 5 days
+    );
+
+    if (cacheResult.fromCache) {
+      console.log(`[optimize-social-text] Semantic cache hit (similarity: ${cacheResult.similarity?.toFixed(3)})`);
     }
 
-    const data = await response.json();
-    const optimizedText = data.choices?.[0]?.message?.content?.trim() || text;
-
-    // Clean up any quotes that AI might add
-    const cleanedText = optimizedText
-      .replace(/^["']|["']$/g, '') // Remove surrounding quotes
-      .replace(/^Optimized:?\s*/i, '') // Remove "Optimized:" prefix
-      .replace(/\\n/g, '\n') // Convert literal \n to real newlines
-      .replace(/\/n/g, '\n') // Convert /n typo to real newlines
-      .trim();
-
-    console.log('[optimize-social-text] Original:', text.length, 'chars → Optimized:', cleanedText.length, 'chars');
-
     return new Response(
-      JSON.stringify({
-        success: true,
-        optimizedText: cleanedText,
-        wasOptimized: true,
-        originalLength: text.length,
-        optimizedLength: cleanedText.length,
-      }),
+      JSON.stringify(cacheResult.data),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

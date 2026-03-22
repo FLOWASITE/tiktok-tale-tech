@@ -70,7 +70,7 @@ export const EDGE_FUNCTIONS: EdgeFunctionEntry[] = [
   fn('generate-carousel',        'ai-content', 'Tạo nội dung carousel', ['Lovable AI'], ['ai-client', 'brand-context']),
   fn('generate-carousel-image',  'ai-content', 'Tạo hình ảnh cho carousel', ['Lovable AI'], ['ai-client']),
   fn('generate-core-content',    'ai-content', 'Tạo nội dung gốc từ topic', ['Lovable AI'], ['ai-client', 'brand-context']),
-  fn('generate-hooks',           'ai-content', 'Tạo hook cho nội dung', ['Lovable AI'], ['ai-client']),
+  fn('generate-hooks',           'ai-content', 'Tạo hook cho nội dung (có semantic cache)', ['Lovable AI'], ['ai-client', 'semantic-cache'], false, { hasSemanticCache: true }),
   fn('generate-storyboard',      'ai-content', 'Tạo storyboard cho video', ['Lovable AI'], ['ai-client']),
   fn('generate-sample-text',     'ai-content', 'Tạo văn bản mẫu cho brand', ['Lovable AI'], ['ai-client']),
   fn('analyze-script',           'ai-content', 'Phân tích chất lượng kịch bản', ['Lovable AI'], ['ai-client']),
@@ -79,7 +79,7 @@ export const EDGE_FUNCTIONS: EdgeFunctionEntry[] = [
   fn('extract-broll-keywords',   'ai-content', 'Trích xuất từ khóa B-roll', ['Lovable AI'], ['ai-client']),
   fn('generate-music',           'ai-content', 'Gợi ý nhạc nền cho video', ['Lovable AI'], ['ai-client']),
   fn('generate-journey-messaging','ai-content','Tạo messaging theo customer journey', ['Lovable AI'], ['ai-client', 'brand-context']),
-  fn('optimize-social-text',     'ai-content', 'Tối ưu văn bản cho social media', ['Lovable AI'], ['ai-client']),
+  fn('optimize-social-text',     'ai-content', 'Tối ưu văn bản cho social media (có semantic cache)', ['Lovable AI'], ['ai-client', 'semantic-cache'], false, { hasSemanticCache: true }),
   fn('learn-from-feedback',      'ai-content', 'Học từ feedback người dùng', ['Lovable AI'], ['ai-client']),
   fn('learn-from-edits',         'ai-content', 'Học từ chỉnh sửa người dùng', ['Lovable AI'], ['ai-client']),
   fn('validate-seamless-consistency','ai-content','Kiểm tra tính nhất quán nội dung', ['Lovable AI'], ['ai-client']),
@@ -87,7 +87,7 @@ export const EDGE_FUNCTIONS: EdgeFunctionEntry[] = [
   // ── Topic & Chat AI ──
   fn('topic-ai',                 'chat', 'Xử lý AI cho topics (suggest, analyze, recommend, trending)', ['Lovable AI'], ['ai-client']),
   fn('chat-topics',              'chat', 'Chat AI về chủ đề nội dung', ['Lovable AI'], ['ai-client']),
-  fn('chat-conversations',       'chat', 'Chat AI đa năng (CRUD + AI)', ['Lovable AI'], ['ai-client']),
+  fn('chat-conversations',       'chat', 'Chat AI đa năng (CRUD + AI, có semantic cache)', ['Lovable AI'], ['ai-client', 'semantic-cache'], false, { hasSemanticCache: true }),
   fn('summarize-conversation',   'chat', 'Tóm tắt cuộc hội thoại (có semantic cache)', ['Lovable AI'], ['ai-client', 'semantic-cache'], false, { hasSemanticCache: true }),
   fn('help-chatbot',             'chat', 'Chatbot hỗ trợ người dùng', ['Lovable AI'], ['ai-client']),
   fn('help-article-search',      'chat', 'Tìm kiếm bài viết hỗ trợ', [], []),
@@ -95,7 +95,7 @@ export const EDGE_FUNCTIONS: EdgeFunctionEntry[] = [
 
   // ── Brand ──
   fn('generate-brand-voice',     'brand', 'Tạo brand voice từ mô tả', ['Lovable AI'], ['ai-client']),
-  fn('generate-brand-guideline', 'brand', 'Tạo brand guideline', ['Lovable AI'], ['ai-client']),
+  fn('generate-brand-guideline', 'brand', 'Tạo brand guideline (có semantic cache)', ['Lovable AI'], ['ai-client', 'semantic-cache'], false, { hasSemanticCache: true }),
   fn('generate-brand-image',     'brand', 'Tạo hình ảnh thương hiệu', ['Lovable AI'], ['ai-client']),
 
   // ── Image Processing ──
@@ -173,12 +173,12 @@ export const EDGE_FUNCTIONS: EdgeFunctionEntry[] = [
   fn('payment-webhook',          'payment', 'Webhook thanh toán', [], []),
 
   // ── Ad Copy ──
-  fn('generate-ad-copy',         'ad-copy', 'Tạo ad copy AI', ['Lovable AI'], ['ai-client', 'brand-context']),
+  fn('generate-ad-copy',         'ad-copy', 'Tạo ad copy AI (có semantic cache)', ['Lovable AI'], ['ai-client', 'brand-context', 'semantic-cache'], false, { hasSemanticCache: true }),
   fn('suggest-ad-fix',           'ad-copy', 'Gợi ý sửa ad copy', ['Lovable AI'], ['ai-client']),
   fn('predict-ad-performance',   'ad-copy', 'Dự đoán hiệu suất quảng cáo', ['Lovable AI'], ['ai-client']),
   fn('optimize-ad-copy',         'ad-copy', 'Tối ưu ad copy (có semantic cache)', ['Lovable AI'], ['ai-client', 'semantic-cache'], false, { hasSemanticCache: true }),
   fn('score-ad-creative',        'ad-copy', 'Chấm điểm creative quảng cáo', ['Lovable AI'], ['ai-client']),
-  fn('kpi-ai',                   'ad-copy', 'AI phân tích KPI', ['Lovable AI'], ['ai-client']),
+  fn('kpi-ai',                   'ad-copy', 'AI phân tích KPI (có semantic cache)', ['Lovable AI'], ['ai-client', 'semantic-cache'], false, { hasSemanticCache: true }),
   fn('campaign-notifications',   'ad-copy', 'Thông báo campaign', [], []),
   fn('fetch-meta-ad-insights',   'ad-copy', 'Lấy insights từ Meta Ads', ['Meta Ads API'], []),
   fn('sync-ad-performance',      'ad-copy', 'Đồng bộ hiệu suất quảng cáo', ['Meta Ads API'], []),

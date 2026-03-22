@@ -10,6 +10,7 @@ import {
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createPromptManager, buildPrompt } from "../_shared/prompt-integration.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { withSemanticCache } from "../_shared/cache/semantic-cache.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -330,19 +331,43 @@ Trả về CHÍNH XÁC ${count} JSON objects trong array với format sau (KHÔN
       ? applyTokenOptimization(baseMaxTokens, channelOptimization)
       : baseMaxTokens;
 
-    const result = await callAIWithMetrics(supabase, {
-      functionName: 'generate-hooks',
-      organizationId,
-      userId,
-      brandTemplateId,
-      channels: platform ? [platform] : undefined,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperatureOverride: 0.8,
-      maxTokensOverride: optimizedMaxTokens,
-    });
+    // Wrap AI call with semantic cache
+    const serviceSupabase = getServiceClient();
+    const cacheInputText = `hooks:${targetChannel}:${count}:${topic}:${brandVoice?.brand_name || ''}:${brandVoice?.tone_of_voice?.join(',') || ''}`;
+
+    const cacheResult = await withSemanticCache(
+      serviceSupabase,
+      cacheInputText,
+      { functionName: 'generate-hooks', organizationId, brandTemplateId, similarityThreshold: 0.92 },
+      async () => {
+        const result = await callAIWithMetrics(supabase, {
+          functionName: 'generate-hooks',
+          organizationId,
+          userId,
+          brandTemplateId,
+          channels: platform ? [platform] : undefined,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperatureOverride: 0.8,
+          maxTokensOverride: optimizedMaxTokens,
+        });
+
+        if (!result.success) {
+          throw new Error(result.error || 'AI call failed');
+        }
+
+        return result;
+      },
+      5, // TTL 5 days
+    );
+
+    if (cacheResult.fromCache) {
+      console.log(`[generate-hooks] Semantic cache hit (similarity: ${cacheResult.similarity?.toFixed(3)})`);
+    }
+
+    const result = cacheResult.data;
 
     if (!result.success) {
       console.error('[generate-hooks] AI error:', result.error);
