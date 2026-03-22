@@ -246,7 +246,7 @@ async function testPoyo(apiKey: string) {
       headers: {
         'Authorization': `Bearer ${apiKey}`,
       },
-    }));
+    });
 
     if (response.status === 401 || response.status === 403) {
       return { success: false, error: 'API key không hợp lệ' };
