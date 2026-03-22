@@ -111,7 +111,7 @@ Deno.serve(withPerf({ functionName: 'learn-from-feedback' }, async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));
 
 async function aggregateLearningPatterns(
   supabase: any,
