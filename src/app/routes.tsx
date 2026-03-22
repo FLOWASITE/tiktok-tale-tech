@@ -42,6 +42,7 @@ import MultiChannelCreate from "@/pages/MultiChannelCreate";
 import AdminHelpArticles from "@/pages/AdminHelpArticles";
 import AdminSocialSettings from "@/pages/AdminSocialSettings";
 import AdminVouchers from "@/pages/AdminVouchers";
+import AdminEdgeFunctions from "@/pages/AdminEdgeFunctions";
 import Campaigns from "@/pages/Campaigns";
 import CampaignCreate from "@/pages/CampaignCreate";
 import CampaignDetail from "@/pages/CampaignDetail";
@@ -175,6 +176,7 @@ export function AppRoutes() {
       <Route path="/admin/help-articles" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminHelpArticles /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/social-settings" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminSocialSettings /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
       <Route path="/admin/vouchers" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminVouchers /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
+      <Route path="/admin/edge-functions" element={<ProtectedRoute><AdminProtectedRoute><AppLayout><AdminEdgeFunctions /></AppLayout></AdminProtectedRoute></ProtectedRoute>} />
 
       {/* Other */}
       <Route path="/access-denied" element={<AccessDenied />} />

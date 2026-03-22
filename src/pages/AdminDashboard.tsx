@@ -23,7 +23,8 @@ import {
   CreditCard,
   Clock,
   TrendingUp,
-  Brain
+  Brain,
+  Server
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { 
@@ -758,6 +759,12 @@ export default function AdminDashboard() {
               <Button variant="outline" size="sm">
                 <TrendingUp className="h-4 w-4 mr-2" />
                 System Analytics
+              </Button>
+            </Link>
+            <Link to="/admin/edge-functions">
+              <Button variant="outline" size="sm">
+                <Server className="h-4 w-4 mr-2" />
+                Edge Functions
               </Button>
             </Link>
           </div>
