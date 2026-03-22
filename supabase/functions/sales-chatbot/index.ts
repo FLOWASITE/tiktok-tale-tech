@@ -445,7 +445,7 @@ function generateConversationSummary(messages: Array<{ role: string; content: st
   return userMessages.join(' | ').slice(0, 500);
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'sales-chatbot' }, async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
