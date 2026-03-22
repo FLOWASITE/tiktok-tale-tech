@@ -181,7 +181,7 @@ function buildChannelRulesPrompt(channel: string, settings: ChannelSettings): st
   return parts.join('\n');
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'ai-edit-channel' }, async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
