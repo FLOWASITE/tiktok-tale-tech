@@ -14,7 +14,7 @@ interface SummarizeRequest {
   force?: boolean; // Force re-summarize even if summary exists
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'summarize-conversation' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
