@@ -1,6 +1,6 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptCredential } from "../_shared/crypto.ts";
+import { createHmac } from "node:crypto";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { createHmac } from "node:crypto";
 
 const corsHeaders = {
