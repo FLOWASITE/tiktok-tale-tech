@@ -10,6 +10,7 @@ import {
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createPromptManager, buildPrompt } from "../_shared/prompt-integration.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { withSemanticCache } from "../_shared/cache/semantic-cache.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
