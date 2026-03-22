@@ -2540,7 +2540,7 @@ async function tryFirecrawlScrape(url: string): Promise<{
   }
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'parse-regulation-document' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'parse-regulation-document' }, async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -2865,7 +2865,7 @@ Deno.Deno.serve(withPerf({ functionName: 'parse-regulation-document' }, async (r
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
-});
+}));
 
 /**
  * Calculate content quality score (0-100)
@@ -3188,7 +3188,7 @@ KHÔNG thêm bất kỳ giải thích nào, chỉ trả về văn bản đã là
         max_completion_tokens: 24000, // Increased from 16000 for longer documents
         temperature: 0.1,
       }),
-    }));
+    });
     
     if (!response.ok) {
       console.log(`[parse-document] AI Post-Process: API error ${response.status}`);
