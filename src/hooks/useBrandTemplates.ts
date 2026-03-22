@@ -105,6 +105,7 @@ export function useBrandTemplates() {
       let query = supabase
         .from('brand_templates')
         .select('*')
+        .is('deleted_at', null)
         .order('is_default', { ascending: false })
         .order('name', { ascending: true });
 
