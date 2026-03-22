@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4'
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -273,7 +274,7 @@ Include 2-3 industry trends relevant to ${jurisdiction.name} market.`
   }
 }
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(withPerf({ functionName: 'enrich-industry-profiles', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }

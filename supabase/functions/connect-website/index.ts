@@ -1,7 +1,7 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createCipheriv, randomBytes } from "node:crypto";
 import { Buffer } from "node:buffer";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,7 +32,7 @@ function encrypt(text: string, key: string): string {
   return iv.toString('hex') + ':' + encrypted;
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'connect-website' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -194,4 +194,4 @@ serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

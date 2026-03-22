@@ -2,6 +2,7 @@
 // Scrapes trend aggregator sites for TikTok/Facebook/YouTube data
 
 import { 
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
   getSocialTrends, 
   scrapeTrendSource, 
   TREND_SOURCES,
@@ -14,7 +15,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(withPerf({ functionName: 'firecrawl-trends' }, async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -154,4 +155,4 @@ Deno.serve(async (req) => {
       }
     );
   }
-});
+}));

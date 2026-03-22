@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -70,7 +71,7 @@ function calculateDiscount(voucher: VoucherRecord, amount: number): number {
   return Math.min(voucher.discount_value, amount);
 }
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(withPerf({ functionName: 'create-vnpay-payment' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -305,4 +306,4 @@ Deno.serve(async (req) => {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
-});
+}));

@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Buffer } from "node:buffer";
 import { createDecipheriv } from "node:crypto";
 import { decrypt, encrypt } from "../_shared/crypto.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,7 +68,7 @@ function maskCredential(value: string | null): string | null {
   return value.slice(0, 4) + "****" + value.slice(-4);
 }
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(withPerf({ functionName: 'manage-social-platform-settings' }, async (req) => {
   // Handle CORS
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -244,4 +245,4 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-});
+}));

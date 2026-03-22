@@ -4,6 +4,7 @@
 // ============================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -73,7 +74,7 @@ function determineEdgeType(sourceType: string, targetType: string): string {
   return 'semantically_similar';
 }
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(withPerf({ functionName: 'auto-suggest-connections', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -263,4 +264,4 @@ Deno.serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

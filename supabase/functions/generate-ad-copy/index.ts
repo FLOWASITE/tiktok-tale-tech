@@ -1,5 +1,4 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 // Import shared modules
@@ -225,6 +224,7 @@ function checkCharLimits(text: string | null, field: string, limits: CharLimitCo
 // AI Metrics Logging with Cost
 // ============================================
 import { estimateCost } from "../_shared/cost-estimator.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 async function logAIMetrics(
   supabase: any,
@@ -272,7 +272,7 @@ async function logAIMetrics(
   }
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'generate-ad-copy', slowThresholdMs: 45000 }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -942,4 +942,4 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));

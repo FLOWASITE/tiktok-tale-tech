@@ -1,7 +1,7 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { generateTraceId, saveMetrics, estimateTokens } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,7 +23,7 @@ interface SceneData {
   emotionalTone: string;
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'generate-scene-thumbnail', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -204,7 +204,7 @@ function buildSceneImagePrompt(scene: SceneData): string {
     parts.push("ACTIONS:");
     scene.visualDirection.actions.forEach((action) => {
       parts.push(`- ${action}`);
-    });
+    }));
     parts.push("");
   }
 

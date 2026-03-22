@@ -5,6 +5,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -79,7 +80,7 @@ function hasHtmlLayoutArtifacts(text: string | null): boolean {
   return matchCount >= 2;
 }
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(withPerf({ functionName: 'reparse-regulations', slowThresholdMs: 120000 }, async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -438,4 +439,4 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
-});
+}));

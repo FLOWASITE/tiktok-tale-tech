@@ -1,7 +1,7 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext } from "../_shared/country-language-map.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -126,7 +126,7 @@ function getLocalizedPositionLabel(lang: string, promptNumber: number, totalProm
   return promptNumber === 1 ? 'HOOK (opening)' : promptNumber === totalPrompts ? 'CTA (closing)' : 'BODY (main content)';
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'suggest-prompt-rewrite', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -242,4 +242,4 @@ ${suggestLabel}`;
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

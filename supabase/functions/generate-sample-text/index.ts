@@ -1,8 +1,8 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
 import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -474,7 +474,7 @@ Only return the JSON, no other text.`;
   return { samples, rulesUsed };
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'generate-sample-text', slowThresholdMs: 30000 }, async (req) => {
   console.log("generate-sample-text: Request received");
   
   if (req.method === "OPTIONS") {
@@ -576,4 +576,4 @@ serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
-});
+}));

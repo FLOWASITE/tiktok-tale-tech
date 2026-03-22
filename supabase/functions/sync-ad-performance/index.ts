@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +14,7 @@ interface SyncRequest {
   forceSync?: boolean;
 }
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(withPerf({ functionName: 'sync-ad-performance' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -212,7 +213,7 @@ async function syncSingleConfig(supabase: any, config: any) {
       ...parsed,
     }, {
       onConflict: 'ad_copy_id,logged_at',
-    });
+    }));
 
   if (upsertError) {
     throw upsertError;
