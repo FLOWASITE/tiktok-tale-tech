@@ -61,6 +61,10 @@ async function getConsumerCredentials(supabase: any): Promise<{ key: string; sec
 Deno.serve(withPerf({ functionName: 'x-oauth-callback' }, async (req) => {
   let frontendOrigin: string | null = null;
   let brandTemplateId: string | undefined;
+  let organizationId: string | null = null;
+  let callbackUserId: string | null = null;
+  let oauthTokenSecret: string | null = null;
+  let pendingConnectionId: string | null = null;
 
   try {
     const url = new URL(req.url);
@@ -78,6 +82,9 @@ Deno.serve(withPerf({ functionName: 'x-oauth-callback' }, async (req) => {
         stateData = JSON.parse(atob(decodeURIComponent(stateParam)));
         frontendOrigin = stateData.frontendOrigin || null;
         brandTemplateId = stateData.brandTemplateId;
+        organizationId = stateData.organizationId || null;
+        callbackUserId = stateData.userId || null;
+        oauthTokenSecret = stateData.oauthTokenSecret || null;
       } catch { /* ignore */ }
     }
 
@@ -89,14 +96,43 @@ Deno.serve(withPerf({ functionName: 'x-oauth-callback' }, async (req) => {
       return buildErrorRedirect(frontendOrigin, 'x_missing_params', 'Thiếu thông tin xác thực từ X', brandTemplateId);
     }
 
-    const { organizationId, userId, oauthTokenSecret } = stateData;
+    const supabase = getServiceClient();
+    if (!oauthTokenSecret) {
+      const { data: pendingConnection } = await supabase
+        .from('social_connections')
+        .select('id, organization_id, brand_template_id, user_id, refresh_token, metadata')
+        .eq('platform', 'twitter')
+        .eq('connection_type', 'oauth1_request_token')
+        .eq('access_token', oauthToken)
+        .eq('is_active', false)
+        .maybeSingle();
+
+      if (pendingConnection) {
+        pendingConnectionId = pendingConnection.id;
+        organizationId = organizationId || pendingConnection.organization_id;
+        brandTemplateId = brandTemplateId || pendingConnection.brand_template_id || undefined;
+        callbackUserId = callbackUserId || pendingConnection.user_id;
+        oauthTokenSecret = pendingConnection.refresh_token;
+
+        if (!frontendOrigin) {
+          const metadata = pendingConnection.metadata as Record<string, unknown> | null;
+          frontendOrigin = metadata && typeof metadata.frontendOrigin === 'string'
+            ? metadata.frontendOrigin
+            : frontendOrigin;
+        }
+      }
+    }
+
     if (!oauthTokenSecret) {
       return buildErrorRedirect(frontendOrigin, 'x_missing_params', 'Thiếu oauth_token_secret trong state', brandTemplateId);
     }
 
-    console.log('State decoded:', { brandTemplateId, organizationId, userId });
+    if (!callbackUserId) {
+      return buildErrorRedirect(frontendOrigin, 'x_missing_params', 'Thiếu user context cho OAuth callback', brandTemplateId);
+    }
 
-    const supabase = getServiceClient();
+    console.log('State decoded:', { brandTemplateId, organizationId, userId: callbackUserId, hasPendingConnection: !!pendingConnectionId });
+
     const creds = await getConsumerCredentials(supabase);
 
     // Step 3: Exchange for access token
@@ -166,18 +202,12 @@ Deno.serve(withPerf({ functionName: 'x-oauth-callback' }, async (req) => {
       console.warn('Profile fetch error (non-critical):', profileErr);
     }
 
-    // Save to database
-    let query = supabase.from('social_connections').select('id').eq('platform', 'twitter');
-    if (brandTemplateId) query = query.eq('brand_template_id', brandTemplateId);
-    else if (organizationId) query = query.eq('organization_id', organizationId);
-
-    const { data: existingConnection } = await query.maybeSingle();
-
     const connectionData: Record<string, unknown> = {
       organization_id: organizationId || null,
       brand_template_id: brandTemplateId || null,
-      user_id: userId,
+      user_id: callbackUserId,
       platform: 'twitter',
+      connection_type: 'oauth1_access_token',
       platform_user_id: xUserId || null,
       platform_username: xScreenName || null,
       platform_display_name: displayName,
@@ -197,14 +227,45 @@ Deno.serve(withPerf({ functionName: 'x-oauth-callback' }, async (req) => {
     };
 
     let connection;
-    if (existingConnection) {
-      const { data, error: updateError } = await supabase.from('social_connections').update(connectionData).eq('id', existingConnection.id).select().single();
+    if (pendingConnectionId) {
+      const { data, error: updateError } = await supabase
+        .from('social_connections')
+        .update(connectionData)
+        .eq('id', pendingConnectionId)
+        .select()
+        .single();
       if (updateError) throw updateError;
       connection = data;
     } else {
-      const { data, error: insertError } = await supabase.from('social_connections').insert(connectionData).select().single();
-      if (insertError) throw insertError;
-      connection = data;
+      let query = supabase
+        .from('social_connections')
+        .select('id')
+        .eq('platform', 'twitter')
+        .eq('user_id', callbackUserId)
+        .eq('is_active', true);
+      if (brandTemplateId) query = query.eq('brand_template_id', brandTemplateId);
+      else if (organizationId) query = query.eq('organization_id', organizationId);
+
+      const { data: existingConnection } = await query.maybeSingle();
+
+      if (existingConnection) {
+        const { data, error: updateError } = await supabase
+          .from('social_connections')
+          .update(connectionData)
+          .eq('id', existingConnection.id)
+          .select()
+          .single();
+        if (updateError) throw updateError;
+        connection = data;
+      } else {
+        const { data, error: insertError } = await supabase
+          .from('social_connections')
+          .insert(connectionData)
+          .select()
+          .single();
+        if (insertError) throw insertError;
+        connection = data;
+      }
     }
 
     const redirectParams: Record<string, string> = {
