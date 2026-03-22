@@ -126,7 +126,7 @@ Deno.serve(withPerf({ functionName: 'help-article-search' }, async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-});
+ }));
 
 // deno-lint-ignore no-explicit-any
 async function fallbackKeywordSearch(
