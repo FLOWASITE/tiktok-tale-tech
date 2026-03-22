@@ -1,4 +1,5 @@
-import { withPerf } from "../_shared/middleware/perf.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { withSemanticCache } from "../_shared/cache/semantic-cache.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
