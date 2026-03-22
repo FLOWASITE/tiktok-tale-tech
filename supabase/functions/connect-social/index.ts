@@ -235,11 +235,20 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
         throw new Error('X OAuth chưa được cấu hình (X_CALLBACK_URL). Liên hệ Admin.');
       }
 
-      // Get consumer credentials from social_platform_settings
-      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-      const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter', encryptionKey);
-      const effectiveConsumerKey = globalCreds.consumerKey || Deno.env.get('TWITTER_CONSUMER_KEY');
-      const effectiveConsumerSecret = globalCreds.consumerSecret || Deno.env.get('TWITTER_CONSUMER_SECRET');
+      // Get consumer credentials - prefer environment, fallback to stored
+      const envConsumerKey = Deno.env.get('TWITTER_CONSUMER_KEY')?.trim();
+      const envConsumerSecret = Deno.env.get('TWITTER_CONSUMER_SECRET')?.trim();
+      let effectiveConsumerKey = envConsumerKey;
+      let effectiveConsumerSecret = envConsumerSecret;
+
+      if (!effectiveConsumerKey || !effectiveConsumerSecret) {
+        const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+        const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter', encryptionKey);
+        effectiveConsumerKey = globalCreds.consumerKey || envConsumerKey;
+        effectiveConsumerSecret = globalCreds.consumerSecret || envConsumerSecret;
+      }
+
+      console.log(`[connect-social] Using consumer key source: ${envConsumerKey ? 'environment' : 'stored'}`);
 
       if (!effectiveConsumerKey || !effectiveConsumerSecret) {
         throw new Error('Twitter Consumer Key/Secret chưa được cấu hình. Liên hệ Admin.');
