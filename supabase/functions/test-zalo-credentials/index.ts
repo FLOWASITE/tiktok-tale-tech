@@ -1,3 +1,4 @@
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { decryptCredential } from "../_shared/crypto.ts";
 
 const corsHeaders = {
