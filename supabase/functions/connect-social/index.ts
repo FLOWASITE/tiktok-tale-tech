@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildOAuth1Header } from "../_shared/oauth1a.ts";
 import { createDecipheriv } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { decrypt as decryptGCM } from "../_shared/crypto.ts";
@@ -228,45 +229,67 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
         );
       }
 
-      // OAuth 2.0 PKCE flow
-      const xClientId = Deno.env.get('X_CLIENT_ID');
+      // OAuth 1.0a 3-legged flow
       const xCallbackUrl = Deno.env.get('X_CALLBACK_URL');
-
-      if (!xClientId || !xCallbackUrl) {
-        throw new Error('X OAuth chưa được cấu hình (X_CLIENT_ID / X_CALLBACK_URL). Liên hệ Admin.');
+      if (!xCallbackUrl) {
+        throw new Error('X OAuth chưa được cấu hình (X_CALLBACK_URL). Liên hệ Admin.');
       }
 
-      // Generate PKCE code_verifier and code_challenge on server
-      const array = new Uint8Array(32);
-      crypto.getRandomValues(array);
-      const codeVerifier = btoa(String.fromCharCode(...array))
-        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      // Get consumer credentials from social_platform_settings
+      const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
+      const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter', encryptionKey);
+      const effectiveConsumerKey = globalCreds.consumerKey || Deno.env.get('TWITTER_CONSUMER_KEY');
+      const effectiveConsumerSecret = globalCreds.consumerSecret || Deno.env.get('TWITTER_CONSUMER_SECRET');
 
-      // SHA-256 hash for code_challenge
-      const encoder = new TextEncoder();
-      const data = encoder.encode(codeVerifier);
-      const digest = await crypto.subtle.digest('SHA-256', data);
-      const codeChallenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
-        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      if (!effectiveConsumerKey || !effectiveConsumerSecret) {
+        throw new Error('Twitter Consumer Key/Secret chưa được cấu hình. Liên hệ Admin.');
+      }
 
-      // Encode state with all needed info including codeVerifier
+      // Step 1: Get request token
+      const requestTokenUrl = 'https://api.x.com/oauth/request_token';
+      const oauthHeader = buildOAuth1Header(
+        'POST',
+        requestTokenUrl,
+        effectiveConsumerKey,
+        effectiveConsumerSecret,
+        undefined,
+        undefined,
+        { oauth_callback: xCallbackUrl }
+      );
+
+      const rtResponse = await fetch(requestTokenUrl, {
+        method: 'POST',
+        headers: { 'Authorization': oauthHeader },
+      });
+
+      const rtText = await rtResponse.text();
+      console.log('Request token response:', rtResponse.status);
+
+      if (!rtResponse.ok) {
+        console.error('Request token failed:', rtText);
+        throw new Error(`Không thể lấy request token từ X (${rtResponse.status}). Kiểm tra Consumer Key/Secret.`);
+      }
+
+      const rtParams = new URLSearchParams(rtText);
+      const oauthToken = rtParams.get('oauth_token');
+      const oauthTokenSecret = rtParams.get('oauth_token_secret');
+
+      if (!oauthToken || !oauthTokenSecret) {
+        throw new Error('Không nhận được oauth_token từ X');
+      }
+
+      // Store oauth_token_secret temporarily (needed for access_token exchange)
+      // Encode it in state along with other data
       const state = btoa(JSON.stringify({
         brandTemplateId: brandTemplateId || null,
         organizationId: organizationId || null,
         userId: user.id,
         frontendOrigin: requestOrigin || null,
-        codeVerifier,
+        oauthTokenSecret,
       }));
 
-      const oauthUrl = `https://x.com/i/oauth2/authorize?` + new URLSearchParams({
-        response_type: 'code',
-        client_id: xClientId,
-        redirect_uri: xCallbackUrl,
-        scope: 'tweet.read tweet.write users.read offline.access',
-        state,
-        code_challenge: codeChallenge,
-        code_challenge_method: 'S256',
-      }).toString();
+      // Step 2: Redirect user to authorize
+      const oauthUrl = `https://api.x.com/oauth/authorize?oauth_token=${oauthToken}&state=${encodeURIComponent(state)}`;
 
       return new Response(
         JSON.stringify({
