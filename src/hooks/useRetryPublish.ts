@@ -52,10 +52,12 @@ export function useRetryPublish() {
         throw new Error(`Kênh ${channel} chưa được hỗ trợ`);
       }
 
+      // Map action back to DB platform value
+      const dbPlatform = channel === 'google_maps' ? 'google_business' : (channel === 'zalo_oa' ? 'zalo_oa' : action);
       let query = supabase
         .from('social_connections')
         .select('id')
-        .eq('platform', platform)
+        .eq('platform', dbPlatform)
         .eq('is_active', true);
 
       if (brandTemplateId) {
