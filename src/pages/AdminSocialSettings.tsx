@@ -54,22 +54,23 @@ export default function AdminSocialSettings() {
 
     setTestingPlatform(platform);
     try {
-      // Call platform-specific test function
-      const testFunctionMap: Record<string, string> = {
-        twitter: 'test-twitter-credentials',
-        facebook: 'test-facebook-credentials',
-        instagram: 'test-instagram-credentials',
-        threads: 'test-threads-credentials',
-        linkedin: 'test-linkedin-credentials',
-        zalo_oa: 'test-zalo-credentials',
-        google_business: 'test-google-business-credentials',
-        website: 'test-website-credentials',
+      // Call consolidated social-diagnostics function
+      const platformMap: Record<string, string> = {
+        twitter: 'twitter',
+        facebook: 'facebook',
+        instagram: 'instagram',
+        threads: 'threads',
+        linkedin: 'linkedin',
+        zalo_oa: 'zalo',
+        google_business: 'google-business',
+        website: 'website',
       };
-      const testFunctionName = testFunctionMap[platform] || 'test-twitter-credentials';
+      const diagnosticPlatform = platformMap[platform] || platform;
       
-      const { data, error } = await supabase.functions.invoke(testFunctionName, {
+      const { data, error } = await supabase.functions.invoke('social-diagnostics', {
         body: {
-          platform,
+          action: 'test-credentials',
+          platform: diagnosticPlatform,
           useStoredCredentials: true,
         },
       });

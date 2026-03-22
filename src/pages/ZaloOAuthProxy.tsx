@@ -24,8 +24,8 @@ export default function ZaloOAuthProxy() {
       }
 
       try {
-        const { data, error: fnError } = await supabase.functions.invoke('zalo-oauth-callback', {
-          body: { code, state },
+        const { data, error: fnError } = await supabase.functions.invoke('auth-gateway', {
+          body: { platform: 'zalo', code, state },
         });
 
         if (fnError) throw fnError;

@@ -29,8 +29,8 @@ export default function GoogleBusinessCallback() {
       }
 
       try {
-        const { data, error: fnError } = await supabase.functions.invoke('google-business-oauth-callback', {
-          body: { code, state }
+        const { data, error: fnError } = await supabase.functions.invoke('auth-gateway', {
+          body: { platform: 'google-business', code, state }
         });
 
         if (fnError) throw fnError;
