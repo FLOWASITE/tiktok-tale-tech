@@ -1,8 +1,8 @@
 // Firecrawl Social Trends Edge Function
 // Scrapes trend aggregator sites for TikTok/Facebook/YouTube data
 
-import { 
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { 
   getSocialTrends, 
   scrapeTrendSource, 
   TREND_SOURCES,
