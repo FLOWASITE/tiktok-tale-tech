@@ -3,8 +3,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
 import { resolveUserId } from "../_shared/logger.ts";
-import {
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { withSemanticCache } from "../_shared/cache/semantic-cache.ts";
+import {
   detectTargetAudience,
   getColorToneSuggestion,
   checkBrandCompleteness,
