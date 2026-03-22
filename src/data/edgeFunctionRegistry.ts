@@ -96,15 +96,16 @@ export const EDGE_FUNCTIONS: EdgeFunctionEntry[] = [
   fn('cleanup-old-images',       'image', 'Dọn dẹp ảnh cũ trong storage', [], ['storage']),
   fn('generate-video',           'image', 'Tạo video từ ảnh/script', ['Lovable AI'], ['ai-client']),
 
-  // ── Social Publishing ──
-  fn('publish-zalo',             'social-publish', 'Đăng bài lên Zalo OA', ['Zalo API'], ['social-auth']),
-  fn('publish-facebook',         'social-publish', 'Đăng bài lên Facebook', ['Facebook Graph API'], ['social-auth']),
-  fn('publish-instagram',        'social-publish', 'Đăng bài lên Instagram', ['Instagram Graph API'], ['social-auth']),
-  fn('publish-linkedin',         'social-publish', 'Đăng bài lên LinkedIn', ['LinkedIn API'], ['social-auth']),
-  fn('publish-twitter',          'social-publish', 'Đăng bài lên X/Twitter', ['X API'], ['social-auth']),
-  fn('publish-threads',          'social-publish', 'Đăng bài lên Threads', ['Threads API'], ['social-auth']),
-  fn('publish-google-business',  'social-publish', 'Đăng bài lên Google Business', ['Google Business API'], ['social-auth']),
-  fn('publish-website',          'social-publish', 'Đăng bài lên website', ['WordPress API'], ['social-auth']),
+  // ── Social Publishing (consolidated via channel-publisher) ──
+  fn('channel-publisher',         'social-publish', '🔀 Router: đăng bài tất cả kênh (consolidated)', ['All Social APIs'], ['social-auth', 'perf']),
+  fn('publish-zalo',             'social-publish', 'Đăng bài lên Zalo OA (legacy, routed via channel-publisher)', ['Zalo API'], ['social-auth']),
+  fn('publish-facebook',         'social-publish', 'Đăng bài lên Facebook (legacy, routed via channel-publisher)', ['Facebook Graph API'], ['social-auth']),
+  fn('publish-instagram',        'social-publish', 'Đăng bài lên Instagram (legacy, routed via channel-publisher)', ['Instagram Graph API'], ['social-auth']),
+  fn('publish-linkedin',         'social-publish', 'Đăng bài lên LinkedIn (legacy, routed via channel-publisher)', ['LinkedIn API'], ['social-auth']),
+  fn('publish-twitter',          'social-publish', 'Đăng bài lên X/Twitter (legacy, routed via channel-publisher)', ['X API'], ['social-auth']),
+  fn('publish-threads',          'social-publish', 'Đăng bài lên Threads (legacy, routed via channel-publisher)', ['Threads API'], ['social-auth']),
+  fn('publish-google-business',  'social-publish', 'Đăng bài lên Google Business (legacy, routed via channel-publisher)', ['Google Business API'], ['social-auth']),
+  fn('publish-website',          'social-publish', 'Đăng bài lên website (legacy, routed via channel-publisher)', ['WordPress API'], ['social-auth']),
 
   // ── Social OAuth ──
   fn('connect-social',           'social-oauth', 'Kết nối tài khoản social', [], ['social-auth']),
