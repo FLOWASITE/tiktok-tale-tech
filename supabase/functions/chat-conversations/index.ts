@@ -2,6 +2,7 @@ import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
+import { withSemanticCache } from "../_shared/cache/semantic-cache.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
