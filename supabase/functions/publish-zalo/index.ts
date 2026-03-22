@@ -22,7 +22,7 @@ interface PublishRequest {
   };
 }
 
-async function ensureZaloCompatibleCoverUrl(coverUrl: string, supabase: ReturnType<typeof createClient>): Promise<string> {
+async function ensureZaloCompatibleCoverUrl(coverUrl: string, supabase: any): Promise<string> {
   try {
     const imageRes = await fetch(coverUrl);
     if (!imageRes.ok) {
