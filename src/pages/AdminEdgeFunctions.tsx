@@ -12,11 +12,12 @@ import {
 } from '@/components/ui/select';
 import { 
   Search, Server, AlertTriangle, Shield, ShieldOff, 
-  ArrowLeft, ExternalLink, Layers, Activity, BarChart3
+  ArrowLeft, ExternalLink, Layers, Activity, BarChart3,
+  Zap, Database, GitBranch, CheckCircle2, Clock
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
-  EDGE_FUNCTIONS, CATEGORY_META, getCategorySummary, getRiskSummary, getExternalApiSummary,
+  EDGE_FUNCTIONS, CATEGORY_META, getCategorySummary, getRiskSummary, getExternalApiSummary, getOptimizationSummary,
   type FunctionCategory, type RiskLevel
 } from '@/data/edgeFunctionRegistry';
 import { EdgeFunctionMonitoring } from '@/components/admin/EdgeFunctionMonitoring';
@@ -28,15 +29,23 @@ const RISK_CONFIG: Record<RiskLevel, { label: string; className: string }> = {
   critical: { label: 'Nghiêm trọng', className: 'bg-destructive/10 text-destructive border-destructive/30' },
 };
 
+const STATUS_CONFIG = {
+  optimized: { label: 'Optimized', className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30', icon: CheckCircle2 },
+  legacy:    { label: 'Legacy', className: 'bg-muted text-muted-foreground border-border', icon: Clock },
+  gateway:   { label: 'Gateway', className: 'bg-primary/10 text-primary border-primary/30', icon: GitBranch },
+};
+
 export default function AdminEdgeFunctions() {
   const [activeTab, setActiveTab] = useState('monitoring');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [riskFilter, setRiskFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const categorySummary = useMemo(() => getCategorySummary(), []);
   const riskSummary = useMemo(() => getRiskSummary(), []);
   const apiSummary = useMemo(() => getExternalApiSummary(), []);
+  const optSummary = useMemo(() => getOptimizationSummary(), []);
 
   const filtered = useMemo(() => {
     return EDGE_FUNCTIONS.filter(f => {
@@ -44,9 +53,10 @@ export default function AdminEdgeFunctions() {
           !f.description.toLowerCase().includes(search.toLowerCase())) return false;
       if (categoryFilter !== 'all' && f.category !== categoryFilter) return false;
       if (riskFilter !== 'all' && f.riskLevel !== riskFilter) return false;
+      if (statusFilter !== 'all' && f.optimizationStatus !== statusFilter) return false;
       return true;
     });
-  }, [search, categoryFilter, riskFilter]);
+  }, [search, categoryFilter, riskFilter, statusFilter]);
 
   return (
     <div className="space-y-6">
@@ -63,13 +73,13 @@ export default function AdminEdgeFunctions() {
             Edge Functions Report
           </h1>
           <p className="text-sm text-muted-foreground">
-            {EDGE_FUNCTIONS.length} functions · Phân tích tĩnh codebase
+            {EDGE_FUNCTIONS.length} functions · {optSummary.perfCount} có withPerf · {optSummary.cacheCount} có Semantic Cache
           </p>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full max-w-md">
+        <TabsList className="w-full max-w-lg">
           <TabsTrigger value="monitoring" className="flex items-center gap-1.5">
             <BarChart3 className="h-4 w-4" />
             Monitoring
@@ -78,10 +88,106 @@ export default function AdminEdgeFunctions() {
             <Server className="h-4 w-4" />
             Registry
           </TabsTrigger>
+          <TabsTrigger value="optimization" className="flex items-center gap-1.5">
+            <Zap className="h-4 w-4" />
+            Optimization
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="monitoring" className="mt-4">
           <EdgeFunctionMonitoring />
+        </TabsContent>
+
+        {/* Optimization Status Tab */}
+        <TabsContent value="optimization" className="mt-4 space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-emerald-600 text-sm">
+                  <CheckCircle2 className="h-4 w-4" /> withPerf
+                </div>
+                <p className="text-3xl font-bold mt-1 text-emerald-600">{optSummary.perfCount}/{optSummary.total}</p>
+                <p className="text-xs text-muted-foreground mt-1">{Math.round(optSummary.perfCount / optSummary.total * 100)}% coverage</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-primary text-sm">
+                  <Database className="h-4 w-4" /> Semantic Cache
+                </div>
+                <p className="text-3xl font-bold mt-1 text-primary">{optSummary.cacheCount}</p>
+                <p className="text-xs text-muted-foreground mt-1">functions có cache AI</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-sm" style={{ color: 'hsl(140, 70%, 45%)' }}>
+                  <GitBranch className="h-4 w-4" /> Gateways
+                </div>
+                <p className="text-3xl font-bold mt-1" style={{ color: 'hsl(140, 70%, 45%)' }}>{optSummary.gatewayCount}</p>
+                <p className="text-xs text-muted-foreground mt-1">router tập trung</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-emerald-600 text-sm">
+                  <Zap className="h-4 w-4" /> Optimized
+                </div>
+                <p className="text-3xl font-bold mt-1 text-emerald-600">{optSummary.optimizedCount}</p>
+                <p className="text-xs text-muted-foreground mt-1">standalone tối ưu</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Clock className="h-4 w-4" /> Legacy
+                </div>
+                <p className="text-3xl font-bold mt-1">{optSummary.legacyCount}</p>
+                <p className="text-xs text-muted-foreground mt-1">routed qua gateway</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Optimization progress bar */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Tiến độ tối ưu hóa</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-muted-foreground">withPerf Coverage</span>
+                  <span className="font-medium">{Math.round(optSummary.perfCount / optSummary.total * 100)}%</span>
+                </div>
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${optSummary.perfCount / optSummary.total * 100}%` }} />
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-muted-foreground">Consolidated (Gateway)</span>
+                  <span className="font-medium">{optSummary.gatewayCount + optSummary.legacyCount} functions → {optSummary.gatewayCount} gateways</span>
+                </div>
+                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: '100%' }} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+                {[
+                  { label: 'Phase 1: Quick Wins', status: '✅ Done', detail: 'withPerf + singleton + L1 cache' },
+                  { label: 'Phase 2: Consolidation', status: '✅ Done', detail: '3 gateways (publisher, auth, diagnostics)' },
+                  { label: 'Phase 3: AI & DB', status: '✅ Done', detail: 'Semantic cache + indexes + MV' },
+                  { label: 'Phase 4: Monitoring', status: '✅ Done', detail: 'Dashboard + warm-up cron' },
+                ].map(phase => (
+                  <div key={phase.label} className="p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5">
+                    <p className="text-xs font-medium">{phase.label}</p>
+                    <p className="text-sm font-bold text-emerald-600 mt-1">{phase.status}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{phase.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="registry" className="mt-4 space-y-6">
@@ -220,6 +326,17 @@ export default function AdminEdgeFunctions() {
             <SelectItem value="low">Thấp ({riskSummary.low})</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả status</SelectItem>
+            <SelectItem value="optimized">Optimized ({optSummary.optimizedCount})</SelectItem>
+            <SelectItem value="gateway">Gateway ({optSummary.gatewayCount})</SelectItem>
+            <SelectItem value="legacy">Legacy ({optSummary.legacyCount})</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Results count */}
@@ -235,8 +352,11 @@ export default function AdminEdgeFunctions() {
               <TableRow>
                 <TableHead className="min-w-[200px]">Function</TableHead>
                 <TableHead>Category</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>External APIs</TableHead>
                 <TableHead>Risk</TableHead>
+                <TableHead className="text-center">Perf</TableHead>
+                <TableHead className="text-center">Cache</TableHead>
                 <TableHead className="text-center">JWT</TableHead>
               </TableRow>
             </TableHeader>
@@ -244,8 +364,10 @@ export default function AdminEdgeFunctions() {
               {filtered.map(fn => {
                 const catMeta = CATEGORY_META[fn.category];
                 const riskCfg = RISK_CONFIG[fn.riskLevel];
+                const statusCfg = STATUS_CONFIG[fn.optimizationStatus];
+                const StatusIcon = statusCfg.icon;
                 return (
-                  <TableRow key={fn.name}>
+                  <TableRow key={fn.name} className={fn.optimizationStatus === 'legacy' ? 'opacity-60' : ''}>
                     <TableCell>
                       <div>
                         <code className="text-xs font-mono font-semibold">{fn.name}</code>
@@ -266,6 +388,12 @@ export default function AdminEdgeFunctions() {
                       </Badge>
                     </TableCell>
                     <TableCell>
+                      <Badge variant="outline" className={`text-[10px] gap-1 ${statusCfg.className}`}>
+                        <StatusIcon className="h-3 w-3" />
+                        {statusCfg.label}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {fn.externalApis.length === 0 ? (
                           <span className="text-xs text-muted-foreground">—</span>
@@ -282,6 +410,20 @@ export default function AdminEdgeFunctions() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">
+                      {fn.hasPerf ? (
+                        <Zap className="h-4 w-4 text-emerald-500 mx-auto" />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {fn.hasSemanticCache ? (
+                        <Database className="h-4 w-4 text-primary mx-auto" />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
                       {fn.verifyJwt ? (
                         <Shield className="h-4 w-4 text-emerald-500 mx-auto" />
                       ) : (
@@ -293,7 +435,7 @@ export default function AdminEdgeFunctions() {
               })}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Không tìm thấy function nào phù hợp
                   </TableCell>
                 </TableRow>
