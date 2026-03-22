@@ -26,6 +26,7 @@ import {
   TrendingUp,
   Brain
 } from "lucide-react";
+import { Server } from "lucide-react";
 import { Link } from "react-router-dom";
 import { 
   BarChart, 
