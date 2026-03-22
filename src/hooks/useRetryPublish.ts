@@ -11,8 +11,8 @@ interface RetryPublishOptions {
   organizationId?: string;
 }
 
-// Map channel to platform name
-const channelToPlatform: Record<string, string> = {
+// Map channel to channel-publisher action
+const channelToAction: Record<string, string> = {
   facebook: 'facebook',
   instagram: 'instagram',
   twitter: 'twitter',
@@ -47,15 +47,17 @@ export function useRetryPublish() {
       const contentText = (channelContent as any)?.content || '';
 
       // 2. Get connection for this platform
-      const platform = channelToPlatform[channel];
-      if (!platform) {
+      const action = channelToAction[channel];
+      if (!action) {
         throw new Error(`Kênh ${channel} chưa được hỗ trợ`);
       }
 
+      // Map action back to DB platform value
+      const dbPlatform = channel === 'google_maps' ? 'google_business' : (channel === 'zalo_oa' ? 'zalo_oa' : action);
       let query = supabase
         .from('social_connections')
         .select('id')
-        .eq('platform', platform)
+        .eq('platform', dbPlatform)
         .eq('is_active', true);
 
       if (brandTemplateId) {
@@ -67,7 +69,7 @@ export function useRetryPublish() {
       const { data: connection, error: connError } = await query.limit(1).single();
 
       if (connError || !connection) {
-        throw new Error(`Không tìm thấy kết nối ${platform} hoạt động`);
+        throw new Error(`Không tìm thấy kết nối ${action} hoạt động`);
       }
 
       // 3. Update schedule status to publishing
@@ -79,9 +81,10 @@ export function useRetryPublish() {
         })
         .eq('id', scheduleId);
 
-      // 4. Call publish function
-      const { data, error } = await supabase.functions.invoke(`publish-${platform}`, {
+      // 4. Call consolidated channel-publisher
+      const { data, error } = await supabase.functions.invoke('channel-publisher', {
         body: {
+          action,
           connectionId: connection.id,
           content: contentText,
           scheduleId,

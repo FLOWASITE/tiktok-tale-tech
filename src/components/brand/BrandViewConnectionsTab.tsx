@@ -323,25 +323,26 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
     }
   };
 
-  const TEST_FUNCTION_MAP: Record<SocialPlatform, string> = {
-    twitter: 'test-twitter-connection',
-    facebook: 'test-facebook-connection',
-    instagram: 'test-instagram-connection',
-    linkedin: 'test-linkedin-connection',
-    threads: 'test-threads-connection',
-    tiktok: 'test-tiktok-connection',
-    youtube: 'test-youtube-connection',
-    zalo_oa: 'test-zalo-connection',
-    google_business: 'test-google-business-connection',
-    website: 'test-website-connection',
+  // Consolidated test function via social-diagnostics
+  const PLATFORM_DIAG_MAP: Record<SocialPlatform, string> = {
+    twitter: 'twitter',
+    facebook: 'facebook',
+    instagram: 'instagram',
+    linkedin: 'linkedin',
+    threads: 'threads',
+    tiktok: 'tiktok',
+    youtube: 'youtube',
+    zalo_oa: 'zalo',
+    google_business: 'google-business',
+    website: 'website',
   };
 
   const handleTestConnection = async (connectionId: string, platform: SocialPlatform) => {
     setTestingConnection(connectionId);
     try {
-      const functionName = TEST_FUNCTION_MAP[platform];
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { connectionId },
+      const diagPlatform = PLATFORM_DIAG_MAP[platform];
+      const { data, error } = await supabase.functions.invoke('social-diagnostics', {
+        body: { action: 'test-connection', platform: diagPlatform, connectionId },
       });
 
       if (error || !data?.success) {
