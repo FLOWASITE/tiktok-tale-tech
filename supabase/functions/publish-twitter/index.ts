@@ -292,6 +292,29 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
 
     const isOAuth2 = connection.metadata?.oauth2_pkce === true;
 
+    // === DETAILED TOKEN DIAGNOSTICS ===
+    const now = new Date();
+    const tokenExpiresAt = connection.token_expires_at ? new Date(connection.token_expires_at) : null;
+    const hasRefreshToken = !!connection.refresh_token;
+    const tokenAge = tokenExpiresAt ? Math.round((now.getTime() - tokenExpiresAt.getTime()) / 1000) : null;
+    
+    console.log('[TOKEN DIAG]', JSON.stringify({
+      connectionId,
+      isOAuth2,
+      hasAccessToken: !!connection.access_token,
+      accessTokenPrefix: connection.access_token ? connection.access_token.substring(0, 20) + '...' : null,
+      hasRefreshToken,
+      tokenExpiresAt: connection.token_expires_at || 'NOT SET',
+      tokenExpired: tokenExpiresAt ? tokenExpiresAt <= now : 'UNKNOWN',
+      tokenAgeSeconds: tokenAge,
+      tokenAgeHuman: tokenAge !== null
+        ? (tokenAge > 0 ? `expired ${Math.abs(tokenAge)}s ago` : `valid for ${Math.abs(tokenAge)}s`)
+        : 'unknown',
+      lastVerifiedAt: connection.last_verified_at || 'NOT SET',
+      connectedAt: connection.connected_at || 'NOT SET',
+      metadata: connection.metadata,
+    }));
+
     // Create publish attempt record
     const { data: attempt, error: attemptError } = await supabase
       .from('publish_attempts')
@@ -323,11 +346,28 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
         // OAuth 2.0 Bearer token flow
         let accessToken = connection.access_token;
 
-        // Check if token expired and refresh
-        if (connection.token_expires_at && new Date(connection.token_expires_at) <= new Date()) {
-          console.log('Token expired, refreshing...');
-          if (!connection.refresh_token) throw new Error('Token expired and no refresh token available');
-          accessToken = await refreshOAuth2Token(supabase, connectionId, connection.refresh_token);
+        // Proactive refresh: if token expires within 5 minutes OR already expired
+        const shouldRefresh = tokenExpiresAt 
+          ? tokenExpiresAt.getTime() - now.getTime() < 5 * 60 * 1000 
+          : false;
+
+        if (shouldRefresh || (tokenExpiresAt && tokenExpiresAt <= now)) {
+          const reason = tokenExpiresAt && tokenExpiresAt <= now ? 'EXPIRED' : 'EXPIRING_SOON';
+          console.log(`[TOKEN REFRESH] Reason: ${reason}, expires_at: ${connection.token_expires_at}`);
+          
+          if (!connection.refresh_token) {
+            throw new Error('Token expired and no refresh token available. Please reconnect X account.');
+          }
+          
+          try {
+            accessToken = await refreshOAuth2Token(supabase, connectionId, connection.refresh_token);
+            console.log('[TOKEN REFRESH] SUCCESS - new token obtained');
+          } catch (refreshErr: any) {
+            console.error('[TOKEN REFRESH] FAILED:', refreshErr.message);
+            throw new Error(`Token refresh failed: ${refreshErr.message}. Please reconnect X account.`);
+          }
+        } else {
+          console.log('[TOKEN] Using existing token (still valid)');
         }
 
         tweetResult = await postTweetOAuth2(tweetContent, accessToken);
