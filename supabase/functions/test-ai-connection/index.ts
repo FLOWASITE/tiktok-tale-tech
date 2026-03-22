@@ -65,7 +65,7 @@ Deno.serve(withPerf({ functionName: 'test-ai-connection' }, async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));
 
 async function testOpenAI(apiKey: string) {
   try {
