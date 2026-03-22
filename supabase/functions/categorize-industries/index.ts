@@ -321,4 +321,4 @@ Deno.Deno.serve(withPerf({ functionName: 'categorize-industries' }, async (req) 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
-})
+}));
