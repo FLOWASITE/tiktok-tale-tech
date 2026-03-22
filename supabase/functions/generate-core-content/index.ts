@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import {
   CoreContentConfig,
@@ -463,7 +463,7 @@ async function generateSinglePass(
 // MAIN HANDLER
 // ============================================
 
-serve(async (req: Request) => {
+Deno.serve(withPerf({ functionName: 'generate-core-content', slowThresholdMs: 45000 }, async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -1048,4 +1048,4 @@ serve(async (req: Request) => {
       }
     );
   }
-});
+}));

@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 // Multi-country support
 import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext, getLocalizedGoalDescriptions, getLocalizedAngleDescriptions, getLocalizedPromptLabels } from "../_shared/country-language-map.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
 import { getAIConfig, getChannelModelConfigs } from "../_shared/ai-config.ts";
@@ -1256,7 +1256,7 @@ BÀI VIẾT PHẢI CÓ ĐỦ CÁC THÀNH PHẦN SAU (điều chỉnh theo ngành
 - Giải thích/bình luận | Thêm kênh không yêu cầu | Copy giữa kênh | Hiển thị cài đặt`;
 };
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60000 }, async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -5115,4 +5115,4 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
-});
+}));

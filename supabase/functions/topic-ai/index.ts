@@ -8,7 +8,7 @@
  * - analyze-topic-gaps (gap_analysis, cluster, keywords)
  */
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
 import { buildLocalizedDateContext } from "../_shared/country-language-map.ts";
@@ -110,7 +110,7 @@ interface TopicAIRequest {
 }
 
 // ========== Main Handler ==========
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'topic-ai', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -176,7 +176,7 @@ serve(async (req) => {
     console.error('[topic-ai] Error:', errorMessage);
     return createErrorResponse(errorMessage, 500);
   }
-});
+}));
 
 // ========== Handler: Suggest ==========
 async function handleSuggest(

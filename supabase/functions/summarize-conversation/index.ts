@@ -1,8 +1,8 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { withPerf, getServiceClient, getAuthClient } from "../_shared/middleware/perf.ts";
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
+import { withSemanticCache } from "../_shared/cache/semantic-cache.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,7 +14,7 @@ interface SummarizeRequest {
   force?: boolean; // Force re-summarize even if summary exists
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'summarize-conversation' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -28,14 +28,7 @@ serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: {
-        headers: { Authorization: authHeader }
-      }
-    });
+    const supabase = getAuthClient(authHeader);
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
@@ -113,10 +106,7 @@ serve(async (req) => {
     // Try to fetch system prompt from registry
     let baseSummaryPrompt = '';
     try {
-      const serviceSupabase = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-      );
+      const serviceSupabase = getServiceClient();
       const promptManager = createPromptManager(serviceSupabase, 'summarize-conversation');
       baseSummaryPrompt = await promptManager.get('system_summarize', {
         messageCount: messages.length.toString(),
@@ -136,25 +126,36 @@ ${conversationText.slice(0, 4000)}
 
 Provide summary in Vietnamese. Be brief and factual.`;
 
-    // Get AI config from Admin Panel
     const aiConfig = await getAIConfig('summarize-conversation');
     const adminModel = aiConfig?.model || undefined;
 
-    // Use multi-provider system with auto metrics
-    const serviceSupabase2 = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const serviceSupabase = getServiceClient();
+    
+    // Use semantic cache for summarization
+    const cachedResult = await withSemanticCache(
+      serviceSupabase,
+      summaryPrompt,
+      { functionName: 'summarize-conversation' },
+      async () => {
+        const aiResult = await callAIWithMetrics(serviceSupabase, {
+          functionName: 'summarize-conversation',
+          userId: user.id,
+          messages: [
+            { role: 'user', content: summaryPrompt }
+          ],
+          modelOverride: adminModel,
+          maxTokensOverride: aiConfig?.max_tokens || 200,
+          temperatureOverride: aiConfig?.temperature || 0.3,
+        });
+        return aiResult;
+      },
+      7,
     );
-    const aiResult = await callAIWithMetrics(serviceSupabase2, {
-      functionName: 'summarize-conversation',
-      userId: user.id,
-      messages: [
-        { role: 'user', content: summaryPrompt }
-      ],
-      modelOverride: adminModel,
-      maxTokensOverride: aiConfig?.max_tokens || 200,
-      temperatureOverride: aiConfig?.temperature || 0.3,
-    });
+
+    const aiResult = cachedResult.data;
+    if (cachedResult.fromCache) {
+      console.log('[summarize-conversation] Using cached result, similarity:', cachedResult.similarity);
+    }
 
     if (!aiResult.success) {
       console.error('AI summarization error:', aiResult.error);
@@ -215,4 +216,4 @@ Provide summary in Vietnamese. Be brief and factual.`;
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));
