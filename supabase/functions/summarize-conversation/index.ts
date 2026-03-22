@@ -216,4 +216,4 @@ Provide summary in Vietnamese. Be brief and factual.`;
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));
