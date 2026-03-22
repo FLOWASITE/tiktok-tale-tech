@@ -18,10 +18,47 @@ interface PublishRequest {
 
 function extractTwitterStatusCode(message?: string): number | null {
   if (!message) return null;
-  const match = message.match(/Twitter API error:\s*(\d{3})/);
+  const match =
+    message.match(/(?:Twitter API error:|X API trả về)\s*(\d{3})/i) ||
+    message.match(/\bstatus["'\s:=]+(\d{3})\b/i);
   if (!match) return null;
   const code = Number(match[1]);
   return Number.isFinite(code) ? code : null;
+}
+
+function classifyTwitterConfigError(error: unknown): { code: string; message: string } | null {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+
+  if (
+    message.includes('client-not-enrolled') ||
+    message.includes('App chưa được gắn vào Project') ||
+    message.includes('attached to a Project')
+  ) {
+    return {
+      code: 'X_PROJECT_REQUIRED',
+      message:
+        'App X chưa được gắn vào Project trên developer.x.com nên chưa thể đăng bài. Vào Projects & Apps → gắn App vào một Project, rồi ngắt/kết nối lại X.',
+    };
+  }
+
+  if (message.includes('"code":453') || message.includes('subset of X API V2 endpoints')) {
+    return {
+      code: 'X_ACCESS_LEVEL_LIMITED',
+      message:
+        'App X hiện bị giới hạn access level (code 453), chưa được phép dùng endpoint đăng bài này. Kiểm tra gói API access trong developer portal.',
+    };
+  }
+
+  const statusCode = extractTwitterStatusCode(message);
+  if (statusCode === 403) {
+    return {
+      code: 'X_FORBIDDEN',
+      message:
+        'X API từ chối quyền truy cập (403). Kiểm tra App Permissions = Read and Write và authorize lại tài khoản X.',
+    };
+  }
+
+  return null;
 }
 
 function isTransientTwitterError(error: unknown): boolean {
@@ -146,7 +183,7 @@ async function postTweet(
         // Provide helpful error for common issues
         if (statusCode === 503) {
           throw new Error(
-            'X API trả về 503. Nguyên nhân phổ biến: App chưa được gắn vào Project trên developer.x.com. ' +
+            'Twitter API error: 503 - X API trả về 503. Nguyên nhân phổ biến: App chưa được gắn vào Project trên developer.x.com. ' +
             'Vào developer.x.com → Projects & Apps → đảm bảo App nằm trong một Project.'
           );
         }
@@ -363,6 +400,20 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
         }).eq('id', scheduleId);
       }
 
+      const configIssue = classifyTwitterConfigError(twitterError);
+      if (configIssue) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            retryable: false,
+            transient: false,
+            errorCode: configIssue.code,
+            error: configIssue.message,
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const transient = isTransientTwitterError(twitterError);
       if (transient) {
         const statusCode = extractTwitterStatusCode(twitterError?.message);
@@ -384,6 +435,20 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
     }
   } catch (error: any) {
     console.error('Publish Twitter error:', error);
+
+    const configIssue = classifyTwitterConfigError(error);
+    if (configIssue) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          retryable: false,
+          transient: false,
+          errorCode: configIssue.code,
+          error: configIssue.message,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const transient = isTransientTwitterError(error);
     if (transient) {
