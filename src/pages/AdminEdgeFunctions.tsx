@@ -68,6 +68,23 @@ export default function AdminEdgeFunctions() {
         </div>
       </div>
 
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="w-full max-w-md">
+          <TabsTrigger value="monitoring" className="flex items-center gap-1.5">
+            <BarChart3 className="h-4 w-4" />
+            Monitoring
+          </TabsTrigger>
+          <TabsTrigger value="registry" className="flex items-center gap-1.5">
+            <Server className="h-4 w-4" />
+            Registry
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="monitoring" className="mt-4">
+          <EdgeFunctionMonitoring />
+        </TabsContent>
+
+        <TabsContent value="registry" className="mt-4 space-y-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
