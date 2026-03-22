@@ -468,4 +468,4 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

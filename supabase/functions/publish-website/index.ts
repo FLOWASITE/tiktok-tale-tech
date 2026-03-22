@@ -286,4 +286,4 @@ Deno.serve(withPerf({ functionName: 'publish-website' }, async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

@@ -435,4 +435,4 @@ Deno.serve(withPerf({ functionName: 'publish-instagram' }, async (req) => {
       }
     );
   }
-});
+}));

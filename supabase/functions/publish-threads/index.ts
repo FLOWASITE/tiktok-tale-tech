@@ -278,4 +278,4 @@ Deno.serve(withPerf({ functionName: 'publish-threads' }, async (req) => {
       }
     );
   }
-});
+}));
