@@ -95,7 +95,7 @@ export const EDGE_FUNCTIONS: EdgeFunctionEntry[] = [
 
   // ── Brand ──
   fn('generate-brand-voice',     'brand', 'Tạo brand voice từ mô tả', ['Lovable AI'], ['ai-client']),
-  fn('generate-brand-guideline', 'brand', 'Tạo brand guideline', ['Lovable AI'], ['ai-client']),
+  fn('generate-brand-guideline', 'brand', 'Tạo brand guideline (có semantic cache)', ['Lovable AI'], ['ai-client', 'semantic-cache'], false, { hasSemanticCache: true }),
   fn('generate-brand-image',     'brand', 'Tạo hình ảnh thương hiệu', ['Lovable AI'], ['ai-client']),
 
   // ── Image Processing ──
