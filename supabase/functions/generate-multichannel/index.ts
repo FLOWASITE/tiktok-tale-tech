@@ -1256,7 +1256,7 @@ BÀI VIẾT PHẢI CÓ ĐỦ CÁC THÀNH PHẦN SAU (điều chỉnh theo ngành
 - Giải thích/bình luận | Thêm kênh không yêu cầu | Copy giữa kênh | Hiển thị cài đặt`;
 };
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60000 }, async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
