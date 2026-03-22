@@ -3188,7 +3188,7 @@ KHÔNG thêm bất kỳ giải thích nào, chỉ trả về văn bản đã là
         max_completion_tokens: 24000, // Increased from 16000 for longer documents
         temperature: 0.1,
       }),
-    }));
+    });
     
     if (!response.ok) {
       console.log(`[parse-document] AI Post-Process: API error ${response.status}`);
