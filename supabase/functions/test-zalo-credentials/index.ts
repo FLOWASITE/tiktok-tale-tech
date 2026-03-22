@@ -14,15 +14,13 @@ interface TestRequest {
   consumerSecret?: string;
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'test-zalo-credentials' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     // Verify admin role
     const authHeader = req.headers.get('Authorization');
@@ -135,4 +133,4 @@ serve(async (req) => {
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

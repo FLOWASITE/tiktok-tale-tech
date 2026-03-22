@@ -62,7 +62,7 @@ function getFrontendUrl(stateOrigin?: string | null): string {
   return supabaseUrl.replace('.supabase.co', '.lovableproject.com');
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'threads-oauth-callback' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -100,9 +100,7 @@ serve(async (req) => {
     const { brandTemplateId, organizationId, userId, frontendOrigin } = stateData;
     console.log('State decoded:', { brandTemplateId, organizationId, userId, frontendOrigin });
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     // Get Threads App credentials from social_platform_settings
     const { data: settings, error: settingsError } = await supabase
@@ -273,4 +271,4 @@ serve(async (req) => {
       302
     );
   }
-});
+}));

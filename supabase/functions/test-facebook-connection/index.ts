@@ -44,15 +44,13 @@ async function decryptCredential(ciphertext: string): Promise<string> {
   throw new Error('Failed to decrypt credential with any method');
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'test-facebook-connection' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     // Verify user authentication
     const authHeader = req.headers.get('Authorization');
@@ -248,4 +246,4 @@ serve(async (req) => {
       }
     );
   }
-});
+}));
