@@ -1415,7 +1415,7 @@ function buildStructuredElement(
   };
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'overlay-text-canvas', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
