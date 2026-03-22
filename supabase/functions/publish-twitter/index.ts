@@ -1,6 +1,7 @@
 import { decryptCredential } from "../_shared/crypto.ts";
 import { createHmac } from "node:crypto";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { buildOAuth1Header } from "../_shared/oauth1a.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
