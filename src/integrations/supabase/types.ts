@@ -4498,6 +4498,84 @@ export type Database = {
           },
         ]
       }
+      edge_function_daily_stats: {
+        Row: {
+          avg_duration_ms: number | null
+          cold_start_count: number | null
+          created_at: string
+          error_count: number | null
+          function_name: string
+          id: string
+          max_duration_ms: number | null
+          min_duration_ms: number | null
+          p50_duration_ms: number | null
+          p95_duration_ms: number | null
+          stat_date: string
+          total_calls: number | null
+        }
+        Insert: {
+          avg_duration_ms?: number | null
+          cold_start_count?: number | null
+          created_at?: string
+          error_count?: number | null
+          function_name: string
+          id?: string
+          max_duration_ms?: number | null
+          min_duration_ms?: number | null
+          p50_duration_ms?: number | null
+          p95_duration_ms?: number | null
+          stat_date: string
+          total_calls?: number | null
+        }
+        Update: {
+          avg_duration_ms?: number | null
+          cold_start_count?: number | null
+          created_at?: string
+          error_count?: number | null
+          function_name?: string
+          id?: string
+          max_duration_ms?: number | null
+          min_duration_ms?: number | null
+          p50_duration_ms?: number | null
+          p95_duration_ms?: number | null
+          stat_date?: string
+          total_calls?: number | null
+        }
+        Relationships: []
+      }
+      edge_function_metrics: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          error_message: string | null
+          function_name: string
+          had_error: boolean | null
+          id: string
+          is_cold_start: boolean | null
+          status_code: number | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms: number
+          error_message?: string | null
+          function_name: string
+          had_error?: boolean | null
+          id?: string
+          is_cold_start?: boolean | null
+          status_code?: number | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          error_message?: string | null
+          function_name?: string
+          had_error?: boolean | null
+          id?: string
+          is_cold_start?: boolean | null
+          status_code?: number | null
+        }
+        Relationships: []
+      }
       generation_signals: {
         Row: {
           accepted: boolean | null
@@ -9008,6 +9086,10 @@ export type Database = {
         Args: { p_brand_template_id: string }
         Returns: undefined
       }
+      aggregate_edge_function_stats: {
+        Args: { p_date?: string }
+        Returns: number
+      }
       calculate_next_crawl_at: {
         Args: { frequency: string; last_crawled?: string }
         Returns: string
@@ -9031,6 +9113,7 @@ export type Database = {
       cleanup_expired_generation_tasks: { Args: never; Returns: number }
       cleanup_knowledge_graph_cache: { Args: never; Returns: number }
       cleanup_old_checkpoints: { Args: never; Returns: number }
+      cleanup_old_edge_metrics: { Args: never; Returns: number }
       cleanup_web_search_cache: { Args: never; Returns: number }
       extract_doc_year: { Args: { doc_name: string }; Returns: string }
       fetch_brand_context_batch: {
