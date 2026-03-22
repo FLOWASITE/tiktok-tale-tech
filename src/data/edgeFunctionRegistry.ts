@@ -70,7 +70,7 @@ export const EDGE_FUNCTIONS: EdgeFunctionEntry[] = [
   fn('generate-carousel',        'ai-content', 'Tạo nội dung carousel', ['Lovable AI'], ['ai-client', 'brand-context']),
   fn('generate-carousel-image',  'ai-content', 'Tạo hình ảnh cho carousel', ['Lovable AI'], ['ai-client']),
   fn('generate-core-content',    'ai-content', 'Tạo nội dung gốc từ topic', ['Lovable AI'], ['ai-client', 'brand-context']),
-  fn('generate-hooks',           'ai-content', 'Tạo hook cho nội dung', ['Lovable AI'], ['ai-client']),
+  fn('generate-hooks',           'ai-content', 'Tạo hook cho nội dung (có semantic cache)', ['Lovable AI'], ['ai-client', 'semantic-cache'], false, { hasSemanticCache: true }),
   fn('generate-storyboard',      'ai-content', 'Tạo storyboard cho video', ['Lovable AI'], ['ai-client']),
   fn('generate-sample-text',     'ai-content', 'Tạo văn bản mẫu cho brand', ['Lovable AI'], ['ai-client']),
   fn('analyze-script',           'ai-content', 'Phân tích chất lượng kịch bản', ['Lovable AI'], ['ai-client']),
