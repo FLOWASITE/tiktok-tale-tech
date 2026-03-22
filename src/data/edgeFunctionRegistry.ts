@@ -173,7 +173,7 @@ export const EDGE_FUNCTIONS: EdgeFunctionEntry[] = [
   fn('payment-webhook',          'payment', 'Webhook thanh toán', [], []),
 
   // ── Ad Copy ──
-  fn('generate-ad-copy',         'ad-copy', 'Tạo ad copy AI', ['Lovable AI'], ['ai-client', 'brand-context']),
+  fn('generate-ad-copy',         'ad-copy', 'Tạo ad copy AI (có semantic cache)', ['Lovable AI'], ['ai-client', 'brand-context', 'semantic-cache'], false, { hasSemanticCache: true }),
   fn('suggest-ad-fix',           'ad-copy', 'Gợi ý sửa ad copy', ['Lovable AI'], ['ai-client']),
   fn('predict-ad-performance',   'ad-copy', 'Dự đoán hiệu suất quảng cáo', ['Lovable AI'], ['ai-client']),
   fn('optimize-ad-copy',         'ad-copy', 'Tối ưu ad copy (có semantic cache)', ['Lovable AI'], ['ai-client', 'semantic-cache'], false, { hasSemanticCache: true }),
