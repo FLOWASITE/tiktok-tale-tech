@@ -1,8 +1,8 @@
 // Firecrawl Social Trends Edge Function
 // Scrapes trend aggregator sites for TikTok/Facebook/YouTube data
 
-import { 
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { 
   getSocialTrends, 
   scrapeTrendSource, 
   TREND_SOURCES,
@@ -15,7 +15,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-Deno.Deno.serve(withPerf({ functionName: 'firecrawl-trends' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'firecrawl-trends' }, async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
