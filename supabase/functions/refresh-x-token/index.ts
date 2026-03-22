@@ -11,6 +11,9 @@ Deno.serve(withPerf({ functionName: 'refresh-x-token' }, async (req) => {
   }
 
   try {
+    const { connectionId } = await req.json();
+    if (!connectionId) throw new Error('connectionId is required');
+
     const supabase = getServiceClient();
 
     // Get connection
