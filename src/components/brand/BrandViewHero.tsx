@@ -148,29 +148,13 @@ export function BrandViewHero({
                   Sao chép
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Xóa
-                    </DropdownMenuItem>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Xóa Brand Template?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Bạn có chắc muốn xóa template "{template.name}"? Hành động này không thể hoàn tác.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Hủy</AlertDialogCancel>
-                      <AlertDialogAction onClick={onDelete}>Xóa</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Xóa
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
