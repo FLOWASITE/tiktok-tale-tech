@@ -1,5 +1,5 @@
 import { decryptCredential } from "../_shared/crypto.ts";
-import { createHmac } from "node:crypto";
+
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { buildOAuth1Header } from "../_shared/oauth1a.ts";
 
@@ -66,70 +66,7 @@ async function getGlobalPlatformCredentials(
   }
 }
 
-// Generate OAuth signature for Twitter API
-function generateOAuthSignature(
-  method: string,
-  url: string,
-  params: Record<string, string>,
-  consumerSecret: string,
-  tokenSecret: string
-): string {
-  const signatureBaseString = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(
-    Object.entries(params)
-      .sort()
-      .map(([k, v]) => `${k}=${v}`)
-      .join("&")
-  )}`;
-  const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
-  const hmacSha1 = createHmac("sha1", signingKey);
-  const signature = hmacSha1.update(signatureBaseString).digest("base64");
-  return signature;
-}
-
-// Generate OAuth header for Twitter API
-function generateOAuthHeader(
-  method: string,
-  url: string,
-  consumerKey: string,
-  consumerSecret: string,
-  accessToken: string,
-  accessTokenSecret: string
-): string {
-  const oauthParams = {
-    oauth_consumer_key: consumerKey,
-    oauth_nonce: Math.random().toString(36).substring(2),
-    oauth_signature_method: "HMAC-SHA1",
-    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-    oauth_token: accessToken,
-    oauth_version: "1.0",
-  };
-
-  const signature = generateOAuthSignature(
-    method,
-    url,
-    oauthParams,
-    consumerSecret,
-    accessTokenSecret
-  );
-
-  const signedOAuthParams = {
-    ...oauthParams,
-    oauth_signature: signature,
-  };
-
-  const entries = Object.entries(signedOAuthParams).sort((a, b) =>
-    a[0].localeCompare(b[0])
-  );
-
-  return (
-    "OAuth " +
-    entries
-      .map(([k, v]) => `${encodeURIComponent(k)}="${encodeURIComponent(v)}"`)
-      .join(", ")
-  );
-}
-
-// Post tweet using Twitter API v2
+// Post tweet using Twitter API v2 with OAuth 1.0a
 async function postTweet(
   tweetText: string,
   consumerKey: string,
@@ -138,21 +75,21 @@ async function postTweet(
   accessTokenSecret: string
 ): Promise<{ id: string; text: string }> {
   const url = "https://api.x.com/2/tweets";
-  const method = "POST";
 
-  const oauthHeader = generateOAuthHeader(
-    method,
+  // Use the shared buildOAuth1Header (RFC 3986 compliant)
+  const oauthHeader = buildOAuth1Header(
+    'POST',
     url,
     consumerKey,
     consumerSecret,
     accessToken,
-    accessTokenSecret
+    accessTokenSecret,
   );
 
-  console.log("Posting tweet to Twitter API...");
+  console.log("Posting tweet via OAuth 1.0a...");
 
   const response = await fetch(url, {
-    method: method,
+    method: "POST",
     headers: {
       Authorization: oauthHeader,
       "Content-Type": "application/json",
@@ -171,92 +108,6 @@ async function postTweet(
   return result.data;
 }
 
-// Post tweet using OAuth 2.0 Bearer token (with retry for 5xx)
-async function postTweetOAuth2(
-  tweetText: string,
-  accessToken: string,
-  maxRetries = 3
-): Promise<{ id: string; text: string }> {
-  const url = "https://api.x.com/2/tweets";
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    console.log(`Posting tweet via OAuth 2.0 Bearer... (attempt ${attempt + 1})`);
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ text: tweetText }),
-    });
-
-    const responseText = await response.text();
-    console.log("Twitter API Response:", response.status, responseText);
-
-    if (response.ok) {
-      const result = JSON.parse(responseText);
-      return result.data;
-    }
-
-    // Retry on 5xx server errors
-    if (response.status >= 500 && attempt < maxRetries) {
-      const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
-      console.log(`Server error ${response.status}, retrying in ${delay}ms...`);
-      await new Promise(r => setTimeout(r, delay));
-      continue;
-    }
-
-    throw new Error(`Twitter API error: ${response.status} - ${responseText}`);
-  }
-
-  throw new Error('Max retries exceeded');
-}
-
-// Refresh OAuth 2.0 token
-async function refreshOAuth2Token(
-  supabase: any,
-  connectionId: string,
-  refreshToken: string
-): Promise<string> {
-  const clientId = Deno.env.get('X_CLIENT_ID')!;
-  const clientSecret = Deno.env.get('X_CLIENT_SECRET')!;
-
-  const tokenBody = new URLSearchParams({
-    grant_type: 'refresh_token',
-    refresh_token: refreshToken,
-    client_id: clientId,
-  });
-
-  const tokenResponse = await fetch('https://api.x.com/2/oauth2/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': 'Basic ' + btoa(`${clientId}:${clientSecret}`),
-    },
-    body: tokenBody.toString(),
-  });
-
-  const tokenText = await tokenResponse.text();
-  if (!tokenResponse.ok) {
-    throw new Error(`Token refresh failed: ${tokenText}`);
-  }
-
-  const tokenData = JSON.parse(tokenText);
-  const tokenExpiresAt = new Date(Date.now() + (tokenData.expires_in || 7200) * 1000).toISOString();
-
-  await supabase
-    .from('social_connections')
-    .update({
-      access_token: tokenData.access_token,
-      refresh_token: tokenData.refresh_token || refreshToken,
-      token_expires_at: tokenExpiresAt,
-      last_error: null,
-    })
-    .eq('id', connectionId);
-
-  return tokenData.access_token;
-}
 
 Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
   if (req.method === 'OPTIONS') {
