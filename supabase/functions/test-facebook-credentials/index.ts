@@ -1,5 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createDecipheriv } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { decrypt } from "../_shared/crypto.ts";
@@ -58,16 +56,14 @@ async function decryptCredential(ciphertext: string, key: string): Promise<strin
   }
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'test-facebook-credentials' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-encryption-key-change-me';
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     // Verify admin role
     const authHeader = req.headers.get('Authorization');
@@ -196,4 +192,4 @@ serve(async (req) => {
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

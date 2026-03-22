@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { decryptCredential, encrypt } from "../_shared/crypto.ts";
 
 const corsHeaders = {
@@ -27,7 +26,7 @@ function getFrontendUrl(frontendOrigin: string | null): string {
   return 'https://tiktok-tale-tech.lovable.app';
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'zalo-oauth-callback' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -68,9 +67,7 @@ serve(async (req) => {
     const { brandTemplateId, organizationId, userId } = stateData;
     const frontendUrl = getFrontendUrl(frontendOrigin);
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     // Get Zalo credentials from social_platform_settings
     const { data: settings, error: settingsError } = await supabase
@@ -258,4 +255,4 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Location': `${frontendUrl}/auth/zalo/callback?${redirectParams}` },
     });
   }
-});
+}));

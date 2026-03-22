@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { createHmac, createDecipheriv } from "node:crypto";
 import { Buffer } from "node:buffer";
 
@@ -151,15 +150,13 @@ async function getTwitterUserOAuth2(
   return JSON.parse(responseText).data;
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'test-twitter-connection' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     const body: TestRequest = await req.json();
     const { connectionId } = body;
@@ -321,4 +318,4 @@ serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

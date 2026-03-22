@@ -1,5 +1,5 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -49,7 +49,7 @@ async function decryptCredential(encryptedText: string, encryptionKey: string): 
   }
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'linkedin-oauth-callback' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -61,10 +61,8 @@ serve(async (req) => {
     const error = url.searchParams.get('error');
     const errorDescription = url.searchParams.get('error_description');
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     // Get frontend URL for redirect
     const frontendUrl = supabaseUrl.includes('supabase.co') 
@@ -275,4 +273,4 @@ serve(async (req) => {
     redirectUrl.searchParams.set('error', errorMessage);
     return Response.redirect(redirectUrl.toString(), 302);
   }
-});
+}));

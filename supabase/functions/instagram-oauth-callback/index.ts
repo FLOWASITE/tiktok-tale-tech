@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+
 import { createDecipheriv } from "node:crypto";
 import { Buffer } from "node:buffer";
 
@@ -28,7 +28,7 @@ function decrypt(encryptedText: string, key: string): string {
   }
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'instagram-oauth-callback' }, async (req) => {
   // Handle OPTIONS for CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -65,10 +65,8 @@ serve(async (req) => {
 
     console.log('State data:', { brandTemplateId: stateData.brandTemplateId, organizationId: stateData.organizationId });
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     // Get Instagram App credentials from admin settings
     const { data: platformSettings, error: settingsError } = await supabase
@@ -239,4 +237,4 @@ serve(async (req) => {
     
     return Response.redirect(redirectUrl.toString(), 302);
   }
-});
+}));
