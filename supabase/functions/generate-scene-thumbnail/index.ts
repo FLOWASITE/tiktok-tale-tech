@@ -167,7 +167,7 @@ Deno.serve(withPerf({ functionName: 'generate-scene-thumbnail', slowThresholdMs:
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
-});
+}));
 
 /**
  * Build a comprehensive image generation prompt from scene data
