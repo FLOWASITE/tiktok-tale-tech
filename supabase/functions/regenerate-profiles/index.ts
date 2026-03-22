@@ -224,7 +224,7 @@ async function regenerateProfile(
         updated_at: new Date().toISOString(),
       }, {
         onConflict: 'global_pack_id,jurisdiction_code',
-      }));
+      });
 
     if (upsertError) {
       return { success: false, error: upsertError.message };
