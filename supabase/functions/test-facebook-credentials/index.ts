@@ -1,6 +1,7 @@
 import { createDecipheriv } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { decrypt } from "../_shared/crypto.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
