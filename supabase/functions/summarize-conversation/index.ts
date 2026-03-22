@@ -126,25 +126,36 @@ ${conversationText.slice(0, 4000)}
 
 Provide summary in Vietnamese. Be brief and factual.`;
 
-    // Get AI config from Admin Panel
     const aiConfig = await getAIConfig('summarize-conversation');
     const adminModel = aiConfig?.model || undefined;
 
-    // Use multi-provider system with auto metrics
-    const serviceSupabase2 = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const serviceSupabase = getServiceClient();
+    
+    // Use semantic cache for summarization
+    const cachedResult = await withSemanticCache(
+      serviceSupabase,
+      summaryPrompt,
+      { functionName: 'summarize-conversation' },
+      async () => {
+        const aiResult = await callAIWithMetrics(serviceSupabase, {
+          functionName: 'summarize-conversation',
+          userId: user.id,
+          messages: [
+            { role: 'user', content: summaryPrompt }
+          ],
+          modelOverride: adminModel,
+          maxTokensOverride: aiConfig?.max_tokens || 200,
+          temperatureOverride: aiConfig?.temperature || 0.3,
+        });
+        return aiResult;
+      },
+      7,
     );
-    const aiResult = await callAIWithMetrics(serviceSupabase2, {
-      functionName: 'summarize-conversation',
-      userId: user.id,
-      messages: [
-        { role: 'user', content: summaryPrompt }
-      ],
-      modelOverride: adminModel,
-      maxTokensOverride: aiConfig?.max_tokens || 200,
-      temperatureOverride: aiConfig?.temperature || 0.3,
-    });
+
+    const aiResult = cachedResult.data;
+    if (cachedResult.fromCache) {
+      console.log('[summarize-conversation] Using cached result, similarity:', cachedResult.similarity);
+    }
 
     if (!aiResult.success) {
       console.error('AI summarization error:', aiResult.error);
