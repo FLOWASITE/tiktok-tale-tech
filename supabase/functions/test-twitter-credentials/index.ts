@@ -149,57 +149,49 @@ Deno.serve(withPerf({ functionName: 'test-twitter-credentials' }, async (req) =>
       throw new Error('Credentials đang ở dạng masked (****). Vui lòng nhập lại Consumer Key/Secret thật trong phần Admin settings');
     }
 
-    console.log('Testing Twitter credentials...');
+    console.log('Testing Twitter credentials via OAuth 1.0a...');
 
-    // Use OAuth 2.0 App-Only authentication to verify credentials
-    const credentials = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
+    const testUrl = 'https://api.x.com/1.1/application/rate_limit_status.json?resources=statuses';
+    const authHeader = buildOAuth1Header(
+      'GET',
+      'https://api.x.com/1.1/application/rate_limit_status.json',
+      consumerKey,
+      consumerSecret,
+      undefined,
+      undefined,
+      { resources: 'statuses' }
+    );
 
-    const tokenResponse = await fetch('https://api.x.com/oauth2/token', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${credentials}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: 'grant_type=client_credentials',
+    const testResponse = await fetch(testUrl, {
+      method: 'GET',
+      headers: { 'Authorization': authHeader },
     });
 
-    const tokenText = await tokenResponse.text();
-    console.log('Twitter OAuth2 Response:', tokenResponse.status);
+    const responseText = await testResponse.text();
+    console.log('Twitter OAuth 1.0a Response:', testResponse.status);
 
-    if (!tokenResponse.ok) {
+    if (!testResponse.ok) {
       try {
-        const errorData = JSON.parse(tokenText);
+        const errorData = JSON.parse(responseText);
         if (errorData.errors?.[0]?.message) {
           throw new Error(`Twitter API: ${errorData.errors[0].message}`);
-        }
-        if (errorData.error_description) {
-          throw new Error(`Twitter API: ${errorData.error_description}`);
         }
       } catch (e) {
         if (e instanceof Error && e.message.startsWith('Twitter API:')) throw e;
       }
-      if (tokenResponse.status === 403) {
-        throw new Error('Twitter API: Credentials bị từ chối (403). Kiểm tra lại API Key/Secret đúng app và app đã có API access trên X Developer Portal');
+      if (testResponse.status === 401) {
+        throw new Error('Twitter API: Consumer Key/Secret không hợp lệ hoặc đã bị revoke');
       }
-      throw new Error(`Twitter credentials không hợp lệ (HTTP ${tokenResponse.status})`);
+      throw new Error(`Twitter credentials không hợp lệ (HTTP ${testResponse.status})`);
     }
 
-    const tokenData = JSON.parse(tokenText);
-    
-    if (tokenData.token_type !== 'bearer') {
-      throw new Error('Unexpected token type from Twitter API');
-    }
-
-    console.log('Twitter credentials verified successfully!');
+    console.log('Twitter credentials verified successfully via OAuth 1.0a!');
 
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Twitter API credentials hợp lệ! ✓',
-        details: {
-          tokenType: tokenData.token_type,
-          platform,
-        },
+        details: { method: 'OAuth 1.0a', platform },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
