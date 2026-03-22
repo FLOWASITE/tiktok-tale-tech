@@ -144,7 +144,7 @@ Deno.serve(withPerf({ functionName: 'regenerate-profiles', slowThresholdMs: 3000
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));
 
 async function regenerateProfile(
   supabase: any,
