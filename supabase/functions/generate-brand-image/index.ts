@@ -4,8 +4,8 @@ import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared
 import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_shared/poyo-image-generator.ts";
 import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateImageCost } from "../_shared/cost-estimator.ts";
-import { 
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import {
   buildImagePrompt,
   buildSimpleImagePrompt,
   getChannelAspectRatio,
