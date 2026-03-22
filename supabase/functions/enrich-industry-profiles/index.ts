@@ -274,7 +274,7 @@ Include 2-3 industry trends relevant to ${jurisdiction.name} market.`
   }
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'enrich-industry-profiles', slowThresholdMs: 30000 }, async (req) => {
+Deno.serve(withPerf({ functionName: 'enrich-industry-profiles', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -459,4 +459,4 @@ Deno.Deno.serve(withPerf({ functionName: 'enrich-industry-profiles', slowThresho
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
-})
+}));
