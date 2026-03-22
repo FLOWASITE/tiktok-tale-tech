@@ -118,52 +118,7 @@ async function postTweetV2(
   return result.data;
 }
 
-// Fallback endpoint for cases where v2 /tweets is unstable or blocked
-async function postTweetV1(
-  tweetText: string,
-  consumerKey: string,
-  consumerSecret: string,
-  accessToken: string,
-  accessTokenSecret: string
-): Promise<{ id: string; text: string }> {
-  const url = "https://api.x.com/1.1/statuses/update.json";
-  const body = new URLSearchParams({ status: tweetText }).toString();
-
-  const oauthHeader = buildOAuth1Header(
-    'POST',
-    url,
-    consumerKey,
-    consumerSecret,
-    accessToken,
-    accessTokenSecret,
-    { status: tweetText },
-  );
-
-  console.log("Posting tweet via OAuth 1.0a (v1.1 fallback)...");
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: oauthHeader,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body,
-  });
-
-  const responseText = await response.text();
-  console.log("Twitter API v1.1 Response:", response.status, responseText);
-
-  if (!response.ok) {
-    throw new Error(`Twitter API error: ${response.status} - ${responseText}`);
-  }
-
-  const result = JSON.parse(responseText);
-  return {
-    id: String(result.id_str || result.id),
-    text: String(result.text || tweetText),
-  };
-}
-
+// Post tweet with retry for transient 503 errors (v2 only - Free tier doesn't support v1.1 statuses/update)
 async function postTweet(
   tweetText: string,
   consumerKey: string,
@@ -171,19 +126,42 @@ async function postTweet(
   accessToken: string,
   accessTokenSecret: string
 ): Promise<{ id: string; text: string }> {
-  try {
-    return await postTweetV2(tweetText, consumerKey, consumerSecret, accessToken, accessTokenSecret);
-  } catch (v2Error) {
-    const statusCode = extractTwitterStatusCode(v2Error instanceof Error ? v2Error.message : String(v2Error));
-    const shouldFallbackToV1 = statusCode === 503 || statusCode === 401 || statusCode === 403;
+  const maxRetries = 2;
+  let lastError: Error | null = null;
 
-    if (!shouldFallbackToV1) {
-      throw v2Error;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 0) {
+        const delay = attempt * 1500;
+        console.log(`Retry attempt ${attempt}/${maxRetries} after ${delay}ms...`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+      return await postTweetV2(tweetText, consumerKey, consumerSecret, accessToken, accessTokenSecret);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      const statusCode = extractTwitterStatusCode(lastError.message);
+      
+      // Only retry on transient 503 errors
+      if (statusCode !== 503 || attempt >= maxRetries) {
+        // Provide helpful error for common issues
+        if (statusCode === 503) {
+          throw new Error(
+            'X API trả về 503. Nguyên nhân phổ biến: App chưa được gắn vào Project trên developer.x.com. ' +
+            'Vào developer.x.com → Projects & Apps → đảm bảo App nằm trong một Project.'
+          );
+        }
+        if (statusCode === 403) {
+          throw new Error(
+            'X API từ chối quyền truy cập (403). Kiểm tra: 1) App có quyền Read+Write, ' +
+            '2) App nằm trong Project trên developer.x.com, 3) User đã authorize đúng quyền.'
+          );
+        }
+        throw lastError;
+      }
+      console.warn(`v2 tweet got 503, will retry (attempt ${attempt + 1}/${maxRetries})`);
     }
-
-    console.warn(`v2 tweet failed with ${statusCode}, retrying with v1.1 endpoint`);
-    return await postTweetV1(tweetText, consumerKey, consumerSecret, accessToken, accessTokenSecret);
   }
+  throw lastError!;
 }
 
 
