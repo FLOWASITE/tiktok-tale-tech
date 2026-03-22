@@ -81,9 +81,10 @@ export function useRetryPublish() {
         })
         .eq('id', scheduleId);
 
-      // 4. Call publish function
-      const { data, error } = await supabase.functions.invoke(`publish-${platform}`, {
+      // 4. Call consolidated channel-publisher
+      const { data, error } = await supabase.functions.invoke('channel-publisher', {
         body: {
+          action,
           connectionId: connection.id,
           content: contentText,
           scheduleId,

@@ -36,16 +36,17 @@ export function useDirectPublish() {
       platform: SocialPlatform;
       options: PublishOptions;
     }): Promise<PublishResult> => {
-      // Map platform names to actual edge function names
-      const PLATFORM_FUNCTION_MAP: Record<string, string> = {
-        'zalo_oa': 'publish-zalo',
+      // Map platform to channel-publisher action
+      const PLATFORM_ACTION_MAP: Record<string, string> = {
+        'zalo_oa': 'zalo',
+        'google_business': 'google-business',
       };
-      const functionName = PLATFORM_FUNCTION_MAP[platform] || `publish-${platform}`;
+      const action = PLATFORM_ACTION_MAP[platform] || platform;
       
-      console.log(`Publishing to ${platform}...`, options);
+      console.log(`Publishing to ${platform} via channel-publisher...`, options);
 
-      const response = await supabase.functions.invoke(functionName, {
-        body: options,
+      const response = await supabase.functions.invoke('channel-publisher', {
+        body: { action, ...options },
       });
 
       if (response.error) {
