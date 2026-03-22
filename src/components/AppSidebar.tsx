@@ -288,6 +288,7 @@ export function AppSidebar() {
     { title: 'Organizations', titleKey: 'app.sidebar.adminOrgs', url: '/admin/organizations', icon: Building2 },
     { title: 'Vouchers', titleKey: 'app.sidebar.adminVouchers', url: '/admin/vouchers', icon: Ticket },
     { title: 'Version History', titleKey: 'app.sidebar.adminVersions', url: '/admin/versions', icon: GitBranch },
+    { title: 'Edge Functions', titleKey: 'app.sidebar.adminEdgeFunctions', url: '/admin/edge-functions', icon: Zap },
   ];
 
   const handleSwitchOrg = (orgId: string) => {
