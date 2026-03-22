@@ -199,30 +199,36 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
       const accessToken = connection.access_token;
       const accessTokenSecret = connection.refresh_token; // stored in refresh_token field
 
-      let consumerKey = connection.consumer_key;
-      let consumerSecret = connection.consumer_secret;
-      let credentialSource = 'brand-specific';
+      // Prioritize environment secrets (must match keys used during OAuth flow)
+      const envConsumerKey = Deno.env.get('TWITTER_CONSUMER_KEY')?.trim();
+      const envConsumerSecret = Deno.env.get('TWITTER_CONSUMER_SECRET')?.trim();
 
-      if (!consumerKey || !consumerSecret) {
-        const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter');
-        if (globalCreds.consumerKey && globalCreds.consumerSecret) {
-          consumerKey = globalCreds.consumerKey;
-          consumerSecret = globalCreds.consumerSecret;
-          credentialSource = 'global-admin';
+      let consumerKey: string | undefined;
+      let consumerSecret: string | undefined;
+      let credentialSource = 'environment';
+
+      if (envConsumerKey && envConsumerSecret) {
+        consumerKey = envConsumerKey;
+        consumerSecret = envConsumerSecret;
+        credentialSource = 'environment';
+      } else {
+        // Fallback: brand-specific or global-admin
+        consumerKey = connection.consumer_key;
+        consumerSecret = connection.consumer_secret;
+        credentialSource = 'brand-specific';
+
+        if (!consumerKey || !consumerSecret) {
+          const globalCreds = await getGlobalPlatformCredentials(supabase, 'twitter');
+          if (globalCreds.consumerKey && globalCreds.consumerSecret) {
+            consumerKey = globalCreds.consumerKey;
+            consumerSecret = globalCreds.consumerSecret;
+            credentialSource = 'global-admin';
+          }
         }
-      }
-
-      if (!consumerKey || !consumerSecret) {
-        consumerKey = consumerKey || Deno.env.get('TWITTER_CONSUMER_KEY');
-        consumerSecret = consumerSecret || Deno.env.get('TWITTER_CONSUMER_SECRET');
-        if (consumerKey && consumerSecret) credentialSource = 'environment';
       }
 
       if (!consumerKey || !consumerSecret) throw new Error('Twitter app credentials not configured.');
       if (!accessToken || !accessTokenSecret) throw new Error('Twitter user credentials not found. Please reconnect X account.');
-
-      const envConsumerKey = Deno.env.get('TWITTER_CONSUMER_KEY');
-      const envConsumerSecret = Deno.env.get('TWITTER_CONSUMER_SECRET');
 
       console.log(`Using ${credentialSource} consumer keys (OAuth 1.0a)`);
 
