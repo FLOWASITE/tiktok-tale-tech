@@ -109,6 +109,23 @@ export function BrandCard({
   connectedPlatforms = [],
 }: BrandCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const canDelete = deleteConfirmName.trim() === template.brand_name.trim();
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (canDelete) {
+      onDelete(template.id);
+      setDeleteDialogOpen(false);
+      setDeleteConfirmName('');
+    }
+  }, [canDelete, onDelete, template.id]);
+
+  const handleDeleteOpenChange = useCallback((open: boolean) => {
+    setDeleteDialogOpen(open);
+    if (!open) setDeleteConfirmName('');
+  }, []);
   
   // Determine ownership
   const isOrganizationBrand = !!template.organization_id;
