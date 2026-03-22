@@ -235,7 +235,7 @@ function extractBasicKeywords(scene: SceneData): BRollKeyword[] {
     searchTerm: scene.emotionalTone.toLowerCase(),
     description: `Background music for ${scene.emotionalTone} mood`,
     priority: "medium",
-  }));
+  });
 
   return keywords.slice(0, 8);
 }
