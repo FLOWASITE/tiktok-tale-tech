@@ -1,20 +1,22 @@
 
 
-## Plan: Update Twitter Consumer Key/Secret
+## Vấn đề
 
-### Current State
-The secrets `TWITTER_CONSUMER_KEY` and `TWITTER_CONSUMER_SECRET` already exist in the project. They need to be updated with the new values you provided.
+Màn hình Admin Social Settings hiển thị Consumer Key **cũ** (`1Dvw****YfpV`) vì nó đọc từ bảng `social_platform_settings` trong database — nơi lưu credentials đã mã hóa từ lần cấu hình trước.
 
-### Action Required
-When I switch to implementation mode, I will use the secret update tool to replace:
+Trong khi đó, secrets `TWITTER_CONSUMER_KEY` / `TWITTER_CONSUMER_SECRET` (environment variables) đã được cập nhật đúng key mới (`TxWg...`). Các edge functions (publish-twitter, connect-social) **ưu tiên dùng environment secrets**, nên chúng đã dùng key đúng.
 
-1. **TWITTER_CONSUMER_KEY** → `TxWg5u2uDlX7UAgehcEcxXI2L`
-2. **TWITTER_CONSUMER_SECRET** → `sX3nONH6N7aA289RFwxKKalf3a2XRgM08DzVVe7BNCGsBdP40L`
+Tóm lại: **hai nơi lưu credentials khác nhau** — DB cũ, env mới.
 
-### After Update
-- You will need to **disconnect and reconnect your X account** since the access tokens were generated with the old Consumer Key — they won't work with the new one.
-- No code changes are needed; the edge functions already read these values from environment secrets.
+## Giải pháp
 
-### Security Note
-These keys have been shared in chat. After confirming the integration works, consider regenerating them on the X Developer Portal and updating again.
+Cập nhật credentials trong bảng `social_platform_settings` cho platform `twitter` bằng key mới để admin UI hiển thị đúng.
+
+### Bước thực hiện
+
+1. **Gọi edge function `manage-social-platform-settings`** (POST) với body chứa platform `twitter`, consumer_key và consumer_secret mới — function sẽ mã hóa và upsert vào DB.
+
+Cách đơn giản nhất: Bạn bấm nút **"Chỉnh sửa"** trên card Twitter/X trong admin, nhập lại Consumer Key `TxWg5u2uDlX7UAgehcEcxXI2L` và Consumer Secret `sX3nONH6N7aA289RFwxKKalf3a2XRgM08DzVVe7BNCGsBdP40L`, rồi lưu.
+
+Không cần thay đổi code — chỉ cần cập nhật dữ liệu trong DB qua UI có sẵn.
 
