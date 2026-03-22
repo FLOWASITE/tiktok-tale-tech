@@ -1048,4 +1048,4 @@ Deno.serve(withPerf({ functionName: 'generate-core-content', slowThresholdMs: 45
       }
     );
   }
-});
+}));

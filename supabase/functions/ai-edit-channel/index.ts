@@ -467,4 +467,4 @@ Hãy chỉnh sửa nội dung theo yêu cầu trên, giữ đúng format kênh $
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
-});
+}));

@@ -2094,4 +2094,4 @@ Deno.serve(withPerf({ functionName: 'overlay-text-canvas', slowThresholdMs: 3000
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
-});
+}));

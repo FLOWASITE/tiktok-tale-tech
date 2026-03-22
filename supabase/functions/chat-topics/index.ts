@@ -256,4 +256,4 @@ Deno.serve(withPerf({ functionName: 'chat-topics', slowThresholdMs: 30000 }, asy
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));

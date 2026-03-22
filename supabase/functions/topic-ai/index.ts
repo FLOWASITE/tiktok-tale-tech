@@ -110,7 +110,7 @@ interface TopicAIRequest {
 }
 
 // ========== Main Handler ==========
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'topic-ai', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

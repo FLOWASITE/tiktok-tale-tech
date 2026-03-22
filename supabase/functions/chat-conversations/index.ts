@@ -531,4 +531,4 @@ Rules:
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-});
+}));

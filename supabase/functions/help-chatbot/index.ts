@@ -453,4 +453,4 @@ Deno.serve(withPerf({ functionName: 'help-chatbot' }, async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-});
+}));

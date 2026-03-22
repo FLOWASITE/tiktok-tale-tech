@@ -758,4 +758,4 @@ Deno.serve(withPerf({ functionName: 'kpi-ai' }, async (req) => {
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
-});
+}));
