@@ -86,4 +86,4 @@ Deno.serve(withPerf({ functionName: 'refresh-x-token' }, async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

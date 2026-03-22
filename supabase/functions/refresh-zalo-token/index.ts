@@ -145,4 +145,4 @@ Deno.serve(withPerf({ functionName: 'refresh-zalo-token' }, async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));
