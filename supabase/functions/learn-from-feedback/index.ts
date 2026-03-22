@@ -229,7 +229,7 @@ function extractPatterns(topics: any[]): string[] {
           (patternCounts[`keyword:${keyword}`] || 0) + 1;
       });
     }
-  }));
+  });
 
   // Sort by count and return top patterns
   return Object.entries(patternCounts)
