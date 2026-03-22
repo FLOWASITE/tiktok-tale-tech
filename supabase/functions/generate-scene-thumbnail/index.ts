@@ -204,7 +204,7 @@ function buildSceneImagePrompt(scene: SceneData): string {
     parts.push("ACTIONS:");
     scene.visualDirection.actions.forEach((action) => {
       parts.push(`- ${action}`);
-    }));
+    });
     parts.push("");
   }
 
