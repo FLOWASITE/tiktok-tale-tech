@@ -87,7 +87,7 @@ export const EDGE_FUNCTIONS: EdgeFunctionEntry[] = [
   // ── Topic & Chat AI ──
   fn('topic-ai',                 'chat', 'Xử lý AI cho topics (suggest, analyze, recommend, trending)', ['Lovable AI'], ['ai-client']),
   fn('chat-topics',              'chat', 'Chat AI về chủ đề nội dung', ['Lovable AI'], ['ai-client']),
-  fn('chat-conversations',       'chat', 'Chat AI đa năng (CRUD + AI)', ['Lovable AI'], ['ai-client']),
+  fn('chat-conversations',       'chat', 'Chat AI đa năng (CRUD + AI, có semantic cache)', ['Lovable AI'], ['ai-client', 'semantic-cache'], false, { hasSemanticCache: true }),
   fn('summarize-conversation',   'chat', 'Tóm tắt cuộc hội thoại (có semantic cache)', ['Lovable AI'], ['ai-client', 'semantic-cache'], false, { hasSemanticCache: true }),
   fn('help-chatbot',             'chat', 'Chatbot hỗ trợ người dùng', ['Lovable AI'], ['ai-client']),
   fn('help-article-search',      'chat', 'Tìm kiếm bài viết hỗ trợ', [], []),
