@@ -320,7 +320,7 @@ async function generateWithMinimax(params: {
         headers: {
           "Authorization": `Bearer ${MINIMAX_API_KEY}`,
         },
-      }));
+      });
       
       if (fileResponse.ok) {
         const fileData = await fileResponse.json();
