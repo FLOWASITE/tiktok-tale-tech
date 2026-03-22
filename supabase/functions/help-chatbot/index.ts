@@ -283,7 +283,7 @@ VÍ DỤ RESPONSE:
 [SUGGEST:Làm sao để tối ưu brand template?]
 [SUGGEST:Có thể tạo bao nhiêu brand?]"`;
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'help-chatbot' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
