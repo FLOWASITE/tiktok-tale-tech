@@ -760,6 +760,12 @@ export default function AdminDashboard() {
                 System Analytics
               </Button>
             </Link>
+            <Link to="/admin/edge-functions">
+              <Button variant="outline" size="sm">
+                <Server className="h-4 w-4 mr-2" />
+                Edge Functions
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>
