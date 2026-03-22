@@ -9008,6 +9008,32 @@ export type Database = {
         }
         Relationships: []
       }
+      mv_resolved_compliance_rules: {
+        Row: {
+          claim_restrictions: Json | null
+          compliance_rules: Json | null
+          disclaimer: string | null
+          forbidden_terms: Json | null
+          forbidden_words_local: Json | null
+          global_pack_id: string | null
+          industry_code: string | null
+          jurisdiction_code: string | null
+          jurisdiction_profile_id: string | null
+          resolved_rules: Json | null
+          tone_guidelines: Json | null
+          updated_at: string | null
+          validity_status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_jurisdiction_profiles_global_pack_id_fkey"
+            columns: ["global_pack_id"]
+            isOneToOne: false
+            referencedRelation: "industry_global_packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_cache_and_revision: {
         Row: {
           cache_hit_rate: number | null
@@ -9373,6 +9399,7 @@ export type Database = {
         Returns: Json
       }
       normalize_vn_text: { Args: { input_text: string }; Returns: string }
+      refresh_compliance_rules_mv: { Args: never; Returns: undefined }
       search_brand_memory: {
         Args: {
           match_brand_template_id: string
