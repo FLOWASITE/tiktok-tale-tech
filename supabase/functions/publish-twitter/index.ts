@@ -18,9 +18,13 @@ interface PublishRequest {
 
 function extractTwitterStatusCode(message?: string): number | null {
   if (!message) return null;
+
   const match =
     message.match(/(?:Twitter API error:|X API trả về)\s*(\d{3})/i) ||
-    message.match(/\bstatus["'\s:=]+(\d{3})\b/i);
+    message.match(/X API[^\n]*?\((\d{3})\)/i) ||
+    message.match(/\bstatus["'\s:=]+(\d{3})\b/i) ||
+    message.match(/\b(\d{3})\b(?=\s*-\s*\{)/i);
+
   if (!match) return null;
   const code = Number(match[1]);
   return Number.isFinite(code) ? code : null;
@@ -50,11 +54,11 @@ function classifyTwitterConfigError(error: unknown): { code: string; message: st
   }
 
   const statusCode = extractTwitterStatusCode(message);
-  if (statusCode === 403) {
+  if (statusCode === 403 || message.includes('You are not permitted to perform this action')) {
     return {
       code: 'X_FORBIDDEN',
       message:
-        'X API từ chối quyền truy cập (403). Kiểm tra App Permissions = Read and Write và authorize lại tài khoản X.',
+        'X API từ chối quyền truy cập (403). Kiểm tra: 1) App có quyền Read+Write, 2) App nằm trong Project trên developer.x.com, 3) User đã authorize lại sau khi đổi key/quyền.',
     };
   }
 
@@ -145,10 +149,21 @@ async function postTweetV2(
   });
 
   const responseText = await response.text();
-  console.log("Twitter API v2 Response:", response.status, responseText);
+  const requestId =
+    response.headers.get('x-request-id') ||
+    response.headers.get('x-transaction-id') ||
+    response.headers.get('x-client-transaction-id');
+
+  console.log(
+    "Twitter API v2 Response:",
+    response.status,
+    responseText,
+    requestId ? `request_id=${requestId}` : 'request_id=not_provided'
+  );
 
   if (!response.ok) {
-    throw new Error(`Twitter API error: ${response.status} - ${responseText}`);
+    const requestIdSuffix = requestId ? ` [request_id:${requestId}]` : '';
+    throw new Error(`Twitter API error: ${response.status} - ${responseText}${requestIdSuffix}`);
   }
 
   const result = JSON.parse(responseText);
@@ -177,7 +192,7 @@ async function postTweet(
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       const statusCode = extractTwitterStatusCode(lastError.message);
-      
+
       // Only retry on transient 503 errors
       if (statusCode !== 503 || attempt >= maxRetries) {
         // Provide helpful error for common issues
@@ -189,7 +204,7 @@ async function postTweet(
         }
         if (statusCode === 403) {
           throw new Error(
-            'X API từ chối quyền truy cập (403). Kiểm tra: 1) App có quyền Read+Write, ' +
+            'Twitter API error: 403 - X API từ chối quyền truy cập. Kiểm tra: 1) App có quyền Read+Write, ' +
             '2) App nằm trong Project trên developer.x.com, 3) User đã authorize đúng quyền.'
           );
         }
