@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { BrandTemplate, BrandScope } from '@/hooks/useBrandTemplates';
 import { BrandUsageStats } from '@/hooks/useBrandAnalytics';
@@ -109,6 +109,23 @@ export function BrandCard({
   connectedPlatforms = [],
 }: BrandCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const canDelete = deleteConfirmName.trim() === template.brand_name.trim();
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (canDelete) {
+      onDelete(template.id);
+      setDeleteDialogOpen(false);
+      setDeleteConfirmName('');
+    }
+  }, [canDelete, onDelete, template.id]);
+
+  const handleDeleteOpenChange = useCallback((open: boolean) => {
+    setDeleteDialogOpen(open);
+    if (!open) setDeleteConfirmName('');
+  }, []);
   
   // Determine ownership
   const isOrganizationBrand = !!template.organization_id;
@@ -422,7 +439,7 @@ export function BrandCard({
               <Edit2 className="w-3.5 h-3.5 mr-1" />
               Sửa
             </Button>
-            <AlertDialog>
+            <AlertDialog open={deleteDialogOpen} onOpenChange={handleDeleteOpenChange}>
               <AlertDialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 px-2 text-destructive hover:text-destructive">
                   <Trash2 className="w-3.5 h-3.5" />
@@ -431,13 +448,34 @@ export function BrandCard({
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Xóa Brand Template?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Bạn có chắc muốn xóa template "{template.name}"? Hành động này không thể hoàn tác.
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-3">
+                      <p>
+                        Hành động này <strong>không thể hoàn tác</strong>. Tất cả dữ liệu liên quan đến brand &ldquo;{template.brand_name}&rdquo; sẽ bị xóa vĩnh viễn.
+                      </p>
+                      <p>
+                        Để xác nhận, vui lòng nhập tên brand: <strong className="text-foreground">{template.brand_name}</strong>
+                      </p>
+                      <input
+                        type="text"
+                        value={deleteConfirmName}
+                        onChange={(e) => setDeleteConfirmName(e.target.value)}
+                        placeholder={template.brand_name}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        autoFocus
+                      />
+                    </div>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Hủy</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onDelete(template.id)}>Xóa</AlertDialogAction>
+                  <AlertDialogAction
+                    onClick={handleDeleteConfirm}
+                    disabled={!canDelete}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    Xóa vĩnh viễn
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
