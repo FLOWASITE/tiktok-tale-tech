@@ -3,6 +3,7 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 import { callAI, callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
 import { resolveUserId } from "../_shared/logger.ts";
+import { withSemanticCache } from "../_shared/cache/semantic-cache.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
