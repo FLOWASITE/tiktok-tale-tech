@@ -134,7 +134,7 @@ Deno.Deno.serve(withPerf({ functionName: 'sync-ad-performance' }, async (req) =>
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));
 
 async function syncSingleConfig(supabase: any, config: any) {
   const connection = config.social_connections;
