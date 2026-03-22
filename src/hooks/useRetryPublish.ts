@@ -69,7 +69,7 @@ export function useRetryPublish() {
       const { data: connection, error: connError } = await query.limit(1).single();
 
       if (connError || !connection) {
-        throw new Error(`Không tìm thấy kết nối ${platform} hoạt động`);
+        throw new Error(`Không tìm thấy kết nối ${action} hoạt động`);
       }
 
       // 3. Update schedule status to publishing
