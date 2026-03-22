@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { decryptCredential } from "../_shared/crypto.ts";
 
 const corsHeaders = {
