@@ -15,7 +15,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-Deno.Deno.serve(withPerf({ functionName: 'firecrawl-trends' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'firecrawl-trends' }, async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
