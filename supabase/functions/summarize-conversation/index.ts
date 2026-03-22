@@ -106,10 +106,7 @@ Deno.serve(withPerf({ functionName: 'summarize-conversation' }, async (req) => {
     // Try to fetch system prompt from registry
     let baseSummaryPrompt = '';
     try {
-      const serviceSupabase = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-      );
+      const serviceSupabase = getServiceClient();
       const promptManager = createPromptManager(serviceSupabase, 'summarize-conversation');
       baseSummaryPrompt = await promptManager.get('system_summarize', {
         messageCount: messages.length.toString(),
