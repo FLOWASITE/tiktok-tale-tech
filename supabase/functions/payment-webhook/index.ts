@@ -16,7 +16,7 @@ interface PaymentWebhookPayload {
   metadata?: Record<string, unknown>
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'payment-webhook' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'payment-webhook' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -155,4 +155,4 @@ Deno.Deno.serve(withPerf({ functionName: 'payment-webhook' }, async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
-})
+}))
