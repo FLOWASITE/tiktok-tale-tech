@@ -30,6 +30,17 @@ function isTransientTwitterError(error: unknown): boolean {
   return statusCode !== null && statusCode >= 500 && statusCode < 600;
 }
 
+function isTwitterAuthError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  const statusCode = extractTwitterStatusCode(message);
+  if (statusCode === 401) return true;
+  return (
+    message.includes('Could not authenticate you') ||
+    message.includes('"code":32') ||
+    message.includes('Unauthorized')
+  );
+}
+
 function buildTransientTwitterMessage(statusCode: number | null): string {
   if (statusCode === 503) {
     return 'X API đang tạm thời gián đoạn (503). Hệ thống đã thử lại tự động, vui lòng thử lại sau 1-2 phút.';
@@ -210,8 +221,35 @@ Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
       if (!consumerKey || !consumerSecret) throw new Error('Twitter app credentials not configured.');
       if (!accessToken || !accessTokenSecret) throw new Error('Twitter user credentials not found. Please reconnect X account.');
 
+      const envConsumerKey = Deno.env.get('TWITTER_CONSUMER_KEY');
+      const envConsumerSecret = Deno.env.get('TWITTER_CONSUMER_SECRET');
+
       console.log(`Using ${credentialSource} consumer keys (OAuth 1.0a)`);
-      tweetResult = await postTweet(tweetContent, consumerKey, consumerSecret, accessToken, accessTokenSecret);
+
+      let activeConsumerKey = consumerKey;
+      let activeConsumerSecret = consumerSecret;
+
+      try {
+        tweetResult = await postTweet(tweetContent, activeConsumerKey, activeConsumerSecret, accessToken, accessTokenSecret);
+      } catch (postError) {
+        const canRetryWithEnvironment =
+          credentialSource === 'global-admin' &&
+          !!envConsumerKey &&
+          !!envConsumerSecret &&
+          (envConsumerKey !== activeConsumerKey || envConsumerSecret !== activeConsumerSecret) &&
+          isTwitterAuthError(postError);
+
+        if (!canRetryWithEnvironment) {
+          throw postError;
+        }
+
+        console.warn('Global-admin Twitter credentials failed; retrying with environment credentials');
+        credentialSource = 'environment-fallback';
+        activeConsumerKey = envConsumerKey;
+        activeConsumerSecret = envConsumerSecret;
+
+        tweetResult = await postTweet(tweetContent, activeConsumerKey, activeConsumerSecret, accessToken, accessTokenSecret);
+      }
 
       console.log('Tweet posted successfully:', tweetResult);
 
