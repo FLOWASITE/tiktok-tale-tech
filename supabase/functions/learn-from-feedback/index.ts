@@ -111,7 +111,7 @@ Deno.serve(withPerf({ functionName: 'learn-from-feedback' }, async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));
 
 async function aggregateLearningPatterns(
   supabase: any,
@@ -229,7 +229,7 @@ function extractPatterns(topics: any[]): string[] {
           (patternCounts[`keyword:${keyword}`] || 0) + 1;
       });
     }
-  }));
+  });
 
   // Sort by count and return top patterns
   return Object.entries(patternCounts)
