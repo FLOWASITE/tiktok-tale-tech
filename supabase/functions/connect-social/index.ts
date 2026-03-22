@@ -230,9 +230,12 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
       }
 
       // OAuth 1.0a 3-legged flow
-      const xCallbackUrl = Deno.env.get('X_CALLBACK_URL');
-      if (!xCallbackUrl) {
-        throw new Error('X OAuth chưa được cấu hình (X_CALLBACK_URL). Liên hệ Admin.');
+      const configuredCallback = Deno.env.get('X_CALLBACK_URL')?.trim().replace(/^['"]|['"]$/g, '');
+      const derivedCallback = `${supabaseUrl.replace(/\/+$/, '')}/functions/v1/x-oauth-callback`;
+      const callbackCandidates = [...new Set([configuredCallback, derivedCallback].filter(Boolean))] as string[];
+
+      if (callbackCandidates.length === 0) {
+        throw new Error('X OAuth chưa được cấu hình callback URL. Liên hệ Admin.');
       }
 
       // Get consumer credentials - prefer environment, fallback to stored
@@ -254,39 +257,84 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
         throw new Error('Twitter Consumer Key/Secret chưa được cấu hình. Liên hệ Admin.');
       }
 
-      // Step 1: Get request token
+      // Step 1: Get request token (retry with callback fallbacks)
       const requestTokenUrl = 'https://api.x.com/oauth/request_token';
-      const oauthHeader = buildOAuth1Header(
-        'POST',
-        requestTokenUrl,
-        effectiveConsumerKey,
-        effectiveConsumerSecret,
-        undefined,
-        undefined,
-        { oauth_callback: xCallbackUrl }
-      );
+      let oauthToken: string | null = null;
+      let oauthTokenSecret: string | null = null;
+      let callbackUrlUsed: string | null = null;
+      let lastStatus: number | null = null;
+      let sawDesktopModeError = false;
+      let sawAuthError32 = false;
 
-      const rtResponse = await fetch(requestTokenUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': oauthHeader,
-        },
-      });
+      for (const candidateCallback of callbackCandidates) {
+        const callbackLabel = (() => {
+          try {
+            return new URL(candidateCallback).origin;
+          } catch {
+            return candidateCallback;
+          }
+        })();
 
-      const rtText = await rtResponse.text();
-      console.log('Request token response:', rtResponse.status);
+        const oauthHeader = buildOAuth1Header(
+          'POST',
+          requestTokenUrl,
+          effectiveConsumerKey,
+          effectiveConsumerSecret,
+          undefined,
+          undefined,
+          { oauth_callback: candidateCallback }
+        );
 
-      if (!rtResponse.ok) {
-        console.error('Request token failed:', rtText);
-        throw new Error(`Không thể lấy request token từ X (${rtResponse.status}). Kiểm tra Consumer Key/Secret.`);
+        for (const includeBody of [true, false]) {
+          const rtResponse = await fetch(requestTokenUrl, {
+            method: 'POST',
+            headers: includeBody
+              ? {
+                  'Authorization': oauthHeader,
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                }
+              : {
+                  'Authorization': oauthHeader,
+                },
+            body: includeBody ? `oauth_callback=${encodeURIComponent(candidateCallback)}` : undefined,
+          });
+
+          const rtText = await rtResponse.text();
+          lastStatus = rtResponse.status;
+          console.log(`[connect-social] Request token attempt callback=${callbackLabel}, includeBody=${includeBody}, status=${rtResponse.status}`);
+
+          if (!rtResponse.ok) {
+            if (rtResponse.status === 401 && (rtText.includes('Could not authenticate you') || rtText.includes('"code":32'))) {
+              sawAuthError32 = true;
+            }
+            if (rtText.includes("Desktop applications only support the oauth_callback value 'oob'")) {
+              sawDesktopModeError = true;
+            }
+            console.error('Request token failed:', rtText);
+            continue;
+          }
+
+          const rtParams = new URLSearchParams(rtText);
+          oauthToken = rtParams.get('oauth_token');
+          oauthTokenSecret = rtParams.get('oauth_token_secret');
+
+          if (oauthToken && oauthTokenSecret) {
+            callbackUrlUsed = candidateCallback;
+            break;
+          }
+        }
+
+        if (oauthToken && oauthTokenSecret) break;
       }
 
-      const rtParams = new URLSearchParams(rtText);
-      const oauthToken = rtParams.get('oauth_token');
-      const oauthTokenSecret = rtParams.get('oauth_token_secret');
-
       if (!oauthToken || !oauthTokenSecret) {
-        throw new Error('Không nhận được oauth_token từ X');
+        if (sawDesktopModeError) {
+          throw new Error("App X đang ở chế độ Desktop/Native. Hãy đổi sang 'Web App, Automated App or Bot' và cấu hình Callback URL.");
+        }
+        if (sawAuthError32) {
+          throw new Error(`Không thể lấy request token từ X (${lastStatus || 401}). Consumer Key/Secret có thể đúng nhưng Callback URL chưa khớp trong App settings.`);
+        }
+        throw new Error(`Không thể lấy request token từ X (${lastStatus || 'unknown'}). Vui lòng kiểm tra cấu hình App trên developer.x.com.`);
       }
 
       // Persist temporary request token secret for callback exchange
@@ -317,6 +365,7 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
         metadata: {
           oauth_stage: 'request_token',
           frontendOrigin: requestOrigin || null,
+          oauth_callback_used: callbackUrlUsed,
         },
       };
 
