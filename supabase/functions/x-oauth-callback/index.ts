@@ -170,7 +170,7 @@ Deno.serve(withPerf({ functionName: 'x-oauth-callback' }, async (req) => {
     const tokenExpiresAt = new Date(Date.now() + (expires_in || 7200) * 1000).toISOString();
 
     // Save to database — even if profile fetch failed
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const supabase = getServiceClient();
 
     let query = supabase.from('social_connections').select('id').eq('platform', 'twitter');
     if (brandTemplateId) query = query.eq('brand_template_id', brandTemplateId);
