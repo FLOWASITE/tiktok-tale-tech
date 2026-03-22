@@ -144,33 +144,79 @@ async function fetchBrandContext(
   ctx: PipelineContext,
   logger: { info: (msg: string, ctx?: any) => void; warn: (msg: string, ctx?: any) => void }
 ): Promise<void> {
-  const [brandResult, personasResult, productsResult, mappingsResult, historyResult] = await Promise.all([
-    supabase.from('brand_templates').select(`
-      brand_name, brand_positioning, tone_of_voice, industry, content_pillars,
-      unique_value_proposition, target_age_range, target_gender, evergreen_themes,
-      brand_hashtags, main_competitors, industry_template_id, sample_texts
-    `).eq('id', brandTemplateId).single(),
-    supabase.from('customer_personas').select(`
-      id, name, occupation, age_range, pain_points, desires, buying_triggers, is_primary,
-      device_usage, tech_savviness, buying_motivation, communication_style,
-      typical_funnel_stage, objections, journey_map, priority_score
-    `).eq('brand_template_id', brandTemplateId)
-      .order('priority_score', { ascending: false, nullsFirst: false })
-      .order('is_primary', { ascending: false })
-      .limit(5),
-    supabase.from('brand_products').select('id, name, category, description, unique_selling_points, suggested_content_angles, is_featured')
-      .eq('brand_template_id', brandTemplateId).eq('is_active', true)
-      .order('is_featured', { ascending: false }).limit(5),
-    supabase.from('product_persona_mappings').select('id, product_id, persona_id, relevance_score, is_primary_product, custom_pitch, key_benefits, preferred_content_angles')
-      .eq('brand_template_id', brandTemplateId)
-      .order('relevance_score', { ascending: false }).limit(20),
-    supabase.from('topic_history').select('topic')
-      .eq('brand_template_id', brandTemplateId)
-      .order('created_at', { ascending: false }).limit(10),
-  ]);
+  // Phase 3C: Try batch RPC first (1 query instead of 5), with L1 cache
+  const batchData = await cacheThrough(
+    CacheKeys.brand(brandTemplateId),
+    async () => {
+      try {
+        const { data, error } = await supabase.rpc('fetch_brand_context_batch', {
+          p_brand_template_id: brandTemplateId,
+        });
+        if (!error && data) return data;
+      } catch (e) {
+        logger.warn('[ContextFetcher] Batch RPC failed, falling back to parallel queries', { error: String(e) });
+      }
+      return null;
+    },
+    300, // 5 min L1 TTL
+  );
 
-  if (brandResult.data) {
-    const brand = brandResult.data;
+  let brand: any = null;
+  let personasData: any[] = [];
+  let productsData: any[] = [];
+  let mappingsData: any[] = [];
+
+  if (batchData) {
+    // Use batch RPC result
+    brand = batchData.brand;
+    personasData = batchData.personas || [];
+    productsData = batchData.products || [];
+    ctx.recentTopics = (batchData.recent_topics || []).filter((t: any) => typeof t === 'string');
+
+    // Still need mappings separately (not in batch RPC)
+    const { data: mData } = await supabase
+      .from('product_persona_mappings')
+      .select('id, product_id, persona_id, relevance_score, is_primary_product, custom_pitch, key_benefits, preferred_content_angles')
+      .eq('brand_template_id', brandTemplateId)
+      .order('relevance_score', { ascending: false }).limit(20);
+    mappingsData = mData || [];
+  } else {
+    // Fallback: original parallel queries
+    const [brandResult, personasResult, productsResult, mappingsResult, historyResult] = await Promise.all([
+      supabase.from('brand_templates').select(`
+        brand_name, brand_positioning, tone_of_voice, industry, content_pillars,
+        unique_value_proposition, target_age_range, target_gender, evergreen_themes,
+        brand_hashtags, main_competitors, industry_template_id, sample_texts
+      `).eq('id', brandTemplateId).single(),
+      supabase.from('customer_personas').select(`
+        id, name, occupation, age_range, pain_points, desires, buying_triggers, is_primary,
+        device_usage, tech_savviness, buying_motivation, communication_style,
+        typical_funnel_stage, objections, journey_map, priority_score
+      `).eq('brand_template_id', brandTemplateId)
+        .order('priority_score', { ascending: false, nullsFirst: false })
+        .order('is_primary', { ascending: false })
+        .limit(5),
+      supabase.from('brand_products').select('id, name, category, description, unique_selling_points, suggested_content_angles, is_featured')
+        .eq('brand_template_id', brandTemplateId).eq('is_active', true)
+        .order('is_featured', { ascending: false }).limit(5),
+      supabase.from('product_persona_mappings').select('id, product_id, persona_id, relevance_score, is_primary_product, custom_pitch, key_benefits, preferred_content_angles')
+        .eq('brand_template_id', brandTemplateId)
+        .order('relevance_score', { ascending: false }).limit(20),
+      supabase.from('topic_history').select('topic')
+        .eq('brand_template_id', brandTemplateId)
+        .order('created_at', { ascending: false }).limit(10),
+    ]);
+
+    brand = brandResult.data;
+    personasData = personasResult.data || [];
+    productsData = productsResult.data || [];
+    mappingsData = mappingsResult.data || [];
+    if (historyResult.data) {
+      ctx.recentTopics = historyResult.data.map((h: any) => h.topic);
+    }
+  }
+
+  if (brand) {
     ctx.brandContext = {
       brandName: brand.brand_name,
       brandPositioning: brand.brand_positioning,
@@ -209,8 +255,8 @@ async function fetchBrandContext(
   }
 
   // Personas
-  if (personasResult.data?.length) {
-    ctx.personasContext = personasResult.data.map((p: any) => {
+  if (personasData.length) {
+    ctx.personasContext = personasData.map((p: any) => {
       const parts = [`${p.name}${p.is_primary ? ' ⭐' : ''} (${p.occupation || 'N/A'}, ${p.age_range || 'N/A'})`];
       if (p.device_usage) parts.push(`📱 ${p.device_usage}`);
       if (p.tech_savviness) parts.push(`🔧 Tech: ${p.tech_savviness}`);
@@ -225,18 +271,18 @@ async function fetchBrandContext(
   }
 
   // Products
-  if (productsResult.data?.length) {
-    ctx.productsContext = productsResult.data.map((p: any) =>
+  if (productsData.length) {
+    ctx.productsContext = productsData.map((p: any) =>
       `${p.is_featured ? '⭐ ' : ''}${p.name}${p.category ? ` (${p.category})` : ''}: ${(p.suggested_content_angles || []).slice(0, 2).join(', ')}`
     );
   }
 
   // Product-Persona mappings + Journey messaging
-  if (mappingsResult.data?.length && personasResult.data?.length && productsResult.data?.length) {
-    const personaMap = new Map(personasResult.data.map((p: any) => [p.id, p.name]));
-    const productMap = new Map(productsResult.data.map((p: any) => [p.id, p.name]));
+  if (mappingsData.length && personasData.length && productsData.length) {
+    const personaMap = new Map(personasData.map((p: any) => [p.id, p.name]));
+    const productMap = new Map(productsData.map((p: any) => [p.id, p.name]));
 
-    ctx.productPersonaContext = mappingsResult.data
+    ctx.productPersonaContext = mappingsData
       .filter((m: any) => personaMap.has(m.persona_id) && productMap.has(m.product_id))
       .map((m: any) => {
         const parts = [`${productMap.get(m.product_id)} → ${personaMap.get(m.persona_id)} (${m.relevance_score}%)`];
@@ -247,8 +293,8 @@ async function fetchBrandContext(
       });
 
     // Journey stage messaging
-    if (mappingsResult.data?.length > 0) {
-      const mappingIds = mappingsResult.data.map((m: any) => m.id).filter(Boolean);
+    if (mappingsData.length > 0) {
+      const mappingIds = mappingsData.map((m: any) => m.id).filter(Boolean);
       if (mappingIds.length > 0) {
         const { data: journeyData } = await supabase
           .from('journey_stage_messaging')
@@ -273,10 +319,6 @@ async function fetchBrandContext(
         }
       }
     }
-  }
-
-  if (historyResult.data) {
-    ctx.recentTopics = historyResult.data.map((h: any) => h.topic);
   }
 }
 
