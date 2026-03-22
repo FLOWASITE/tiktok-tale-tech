@@ -2,7 +2,6 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 // Multi-country support
 import { getOutputLanguage, getLanguageConfig, buildLocalizedDateContext, getLocalizedGoalDescriptions, getLocalizedAngleDescriptions, getLocalizedPromptLabels } from "../_shared/country-language-map.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { withCache, CACHE_TTL, CACHE_SCOPE } from "../_shared/cache-utils.ts";
 import { getAIConfig, getChannelModelConfigs } from "../_shared/ai-config.ts";

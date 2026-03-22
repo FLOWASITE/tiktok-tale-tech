@@ -1,5 +1,5 @@
 import satori from "https://esm.sh/satori@0.10.14?bundle";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {

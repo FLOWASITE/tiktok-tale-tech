@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createSSEWriter } from "../_shared/sse-writer.ts";
 import { serializeContextMetadata } from "../_shared/context-tracker.ts";
