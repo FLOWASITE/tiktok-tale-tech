@@ -56,7 +56,7 @@ Deno.serve(withPerf({ functionName: 'social-diagnostics' }, async (req) => {
         ...(authHeader ? { Authorization: authHeader } : {}),
         apikey: apiKey,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, platform }),
     });
 
     const responseBody = await response.text();
