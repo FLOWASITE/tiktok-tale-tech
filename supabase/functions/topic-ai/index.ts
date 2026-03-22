@@ -176,7 +176,7 @@ Deno.serve(withPerf({ functionName: 'topic-ai', slowThresholdMs: 30000 }, async 
     console.error('[topic-ai] Error:', errorMessage);
     return createErrorResponse(errorMessage, 500);
   }
-});
+}));
 
 // ========== Handler: Suggest ==========
 async function handleSuggest(
