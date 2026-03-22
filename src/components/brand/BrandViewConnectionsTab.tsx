@@ -340,9 +340,9 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   const handleTestConnection = async (connectionId: string, platform: SocialPlatform) => {
     setTestingConnection(connectionId);
     try {
-      const functionName = TEST_FUNCTION_MAP[platform];
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { connectionId },
+      const diagPlatform = PLATFORM_DIAG_MAP[platform];
+      const { data, error } = await supabase.functions.invoke('social-diagnostics', {
+        body: { action: 'test-connection', platform: diagPlatform, connectionId },
       });
 
       if (error || !data?.success) {
