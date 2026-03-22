@@ -78,7 +78,7 @@ async function getGlobalPlatformCredentials(
 }
 
 // Post tweet using Twitter API v2 with OAuth 1.0a
-async function postTweet(
+async function postTweetV2(
   tweetText: string,
   consumerKey: string,
   consumerSecret: string,
@@ -87,7 +87,6 @@ async function postTweet(
 ): Promise<{ id: string; text: string }> {
   const url = "https://api.x.com/2/tweets";
 
-  // Use the shared buildOAuth1Header (RFC 3986 compliant)
   const oauthHeader = buildOAuth1Header(
     'POST',
     url,
@@ -97,7 +96,7 @@ async function postTweet(
     accessTokenSecret,
   );
 
-  console.log("Posting tweet via OAuth 1.0a...");
+  console.log("Posting tweet via OAuth 1.0a (v2)...");
 
   const response = await fetch(url, {
     method: "POST",
@@ -109,7 +108,7 @@ async function postTweet(
   });
 
   const responseText = await response.text();
-  console.log("Twitter API Response:", response.status, responseText);
+  console.log("Twitter API v2 Response:", response.status, responseText);
 
   if (!response.ok) {
     throw new Error(`Twitter API error: ${response.status} - ${responseText}`);
@@ -117,6 +116,74 @@ async function postTweet(
 
   const result = JSON.parse(responseText);
   return result.data;
+}
+
+// Fallback endpoint for cases where v2 /tweets is unstable or blocked
+async function postTweetV1(
+  tweetText: string,
+  consumerKey: string,
+  consumerSecret: string,
+  accessToken: string,
+  accessTokenSecret: string
+): Promise<{ id: string; text: string }> {
+  const url = "https://api.x.com/1.1/statuses/update.json";
+  const body = new URLSearchParams({ status: tweetText }).toString();
+
+  const oauthHeader = buildOAuth1Header(
+    'POST',
+    url,
+    consumerKey,
+    consumerSecret,
+    accessToken,
+    accessTokenSecret,
+    { status: tweetText },
+  );
+
+  console.log("Posting tweet via OAuth 1.0a (v1.1 fallback)...");
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: oauthHeader,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+
+  const responseText = await response.text();
+  console.log("Twitter API v1.1 Response:", response.status, responseText);
+
+  if (!response.ok) {
+    throw new Error(`Twitter API error: ${response.status} - ${responseText}`);
+  }
+
+  const result = JSON.parse(responseText);
+  return {
+    id: String(result.id_str || result.id),
+    text: String(result.text || tweetText),
+  };
+}
+
+async function postTweet(
+  tweetText: string,
+  consumerKey: string,
+  consumerSecret: string,
+  accessToken: string,
+  accessTokenSecret: string
+): Promise<{ id: string; text: string }> {
+  try {
+    return await postTweetV2(tweetText, consumerKey, consumerSecret, accessToken, accessTokenSecret);
+  } catch (v2Error) {
+    const statusCode = extractTwitterStatusCode(v2Error instanceof Error ? v2Error.message : String(v2Error));
+    const shouldFallbackToV1 = statusCode === 503 || statusCode === 401 || statusCode === 403;
+
+    if (!shouldFallbackToV1) {
+      throw v2Error;
+    }
+
+    console.warn(`v2 tweet failed with ${statusCode}, retrying with v1.1 endpoint`);
+    return await postTweetV1(tweetText, consumerKey, consumerSecret, accessToken, accessTokenSecret);
+  }
 }
 
 
