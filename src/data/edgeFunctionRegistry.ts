@@ -79,7 +79,7 @@ export const EDGE_FUNCTIONS: EdgeFunctionEntry[] = [
   fn('extract-broll-keywords',   'ai-content', 'Trích xuất từ khóa B-roll', ['Lovable AI'], ['ai-client']),
   fn('generate-music',           'ai-content', 'Gợi ý nhạc nền cho video', ['Lovable AI'], ['ai-client']),
   fn('generate-journey-messaging','ai-content','Tạo messaging theo customer journey', ['Lovable AI'], ['ai-client', 'brand-context']),
-  fn('optimize-social-text',     'ai-content', 'Tối ưu văn bản cho social media', ['Lovable AI'], ['ai-client']),
+  fn('optimize-social-text',     'ai-content', 'Tối ưu văn bản cho social media (có semantic cache)', ['Lovable AI'], ['ai-client', 'semantic-cache'], false, { hasSemanticCache: true }),
   fn('learn-from-feedback',      'ai-content', 'Học từ feedback người dùng', ['Lovable AI'], ['ai-client']),
   fn('learn-from-edits',         'ai-content', 'Học từ chỉnh sửa người dùng', ['Lovable AI'], ['ai-client']),
   fn('validate-seamless-consistency','ai-content','Kiểm tra tính nhất quán nội dung', ['Lovable AI'], ['ai-client']),
