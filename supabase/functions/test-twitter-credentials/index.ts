@@ -164,7 +164,7 @@ Deno.serve(withPerf({ functionName: 'test-twitter-credentials' }, async (req) =>
 
     const testResponse = await fetch(testUrl, {
       method: 'GET',
-      headers: { 'Authorization': authHeader },
+      headers: { 'Authorization': oauthHeader },
     });
 
     const responseText = await testResponse.text();
