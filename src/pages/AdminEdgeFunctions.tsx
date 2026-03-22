@@ -302,6 +302,8 @@ export default function AdminEdgeFunctions() {
           </Table>
         </div>
       </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
