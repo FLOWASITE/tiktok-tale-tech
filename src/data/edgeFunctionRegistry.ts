@@ -178,8 +178,6 @@ export const EDGE_FUNCTIONS: EdgeFunctionEntry[] = [
   fn('predict-ad-performance',   'ad-copy', 'Dự đoán hiệu suất quảng cáo', ['Lovable AI'], ['ai-client']),
   fn('optimize-ad-copy',         'ad-copy', 'Tối ưu ad copy (có semantic cache)', ['Lovable AI'], ['ai-client', 'semantic-cache'], false, { hasSemanticCache: true }),
   fn('score-ad-creative',        'ad-copy', 'Chấm điểm creative quảng cáo', ['Lovable AI'], ['ai-client']),
-  fn('suggest-campaign-kpis',    'ad-copy', 'Gợi ý KPI cho campaign', ['Lovable AI'], ['ai-client']),
-  fn('suggest-kpi-adjustments',  'ad-copy', 'Gợi ý điều chỉnh KPI', ['Lovable AI'], ['ai-client']),
   fn('kpi-ai',                   'ad-copy', 'AI phân tích KPI', ['Lovable AI'], ['ai-client']),
   fn('campaign-notifications',   'ad-copy', 'Thông báo campaign', [], []),
   fn('fetch-meta-ad-insights',   'ad-copy', 'Lấy insights từ Meta Ads', ['Meta Ads API'], []),

@@ -110,7 +110,7 @@ async function searchEmbeddings(
     .slice(0, limit);
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'semantic-search' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'semantic-search' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
