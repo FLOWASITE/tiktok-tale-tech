@@ -1,6 +1,6 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptCredential } from "../_shared/crypto.ts";
+import { createHmac } from "node:crypto";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { createHmac } from "node:crypto";
 
 const corsHeaders = {
@@ -258,15 +258,13 @@ async function refreshOAuth2Token(
   return tokenData.access_token;
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'publish-twitter' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     const body: PublishRequest = await req.json();
     const { connectionId, contentId, content, scheduleId } = body;
@@ -470,4 +468,4 @@ serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

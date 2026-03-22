@@ -1,6 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptCredential } from "../_shared/crypto.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -46,15 +45,13 @@ async function waitForMediaContainer(containerId: string, accessToken: string, m
   return false;
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'publish-threads' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     // Verify user authentication
     const authHeader = req.headers.get('Authorization');
@@ -281,4 +278,4 @@ serve(async (req) => {
       }
     );
   }
-});
+}));

@@ -1,4 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { decryptCredential } from "../_shared/crypto.ts";
 import { decryptCredential } from "../_shared/crypto.ts";
 
 interface PublishRequest {
@@ -226,18 +227,15 @@ async function publishCarousel(
   return { id: publishData.id };
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'publish-instagram' }, async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     const body: PublishRequest = await req.json();
     const { connectionId, content, mediaUrls, scheduleId, contentId } = body;
@@ -437,4 +435,4 @@ Deno.serve(async (req) => {
       }
     );
   }
-});
+}));

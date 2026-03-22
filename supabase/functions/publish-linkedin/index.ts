@@ -1,5 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 interface PublishRequest {
   connectionId: string;
@@ -223,17 +222,14 @@ async function createLinkedInPost(
   return { postId, postUrn };
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'publish-linkedin' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     const body: PublishRequest = await req.json();
     const { connectionId, content, mediaUrls, scheduleId, contentId } = body;
@@ -430,4 +426,4 @@ serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));
