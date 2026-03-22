@@ -43,7 +43,7 @@ interface ConversationRequest {
   offset?: number;
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'chat-conversations' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
