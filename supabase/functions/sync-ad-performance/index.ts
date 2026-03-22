@@ -213,7 +213,7 @@ async function syncSingleConfig(supabase: any, config: any) {
       ...parsed,
     }, {
       onConflict: 'ad_copy_id,logged_at',
-    }));
+    });
 
   if (upsertError) {
     throw upsertError;
