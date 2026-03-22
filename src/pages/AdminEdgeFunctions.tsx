@@ -29,6 +29,7 @@ const RISK_CONFIG: Record<RiskLevel, { label: string; className: string }> = {
 };
 
 export default function AdminEdgeFunctions() {
+  const [activeTab, setActiveTab] = useState('monitoring');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [riskFilter, setRiskFilter] = useState<string>('all');
