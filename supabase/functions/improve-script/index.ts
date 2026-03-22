@@ -1,4 +1,5 @@
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { withSemanticCache } from "../_shared/cache/semantic-cache.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,60 +64,73 @@ ${weaknessList || "Không có"}
 
 Hãy viết lại kịch bản đã cải thiện theo các gợi ý trên. Giữ nguyên format và cấu trúc gốc.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
+    // Use semantic cache for similar improvement requests
+    const supabase = getServiceClient();
+    const cacheInputText = `improve:${topic}:${videoType}:${scriptContent.substring(0, 200)}:${suggestionList.substring(0, 200)}`;
+
+    const result = await withSemanticCache(
+      supabase,
+      cacheInputText,
+      { functionName: 'improve-script', similarityThreshold: 0.95 },
+      async () => {
+        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-3-flash-preview",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+          }),
+        });
+
+        if (!response.ok) {
+          if (response.status === 429) throw new Error("RATE_LIMIT");
+          if (response.status === 402) throw new Error("NO_CREDITS");
+          const errText = await response.text();
+          console.error("AI gateway error:", response.status, errText);
+          throw new Error("AI_GATEWAY_ERROR");
+        }
+
+        const data = await response.json();
+        const improvedContent = data.choices?.[0]?.message?.content?.trim();
+        if (!improvedContent) throw new Error("EMPTY_RESPONSE");
+        return { improvedContent };
       },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
+      3, // TTL 3 days for script improvements
+    );
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Vui lòng thử lại sau." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Hết credits AI. Vui lòng nạp thêm." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const errText = await response.text();
-      console.error("AI gateway error:", response.status, errText);
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (result.fromCache) {
+      console.log(`[improve-script] Semantic cache hit (similarity: ${result.similarity?.toFixed(3)})`);
     }
 
-    const data = await response.json();
-    const improvedContent = data.choices?.[0]?.message?.content?.trim();
-
-    if (!improvedContent) {
-      return new Response(JSON.stringify({ error: "AI trả về kết quả rỗng. Vui lòng thử lại." }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify({ improvedContent }), {
+    return new Response(JSON.stringify(result.data), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
+    const errMsg = err instanceof Error ? err.message : "Unknown error";
+    if (errMsg === "RATE_LIMIT") {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded. Vui lòng thử lại sau." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (errMsg === "NO_CREDITS") {
+      return new Response(JSON.stringify({ error: "Hết credits AI. Vui lòng nạp thêm." }), {
+        status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (errMsg === "EMPTY_RESPONSE") {
+      return new Response(JSON.stringify({ error: "AI trả về kết quả rỗng. Vui lòng thử lại." }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.error("improve-script error:", err);
-    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({ error: errMsg }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 }));
