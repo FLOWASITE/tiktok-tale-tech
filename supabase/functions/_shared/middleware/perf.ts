@@ -49,47 +49,79 @@ export function withPerf(
       return handler(req);
     }
 
+    let response: Response;
+    let hadError = false;
+    let errorMsg: string | undefined;
+
     try {
-      const response = await handler(req);
-      const durationMs = Math.round(performance.now() - start);
-
-      const logData: Record<string, unknown> = {
-        fn: functionName,
-        method,
-        path: url.pathname,
-        status: response.status,
-        durationMs,
-        coldStart,
-      };
-
-      if (durationMs > slowThresholdMs) {
-        console.warn(`[PERF][SLOW] ${functionName}`, JSON.stringify(logData));
-      } else {
-        console.log(`[PERF] ${functionName}`, JSON.stringify(logData));
-      }
-
-      // Add perf headers
-      const headers = new Headers(response.headers);
-      headers.set('X-Duration-Ms', String(durationMs));
-      if (coldStart) headers.set('X-Cold-Start', 'true');
-
-      return new Response(response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers,
-      });
+      response = await handler(req);
     } catch (error) {
+      hadError = true;
+      errorMsg = error instanceof Error ? error.message : String(error);
       const durationMs = Math.round(performance.now() - start);
       console.error(`[PERF][ERROR] ${functionName}`, JSON.stringify({
-        fn: functionName,
-        method,
-        durationMs,
-        coldStart,
-        error: error instanceof Error ? error.message : String(error),
+        fn: functionName, method, durationMs, coldStart, error: errorMsg,
       }));
+      // Fire-and-forget metrics write
+      persistMetric(functionName, durationMs, 500, coldStart, true, errorMsg);
       throw error;
     }
+
+    const durationMs = Math.round(performance.now() - start);
+
+    const logData: Record<string, unknown> = {
+      fn: functionName, method, path: url.pathname,
+      status: response.status, durationMs, coldStart,
+    };
+
+    if (durationMs > slowThresholdMs) {
+      console.warn(`[PERF][SLOW] ${functionName}`, JSON.stringify(logData));
+    } else {
+      console.log(`[PERF] ${functionName}`, JSON.stringify(logData));
+    }
+
+    // Fire-and-forget metrics write
+    persistMetric(functionName, durationMs, response.status, coldStart, response.status >= 400);
+
+    // Add perf headers
+    const headers = new Headers(response.headers);
+    headers.set('X-Duration-Ms', String(durationMs));
+    if (coldStart) headers.set('X-Cold-Start', 'true');
+
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
   };
+}
+
+/**
+ * Persist a metric row (fire-and-forget, never blocks the response)
+ */
+function persistMetric(
+  functionName: string,
+  durationMs: number,
+  statusCode: number,
+  isColdStart: boolean,
+  hadError: boolean,
+  errorMessage?: string,
+) {
+  try {
+    const client = getServiceClient();
+    client.from('edge_function_metrics').insert({
+      function_name: functionName,
+      duration_ms: durationMs,
+      status_code: statusCode,
+      is_cold_start: isColdStart,
+      had_error: hadError,
+      error_message: errorMessage || null,
+    }).then(({ error }) => {
+      if (error) console.warn('[PERF] metric write failed:', error.message);
+    });
+  } catch {
+    // Never let metric persistence break the function
+  }
 }
 
 // ---- Global Scope Supabase Client Singleton ----
