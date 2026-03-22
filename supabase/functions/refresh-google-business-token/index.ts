@@ -34,16 +34,14 @@ function decrypt(encryptedText: string, key: string): string {
   }
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'refresh-google-business-token' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const encryptionKey = Deno.env.get('AI_ENCRYPTION_KEY') || 'default-key';
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     const { connectionId } = await req.json();
 

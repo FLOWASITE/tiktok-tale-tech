@@ -11,15 +11,13 @@ interface RefreshRequest {
   connectionId: string;
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'refresh-threads-token' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     // Verify user authentication
     const authHeader = req.headers.get('Authorization');
