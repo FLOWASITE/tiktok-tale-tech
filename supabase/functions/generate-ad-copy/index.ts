@@ -7,6 +7,8 @@ import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 import { fetchIndustryMemory } from "../_shared/data-fetchers/industry-fetcher.ts";
 import { buildIndustryContextSection } from "../_shared/context-builders/industry-context.ts";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
+import { withSemanticCache } from "../_shared/cache/semantic-cache.ts";
+import { getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
