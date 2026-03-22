@@ -66,70 +66,7 @@ async function getGlobalPlatformCredentials(
   }
 }
 
-// Generate OAuth signature for Twitter API
-function generateOAuthSignature(
-  method: string,
-  url: string,
-  params: Record<string, string>,
-  consumerSecret: string,
-  tokenSecret: string
-): string {
-  const signatureBaseString = `${method}&${encodeURIComponent(url)}&${encodeURIComponent(
-    Object.entries(params)
-      .sort()
-      .map(([k, v]) => `${k}=${v}`)
-      .join("&")
-  )}`;
-  const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
-  const hmacSha1 = createHmac("sha1", signingKey);
-  const signature = hmacSha1.update(signatureBaseString).digest("base64");
-  return signature;
-}
-
-// Generate OAuth header for Twitter API
-function generateOAuthHeader(
-  method: string,
-  url: string,
-  consumerKey: string,
-  consumerSecret: string,
-  accessToken: string,
-  accessTokenSecret: string
-): string {
-  const oauthParams = {
-    oauth_consumer_key: consumerKey,
-    oauth_nonce: Math.random().toString(36).substring(2),
-    oauth_signature_method: "HMAC-SHA1",
-    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
-    oauth_token: accessToken,
-    oauth_version: "1.0",
-  };
-
-  const signature = generateOAuthSignature(
-    method,
-    url,
-    oauthParams,
-    consumerSecret,
-    accessTokenSecret
-  );
-
-  const signedOAuthParams = {
-    ...oauthParams,
-    oauth_signature: signature,
-  };
-
-  const entries = Object.entries(signedOAuthParams).sort((a, b) =>
-    a[0].localeCompare(b[0])
-  );
-
-  return (
-    "OAuth " +
-    entries
-      .map(([k, v]) => `${encodeURIComponent(k)}="${encodeURIComponent(v)}"`)
-      .join(", ")
-  );
-}
-
-// Post tweet using Twitter API v2
+// Post tweet using Twitter API v2 with OAuth 1.0a
 async function postTweet(
   tweetText: string,
   consumerKey: string,
@@ -138,21 +75,21 @@ async function postTweet(
   accessTokenSecret: string
 ): Promise<{ id: string; text: string }> {
   const url = "https://api.x.com/2/tweets";
-  const method = "POST";
 
-  const oauthHeader = generateOAuthHeader(
-    method,
+  // Use the shared buildOAuth1Header (RFC 3986 compliant)
+  const oauthHeader = buildOAuth1Header(
+    'POST',
     url,
     consumerKey,
     consumerSecret,
     accessToken,
-    accessTokenSecret
+    accessTokenSecret,
   );
 
-  console.log("Posting tweet to Twitter API...");
+  console.log("Posting tweet via OAuth 1.0a...");
 
   const response = await fetch(url, {
-    method: method,
+    method: "POST",
     headers: {
       Authorization: oauthHeader,
       "Content-Type": "application/json",
