@@ -34,7 +34,15 @@ function buildErrorRedirect(frontendOrigin: string | null, code: string, message
 }
 
 async function getConsumerCredentials(supabase: any): Promise<{ key: string; secret: string }> {
-  // Try social_platform_settings first
+  // Prioritize environment secrets (same keys used in connect-social)
+  const envKey = Deno.env.get('TWITTER_CONSUMER_KEY')?.trim();
+  const envSecret = Deno.env.get('TWITTER_CONSUMER_SECRET')?.trim();
+  if (envKey && envSecret) {
+    console.log('[x-oauth-callback] Using environment consumer credentials');
+    return { key: envKey, secret: envSecret };
+  }
+
+  // Fallback to social_platform_settings
   const { data } = await supabase
     .from('social_platform_settings')
     .select('consumer_key, consumer_secret')
@@ -47,13 +55,11 @@ async function getConsumerCredentials(supabase: any): Promise<{ key: string; sec
       decryptCredential(data.consumer_key),
       decryptCredential(data.consumer_secret),
     ]);
-    if (key && secret) return { key, secret };
+    if (key && secret) {
+      console.log('[x-oauth-callback] Using DB consumer credentials');
+      return { key, secret };
+    }
   }
-
-  // Fallback to env vars
-  const key = Deno.env.get('TWITTER_CONSUMER_KEY');
-  const secret = Deno.env.get('TWITTER_CONSUMER_SECRET');
-  if (key && secret) return { key, secret };
 
   throw new Error('Twitter Consumer Key/Secret not configured');
 }
