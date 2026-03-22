@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildOAuth1Header } from "../_shared/oauth1a.ts";
 import { createDecipheriv } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { decrypt as decryptGCM } from "../_shared/crypto.ts";
