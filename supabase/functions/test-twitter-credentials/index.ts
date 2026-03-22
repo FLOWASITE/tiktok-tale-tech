@@ -152,7 +152,7 @@ Deno.serve(withPerf({ functionName: 'test-twitter-credentials' }, async (req) =>
     console.log('Testing Twitter credentials via OAuth 1.0a...');
 
     const testUrl = 'https://api.x.com/1.1/application/rate_limit_status.json?resources=statuses';
-    const authHeader = buildOAuth1Header(
+    const oauthHeader = buildOAuth1Header(
       'GET',
       'https://api.x.com/1.1/application/rate_limit_status.json',
       consumerKey,
@@ -164,7 +164,7 @@ Deno.serve(withPerf({ functionName: 'test-twitter-credentials' }, async (req) =>
 
     const testResponse = await fetch(testUrl, {
       method: 'GET',
-      headers: { 'Authorization': authHeader },
+      headers: { 'Authorization': oauthHeader },
     });
 
     const responseText = await testResponse.text();
