@@ -268,7 +268,11 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
 
       const rtResponse = await fetch(requestTokenUrl, {
         method: 'POST',
-        headers: { 'Authorization': oauthHeader },
+        headers: {
+          'Authorization': oauthHeader,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `oauth_callback=${encodeURIComponent(xCallbackUrl)}`,
       });
 
       const rtText = await rtResponse.text();
