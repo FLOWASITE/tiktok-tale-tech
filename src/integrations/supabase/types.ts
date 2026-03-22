@@ -1949,12 +1949,14 @@ export type Database = {
           cache_key: string
           cache_scope: string
           created_at: string
+          embedding: string | null
           expires_at: string
           function_name: string
           hit_count: number
           id: string
           industry_memory_version: string | null
           input_hash: string
+          input_text: string | null
           last_hit_at: string | null
           organization_id: string | null
           response_data: Json
@@ -1966,12 +1968,14 @@ export type Database = {
           cache_key: string
           cache_scope?: string
           created_at?: string
+          embedding?: string | null
           expires_at: string
           function_name: string
           hit_count?: number
           id?: string
           industry_memory_version?: string | null
           input_hash: string
+          input_text?: string | null
           last_hit_at?: string | null
           organization_id?: string | null
           response_data: Json
@@ -1983,12 +1987,14 @@ export type Database = {
           cache_key?: string
           cache_scope?: string
           created_at?: string
+          embedding?: string | null
           expires_at?: string
           function_name?: string
           hit_count?: number
           id?: string
           industry_memory_version?: string | null
           input_hash?: string
+          input_text?: string | null
           last_hit_at?: string | null
           organization_id?: string | null
           response_data?: Json
@@ -9014,12 +9020,28 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_org_features_batch: {
+        Args: {
+          p_org_id: string
+          p_usage_types?: Database["public"]["Enums"]["usage_type"][]
+        }
+        Returns: Json
+      }
       cleanup_expired_cache: { Args: never; Returns: number }
       cleanup_expired_generation_tasks: { Args: never; Returns: number }
       cleanup_knowledge_graph_cache: { Args: never; Returns: number }
       cleanup_old_checkpoints: { Args: never; Returns: number }
       cleanup_web_search_cache: { Args: never; Returns: number }
       extract_doc_year: { Args: { doc_name: string }; Returns: string }
+      fetch_brand_context_batch: {
+        Args: {
+          p_brand_template_id: string
+          p_max_personas?: number
+          p_max_products?: number
+          p_max_topics?: number
+        }
+        Returns: Json
+      }
       find_duplicate_regulations: {
         Args: { max_results?: number; similarity_threshold?: number }
         Returns: {
@@ -9238,6 +9260,24 @@ export type Database = {
           node_name: string
           priority_score: number
           session_id: string
+          similarity: number
+        }[]
+      }
+      match_cached_ai_results: {
+        Args: {
+          match_brand_template_id?: string
+          match_count?: number
+          match_function_name: string
+          match_organization_id?: string
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          cache_key: string
+          created_at: string
+          hit_count: number
+          id: string
+          response_data: Json
           similarity: number
         }[]
       }
