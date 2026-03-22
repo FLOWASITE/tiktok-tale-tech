@@ -2,6 +2,7 @@ import { createDecipheriv } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { decrypt as decryptModern } from "../_shared/crypto.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { buildOAuth1Header } from "../_shared/oauth1a.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
