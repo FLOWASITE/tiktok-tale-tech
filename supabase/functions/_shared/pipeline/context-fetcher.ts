@@ -1,6 +1,7 @@
 // ============================================
 // Pipeline: Context Fetcher
 // Parallel context fetching extracted from index.ts
+// Phase 3C: Uses batch RPC when available
 // ============================================
 
 import { withFallback, withTimeout } from "../error-utils.ts";
@@ -9,6 +10,7 @@ import { LearningContext, JourneyStageMessagingData, JourneyStage } from "../pro
 import { fetchUserPreferences, UserPreferencesContext } from "../user-preferences.ts";
 import { fetchCrossSessionMemory, CrossSessionMemory } from "../session-memory.ts";
 import { searchRelevantContent, fetchIndustryMemory, fetchIndustryGlossary } from "../data-fetchers/index.ts";
+import { cacheThrough, CacheKeys } from "../cache/memory-cache.ts";
 import { enhancedWebSearch, WebSearchResponse } from "../data-fetchers/web-search-fallback.ts";
 import { getConversationRAGContext, ConversationRAGResult } from "../data-fetchers/conversation-rag.ts";
 import { BrandContext, IndustryMemory, GlossaryTerm, RAGResult, ChatMessage } from "../types/chat-types.ts";
