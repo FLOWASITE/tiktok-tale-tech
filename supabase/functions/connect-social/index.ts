@@ -291,18 +291,58 @@ Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
         throw new Error('Không nhận được oauth_token từ X');
       }
 
-      // Store oauth_token_secret temporarily (needed for access_token exchange)
-      // Encode it in state along with other data
-      const state = btoa(JSON.stringify({
-        brandTemplateId: brandTemplateId || null,
-        organizationId: organizationId || null,
-        userId: user.id,
-        frontendOrigin: requestOrigin || null,
-        oauthTokenSecret,
-      }));
+      // Persist temporary request token secret for callback exchange
+      let pendingQuery = supabase
+        .from('social_connections')
+        .select('id')
+        .eq('platform', 'twitter')
+        .eq('user_id', user.id)
+        .eq('connection_type', 'oauth1_request_token')
+        .eq('is_active', false);
+
+      if (brandTemplateId) pendingQuery = pendingQuery.eq('brand_template_id', brandTemplateId);
+      else pendingQuery = pendingQuery.eq('organization_id', organizationId);
+
+      const { data: existingPendingConnection } = await pendingQuery.maybeSingle();
+
+      const pendingConnectionData = {
+        organization_id: organizationId || null,
+        brand_template_id: brandTemplateId || null,
+        user_id: user.id,
+        platform: 'twitter',
+        connection_type: 'oauth1_request_token',
+        access_token: oauthToken,
+        refresh_token: oauthTokenSecret,
+        is_active: false,
+        connected_at: new Date().toISOString(),
+        token_expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        metadata: {
+          oauth_stage: 'request_token',
+          frontendOrigin: requestOrigin || null,
+        },
+      };
+
+      if (existingPendingConnection?.id) {
+        const { error: pendingUpdateError } = await supabase
+          .from('social_connections')
+          .update(pendingConnectionData)
+          .eq('id', existingPendingConnection.id);
+
+        if (pendingUpdateError) {
+          console.warn('Failed to update pending X OAuth connection:', pendingUpdateError.message);
+        }
+      } else {
+        const { error: pendingInsertError } = await supabase
+          .from('social_connections')
+          .insert(pendingConnectionData);
+
+        if (pendingInsertError) {
+          console.warn('Failed to insert pending X OAuth connection:', pendingInsertError.message);
+        }
+      }
 
       // Step 2: Redirect user to authorize
-      const oauthUrl = `https://api.x.com/oauth/authorize?oauth_token=${oauthToken}&state=${encodeURIComponent(state)}`;
+      const oauthUrl = `https://api.x.com/oauth/authorize?oauth_token=${oauthToken}`;
 
       return new Response(
         JSON.stringify({
