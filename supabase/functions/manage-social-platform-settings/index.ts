@@ -68,7 +68,7 @@ function maskCredential(value: string | null): string | null {
   return value.slice(0, 4) + "****" + value.slice(-4);
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'manage-social-platform-settings' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'manage-social-platform-settings' }, async (req) => {
   // Handle CORS
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
