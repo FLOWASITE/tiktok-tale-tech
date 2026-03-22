@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from '@/components/ui/table';
@@ -11,13 +12,14 @@ import {
 } from '@/components/ui/select';
 import { 
   Search, Server, AlertTriangle, Shield, ShieldOff, 
-  ArrowLeft, ExternalLink, Layers, Activity
+  ArrowLeft, ExternalLink, Layers, Activity, BarChart3
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   EDGE_FUNCTIONS, CATEGORY_META, getCategorySummary, getRiskSummary, getExternalApiSummary,
   type FunctionCategory, type RiskLevel
 } from '@/data/edgeFunctionRegistry';
+import { EdgeFunctionMonitoring } from '@/components/admin/EdgeFunctionMonitoring';
 
 const RISK_CONFIG: Record<RiskLevel, { label: string; className: string }> = {
   low:      { label: 'Thấp',     className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30' },
