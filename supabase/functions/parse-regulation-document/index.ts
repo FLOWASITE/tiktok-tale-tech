@@ -2540,7 +2540,7 @@ async function tryFirecrawlScrape(url: string): Promise<{
   }
 }
 
-Deno.Deno.serve(withPerf({ functionName: 'parse-regulation-document' }, async (req) => {
+Deno.serve(withPerf({ functionName: 'parse-regulation-document' }, async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -2865,7 +2865,7 @@ Deno.Deno.serve(withPerf({ functionName: 'parse-regulation-document' }, async (r
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
-});
+}));
 
 /**
  * Calculate content quality score (0-100)
