@@ -1,4 +1,4 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare, GalleryHorizontalEnd, AlertTriangle, Ticket } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare, GalleryHorizontalEnd, AlertTriangle, Ticket, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -288,6 +288,7 @@ export function AppSidebar() {
     { title: 'Organizations', titleKey: 'app.sidebar.adminOrgs', url: '/admin/organizations', icon: Building2 },
     { title: 'Vouchers', titleKey: 'app.sidebar.adminVouchers', url: '/admin/vouchers', icon: Ticket },
     { title: 'Version History', titleKey: 'app.sidebar.adminVersions', url: '/admin/versions', icon: GitBranch },
+    { title: 'Edge Functions', titleKey: 'app.sidebar.adminEdgeFunctions', url: '/admin/edge-functions', icon: Zap },
   ];
 
   const handleSwitchOrg = (orgId: string) => {
