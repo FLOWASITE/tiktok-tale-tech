@@ -176,7 +176,7 @@ Deno.serve(withPerf({ functionName: 'generate-video', slowThresholdMs: 30000 }, 
       { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
-});
+ }));
 
 /**
  * Generate video using Lovable AI Gateway
