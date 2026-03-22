@@ -1,7 +1,6 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decrypt as decryptGCM } from "../_shared/crypto.ts";
 import { createDecipheriv } from "node:crypto";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 import { Buffer } from "node:buffer";
 
 const corsHeaders = {
@@ -162,15 +161,13 @@ async function publishToFacebook(
   return { postId: data.id, postUrl: `https://www.facebook.com/${data.id}` };
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'publish-facebook' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     // Verify user authentication
     const authHeader = req.headers.get('Authorization');
@@ -330,4 +327,4 @@ serve(async (req) => {
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

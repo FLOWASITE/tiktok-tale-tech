@@ -1,7 +1,6 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 import { decryptCredential } from "../_shared/crypto.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,7 +22,7 @@ interface PublishRequest {
   };
 }
 
-async function ensureZaloCompatibleCoverUrl(coverUrl: string, supabase: ReturnType<typeof createClient>): Promise<string> {
+async function ensureZaloCompatibleCoverUrl(coverUrl: string, supabase: any): Promise<string> {
   try {
     const imageRes = await fetch(coverUrl);
     if (!imageRes.ok) {
@@ -74,15 +73,13 @@ async function ensureZaloCompatibleCoverUrl(coverUrl: string, supabase: ReturnTy
   }
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'publish-zalo' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = getServiceClient();
 
     // Verify auth
     const authHeader = req.headers.get('Authorization');
@@ -291,4 +288,4 @@ serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));
