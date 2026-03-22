@@ -47,8 +47,8 @@ export function useRetryPublish() {
       const contentText = (channelContent as any)?.content || '';
 
       // 2. Get connection for this platform
-      const platform = channelToPlatform[channel];
-      if (!platform) {
+      const action = channelToAction[channel];
+      if (!action) {
         throw new Error(`Kênh ${channel} chưa được hỗ trợ`);
       }
 
