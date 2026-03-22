@@ -75,6 +75,20 @@ export function BrandViewHero({
 }: BrandViewHeroProps) {
   const { currentOrganization } = useOrganizationContext();
   const isOrganizationBrand = !!template.organization_id;
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const canDelete = deleteConfirmName.trim() === template.brand_name.trim();
+  const handleDeleteConfirm = useCallback(() => {
+    if (canDelete) {
+      onDelete();
+      setDeleteDialogOpen(false);
+      setDeleteConfirmName('');
+    }
+  }, [canDelete, onDelete]);
+  const handleDeleteOpenChange = useCallback((open: boolean) => {
+    setDeleteDialogOpen(open);
+    if (!open) setDeleteConfirmName('');
+  }, []);
 
   const formalityLabel = FORMALITY_LEVEL_OPTIONS.find(
     (o) => o.value === template.formality_level
