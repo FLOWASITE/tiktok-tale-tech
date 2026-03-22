@@ -11,8 +11,8 @@ interface RetryPublishOptions {
   organizationId?: string;
 }
 
-// Map channel to platform name
-const channelToPlatform: Record<string, string> = {
+// Map channel to channel-publisher action
+const channelToAction: Record<string, string> = {
   facebook: 'facebook',
   instagram: 'instagram',
   twitter: 'twitter',
