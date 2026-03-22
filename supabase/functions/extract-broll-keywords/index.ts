@@ -141,7 +141,7 @@ Deno.serve(withPerf({ functionName: 'extract-broll-keywords', slowThresholdMs: 3
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
-});
+}));
 
 function buildExtractionPrompt(scene: SceneData): string {
   return `Extract B-Roll keywords for this video scene. Return JSON with keywords array.
