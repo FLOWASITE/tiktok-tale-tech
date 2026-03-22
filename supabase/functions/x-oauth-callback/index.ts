@@ -75,7 +75,7 @@ function buildErrorRedirect(frontendOrigin: string | null, error: NormalizedErro
   return buildRedirect(frontendOrigin, params);
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'x-oauth-callback' }, async (req) => {
   let frontendOrigin: string | null = null;
   let brandTemplateId: string | undefined;
 
@@ -230,4 +230,4 @@ serve(async (req) => {
       message: 'Đã xảy ra lỗi khi kết nối X. Vui lòng thử lại.',
     }, brandTemplateId);
   }
-});
+}));
