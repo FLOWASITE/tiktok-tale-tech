@@ -1,46 +1,30 @@
 
 
-# Rà soát kế hoạch cải thiện Edge Functions — HOÀN THÀNH
+# Cập nhật Edge Functions Registry
 
-## Tổng quan: 4 Phase — TẤT CẢ ĐÃ HOÀN THÀNH ✅
+## Vấn đề phát hiện
 
----
+### 1. Phantom entries (có trong registry nhưng KHÔNG tồn tại thực tế)
+- `suggest-campaign-kpis` (line 181) — thư mục không tồn tại
+- `suggest-kpi-adjustments` (line 182) — thư mục không tồn tại
 
-## Phase 1 — Quick Wins ✅
+### 2. Bug nghiêm trọng trong `semantic-search/index.ts`
+- Line 113: `Deno.Deno.serve(...)` — gọi sai, phải là `Deno.serve(...)`
+- Function này sẽ **crash khi deploy**
 
-| Hạng mục | Trạng thái |
-|----------|-----------|
-| 1A. Singleton + `withPerf` | ✅ **127/127 functions** |
-| 1B. L1 Memory Cache | ✅ Done |
-| 1C. Performance Middleware | ✅ Done |
+### 3. Thiếu semantic cache flag
+- `improve-script` đã có `withSemanticCache` nhưng registry đã đánh dấu đúng (line 77) ✅
+- `optimize-ad-copy` cũng đã có flag ✅
+- `summarize-conversation` cũng đã có flag ✅
 
-## Phase 2 — Consolidation ✅
+## Thay đổi
 
-| Hạng mục | Trạng thái |
-|----------|-----------|
-| 2A. Social Publisher gateway | ✅ `channel-publisher` |
-| 2B. OAuth gateway | ✅ `auth-gateway` |
-| 2C. Social Diagnostics | ✅ `social-diagnostics` |
+| File | Thay đổi |
+|------|----------|
+| `src/data/edgeFunctionRegistry.ts` | Xóa 2 phantom entries (`suggest-campaign-kpis`, `suggest-kpi-adjustments`) |
+| `supabase/functions/semantic-search/index.ts` | Sửa `Deno.Deno.serve` → `Deno.serve` |
 
-## Phase 3 — AI & DB Optimization ✅
+## Tác động
+- Registry: 113 → 111 entries (khớp chính xác với thực tế)
+- `semantic-search` function sẽ hoạt động được sau khi sửa bug
 
-| Hạng mục | Trạng thái |
-|----------|-----------|
-| 3A. Semantic Cache | ✅ `improve-script`, `optimize-ad-copy`, `summarize-conversation` |
-| 3B. Database Indexes | ✅ 10 composite indexes |
-| 3C. Batch Query (RPC) | ✅ `fetch_brand_context_batch` |
-| 3D. Materialized View | ✅ `mv_resolved_compliance_rules` + `refresh_compliance_rules_mv()` |
-
-## Phase 4 — Monitoring & Warm-up ✅
-
-| Hạng mục | Trạng thái |
-|----------|-----------|
-| 4A. Metrics tables | ✅ `edge_function_metrics` + daily stats |
-| 4B. Admin Monitoring Page | ✅ Dashboard Recharts |
-| 4C. Warm-up Cron | ✅ `warm-up-functions` mỗi 4 phút, ping 8 top functions + refresh MV |
-
----
-
-## Còn lại — Ưu tiên THẤP (không cần thiết)
-
-1. **Gộp thực sự** logic vào gateway (thay vì proxy) — phức tạp, rủi ro cao, lợi ích marginal
