@@ -66,6 +66,68 @@ async function decryptCredential(encryptedValue: string | null, key: string): Pr
   }
 }
 
+async function verifyTwitterConsumerCredentialsOAuth1(
+  consumerKey: string,
+  consumerSecret: string,
+): Promise<{ callbackConfirmed: boolean }> {
+  const requestTokenUrl = 'https://api.x.com/oauth/request_token';
+  const oauthCallback = 'oob';
+  const oauthHeader = buildOAuth1Header(
+    'POST',
+    requestTokenUrl,
+    consumerKey,
+    consumerSecret,
+    undefined,
+    undefined,
+    { oauth_callback: oauthCallback }
+  );
+
+  const testResponse = await fetch(requestTokenUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': oauthHeader,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: `oauth_callback=${encodeURIComponent(oauthCallback)}`,
+  });
+
+  const responseText = await testResponse.text();
+  console.log('Twitter OAuth 1.0a request_token response:', testResponse.status);
+
+  if (!testResponse.ok) {
+    if (responseText.includes('Could not authenticate you')) {
+      throw new Error('Twitter API: Consumer Key/Secret không hợp lệ hoặc đã bị revoke');
+    }
+
+    try {
+      const errorData = JSON.parse(responseText);
+      if (errorData.errors?.[0]?.message) {
+        throw new Error(`Twitter API: ${errorData.errors[0].message}`);
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith('Twitter API:')) throw e;
+    }
+
+    if (testResponse.status === 401) {
+      throw new Error('Twitter API: Consumer Key/Secret không hợp lệ hoặc app chưa bật OAuth 1.0a');
+    }
+
+    throw new Error(`Twitter credentials không hợp lệ (HTTP ${testResponse.status})`);
+  }
+
+  const tokenResponse = new URLSearchParams(responseText);
+  const hasOauthToken = tokenResponse.has('oauth_token');
+  const hasOauthTokenSecret = tokenResponse.has('oauth_token_secret');
+
+  if (!hasOauthToken || !hasOauthTokenSecret) {
+    throw new Error('Twitter API trả về phản hồi không hợp lệ khi kiểm tra credentials');
+  }
+
+  return {
+    callbackConfirmed: tokenResponse.get('oauth_callback_confirmed') === 'true',
+  };
+}
+
 Deno.serve(withPerf({ functionName: 'test-twitter-credentials' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -107,6 +169,8 @@ Deno.serve(withPerf({ functionName: 'test-twitter-credentials' }, async (req) =>
 
     let consumerKey = sanitizeCredential(rawKey);
     let consumerSecret = sanitizeCredential(rawSecret);
+    let credentialSource: 'provided' | 'stored' | 'environment' =
+      consumerKey && consumerSecret ? 'provided' : 'stored';
 
     // If using stored credentials, fetch and decrypt them
     if (useStoredCredentials || (!consumerKey && !consumerSecret)) {
@@ -135,10 +199,21 @@ Deno.serve(withPerf({ functionName: 'test-twitter-credentials' }, async (req) =>
 
       consumerKey = sanitizeCredential(decryptedKey);
       consumerSecret = sanitizeCredential(decryptedSecret);
+      credentialSource = 'stored';
 
       if (!consumerKey || !consumerSecret) {
         throw new Error('Không thể giải mã credentials - kiểm tra encryption key');
       }
+    }
+
+    const envConsumerKey = sanitizeCredential(Deno.env.get('TWITTER_CONSUMER_KEY'));
+    const envConsumerSecret = sanitizeCredential(Deno.env.get('TWITTER_CONSUMER_SECRET'));
+
+    if ((!consumerKey || !consumerSecret) && envConsumerKey && envConsumerSecret) {
+      consumerKey = envConsumerKey;
+      consumerSecret = envConsumerSecret;
+      credentialSource = 'environment';
+      console.log('Using environment Twitter credentials because provided/stored values are missing');
     }
 
     if (!consumerKey || !consumerSecret) {
@@ -149,70 +224,38 @@ Deno.serve(withPerf({ functionName: 'test-twitter-credentials' }, async (req) =>
       throw new Error('Credentials đang ở dạng masked (****). Vui lòng nhập lại Consumer Key/Secret thật trong phần Admin settings');
     }
 
-    console.log('Testing Twitter credentials via OAuth 1.0a request_token...');
+    console.log(`Testing Twitter credentials via OAuth 1.0a request_token (${credentialSource})...`);
 
-    const requestTokenUrl = 'https://api.x.com/oauth/request_token';
-    const oauthCallback = 'oob';
-    const oauthHeader = buildOAuth1Header(
-      'POST',
-      requestTokenUrl,
-      consumerKey,
-      consumerSecret,
-      undefined,
-      undefined,
-      { oauth_callback: oauthCallback }
-    );
+    let callbackConfirmed = false;
+    let verifiedSource = credentialSource;
 
-    const testResponse = await fetch(requestTokenUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': oauthHeader,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: `oauth_callback=${encodeURIComponent(oauthCallback)}`,
-    });
+    try {
+      const verification = await verifyTwitterConsumerCredentialsOAuth1(consumerKey, consumerSecret);
+      callbackConfirmed = verification.callbackConfirmed;
+    } catch (primaryError) {
+      const canRetryWithEnv =
+        credentialSource === 'stored' &&
+        envConsumerKey &&
+        envConsumerSecret &&
+        (envConsumerKey !== consumerKey || envConsumerSecret !== consumerSecret);
 
-    const responseText = await testResponse.text();
-    console.log('Twitter OAuth 1.0a request_token response:', testResponse.status);
-
-    if (!testResponse.ok) {
-      if (responseText.includes('Could not authenticate you')) {
-        throw new Error('Twitter API: Consumer Key/Secret không hợp lệ hoặc đã bị revoke');
+      if (!canRetryWithEnv) {
+        throw primaryError;
       }
 
-      try {
-        const errorData = JSON.parse(responseText);
-        if (errorData.errors?.[0]?.message) {
-          throw new Error(`Twitter API: ${errorData.errors[0].message}`);
-        }
-      } catch (e) {
-        if (e instanceof Error && e.message.startsWith('Twitter API:')) throw e;
-      }
-
-      if (testResponse.status === 401) {
-        throw new Error('Twitter API: Consumer Key/Secret không hợp lệ hoặc app chưa bật OAuth 1.0a');
-      }
-
-      throw new Error(`Twitter credentials không hợp lệ (HTTP ${testResponse.status})`);
+      console.warn('Stored Twitter credentials failed; retrying with environment credentials');
+      const verification = await verifyTwitterConsumerCredentialsOAuth1(envConsumerKey, envConsumerSecret);
+      callbackConfirmed = verification.callbackConfirmed;
+      verifiedSource = 'environment';
     }
 
-    const tokenResponse = new URLSearchParams(responseText);
-    const hasOauthToken = tokenResponse.has('oauth_token');
-    const hasOauthTokenSecret = tokenResponse.has('oauth_token_secret');
-
-    if (!hasOauthToken || !hasOauthTokenSecret) {
-      throw new Error('Twitter API trả về phản hồi không hợp lệ khi kiểm tra credentials');
-    }
-
-    const callbackConfirmed = tokenResponse.get('oauth_callback_confirmed') === 'true';
-
-    console.log('Twitter credentials verified successfully via OAuth 1.0a request_token!');
+    console.log(`Twitter credentials verified successfully via OAuth 1.0a request_token (${verifiedSource})!`);
 
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Twitter API credentials hợp lệ! ✓',
-        details: { method: 'OAuth 1.0a request_token', platform, callbackConfirmed },
+        details: { method: 'OAuth 1.0a request_token', platform, callbackConfirmed, credentialSource: verifiedSource },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
