@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react';
 import { BrandTemplate } from '@/hooks/useBrandTemplates';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { Badge } from '@/components/ui/badge';
@@ -74,6 +75,20 @@ export function BrandViewHero({
 }: BrandViewHeroProps) {
   const { currentOrganization } = useOrganizationContext();
   const isOrganizationBrand = !!template.organization_id;
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const canDelete = deleteConfirmName.trim() === template.brand_name.trim();
+  const handleDeleteConfirm = useCallback(() => {
+    if (canDelete) {
+      onDelete();
+      setDeleteDialogOpen(false);
+      setDeleteConfirmName('');
+    }
+  }, [canDelete, onDelete]);
+  const handleDeleteOpenChange = useCallback((open: boolean) => {
+    setDeleteDialogOpen(open);
+    if (!open) setDeleteConfirmName('');
+  }, []);
 
   const formalityLabel = FORMALITY_LEVEL_OPTIONS.find(
     (o) => o.value === template.formality_level
@@ -147,31 +162,50 @@ export function BrandViewHero({
                   Sao chép
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Xóa
-                    </DropdownMenuItem>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Xóa Brand Template?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Bạn có chắc muốn xóa template "{template.name}"? Hành động này không thể hoàn tác.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Hủy</AlertDialogCancel>
-                      <AlertDialogAction onClick={onDelete}>Xóa</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Xóa
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <AlertDialog open={deleteDialogOpen} onOpenChange={handleDeleteOpenChange}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Xóa Brand Template?</AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-3">
+                      <p>
+                        Hành động này <strong>không thể hoàn tác</strong>. Tất cả dữ liệu liên quan đến brand &ldquo;{template.brand_name}&rdquo; sẽ bị xóa vĩnh viễn.
+                      </p>
+                      <p>
+                        Để xác nhận, vui lòng nhập tên brand: <strong className="text-foreground">{template.brand_name}</strong>
+                      </p>
+                      <input
+                        type="text"
+                        value={deleteConfirmName}
+                        onChange={(e) => setDeleteConfirmName(e.target.value)}
+                        placeholder={template.brand_name}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        autoFocus
+                      />
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Hủy</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteConfirm}
+                    disabled={!canDelete}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    Xóa vĩnh viễn
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
 
