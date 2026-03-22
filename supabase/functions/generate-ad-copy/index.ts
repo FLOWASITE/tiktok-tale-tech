@@ -646,24 +646,41 @@ IMPORTANT: Return ONLY valid JSON, no markdown or explanation.`;
     // Estimate input tokens
     const inputTokensEstimated = Math.ceil((systemPrompt.length + userPrompt.length) / 4);
 
-    // Call AI via multi-provider system (supports OpenRouter, Anthropic, Gemini, etc.)
+    // Call AI via multi-provider system with semantic cache
     console.log('[generate-ad-copy] Calling AI via multi-provider system:', {
       functionName: 'generate-ad-copy',
       organizationId,
       modelOverride: aiConfig.model,
     });
 
-    const aiResult = await callAIProvider({
-      functionName: 'generate-ad-copy',
-      organizationId,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      modelOverride: aiConfig.model || undefined,
-      temperatureOverride: aiConfig.temperature,
-      maxTokensOverride: aiConfig.max_tokens,
-    });
+    const serviceSupabase = getServiceClient();
+    const cacheInputText = `ad-copy:${platform}:${objective}:${funnelStage}:${topic.substring(0, 200)}:${brandContext.substring(0, 100)}`;
+
+    const cacheResult = await withSemanticCache(
+      serviceSupabase,
+      cacheInputText,
+      { functionName: 'generate-ad-copy', organizationId, brandTemplateId, similarityThreshold: 0.93 },
+      async () => {
+        return await callAIProvider({
+          functionName: 'generate-ad-copy',
+          organizationId,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          modelOverride: aiConfig.model || undefined,
+          temperatureOverride: aiConfig.temperature,
+          maxTokensOverride: aiConfig.max_tokens,
+        });
+      },
+      5, // TTL 5 days
+    );
+
+    if (cacheResult.fromCache) {
+      console.log(`[generate-ad-copy] Semantic cache hit (similarity: ${cacheResult.similarity?.toFixed(3)})`);
+    }
+
+    const aiResult = cacheResult.data;
 
     if (!aiResult.success) {
       console.error('[generate-ad-copy] AI error:', aiResult.error);

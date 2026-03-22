@@ -393,18 +393,36 @@ QUAN TRỌNG: Return JSON với format CHÍNH XÁC như sau (không thêm markdo
 
   console.log('Calling AI for KPI suggestions...');
 
-  const aiResult = await callAIWithMetrics(supabase, {
-    functionName: 'kpi-ai',
-    organizationId,
-    userId,
-    actionType: 'suggest',
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt }
-    ],
-    maxTokensOverride: 2000,
-    temperatureOverride: 0.7,
-  });
+  // Wrap AI call with semantic cache
+  const serviceSupabase = getServiceClient();
+  const semanticCacheInput = `kpi-suggest:${campaignType}:${budgetRange}:${industries?.join(',')}:${duration}`;
+
+  const semanticResult = await withSemanticCache(
+    serviceSupabase,
+    semanticCacheInput,
+    { functionName: 'kpi-ai', organizationId, similarityThreshold: 0.93 },
+    async () => {
+      return await callAIWithMetrics(supabase, {
+        functionName: 'kpi-ai',
+        organizationId,
+        userId,
+        actionType: 'suggest',
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        maxTokensOverride: 2000,
+        temperatureOverride: 0.7,
+      });
+    },
+    3, // TTL 3 days for KPI data
+  );
+
+  if (semanticResult.fromCache) {
+    console.log(`[kpi-ai:suggest] Semantic cache hit (similarity: ${semanticResult.similarity?.toFixed(3)})`);
+  }
+
+  const aiResult = semanticResult.data;
 
   if (!aiResult.success) {
     console.error("AI error:", aiResult.error);

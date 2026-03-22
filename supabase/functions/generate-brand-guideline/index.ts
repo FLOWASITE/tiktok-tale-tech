@@ -481,18 +481,36 @@ Tạo guideline CHI TIẾT với:
 
     const userId = await resolveUserId(req, supabase);
 
-    const aiResponse = await callAIWithMetrics(supabase, {
-      functionName: 'generate-brand-guideline',
-      brandTemplateId: brand_template_id,
-      userId,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      tools,
-      toolChoice: { type: 'function', function: { name: 'generate_brand_guideline' } },
-      actionType: 'content_generation',
-    });
+    // Wrap AI call with semantic cache
+    const serviceSupabase = getServiceClient();
+    const cacheInputText = `brand-guideline:${brand_name}:${(industry || []).join(',')}:${(tone_of_voice || []).join(',')}:${productList.length}:${personaList.length}`;
+
+    const cacheResult = await withSemanticCache(
+      serviceSupabase,
+      cacheInputText,
+      { functionName: 'generate-brand-guideline', brandTemplateId: brand_template_id, similarityThreshold: 0.93 },
+      async () => {
+        return await callAIWithMetrics(supabase, {
+          functionName: 'generate-brand-guideline',
+          brandTemplateId: brand_template_id,
+          userId,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          tools,
+          toolChoice: { type: 'function', function: { name: 'generate_brand_guideline' } },
+          actionType: 'content_generation',
+        });
+      },
+      7, // TTL 7 days - brand guidelines rarely change
+    );
+
+    if (cacheResult.fromCache) {
+      console.log(`[generate-brand-guideline] Semantic cache hit (similarity: ${cacheResult.similarity?.toFixed(3)})`);
+    }
+
+    const aiResponse = cacheResult.data;
 
     if (!aiResponse.success) {
       console.error('AI call failed:', aiResponse.error);
