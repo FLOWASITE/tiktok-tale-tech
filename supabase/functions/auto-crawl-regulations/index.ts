@@ -3,6 +3,7 @@
 // v2.0 - Living System Upgrade: Download + Parse PDF/DOCX + AI Extract
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1337,7 +1338,7 @@ async function processSource(
   return stats;
 }
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(withPerf({ functionName: 'auto-crawl-regulations', slowThresholdMs: 120000 }, async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -1533,4 +1534,4 @@ Deno.serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

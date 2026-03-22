@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callAI, callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { resolveUserId } from "../_shared/logger.ts";
 import { evaluateHook, type HookEvaluation } from "../_shared/ai-hook-evaluator.ts";
@@ -10,6 +9,7 @@ import {
 } from "../_shared/channel-optimization.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { createPromptManager, buildPrompt } from "../_shared/prompt-integration.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -198,7 +198,7 @@ Trả về CHÍNH XÁC 1 JSON object với format sau (KHÔNG có \`\`\`, KHÔNG
   return hook;
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'generate-hooks', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -459,4 +459,4 @@ Trả về CHÍNH XÁC ${count} JSON objects trong array với format sau (KHÔN
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

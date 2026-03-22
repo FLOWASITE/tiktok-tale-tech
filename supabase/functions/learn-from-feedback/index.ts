@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,7 +29,7 @@ interface LearningStats {
   };
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'learn-from-feedback' }, async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -229,7 +229,7 @@ function extractPatterns(topics: any[]): string[] {
           (patternCounts[`keyword:${keyword}`] || 0) + 1;
       });
     }
-  });
+  }));
 
   // Sort by count and return top patterns
   return Object.entries(patternCounts)

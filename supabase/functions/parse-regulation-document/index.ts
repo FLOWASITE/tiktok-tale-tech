@@ -5,6 +5,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -2539,7 +2540,7 @@ async function tryFirecrawlScrape(url: string): Promise<{
   }
 }
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(withPerf({ functionName: 'parse-regulation-document' }, async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -3187,7 +3188,7 @@ KHÔNG thêm bất kỳ giải thích nào, chỉ trả về văn bản đã là
         max_completion_tokens: 24000, // Increased from 16000 for longer documents
         temperature: 0.1,
       }),
-    });
+    }));
     
     if (!response.ok) {
       console.log(`[parse-document] AI Post-Process: API error ${response.status}`);

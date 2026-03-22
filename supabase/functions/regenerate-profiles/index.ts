@@ -3,8 +3,8 @@
 // Trigger: Manual or on global pack update
 // ============================================
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,7 +20,7 @@ interface RegenerateRequest {
   regenerateAll?: boolean; // Support camelCase from frontend
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'regenerate-profiles', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -224,7 +224,7 @@ async function regenerateProfile(
         updated_at: new Date().toISOString(),
       }, {
         onConflict: 'global_pack_id,jurisdiction_code',
-      });
+      }));
 
     if (upsertError) {
       return { success: false, error: upsertError.message };

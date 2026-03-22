@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +29,7 @@ interface BRollKeyword {
   priority: 'high' | 'medium' | 'low';
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'extract-broll-keywords', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -235,7 +235,7 @@ function extractBasicKeywords(scene: SceneData): BRollKeyword[] {
     searchTerm: scene.emotionalTone.toLowerCase(),
     description: `Background music for ${scene.emotionalTone} mood`,
     priority: "medium",
-  });
+  }));
 
   return keywords.slice(0, 8);
 }

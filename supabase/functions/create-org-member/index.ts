@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,7 +14,7 @@ interface CreateMemberRequest {
   role: "admin" | "member" | "viewer";
 }
 
-serve(async (req: Request) => {
+Deno.serve(withPerf({ functionName: 'create-org-member' }, async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -156,4 +156,4 @@ serve(async (req: Request) => {
       }
     );
   }
-});
+}));

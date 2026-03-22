@@ -1,8 +1,8 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createDecipheriv } from "node:crypto";
 import { Buffer } from "node:buffer";
 import { decrypt as decryptGCM } from "../_shared/crypto.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -87,7 +87,7 @@ async function getGlobalPlatformCredentials(
   }
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'connect-social' }, async (req) => {
   // Capture frontend origin from request headers for OAuth redirect
   const requestOrigin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/+$/, '').split('/').slice(0, 3).join('/') || '';
   if (req.method === 'OPTIONS') {
@@ -756,4 +756,4 @@ serve(async (req) => {
       { status: isUnauthorized ? 401 : 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

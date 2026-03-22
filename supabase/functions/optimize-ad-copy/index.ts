@@ -1,9 +1,9 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { createPromptManager } from "../_shared/prompt-integration.ts";
 import { resolveUserId } from "../_shared/logger.ts";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { withSemanticCache } from "../_shared/cache/semantic-cache.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,7 +21,7 @@ interface OptimizeRequest {
   optimizationGoal?: 'ctr' | 'conversion' | 'engagement';
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'optimize-ad-copy' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -52,6 +52,9 @@ serve(async (req) => {
       );
     }
 
+    const supabase = getServiceClient();
+    const userId = await resolveUserId(req, supabase);
+
     // Try to fetch system prompt from registry with fallback
     const FALLBACK_SYSTEM = `You are a digital ad optimization expert with 10+ years of experience.
 
@@ -66,14 +69,6 @@ serve(async (req) => {
 - Scarcity: Create scarcity
 
 Respond in the same language as the ad copy provided.`;
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Resolve userId for cost tracking
-    const userId = await resolveUserId(req, supabase);
-
 
     let systemPrompt = '';
     try {
@@ -126,41 +121,50 @@ Return JSON in this format:
 
 Return JSON only, no other text.`;
 
-    // Get AI config from Admin Panel
-    const aiConfig = await getAIConfig('optimize-ad-copy');
-    const adminModel = aiConfig?.model || undefined;
+    // Semantic cache: reuse similar optimization results
+    const cacheInputText = `optimize:${platform}:${objective}:${optimizationGoal}:${contentParts.join('|').substring(0, 300)}`;
 
-    // Use multi-provider system with auto metrics
-    const aiResult = await callAIWithMetrics(supabase, {
-      functionName: 'optimize-ad-copy',
-      userId,
-      messages: [
-        { role: "system", content: finalSystemPrompt },
-        { role: "user", content: prompt }
-      ],
-      modelOverride: adminModel,
-      temperatureOverride: aiConfig?.temperature,
-      actionType: 'content_optimization',
-    });
+    const result = await withSemanticCache(
+      supabase,
+      cacheInputText,
+      { functionName: 'optimize-ad-copy', similarityThreshold: 0.94 },
+      async () => {
+        const aiConfig = await getAIConfig('optimize-ad-copy');
+        const adminModel = aiConfig?.model || undefined;
 
-    if (!aiResult.success) {
-      console.error("AI error:", aiResult.error);
-      throw new Error(aiResult.error || 'AI call failed');
+        const aiResult = await callAIWithMetrics(supabase, {
+          functionName: 'optimize-ad-copy',
+          userId,
+          messages: [
+            { role: "system", content: finalSystemPrompt },
+            { role: "user", content: prompt }
+          ],
+          modelOverride: adminModel,
+          temperatureOverride: aiConfig?.temperature,
+          actionType: 'content_optimization',
+        });
+
+        if (!aiResult.success) {
+          throw new Error(aiResult.error || 'AI call failed');
+        }
+
+        const text = aiResult.data?.choices?.[0]?.message?.content || "";
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          throw new Error('Failed to parse AI response');
+        }
+
+        return JSON.parse(jsonMatch[0]);
+      },
+      5, // TTL 5 days
+    );
+
+    if (result.fromCache) {
+      console.log(`[optimize-ad-copy] Semantic cache hit (similarity: ${result.similarity?.toFixed(3)})`);
     }
-
-    const text = aiResult.data?.choices?.[0]?.message?.content || "";
-    
-    // Extract JSON from response
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error('Failed to parse AI response:', text);
-      throw new Error('Failed to parse AI response');
-    }
-
-    const optimizeResult = JSON.parse(jsonMatch[0]);
 
     return new Response(
-      JSON.stringify(optimizeResult),
+      JSON.stringify(result.data),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
@@ -172,4 +176,4 @@ Return JSON only, no other text.`;
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

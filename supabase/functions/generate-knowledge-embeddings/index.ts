@@ -5,6 +5,7 @@
 // ============================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 // deno-lint-ignore no-explicit-any
 declare const Supabase: any;
@@ -87,7 +88,7 @@ function nodeToText(node: Record<string, unknown>): string {
   return parts.join('\n');
 }
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(withPerf({ functionName: 'generate-knowledge-embeddings', slowThresholdMs: 30000 }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -185,4 +186,4 @@ Deno.serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

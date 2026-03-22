@@ -2,6 +2,7 @@
 // Creates a new organization and adds the requesting user as owner.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,7 +18,7 @@ function slugify(input: string) {
     .replace(/(^-|-$)/g, "");
 }
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(withPerf({ functionName: 'create-organization' }, async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -118,4 +119,4 @@ Deno.serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
-});
+}));

@@ -3,8 +3,8 @@
 // Uses Supabase.ai.Session with gte-small model (384 dimensions)
 // ============================================
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 // deno-lint-ignore no-explicit-any
 declare const Supabase: any;
@@ -51,7 +51,7 @@ async function generateEmbedding(text: string): Promise<number[]> {
   return Array.from(output as Float32Array);
 }
 
-serve(async (req) => {
+Deno.serve(withPerf({ functionName: 'help-article-search' }, async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -200,6 +200,6 @@ async function fallbackKeywordSearch(
     console.error("[help-article-search] Fallback search error:", error);
     return new Response(JSON.stringify({ articles: [], searchType: 'error' }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    }));
   }
 }
