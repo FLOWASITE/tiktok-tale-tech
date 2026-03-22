@@ -459,4 +459,4 @@ Deno.serve(withPerf({ functionName: 'enrich-industry-profiles', slowThresholdMs:
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   }
-})
+}));
