@@ -200,6 +200,6 @@ async function fallbackKeywordSearch(
     console.error("[help-article-search] Fallback search error:", error);
     return new Response(JSON.stringify({ articles: [], searchType: 'error' }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-    }));
+    });
   }
 }
