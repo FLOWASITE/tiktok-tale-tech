@@ -58,6 +58,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase
         .from('brand_templates')
         .select('*')
+        .is('deleted_at', null)
         .order('is_default', { ascending: false })
         .order('name', { ascending: true });
 
