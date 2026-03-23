@@ -292,6 +292,7 @@ export function MultiChannelViewer({
       setShowSchedule(false);
       setShowTeamPanel(false);
       setShowGeoScore(false);
+      geoAutoTriggeredRef.current = false;
     }
   }, [open]);
 
