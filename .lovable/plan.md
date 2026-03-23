@@ -1,30 +1,23 @@
 
 
-# Nâng cấp MockupScoreBar — hiển thị chỉ số rõ ràng, chi tiết hơn
+# Thêm Tooltip giải thích cho từng chỉ số trên MockupScoreBar
 
-## Vấn đề hiện tại
-- Score bar chỉ hiển thị 3 badge nhỏ (11px) trên 1 dòng — rất khó đọc
-- Thiếu label mô tả cho mỗi chỉ số (chỉ có icon + số)
-- `engagementScore` không được truyền từ `MultiChannelViewer`
-- Không có progress bar trực quan cho từng chỉ số
+## Thay đổi
 
-## Giải pháp
+### Sửa `MockupScoreBar.tsx`
+- Import `Tooltip, TooltipTrigger, TooltipContent, TooltipProvider` từ UI components
+- Wrap mỗi cột chỉ số trong `Tooltip` + thêm icon `Info` nhỏ (w-3 h-3) bên cạnh label
+- Nội dung tooltip cho từng chỉ số:
 
-### 1. Redesign `MockupScoreBar.tsx` — layout chi tiết hơn
-- Chuyển từ 1 dòng badges sang **grid 3 cột**, mỗi cột 1 chỉ số
-- Mỗi chỉ số gồm: **label text** (Chất lượng / GEO / Tương tác), **score lớn hơn** (text-sm font-bold), **mini progress bar** màu theo mức điểm
-- Kích thước text tăng từ 11px lên 12-13px, score number 14px
-- Thêm prop `readabilityScore` và `sentimentScore` từ Content Analytics (nếu có)
+| Chỉ số | Tooltip |
+|--------|---------|
+| **Chất lượng** (0-10) | "Điểm đánh giá chất lượng nội dung do AI chấm dựa trên: cấu trúc bài viết, độ rõ ràng thông điệp, tính sáng tạo, phù hợp kênh và thương hiệu" |
+| **GEO** (0-100) | "Generative Engine Optimization — đánh giá khả năng xuất hiện trên AI search (ChatGPT, Gemini...) dựa trên 8 yếu tố: citations, statistics, quotes, fluency, authority, unique words, technical terms, content depth" |
+| **Tương tác** (0-100%) | "Dự đoán mức độ tương tác dựa trên: độ dài phù hợp, có câu hỏi/CTA, emoji, hashtag, cấu trúc đoạn văn. Đây là ước tính, không phải số liệu thực tế" |
 
-### 2. Truyền thêm data từ `MultiChannelViewer.tsx`
-- Tính `engagementScore` từ content text (dùng logic đã có trong ContentAnalyticsPanel)
-- Truyền xuống `ContentMockupToggle` → `MockupScoreBar`
+- Thêm `TooltipProvider` wrap toàn bộ grid
+- Icon `Info` chỉ hiện khi hover vào label area (opacity-0 → group-hover:opacity-100)
 
-### 3. Cập nhật `ContentMockupToggle.tsx`
-- Thêm props mới để forward xuống MockupScoreBar
-
-### Files cần sửa
-- `src/components/preview/MockupScoreBar.tsx` — redesign layout chi tiết
-- `src/components/viewer/ContentMockupToggle.tsx` — forward thêm props
-- `src/components/MultiChannelViewer.tsx` — tính và truyền engagementScore
+### File cần sửa
+- `src/components/preview/MockupScoreBar.tsx`
 
