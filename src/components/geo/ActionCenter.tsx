@@ -3,6 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { CheckCircle2, Circle, Clock, Zap, Target, Wrench, BookOpen, Plus, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
@@ -38,6 +41,9 @@ export function ActionCenter() {
   const [tasks, setTasks] = useState<ActionTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const [sourceFilter, setSourceFilter] = useState<string>('all');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'optimization' });
 
   const fetchTasks = useCallback(async () => {
     if (!currentOrganization?.id) return;
@@ -62,9 +68,11 @@ export function ActionCenter() {
 
   const updateStatus = async (taskId: string, status: string) => {
     try {
+      const updates: any = { status };
+      if (status === 'done') updates.completed_at = new Date().toISOString();
       const { error } = await supabase
         .from('geo_action_tasks')
-        .update({ status } as any)
+        .update(updates)
         .eq('id', taskId);
       if (error) throw error;
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
@@ -74,11 +82,39 @@ export function ActionCenter() {
     }
   };
 
-  const filteredTasks = filter === 'all' ? tasks : tasks.filter(t => t.priority === filter);
+  const createTask = async () => {
+    if (!currentOrganization?.id || !newTask.title.trim()) return;
+    try {
+      const { error } = await supabase
+        .from('geo_action_tasks')
+        .insert({
+          organization_id: currentOrganization.id,
+          source_module: 'manual',
+          priority: newTask.priority,
+          title: newTask.title,
+          description: newTask.description || null,
+          status: 'pending',
+        } as any);
+      if (error) throw error;
+      toast.success('Tạo task thành công');
+      setNewTask({ title: '', description: '', priority: 'optimization' });
+      setDialogOpen(false);
+      fetchTasks();
+    } catch {
+      toast.error('Lỗi tạo task');
+    }
+  };
+
+  let filteredTasks = filter === 'all' ? tasks : tasks.filter(t => t.priority === filter);
+  if (sourceFilter !== 'all') {
+    filteredTasks = filteredTasks.filter(t => t.source_module === sourceFilter);
+  }
 
   const pendingCount = tasks.filter(t => t.status === 'pending').length;
   const inProgressCount = tasks.filter(t => t.status === 'in_progress').length;
   const doneCount = tasks.filter(t => t.status === 'done').length;
+
+  const sourceModules = [...new Set(tasks.map(t => t.source_module))];
 
   if (loading) {
     return (
@@ -90,23 +126,78 @@ export function ActionCenter() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h3 className="text-lg font-semibold text-foreground">Action Center</h3>
           <p className="text-sm text-muted-foreground">Task tối ưu GEO ưu tiên theo tác động</p>
         </div>
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Lọc theo loại" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
-            <SelectItem value="quick_win">Quick Win</SelectItem>
-            <SelectItem value="strategic">Strategic</SelectItem>
-            <SelectItem value="optimization">Optimization</SelectItem>
-            <SelectItem value="research">Research</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={sourceFilter} onValueChange={setSourceFilter}>
+            <SelectTrigger className="w-[140px] h-8 text-xs">
+              <SelectValue placeholder="Nguồn" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả nguồn</SelectItem>
+              {sourceModules.map(m => (
+                <SelectItem key={m} value={m}>{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="w-[140px] h-8 text-xs">
+              <SelectValue placeholder="Loại" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="quick_win">Quick Win</SelectItem>
+              <SelectItem value="strategic">Strategic</SelectItem>
+              <SelectItem value="optimization">Optimization</SelectItem>
+              <SelectItem value="research">Research</SelectItem>
+            </SelectContent>
+          </Select>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="h-8">
+                <Plus className="h-3.5 w-3.5 mr-1" /> Tạo task
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Tạo task GEO mới</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 mt-2">
+                <Input
+                  placeholder="Tiêu đề task..."
+                  value={newTask.title}
+                  onChange={e => setNewTask(prev => ({ ...prev, title: e.target.value }))}
+                />
+                <Textarea
+                  placeholder="Mô tả chi tiết (tùy chọn)..."
+                  value={newTask.description}
+                  onChange={e => setNewTask(prev => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                />
+                <Select value={newTask.priority} onValueChange={v => setNewTask(prev => ({ ...prev, priority: v }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="quick_win">Quick Win</SelectItem>
+                    <SelectItem value="strategic">Strategic</SelectItem>
+                    <SelectItem value="optimization">Optimization</SelectItem>
+                    <SelectItem value="research">Research</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex justify-end gap-2">
+                  <DialogClose asChild>
+                    <Button variant="outline" size="sm">Hủy</Button>
+                  </DialogClose>
+                  <Button size="sm" onClick={createTask} disabled={!newTask.title.trim()}>Tạo</Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -140,7 +231,7 @@ export function ActionCenter() {
           <CardContent className="py-10 text-center">
             <Target className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground">
-              Chưa có task GEO. Chạy scan hoặc phân tích đối thủ để tạo task tự động.
+              Chưa có task GEO. Chạy scan hoặc tạo task thủ công.
             </p>
           </CardContent>
         </Card>
