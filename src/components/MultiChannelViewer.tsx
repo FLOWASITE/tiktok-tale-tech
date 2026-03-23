@@ -78,6 +78,8 @@ import type { CoreContent } from '@/types/coreContent';
 import { GEOScorePanel } from '@/components/geo/GEOScorePanel';
 import { useGEOContentScore } from '@/hooks/useGEOContentScore';
 
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
+
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
   open: boolean;
