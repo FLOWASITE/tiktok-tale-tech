@@ -887,7 +887,7 @@ export function MultiChannelViewer({
                       <Button 
                         variant={showSchedule ? "secondary" : "ghost"} 
                         size="icon"
-                        onClick={() => { setShowSchedule(!showSchedule); setShowGallery(false); setShowTeamPanel(false); }}
+                        onClick={() => { setShowSchedule(!showSchedule); setShowGallery(false); setShowTeamPanel(false); setShowGeoScore(false); }}
                         className="h-8 w-8"
                       >
                         <CalendarClock className="w-4 h-4" />
