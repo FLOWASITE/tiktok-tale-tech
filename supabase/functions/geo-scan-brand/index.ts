@@ -7,14 +7,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Cost estimates per API call (USD)
 const COST_PER_CALL: Record<string, number> = {
   chatgpt: 0.003,
   gemini: 0.001,
   perplexity: 0.005,
 };
 
-// Max prompts per batch to avoid timeouts
 const MAX_PROMPTS_PER_BATCH = 10;
 const MAX_ENGINES_PER_SCAN = 3;
 const DELAY_BETWEEN_CALLS_MS = 500;
@@ -31,6 +29,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    const perplexityApiKey = Deno.env.get("PERPLEXITY_API_KEY");
     if (!lovableApiKey) throw new Error("LOVABLE_API_KEY not configured");
 
     const supabase = createClient(supabaseUrl, serviceKey);
@@ -56,7 +55,6 @@ serve(async (req) => {
       .order("use_count", { ascending: true })
       .limit(batchSize || MAX_PROMPTS_PER_BATCH);
 
-    // Fallback: auto-generate from keywords if no prompts configured
     let prompts: { id?: string; text: string; intent: string }[] = [];
     if (promptRows && promptRows.length > 0) {
       prompts = promptRows.map((p: any) => ({ id: p.id, text: p.prompt_text, intent: p.intent_type }));
@@ -92,90 +90,27 @@ serve(async (req) => {
     const scanJobId = scanJob?.id;
     const results: any[] = [];
     let completedPrompts = 0;
+    let actualCostTotal = 0;
 
     for (let pi = 0; pi < promptLimit; pi++) {
       const prompt = prompts[pi];
 
       for (const engine of aiEngines) {
         try {
-          // Build engine-specific system prompt
-          const systemPrompt = buildSystemPrompt(engine, brandName, competitors);
+          let result: any;
 
-          const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${lovableApiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: getModelForEngine(engine),
-              messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: prompt.text },
-              ],
-              tools: [{
-                type: "function",
-                function: {
-                  name: "analyze_ai_response",
-                  description: "Analyze the AI response for brand mentions, citations, and sentiment",
-                  parameters: {
-                    type: "object",
-                    properties: {
-                      response_text: { type: "string", description: "The simulated AI response" },
-                      brand_mentioned: { type: "boolean" },
-                      mention_type: { type: "string", enum: ["direct", "implied", "comparison", "none"] },
-                      mention_count: { type: "integer" },
-                      citation_urls: { type: "array", items: { type: "string" } },
-                      sentiment_score: { type: "integer", description: "-100 to 100" },
-                      sentiment_label: { type: "string", enum: ["positive", "neutral", "negative"] },
-                      competitor_mentions: {
-                        type: "object",
-                        description: "Map of competitor name to mention count",
-                      },
-                      brand_position: { type: "integer", description: "Position of brand in list (1=first, 0=not listed)" },
-                      key_phrases: { type: "array", items: { type: "string" }, description: "Key phrases used to describe brand" },
-                    },
-                    required: ["response_text", "brand_mentioned", "mention_type", "mention_count", "sentiment_score", "sentiment_label"],
-                    additionalProperties: false,
-                  },
-                },
-              }],
-              tool_choice: { type: "function", function: { name: "analyze_ai_response" } },
-            }),
-          });
-
-          if (!aiResponse.ok) {
-            if (aiResponse.status === 429) {
-              console.warn(`Rate limited on ${engine}, skipping remaining`);
-              break;
-            }
-            if (aiResponse.status === 402) {
-              throw new Error("AI credits exhausted (402)");
-            }
-            console.error(`AI error ${aiResponse.status} for ${engine}`);
-            continue;
+          // === REAL PERPLEXITY API ===
+          if (engine === "perplexity" && perplexityApiKey) {
+            result = await scanWithPerplexity(perplexityApiKey, prompt.text, brandName, competitors, monitor);
+          } else {
+            // === SIMULATED via Lovable AI Gateway ===
+            result = await scanSimulated(lovableApiKey, engine, prompt.text, brandName, competitors, monitor);
           }
 
-          const aiData = await aiResponse.json();
-          const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-          
-          if (!toolCall?.function?.arguments) continue;
-          const analysis = JSON.parse(toolCall.function.arguments);
-
-          results.push({
-            organization_id: monitor.organization_id,
-            brand_monitor_id: monitorId,
-            ai_engine: engine,
-            prompt: prompt.text,
-            response: analysis.response_text || "",
-            brand_mentioned: analysis.brand_mentioned || false,
-            mention_count: analysis.mention_count || 0,
-            citation_urls: analysis.citation_urls || [],
-            sentiment_score: Math.max(-100, Math.min(100, analysis.sentiment_score || 0)),
-            sentiment_label: analysis.sentiment_label || "neutral",
-            competitor_mentions: analysis.competitor_mentions || {},
-            scanned_at: new Date().toISOString(),
-          });
+          if (result) {
+            results.push(result);
+            actualCostTotal += result._cost || COST_PER_CALL[engine] || 0.003;
+          }
 
           // Update prompt use_count
           if (prompt.id) {
@@ -189,15 +124,12 @@ serve(async (req) => {
           console.error(`Error scanning ${engine} for "${prompt.text.slice(0, 50)}":`, err);
         }
 
-        // Delay between calls
         if (DELAY_BETWEEN_CALLS_MS > 0) {
           await new Promise(r => setTimeout(r, DELAY_BETWEEN_CALLS_MS));
         }
       }
 
       completedPrompts++;
-
-      // Update scan job progress
       if (scanJobId) {
         supabase
           .from("geo_scan_jobs")
@@ -207,16 +139,14 @@ serve(async (req) => {
       }
     }
 
-    // Insert results
+    // Insert results (strip internal _cost field)
     if (results.length > 0) {
+      const cleanResults = results.map(({ _cost, ...r }) => r);
       const { error: insertErr } = await supabase
         .from("geo_monitoring_results")
-        .insert(results);
+        .insert(cleanResults);
       if (insertErr) console.error("Insert error:", insertErr);
     }
-
-    // Calculate actual cost
-    const actualCost = results.reduce((sum, r) => sum + (COST_PER_CALL[r.ai_engine] || 0.003), 0);
 
     // Complete scan job
     if (scanJobId) {
@@ -225,7 +155,7 @@ serve(async (req) => {
         .update({
           status: "completed",
           completed_prompts: completedPrompts,
-          actual_cost_usd: actualCost,
+          actual_cost_usd: actualCostTotal,
           completed_at: new Date().toISOString(),
         } as any)
         .eq("id", scanJobId);
@@ -238,7 +168,13 @@ serve(async (req) => {
       .eq("id", monitorId);
 
     // Generate visibility snapshot
-    await generateSnapshot(supabase, monitor, results);
+    const snapshot = await generateSnapshot(supabase, monitor, results);
+
+    // === AUTO-GENERATE TASKS from results ===
+    await autoGenerateTasks(supabase, monitor, results, snapshot);
+
+    // === AUTO-GENERATE ALERTS from snapshot comparison ===
+    await autoGenerateAlerts(supabase, monitor, snapshot);
 
     return new Response(
       JSON.stringify({
@@ -246,7 +182,7 @@ serve(async (req) => {
         results_count: results.length,
         scan_job_id: scanJobId,
         estimated_cost_usd: estimatedCost,
-        actual_cost_usd: actualCost,
+        actual_cost_usd: actualCostTotal,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -259,9 +195,169 @@ serve(async (req) => {
   }
 });
 
+// ============ PERPLEXITY REAL API ============
+async function scanWithPerplexity(
+  apiKey: string, promptText: string, brandName: string, competitors: string[], monitor: any
+): Promise<any> {
+  const response = await fetch("https://api.perplexity.ai/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "sonar",
+      messages: [
+        { role: "system", content: "Trả lời chi tiết và chính xác bằng tiếng Việt. Luôn cite sources." },
+        { role: "user", content: promptText },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error(`Perplexity API error ${response.status}:`, errText);
+    return null;
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content || "";
+  const citations = data.citations || [];
+
+  // Parse brand mentions from real response
+  const brandLower = brandName.toLowerCase();
+  const contentLower = content.toLowerCase();
+  const brandMentioned = contentLower.includes(brandLower);
+  const mentionCount = (contentLower.split(brandLower).length - 1);
+
+  // Parse competitor mentions
+  const competitorMentions: Record<string, number> = {};
+  competitors.forEach(comp => {
+    const compLower = comp.toLowerCase();
+    const count = (contentLower.split(compLower).length - 1);
+    if (count > 0) competitorMentions[comp] = count;
+  });
+
+  // Simple sentiment estimation from content
+  const positiveWords = ["tốt", "xuất sắc", "chất lượng", "uy tín", "hàng đầu", "phổ biến", "tin cậy", "được yêu thích"];
+  const negativeWords = ["kém", "yếu", "hạn chế", "thiếu", "không tốt", "chậm", "đắt", "rủi ro"];
+  let sentimentScore = 0;
+  positiveWords.forEach(w => { if (contentLower.includes(w)) sentimentScore += 12; });
+  negativeWords.forEach(w => { if (contentLower.includes(w)) sentimentScore -= 15; });
+  sentimentScore = Math.max(-100, Math.min(100, sentimentScore));
+
+  // Calculate cost from usage
+  const usage = data.usage;
+  let cost = COST_PER_CALL.perplexity;
+  if (usage) {
+    cost = ((usage.prompt_tokens || 0) * 0.000001 + (usage.completion_tokens || 0) * 0.000001);
+    cost = Math.max(cost, 0.0001); // minimum
+  }
+
+  return {
+    organization_id: monitor.organization_id,
+    brand_monitor_id: monitor.id,
+    ai_engine: "perplexity",
+    prompt: promptText,
+    response: content.slice(0, 5000),
+    brand_mentioned: brandMentioned,
+    mention_count: mentionCount,
+    citation_urls: citations.slice(0, 10),
+    sentiment_score: sentimentScore,
+    sentiment_label: sentimentScore > 10 ? "positive" : sentimentScore < -10 ? "negative" : "neutral",
+    competitor_mentions: competitorMentions,
+    is_simulated: false,
+    scanned_at: new Date().toISOString(),
+    _cost: cost,
+  };
+}
+
+// ============ SIMULATED via Lovable AI Gateway ============
+async function scanSimulated(
+  lovableApiKey: string, engine: string, promptText: string, brandName: string, competitors: string[], monitor: any
+): Promise<any> {
+  const systemPrompt = buildSystemPrompt(engine, brandName, competitors);
+
+  const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${lovableApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: getModelForEngine(engine),
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: promptText },
+      ],
+      tools: [{
+        type: "function",
+        function: {
+          name: "analyze_ai_response",
+          description: "Analyze the AI response for brand mentions, citations, and sentiment",
+          parameters: {
+            type: "object",
+            properties: {
+              response_text: { type: "string", description: "The simulated AI response" },
+              brand_mentioned: { type: "boolean" },
+              mention_type: { type: "string", enum: ["direct", "implied", "comparison", "none"] },
+              mention_count: { type: "integer" },
+              citation_urls: { type: "array", items: { type: "string" } },
+              sentiment_score: { type: "integer", description: "-100 to 100" },
+              sentiment_label: { type: "string", enum: ["positive", "neutral", "negative"] },
+              competitor_mentions: { type: "object", description: "Map of competitor name to mention count" },
+              brand_position: { type: "integer", description: "Position of brand in list (1=first, 0=not listed)" },
+              key_phrases: { type: "array", items: { type: "string" }, description: "Key phrases used to describe brand" },
+            },
+            required: ["response_text", "brand_mentioned", "mention_type", "mention_count", "sentiment_score", "sentiment_label"],
+            additionalProperties: false,
+          },
+        },
+      }],
+      tool_choice: { type: "function", function: { name: "analyze_ai_response" } },
+    }),
+  });
+
+  if (!aiResponse.ok) {
+    if (aiResponse.status === 429) {
+      console.warn(`Rate limited on ${engine}, skipping`);
+      return null;
+    }
+    if (aiResponse.status === 402) {
+      throw new Error("AI credits exhausted (402)");
+    }
+    const text = await aiResponse.text();
+    console.error(`AI error ${aiResponse.status} for ${engine}:`, text);
+    return null;
+  }
+
+  const aiData = await aiResponse.json();
+  const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+  if (!toolCall?.function?.arguments) return null;
+
+  const analysis = JSON.parse(toolCall.function.arguments);
+
+  return {
+    organization_id: monitor.organization_id,
+    brand_monitor_id: monitor.id,
+    ai_engine: engine,
+    prompt: promptText,
+    response: analysis.response_text || "",
+    brand_mentioned: analysis.brand_mentioned || false,
+    mention_count: analysis.mention_count || 0,
+    citation_urls: analysis.citation_urls || [],
+    sentiment_score: Math.max(-100, Math.min(100, analysis.sentiment_score || 0)),
+    sentiment_label: analysis.sentiment_label || "neutral",
+    competitor_mentions: analysis.competitor_mentions || {},
+    is_simulated: true,
+    scanned_at: new Date().toISOString(),
+    _cost: COST_PER_CALL[engine] || 0.003,
+  };
+}
+
 function buildSystemPrompt(engine: string, brandName: string, competitors: string[]): string {
   const compList = competitors.length > 0 ? competitors.join(", ") : "các đối thủ trong ngành";
-  
+
   const enginePersonality: Record<string, string> = {
     chatgpt: `Bạn đang mô phỏng ChatGPT. Trả lời chi tiết, cân bằng, thường đề cập nhiều lựa chọn. Khi biết về "${brandName}", hãy đề cập tự nhiên. Đề cập cả đối thủ nếu phù hợp: ${compList}. Nếu có URL thực tế, hãy cite.`,
     gemini: `Bạn đang mô phỏng Google Gemini. Trả lời ngắn gọn, có cấu trúc (bullet points, numbered lists). Ưu tiên thông tin từ web. Khi biết "${brandName}", đề cập ngắn gọn. Đối thủ: ${compList}.`,
@@ -272,7 +368,6 @@ function buildSystemPrompt(engine: string, brandName: string, competitors: strin
 }
 
 function getModelForEngine(engine: string): string {
-  // Use different models to simulate different AI behaviors
   switch (engine) {
     case "chatgpt": return "google/gemini-2.5-flash";
     case "gemini": return "google/gemini-2.5-flash-lite";
@@ -281,8 +376,9 @@ function getModelForEngine(engine: string): string {
   }
 }
 
-async function generateSnapshot(supabase: any, monitor: any, results: any[]) {
-  if (results.length === 0) return;
+// ============ SNAPSHOT ============
+async function generateSnapshot(supabase: any, monitor: any, results: any[]): Promise<any> {
+  if (results.length === 0) return null;
 
   const today = new Date().toISOString().split("T")[0];
   const total = results.length;
@@ -291,7 +387,6 @@ async function generateSnapshot(supabase: any, monitor: any, results: any[]) {
   const sentiments = results.map(r => r.sentiment_score || 0);
   const avgSentiment = sentiments.length > 0 ? sentiments.reduce((a: number, b: number) => a + b, 0) / sentiments.length : 0;
 
-  // Competitor SOV
   const compSov: Record<string, number> = {};
   const competitors = (monitor.competitors || []) as string[];
   competitors.forEach((comp: string) => {
@@ -299,18 +394,200 @@ async function generateSnapshot(supabase: any, monitor: any, results: any[]) {
     compSov[comp] = total > 0 ? Math.round((compMentioned / total) * 100) : 0;
   });
 
+  const snapshot = {
+    organization_id: monitor.organization_id,
+    brand_monitor_id: monitor.id,
+    snapshot_date: today,
+    sov_percentage: total > 0 ? Math.round((mentioned / total) * 100) : 0,
+    citation_rate: total > 0 ? Math.round((withCitations / total) * 100) : 0,
+    avg_sentiment: Math.round(avgSentiment),
+    total_scans: total,
+    mentions_count: mentioned,
+    citations_count: withCitations,
+    competitor_sov: compSov,
+  };
+
   await supabase
     .from("geo_visibility_snapshots")
-    .upsert({
-      organization_id: monitor.organization_id,
-      brand_monitor_id: monitor.id,
-      snapshot_date: today,
-      sov_percentage: total > 0 ? Math.round((mentioned / total) * 100) : 0,
-      citation_rate: total > 0 ? Math.round((withCitations / total) * 100) : 0,
-      avg_sentiment: Math.round(avgSentiment),
-      total_scans: total,
-      mentions_count: mentioned,
-      citations_count: withCitations,
-      competitor_sov: compSov,
-    } as any, { onConflict: "brand_monitor_id,snapshot_date" });
+    .upsert(snapshot as any, { onConflict: "brand_monitor_id,snapshot_date" });
+
+  return snapshot;
+}
+
+// ============ AUTO-GENERATE TASKS ============
+async function autoGenerateTasks(supabase: any, monitor: any, results: any[], snapshot: any) {
+  if (!snapshot || results.length === 0) return;
+
+  const orgId = monitor.organization_id;
+  const monitorId = monitor.id;
+
+  // Check existing pending/in_progress tasks to avoid duplicates
+  const { data: existingTasks } = await supabase
+    .from("geo_action_tasks")
+    .select("title, status")
+    .eq("brand_monitor_id", monitorId)
+    .in("status", ["pending", "in_progress"]);
+
+  const existingTitles = new Set((existingTasks || []).map((t: any) => t.title));
+  const tasksToCreate: any[] = [];
+
+  // Rule 1: Low SOV
+  if (snapshot.sov_percentage < 20) {
+    const title = `Tăng brand visibility cho "${monitor.brand_name}" (SOV: ${snapshot.sov_percentage}%)`;
+    if (!existingTitles.has(title)) {
+      tasksToCreate.push({
+        organization_id: orgId,
+        brand_monitor_id: monitorId,
+        source_module: "monitor",
+        priority: "strategic",
+        title,
+        description: `SOV hiện tại chỉ ${snapshot.sov_percentage}%. Cần tối ưu content để AI engines đề cập brand nhiều hơn.`,
+        status: "pending",
+        impact_score: 90,
+        effort_level: "high",
+      });
+    }
+  }
+
+  // Rule 2: Negative sentiment
+  if (snapshot.avg_sentiment < -20) {
+    const title = `Cải thiện sentiment AI cho "${monitor.brand_name}" (${snapshot.avg_sentiment})`;
+    if (!existingTitles.has(title)) {
+      tasksToCreate.push({
+        organization_id: orgId,
+        brand_monitor_id: monitorId,
+        source_module: "monitor",
+        priority: "quick_win",
+        title,
+        description: `Sentiment trung bình ${snapshot.avg_sentiment}. Review content strategy và tạo nội dung tích cực.`,
+        status: "pending",
+        impact_score: 80,
+        effort_level: "medium",
+      });
+    }
+  }
+
+  // Rule 3: No citations
+  if (snapshot.citation_rate === 0) {
+    const title = `Thêm citation signals cho "${monitor.brand_name}"`;
+    if (!existingTitles.has(title)) {
+      tasksToCreate.push({
+        organization_id: orgId,
+        brand_monitor_id: monitorId,
+        source_module: "monitor",
+        priority: "optimization",
+        title,
+        description: `Không có citation nào từ AI engines. Cần thêm structured data, schema markup và cải thiện SEO.`,
+        status: "pending",
+        impact_score: 70,
+        effort_level: "medium",
+      });
+    }
+  }
+
+  // Rule 4: Competitor SOV higher
+  const competitors = (monitor.competitors || []) as string[];
+  const compSov = snapshot.competitor_sov || {};
+  competitors.forEach((comp: string) => {
+    if ((compSov[comp] || 0) > snapshot.sov_percentage + 10) {
+      const title = `Đối thủ "${comp}" có SOV cao hơn (${compSov[comp]}% vs ${snapshot.sov_percentage}%)`;
+      if (!existingTitles.has(title)) {
+        tasksToCreate.push({
+          organization_id: orgId,
+          brand_monitor_id: monitorId,
+          source_module: "competitor",
+          priority: "strategic",
+          title,
+          description: `${comp} đang được AI đề cập nhiều hơn. Phân tích content strategy của đối thủ.`,
+          status: "pending",
+          impact_score: 85,
+          effort_level: "high",
+        });
+      }
+    }
+  });
+
+  if (tasksToCreate.length > 0) {
+    const { error } = await supabase.from("geo_action_tasks").insert(tasksToCreate);
+    if (error) console.error("Auto-task creation error:", error);
+    else console.log(`Created ${tasksToCreate.length} auto tasks`);
+  }
+}
+
+// ============ AUTO-GENERATE ALERTS ============
+async function autoGenerateAlerts(supabase: any, monitor: any, currentSnapshot: any) {
+  if (!currentSnapshot) return;
+
+  // Get previous snapshot
+  const { data: prevSnapshots } = await supabase
+    .from("geo_visibility_snapshots")
+    .select("*")
+    .eq("brand_monitor_id", monitor.id)
+    .lt("snapshot_date", currentSnapshot.snapshot_date)
+    .order("snapshot_date", { ascending: false })
+    .limit(1);
+
+  const prev = prevSnapshots?.[0];
+  if (!prev) return; // No previous data to compare
+
+  const alerts: any[] = [];
+  const orgId = monitor.organization_id;
+  const monitorId = monitor.id;
+
+  // SOV significant change (±10%)
+  const sovDiff = currentSnapshot.sov_percentage - (prev.sov_percentage || 0);
+  if (Math.abs(sovDiff) >= 10) {
+    alerts.push({
+      organization_id: orgId,
+      brand_monitor_id: monitorId,
+      alert_type: sovDiff > 0 ? "sov_spike" : "sov_drop",
+      severity: Math.abs(sovDiff) >= 20 ? "high" : "medium",
+      title: sovDiff > 0
+        ? `SOV tăng ${sovDiff}% (${prev.sov_percentage}% → ${currentSnapshot.sov_percentage}%)`
+        : `SOV giảm ${Math.abs(sovDiff)}% (${prev.sov_percentage}% → ${currentSnapshot.sov_percentage}%)`,
+      description: sovDiff > 0
+        ? `Brand visibility đang cải thiện. Tiếp tục chiến lược content hiện tại.`
+        : `Brand visibility đang giảm. Cần review content strategy ngay.`,
+      data: { previous: prev.sov_percentage, current: currentSnapshot.sov_percentage, diff: sovDiff },
+      is_read: false,
+    });
+  }
+
+  // Sentiment significant drop (>15 points)
+  const sentDiff = currentSnapshot.avg_sentiment - (prev.avg_sentiment || 0);
+  if (sentDiff < -15) {
+    alerts.push({
+      organization_id: orgId,
+      brand_monitor_id: monitorId,
+      alert_type: "sentiment_drop",
+      severity: sentDiff < -30 ? "high" : "medium",
+      title: `Sentiment giảm ${Math.abs(sentDiff)} điểm (${prev.avg_sentiment} → ${currentSnapshot.avg_sentiment})`,
+      description: `AI đang mô tả brand với tông tiêu cực hơn trước. Review nội dung và phản hồi.`,
+      data: { previous: prev.avg_sentiment, current: currentSnapshot.avg_sentiment, diff: sentDiff },
+      is_read: false,
+    });
+  }
+
+  // Citation rate change
+  const citDiff = currentSnapshot.citation_rate - (prev.citation_rate || 0);
+  if (Math.abs(citDiff) >= 15) {
+    alerts.push({
+      organization_id: orgId,
+      brand_monitor_id: monitorId,
+      alert_type: citDiff > 0 ? "citation_increase" : "citation_drop",
+      severity: "medium",
+      title: citDiff > 0
+        ? `Citation rate tăng ${citDiff}%`
+        : `Citation rate giảm ${Math.abs(citDiff)}%`,
+      description: `Citation rate: ${prev.citation_rate}% → ${currentSnapshot.citation_rate}%`,
+      data: { previous: prev.citation_rate, current: currentSnapshot.citation_rate, diff: citDiff },
+      is_read: false,
+    });
+  }
+
+  if (alerts.length > 0) {
+    const { error } = await supabase.from("geo_alert_history").insert(alerts);
+    if (error) console.error("Alert creation error:", error);
+    else console.log(`Created ${alerts.length} alerts`);
+  }
 }
