@@ -1244,7 +1244,7 @@ export function MultiChannelFormWizard({
               </Card>
 
               {/* Streaming UI when generating */}
-              {isGeneratingCoreContent && (
+              {!skipCoreContent && isGeneratingCoreContent && (
                 <CoreContentStreamingCard
                   streamingText={coreContentStreamingText}
                   progress={coreContentProgress}
@@ -1254,8 +1254,8 @@ export function MultiChannelFormWizard({
                 />
               )}
 
-              {/* Core Content Generation Form - Hidden when generating */}
-              {!coreContentData && !formData.coreContentId && !isGeneratingCoreContent && (
+              {/* Core Content Generation Form - Hidden when generating or skipping */}
+              {!skipCoreContent && !coreContentData && !formData.coreContentId && !isGeneratingCoreContent && (
                 <Card className="border-border/50 overflow-hidden">
                   {/* Gradient Header */}
                   <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-5 border-b border-border/30">
