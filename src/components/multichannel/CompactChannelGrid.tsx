@@ -17,6 +17,9 @@ import {
   Square,
   ChevronDown,
   Settings2,
+  FileText,
+  ImageIcon,
+  Video,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Channel, CHANNELS } from '@/types/multichannel';
@@ -24,6 +27,7 @@ import { Channel, CHANNELS } from '@/types/multichannel';
 interface ChannelCategoryConfig {
   name: string;
   key: string;
+  icon: React.ReactNode;
   channels: typeof CHANNELS[number][];
 }
 
@@ -47,20 +51,16 @@ export function CompactChannelGrid({
   disabled,
 }: CompactChannelGridProps) {
   const channelCategories: ChannelCategoryConfig[] = [
-    { name: 'Mạng xã hội', key: 'social', channels: CHANNELS.filter(c => c.category === 'social') },
-    { name: 'Nền tảng nội dung', key: 'content', channels: CHANNELS.filter(c => c.category === 'content') },
-    { name: 'Kênh trực tiếp', key: 'direct', channels: CHANNELS.filter(c => c.category === 'direct') },
-    { name: 'Địa phương', key: 'local', channels: CHANNELS.filter(c => c.category === 'local') },
+    { name: 'Thiên về Text', key: 'text', icon: <FileText className="w-4 h-4" />, channels: CHANNELS.filter(c => c.category === 'text') },
+    { name: 'Thiên về Ảnh', key: 'image', icon: <ImageIcon className="w-4 h-4" />, channels: CHANNELS.filter(c => c.category === 'image') },
+    { name: 'Thiên về Video', key: 'video', icon: <Video className="w-4 h-4" />, channels: CHANNELS.filter(c => c.category === 'video') },
   ];
 
-  // Default: social expanded, others collapsed
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
-    social: true,
-    content: false,
-    direct: false,
-    local: false,
+    text: true,
+    image: true,
+    video: true,
   });
-
   const toggleCategory = (key: string) => {
     setExpandedCategories(prev => ({ ...prev, [key]: !prev[key] }));
   };

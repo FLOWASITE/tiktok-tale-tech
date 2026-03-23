@@ -394,22 +394,21 @@ export const CONTENT_STATUSES: { value: ContentStatus; label: string; color: str
 ];
 
 export const CHANNELS: { value: Channel; label: string; icon: string; color: string; category: string; description: string }[] = [
-  // Content Platforms
-  { value: 'website', label: 'Website/Blog', icon: 'Globe', color: 'blue', category: 'content', description: 'Bài viết dài, SEO friendly, có CTA' },
-  { value: 'youtube', label: 'YouTube', icon: 'Youtube', color: 'red', category: 'content', description: 'Script video, mô tả, tags tối ưu' },
-  // Social Media
-  { value: 'facebook', label: 'Facebook', icon: 'Facebook', color: 'indigo', category: 'social', description: 'Post ngắn, hashtag, emoji phù hợp' },
-  { value: 'instagram', label: 'Instagram', icon: 'Instagram', color: 'pink', category: 'social', description: 'Caption ngắn, 20-30 hashtag' },
-  { value: 'tiktok', label: 'TikTok', icon: 'Music2', color: 'pink', category: 'social', description: 'Script video ngắn 15-60s, hook 3 giây' },
-  { value: 'threads', label: 'Threads', icon: 'AtSign', color: 'slate', category: 'social', description: 'Text-based, tối đa 500 ký tự' },
-  { value: 'twitter', label: 'X (Twitter)', icon: 'Twitter', color: 'slate', category: 'social', description: 'Tối đa 280 ký tự, hashtag tinh gọn' },
-  { value: 'linkedin', label: 'LinkedIn', icon: 'Linkedin', color: 'sky', category: 'social', description: 'Chuyên nghiệp, không emoji quá nhiều' },
-  // Direct
-  { value: 'email', label: 'Email', icon: 'Mail', color: 'amber', category: 'direct', description: 'Subject + body, CTA rõ ràng' },
-  { value: 'zalo_oa', label: 'Zalo OA', icon: 'MessageCircle', color: 'blue', category: 'direct', description: 'Tin nhắn ngắn, thân thiện' },
-  { value: 'telegram', label: 'Telegram', icon: 'Send', color: 'sky', category: 'direct', description: 'Markdown, link preview' },
-  // Local
-  { value: 'google_maps', label: 'Google Maps', icon: 'MapPin', color: 'green', category: 'local', description: 'Bài đăng ngắn cho doanh nghiệp' },
+  // 📝 Thiên về Text — nội dung chủ yếu là văn bản
+  { value: 'website', label: 'Website/Blog', icon: 'Globe', color: 'blue', category: 'text', description: 'Bài viết dài, SEO friendly, có CTA' },
+  { value: 'linkedin', label: 'LinkedIn', icon: 'Linkedin', color: 'sky', category: 'text', description: 'Chuyên nghiệp, không emoji quá nhiều' },
+  { value: 'twitter', label: 'X (Twitter)', icon: 'Twitter', color: 'slate', category: 'text', description: 'Tối đa 280 ký tự, hashtag tinh gọn' },
+  { value: 'threads', label: 'Threads', icon: 'AtSign', color: 'slate', category: 'text', description: 'Text-based, tối đa 500 ký tự' },
+  { value: 'email', label: 'Email', icon: 'Mail', color: 'amber', category: 'text', description: 'Subject + body, CTA rõ ràng' },
+  { value: 'telegram', label: 'Telegram', icon: 'Send', color: 'sky', category: 'text', description: 'Markdown, link preview' },
+  // 📸 Thiên về Ảnh — ảnh là yếu tố chính
+  { value: 'instagram', label: 'Instagram', icon: 'Instagram', color: 'pink', category: 'image', description: 'Caption ngắn, 20-30 hashtag' },
+  { value: 'facebook', label: 'Facebook', icon: 'Facebook', color: 'indigo', category: 'image', description: 'Post ngắn, hashtag, emoji phù hợp' },
+  { value: 'google_maps', label: 'Google Maps', icon: 'MapPin', color: 'green', category: 'image', description: 'Bài đăng ngắn cho doanh nghiệp' },
+  { value: 'zalo_oa', label: 'Zalo OA', icon: 'MessageCircle', color: 'blue', category: 'image', description: 'Tin nhắn ngắn, thân thiện' },
+  // 🎬 Thiên về Video — nội dung video là core
+  { value: 'tiktok', label: 'TikTok', icon: 'Music2', color: 'pink', category: 'video', description: 'Script video ngắn 15-60s, hook 3 giây' },
+  { value: 'youtube', label: 'YouTube', icon: 'Youtube', color: 'red', category: 'video', description: 'Script video, mô tả, tags tối ưu' },
 ];
 
 // Sample topic suggestions by industry
