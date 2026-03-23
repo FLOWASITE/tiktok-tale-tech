@@ -99,8 +99,9 @@ const LENGTH_CONFIGS: Record<CoreContentLengthMode, LengthConfig> = {
   },
 };
 
-export function getLengthConfig(lengthMode: CoreContentLengthMode): LengthConfig {
-  return LENGTH_CONFIGS[lengthMode];
+export function getLengthConfig(lengthMode?: CoreContentLengthMode): LengthConfig {
+  const mode = lengthMode && LENGTH_CONFIGS[lengthMode] ? lengthMode : 'medium';
+  return LENGTH_CONFIGS[mode];
 }
 
 interface WordBudget {

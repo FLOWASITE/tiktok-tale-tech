@@ -479,10 +479,11 @@ Deno.serve(withPerf({ functionName: 'generate-core-content', slowThresholdMs: 45
     // Parse request body first (need body.userId for fallback)
     const body: GenerateCoreContentRequest = await req.json();
     const {
-      topic, contentGoal, contentAngle, contentRole, lengthMode,
+      topic, contentGoal, contentAngle, contentRole,
       brandTemplateId, targetAudience, additionalContext, topicHistoryId,
       stream, enableResearch, researchRecency, taskId,
     } = body;
+    const effectiveLengthMode = (body.lengthMode as CoreContentLengthMode) || 'medium';
 
     // Get auth info needed for parallel resolution
     const authHeader = req.headers.get('authorization');
