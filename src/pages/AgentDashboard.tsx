@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Pause, Play, LayoutGrid, CheckSquare, Target, Bot, Zap } from 'lucide-react';
+import { Plus, Pause, Play, LayoutGrid, CheckSquare, Target, Bot, Zap, Trash2, Pencil, Rocket } from 'lucide-react';
 import { PipelineKanban } from '@/components/agents/PipelineKanban';
 import { AgentStatusPanel } from '@/components/agents/AgentStatusPanel';
 import { ApprovalQueue } from '@/components/agents/ApprovalQueue';
@@ -12,7 +12,7 @@ import { GoalWizard } from '@/components/agents/GoalWizard';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
 import { useAgentApprovals } from '@/hooks/useAgentApprovals';
 import { useAgentGoals } from '@/hooks/useAgentGoals';
-import { AgentPipelineStage } from '@/types/agent';
+import { AgentGoal, AgentPipelineStage, AUTONOMY_LEVELS } from '@/types/agent';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
@@ -21,13 +21,17 @@ export default function AgentDashboard() {
   const { currentOrganization } = useOrganizationContext();
   const { pipelines, isLoading: pipelinesLoading, updateStage } = useAgentPipelines();
   const { approvals, pendingCount, updateApproval } = useAgentApprovals();
-  const { goals, createGoal, updateGoal } = useAgentGoals();
+  const { goals, createGoal, updateGoal, deleteGoal } = useAgentGoals();
   const [activeTab, setActiveTab] = useState('pipeline');
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<AgentGoal | null>(null);
+  const [filterGoalId, setFilterGoalId] = useState<string | null>(null);
+  const [triggeringGoalId, setTriggeringGoalId] = useState<string | null>(null);
 
   const handleCreateGoal = async (data: Parameters<typeof createGoal.mutateAsync>[0]) => {
     await createGoal.mutateAsync(data);
     setWizardOpen(false);
+    setEditingGoal(null);
     try {
       const goalsList = await supabase
         .from('agent_goals')
@@ -37,13 +41,40 @@ export default function AgentDashboard() {
         .limit(1);
       const newGoalId = goalsList.data?.[0]?.id;
       if (newGoalId) {
-        await supabase.functions.invoke('agent-pipeline', {
+        const { data: result } = await supabase.functions.invoke('agent-pipeline', {
           body: { action: 'trigger_from_goal', goal_id: newGoalId },
         });
-        toast.success('Pipeline đã được khởi tạo');
+        const count = result?.pipelines_created || 0;
+        toast.success(`Đã tạo ${count} pipeline và bắt đầu chạy tự động`);
       }
     } catch (e) {
       console.error('Pipeline trigger error:', e);
+    }
+  };
+
+  const handleEditGoal = (goal: AgentGoal) => {
+    setEditingGoal(goal);
+    setWizardOpen(true);
+  };
+
+  const handleDeleteGoal = (goal: AgentGoal) => {
+    if (confirm(`Xóa campaign "${goal.name}"? Các pipeline đang chạy sẽ không bị ảnh hưởng.`)) {
+      deleteGoal.mutate(goal.id);
+    }
+  };
+
+  const handleRunNow = async (goal: AgentGoal) => {
+    setTriggeringGoalId(goal.id);
+    try {
+      const { data: result } = await supabase.functions.invoke('agent-pipeline', {
+        body: { action: 'trigger_from_goal', goal_id: goal.id },
+      });
+      const count = result?.pipelines_created || 0;
+      toast.success(`Đã tạo ${count} pipeline mới cho "${goal.name}"`);
+    } catch (e) {
+      toast.error('Không thể kích hoạt pipeline');
+    } finally {
+      setTriggeringGoalId(null);
     }
   };
 
@@ -52,15 +83,20 @@ export default function AgentDashboard() {
   const publishedThisWeek = pipelines.filter(p => {
     if (p.current_stage !== 'published') return false;
     const d = new Date(p.completed_at || p.updated_at);
-    const now = new Date();
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     return d >= weekAgo;
   }).length;
-  const flaggedCount = pipelines.filter(p => p.is_flagged).length;
+
+  const filteredPipelines = filterGoalId
+    ? pipelines.filter(p => p.goal_id === filterGoalId)
+    : pipelines;
 
   const handleStageChange = (id: string, stage: AgentPipelineStage) => {
     updateStage.mutate({ id, stage });
   };
+
+  const getPipelineCountForGoal = (goalId: string) =>
+    pipelines.filter(p => p.goal_id === goalId && !['published', 'analyzing'].includes(p.current_stage)).length;
 
   return (
     <>
@@ -83,7 +119,7 @@ export default function AgentDashboard() {
             }}>
               <Pause className="w-3.5 h-3.5" /> Pause All
             </Button>
-            <Button size="sm" className="gap-1.5 text-xs" onClick={() => setWizardOpen(true)}>
+            <Button size="sm" className="gap-1.5 text-xs" onClick={() => { setEditingGoal(null); setWizardOpen(true); }}>
               <Plus className="w-3.5 h-3.5" /> Campaign mới
             </Button>
           </div>
@@ -147,12 +183,34 @@ export default function AgentDashboard() {
           </TabsList>
 
           <TabsContent value="pipeline" className="mt-4">
+            {/* Goal filter */}
+            {goals.length > 0 && (
+              <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+                <Badge
+                  variant={filterGoalId ? 'outline' : 'default'}
+                  className="text-[10px] cursor-pointer"
+                  onClick={() => setFilterGoalId(null)}
+                >
+                  Tất cả ({pipelines.length})
+                </Badge>
+                {goals.map(g => (
+                  <Badge
+                    key={g.id}
+                    variant={filterGoalId === g.id ? 'default' : 'outline'}
+                    className="text-[10px] cursor-pointer"
+                    onClick={() => setFilterGoalId(filterGoalId === g.id ? null : g.id)}
+                  >
+                    {g.name} ({getPipelineCountForGoal(g.id)})
+                  </Badge>
+                ))}
+              </div>
+            )}
             <div className="flex gap-4">
               <div className="flex-1 min-w-0">
-                <PipelineKanban pipelines={pipelines} onStageChange={handleStageChange} />
+                <PipelineKanban pipelines={filteredPipelines} onStageChange={handleStageChange} />
               </div>
               <div className="hidden lg:block w-[200px] flex-shrink-0">
-                <AgentStatusPanel pipelines={pipelines} />
+                <AgentStatusPanel pipelines={filteredPipelines} />
               </div>
             </div>
           </TabsContent>
@@ -171,38 +229,70 @@ export default function AgentDashboard() {
                 <div className="text-center py-16">
                   <Target className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground mb-3">Chưa có campaign nào</p>
-                  <Button size="sm" className="gap-1.5" onClick={() => setWizardOpen(true)}>
+                  <Button size="sm" className="gap-1.5" onClick={() => { setEditingGoal(null); setWizardOpen(true); }}>
                     <Plus className="w-3.5 h-3.5" /> Tạo campaign đầu tiên
                   </Button>
                 </div>
               ) : (
-                goals.map(goal => (
-                  <Card key={goal.id}>
-                    <CardContent className="p-4 flex items-center justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium">{goal.name}</p>
-                          <Badge variant={goal.is_active ? 'default' : 'secondary'} className="text-[10px] h-4">
-                            {goal.is_paused ? 'Tạm dừng' : goal.is_active ? 'Đang chạy' : 'Tắt'}
-                          </Badge>
+                goals.map(goal => {
+                  const pipeCount = getPipelineCountForGoal(goal.id);
+                  const autonomyLabel = AUTONOMY_LEVELS.find(l => l.id === goal.autonomy_level)?.label || goal.autonomy_level;
+                  return (
+                    <Card key={goal.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1.5 flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm font-medium">{goal.name}</p>
+                              <Badge variant={goal.is_active ? 'default' : 'secondary'} className="text-[10px] h-4">
+                                {goal.is_paused ? 'Tạm dừng' : goal.is_active ? 'Đang chạy' : 'Tắt'}
+                              </Badge>
+                              {pipeCount > 0 && (
+                                <Badge variant="outline" className="text-[10px] h-4">
+                                  {pipeCount} pipeline
+                                </Badge>
+                              )}
+                            </div>
+                            {goal.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1">{goal.description}</p>
+                            )}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="outline" className="text-[9px] h-4 bg-primary/5">{autonomyLabel}</Badge>
+                              {goal.target_channels.map(ch => (
+                                <Badge key={ch} variant="outline" className="text-[9px] h-4">{ch}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost" size="sm" className="h-7 w-7 p-0"
+                              onClick={() => handleRunNow(goal)}
+                              disabled={triggeringGoalId === goal.id}
+                              title="Chạy ngay"
+                            >
+                              <Rocket className="w-3.5 h-3.5 text-primary" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => updateGoal.mutate({ id: goal.id, is_paused: !goal.is_paused })}>
+                              {goal.is_paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEditGoal(goal)} title="Chỉnh sửa">
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleDeleteGoal(goal)} title="Xóa">
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </Button>
+                            <Button
+                              variant="ghost" size="sm" className="h-7 px-2 text-[10px]"
+                              onClick={() => { setFilterGoalId(goal.id); setActiveTab('pipeline'); }}
+                            >
+                              Xem pipeline →
+                            </Button>
+                          </div>
                         </div>
-                        {goal.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-1">{goal.description}</p>
-                        )}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {goal.target_channels.map(ch => (
-                            <Badge key={ch} variant="outline" className="text-[9px] h-4">{ch}</Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => updateGoal.mutate({ id: goal.id, is_paused: !goal.is_paused })}>
-                          {goal.is_paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
+                      </CardContent>
+                    </Card>
+                  );
+                })
               )}
             </div>
           </TabsContent>
@@ -210,8 +300,9 @@ export default function AgentDashboard() {
 
         <GoalWizard
           open={wizardOpen}
-          onOpenChange={setWizardOpen}
+          onOpenChange={(open) => { setWizardOpen(open); if (!open) setEditingGoal(null); }}
           onSubmit={handleCreateGoal}
+          initialData={editingGoal}
         />
       </div>
     </>

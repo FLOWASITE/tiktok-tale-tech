@@ -47,21 +47,23 @@ export function useAgentApprovals() {
   const updateApproval = useMutation({
     mutationFn: async ({ id, status, notes }: { id: string; status: AgentApprovalStatus; notes?: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase
-        .from('agent_approvals')
-        .update({
-          status,
+      // Call agent-approve edge function to properly advance pipeline
+      const { data, error } = await supabase.functions.invoke('agent-approve', {
+        body: {
+          approval_id: id,
+          action: status === 'approved' ? 'approve' : 'reject',
+          notes: notes || null,
           reviewer_id: user?.id,
-          reviewer_notes: notes || null,
-          decided_at: new Date().toISOString(),
-        } as any)
-        .eq('id', id);
+        },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
     },
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['agent-approvals', orgId] });
       queryClient.invalidateQueries({ queryKey: ['agent-pipelines', orgId] });
-      const msg = vars.status === 'approved' ? 'Đã duyệt' : vars.status === 'rejected' ? 'Đã từ chối' : 'Đã cập nhật';
+      const msg = vars.status === 'approved' ? 'Đã duyệt — pipeline tiếp tục' : vars.status === 'rejected' ? 'Đã từ chối — trả về sáng tạo' : 'Đã cập nhật';
       toast.success(msg);
     },
     onError: (e: Error) => toast.error(`Lỗi: ${e.message}`),
