@@ -367,6 +367,31 @@ export default function ContentCalendar() {
     fetchSchedules();
   }, [user, currentOrganization?.id]);
 
+  // Realtime subscription for content_schedules
+  useEffect(() => {
+    if (!currentOrganization?.id) return;
+
+    const channel = supabase
+      .channel('content_schedules_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'content_schedules',
+          filter: `organization_id=eq.${currentOrganization.id}`,
+        },
+        () => {
+          fetchSchedules();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentOrganization?.id]);
+
   // Filter schedules
   const filteredSchedules = useMemo(() => {
     return schedules.filter(s => {
