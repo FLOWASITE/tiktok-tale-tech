@@ -1,45 +1,42 @@
 
 
-# Nâng cấp GEO Scoring — từ 80 lên 90+ điểm
+# Thêm Popup chi tiết điểm từng yếu tố khi click chỉ số
 
-## 5 vấn đề cần sửa
+## Ý tưởng
+Khi user click vào bất kỳ chỉ số nào trên MockupScoreBar (Chất lượng, GEO, SEO, Tương tác), hiển thị Popover chi tiết điểm từng yếu tố con thay vì tooltip đơn giản.
 
-| # | Vấn đề | Tác động |
-|---|--------|----------|
-| 1 | Model scoring quá yếu (`flash-lite`) | Chấm thiếu chính xác, cho điểm "safe" |
-| 2 | Prompt thiếu rubric chi tiết | AI không biết scale nào cho 90 vs 70 |
-| 3 | `structured_data` đánh giá schema markup trong text | Text thuần luôn bị 0-30, kéo tổng xuống |
-| 4 | Content bị cắt 6000 chars | Bài dài mất phần cuối |
-| 5 | Chỉ chấm 1 lần, không feedback loop | Nội dung không được cải thiện |
+## Dữ liệu hiện có
+
+| Chỉ số | Data chi tiết | Nguồn |
+|--------|--------------|-------|
+| **GEO** | `factor_scores`: answer_first, citation_signals, content_depth, entity_clarity, structured_data, extractability, heading_hierarchy, freshness | `geo_content_scores.factor_scores` từ DB |
+| **Chất lượng** | Chỉ có 1 số (0-10) — không có breakdown | `critique_score` |
+| **Tương tác** | Tính heuristic realtime — có thể breakdown | Tính inline |
+| **SEO** | Tính heuristic realtime — có thể breakdown | `calculateSEOScore()` |
 
 ## Giải pháp
 
-### 1. Nâng model scoring → `gemini-2.5-flash`
-- Thay `gemini-2.5-flash-lite` bằng `gemini-2.5-flash` (cân bằng hơn)
-- Đánh giá chính xác hơn, phân biệt tốt hơn giữa 80 và 95
+### 1. Truyền `geoFactorScores` từ MultiChannelViewer → MockupScoreBar
+- Truyền `geoScoreData?.factor_scores` qua ContentMockupToggle xuống MockupScoreBar
+- Thêm prop `geoFactorScores?: Record<string, number>`
 
-### 2. Thêm rubric chi tiết vào scoring prompt
-- Mỗi yếu tố có mô tả rõ: 90-100 = gì, 70-89 = gì, dưới 70 = gì
-- Ví dụ: answer_first 90+ = "Câu đầu tiên mỗi section trả lời trực tiếp, có số liệu"
+### 2. Chuyển Tooltip → Popover (click-to-open) trong MockupScoreBar
+- Import `Popover, PopoverTrigger, PopoverContent` thay thế Tooltip cho mỗi chỉ số
+- Click vào chỉ số → hiện Popover với bảng chi tiết từng yếu tố
+- GEO: Hiển thị 8 yếu tố với tên tiếng Việt, điểm, progress bar mini, trọng số
+- Chất lượng: Hiển thị mô tả các tiêu chí đánh giá (không có breakdown số)
+- Tương tác: Breakdown 6 yếu tố heuristic (CTA, emoji, hashtag, câu hỏi, độ dài, cấu trúc)
+- SEO: Breakdown các yếu tố SEO (headings, keyword, links, word count...)
 
-### 3. Đổi `structured_data` → đánh giá cấu trúc nội dung
-- Thay vì đòi JSON-LD/schema markup (không áp dụng cho text), đánh giá:
-  - Có bullet lists, numbered lists không?
-  - Có bảng so sánh không?
-  - Có FAQ format không?
-- Phù hợp hơn với nội dung Markdown
-
-### 4. Tăng limit content → 10000 chars
-- Cho phép đánh giá nhiều nội dung hơn
-
-### 5. Cải thiện generation prompt — thêm ví dụ cụ thể
-- Thêm ví dụ "trước/sau" vào GEO guidelines
-- Thêm yêu cầu: "PHẢI có ít nhất 5 citations cụ thể" thay vì chỉ nói "nên có"
+### 3. Tạo hàm breakdown cho Engagement và SEO
+- `getEngagementBreakdown(content)` → trả về mảng `{ label, score, max }` cho từng yếu tố
+- `getSEOBreakdown(content)` → tương tự
 
 ## Files cần sửa
 
 | File | Thay đổi |
 |------|----------|
-| `supabase/functions/geo-score-content/index.ts` | Nâng model, thêm rubric, đổi structured_data criteria, tăng char limit |
-| `supabase/functions/_shared/geo-prompt-guidelines.ts` | Thêm ví dụ cụ thể, yêu cầu mạnh hơn cho citations/answer-first |
+| `src/components/preview/MockupScoreBar.tsx` | Tooltip → Popover, hiển thị bảng factor scores |
+| `src/components/viewer/ContentMockupToggle.tsx` | Forward `geoFactorScores` prop |
+| `src/components/MultiChannelViewer.tsx` | Truyền `geoScoreData?.factor_scores` |
 
