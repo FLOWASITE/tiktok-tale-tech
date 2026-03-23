@@ -61,6 +61,7 @@ import FlowaChatPage from "@/pages/FlowaChatPage";
 import Gallery from "@/pages/Gallery";
 import PaymentResult from "@/pages/PaymentResult";
 import AgentDashboard from "@/pages/AgentDashboard";
+import AgentTeamPage from "@/pages/AgentTeamPage";
 
 // Landing pages (lazy loaded for app domain preview/dev access)
 const LandingPage = lazy(() => import("@/landing/pages/Landing"));
