@@ -1,4 +1,4 @@
-import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare, GalleryHorizontalEnd, AlertTriangle, Ticket, Zap } from 'lucide-react';
+import { Film, Images, Bookmark, Layers, LayoutDashboard, Shield, LogOut, ChevronUp, ChevronDown, CalendarDays, ClipboardList, Building2, User, Globe, Flag, BarChart3, GitBranch, Package, Lightbulb, Sparkles, BookOpen, Newspaper, Check, Plus, HelpCircle, ExternalLink, Target, Megaphone, FileText, Network, MessageSquare, GalleryHorizontalEnd, AlertTriangle, Ticket, Zap, Radar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { NavLink } from '@/components/NavLink';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -249,6 +249,7 @@ export function AppSidebar() {
     { title: 'Dashboard', titleKey: 'app.sidebar.dashboard', url: '/', icon: LayoutDashboard },
     { title: 'Kho Ý Tưởng', titleKey: 'app.sidebar.ideaBank', url: '/topics', icon: Lightbulb },
     { title: 'Core Content', titleKey: 'app.sidebar.coreContent', url: '/core-content', icon: FileText },
+    { title: 'GEO Engine', titleKey: 'app.sidebar.geoEngine', url: '/geo', icon: Radar },
     { title: 'Gallery', titleKey: 'app.sidebar.gallery', url: '/gallery', icon: GalleryHorizontalEnd },
   ];
 

@@ -4703,6 +4703,361 @@ export type Database = {
           },
         ]
       }
+      geo_action_tasks: {
+        Row: {
+          assigned_to: string | null
+          brand_monitor_id: string | null
+          brief: Json | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          effort_level: string | null
+          id: string
+          impact_score: number | null
+          organization_id: string
+          priority: string
+          source_module: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          brand_monitor_id?: string | null
+          brief?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          effort_level?: string | null
+          id?: string
+          impact_score?: number | null
+          organization_id: string
+          priority?: string
+          source_module?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          brand_monitor_id?: string | null
+          brief?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          effort_level?: string | null
+          id?: string
+          impact_score?: number | null
+          organization_id?: string
+          priority?: string
+          source_module?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geo_action_tasks_brand_monitor_id_fkey"
+            columns: ["brand_monitor_id"]
+            isOneToOne: false
+            referencedRelation: "geo_brand_monitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "geo_action_tasks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      geo_brand_monitors: {
+        Row: {
+          ai_engines: string[]
+          brand_name: string
+          brand_template_id: string
+          competitors: string[]
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          keywords: string[]
+          last_scanned_at: string | null
+          organization_id: string
+          scan_frequency: string
+          updated_at: string
+        }
+        Insert: {
+          ai_engines?: string[]
+          brand_name: string
+          brand_template_id: string
+          competitors?: string[]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          keywords?: string[]
+          last_scanned_at?: string | null
+          organization_id: string
+          scan_frequency?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_engines?: string[]
+          brand_name?: string
+          brand_template_id?: string
+          competitors?: string[]
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          keywords?: string[]
+          last_scanned_at?: string | null
+          organization_id?: string
+          scan_frequency?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geo_brand_monitors_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "geo_brand_monitors_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      geo_content_scores: {
+        Row: {
+          content_id: string
+          content_type: string
+          created_at: string
+          factor_scores: Json
+          id: string
+          issues: Json
+          last_scored_at: string
+          organization_id: string
+          overall_score: number
+          suggestions: Json | null
+          updated_at: string
+        }
+        Insert: {
+          content_id: string
+          content_type?: string
+          created_at?: string
+          factor_scores?: Json
+          id?: string
+          issues?: Json
+          last_scored_at?: string
+          organization_id: string
+          overall_score?: number
+          suggestions?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          content_id?: string
+          content_type?: string
+          created_at?: string
+          factor_scores?: Json
+          id?: string
+          issues?: Json
+          last_scored_at?: string
+          organization_id?: string
+          overall_score?: number
+          suggestions?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geo_content_scores_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      geo_monitoring_results: {
+        Row: {
+          ai_engine: string
+          brand_mentioned: boolean
+          brand_monitor_id: string
+          citation_urls: string[] | null
+          competitor_mentions: Json | null
+          created_at: string
+          id: string
+          mention_count: number
+          organization_id: string
+          prompt: string
+          response: string | null
+          scanned_at: string
+          sentiment_label: string | null
+          sentiment_score: number | null
+        }
+        Insert: {
+          ai_engine: string
+          brand_mentioned?: boolean
+          brand_monitor_id: string
+          citation_urls?: string[] | null
+          competitor_mentions?: Json | null
+          created_at?: string
+          id?: string
+          mention_count?: number
+          organization_id: string
+          prompt: string
+          response?: string | null
+          scanned_at?: string
+          sentiment_label?: string | null
+          sentiment_score?: number | null
+        }
+        Update: {
+          ai_engine?: string
+          brand_mentioned?: boolean
+          brand_monitor_id?: string
+          citation_urls?: string[] | null
+          competitor_mentions?: Json | null
+          created_at?: string
+          id?: string
+          mention_count?: number
+          organization_id?: string
+          prompt?: string
+          response?: string | null
+          scanned_at?: string
+          sentiment_label?: string | null
+          sentiment_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geo_monitoring_results_brand_monitor_id_fkey"
+            columns: ["brand_monitor_id"]
+            isOneToOne: false
+            referencedRelation: "geo_brand_monitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "geo_monitoring_results_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      geo_prompt_clusters: {
+        Row: {
+          brand_appearance_rate: number | null
+          brand_monitor_id: string | null
+          cluster_name: string
+          created_at: string
+          id: string
+          intent_type: string
+          is_gap: boolean
+          organization_id: string
+          sample_prompts: string[]
+          updated_at: string
+          volume_estimate: number | null
+        }
+        Insert: {
+          brand_appearance_rate?: number | null
+          brand_monitor_id?: string | null
+          cluster_name: string
+          created_at?: string
+          id?: string
+          intent_type?: string
+          is_gap?: boolean
+          organization_id: string
+          sample_prompts?: string[]
+          updated_at?: string
+          volume_estimate?: number | null
+        }
+        Update: {
+          brand_appearance_rate?: number | null
+          brand_monitor_id?: string | null
+          cluster_name?: string
+          created_at?: string
+          id?: string
+          intent_type?: string
+          is_gap?: boolean
+          organization_id?: string
+          sample_prompts?: string[]
+          updated_at?: string
+          volume_estimate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geo_prompt_clusters_brand_monitor_id_fkey"
+            columns: ["brand_monitor_id"]
+            isOneToOne: false
+            referencedRelation: "geo_brand_monitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "geo_prompt_clusters_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      geo_schema_outputs: {
+        Row: {
+          content_id: string
+          content_type: string
+          created_at: string
+          created_by: string | null
+          id: string
+          json_ld_code: string
+          organization_id: string
+          schema_type: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          content_id: string
+          content_type?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          json_ld_code: string
+          organization_id: string
+          schema_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          content_id?: string
+          content_type?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          json_ld_code?: string
+          organization_id?: string
+          schema_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geo_schema_outputs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       help_articles: {
         Row: {
           category: string | null

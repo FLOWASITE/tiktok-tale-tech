@@ -56,6 +56,7 @@ import ZaloOAuthProxy from "@/pages/ZaloOAuthProxy";
 import GoogleBusinessCallback from "@/pages/GoogleBusinessCallback";
 import XCallback from "@/pages/XCallback";
 import CoreContentPage from "@/pages/CoreContentPage";
+import GEODashboard from "@/pages/GEODashboard";
 import FlowaChatPage from "@/pages/FlowaChatPage";
 import Gallery from "@/pages/Gallery";
 import PaymentResult from "@/pages/PaymentResult";
@@ -139,6 +140,7 @@ export function AppRoutes() {
         }
       />
       <Route path="/core-content" element={<ProtectedRoute><AppLayout><CoreContentPage /></AppLayout></ProtectedRoute>} />
+      <Route path="/geo" element={<ProtectedRoute><AppLayout><GEODashboard /></AppLayout></ProtectedRoute>} />
       <Route path="/tasks" element={<ProtectedRoute><AppLayout><Tasks /></AppLayout></ProtectedRoute>} />
       <Route path="/scripts" element={<ProtectedRoute><AppLayout><Index /></AppLayout></ProtectedRoute>} />
       <Route path="/scripts/new" element={<ProtectedRoute><AppLayout><ScriptNew /></AppLayout></ProtectedRoute>} />
