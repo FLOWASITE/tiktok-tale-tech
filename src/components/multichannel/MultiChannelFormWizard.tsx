@@ -829,7 +829,7 @@ export function MultiChannelFormWizard({
     // Check if Core Content is ready
     const hasCoreContent = !!coreContentData?.id || !!formData.coreContentId;
 
-    if (!hasCoreContent) {
+    if (!hasCoreContent && !skipCoreContent) {
       if (isGeneratingCoreContent) {
         // Core Content is still generating - set pending flag
         setPendingMultiChannelGeneration(true);
