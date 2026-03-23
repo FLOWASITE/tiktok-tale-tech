@@ -1,7 +1,12 @@
-import { Star, Zap, TrendingUp } from 'lucide-react';
+import { Star, Zap, TrendingUp, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getGradeFromScore, GRADE_COLORS } from '@/types/creativeScore';
-import { Progress } from '@/components/ui/progress';
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from '@/components/ui/tooltip';
 
 interface MockupScoreBarProps {
   critiqueScore?: number | null;
@@ -26,13 +31,20 @@ function getScoreTextColor(score: number, max: number): string {
   return 'text-red-600 dark:text-red-400';
 }
 
+const SCORE_TOOLTIPS = {
+  quality: 'Điểm đánh giá chất lượng nội dung do AI chấm dựa trên: cấu trúc bài viết, độ rõ ràng thông điệp, tính sáng tạo, phù hợp kênh và thương hiệu',
+  geo: 'Generative Engine Optimization — đánh giá khả năng xuất hiện trên AI search (ChatGPT, Gemini...) dựa trên 8 yếu tố: citations, statistics, quotes, fluency, authority, unique words, technical terms, content depth',
+  engagement: 'Dự đoán mức độ tương tác dựa trên: độ dài phù hợp, có câu hỏi/CTA, emoji, hashtag, cấu trúc đoạn văn. Đây là ước tính, không phải số liệu thực tế',
+};
+
 function ScoreColumn({ 
   icon: Icon, 
   label, 
   value, 
   suffix, 
   max, 
-  colorClass 
+  colorClass,
+  tooltip,
 }: { 
   icon: typeof Star; 
   label: string; 
@@ -40,14 +52,23 @@ function ScoreColumn({
   suffix: string; 
   max: number; 
   colorClass: string;
+  tooltip: string;
 }) {
   const pct = (value / max) * 100;
   return (
-    <div className="flex flex-col items-center gap-1 px-3 py-1">
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        <Icon className="w-3.5 h-3.5" />
-        <span className="text-[11px] font-medium uppercase tracking-wide">{label}</span>
-      </div>
+    <div className="flex flex-col items-center gap-1 px-3 py-1 group">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-1.5 text-muted-foreground cursor-help">
+            <Icon className="w-3.5 h-3.5" />
+            <span className="text-[11px] font-medium uppercase tracking-wide">{label}</span>
+            <Info className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-[260px] text-xs leading-relaxed">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
       <span className={cn('text-sm font-bold', colorClass)}>
         {value}{suffix}
       </span>
@@ -67,68 +88,78 @@ export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, class
   if (!hasAnyScore) return null;
 
   const geoGrade = geoScore != null ? getGradeFromScore(geoScore) : null;
-
-  // Count how many scores we have for grid
   const scoreCount = [critiqueScore, geoScore, engagementScore].filter(s => s != null).length;
   const gridCols = scoreCount === 1 ? 'grid-cols-1' : scoreCount === 2 ? 'grid-cols-2' : 'grid-cols-3';
 
   return (
-    <div className={cn(
-      'grid gap-0 py-2 px-2 bg-card/80 backdrop-blur-sm rounded-t-xl border border-border/60 shadow-sm',
-      gridCols,
-      className
-    )}>
-      {critiqueScore != null && (
-        <ScoreColumn
-          icon={Star}
-          label="Chất lượng"
-          value={critiqueScore}
-          suffix="/10"
-          max={10}
-          colorClass={getScoreTextColor(critiqueScore, 10)}
-        />
-      )}
-      
-      {geoScore != null && geoGrade && (
-        <div className={cn(
-          'flex flex-col items-center gap-1 px-3 py-1',
-          critiqueScore != null && 'border-l border-border/40',
-        )}>
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Zap className="w-3.5 h-3.5" />
-            <span className="text-[11px] font-medium uppercase tracking-wide">GEO</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className={cn('text-sm font-bold', getScoreTextColor(geoScore, 100))}>
-              {geoScore}
-            </span>
-            <span className={cn('text-xs font-semibold px-1 py-0.5 rounded', GRADE_COLORS[geoGrade])}>
-              {geoGrade}
-            </span>
-          </div>
-          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className={cn('h-full rounded-full transition-all duration-500', getScoreBg(geoScore, 100))}
-              style={{ width: `${Math.min(geoScore, 100)}%` }}
+    <TooltipProvider delayDuration={200}>
+      <div className={cn(
+        'grid gap-0 py-2 px-2 bg-card/80 backdrop-blur-sm rounded-t-xl border border-border/60 shadow-sm',
+        gridCols,
+        className
+      )}>
+        {critiqueScore != null && (
+          <ScoreColumn
+            icon={Star}
+            label="Chất lượng"
+            value={critiqueScore}
+            suffix="/10"
+            max={10}
+            colorClass={getScoreTextColor(critiqueScore, 10)}
+            tooltip={SCORE_TOOLTIPS.quality}
+          />
+        )}
+        
+        {geoScore != null && geoGrade && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className={cn(
+                'flex flex-col items-center gap-1 px-3 py-1 group cursor-help',
+                critiqueScore != null && 'border-l border-border/40',
+              )}>
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Zap className="w-3.5 h-3.5" />
+                  <span className="text-[11px] font-medium uppercase tracking-wide">GEO</span>
+                  <Info className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className={cn('text-sm font-bold', getScoreTextColor(geoScore, 100))}>
+                    {geoScore}
+                  </span>
+                  <span className={cn('text-xs font-semibold px-1 py-0.5 rounded', GRADE_COLORS[geoGrade])}>
+                    {geoGrade}
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={cn('h-full rounded-full transition-all duration-500', getScoreBg(geoScore, 100))}
+                    style={{ width: `${Math.min(geoScore, 100)}%` }}
+                  />
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[260px] text-xs leading-relaxed">
+              {SCORE_TOOLTIPS.geo}
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {engagementScore != null && (
+          <div className={cn(
+            (critiqueScore != null || geoScore != null) && 'border-l border-border/40',
+          )}>
+            <ScoreColumn
+              icon={TrendingUp}
+              label="Tương tác"
+              value={engagementScore}
+              suffix="%"
+              max={100}
+              colorClass={getScoreTextColor(engagementScore, 100)}
+              tooltip={SCORE_TOOLTIPS.engagement}
             />
           </div>
-        </div>
-      )}
-
-      {engagementScore != null && (
-        <div className={cn(
-          (critiqueScore != null || geoScore != null) && 'border-l border-border/40',
-        )}>
-          <ScoreColumn
-            icon={TrendingUp}
-            label="Tương tác"
-            value={engagementScore}
-            suffix="%"
-            max={100}
-            colorClass={getScoreTextColor(engagementScore, 100)}
-          />
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }
