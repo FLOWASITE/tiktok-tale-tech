@@ -119,8 +119,9 @@ function PipelineCard({ pipeline, isDragging, onClick }: { pipeline: AgentPipeli
   );
 }
 
-export function PipelineKanban({ pipelines, onStageChange }: PipelineKanbanProps) {
+export function PipelineKanban({ pipelines, onStageChange, onFlagToggle, onDelete }: PipelineKanbanProps) {
   const [activePipeline, setActivePipeline] = useState<AgentPipeline | null>(null);
+  const [selectedPipeline, setSelectedPipeline] = useState<AgentPipeline | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
