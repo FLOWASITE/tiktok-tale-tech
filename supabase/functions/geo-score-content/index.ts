@@ -39,7 +39,7 @@ serve(async (req) => {
     const scoringPrompt = `Bạn là chuyên gia GEO (Generative Engine Optimization). Phân tích nội dung sau và chấm điểm theo 8 yếu tố.
 
 ## Nội dung cần phân tích:
-${contentText.substring(0, 4000)}
+${contentText.substring(0, 6000)}
 
 ## 8 Yếu tố chấm điểm (0-100 cho mỗi yếu tố):
 1. answer_first: Có câu trả lời trực tiếp ngay đầu bài không?
