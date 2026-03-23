@@ -266,6 +266,7 @@ export function MultiChannelViewer({
   const [generatedImages, setGeneratedImages] = useState<Record<Channel, string>>({} as Record<Channel, string>);
   const [showGallery, setShowGallery] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [showGeoScore, setShowGeoScore] = useState(false);
   const [showTeamPanel, setShowTeamPanel] = useState(false);
   const [deletingImageChannel, setDeletingImageChannel] = useState<Channel | null>(null);
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
