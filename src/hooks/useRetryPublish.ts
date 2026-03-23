@@ -77,7 +77,7 @@ export function useRetryPublish() {
         .from('content_schedules')
         .update({ 
           publish_status: 'scheduled',
-          last_attempt_at: new Date().toISOString(),
+          publish_error: null,
         })
         .eq('id', scheduleId);
 
