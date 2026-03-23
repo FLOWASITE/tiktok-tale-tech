@@ -125,6 +125,7 @@ export function CompactChannelGrid({
                 )}
               >
                 <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">{category.icon}</span>
                   <span className="text-sm font-medium">{category.name}</span>
                   {count > 0 && (
                     <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 min-w-[28px] justify-center">
