@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
 import { Copy, Check, Download, Globe, Facebook, Instagram, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight, Wand2, Plus, Type, Zap } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
@@ -42,7 +43,7 @@ import { ContentLengthIndicator } from '@/components/ContentLengthIndicator';
 import { ChannelRulesPanel } from '@/components/ChannelRulesPanel';
 import { SmartQuickActions } from '@/components/SmartQuickActions';
 import { useSocialImageGeneration } from '@/hooks/useSocialImageGeneration';
-import { ChannelImagesGallery } from '@/components/ChannelImagesGallery';
+
 import { SchedulePanel } from '@/components/SchedulePanel';
 import { TeamWorkPanel } from '@/components/TeamWorkPanel';
 import { AssignmentDialog } from '@/components/AssignmentDialog';
@@ -271,8 +272,8 @@ export function MultiChannelViewer({
   const [showImageGenerator, setShowImageGenerator] = useState(false);
   const [activeImageChannel, setActiveImageChannel] = useState<Channel | null>(null);
   const [generatedImages, setGeneratedImages] = useState<Record<Channel, string>>({} as Record<Channel, string>);
-  const [showGallery, setShowGallery] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
+  const navigate = useNavigate();
   const [showGeoScore, setShowGeoScore] = useState(false);
   const { data: geoScoreData, isLoading: isGEOQueryLoading } = useGEOContentScore(content?.id ?? '');
   const [isGEOScoring, setIsGEOScoring] = useState(false);
@@ -288,7 +289,6 @@ export function MultiChannelViewer({
   // Reset panel states when dialog opens to always start at mockup view
   useEffect(() => {
     if (open) {
-      setShowGallery(false);
       setShowSchedule(false);
       setShowTeamPanel(false);
       setShowGeoScore(false);
@@ -927,7 +927,7 @@ export function MultiChannelViewer({
                       <Button 
                         variant={showTeamPanel ? "secondary" : "ghost"} 
                         size="icon"
-                        onClick={() => { setShowTeamPanel(!showTeamPanel); setShowGallery(false); setShowSchedule(false); setShowGeoScore(false); }}
+                        onClick={() => { setShowTeamPanel(!showTeamPanel); setShowSchedule(false); setShowGeoScore(false); }}
                         className="h-8 w-8"
                       >
                         <Users className="w-4 h-4" />
@@ -936,13 +936,16 @@ export function MultiChannelViewer({
                     <TooltipContent>Team</TooltipContent>
                   </Tooltip>
                   
-                  {/* Gallery Toggle */}
+                  {/* Gallery — navigate to /gallery with content filter */}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button 
-                        variant={showGallery ? "secondary" : "ghost"} 
+                        variant="ghost" 
                         size="icon"
-                        onClick={() => { setShowGallery(!showGallery); setShowSchedule(false); setShowTeamPanel(false); setShowGeoScore(false); }}
+                        onClick={() => {
+                          onOpenChange(false);
+                          navigate(`/gallery?content=${content.id}`);
+                        }}
                         className="h-8 w-8 relative"
                       >
                         <Images className="w-4 h-4" />
@@ -962,7 +965,7 @@ export function MultiChannelViewer({
                       <Button 
                         variant={showSchedule ? "secondary" : "ghost"} 
                         size="icon"
-                        onClick={() => { setShowSchedule(!showSchedule); setShowGallery(false); setShowTeamPanel(false); setShowGeoScore(false); }}
+                        onClick={() => { setShowSchedule(!showSchedule); setShowTeamPanel(false); setShowGeoScore(false); }}
                         className="h-8 w-8"
                       >
                         <CalendarClock className="w-4 h-4" />
@@ -977,7 +980,7 @@ export function MultiChannelViewer({
                       <Button 
                         variant={showGeoScore ? "secondary" : "ghost"} 
                         size="icon"
-                        onClick={() => { setShowGeoScore(!showGeoScore); setShowGallery(false); setShowSchedule(false); setShowTeamPanel(false); }}
+                        onClick={() => { setShowGeoScore(!showGeoScore); setShowSchedule(false); setShowTeamPanel(false); }}
                         className="h-8 w-8"
                       >
                         <Zap className="w-4 h-4" />
@@ -1076,22 +1079,6 @@ export function MultiChannelViewer({
               contentType="multi_channel"
               contentText={getContentForChannel(content, selectedChannel) || content.website_content || ''}
               organizationId={currentOrganization?.id || ''}
-            />
-          </div>
-        ) : showGallery ? (
-          <div className="p-6">
-            <ChannelImagesGallery
-              channelImages={content.channel_images || {}}
-              selectedChannels={content.selected_channels || []}
-              onDeleteImage={onDeleteChannelImage ? async (channel) => {
-                setDeletingImageChannel(channel);
-                try {
-                  await onDeleteChannelImage(content.id, channel);
-                } finally {
-                  setDeletingImageChannel(null);
-                }
-              } : undefined}
-              isDeleting={deletingImageChannel}
             />
           </div>
         ) : (
@@ -1398,7 +1385,7 @@ export function MultiChannelViewer({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => { setShowSchedule(true); setShowGallery(false); setShowTeamPanel(false); }}
+                          onClick={() => { setShowSchedule(true); setShowTeamPanel(false); }}
                           className="gap-2"
                         >
                           <CalendarClock className="w-4 h-4" />

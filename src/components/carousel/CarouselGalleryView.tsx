@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Download, Trash2, Image as ImageIcon, Filter, Layers, Search, CheckSquare, X, ArrowUpDown, Grid2X2, Grid3X3, LayoutGrid, RotateCcw, SearchX, User, ChevronLeft, FolderOpen, Share2, ImagePlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -65,7 +65,11 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString('vi-VN');
 }
 
-export function CarouselGalleryView() {
+interface CarouselGalleryViewProps {
+  initialContentId?: string;
+}
+
+export function CarouselGalleryView({ initialContentId }: CarouselGalleryViewProps) {
   const {
     images,
     allImages,
@@ -98,6 +102,13 @@ export function CarouselGalleryView() {
     getImageIdsForFolder,
     setCarouselFilter,
   } = useCarouselGallery();
+
+  // Auto-select folder from initialContentId prop
+  useEffect(() => {
+    if (initialContentId) {
+      setSelectedFolderId(initialContentId);
+    }
+  }, [initialContentId, setSelectedFolderId]);
 
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
