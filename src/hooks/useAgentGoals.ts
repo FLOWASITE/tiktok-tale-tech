@@ -43,6 +43,7 @@ export function useAgentGoals() {
           ...goal,
           organization_id: orgId,
           created_by: user?.id,
+          campaign_id: goal.campaign_id || null,
         } as any)
         .select()
         .single();

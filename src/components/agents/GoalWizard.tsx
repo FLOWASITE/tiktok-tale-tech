@@ -369,12 +369,18 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
                   <span className="text-muted-foreground">Tự động</span>
                   <span className="font-medium">{AUTONOMY_LEVELS.find(l => l.id === autonomyLevel)?.label}</span>
                 </div>
-                <div className="flex justify-between py-1.5">
+                <div className="flex justify-between py-1.5 border-b">
                   <span className="text-muted-foreground">Brand</span>
                   <span className="font-medium">
                     {brandTemplateId && brandTemplateId !== 'none'
                       ? brandTemplates.find(b => b.id === brandTemplateId)?.brand_name
                       : 'Mặc định'}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1.5">
+                  <span className="text-muted-foreground">Chiến dịch</span>
+                  <span className="font-medium">
+                    {campaignId ? '✅ Đã liên kết' : 'Không liên kết'}
                   </span>
                 </div>
               </div>
