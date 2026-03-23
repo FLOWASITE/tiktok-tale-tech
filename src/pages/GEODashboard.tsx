@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GEOOverview } from '@/components/geo/GEOOverview';
 import { GEOSetupWizard } from '@/components/geo/GEOSetupWizard';
 import { PromptExplorer } from '@/components/geo/PromptExplorer';
+import { GEOContentOptimizerTab } from '@/components/geo/GEOContentOptimizerTab';
 import { useGEOMonitors } from '@/hooks/useGEOMonitors';
 import { Helmet } from 'react-helmet-async';
 
@@ -30,13 +31,17 @@ export default function GEODashboard() {
           <GEOSetupWizard />
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+            <TabsList className="grid w-full grid-cols-4 lg:w-[520px]">
               <TabsTrigger value="overview">Tổng quan</TabsTrigger>
+              <TabsTrigger value="optimizer">GEO Score</TabsTrigger>
               <TabsTrigger value="prompts">Prompt Explorer</TabsTrigger>
               <TabsTrigger value="setup">Cấu hình</TabsTrigger>
             </TabsList>
             <TabsContent value="overview" className="mt-6">
               <GEOOverview monitors={monitors} loading={loading} />
+            </TabsContent>
+            <TabsContent value="optimizer" className="mt-6">
+              <GEOContentOptimizerTab />
             </TabsContent>
             <TabsContent value="prompts" className="mt-6">
               <PromptExplorer monitors={monitors} />
