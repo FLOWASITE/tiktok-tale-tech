@@ -289,7 +289,6 @@ export function MultiChannelViewer({
   // Reset panel states when dialog opens to always start at mockup view
   useEffect(() => {
     if (open) {
-      setShowGallery(false);
       setShowSchedule(false);
       setShowTeamPanel(false);
       setShowGeoScore(false);
