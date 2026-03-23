@@ -829,10 +829,24 @@ export default function ContentCalendar() {
                   onSelect={(date) => date && setCurrentDate(date)}
                   locale={vi}
                   modifiers={{
-                    hasSchedule: (date) => daysWithSchedules.includes(format(date, 'yyyy-MM-dd')),
+                    hasPublished: (date) => {
+                      const statuses = daysWithScheduleStatus[format(date, 'yyyy-MM-dd')];
+                      return !!statuses?.has('published') && !statuses?.has('failed');
+                    },
+                    hasFailed: (date) => {
+                      const statuses = daysWithScheduleStatus[format(date, 'yyyy-MM-dd')];
+                      return !!statuses?.has('failed');
+                    },
+                    hasScheduled: (date) => {
+                      const statuses = daysWithScheduleStatus[format(date, 'yyyy-MM-dd')];
+                      return !!statuses?.has('scheduled') && !statuses?.has('published') && !statuses?.has('failed');
+                    },
                   }}
                   modifiersClassNames={{
-                    hasSchedule: 'bg-primary/20 font-bold text-primary',
+                    hasPublished: 'bg-green-500/20 font-bold text-green-700 dark:text-green-400',
+                    hasFailed: 'bg-red-500/20 font-bold text-red-700 dark:text-red-400',
+                    hasScheduled: 'bg-yellow-500/20 font-bold text-yellow-700 dark:text-yellow-400',
+                  }}
                   }}
                   className="rounded-md"
                 />
