@@ -150,6 +150,11 @@ import {
   calculateDiversityBonus,
   type CrossChannelDedupResult,
 } from "../_shared/cross-channel-dedup.ts";
+// NEW: GEO Prompt Guidelines - Inject into content generation
+import {
+  getChannelGEOGuidelines,
+  getCompactGEOGuidelines,
+} from "../_shared/geo-prompt-guidelines.ts";
 
 // ============================================
 // EDGE OPTIMIZATIONS
@@ -1221,6 +1226,8 @@ ${contentAngleSection}
 ${selectedChannelRules}
 ${channelOptimizationSection}
 ${wordBudgetSection}
+
+${channels.map(ch => getChannelGEOGuidelines(ch)).filter(Boolean).join('\n')}
 
 ## WEBSITE SEO (CHỈ áp dụng cho website)
 - SEO Title: 50-60 ký tự, keyword đầu | Meta: 150-160 ký tự

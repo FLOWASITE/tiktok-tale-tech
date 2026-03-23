@@ -4,6 +4,7 @@
 // ============================================
 
 import { BrandContext, IndustryMemory } from './types/chat-types.ts';
+import { getFullGEOGuidelines } from './geo-prompt-guidelines.ts';
 
 // ============================================
 // TYPES
@@ -391,14 +392,16 @@ export interface EnhancedPromptConfig extends CoreContentConfig {
 // ============================================
 
 export function buildSinglePassPrompt(config: EnhancedPromptConfig): string {
-  // If registry prompt is available, use it directly (already interpolated)
+  const geoGuidelines = getFullGEOGuidelines();
+  
+  // If registry prompt is available, append GEO guidelines
   if (config.registrySystemPrompt) {
-    console.log('[buildSinglePassPrompt] Using registry system prompt');
-    return config.registrySystemPrompt;
+    console.log('[buildSinglePassPrompt] Using registry system prompt + GEO guidelines');
+    return config.registrySystemPrompt + '\n\n' + geoGuidelines;
   }
   
   // HARDCODED FALLBACK: Use when registry prompt is unavailable
-  console.log('[buildSinglePassPrompt] Using hardcoded fallback prompt');
+  console.log('[buildSinglePassPrompt] Using hardcoded fallback prompt + GEO guidelines');
   
   const lengthMode = config.lengthMode || 'medium';
   const wordBudget = getWordBudgetByLength(lengthMode);
@@ -438,6 +441,7 @@ ${buildProofRequirementsBlock()}
 ${buildCompetitiveContextBlock(config.brandContext)}
 ${buildStyleGuideBlock(config.brandContext)}
 ${config.smartContextInjection || ''}
+${geoGuidelines}
 
 ## YÊU CẦU BẮT BUỘC
 1. Cấu trúc 5 phần:
