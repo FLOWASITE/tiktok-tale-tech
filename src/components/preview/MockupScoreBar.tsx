@@ -2,6 +2,11 @@ import { Star, Zap, TrendingUp, Info, Search, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getGradeFromScore, GRADE_COLORS } from '@/types/creativeScore';
 import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@/components/ui/popover';
+import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -17,6 +22,8 @@ interface MockupScoreBarProps {
   className?: string;
   onTriggerGEO?: () => void;
   isGEOLoading?: boolean;
+  geoFactorScores?: Record<string, number> | null;
+  content?: string;
 }
 
 function getScoreBg(score: number, max: number): string {
@@ -42,6 +49,72 @@ const SCORE_TOOLTIPS = {
   seo: 'Điểm tối ưu SEO cho trang web: meta title, meta description, heading structure, keyword density, internal links, schema markup. Áp dụng cho channel Website',
 };
 
+const GEO_FACTOR_LABELS: Record<string, { label: string; weight: string }> = {
+  answer_first: { label: 'Trả lời trực tiếp', weight: '15%' },
+  citation_signals: { label: 'Trích dẫn & số liệu', weight: '15%' },
+  content_depth: { label: 'Độ sâu nội dung', weight: '15%' },
+  entity_clarity: { label: 'Rõ ràng thực thể', weight: '13%' },
+  structured_data: { label: 'Cấu trúc dữ liệu', weight: '12%' },
+  extractability: { label: 'Dễ trích xuất', weight: '12%' },
+  heading_hierarchy: { label: 'Cấu trúc heading', weight: '10%' },
+  freshness: { label: 'Tính mới', weight: '8%' },
+};
+
+const QUALITY_CRITERIA = [
+  { label: 'Cấu trúc bài viết', desc: 'Mở bài, thân bài, kết bài rõ ràng' },
+  { label: 'Thông điệp', desc: 'Rõ ràng, nhất quán, đúng mục tiêu' },
+  { label: 'Sáng tạo', desc: 'Góc nhìn mới, cách diễn đạt hấp dẫn' },
+  { label: 'Phù hợp kênh', desc: 'Tone, format đúng chuẩn kênh' },
+  { label: 'Phù hợp thương hiệu', desc: 'Nhất quán brand voice & guidelines' },
+];
+
+function getEngagementBreakdown(content: string): { label: string; score: number; max: number }[] {
+  if (!content) return [];
+  return [
+    { label: 'Độ dài phù hợp', score: content.length > 50 ? 20 : 10, max: 20 },
+    { label: 'Câu hỏi / Cảm thán', score: (content.match(/[?!]/g) || []).length > 0 ? 15 : 0, max: 15 },
+    { label: 'Hashtag', score: Math.min(20, (content.match(/(#\w+)/g) || []).length * 5), max: 20 },
+    { label: 'Emoji', score: Math.min(15, (content.match(/(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)/gu) || []).length * 3), max: 15 },
+    { label: 'Cấu trúc đoạn văn', score: content.split('\n').filter(l => l.trim()).length > 3 ? 15 : 5, max: 15 },
+    { label: 'Call-to-Action', score: (content.match(/(click|nhấn|liên hệ|mua|đăng ký|theo dõi|inbox|dm|share|comment|xem thêm)/gi) || []).length > 0 ? 15 : 0, max: 15 },
+  ];
+}
+
+function getSEOBreakdown(content: string): { label: string; score: number; max: number }[] {
+  if (!content) return [];
+  const hasH1 = /^#\s/m.test(content);
+  const hasH2 = /^##\s/m.test(content);
+  const wordCount = content.split(/\s+/).filter(Boolean).length;
+  const hasLinks = /\[.*?\]\(.*?\)/.test(content);
+  const hasList = /^[-*]\s/m.test(content) || /^\d+\.\s/m.test(content);
+  const paragraphs = content.split('\n\n').filter(p => p.trim()).length;
+
+  return [
+    { label: 'Heading H1', score: hasH1 ? 20 : 0, max: 20 },
+    { label: 'Heading H2+', score: hasH2 ? 15 : 0, max: 15 },
+    { label: 'Độ dài (>300 từ)', score: wordCount >= 300 ? 20 : Math.round(wordCount / 15), max: 20 },
+    { label: 'Links', score: hasLinks ? 15 : 0, max: 15 },
+    { label: 'Danh sách', score: hasList ? 15 : 0, max: 15 },
+    { label: 'Cấu trúc đoạn', score: paragraphs >= 3 ? 15 : Math.round(paragraphs * 5), max: 15 },
+  ];
+}
+
+function FactorRow({ label, score, max, weight }: { label: string; score: number; max: number; weight?: string }) {
+  const pct = (score / max) * 100;
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className="flex-1 text-muted-foreground truncate">{label}</span>
+      {weight && <span className="text-[10px] text-muted-foreground/60 w-7 text-right">{weight}</span>}
+      <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+        <div className={cn('h-full rounded-full', getScoreBg(score, max))} style={{ width: `${Math.min(pct, 100)}%` }} />
+      </div>
+      <span className={cn('w-8 text-right font-semibold text-[11px]', getScoreTextColor(score, max))}>
+        {score}/{max}
+      </span>
+    </div>
+  );
+}
+
 function ScoreColumn({ 
   icon: Icon, 
   label, 
@@ -50,6 +123,7 @@ function ScoreColumn({
   max, 
   colorClass,
   tooltip,
+  popoverContent,
 }: { 
   icon: typeof Star; 
   label: string; 
@@ -58,22 +132,17 @@ function ScoreColumn({
   max: number; 
   colorClass: string;
   tooltip: string;
+  popoverContent?: React.ReactNode;
 }) {
   const pct = (value / max) * 100;
-  return (
-    <div className="flex flex-col items-center gap-1 px-3 py-1 group">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex items-center gap-1.5 text-muted-foreground cursor-help">
-            <Icon className="w-3.5 h-3.5" />
-            <span className="text-[11px] font-medium uppercase tracking-wide">{label}</span>
-            <Info className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="max-w-[260px] text-xs leading-relaxed">
-          {tooltip}
-        </TooltipContent>
-      </Tooltip>
+
+  const scoreDisplay = (
+    <div className="flex flex-col items-center gap-1 px-3 py-1 group cursor-pointer">
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        <Icon className="w-3.5 h-3.5" />
+        <span className="text-[11px] font-medium uppercase tracking-wide">{label}</span>
+        <Info className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+      </div>
       <span className={cn('text-sm font-bold', colorClass)}>
         {value}{suffix}
       </span>
@@ -85,11 +154,33 @@ function ScoreColumn({
       </div>
     </div>
   );
+
+  if (popoverContent) {
+    return (
+      <Popover>
+        <PopoverTrigger asChild>{scoreDisplay}</PopoverTrigger>
+        <PopoverContent side="bottom" className="w-72 p-3 z-[300]">
+          <div className="space-y-1.5">
+            <p className="text-xs text-muted-foreground mb-2">{tooltip}</p>
+            {popoverContent}
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{scoreDisplay}</TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-[260px] text-xs leading-relaxed">
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
-export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, seoScore, className, onTriggerGEO, isGEOLoading }: MockupScoreBarProps) {
+export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, seoScore, className, onTriggerGEO, isGEOLoading, geoFactorScores, content }: MockupScoreBarProps) {
   const hasAnyScore = critiqueScore != null || geoScore != null || engagementScore != null || seoScore != null;
-  // Show the bar if we have any score OR if we can trigger GEO
   const showBar = hasAnyScore || onTriggerGEO;
   
   if (!showBar) return null;
@@ -97,6 +188,50 @@ export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, seoSc
   const geoGrade = geoScore != null ? getGradeFromScore(geoScore) : null;
   const scoreCount = [critiqueScore, geoScore, engagementScore, seoScore].filter(s => s != null).length + (geoScore == null && onTriggerGEO ? 1 : 0);
   const gridCols = scoreCount <= 1 ? 'grid-cols-1' : scoreCount === 2 ? 'grid-cols-2' : scoreCount === 3 ? 'grid-cols-3' : 'grid-cols-4';
+
+  // Build popover content for each score
+  const qualityPopover = (
+    <div className="space-y-1.5">
+      <p className="text-[11px] font-semibold text-foreground">Tiêu chí đánh giá:</p>
+      {QUALITY_CRITERIA.map(c => (
+        <div key={c.label} className="flex items-start gap-2 text-xs">
+          <span className="text-muted-foreground">•</span>
+          <div>
+            <span className="font-medium text-foreground">{c.label}</span>
+            <span className="text-muted-foreground"> — {c.desc}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const geoPopover = geoFactorScores ? (
+    <div className="space-y-1.5">
+      <p className="text-[11px] font-semibold text-foreground">Điểm từng yếu tố:</p>
+      {Object.entries(GEO_FACTOR_LABELS).map(([key, { label, weight }]) => {
+        const score = geoFactorScores[key] ?? 0;
+        return <FactorRow key={key} label={label} score={score} max={100} weight={weight} />;
+      })}
+    </div>
+  ) : null;
+
+  const engagementPopover = content ? (
+    <div className="space-y-1.5">
+      <p className="text-[11px] font-semibold text-foreground">Phân tích chi tiết:</p>
+      {getEngagementBreakdown(content).map(f => (
+        <FactorRow key={f.label} label={f.label} score={f.score} max={f.max} />
+      ))}
+    </div>
+  ) : null;
+
+  const seoPopover = content ? (
+    <div className="space-y-1.5">
+      <p className="text-[11px] font-semibold text-foreground">Phân tích SEO:</p>
+      {getSEOBreakdown(content).map(f => (
+        <FactorRow key={f.label} label={f.label} score={f.score} max={f.max} />
+      ))}
+    </div>
+  ) : null;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -114,14 +249,15 @@ export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, seoSc
             max={10}
             colorClass={getScoreTextColor(critiqueScore, 10)}
             tooltip={SCORE_TOOLTIPS.quality}
+            popoverContent={qualityPopover}
           />
         )}
         
         {geoScore != null && geoGrade ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
+          <Popover>
+            <PopoverTrigger asChild>
               <div className={cn(
-                'flex flex-col items-center gap-1 px-3 py-1 group cursor-help',
+                'flex flex-col items-center gap-1 px-3 py-1 group cursor-pointer',
                 critiqueScore != null && 'border-l border-border/40',
               )}>
                 <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -144,11 +280,14 @@ export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, seoSc
                   />
                 </div>
               </div>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-[260px] text-xs leading-relaxed">
-              {SCORE_TOOLTIPS.geo}
-            </TooltipContent>
-          </Tooltip>
+            </PopoverTrigger>
+            <PopoverContent side="bottom" className="w-72 p-3 z-[300]">
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground mb-2">{SCORE_TOOLTIPS.geo}</p>
+                {geoPopover || <p className="text-xs text-muted-foreground italic">Không có dữ liệu chi tiết</p>}
+              </div>
+            </PopoverContent>
+          </Popover>
         ) : onTriggerGEO ? (
           <div className={cn(
             'flex flex-col items-center justify-center gap-1 px-3 py-1',
@@ -183,6 +322,7 @@ export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, seoSc
               max={100}
               colorClass={getScoreTextColor(seoScore, 100)}
               tooltip={SCORE_TOOLTIPS.seo}
+              popoverContent={seoPopover}
             />
           </div>
         )}
@@ -199,6 +339,7 @@ export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, seoSc
               max={100}
               colorClass={getScoreTextColor(engagementScore, 100)}
               tooltip={SCORE_TOOLTIPS.engagement}
+              popoverContent={engagementPopover}
             />
           </div>
         )}
