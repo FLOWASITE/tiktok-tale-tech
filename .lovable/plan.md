@@ -1,56 +1,31 @@
 
 
-# Trang Agent Directory — Mô tả công việc chi tiết từng Agent
+# Thêm liên kết Chiến dịch vào Goal Wizard
 
 ## Mục tiêu
-Tạo trang `/agents/directory` hiển thị danh sách 7 agents + Orchestrator, mỗi agent có mô tả chi tiết: vai trò, input/output, tools sử dụng, vị trí trong pipeline, và trạng thái hoạt động hiện tại.
+Cho phép user chọn một Chiến dịch (Campaign) khi tạo AI Campaign trong Goal Wizard. Content được AI tạo ra sẽ tự động gán vào chiến dịch đó.
 
-## Thiết kế UI
+## Thay đổi
 
-Trang dạng **card grid** — mỗi agent 1 card lớn chứa:
+### 1. Database Migration
+- Thêm cột `campaign_id` (UUID, nullable, FK → campaigns) vào bảng `agent_goals`
+- Thêm cột `campaign_id` vào bảng `agent_pipelines` (kế thừa từ goal)
 
-- **Icon + Tên + Badge trạng thái** (active/idle/flagged — lấy từ pipelines realtime)
-- **Vai trò**: Mô tả 1-2 câu
-- **Công việc cụ thể**: Danh sách bullet points
-- **Input**: Nhận gì từ agent trước
-- **Output**: Trả ra gì cho agent sau
-- **Tools**: Các tool agent sử dụng (web_search, brand_voice_check, etc.)
-- **Model & Chi phí**: Model AI sử dụng + estimated cost/call
-- **Vị trí pipeline**: Visual indicator stage nào trong pipeline
+### 2. Sửa `GoalWizard.tsx` — Step 3 (Thương hiệu)
+- Thêm `CampaignSelector` component (đã có sẵn) vào Step 3, ngay dưới Brand Template selector
+- Thêm state `campaignId` và truyền vào `onSubmit`
+- Hiển thị campaign đã chọn ở Step 4 (Xác nhận)
 
-8 agents:
-1. **Orchestrator** — Điều phối toàn bộ pipeline, phân công tasks
-2. **Research** — Nghiên cứu xu hướng, chọn topic tốt nhất
-3. **Strategy** — Lập kế hoạch content, calendar, gap analysis
-4. **Creator** — Viết content hoàn chỉnh từ brief
-5. **Optimizer** — Tối ưu SEO + GEO scores
-6. **Expander** — Mở rộng ra multi-channel versions
-7. **Compliance** — Kiểm tra tuân thủ, brand consistency
-8. **Analyst** — Theo dõi performance, feedback loop
+### 3. Sửa types & hooks
+- **`src/types/agent.ts`**: Thêm `campaign_id?: string | null` vào `AgentGoal` interface
+- **`src/hooks/useAgentGoals.ts`**: Thêm `campaign_id` vào `createGoal` mutationFn
 
-## Thay đổi kỹ thuật
-
-### 1. Tạo `src/pages/AgentDirectoryPage.tsx`
-- Dữ liệu agent descriptions là static (hardcoded array)
-- Trạng thái realtime: dùng `useAgentPipelines()` để đếm active pipelines per agent
-- Layout: responsive grid 1-2-3 columns
-- Mỗi card expandable (click để xem chi tiết tools/IO)
-
-### 2. Tạo `src/components/agents/AgentDetailCard.tsx`
-- Component card cho từng agent
-- Collapsible sections: mặc định show vai trò + công việc, expand để xem tools/IO/cost
-- Badge trạng thái kết nối realtime pipeline data
-
-### 3. Sửa routing + sidebar
-- Thêm route `/agents/directory` trong `routes.tsx`
-- Thêm sub-item "Agents" dưới "AI Agents" trong AppSidebar (icon: Bot)
-
-## Files
+### Files
 
 | File | Loại |
 |------|------|
-| `src/pages/AgentDirectoryPage.tsx` | Tạo |
-| `src/components/agents/AgentDetailCard.tsx` | Tạo |
-| `src/app/routes.tsx` | Sửa — thêm route |
-| `src/components/AppSidebar.tsx` | Sửa — thêm menu item |
+| Migration SQL | Tạo — thêm cột campaign_id |
+| `src/components/agents/GoalWizard.tsx` | Sửa — thêm CampaignSelector |
+| `src/types/agent.ts` | Sửa — thêm campaign_id |
+| `src/hooks/useAgentGoals.ts` | Sửa — thêm campaign_id |
 
