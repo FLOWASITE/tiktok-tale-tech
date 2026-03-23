@@ -1386,7 +1386,6 @@ export function MultiChannelViewer({
                                   onApplyBrandVoice={() => handleAIEdit(channel, APPLY_BRAND_VOICE_INSTRUCTION)}
                                   isLoading={isAIEditing}
                                   hasBrandVoice={!!content.brand_template_id}
-                                  seoScore={channel === 'website' && (content as any).website_seo_data?.score ? (content as any).website_seo_data.score : undefined}
                                 />
 
                                 <div className="flex gap-2 pt-2 border-t border-border/50">
