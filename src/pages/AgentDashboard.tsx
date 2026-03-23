@@ -21,7 +21,7 @@ export default function AgentDashboard() {
   const { currentOrganization } = useOrganizationContext();
   const { pipelines, isLoading: pipelinesLoading, updateStage } = useAgentPipelines();
   const { approvals, pendingCount, updateApproval } = useAgentApprovals();
-  const { goals, createGoal } = useAgentGoals();
+  const { goals, createGoal, updateGoal } = useAgentGoals();
   const [activeTab, setActiveTab] = useState('pipeline');
   const [wizardOpen, setWizardOpen] = useState(false);
 
