@@ -1473,6 +1473,14 @@ export function MultiChannelViewer({
                                   channelImage={generatedImages[channel] || content.channel_images?.[channel]?.url}
                                   critiqueScore={content.critique_score}
                                   geoScore={geoScoreData?.overall_score}
+                                  engagementScore={channelContent ? Math.min(100, Math.round(
+                                    (channelContent.length > 50 ? 20 : 10) +
+                                    ((channelContent.match(/[?!]/g) || []).length > 0 ? 15 : 0) +
+                                    ((channelContent.match(/(#\w+)/g) || []).length * 5) +
+                                    ((channelContent.match(/(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)/gu) || []).length * 3) +
+                                    (channelContent.split('\n').filter(l => l.trim()).length > 3 ? 15 : 5) +
+                                    ((channelContent.match(/(click|nhấn|liên hệ|mua|đăng ký|theo dõi|inbox|dm|share|comment|xem thêm)/gi) || []).length > 0 ? 15 : 0)
+                                  )) : undefined}
                                 />
                               </div>
                                 

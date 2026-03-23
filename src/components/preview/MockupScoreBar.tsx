@@ -1,7 +1,7 @@
 import { Star, Zap, TrendingUp } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { getGradeFromScore, GRADE_COLORS } from '@/types/creativeScore';
+import { Progress } from '@/components/ui/progress';
 
 interface MockupScoreBarProps {
   critiqueScore?: number | null;
@@ -10,18 +10,55 @@ interface MockupScoreBarProps {
   className?: string;
 }
 
-function getScoreColor(score: number): string {
-  if (score >= 85) return 'text-emerald-600 dark:text-emerald-400';
-  if (score >= 70) return 'text-yellow-600 dark:text-yellow-400';
-  if (score >= 50) return 'text-orange-600 dark:text-orange-400';
+function getScoreBg(score: number, max: number): string {
+  const pct = (score / max) * 100;
+  if (pct >= 80) return 'bg-emerald-500';
+  if (pct >= 60) return 'bg-yellow-500';
+  if (pct >= 40) return 'bg-orange-500';
+  return 'bg-red-500';
+}
+
+function getScoreTextColor(score: number, max: number): string {
+  const pct = (score / max) * 100;
+  if (pct >= 80) return 'text-emerald-600 dark:text-emerald-400';
+  if (pct >= 60) return 'text-yellow-600 dark:text-yellow-400';
+  if (pct >= 40) return 'text-orange-600 dark:text-orange-400';
   return 'text-red-600 dark:text-red-400';
 }
 
-function getCritiqueBg(score: number): string {
-  if (score >= 8) return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
-  if (score >= 6) return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
-  if (score >= 4) return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400';
-  return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+function ScoreColumn({ 
+  icon: Icon, 
+  label, 
+  value, 
+  suffix, 
+  max, 
+  colorClass 
+}: { 
+  icon: typeof Star; 
+  label: string; 
+  value: number; 
+  suffix: string; 
+  max: number; 
+  colorClass: string;
+}) {
+  const pct = (value / max) * 100;
+  return (
+    <div className="flex flex-col items-center gap-1 px-3 py-1">
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        <Icon className="w-3.5 h-3.5" />
+        <span className="text-[11px] font-medium uppercase tracking-wide">{label}</span>
+      </div>
+      <span className={cn('text-sm font-bold', colorClass)}>
+        {value}{suffix}
+      </span>
+      <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+        <div
+          className={cn('h-full rounded-full transition-all duration-500', getScoreBg(value, max))}
+          style={{ width: `${Math.min(pct, 100)}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, className }: MockupScoreBarProps) {
@@ -31,35 +68,65 @@ export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, class
 
   const geoGrade = geoScore != null ? getGradeFromScore(geoScore) : null;
 
+  // Count how many scores we have for grid
+  const scoreCount = [critiqueScore, geoScore, engagementScore].filter(s => s != null).length;
+  const gridCols = scoreCount === 1 ? 'grid-cols-1' : scoreCount === 2 ? 'grid-cols-2' : 'grid-cols-3';
+
   return (
     <div className={cn(
-      'flex items-center justify-center gap-3 py-2.5 px-4 bg-muted/60 rounded-t-xl border-b border-border/50',
+      'grid gap-0 py-2 px-2 bg-card/80 backdrop-blur-sm rounded-t-xl border border-border/60 shadow-sm',
+      gridCols,
       className
     )}>
       {critiqueScore != null && (
-        <div className="flex items-center gap-1.5">
-          <Star className="w-3.5 h-3.5 text-muted-foreground" />
-          <Badge variant="outline" className={cn('text-[11px] px-1.5 py-0 h-5 font-semibold border-0', getCritiqueBg(critiqueScore))}>
-            {critiqueScore.toFixed(1)}/10
-          </Badge>
-        </div>
+        <ScoreColumn
+          icon={Star}
+          label="Chất lượng"
+          value={critiqueScore}
+          suffix="/10"
+          max={10}
+          colorClass={getScoreTextColor(critiqueScore, 10)}
+        />
       )}
       
       {geoScore != null && geoGrade && (
-        <div className="flex items-center gap-1.5">
-          <Zap className="w-3.5 h-3.5 text-muted-foreground" />
-          <Badge variant="outline" className={cn('text-[11px] px-1.5 py-0 h-5 font-semibold border-0', GRADE_COLORS[geoGrade])}>
-            GEO {geoScore} {geoGrade}
-          </Badge>
+        <div className={cn(
+          'flex flex-col items-center gap-1 px-3 py-1',
+          critiqueScore != null && 'border-l border-border/40',
+        )}>
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <Zap className="w-3.5 h-3.5" />
+            <span className="text-[11px] font-medium uppercase tracking-wide">GEO</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className={cn('text-sm font-bold', getScoreTextColor(geoScore, 100))}>
+              {geoScore}
+            </span>
+            <span className={cn('text-xs font-semibold px-1 py-0.5 rounded', GRADE_COLORS[geoGrade])}>
+              {geoGrade}
+            </span>
+          </div>
+          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className={cn('h-full rounded-full transition-all duration-500', getScoreBg(geoScore, 100))}
+              style={{ width: `${Math.min(geoScore, 100)}%` }}
+            />
+          </div>
         </div>
       )}
 
       {engagementScore != null && (
-        <div className="flex items-center gap-1.5">
-          <TrendingUp className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className={cn('text-[11px] font-semibold', getScoreColor(engagementScore))}>
-            {engagementScore}%
-          </span>
+        <div className={cn(
+          (critiqueScore != null || geoScore != null) && 'border-l border-border/40',
+        )}>
+          <ScoreColumn
+            icon={TrendingUp}
+            label="Tương tác"
+            value={engagementScore}
+            suffix="%"
+            max={100}
+            colorClass={getScoreTextColor(engagementScore, 100)}
+          />
         </div>
       )}
     </div>
