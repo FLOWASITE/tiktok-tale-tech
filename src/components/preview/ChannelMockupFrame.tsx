@@ -1581,18 +1581,7 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const domain = brandName.toLowerCase().replace(/\s+/g, '') + '.com';
   
-  // Truncate long content for mockup preview to prevent slow rendering
-  const formattedContent = useMemo(() => {
-    const full = ensureMarkdownFormat(content);
-    // Limit to ~2000 chars for preview — keeps render fast
-    if (full.length > 2000) {
-      const truncated = full.slice(0, 2000);
-      // Cut at last complete line
-      const lastNewline = truncated.lastIndexOf('\n');
-      return (lastNewline > 1500 ? truncated.slice(0, lastNewline) : truncated) + '\n\n...';
-    }
-    return full;
-  }, [content]);
+  const formattedContent = useMemo(() => ensureMarkdownFormat(content), [content]);
   
   const wordCount = seoData?.word_count || formattedContent.split(/\s+/).length;
   const readTime = seoData?.reading_time_minutes || Math.max(1, Math.ceil(wordCount / 200));
@@ -1684,8 +1673,7 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
       {/* Website Content */}
       <div 
         ref={scrollContainerRef}
-        className="bg-white dark:bg-[#1c1c1e] max-h-[520px] overflow-y-auto relative"
-        onScroll={handleScroll}
+        className="bg-white dark:bg-[#1c1c1e] relative"
       >
         {seoData && seoScore > 0 && (
           <SEOScoreBadge score={seoScore} themeColor={themeColor} />
