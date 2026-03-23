@@ -286,7 +286,7 @@ export function BulkScheduleDialog({
                       )}
                     >
                       <Checkbox checked={selectedChannels.has(channel)} />
-                      <span className="text-sm">{channelEmojis[channel]}</span>
+                      <ChannelIcon channel={channel} size={16} className={channelIconColors[channel]} />
                       <span className="text-xs truncate">{channelInfo?.label || channel}</span>
                     </div>
                   );
