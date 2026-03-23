@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Channel } from '@/types/multichannel';
+import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
 import { ContentSchedule } from '@/types/publishing';
 import {
   DndContext,
@@ -36,20 +37,6 @@ interface CalendarDayViewProps {
   onCreateSchedule?: (date: Date) => void;
 }
 
-const channelEmojis: Record<Channel, string> = {
-  website: '🌐',
-  facebook: '📘',
-  instagram: '📸',
-  twitter: '𝕏',
-  google_maps: '📍',
-  linkedin: '💼',
-  email: '📧',
-  youtube: '▶️',
-  zalo_oa: '💬',
-  telegram: '✈️',
-  tiktok: '🎵',
-  threads: '🧵',
-};
 
 const channelColors: Record<Channel, string> = {
   website: 'border-l-blue-500 bg-blue-500/10',
@@ -120,7 +107,7 @@ function DayViewDraggableItem({
       )}
     >
       <div className="flex items-center gap-2">
-        <span className="text-sm">{channelEmojis[channel]}</span>
+        <ChannelIcon channel={channel} size={16} className={channelIconColors[channel]} />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">
             {schedule.content?.title || 'Không có tiêu đề'}
@@ -325,7 +312,7 @@ export function CalendarDayView({
               )}
             >
               <div className="flex items-center gap-2">
-                <span className="text-sm">{channelEmojis[draggedSchedule.channel as Channel]}</span>
+                <ChannelIcon channel={draggedSchedule.channel as Channel} size={16} className={channelIconColors[draggedSchedule.channel as Channel]} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
                     {draggedSchedule.content?.title || 'Không có tiêu đề'}

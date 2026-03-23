@@ -32,6 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { Channel, CHANNELS, MultiChannelContent, ContentStatus } from '@/types/multichannel';
+import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
@@ -44,20 +45,6 @@ interface BulkScheduleDialogProps {
   onScheduleComplete?: () => void;
 }
 
-const channelEmojis: Record<Channel, string> = {
-  website: '🌐',
-  facebook: '📘',
-  instagram: '📸',
-  twitter: '𝕏',
-  google_maps: '📍',
-  linkedin: '💼',
-  email: '📧',
-  youtube: '▶️',
-  zalo_oa: '💬',
-  telegram: '✈️',
-  tiktok: '🎵',
-  threads: '🧵',
-};
 
 // Stagger intervals in minutes
 const STAGGER_OPTIONS = [
@@ -250,7 +237,7 @@ export function BulkScheduleDialog({
                     <span className="truncate">{content.title}</span>
                     <div className="flex gap-0.5 ml-auto">
                       {content.selected_channels.slice(0, 3).map(ch => (
-                        <span key={ch} className="text-[10px]">{channelEmojis[ch as Channel]}</span>
+                        <ChannelIcon key={ch} channel={ch as Channel} size={12} className={channelIconColors[ch as Channel]} />
                       ))}
                       {content.selected_channels.length > 3 && (
                         <span className="text-[10px] text-muted-foreground">+{content.selected_channels.length - 3}</span>
@@ -300,7 +287,7 @@ export function BulkScheduleDialog({
                       )}
                     >
                       <Checkbox checked={selectedChannels.has(channel)} />
-                      <span className="text-sm">{channelEmojis[channel]}</span>
+                      <ChannelIcon channel={channel} size={16} className={channelIconColors[channel]} />
                       <span className="text-xs truncate">{channelInfo?.label || channel}</span>
                     </div>
                   );
@@ -400,7 +387,7 @@ export function BulkScheduleDialog({
                       <Badge variant="outline" className="shrink-0 text-[10px] px-1.5">
                         #{idx + 1}
                       </Badge>
-                      <span>{channelEmojis[item.channel]}</span>
+                      <ChannelIcon channel={item.channel} size={14} className={channelIconColors[item.channel]} />
                       <span className="truncate flex-1">{item.content.title}</span>
                       <Badge variant="secondary" className="shrink-0 text-[10px]">
                         {format(item.scheduledAt, 'dd/MM HH:mm', { locale: vi })}

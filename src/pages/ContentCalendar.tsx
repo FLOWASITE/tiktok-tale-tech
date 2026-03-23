@@ -91,20 +91,6 @@ interface ScheduleWithContent extends ContentSchedule {
   };
 }
 
-const channelEmojis: Record<Channel, string> = {
-  website: '🌐',
-  facebook: '📘',
-  instagram: '📸',
-  twitter: '𝕏',
-  google_maps: '📍',
-  linkedin: '💼',
-  email: '📧',
-  youtube: '▶️',
-  zalo_oa: '💬',
-  telegram: '✈️',
-  tiktok: '🎵',
-  threads: '🧵',
-};
 
 const channelColors: Record<Channel, { border: string; bg: string; text: string }> = {
   website: { border: 'border-l-blue-500', bg: 'bg-blue-500/10', text: 'text-blue-700 dark:text-blue-400' },
@@ -163,7 +149,7 @@ function DraggableScheduleItem({
     >
       <div className="flex items-center gap-1.5">
         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusColor}`} />
-        <span>{channelEmojis[channel]}</span>
+        <ChannelIcon channel={channel} size={14} className={channelIconColors[channel]} />
         <span className={`truncate font-medium ${colors.text}`}>{schedule.content?.title || 'Không có tiêu đề'}</span>
       </div>
       <div className="text-muted-foreground text-[10px] mt-0.5">
@@ -910,7 +896,7 @@ export default function ContentCalendar() {
                           onClick={() => handleScheduleClick(schedule)}
                           className="text-xs p-1.5 rounded bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1.5 truncate"
                         >
-                          <span>{channelEmojis[schedule.channel as Channel]}</span>
+                          <ChannelIcon channel={schedule.channel as Channel} size={14} className={channelIconColors[schedule.channel as Channel]} />
                           <span className="truncate">{schedule.content?.title || 'Không có tiêu đề'}</span>
                           <span className="text-muted-foreground ml-auto shrink-0">
                             {format(parseISO(schedule.scheduled_at), 'HH:mm')}
@@ -1075,7 +1061,7 @@ export default function ContentCalendar() {
                   {draggedSchedule && (
                     <div className="text-xs p-2 rounded bg-card border-2 border-primary shadow-lg">
                       <div className="flex items-center gap-1.5">
-                        <span>{channelEmojis[draggedSchedule.channel as Channel]}</span>
+                        <ChannelIcon channel={draggedSchedule.channel as Channel} size={14} className={channelIconColors[draggedSchedule.channel as Channel]} />
                         <span className="font-medium">{draggedSchedule.content?.title}</span>
                       </div>
                     </div>
