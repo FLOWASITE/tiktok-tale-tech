@@ -65,7 +65,11 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString('vi-VN');
 }
 
-export function CarouselGalleryView() {
+interface CarouselGalleryViewProps {
+  initialContentId?: string;
+}
+
+export function CarouselGalleryView({ initialContentId }: CarouselGalleryViewProps) {
   const {
     images,
     allImages,
@@ -98,6 +102,13 @@ export function CarouselGalleryView() {
     getImageIdsForFolder,
     setCarouselFilter,
   } = useCarouselGallery();
+
+  // Auto-select folder from initialContentId prop
+  useEffect(() => {
+    if (initialContentId) {
+      setSelectedFolderId(initialContentId);
+    }
+  }, [initialContentId, setSelectedFolderId]);
 
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
