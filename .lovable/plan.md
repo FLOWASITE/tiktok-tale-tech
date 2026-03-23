@@ -1,33 +1,45 @@
 
 
-# Phân loại lại kênh xuất bản theo loại nội dung
+# Nâng cấp GEO Scoring — từ 80 lên 90+ điểm
 
-## Hiện tại
-Kênh được phân thành 4 nhóm: **Mạng xã hội**, **Nền tảng nội dung**, **Kênh trực tiếp**, **Địa phương** — phân theo nền tảng, không theo loại nội dung.
+## 5 vấn đề cần sửa
 
-## Phân loại mới (theo loại nội dung)
+| # | Vấn đề | Tác động |
+|---|--------|----------|
+| 1 | Model scoring quá yếu (`flash-lite`) | Chấm thiếu chính xác, cho điểm "safe" |
+| 2 | Prompt thiếu rubric chi tiết | AI không biết scale nào cho 90 vs 70 |
+| 3 | `structured_data` đánh giá schema markup trong text | Text thuần luôn bị 0-30, kéo tổng xuống |
+| 4 | Content bị cắt 6000 chars | Bài dài mất phần cuối |
+| 5 | Chỉ chấm 1 lần, không feedback loop | Nội dung không được cải thiện |
 
-| Nhóm | Kênh | Lý do |
-|------|------|-------|
-| **📝 Thiên về Text** | Website/Blog, LinkedIn, X (Twitter), Threads, Email, Telegram | Nội dung chủ yếu là văn bản dài/ngắn |
-| **📸 Thiên về Ảnh** | Instagram, Facebook, Google Maps, Zalo OA | Ảnh là yếu tố chính, text hỗ trợ |
-| **🎬 Thiên về Video** | TikTok, YouTube | Nội dung video là core |
+## Giải pháp
 
-## Thay đổi
+### 1. Nâng model scoring → `gemini-2.5-flash`
+- Thay `gemini-2.5-flash-lite` bằng `gemini-2.5-flash` (cân bằng hơn)
+- Đánh giá chính xác hơn, phân biệt tốt hơn giữa 80 và 95
 
-### 1. Cập nhật `src/types/multichannel.ts` — đổi `category` của CHANNELS
-- Website: `'text'`, LinkedIn: `'text'`, Twitter: `'text'`, Threads: `'text'`, Email: `'text'`, Telegram: `'text'`
-- Instagram: `'image'`, Facebook: `'image'`, Google Maps: `'image'`, Zalo OA: `'image'`
-- TikTok: `'video'`, YouTube: `'video'`
+### 2. Thêm rubric chi tiết vào scoring prompt
+- Mỗi yếu tố có mô tả rõ: 90-100 = gì, 70-89 = gì, dưới 70 = gì
+- Ví dụ: answer_first 90+ = "Câu đầu tiên mỗi section trả lời trực tiếp, có số liệu"
 
-### 2. Cập nhật `src/components/multichannel/CompactChannelGrid.tsx` — đổi tên nhóm
-- `{ name: 'Thiên về Text', key: 'text', icon: FileText }`
-- `{ name: 'Thiên về Ảnh', key: 'image', icon: Image }`
-- `{ name: 'Thiên về Video', key: 'video', icon: Video }`
-- Mặc định expand tất cả 3 nhóm (chỉ còn 3 thay vì 4)
-- Thêm icon nhận diện cho mỗi nhóm trong header
+### 3. Đổi `structured_data` → đánh giá cấu trúc nội dung
+- Thay vì đòi JSON-LD/schema markup (không áp dụng cho text), đánh giá:
+  - Có bullet lists, numbered lists không?
+  - Có bảng so sánh không?
+  - Có FAQ format không?
+- Phù hợp hơn với nội dung Markdown
 
-### Files cần sửa
-- `src/types/multichannel.ts` — đổi `category` field cho từng channel
-- `src/components/multichannel/CompactChannelGrid.tsx` — đổi tên nhóm + icon
+### 4. Tăng limit content → 10000 chars
+- Cho phép đánh giá nhiều nội dung hơn
+
+### 5. Cải thiện generation prompt — thêm ví dụ cụ thể
+- Thêm ví dụ "trước/sau" vào GEO guidelines
+- Thêm yêu cầu: "PHẢI có ít nhất 5 citations cụ thể" thay vì chỉ nói "nên có"
+
+## Files cần sửa
+
+| File | Thay đổi |
+|------|----------|
+| `supabase/functions/geo-score-content/index.ts` | Nâng model, thêm rubric, đổi structured_data criteria, tăng char limit |
+| `supabase/functions/_shared/geo-prompt-guidelines.ts` | Thêm ví dụ cụ thể, yêu cầu mạnh hơn cho citations/answer-first |
 
