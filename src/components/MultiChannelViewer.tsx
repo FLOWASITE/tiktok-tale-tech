@@ -77,6 +77,8 @@ import { CoreContentViewer } from '@/components/core-content/CoreContentViewer';
 import type { CoreContent } from '@/types/coreContent';
 import { GEOScorePanel } from '@/components/geo/GEOScorePanel';
 import { useGEOContentScore } from '@/hooks/useGEOContentScore';
+import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 
@@ -256,6 +258,7 @@ export function MultiChannelViewer({
   expandingChannels,
 }: MultiChannelViewerProps) {
   const { currentOrganization } = useOrganizationContext();
+  const queryClient = useQueryClient();
   const [copiedChannel, setCopiedChannel] = useState<Channel | null>(null);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -610,6 +613,21 @@ export function MultiChannelViewer({
           }).catch(err => console.warn('[learning] Failed to track edit:', err));
         }
         
+        // Auto-trigger GEO scoring (fire and forget)
+        if (currentOrganization?.id && contentToSave.length > 50) {
+          invokeWithTimeout('geo-score-content', {
+            body: {
+              contentId: content.id,
+              contentType: 'multi_channel',
+              contentText: contentToSave,
+              organizationId: currentOrganization.id,
+            },
+            timeoutMs: 30_000,
+          }).then(() => {
+            queryClient.invalidateQueries({ queryKey: ['geo-content-score', content.id] });
+          }).catch(err => console.warn('[geo] Auto-score failed:', err));
+        }
+
         setEditingChannel(null);
         resetEditContent('');
         setPreviewContent(null);
@@ -1369,7 +1387,7 @@ export function MultiChannelViewer({
                                   isLoading={isAIEditing}
                                   hasBrandVoice={!!content.brand_template_id}
                                 />
-                                
+
                                 <div className="flex gap-2 pt-2 border-t border-border/50">
                                   <Input
                                     placeholder="Nhập yêu cầu chỉnh sửa..."
@@ -1481,6 +1499,7 @@ export function MultiChannelViewer({
                                     (channelContent.split('\n').filter(l => l.trim()).length > 3 ? 15 : 5) +
                                     ((channelContent.match(/(click|nhấn|liên hệ|mua|đăng ký|theo dõi|inbox|dm|share|comment|xem thêm)/gi) || []).length > 0 ? 15 : 0)
                                   )) : undefined}
+                                  seoScore={channel === 'website' && (content as any).website_seo_data?.score ? (content as any).website_seo_data.score : undefined}
                                 />
                               </div>
                                 

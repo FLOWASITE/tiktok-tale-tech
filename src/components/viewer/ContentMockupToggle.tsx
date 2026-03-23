@@ -21,6 +21,7 @@ interface ContentMockupToggleProps {
   critiqueScore?: number | null;
   geoScore?: number | null;
   engagementScore?: number | null;
+  seoScore?: number | null;
 }
 
 // Map multichannel Channel to ChannelMockupFrame type
@@ -52,6 +53,7 @@ export function ContentMockupToggle({
   critiqueScore,
   geoScore,
   engagementScore,
+  seoScore,
 }: ContentMockupToggleProps) {
   const mockupType = channelToMockupType[channel];
   
@@ -63,7 +65,7 @@ export function ContentMockupToggle({
     ? brandName.trim() 
     : 'Brand';
 
-  const scoreBar = <MockupScoreBar critiqueScore={critiqueScore} geoScore={geoScore} engagementScore={engagementScore} />;
+  const scoreBar = <MockupScoreBar critiqueScore={critiqueScore} geoScore={geoScore} engagementScore={engagementScore} seoScore={channel === 'website' ? seoScore : undefined} />;
 
   // Use dedicated Google Maps mockup
   if (channel === 'google_maps') {
