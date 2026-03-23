@@ -1,4 +1,4 @@
-import { Star, Zap, TrendingUp, Info, Search } from 'lucide-react';
+import { Star, Zap, TrendingUp, Info, Search, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getGradeFromScore, GRADE_COLORS } from '@/types/creativeScore';
 import {
@@ -7,6 +7,7 @@ import {
   TooltipContent,
   TooltipProvider,
 } from '@/components/ui/tooltip';
+import { Button } from '@/components/ui/button';
 
 interface MockupScoreBarProps {
   critiqueScore?: number | null;
@@ -14,6 +15,8 @@ interface MockupScoreBarProps {
   engagementScore?: number | null;
   seoScore?: number | null;
   className?: string;
+  onTriggerGEO?: () => void;
+  isGEOLoading?: boolean;
 }
 
 function getScoreBg(score: number, max: number): string {
@@ -84,14 +87,15 @@ function ScoreColumn({
   );
 }
 
-export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, seoScore, className }: MockupScoreBarProps) {
-  // Always show if engagement is available (it's always computed from text)
+export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, seoScore, className, onTriggerGEO, isGEOLoading }: MockupScoreBarProps) {
   const hasAnyScore = critiqueScore != null || geoScore != null || engagementScore != null || seoScore != null;
+  // Show the bar if we have any score OR if we can trigger GEO
+  const showBar = hasAnyScore || onTriggerGEO;
   
-  if (!hasAnyScore) return null;
+  if (!showBar) return null;
 
   const geoGrade = geoScore != null ? getGradeFromScore(geoScore) : null;
-  const scoreCount = [critiqueScore, geoScore, engagementScore, seoScore].filter(s => s != null).length;
+  const scoreCount = [critiqueScore, geoScore, engagementScore, seoScore].filter(s => s != null).length + (geoScore == null && onTriggerGEO ? 1 : 0);
   const gridCols = scoreCount <= 1 ? 'grid-cols-1' : scoreCount === 2 ? 'grid-cols-2' : scoreCount === 3 ? 'grid-cols-3' : 'grid-cols-4';
 
   return (
@@ -113,7 +117,7 @@ export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, seoSc
           />
         )}
         
-        {geoScore != null && geoGrade && (
+        {geoScore != null && geoGrade ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <div className={cn(
@@ -145,7 +149,27 @@ export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, seoSc
               {SCORE_TOOLTIPS.geo}
             </TooltipContent>
           </Tooltip>
-        )}
+        ) : onTriggerGEO ? (
+          <div className={cn(
+            'flex flex-col items-center justify-center gap-1 px-3 py-1',
+            critiqueScore != null && 'border-l border-border/40',
+          )}>
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Zap className="w-3.5 h-3.5" />
+              <span className="text-[11px] font-medium uppercase tracking-wide">GEO</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 text-[10px] px-2 gap-1"
+              onClick={onTriggerGEO}
+              disabled={isGEOLoading}
+            >
+              {isGEOLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+              {isGEOLoading ? 'Đang chấm...' : 'Chấm GEO'}
+            </Button>
+          </div>
+        ) : null}
 
         {seoScore != null && (
           <div className={cn(
