@@ -56,6 +56,8 @@ export function ContentMockupToggle({
   geoScore,
   engagementScore,
   seoScore,
+  onTriggerGEO,
+  isGEOLoading,
 }: ContentMockupToggleProps) {
   const mockupType = channelToMockupType[channel];
   
@@ -67,7 +69,7 @@ export function ContentMockupToggle({
     ? brandName.trim() 
     : 'Brand';
 
-  const scoreBar = <MockupScoreBar critiqueScore={critiqueScore} geoScore={geoScore} engagementScore={engagementScore} seoScore={channel === 'website' ? seoScore : undefined} />;
+  const scoreBar = <MockupScoreBar critiqueScore={critiqueScore} geoScore={geoScore} engagementScore={engagementScore} seoScore={channel === 'website' ? seoScore : undefined} onTriggerGEO={onTriggerGEO} isGEOLoading={isGEOLoading} />;
 
   // Use dedicated Google Maps mockup
   if (channel === 'google_maps') {
