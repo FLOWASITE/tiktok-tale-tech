@@ -943,7 +943,7 @@ Deno.serve(withPerf({ functionName: 'generate-core-content', slowThresholdMs: 45
       status: 'draft',
       outline: null,
       generation_metadata: {
-        lengthMode,
+        lengthMode: effectiveLengthMode,
         stepsCompleted: enableResearch ? ['research', ...result.metadata.stepsCompleted] : result.metadata.stepsCompleted,
         totalTokensEstimated: result.metadata.totalTokensEstimated,
         modelsUsed: result.metadata.modelsUsed,
