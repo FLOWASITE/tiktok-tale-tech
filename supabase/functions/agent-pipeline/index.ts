@@ -228,8 +228,8 @@ serve(async (req) => {
         if (hoursSinceLast < minIntervalHours) continue;
 
         const topics = (goal.target_topics as string[]) || [];
-        if (topics.length === 0) continue;
-        const topic = topics[Math.floor(Math.random() * topics.length)];
+        const effectiveTopics = topics.length > 0 ? topics : [goal.name];
+        const topic = effectiveTopics[Math.floor(Math.random() * effectiveTopics.length)];
 
         const pipelineState = createPipelineState({
           brand_template_id: goal.brand_template_id || null,
