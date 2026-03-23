@@ -40,6 +40,7 @@ import { CalendarMilestoneItem } from '@/components/CalendarMilestoneItem';
 import { CampaignTimelineBar } from '@/components/calendar/CampaignTimelineBar';
 import { CalendarDayNotes } from '@/components/calendar/CalendarDayNotes';
 import { useCalendarNotes, CalendarNote } from '@/hooks/useCalendarNotes';
+import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
 import { ContentSchedule, PUBLISH_STATUSES, PublishStatus } from '@/types/publishing';
 import { Channel, CHANNELS, MultiChannelContent, MultiChannelFormData, ContentGoal } from '@/types/multichannel';
 import { ScheduleTopicDialog, ScheduleTopicData } from '@/components/topic/ScheduleTopicDialog';
