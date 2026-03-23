@@ -52,7 +52,9 @@ serve(async (req) => {
       if (goalErr || !goal) throw new Error("Goal not found");
 
       const pipelines = [];
-      for (const topic of (goal.target_topics || [])) {
+      const topics = (goal.target_topics as string[]) || [];
+      const effectiveTopics = topics.length > 0 ? topics : [goal.name];
+      for (const topic of effectiveTopics) {
         const pipelineState = createPipelineState({
           brand_template_id: goal.brand_template_id || null,
           campaign_id: goal.campaign_id || null,
