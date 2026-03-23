@@ -9,14 +9,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { 
   Target, Hash, Radio, Palette, Eye, ChevronLeft, ChevronRight, 
-  Check, Plus, X, Sparkles, ShieldCheck, Zap
+  Check, Plus, X, Sparkles, ShieldCheck, Zap, Loader2, Bot
 } from 'lucide-react';
 import { AgentAutonomyLevel, AgentGoal, AUTONOMY_LEVELS } from '@/types/agent';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { useCurrentBrand } from '@/contexts/BrandContext';
 import { cn } from '@/lib/utils';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
+import { toast } from 'sonner';
 
 const AVAILABLE_CHANNELS = [
   { id: 'blog', label: 'Blog', icon: '📝' },
@@ -64,6 +66,7 @@ interface GoalWizardProps {
 
 export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWizardProps) {
   const { currentOrganization } = useOrganizationContext();
+  const { currentBrand } = useCurrentBrand();
   const [step, setStep] = useState(0);
   
   const [name, setName] = useState('');
@@ -75,6 +78,10 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   const [autonomyLevel, setAutonomyLevel] = useState<AgentAutonomyLevel>('human_in_loop');
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
   const [campaignId, setCampaignId] = useState<string | undefined>(undefined);
+
+  // AI suggest state
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
 
   // Pre-fill when editing
   useEffect(() => {
@@ -88,33 +95,78 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
       setBrandTemplateId(initialData.brand_template_id || '');
       setCampaignId(initialData.campaign_id || undefined);
       setStep(0);
+      setAiSuggestions([]);
     } else if (open && !initialData) {
       resetForm();
     }
   }, [open, initialData]);
+
+  // Auto-fill brandTemplateId from currentBrand
+  useEffect(() => {
+    if (open && currentBrand && !brandTemplateId) {
+      setBrandTemplateId(currentBrand.id);
+    }
+  }, [open, currentBrand]);
 
   const resetForm = () => {
     setStep(0);
     setName(''); setDescription(''); setTopics([]);
     setTopicInput('');
     setSelectedChannels([]); setFrequency({});
-    setAutonomyLevel('human_in_loop'); setBrandTemplateId('');
+    setAutonomyLevel('human_in_loop');
+    setBrandTemplateId(currentBrand?.id || '');
     setCampaignId(undefined);
+    setAiSuggestions([]);
   };
 
-  const { data: brandTemplates = [] } = useQuery({
-    queryKey: ['brand-templates-list', currentOrganization?.id],
-    queryFn: async () => {
-      if (!currentOrganization?.id) return [];
-      const { data } = await supabase
-        .from('brand_templates')
-        .select('id, brand_name')
-        .eq('organization_id', currentOrganization.id)
-        .order('brand_name');
-      return data || [];
-    },
-    enabled: !!currentOrganization?.id,
-  });
+  const handleSuggestTopics = async () => {
+    if (!currentBrand?.id) {
+      toast.error('Vui lòng chọn Brand trước khi gợi ý');
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('topic-ai', {
+        body: {
+          action: 'suggest',
+          brand_template_id: currentBrand.id,
+          count: 8,
+        },
+      });
+      if (error) throw error;
+      // Extract topic titles from response
+      const suggestions: string[] = [];
+      if (data?.topics && Array.isArray(data.topics)) {
+        data.topics.forEach((t: any) => {
+          if (typeof t === 'string') suggestions.push(t);
+          else if (t?.title) suggestions.push(t.title);
+          else if (t?.topic) suggestions.push(t.topic);
+        });
+      } else if (data?.suggestions && Array.isArray(data.suggestions)) {
+        data.suggestions.forEach((t: any) => {
+          if (typeof t === 'string') suggestions.push(t);
+          else if (t?.title) suggestions.push(t.title);
+        });
+      }
+      setAiSuggestions(suggestions);
+      if (suggestions.length === 0) {
+        toast.info('AI không trả về gợi ý nào. Thử nhập chủ đề thủ công.');
+      }
+    } catch (err: any) {
+      console.error('AI suggest error:', err);
+      toast.error('Không thể gợi ý chủ đề: ' + (err.message || 'Lỗi không xác định'));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const toggleSuggestion = (suggestion: string) => {
+    if (topics.includes(suggestion)) {
+      setTopics(topics.filter(t => t !== suggestion));
+    } else {
+      setTopics([...topics, suggestion]);
+    }
+  };
 
   const addTopic = () => {
     const t = topicInput.trim();
@@ -205,21 +257,71 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                 <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Mô tả ngắn về mục tiêu campaign..." rows={2} className="text-sm resize-none" />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">Chủ đề nội dung * ({topics.length})</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Chủ đề nội dung * ({topics.length})</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSuggestTopics}
+                    disabled={aiLoading || !currentBrand}
+                    className="text-xs gap-1.5 h-7 px-2 text-primary hover:text-primary"
+                  >
+                    {aiLoading ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Bot className="w-3 h-3" />
+                    )}
+                    {aiLoading ? 'Đang gợi ý...' : 'Gợi ý bằng AI'}
+                  </Button>
+                </div>
                 <div className="flex gap-2">
                   <Input value={topicInput} onChange={e => setTopicInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTopic())} placeholder="Nhập chủ đề rồi Enter..." className="text-sm" />
                   <Button variant="outline" size="sm" onClick={addTopic} disabled={!topicInput.trim()}>
                     <Plus className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {topics.map(t => (
-                    <Badge key={t} variant="secondary" className="text-[10px] gap-1 pr-1">
-                      {t}
-                      <button onClick={() => setTopics(topics.filter(x => x !== t))}><X className="w-3 h-3" /></button>
-                    </Badge>
-                  ))}
-                </div>
+
+                {/* AI Suggestions */}
+                {aiSuggestions.length > 0 && (
+                  <div className="space-y-1.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <Sparkles className="w-3 h-3 text-primary/60" />
+                      <span>Gợi ý từ AI — click để chọn:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {aiSuggestions.map((suggestion, idx) => {
+                        const isSelected = topics.includes(suggestion);
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => toggleSuggestion(suggestion)}
+                            className={cn(
+                              "px-2.5 py-1 rounded-full text-[10px] font-medium transition-all duration-200 border",
+                              isSelected
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-primary/5 text-primary/80 border-primary/15 hover:bg-primary/15 hover:border-primary/30"
+                            )}
+                          >
+                            {isSelected && <Check className="w-2.5 h-2.5 inline mr-1" />}
+                            {suggestion}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Selected topics */}
+                {topics.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {topics.map(t => (
+                      <Badge key={t} variant="secondary" className="text-[10px] gap-1 pr-1">
+                        {t}
+                        <button onClick={() => setTopics(topics.filter(x => x !== t))}><X className="w-3 h-3" /></button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -287,18 +389,26 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
           {step === 3 && (
             <div className="space-y-4">
+              {/* Brand — readonly from header */}
               <div className="space-y-2">
-                <Label className="text-xs">Chọn Brand Template (tùy chọn)</Label>
-                <Select value={brandTemplateId} onValueChange={setBrandTemplateId}>
-                  <SelectTrigger className="text-sm"><SelectValue placeholder="Không chọn — dùng mặc định" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none" className="text-sm">Không chọn</SelectItem>
-                    {brandTemplates.map(bt => (
-                      <SelectItem key={bt.id} value={bt.id} className="text-sm">{bt.brand_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-muted-foreground">Brand template cung cấp tone of voice, keywords, personas để AI tạo nội dung chuẩn thương hiệu.</p>
+                <Label className="text-xs">Brand Template</Label>
+                <div className="flex items-center gap-2 p-2.5 rounded-lg border bg-muted/30">
+                  {currentBrand ? (
+                    <>
+                      <div
+                        className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold text-primary-foreground"
+                        style={{ backgroundColor: currentBrand.primary_color || 'hsl(var(--primary))' }}
+                      >
+                        {currentBrand.brand_name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-sm font-medium">{currentBrand.brand_name}</span>
+                      <Badge variant="secondary" className="text-[9px] ml-auto">Đang dùng</Badge>
+                    </>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Chưa chọn brand</span>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground">Brand được lấy từ header. Đổi brand ở menu trên cùng.</p>
               </div>
               <div className="space-y-2">
                 <Label className="text-xs">Liên kết Chiến dịch (tùy chọn)</Label>
@@ -337,9 +447,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                 </div>
                 <div className="flex justify-between py-1.5 border-b">
                   <span className="text-muted-foreground">Brand</span>
-                  <span className="font-medium">
-                    {brandTemplateId && brandTemplateId !== 'none' ? brandTemplates.find(b => b.id === brandTemplateId)?.brand_name : 'Mặc định'}
-                  </span>
+                  <span className="font-medium">{currentBrand?.brand_name || 'Mặc định'}</span>
                 </div>
                 <div className="flex justify-between py-1.5">
                   <span className="text-muted-foreground">Chiến dịch</span>
