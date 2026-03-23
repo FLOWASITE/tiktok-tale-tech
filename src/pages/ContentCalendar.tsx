@@ -1011,7 +1011,11 @@ export default function ContentCalendar() {
                           isCurrentMonth={isSameMonth(date, currentDate)}
                           schedules={filteredSchedules}
                           milestones={allMilestones}
+                          notes={calendarNotes}
                           onScheduleClick={handleScheduleClick}
+                          onAddNote={addNote}
+                          onUpdateNote={updateNote}
+                          onDeleteNote={deleteNote}
                         />
                       ))}
                     </div>
