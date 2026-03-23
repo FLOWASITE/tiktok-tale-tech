@@ -702,10 +702,14 @@ export function MultiChannelFormWizard({
   }, [currentStep, formData, coreContentData, isGeneratingCoreContent, skipCoreContent]);
 
   const handleNext = () => {
-    // For Step 2: If not generating and no core content, block
-    if (currentStep === 2 && !isGeneratingCoreContent && !coreContentData?.id && !formData.coreContentId) {
+    // For Step 2: If not generating and no core content and not skipping, block
+    if (currentStep === 2 && !skipCoreContent && !isGeneratingCoreContent && !coreContentData?.id && !formData.coreContentId) {
       toast.error('Vui lòng tạo Core Content trước khi tiếp tục');
       return;
+    }
+    // When skipping, clear coreContentId
+    if (currentStep === 2 && skipCoreContent) {
+      setFormData(prev => ({ ...prev, coreContentId: undefined }));
     }
     
     if (currentStep < 6 && canProceed) {
