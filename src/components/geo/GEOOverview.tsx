@@ -7,6 +7,8 @@ import { SOVChart } from './SOVChart';
 import { SentimentGauge } from './SentimentGauge';
 import { CitationTracker } from './CitationTracker';
 import { VisibilityAlerts } from './VisibilityAlerts';
+import { TrendChart } from './TrendChart';
+import { AlertHistory } from './AlertHistory';
 import { useGEOResults } from '@/hooks/useGEOResults';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,7 +25,6 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
   const [scanning, setScanning] = useState(false);
   const [lastScan, setLastScan] = useState<{ cost: number; count: number } | null>(null);
 
-  // Fetch last scan job info
   useEffect(() => {
     if (!activeMonitor?.id) return;
     supabase
@@ -72,11 +73,15 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
 
   if (!activeMonitor) return null;
 
+  // Count real vs simulated results
+  const realCount = results.filter((r: any) => r.is_simulated === false).length;
+  const simulatedCount = results.filter((r: any) => r.is_simulated !== false).length;
+
   return (
     <div className="space-y-6">
       {/* Header Stats */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Badge variant="outline" className="text-sm">
             {activeMonitor.brand_name}
           </Badge>
@@ -88,6 +93,16 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
               <DollarSign className="h-3 w-3" />
               Last scan: ${lastScan.cost.toFixed(4)}
             </span>
+          )}
+          {realCount > 0 && (
+            <Badge className="text-[10px] px-1.5 py-0 bg-green-500/10 text-green-600 dark:text-green-400">
+              {realCount} Real
+            </Badge>
+          )}
+          {simulatedCount > 0 && (
+            <Badge className="text-[10px] px-1.5 py-0 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400">
+              {simulatedCount} Simulated
+            </Badge>
           )}
         </div>
         <Button onClick={handleScan} disabled={scanning} size="sm">
@@ -143,6 +158,9 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
         </Card>
       </div>
 
+      {/* Trend Chart */}
+      <TrendChart monitorId={activeMonitor.id} />
+
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <SOVChart results={results} brandName={activeMonitor.brand_name} competitors={activeMonitor.competitors} />
@@ -152,8 +170,11 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
       {/* Bottom Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <CitationTracker results={results} />
-        <VisibilityAlerts results={results} brandName={activeMonitor.brand_name} />
+        <VisibilityAlerts monitorId={activeMonitor.id} organizationId={activeMonitor.organization_id} />
       </div>
+
+      {/* Alert History */}
+      <AlertHistory />
     </div>
   );
 }
