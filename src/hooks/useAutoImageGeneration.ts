@@ -167,11 +167,11 @@ export function useAutoImageGeneration() {
         setProgress(prev => ({ ...prev, [channel]: 'generating' }));
         setProgressTimes(prev => ({ ...prev, [channel]: startTime }));
         
-        // Determine rendering mode
-        const overlayMode = options.overlayMode || 'satori';
-        const isAiRenderMode = overlayMode === 'ai_render' && !!structuredOverlay;
+        // Determine rendering mode — default to ai_render (AI renders text directly)
+        const overlayMode = options.overlayMode || 'ai_render';
+        const isAiRenderMode = overlayMode === 'ai_render';
         const effectiveContentType = isAiRenderMode 
-          ? 'with_text'
+          ? (imageContentType || 'with_text')
           : (structuredOverlay ? 'background_only' : (useCanvasFallback ? 'background_only' : imageContentType));
         
         console.log(`[Pipeline:${channel}] ▶ STEP 1/4 — Generate base image`, {
@@ -213,12 +213,12 @@ export function useAutoImageGeneration() {
             typographyStyle: effectiveContentType === 'with_text' ? typographyStyle : undefined,
             promptMode,
             // AI Render mode: pass structured elements for AI to render text directly
-            structuredElements: isAiRenderMode ? structuredOverlay.elements : undefined,
-            structuredColors: isAiRenderMode ? structuredOverlay.colors : undefined,
+            structuredElements: isAiRenderMode && structuredOverlay ? structuredOverlay.elements : undefined,
+            structuredColors: isAiRenderMode && structuredOverlay ? structuredOverlay.colors : undefined,
             // Template ID for AI layout guidance
             structuredTemplate: isAiRenderMode ? options.structuredTemplate : undefined,
-            // Logo safe zone: tell AI to keep logo area clear in ai_render mode
-            logoSafeZone: isAiRenderMode && includeLogo && logoUrl ? {
+            // Logo safe zone: tell AI to keep logo area clear
+            logoSafeZone: includeLogo && logoUrl ? {
               position: resolvedLogoPosition,
               sizePercent: logoSizePercent || 15,
             } : undefined,
@@ -295,10 +295,9 @@ export function useAutoImageGeneration() {
           console.log(`[Pipeline:${channel}] ⏭ STEP 2 SKIPPED — no logo configured`);
         }
 
-        // Step 3: Overlay text using canvas if useCanvasFallback is enabled
-        // Skip if structuredOverlay is active (Step 4 handles text rendering)
-        // Skip entirely in ai_render mode (AI already rendered text)
-        if (useCanvasFallback && imageContentType === 'with_text' && channelText && !structuredOverlay && !isAiRenderMode) {
+        // Step 3: Overlay text using canvas (Satori) — ONLY in satori mode
+        // In ai_render mode (default), AI already rendered text directly → skip
+        if (!isAiRenderMode && useCanvasFallback && imageContentType === 'with_text' && channelText && !structuredOverlay) {
           const step3Start = Date.now();
           console.log(`[Pipeline:${channel}] ▶ STEP 3/4 — Canvas text overlay`, {
             textLength: channelText.length,
@@ -344,9 +343,9 @@ export function useAutoImageGeneration() {
           console.log(`[Pipeline:${channel}] ⏭ STEP 3 SKIPPED — ${skipReason}`);
         }
 
-        // Step 4: Structured multi-block overlay (for complex infographics)
-        // Skip in ai_render mode (AI already rendered text directly)
-        if (structuredOverlay && !isAiRenderMode) {
+        // Step 4: Structured multi-block overlay (Satori) — ONLY in satori mode
+        // In ai_render mode (default), AI already rendered text directly → skip
+        if (!isAiRenderMode && structuredOverlay) {
           const step4Start = Date.now();
           console.log(`[Pipeline:${channel}] ▶ STEP 4/4 — Structured overlay (Satori)`, {
             layout: structuredOverlay.layout,

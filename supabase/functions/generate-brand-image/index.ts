@@ -552,6 +552,18 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       console.log(`[generate-brand-image] AI Render mode: appended structured text instructions (${structuredText.length} chars)`);
     }
 
+    // AI Render mode enhancement: when text is included but no structured elements,
+    // add Vietnamese text accuracy instructions to ensure correct diacritics
+    if (imageContentType === 'with_text' && textToInclude && !structuredElements) {
+      enhancedPrompt += `\n\n## CRITICAL TEXT RENDERING RULES:
+- Render the following text EXACTLY as provided — DO NOT modify, rephrase, or omit any word
+- Vietnamese diacritics (sắc, huyền, hỏi, ngã, nặng) MUST be rendered PERFECTLY — every accent mark matters
+- Text to render: "${textToInclude}"
+- Use clean sans-serif typography with proper spacing and high contrast
+- Text must be crisp, fully readable, and well-positioned within the composition`;
+      console.log(`[generate-brand-image] AI Render: added Vietnamese text accuracy rules for "${textToInclude.slice(0, 40)}..."`);
+    }
+
     console.log("[generate-brand-image] Starting image generation...");
 
     // Read model config from Admin Panel (DB) — falls back to default if not configured
