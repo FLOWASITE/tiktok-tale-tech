@@ -37,6 +37,8 @@ import { CalendarDayView } from '@/components/CalendarDayView';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarMilestoneItem } from '@/components/CalendarMilestoneItem';
 import { CampaignTimelineBar } from '@/components/calendar/CampaignTimelineBar';
+import { CalendarDayNotes } from '@/components/calendar/CalendarDayNotes';
+import { useCalendarNotes, CalendarNote } from '@/hooks/useCalendarNotes';
 import { ContentSchedule, PUBLISH_STATUSES, PublishStatus } from '@/types/publishing';
 import { Channel, CHANNELS, MultiChannelContent, MultiChannelFormData, ContentGoal } from '@/types/multichannel';
 import { ScheduleTopicDialog, ScheduleTopicData } from '@/components/topic/ScheduleTopicDialog';
