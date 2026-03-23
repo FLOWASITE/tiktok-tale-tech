@@ -480,7 +480,13 @@ Mỗi platform có đặc thù riêng:
 NGUYÊN TẮC:
 1. Giữ core message từ Source of Truth
 2. Adapt format và tone cho từng platform
-3. Tối ưu cho engagement của platform đó`,
+3. Tối ưu cho engagement của platform đó
+
+CHUẨN GEO (áp dụng cho mọi kênh):
+- ANSWER-FIRST: Mở đầu bằng câu trả lời/insight trực tiếp
+- CITATION SIGNALS: Kèm số liệu, thống kê khi có thể
+- ENTITY CLARITY: Nhắc rõ brand/sản phẩm/khái niệm
+- EXTRACTABILITY: Mỗi đoạn tự chứa, AI trích dẫn riêng được`,
     
     preview: `Tạo preview ngắn gọn cho nội dung multi-channel.
 
