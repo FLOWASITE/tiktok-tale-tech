@@ -179,7 +179,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
         </div>
 
         {/* Step content */}
-        <div className="px-5 pb-5 min-h-[280px]">
+        <div className="px-5 pb-5 min-h-[200px] max-h-[55vh] overflow-y-auto">
           {step === 0 && (
             <div className="space-y-4">
               <div className="space-y-2">
