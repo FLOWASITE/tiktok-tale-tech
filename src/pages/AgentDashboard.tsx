@@ -169,7 +169,7 @@ export default function AgentDashboard() {
                 <div className="text-center py-16">
                   <Target className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground mb-3">Chưa có campaign nào</p>
-                  <Button size="sm" className="gap-1.5">
+                  <Button size="sm" className="gap-1.5" onClick={() => setWizardOpen(true)}>
                     <Plus className="w-3.5 h-3.5" /> Tạo campaign đầu tiên
                   </Button>
                 </div>
