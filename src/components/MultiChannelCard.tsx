@@ -38,6 +38,7 @@ interface MultiChannelCardProps {
   isLoadingProfile?: boolean;
   index?: number;
   brandLogoUrl?: string | null;
+  geoScore?: number | null;
 }
 
 const channelIcons: Record<Channel, React.ReactNode> = {
