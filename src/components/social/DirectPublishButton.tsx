@@ -51,6 +51,7 @@ interface DirectPublishButtonProps {
   variant?: 'default' | 'ghost' | 'outline';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   className?: string;
+  onPublishSuccess?: () => void;
 }
 
 const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
