@@ -49,6 +49,9 @@ export function ContentMockupToggle({
   className,
   seoData,
   channelImage,
+  critiqueScore,
+  geoScore,
+  engagementScore,
 }: ContentMockupToggleProps) {
   const mockupType = channelToMockupType[channel];
   
