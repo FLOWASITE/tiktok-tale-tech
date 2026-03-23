@@ -32,6 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { Channel, CHANNELS, MultiChannelContent, ContentStatus } from '@/types/multichannel';
+import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';

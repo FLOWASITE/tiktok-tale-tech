@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Channel } from '@/types/multichannel';
+import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
 import { ContentSchedule } from '@/types/publishing';
 import {
   DndContext,
