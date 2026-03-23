@@ -17,10 +17,34 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export default function AgentDashboard() {
+  const { currentOrganization } = useOrganizationContext();
   const { pipelines, isLoading: pipelinesLoading, updateStage } = useAgentPipelines();
   const { approvals, pendingCount, updateApproval } = useAgentApprovals();
-  const { goals } = useAgentGoals();
+  const { goals, createGoal } = useAgentGoals();
   const [activeTab, setActiveTab] = useState('pipeline');
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  const handleCreateGoal = async (data: Parameters<typeof createGoal.mutateAsync>[0]) => {
+    await createGoal.mutateAsync(data);
+    setWizardOpen(false);
+    try {
+      const goalsList = await supabase
+        .from('agent_goals')
+        .select('id')
+        .eq('organization_id', currentOrganization?.id || '')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const newGoalId = goalsList.data?.[0]?.id;
+      if (newGoalId) {
+        await supabase.functions.invoke('agent-pipeline', {
+          body: { action: 'trigger_from_goal', goal_id: newGoalId },
+        });
+        toast.success('Pipeline đã được khởi tạo');
+      }
+    } catch (e) {
+      console.error('Pipeline trigger error:', e);
+    }
+  };
 
   const activeGoals = goals.filter(g => g.is_active && !g.is_paused);
   const totalInPipeline = pipelines.filter(p => !['published', 'analyzing'].includes(p.current_stage)).length;
