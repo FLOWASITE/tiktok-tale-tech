@@ -697,10 +697,7 @@ export function MultiChannelFormWizard({
         // Step 4: At least 1 channel
         return formData.channels.length > 0;
       case 5:
-        // Step 5: AI control level - always can proceed (has default)
-        return true;
-      case 6:
-        // Step 6: Always can proceed (skip or finish)
+        // Step 5: Image generation (merged AI control) - always can proceed
         return true;
       default:
         return false;
