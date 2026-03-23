@@ -1,4 +1,5 @@
 import { Search, Workflow, PenTool, Gauge, Layers, ShieldCheck, Send, BarChart3, Brain, Lightbulb } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { AgentDetailCard, AgentInfo } from '@/components/agents/AgentDetailCard';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
 import { PIPELINE_STAGES } from '@/types/agent';
