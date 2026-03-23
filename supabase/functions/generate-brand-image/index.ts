@@ -298,9 +298,34 @@ function structuredElementsToPromptText(
 
   parts.push('\nCRITICAL TEXT RENDERING RULES:');
   parts.push('- Vietnamese diacritics (sắc, huyền, hỏi, ngã, nặng) MUST be rendered PERFECTLY — every accent mark matters');
-  parts.push('- Text must be crisp, high-contrast, and fully readable');
-  parts.push('- Use clean sans-serif typography with proper spacing');
+  parts.push('- NEVER substitute similar-looking characters: ă≠a, â≠a, ơ≠o, ô≠o, ư≠u, ê≠e, đ≠d');
+  parts.push('- Text must be crisp, high-contrast, and fully readable at social media viewing sizes');
+  parts.push('- Use clean sans-serif typography with proper spacing (Noto Sans, Roboto, Be Vietnam Pro)');
   parts.push('- Cards should have subtle background (semi-transparent or frosted glass effect)');
+  parts.push('- MINIMUM font size: headlines 48px+, body text 24px+, contact info 18px+');
+  parts.push('- Add text shadow or semi-transparent backdrop behind ALL text for guaranteed readability');
+
+  // Text Verification Checklist
+  const allTexts: { label: string; text: string; charCount: number }[] = [];
+  if (elements.banner?.text) allTexts.push({ label: 'Banner', text: elements.banner.text, charCount: elements.banner.text.length });
+  if (elements.heroText?.text) allTexts.push({ label: 'Hero Text', text: elements.heroText.text, charCount: elements.heroText.text.length });
+  if (elements.headline) allTexts.push({ label: 'Headline', text: elements.headline, charCount: elements.headline.length });
+  if (elements.cta) allTexts.push({ label: 'CTA', text: elements.cta, charCount: elements.cta.length });
+  if (elements.cards?.items) {
+    elements.cards.items.forEach((c, i) => allTexts.push({ label: `Card ${i + 1}`, text: c.label, charCount: c.label.length }));
+  }
+  if (elements.footer?.items) {
+    elements.footer.items.forEach((f, i) => allTexts.push({ label: `Footer ${i + 1}`, text: f.text, charCount: f.text.length }));
+  }
+
+  if (allTexts.length > 0) {
+    parts.push('\n## TEXT VERIFICATION CHECKLIST (render each EXACTLY):');
+    allTexts.forEach(t => {
+      parts.push(`- ${t.label} (${t.charCount} chars): "${t.text}"`);
+    });
+    parts.push('- If you CANNOT render any text accurately (especially Vietnamese diacritics), LEAVE IT BLANK rather than rendering incorrectly');
+    parts.push('- NEVER rephrase, abbreviate, or modify any text above');
+  }
 
   // Logo safe zone instruction
   if (logoSafeZone) {

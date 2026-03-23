@@ -522,15 +522,18 @@ export const buildCriticalRules: PromptBuilder = (ctx) => {
       priority: 90,
       content: `## CRITICAL RULES (SOCIAL GRAPHIC WITH TEXT MODE):
 1. INCLUDE the specified text prominently and legibly in the image
-2. Text must be CLEARLY READABLE with HIGH CONTRAST
+2. Text must be CLEARLY READABLE with HIGH CONTRAST — add text shadow, semi-transparent backdrop, or outline if background is complex
 3. DO NOT include any logos or brand marks
 4. Background/visual should COMPLEMENT, not compete with text
 5. Main visual elements should support and frame the text
-6. Use professional typography that matches the brand style
+6. MINIMUM FONT SIZE: Headlines must be at least 48px equivalent; body text at least 24px equivalent
 7. Maintain brand-appropriate color temperature
 8. NEVER create blank, white, or empty images
 9. Ensure text is the primary focal point
-10. Add visual effects (shadow, glow, backdrop) if needed for text legibility`,
+10. Vietnamese diacritics VERIFICATION: Every accent mark (ă, â, ơ, ô, ư, ê, đ, tone marks) MUST match the input EXACTLY
+11. NEVER substitute similar-looking characters (e.g., ă→a, đ→d, ơ→o)
+12. NEVER rephrase, shorten, or modify any text content — render VERBATIM
+13. If text readability is uncertain, add a semi-transparent dark/light backdrop behind the text`,
     };
   }
 
@@ -554,7 +557,67 @@ export const buildCriticalRules: PromptBuilder = (ctx) => {
 };
 
 // ============================================
-// 10. Localization Suffix (suffix) — sandwich technique bottom
+// 10. Vietnamese Text Accuracy (suffix) — sandwich reinforcement
+// ============================================
+
+/**
+ * Counts Vietnamese diacritical marks in text for verification prompt
+ */
+function countVietnameseDiacritics(text: string): number {
+  const diacriticChars = /[àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđ]/gi;
+  return (text.match(diacriticChars) || []).length;
+}
+
+export const buildVietnameseTextAccuracy: PromptBuilder = (ctx) => {
+  const { isWithText, params } = ctx;
+  if (!isWithText || !params.textToInclude) return null;
+
+  const text = params.textToInclude;
+  const diacriticCount = countVietnameseDiacritics(text);
+  
+  // Also check structured elements for Vietnamese text
+  const structuredTexts: string[] = [];
+  // Note: structuredElements is not in ImagePromptParams but passed via generate-brand-image
+  // This builder focuses on textToInclude which IS in params
+
+  if (diacriticCount === 0) return null; // No Vietnamese text, skip
+
+  return {
+    id: 'vietnamese_text_accuracy',
+    position: 'suffix',
+    priority: 95,
+    content: `## ⚠️ VIETNAMESE TEXT ACCURACY (MANDATORY — DO NOT SKIP):
+
+EXACT TEXT TO RENDER (character-by-character):
+"${text}"
+
+Total Vietnamese diacritical marks in this text: ${diacriticCount}
+Your rendered text MUST contain exactly ${diacriticCount} accent marks.
+
+### CRITICAL DIACRITIC RULES:
+- ă ≠ a (ă has breve accent — NEVER render as plain "a")
+- â ≠ a (â has circumflex — NEVER render as plain "a")  
+- ơ ≠ o (ơ has horn — NEVER render as plain "o")
+- ô ≠ o (ô has circumflex — NEVER render as plain "o")
+- ư ≠ u (ư has horn — NEVER render as plain "u")
+- ê ≠ e (ê has circumflex — NEVER render as plain "e")
+- đ ≠ d (đ has stroke — NEVER render as plain "d")
+- Tone marks (sắc ́, huyền ̀, hỏi ̉, ngã ̃, nặng ̣) MUST be preserved exactly
+
+### FONT REQUIREMENT:
+- Use a font that supports FULL Vietnamese Unicode (e.g., Roboto, Noto Sans, Be Vietnam Pro, Montserrat)
+- NEVER use decorative/display fonts that lack Vietnamese diacritics
+- If unsure about font support, use Noto Sans — it has 100% Vietnamese coverage
+
+### VERIFICATION:
+- Count accent marks in your rendered text — must equal ${diacriticCount}
+- If you CANNOT render the text accurately, leave the text area BLANK rather than rendering incorrect characters
+- NEVER rephrase, shorten, or modify the text in any way`,
+  };
+};
+
+// ============================================
+// 11. Localization Suffix (suffix) — sandwich technique bottom
 // ============================================
 
 export const buildLocalizationSuffix: PromptBuilder = (ctx) => {
@@ -604,6 +667,7 @@ export const DEFAULT_BUILDERS: PromptBuilder[] = [
   buildStrategicContext,
   buildNegativePrompt,
   buildCriticalRules,
+  buildVietnameseTextAccuracy,
   buildLocalizationSuffix,
   buildBrandColorReinforcement,
 ];
