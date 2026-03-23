@@ -71,6 +71,10 @@ export default function MultiChannel() {
   // Fetch creator profiles for all contents
   const userIds = useMemo(() => contents.map(c => c.user_id), [contents]);
   const { profiles: creatorProfiles, isLoading: isLoadingProfiles } = useCreatorProfiles(userIds);
+
+  // Fetch GEO scores for all displayed contents
+  const contentIds = useMemo(() => contents.map(c => c.id), [contents]);
+  const { data: geoScoresMap } = useGEOContentScores(contentIds);
   
   const [selectedContent, setSelectedContent] = useState<MultiChannelContent | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
