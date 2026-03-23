@@ -332,6 +332,14 @@ export default function ContentCalendar() {
     todayMilestones,
     overdueMilestones,
   } = useCampaignIntegration();
+
+  // Calendar notes
+  const {
+    notes: calendarNotes,
+    addNote,
+    updateNote,
+    deleteNote,
+  } = useCalendarNotes();
   
   // Combine all milestones for calendar display
   const allMilestones = useMemo(() => {
