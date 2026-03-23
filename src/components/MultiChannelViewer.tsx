@@ -1003,7 +1003,7 @@ export function MultiChannelViewer({
               contentId={content.id}
               contentType="multi_channel"
               contentText={getContentForChannel(content, selectedChannel) || content.website_content || ''}
-              organizationId={content.organization_id || ''}
+              organizationId={currentOrganization?.id || ''}
             />
           </div>
         ) : showGallery ? (
