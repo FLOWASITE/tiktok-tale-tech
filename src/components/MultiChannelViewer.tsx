@@ -1555,6 +1555,7 @@ export function MultiChannelViewer({
                                   seoScore={channel === 'website' ? calculateSEOScore(channelContent || '') : undefined}
                                   onTriggerGEO={handleTriggerGEO}
                                   isGEOLoading={isGEOScoring}
+                                  geoFactorScores={geoScoreData?.factor_scores as Record<string, number> | null | undefined}
                                 />
                               </div>
                                 
