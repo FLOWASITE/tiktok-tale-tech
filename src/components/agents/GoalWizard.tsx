@@ -308,21 +308,36 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
           {/* Step 3: Brand */}
           {step === 3 && (
             <div className="space-y-4">
-              <Label className="text-xs">Chọn Brand Template (tùy chọn)</Label>
-              <Select value={brandTemplateId} onValueChange={setBrandTemplateId}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder="Không chọn — dùng mặc định" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none" className="text-sm">Không chọn</SelectItem>
-                  {brandTemplates.map(bt => (
-                    <SelectItem key={bt.id} value={bt.id} className="text-sm">{bt.brand_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-muted-foreground">
-                Brand template cung cấp tone of voice, keywords, personas để AI tạo nội dung chuẩn thương hiệu.
-              </p>
+              <div className="space-y-2">
+                <Label className="text-xs">Chọn Brand Template (tùy chọn)</Label>
+                <Select value={brandTemplateId} onValueChange={setBrandTemplateId}>
+                  <SelectTrigger className="text-sm">
+                    <SelectValue placeholder="Không chọn — dùng mặc định" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="text-sm">Không chọn</SelectItem>
+                    {brandTemplates.map(bt => (
+                      <SelectItem key={bt.id} value={bt.id} className="text-sm">{bt.brand_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Brand template cung cấp tone of voice, keywords, personas để AI tạo nội dung chuẩn thương hiệu.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">Liên kết Chiến dịch (tùy chọn)</Label>
+                <CampaignSelector
+                  value={campaignId}
+                  onValueChange={setCampaignId}
+                  placeholder="Chọn chiến dịch liên kết..."
+                  className="text-sm"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Content được AI tạo sẽ tự động gán vào chiến dịch này.
+                </p>
+              </div>
             </div>
           )}
 
