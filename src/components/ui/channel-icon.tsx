@@ -74,7 +74,7 @@ export function ChannelIcon({ channel, className = '', size = 16 }: ChannelIconP
 
   const SvgIcon = svgIcons[channel];
   if (SvgIcon) {
-    return <SvgIcon className={className} />;
+    return <span style={style} className={`inline-block ${className}`}><SvgIcon className="w-full h-full" /></span>;
   }
 
   return <Globe className={className} style={style} />;
