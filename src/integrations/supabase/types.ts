@@ -1578,6 +1578,73 @@ export type Database = {
           },
         ]
       }
+      agent_team_permissions: {
+        Row: {
+          can_approve: boolean
+          can_create_goals: boolean
+          can_override: boolean
+          created_at: string
+          granted_by: string | null
+          id: string
+          is_active: boolean
+          max_autonomy_level: string
+          monthly_pipeline_limit: number | null
+          organization_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          can_approve?: boolean
+          can_create_goals?: boolean
+          can_override?: boolean
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean
+          max_autonomy_level?: string
+          monthly_pipeline_limit?: number | null
+          organization_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          can_approve?: boolean
+          can_create_goals?: boolean
+          can_override?: boolean
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          is_active?: boolean
+          max_autonomy_level?: string
+          monthly_pipeline_limit?: number | null
+          organization_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_team_permissions_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_team_permissions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_team_permissions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_channel_model_configs: {
         Row: {
           allow_user_override: boolean | null
