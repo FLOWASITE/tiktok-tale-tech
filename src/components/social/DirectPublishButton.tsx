@@ -200,6 +200,7 @@ export function DirectPublishButton({
       // Show success state
       setPublishedResult({ postId: result?.postId, postUrl: result?.postUrl });
       setDialogState('success');
+      onPublishSuccess?.();
     } catch (error) {
       // Error handled by hook toast
     }
