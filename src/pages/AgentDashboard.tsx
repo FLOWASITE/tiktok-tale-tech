@@ -205,6 +205,12 @@ export default function AgentDashboard() {
             </div>
           </TabsContent>
         </Tabs>
+
+        <GoalWizard
+          open={wizardOpen}
+          onOpenChange={setWizardOpen}
+          onSubmit={handleCreateGoal}
+        />
       </div>
     </>
   );
