@@ -258,6 +258,7 @@ export function MultiChannelViewer({
   expandingChannels,
 }: MultiChannelViewerProps) {
   const { currentOrganization } = useOrganizationContext();
+  const queryClient = useQueryClient();
   const [copiedChannel, setCopiedChannel] = useState<Channel | null>(null);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [isSaving, setIsSaving] = useState(false);
