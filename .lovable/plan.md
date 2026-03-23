@@ -1,45 +1,57 @@
 
 
-# Đơn giản hóa flow: Bỏ nút "Tạo ảnh" riêng, auto-advance sau khi tạo content
+# Chuyển Satori text overlay → AI render trực tiếp trong generate-brand-image
 
-## Hiện tại (6 bước)
+## Phân tích hiện tại
+
+Pipeline tạo ảnh gồm 4 bước:
 ```text
-Step 1: Chủ đề → Step 2: Core Content → Step 3: Vai trò → Step 4: Đa kênh
-                                                              ↓
-                                                    [Tạo X kênh] + [Tạo ảnh →]  ← 2 nút riêng
-                                                              ↓
-                                                Step 5: Kiểm soát AI (cho ảnh)
-                                                              ↓
-                                                Step 6: Tạo ảnh
+Step 1: AI tạo ảnh nền (generate-brand-image)
+Step 2: Logo overlay (overlay-logo-canvas) 
+Step 3: Text overlay đơn giản (overlay-text-canvas — Satori)  ← BỎ
+Step 4: Structured overlay phức tạp (overlay-text-canvas — Satori)  ← BỎ
 ```
 
-## Đề xuất mới (5 bước)
+**Đã có sẵn `ai_render` mode** trong code — truyền `structuredElements` vào `generate-brand-image` để AI render text trực tiếp. Tuy nhiên mode này chưa được dùng mặc định.
+
+## Đề xuất: Mặc định dùng AI render, bỏ Satori
+
+### Pipeline mới (3 bước → 2 bước):
 ```text
-Step 1: Chủ đề → Step 2: Core Content → Step 3: Vai trò → Step 4: Đa kênh
-                                                              ↓
-                                                    [Tạo X kênh] ← chỉ 1 nút
-                                                              ↓
-                                              (auto-advance khi content xong)
-                                                              ↓
-                                                Step 5: Tạo ảnh (gộp AI Control vào)
+Step 1: AI tạo ảnh + render text/structured elements trực tiếp
+Step 2: Logo overlay (giữ nguyên — raster compositing chính xác hơn AI)
 ```
 
-## Thay đổi
+### Ưu điểm
+- **Nhanh hơn**: Bỏ 1-2 API call (overlay-text-canvas), tiết kiệm 10-30s
+- **Đẹp hơn**: AI tự tích hợp text vào composition, không bị "dán đè" như Satori
+- **Đơn giản hơn**: Giảm complexity pipeline
 
-### 1. Gộp Step 5 + Step 6 thành 1 step "Tạo ảnh"
-- Giảm `STEPS` từ 6 xuống 5
-- Step 5 mới = gộp "Kiểm soát AI" (chọn mode: full/brand_only/raw) + UI tạo ảnh vào cùng 1 trang
-- Chọn mode ở trên, nút tạo ảnh ở dưới
+### Rủi ro cần xử lý
+- **Tiếng Việt**: AI đôi khi render sai dấu (ă, ơ, ư) — cần prompt rõ ràng
+- **Chính xác text**: AI có thể thay đổi/bỏ chữ — cần validation hoặc retry
 
-### 2. Bỏ nút "Tạo ảnh" riêng ở Step 4
-- Step 4 chỉ còn 1 nút: "Tạo (X kênh)"
-- Sau khi generation hoàn tất → auto-advance sang Step 5 (Tạo ảnh)
+## Thay đổi cụ thể
 
-### 3. Auto-advance logic
-- Sửa useEffect `generationComplete`: advance từ Step 4 → Step 5 (thay vì 4→5 cũ)
-- Tất cả reference `currentStep === 6` → đổi thành `=== 5`
-- `currentStep === 5` cũ (AI Control) → gộp UI vào step mới
+### 1. `src/hooks/useAutoImageGeneration.ts`
+- Đổi default `overlayMode` từ `'satori'` → `'ai_render'`
+- Bỏ Step 3 (simple text overlay) và Step 4 (structured overlay) khi mode = `ai_render`
+- Luôn truyền `structuredElements` và `textToInclude` vào generate-brand-image
+- Pipeline chỉ còn: Step 1 (AI generate+text) → Step 2 (Logo overlay)
+
+### 2. `supabase/functions/generate-brand-image/index.ts`
+- Nâng cấp prompt builder: khi nhận `structuredElements`, inject layout instructions chi tiết vào prompt
+- Thêm Vietnamese text accuracy instructions: "Render EXACTLY these Vietnamese characters"
+- Truyền text content vào prompt thay vì chỉ content summary
+
+### 3. `src/hooks/useAutoImagePipeline.ts`
+- Cập nhật `genOptions` để set `overlayMode: 'ai_render'` mặc định
+- Bỏ `useCanvasFallback: true`
 
 ### Files cần sửa
-- `src/components/multichannel/MultiChannelFormWizard.tsx` — gộp step, bỏ nút, sửa navigation logic
+| File | Thay đổi |
+|------|----------|
+| `src/hooks/useAutoImageGeneration.ts` | Default ai_render, simplify pipeline steps |
+| `supabase/functions/generate-brand-image/index.ts` | Enhanced prompt with text/structured elements |
+| `src/hooks/useAutoImagePipeline.ts` | Set ai_render default |
 
