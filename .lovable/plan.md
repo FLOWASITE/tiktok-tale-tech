@@ -1,21 +1,30 @@
 
 
-# Di chuyển Score Bar lên trên Mockup
+# Nâng cấp MockupScoreBar — hiển thị chỉ số rõ ràng, chi tiết hơn
 
-## Vấn đề
-`MockupScoreBar` hiện hiển thị **dưới** mockup (`rounded-b-xl`). User muốn nó hiển thị **trên** mockup, trong khoảng trống giữa header buttons và nội dung mockup (vùng đỏ trong screenshot).
+## Vấn đề hiện tại
+- Score bar chỉ hiển thị 3 badge nhỏ (11px) trên 1 dòng — rất khó đọc
+- Thiếu label mô tả cho mỗi chỉ số (chỉ có icon + số)
+- `engagementScore` không được truyền từ `MultiChannelViewer`
+- Không có progress bar trực quan cho từng chỉ số
 
 ## Giải pháp
 
-### 1. Sửa `ContentMockupToggle.tsx` — đưa scoreBar lên trên mockup
-- Di chuyển `{scoreBar}` từ **sau** mockup component lên **trước** nó
-- Áp dụng cho cả 3 trường hợp: Google Maps, Zalo OA, và default channel
+### 1. Redesign `MockupScoreBar.tsx` — layout chi tiết hơn
+- Chuyển từ 1 dòng badges sang **grid 3 cột**, mỗi cột 1 chỉ số
+- Mỗi chỉ số gồm: **label text** (Chất lượng / GEO / Tương tác), **score lớn hơn** (text-sm font-bold), **mini progress bar** màu theo mức điểm
+- Kích thước text tăng từ 11px lên 12-13px, score number 14px
+- Thêm prop `readabilityScore` và `sentimentScore` từ Content Analytics (nếu có)
 
-### 2. Sửa `MockupScoreBar.tsx` — đổi style phù hợp vị trí trên
-- Đổi `rounded-b-xl border-t` → `rounded-t-xl border-b` (bo góc trên thay vì dưới)
-- Thêm padding và background nhẹ hơn để tạo visual separation
+### 2. Truyền thêm data từ `MultiChannelViewer.tsx`
+- Tính `engagementScore` từ content text (dùng logic đã có trong ContentAnalyticsPanel)
+- Truyền xuống `ContentMockupToggle` → `MockupScoreBar`
+
+### 3. Cập nhật `ContentMockupToggle.tsx`
+- Thêm props mới để forward xuống MockupScoreBar
 
 ### Files cần sửa
-- `src/components/viewer/ContentMockupToggle.tsx` — move `{scoreBar}` trước mockup component (3 chỗ)
-- `src/components/preview/MockupScoreBar.tsx` — đổi rounded direction
+- `src/components/preview/MockupScoreBar.tsx` — redesign layout chi tiết
+- `src/components/viewer/ContentMockupToggle.tsx` — forward thêm props
+- `src/components/MultiChannelViewer.tsx` — tính và truyền engagementScore
 
