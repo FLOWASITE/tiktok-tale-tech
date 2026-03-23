@@ -361,7 +361,17 @@ NGUYÊN TẮC VÀNG:
 1. Viết sâu, có giá trị thực sự - không viết lan man
 2. Luôn có proof elements: số liệu, case study, ví dụ cụ thể
 3. Giữ đúng brand voice và tone of voice của thương hiệu
-4. Cấu trúc rõ ràng với 5 phần: Hook, Problem, Solution, Evidence, CTA`,
+4. Cấu trúc rõ ràng với 5 phần: Hook, Problem, Solution, Evidence, CTA
+
+CHUẨN GEO (Generative Engine Optimization):
+- ANSWER-FIRST: Mở đầu mỗi section bằng câu trả lời trực tiếp
+- CITATION SIGNALS: Luôn kèm số liệu, thống kê, nguồn cụ thể
+- CONTENT DEPTH: Phân tích đa góc, không hời hợt
+- ENTITY CLARITY: Định nghĩa rõ brand/sản phẩm/khái niệm
+- STRUCTURED DATA: Dùng lists, tables, FAQ format
+- EXTRACTABILITY: Viết đoạn ngắn tự chứa, AI trích dẫn riêng được
+- HEADING HIERARCHY: H1→H2→H3 logic, chứa keyword
+- FRESHNESS: Đề cập xu hướng, dữ liệu mới nhất`,
     
     outline: `Tạo outline chi tiết cho bài viết về: {{topic}}
 
