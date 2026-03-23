@@ -613,6 +613,21 @@ export function MultiChannelViewer({
           }).catch(err => console.warn('[learning] Failed to track edit:', err));
         }
         
+        // Auto-trigger GEO scoring (fire and forget)
+        if (currentOrganization?.id && contentToSave.length > 50) {
+          invokeWithTimeout('geo-score-content', {
+            body: {
+              contentId: content.id,
+              contentType: 'multi_channel',
+              contentText: contentToSave,
+              organizationId: currentOrganization.id,
+            },
+            timeoutMs: 30_000,
+          }).then(() => {
+            queryClient.invalidateQueries({ queryKey: ['geo-content-score', content.id] });
+          }).catch(err => console.warn('[geo] Auto-score failed:', err));
+        }
+
         setEditingChannel(null);
         resetEditContent('');
         setPreviewContent(null);
