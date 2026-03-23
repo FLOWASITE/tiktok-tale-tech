@@ -1499,6 +1499,7 @@ export function MultiChannelViewer({
                                     (channelContent.split('\n').filter(l => l.trim()).length > 3 ? 15 : 5) +
                                     ((channelContent.match(/(click|nhấn|liên hệ|mua|đăng ký|theo dõi|inbox|dm|share|comment|xem thêm)/gi) || []).length > 0 ? 15 : 0)
                                   )) : undefined}
+                                  seoScore={channel === 'website' && (content as any).website_seo_data?.score ? (content as any).website_seo_data.score : undefined}
                                 />
                               </div>
                                 
