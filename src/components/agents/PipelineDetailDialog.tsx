@@ -67,6 +67,138 @@ function StageTimeline({ currentStage, pipelineState }: { currentStage: AgentPip
   );
 }
 
+function ResearchOutputTab({ pipelineState }: { pipelineState: Record<string, any> }) {
+  const researchData = pipelineState?.stages?.research;
+  const output = researchData?.output;
+
+  if (!researchData || researchData.status === 'pending') {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+        <Search className="w-8 h-8 mb-2 opacity-30" />
+        <p className="text-xs">Research chưa bắt đầu</p>
+      </div>
+    );
+  }
+
+  if (researchData.status === 'in_progress') {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+        <Search className="w-8 h-8 mb-2 animate-pulse" />
+        <p className="text-xs">Đang nghiên cứu...</p>
+      </div>
+    );
+  }
+
+  const bestTopic = output?.best_topic || output?.bestTopic;
+  const otherTopics = output?.other_topics || output?.otherTopics || [];
+  const insights = output?.insights || output?.key_insights || [];
+  const recommendations = output?.recommendations || [];
+  const rawText = output?.raw_text || output?.rawText || output?.brief;
+
+  return (
+    <ScrollArea className="h-[280px]">
+      <div className="space-y-3 pr-3">
+        {/* Best Topic */}
+        {bestTopic && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Trophy className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[11px] font-semibold text-primary">Topic được chọn</span>
+              </div>
+              <p className="text-sm font-medium text-foreground">
+                {typeof bestTopic === 'string' ? bestTopic : bestTopic.name || bestTopic.title || bestTopic.topic}
+              </p>
+              {typeof bestTopic === 'object' && bestTopic.score != null && (
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Badge variant="secondary" className="text-[9px]">Score: {bestTopic.score}</Badge>
+                  {bestTopic.category && <Badge variant="outline" className="text-[9px]">{bestTopic.category}</Badge>}
+                  {bestTopic.trending && <Badge className="text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/30">TRENDING</Badge>}
+                </div>
+              )}
+              {typeof bestTopic === 'object' && bestTopic.reason && (
+                <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">{bestTopic.reason}</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Other Topics */}
+        {otherTopics.length > 0 && (
+          <div>
+            <p className="text-[11px] font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+              <TrendingUp className="w-3 h-3" /> Các topic khác
+            </p>
+            <div className="space-y-1">
+              {otherTopics.map((topic: any, i: number) => (
+                <div key={i} className="flex items-center gap-2 p-1.5 rounded-md bg-muted/30 border border-border/20">
+                  <span className="text-[10px] text-muted-foreground/60 w-4">{i + 1}.</span>
+                  <span className="text-[11px] flex-1">
+                    {typeof topic === 'string' ? topic : topic.name || topic.title || topic.topic}
+                  </span>
+                  {typeof topic === 'object' && topic.score != null && (
+                    <Badge variant="outline" className="text-[9px] h-4">{topic.score}</Badge>
+                  )}
+                  {typeof topic === 'object' && topic.trending && (
+                    <Badge className="text-[9px] h-4 bg-amber-500/10 text-amber-600 border-amber-500/30">🔥</Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Insights */}
+        {insights.length > 0 && (
+          <div>
+            <p className="text-[11px] font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+              <Lightbulb className="w-3 h-3" /> Key Insights
+            </p>
+            <div className="space-y-1">
+              {insights.map((insight: string, i: number) => (
+                <div key={i} className="flex items-start gap-1.5 text-[10px] text-foreground/80">
+                  <span className="text-primary mt-0.5">•</span>
+                  <span>{insight}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recommendations */}
+        {recommendations.length > 0 && (
+          <div>
+            <p className="text-[11px] font-medium text-muted-foreground mb-1.5">📊 Recommendations</p>
+            <div className="space-y-1">
+              {recommendations.map((rec: string, i: number) => (
+                <div key={i} className="flex items-start gap-1.5 text-[10px] text-foreground/80">
+                  <span className="text-primary mt-0.5">→</span>
+                  <span>{rec}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Raw text fallback */}
+        {!bestTopic && !otherTopics.length && rawText && (
+          <div className="p-2.5 rounded-lg bg-muted/30 border border-border/20">
+            <p className="text-[11px] whitespace-pre-wrap text-foreground/80 leading-relaxed">{rawText}</p>
+          </div>
+        )}
+
+        {/* No output at all */}
+        {!bestTopic && !otherTopics.length && !rawText && !insights.length && (
+          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+            <Search className="w-6 h-6 mb-2 opacity-30" />
+            <p className="text-xs">Research hoàn thành nhưng không có output chi tiết</p>
+          </div>
+        )}
+      </div>
+    </ScrollArea>
+  );
+}
+
 export function PipelineDetailDialog({ pipeline, open, onOpenChange, onStageChange, onFlagToggle, onDelete }: PipelineDetailDialogProps) {
   const { logs, isLoading: logsLoading } = useAgentPipelineLogs(pipeline?.id || null);
   const [newStage, setNewStage] = useState<string>('');
