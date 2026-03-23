@@ -609,8 +609,8 @@ Deno.serve(withPerf({ functionName: 'generate-core-content', slowThresholdMs: 45
     const smartContextInjection = smartCtx?.contextInjection || '';
 
     // --- Derive model & maxTokens ---
-    const model = aiConfig?.model || getDefaultModel(lengthMode as CoreContentLengthMode);
-    const maxTokens = getMaxTokens(lengthMode as CoreContentLengthMode);
+    const model = aiConfig?.model || getDefaultModel();
+    const maxTokens = getMaxTokens(effectiveLengthMode);
 
     // ========== PHASE 2: PARALLEL RESEARCH + KG + PROMPT ==========
     // These depend on Phase 1 results (brandContext, brandData) but are independent of each other
