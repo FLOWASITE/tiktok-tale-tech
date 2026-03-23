@@ -699,7 +699,7 @@ export function MultiChannelFormWizard({
       default:
         return false;
     }
-  }, [currentStep, formData, coreContentData, isGeneratingCoreContent]);
+  }, [currentStep, formData, coreContentData, isGeneratingCoreContent, skipCoreContent]);
 
   const handleNext = () => {
     // For Step 2: If not generating and no core content, block
