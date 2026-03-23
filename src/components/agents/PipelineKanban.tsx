@@ -164,6 +164,14 @@ export function PipelineKanban({ pipelines, onStageChange, onFlagToggle, onDelet
       <DragOverlay>
         {activePipeline && <PipelineCard pipeline={activePipeline} isDragging />}
       </DragOverlay>
+      <PipelineDetailDialog
+        pipeline={selectedPipeline}
+        open={!!selectedPipeline}
+        onOpenChange={(open) => { if (!open) setSelectedPipeline(null); }}
+        onStageChange={(id, stage) => { onStageChange?.(id, stage); setSelectedPipeline(null); }}
+        onFlagToggle={onFlagToggle}
+        onDelete={(id) => { onDelete?.(id); setSelectedPipeline(null); }}
+      />
     </DndContext>
   );
 }
