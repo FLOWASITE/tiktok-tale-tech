@@ -1889,101 +1889,55 @@ export function MultiChannelFormWizard({
           )}
         </div>
 
-        {/* ========== STEP 5: MỨC ĐỘ KIỂM SOÁT AI ========== */}
+        {/* ========== STEP 5: TẠO ẢNH (gộp AI Control + Image Gen) ========== */}
         {currentStep === 5 && (
           <div className="space-y-5 animate-fade-in">
+            {/* Header */}
             <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Settings2 className="w-5 h-5 text-primary" />
+                  <Image className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-foreground">Mức độ kiểm soát AI</h2>
+                  <h2 className="text-lg font-semibold text-foreground">Tạo ảnh AI cho các kênh</h2>
                   <p className="text-sm text-muted-foreground">
-                    Chọn mức độ AI can thiệp vào việc tạo ảnh cho {formData.channels.length} kênh
+                    Chọn mức độ AI và tạo ảnh cho {formData.channels.length} kênh
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {([
-                { 
-                  value: 'full' as PromptMode, 
-                  label: 'Để AI lo', 
-                  icon: <Sparkles className="w-5 h-5" />,
-                  desc: 'AI tự chọn phong cách, bố cục, vị trí text. Bạn chỉ cần duyệt.',
-                  color: 'primary',
-                },
-                { 
-                  value: 'brand_only' as PromptMode, 
-                  label: 'Giữ brand', 
-                  icon: <Eye className="w-5 h-5" />,
-                  desc: 'Giữ logo & màu brand. Bạn tự chọn bố cục text & vị trí.',
-                  color: 'amber',
-                },
-                { 
-                  value: 'raw' as PromptMode, 
-                  label: 'Toàn quyền', 
-                  icon: <Pencil className="w-5 h-5" />,
-                  desc: 'Bạn kiểm soát mọi thứ: phong cách, logo, text, bố cục.',
-                  color: 'violet',
-                },
-              ]).map(mode => (
-                <button
-                  key={mode.value}
-                  type="button"
-                  onClick={() => {
-                    setPromptMode(mode.value);
-                    // Auto-enable logo for brand_only mode (consistent with SimpleImageGenerator)
-                    if (mode.value === 'brand_only') {
-                      // Logo will be auto-enabled via pipeline
-                    }
-                  }}
-                  className={cn(
-                    "flex flex-col items-center gap-3 rounded-xl border-2 p-5 text-center transition-all",
-                    promptMode === mode.value
-                      ? "border-primary bg-primary/10 shadow-md"
-                      : "border-border/50 hover:border-border hover:bg-muted/40"
-                  )}
-                >
-                  <div className={cn(
-                    "w-12 h-12 rounded-xl flex items-center justify-center",
-                    promptMode === mode.value ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
-                  )}>
-                    {mode.icon}
-                  </div>
-                  <div>
-                    <span className={cn(
-                      "text-sm font-semibold block",
-                      promptMode === mode.value ? "text-primary" : "text-foreground"
-                    )}>{mode.label}</span>
-                    <span className="text-xs text-muted-foreground mt-1 block leading-relaxed">{mode.desc}</span>
-                  </div>
-                  {promptMode === mode.value && (
-                    <CheckCircle2 className="w-5 h-5 text-primary" />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Context hint */}
-            <Card className={cn(
-              "border",
-              promptMode === 'full' && "bg-primary/5 border-primary/20",
-              promptMode === 'brand_only' && "bg-amber-500/5 border-amber-500/20",
-              promptMode === 'raw' && "bg-violet-500/5 border-violet-500/20",
-            )}>
-              <CardContent className="p-4">
-                <p className="text-sm">
-                  {promptMode === 'full' && '✨ AI sẽ tự động tối ưu phong cách, bố cục và vị trí text cho từng kênh. Bạn chỉ cần duyệt kết quả.'}
-                  {promptMode === 'brand_only' && '🎨 AI giữ nguyên logo, màu sắc thương hiệu. Bạn có thể tùy chỉnh bố cục text và vị trí trong bước tạo ảnh.'}
-                  {promptMode === 'raw' && '⚡ Bạn toàn quyền kiểm soát: chọn phong cách ảnh, logo, text, typography và bố cục trong bước tạo ảnh.'}
-                </p>
+            {/* AI Control Mode Selector - Compact */}
+            <Card className="border-border/50">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Settings2 className="w-4 h-4 text-primary" />
+                  Mức độ kiểm soát AI
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { value: 'full' as PromptMode, label: 'Để AI lo', icon: <Sparkles className="w-4 h-4" /> },
+                    { value: 'brand_only' as PromptMode, label: 'Giữ brand', icon: <Eye className="w-4 h-4" /> },
+                    { value: 'raw' as PromptMode, label: 'Toàn quyền', icon: <Pencil className="w-4 h-4" /> },
+                  ]).map(mode => (
+                    <button
+                      key={mode.value}
+                      type="button"
+                      onClick={() => setPromptMode(mode.value)}
+                      className={cn(
+                        "flex items-center justify-center gap-2 rounded-lg border p-3 text-sm transition-all",
+                        promptMode === mode.value
+                          ? "border-primary bg-primary/5 ring-1 ring-primary/20 font-medium"
+                          : "border-border/50 hover:border-border hover:bg-muted/30"
+                      )}
+                    >
+                      <span className={cn(promptMode === mode.value ? "text-primary" : "text-muted-foreground")}>{mode.icon}</span>
+                      <span>{mode.label}</span>
+                    </button>
+                  ))}
+                </div>
               </CardContent>
             </Card>
-          </div>
-        )}
 
         {/* ========== STEP 6: TẠO ẢNH ========== */}
         {currentStep === 6 && (
