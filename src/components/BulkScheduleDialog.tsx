@@ -44,20 +44,6 @@ interface BulkScheduleDialogProps {
   onScheduleComplete?: () => void;
 }
 
-const channelEmojis: Record<Channel, string> = {
-  website: '🌐',
-  facebook: '📘',
-  instagram: '📸',
-  twitter: '𝕏',
-  google_maps: '📍',
-  linkedin: '💼',
-  email: '📧',
-  youtube: '▶️',
-  zalo_oa: '💬',
-  telegram: '✈️',
-  tiktok: '🎵',
-  threads: '🧵',
-};
 
 // Stagger intervals in minutes
 const STAGGER_OPTIONS = [
