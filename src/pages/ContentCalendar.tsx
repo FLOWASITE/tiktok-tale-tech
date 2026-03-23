@@ -754,11 +754,11 @@ export default function ContentCalendar() {
 
       {/* Stats - hide for history tab */}
       {viewMode !== 'history' && (
-        <div className="grid grid-cols-4 gap-3">
+        <div className={`grid gap-3 ${overdueCount > 0 ? 'grid-cols-5' : 'grid-cols-4'}`}>
           <Card className="border-yellow-200 bg-yellow-50/50 dark:bg-yellow-900/10">
             <CardContent className="p-3 text-center">
               <div className="text-2xl font-bold text-yellow-600">
-                {schedules.filter(s => s.publish_status === 'scheduled').length}
+                {filteredSchedules.filter(s => s.publish_status === 'scheduled').length}
               </div>
               <div className="text-xs text-muted-foreground">Đang chờ</div>
             </CardContent>
@@ -766,7 +766,7 @@ export default function ContentCalendar() {
           <Card className="border-green-200 bg-green-50/50 dark:bg-green-900/10">
             <CardContent className="p-3 text-center">
               <div className="text-2xl font-bold text-green-600">
-                {schedules.filter(s => s.publish_status === 'published').length}
+                {filteredSchedules.filter(s => s.publish_status === 'published').length}
               </div>
               <div className="text-xs text-muted-foreground">Đã đăng</div>
             </CardContent>
@@ -774,15 +774,25 @@ export default function ContentCalendar() {
           <Card className="border-red-200 bg-red-50/50 dark:bg-red-900/10">
             <CardContent className="p-3 text-center">
               <div className="text-2xl font-bold text-red-600">
-                {schedules.filter(s => s.publish_status === 'failed').length}
+                {filteredSchedules.filter(s => s.publish_status === 'failed').length}
               </div>
               <div className="text-xs text-muted-foreground">Thất bại</div>
             </CardContent>
           </Card>
+          {overdueCount > 0 && (
+            <Card className="border-orange-300 bg-orange-50/50 dark:bg-orange-900/10 ring-1 ring-orange-300">
+              <CardContent className="p-3 text-center">
+                <div className="text-2xl font-bold text-orange-600">
+                  {overdueCount}
+                </div>
+                <div className="text-xs text-orange-600 font-medium">⚠️ Quá hạn</div>
+              </CardContent>
+            </Card>
+          )}
           <Card className="border-muted bg-muted/30">
             <CardContent className="p-3 text-center">
               <div className="text-2xl font-bold text-muted-foreground">
-                {schedules.filter(s => s.publish_status === 'cancelled').length}
+                {filteredSchedules.filter(s => s.publish_status === 'cancelled').length}
               </div>
               <div className="text-xs text-muted-foreground">Đã hủy</div>
             </CardContent>
