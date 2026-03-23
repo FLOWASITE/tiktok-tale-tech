@@ -275,6 +275,7 @@ export function MultiChannelFormWizard({
   
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [skipCoreContent, setSkipCoreContent] = useState(false);
 
   // Brainstorm Sheet state
   const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
@@ -681,8 +682,8 @@ export function MultiChannelFormWizard({
         // Step 1: Topic + Brand required
         return formData.topic.trim().length >= 10 && !!formData.brandTemplateId;
       case 2:
-        // Step 2: Allow proceeding if generating OR already has Core Content
-        return isGeneratingCoreContent || !!coreContentData?.id || !!formData.coreContentId;
+        // Step 2: Allow proceeding if generating OR already has Core Content OR skipping
+        return skipCoreContent || isGeneratingCoreContent || !!coreContentData?.id || !!formData.coreContentId;
       case 3:
         // Step 3: Role must be selected
         return !!formData.contentRole;
@@ -698,13 +699,17 @@ export function MultiChannelFormWizard({
       default:
         return false;
     }
-  }, [currentStep, formData, coreContentData, isGeneratingCoreContent]);
+  }, [currentStep, formData, coreContentData, isGeneratingCoreContent, skipCoreContent]);
 
   const handleNext = () => {
-    // For Step 2: If not generating and no core content, block
-    if (currentStep === 2 && !isGeneratingCoreContent && !coreContentData?.id && !formData.coreContentId) {
+    // For Step 2: If not generating and no core content and not skipping, block
+    if (currentStep === 2 && !skipCoreContent && !isGeneratingCoreContent && !coreContentData?.id && !formData.coreContentId) {
       toast.error('Vui lòng tạo Core Content trước khi tiếp tục');
       return;
+    }
+    // When skipping, clear coreContentId
+    if (currentStep === 2 && skipCoreContent) {
+      setFormData(prev => ({ ...prev, coreContentId: undefined }));
     }
     
     if (currentStep < 6 && canProceed) {
@@ -824,7 +829,7 @@ export function MultiChannelFormWizard({
     // Check if Core Content is ready
     const hasCoreContent = !!coreContentData?.id || !!formData.coreContentId;
 
-    if (!hasCoreContent) {
+    if (!hasCoreContent && !skipCoreContent) {
       if (isGeneratingCoreContent) {
         // Core Content is still generating - set pending flag
         setPendingMultiChannelGeneration(true);
@@ -1179,6 +1184,49 @@ export function MultiChannelFormWizard({
           {/* ========== STEP 2: TẠO CORE CONTENT ========== */}
           {currentStep === 2 && (
             <div className="space-y-5 animate-fade-in">
+              {/* Skip Core Content Toggle */}
+              <Card className={cn(
+                "border-border/50 transition-colors",
+                skipCoreContent && "border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20"
+              )}>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <SkipForward className={cn("w-5 h-5", skipCoreContent ? "text-amber-600" : "text-muted-foreground")} />
+                      <div>
+                        <Label htmlFor="skip-core" className="text-sm font-medium cursor-pointer">
+                          Tạo nhanh — bỏ qua Core Content
+                        </Label>
+                        <p className="text-xs text-muted-foreground">AI sẽ tạo nội dung trực tiếp từ chủ đề</p>
+                      </div>
+                    </div>
+                    <Switch 
+                      id="skip-core"
+                      checked={skipCoreContent} 
+                      onCheckedChange={setSkipCoreContent}
+                      disabled={isGeneratingCoreContent || !!coreContentData?.id}
+                    />
+                  </div>
+                  
+                  {skipCoreContent && (
+                    <div className="rounded-lg border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700/40 p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                          Nội dung sẽ tạo nhanh hơn nhưng có hạn chế
+                        </p>
+                      </div>
+                      <ul className="text-xs text-amber-700 dark:text-amber-400 space-y-1.5 ml-6 list-disc">
+                        <li>Không có Core Content làm nguồn gốc → nội dung giữa các kênh có thể <strong>không đồng nhất về thông điệp</strong></li>
+                        <li>Mỗi kênh sẽ được AI tạo độc lập → <strong>tone, thông tin chi tiết có thể khác nhau</strong></li>
+                        <li>Không thể dùng tính năng <strong>đánh giá chất lượng Core Content</strong> (critique score)</li>
+                        <li>Phù hợp cho bài viết đơn giản, tin nhanh. <strong>Không khuyến khích cho chiến dịch quan trọng</strong></li>
+                      </ul>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Topic Preview */}
               <Card className="bg-muted/30 border-border/50">
                 <CardContent className="p-4">
@@ -1196,7 +1244,7 @@ export function MultiChannelFormWizard({
               </Card>
 
               {/* Streaming UI when generating */}
-              {isGeneratingCoreContent && (
+              {!skipCoreContent && isGeneratingCoreContent && (
                 <CoreContentStreamingCard
                   streamingText={coreContentStreamingText}
                   progress={coreContentProgress}
@@ -1206,8 +1254,8 @@ export function MultiChannelFormWizard({
                 />
               )}
 
-              {/* Core Content Generation Form - Hidden when generating */}
-              {!coreContentData && !formData.coreContentId && !isGeneratingCoreContent && (
+              {/* Core Content Generation Form - Hidden when generating or skipping */}
+              {!skipCoreContent && !coreContentData && !formData.coreContentId && !isGeneratingCoreContent && (
                 <Card className="border-border/50 overflow-hidden">
                   {/* Gradient Header */}
                   <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-5 border-b border-border/30">
@@ -1447,7 +1495,7 @@ export function MultiChannelFormWizard({
               )}
 
               {/* Core Content Preview - After Generation (hidden while streaming) */}
-              {coreContentData && !isGeneratingCoreContent && (
+              {!skipCoreContent && coreContentData && !isGeneratingCoreContent && (
                 <Card className="bg-gradient-to-br from-primary/5 via-card to-card border-2 border-primary/30 shadow-sm">
                   <CardContent className="p-5 space-y-4">
                     <div className="flex items-center justify-between">
