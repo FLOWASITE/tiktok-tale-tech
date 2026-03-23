@@ -328,6 +328,24 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
               </Tooltip>
             </TooltipProvider>
           )}
+
+          {geoScore != null && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 px-1 py-0 h-3.5 xs:h-4 rounded-full border border-border/50 bg-background/50">
+                    <Zap className={cn("w-2 h-2", getCritiqueColor(geoScore))} />
+                    <span className={cn("text-[8px] xs:text-[10px] font-semibold", getCritiqueColor(geoScore))}>
+                      {geoScore}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  GEO Score: {geoScore}/100
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
 
         {/* #6: Improved progress bar - h-1.5 with label */}
