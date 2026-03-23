@@ -82,14 +82,12 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     if (open && initialData) {
       setName(initialData.name);
       setDescription(initialData.description || '');
-      setTopics(initialData.target_topics || []);
       setSelectedChannels(initialData.target_channels || []);
       setFrequency(initialData.frequency || {});
       setAutonomyLevel(initialData.autonomy_level);
       setBrandTemplateId(initialData.brand_template_id || '');
       setCampaignId(initialData.campaign_id || undefined);
       setStep(0);
-      setAiSuggestions([]);
     } else if (open && !initialData) {
       resetForm();
     }
