@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { MultiChannelContent, MultiChannelFormData, Channel, ContentGoal, ContentStatus, ChannelImage, ChannelImages, ChannelStatuses, calculateMasterStatus, CONTENT_STATUSES } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
 import { normalizeMarkdownText } from '@/utils/normalizeMarkdownText';
+import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Helper to normalize content field - ensures string or null
 const normalizeContentField = (value: unknown): string | null => {
