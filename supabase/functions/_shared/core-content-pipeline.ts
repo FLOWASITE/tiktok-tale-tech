@@ -392,8 +392,6 @@ export interface EnhancedPromptConfig extends CoreContentConfig {
 // ============================================
 
 export function buildSinglePassPrompt(config: EnhancedPromptConfig): string {
-  // Import GEO guidelines
-  const { getFullGEOGuidelines } = await import('../_shared/geo-prompt-guidelines.ts').catch(() => ({ getFullGEOGuidelines: () => '' }));
   const geoGuidelines = getFullGEOGuidelines();
   
   // If registry prompt is available, append GEO guidelines
@@ -403,7 +401,7 @@ export function buildSinglePassPrompt(config: EnhancedPromptConfig): string {
   }
   
   // HARDCODED FALLBACK: Use when registry prompt is unavailable
-  console.log('[buildSinglePassPrompt] Using hardcoded fallback prompt');
+  console.log('[buildSinglePassPrompt] Using hardcoded fallback prompt + GEO guidelines');
   
   const lengthMode = config.lengthMode || 'medium';
   const wordBudget = getWordBudgetByLength(lengthMode);
