@@ -112,7 +112,7 @@ export function useRetryPublish() {
         .from('content_schedules')
         .update({ 
           publish_status: 'failed',
-          last_error: error instanceof Error ? error.message : 'Unknown error',
+          publish_error: error instanceof Error ? error.message : 'Unknown error',
         })
         .eq('id', scheduleId);
 
