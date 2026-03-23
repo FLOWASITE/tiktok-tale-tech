@@ -71,17 +71,11 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [topics, setTopics] = useState<string[]>([]);
-  const [topicInput, setTopicInput] = useState('');
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [frequency, setFrequency] = useState<Record<string, string>>({});
   const [autonomyLevel, setAutonomyLevel] = useState<AgentAutonomyLevel>('human_in_loop');
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
   const [campaignId, setCampaignId] = useState<string | undefined>(undefined);
-
-  // AI suggest state
-  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
-  const [aiLoading, setAiLoading] = useState(false);
 
   // Pre-fill when editing
   useEffect(() => {
