@@ -21,6 +21,7 @@ import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/types/multichannel';
 import { toast } from 'sonner';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
+import { useGEOContentScores } from '@/hooks/useGEOContentScore';
 
 const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
 
@@ -70,6 +71,10 @@ export default function MultiChannel() {
   // Fetch creator profiles for all contents
   const userIds = useMemo(() => contents.map(c => c.user_id), [contents]);
   const { profiles: creatorProfiles, isLoading: isLoadingProfiles } = useCreatorProfiles(userIds);
+
+  // Fetch GEO scores for all displayed contents
+  const contentIds = useMemo(() => contents.map(c => c.id), [contents]);
+  const { data: geoScoresMap } = useGEOContentScores(contentIds);
   
   const [selectedContent, setSelectedContent] = useState<MultiChannelContent | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -439,6 +444,7 @@ export default function MultiChannel() {
                   isLoadingProfile={isLoadingProfiles}
                   index={index}
                   brandLogoUrl={content.brand_template_id ? brandLogoMap[content.brand_template_id] : undefined}
+                  geoScore={geoScoresMap?.[content.id]?.overall_score ?? null}
                 />
               </div>
             ))}

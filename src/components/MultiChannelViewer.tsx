@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
-import { Copy, Check, Download, Globe, Facebook, Instagram, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight, Wand2, Plus, Type } from 'lucide-react';
+import { Copy, Check, Download, Globe, Facebook, Instagram, MapPin, RefreshCw, Loader2, Pencil, Save, X, Sparkles, Minus, Smile, Target, Briefcase, Undo2, Redo2, Eye, Code, Linkedin, Mail, Youtube, Send, ImagePlus, Images, ChevronDown, CalendarClock, Users, Music2, AtSign, GitCompare, TrendingUp, PanelLeftClose, ChevronRight, Wand2, Plus, Type, Zap } from 'lucide-react';
 import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import { TopicPerformanceUpdater } from '@/components/topic/TopicPerformanceUpdater';
 import { DirectPublishButton } from '@/components/social/DirectPublishButton';
@@ -75,6 +75,10 @@ import { useBackgroundEditor } from '@/hooks/useBackgroundEditor';
 import { CoreContentSourceBadge } from '@/components/viewer/CoreContentSourceBadge';
 import { CoreContentViewer } from '@/components/core-content/CoreContentViewer';
 import type { CoreContent } from '@/types/coreContent';
+import { GEOScorePanel } from '@/components/geo/GEOScorePanel';
+import { useGEOContentScore } from '@/hooks/useGEOContentScore';
+
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
@@ -251,6 +255,7 @@ export function MultiChannelViewer({
   aiEditingChannel,
   expandingChannels,
 }: MultiChannelViewerProps) {
+  const { currentOrganization } = useOrganizationContext();
   const [copiedChannel, setCopiedChannel] = useState<Channel | null>(null);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -264,6 +269,7 @@ export function MultiChannelViewer({
   const [generatedImages, setGeneratedImages] = useState<Record<Channel, string>>({} as Record<Channel, string>);
   const [showGallery, setShowGallery] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [showGeoScore, setShowGeoScore] = useState(false);
   const [showTeamPanel, setShowTeamPanel] = useState(false);
   const [deletingImageChannel, setDeletingImageChannel] = useState<Channel | null>(null);
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
@@ -278,6 +284,7 @@ export function MultiChannelViewer({
       setShowGallery(false);
       setShowSchedule(false);
       setShowTeamPanel(false);
+      setShowGeoScore(false);
     }
   }, [open]);
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
@@ -848,7 +855,7 @@ export function MultiChannelViewer({
                       <Button 
                         variant={showTeamPanel ? "secondary" : "ghost"} 
                         size="icon"
-                        onClick={() => { setShowTeamPanel(!showTeamPanel); setShowGallery(false); setShowSchedule(false); }}
+                        onClick={() => { setShowTeamPanel(!showTeamPanel); setShowGallery(false); setShowSchedule(false); setShowGeoScore(false); }}
                         className="h-8 w-8"
                       >
                         <Users className="w-4 h-4" />
@@ -863,7 +870,7 @@ export function MultiChannelViewer({
                       <Button 
                         variant={showGallery ? "secondary" : "ghost"} 
                         size="icon"
-                        onClick={() => { setShowGallery(!showGallery); setShowSchedule(false); setShowTeamPanel(false); }}
+                        onClick={() => { setShowGallery(!showGallery); setShowSchedule(false); setShowTeamPanel(false); setShowGeoScore(false); }}
                         className="h-8 w-8 relative"
                       >
                         <Images className="w-4 h-4" />
@@ -883,7 +890,7 @@ export function MultiChannelViewer({
                       <Button 
                         variant={showSchedule ? "secondary" : "ghost"} 
                         size="icon"
-                        onClick={() => { setShowSchedule(!showSchedule); setShowGallery(false); setShowTeamPanel(false); }}
+                        onClick={() => { setShowSchedule(!showSchedule); setShowGallery(false); setShowTeamPanel(false); setShowGeoScore(false); }}
                         className="h-8 w-8"
                       >
                         <CalendarClock className="w-4 h-4" />
@@ -892,7 +899,21 @@ export function MultiChannelViewer({
                     <TooltipContent>Lịch đăng</TooltipContent>
                   </Tooltip>
 
-                  {/* Performance Tracking */}
+                  {/* GEO Score Toggle */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant={showGeoScore ? "secondary" : "ghost"} 
+                        size="icon"
+                        onClick={() => { setShowGeoScore(!showGeoScore); setShowGallery(false); setShowSchedule(false); setShowTeamPanel(false); }}
+                        className="h-8 w-8"
+                      >
+                        <Zap className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>GEO Score</TooltipContent>
+                  </Tooltip>
+
                   {content.status === 'published' && (
                     <TopicPerformanceUpdater
                       contentId={content.id}
@@ -975,6 +996,15 @@ export function MultiChannelViewer({
         ) : showSchedule ? (
           <div className="p-6">
             <SchedulePanel content={content} onBack={() => setShowSchedule(false)} />
+          </div>
+        ) : showGeoScore ? (
+          <div className="p-6">
+            <GEOScorePanel
+              contentId={content.id}
+              contentType="multi_channel"
+              contentText={getContentForChannel(content, selectedChannel) || content.website_content || ''}
+              organizationId={currentOrganization?.id || ''}
+            />
           </div>
         ) : showGallery ? (
           <div className="p-6">

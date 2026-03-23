@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { formatDistanceToNow, isPast, parseISO, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { motion } from 'framer-motion';
-import { Eye, Trash2, Globe, Facebook, Instagram, MapPin, Linkedin, Mail, Youtube, Send, Tag, Image, Building, FileText, RefreshCw, CalendarClock, Music2, AtSign, Star, AlertTriangle, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
+import { Eye, Trash2, Globe, Facebook, Instagram, MapPin, Linkedin, Mail, Youtube, Send, Tag, Image, Building, FileText, RefreshCw, CalendarClock, Music2, AtSign, Star, AlertTriangle, ArrowUp, ArrowRight, ArrowDown, Zap } from 'lucide-react';
 import { ZaloIcon, XIcon } from '@/components/icons/SocialIcons';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +38,7 @@ interface MultiChannelCardProps {
   isLoadingProfile?: boolean;
   index?: number;
   brandLogoUrl?: string | null;
+  geoScore?: number | null;
 }
 
 const channelIcons: Record<Channel, React.ReactNode> = {
@@ -110,7 +111,7 @@ function getCritiqueBarColor(score: number): string {
   return 'bg-red-400';
 }
 
-export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete, creatorProfile, isLoadingProfile, index = 0, brandLogoUrl }: MultiChannelCardProps) {
+export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete, creatorProfile, isLoadingProfile, index = 0, brandLogoUrl, geoScore }: MultiChannelCardProps) {
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   
@@ -323,6 +324,24 @@ export function MultiChannelCard({ content, onView, onDelete, onScheduleComplete
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-xs">
                   Điểm đánh giá: {content.critique_score}/100
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
+          {geoScore != null && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 px-1 py-0 h-3.5 xs:h-4 rounded-full border border-border/50 bg-background/50">
+                    <Zap className={cn("w-2 h-2", getCritiqueColor(geoScore))} />
+                    <span className={cn("text-[8px] xs:text-[10px] font-semibold", getCritiqueColor(geoScore))}>
+                      {geoScore}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  GEO Score: {geoScore}/100
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
