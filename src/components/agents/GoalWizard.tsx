@@ -187,75 +187,14 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                 <Input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Q2 Skincare Campaign" className="text-sm" />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">Mô tả</Label>
-                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Mô tả ngắn về mục tiêu campaign..." rows={2} className="text-sm resize-none" />
+                <Label className="text-xs">Mô tả mục tiêu</Label>
+                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Mô tả mục tiêu campaign để AI nghiên cứu chủ đề phù hợp..." rows={3} className="text-sm resize-none" />
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">Chủ đề nội dung * ({topics.length})</Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleSuggestTopics}
-                    disabled={aiLoading || !currentBrand}
-                    className="text-xs gap-1.5 h-7 px-2 text-primary hover:text-primary"
-                  >
-                    {aiLoading ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Bot className="w-3 h-3" />
-                    )}
-                    {aiLoading ? 'Đang gợi ý...' : 'Gợi ý bằng AI'}
-                  </Button>
-                </div>
-                <div className="flex gap-2">
-                  <Input value={topicInput} onChange={e => setTopicInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTopic())} placeholder="Nhập chủ đề rồi Enter..." className="text-sm" />
-                  <Button variant="outline" size="sm" onClick={addTopic} disabled={!topicInput.trim()}>
-                    <Plus className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-
-                {/* AI Suggestions */}
-                {aiSuggestions.length > 0 && (
-                  <div className="space-y-1.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
-                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                      <Sparkles className="w-3 h-3 text-primary/60" />
-                      <span>Gợi ý từ AI — click để chọn:</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {aiSuggestions.map((suggestion, idx) => {
-                        const isSelected = topics.includes(suggestion);
-                        return (
-                          <button
-                            key={idx}
-                            onClick={() => toggleSuggestion(suggestion)}
-                            className={cn(
-                              "px-2.5 py-1 rounded-full text-[10px] font-medium transition-all duration-200 border",
-                              isSelected
-                                ? "bg-primary text-primary-foreground border-primary"
-                                : "bg-primary/5 text-primary/80 border-primary/15 hover:bg-primary/15 hover:border-primary/30"
-                            )}
-                          >
-                            {isSelected && <Check className="w-2.5 h-2.5 inline mr-1" />}
-                            {suggestion}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Selected topics */}
-                {topics.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {topics.map(t => (
-                      <Badge key={t} variant="secondary" className="text-[10px] gap-1 pr-1">
-                        {t}
-                        <button onClick={() => setTopics(topics.filter(x => x !== t))}><X className="w-3 h-3" /></button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                <Bot className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                <p className="text-[11px] text-muted-foreground">
+                  <span className="font-medium text-foreground">Research Agent</span> sẽ tự động nghiên cứu xu hướng và đề xuất chủ đề nội dung dựa trên brand, ngành hàng và mô tả mục tiêu của bạn.
+                </p>
               </div>
             </div>
           )}
