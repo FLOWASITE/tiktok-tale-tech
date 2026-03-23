@@ -237,8 +237,108 @@ serve(async (req) => {
       );
     }
 
+    // Action: check_scheduled_goals — cron calls this to auto-trigger pipelines
+    if (action === "check_scheduled_goals") {
+      // Find active, non-paused goals
+      const { data: activeGoals, error: goalsErr } = await supabase
+        .from("agent_goals")
+        .select("*")
+        .eq("is_active", true)
+        .eq("is_paused", false);
+
+      if (goalsErr || !activeGoals?.length) {
+        return new Response(
+          JSON.stringify({ success: true, message: "No active goals", triggered: 0 }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      let triggered = 0;
+      for (const goal of activeGoals) {
+        // Check if there are already pending pipelines for this goal
+        const { count } = await supabase
+          .from("agent_pipelines")
+          .select("id", { count: "exact", head: true })
+          .eq("goal_id", goal.id)
+          .not("current_stage", "in", '("published","analyzing")');
+
+        const pendingCount = count || 0;
+        const maxConcurrent = 5; // Max pipelines per goal at a time
+
+        if (pendingCount >= maxConcurrent) continue;
+
+        // Parse frequency to determine if we should trigger
+        const freq = goal.frequency as Record<string, string>;
+        const channels = Object.keys(freq);
+        if (channels.length === 0) continue;
+
+        // Check last pipeline creation time
+        const { data: lastPipeline } = await supabase
+          .from("agent_pipelines")
+          .select("created_at")
+          .eq("goal_id", goal.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        const lastCreated = lastPipeline?.created_at ? new Date(lastPipeline.created_at) : new Date(0);
+        const now = new Date();
+        const hoursSinceLast = (now.getTime() - lastCreated.getTime()) / (1000 * 60 * 60);
+
+        // Determine minimum interval from frequency settings
+        let minIntervalHours = 168; // default weekly
+        for (const f of Object.values(freq)) {
+          if (f === "daily") minIntervalHours = Math.min(minIntervalHours, 24);
+          else if (f === "3/week") minIntervalHours = Math.min(minIntervalHours, 56);
+          else if (f === "2/week") minIntervalHours = Math.min(minIntervalHours, 84);
+          else if (f === "weekly") minIntervalHours = Math.min(minIntervalHours, 168);
+        }
+
+        if (hoursSinceLast < minIntervalHours) continue;
+
+        // Pick a random topic from goal
+        const topics = (goal.target_topics as string[]) || [];
+        if (topics.length === 0) continue;
+        const topic = topics[Math.floor(Math.random() * topics.length)];
+
+        // Create pipeline
+        const { error: pipeErr } = await supabase
+          .from("agent_pipelines")
+          .insert({
+            organization_id: goal.organization_id,
+            goal_id: goal.id,
+            content_title: topic,
+            content_topic: topic,
+            current_stage: "research",
+            pipeline_state: {
+              stages: {
+                research: { status: "pending" },
+                creation: { status: "pending" },
+                optimization: { status: "pending" },
+                expansion: { status: "pending" },
+                compliance: { status: "pending" },
+                approval: { status: "pending" },
+                scheduled: { status: "pending" },
+                published: { status: "pending" },
+                analyzing: { status: "pending" },
+              },
+            },
+            priority: "normal",
+            autonomy_level: goal.autonomy_level,
+            estimated_completion: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+          } as any);
+
+        if (!pipeErr) triggered++;
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, triggered, active_goals: activeGoals.length }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ error: "Unknown action. Use: trigger_from_goal, advance_stage, run_stage" }),
+      JSON.stringify({ error: "Unknown action. Use: trigger_from_goal, advance_stage, run_stage, check_scheduled_goals" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
