@@ -75,6 +75,8 @@ import { useBackgroundEditor } from '@/hooks/useBackgroundEditor';
 import { CoreContentSourceBadge } from '@/components/viewer/CoreContentSourceBadge';
 import { CoreContentViewer } from '@/components/core-content/CoreContentViewer';
 import type { CoreContent } from '@/types/coreContent';
+import { GEOScorePanel } from '@/components/geo/GEOScorePanel';
+import { useGEOContentScore } from '@/hooks/useGEOContentScore';
 
 interface MultiChannelViewerProps {
   content: MultiChannelContent | null;
