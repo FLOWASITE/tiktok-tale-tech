@@ -294,6 +294,68 @@ export function MultiChannelViewer({
       setShowGeoScore(false);
     }
   }, [open]);
+
+  // Auto-trigger GEO score when opening viewer for content without score
+  useEffect(() => {
+    if (!open || !content?.id || !currentOrganization?.id || isGEOQueryLoading) return;
+    if (geoScoreData != null || geoAutoTriggeredRef.current) return;
+    
+    // Collect all channel texts
+    const channels = content.selected_channels || [];
+    const allTexts = channels.map(ch => getContentForChannel(content, ch)).filter(Boolean) as string[];
+    const combinedText = allTexts.join('\n\n---\n\n');
+    if (combinedText.length < 50) return;
+    
+    geoAutoTriggeredRef.current = true;
+    setIsGEOScoring(true);
+    
+    supabase.functions.invoke('geo-score-content', {
+      body: {
+        contentId: content.id,
+        contentType: 'multi_channel',
+        contentText: combinedText.substring(0, 6000),
+        organizationId: currentOrganization.id,
+      },
+    }).then(() => {
+      queryClient.invalidateQueries({ queryKey: ['geo-content-score', content.id] });
+    }).catch(err => {
+      console.error('Auto GEO score failed:', err);
+    }).finally(() => {
+      setIsGEOScoring(false);
+    });
+  }, [open, content?.id, currentOrganization?.id, geoScoreData, isGEOQueryLoading]);
+
+  // Manual GEO trigger callback
+  const handleTriggerGEO = useCallback(() => {
+    if (!content?.id || !currentOrganization?.id || isGEOScoring) return;
+    
+    const channels = content.selected_channels || [];
+    const allTexts = channels.map(ch => getContentForChannel(content, ch)).filter(Boolean) as string[];
+    const combinedText = allTexts.join('\n\n---\n\n');
+    if (combinedText.length < 50) {
+      toast({ title: 'Nội dung quá ngắn', description: 'Cần ít nhất 50 ký tự để chấm GEO', variant: 'destructive' });
+      return;
+    }
+    
+    setIsGEOScoring(true);
+    supabase.functions.invoke('geo-score-content', {
+      body: {
+        contentId: content.id,
+        contentType: 'multi_channel',
+        contentText: combinedText.substring(0, 6000),
+        organizationId: currentOrganization.id,
+      },
+    }).then(() => {
+      queryClient.invalidateQueries({ queryKey: ['geo-content-score', content.id] });
+      toast({ title: 'Đã chấm GEO', description: 'Điểm GEO đã được cập nhật' });
+    }).catch(err => {
+      console.error('Manual GEO score failed:', err);
+      toast({ title: 'Lỗi chấm GEO', description: 'Vui lòng thử lại sau', variant: 'destructive' });
+    }).finally(() => {
+      setIsGEOScoring(false);
+    });
+  }, [content, currentOrganization?.id, isGEOScoring, queryClient]);
+
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
   const [assignmentChannel, setAssignmentChannel] = useState<Channel | null>(null);
   const [showMockupView, setShowMockupView] = useState(true);
