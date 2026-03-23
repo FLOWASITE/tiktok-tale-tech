@@ -1081,22 +1081,6 @@ export function MultiChannelViewer({
               organizationId={currentOrganization?.id || ''}
             />
           </div>
-        ) : showGallery ? (
-          <div className="p-6">
-            <ChannelImagesGallery
-              channelImages={content.channel_images || {}}
-              selectedChannels={content.selected_channels || []}
-              onDeleteImage={onDeleteChannelImage ? async (channel) => {
-                setDeletingImageChannel(channel);
-                try {
-                  await onDeleteChannelImage(content.id, channel);
-                } finally {
-                  setDeletingImageChannel(null);
-                }
-              } : undefined}
-              isDeleting={deletingImageChannel}
-            />
-          </div>
         ) : (
           <div className="flex-1 flex overflow-hidden relative">
             {/* Nút mở lại sidebar khi đã đóng */}
