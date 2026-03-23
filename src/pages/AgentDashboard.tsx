@@ -21,7 +21,7 @@ export default function AgentDashboard() {
   const { currentOrganization } = useOrganizationContext();
   const { pipelines, isLoading: pipelinesLoading, updateStage } = useAgentPipelines();
   const { approvals, pendingCount, updateApproval } = useAgentApprovals();
-  const { goals, createGoal } = useAgentGoals();
+  const { goals, createGoal, updateGoal } = useAgentGoals();
   const [activeTab, setActiveTab] = useState('pipeline');
   const [wizardOpen, setWizardOpen] = useState(false);
 
@@ -78,7 +78,9 @@ export default function AgentDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => {
+              goals.filter(g => g.is_active && !g.is_paused).forEach(g => updateGoal.mutate({ id: g.id, is_paused: true }));
+            }}>
               <Pause className="w-3.5 h-3.5" /> Pause All
             </Button>
             <Button size="sm" className="gap-1.5 text-xs" onClick={() => setWizardOpen(true)}>
@@ -194,7 +196,7 @@ export default function AgentDashboard() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => updateGoal.mutate({ id: goal.id, is_paused: !goal.is_paused })}>
                           {goal.is_paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
                         </Button>
                       </div>
