@@ -1,40 +1,38 @@
 
 
-# Tối ưu chất lượng text rendering tiếng Việt trên ảnh multichannel
+# Làm lại chức năng Overlay Logo — cải thiện thẩm mỹ
 
 ## Vấn đề hiện tại
 
-AI render text trực tiếp (ai_render mode) nhưng prompt chưa đủ mạnh để đảm bảo:
-1. **Dấu tiếng Việt** bị AI render sai (ă→a, ơ→o, ư→u, ê→e)
-2. **Text bị thay đổi/rút gọn** — AI tự ý rephrase hoặc bỏ chữ
-3. **Font không hỗ trợ Unicode** — AI chọn font Latin-only
-4. **Contrast kém** — text khó đọc trên background phức tạp
+Xem code `overlay-logo-canvas/index.ts`, có 3 nguyên nhân gây mất thẩm mỹ:
 
-## Giải pháp: 3 cải tiến
+| Vấn đề | Code hiện tại | Hậu quả |
+|--------|--------------|---------|
+| **Backdrop đen xấu** | `backdrop.fill(0x00000066)` — hình chữ nhật đen 40% opacity, góc vuông | Logo bị đóng khung đen thô, trông như "dán sticker" |
+| **Logo styles không hoạt động** | `shadow`, `glass`, `pill`, `outline` đều fall-through về `clean` (không xử lý gì) | Chọn style nào cũng giống nhau |
+| **Output JPEG 80%** | `encodeJPEG(80)` | Giảm chất lượng ảnh, artifacts quanh logo |
 
-### 1. Thêm Vietnamese Text Rendering Builder vào pipeline
-- Tạo builder mới `buildVietnameseTextAccuracy` trong `image-prompt-builders.ts`
-- Priority cao (95) để đứng gần cuối prompt (sandwich reinforcement)
-- Nội dung:
-  - Liệt kê CHÍNH XÁC text cần render (character-by-character)
-  - Cấm AI thay đổi bất kỳ ký tự nào
-  - Yêu cầu font hỗ trợ Unicode Vietnamese đầy đủ
-  - Đưa ra ví dụ cụ thể các dấu dễ sai: ă≠a, ơ≠o, ư≠u, ê≠e, đ≠d
+## Giải pháp
 
-### 2. Nâng cấp `structuredElementsToPromptText` trong `generate-brand-image`
-- Thêm "TEXT VERIFICATION CHECKLIST" — liệt kê từng đoạn text cần render kèm character count
-- Thêm hướng dẫn: "Nếu không thể render chính xác, HÃY BỎ TEXT thay vì render sai"
-- Tăng cường contrast rules: minimum font size, mandatory text shadow/backdrop
+### 1. Bỏ backdrop đen — thay bằng kỹ thuật tinh tế hơn
+- **Mặc định (clean)**: Không backdrop, logo đặt trực tiếp lên ảnh
+- **Shadow**: Tạo bản sao logo dịch 2-3px, fill đen 30% opacity → đặt trước logo gốc (drop shadow giả)
+- **Glass**: Backdrop bo góc với opacity 15% trắng (frosted effect)
+- **Subtle**: Giảm opacity logo xuống 40% (watermark nhẹ)
 
-### 3. Cải thiện `buildCriticalRules` cho with_text mode
-- Thêm rule: "Vietnamese diacritics VERIFICATION — count accent marks in output must match input"
-- Thêm rule: "NEVER substitute similar-looking characters"
-- Thêm rule: "Use at least 48px equivalent font size for headlines"
+### 2. Tăng chất lượng output
+- Chuyển từ JPEG 80% → PNG cho chất lượng cao hơn (trừ Zalo OA giữ JPEG vì giới hạn 1MB)
+- Giữ alpha channel cho logo PNG trong suốt
+
+### 3. Tăng padding mặc định
+- Từ 20px → 30px để logo không bị sát mép
+
+### 4. Bo góc backdrop (cho style glass/pill)
+- Dùng pixel-level masking để tạo rounded rectangle thay vì hình chữ nhật vuông
 
 ## Files cần sửa
 
 | File | Thay đổi |
 |------|----------|
-| `supabase/functions/_shared/image-prompt-builders.ts` | Thêm `buildVietnameseTextAccuracy` builder, cải thiện `buildCriticalRules` |
-| `supabase/functions/generate-brand-image/index.ts` | Nâng cấp `structuredElementsToPromptText` với verification checklist |
+| `supabase/functions/overlay-logo-canvas/index.ts` | Rewrite `drawLogoBackdrop`, implement real logo styles, tăng quality output |
 
