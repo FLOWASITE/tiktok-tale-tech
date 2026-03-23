@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { cn } from '@/lib/utils';
+import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 
 const AVAILABLE_CHANNELS = [
   { id: 'blog', label: 'Blog', icon: '📝' },
