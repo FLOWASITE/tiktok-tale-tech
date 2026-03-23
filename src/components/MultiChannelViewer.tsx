@@ -77,6 +77,7 @@ import { CoreContentViewer } from '@/components/core-content/CoreContentViewer';
 import type { CoreContent } from '@/types/coreContent';
 import { GEOScorePanel } from '@/components/geo/GEOScorePanel';
 import { useGEOContentScore } from '@/hooks/useGEOContentScore';
+import { calculateSEOScore } from '@/utils/seoScoreCalculator';
 
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -273,7 +274,9 @@ export function MultiChannelViewer({
   const [showGallery, setShowGallery] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
   const [showGeoScore, setShowGeoScore] = useState(false);
-  const { data: geoScoreData } = useGEOContentScore(content?.id ?? '');
+  const { data: geoScoreData, isLoading: isGEOQueryLoading } = useGEOContentScore(content?.id ?? '');
+  const [isGEOScoring, setIsGEOScoring] = useState(false);
+  const geoAutoTriggeredRef = useRef(false);
   const [showTeamPanel, setShowTeamPanel] = useState(false);
   const [deletingImageChannel, setDeletingImageChannel] = useState<Channel | null>(null);
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
@@ -289,8 +292,71 @@ export function MultiChannelViewer({
       setShowSchedule(false);
       setShowTeamPanel(false);
       setShowGeoScore(false);
+      geoAutoTriggeredRef.current = false;
     }
   }, [open]);
+
+  // Auto-trigger GEO score when opening viewer for content without score
+  useEffect(() => {
+    if (!open || !content?.id || !currentOrganization?.id || isGEOQueryLoading) return;
+    if (geoScoreData != null || geoAutoTriggeredRef.current) return;
+    
+    // Collect all channel texts
+    const channels = content.selected_channels || [];
+    const allTexts = channels.map(ch => getContentForChannel(content, ch)).filter(Boolean) as string[];
+    const combinedText = allTexts.join('\n\n---\n\n');
+    if (combinedText.length < 50) return;
+    
+    geoAutoTriggeredRef.current = true;
+    setIsGEOScoring(true);
+    
+    supabase.functions.invoke('geo-score-content', {
+      body: {
+        contentId: content.id,
+        contentType: 'multi_channel',
+        contentText: combinedText.substring(0, 6000),
+        organizationId: currentOrganization.id,
+      },
+    }).then(() => {
+      queryClient.invalidateQueries({ queryKey: ['geo-content-score', content.id] });
+    }).catch(err => {
+      console.error('Auto GEO score failed:', err);
+    }).finally(() => {
+      setIsGEOScoring(false);
+    });
+  }, [open, content?.id, currentOrganization?.id, geoScoreData, isGEOQueryLoading]);
+
+  // Manual GEO trigger callback
+  const handleTriggerGEO = useCallback(() => {
+    if (!content?.id || !currentOrganization?.id || isGEOScoring) return;
+    
+    const channels = content.selected_channels || [];
+    const allTexts = channels.map(ch => getContentForChannel(content, ch)).filter(Boolean) as string[];
+    const combinedText = allTexts.join('\n\n---\n\n');
+    if (combinedText.length < 50) {
+      toast({ title: 'Nội dung quá ngắn', description: 'Cần ít nhất 50 ký tự để chấm GEO', variant: 'destructive' });
+      return;
+    }
+    
+    setIsGEOScoring(true);
+    supabase.functions.invoke('geo-score-content', {
+      body: {
+        contentId: content.id,
+        contentType: 'multi_channel',
+        contentText: combinedText.substring(0, 6000),
+        organizationId: currentOrganization.id,
+      },
+    }).then(() => {
+      queryClient.invalidateQueries({ queryKey: ['geo-content-score', content.id] });
+      toast({ title: 'Đã chấm GEO', description: 'Điểm GEO đã được cập nhật' });
+    }).catch(err => {
+      console.error('Manual GEO score failed:', err);
+      toast({ title: 'Lỗi chấm GEO', description: 'Vui lòng thử lại sau', variant: 'destructive' });
+    }).finally(() => {
+      setIsGEOScoring(false);
+    });
+  }, [content, currentOrganization?.id, isGEOScoring, queryClient]);
+
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
   const [assignmentChannel, setAssignmentChannel] = useState<Channel | null>(null);
   const [showMockupView, setShowMockupView] = useState(true);
@@ -1486,7 +1552,9 @@ export function MultiChannelViewer({
                                     (channelContent.split('\n').filter(l => l.trim()).length > 3 ? 15 : 5) +
                                     ((channelContent.match(/(click|nhấn|liên hệ|mua|đăng ký|theo dõi|inbox|dm|share|comment|xem thêm)/gi) || []).length > 0 ? 15 : 0)
                                   )) : undefined}
-                                  seoScore={channel === 'website' && (content as any).website_seo_data?.score ? (content as any).website_seo_data.score : undefined}
+                                  seoScore={channel === 'website' ? calculateSEOScore(channelContent || '') : undefined}
+                                  onTriggerGEO={handleTriggerGEO}
+                                  isGEOLoading={isGEOScoring}
                                 />
                               </div>
                                 
