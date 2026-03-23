@@ -391,10 +391,14 @@ export interface EnhancedPromptConfig extends CoreContentConfig {
 // ============================================
 
 export function buildSinglePassPrompt(config: EnhancedPromptConfig): string {
-  // If registry prompt is available, use it directly (already interpolated)
+  // Import GEO guidelines
+  const { getFullGEOGuidelines } = await import('../_shared/geo-prompt-guidelines.ts').catch(() => ({ getFullGEOGuidelines: () => '' }));
+  const geoGuidelines = getFullGEOGuidelines();
+  
+  // If registry prompt is available, append GEO guidelines
   if (config.registrySystemPrompt) {
-    console.log('[buildSinglePassPrompt] Using registry system prompt');
-    return config.registrySystemPrompt;
+    console.log('[buildSinglePassPrompt] Using registry system prompt + GEO guidelines');
+    return config.registrySystemPrompt + '\n\n' + geoGuidelines;
   }
   
   // HARDCODED FALLBACK: Use when registry prompt is unavailable
