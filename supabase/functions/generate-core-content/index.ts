@@ -479,10 +479,11 @@ Deno.serve(withPerf({ functionName: 'generate-core-content', slowThresholdMs: 45
     // Parse request body first (need body.userId for fallback)
     const body: GenerateCoreContentRequest = await req.json();
     const {
-      topic, contentGoal, contentAngle, contentRole, lengthMode,
+      topic, contentGoal, contentAngle, contentRole,
       brandTemplateId, targetAudience, additionalContext, topicHistoryId,
       stream, enableResearch, researchRecency, taskId,
     } = body;
+    const effectiveLengthMode = (body.lengthMode as CoreContentLengthMode) || 'medium';
 
     // Get auth info needed for parallel resolution
     const authHeader = req.headers.get('authorization');
@@ -608,8 +609,8 @@ Deno.serve(withPerf({ functionName: 'generate-core-content', slowThresholdMs: 45
     const smartContextInjection = smartCtx?.contextInjection || '';
 
     // --- Derive model & maxTokens ---
-    const model = aiConfig?.model || getDefaultModel(lengthMode as CoreContentLengthMode);
-    const maxTokens = getMaxTokens(lengthMode as CoreContentLengthMode);
+    const model = aiConfig?.model || getDefaultModel();
+    const maxTokens = getMaxTokens(effectiveLengthMode);
 
     // ========== PHASE 2: PARALLEL RESEARCH + KG + PROMPT ==========
     // These depend on Phase 1 results (brandContext, brandData) but are independent of each other
@@ -617,8 +618,8 @@ Deno.serve(withPerf({ functionName: 'generate-core-content', slowThresholdMs: 45
     const phase2Start = Date.now();
     
     const promptManager = createPromptManager(supabase, 'generate-core-content', organizationId, brandTemplateId);
-    const lengthConfigData = getLengthConfig(lengthMode as CoreContentLengthMode);
-    const wordBudgetData = getWordBudgetByLength(lengthMode as CoreContentLengthMode);
+    const lengthConfigData = getLengthConfig(effectiveLengthMode);
+    const wordBudgetData = getWordBudgetByLength(effectiveLengthMode);
     
     // Use industry_template_id from Phase 1 brand data (no duplicate query!)
     const industryTemplateId = brandData?.industry_template_id;
@@ -709,7 +710,7 @@ Deno.serve(withPerf({ functionName: 'generate-core-content', slowThresholdMs: 45
       contentGoal: contentGoal || 'education',
       contentAngle,
       role: contentRole,
-      lengthMode: lengthMode as CoreContentLengthMode,
+      lengthMode: effectiveLengthMode,
       brandContext,
       personas,
       products,
@@ -774,7 +775,7 @@ Deno.serve(withPerf({ functionName: 'generate-core-content', slowThresholdMs: 45
             brandContext,
             null, // No outline in single-pass
             'balanced', // Legacy parameter, ignored
-            { lengthMode: lengthMode as CoreContentLengthMode }
+            { lengthMode: effectiveLengthMode }
           );
           const qualityScore = qualityMetrics.overall;
           
@@ -801,7 +802,7 @@ Deno.serve(withPerf({ functionName: 'generate-core-content', slowThresholdMs: 45
             status: 'draft',
             outline: null,
             generation_metadata: {
-              lengthMode,
+              lengthMode: effectiveLengthMode,
               stepsCompleted: enableResearch ? ['research', ...result.metadata.stepsCompleted] : result.metadata.stepsCompleted,
               totalTokensEstimated: result.metadata.totalTokensEstimated,
               modelsUsed: result.metadata.modelsUsed,
@@ -915,7 +916,7 @@ Deno.serve(withPerf({ functionName: 'generate-core-content', slowThresholdMs: 45
       brandContext,
       null,
       'balanced',
-      { lengthMode: lengthMode as CoreContentLengthMode }
+      { lengthMode: effectiveLengthMode }
     );
     const qualityScore = qualityMetrics.overall;
     
@@ -942,7 +943,7 @@ Deno.serve(withPerf({ functionName: 'generate-core-content', slowThresholdMs: 45
       status: 'draft',
       outline: null,
       generation_metadata: {
-        lengthMode,
+        lengthMode: effectiveLengthMode,
         stepsCompleted: enableResearch ? ['research', ...result.metadata.stepsCompleted] : result.metadata.stepsCompleted,
         totalTokensEstimated: result.metadata.totalTokensEstimated,
         modelsUsed: result.metadata.modelsUsed,

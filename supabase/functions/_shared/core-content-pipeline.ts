@@ -99,8 +99,9 @@ const LENGTH_CONFIGS: Record<CoreContentLengthMode, LengthConfig> = {
   },
 };
 
-export function getLengthConfig(lengthMode: CoreContentLengthMode): LengthConfig {
-  return LENGTH_CONFIGS[lengthMode];
+export function getLengthConfig(lengthMode?: CoreContentLengthMode): LengthConfig {
+  const mode = lengthMode && LENGTH_CONFIGS[lengthMode] ? lengthMode : 'medium';
+  return LENGTH_CONFIGS[mode];
 }
 
 interface WordBudget {
@@ -112,8 +113,8 @@ interface WordBudget {
   conclusion: number;
 }
 
-export function getWordBudgetByLength(lengthMode: CoreContentLengthMode): WordBudget {
-  const config = LENGTH_CONFIGS[lengthMode];
+export function getWordBudgetByLength(lengthMode?: CoreContentLengthMode): WordBudget {
+  const config = getLengthConfig(lengthMode);
   return {
     total: config.targetWords,
     ...config.sectionBudgets,
@@ -491,7 +492,7 @@ export function getAngleDescription(angle?: string): string {
 // MAX TOKENS CALCULATION
 // ============================================
 
-export function getMaxTokens(lengthMode: CoreContentLengthMode): number {
+export function getMaxTokens(lengthMode?: CoreContentLengthMode): number {
   // Tokens are approximately 1.3x word count for Vietnamese
   const config = getLengthConfig(lengthMode);
   // Add buffer for formatting and prompt overhead
