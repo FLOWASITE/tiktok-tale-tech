@@ -255,6 +255,7 @@ export function MultiChannelViewer({
   aiEditingChannel,
   expandingChannels,
 }: MultiChannelViewerProps) {
+  const { currentOrganization } = useOrganizationContext();
   const [copiedChannel, setCopiedChannel] = useState<Channel | null>(null);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [isSaving, setIsSaving] = useState(false);
