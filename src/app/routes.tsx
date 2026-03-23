@@ -158,6 +158,7 @@ export function AppRoutes() {
       <Route path="/campaigns/:id" element={<ProtectedRoute><CampaignDetail /></ProtectedRoute>} />
       <Route path="/ad-copies" element={<ProtectedRoute><AppLayout><AdCopies /></AppLayout></ProtectedRoute>} />
       <Route path="/calendar" element={<ProtectedRoute><AppLayout><ContentCalendar /></AppLayout></ProtectedRoute>} />
+      <Route path="/agents" element={<ProtectedRoute><AppLayout><AgentDashboard /></AppLayout></ProtectedRoute>} />
       <Route path="/account" element={<ProtectedRoute><AppLayout><Account /></AppLayout></ProtectedRoute>} />
 
       {/* Admin routes */}

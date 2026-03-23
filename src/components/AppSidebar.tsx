@@ -263,6 +263,7 @@ export function AppSidebar() {
 
   // Nhóm 3: Management
   const managementItems: MenuItem[] = [
+    { title: 'AI Agents', titleKey: 'app.sidebar.agents', url: '/agents', icon: Bot },
     { title: 'Chiến dịch', titleKey: 'app.sidebar.campaigns', url: '/campaigns', icon: Target },
     { title: 'Công việc', titleKey: 'app.sidebar.tasks', url: '/tasks', icon: ClipboardList },
     { title: 'Lịch đăng', titleKey: 'app.sidebar.calendar', url: '/calendar', icon: CalendarDays },
