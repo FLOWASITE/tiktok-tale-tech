@@ -157,7 +157,7 @@ export function PipelineKanban({ pipelines, onStageChange, onFlagToggle, onDelet
       <div className="w-full overflow-x-auto">
         <div className="flex gap-3 pb-4 min-w-max">
           {PIPELINE_STAGES.map(stage => (
-            <PipelineColumn key={stage.id} stage={stage} pipelines={grouped[stage.id]} />
+            <PipelineColumn key={stage.id} stage={stage} pipelines={grouped[stage.id]} onCardClick={setSelectedPipeline} />
           ))}
         </div>
       </div>
