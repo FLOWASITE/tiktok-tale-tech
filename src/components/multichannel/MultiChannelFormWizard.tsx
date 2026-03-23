@@ -169,14 +169,13 @@ interface MultiChannelFormWizardProps {
   getChannelText?: (channel: Channel) => string;
 }
 
-// 6-step flow with AI control level + image generation
+// 5-step flow with merged AI control + image generation
 const STEPS: Step[] = [
   { id: 1, title: 'Chủ đề', icon: <FileText className="w-4 h-4" /> },
   { id: 2, title: 'Core Content', icon: <BookOpen className="w-4 h-4" /> },
   { id: 3, title: 'Vai trò', icon: <Compass className="w-4 h-4" /> },
   { id: 4, title: 'Đa kênh', icon: <Layers className="w-4 h-4" /> },
-  { id: 5, title: 'Kiểm soát AI', icon: <Settings2 className="w-4 h-4" /> },
-  { id: 6, title: 'Tạo ảnh', icon: <Image className="w-4 h-4" /> },
+  { id: 5, title: 'Tạo ảnh', icon: <Image className="w-4 h-4" /> },
 ];
 
 const channelIcons: Record<Channel, React.ReactNode> = {
@@ -698,10 +697,7 @@ export function MultiChannelFormWizard({
         // Step 4: At least 1 channel
         return formData.channels.length > 0;
       case 5:
-        // Step 5: AI control level - always can proceed (has default)
-        return true;
-      case 6:
-        // Step 6: Always can proceed (skip or finish)
+        // Step 5: Image generation (merged AI control) - always can proceed
         return true;
       default:
         return false;
@@ -733,8 +729,7 @@ export function MultiChannelFormWizard({
 
   const handleStepClick = (step: number) => {
     // Allow navigating to any previous/current step, or next step if previous is completed
-    // Special case: Step 6 is always accessible from Step 5
-    if (step <= currentStep || completedSteps.includes(step - 1) || (step === 6 && currentStep === 5)) {
+    if (step <= currentStep || completedSteps.includes(step - 1)) {
       setCurrentStep(step);
     }
   };
@@ -1894,104 +1889,8 @@ export function MultiChannelFormWizard({
           )}
         </div>
 
-        {/* ========== STEP 5: MỨC ĐỘ KIỂM SOÁT AI ========== */}
+        {/* ========== STEP 5: TẠO ẢNH (gộp AI Control + Image Gen) ========== */}
         {currentStep === 5 && (
-          <div className="space-y-5 animate-fade-in">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Settings2 className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-foreground">Mức độ kiểm soát AI</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Chọn mức độ AI can thiệp vào việc tạo ảnh cho {formData.channels.length} kênh
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {([
-                { 
-                  value: 'full' as PromptMode, 
-                  label: 'Để AI lo', 
-                  icon: <Sparkles className="w-5 h-5" />,
-                  desc: 'AI tự chọn phong cách, bố cục, vị trí text. Bạn chỉ cần duyệt.',
-                  color: 'primary',
-                },
-                { 
-                  value: 'brand_only' as PromptMode, 
-                  label: 'Giữ brand', 
-                  icon: <Eye className="w-5 h-5" />,
-                  desc: 'Giữ logo & màu brand. Bạn tự chọn bố cục text & vị trí.',
-                  color: 'amber',
-                },
-                { 
-                  value: 'raw' as PromptMode, 
-                  label: 'Toàn quyền', 
-                  icon: <Pencil className="w-5 h-5" />,
-                  desc: 'Bạn kiểm soát mọi thứ: phong cách, logo, text, bố cục.',
-                  color: 'violet',
-                },
-              ]).map(mode => (
-                <button
-                  key={mode.value}
-                  type="button"
-                  onClick={() => {
-                    setPromptMode(mode.value);
-                    // Auto-enable logo for brand_only mode (consistent with SimpleImageGenerator)
-                    if (mode.value === 'brand_only') {
-                      // Logo will be auto-enabled via pipeline
-                    }
-                  }}
-                  className={cn(
-                    "flex flex-col items-center gap-3 rounded-xl border-2 p-5 text-center transition-all",
-                    promptMode === mode.value
-                      ? "border-primary bg-primary/10 shadow-md"
-                      : "border-border/50 hover:border-border hover:bg-muted/40"
-                  )}
-                >
-                  <div className={cn(
-                    "w-12 h-12 rounded-xl flex items-center justify-center",
-                    promptMode === mode.value ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
-                  )}>
-                    {mode.icon}
-                  </div>
-                  <div>
-                    <span className={cn(
-                      "text-sm font-semibold block",
-                      promptMode === mode.value ? "text-primary" : "text-foreground"
-                    )}>{mode.label}</span>
-                    <span className="text-xs text-muted-foreground mt-1 block leading-relaxed">{mode.desc}</span>
-                  </div>
-                  {promptMode === mode.value && (
-                    <CheckCircle2 className="w-5 h-5 text-primary" />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Context hint */}
-            <Card className={cn(
-              "border",
-              promptMode === 'full' && "bg-primary/5 border-primary/20",
-              promptMode === 'brand_only' && "bg-amber-500/5 border-amber-500/20",
-              promptMode === 'raw' && "bg-violet-500/5 border-violet-500/20",
-            )}>
-              <CardContent className="p-4">
-                <p className="text-sm">
-                  {promptMode === 'full' && '✨ AI sẽ tự động tối ưu phong cách, bố cục và vị trí text cho từng kênh. Bạn chỉ cần duyệt kết quả.'}
-                  {promptMode === 'brand_only' && '🎨 AI giữ nguyên logo, màu sắc thương hiệu. Bạn có thể tùy chỉnh bố cục text và vị trí trong bước tạo ảnh.'}
-                  {promptMode === 'raw' && '⚡ Bạn toàn quyền kiểm soát: chọn phong cách ảnh, logo, text, typography và bố cục trong bước tạo ảnh.'}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* ========== STEP 6: TẠO ẢNH ========== */}
-        {currentStep === 6 && (
           <div className="space-y-5 animate-fade-in">
             {/* Header */}
             <div className="space-y-2">
@@ -2002,11 +1901,43 @@ export function MultiChannelFormWizard({
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">Tạo ảnh AI cho các kênh</h2>
                   <p className="text-sm text-muted-foreground">
-                    Tạo ảnh minh họa tự động cho {formData.channels.length} kênh đã chọn
+                    Chọn mức độ AI và tạo ảnh cho {formData.channels.length} kênh
                   </p>
                 </div>
               </div>
             </div>
+
+            {/* AI Control Mode Selector - Compact */}
+            <Card className="border-border/50">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Settings2 className="w-4 h-4 text-primary" />
+                  Mức độ kiểm soát AI
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { value: 'full' as PromptMode, label: 'Để AI lo', icon: <Sparkles className="w-4 h-4" /> },
+                    { value: 'brand_only' as PromptMode, label: 'Giữ brand', icon: <Eye className="w-4 h-4" /> },
+                    { value: 'raw' as PromptMode, label: 'Toàn quyền', icon: <Pencil className="w-4 h-4" /> },
+                  ]).map(mode => (
+                    <button
+                      key={mode.value}
+                      type="button"
+                      onClick={() => setPromptMode(mode.value)}
+                      className={cn(
+                        "flex items-center justify-center gap-2 rounded-lg border p-3 text-sm transition-all",
+                        promptMode === mode.value
+                          ? "border-primary bg-primary/5 ring-1 ring-primary/20 font-medium"
+                          : "border-border/50 hover:border-border hover:bg-muted/30"
+                      )}
+                    >
+                      <span className={cn(promptMode === mode.value ? "text-primary" : "text-muted-foreground")}>{mode.icon}</span>
+                      <span>{mode.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Channel summary */}
             <Card className="bg-muted/30 border-border/50">
@@ -2032,79 +1963,6 @@ export function MultiChannelFormWizard({
             {/* Image generation status */}
             {imagePhase === 'idle' || !imagePhase ? (
               <div className="space-y-4">
-                {/* Mode summary from Step 5 */}
-                <Card className={cn(
-                  "border",
-                  promptMode === 'full' && "bg-primary/5 border-primary/20",
-                  promptMode === 'brand_only' && "bg-amber-500/5 border-amber-500/20",
-                  promptMode === 'raw' && "bg-violet-500/5 border-violet-500/20",
-                )}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-8 h-8 rounded-lg flex items-center justify-center",
-                        promptMode === 'full' && "bg-primary/15 text-primary",
-                        promptMode === 'brand_only' && "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-                        promptMode === 'raw' && "bg-violet-500/15 text-violet-600 dark:text-violet-400",
-                      )}>
-                        {promptMode === 'full' && <Sparkles className="w-4 h-4" />}
-                        {promptMode === 'brand_only' && <Eye className="w-4 h-4" />}
-                        {promptMode === 'raw' && <Pencil className="w-4 h-4" />}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">
-                          {promptMode === 'full' && 'Chế độ: Để AI lo'}
-                          {promptMode === 'brand_only' && 'Chế độ: Giữ Brand'}
-                          {promptMode === 'raw' && 'Chế độ: Toàn quyền'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {promptMode === 'full' && 'AI tự tối ưu phong cách, bố cục, text'}
-                          {promptMode === 'brand_only' && 'Giữ logo & màu brand, AI lo phần còn lại'}
-                          {promptMode === 'raw' && 'Bạn kiểm soát 100% — tùy chỉnh qua trang chi tiết'}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Hint: raw/brand_only can customize via SimpleImageGenerator */}
-                {promptMode !== 'full' && (
-                  <Card className="border border-dashed border-muted-foreground/30 bg-muted/20">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <Settings2 className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
-                            {promptMode === 'raw' ? 'Tùy chỉnh nâng cao' : 'Tùy chỉnh brand'}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {promptMode === 'raw' 
-                              ? 'Bạn có thể tùy chỉnh phong cách, logo, text, bố cục chi tiết hơn tại trang chi tiết sau khi tạo nội dung, hoặc sử dụng trình tạo ảnh riêng.' 
-                              : 'Bạn có thể tùy chỉnh logo, vị trí text và typography tại trang chi tiết sau khi tạo nội dung, hoặc sử dụng trình tạo ảnh riêng.'}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Info card */}
-                <Card className="border border-border/50 bg-card/50">
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <Image className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground text-sm">Sẵn sàng tạo ảnh</h3>
-                        <p className="text-xs text-muted-foreground">
-                          AI sẽ tự động tạo ảnh phù hợp với nội dung từng kênh
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
                 {/* Prompt Preview */}
                 <PromptPreview
                   channels={formData.channels}
@@ -2117,7 +1975,7 @@ export function MultiChannelFormWizard({
                   personaName={formData.personaId ? 'Đã chọn persona' : undefined}
                 />
 
-                {/* Complexity Warning for complex content descriptions */}
+                {/* Complexity Warning */}
                 {(() => {
                   const channelTexts = formData.channels.map(ch => getChannelText?.(ch) || '').join(' ');
                   const analysis = analyzeContentComplexity(channelTexts + ' ' + (formData.topic || ''));
@@ -2252,7 +2110,7 @@ export function MultiChannelFormWizard({
             </Button>
 
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>{currentStep}/6</span>
+              <span>{currentStep}/5</span>
             </div>
 
             {currentStep < 4 ? (
@@ -2275,62 +2133,34 @@ export function MultiChannelFormWizard({
                 )}
               </Button>
             ) : currentStep === 4 ? (
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={isGenerating || pendingMultiChannelGeneration || !formData.topic.trim() || formData.channels.length === 0}
-                  className={cn(
-                    "gap-2 gradient-primary min-w-[140px]",
-                    !isGenerating && !pendingMultiChannelGeneration && "glow-primary"
-                  )}
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Đang tạo...
-                    </>
-                  ) : pendingMultiChannelGeneration ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Chờ Core Content ({coreContentProgress?.progress || 0}%)
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      Tạo ({formData.channels.length} kênh)
-                    </>
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setCompletedSteps(prev => [...prev.filter(s => s !== 4), 4]);
-                    setCurrentStep(5);
-                  }}
-                  disabled={formData.channels.length === 0}
-                  className="gap-1.5"
-                >
-                  <Image className="w-4 h-4" />
-                  Tạo ảnh
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            ) : currentStep === 5 ? (
               <Button
                 type="button"
-                onClick={() => {
-                  setCompletedSteps(prev => [...prev.filter(s => s !== 5), 5]);
-                  setCurrentStep(6);
-                }}
-                className="gap-2 gradient-primary glow-primary"
+                onClick={handleSubmit}
+                disabled={isGenerating || pendingMultiChannelGeneration || !formData.topic.trim() || formData.channels.length === 0}
+                className={cn(
+                  "gap-2 gradient-primary min-w-[140px]",
+                  !isGenerating && !pendingMultiChannelGeneration && "glow-primary"
+                )}
               >
-                Tiếp tục tạo ảnh
-                <ArrowRight className="w-4 h-4" />
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Đang tạo...
+                  </>
+                ) : pendingMultiChannelGeneration ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Chờ Core Content ({coreContentProgress?.progress || 0}%)
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Tạo ({formData.channels.length} kênh)
+                  </>
+                )}
               </Button>
             ) : (
-              // Step 6: Footer hidden when image phase is active
+              // Step 5: Footer hidden when image phase is active
               imagePhase && imagePhase !== 'idle' ? null : (
                 <div className="flex gap-2">
                   <Button
