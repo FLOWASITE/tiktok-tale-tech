@@ -618,8 +618,8 @@ Deno.serve(withPerf({ functionName: 'generate-core-content', slowThresholdMs: 45
     const phase2Start = Date.now();
     
     const promptManager = createPromptManager(supabase, 'generate-core-content', organizationId, brandTemplateId);
-    const lengthConfigData = getLengthConfig(lengthMode as CoreContentLengthMode);
-    const wordBudgetData = getWordBudgetByLength(lengthMode as CoreContentLengthMode);
+    const lengthConfigData = getLengthConfig(effectiveLengthMode);
+    const wordBudgetData = getWordBudgetByLength(effectiveLengthMode);
     
     // Use industry_template_id from Phase 1 brand data (no duplicate query!)
     const industryTemplateId = brandData?.industry_template_id;
