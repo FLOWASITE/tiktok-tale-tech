@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { cn } from '@/lib/utils';
+import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 
 const AVAILABLE_CHANNELS = [
   { id: 'blog', label: 'Blog', icon: '📝' },
@@ -56,6 +57,7 @@ interface GoalWizardProps {
     frequency: Record<string, string>;
     autonomy_level: AgentAutonomyLevel;
     brand_template_id?: string;
+    campaign_id?: string;
   }) => void;
 }
 
@@ -72,6 +74,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
   const [frequency, setFrequency] = useState<Record<string, string>>({});
   const [autonomyLevel, setAutonomyLevel] = useState<AgentAutonomyLevel>('human_in_loop');
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
+  const [campaignId, setCampaignId] = useState<string | undefined>(undefined);
 
   // Fetch brand templates
   const { data: brandTemplates = [] } = useQuery({
@@ -128,12 +131,14 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
       frequency,
       autonomy_level: autonomyLevel,
       brand_template_id: brandTemplateId || undefined,
+      campaign_id: campaignId || undefined,
     });
     // Reset
     setStep(0);
     setName(''); setDescription(''); setTopics([]);
     setSelectedChannels([]); setFrequency({});
     setAutonomyLevel('human_in_loop'); setBrandTemplateId('');
+    setCampaignId(undefined);
   };
 
   return (
@@ -303,21 +308,36 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
           {/* Step 3: Brand */}
           {step === 3 && (
             <div className="space-y-4">
-              <Label className="text-xs">Chọn Brand Template (tùy chọn)</Label>
-              <Select value={brandTemplateId} onValueChange={setBrandTemplateId}>
-                <SelectTrigger className="text-sm">
-                  <SelectValue placeholder="Không chọn — dùng mặc định" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none" className="text-sm">Không chọn</SelectItem>
-                  {brandTemplates.map(bt => (
-                    <SelectItem key={bt.id} value={bt.id} className="text-sm">{bt.brand_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-muted-foreground">
-                Brand template cung cấp tone of voice, keywords, personas để AI tạo nội dung chuẩn thương hiệu.
-              </p>
+              <div className="space-y-2">
+                <Label className="text-xs">Chọn Brand Template (tùy chọn)</Label>
+                <Select value={brandTemplateId} onValueChange={setBrandTemplateId}>
+                  <SelectTrigger className="text-sm">
+                    <SelectValue placeholder="Không chọn — dùng mặc định" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="text-sm">Không chọn</SelectItem>
+                    {brandTemplates.map(bt => (
+                      <SelectItem key={bt.id} value={bt.id} className="text-sm">{bt.brand_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Brand template cung cấp tone of voice, keywords, personas để AI tạo nội dung chuẩn thương hiệu.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">Liên kết Chiến dịch (tùy chọn)</Label>
+                <CampaignSelector
+                  value={campaignId}
+                  onValueChange={setCampaignId}
+                  placeholder="Chọn chiến dịch liên kết..."
+                  className="text-sm"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Content được AI tạo sẽ tự động gán vào chiến dịch này.
+                </p>
+              </div>
             </div>
           )}
 
@@ -349,12 +369,18 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
                   <span className="text-muted-foreground">Tự động</span>
                   <span className="font-medium">{AUTONOMY_LEVELS.find(l => l.id === autonomyLevel)?.label}</span>
                 </div>
-                <div className="flex justify-between py-1.5">
+                <div className="flex justify-between py-1.5 border-b">
                   <span className="text-muted-foreground">Brand</span>
                   <span className="font-medium">
                     {brandTemplateId && brandTemplateId !== 'none'
                       ? brandTemplates.find(b => b.id === brandTemplateId)?.brand_name
                       : 'Mặc định'}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1.5">
+                  <span className="text-muted-foreground">Chiến dịch</span>
+                  <span className="font-medium">
+                    {campaignId ? '✅ Đã liên kết' : 'Không liên kết'}
                   </span>
                 </div>
               </div>
