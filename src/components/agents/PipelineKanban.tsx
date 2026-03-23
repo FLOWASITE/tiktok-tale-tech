@@ -24,7 +24,7 @@ interface PipelineKanbanProps {
   onDelete?: (id: string) => void;
 }
 
-function PipelineColumn({ stage, pipelines }: { stage: typeof PIPELINE_STAGES[0]; pipelines: AgentPipeline[] }) {
+function PipelineColumn({ stage, pipelines, onCardClick }: { stage: typeof PIPELINE_STAGES[0]; pipelines: AgentPipeline[]; onCardClick?: (p: AgentPipeline) => void }) {
   const { isOver, setNodeRef } = useDroppable({ id: stage.id });
   const Icon = STAGE_ICONS[stage.icon] || Search;
 
