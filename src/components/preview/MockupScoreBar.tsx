@@ -33,7 +33,7 @@ export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, class
 
   return (
     <div className={cn(
-      'flex items-center justify-center gap-3 py-2 px-3 bg-muted/50 rounded-b-xl border-t border-border/50',
+      'flex items-center justify-center gap-3 py-2.5 px-4 bg-muted/60 rounded-t-xl border-b border-border/50',
       className
     )}>
       {critiqueScore != null && (

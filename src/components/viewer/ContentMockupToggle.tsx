@@ -70,6 +70,7 @@ export function ContentMockupToggle({
     return (
       <div className={cn('flex justify-center items-start p-2 bg-gradient-to-b from-muted/5 to-muted/20 rounded-xl min-h-[500px]', className)}>
         <div className="w-full max-w-xl">
+          {scoreBar}
           <GoogleMapsMockup
             content={safeContent}
             brandName={safeBrandName}
@@ -77,7 +78,6 @@ export function ContentMockupToggle({
             isGenerating={isLoading}
             channelImage={channelImage}
           />
-          {scoreBar}
         </div>
       </div>
     );
@@ -88,6 +88,7 @@ export function ContentMockupToggle({
     return (
       <div className={cn('flex justify-center items-start p-2 bg-gradient-to-b from-muted/5 to-muted/20 rounded-xl min-h-[500px]', className)}>
         <div className="w-full max-w-xl">
+          {scoreBar}
           <ZaloOAMockup
             content={safeContent}
             brandName={safeBrandName}
@@ -95,7 +96,6 @@ export function ContentMockupToggle({
             isGenerating={isLoading}
             channelImage={channelImage}
           />
-          {scoreBar}
         </div>
       </div>
     );
@@ -104,6 +104,7 @@ export function ContentMockupToggle({
   return (
     <div className={cn('flex justify-center items-start p-2 bg-gradient-to-b from-muted/5 to-muted/20 rounded-xl', className)}>
       <div className="w-full max-w-2xl">
+        {scoreBar}
         <ChannelMockupFrame
           channel={mockupType}
           content={safeContent}
@@ -114,7 +115,6 @@ export function ContentMockupToggle({
           seoData={channel === 'website' ? seoData : undefined}
           channelImage={channelImage}
         />
-        {scoreBar}
       </div>
     </div>
   );
