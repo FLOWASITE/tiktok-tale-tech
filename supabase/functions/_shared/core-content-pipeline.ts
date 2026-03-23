@@ -4,6 +4,7 @@
 // ============================================
 
 import { BrandContext, IndustryMemory } from './types/chat-types.ts';
+import { getFullGEOGuidelines } from './geo-prompt-guidelines.ts';
 
 // ============================================
 // TYPES
