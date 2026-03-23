@@ -11,6 +11,7 @@ import { AgentPipeline, AgentPipelineStage, PIPELINE_STAGES } from '@/types/agen
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { PipelineDetailDialog } from './PipelineDetailDialog';
 
 const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Search, PenTool, Gauge, Layers, ShieldCheck, UserCheck, Calendar, Send, BarChart3,
@@ -19,9 +20,11 @@ const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> =
 interface PipelineKanbanProps {
   pipelines: AgentPipeline[];
   onStageChange?: (id: string, stage: AgentPipelineStage) => void;
+  onFlagToggle?: (id: string, flagged: boolean) => void;
+  onDelete?: (id: string) => void;
 }
 
-function PipelineColumn({ stage, pipelines }: { stage: typeof PIPELINE_STAGES[0]; pipelines: AgentPipeline[] }) {
+function PipelineColumn({ stage, pipelines, onCardClick }: { stage: typeof PIPELINE_STAGES[0]; pipelines: AgentPipeline[]; onCardClick?: (p: AgentPipeline) => void }) {
   const { isOver, setNodeRef } = useDroppable({ id: stage.id });
   const Icon = STAGE_ICONS[stage.icon] || Search;
 
@@ -51,7 +54,7 @@ function PipelineColumn({ stage, pipelines }: { stage: typeof PIPELINE_STAGES[0]
       <ScrollArea className="h-[calc(100vh-420px)] min-h-[300px]">
         <div className="p-2 space-y-2">
           {pipelines.map(p => (
-            <PipelineCard key={p.id} pipeline={p} />
+            <PipelineCard key={p.id} pipeline={p} onClick={() => onCardClick?.(p)} />
           ))}
           {pipelines.length === 0 && (
             <div className="flex flex-col items-center justify-center py-10 text-center">
@@ -65,7 +68,7 @@ function PipelineColumn({ stage, pipelines }: { stage: typeof PIPELINE_STAGES[0]
   );
 }
 
-function PipelineCard({ pipeline, isDragging }: { pipeline: AgentPipeline; isDragging?: boolean }) {
+function PipelineCard({ pipeline, isDragging, onClick }: { pipeline: AgentPipeline; isDragging?: boolean; onClick?: () => void }) {
   const priorityColors: Record<string, string> = {
     urgent: 'border-l-red-500',
     high: 'border-l-orange-500',
@@ -74,12 +77,15 @@ function PipelineCard({ pipeline, isDragging }: { pipeline: AgentPipeline; isDra
   };
 
   return (
-    <Card className={cn(
-      'border-l-[3px] cursor-grab active:cursor-grabbing transition-all',
-      priorityColors[pipeline.priority] || 'border-l-border',
-      isDragging && 'opacity-80 rotate-2 shadow-2xl scale-105',
-      pipeline.is_flagged && 'ring-1 ring-destructive/50',
-    )}>
+    <Card
+      className={cn(
+        'border-l-[3px] cursor-grab active:cursor-grabbing transition-all hover:shadow-md',
+        priorityColors[pipeline.priority] || 'border-l-border',
+        isDragging && 'opacity-80 rotate-2 shadow-2xl scale-105',
+        pipeline.is_flagged && 'ring-1 ring-destructive/50',
+      )}
+      onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+    >
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start justify-between gap-2">
           <p className="text-xs font-medium line-clamp-2 leading-relaxed">{pipeline.content_title}</p>
@@ -113,8 +119,9 @@ function PipelineCard({ pipeline, isDragging }: { pipeline: AgentPipeline; isDra
   );
 }
 
-export function PipelineKanban({ pipelines, onStageChange }: PipelineKanbanProps) {
+export function PipelineKanban({ pipelines, onStageChange, onFlagToggle, onDelete }: PipelineKanbanProps) {
   const [activePipeline, setActivePipeline] = useState<AgentPipeline | null>(null);
+  const [selectedPipeline, setSelectedPipeline] = useState<AgentPipeline | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -150,13 +157,21 @@ export function PipelineKanban({ pipelines, onStageChange }: PipelineKanbanProps
       <div className="w-full overflow-x-auto">
         <div className="flex gap-3 pb-4 min-w-max">
           {PIPELINE_STAGES.map(stage => (
-            <PipelineColumn key={stage.id} stage={stage} pipelines={grouped[stage.id]} />
+            <PipelineColumn key={stage.id} stage={stage} pipelines={grouped[stage.id]} onCardClick={setSelectedPipeline} />
           ))}
         </div>
       </div>
       <DragOverlay>
         {activePipeline && <PipelineCard pipeline={activePipeline} isDragging />}
       </DragOverlay>
+      <PipelineDetailDialog
+        pipeline={selectedPipeline}
+        open={!!selectedPipeline}
+        onOpenChange={(open) => { if (!open) setSelectedPipeline(null); }}
+        onStageChange={(id, stage) => { onStageChange?.(id, stage); setSelectedPipeline(null); }}
+        onFlagToggle={onFlagToggle}
+        onDelete={(id) => { onDelete?.(id); setSelectedPipeline(null); }}
+      />
     </DndContext>
   );
 }
