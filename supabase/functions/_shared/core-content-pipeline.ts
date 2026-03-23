@@ -492,7 +492,7 @@ export function getAngleDescription(angle?: string): string {
 // MAX TOKENS CALCULATION
 // ============================================
 
-export function getMaxTokens(lengthMode: CoreContentLengthMode): number {
+export function getMaxTokens(lengthMode?: CoreContentLengthMode): number {
   // Tokens are approximately 1.3x word count for Vietnamese
   const config = getLengthConfig(lengthMode);
   // Add buffer for formatting and prompt overhead
