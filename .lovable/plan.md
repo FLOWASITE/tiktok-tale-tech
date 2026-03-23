@@ -1,71 +1,42 @@
 
 
-# Trang Agent Team Management — Quản lý thành viên & phân quyền cho AI Agents
+# Pipeline Detail Dialog — Click card Kanban hiện chi tiết
 
 ## Mục tiêu
+Click vào pipeline card trên Kanban → mở Dialog hiển thị full thông tin pipeline: stage timeline, execution logs, scores, và actions (change stage, flag, delete).
 
-Tạo trang `/agents/team` cho phép Owner/Admin quản lý ai trong team được dùng AI Agents, phân quyền mức độ tự động (autonomy level) cho từng thành viên, và xem activity log.
+## Thay đổi
 
-## Database
+### 1. Component `PipelineDetailDialog.tsx` (tạo mới)
+Dialog hiển thị 3 phần:
 
-**Bảng mới: `agent_team_permissions`**
-- `id` UUID PK
-- `organization_id` FK organizations
-- `user_id` FK profiles
-- `can_create_goals` boolean default false — được tạo campaign mới
-- `can_approve` boolean default false — được approve content trong pipeline
-- `can_override` boolean default false — được pause/resume/skip pipeline stages
-- `max_autonomy_level` text default 'human_in_loop' — mức tự động tối đa cho phép
-- `monthly_pipeline_limit` int default null — giới hạn pipeline/tháng (null = unlimited)
-- `is_active` boolean default true
-- `granted_by` UUID FK profiles
-- `created_at`, `updated_at`
+**Header:** Title, topic, priority badge, autonomy level, timestamps (created, ETA, completed)
 
-RLS: `is_org_member()` cho SELECT, `is_org_admin()` cho INSERT/UPDATE/DELETE.
+**Pipeline Stage Timeline:** Hiển thị 9 stages dạng horizontal stepper — stage hiện tại highlight, stages đã qua có checkmark, stages chưa đến mờ đi. Dữ liệu từ `pipeline_state`.
 
-## Frontend
+**Tabs:**
+- **Logs:** Bảng execution logs từ `agent_pipeline_logs` — agent_name, action, duration, tokens, cost, error. Sorted mới nhất trước.
+- **Scores:** Hiển thị SEO/GEO/Compliance scores từ `pipeline_state` (nếu có). Cards với progress bars.
+- **Actions:** Buttons: Change Stage (dropdown), Toggle Flag, Delete Pipeline.
 
-### Trang `AgentTeamPage.tsx` (`/agents/team`)
+### 2. Hook `useAgentPipelineLogs.ts` (tạo mới)
+- Fetch `agent_pipeline_logs` theo `pipeline_id`
+- Query đơn giản, ordered by `created_at DESC`
 
-**Layout 2 phần:**
+### 3. Sửa `PipelineKanban.tsx`
+- Thêm `onCardClick` callback cho `PipelineCard`
+- Click card → gọi `onCardClick(pipeline)` (khác với drag)
+- `PipelineKanban` nhận thêm prop `onPipelineClick`
+- Trong `PipelineKanban`, thêm state `selectedPipeline` + render `PipelineDetailDialog`
 
-1. **Danh sách thành viên** — table hiển thị tất cả org members với:
-   - Avatar, tên, email, org role (owner/admin/member/viewer)
-   - Agent permissions: badges cho create/approve/override
-   - Max autonomy level
-   - Pipeline count tháng này
-   - Toggle active/inactive
-   - Edit button → mở dialog chỉnh quyền
-
-2. **Quick stats cards** — trên cùng:
-   - Tổng thành viên có quyền agent
-   - Số người có quyền approve
-   - Pipelines đã dùng tháng này
-
-### Dialog `AgentPermissionDialog.tsx`
-- Chọn permissions: checkboxes cho create_goals, can_approve, can_override
-- Dropdown max_autonomy_level (3 cấp)
-- Input monthly_pipeline_limit (optional)
-- Save → upsert `agent_team_permissions`
-
-### Hook `useAgentTeam.ts`
-- Fetch org members + join `agent_team_permissions`
-- CRUD permissions (upsert/update)
-- Count pipelines per user this month
-
-## Routing & Navigation
-- Thêm route `/agents/team` trong `routes.tsx`
-- Thêm sub-item "Team" dưới "AI Agents" trong AppSidebar (icon: Users)
+### 4. Sửa `AgentDashboard` (nếu cần)
+- Truyền `onStageChange` và `onDelete` callbacks xuống
 
 ## Files
 
 | File | Loại |
 |------|------|
-| Migration SQL | Tạo — bảng `agent_team_permissions` + RLS |
-| `src/pages/AgentTeamPage.tsx` | Tạo |
-| `src/components/agents/AgentPermissionDialog.tsx` | Tạo |
-| `src/hooks/useAgentTeam.ts` | Tạo |
-| `src/types/agent.ts` | Sửa — thêm types |
-| `src/app/routes.tsx` | Sửa — thêm route |
-| `src/components/AppSidebar.tsx` | Sửa — thêm sub-item Team |
+| `src/components/agents/PipelineDetailDialog.tsx` | Tạo |
+| `src/hooks/useAgentPipelineLogs.ts` | Tạo |
+| `src/components/agents/PipelineKanban.tsx` | Sửa — thêm click handler + render dialog |
 
