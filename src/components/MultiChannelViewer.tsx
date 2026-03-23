@@ -272,8 +272,8 @@ export function MultiChannelViewer({
   const [showImageGenerator, setShowImageGenerator] = useState(false);
   const [activeImageChannel, setActiveImageChannel] = useState<Channel | null>(null);
   const [generatedImages, setGeneratedImages] = useState<Record<Channel, string>>({} as Record<Channel, string>);
-  const [showGallery, setShowGallery] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
+  const navigate = useNavigate();
   const [showGeoScore, setShowGeoScore] = useState(false);
   const { data: geoScoreData, isLoading: isGEOQueryLoading } = useGEOContentScore(content?.id ?? '');
   const [isGEOScoring, setIsGEOScoring] = useState(false);
