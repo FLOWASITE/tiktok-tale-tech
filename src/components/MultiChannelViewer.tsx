@@ -1385,7 +1385,7 @@ export function MultiChannelViewer({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => { setShowSchedule(true); setShowGallery(false); setShowTeamPanel(false); }}
+                          onClick={() => { setShowSchedule(true); setShowTeamPanel(false); }}
                           className="gap-2"
                         >
                           <CalendarClock className="w-4 h-4" />
