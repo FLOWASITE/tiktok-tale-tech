@@ -22,6 +22,8 @@ interface ContentMockupToggleProps {
   geoScore?: number | null;
   engagementScore?: number | null;
   seoScore?: number | null;
+  onTriggerGEO?: () => void;
+  isGEOLoading?: boolean;
 }
 
 // Map multichannel Channel to ChannelMockupFrame type
