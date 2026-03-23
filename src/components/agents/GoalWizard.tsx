@@ -44,7 +44,7 @@ const STEPS = [
   { icon: Target, label: 'Mục tiêu' },
   { icon: Radio, label: 'Kênh' },
   { icon: ShieldCheck, label: 'Tự động' },
-  { icon: Palette, label: 'Thương hiệu' },
+  { icon: Palette, label: 'Liên kết' },
   { icon: Eye, label: 'Xác nhận' },
 ];
 
