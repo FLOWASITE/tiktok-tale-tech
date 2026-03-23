@@ -74,6 +74,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
   const [frequency, setFrequency] = useState<Record<string, string>>({});
   const [autonomyLevel, setAutonomyLevel] = useState<AgentAutonomyLevel>('human_in_loop');
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
+  const [campaignId, setCampaignId] = useState<string | undefined>(undefined);
 
   // Fetch brand templates
   const { data: brandTemplates = [] } = useQuery({
