@@ -109,62 +109,6 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     setCampaignId(undefined);
   };
 
-  const handleSuggestTopics = async () => {
-    if (!currentBrand?.id) {
-      toast.error('Vui lòng chọn Brand trước khi gợi ý');
-      return;
-    }
-    setAiLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('topic-ai', {
-        body: {
-          action: 'suggest',
-          brand_template_id: currentBrand.id,
-          count: 8,
-        },
-      });
-      if (error) throw error;
-      // Extract topic titles from response
-      const suggestions: string[] = [];
-      if (data?.topics && Array.isArray(data.topics)) {
-        data.topics.forEach((t: any) => {
-          if (typeof t === 'string') suggestions.push(t);
-          else if (t?.title) suggestions.push(t.title);
-          else if (t?.topic) suggestions.push(t.topic);
-        });
-      } else if (data?.suggestions && Array.isArray(data.suggestions)) {
-        data.suggestions.forEach((t: any) => {
-          if (typeof t === 'string') suggestions.push(t);
-          else if (t?.title) suggestions.push(t.title);
-        });
-      }
-      setAiSuggestions(suggestions);
-      if (suggestions.length === 0) {
-        toast.info('AI không trả về gợi ý nào. Thử nhập chủ đề thủ công.');
-      }
-    } catch (err: any) {
-      console.error('AI suggest error:', err);
-      toast.error('Không thể gợi ý chủ đề: ' + (err.message || 'Lỗi không xác định'));
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
-  const toggleSuggestion = (suggestion: string) => {
-    if (topics.includes(suggestion)) {
-      setTopics(topics.filter(t => t !== suggestion));
-    } else {
-      setTopics([...topics, suggestion]);
-    }
-  };
-
-  const addTopic = () => {
-    const t = topicInput.trim();
-    if (t && !topics.includes(t)) {
-      setTopics([...topics, t]);
-      setTopicInput('');
-    }
-  };
 
   const toggleChannel = (ch: string) => {
     if (selectedChannels.includes(ch)) {
