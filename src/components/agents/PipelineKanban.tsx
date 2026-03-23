@@ -11,6 +11,7 @@ import { AgentPipeline, AgentPipelineStage, PIPELINE_STAGES } from '@/types/agen
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { PipelineDetailDialog } from './PipelineDetailDialog';
 
 const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Search, PenTool, Gauge, Layers, ShieldCheck, UserCheck, Calendar, Send, BarChart3,
@@ -19,6 +20,8 @@ const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> =
 interface PipelineKanbanProps {
   pipelines: AgentPipeline[];
   onStageChange?: (id: string, stage: AgentPipelineStage) => void;
+  onFlagToggle?: (id: string, flagged: boolean) => void;
+  onDelete?: (id: string) => void;
 }
 
 function PipelineColumn({ stage, pipelines }: { stage: typeof PIPELINE_STAGES[0]; pipelines: AgentPipeline[] }) {
