@@ -281,7 +281,7 @@ export function MultiChannelFormWizard({
   
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
-  const [skipCoreContent, setSkipCoreContent] = useState(false);
+  const [skipCoreContent, setSkipCoreContent] = useState(true);
   const [showFastCreatePopup, setShowFastCreatePopup] = useState(false);
   const fastCreatePopupShownRef = useRef(false);
 
