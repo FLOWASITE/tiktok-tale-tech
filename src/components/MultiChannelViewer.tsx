@@ -43,7 +43,7 @@ import { ContentLengthIndicator } from '@/components/ContentLengthIndicator';
 import { ChannelRulesPanel } from '@/components/ChannelRulesPanel';
 import { SmartQuickActions } from '@/components/SmartQuickActions';
 import { useSocialImageGeneration } from '@/hooks/useSocialImageGeneration';
-import { ChannelImagesGallery } from '@/components/ChannelImagesGallery';
+
 import { SchedulePanel } from '@/components/SchedulePanel';
 import { TeamWorkPanel } from '@/components/TeamWorkPanel';
 import { AssignmentDialog } from '@/components/AssignmentDialog';
