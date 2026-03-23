@@ -8,8 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
-  Target, Hash, Radio, Palette, Eye, ChevronLeft, ChevronRight, 
-  Check, Plus, X, Sparkles, ShieldCheck, Zap, Loader2, Bot
+  Target, Radio, Palette, Eye, ChevronLeft, ChevronRight, 
+  Check, Sparkles, ShieldCheck, Zap, Bot
 } from 'lucide-react';
 import { AgentAutonomyLevel, AgentGoal, AUTONOMY_LEVELS } from '@/types/agent';
 import { useQuery } from '@tanstack/react-query';
@@ -44,7 +44,7 @@ const STEPS = [
   { icon: Target, label: 'Mục tiêu' },
   { icon: Radio, label: 'Kênh' },
   { icon: ShieldCheck, label: 'Tự động' },
-  { icon: Palette, label: 'Thương hiệu' },
+  { icon: Palette, label: 'Liên kết' },
   { icon: Eye, label: 'Xác nhận' },
 ];
 
@@ -71,31 +71,23 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [topics, setTopics] = useState<string[]>([]);
-  const [topicInput, setTopicInput] = useState('');
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [frequency, setFrequency] = useState<Record<string, string>>({});
   const [autonomyLevel, setAutonomyLevel] = useState<AgentAutonomyLevel>('human_in_loop');
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
   const [campaignId, setCampaignId] = useState<string | undefined>(undefined);
 
-  // AI suggest state
-  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
-  const [aiLoading, setAiLoading] = useState(false);
-
   // Pre-fill when editing
   useEffect(() => {
     if (open && initialData) {
       setName(initialData.name);
       setDescription(initialData.description || '');
-      setTopics(initialData.target_topics || []);
       setSelectedChannels(initialData.target_channels || []);
       setFrequency(initialData.frequency || {});
       setAutonomyLevel(initialData.autonomy_level);
       setBrandTemplateId(initialData.brand_template_id || '');
       setCampaignId(initialData.campaign_id || undefined);
       setStep(0);
-      setAiSuggestions([]);
     } else if (open && !initialData) {
       resetForm();
     }
@@ -110,71 +102,13 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
   const resetForm = () => {
     setStep(0);
-    setName(''); setDescription(''); setTopics([]);
-    setTopicInput('');
+    setName(''); setDescription('');
     setSelectedChannels([]); setFrequency({});
     setAutonomyLevel('human_in_loop');
     setBrandTemplateId(currentBrand?.id || '');
     setCampaignId(undefined);
-    setAiSuggestions([]);
   };
 
-  const handleSuggestTopics = async () => {
-    if (!currentBrand?.id) {
-      toast.error('Vui lòng chọn Brand trước khi gợi ý');
-      return;
-    }
-    setAiLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('topic-ai', {
-        body: {
-          action: 'suggest',
-          brand_template_id: currentBrand.id,
-          count: 8,
-        },
-      });
-      if (error) throw error;
-      // Extract topic titles from response
-      const suggestions: string[] = [];
-      if (data?.topics && Array.isArray(data.topics)) {
-        data.topics.forEach((t: any) => {
-          if (typeof t === 'string') suggestions.push(t);
-          else if (t?.title) suggestions.push(t.title);
-          else if (t?.topic) suggestions.push(t.topic);
-        });
-      } else if (data?.suggestions && Array.isArray(data.suggestions)) {
-        data.suggestions.forEach((t: any) => {
-          if (typeof t === 'string') suggestions.push(t);
-          else if (t?.title) suggestions.push(t.title);
-        });
-      }
-      setAiSuggestions(suggestions);
-      if (suggestions.length === 0) {
-        toast.info('AI không trả về gợi ý nào. Thử nhập chủ đề thủ công.');
-      }
-    } catch (err: any) {
-      console.error('AI suggest error:', err);
-      toast.error('Không thể gợi ý chủ đề: ' + (err.message || 'Lỗi không xác định'));
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
-  const toggleSuggestion = (suggestion: string) => {
-    if (topics.includes(suggestion)) {
-      setTopics(topics.filter(t => t !== suggestion));
-    } else {
-      setTopics([...topics, suggestion]);
-    }
-  };
-
-  const addTopic = () => {
-    const t = topicInput.trim();
-    if (t && !topics.includes(t)) {
-      setTopics([...topics, t]);
-      setTopicInput('');
-    }
-  };
 
   const toggleChannel = (ch: string) => {
     if (selectedChannels.includes(ch)) {
@@ -190,7 +124,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
   const canNext = () => {
     switch (step) {
-      case 0: return name.trim().length > 0 && topics.length > 0;
+      case 0: return name.trim().length > 0;
       case 1: return selectedChannels.length > 0;
       default: return true;
     }
@@ -200,7 +134,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     onSubmit({
       name: name.trim(),
       description: description.trim() || undefined,
-      target_topics: topics,
+      target_topics: [],
       target_channels: selectedChannels,
       frequency,
       autonomy_level: autonomyLevel,
@@ -253,75 +187,14 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                 <Input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Q2 Skincare Campaign" className="text-sm" />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">Mô tả</Label>
-                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Mô tả ngắn về mục tiêu campaign..." rows={2} className="text-sm resize-none" />
+                <Label className="text-xs">Mô tả mục tiêu</Label>
+                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Mô tả mục tiêu campaign để AI nghiên cứu chủ đề phù hợp..." rows={3} className="text-sm resize-none" />
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">Chủ đề nội dung * ({topics.length})</Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleSuggestTopics}
-                    disabled={aiLoading || !currentBrand}
-                    className="text-xs gap-1.5 h-7 px-2 text-primary hover:text-primary"
-                  >
-                    {aiLoading ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Bot className="w-3 h-3" />
-                    )}
-                    {aiLoading ? 'Đang gợi ý...' : 'Gợi ý bằng AI'}
-                  </Button>
-                </div>
-                <div className="flex gap-2">
-                  <Input value={topicInput} onChange={e => setTopicInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTopic())} placeholder="Nhập chủ đề rồi Enter..." className="text-sm" />
-                  <Button variant="outline" size="sm" onClick={addTopic} disabled={!topicInput.trim()}>
-                    <Plus className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-
-                {/* AI Suggestions */}
-                {aiSuggestions.length > 0 && (
-                  <div className="space-y-1.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
-                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                      <Sparkles className="w-3 h-3 text-primary/60" />
-                      <span>Gợi ý từ AI — click để chọn:</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {aiSuggestions.map((suggestion, idx) => {
-                        const isSelected = topics.includes(suggestion);
-                        return (
-                          <button
-                            key={idx}
-                            onClick={() => toggleSuggestion(suggestion)}
-                            className={cn(
-                              "px-2.5 py-1 rounded-full text-[10px] font-medium transition-all duration-200 border",
-                              isSelected
-                                ? "bg-primary text-primary-foreground border-primary"
-                                : "bg-primary/5 text-primary/80 border-primary/15 hover:bg-primary/15 hover:border-primary/30"
-                            )}
-                          >
-                            {isSelected && <Check className="w-2.5 h-2.5 inline mr-1" />}
-                            {suggestion}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Selected topics */}
-                {topics.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {topics.map(t => (
-                      <Badge key={t} variant="secondary" className="text-[10px] gap-1 pr-1">
-                        {t}
-                        <button onClick={() => setTopics(topics.filter(x => x !== t))}><X className="w-3 h-3" /></button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                <Bot className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                <p className="text-[11px] text-muted-foreground">
+                  <span className="font-medium text-foreground">Research Agent</span> sẽ tự động nghiên cứu xu hướng và đề xuất chủ đề nội dung dựa trên brand, ngành hàng và mô tả mục tiêu của bạn.
+                </p>
               </div>
             </div>
           )}
@@ -428,9 +301,9 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                 </div>
                 <div className="flex justify-between py-1.5 border-b">
                   <span className="text-muted-foreground">Chủ đề</span>
-                  <div className="flex gap-1 flex-wrap justify-end">
-                    {topics.map(t => <Badge key={t} variant="secondary" className="text-[9px]">{t}</Badge>)}
-                  </div>
+                  <span className="font-medium text-primary/80 flex items-center gap-1">
+                    <Bot className="w-3 h-3" /> AI tự nghiên cứu
+                  </span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b">
                   <span className="text-muted-foreground">Kênh</span>
