@@ -1,34 +1,27 @@
 
 
-# Sửa lỗi Pipeline không chạy
+# Sửa lỗi Creator Agent — `Cannot read properties of undefined (reading 'maxWords')`
 
-## Nguyên nhân gốc
+## Nguyên nhân
 
-Khi tạo Goal, `target_topics` luôn là mảng rỗng `[]` (vì đã bỏ nhập topic thủ công ở GoalWizard). Trong `agent-pipeline` edge function, dòng 55:
-
-```
-for (const topic of (goal.target_topics || []))
-```
-
-Mảng rỗng → vòng lặp không chạy → **0 pipeline được tạo**.
+Khi pipeline gọi `generate-core-content`, request body không có `lengthMode`. Hàm `getLengthConfig(undefined)` trả về `undefined` → `getMaxTokens()` crash tại `config.maxWords`.
 
 ## Giải pháp
 
-Sửa `agent-pipeline/index.ts` — khi `target_topics` rỗng, tự tạo 1 pipeline dùng **tên goal + mô tả** làm topic seed, để Research Agent tự nghiên cứu và chọn topic.
+Sửa 2 file — thêm fallback `'medium'` tại gốc thay vì chỉ patch caller:
 
-### Thay đổi cụ thể
+### 1. `supabase/functions/_shared/core-content-pipeline.ts`
+- `getLengthConfig()`: fallback `'medium'` khi `lengthMode` không hợp lệ
+- `getMaxTokens()`: tương tự fallback
 
-**`supabase/functions/agent-pipeline/index.ts`** — action `trigger_from_goal`:
-- Nếu `target_topics` rỗng → dùng `[goal.name]` làm fallback topics
-- Pipeline sẽ được tạo với `content_topic = goal.name`, `content_title = goal.name`
-- Research Agent sẽ dùng tên + description của goal để tìm topic phù hợp
+### 2. `supabase/functions/generate-core-content/index.ts`  
+- Dòng 482: Sau khi destructure, thêm `const effectiveLengthMode = lengthMode || 'medium'`
+- Thay tất cả `lengthMode as CoreContentLengthMode` bằng `effectiveLengthMode` (dòng 611, 612, 620, 621)
 
-**Tương tự cho `check_scheduled_goals`** (dòng 228-229):
-- Cùng logic fallback khi `topics.length === 0`
-
-### Files
+## Files
 
 | File | Loại |
 |------|------|
-| `supabase/functions/agent-pipeline/index.ts` | Sửa — fallback khi target_topics rỗng |
+| `supabase/functions/_shared/core-content-pipeline.ts` | Sửa — defensive fallback trong `getLengthConfig` và `getMaxTokens` |
+| `supabase/functions/generate-core-content/index.ts` | Sửa — default `lengthMode` = `'medium'` |
 
