@@ -21,6 +21,7 @@ interface ContentMockupToggleProps {
   critiqueScore?: number | null;
   geoScore?: number | null;
   engagementScore?: number | null;
+  seoScore?: number | null;
 }
 
 // Map multichannel Channel to ChannelMockupFrame type

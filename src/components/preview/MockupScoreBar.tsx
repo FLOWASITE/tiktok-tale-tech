@@ -1,4 +1,4 @@
-import { Star, Zap, TrendingUp, Info } from 'lucide-react';
+import { Star, Zap, TrendingUp, Info, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getGradeFromScore, GRADE_COLORS } from '@/types/creativeScore';
 import {
@@ -12,6 +12,7 @@ interface MockupScoreBarProps {
   critiqueScore?: number | null;
   geoScore?: number | null;
   engagementScore?: number | null;
+  seoScore?: number | null;
   className?: string;
 }
 
@@ -35,6 +36,7 @@ const SCORE_TOOLTIPS = {
   quality: 'Điểm đánh giá chất lượng nội dung do AI chấm dựa trên: cấu trúc bài viết, độ rõ ràng thông điệp, tính sáng tạo, phù hợp kênh và thương hiệu',
   geo: 'Generative Engine Optimization — đánh giá khả năng xuất hiện trên AI search (ChatGPT, Gemini...) dựa trên 8 yếu tố: citations, statistics, quotes, fluency, authority, unique words, technical terms, content depth',
   engagement: 'Dự đoán mức độ tương tác dựa trên: độ dài phù hợp, có câu hỏi/CTA, emoji, hashtag, cấu trúc đoạn văn. Đây là ước tính, không phải số liệu thực tế',
+  seo: 'Điểm tối ưu SEO cho trang web: meta title, meta description, heading structure, keyword density, internal links, schema markup. Áp dụng cho channel Website',
 };
 
 function ScoreColumn({ 
@@ -82,14 +84,15 @@ function ScoreColumn({
   );
 }
 
-export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, className }: MockupScoreBarProps) {
-  const hasAnyScore = critiqueScore != null || geoScore != null || engagementScore != null;
+export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, seoScore, className }: MockupScoreBarProps) {
+  // Always show if engagement is available (it's always computed from text)
+  const hasAnyScore = critiqueScore != null || geoScore != null || engagementScore != null || seoScore != null;
   
   if (!hasAnyScore) return null;
 
   const geoGrade = geoScore != null ? getGradeFromScore(geoScore) : null;
-  const scoreCount = [critiqueScore, geoScore, engagementScore].filter(s => s != null).length;
-  const gridCols = scoreCount === 1 ? 'grid-cols-1' : scoreCount === 2 ? 'grid-cols-2' : 'grid-cols-3';
+  const scoreCount = [critiqueScore, geoScore, engagementScore, seoScore].filter(s => s != null).length;
+  const gridCols = scoreCount <= 1 ? 'grid-cols-1' : scoreCount === 2 ? 'grid-cols-2' : scoreCount === 3 ? 'grid-cols-3' : 'grid-cols-4';
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -144,9 +147,25 @@ export function MockupScoreBar({ critiqueScore, geoScore, engagementScore, class
           </Tooltip>
         )}
 
-        {engagementScore != null && (
+        {seoScore != null && (
           <div className={cn(
             (critiqueScore != null || geoScore != null) && 'border-l border-border/40',
+          )}>
+            <ScoreColumn
+              icon={Search}
+              label="SEO"
+              value={seoScore}
+              suffix="/100"
+              max={100}
+              colorClass={getScoreTextColor(seoScore, 100)}
+              tooltip={SCORE_TOOLTIPS.seo}
+            />
+          </div>
+        )}
+
+        {engagementScore != null && (
+          <div className={cn(
+            (critiqueScore != null || geoScore != null || seoScore != null) && 'border-l border-border/40',
           )}>
             <ScoreColumn
               icon={TrendingUp}
