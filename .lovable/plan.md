@@ -1,42 +1,56 @@
 
 
-# Pipeline Detail Dialog — Click card Kanban hiện chi tiết
+# Trang Agent Directory — Mô tả công việc chi tiết từng Agent
 
 ## Mục tiêu
-Click vào pipeline card trên Kanban → mở Dialog hiển thị full thông tin pipeline: stage timeline, execution logs, scores, và actions (change stage, flag, delete).
+Tạo trang `/agents/directory` hiển thị danh sách 7 agents + Orchestrator, mỗi agent có mô tả chi tiết: vai trò, input/output, tools sử dụng, vị trí trong pipeline, và trạng thái hoạt động hiện tại.
 
-## Thay đổi
+## Thiết kế UI
 
-### 1. Component `PipelineDetailDialog.tsx` (tạo mới)
-Dialog hiển thị 3 phần:
+Trang dạng **card grid** — mỗi agent 1 card lớn chứa:
 
-**Header:** Title, topic, priority badge, autonomy level, timestamps (created, ETA, completed)
+- **Icon + Tên + Badge trạng thái** (active/idle/flagged — lấy từ pipelines realtime)
+- **Vai trò**: Mô tả 1-2 câu
+- **Công việc cụ thể**: Danh sách bullet points
+- **Input**: Nhận gì từ agent trước
+- **Output**: Trả ra gì cho agent sau
+- **Tools**: Các tool agent sử dụng (web_search, brand_voice_check, etc.)
+- **Model & Chi phí**: Model AI sử dụng + estimated cost/call
+- **Vị trí pipeline**: Visual indicator stage nào trong pipeline
 
-**Pipeline Stage Timeline:** Hiển thị 9 stages dạng horizontal stepper — stage hiện tại highlight, stages đã qua có checkmark, stages chưa đến mờ đi. Dữ liệu từ `pipeline_state`.
+8 agents:
+1. **Orchestrator** — Điều phối toàn bộ pipeline, phân công tasks
+2. **Research** — Nghiên cứu xu hướng, chọn topic tốt nhất
+3. **Strategy** — Lập kế hoạch content, calendar, gap analysis
+4. **Creator** — Viết content hoàn chỉnh từ brief
+5. **Optimizer** — Tối ưu SEO + GEO scores
+6. **Expander** — Mở rộng ra multi-channel versions
+7. **Compliance** — Kiểm tra tuân thủ, brand consistency
+8. **Analyst** — Theo dõi performance, feedback loop
 
-**Tabs:**
-- **Logs:** Bảng execution logs từ `agent_pipeline_logs` — agent_name, action, duration, tokens, cost, error. Sorted mới nhất trước.
-- **Scores:** Hiển thị SEO/GEO/Compliance scores từ `pipeline_state` (nếu có). Cards với progress bars.
-- **Actions:** Buttons: Change Stage (dropdown), Toggle Flag, Delete Pipeline.
+## Thay đổi kỹ thuật
 
-### 2. Hook `useAgentPipelineLogs.ts` (tạo mới)
-- Fetch `agent_pipeline_logs` theo `pipeline_id`
-- Query đơn giản, ordered by `created_at DESC`
+### 1. Tạo `src/pages/AgentDirectoryPage.tsx`
+- Dữ liệu agent descriptions là static (hardcoded array)
+- Trạng thái realtime: dùng `useAgentPipelines()` để đếm active pipelines per agent
+- Layout: responsive grid 1-2-3 columns
+- Mỗi card expandable (click để xem chi tiết tools/IO)
 
-### 3. Sửa `PipelineKanban.tsx`
-- Thêm `onCardClick` callback cho `PipelineCard`
-- Click card → gọi `onCardClick(pipeline)` (khác với drag)
-- `PipelineKanban` nhận thêm prop `onPipelineClick`
-- Trong `PipelineKanban`, thêm state `selectedPipeline` + render `PipelineDetailDialog`
+### 2. Tạo `src/components/agents/AgentDetailCard.tsx`
+- Component card cho từng agent
+- Collapsible sections: mặc định show vai trò + công việc, expand để xem tools/IO/cost
+- Badge trạng thái kết nối realtime pipeline data
 
-### 4. Sửa `AgentDashboard` (nếu cần)
-- Truyền `onStageChange` và `onDelete` callbacks xuống
+### 3. Sửa routing + sidebar
+- Thêm route `/agents/directory` trong `routes.tsx`
+- Thêm sub-item "Agents" dưới "AI Agents" trong AppSidebar (icon: Bot)
 
 ## Files
 
 | File | Loại |
 |------|------|
-| `src/components/agents/PipelineDetailDialog.tsx` | Tạo |
-| `src/hooks/useAgentPipelineLogs.ts` | Tạo |
-| `src/components/agents/PipelineKanban.tsx` | Sửa — thêm click handler + render dialog |
+| `src/pages/AgentDirectoryPage.tsx` | Tạo |
+| `src/components/agents/AgentDetailCard.tsx` | Tạo |
+| `src/app/routes.tsx` | Sửa — thêm route |
+| `src/components/AppSidebar.tsx` | Sửa — thêm menu item |
 
