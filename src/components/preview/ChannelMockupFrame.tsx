@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { ensureMarkdownFormat } from '@/utils/contentFormatter';
 import ReactMarkdown from 'react-markdown';
 import { motion } from 'framer-motion';
