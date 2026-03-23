@@ -77,12 +77,15 @@ function PipelineCard({ pipeline, isDragging, onClick }: { pipeline: AgentPipeli
   };
 
   return (
-    <Card className={cn(
-      'border-l-[3px] cursor-grab active:cursor-grabbing transition-all',
-      priorityColors[pipeline.priority] || 'border-l-border',
-      isDragging && 'opacity-80 rotate-2 shadow-2xl scale-105',
-      pipeline.is_flagged && 'ring-1 ring-destructive/50',
-    )}>
+    <Card
+      className={cn(
+        'border-l-[3px] cursor-grab active:cursor-grabbing transition-all hover:shadow-md',
+        priorityColors[pipeline.priority] || 'border-l-border',
+        isDragging && 'opacity-80 rotate-2 shadow-2xl scale-105',
+        pipeline.is_flagged && 'ring-1 ring-destructive/50',
+      )}
+      onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+    >
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start justify-between gap-2">
           <p className="text-xs font-medium line-clamp-2 leading-relaxed">{pipeline.content_title}</p>
