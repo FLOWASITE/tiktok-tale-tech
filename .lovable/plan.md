@@ -1,57 +1,40 @@
 
 
-# Chuyển Satori text overlay → AI render trực tiếp trong generate-brand-image
+# Tối ưu chất lượng text rendering tiếng Việt trên ảnh multichannel
 
-## Phân tích hiện tại
+## Vấn đề hiện tại
 
-Pipeline tạo ảnh gồm 4 bước:
-```text
-Step 1: AI tạo ảnh nền (generate-brand-image)
-Step 2: Logo overlay (overlay-logo-canvas) 
-Step 3: Text overlay đơn giản (overlay-text-canvas — Satori)  ← BỎ
-Step 4: Structured overlay phức tạp (overlay-text-canvas — Satori)  ← BỎ
-```
+AI render text trực tiếp (ai_render mode) nhưng prompt chưa đủ mạnh để đảm bảo:
+1. **Dấu tiếng Việt** bị AI render sai (ă→a, ơ→o, ư→u, ê→e)
+2. **Text bị thay đổi/rút gọn** — AI tự ý rephrase hoặc bỏ chữ
+3. **Font không hỗ trợ Unicode** — AI chọn font Latin-only
+4. **Contrast kém** — text khó đọc trên background phức tạp
 
-**Đã có sẵn `ai_render` mode** trong code — truyền `structuredElements` vào `generate-brand-image` để AI render text trực tiếp. Tuy nhiên mode này chưa được dùng mặc định.
+## Giải pháp: 3 cải tiến
 
-## Đề xuất: Mặc định dùng AI render, bỏ Satori
+### 1. Thêm Vietnamese Text Rendering Builder vào pipeline
+- Tạo builder mới `buildVietnameseTextAccuracy` trong `image-prompt-builders.ts`
+- Priority cao (95) để đứng gần cuối prompt (sandwich reinforcement)
+- Nội dung:
+  - Liệt kê CHÍNH XÁC text cần render (character-by-character)
+  - Cấm AI thay đổi bất kỳ ký tự nào
+  - Yêu cầu font hỗ trợ Unicode Vietnamese đầy đủ
+  - Đưa ra ví dụ cụ thể các dấu dễ sai: ă≠a, ơ≠o, ư≠u, ê≠e, đ≠d
 
-### Pipeline mới (3 bước → 2 bước):
-```text
-Step 1: AI tạo ảnh + render text/structured elements trực tiếp
-Step 2: Logo overlay (giữ nguyên — raster compositing chính xác hơn AI)
-```
+### 2. Nâng cấp `structuredElementsToPromptText` trong `generate-brand-image`
+- Thêm "TEXT VERIFICATION CHECKLIST" — liệt kê từng đoạn text cần render kèm character count
+- Thêm hướng dẫn: "Nếu không thể render chính xác, HÃY BỎ TEXT thay vì render sai"
+- Tăng cường contrast rules: minimum font size, mandatory text shadow/backdrop
 
-### Ưu điểm
-- **Nhanh hơn**: Bỏ 1-2 API call (overlay-text-canvas), tiết kiệm 10-30s
-- **Đẹp hơn**: AI tự tích hợp text vào composition, không bị "dán đè" như Satori
-- **Đơn giản hơn**: Giảm complexity pipeline
+### 3. Cải thiện `buildCriticalRules` cho with_text mode
+- Thêm rule: "Vietnamese diacritics VERIFICATION — count accent marks in output must match input"
+- Thêm rule: "NEVER substitute similar-looking characters"
+- Thêm rule: "Use at least 48px equivalent font size for headlines"
 
-### Rủi ro cần xử lý
-- **Tiếng Việt**: AI đôi khi render sai dấu (ă, ơ, ư) — cần prompt rõ ràng
-- **Chính xác text**: AI có thể thay đổi/bỏ chữ — cần validation hoặc retry
+## Files cần sửa
 
-## Thay đổi cụ thể
-
-### 1. `src/hooks/useAutoImageGeneration.ts`
-- Đổi default `overlayMode` từ `'satori'` → `'ai_render'`
-- Bỏ Step 3 (simple text overlay) và Step 4 (structured overlay) khi mode = `ai_render`
-- Luôn truyền `structuredElements` và `textToInclude` vào generate-brand-image
-- Pipeline chỉ còn: Step 1 (AI generate+text) → Step 2 (Logo overlay)
-
-### 2. `supabase/functions/generate-brand-image/index.ts`
-- Nâng cấp prompt builder: khi nhận `structuredElements`, inject layout instructions chi tiết vào prompt
-- Thêm Vietnamese text accuracy instructions: "Render EXACTLY these Vietnamese characters"
-- Truyền text content vào prompt thay vì chỉ content summary
-
-### 3. `src/hooks/useAutoImagePipeline.ts`
-- Cập nhật `genOptions` để set `overlayMode: 'ai_render'` mặc định
-- Bỏ `useCanvasFallback: true`
-
-### Files cần sửa
 | File | Thay đổi |
 |------|----------|
-| `src/hooks/useAutoImageGeneration.ts` | Default ai_render, simplify pipeline steps |
-| `supabase/functions/generate-brand-image/index.ts` | Enhanced prompt with text/structured elements |
-| `src/hooks/useAutoImagePipeline.ts` | Set ai_render default |
+| `supabase/functions/_shared/image-prompt-builders.ts` | Thêm `buildVietnameseTextAccuracy` builder, cải thiện `buildCriticalRules` |
+| `supabase/functions/generate-brand-image/index.ts` | Nâng cấp `structuredElementsToPromptText` với verification checklist |
 
