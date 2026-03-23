@@ -8,16 +8,44 @@ import { Plus, Pause, Play, LayoutGrid, CheckSquare, Target, Bot, Zap } from 'lu
 import { PipelineKanban } from '@/components/agents/PipelineKanban';
 import { AgentStatusPanel } from '@/components/agents/AgentStatusPanel';
 import { ApprovalQueue } from '@/components/agents/ApprovalQueue';
+import { GoalWizard } from '@/components/agents/GoalWizard';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
 import { useAgentApprovals } from '@/hooks/useAgentApprovals';
 import { useAgentGoals } from '@/hooks/useAgentGoals';
 import { AgentPipelineStage } from '@/types/agent';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 
 export default function AgentDashboard() {
+  const { currentOrganization } = useOrganizationContext();
   const { pipelines, isLoading: pipelinesLoading, updateStage } = useAgentPipelines();
   const { approvals, pendingCount, updateApproval } = useAgentApprovals();
-  const { goals } = useAgentGoals();
+  const { goals, createGoal } = useAgentGoals();
   const [activeTab, setActiveTab] = useState('pipeline');
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  const handleCreateGoal = async (data: Parameters<typeof createGoal.mutateAsync>[0]) => {
+    await createGoal.mutateAsync(data);
+    setWizardOpen(false);
+    try {
+      const goalsList = await supabase
+        .from('agent_goals')
+        .select('id')
+        .eq('organization_id', currentOrganization?.id || '')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const newGoalId = goalsList.data?.[0]?.id;
+      if (newGoalId) {
+        await supabase.functions.invoke('agent-pipeline', {
+          body: { action: 'trigger_from_goal', goal_id: newGoalId },
+        });
+        toast.success('Pipeline đã được khởi tạo');
+      }
+    } catch (e) {
+      console.error('Pipeline trigger error:', e);
+    }
+  };
 
   const activeGoals = goals.filter(g => g.is_active && !g.is_paused);
   const totalInPipeline = pipelines.filter(p => !['published', 'analyzing'].includes(p.current_stage)).length;
@@ -53,7 +81,7 @@ export default function AgentDashboard() {
             <Button variant="outline" size="sm" className="gap-1.5 text-xs">
               <Pause className="w-3.5 h-3.5" /> Pause All
             </Button>
-            <Button size="sm" className="gap-1.5 text-xs">
+            <Button size="sm" className="gap-1.5 text-xs" onClick={() => setWizardOpen(true)}>
               <Plus className="w-3.5 h-3.5" /> Campaign mới
             </Button>
           </div>
@@ -141,7 +169,7 @@ export default function AgentDashboard() {
                 <div className="text-center py-16">
                   <Target className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground mb-3">Chưa có campaign nào</p>
-                  <Button size="sm" className="gap-1.5">
+                  <Button size="sm" className="gap-1.5" onClick={() => setWizardOpen(true)}>
                     <Plus className="w-3.5 h-3.5" /> Tạo campaign đầu tiên
                   </Button>
                 </div>
@@ -177,6 +205,12 @@ export default function AgentDashboard() {
             </div>
           </TabsContent>
         </Tabs>
+
+        <GoalWizard
+          open={wizardOpen}
+          onOpenChange={setWizardOpen}
+          onSubmit={handleCreateGoal}
+        />
       </div>
     </>
   );
