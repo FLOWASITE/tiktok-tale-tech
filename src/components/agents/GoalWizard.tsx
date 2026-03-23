@@ -301,9 +301,9 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                 </div>
                 <div className="flex justify-between py-1.5 border-b">
                   <span className="text-muted-foreground">Chủ đề</span>
-                  <div className="flex gap-1 flex-wrap justify-end">
-                    {topics.map(t => <Badge key={t} variant="secondary" className="text-[9px]">{t}</Badge>)}
-                  </div>
+                  <span className="font-medium text-primary/80 flex items-center gap-1">
+                    <Bot className="w-3 h-3" /> AI tự nghiên cứu
+                  </span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b">
                   <span className="text-muted-foreground">Kênh</span>
