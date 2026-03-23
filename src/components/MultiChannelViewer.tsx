@@ -274,7 +274,9 @@ export function MultiChannelViewer({
   const [showGallery, setShowGallery] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
   const [showGeoScore, setShowGeoScore] = useState(false);
-  const { data: geoScoreData } = useGEOContentScore(content?.id ?? '');
+  const { data: geoScoreData, isLoading: isGEOQueryLoading } = useGEOContentScore(content?.id ?? '');
+  const [isGEOScoring, setIsGEOScoring] = useState(false);
+  const geoAutoTriggeredRef = useRef(false);
   const [showTeamPanel, setShowTeamPanel] = useState(false);
   const [deletingImageChannel, setDeletingImageChannel] = useState<Channel | null>(null);
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
