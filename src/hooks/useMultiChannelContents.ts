@@ -303,6 +303,9 @@ export function useMultiChannelContents() {
       const updatedContent = transformContent(data);
       setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
       
+      // Auto-trigger GEO scoring after content update
+      triggerAutoGEOScore(updatedContent);
+
       toast({
         title: '💾 Đã lưu thành công',
         description: 'Nội dung đã được cập nhật',
