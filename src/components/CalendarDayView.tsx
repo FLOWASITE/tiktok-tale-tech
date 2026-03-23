@@ -36,20 +36,6 @@ interface CalendarDayViewProps {
   onCreateSchedule?: (date: Date) => void;
 }
 
-const channelEmojis: Record<Channel, string> = {
-  website: '🌐',
-  facebook: '📘',
-  instagram: '📸',
-  twitter: '𝕏',
-  google_maps: '📍',
-  linkedin: '💼',
-  email: '📧',
-  youtube: '▶️',
-  zalo_oa: '💬',
-  telegram: '✈️',
-  tiktok: '🎵',
-  threads: '🧵',
-};
 
 const channelColors: Record<Channel, string> = {
   website: 'border-l-blue-500 bg-blue-500/10',
