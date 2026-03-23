@@ -368,6 +368,7 @@ export function SchedulePanel({ content, onScheduleChange, onBack }: SchedulePan
                         })()}
                         variant="default"
                         size="sm"
+                        onPublishSuccess={onScheduleChange}
                       />
                     </div>
                   )}
