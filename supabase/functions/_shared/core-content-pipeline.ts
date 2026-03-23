@@ -441,6 +441,7 @@ ${buildProofRequirementsBlock()}
 ${buildCompetitiveContextBlock(config.brandContext)}
 ${buildStyleGuideBlock(config.brandContext)}
 ${config.smartContextInjection || ''}
+${geoGuidelines}
 
 ## YÊU CẦU BẮT BUỘC
 1. Cấu trúc 5 phần:
