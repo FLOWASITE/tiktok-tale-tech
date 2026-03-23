@@ -134,7 +134,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     onSubmit({
       name: name.trim(),
       description: description.trim() || undefined,
-      target_topics: topics,
+      target_topics: [],
       target_channels: selectedChannels,
       frequency,
       autonomy_level: autonomyLevel,
