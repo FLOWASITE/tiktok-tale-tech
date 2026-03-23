@@ -111,6 +111,7 @@ export function DirectPublishButton({
   variant = 'outline',
   size = 'sm',
   className,
+  onPublishSuccess,
 }: DirectPublishButtonProps) {
   const navigate = useNavigate();
   const { currentOrganization } = useOrganization();
