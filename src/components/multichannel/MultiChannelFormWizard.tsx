@@ -1495,7 +1495,7 @@ export function MultiChannelFormWizard({
               )}
 
               {/* Core Content Preview - After Generation (hidden while streaming) */}
-              {coreContentData && !isGeneratingCoreContent && (
+              {!skipCoreContent && coreContentData && !isGeneratingCoreContent && (
                 <Card className="bg-gradient-to-br from-primary/5 via-card to-card border-2 border-primary/30 shadow-sm">
                   <CardContent className="p-5 space-y-4">
                     <div className="flex items-center justify-between">
