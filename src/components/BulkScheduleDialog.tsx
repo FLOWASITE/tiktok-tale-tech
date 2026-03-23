@@ -236,7 +236,7 @@ export function BulkScheduleDialog({
                     <span className="truncate">{content.title}</span>
                     <div className="flex gap-0.5 ml-auto">
                       {content.selected_channels.slice(0, 3).map(ch => (
-                        <span key={ch} className="text-[10px]">{channelEmojis[ch as Channel]}</span>
+                        <ChannelIcon key={ch} channel={ch as Channel} size={12} className={channelIconColors[ch as Channel]} />
                       ))}
                       {content.selected_channels.length > 3 && (
                         <span className="text-[10px] text-muted-foreground">+{content.selected_channels.length - 3}</span>
