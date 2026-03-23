@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import {
   Target, Hash, Radio, Palette, Eye, ChevronLeft, ChevronRight, 
   Check, Plus, X, Sparkles, ShieldCheck, Zap
 } from 'lucide-react';
-import { AgentAutonomyLevel, AUTONOMY_LEVELS } from '@/types/agent';
+import { AgentAutonomyLevel, AgentGoal, AUTONOMY_LEVELS } from '@/types/agent';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
@@ -59,13 +59,13 @@ interface GoalWizardProps {
     brand_template_id?: string;
     campaign_id?: string;
   }) => void;
+  initialData?: AgentGoal | null;
 }
 
-export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
+export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWizardProps) {
   const { currentOrganization } = useOrganizationContext();
   const [step, setStep] = useState(0);
   
-  // Form state
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [topics, setTopics] = useState<string[]>([]);
@@ -76,7 +76,32 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
   const [campaignId, setCampaignId] = useState<string | undefined>(undefined);
 
-  // Fetch brand templates
+  // Pre-fill when editing
+  useEffect(() => {
+    if (open && initialData) {
+      setName(initialData.name);
+      setDescription(initialData.description || '');
+      setTopics(initialData.target_topics || []);
+      setSelectedChannels(initialData.target_channels || []);
+      setFrequency(initialData.frequency || {});
+      setAutonomyLevel(initialData.autonomy_level);
+      setBrandTemplateId(initialData.brand_template_id || '');
+      setCampaignId(initialData.campaign_id || undefined);
+      setStep(0);
+    } else if (open && !initialData) {
+      resetForm();
+    }
+  }, [open, initialData]);
+
+  const resetForm = () => {
+    setStep(0);
+    setName(''); setDescription(''); setTopics([]);
+    setTopicInput('');
+    setSelectedChannels([]); setFrequency({});
+    setAutonomyLevel('human_in_loop'); setBrandTemplateId('');
+    setCampaignId(undefined);
+  };
+
   const { data: brandTemplates = [] } = useQuery({
     queryKey: ['brand-templates-list', currentOrganization?.id],
     queryFn: async () => {
@@ -115,10 +140,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
     switch (step) {
       case 0: return name.trim().length > 0 && topics.length > 0;
       case 1: return selectedChannels.length > 0;
-      case 2: return true;
-      case 3: return true;
-      case 4: return true;
-      default: return false;
+      default: return true;
     }
   };
 
@@ -133,13 +155,9 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
       brand_template_id: brandTemplateId || undefined,
       campaign_id: campaignId || undefined,
     });
-    // Reset
-    setStep(0);
-    setName(''); setDescription(''); setTopics([]);
-    setSelectedChannels([]); setFrequency({});
-    setAutonomyLevel('human_in_loop'); setBrandTemplateId('');
-    setCampaignId(undefined);
   };
+
+  const isEditing = !!initialData;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -147,7 +165,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
         <DialogHeader className="px-5 pt-5 pb-3">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Sparkles className="w-4 h-4 text-primary" />
-            Tạo AI Campaign
+            {isEditing ? 'Chỉnh sửa Campaign' : 'Tạo AI Campaign'}
           </DialogTitle>
         </DialogHeader>
 
@@ -176,38 +194,20 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
 
         {/* Step content */}
         <div className="px-5 pb-5 min-h-[280px]">
-          {/* Step 0: Mục tiêu */}
           {step === 0 && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs">Tên campaign *</Label>
-                <Input
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="VD: Q2 Skincare Campaign"
-                  className="text-sm"
-                />
+                <Input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Q2 Skincare Campaign" className="text-sm" />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs">Mô tả</Label>
-                <Textarea
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  placeholder="Mô tả ngắn về mục tiêu campaign..."
-                  rows={2}
-                  className="text-sm resize-none"
-                />
+                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Mô tả ngắn về mục tiêu campaign..." rows={2} className="text-sm resize-none" />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs">Chủ đề nội dung * ({topics.length})</Label>
                 <div className="flex gap-2">
-                  <Input
-                    value={topicInput}
-                    onChange={e => setTopicInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTopic())}
-                    placeholder="Nhập chủ đề rồi Enter..."
-                    className="text-sm"
-                  />
+                  <Input value={topicInput} onChange={e => setTopicInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTopic())} placeholder="Nhập chủ đề rồi Enter..." className="text-sm" />
                   <Button variant="outline" size="sm" onClick={addTopic} disabled={!topicInput.trim()}>
                     <Plus className="w-3.5 h-3.5" />
                   </Button>
@@ -216,9 +216,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
                   {topics.map(t => (
                     <Badge key={t} variant="secondary" className="text-[10px] gap-1 pr-1">
                       {t}
-                      <button onClick={() => setTopics(topics.filter(x => x !== t))}>
-                        <X className="w-3 h-3" />
-                      </button>
+                      <button onClick={() => setTopics(topics.filter(x => x !== t))}><X className="w-3 h-3" /></button>
                     </Badge>
                   ))}
                 </div>
@@ -226,7 +224,6 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
             </div>
           )}
 
-          {/* Step 1: Kênh */}
           {step === 1 && (
             <div className="space-y-4">
               <Label className="text-xs">Chọn kênh publish & tần suất</Label>
@@ -234,14 +231,10 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
                 {AVAILABLE_CHANNELS.map(ch => {
                   const selected = selectedChannels.includes(ch.id);
                   return (
-                    <button
-                      key={ch.id}
-                      onClick={() => toggleChannel(ch.id)}
-                      className={cn(
-                        "flex items-center gap-2 p-2.5 rounded-lg border text-left text-sm transition-all",
-                        selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
-                      )}
-                    >
+                    <button key={ch.id} onClick={() => toggleChannel(ch.id)} className={cn(
+                      "flex items-center gap-2 p-2.5 rounded-lg border text-left text-sm transition-all",
+                      selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                    )}>
                       <span className="text-base">{ch.icon}</span>
                       <span className="text-xs font-medium">{ch.label}</span>
                       {selected && <Check className="w-3.5 h-3.5 text-primary ml-auto" />}
@@ -258,9 +251,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
                       <div key={ch} className="flex items-center gap-2">
                         <span className="text-xs w-24">{info?.icon} {info?.label}</span>
                         <Select value={frequency[ch] || 'weekly'} onValueChange={v => setFrequency({ ...frequency, [ch]: v })}>
-                          <SelectTrigger className="h-7 text-xs flex-1">
-                            <SelectValue />
-                          </SelectTrigger>
+                          <SelectTrigger className="h-7 text-xs flex-1"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {FREQUENCY_OPTIONS.map(f => (
                               <SelectItem key={f.value} value={f.value} className="text-xs">{f.label}</SelectItem>
@@ -275,24 +266,13 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
             </div>
           )}
 
-          {/* Step 2: Autonomy */}
           {step === 2 && (
             <div className="space-y-3">
               <Label className="text-xs">Mức độ tự động</Label>
               {AUTONOMY_LEVELS.map(lvl => (
-                <Card
-                  key={lvl.id}
-                  className={cn(
-                    "cursor-pointer transition-all",
-                    autonomyLevel === lvl.id ? "border-primary ring-1 ring-primary/20" : "hover:border-primary/30"
-                  )}
-                  onClick={() => setAutonomyLevel(lvl.id)}
-                >
+                <Card key={lvl.id} className={cn("cursor-pointer transition-all", autonomyLevel === lvl.id ? "border-primary ring-1 ring-primary/20" : "hover:border-primary/30")} onClick={() => setAutonomyLevel(lvl.id)}>
                   <CardContent className="p-3 flex items-start gap-3">
-                    <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0",
-                      autonomyLevel === lvl.id ? "border-primary" : "border-muted-foreground/30"
-                    )}>
+                    <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0", autonomyLevel === lvl.id ? "border-primary" : "border-muted-foreground/30")}>
                       {autonomyLevel === lvl.id && <div className="w-2 h-2 rounded-full bg-primary" />}
                     </div>
                     <div>
@@ -305,15 +285,12 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
             </div>
           )}
 
-          {/* Step 3: Brand */}
           {step === 3 && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs">Chọn Brand Template (tùy chọn)</Label>
                 <Select value={brandTemplateId} onValueChange={setBrandTemplateId}>
-                  <SelectTrigger className="text-sm">
-                    <SelectValue placeholder="Không chọn — dùng mặc định" />
-                  </SelectTrigger>
+                  <SelectTrigger className="text-sm"><SelectValue placeholder="Không chọn — dùng mặc định" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none" className="text-sm">Không chọn</SelectItem>
                     {brandTemplates.map(bt => (
@@ -321,27 +298,16 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-[11px] text-muted-foreground">
-                  Brand template cung cấp tone of voice, keywords, personas để AI tạo nội dung chuẩn thương hiệu.
-                </p>
+                <p className="text-[11px] text-muted-foreground">Brand template cung cấp tone of voice, keywords, personas để AI tạo nội dung chuẩn thương hiệu.</p>
               </div>
-
               <div className="space-y-2">
                 <Label className="text-xs">Liên kết Chiến dịch (tùy chọn)</Label>
-                <CampaignSelector
-                  value={campaignId}
-                  onValueChange={setCampaignId}
-                  placeholder="Chọn chiến dịch liên kết..."
-                  className="text-sm"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Content được AI tạo sẽ tự động gán vào chiến dịch này.
-                </p>
+                <CampaignSelector value={campaignId} onValueChange={setCampaignId} placeholder="Chọn chiến dịch liên kết..." className="text-sm" />
+                <p className="text-[11px] text-muted-foreground">Content được AI tạo sẽ tự động gán vào chiến dịch này.</p>
               </div>
             </div>
           )}
 
-          {/* Step 4: Preview */}
           {step === 4 && (
             <div className="space-y-3">
               <Label className="text-xs font-medium">Xác nhận Campaign</Label>
@@ -372,16 +338,12 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
                 <div className="flex justify-between py-1.5 border-b">
                   <span className="text-muted-foreground">Brand</span>
                   <span className="font-medium">
-                    {brandTemplateId && brandTemplateId !== 'none'
-                      ? brandTemplates.find(b => b.id === brandTemplateId)?.brand_name
-                      : 'Mặc định'}
+                    {brandTemplateId && brandTemplateId !== 'none' ? brandTemplates.find(b => b.id === brandTemplateId)?.brand_name : 'Mặc định'}
                   </span>
                 </div>
                 <div className="flex justify-between py-1.5">
                   <span className="text-muted-foreground">Chiến dịch</span>
-                  <span className="font-medium">
-                    {campaignId ? '✅ Đã liên kết' : 'Không liên kết'}
-                  </span>
+                  <span className="font-medium">{campaignId ? '✅ Đã liên kết' : 'Không liên kết'}</span>
                 </div>
               </div>
             </div>
@@ -390,31 +352,16 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
 
         {/* Footer */}
         <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setStep(s => s - 1)}
-            disabled={step === 0}
-            className="text-xs gap-1"
-          >
+          <Button variant="ghost" size="sm" onClick={() => setStep(s => s - 1)} disabled={step === 0} className="text-xs gap-1">
             <ChevronLeft className="w-3.5 h-3.5" /> Quay lại
           </Button>
           {step < 4 ? (
-            <Button
-              size="sm"
-              onClick={() => setStep(s => s + 1)}
-              disabled={!canNext()}
-              className="text-xs gap-1"
-            >
+            <Button size="sm" onClick={() => setStep(s => s + 1)} disabled={!canNext()} className="text-xs gap-1">
               Tiếp theo <ChevronRight className="w-3.5 h-3.5" />
             </Button>
           ) : (
-            <Button
-              size="sm"
-              onClick={handleSubmit}
-              className="text-xs gap-1"
-            >
-              <Zap className="w-3.5 h-3.5" /> Khởi chạy Campaign
+            <Button size="sm" onClick={handleSubmit} className="text-xs gap-1">
+              <Zap className="w-3.5 h-3.5" /> {isEditing ? 'Cập nhật Campaign' : 'Khởi chạy Campaign'}
             </Button>
           )}
         </div>
