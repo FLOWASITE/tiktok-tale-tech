@@ -249,6 +249,7 @@ export function AppSidebar() {
     { title: 'Dashboard', titleKey: 'app.sidebar.dashboard', url: '/', icon: LayoutDashboard },
     { title: 'Kho Ý Tưởng', titleKey: 'app.sidebar.ideaBank', url: '/topics', icon: Lightbulb },
     { title: 'Core Content', titleKey: 'app.sidebar.coreContent', url: '/core-content', icon: FileText },
+    { title: 'GEO Engine', titleKey: 'app.sidebar.geoEngine', url: '/geo', icon: Radar },
     { title: 'Gallery', titleKey: 'app.sidebar.gallery', url: '/gallery', icon: GalleryHorizontalEnd },
   ];
 
