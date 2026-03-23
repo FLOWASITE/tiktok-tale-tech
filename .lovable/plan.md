@@ -1,51 +1,33 @@
 
 
-# Tích hợp GEO vào quy trình tạo nội dung (viết chuẩn GEO ngay từ đầu)
+# Phân loại lại kênh xuất bản theo loại nội dung
 
-## Vấn đề
+## Hiện tại
+Kênh được phân thành 4 nhóm: **Mạng xã hội**, **Nền tảng nội dung**, **Kênh trực tiếp**, **Địa phương** — phân theo nền tảng, không theo loại nội dung.
 
-Hiện tại hệ thống **viết xong rồi mới chấm điểm GEO** — nghĩa là AI tạo nội dung bình thường, sau đó mới đánh giá theo 8 yếu tố GEO. Cách đúng là phải **viết theo chuẩn GEO ngay từ đầu** — inject các nguyên tắc GEO vào prompt generation.
+## Phân loại mới (theo loại nội dung)
 
-## Giải pháp: Inject GEO guidelines vào prompts
+| Nhóm | Kênh | Lý do |
+|------|------|-------|
+| **📝 Thiên về Text** | Website/Blog, LinkedIn, X (Twitter), Threads, Email, Telegram | Nội dung chủ yếu là văn bản dài/ngắn |
+| **📸 Thiên về Ảnh** | Instagram, Facebook, Google Maps, Zalo OA | Ảnh là yếu tố chính, text hỗ trợ |
+| **🎬 Thiên về Video** | TikTok, YouTube | Nội dung video là core |
 
-### 1. Tạo shared GEO prompt module
-- Tạo `supabase/functions/_shared/geo-prompt-guidelines.ts`
-- Chứa hướng dẫn viết chuẩn GEO dựa trên 8 yếu tố có trọng số:
-  - **Answer-First (15%)**: Câu trả lời trực tiếp ngay đầu đoạn/bài
-  - **Citation Signals (15%)**: Luôn kèm số liệu, thống kê, nguồn cụ thể
-  - **Content Depth (15%)**: Phân tích đa góc, không hời hợt
-  - **Entity Clarity (13%)**: Định nghĩa rõ brand/sản phẩm/khái niệm
-  - **Structured Data (12%)**: Dùng lists, tables, FAQ format cho AI dễ trích xuất
-  - **Extractability (12%)**: Viết đoạn ngắn, tự chứa (self-contained snippets)
-  - **Heading Hierarchy (10%)**: Cấu trúc H1→H2→H3 logic
-  - **Freshness (8%)**: Đề cập xu hướng, dữ liệu mới nhất
+## Thay đổi
 
-### 2. Inject vào `generate-core-content`
-- Import GEO guidelines và append vào system prompt
-- Core Content là "Source of Truth" → cần chuẩn GEO nhất vì nó là gốc cho tất cả kênh
-- Thêm GEO requirements vào cả prompt `singlePass`, `outline`, `section`, `compile`
+### 1. Cập nhật `src/types/multichannel.ts` — đổi `category` của CHANNELS
+- Website: `'text'`, LinkedIn: `'text'`, Twitter: `'text'`, Threads: `'text'`, Email: `'text'`, Telegram: `'text'`
+- Instagram: `'image'`, Facebook: `'image'`, Google Maps: `'image'`, Zalo OA: `'image'`
+- TikTok: `'video'`, YouTube: `'video'`
 
-### 3. Inject vào `generate-multichannel`
-- Thêm GEO section vào system prompt của multichannel
-- Mỗi channel adapt GEO khác nhau:
-  - **Website**: Full GEO (heading, schema, citations, FAQ)
-  - **Facebook/LinkedIn**: Answer-first, citations, depth
-  - **Instagram/TikTok**: Extractability, entity clarity (ngắn gọn nhưng rõ ràng)
+### 2. Cập nhật `src/components/multichannel/CompactChannelGrid.tsx` — đổi tên nhóm
+- `{ name: 'Thiên về Text', key: 'text', icon: FileText }`
+- `{ name: 'Thiên về Ảnh', key: 'image', icon: Image }`
+- `{ name: 'Thiên về Video', key: 'video', icon: Video }`
+- Mặc định expand tất cả 3 nhóm (chỉ còn 3 thay vì 4)
+- Thêm icon nhận diện cho mỗi nhóm trong header
 
-### 4. Cập nhật prompt-registry defaults
-- Thêm GEO principles vào các default prompts hardcoded
-- Đảm bảo cả DB prompts và fallback prompts đều có GEO
-
-## Files cần tạo/sửa
-
-| File | Action |
-|------|--------|
-| `supabase/functions/_shared/geo-prompt-guidelines.ts` | **Tạo mới** — shared GEO writing guidelines |
-| `supabase/functions/_shared/prompt-registry.ts` | Sửa — inject GEO vào default prompts |
-| `supabase/functions/generate-core-content/index.ts` | Sửa — import + append GEO guidelines vào system prompt |
-| `supabase/functions/generate-multichannel/index.ts` | Sửa — import + inject GEO theo channel type |
-
-## Kết quả
-
-Sau khi implement, mọi nội dung AI tạo ra sẽ tự động tuân thủ 8 yếu tố GEO → điểm GEO sẽ cao ngay từ đầu, không cần optimize lại sau.
+### Files cần sửa
+- `src/types/multichannel.ts` — đổi `category` field cho từng channel
+- `src/components/multichannel/CompactChannelGrid.tsx` — đổi tên nhóm + icon
 
