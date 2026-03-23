@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { ensureMarkdownFormat } from '@/utils/contentFormatter';
 import ReactMarkdown from 'react-markdown';
 import { motion } from 'framer-motion';
@@ -1546,6 +1546,34 @@ function WebsiteFooter({ brandName, themeColor, logoUrl }: { brandName: string; 
 }
 
 // Website/Blog Mockup - Modern browser with article preview
+const MemoizedWebsiteMarkdown = React.memo(({ content, themeColor }: { content: string; themeColor: string }) => (
+  <ReactMarkdown components={{
+    p: ({ children }) => <p className="mb-3 leading-relaxed text-[13px]">{children}</p>,
+    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+    em: ({ children }) => <em className="italic">{children}</em>,
+    ul: ({ children }) => <ul className="list-none space-y-2 my-3 pl-0">{children}</ul>,
+    li: ({ children }) => <li className="flex items-start gap-2 text-[13px]">{children}</li>,
+    h1: ({ children }) => <h1 className="text-xl font-bold mb-3">{children}</h1>,
+    h2: ({ children }) => (
+      <h2 className="text-base font-bold mb-2 mt-5 pb-1.5 border-b border-[#e5e5e7] dark:border-[#3d3d3f] flex items-center gap-1.5">
+        <span className="w-1 h-4 rounded-full inline-block" style={{ backgroundColor: themeColor }} />
+        {children}
+      </h2>
+    ),
+    h3: ({ children }) => <h3 className="text-sm font-semibold mb-2 mt-3">{children}</h3>,
+    blockquote: ({ children }) => (
+      <blockquote className="border-l-2 pl-3 my-3 italic text-[#86868b]" style={{ borderColor: themeColor }}>{children}</blockquote>
+    ),
+    a: ({ children, href }) => (
+      <a href={href} className="underline font-medium" style={{ color: themeColor }}>{children}</a>
+    ),
+    code: ({ children }) => (
+      <code className="bg-[#f0f0f2] dark:bg-[#2c2c2e] px-1.5 py-0.5 rounded text-[12px] font-mono">{children}</code>
+    ),
+  }}>{content}</ReactMarkdown>
+));
+MemoizedWebsiteMarkdown.displayName = 'MemoizedWebsiteMarkdown';
+
 function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating, seoData, channelImage }: Omit<ChannelMockupFrameProps, 'channel'>) {
   const [liked, setLiked] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
@@ -1553,7 +1581,18 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const domain = brandName.toLowerCase().replace(/\s+/g, '') + '.com';
   
-  const formattedContent = useMemo(() => ensureMarkdownFormat(content), [content]);
+  // Truncate long content for mockup preview to prevent slow rendering
+  const formattedContent = useMemo(() => {
+    const full = ensureMarkdownFormat(content);
+    // Limit to ~2000 chars for preview — keeps render fast
+    if (full.length > 2000) {
+      const truncated = full.slice(0, 2000);
+      // Cut at last complete line
+      const lastNewline = truncated.lastIndexOf('\n');
+      return (lastNewline > 1500 ? truncated.slice(0, lastNewline) : truncated) + '\n\n...';
+    }
+    return full;
+  }, [content]);
   
   const wordCount = seoData?.word_count || formattedContent.split(/\s+/).length;
   const readTime = seoData?.reading_time_minutes || Math.max(1, Math.ceil(wordCount / 200));
@@ -1760,30 +1799,7 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
               </div>
             ) : (
               <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-[#1d1d1f] dark:text-[#f5f5f7] leading-relaxed">
-                <ReactMarkdown components={{
-                  p: ({ children }) => <p className="mb-3 leading-relaxed text-[13px]">{children}</p>,
-                  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                  em: ({ children }) => <em className="italic">{children}</em>,
-                  ul: ({ children }) => <ul className="list-none space-y-2 my-3 pl-0">{children}</ul>,
-                  li: ({ children }) => <li className="flex items-start gap-2 text-[13px]">{children}</li>,
-                  h1: ({ children }) => <h1 className="text-xl font-bold mb-3">{children}</h1>,
-                  h2: ({ children }) => (
-                    <h2 className="text-base font-bold mb-2 mt-5 pb-1.5 border-b border-[#e5e5e7] dark:border-[#3d3d3f] flex items-center gap-1.5">
-                      <span className="w-1 h-4 rounded-full inline-block" style={{ backgroundColor: themeColor }} />
-                      {children}
-                    </h2>
-                  ),
-                  h3: ({ children }) => <h3 className="text-sm font-semibold mb-2 mt-3">{children}</h3>,
-                  blockquote: ({ children }) => (
-                    <blockquote className="border-l-2 pl-3 my-3 italic text-[#86868b]" style={{ borderColor: themeColor }}>{children}</blockquote>
-                  ),
-                  a: ({ children, href }) => (
-                    <a href={href} className="underline font-medium" style={{ color: themeColor }}>{children}</a>
-                  ),
-                  code: ({ children }) => (
-                    <code className="bg-[#f0f0f2] dark:bg-[#2c2c2e] px-1.5 py-0.5 rounded text-[12px] font-mono">{children}</code>
-                  ),
-                }}>{formattedContent}</ReactMarkdown>
+                <MemoizedWebsiteMarkdown content={formattedContent} themeColor={themeColor} />
               </div>
             )}
             
