@@ -213,8 +213,8 @@ export function useAutoImageGeneration() {
             typographyStyle: effectiveContentType === 'with_text' ? typographyStyle : undefined,
             promptMode,
             // AI Render mode: pass structured elements for AI to render text directly
-            structuredElements: isAiRenderMode ? structuredOverlay.elements : undefined,
-            structuredColors: isAiRenderMode ? structuredOverlay.colors : undefined,
+            structuredElements: isAiRenderMode && structuredOverlay ? structuredOverlay.elements : undefined,
+            structuredColors: isAiRenderMode && structuredOverlay ? structuredOverlay.colors : undefined,
             // Template ID for AI layout guidance
             structuredTemplate: isAiRenderMode ? options.structuredTemplate : undefined,
             // Logo safe zone: tell AI to keep logo area clear in ai_render mode
