@@ -311,7 +311,7 @@ export function CalendarDayView({
               )}
             >
               <div className="flex items-center gap-2">
-                <span className="text-sm">{channelEmojis[draggedSchedule.channel as Channel]}</span>
+                <ChannelIcon channel={draggedSchedule.channel as Channel} size={16} className={channelIconColors[draggedSchedule.channel as Channel]} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
                     {draggedSchedule.content?.title || 'Không có tiêu đề'}

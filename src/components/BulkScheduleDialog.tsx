@@ -386,7 +386,7 @@ export function BulkScheduleDialog({
                       <Badge variant="outline" className="shrink-0 text-[10px] px-1.5">
                         #{idx + 1}
                       </Badge>
-                      <span>{channelEmojis[item.channel]}</span>
+                      <ChannelIcon channel={item.channel} size={14} className={channelIconColors[item.channel]} />
                       <span className="truncate flex-1">{item.content.title}</span>
                       <Badge variant="secondary" className="shrink-0 text-[10px]">
                         {format(item.scheduledAt, 'dd/MM HH:mm', { locale: vi })}

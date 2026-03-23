@@ -1061,7 +1061,7 @@ export default function ContentCalendar() {
                   {draggedSchedule && (
                     <div className="text-xs p-2 rounded bg-card border-2 border-primary shadow-lg">
                       <div className="flex items-center gap-1.5">
-                        <span>{channelEmojis[draggedSchedule.channel as Channel]}</span>
+                        <ChannelIcon channel={draggedSchedule.channel as Channel} size={14} className={channelIconColors[draggedSchedule.channel as Channel]} />
                         <span className="font-medium">{draggedSchedule.content?.title}</span>
                       </div>
                     </div>
