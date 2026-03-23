@@ -18,6 +18,7 @@ export interface AgentGoal {
   frequency: Record<string, string>;
   autonomy_level: AgentAutonomyLevel;
   brand_template_id: string | null;
+  campaign_id: string | null;
   is_active: boolean;
   is_paused: boolean;
   created_by: string | null;
