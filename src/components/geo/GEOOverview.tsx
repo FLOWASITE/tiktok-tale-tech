@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, TrendingUp, Quote, Brain, RefreshCw, Loader2, DollarSign } from 'lucide-react';
+import { Eye, TrendingUp, Quote, Brain, RefreshCw, Loader2, DollarSign, Clock } from 'lucide-react';
 import { GEOMonitor } from '@/hooks/useGEOMonitors';
 import { SOVChart } from './SOVChart';
 import { SentimentGauge } from './SentimentGauge';
@@ -9,8 +9,9 @@ import { CitationTracker } from './CitationTracker';
 import { VisibilityAlerts } from './VisibilityAlerts';
 import { TrendChart } from './TrendChart';
 import { AlertHistory } from './AlertHistory';
+import { Sparkline } from '@/components/dashboard/Sparkline';
 import { useGEOResults } from '@/hooks/useGEOResults';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -19,11 +20,35 @@ interface GEOOverviewProps {
   loading: boolean;
 }
 
+function getNextScanLabel(lastScanned: string | null, frequency: string): string | null {
+  if (!lastScanned) return null;
+  const last = new Date(lastScanned);
+  const freqMap: Record<string, number> = {
+    daily: 24 * 60 * 60 * 1000,
+    weekly: 7 * 24 * 60 * 60 * 1000,
+    monthly: 30 * 24 * 60 * 60 * 1000,
+  };
+  const ms = freqMap[frequency];
+  if (!ms) return null;
+  const next = new Date(last.getTime() + ms);
+  const now = new Date();
+  if (next <= now) return 'Sẵn sàng scan';
+  const diff = next.getTime() - now.getTime();
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours > 24) return `~${Math.ceil(hours / 24)} ngày`;
+  if (hours > 0) return `~${hours}h ${mins}m`;
+  return `~${mins}m`;
+}
+
 export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
   const activeMonitor = monitors.find(m => m.is_active) || monitors[0];
   const { results, stats, loading: resultsLoading, refetch } = useGEOResults(activeMonitor?.id);
   const [scanning, setScanning] = useState(false);
   const [lastScan, setLastScan] = useState<{ cost: number; count: number } | null>(null);
+  const [sparkData, setSparkData] = useState<{ sov: number[]; citation: number[]; sentiment: number[]; scans: number[] }>({
+    sov: [], citation: [], sentiment: [], scans: [],
+  });
 
   useEffect(() => {
     if (!activeMonitor?.id) return;
@@ -39,6 +64,29 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
           setLastScan({
             cost: Number(data[0].actual_cost_usd) || 0,
             count: Number(data[0].total_api_calls) || 0,
+          });
+        }
+      });
+  }, [activeMonitor?.id]);
+
+  // Fetch 7-day sparkline data from snapshots
+  useEffect(() => {
+    if (!activeMonitor?.id) return;
+    const fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - 7);
+    supabase
+      .from('geo_visibility_snapshots')
+      .select('sov_percentage, citation_rate, avg_sentiment, total_scans')
+      .eq('brand_monitor_id', activeMonitor.id)
+      .gte('snapshot_date', fromDate.toISOString().split('T')[0])
+      .order('snapshot_date', { ascending: true })
+      .then(({ data }) => {
+        if (data && data.length > 1) {
+          setSparkData({
+            sov: data.map((d: any) => Number(d.sov_percentage) || 0),
+            citation: data.map((d: any) => Number(d.citation_rate) || 0),
+            sentiment: data.map((d: any) => Number(d.avg_sentiment) || 0),
+            scans: data.map((d: any) => Number(d.total_scans) || 0),
           });
         }
       });
@@ -63,6 +111,11 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
     }
   };
 
+  const nextScanLabel = useMemo(
+    () => activeMonitor ? getNextScanLabel(activeMonitor.last_scanned_at, activeMonitor.scan_frequency) : null,
+    [activeMonitor]
+  );
+
   if (loading || resultsLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -73,7 +126,6 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
 
   if (!activeMonitor) return null;
 
-  // Count real vs simulated results
   const realCount = results.filter((r: any) => r.is_simulated === false).length;
   const simulatedCount = results.filter((r: any) => r.is_simulated !== false).length;
 
@@ -94,6 +146,12 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
               Last scan: ${lastScan.cost.toFixed(4)}
             </span>
           )}
+          {nextScanLabel && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              Next: {nextScanLabel}
+            </span>
+          )}
           {realCount > 0 && (
             <Badge className="text-[10px] px-1.5 py-0 bg-green-500/10 text-green-600 dark:text-green-400">
               {realCount} Real
@@ -111,7 +169,7 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
         </Button>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards with Sparklines */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-border/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -119,8 +177,15 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
             <Eye className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{stats.sov}%</div>
-            <p className="text-xs text-muted-foreground mt-1">Tỉ lệ đề cập so với đối thủ</p>
+            <div className="flex items-end justify-between">
+              <div>
+                <div className="text-2xl font-bold text-foreground">{stats.sov}%</div>
+                <p className="text-xs text-muted-foreground mt-1">Tỉ lệ đề cập so với đối thủ</p>
+              </div>
+              {sparkData.sov.length > 1 && (
+                <Sparkline data={sparkData.sov} width={64} height={28} color="hsl(var(--primary))" />
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -130,8 +195,15 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
             <Quote className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{stats.citationRate}%</div>
-            <p className="text-xs text-muted-foreground mt-1">AI trích dẫn URL của bạn</p>
+            <div className="flex items-end justify-between">
+              <div>
+                <div className="text-2xl font-bold text-foreground">{stats.citationRate}%</div>
+                <p className="text-xs text-muted-foreground mt-1">AI trích dẫn URL của bạn</p>
+              </div>
+              {sparkData.citation.length > 1 && (
+                <Sparkline data={sparkData.citation} width={64} height={28} color="hsl(142, 76%, 36%)" />
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -141,8 +213,15 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
             <TrendingUp className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{stats.avgSentiment > 0 ? '+' : ''}{stats.avgSentiment}</div>
-            <p className="text-xs text-muted-foreground mt-1">Điểm cảm xúc trung bình</p>
+            <div className="flex items-end justify-between">
+              <div>
+                <div className="text-2xl font-bold text-foreground">{stats.avgSentiment > 0 ? '+' : ''}{stats.avgSentiment}</div>
+                <p className="text-xs text-muted-foreground mt-1">Điểm cảm xúc trung bình</p>
+              </div>
+              {sparkData.sentiment.length > 1 && (
+                <Sparkline data={sparkData.sentiment} width={64} height={28} color="hsl(38, 92%, 50%)" />
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -152,8 +231,15 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
             <Brain className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{stats.totalScans}</div>
-            <p className="text-xs text-muted-foreground mt-1">Lượt quét AI tổng cộng</p>
+            <div className="flex items-end justify-between">
+              <div>
+                <div className="text-2xl font-bold text-foreground">{stats.totalScans}</div>
+                <p className="text-xs text-muted-foreground mt-1">Lượt quét AI tổng cộng</p>
+              </div>
+              {sparkData.scans.length > 1 && (
+                <Sparkline data={sparkData.scans} width={64} height={28} color="hsl(var(--primary))" />
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

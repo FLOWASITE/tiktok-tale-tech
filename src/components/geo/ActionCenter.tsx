@@ -266,8 +266,13 @@ export function ActionCenter() {
                           {pConfig.label}
                         </Badge>
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                          {task.source_module}
+                          {task.source_module === 'monitor' ? '📡 Monitor' : task.source_module === 'optimizer' ? '⚡ Optimizer' : task.source_module === 'competitor' ? '🎯 Competitor' : task.source_module}
                         </Badge>
+                        {(task as any).content_id && (
+                          <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] text-primary" asChild>
+                            <a href={`/content/${(task as any).content_id}`}>Xem content →</a>
+                          </Button>
+                        )}
                       </div>
                       {task.description && (
                         <p className="text-xs text-muted-foreground mt-1">{task.description}</p>
