@@ -70,6 +70,7 @@ export function ContentMockupToggle({
     return (
       <div className={cn('flex justify-center items-start p-2 bg-gradient-to-b from-muted/5 to-muted/20 rounded-xl min-h-[500px]', className)}>
         <div className="w-full max-w-xl">
+          {scoreBar}
           <GoogleMapsMockup
             content={safeContent}
             brandName={safeBrandName}
@@ -77,7 +78,6 @@ export function ContentMockupToggle({
             isGenerating={isLoading}
             channelImage={channelImage}
           />
-          {scoreBar}
         </div>
       </div>
     );
