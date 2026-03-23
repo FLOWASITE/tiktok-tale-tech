@@ -1,14 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, TrendingUp, Quote, Brain, RefreshCw, Loader2 } from 'lucide-react';
+import { Eye, TrendingUp, Quote, Brain, RefreshCw, Loader2, DollarSign } from 'lucide-react';
 import { GEOMonitor } from '@/hooks/useGEOMonitors';
 import { SOVChart } from './SOVChart';
 import { SentimentGauge } from './SentimentGauge';
 import { CitationTracker } from './CitationTracker';
 import { VisibilityAlerts } from './VisibilityAlerts';
 import { useGEOResults } from '@/hooks/useGEOResults';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -21,6 +21,27 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
   const activeMonitor = monitors.find(m => m.is_active) || monitors[0];
   const { results, stats, loading: resultsLoading, refetch } = useGEOResults(activeMonitor?.id);
   const [scanning, setScanning] = useState(false);
+  const [lastScan, setLastScan] = useState<{ cost: number; count: number } | null>(null);
+
+  // Fetch last scan job info
+  useEffect(() => {
+    if (!activeMonitor?.id) return;
+    supabase
+      .from('geo_scan_jobs')
+      .select('actual_cost_usd, total_api_calls, completed_at')
+      .eq('brand_monitor_id', activeMonitor.id)
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false })
+      .limit(1)
+      .then(({ data }) => {
+        if (data?.[0]) {
+          setLastScan({
+            cost: Number(data[0].actual_cost_usd) || 0,
+            count: Number(data[0].total_api_calls) || 0,
+          });
+        }
+      });
+  }, [activeMonitor?.id]);
 
   const handleScan = async () => {
     if (!activeMonitor) return;
@@ -30,7 +51,9 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
         body: { monitorId: activeMonitor.id },
       });
       if (error) throw error;
-      toast.success(`Scan hoàn tất: ${data?.results_count || 0} kết quả`);
+      const cost = data?.actual_cost_usd ? `$${data.actual_cost_usd.toFixed(4)}` : '';
+      toast.success(`Scan hoàn tất: ${data?.results_count || 0} kết quả ${cost ? `(${cost})` : ''}`);
+      setLastScan({ cost: data?.actual_cost_usd || 0, count: data?.results_count || 0 });
       refetch();
     } catch (err: any) {
       toast.error('Scan thất bại: ' + (err.message || 'Lỗi không xác định'));
@@ -52,14 +75,20 @@ export function GEOOverview({ monitors, loading }: GEOOverviewProps) {
   return (
     <div className="space-y-6">
       {/* Header Stats */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Badge variant="outline" className="text-sm">
             {activeMonitor.brand_name}
           </Badge>
           <span className="text-sm text-muted-foreground">
-            {activeMonitor.ai_engines.length} AI engines · {activeMonitor.keywords.length} keywords
+            {activeMonitor.ai_engines.length} engines · {activeMonitor.keywords.length} keywords
           </span>
+          {lastScan && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <DollarSign className="h-3 w-3" />
+              Last scan: ${lastScan.cost.toFixed(4)}
+            </span>
+          )}
         </div>
         <Button onClick={handleScan} disabled={scanning} size="sm">
           {scanning ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
