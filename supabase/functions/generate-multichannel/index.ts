@@ -1227,6 +1227,8 @@ ${selectedChannelRules}
 ${channelOptimizationSection}
 ${wordBudgetSection}
 
+${channels.map(ch => getChannelGEOGuidelines(ch)).filter(Boolean).join('\n')}
+
 ## WEBSITE SEO (CHỈ áp dụng cho website)
 - SEO Title: 50-60 ký tự, keyword đầu | Meta: 150-160 ký tự
 - H1 có keyword, 4-6 H2 với secondary keywords, H3 nếu cần
