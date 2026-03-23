@@ -150,6 +150,11 @@ import {
   calculateDiversityBonus,
   type CrossChannelDedupResult,
 } from "../_shared/cross-channel-dedup.ts";
+// NEW: GEO Prompt Guidelines - Inject into content generation
+import {
+  getChannelGEOGuidelines,
+  getCompactGEOGuidelines,
+} from "../_shared/geo-prompt-guidelines.ts";
 
 // ============================================
 // EDGE OPTIMIZATIONS
