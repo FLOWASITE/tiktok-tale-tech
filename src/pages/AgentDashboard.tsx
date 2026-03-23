@@ -8,10 +8,13 @@ import { Plus, Pause, Play, LayoutGrid, CheckSquare, Target, Bot, Zap } from 'lu
 import { PipelineKanban } from '@/components/agents/PipelineKanban';
 import { AgentStatusPanel } from '@/components/agents/AgentStatusPanel';
 import { ApprovalQueue } from '@/components/agents/ApprovalQueue';
+import { GoalWizard } from '@/components/agents/GoalWizard';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
 import { useAgentApprovals } from '@/hooks/useAgentApprovals';
 import { useAgentGoals } from '@/hooks/useAgentGoals';
 import { AgentPipelineStage } from '@/types/agent';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export default function AgentDashboard() {
   const { pipelines, isLoading: pipelinesLoading, updateStage } = useAgentPipelines();
