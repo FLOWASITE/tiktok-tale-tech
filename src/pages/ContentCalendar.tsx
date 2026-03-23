@@ -62,7 +62,8 @@ import {
   addDays,
   subDays,
   isToday,
-  parseISO
+  parseISO,
+  isBefore
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
@@ -367,6 +368,31 @@ export default function ContentCalendar() {
     fetchSchedules();
   }, [user, currentOrganization?.id]);
 
+  // Realtime subscription for content_schedules
+  useEffect(() => {
+    if (!currentOrganization?.id) return;
+
+    const channel = supabase
+      .channel('content_schedules_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'content_schedules',
+          filter: `organization_id=eq.${currentOrganization.id}`,
+        },
+        () => {
+          fetchSchedules();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentOrganization?.id]);
+
   // Filter schedules
   const filteredSchedules = useMemo(() => {
     return schedules.filter(s => {
@@ -376,7 +402,25 @@ export default function ContentCalendar() {
     });
   }, [schedules, statusFilter, channelFilter]);
 
-  // Get days that have schedules (for mini calendar highlighting)
+  // Overdue schedules count
+  const overdueCount = useMemo(() => {
+    const now = new Date();
+    return schedules.filter(s => 
+      s.publish_status === 'scheduled' && isBefore(parseISO(s.scheduled_at), now)
+    ).length;
+  }, [schedules]);
+
+  // Mini calendar: categorize days by status for color coding
+  const daysWithScheduleStatus = useMemo(() => {
+    const dayMap: Record<string, Set<string>> = {};
+    schedules.forEach(s => {
+      const day = format(parseISO(s.scheduled_at), 'yyyy-MM-dd');
+      if (!dayMap[day]) dayMap[day] = new Set();
+      dayMap[day].add(s.publish_status);
+    });
+    return dayMap;
+  }, [schedules]);
+
   const daysWithSchedules = useMemo(() => {
     return schedules.map(s => format(parseISO(s.scheduled_at), 'yyyy-MM-dd'));
   }, [schedules]);
@@ -442,6 +486,16 @@ export default function ContentCalendar() {
     const newScheduledAt = new Date(targetDate);
     newScheduledAt.setHours(currentScheduledAt.getHours());
     newScheduledAt.setMinutes(currentScheduledAt.getMinutes());
+
+    // Validate: cannot reschedule to past
+    if (isBefore(newScheduledAt, new Date())) {
+      toast({
+        title: 'Không thể đổi lịch',
+        description: 'Không thể chuyển lịch đăng sang thời gian đã qua',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     // Update schedule in database
     try {
@@ -700,11 +754,11 @@ export default function ContentCalendar() {
 
       {/* Stats - hide for history tab */}
       {viewMode !== 'history' && (
-        <div className="grid grid-cols-4 gap-3">
+        <div className={`grid gap-3 ${overdueCount > 0 ? 'grid-cols-5' : 'grid-cols-4'}`}>
           <Card className="border-yellow-200 bg-yellow-50/50 dark:bg-yellow-900/10">
             <CardContent className="p-3 text-center">
               <div className="text-2xl font-bold text-yellow-600">
-                {schedules.filter(s => s.publish_status === 'scheduled').length}
+                {filteredSchedules.filter(s => s.publish_status === 'scheduled').length}
               </div>
               <div className="text-xs text-muted-foreground">Đang chờ</div>
             </CardContent>
@@ -712,7 +766,7 @@ export default function ContentCalendar() {
           <Card className="border-green-200 bg-green-50/50 dark:bg-green-900/10">
             <CardContent className="p-3 text-center">
               <div className="text-2xl font-bold text-green-600">
-                {schedules.filter(s => s.publish_status === 'published').length}
+                {filteredSchedules.filter(s => s.publish_status === 'published').length}
               </div>
               <div className="text-xs text-muted-foreground">Đã đăng</div>
             </CardContent>
@@ -720,15 +774,25 @@ export default function ContentCalendar() {
           <Card className="border-red-200 bg-red-50/50 dark:bg-red-900/10">
             <CardContent className="p-3 text-center">
               <div className="text-2xl font-bold text-red-600">
-                {schedules.filter(s => s.publish_status === 'failed').length}
+                {filteredSchedules.filter(s => s.publish_status === 'failed').length}
               </div>
               <div className="text-xs text-muted-foreground">Thất bại</div>
             </CardContent>
           </Card>
+          {overdueCount > 0 && (
+            <Card className="border-orange-300 bg-orange-50/50 dark:bg-orange-900/10 ring-1 ring-orange-300">
+              <CardContent className="p-3 text-center">
+                <div className="text-2xl font-bold text-orange-600">
+                  {overdueCount}
+                </div>
+                <div className="text-xs text-orange-600 font-medium">⚠️ Quá hạn</div>
+              </CardContent>
+            </Card>
+          )}
           <Card className="border-muted bg-muted/30">
             <CardContent className="p-3 text-center">
               <div className="text-2xl font-bold text-muted-foreground">
-                {schedules.filter(s => s.publish_status === 'cancelled').length}
+                {filteredSchedules.filter(s => s.publish_status === 'cancelled').length}
               </div>
               <div className="text-xs text-muted-foreground">Đã hủy</div>
             </CardContent>
@@ -765,10 +829,23 @@ export default function ContentCalendar() {
                   onSelect={(date) => date && setCurrentDate(date)}
                   locale={vi}
                   modifiers={{
-                    hasSchedule: (date) => daysWithSchedules.includes(format(date, 'yyyy-MM-dd')),
+                    hasPublished: (date) => {
+                      const statuses = daysWithScheduleStatus[format(date, 'yyyy-MM-dd')];
+                      return !!statuses?.has('published') && !statuses?.has('failed');
+                    },
+                    hasFailed: (date) => {
+                      const statuses = daysWithScheduleStatus[format(date, 'yyyy-MM-dd')];
+                      return !!statuses?.has('failed');
+                    },
+                    hasScheduled: (date) => {
+                      const statuses = daysWithScheduleStatus[format(date, 'yyyy-MM-dd')];
+                      return !!statuses?.has('scheduled') && !statuses?.has('published') && !statuses?.has('failed');
+                    },
                   }}
                   modifiersClassNames={{
-                    hasSchedule: 'bg-primary/20 font-bold text-primary',
+                    hasPublished: 'bg-green-500/20 font-bold text-green-700 dark:text-green-400',
+                    hasFailed: 'bg-red-500/20 font-bold text-red-700 dark:text-red-400',
+                    hasScheduled: 'bg-yellow-500/20 font-bold text-yellow-700 dark:text-yellow-400',
                   }}
                   className="rounded-md"
                 />

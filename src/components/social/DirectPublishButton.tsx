@@ -51,6 +51,7 @@ interface DirectPublishButtonProps {
   variant?: 'default' | 'ghost' | 'outline';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   className?: string;
+  onPublishSuccess?: () => void;
 }
 
 const CHANNEL_TO_PLATFORM: Record<string, SocialPlatform> = {
@@ -110,6 +111,7 @@ export function DirectPublishButton({
   variant = 'outline',
   size = 'sm',
   className,
+  onPublishSuccess,
 }: DirectPublishButtonProps) {
   const navigate = useNavigate();
   const { currentOrganization } = useOrganization();
@@ -198,6 +200,7 @@ export function DirectPublishButton({
       // Show success state
       setPublishedResult({ postId: result?.postId, postUrl: result?.postUrl });
       setDialogState('success');
+      onPublishSuccess?.();
     } catch (error) {
       // Error handled by hook toast
     }
