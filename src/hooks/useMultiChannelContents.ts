@@ -194,6 +194,9 @@ export function useMultiChannelContents() {
       const newContent = transformContent(data);
       setContents(prev => [newContent, ...prev]);
       
+      // Auto-trigger GEO scoring after content generation
+      triggerAutoGEOScore(newContent);
+
       toast({
         title: '✨ Tạo nội dung thành công!',
         description: `Đã tạo ${data.selected_channels?.length || 0} kênh cho "${data.title}"`,
