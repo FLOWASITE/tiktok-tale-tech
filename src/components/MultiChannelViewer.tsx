@@ -867,7 +867,7 @@ export function MultiChannelViewer({
                       <Button 
                         variant={showGallery ? "secondary" : "ghost"} 
                         size="icon"
-                        onClick={() => { setShowGallery(!showGallery); setShowSchedule(false); setShowTeamPanel(false); }}
+                        onClick={() => { setShowGallery(!showGallery); setShowSchedule(false); setShowTeamPanel(false); setShowGeoScore(false); }}
                         className="h-8 w-8 relative"
                       >
                         <Images className="w-4 h-4" />
