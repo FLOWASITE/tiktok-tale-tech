@@ -913,6 +913,39 @@ export default function ContentCalendar() {
                     )}
                   </div>
                 </div>
+                {/* Day notes in sidebar */}
+                {(() => {
+                  const currentDateStr = format(currentDate, 'yyyy-MM-dd');
+                  const dayNotes = calendarNotes.filter(n => n.note_date === currentDateStr);
+                  return (
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <StickyNote className="w-3 h-3" />
+                          Ghi chú
+                        </div>
+                        <CalendarDayNotes
+                          date={currentDate}
+                          notes={dayNotes}
+                          onAdd={addNote}
+                          onUpdate={updateNote}
+                          onDelete={deleteNote}
+                        />
+                      </div>
+                      {dayNotes.length > 0 ? (
+                        <div className="space-y-1">
+                          {dayNotes.map(note => (
+                            <div key={note.id} className="text-xs p-1.5 rounded bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/30 dark:border-amber-800/20 text-foreground/80">
+                              {note.content.length > 60 ? note.content.slice(0, 60) + '…' : note.content}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground italic">Chưa có ghi chú</div>
+                      )}
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           )}
