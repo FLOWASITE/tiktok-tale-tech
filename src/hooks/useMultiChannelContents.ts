@@ -248,6 +248,9 @@ export function useMultiChannelContents() {
       const updatedContent = transformContent(data);
       setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
       
+      // Auto-trigger GEO scoring after regeneration
+      triggerAutoGEOScore(updatedContent);
+
       toast({
         title: '🔄 Đã tạo lại nội dung',
         description: `Kênh đã được cập nhật với nội dung mới`,
