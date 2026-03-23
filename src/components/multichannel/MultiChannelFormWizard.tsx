@@ -1184,6 +1184,49 @@ export function MultiChannelFormWizard({
           {/* ========== STEP 2: TẠO CORE CONTENT ========== */}
           {currentStep === 2 && (
             <div className="space-y-5 animate-fade-in">
+              {/* Skip Core Content Toggle */}
+              <Card className={cn(
+                "border-border/50 transition-colors",
+                skipCoreContent && "border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20"
+              )}>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <SkipForward className={cn("w-5 h-5", skipCoreContent ? "text-amber-600" : "text-muted-foreground")} />
+                      <div>
+                        <Label htmlFor="skip-core" className="text-sm font-medium cursor-pointer">
+                          Tạo nhanh — bỏ qua Core Content
+                        </Label>
+                        <p className="text-xs text-muted-foreground">AI sẽ tạo nội dung trực tiếp từ chủ đề</p>
+                      </div>
+                    </div>
+                    <Switch 
+                      id="skip-core"
+                      checked={skipCoreContent} 
+                      onCheckedChange={setSkipCoreContent}
+                      disabled={isGeneratingCoreContent || !!coreContentData?.id}
+                    />
+                  </div>
+                  
+                  {skipCoreContent && (
+                    <div className="rounded-lg border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700/40 p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                          Nội dung sẽ tạo nhanh hơn nhưng có hạn chế
+                        </p>
+                      </div>
+                      <ul className="text-xs text-amber-700 dark:text-amber-400 space-y-1.5 ml-6 list-disc">
+                        <li>Không có Core Content làm nguồn gốc → nội dung giữa các kênh có thể <strong>không đồng nhất về thông điệp</strong></li>
+                        <li>Mỗi kênh sẽ được AI tạo độc lập → <strong>tone, thông tin chi tiết có thể khác nhau</strong></li>
+                        <li>Không thể dùng tính năng <strong>đánh giá chất lượng Core Content</strong> (critique score)</li>
+                        <li>Phù hợp cho bài viết đơn giản, tin nhanh. <strong>Không khuyến khích cho chiến dịch quan trọng</strong></li>
+                      </ul>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Topic Preview */}
               <Card className="bg-muted/30 border-border/50">
                 <CardContent className="p-4">
