@@ -232,7 +232,7 @@ function DroppableDayCell({
             <ChannelIcon
               key={ch}
               channel={ch}
-              size={13}
+              size={10}
               className={`shrink-0 ${channelIconColors[ch]}`}
             />
           ))}
