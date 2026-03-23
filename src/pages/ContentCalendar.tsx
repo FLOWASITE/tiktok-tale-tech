@@ -402,7 +402,25 @@ export default function ContentCalendar() {
     });
   }, [schedules, statusFilter, channelFilter]);
 
-  // Get days that have schedules (for mini calendar highlighting)
+  // Overdue schedules count
+  const overdueCount = useMemo(() => {
+    const now = new Date();
+    return schedules.filter(s => 
+      s.publish_status === 'scheduled' && isBefore(parseISO(s.scheduled_at), now)
+    ).length;
+  }, [schedules]);
+
+  // Mini calendar: categorize days by status for color coding
+  const daysWithScheduleStatus = useMemo(() => {
+    const dayMap: Record<string, Set<string>> = {};
+    schedules.forEach(s => {
+      const day = format(parseISO(s.scheduled_at), 'yyyy-MM-dd');
+      if (!dayMap[day]) dayMap[day] = new Set();
+      dayMap[day].add(s.publish_status);
+    });
+    return dayMap;
+  }, [schedules]);
+
   const daysWithSchedules = useMemo(() => {
     return schedules.map(s => format(parseISO(s.scheduled_at), 'yyyy-MM-dd'));
   }, [schedules]);
