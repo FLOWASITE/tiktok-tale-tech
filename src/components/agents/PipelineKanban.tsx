@@ -68,7 +68,7 @@ function PipelineColumn({ stage, pipelines, onCardClick }: { stage: typeof PIPEL
   );
 }
 
-function PipelineCard({ pipeline, isDragging }: { pipeline: AgentPipeline; isDragging?: boolean }) {
+function PipelineCard({ pipeline, isDragging, onClick }: { pipeline: AgentPipeline; isDragging?: boolean; onClick?: () => void }) {
   const priorityColors: Record<string, string> = {
     urgent: 'border-l-red-500',
     high: 'border-l-orange-500',
