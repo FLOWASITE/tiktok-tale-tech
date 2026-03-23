@@ -896,7 +896,21 @@ export function MultiChannelViewer({
                     <TooltipContent>Lịch đăng</TooltipContent>
                   </Tooltip>
 
-                  {/* Performance Tracking */}
+                  {/* GEO Score Toggle */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant={showGeoScore ? "secondary" : "ghost"} 
+                        size="icon"
+                        onClick={() => { setShowGeoScore(!showGeoScore); setShowGallery(false); setShowSchedule(false); setShowTeamPanel(false); }}
+                        className="h-8 w-8"
+                      >
+                        <Zap className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>GEO Score</TooltipContent>
+                  </Tooltip>
+
                   {content.status === 'published' && (
                     <TopicPerformanceUpdater
                       contentId={content.id}
