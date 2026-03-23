@@ -1,38 +1,51 @@
 
 
-# Tại sao chỉ thấy Chất lượng — thiếu GEO, SEO, Tương tác
+# Tích hợp GEO vào quy trình tạo nội dung (viết chuẩn GEO ngay từ đầu)
 
-## Nguyên nhân gốc
+## Vấn đề
 
-| Chỉ số | Tại sao không hiển thị |
-|--------|----------------------|
-| **GEO Score** | Bảng `geo_content_scores` có **0 dòng**. Edge function `geo-score-content` chưa bao giờ chạy thành công (không có logs). Auto-trigger chỉ kích hoạt khi tạo/lưu nội dung MỚI — các bài viết cũ không có score |
-| **SEO Score** | Cột `website_seo_data` trong DB = `null` cho tất cả bài viết. Không có logic nào tính SEO score — chỉ có prop truyền nhưng data không tồn tại |
-| **Tương tác** | Đang hoạt động nhưng bị ẩn khi `hasAnyScore === false` (do GEO và SEO đều null, chỉ còn critique). Thực tế engagement **có** được tính nhưng hiển thị đúng |
+Hiện tại hệ thống **viết xong rồi mới chấm điểm GEO** — nghĩa là AI tạo nội dung bình thường, sau đó mới đánh giá theo 8 yếu tố GEO. Cách đúng là phải **viết theo chuẩn GEO ngay từ đầu** — inject các nguyên tắc GEO vào prompt generation.
 
-## Giải pháp
+## Giải pháp: Inject GEO guidelines vào prompts
 
-### 1. Fix edge function `geo-score-content` + chạy retroactively
-- Kiểm tra và deploy lại edge function (hiện không có logs = chưa deploy hoặc crash)
-- Thêm nút "Chấm điểm GEO" trên MockupScoreBar khi chưa có score — cho phép user trigger thủ công
-- Khi mở MultiChannelViewer cho bài viết chưa có GEO score → tự động trigger chấm điểm (1 lần)
+### 1. Tạo shared GEO prompt module
+- Tạo `supabase/functions/_shared/geo-prompt-guidelines.ts`
+- Chứa hướng dẫn viết chuẩn GEO dựa trên 8 yếu tố có trọng số:
+  - **Answer-First (15%)**: Câu trả lời trực tiếp ngay đầu đoạn/bài
+  - **Citation Signals (15%)**: Luôn kèm số liệu, thống kê, nguồn cụ thể
+  - **Content Depth (15%)**: Phân tích đa góc, không hời hợt
+  - **Entity Clarity (13%)**: Định nghĩa rõ brand/sản phẩm/khái niệm
+  - **Structured Data (12%)**: Dùng lists, tables, FAQ format cho AI dễ trích xuất
+  - **Extractability (12%)**: Viết đoạn ngắn, tự chứa (self-contained snippets)
+  - **Heading Hierarchy (10%)**: Cấu trúc H1→H2→H3 logic
+  - **Freshness (8%)**: Đề cập xu hướng, dữ liệu mới nhất
 
-### 2. Tạo logic tính SEO Score cho channel website
-- Tạo hàm `calculateSEOScore()` tính điểm heuristic từ content: có headings (H1-H4), meta description length, keyword density, internal links, độ dài phù hợp (>300 words)
-- Tính realtime (như engagement) — không cần edge function
-- Chỉ hiển thị cho channel `website`
+### 2. Inject vào `generate-core-content`
+- Import GEO guidelines và append vào system prompt
+- Core Content là "Source of Truth" → cần chuẩn GEO nhất vì nó là gốc cho tất cả kênh
+- Thêm GEO requirements vào cả prompt `singlePass`, `outline`, `section`, `compile`
 
-### 3. Đảm bảo Engagement luôn hiển thị
-- Engagement đã được tính nhưng UI logic `hasAnyScore` chỉ kiểm tra `!= null` — engagement luôn có giá trị khi có content → thực tế đã hiển thị cùng Chất lượng
-- Xác nhận lại logic, đảm bảo engagement hiện ngay cả khi chỉ có nó
+### 3. Inject vào `generate-multichannel`
+- Thêm GEO section vào system prompt của multichannel
+- Mỗi channel adapt GEO khác nhau:
+  - **Website**: Full GEO (heading, schema, citations, FAQ)
+  - **Facebook/LinkedIn**: Answer-first, citations, depth
+  - **Instagram/TikTok**: Extractability, entity clarity (ngắn gọn nhưng rõ ràng)
 
-### Files cần sửa
-- `supabase/functions/geo-score-content/index.ts` — redeploy, thêm error logging chi tiết
-- `src/components/MultiChannelViewer.tsx` — auto-trigger GEO score khi mở viewer cho bài chưa có score
-- `src/components/preview/MockupScoreBar.tsx` — thêm nút "Chấm GEO" khi chưa có score, thêm SEO heuristic
-- `src/components/viewer/ContentMockupToggle.tsx` — forward channel content cho SEO calculation
+### 4. Cập nhật prompt-registry defaults
+- Thêm GEO principles vào các default prompts hardcoded
+- Đảm bảo cả DB prompts và fallback prompts đều có GEO
 
-### Technical details
-- SEO heuristic: headings (+20), meta-like intro (+15), word count >300 (+20), links (+15), keyword repetition (+15), structured paragraphs (+15) = max 100
-- GEO auto-trigger on viewer open: dùng `useEffect` check `geoScoreData === null && content.id` → fire once with ref guard
+## Files cần tạo/sửa
+
+| File | Action |
+|------|--------|
+| `supabase/functions/_shared/geo-prompt-guidelines.ts` | **Tạo mới** — shared GEO writing guidelines |
+| `supabase/functions/_shared/prompt-registry.ts` | Sửa — inject GEO vào default prompts |
+| `supabase/functions/generate-core-content/index.ts` | Sửa — import + append GEO guidelines vào system prompt |
+| `supabase/functions/generate-multichannel/index.ts` | Sửa — import + inject GEO theo channel type |
+
+## Kết quả
+
+Sau khi implement, mọi nội dung AI tạo ra sẽ tự động tuân thủ 8 yếu tố GEO → điểm GEO sẽ cao ngay từ đầu, không cần optimize lại sau.
 
