@@ -1,23 +1,37 @@
 
 
-# Thêm Tooltip giải thích cho từng chỉ số trên MockupScoreBar
+# Giải thích và cải tiến hiển thị chỉ số trên Mockup
 
-## Thay đổi
+## Tình trạng hiện tại
 
-### Sửa `MockupScoreBar.tsx`
-- Import `Tooltip, TooltipTrigger, TooltipContent, TooltipProvider` từ UI components
-- Wrap mỗi cột chỉ số trong `Tooltip` + thêm icon `Info` nhỏ (w-3 h-3) bên cạnh label
-- Nội dung tooltip cho từng chỉ số:
+| Chỉ số | Khi nào hiển thị | Tại sao user không thấy |
+|--------|-------------------|------------------------|
+| **Chất lượng** (critique_score) | Luôn hiện nếu bài viết đã được AI chấm điểm | Hoạt động bình thường |
+| **GEO Score** | Chỉ hiện khi user đã bấm "Chấm điểm GEO" trong sidebar | Chưa có bài nào được chấm GEO → `geo_content_scores` trả về rỗng `[]` |
+| **Tương tác** (Engagement) | Luôn tính tự động từ nội dung | Đang hoạt động nhưng có thể bị ẩn nếu không có score nào khác |
 
-| Chỉ số | Tooltip |
-|--------|---------|
-| **Chất lượng** (0-10) | "Điểm đánh giá chất lượng nội dung do AI chấm dựa trên: cấu trúc bài viết, độ rõ ràng thông điệp, tính sáng tạo, phù hợp kênh và thương hiệu" |
-| **GEO** (0-100) | "Generative Engine Optimization — đánh giá khả năng xuất hiện trên AI search (ChatGPT, Gemini...) dựa trên 8 yếu tố: citations, statistics, quotes, fluency, authority, unique words, technical terms, content depth" |
-| **Tương tác** (0-100%) | "Dự đoán mức độ tương tác dựa trên: độ dài phù hợp, có câu hỏi/CTA, emoji, hashtag, cấu trúc đoạn văn. Đây là ước tính, không phải số liệu thực tế" |
+## Về câu hỏi GEO vs SEO
 
-- Thêm `TooltipProvider` wrap toàn bộ grid
-- Icon `Info` chỉ hiện khi hover vào label area (opacity-0 → group-hover:opacity-100)
+- **SEO Score**: Hiện chỉ hiển thị cho channel `website` (đúng — SEO là tối ưu cho Google Search truyền thống, chủ yếu áp dụng cho web)
+- **GEO Score**: Nên áp dụng cho **tất cả kênh**, không chỉ web. GEO đánh giá khả năng nội dung được AI search (ChatGPT, Gemini, Perplexity) trích dẫn — áp dụng cho mọi nội dung online
 
-### File cần sửa
-- `src/components/preview/MockupScoreBar.tsx`
+## Giải pháp đề xuất
+
+### 1. Tự động chấm GEO Score khi tạo/lưu nội dung
+- Hiện tại GEO chỉ được chấm khi user bấm thủ công → rất ít bài có score
+- Thêm logic: khi save channel content, tự động gọi `geo-score-content` edge function để chấm điểm
+- Score sẽ lưu vào `geo_content_scores` và hiển thị tự động trên MockupScoreBar
+
+### 2. Đảm bảo Engagement Score luôn hiển thị
+- Hiện tại engagement score đã được tính nhưng MockupScoreBar ẩn toàn bộ nếu `hasAnyScore === false`
+- Engagement score luôn có data (tính từ text) → nên luôn hiển thị
+
+### 3. Hiển thị SEO Score trên MockupScoreBar (chỉ channel website)
+- Thêm prop `seoScore` vào MockupScoreBar
+- Hiển thị cột SEO bên cạnh GEO khi channel = website
+
+### Files cần sửa
+- `src/components/MultiChannelViewer.tsx` — auto-trigger GEO scoring khi save content
+- `src/components/preview/MockupScoreBar.tsx` — thêm cột SEO (optional), đảm bảo engagement luôn hiện
+- `src/components/viewer/ContentMockupToggle.tsx` — forward seoScore prop
 
