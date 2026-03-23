@@ -40,6 +40,7 @@ import { CalendarMilestoneItem } from '@/components/CalendarMilestoneItem';
 import { CampaignTimelineBar } from '@/components/calendar/CampaignTimelineBar';
 import { CalendarDayNotes } from '@/components/calendar/CalendarDayNotes';
 import { useCalendarNotes, CalendarNote } from '@/hooks/useCalendarNotes';
+import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
 import { ContentSchedule, PUBLISH_STATUSES, PublishStatus } from '@/types/publishing';
 import { Channel, CHANNELS, MultiChannelContent, MultiChannelFormData, ContentGoal } from '@/types/multichannel';
 import { ScheduleTopicDialog, ScheduleTopicData } from '@/components/topic/ScheduleTopicDialog';
@@ -240,11 +241,14 @@ function DroppableDayCell({
       </div>
       {/* Channel icons summary */}
       {daySchedules.length > 0 && (
-        <div className="flex items-center gap-0.5 px-1 mb-1 flex-wrap">
+        <div className="flex items-center gap-1 px-1 mb-1 flex-wrap">
           {[...new Set(daySchedules.map(s => s.channel as Channel))].map(ch => (
-            <span key={ch} className="text-[11px] leading-none" title={ch}>
-              {channelEmojis[ch]}
-            </span>
+            <ChannelIcon
+              key={ch}
+              channel={ch}
+              size={13}
+              className={`shrink-0 ${channelIconColors[ch]}`}
+            />
           ))}
         </div>
       )}
