@@ -468,6 +468,16 @@ export default function ContentCalendar() {
     newScheduledAt.setHours(currentScheduledAt.getHours());
     newScheduledAt.setMinutes(currentScheduledAt.getMinutes());
 
+    // Validate: cannot reschedule to past
+    if (isBefore(newScheduledAt, new Date())) {
+      toast({
+        title: 'Không thể đổi lịch',
+        description: 'Không thể chuyển lịch đăng sang thời gian đã qua',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // Update schedule in database
     try {
       const { error } = await supabase
