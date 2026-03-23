@@ -102,13 +102,11 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
   const resetForm = () => {
     setStep(0);
-    setName(''); setDescription(''); setTopics([]);
-    setTopicInput('');
+    setName(''); setDescription('');
     setSelectedChannels([]); setFrequency({});
     setAutonomyLevel('human_in_loop');
     setBrandTemplateId(currentBrand?.id || '');
     setCampaignId(undefined);
-    setAiSuggestions([]);
   };
 
   const handleSuggestTopics = async () => {
