@@ -54,7 +54,7 @@ function PipelineColumn({ stage, pipelines, onCardClick }: { stage: typeof PIPEL
       <ScrollArea className="h-[calc(100vh-420px)] min-h-[300px]">
         <div className="p-2 space-y-2">
           {pipelines.map(p => (
-            <PipelineCard key={p.id} pipeline={p} />
+            <PipelineCard key={p.id} pipeline={p} onClick={() => onCardClick?.(p)} />
           ))}
           {pipelines.length === 0 && (
             <div className="flex flex-col items-center justify-center py-10 text-center">
