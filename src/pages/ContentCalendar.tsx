@@ -91,20 +91,6 @@ interface ScheduleWithContent extends ContentSchedule {
   };
 }
 
-const channelEmojis: Record<Channel, string> = {
-  website: '🌐',
-  facebook: '📘',
-  instagram: '📸',
-  twitter: '𝕏',
-  google_maps: '📍',
-  linkedin: '💼',
-  email: '📧',
-  youtube: '▶️',
-  zalo_oa: '💬',
-  telegram: '✈️',
-  tiktok: '🎵',
-  threads: '🧵',
-};
 
 const channelColors: Record<Channel, { border: string; bg: string; text: string }> = {
   website: { border: 'border-l-blue-500', bg: 'bg-blue-500/10', text: 'text-blue-700 dark:text-blue-400' },
