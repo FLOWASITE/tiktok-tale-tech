@@ -8,8 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
-  Target, Hash, Radio, Palette, Eye, ChevronLeft, ChevronRight, 
-  Check, Plus, X, Sparkles, ShieldCheck, Zap, Loader2, Bot
+  Target, Radio, Palette, Eye, ChevronLeft, ChevronRight, 
+  Check, Sparkles, ShieldCheck, Zap, Bot
 } from 'lucide-react';
 import { AgentAutonomyLevel, AgentGoal, AUTONOMY_LEVELS } from '@/types/agent';
 import { useQuery } from '@tanstack/react-query';
