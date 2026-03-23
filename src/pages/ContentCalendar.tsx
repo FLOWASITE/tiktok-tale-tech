@@ -846,8 +846,7 @@ export default function ContentCalendar() {
                     hasPublished: 'bg-green-500/20 font-bold text-green-700 dark:text-green-400',
                     hasFailed: 'bg-red-500/20 font-bold text-red-700 dark:text-red-400',
                     hasScheduled: 'bg-yellow-500/20 font-bold text-yellow-700 dark:text-yellow-400',
-                  }}
-                  }}
+                  }
                   className="rounded-md"
                 />
                 {/* Schedule count for today */}
