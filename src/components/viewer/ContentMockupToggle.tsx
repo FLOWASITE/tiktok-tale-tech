@@ -63,6 +63,8 @@ export function ContentMockupToggle({
     ? brandName.trim() 
     : 'Brand';
 
+  const scoreBar = <MockupScoreBar critiqueScore={critiqueScore} geoScore={geoScore} engagementScore={engagementScore} />;
+
   // Use dedicated Google Maps mockup
   if (channel === 'google_maps') {
     return (
@@ -75,6 +77,7 @@ export function ContentMockupToggle({
             isGenerating={isLoading}
             channelImage={channelImage}
           />
+          {scoreBar}
         </div>
       </div>
     );
@@ -92,6 +95,7 @@ export function ContentMockupToggle({
             isGenerating={isLoading}
             channelImage={channelImage}
           />
+          {scoreBar}
         </div>
       </div>
     );
@@ -110,6 +114,7 @@ export function ContentMockupToggle({
           seoData={channel === 'website' ? seoData : undefined}
           channelImage={channelImage}
         />
+        {scoreBar}
       </div>
     </div>
   );
