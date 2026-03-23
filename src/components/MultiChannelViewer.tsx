@@ -1471,6 +1471,8 @@ export function MultiChannelViewer({
                                   isLoading={isRegenerating}
                                   seoData={channel === 'website' ? (content as any).website_seo_data : undefined}
                                   channelImage={generatedImages[channel] || content.channel_images?.[channel]?.url}
+                                  critiqueScore={content.critique_score}
+                                  geoScore={geoScoreData?.overall_score}
                                 />
                               </div>
                                 
