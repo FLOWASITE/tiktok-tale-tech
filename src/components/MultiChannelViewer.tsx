@@ -281,6 +281,7 @@ export function MultiChannelViewer({
       setShowGallery(false);
       setShowSchedule(false);
       setShowTeamPanel(false);
+      setShowGeoScore(false);
     }
   }, [open]);
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
