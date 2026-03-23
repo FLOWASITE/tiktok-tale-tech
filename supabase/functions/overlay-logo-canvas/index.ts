@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
-import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { withPerf } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,26 +12,23 @@ type LogoPosition =
   | 'center-left' | 'center' | 'center-right'
   | 'bottom-left' | 'bottom-center' | 'bottom-right';
 
-type LogoStyle = 'clean' | 'shadow' | 'glass' | 'pill' | 'outline' | 'subtle';
+type LogoStyle = 'clean' | 'shadow' | 'glass' | 'pill' | 'subtle';
 
 interface OverlayRequest {
   baseImageUrl: string;
   logoUrl: string;
   position: LogoPosition;
   logoStyle?: LogoStyle;
-  logoSizePercent?: number; // Logo size as percentage of image width (default 15%)
-  logoOpacity?: number; // Logo opacity 30-100% (default 100)
-  padding?: number; // Padding from edges in pixels (default 20)
+  logoSizePercent?: number;
+  logoOpacity?: number;
+  padding?: number;
   contentId?: string;
   channel?: string;
   organizationId?: string;
 }
 
-/**
- * Fetch image as Uint8Array
- */
+/** Fetch image as Uint8Array */
 async function fetchImageBytes(url: string): Promise<Uint8Array> {
-  // Handle data URLs
   if (url.startsWith('data:')) {
     const base64Data = url.split(',')[1];
     const binaryString = atob(base64Data);
@@ -41,49 +38,41 @@ async function fetchImageBytes(url: string): Promise<Uint8Array> {
     }
     return bytes;
   }
-
   const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch image: ${response.status}`);
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-  return new Uint8Array(arrayBuffer);
+  if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
+  return new Uint8Array(await response.arrayBuffer());
 }
 
-/**
- * Calculate logo position based on position type (supports 9 positions)
- */
+/** Calculate logo position (9 positions) */
 function calculatePosition(
-  baseWidth: number,
-  baseHeight: number,
-  logoWidth: number,
-  logoHeight: number,
-  position: LogoPosition,
-  padding: number
+  baseW: number, baseH: number,
+  logoW: number, logoH: number,
+  position: LogoPosition, padding: number
 ): { x: number; y: number } {
   const positions: Record<LogoPosition, { x: number; y: number }> = {
     'top-left': { x: padding, y: padding },
-    'top-center': { x: Math.floor((baseWidth - logoWidth) / 2), y: padding },
-    'top-right': { x: baseWidth - logoWidth - padding, y: padding },
-    'center-left': { x: padding, y: Math.floor((baseHeight - logoHeight) / 2) },
-    'center': { x: Math.floor((baseWidth - logoWidth) / 2), y: Math.floor((baseHeight - logoHeight) / 2) },
-    'center-right': { x: baseWidth - logoWidth - padding, y: Math.floor((baseHeight - logoHeight) / 2) },
-    'bottom-left': { x: padding, y: baseHeight - logoHeight - padding },
-    'bottom-center': { x: Math.floor((baseWidth - logoWidth) / 2), y: baseHeight - logoHeight - padding },
-    'bottom-right': { x: baseWidth - logoWidth - padding, y: baseHeight - logoHeight - padding },
+    'top-center': { x: Math.floor((baseW - logoW) / 2), y: padding },
+    'top-right': { x: baseW - logoW - padding, y: padding },
+    'center-left': { x: padding, y: Math.floor((baseH - logoH) / 2) },
+    'center': { x: Math.floor((baseW - logoW) / 2), y: Math.floor((baseH - logoH) / 2) },
+    'center-right': { x: baseW - logoW - padding, y: Math.floor((baseH - logoH) / 2) },
+    'bottom-left': { x: padding, y: baseH - logoH - padding },
+    'bottom-center': { x: Math.floor((baseW - logoW) / 2), y: baseH - logoH - padding },
+    'bottom-right': { x: baseW - logoW - padding, y: baseH - logoH - padding },
   };
   return positions[position] || positions['bottom-right'];
 }
 
 /**
- * Draw a semi-transparent backdrop behind the logo for visibility
+ * Draw a rounded rectangle backdrop (frosted glass effect)
+ * Uses pixel-level masking for rounded corners
  */
-function drawLogoBackdrop(
+function drawGlassBackdrop(
   baseImg: Image,
   x: number, y: number,
   width: number, height: number,
-  backdropPadding: number = 8
+  backdropPadding: number,
+  radius: number
 ): void {
   const bx = Math.max(0, x - backdropPadding);
   const by = Math.max(0, y - backdropPadding);
@@ -91,48 +80,97 @@ function drawLogoBackdrop(
   const bh = Math.min(baseImg.height - by, height + backdropPadding * 2);
 
   const backdrop = new Image(bw, bh);
-  backdrop.fill(0x00000066); // ~40% opacity black
+  // White frosted glass: rgba(255, 255, 255, 0.18)
+  const glassColor = 0xFFFFFF2E; // white with ~18% opacity
+
+  for (let py = 0; py < bh; py++) {
+    for (let px = 0; px < bw; px++) {
+      // Check if pixel is inside rounded rect
+      if (isInsideRoundedRect(px, py, bw, bh, radius)) {
+        backdrop.setPixelAt(px + 1, py + 1, glassColor);
+      }
+    }
+  }
   baseImg.composite(backdrop, bx, by);
 }
 
-/**
- * Apply logo style effects using ImageScript's opacity method
- */
-async function applyLogoStyle(
-  logoImg: Image,
-  style: LogoStyle,
-  opacity: number,
-): Promise<Image> {
-  // Apply opacity first (30-100%) using ImageScript's built-in opacity method
-  if (opacity < 100) {
-    const opacityFactor = opacity / 100;
-    logoImg.opacity(opacityFactor, false); // false = don't premultiply alpha
+/** Check if point is inside a rounded rectangle */
+function isInsideRoundedRect(
+  px: number, py: number,
+  w: number, h: number,
+  r: number
+): boolean {
+  r = Math.min(r, w / 2, h / 2);
+  // Check corners
+  if (px < r && py < r) {
+    return (px - r) ** 2 + (py - r) ** 2 <= r ** 2;
   }
-  
-  // Apply style-specific effects
-  switch (style) {
-    case 'subtle':
-      // Additional opacity reduction for watermark effect
-      logoImg.opacity(0.5, false);
-      break;
-    // Other styles (shadow, glass, pill) would need more complex rendering
-    // For now, they default to clean
-    case 'shadow':
-    case 'glass':
-    case 'pill':
-    case 'outline':
-    case 'clean':
-    default:
-      // No additional processing needed
-      break;
+  if (px >= w - r && py < r) {
+    return (px - (w - r)) ** 2 + (py - r) ** 2 <= r ** 2;
   }
-  
-  return logoImg;
+  if (px < r && py >= h - r) {
+    return (px - r) ** 2 + (py - (h - r)) ** 2 <= r ** 2;
+  }
+  if (px >= w - r && py >= h - r) {
+    return (px - (w - r)) ** 2 + (py - (h - r)) ** 2 <= r ** 2;
+  }
+  return true;
 }
 
 /**
- * Composite images using ImageScript (canvas-based, no AI)
+ * Create a drop shadow by compositing a darkened copy behind the logo
  */
+function drawDropShadow(
+  baseImg: Image,
+  logoImg: Image,
+  x: number, y: number,
+  offsetX: number, offsetY: number
+): void {
+  // Create shadow: clone logo, fill all opaque pixels with black at 30% opacity
+  const shadow = logoImg.clone();
+  const w = shadow.width;
+  const h = shadow.height;
+
+  for (let py = 1; py <= h; py++) {
+    for (let px = 1; px <= w; px++) {
+      const pixel = shadow.getPixelAt(px, py);
+      const alpha = pixel & 0xFF; // extract alpha
+      if (alpha > 0) {
+        // Black with reduced alpha (~30% of original alpha)
+        const shadowAlpha = Math.floor(alpha * 0.3);
+        shadow.setPixelAt(px, py, (0x000000 << 8) | shadowAlpha);
+      }
+    }
+  }
+
+  // Composite shadow offset behind logo
+  const sx = Math.max(0, x + offsetX);
+  const sy = Math.max(0, y + offsetY);
+  baseImg.composite(shadow, sx, sy);
+}
+
+/**
+ * Apply logo style and return processed logo
+ */
+function applyLogoStyle(
+  logoImg: Image,
+  style: LogoStyle,
+  opacity: number
+): Image {
+  // Apply base opacity (50-100%)
+  if (opacity < 100) {
+    logoImg.opacity(opacity / 100, false);
+  }
+
+  if (style === 'subtle') {
+    // Watermark: reduce to 40% opacity
+    logoImg.opacity(0.4, false);
+  }
+
+  return logoImg;
+}
+
+/** Composite images with refined aesthetics */
 async function compositeImages(
   baseImageBytes: Uint8Array,
   logoBytes: Uint8Array,
@@ -142,113 +180,105 @@ async function compositeImages(
   logoOpacity: number,
   padding: number,
   channel?: string
-): Promise<Uint8Array> {
-  console.log(`[overlay-logo-canvas] Decoding base image (${baseImageBytes.length} bytes)...`);
+): Promise<{ bytes: Uint8Array; format: 'png' | 'jpeg' }> {
   const baseImg = await Image.decode(baseImageBytes);
-  console.log(`[overlay-logo-canvas] Base image dimensions: ${baseImg.width}x${baseImg.height}`);
+  console.log(`[overlay-logo] Base: ${baseImg.width}x${baseImg.height}`);
 
-  // Channel-specific resize for optimal output
-  if (channel === 'zalo_oa') {
-    // Zalo OA: resize to max 1280px width, 16:9 ratio, max 1MB
-    if (baseImg.width > 1280) {
-      const newHeight = Math.floor(baseImg.height * (1280 / baseImg.width));
-      console.log(`[overlay-logo-canvas] Resizing for Zalo OA: ${baseImg.width}x${baseImg.height} → 1280x${newHeight}`);
-      baseImg.resize(1280, newHeight);
-    }
-  } else if (baseImg.width > 1200) {
-    const newHeight = Math.floor(baseImg.height * (1200 / baseImg.width));
-    console.log(`[overlay-logo-canvas] Resizing base image from ${baseImg.width}x${baseImg.height} to 1200x${newHeight}`);
-    baseImg.resize(1200, newHeight);
+  // Channel-specific resize
+  const isZalo = channel === 'zalo_oa';
+  const maxWidth = isZalo ? 1280 : 1200;
+  if (baseImg.width > maxWidth) {
+    const newH = Math.floor(baseImg.height * (maxWidth / baseImg.width));
+    baseImg.resize(maxWidth, newH);
   }
-  
-  // Validate base image
+
   if (baseImg.width === 0 || baseImg.height === 0) {
-    throw new Error(`Invalid base image dimensions: ${baseImg.width}x${baseImg.height}`);
+    throw new Error(`Invalid base image: ${baseImg.width}x${baseImg.height}`);
   }
-  
-  console.log(`[overlay-logo-canvas] Decoding logo (${logoBytes.length} bytes)...`);
+
   let logoImg = await Image.decode(logoBytes);
-  console.log(`[overlay-logo-canvas] Logo dimensions: ${logoImg.width}x${logoImg.height}`);
-  
-  // Validate logo
   if (logoImg.width === 0 || logoImg.height === 0) {
-    throw new Error(`Invalid logo dimensions: ${logoImg.width}x${logoImg.height}`);
+    throw new Error(`Invalid logo: ${logoImg.width}x${logoImg.height}`);
   }
-  
-  // Calculate new logo size based on percentage of base image width
-  const targetLogoWidth = Math.floor(baseImg.width * (logoSizePercent / 100));
-  const aspectRatio = logoImg.height / logoImg.width;
-  const targetLogoHeight = Math.floor(targetLogoWidth * aspectRatio);
-  
-  console.log(`[overlay-logo-canvas] Resizing logo from ${logoImg.width}x${logoImg.height} to ${targetLogoWidth}x${targetLogoHeight}`);
-  
+
   // Resize logo
-  logoImg.resize(targetLogoWidth, targetLogoHeight);
-  
-  // Apply style effects (opacity, watermark, etc.)
-  console.log(`[overlay-logo-canvas] Applying style: ${logoStyle}, opacity: ${logoOpacity}%`);
-  logoImg = await applyLogoStyle(logoImg, logoStyle, logoOpacity);
-  
+  const targetW = Math.floor(baseImg.width * (logoSizePercent / 100));
+  const targetH = Math.floor(targetW * (logoImg.height / logoImg.width));
+  logoImg.resize(targetW, targetH);
+
+  // Apply opacity + style
+  logoImg = applyLogoStyle(logoImg, logoStyle, logoOpacity);
+
   // Calculate position
   const { x, y } = calculatePosition(
-    baseImg.width,
-    baseImg.height,
-    targetLogoWidth,
-    targetLogoHeight,
-    position,
-    padding
+    baseImg.width, baseImg.height,
+    targetW, targetH,
+    position, padding
   );
-  
-  console.log(`[overlay-logo-canvas] Compositing at position (${x}, ${y})`);
-  
-  // Draw semi-transparent backdrop behind logo for visibility
-  drawLogoBackdrop(baseImg, x, y, targetLogoWidth, targetLogoHeight);
-  
-  // Composite logo onto base image
+
+  console.log(`[overlay-logo] Style: ${logoStyle}, Pos: (${x},${y}), Size: ${targetW}x${targetH}`);
+
+  // Style-specific backdrop/effects
+  switch (logoStyle) {
+    case 'shadow':
+      // Drop shadow: offset 3px down-right, 30% opacity black
+      drawDropShadow(baseImg, logoImg, x, y, 3, 3);
+      break;
+
+    case 'glass':
+    case 'pill':
+      // Frosted glass backdrop with rounded corners
+      drawGlassBackdrop(baseImg, x, y, targetW, targetH, 12, 10);
+      break;
+
+    case 'subtle':
+    case 'clean':
+    default:
+      // No backdrop — logo sits directly on image
+      break;
+  }
+
+  // Composite logo
   baseImg.composite(logoImg, x, y);
-  
-  // Encode to JPEG (quality 80%) for smaller file size (<1MB for Zalo OA)
-  const resultBytes = await baseImg.encodeJPEG(80);
-  console.log(`[overlay-logo-canvas] Composite complete, output size: ${resultBytes.length} bytes (JPEG)`);
-  
-  return resultBytes;
+
+  // Output: PNG for quality (Zalo OA gets JPEG for size limit)
+  if (isZalo) {
+    const bytes = await baseImg.encodeJPEG(90);
+    console.log(`[overlay-logo] Output: JPEG ${bytes.length} bytes (Zalo OA)`);
+    return { bytes, format: 'jpeg' };
+  }
+
+  const bytes = await baseImg.encode();
+  console.log(`[overlay-logo] Output: PNG ${bytes.length} bytes`);
+  return { bytes, format: 'png' };
 }
 
-/**
- * Upload composited image to storage
- */
+/** Upload to storage */
 async function uploadToStorage(
   imageBytes: Uint8Array,
+  format: 'png' | 'jpeg',
   contentId: string,
   channel: string,
   organizationId?: string
 ): Promise<string> {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
 
-  const timestamp = Date.now();
+  const ext = format === 'png' ? 'png' : 'jpg';
+  const mime = format === 'png' ? 'image/png' : 'image/jpeg';
   const orgPath = organizationId ? `org-${organizationId}` : 'unassigned';
-  const fileName = `social/${orgPath}/${contentId}/${channel}-with-logo-${timestamp}.jpg`;
+  const fileName = `social/${orgPath}/${contentId}/${channel}-with-logo-${Date.now()}.${ext}`;
 
-  console.log(`[overlay-logo-canvas] Uploading to storage: ${fileName}`);
-
-  const { error: uploadError } = await supabase.storage
+  const { error } = await supabase.storage
     .from("carousel-images")
-    .upload(fileName, imageBytes, {
-      contentType: "image/jpeg",
-      upsert: true,
-    });
+    .upload(fileName, imageBytes, { contentType: mime, upsert: true });
 
-  if (uploadError) {
-    throw new Error(`Upload failed: ${uploadError.message}`);
-  }
+  if (error) throw new Error(`Upload failed: ${error.message}`);
 
-  const { data: urlData } = supabase.storage
-    .from("carousel-images")
-    .getPublicUrl(fileName);
-
-  return urlData.publicUrl;
+  const { data } = supabase.storage.from("carousel-images").getPublicUrl(fileName);
+  return data.publicUrl;
 }
 
 Deno.serve(withPerf({ functionName: 'overlay-logo-canvas', slowThresholdMs: 30000 }, async (req) => {
@@ -264,86 +294,49 @@ Deno.serve(withPerf({ functionName: 'overlay-logo-canvas', slowThresholdMs: 3000
       position = 'bottom-right',
       logoStyle = 'clean',
       logoSizePercent = 15,
-      logoOpacity: rawLogoOpacity = 100,
-      padding = 20,
+      logoOpacity: rawOpacity = 100,
+      padding = 30,
       contentId,
       channel,
       organizationId,
     } = body;
 
-    // Enforce minimum opacity of 50% for visibility on complex backgrounds
-    const logoOpacity = Math.max(rawLogoOpacity, 50);
+    const logoOpacity = Math.max(rawOpacity, 50);
 
-    console.log(`[overlay-logo-canvas] Request - Position: ${position}, Style: ${logoStyle}, Size: ${logoSizePercent}%, Opacity: ${rawLogoOpacity}% → effective: ${logoOpacity}%`);
-
-    // Validate required fields
-    if (!baseImageUrl) {
+    if (!baseImageUrl || !logoUrl) {
       return new Response(
-        JSON.stringify({ success: false, error: "Base image URL is required" }),
+        JSON.stringify({ success: false, error: "Base image URL and Logo URL are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (!logoUrl) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Logo URL is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Fetch both images
-    console.log(`[overlay-logo-canvas] Fetching images...`);
     const [baseImageBytes, logoBytes] = await Promise.all([
       fetchImageBytes(baseImageUrl),
       fetchImageBytes(logoUrl),
     ]);
 
-    console.log(`[overlay-logo-canvas] Base image: ${baseImageBytes.length} bytes, Logo: ${logoBytes.length} bytes`);
-
-    // Composite images using canvas-based approach (no AI)
-    const compositedBytes = await compositeImages(
-      baseImageBytes,
-      logoBytes,
-      position,
-      logoStyle,
-      logoSizePercent,
-      logoOpacity,
-      padding,
-      channel
+    const { bytes, format } = await compositeImages(
+      baseImageBytes, logoBytes,
+      position, logoStyle, logoSizePercent, logoOpacity, padding, channel
     );
 
     let finalImageUrl: string;
-
-    // Upload to storage if we have content context
     if (contentId && channel) {
-      finalImageUrl = await uploadToStorage(
-        compositedBytes,
-        contentId,
-        channel,
-        organizationId
-      );
+      finalImageUrl = await uploadToStorage(bytes, format, contentId, channel, organizationId);
     } else {
-      // Return as base64 data URL
-      const base64 = btoa(String.fromCharCode(...compositedBytes));
-      finalImageUrl = `data:image/jpeg;base64,${base64}`;
+      const base64 = btoa(String.fromCharCode(...bytes));
+      const mime = format === 'png' ? 'image/png' : 'image/jpeg';
+      finalImageUrl = `data:${mime};base64,${base64}`;
     }
 
-    console.log(`[overlay-logo-canvas] Success - Final URL length: ${finalImageUrl.length}`);
-
     return new Response(
-      JSON.stringify({
-        success: true,
-        imageUrl: finalImageUrl,
-      }),
+      JSON.stringify({ success: true, imageUrl: finalImageUrl }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("[overlay-logo-canvas] Error:", error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error instanceof Error ? error.message : "Unknown error" 
-      }),
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
