@@ -1939,24 +1939,6 @@ export function MultiChannelFormWizard({
               </CardContent>
             </Card>
 
-        {/* ========== STEP 6: TẠO ẢNH ========== */}
-        {currentStep === 6 && (
-          <div className="space-y-5 animate-fade-in">
-            {/* Header */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Image className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-foreground">Tạo ảnh AI cho các kênh</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Tạo ảnh minh họa tự động cho {formData.channels.length} kênh đã chọn
-                  </p>
-                </div>
-              </div>
-            </div>
-
             {/* Channel summary */}
             <Card className="bg-muted/30 border-border/50">
               <CardContent className="p-4">
@@ -1981,79 +1963,6 @@ export function MultiChannelFormWizard({
             {/* Image generation status */}
             {imagePhase === 'idle' || !imagePhase ? (
               <div className="space-y-4">
-                {/* Mode summary from Step 5 */}
-                <Card className={cn(
-                  "border",
-                  promptMode === 'full' && "bg-primary/5 border-primary/20",
-                  promptMode === 'brand_only' && "bg-amber-500/5 border-amber-500/20",
-                  promptMode === 'raw' && "bg-violet-500/5 border-violet-500/20",
-                )}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-8 h-8 rounded-lg flex items-center justify-center",
-                        promptMode === 'full' && "bg-primary/15 text-primary",
-                        promptMode === 'brand_only' && "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-                        promptMode === 'raw' && "bg-violet-500/15 text-violet-600 dark:text-violet-400",
-                      )}>
-                        {promptMode === 'full' && <Sparkles className="w-4 h-4" />}
-                        {promptMode === 'brand_only' && <Eye className="w-4 h-4" />}
-                        {promptMode === 'raw' && <Pencil className="w-4 h-4" />}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">
-                          {promptMode === 'full' && 'Chế độ: Để AI lo'}
-                          {promptMode === 'brand_only' && 'Chế độ: Giữ Brand'}
-                          {promptMode === 'raw' && 'Chế độ: Toàn quyền'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {promptMode === 'full' && 'AI tự tối ưu phong cách, bố cục, text'}
-                          {promptMode === 'brand_only' && 'Giữ logo & màu brand, AI lo phần còn lại'}
-                          {promptMode === 'raw' && 'Bạn kiểm soát 100% — tùy chỉnh qua trang chi tiết'}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Hint: raw/brand_only can customize via SimpleImageGenerator */}
-                {promptMode !== 'full' && (
-                  <Card className="border border-dashed border-muted-foreground/30 bg-muted/20">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <Settings2 className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
-                            {promptMode === 'raw' ? 'Tùy chỉnh nâng cao' : 'Tùy chỉnh brand'}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {promptMode === 'raw' 
-                              ? 'Bạn có thể tùy chỉnh phong cách, logo, text, bố cục chi tiết hơn tại trang chi tiết sau khi tạo nội dung, hoặc sử dụng trình tạo ảnh riêng.' 
-                              : 'Bạn có thể tùy chỉnh logo, vị trí text và typography tại trang chi tiết sau khi tạo nội dung, hoặc sử dụng trình tạo ảnh riêng.'}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Info card */}
-                <Card className="border border-border/50 bg-card/50">
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <Image className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground text-sm">Sẵn sàng tạo ảnh</h3>
-                        <p className="text-xs text-muted-foreground">
-                          AI sẽ tự động tạo ảnh phù hợp với nội dung từng kênh
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
                 {/* Prompt Preview */}
                 <PromptPreview
                   channels={formData.channels}
@@ -2066,7 +1975,7 @@ export function MultiChannelFormWizard({
                   personaName={formData.personaId ? 'Đã chọn persona' : undefined}
                 />
 
-                {/* Complexity Warning for complex content descriptions */}
+                {/* Complexity Warning */}
                 {(() => {
                   const channelTexts = formData.channels.map(ch => getChannelText?.(ch) || '').join(' ');
                   const analysis = analyzeContentComplexity(channelTexts + ' ' + (formData.topic || ''));
