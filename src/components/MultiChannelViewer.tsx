@@ -852,7 +852,7 @@ export function MultiChannelViewer({
                       <Button 
                         variant={showTeamPanel ? "secondary" : "ghost"} 
                         size="icon"
-                        onClick={() => { setShowTeamPanel(!showTeamPanel); setShowGallery(false); setShowSchedule(false); }}
+                        onClick={() => { setShowTeamPanel(!showTeamPanel); setShowGallery(false); setShowSchedule(false); setShowGeoScore(false); }}
                         className="h-8 w-8"
                       >
                         <Users className="w-4 h-4" />
