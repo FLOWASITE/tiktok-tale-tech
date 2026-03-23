@@ -131,12 +131,14 @@ export function GoalWizard({ open, onOpenChange, onSubmit }: GoalWizardProps) {
       frequency,
       autonomy_level: autonomyLevel,
       brand_template_id: brandTemplateId || undefined,
+      campaign_id: campaignId || undefined,
     });
     // Reset
     setStep(0);
     setName(''); setDescription(''); setTopics([]);
     setSelectedChannels([]); setFrequency({});
     setAutonomyLevel('human_in_loop'); setBrandTemplateId('');
+    setCampaignId(undefined);
   };
 
   return (
