@@ -80,6 +80,7 @@ import {
   AlertTriangle,
   Image,
    SkipForward,
+   Zap,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
