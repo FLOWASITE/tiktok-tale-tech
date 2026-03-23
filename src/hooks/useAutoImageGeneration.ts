@@ -217,8 +217,8 @@ export function useAutoImageGeneration() {
             structuredColors: isAiRenderMode && structuredOverlay ? structuredOverlay.colors : undefined,
             // Template ID for AI layout guidance
             structuredTemplate: isAiRenderMode ? options.structuredTemplate : undefined,
-            // Logo safe zone: tell AI to keep logo area clear in ai_render mode
-            logoSafeZone: isAiRenderMode && includeLogo && logoUrl ? {
+            // Logo safe zone: tell AI to keep logo area clear
+            logoSafeZone: includeLogo && logoUrl ? {
               position: resolvedLogoPosition,
               sizePercent: logoSizePercent || 15,
             } : undefined,
