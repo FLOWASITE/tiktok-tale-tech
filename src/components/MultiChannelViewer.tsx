@@ -77,6 +77,7 @@ import { CoreContentViewer } from '@/components/core-content/CoreContentViewer';
 import type { CoreContent } from '@/types/coreContent';
 import { GEOScorePanel } from '@/components/geo/GEOScorePanel';
 import { useGEOContentScore } from '@/hooks/useGEOContentScore';
+import { calculateSEOScore } from '@/utils/seoScoreCalculator';
 
 import { useQueryClient } from '@tanstack/react-query';
 
