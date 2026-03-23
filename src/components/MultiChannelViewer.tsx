@@ -994,6 +994,15 @@ export function MultiChannelViewer({
           <div className="p-6">
             <SchedulePanel content={content} onBack={() => setShowSchedule(false)} />
           </div>
+        ) : showGeoScore ? (
+          <div className="p-6">
+            <GEOScorePanel
+              contentId={content.id}
+              contentType="multi_channel"
+              contentText={getContentForChannel(content, selectedChannel) || content.website_content || ''}
+              organizationId={content.organization_id || ''}
+            />
+          </div>
         ) : showGallery ? (
           <div className="p-6">
             <ChannelImagesGallery
