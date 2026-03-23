@@ -1,37 +1,42 @@
 
 
-# Tích hợp GEO Score vào Nội dung đa kênh
+# Hiển thị chỉ số đánh giá trên Mockup UI
 
-## Vấn đề
-GEO Score hiện chỉ hoạt động ở tab riêng trong GEO Dashboard — user phải copy-paste nội dung thủ công. Không có liên kết nào với nội dung đa kênh đã tạo.
+## Vấn đề hiện tại
 
-## Giải pháp
+Hệ thống có **4 loại chỉ số** cho bài viết, nhưng tất cả đều nằm ở sidebar/header — **không có chỉ số nào hiển thị trực tiếp trên Mockup preview**:
 
-### 1. Thêm GEO Score vào MultiChannelViewer
-- Thêm tab/section GEO Score trong sidebar của MultiChannelViewer (bên cạnh các panel Gallery, Schedule, Team)
-- Tự động lấy `website_content` (hoặc channel content đang xem) làm input cho GEO scoring
-- Truyền `contentId` và `organizationId` để lưu score vào DB
-- Hiển thị `GEOScorePanel` với đầy đủ 8 yếu tố + issues
+| Chỉ số | Vị trí hiện tại | Trên Mockup? |
+|--------|-----------------|--------------|
+| **Critique Score** (điểm chất lượng nội dung) | Badge trên header toolbar | ✗ |
+| **Content Analytics** (readability, sentiment, engagement, keywords) | Panel collapsible trong sidebar | ✗ |
+| **GEO Score** (8 yếu tố AI visibility) | Panel riêng trong sidebar | ✗ |
+| **SEO Score** (chỉ cho channel website) | Badge góc trên mockup website | ✓ (chỉ website) |
+| **Engagement Metrics** (likes, comments, shares) | Component tồn tại nhưng **không được import/sử dụng** ở đâu cả | ✗ |
 
-### 2. Hiển thị GEO Score badge trên MultiChannelCard
-- Query `geo_content_scores` cho mỗi content đã có score
-- Hiển thị badge nhỏ (ví dụ: "GEO: 78 B") trên card, bên cạnh status/priority
-- Dùng màu theo mức điểm (xanh/vàng/cam/đỏ)
+## Giải pháp: Thêm chỉ số overlay lên Mockup
 
-### 3. Tạo hook `useGEOContentScore`
-- Hook mới fetch score từ `geo_content_scores` theo `content_id`
-- Dùng chung cho cả MultiChannelCard và MultiChannelViewer
-- Realtime subscribe để cập nhật khi score thay đổi
+### 1. Engagement Metrics trên Mockup social channels
+- Import `EngagementMetrics` vào `ChannelMockupFrame.tsx`
+- Hiển thị likes/comments/shares giả lập ở footer của mỗi mockup Facebook, LinkedIn, Instagram, TikTok (đúng vị trí như trên app thật)
+- Component này đã có sẵn, chỉ cần gắn vào đúng chỗ
+
+### 2. Score Summary Bar dưới Mockup
+- Tạo component `MockupScoreBar.tsx` — thanh nhỏ hiển thị dưới mỗi mockup preview
+- Hiển thị 3 chỉ số chính dạng compact:
+  - **Quality**: critique_score (badge màu, ví dụ "8.5/10")
+  - **GEO**: geo_score nếu đã chấm (badge, ví dụ "GEO 78 B")
+  - **Engagement est.**: engagement score từ ContentAnalytics (ví dụ "Eng: 72%")
+- Chỉ hiện các chỉ số đã có data, ẩn nếu chưa chấm
+
+### 3. Tích hợp vào ContentMockupToggle
+- Wrap mockup + score bar trong `ContentMockupToggle.tsx`
+- Truyền props: `critiqueScore`, `geoScore`, `engagementScore`
+- Score bar nằm ngay dưới mockup frame, không cần scroll
 
 ### Files cần sửa/tạo
-- `src/hooks/useGEOContentScore.ts` — hook mới
-- `src/components/MultiChannelViewer.tsx` — thêm nút/panel GEO Score
-- `src/components/MultiChannelCard.tsx` — thêm badge GEO Score
-- `src/components/geo/GEOScorePanel.tsx` — thêm prop `channelContents` để auto-fill text từ content
-
-### Luồng hoạt động
-1. User mở MultiChannelViewer → thấy nút "GEO Score" trên toolbar
-2. Click → mở panel GEO Score ở sidebar, tự động điền nội dung website/channel đang active
-3. Click "Chấm điểm" → score được lưu với `content_id` vào `geo_content_scores`
-4. Quay lại danh sách → card hiển thị badge score đã chấm
+- `src/components/preview/ChannelMockupFrame.tsx` — import & render `EngagementMetrics` trong footer các social mockups
+- `src/components/preview/MockupScoreBar.tsx` — component mới
+- `src/components/viewer/ContentMockupToggle.tsx` — thêm MockupScoreBar
+- `src/components/MultiChannelViewer.tsx` — truyền score data xuống ContentMockupToggle
 
