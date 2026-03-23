@@ -1,6 +1,7 @@
 import { ChannelMockupFrame } from '@/components/preview/ChannelMockupFrame';
 import { GoogleMapsMockup } from '@/components/preview/GoogleMapsMockup';
 import { ZaloOAMockup } from '@/components/preview/ZaloOAMockup';
+import { MockupScoreBar } from '@/components/preview/MockupScoreBar';
 import { Channel, WebsiteSEOData } from '@/types/multichannel';
 import { cn } from '@/lib/utils';
 import { normalizeMarkdownText } from '@/utils/normalizeMarkdownText';
@@ -16,6 +17,10 @@ interface ContentMockupToggleProps {
   // Website-specific props
   seoData?: WebsiteSEOData;
   channelImage?: string;
+  // Score props
+  critiqueScore?: number | null;
+  geoScore?: number | null;
+  engagementScore?: number | null;
 }
 
 // Map multichannel Channel to ChannelMockupFrame type
@@ -44,6 +49,9 @@ export function ContentMockupToggle({
   className,
   seoData,
   channelImage,
+  critiqueScore,
+  geoScore,
+  engagementScore,
 }: ContentMockupToggleProps) {
   const mockupType = channelToMockupType[channel];
   
@@ -54,6 +62,8 @@ export function ContentMockupToggle({
   const safeBrandName = typeof brandName === 'string' && brandName.trim() 
     ? brandName.trim() 
     : 'Brand';
+
+  const scoreBar = <MockupScoreBar critiqueScore={critiqueScore} geoScore={geoScore} engagementScore={engagementScore} />;
 
   // Use dedicated Google Maps mockup
   if (channel === 'google_maps') {
@@ -67,6 +77,7 @@ export function ContentMockupToggle({
             isGenerating={isLoading}
             channelImage={channelImage}
           />
+          {scoreBar}
         </div>
       </div>
     );
@@ -84,6 +95,7 @@ export function ContentMockupToggle({
             isGenerating={isLoading}
             channelImage={channelImage}
           />
+          {scoreBar}
         </div>
       </div>
     );
@@ -102,6 +114,7 @@ export function ContentMockupToggle({
           seoData={channel === 'website' ? seoData : undefined}
           channelImage={channelImage}
         />
+        {scoreBar}
       </div>
     </div>
   );

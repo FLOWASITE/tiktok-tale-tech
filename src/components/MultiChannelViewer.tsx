@@ -270,6 +270,7 @@ export function MultiChannelViewer({
   const [showGallery, setShowGallery] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
   const [showGeoScore, setShowGeoScore] = useState(false);
+  const { data: geoScoreData } = useGEOContentScore(content.id);
   const [showTeamPanel, setShowTeamPanel] = useState(false);
   const [deletingImageChannel, setDeletingImageChannel] = useState<Channel | null>(null);
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
@@ -1470,6 +1471,8 @@ export function MultiChannelViewer({
                                   isLoading={isRegenerating}
                                   seoData={channel === 'website' ? (content as any).website_seo_data : undefined}
                                   channelImage={generatedImages[channel] || content.channel_images?.[channel]?.url}
+                                  critiqueScore={content.critique_score}
+                                  geoScore={geoScoreData?.overall_score}
                                 />
                               </div>
                                 
