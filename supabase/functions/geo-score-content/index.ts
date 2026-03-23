@@ -11,7 +11,7 @@ const corsHeaders = {
 const GEO_FACTORS = [
   { key: "answer_first", label: "Answer-First Structure", weight: 15, description: "Câu trả lời trực tiếp ngay đầu bài" },
   { key: "citation_signals", label: "Citation Signals", weight: 15, description: "Dữ liệu, thống kê, nguồn tham khảo" },
-  { key: "structured_data", label: "Structured Data", weight: 12, description: "Schema markup, JSON-LD" },
+  { key: "structured_data", label: "Structured Content", weight: 12, description: "Lists, bảng, FAQ, cấu trúc rõ ràng" },
   { key: "entity_clarity", label: "Entity Clarity", weight: 13, description: "Định nghĩa rõ ràng thực thể, brand" },
   { key: "heading_hierarchy", label: "Heading Hierarchy", weight: 10, description: "Cấu trúc tiêu đề H1-H4 logic" },
   { key: "content_depth", label: "Content Depth", weight: 15, description: "Chiều sâu, chi tiết, đa góc nhìn" },
@@ -35,26 +35,80 @@ serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Use AI to score the content
-    const scoringPrompt = `Bạn là chuyên gia GEO (Generative Engine Optimization). Phân tích nội dung sau và chấm điểm theo 8 yếu tố.
+    // Use AI to score the content — upgraded prompt with detailed rubric
+    const scoringPrompt = `Bạn là chuyên gia GEO (Generative Engine Optimization). Phân tích nội dung sau và chấm điểm CHÍNH XÁC theo 8 yếu tố.
 
 ## Nội dung cần phân tích:
-${contentText.substring(0, 6000)}
+${contentText.substring(0, 10000)}
 
 ## 8 Yếu tố chấm điểm (0-100 cho mỗi yếu tố):
-1. answer_first: Có câu trả lời trực tiếp ngay đầu bài không?
-2. citation_signals: Có dữ liệu, thống kê, nguồn tham khảo không?
-3. structured_data: Có schema markup, dữ liệu cấu trúc không?
-4. entity_clarity: Thực thể (brand, sản phẩm) có được định nghĩa rõ ràng?
-5. heading_hierarchy: Tiêu đề có logic, phân cấp tốt?
-6. content_depth: Nội dung có chiều sâu, đa góc nhìn?
-7. freshness: Có dữ liệu/thông tin cập nhật, thời sự?
-8. extractability: AI có dễ trích xuất snippet từ nội dung?
+
+### 1. answer_first (trọng số 15%)
+Câu trả lời trực tiếp ngay đầu mỗi section.
+- **90-100**: Mỗi section/đoạn mở đầu bằng câu trả lời rõ ràng, có số liệu cụ thể. Không có câu hỏi tu từ hay giới thiệu dài dòng.
+- **70-89**: Phần lớn sections có answer-first nhưng 1-2 đoạn vẫn mở đầu bằng giới thiệu.
+- **50-69**: Khoảng nửa nội dung có answer-first, nửa còn lại mở đầu bằng câu hỏi/giới thiệu.
+- **Dưới 50**: Hầu hết sections thiếu answer-first, mở đầu bằng câu hỏi tu từ hoặc giới thiệu chung chung.
+
+### 2. citation_signals (trọng số 15%)
+Số liệu, thống kê, nguồn tham khảo cụ thể.
+- **90-100**: ≥5 citations cụ thể (số %, con số, năm, nguồn), dùng cụm "theo nghiên cứu/báo cáo/dữ liệu cho thấy".
+- **70-89**: 3-4 citations, có số liệu nhưng đôi khi thiếu nguồn cụ thể.
+- **50-69**: 1-2 citations, chủ yếu nói chung chung "nhiều nghiên cứu cho thấy" mà không có số.
+- **Dưới 50**: Không có hoặc gần như không có số liệu/thống kê.
+
+### 3. structured_data (trọng số 12%)
+⚠️ QUAN TRỌNG: Đánh giá CẤU TRÚC NỘI DUNG (lists, bảng, FAQ), KHÔNG phải JSON-LD hay schema markup kỹ thuật.
+- **90-100**: Có bullet/numbered lists, bảng so sánh, và/hoặc FAQ format. Dữ liệu được tổ chức rõ ràng.
+- **70-89**: Có lists hoặc bảng nhưng không đầy đủ. Thiếu FAQ format.
+- **50-69**: Có 1-2 lists đơn giản nhưng phần lớn là paragraph dài.
+- **Dưới 50**: Chỉ có paragraph, không có cấu trúc lists/bảng.
+
+### 4. entity_clarity (trọng số 13%)
+Định nghĩa rõ brand, sản phẩm, khái niệm chuyên ngành.
+- **90-100**: Mọi thuật ngữ/brand được định nghĩa rõ khi nhắc lần đầu. Viết tắt có giải thích đầy đủ.
+- **70-89**: Phần lớn entities rõ ràng, 1-2 thuật ngữ chưa được giải thích.
+- **50-69**: Nhiều thuật ngữ dùng mà không giải thích, entities mơ hồ.
+- **Dưới 50**: Entities không được định nghĩa, đọc khó hiểu.
+
+### 5. heading_hierarchy (trọng số 10%)
+Cấu trúc heading H1→H2→H3 logic.
+- **90-100**: Heading phân cấp logic, chứa keyword tự nhiên, là câu hỏi/statement rõ ràng.
+- **70-89**: Có heading nhưng đôi khi nhảy cấp hoặc heading quá chung chung.
+- **50-69**: Heading ít, không có phân cấp rõ ràng.
+- **Dưới 50**: Không có heading hoặc heading không logic.
+
+### 6. content_depth (trọng số 15%)
+Chiều sâu, phân tích đa góc, ví dụ cụ thể.
+- **90-100**: Phân tích đa góc (nguyên nhân, hệ quả, giải pháp, so sánh), có framework rõ ràng, cả pros & cons.
+- **70-89**: Có chiều sâu nhưng thiếu 1-2 góc nhìn, ví dụ chưa đủ cụ thể.
+- **50-69**: Phân tích hời hợt, chỉ liệt kê không giải thích sâu.
+- **Dưới 50**: Nội dung nông, chỉ lướt qua bề mặt.
+
+### 7. freshness (trọng số 8%)
+Tính cập nhật, thời sự.
+- **90-100**: Đề cập năm 2025/2026, xu hướng mới nhất, dữ liệu gần đây.
+- **70-89**: Có 1-2 tham chiếu thời gian nhưng không nhất quán.
+- **50-69**: Không rõ thời điểm, thông tin có thể đã cũ.
+- **Dưới 50**: Thông tin rõ ràng lỗi thời.
+
+### 8. extractability (trọng số 12%)
+AI có thể trích xuất snippet độc lập.
+- **90-100**: Mỗi đoạn 2-4 câu, tự chứa (self-contained), không dùng đại từ mơ hồ. AI có thể trích riêng mỗi đoạn.
+- **70-89**: Phần lớn đoạn tự chứa nhưng đôi khi dùng "nó", "điều này" mơ hồ.
+- **50-69**: Đoạn dài, phụ thuộc context trước đó để hiểu.
+- **Dưới 50**: Nội dung liền mạch, không thể trích riêng đoạn nào.
 
 ## Issues cần phát hiện:
 - Critical (đỏ): Vấn đề nghiêm trọng cần sửa ngay
 - Important (cam): Cần cải thiện
-- Improvement (xanh): Gợi ý tối ưu thêm`;
+- Improvement (xanh): Gợi ý tối ưu thêm
+
+## LƯU Ý QUAN TRỌNG:
+- Chấm điểm CHÍNH XÁC, KHÔNG cho điểm "safe" quanh 70-80
+- Nội dung tốt thực sự phải được 90+
+- Nội dung kém phải dưới 60
+- Phân biệt rõ ràng giữa các mức điểm`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -63,9 +117,9 @@ ${contentText.substring(0, 6000)}
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "Bạn là GEO scoring engine. Trả về kết quả chấm điểm." },
+          { role: "system", content: "Bạn là GEO scoring engine chuyên nghiệp. Chấm điểm CHÍNH XÁC và KHÁCH QUAN. Không cho điểm an toàn — nội dung tốt phải được điểm cao, nội dung kém phải điểm thấp." },
           { role: "user", content: scoringPrompt },
         ],
         tools: [
