@@ -106,7 +106,7 @@ function DayViewDraggableItem({
       )}
     >
       <div className="flex items-center gap-2">
-        <span className="text-sm">{channelEmojis[channel]}</span>
+        <ChannelIcon channel={channel} size={16} className={channelIconColors[channel]} />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">
             {schedule.content?.title || 'Không có tiêu đề'}
