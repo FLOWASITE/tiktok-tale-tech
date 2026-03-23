@@ -177,13 +177,21 @@ function DroppableDayCell({
   isCurrentMonth,
   schedules,
   milestones = [],
+  notes = [],
   onScheduleClick,
+  onAddNote,
+  onUpdateNote,
+  onDeleteNote,
 }: { 
   date: Date;
   isCurrentMonth: boolean;
   schedules: ScheduleWithContent[];
   milestones?: CampaignMilestone[];
+  notes?: CalendarNote[];
   onScheduleClick: (schedule: ScheduleWithContent) => void;
+  onAddNote?: (dateStr: string, content: string) => Promise<CalendarNote | null>;
+  onUpdateNote?: (noteId: string, content: string) => Promise<boolean>;
+  onDeleteNote?: (noteId: string) => Promise<boolean>;
 }) {
   const dateStr = format(date, 'yyyy-MM-dd');
   const { isOver, setNodeRef } = useDroppable({
@@ -199,22 +207,35 @@ function DroppableDayCell({
     format(parseISO(m.due_date), 'yyyy-MM-dd') === dateStr
   );
 
+  const dayNotes = notes.filter(n => n.note_date === dateStr);
+
   return (
     <div
       ref={setNodeRef}
       className={`
-        min-h-[120px] border-r border-b border-border/30 p-1
+        group min-h-[120px] border-r border-b border-border/30 p-1
         ${!isCurrentMonth ? 'bg-muted/30' : 'bg-background'}
         ${isToday(date) ? 'bg-primary/5 ring-1 ring-primary/20' : ''}
         ${isOver ? 'bg-primary/10 ring-2 ring-primary/40' : ''}
         transition-colors
       `}
     >
-      <div className={`
-        text-xs font-medium mb-1 px-1
-        ${isToday(date) ? 'text-primary' : isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'}
-      `}>
-        {format(date, 'd')}
+      <div className="flex items-center justify-between mb-1 px-1">
+        <span className={`
+          text-xs font-medium
+          ${isToday(date) ? 'text-primary' : isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'}
+        `}>
+          {format(date, 'd')}
+        </span>
+        {onAddNote && onUpdateNote && onDeleteNote && (
+          <CalendarDayNotes
+            date={date}
+            notes={dayNotes}
+            onAdd={onAddNote}
+            onUpdate={onUpdateNote}
+            onDelete={onDeleteNote}
+          />
+        )}
       </div>
       <div className="space-y-1">
         {/* Milestones first */}
