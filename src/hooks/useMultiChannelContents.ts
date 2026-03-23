@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { MultiChannelContent, MultiChannelFormData, Channel, ContentGoal, ContentStatus, ChannelImage, ChannelImages, ChannelStatuses, calculateMasterStatus, CONTENT_STATUSES } from '@/types/multichannel';
 import { toast } from '@/hooks/use-toast';
 import { normalizeMarkdownText } from '@/utils/normalizeMarkdownText';
+import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Helper to normalize content field - ensures string or null
 const normalizeContentField = (value: unknown): string | null => {
@@ -69,12 +71,62 @@ const transformContent = (data: any): MultiChannelContent => ({
 export function useMultiChannelContents() {
   const { user } = useAuth();
   const { currentOrganization } = useOrganizationContext();
+  const queryClient = useQueryClient();
   const [contents, setContents] = useState<MultiChannelContent[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [regeneratingChannel, setRegeneratingChannel] = useState<string | null>(null);
   const [aiEditingChannel, setAiEditingChannel] = useState<string | null>(null);
   const [approvingContent, setApprovingContent] = useState(false);
+
+  /**
+   * Auto-trigger GEO scoring for a content item.
+   * Scores ALL channels that have content, not just one channel.
+   * Fire-and-forget — errors are silently logged.
+   */
+  const triggerAutoGEOScore = useCallback((contentItem: MultiChannelContent) => {
+    if (!currentOrganization?.id) return;
+
+    // Collect all channel texts into one combined text for overall GEO scoring
+    const channelFields: Channel[] = [
+      'website', 'facebook', 'instagram', 'twitter', 'linkedin',
+      'email', 'youtube', 'zalo_oa', 'telegram', 'tiktok', 'threads', 'google_maps',
+    ];
+    
+    const allTexts: string[] = [];
+    for (const ch of channelFields) {
+      const fieldKey = `${ch}_content` as keyof MultiChannelContent;
+      const text = contentItem[fieldKey];
+      if (typeof text === 'string' && text.trim().length > 30) {
+        allTexts.push(text.trim());
+      }
+    }
+
+    // Need at least some content to score
+    const combinedText = allTexts.join('\n\n---\n\n');
+    if (combinedText.length < 50) return;
+
+    console.log(`[geo] Auto-scoring content ${contentItem.id} (${combinedText.length} chars across ${allTexts.length} channels)`);
+
+    invokeWithTimeout('geo-score-content', {
+      body: {
+        contentId: contentItem.id,
+        contentType: 'multi_channel',
+        contentText: combinedText.substring(0, 6000), // Limit to avoid token overflow
+        organizationId: currentOrganization.id,
+      },
+      timeoutMs: 60_000,
+    }).then((result) => {
+      if (result.error) {
+        console.warn('[geo] Auto-score error:', result.error.message);
+        return;
+      }
+      console.log('[geo] Auto-score completed for', contentItem.id, result.data);
+      // Invalidate queries so UI updates
+      queryClient.invalidateQueries({ queryKey: ['geo-content-score', contentItem.id] });
+      queryClient.invalidateQueries({ queryKey: ['geo-content-scores'] });
+    }).catch(err => console.warn('[geo] Auto-score failed:', err));
+  }, [currentOrganization?.id, queryClient]);
 
   const fetchContents = async () => {
     if (!user || !currentOrganization) {
@@ -142,6 +194,9 @@ export function useMultiChannelContents() {
       const newContent = transformContent(data);
       setContents(prev => [newContent, ...prev]);
       
+      // Auto-trigger GEO scoring after content generation
+      triggerAutoGEOScore(newContent);
+
       toast({
         title: '✨ Tạo nội dung thành công!',
         description: `Đã tạo ${data.selected_channels?.length || 0} kênh cho "${data.title}"`,
@@ -193,6 +248,9 @@ export function useMultiChannelContents() {
       const updatedContent = transformContent(data);
       setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
       
+      // Auto-trigger GEO scoring after regeneration
+      triggerAutoGEOScore(updatedContent);
+
       toast({
         title: '🔄 Đã tạo lại nội dung',
         description: `Kênh đã được cập nhật với nội dung mới`,
@@ -245,6 +303,9 @@ export function useMultiChannelContents() {
       const updatedContent = transformContent(data);
       setContents(prev => prev.map(c => c.id === contentId ? updatedContent : c));
       
+      // Auto-trigger GEO scoring after content update
+      triggerAutoGEOScore(updatedContent);
+
       toast({
         title: '💾 Đã lưu thành công',
         description: 'Nội dung đã được cập nhật',
