@@ -343,9 +343,9 @@ export function useAutoImageGeneration() {
           console.log(`[Pipeline:${channel}] ⏭ STEP 3 SKIPPED — ${skipReason}`);
         }
 
-        // Step 4: Structured multi-block overlay (for complex infographics)
-        // Skip in ai_render mode (AI already rendered text directly)
-        if (structuredOverlay && !isAiRenderMode) {
+        // Step 4: Structured multi-block overlay (Satori) — ONLY in satori mode
+        // In ai_render mode (default), AI already rendered text directly → skip
+        if (!isAiRenderMode && structuredOverlay) {
           const step4Start = Date.now();
           console.log(`[Pipeline:${channel}] ▶ STEP 4/4 — Structured overlay (Satori)`, {
             layout: structuredOverlay.layout,

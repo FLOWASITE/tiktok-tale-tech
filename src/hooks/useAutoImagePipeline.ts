@@ -154,7 +154,8 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
         logoUrl: brandLogoUrl || undefined,
         // Content type: full mode defaults to with_text, others should receive from caller
         imageContentType: contentMeta.imageContentType || 'with_text',
-        useCanvasFallback: true,
+        // Default to ai_render mode — AI renders text directly, no Satori overlay needed
+        overlayMode: 'ai_render',
       };
 
       // Save callback - persists image to multi_channel_contents.channel_images
