@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GEOOverview } from '@/components/geo/GEOOverview';
 import { GEOSetupWizard } from '@/components/geo/GEOSetupWizard';
@@ -8,11 +8,27 @@ import { CompetitorDashboard } from '@/components/geo/CompetitorDashboard';
 import { ActionCenter } from '@/components/geo/ActionCenter';
 import { useGEOMonitors } from '@/hooks/useGEOMonitors';
 import { Helmet } from 'react-helmet-async';
+import { supabase } from '@/integrations/supabase/client';
+import { useOrganizationContext } from '@/contexts/OrganizationContext';
 
 export default function GEODashboard() {
   const { monitors, loading } = useGEOMonitors();
+  const { currentOrganization } = useOrganizationContext();
   const [activeTab, setActiveTab] = useState('overview');
+  const [unreadAlerts, setUnreadAlerts] = useState(0);
   const hasMonitors = monitors.length > 0;
+
+  useEffect(() => {
+    if (!currentOrganization?.id) return;
+    supabase
+      .from('geo_alert_history')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', currentOrganization.id)
+      .eq('is_read', false)
+      .then(({ count }) => {
+        setUnreadAlerts(count || 0);
+      });
+  }, [currentOrganization?.id]);
 
   return (
     <>
@@ -34,7 +50,14 @@ export default function GEODashboard() {
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-6 lg:w-[720px]">
-              <TabsTrigger value="overview">Tổng quan</TabsTrigger>
+              <TabsTrigger value="overview" className="relative">
+                Tổng quan
+                {unreadAlerts > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                    {unreadAlerts > 9 ? '9+' : unreadAlerts}
+                  </span>
+                )}
+              </TabsTrigger>
               <TabsTrigger value="optimizer">GEO Score</TabsTrigger>
               <TabsTrigger value="prompts">Prompts</TabsTrigger>
               <TabsTrigger value="competitors">Đối thủ</TabsTrigger>
