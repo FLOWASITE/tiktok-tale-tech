@@ -21,6 +21,7 @@ import { useCreatorProfiles } from '@/hooks/useCreatorProfiles';
 import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/types/multichannel';
 import { toast } from 'sonner';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
+import { useGEOContentScores } from '@/hooks/useGEOContentScore';
 
 const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
 
