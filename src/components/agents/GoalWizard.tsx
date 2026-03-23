@@ -124,7 +124,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
   const canNext = () => {
     switch (step) {
-      case 0: return name.trim().length > 0 && topics.length > 0;
+      case 0: return name.trim().length > 0;
       case 1: return selectedChannels.length > 0;
       default: return true;
     }
