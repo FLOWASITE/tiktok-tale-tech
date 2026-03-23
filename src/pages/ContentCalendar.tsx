@@ -238,6 +238,16 @@ function DroppableDayCell({
           />
         )}
       </div>
+      {/* Channel icons summary */}
+      {daySchedules.length > 0 && (
+        <div className="flex items-center gap-0.5 px-1 mb-1 flex-wrap">
+          {[...new Set(daySchedules.map(s => s.channel as Channel))].map(ch => (
+            <span key={ch} className="text-[11px] leading-none" title={ch}>
+              {channelEmojis[ch]}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="space-y-1">
         {/* Milestones first */}
         {dayMilestones.slice(0, 1).map((milestone) => (
