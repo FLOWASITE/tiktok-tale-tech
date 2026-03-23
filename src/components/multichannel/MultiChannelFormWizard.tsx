@@ -275,6 +275,7 @@ export function MultiChannelFormWizard({
   
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [skipCoreContent, setSkipCoreContent] = useState(false);
 
   // Brainstorm Sheet state
   const [showBrainstormSheet, setShowBrainstormSheet] = useState(false);
