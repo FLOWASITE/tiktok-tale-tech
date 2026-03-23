@@ -1,42 +1,45 @@
 
 
-# Thêm Popup chi tiết điểm từng yếu tố khi click chỉ số
+# Đơn giản hóa flow: Bỏ nút "Tạo ảnh" riêng, auto-advance sau khi tạo content
 
-## Ý tưởng
-Khi user click vào bất kỳ chỉ số nào trên MockupScoreBar (Chất lượng, GEO, SEO, Tương tác), hiển thị Popover chi tiết điểm từng yếu tố con thay vì tooltip đơn giản.
+## Hiện tại (6 bước)
+```text
+Step 1: Chủ đề → Step 2: Core Content → Step 3: Vai trò → Step 4: Đa kênh
+                                                              ↓
+                                                    [Tạo X kênh] + [Tạo ảnh →]  ← 2 nút riêng
+                                                              ↓
+                                                Step 5: Kiểm soát AI (cho ảnh)
+                                                              ↓
+                                                Step 6: Tạo ảnh
+```
 
-## Dữ liệu hiện có
+## Đề xuất mới (5 bước)
+```text
+Step 1: Chủ đề → Step 2: Core Content → Step 3: Vai trò → Step 4: Đa kênh
+                                                              ↓
+                                                    [Tạo X kênh] ← chỉ 1 nút
+                                                              ↓
+                                              (auto-advance khi content xong)
+                                                              ↓
+                                                Step 5: Tạo ảnh (gộp AI Control vào)
+```
 
-| Chỉ số | Data chi tiết | Nguồn |
-|--------|--------------|-------|
-| **GEO** | `factor_scores`: answer_first, citation_signals, content_depth, entity_clarity, structured_data, extractability, heading_hierarchy, freshness | `geo_content_scores.factor_scores` từ DB |
-| **Chất lượng** | Chỉ có 1 số (0-10) — không có breakdown | `critique_score` |
-| **Tương tác** | Tính heuristic realtime — có thể breakdown | Tính inline |
-| **SEO** | Tính heuristic realtime — có thể breakdown | `calculateSEOScore()` |
+## Thay đổi
 
-## Giải pháp
+### 1. Gộp Step 5 + Step 6 thành 1 step "Tạo ảnh"
+- Giảm `STEPS` từ 6 xuống 5
+- Step 5 mới = gộp "Kiểm soát AI" (chọn mode: full/brand_only/raw) + UI tạo ảnh vào cùng 1 trang
+- Chọn mode ở trên, nút tạo ảnh ở dưới
 
-### 1. Truyền `geoFactorScores` từ MultiChannelViewer → MockupScoreBar
-- Truyền `geoScoreData?.factor_scores` qua ContentMockupToggle xuống MockupScoreBar
-- Thêm prop `geoFactorScores?: Record<string, number>`
+### 2. Bỏ nút "Tạo ảnh" riêng ở Step 4
+- Step 4 chỉ còn 1 nút: "Tạo (X kênh)"
+- Sau khi generation hoàn tất → auto-advance sang Step 5 (Tạo ảnh)
 
-### 2. Chuyển Tooltip → Popover (click-to-open) trong MockupScoreBar
-- Import `Popover, PopoverTrigger, PopoverContent` thay thế Tooltip cho mỗi chỉ số
-- Click vào chỉ số → hiện Popover với bảng chi tiết từng yếu tố
-- GEO: Hiển thị 8 yếu tố với tên tiếng Việt, điểm, progress bar mini, trọng số
-- Chất lượng: Hiển thị mô tả các tiêu chí đánh giá (không có breakdown số)
-- Tương tác: Breakdown 6 yếu tố heuristic (CTA, emoji, hashtag, câu hỏi, độ dài, cấu trúc)
-- SEO: Breakdown các yếu tố SEO (headings, keyword, links, word count...)
+### 3. Auto-advance logic
+- Sửa useEffect `generationComplete`: advance từ Step 4 → Step 5 (thay vì 4→5 cũ)
+- Tất cả reference `currentStep === 6` → đổi thành `=== 5`
+- `currentStep === 5` cũ (AI Control) → gộp UI vào step mới
 
-### 3. Tạo hàm breakdown cho Engagement và SEO
-- `getEngagementBreakdown(content)` → trả về mảng `{ label, score, max }` cho từng yếu tố
-- `getSEOBreakdown(content)` → tương tự
-
-## Files cần sửa
-
-| File | Thay đổi |
-|------|----------|
-| `src/components/preview/MockupScoreBar.tsx` | Tooltip → Popover, hiển thị bảng factor scores |
-| `src/components/viewer/ContentMockupToggle.tsx` | Forward `geoFactorScores` prop |
-| `src/components/MultiChannelViewer.tsx` | Truyền `geoScoreData?.factor_scores` |
+### Files cần sửa
+- `src/components/multichannel/MultiChannelFormWizard.tsx` — gộp step, bỏ nút, sửa navigation logic
 
