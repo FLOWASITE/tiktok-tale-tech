@@ -72,6 +72,31 @@ export interface AgentApproval {
   created_at: string;
 }
 
+export interface AgentTeamPermission {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  can_create_goals: boolean;
+  can_approve: boolean;
+  can_override: boolean;
+  max_autonomy_level: AgentAutonomyLevel;
+  monthly_pipeline_limit: number | null;
+  is_active: boolean;
+  granted_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentTeamMember {
+  user_id: string;
+  email: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  org_role: string;
+  permission: AgentTeamPermission | null;
+  pipelines_this_month: number;
+}
+
 // Pipeline stage metadata for UI
 export const PIPELINE_STAGES: { id: AgentPipelineStage; label: string; icon: string; color: string }[] = [
   { id: 'research', label: 'Nghiên cứu', icon: 'Search', color: 'from-violet-500/20 to-violet-500/10' },
