@@ -167,11 +167,11 @@ export function useAutoImageGeneration() {
         setProgress(prev => ({ ...prev, [channel]: 'generating' }));
         setProgressTimes(prev => ({ ...prev, [channel]: startTime }));
         
-        // Determine rendering mode
-        const overlayMode = options.overlayMode || 'satori';
-        const isAiRenderMode = overlayMode === 'ai_render' && !!structuredOverlay;
+        // Determine rendering mode — default to ai_render (AI renders text directly)
+        const overlayMode = options.overlayMode || 'ai_render';
+        const isAiRenderMode = overlayMode === 'ai_render';
         const effectiveContentType = isAiRenderMode 
-          ? 'with_text'
+          ? (imageContentType || 'with_text')
           : (structuredOverlay ? 'background_only' : (useCanvasFallback ? 'background_only' : imageContentType));
         
         console.log(`[Pipeline:${channel}] ▶ STEP 1/4 — Generate base image`, {
