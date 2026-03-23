@@ -1556,7 +1556,6 @@ export function MultiChannelViewer({
                                   onTriggerGEO={handleTriggerGEO}
                                   isGEOLoading={isGEOScoring}
                                   geoFactorScores={geoScoreData?.factor_scores as Record<string, number> | null | undefined}
-                                  isGEOLoading={isGEOScoring}
                                 />
                               </div>
                                 
