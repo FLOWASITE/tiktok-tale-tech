@@ -104,6 +104,7 @@ export function ContentMockupToggle({
   return (
     <div className={cn('flex justify-center items-start p-2 bg-gradient-to-b from-muted/5 to-muted/20 rounded-xl', className)}>
       <div className="w-full max-w-2xl">
+        {scoreBar}
         <ChannelMockupFrame
           channel={mockupType}
           content={safeContent}
@@ -114,7 +115,6 @@ export function ContentMockupToggle({
           seoData={channel === 'website' ? seoData : undefined}
           channelImage={channelImage}
         />
-        {scoreBar}
       </div>
     </div>
   );
