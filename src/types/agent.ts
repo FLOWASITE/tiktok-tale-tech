@@ -30,6 +30,7 @@ export interface AgentPipeline {
   id: string;
   organization_id: string;
   goal_id: string | null;
+  campaign_id: string | null;
   content_title: string;
   content_topic: string | null;
   current_stage: AgentPipelineStage;

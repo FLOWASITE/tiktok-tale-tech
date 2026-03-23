@@ -33,6 +33,7 @@ export function useAgentGoals() {
       frequency: Record<string, string>;
       autonomy_level: AgentAutonomyLevel;
       brand_template_id?: string;
+      campaign_id?: string;
     }) => {
       if (!orgId) throw new Error('No organization');
       const { data: { user } } = await supabase.auth.getUser();

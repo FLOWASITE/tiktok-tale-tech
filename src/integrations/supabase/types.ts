@@ -1380,6 +1380,7 @@ export type Database = {
         Row: {
           autonomy_level: Database["public"]["Enums"]["agent_autonomy_level"]
           brand_template_id: string | null
+          campaign_id: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -1396,6 +1397,7 @@ export type Database = {
         Insert: {
           autonomy_level?: Database["public"]["Enums"]["agent_autonomy_level"]
           brand_template_id?: string | null
+          campaign_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1412,6 +1414,7 @@ export type Database = {
         Update: {
           autonomy_level?: Database["public"]["Enums"]["agent_autonomy_level"]
           brand_template_id?: string | null
+          campaign_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1431,6 +1434,13 @@ export type Database = {
             columns: ["brand_template_id"]
             isOneToOne: false
             referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_goals_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
           {
@@ -1502,6 +1512,7 @@ export type Database = {
       agent_pipelines: {
         Row: {
           autonomy_level: Database["public"]["Enums"]["agent_autonomy_level"]
+          campaign_id: string | null
           completed_at: string | null
           content_id: string | null
           content_title: string
@@ -1520,6 +1531,7 @@ export type Database = {
         }
         Insert: {
           autonomy_level?: Database["public"]["Enums"]["agent_autonomy_level"]
+          campaign_id?: string | null
           completed_at?: string | null
           content_id?: string | null
           content_title: string
@@ -1538,6 +1550,7 @@ export type Database = {
         }
         Update: {
           autonomy_level?: Database["public"]["Enums"]["agent_autonomy_level"]
+          campaign_id?: string | null
           completed_at?: string | null
           content_id?: string | null
           content_title?: string
@@ -1555,6 +1568,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "agent_pipelines_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "agent_pipelines_content_id_fkey"
             columns: ["content_id"]
