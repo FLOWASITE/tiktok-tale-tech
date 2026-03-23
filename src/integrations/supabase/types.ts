@@ -4709,14 +4709,19 @@ export type Database = {
           brand_monitor_id: string | null
           brief: Json | null
           completed_at: string | null
+          content_id: string | null
           created_at: string
           created_by: string | null
           description: string | null
           effort_level: string | null
+          generated_content_id: string | null
           id: string
           impact_score: number | null
           organization_id: string
+          post_score: number | null
+          pre_score: number | null
           priority: string
+          resolved_at: string | null
           source_module: string
           status: string
           title: string
@@ -4727,14 +4732,19 @@ export type Database = {
           brand_monitor_id?: string | null
           brief?: Json | null
           completed_at?: string | null
+          content_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           effort_level?: string | null
+          generated_content_id?: string | null
           id?: string
           impact_score?: number | null
           organization_id: string
+          post_score?: number | null
+          pre_score?: number | null
           priority?: string
+          resolved_at?: string | null
           source_module?: string
           status?: string
           title: string
@@ -4745,14 +4755,19 @@ export type Database = {
           brand_monitor_id?: string | null
           brief?: Json | null
           completed_at?: string | null
+          content_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           effort_level?: string | null
+          generated_content_id?: string | null
           id?: string
           impact_score?: number | null
           organization_id?: string
+          post_score?: number | null
+          pre_score?: number | null
           priority?: string
+          resolved_at?: string | null
           source_module?: string
           status?: string
           title?: string
@@ -4768,6 +4783,60 @@ export type Database = {
           },
           {
             foreignKeyName: "geo_action_tasks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      geo_alert_history: {
+        Row: {
+          alert_type: string
+          brand_monitor_id: string
+          created_at: string | null
+          data: Json | null
+          description: string | null
+          id: string
+          is_read: boolean | null
+          organization_id: string
+          severity: string | null
+          title: string
+        }
+        Insert: {
+          alert_type: string
+          brand_monitor_id: string
+          created_at?: string | null
+          data?: Json | null
+          description?: string | null
+          id?: string
+          is_read?: boolean | null
+          organization_id: string
+          severity?: string | null
+          title: string
+        }
+        Update: {
+          alert_type?: string
+          brand_monitor_id?: string
+          created_at?: string | null
+          data?: Json | null
+          description?: string | null
+          id?: string
+          is_read?: boolean | null
+          organization_id?: string
+          severity?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geo_alert_history_brand_monitor_id_fkey"
+            columns: ["brand_monitor_id"]
+            isOneToOne: false
+            referencedRelation: "geo_brand_monitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "geo_alert_history_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -5011,6 +5080,129 @@ export type Database = {
           },
         ]
       }
+      geo_prompts: {
+        Row: {
+          brand_monitor_id: string
+          cluster_name: string | null
+          created_at: string | null
+          id: string
+          intent_type: string | null
+          is_active: boolean | null
+          last_used_at: string | null
+          organization_id: string
+          prompt_text: string
+          source: string | null
+          use_count: number | null
+        }
+        Insert: {
+          brand_monitor_id: string
+          cluster_name?: string | null
+          created_at?: string | null
+          id?: string
+          intent_type?: string | null
+          is_active?: boolean | null
+          last_used_at?: string | null
+          organization_id: string
+          prompt_text: string
+          source?: string | null
+          use_count?: number | null
+        }
+        Update: {
+          brand_monitor_id?: string
+          cluster_name?: string | null
+          created_at?: string | null
+          id?: string
+          intent_type?: string | null
+          is_active?: boolean | null
+          last_used_at?: string | null
+          organization_id?: string
+          prompt_text?: string
+          source?: string | null
+          use_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geo_prompts_brand_monitor_id_fkey"
+            columns: ["brand_monitor_id"]
+            isOneToOne: false
+            referencedRelation: "geo_brand_monitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "geo_prompts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      geo_scan_jobs: {
+        Row: {
+          actual_cost_usd: number | null
+          brand_monitor_id: string
+          completed_at: string | null
+          completed_prompts: number | null
+          created_at: string | null
+          engines_used: string[] | null
+          error_message: string | null
+          estimated_cost_usd: number | null
+          id: string
+          organization_id: string
+          started_at: string | null
+          status: string | null
+          total_api_calls: number | null
+          total_prompts: number | null
+        }
+        Insert: {
+          actual_cost_usd?: number | null
+          brand_monitor_id: string
+          completed_at?: string | null
+          completed_prompts?: number | null
+          created_at?: string | null
+          engines_used?: string[] | null
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          id?: string
+          organization_id: string
+          started_at?: string | null
+          status?: string | null
+          total_api_calls?: number | null
+          total_prompts?: number | null
+        }
+        Update: {
+          actual_cost_usd?: number | null
+          brand_monitor_id?: string
+          completed_at?: string | null
+          completed_prompts?: number | null
+          created_at?: string | null
+          engines_used?: string[] | null
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          id?: string
+          organization_id?: string
+          started_at?: string | null
+          status?: string | null
+          total_api_calls?: number | null
+          total_prompts?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geo_scan_jobs_brand_monitor_id_fkey"
+            columns: ["brand_monitor_id"]
+            isOneToOne: false
+            referencedRelation: "geo_brand_monitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "geo_scan_jobs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       geo_schema_outputs: {
         Row: {
           content_id: string
@@ -5051,6 +5243,69 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "geo_schema_outputs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      geo_visibility_snapshots: {
+        Row: {
+          avg_sentiment: number | null
+          brand_monitor_id: string
+          citation_rate: number | null
+          citations_count: number | null
+          competitor_sov: Json | null
+          created_at: string | null
+          id: string
+          mentions_count: number | null
+          organization_id: string
+          snapshot_date: string
+          sov_percentage: number | null
+          top_prompts: Json | null
+          total_scans: number | null
+        }
+        Insert: {
+          avg_sentiment?: number | null
+          brand_monitor_id: string
+          citation_rate?: number | null
+          citations_count?: number | null
+          competitor_sov?: Json | null
+          created_at?: string | null
+          id?: string
+          mentions_count?: number | null
+          organization_id: string
+          snapshot_date: string
+          sov_percentage?: number | null
+          top_prompts?: Json | null
+          total_scans?: number | null
+        }
+        Update: {
+          avg_sentiment?: number | null
+          brand_monitor_id?: string
+          citation_rate?: number | null
+          citations_count?: number | null
+          competitor_sov?: Json | null
+          created_at?: string | null
+          id?: string
+          mentions_count?: number | null
+          organization_id?: string
+          snapshot_date?: string
+          sov_percentage?: number | null
+          top_prompts?: Json | null
+          total_scans?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geo_visibility_snapshots_brand_monitor_id_fkey"
+            columns: ["brand_monitor_id"]
+            isOneToOne: false
+            referencedRelation: "geo_brand_monitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "geo_visibility_snapshots_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
