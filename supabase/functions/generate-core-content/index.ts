@@ -710,7 +710,7 @@ Deno.serve(withPerf({ functionName: 'generate-core-content', slowThresholdMs: 45
       contentGoal: contentGoal || 'education',
       contentAngle,
       role: contentRole,
-      lengthMode: lengthMode as CoreContentLengthMode,
+      lengthMode: effectiveLengthMode,
       brandContext,
       personas,
       products,
