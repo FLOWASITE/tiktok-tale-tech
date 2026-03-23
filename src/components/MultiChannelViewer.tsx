@@ -927,7 +927,7 @@ export function MultiChannelViewer({
                       <Button 
                         variant={showTeamPanel ? "secondary" : "ghost"} 
                         size="icon"
-                        onClick={() => { setShowTeamPanel(!showTeamPanel); setShowGallery(false); setShowSchedule(false); setShowGeoScore(false); }}
+                        onClick={() => { setShowTeamPanel(!showTeamPanel); setShowSchedule(false); setShowGeoScore(false); }}
                         className="h-8 w-8"
                       >
                         <Users className="w-4 h-4" />
@@ -936,13 +936,16 @@ export function MultiChannelViewer({
                     <TooltipContent>Team</TooltipContent>
                   </Tooltip>
                   
-                  {/* Gallery Toggle */}
+                  {/* Gallery — navigate to /gallery with content filter */}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button 
-                        variant={showGallery ? "secondary" : "ghost"} 
+                        variant="ghost" 
                         size="icon"
-                        onClick={() => { setShowGallery(!showGallery); setShowSchedule(false); setShowTeamPanel(false); setShowGeoScore(false); }}
+                        onClick={() => {
+                          onOpenChange(false);
+                          navigate(`/gallery?content=${content.id}`);
+                        }}
                         className="h-8 w-8 relative"
                       >
                         <Images className="w-4 h-4" />
@@ -962,7 +965,7 @@ export function MultiChannelViewer({
                       <Button 
                         variant={showSchedule ? "secondary" : "ghost"} 
                         size="icon"
-                        onClick={() => { setShowSchedule(!showSchedule); setShowGallery(false); setShowTeamPanel(false); setShowGeoScore(false); }}
+                        onClick={() => { setShowSchedule(!showSchedule); setShowTeamPanel(false); setShowGeoScore(false); }}
                         className="h-8 w-8"
                       >
                         <CalendarClock className="w-4 h-4" />
@@ -977,7 +980,7 @@ export function MultiChannelViewer({
                       <Button 
                         variant={showGeoScore ? "secondary" : "ghost"} 
                         size="icon"
-                        onClick={() => { setShowGeoScore(!showGeoScore); setShowGallery(false); setShowSchedule(false); setShowTeamPanel(false); }}
+                        onClick={() => { setShowGeoScore(!showGeoScore); setShowSchedule(false); setShowTeamPanel(false); }}
                         className="h-8 w-8"
                       >
                         <Zap className="w-4 h-4" />
