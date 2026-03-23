@@ -62,6 +62,7 @@ import Gallery from "@/pages/Gallery";
 import PaymentResult from "@/pages/PaymentResult";
 import AgentDashboard from "@/pages/AgentDashboard";
 import AgentTeamPage from "@/pages/AgentTeamPage";
+import AgentDirectoryPage from "@/pages/AgentDirectoryPage";
 
 // Landing pages (lazy loaded for app domain preview/dev access)
 const LandingPage = lazy(() => import("@/landing/pages/Landing"));
@@ -161,6 +162,7 @@ export function AppRoutes() {
       <Route path="/calendar" element={<ProtectedRoute><AppLayout><ContentCalendar /></AppLayout></ProtectedRoute>} />
       <Route path="/agents" element={<ProtectedRoute><AppLayout><AgentDashboard /></AppLayout></ProtectedRoute>} />
       <Route path="/agents/team" element={<ProtectedRoute><AppLayout><AgentTeamPage /></AppLayout></ProtectedRoute>} />
+      <Route path="/agents/directory" element={<ProtectedRoute><AppLayout><AgentDirectoryPage /></AppLayout></ProtectedRoute>} />
       <Route path="/account" element={<ProtectedRoute><AppLayout><Account /></AppLayout></ProtectedRoute>} />
 
       {/* Admin routes */}
