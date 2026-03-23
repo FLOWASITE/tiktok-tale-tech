@@ -113,8 +113,8 @@ interface WordBudget {
   conclusion: number;
 }
 
-export function getWordBudgetByLength(lengthMode: CoreContentLengthMode): WordBudget {
-  const config = LENGTH_CONFIGS[lengthMode];
+export function getWordBudgetByLength(lengthMode?: CoreContentLengthMode): WordBudget {
+  const config = getLengthConfig(lengthMode);
   return {
     total: config.targetWords,
     ...config.sectionBudgets,
