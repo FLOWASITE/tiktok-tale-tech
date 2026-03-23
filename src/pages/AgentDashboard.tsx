@@ -196,7 +196,7 @@ export default function AgentDashboard() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => updateGoal.mutate({ id: goal.id, is_paused: !goal.is_paused })}>
                           {goal.is_paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
                         </Button>
                       </div>
