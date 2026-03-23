@@ -4966,6 +4966,7 @@ export type Database = {
           competitor_mentions: Json | null
           created_at: string
           id: string
+          is_simulated: boolean | null
           mention_count: number
           organization_id: string
           prompt: string
@@ -4982,6 +4983,7 @@ export type Database = {
           competitor_mentions?: Json | null
           created_at?: string
           id?: string
+          is_simulated?: boolean | null
           mention_count?: number
           organization_id: string
           prompt: string
@@ -4998,6 +5000,7 @@ export type Database = {
           competitor_mentions?: Json | null
           created_at?: string
           id?: string
+          is_simulated?: boolean | null
           mention_count?: number
           organization_id?: string
           prompt?: string
@@ -5016,63 +5019,6 @@ export type Database = {
           },
           {
             foreignKeyName: "geo_monitoring_results_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      geo_prompt_clusters: {
-        Row: {
-          brand_appearance_rate: number | null
-          brand_monitor_id: string | null
-          cluster_name: string
-          created_at: string
-          id: string
-          intent_type: string
-          is_gap: boolean
-          organization_id: string
-          sample_prompts: string[]
-          updated_at: string
-          volume_estimate: number | null
-        }
-        Insert: {
-          brand_appearance_rate?: number | null
-          brand_monitor_id?: string | null
-          cluster_name: string
-          created_at?: string
-          id?: string
-          intent_type?: string
-          is_gap?: boolean
-          organization_id: string
-          sample_prompts?: string[]
-          updated_at?: string
-          volume_estimate?: number | null
-        }
-        Update: {
-          brand_appearance_rate?: number | null
-          brand_monitor_id?: string | null
-          cluster_name?: string
-          created_at?: string
-          id?: string
-          intent_type?: string
-          is_gap?: boolean
-          organization_id?: string
-          sample_prompts?: string[]
-          updated_at?: string
-          volume_estimate?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "geo_prompt_clusters_brand_monitor_id_fkey"
-            columns: ["brand_monitor_id"]
-            isOneToOne: false
-            referencedRelation: "geo_brand_monitors"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "geo_prompt_clusters_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
