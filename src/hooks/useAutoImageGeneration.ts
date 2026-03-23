@@ -295,10 +295,9 @@ export function useAutoImageGeneration() {
           console.log(`[Pipeline:${channel}] ⏭ STEP 2 SKIPPED — no logo configured`);
         }
 
-        // Step 3: Overlay text using canvas if useCanvasFallback is enabled
-        // Skip if structuredOverlay is active (Step 4 handles text rendering)
-        // Skip entirely in ai_render mode (AI already rendered text)
-        if (useCanvasFallback && imageContentType === 'with_text' && channelText && !structuredOverlay && !isAiRenderMode) {
+        // Step 3: Overlay text using canvas (Satori) — ONLY in satori mode
+        // In ai_render mode (default), AI already rendered text directly → skip
+        if (!isAiRenderMode && useCanvasFallback && imageContentType === 'with_text' && channelText && !structuredOverlay) {
           const step3Start = Date.now();
           console.log(`[Pipeline:${channel}] ▶ STEP 3/4 — Canvas text overlay`, {
             textLength: channelText.length,
