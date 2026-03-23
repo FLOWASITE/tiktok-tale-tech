@@ -149,7 +149,7 @@ function DraggableScheduleItem({
     >
       <div className="flex items-center gap-1.5">
         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusColor}`} />
-        <span>{channelEmojis[channel]}</span>
+        <ChannelIcon channel={channel} size={14} className={channelIconColors[channel]} />
         <span className={`truncate font-medium ${colors.text}`}>{schedule.content?.title || 'Không có tiêu đề'}</span>
       </div>
       <div className="text-muted-foreground text-[10px] mt-0.5">
