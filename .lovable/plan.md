@@ -1,29 +1,24 @@
 
 
-# Thêm tùy chọn bỏ qua Core Content + cảnh báo thực tế
+# Thêm Popup "Tạo nhanh" tự động hiện khi vào Step 2
 
-## Thay đổi trong `MultiChannelFormWizard.tsx`
+## Ý tưởng
+Khi user vào Step 2, một popup/tooltip nổi bật sẽ tự động xuất hiện bên cạnh toggle "Tạo nhanh", thu hút sự chú ý rồi tự đóng sau vài giây. User có thể click để bật toggle ngay từ popup.
 
-### 1. Thêm state `skipCoreContent`
-- `const [skipCoreContent, setSkipCoreContent] = useState(false);`
+## Chi tiết
 
-### 2. UI tại Step 2 — Switch + Alert cảnh báo
-- Thêm Switch ở đầu Step 2 (trước Topic Preview card): **"Tạo nhanh — bỏ qua Core Content"**
-- Khi bật, hiển thị Alert cảnh báo với nội dung thực tế:
-  - Icon `AlertTriangle`, border amber
-  - **Tiêu đề**: "Nội dung sẽ tạo nhanh hơn nhưng có hạn chế"
-  - **Nội dung cảnh báo**:
-    - Không có Core Content làm nguồn gốc → nội dung giữa các kênh có thể **không đồng nhất về thông điệp**
-    - Mỗi kênh sẽ được AI tạo độc lập từ chủ đề → **tone, thông tin chi tiết có thể khác nhau**
-    - Không thể dùng tính năng **đánh giá chất lượng Core Content** (critique score)
-    - Phù hợp cho bài viết đơn giản, tin nhanh. **Không khuyến khích cho chiến dịch quan trọng**
-- Khi bật: ẩn toàn bộ form tạo Core Content, chỉ hiện Switch + Alert
+### Trong `MultiChannelFormWizard.tsx`:
+- Wrap toggle Card bằng `Popover` (từ radix, đã có sẵn)
+- Popover tự động mở khi `currentStep === 2` lần đầu (dùng `useEffect` + state `showFastCreatePopup`)
+- Tự đóng sau 6 giây hoặc khi user tương tác
+- Nội dung popup:
+  - Icon `Zap` + gradient background
+  - Tiêu đề: **"⚡ Muốn tạo nhanh hơn?"**
+  - Mô tả ngắn: "Bỏ qua Core Content — AI tạo trực tiếp cho từng kênh từ chủ đề"
+  - Nút CTA: **"Bật tạo nhanh"** → bật `skipCoreContent` + đóng popup
+  - Nút phụ: "Để sau" → đóng popup
+- Không hiện popup nếu đã có Core Content hoặc đang generate
 
-### 3. Cập nhật logic
-- `canProceed` case 2: thêm `|| skipCoreContent` 
-- `handleNext` step 2: bỏ block check khi `skipCoreContent = true`
-- `handleSubmitForm`: khi `skipCoreContent`, truyền `coreContentId: null`
-
-### File cần sửa
-- `src/components/multichannel/MultiChannelFormWizard.tsx`
+### Files cần sửa
+- `src/components/multichannel/MultiChannelFormWizard.tsx` — thêm Popover wrap quanh toggle card
 
