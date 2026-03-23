@@ -896,7 +896,7 @@ export default function ContentCalendar() {
                           onClick={() => handleScheduleClick(schedule)}
                           className="text-xs p-1.5 rounded bg-muted/50 hover:bg-muted cursor-pointer flex items-center gap-1.5 truncate"
                         >
-                          <span>{channelEmojis[schedule.channel as Channel]}</span>
+                          <ChannelIcon channel={schedule.channel as Channel} size={14} className={channelIconColors[schedule.channel as Channel]} />
                           <span className="truncate">{schedule.content?.title || 'Không có tiêu đề'}</span>
                           <span className="text-muted-foreground ml-auto shrink-0">
                             {format(parseISO(schedule.scheduled_at), 'HH:mm')}
