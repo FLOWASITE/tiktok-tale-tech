@@ -81,7 +81,7 @@ export default function AgentDashboard() {
             <Button variant="outline" size="sm" className="gap-1.5 text-xs">
               <Pause className="w-3.5 h-3.5" /> Pause All
             </Button>
-            <Button size="sm" className="gap-1.5 text-xs">
+            <Button size="sm" className="gap-1.5 text-xs" onClick={() => setWizardOpen(true)}>
               <Plus className="w-3.5 h-3.5" /> Campaign mới
             </Button>
           </div>
