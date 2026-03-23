@@ -1234,6 +1234,70 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_approvals: {
+        Row: {
+          channel_versions: Json | null
+          content_preview: string | null
+          created_at: string
+          decided_at: string | null
+          id: string
+          organization_id: string
+          pipeline_id: string
+          reviewer_id: string | null
+          reviewer_notes: string | null
+          scores: Json | null
+          status: Database["public"]["Enums"]["agent_approval_status"]
+        }
+        Insert: {
+          channel_versions?: Json | null
+          content_preview?: string | null
+          created_at?: string
+          decided_at?: string | null
+          id?: string
+          organization_id: string
+          pipeline_id: string
+          reviewer_id?: string | null
+          reviewer_notes?: string | null
+          scores?: Json | null
+          status?: Database["public"]["Enums"]["agent_approval_status"]
+        }
+        Update: {
+          channel_versions?: Json | null
+          content_preview?: string | null
+          created_at?: string
+          decided_at?: string | null
+          id?: string
+          organization_id?: string
+          pipeline_id?: string
+          reviewer_id?: string | null
+          reviewer_notes?: string | null
+          scores?: Json | null
+          status?: Database["public"]["Enums"]["agent_approval_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_approvals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_approvals_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "agent_pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_approvals_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_blackboard: {
         Row: {
           agent_name: string
@@ -1311,6 +1375,208 @@ export type Database = {
           tools_used?: string[] | null
         }
         Relationships: []
+      }
+      agent_goals: {
+        Row: {
+          autonomy_level: Database["public"]["Enums"]["agent_autonomy_level"]
+          brand_template_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          frequency: Json | null
+          id: string
+          is_active: boolean
+          is_paused: boolean
+          name: string
+          organization_id: string
+          target_channels: string[] | null
+          target_topics: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          autonomy_level?: Database["public"]["Enums"]["agent_autonomy_level"]
+          brand_template_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          frequency?: Json | null
+          id?: string
+          is_active?: boolean
+          is_paused?: boolean
+          name: string
+          organization_id: string
+          target_channels?: string[] | null
+          target_topics?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          autonomy_level?: Database["public"]["Enums"]["agent_autonomy_level"]
+          brand_template_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          frequency?: Json | null
+          id?: string
+          is_active?: boolean
+          is_paused?: boolean
+          name?: string
+          organization_id?: string
+          target_channels?: string[] | null
+          target_topics?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_goals_brand_template_id_fkey"
+            columns: ["brand_template_id"]
+            isOneToOne: false
+            referencedRelation: "brand_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_goals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_goals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_pipeline_logs: {
+        Row: {
+          action: string
+          agent_name: string
+          cost_usd: number | null
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          input_summary: string | null
+          output_summary: string | null
+          pipeline_id: string
+          tokens_used: number | null
+        }
+        Insert: {
+          action: string
+          agent_name: string
+          cost_usd?: number | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          input_summary?: string | null
+          output_summary?: string | null
+          pipeline_id: string
+          tokens_used?: number | null
+        }
+        Update: {
+          action?: string
+          agent_name?: string
+          cost_usd?: number | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          input_summary?: string | null
+          output_summary?: string | null
+          pipeline_id?: string
+          tokens_used?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_pipeline_logs_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "agent_pipelines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_pipelines: {
+        Row: {
+          autonomy_level: Database["public"]["Enums"]["agent_autonomy_level"]
+          completed_at: string | null
+          content_id: string | null
+          content_title: string
+          content_topic: string | null
+          created_at: string
+          current_stage: Database["public"]["Enums"]["agent_pipeline_stage"]
+          estimated_completion: string | null
+          flag_reason: string | null
+          goal_id: string | null
+          id: string
+          is_flagged: boolean
+          organization_id: string
+          pipeline_state: Json | null
+          priority: Database["public"]["Enums"]["agent_priority"]
+          updated_at: string
+        }
+        Insert: {
+          autonomy_level?: Database["public"]["Enums"]["agent_autonomy_level"]
+          completed_at?: string | null
+          content_id?: string | null
+          content_title: string
+          content_topic?: string | null
+          created_at?: string
+          current_stage?: Database["public"]["Enums"]["agent_pipeline_stage"]
+          estimated_completion?: string | null
+          flag_reason?: string | null
+          goal_id?: string | null
+          id?: string
+          is_flagged?: boolean
+          organization_id: string
+          pipeline_state?: Json | null
+          priority?: Database["public"]["Enums"]["agent_priority"]
+          updated_at?: string
+        }
+        Update: {
+          autonomy_level?: Database["public"]["Enums"]["agent_autonomy_level"]
+          completed_at?: string | null
+          content_id?: string | null
+          content_title?: string
+          content_topic?: string | null
+          created_at?: string
+          current_stage?: Database["public"]["Enums"]["agent_pipeline_stage"]
+          estimated_completion?: string | null
+          flag_reason?: string | null
+          goal_id?: string | null
+          id?: string
+          is_flagged?: boolean
+          organization_id?: string
+          pipeline_state?: Json | null
+          priority?: Database["public"]["Enums"]["agent_priority"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_pipelines_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "multi_channel_contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_pipelines_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "agent_goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_pipelines_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_channel_model_configs: {
         Row: {
@@ -10141,6 +10407,19 @@ export type Database = {
         | "instagram_feed"
         | "instagram_story"
         | "instagram_reels"
+      agent_approval_status: "pending" | "approved" | "rejected" | "edited"
+      agent_autonomy_level: "human_in_loop" | "human_on_loop" | "full_auto"
+      agent_pipeline_stage:
+        | "research"
+        | "creation"
+        | "optimization"
+        | "expansion"
+        | "compliance"
+        | "approval"
+        | "scheduled"
+        | "published"
+        | "analyzing"
+      agent_priority: "low" | "normal" | "high" | "urgent"
       app_role: "user" | "pro" | "admin"
       carousel_ai_tool: "ideogram" | "midjourney" | "dalle" | "leonardo"
       carousel_platform: "facebook" | "tiktok" | "instagram" | "linkedin"
@@ -10323,6 +10602,20 @@ export const Constants = {
         "instagram_story",
         "instagram_reels",
       ],
+      agent_approval_status: ["pending", "approved", "rejected", "edited"],
+      agent_autonomy_level: ["human_in_loop", "human_on_loop", "full_auto"],
+      agent_pipeline_stage: [
+        "research",
+        "creation",
+        "optimization",
+        "expansion",
+        "compliance",
+        "approval",
+        "scheduled",
+        "published",
+        "analyzing",
+      ],
+      agent_priority: ["low", "normal", "high", "urgent"],
       app_role: ["user", "pro", "admin"],
       carousel_ai_tool: ["ideogram", "midjourney", "dalle", "leonardo"],
       carousel_platform: ["facebook", "tiktok", "instagram", "linkedin"],
