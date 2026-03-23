@@ -2133,62 +2133,34 @@ export function MultiChannelFormWizard({
                 )}
               </Button>
             ) : currentStep === 4 ? (
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={isGenerating || pendingMultiChannelGeneration || !formData.topic.trim() || formData.channels.length === 0}
-                  className={cn(
-                    "gap-2 gradient-primary min-w-[140px]",
-                    !isGenerating && !pendingMultiChannelGeneration && "glow-primary"
-                  )}
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Đang tạo...
-                    </>
-                  ) : pendingMultiChannelGeneration ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Chờ Core Content ({coreContentProgress?.progress || 0}%)
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      Tạo ({formData.channels.length} kênh)
-                    </>
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setCompletedSteps(prev => [...prev.filter(s => s !== 4), 4]);
-                    setCurrentStep(5);
-                  }}
-                  disabled={formData.channels.length === 0}
-                  className="gap-1.5"
-                >
-                  <Image className="w-4 h-4" />
-                  Tạo ảnh
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            ) : currentStep === 5 ? (
               <Button
                 type="button"
-                onClick={() => {
-                  setCompletedSteps(prev => [...prev.filter(s => s !== 5), 5]);
-                  setCurrentStep(6);
-                }}
-                className="gap-2 gradient-primary glow-primary"
+                onClick={handleSubmit}
+                disabled={isGenerating || pendingMultiChannelGeneration || !formData.topic.trim() || formData.channels.length === 0}
+                className={cn(
+                  "gap-2 gradient-primary min-w-[140px]",
+                  !isGenerating && !pendingMultiChannelGeneration && "glow-primary"
+                )}
               >
-                Tiếp tục tạo ảnh
-                <ArrowRight className="w-4 h-4" />
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Đang tạo...
+                  </>
+                ) : pendingMultiChannelGeneration ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Chờ Core Content ({coreContentProgress?.progress || 0}%)
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Tạo ({formData.channels.length} kênh)
+                  </>
+                )}
               </Button>
             ) : (
-              // Step 6: Footer hidden when image phase is active
+              // Step 5: Footer hidden when image phase is active
               imagePhase && imagePhase !== 'idle' ? null : (
                 <div className="flex gap-2">
                   <Button
