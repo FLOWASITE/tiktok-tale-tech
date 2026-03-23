@@ -14,7 +14,8 @@ import {
   PanelLeft,
   History,
   Flag,
-  Target
+  Target,
+  StickyNote
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,6 +38,8 @@ import { CalendarDayView } from '@/components/CalendarDayView';
 import { Calendar } from '@/components/ui/calendar';
 import { CalendarMilestoneItem } from '@/components/CalendarMilestoneItem';
 import { CampaignTimelineBar } from '@/components/calendar/CampaignTimelineBar';
+import { CalendarDayNotes } from '@/components/calendar/CalendarDayNotes';
+import { useCalendarNotes, CalendarNote } from '@/hooks/useCalendarNotes';
 import { ContentSchedule, PUBLISH_STATUSES, PublishStatus } from '@/types/publishing';
 import { Channel, CHANNELS, MultiChannelContent, MultiChannelFormData, ContentGoal } from '@/types/multichannel';
 import { ScheduleTopicDialog, ScheduleTopicData } from '@/components/topic/ScheduleTopicDialog';
@@ -175,13 +178,21 @@ function DroppableDayCell({
   isCurrentMonth,
   schedules,
   milestones = [],
+  notes = [],
   onScheduleClick,
+  onAddNote,
+  onUpdateNote,
+  onDeleteNote,
 }: { 
   date: Date;
   isCurrentMonth: boolean;
   schedules: ScheduleWithContent[];
   milestones?: CampaignMilestone[];
+  notes?: CalendarNote[];
   onScheduleClick: (schedule: ScheduleWithContent) => void;
+  onAddNote?: (dateStr: string, content: string) => Promise<CalendarNote | null>;
+  onUpdateNote?: (noteId: string, content: string) => Promise<boolean>;
+  onDeleteNote?: (noteId: string) => Promise<boolean>;
 }) {
   const dateStr = format(date, 'yyyy-MM-dd');
   const { isOver, setNodeRef } = useDroppable({
@@ -197,22 +208,35 @@ function DroppableDayCell({
     format(parseISO(m.due_date), 'yyyy-MM-dd') === dateStr
   );
 
+  const dayNotes = notes.filter(n => n.note_date === dateStr);
+
   return (
     <div
       ref={setNodeRef}
       className={`
-        min-h-[120px] border-r border-b border-border/30 p-1
+        group min-h-[120px] border-r border-b border-border/30 p-1
         ${!isCurrentMonth ? 'bg-muted/30' : 'bg-background'}
         ${isToday(date) ? 'bg-primary/5 ring-1 ring-primary/20' : ''}
         ${isOver ? 'bg-primary/10 ring-2 ring-primary/40' : ''}
         transition-colors
       `}
     >
-      <div className={`
-        text-xs font-medium mb-1 px-1
-        ${isToday(date) ? 'text-primary' : isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'}
-      `}>
-        {format(date, 'd')}
+      <div className="flex items-center justify-between mb-1 px-1">
+        <span className={`
+          text-xs font-medium
+          ${isToday(date) ? 'text-primary' : isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'}
+        `}>
+          {format(date, 'd')}
+        </span>
+        {onAddNote && onUpdateNote && onDeleteNote && (
+          <CalendarDayNotes
+            date={date}
+            notes={dayNotes}
+            onAdd={onAddNote}
+            onUpdate={onUpdateNote}
+            onDelete={onDeleteNote}
+          />
+        )}
       </div>
       <div className="space-y-1">
         {/* Milestones first */}
@@ -309,6 +333,14 @@ export default function ContentCalendar() {
     todayMilestones,
     overdueMilestones,
   } = useCampaignIntegration();
+
+  // Calendar notes
+  const {
+    notes: calendarNotes,
+    addNote,
+    updateNote,
+    deleteNote,
+  } = useCalendarNotes();
   
   // Combine all milestones for calendar display
   const allMilestones = useMemo(() => {
@@ -882,6 +914,39 @@ export default function ContentCalendar() {
                     )}
                   </div>
                 </div>
+                {/* Day notes in sidebar */}
+                {(() => {
+                  const currentDateStr = format(currentDate, 'yyyy-MM-dd');
+                  const dayNotes = calendarNotes.filter(n => n.note_date === currentDateStr);
+                  return (
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <StickyNote className="w-3 h-3" />
+                          Ghi chú
+                        </div>
+                        <CalendarDayNotes
+                          date={currentDate}
+                          notes={dayNotes}
+                          onAdd={addNote}
+                          onUpdate={updateNote}
+                          onDelete={deleteNote}
+                        />
+                      </div>
+                      {dayNotes.length > 0 ? (
+                        <div className="space-y-1">
+                          {dayNotes.map(note => (
+                            <div key={note.id} className="text-xs p-1.5 rounded bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/30 dark:border-amber-800/20 text-foreground/80">
+                              {note.content.length > 60 ? note.content.slice(0, 60) + '…' : note.content}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground italic">Chưa có ghi chú</div>
+                      )}
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           )}
@@ -980,7 +1045,11 @@ export default function ContentCalendar() {
                           isCurrentMonth={isSameMonth(date, currentDate)}
                           schedules={filteredSchedules}
                           milestones={allMilestones}
+                          notes={calendarNotes}
                           onScheduleClick={handleScheduleClick}
+                          onAddNote={addNote}
+                          onUpdateNote={updateNote}
+                          onDeleteNote={deleteNote}
                         />
                       ))}
                     </div>

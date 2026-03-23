@@ -2726,6 +2726,47 @@ export type Database = {
           },
         ]
       }
+      calendar_notes: {
+        Row: {
+          color: string | null
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          note_date: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note_date: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note_date?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_notes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_contents: {
         Row: {
           campaign_id: string
