@@ -444,6 +444,7 @@ export default function MultiChannel() {
                   isLoadingProfile={isLoadingProfiles}
                   index={index}
                   brandLogoUrl={content.brand_template_id ? brandLogoMap[content.brand_template_id] : undefined}
+                  geoScore={geoScoresMap?.[content.id]?.overall_score ?? null}
                 />
               </div>
             ))}
