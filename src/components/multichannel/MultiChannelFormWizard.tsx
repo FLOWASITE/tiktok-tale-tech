@@ -682,8 +682,8 @@ export function MultiChannelFormWizard({
         // Step 1: Topic + Brand required
         return formData.topic.trim().length >= 10 && !!formData.brandTemplateId;
       case 2:
-        // Step 2: Allow proceeding if generating OR already has Core Content
-        return isGeneratingCoreContent || !!coreContentData?.id || !!formData.coreContentId;
+        // Step 2: Allow proceeding if generating OR already has Core Content OR skipping
+        return skipCoreContent || isGeneratingCoreContent || !!coreContentData?.id || !!formData.coreContentId;
       case 3:
         // Step 3: Role must be selected
         return !!formData.contentRole;
