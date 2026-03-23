@@ -63,6 +63,7 @@ export {
   buildStrategicContext,
   buildNegativePrompt,
   buildCriticalRules,
+  buildVietnameseTextAccuracy,
   buildLocalizationSuffix,
   buildBrandColorReinforcement,
   DEFAULT_BUILDERS,

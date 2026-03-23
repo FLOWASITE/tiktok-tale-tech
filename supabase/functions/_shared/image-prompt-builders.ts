@@ -667,6 +667,7 @@ export const DEFAULT_BUILDERS: PromptBuilder[] = [
   buildStrategicContext,
   buildNegativePrompt,
   buildCriticalRules,
+  buildVietnameseTextAccuracy,
   buildLocalizationSuffix,
   buildBrandColorReinforcement,
 ];
