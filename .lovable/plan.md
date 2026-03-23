@@ -1,42 +1,29 @@
 
 
-# Hiển thị chỉ số đánh giá trên Mockup UI
+# Thêm tùy chọn bỏ qua Core Content + cảnh báo thực tế
 
-## Vấn đề hiện tại
+## Thay đổi trong `MultiChannelFormWizard.tsx`
 
-Hệ thống có **4 loại chỉ số** cho bài viết, nhưng tất cả đều nằm ở sidebar/header — **không có chỉ số nào hiển thị trực tiếp trên Mockup preview**:
+### 1. Thêm state `skipCoreContent`
+- `const [skipCoreContent, setSkipCoreContent] = useState(false);`
 
-| Chỉ số | Vị trí hiện tại | Trên Mockup? |
-|--------|-----------------|--------------|
-| **Critique Score** (điểm chất lượng nội dung) | Badge trên header toolbar | ✗ |
-| **Content Analytics** (readability, sentiment, engagement, keywords) | Panel collapsible trong sidebar | ✗ |
-| **GEO Score** (8 yếu tố AI visibility) | Panel riêng trong sidebar | ✗ |
-| **SEO Score** (chỉ cho channel website) | Badge góc trên mockup website | ✓ (chỉ website) |
-| **Engagement Metrics** (likes, comments, shares) | Component tồn tại nhưng **không được import/sử dụng** ở đâu cả | ✗ |
+### 2. UI tại Step 2 — Switch + Alert cảnh báo
+- Thêm Switch ở đầu Step 2 (trước Topic Preview card): **"Tạo nhanh — bỏ qua Core Content"**
+- Khi bật, hiển thị Alert cảnh báo với nội dung thực tế:
+  - Icon `AlertTriangle`, border amber
+  - **Tiêu đề**: "Nội dung sẽ tạo nhanh hơn nhưng có hạn chế"
+  - **Nội dung cảnh báo**:
+    - Không có Core Content làm nguồn gốc → nội dung giữa các kênh có thể **không đồng nhất về thông điệp**
+    - Mỗi kênh sẽ được AI tạo độc lập từ chủ đề → **tone, thông tin chi tiết có thể khác nhau**
+    - Không thể dùng tính năng **đánh giá chất lượng Core Content** (critique score)
+    - Phù hợp cho bài viết đơn giản, tin nhanh. **Không khuyến khích cho chiến dịch quan trọng**
+- Khi bật: ẩn toàn bộ form tạo Core Content, chỉ hiện Switch + Alert
 
-## Giải pháp: Thêm chỉ số overlay lên Mockup
+### 3. Cập nhật logic
+- `canProceed` case 2: thêm `|| skipCoreContent` 
+- `handleNext` step 2: bỏ block check khi `skipCoreContent = true`
+- `handleSubmitForm`: khi `skipCoreContent`, truyền `coreContentId: null`
 
-### 1. Engagement Metrics trên Mockup social channels
-- Import `EngagementMetrics` vào `ChannelMockupFrame.tsx`
-- Hiển thị likes/comments/shares giả lập ở footer của mỗi mockup Facebook, LinkedIn, Instagram, TikTok (đúng vị trí như trên app thật)
-- Component này đã có sẵn, chỉ cần gắn vào đúng chỗ
-
-### 2. Score Summary Bar dưới Mockup
-- Tạo component `MockupScoreBar.tsx` — thanh nhỏ hiển thị dưới mỗi mockup preview
-- Hiển thị 3 chỉ số chính dạng compact:
-  - **Quality**: critique_score (badge màu, ví dụ "8.5/10")
-  - **GEO**: geo_score nếu đã chấm (badge, ví dụ "GEO 78 B")
-  - **Engagement est.**: engagement score từ ContentAnalytics (ví dụ "Eng: 72%")
-- Chỉ hiện các chỉ số đã có data, ẩn nếu chưa chấm
-
-### 3. Tích hợp vào ContentMockupToggle
-- Wrap mockup + score bar trong `ContentMockupToggle.tsx`
-- Truyền props: `critiqueScore`, `geoScore`, `engagementScore`
-- Score bar nằm ngay dưới mockup frame, không cần scroll
-
-### Files cần sửa/tạo
-- `src/components/preview/ChannelMockupFrame.tsx` — import & render `EngagementMetrics` trong footer các social mockups
-- `src/components/preview/MockupScoreBar.tsx` — component mới
-- `src/components/viewer/ContentMockupToggle.tsx` — thêm MockupScoreBar
-- `src/components/MultiChannelViewer.tsx` — truyền score data xuống ContentMockupToggle
+### File cần sửa
+- `src/components/multichannel/MultiChannelFormWizard.tsx`
 
