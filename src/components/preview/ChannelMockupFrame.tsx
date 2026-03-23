@@ -1684,8 +1684,7 @@ function WebsiteMockup({ content, brandName, logoUrl, primaryColor, isGenerating
       {/* Website Content */}
       <div 
         ref={scrollContainerRef}
-        className="bg-white dark:bg-[#1c1c1e] max-h-[520px] overflow-y-auto relative"
-        onScroll={handleScroll}
+        className="bg-white dark:bg-[#1c1c1e] relative"
       >
         {seoData && seoScore > 0 && (
           <SEOScoreBadge score={seoScore} themeColor={themeColor} />
