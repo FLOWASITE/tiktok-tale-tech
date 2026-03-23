@@ -916,7 +916,7 @@ Deno.serve(withPerf({ functionName: 'generate-core-content', slowThresholdMs: 45
       brandContext,
       null,
       'balanced',
-      { lengthMode: lengthMode as CoreContentLengthMode }
+      { lengthMode: effectiveLengthMode }
     );
     const qualityScore = qualityMetrics.overall;
     
