@@ -63,6 +63,7 @@ import PaymentResult from "@/pages/PaymentResult";
 import AgentDashboard from "@/pages/AgentDashboard";
 import AgentTeamPage from "@/pages/AgentTeamPage";
 import AgentDirectoryPage from "@/pages/AgentDirectoryPage";
+import AgentMonitorPage from "@/pages/AgentMonitorPage";
 
 // Landing pages (lazy loaded for app domain preview/dev access)
 const LandingPage = lazy(() => import("@/landing/pages/Landing"));
