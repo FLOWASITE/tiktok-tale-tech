@@ -1527,6 +1527,7 @@ export type Database = {
           organization_id: string
           pipeline_state: Json | null
           priority: Database["public"]["Enums"]["agent_priority"]
+          stage_started_at: string | null
           updated_at: string
         }
         Insert: {
@@ -1546,6 +1547,7 @@ export type Database = {
           organization_id: string
           pipeline_state?: Json | null
           priority?: Database["public"]["Enums"]["agent_priority"]
+          stage_started_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -1565,6 +1567,7 @@ export type Database = {
           organization_id?: string
           pipeline_state?: Json | null
           priority?: Database["public"]["Enums"]["agent_priority"]
+          stage_started_at?: string | null
           updated_at?: string
         }
         Relationships: [
