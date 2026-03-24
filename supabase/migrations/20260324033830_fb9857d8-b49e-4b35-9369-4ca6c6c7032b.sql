@@ -1,0 +1,1 @@
+ALTER TABLE public.agent_pipelines ADD COLUMN IF NOT EXISTS stage_started_at timestamptz;

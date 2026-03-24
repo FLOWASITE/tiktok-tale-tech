@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
 const corsHeaders = {
@@ -10,6 +9,8 @@ const STAGE_ORDER = [
   "research", "creation", "optimization", "expansion",
   "compliance", "approval", "scheduled", "published", "analyzing"
 ];
+
+const MAX_RETRIES = 3;
 
 /** Helper: call another edge function internally */
 async function callFunction(supabaseUrl: string, supabaseKey: string, fnName: string, body: Record<string, unknown>) {
@@ -23,6 +24,18 @@ async function callFunction(supabaseUrl: string, supabaseKey: string, fnName: st
   return data;
 }
 
+/** Fire-and-forget: trigger next stage as a NEW Edge Function invocation */
+function fireNextStage(supabaseUrl: string, supabaseKey: string, pipelineId: string) {
+  fetch(`${supabaseUrl}/functions/v1/agent-pipeline`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${supabaseKey}`,
+    },
+    body: JSON.stringify({ action: "run_stage", pipeline_id: pipelineId }),
+  }).catch(e => console.error("Fire-next-stage failed:", e));
+}
+
 /** Create initial pipeline_state with metadata */
 function createPipelineState(meta: Record<string, unknown> = {}) {
   const stages: Record<string, { status: string }> = {};
@@ -30,7 +43,7 @@ function createPipelineState(meta: Record<string, unknown> = {}) {
   return { stages, metadata: meta };
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
@@ -59,6 +72,7 @@ serve(async (req) => {
           brand_template_id: goal.brand_template_id || null,
           campaign_id: goal.campaign_id || null,
           autonomy_level: goal.autonomy_level,
+          target_channels: goal.target_channels || [],
         });
 
         const { data: pipeline, error: pipeErr } = await supabase
@@ -74,6 +88,7 @@ serve(async (req) => {
             priority: "normal",
             autonomy_level: goal.autonomy_level,
             estimated_completion: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            stage_started_at: new Date().toISOString(),
           } as any)
           .select()
           .single();
@@ -86,15 +101,11 @@ serve(async (req) => {
           agent_name: "orchestrator",
           action: "pipeline_created",
           input_summary: `Goal: ${goal.name}, Topic: ${topic}`,
-          output_summary: `Pipeline ${pipeline.id} created, auto-chaining research`,
+          output_summary: `Pipeline ${pipeline.id} created, firing research stage`,
         } as any);
 
-        // Auto-chain: start running the research stage immediately
-        try {
-          await runStage(supabase, supabaseUrl, supabaseKey, pipeline);
-        } catch (e) {
-          console.error(`Auto-chain research failed for pipeline ${pipeline.id}:`, e);
-        }
+        // Fire-and-forget: start research stage as NEW invocation
+        fireNextStage(supabaseUrl, supabaseKey, pipeline.id);
       }
 
       return json({ success: true, pipelines_created: pipelines.length, pipeline_ids: pipelines.map(p => p.id) });
@@ -119,7 +130,7 @@ serve(async (req) => {
       const nextStage = STAGE_ORDER[currentIdx + 1];
       const now = new Date().toISOString();
 
-      // If advancing to approval + human_in_loop → create approval record with real preview
+      // If advancing to approval + human_in_loop → create approval record
       if (nextStage === "approval" && pipeline.autonomy_level === "human_in_loop") {
         const pState = (pipeline.pipeline_state as any) || {};
         const creationOutput = pState.stages?.creation?.output;
@@ -139,11 +150,10 @@ serve(async (req) => {
         } as any);
       }
 
-      // Update pipeline state
       const pipelineState = (pipeline.pipeline_state as any) || { stages: {} };
       if (pipelineState.stages) {
-        pipelineState.stages[pipeline.current_stage] = { status: "completed", completed_at: now };
-        pipelineState.stages[nextStage] = { status: "in_progress", started_at: now };
+        pipelineState.stages[pipeline.current_stage] = { ...pipelineState.stages[pipeline.current_stage], status: "completed", completed_at: now };
+        pipelineState.stages[nextStage] = { ...(pipelineState.stages[nextStage] || {}), status: "in_progress", started_at: now };
       }
 
       await supabase
@@ -151,6 +161,7 @@ serve(async (req) => {
         .update({
           current_stage: nextStage,
           pipeline_state: pipelineState,
+          stage_started_at: now,
           completed_at: nextStage === "analyzing" ? now : null,
         } as any)
         .eq("id", pipeline_id);
@@ -162,6 +173,9 @@ serve(async (req) => {
         input_summary: `From: ${pipeline.current_stage}`,
         output_summary: `To: ${nextStage}`,
       } as any);
+
+      // Fire-and-forget: run the next stage
+      fireNextStage(supabaseUrl, supabaseKey, pipeline_id);
 
       return json({ success: true, previous_stage: pipeline.current_stage, current_stage: nextStage });
     }
@@ -234,6 +248,7 @@ serve(async (req) => {
         const pipelineState = createPipelineState({
           brand_template_id: goal.brand_template_id || null,
           campaign_id: goal.campaign_id || null,
+          target_channels: goal.target_channels || [],
         });
 
         const { data: newPipeline, error: pipeErr } = await supabase
@@ -249,14 +264,15 @@ serve(async (req) => {
             priority: "normal",
             autonomy_level: goal.autonomy_level,
             estimated_completion: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            stage_started_at: new Date().toISOString(),
           } as any)
           .select()
           .single();
 
         if (!pipeErr && newPipeline) {
           triggered++;
-          // Auto-chain
-          try { await runStage(supabase, supabaseUrl, supabaseKey, newPipeline); } catch (_) {}
+          // Fire-and-forget instead of recursive call
+          fireNextStage(supabaseUrl, supabaseKey, newPipeline.id);
         }
       }
 
@@ -276,7 +292,7 @@ serve(async (req) => {
   }
 });
 
-// ========== CORE: Run a pipeline stage and auto-chain to next ==========
+// ========== CORE: Run a single pipeline stage (NO recursive chaining) ==========
 async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string, pipeline: any) {
   const startTime = Date.now();
   const stage = pipeline.current_stage;
@@ -287,9 +303,17 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
   let result: any = { status: "completed" };
   let shouldAutoAdvance = true;
 
+  // Mark stage as in_progress with timestamp
+  if (pState.stages?.[stage]) {
+    pState.stages[stage].status = "in_progress";
+    pState.stages[stage].started_at = new Date().toISOString();
+  }
+  await supabase.from("agent_pipelines")
+    .update({ pipeline_state: pState, stage_started_at: new Date().toISOString() } as any)
+    .eq("id", pipeline.id);
+
   try {
     if (stage === "research") {
-      // Call topic-ai (correct function name)
       const output = await callFunction(supabaseUrl, supabaseKey, "topic-ai", {
         action: "suggest",
         topic: pipeline.content_topic,
@@ -299,7 +323,6 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       result.output = output;
 
     } else if (stage === "creation") {
-      // Call generate-core-content with brand context
       const output = await callFunction(supabaseUrl, supabaseKey, "generate-core-content", {
         topic: pipeline.content_topic || pipeline.content_title,
         organization_id: orgId,
@@ -308,18 +331,15 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       });
       result.output = output;
 
-      // Save content_id to pipeline if returned
       if (output?.content_id || output?.id) {
         const contentId = output.content_id || output.id;
-        await supabase
-          .from("agent_pipelines")
+        await supabase.from("agent_pipelines")
           .update({ content_id: contentId } as any)
           .eq("id", pipeline.id);
         pipeline.content_id = contentId;
       }
 
     } else if (stage === "optimization") {
-      // Call geo-score-content with real content
       if (pipeline.content_id) {
         try {
           const output = await callFunction(supabaseUrl, supabaseKey, "geo-score-content", {
@@ -337,14 +357,14 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       }
 
     } else if (stage === "expansion") {
-      // Call generate-multichannel if content_id exists
       if (pipeline.content_id) {
         try {
+          const targetChannels = meta.target_channels || [];
           const output = await callFunction(supabaseUrl, supabaseKey, "generate-multichannel", {
             content_id: pipeline.content_id,
             organization_id: orgId,
             brand_template_id: brandTemplateId,
-            channels: pState.metadata?.target_channels || [],
+            channels: targetChannels,
           });
           result.output = output;
         } catch (e) {
@@ -356,11 +376,9 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       }
 
     } else if (stage === "compliance") {
-      // Compliance check — lightweight pass
       result.output = { status: "passed", issues: [] };
 
     } else if (stage === "approval") {
-      // Approval stage — pause if human_in_loop
       if (pipeline.autonomy_level === "human_in_loop") {
         shouldAutoAdvance = false;
         result.output = { waiting_for: "human_approval" };
@@ -369,29 +387,107 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       }
 
     } else if (stage === "scheduled") {
-      result.output = { scheduled: true };
+      // Auto-publish: check if full_auto, publish immediately; otherwise schedule
+      const targetChannels = meta.target_channels || [];
+      if (pipeline.autonomy_level === "full_auto" && targetChannels.length > 0) {
+        result.output = { scheduled: true, publish_immediately: true, channels: targetChannels };
+      } else {
+        result.output = { scheduled: true, channels: targetChannels };
+      }
+
     } else if (stage === "published") {
-      result.output = { published: true };
+      // Call channel-publisher for each target channel
+      const targetChannels = meta.target_channels || [];
+      const publishResults: Record<string, any> = {};
+
+      if (pipeline.content_id && targetChannels.length > 0) {
+        for (const channel of targetChannels) {
+          try {
+            const pubResult = await callFunction(supabaseUrl, supabaseKey, "channel-publisher", {
+              action: channel,
+              content_id: pipeline.content_id,
+              organization_id: orgId,
+              pipeline_id: pipeline.id,
+            });
+            publishResults[channel] = { success: true, ...pubResult };
+          } catch (e) {
+            console.warn(`Publish to ${channel} failed:`, e);
+            publishResults[channel] = { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+          }
+        }
+      }
+      result.output = { published: true, results: publishResults };
+
+    } else if (stage === "analyzing") {
+      // Final stage — mark pipeline as completed
+      result.output = { completed: true, completed_at: new Date().toISOString() };
+      shouldAutoAdvance = false; // No next stage
     }
+
   } catch (e) {
+    // ========== RETRY LOGIC ==========
+    const errorMessage = e instanceof Error ? e.message : "Unknown error";
+    const currentRetries = pState.stages?.[stage]?.retry_count || 0;
+
+    if (currentRetries < MAX_RETRIES) {
+      // Update retry count and schedule retry
+      if (pState.stages?.[stage]) {
+        pState.stages[stage].retry_count = currentRetries + 1;
+        pState.stages[stage].last_error = errorMessage;
+        pState.stages[stage].status = "retrying";
+      }
+      await supabase.from("agent_pipelines")
+        .update({ pipeline_state: pState } as any)
+        .eq("id", pipeline.id);
+
+      await supabase.from("agent_pipeline_logs").insert({
+        pipeline_id: pipeline.id,
+        agent_name: stage,
+        action: "retry_scheduled",
+        output_summary: `Retry ${currentRetries + 1}/${MAX_RETRIES}: ${errorMessage}`,
+        error_message: errorMessage,
+      } as any);
+
+      // Exponential backoff delay then fire retry as new invocation
+      const delayMs = Math.pow(2, currentRetries) * 1000;
+      await new Promise(r => setTimeout(r, delayMs));
+      fireNextStage(supabaseUrl, supabaseKey, pipeline.id);
+
+      return { success: false, stage, retrying: true, retry_count: currentRetries + 1, error: errorMessage };
+    }
+
+    // Max retries exceeded — mark as failed
     result.status = "failed";
-    result.error = e instanceof Error ? e.message : "Unknown error";
+    result.error = errorMessage;
     shouldAutoAdvance = false;
+
+    if (pState.stages?.[stage]) {
+      pState.stages[stage].status = "failed";
+      pState.stages[stage].error = errorMessage;
+      pState.stages[stage].retry_count = currentRetries;
+    }
+
+    // Flag the pipeline
+    await supabase.from("agent_pipelines")
+      .update({
+        pipeline_state: pState,
+        is_flagged: true,
+        flag_reason: `Stage "${stage}" failed after ${MAX_RETRIES} retries: ${errorMessage}`,
+      } as any)
+      .eq("id", pipeline.id);
   }
 
   const durationMs = Date.now() - startTime;
 
   // Save stage output to pipeline_state
-  if (pState.stages && pState.stages[stage]) {
+  if (pState.stages?.[stage] && result.status !== "failed") {
     pState.stages[stage].output = result.output || null;
     pState.stages[stage].duration_ms = durationMs;
-    if (result.status === "failed") {
-      pState.stages[stage].status = "failed";
-      pState.stages[stage].error = result.error;
-    }
+    pState.stages[stage].status = "completed";
+    pState.stages[stage].completed_at = new Date().toISOString();
   }
-  await supabase
-    .from("agent_pipelines")
+
+  await supabase.from("agent_pipelines")
     .update({ pipeline_state: pState } as any)
     .eq("id", pipeline.id);
 
@@ -405,7 +501,7 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
     error_message: result.error || null,
   } as any);
 
-  // Auto-advance to next stage
+  // Auto-advance to next stage via fire-and-forget (NOT recursive)
   if (shouldAutoAdvance && result.status === "completed") {
     const currentIdx = STAGE_ORDER.indexOf(stage);
     if (currentIdx >= 0 && currentIdx < STAGE_ORDER.length - 1) {
@@ -413,28 +509,10 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       const now = new Date().toISOString();
 
       if (pState.stages) {
-        pState.stages[stage] = { ...pState.stages[stage], status: "completed", completed_at: now };
         pState.stages[nextStage] = { ...(pState.stages[nextStage] || {}), status: "in_progress", started_at: now };
       }
 
-      await supabase
-        .from("agent_pipelines")
-        .update({
-          current_stage: nextStage,
-          pipeline_state: pState,
-          completed_at: nextStage === "analyzing" ? now : null,
-        } as any)
-        .eq("id", pipeline.id);
-
-      await supabase.from("agent_pipeline_logs").insert({
-        pipeline_id: pipeline.id,
-        agent_name: "orchestrator",
-        action: "auto_advanced",
-        input_summary: `From: ${stage}`,
-        output_summary: `To: ${nextStage}`,
-      } as any);
-
-      // If next stage needs approval with human_in_loop, create approval record
+      // If next stage is approval + human_in_loop, create approval record
       if (nextStage === "approval" && pipeline.autonomy_level === "human_in_loop") {
         const creationOutput = pState.stages?.creation?.output;
         const optimizationOutput = pState.stages?.optimization?.output;
@@ -453,14 +531,26 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         } as any);
       }
 
-      // Recursively run next stage (unless it's approval waiting for human)
+      await supabase.from("agent_pipelines")
+        .update({
+          current_stage: nextStage,
+          pipeline_state: pState,
+          stage_started_at: now,
+          completed_at: nextStage === "analyzing" ? now : null,
+        } as any)
+        .eq("id", pipeline.id);
+
+      await supabase.from("agent_pipeline_logs").insert({
+        pipeline_id: pipeline.id,
+        agent_name: "orchestrator",
+        action: "auto_advanced",
+        input_summary: `From: ${stage}`,
+        output_summary: `To: ${nextStage}`,
+      } as any);
+
+      // Fire next stage as NEW Edge Function invocation (anti-timeout)
       if (!(nextStage === "approval" && pipeline.autonomy_level === "human_in_loop")) {
-        const updatedPipeline = { ...pipeline, current_stage: nextStage, pipeline_state: pState };
-        try {
-          await runStage(supabase, supabaseUrl, supabaseKey, updatedPipeline);
-        } catch (e) {
-          console.error(`Auto-chain failed at ${nextStage}:`, e);
-        }
+        fireNextStage(supabaseUrl, supabaseKey, pipeline.id);
       }
     }
   }
