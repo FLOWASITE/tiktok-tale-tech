@@ -176,7 +176,7 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
           </div>
           <div className="flex items-center justify-between">
             <span className="text-[9px] text-muted-foreground">{stageLabel}</span>
-            <span className="text-[9px] text-muted-foreground">{isCompleted ? 100 : progress}%</span>
+            <span className="text-[9px] text-muted-foreground">{completedCount}/{TOTAL_STAGES} bước</span>
           </div>
         </div>
 
