@@ -102,6 +102,12 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   const [campaignStartDate, setCampaignStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [approvalMode, setApprovalMode] = useState('approve_plan');
 
+  // Smart auto-approve thresholds
+  const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
+  const [thresholdQuality, setThresholdQuality] = useState(70);
+  const [thresholdRiskMax, setThresholdRiskMax] = useState(30);
+  const [thresholdGeo, setThresholdGeo] = useState(60);
+
   // Brief fields
   const [keyMessages, setKeyMessages] = useState<string[]>([]);
   const [keyMessageInput, setKeyMessageInput] = useState('');
@@ -163,6 +169,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     setCustomDuration('');
     setCampaignStartDate(new Date().toISOString().split('T')[0]);
     setApprovalMode('approve_plan');
+    setAutoApproveEnabled(false); setThresholdQuality(70); setThresholdRiskMax(30); setThresholdGeo(60);
     setKeyMessages([]); setKeyMessageInput(''); setPrimaryCta('');
     setPillarAllocation({});
     setClarifying(false);
