@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
   Target, Radio, Palette, Eye, ChevronLeft, ChevronRight, 
-  Check, Sparkles, ShieldCheck, Zap, Bot, Calendar
+  Check, Sparkles, ShieldCheck, Zap, Bot, Calendar, X, Plus, MessageSquare
 } from 'lucide-react';
 import { AgentAutonomyLevel, AgentGoal, AUTONOMY_LEVELS } from '@/types/agent';
 import { supabase } from '@/integrations/supabase/client';
@@ -101,11 +102,31 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   const [campaignStartDate, setCampaignStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [approvalMode, setApprovalMode] = useState('approve_plan');
 
+  // Brief fields
+  const [keyMessages, setKeyMessages] = useState<string[]>([]);
+  const [keyMessageInput, setKeyMessageInput] = useState('');
+  const [primaryCta, setPrimaryCta] = useState('');
+  const [pillarAllocation, setPillarAllocation] = useState<Record<string, number>>({});
+
   // Clarification state
   const [clarifying, setClarifying] = useState(false);
   const [clarificationQuestions, setClarificationQuestions] = useState<any[] | null>(null);
   const [clarificationUnderstanding, setClarificationUnderstanding] = useState<string | null>(null);
   const [clarificationContext, setClarificationContext] = useState<Record<string, string> | null>(null);
+
+  // Initialize pillar allocation from brand
+  useEffect(() => {
+    if (currentBrand?.content_pillars && currentBrand.content_pillars.length > 0 && Object.keys(pillarAllocation).length === 0) {
+      const pillars = currentBrand.content_pillars as { name: string; keywords?: string[] }[];
+      const evenSplit = Math.floor(100 / pillars.length);
+      const remainder = 100 - evenSplit * pillars.length;
+      const initial: Record<string, number> = {};
+      pillars.forEach((p, i) => {
+        initial[p.name] = evenSplit + (i === 0 ? remainder : 0);
+      });
+      setPillarAllocation(initial);
+    }
+  }, [currentBrand]);
 
   useEffect(() => {
     if (open && initialData) {
@@ -142,10 +163,40 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     setCustomDuration('');
     setCampaignStartDate(new Date().toISOString().split('T')[0]);
     setApprovalMode('approve_plan');
+    setKeyMessages([]); setKeyMessageInput(''); setPrimaryCta('');
+    setPillarAllocation({});
     setClarifying(false);
     setClarificationQuestions(null);
     setClarificationUnderstanding(null);
     setClarificationContext(null);
+  };
+
+  const addKeyMessage = () => {
+    const msg = keyMessageInput.trim();
+    if (msg && keyMessages.length < 5 && !keyMessages.includes(msg)) {
+      setKeyMessages([...keyMessages, msg]);
+      setKeyMessageInput('');
+    }
+  };
+
+  const handlePillarChange = (pillarName: string, newValue: number) => {
+    const pillars = Object.keys(pillarAllocation);
+    if (pillars.length <= 1) return;
+    const others = pillars.filter(p => p !== pillarName);
+    const oldValue = pillarAllocation[pillarName];
+    const diff = newValue - oldValue;
+    const totalOthers = others.reduce((s, p) => s + pillarAllocation[p], 0);
+    const updated = { ...pillarAllocation, [pillarName]: newValue };
+    others.forEach(p => {
+      const ratio = totalOthers > 0 ? pillarAllocation[p] / totalOthers : 1 / others.length;
+      updated[p] = Math.max(0, Math.round(pillarAllocation[p] - diff * ratio));
+    });
+    // Fix rounding to ensure sum = 100
+    const sum = Object.values(updated).reduce((s, v) => s + v, 0);
+    if (sum !== 100 && others.length > 0) {
+      updated[others[0]] += 100 - sum;
+    }
+    setPillarAllocation(updated);
   };
 
   const toggleChannel = (ch: string) => {
