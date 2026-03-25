@@ -25,15 +25,26 @@ async function callFunction(supabaseUrl: string, supabaseKey: string, fnName: st
 }
 
 /** Fire-and-forget: trigger next stage as a NEW Edge Function invocation */
-function fireNextStage(supabaseUrl: string, supabaseKey: string, pipelineId: string) {
+function fireNextStage(supabaseUrl: string, supabaseKey: string, pipelineId: string, nextStage?: string) {
   fetch(`${supabaseUrl}/functions/v1/agent-pipeline`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${supabaseKey}`,
     },
-    body: JSON.stringify({ action: "run_stage", pipeline_id: pipelineId }),
+    body: JSON.stringify({ action: "run_stage", pipeline_id: pipelineId, stage: nextStage }),
   }).catch(e => console.error("Fire-next-stage failed:", e));
+}
+
+/** Parse JSON from LLM response that may be wrapped in markdown code fences */
+function parseJsonFromLLM(text: string): any {
+  if (!text) return null;
+  try { return JSON.parse(text); } catch {}
+  const stripped = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  try { return JSON.parse(stripped); } catch {}
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch {} }
+  return null;
 }
 
 /** Create initial pipeline_state with metadata */
@@ -117,7 +128,7 @@ Deno.serve(async (req) => {
         } as any);
 
         // Fire-and-forget: start research stage as NEW invocation
-        fireNextStage(supabaseUrl, supabaseKey, pipeline.id);
+        fireNextStage(supabaseUrl, supabaseKey, pipeline.id, "research");
       }
 
       return json({ success: true, pipelines_created: pipelines.length, pipeline_ids: pipelines.map(p => p.id) });
@@ -187,7 +198,7 @@ Deno.serve(async (req) => {
       } as any);
 
       // Fire-and-forget: run the next stage
-      fireNextStage(supabaseUrl, supabaseKey, pipeline_id);
+      fireNextStage(supabaseUrl, supabaseKey, pipeline_id, nextStage);
 
       return json({ success: true, previous_stage: pipeline.current_stage, current_stage: nextStage });
     }
@@ -195,6 +206,7 @@ Deno.serve(async (req) => {
     // ========== ACTION: run_stage ==========
     if (action === "run_stage") {
       if (!pipeline_id) throw new Error("pipeline_id required");
+      const requestedStage = body.stage; // May be undefined (backwards compat)
 
       const { data: pipeline } = await supabase
         .from("agent_pipelines")
@@ -202,6 +214,12 @@ Deno.serve(async (req) => {
         .eq("id", pipeline_id)
         .single();
       if (!pipeline) throw new Error("Pipeline not found");
+
+      // If a specific stage was requested, verify pipeline is at that stage
+      if (requestedStage && pipeline.current_stage !== requestedStage) {
+        console.log(`[run_stage] Requested ${requestedStage} but pipeline is at ${pipeline.current_stage}. Skipping.`);
+        return json({ status: 'skipped', reason: 'stage_mismatch' });
+      }
 
       const result = await runStage(supabase, supabaseUrl, supabaseKey, pipeline);
       return json(result);
@@ -284,7 +302,7 @@ Deno.serve(async (req) => {
         if (!pipeErr && newPipeline) {
           triggered++;
           // Fire-and-forget instead of recursive call
-          fireNextStage(supabaseUrl, supabaseKey, newPipeline.id);
+          fireNextStage(supabaseUrl, supabaseKey, newPipeline.id, "research");
         }
       }
 
@@ -376,7 +394,7 @@ Deno.serve(async (req) => {
 
       // Start all pipelines with staggered fire-and-forget
       for (const pid of pipelineIds) {
-        fireNextStage(supabaseUrl, supabaseKey, pid);
+        fireNextStage(supabaseUrl, supabaseKey, pid, "research");
         await new Promise(r => setTimeout(r, 2000));
       }
 
@@ -412,6 +430,21 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
   let pipeline = freshPipeline;
   const stage = pipeline.current_stage;
   const pState = (pipeline.pipeline_state as any) || { stages: {}, metadata: {} };
+
+  // ===== DEDUP GUARD =====
+  const stageState = pState.stages?.[stage];
+  if (stageState?.status === 'completed') {
+    console.log(`[${stage}] Already completed, skipping duplicate execution`);
+    return { status: 'skipped', reason: 'already_completed', stage };
+  }
+  if (stageState?.status === 'in_progress' && stageState?.started_at) {
+    const elapsed = Date.now() - new Date(stageState.started_at).getTime();
+    if (elapsed < 10000) {
+      console.log(`[${stage}] Already in_progress (${elapsed}ms ago), skipping duplicate`);
+      return { status: 'skipped', reason: 'already_in_progress', stage };
+    }
+  }
+
   const meta = pState.metadata || {};
   const brandTemplateId = meta.brand_template_id || null;
   const orgId = pipeline.organization_id;
@@ -628,12 +661,26 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
             result.output = { channels_generated: [], note: "No target channels specified" };
           } else {
             // generate-multichannel expects contentId + action:'expand' + newChannels
+            // CRITICAL: Pass a userId to avoid "Unauthorized" — fetch org owner as fallback
+            let expansionUserId: string | null = null;
+            try {
+              const { data: owner } = await supabase
+                .from("organization_members")
+                .select("user_id")
+                .eq("organization_id", orgId)
+                .eq("role", "owner")
+                .limit(1)
+                .single();
+              expansionUserId = owner?.user_id || null;
+            } catch { /* ignore */ }
+
             const output = await callFunction(supabaseUrl, supabaseKey, "generate-multichannel", {
               action: "expand",
               contentId,
               newChannels: targetChannels,
               organizationId: orgId,
               brandTemplateId: brandTemplateId,
+              userId: expansionUserId,
             });
             result.output = output;
           }
@@ -754,10 +801,9 @@ Trả về JSON (KHÔNG markdown):
             || aiData?.choices?.[0]?.message?.content
             || "";
 
-          // Parse JSON from response
-          const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const complianceResult = JSON.parse(jsonMatch[0]);
+          // Parse JSON from response using robust parser
+          const complianceResult = parseJsonFromLLM(aiContent);
+          if (complianceResult) {
             result.output = complianceResult;
 
             // Flag pipeline if compliance failed
@@ -772,8 +818,8 @@ Trả về JSON (KHÔNG markdown):
               }
             }
           } else {
-            console.warn("[compliance] Could not parse LLM response:", aiContent.slice(0, 200));
-            result.output = { status: "needs_review", score: 50, issues: [], summary: "Could not parse compliance check result" };
+            console.warn("[compliance] Could not parse LLM response:", aiContent.slice(0, 500));
+            result.output = { status: "needs_review", score: 50, issues: [], summary: "Could not parse compliance check result", raw_response: aiContent?.substring(0, 500) };
           }
         } catch (compErr) {
           console.warn("[compliance] LLM call failed, using basic check:", compErr);
@@ -868,7 +914,7 @@ Trả về JSON (KHÔNG markdown):
       // Exponential backoff delay then fire retry as new invocation
       const delayMs = Math.pow(2, currentRetries) * 1000;
       await new Promise(r => setTimeout(r, delayMs));
-      fireNextStage(supabaseUrl, supabaseKey, pipeline.id);
+      fireNextStage(supabaseUrl, supabaseKey, pipeline.id, stage);
 
       return { success: false, stage, retrying: true, retry_count: currentRetries + 1, error: errorMessage };
     }
@@ -979,7 +1025,7 @@ Trả về JSON (KHÔNG markdown):
 
       // Fire next stage as NEW Edge Function invocation (anti-timeout)
       if (!(nextStage === "approval" && pipeline.autonomy_level === "human_in_loop")) {
-        fireNextStage(supabaseUrl, supabaseKey, pipeline.id);
+        fireNextStage(supabaseUrl, supabaseKey, pipeline.id, nextStage);
       }
     }
   }
