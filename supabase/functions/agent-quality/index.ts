@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
 
       // Use resolved ID
       return await runQuality(supabase, supabaseUrl, supabaseKey, lovableApiKey, {
-        pipelineId, contentId: resolvedContentId, contentType, orgId, brandTemplateId, pipelineState: pState,
+        pipelineId, contentId: resolvedContentId, contentType, orgId, brandTemplateId, pipelineState: pState, contentOverride,
       });
     }
 
