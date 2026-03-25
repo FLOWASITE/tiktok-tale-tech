@@ -350,9 +350,12 @@ async function routeVideoScript(
     : "educate";
 
   // Step 1: Generate script
+  const estLength = ctx?.estimated_length || input.length_mode || "medium";
+  const duration = estLength === "short" ? 30 : estLength === "long" ? 90 : 60;
+
   const scriptOutput = await callFunction(supabaseUrl, serviceKey, "generate-script", {
     topic: input.topic,
-    duration: "60s",
+    duration,
     script_purpose: contentGoal,
     video_type: "talking_head",
     organization_id: input.organization_id,
@@ -372,8 +375,10 @@ async function routeVideoScript(
     // Step 2: Analyze
     try {
       const analysis = await callFunction(supabaseUrl, serviceKey, "analyze-script", {
-        script: scriptContent,
-        organizationId: input.organization_id,
+        scriptContent: scriptContent,
+        topic: input.topic,
+        duration,
+        videoType: "talking_head",
       });
       result.output.analysis = analysis;
 
@@ -438,24 +443,31 @@ async function routeCarousel(
     topic: input.topic,
     platform: targetChannel,
     carouselStyle: "educational",
-    visualPreset: "clean_modern",
+    visualPreset: "minimalist",
     slideCount,
+    aiTool: "ideogram",
+    brandName: brief.brand_name || "Brand",
+    brandGuideline: brief.unique_value_proposition || "",
+    includeLogo: false,
     organization_id: input.organization_id,
     brandTemplateId: input.brand_template_id,
     autoGenerateImages: false,
     userId,
   });
 
+  // generate-carousel returns DB record with slides_content, map to slides
+  const slides = carouselOutput?.slides_content || carouselOutput?.slides || [];
+
   const result: CreatorResult = {
     success: true,
     content_type: "carousel",
-    content_id: carouselOutput?.content_id || carouselOutput?.id || undefined,
+    content_id: carouselOutput?.id || undefined,
     title: carouselOutput?.title || input.topic,
-    output: carouselOutput,
+    output: { ...carouselOutput, slides },
   };
 
   // Self-review on carousel text
-  const slidesText = (carouselOutput?.slides || [])
+  const slidesText = slides
     .map((s: any, i: number) => `Slide ${i + 1}: ${typeof s.textContent === 'string' ? s.textContent : JSON.stringify(s.textContent || s.headline || "")}`)
     .join("\n");
 
