@@ -4,6 +4,7 @@ import { GoalCompletionDonut } from './GoalCompletionDonut';
 import { BudgetUsageCard } from './BudgetUsageCard';
 import { MilestoneProgressCard } from './MilestoneProgressCard';
 import { KPIComparisonBar } from './KPIComparisonBar';
+import { PipelineAnalyticsSection } from './PipelineAnalyticsSection';
 
 interface CampaignAnalyticsDashboardProps {
   campaign: Campaign;
@@ -20,6 +21,9 @@ export function CampaignAnalyticsDashboard({
 }: CampaignAnalyticsDashboardProps) {
   return (
     <div className="space-y-6">
+      {/* Pipeline Performance */}
+      <PipelineAnalyticsSection campaignId={campaign.id} />
+
       {/* KPI Progress Over Time */}
       <KPIProgressChart 
         kpiLogs={kpiLogs} 
