@@ -285,11 +285,14 @@ async function generateImagesForChannels(
 async function generateCarouselImages(
   supabaseUrl: string,
   serviceKey: string,
+  supabase: any,
   carouselId: string,
   slides: any[],
   brandTemplateId: string | null | undefined,
   visualPreset: string,
   carouselStyle: string,
+  organizationId: string,
+  createdBy: string | null,
 ): Promise<{ success: number; failed: number }> {
   let successCount = 0;
   let failedCount = 0;
@@ -313,21 +316,61 @@ async function generateCarouselImages(
         });
       })
     );
-    results.forEach((r, idx) => {
-      if (r.status === "fulfilled") {
+
+    for (let idx = 0; idx < results.length; idx++) {
+      const slideNumber = i + idx + 1;
+      const slide = batch[idx];
+      const result = results[idx];
+
+      if (result.status !== "fulfilled") {
+        console.warn(`[carousel] Image failed for slide ${slideNumber}:`, result.reason);
+        failedCount++;
+        continue;
+      }
+
+      const output = result.value;
+      const imageUrl = output?.imageUrl || output?.backgroundUrl;
+      if (!imageUrl) {
+        console.warn(`[carousel] Missing imageUrl for slide ${slideNumber}`);
+        failedCount++;
+        continue;
+      }
+
+      try {
+        await supabase
+          .from("carousel_images")
+          .update({ is_selected: false })
+          .eq("carousel_id", carouselId)
+          .eq("slide_number", slideNumber)
+          .eq("is_selected", true);
+
+        const { error: insertErr } = await supabase
+          .from("carousel_images")
+          .insert({
+            carousel_id: carouselId,
+            slide_number: slideNumber,
+            image_url: imageUrl,
+            prompt: slide?.fullPrompt || slide?.designStyle || null,
+            is_selected: true,
+            organization_id: organizationId,
+            created_by: createdBy || null,
+          });
+
+        if (insertErr) {
+          throw insertErr;
+        }
+
         successCount++;
-        // Capture scene description for seamless continuity
-        const output = r.value;
         if (output?.sceneDescription) {
           previousSceneDescription = output.sceneDescription;
         }
-      } else {
-        const slideNum = i + idx + 1;
-        console.warn(`[carousel] Image failed for slide ${slideNum}:`, r.reason);
+      } catch (dbErr) {
+        console.warn(`[carousel] Failed to persist image for slide ${slideNumber}:`, dbErr);
         failedCount++;
       }
-    });
+    }
   }
+
   return { success: successCount, failed: failedCount };
 }
 
