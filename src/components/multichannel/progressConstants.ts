@@ -22,7 +22,6 @@ export type ProgressStepId =
 // Durations aligned with backend reality (~40-60s total, including retries)
 export const GENERATION_STEPS: ProgressStepConfig[] = [
   { id: 'init', label: 'Khởi tạo...', baseDuration: 500 },
-  { id: 'brand', label: 'Tải ngữ cảnh thương hiệu', baseDuration: 1500 },
   { id: 'personas', label: 'Phân tích personas & sản phẩm', baseDuration: 1200 },
   { id: 'industry', label: 'Tải dữ liệu ngành', baseDuration: 1000 },
   { id: 'prompt', label: 'Xây dựng prompt AI', baseDuration: 800 },
