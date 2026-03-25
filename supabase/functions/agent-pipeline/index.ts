@@ -355,6 +355,66 @@ Deno.serve(async (req) => {
       return json({ success: true, recovered, total_stuck: filtered.length });
     }
 
+    // ========== ACTION: backfill_approvals ==========
+    if (action === "backfill_approvals") {
+      // Find pipelines at approval stage without a matching agent_approvals record
+      const { data: approvalPipelines } = await supabase
+        .from("agent_pipelines")
+        .select("id, organization_id, content_title, pipeline_state, autonomy_level")
+        .eq("current_stage", "approval")
+        .is("completed_at", null);
+
+      if (!approvalPipelines?.length) {
+        return json({ success: true, backfilled: 0, message: "No pipelines at approval stage" });
+      }
+
+      // Filter by org if provided
+      const candidates = organization_id
+        ? approvalPipelines.filter((p: any) => p.organization_id === organization_id)
+        : approvalPipelines;
+
+      let backfilled = 0;
+      for (const p of candidates) {
+        // Check if approval record already exists
+        const { data: existing } = await supabase
+          .from("agent_approvals")
+          .select("id")
+          .eq("pipeline_id", p.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (existing) continue; // Already has an approval record
+
+        const pState = (p.pipeline_state as any) || { stages: {} };
+        const createOutput = pState.stages?.create?.output;
+        const qualityOutput = pState.stages?.quality?.output;
+
+        const { error: insertErr } = await supabase.from("agent_approvals").insert({
+          pipeline_id: p.id,
+          organization_id: p.organization_id,
+          content_preview: createOutput?.content_preview || createOutput?.title || p.content_title || "Content pending review",
+          channel_versions: {},
+          scores: {
+            geo: qualityOutput?.geo?.overall_score || null,
+            compliance: qualityOutput?.compliance?.status || null,
+            persona_fit: qualityOutput?.persona_fit?.overall || null,
+            overall: qualityOutput?.overall || null,
+            self_review: qualityOutput?.self_review?.overall || null,
+          },
+          status: "pending",
+        } as any);
+
+        if (insertErr) {
+          console.error(`[backfill] Failed to create approval for pipeline ${p.id}:`, JSON.stringify(insertErr));
+        } else {
+          backfilled++;
+          console.log(`[backfill] Created approval record for pipeline ${p.id}`);
+        }
+      }
+
+      return json({ success: true, backfilled, total_at_approval: candidates.length });
+    }
+
     // ========== ACTION: create_from_plan ==========
     if (action === "create_from_plan") {
       const { plan_id } = body;
@@ -834,7 +894,7 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
           const createOutput = pState.stages?.create?.output;
           const qualityOutput = pState.stages?.quality?.output;
 
-          const { data: newApproval } = await supabase.from("agent_approvals").insert({
+          const { data: newApproval, error: approvalInsertErr } = await supabase.from("agent_approvals").insert({
             pipeline_id: pipeline.id,
             organization_id: pipeline.organization_id,
             content_preview: createOutput?.title || pipeline.content_title || `Content: ${pipeline.content_title}`,
@@ -848,6 +908,10 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
             },
             status: "pending",
           } as any).select("id").single();
+
+          if (approvalInsertErr) {
+            console.error(`[approval] Failed to create approval record for pipeline ${pipeline.id}:`, JSON.stringify(approvalInsertErr));
+          }
 
           shouldAutoAdvance = false;
           result.output = { waiting_for: "human_approval", approval_id: newApproval?.id };
