@@ -452,6 +452,9 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       result.output = output;
 
     } else if (stage === "creation") {
+      // Campaign context from content plan
+      const campaignCtx = meta.campaign_context;
+
       // Derive topic from research output or pipeline fields
       const researchOutput = pState.stages?.research?.output;
       const creationTopic = researchOutput?.suggestions?.[0]?.topic
@@ -463,17 +466,22 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         throw new Error("No topic available for content creation. Research stage may not have produced valid output.");
       }
 
-      // Derive content strategy params from goal or defaults
-      const contentGoal = meta.content_goal || "education";
-      const contentAngle = meta.content_angle || undefined;
-      const contentRole = meta.content_role || undefined;
-      const lengthMode = meta.content_length || "medium";
+      // Use campaign context for strategy params, fallback to metadata
+      const contentGoal = campaignCtx?.content_role === "harvest" ? "conversion"
+        : campaignCtx?.content_role === "sprout" ? "engagement"
+        : meta.content_goal || "education";
+      const contentAngle = campaignCtx?.angle || meta.content_angle || undefined;
+      const contentRole = campaignCtx?.content_role || meta.content_role || undefined;
+      const lengthMode = campaignCtx?.estimated_length || meta.content_length || "medium";
 
       // Build additional context from clarification
-      const clarification = meta.clarification_context;
+      const clarification = campaignCtx?.clarification_context || meta.clarification_context;
       let additionalContext = "";
       if (clarification && typeof clarification === "object") {
         additionalContext = Object.entries(clarification).map(([q, a]) => `${q}: ${a}`).join(". ");
+      }
+      if (campaignCtx) {
+        additionalContext += ` [Campaign piece ${campaignCtx.piece_number}/${campaignCtx.total_pieces}. Angle: ${campaignCtx.angle}. Role: ${campaignCtx.content_role}. Channel: ${campaignCtx.target_channel}. Format: ${campaignCtx.format}.]`;
       }
 
       const output = await callFunction(supabaseUrl, supabaseKey, "generate-core-content", {
