@@ -20,22 +20,24 @@ import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { cn } from '@/lib/utils';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
+import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
+import { Channel } from '@/types/multichannel';
 import { toast } from 'sonner';
 import { ClarificationStep } from './ClarificationStep';
 
 // ─── Constants ───
 
-const AVAILABLE_CHANNELS = [
-  { id: 'blog', label: 'Blog', icon: '📝' },
-  { id: 'facebook', label: 'Facebook', icon: '📘' },
-  { id: 'instagram', label: 'Instagram', icon: '📷' },
-  { id: 'tiktok', label: 'TikTok', icon: '🎵' },
-  { id: 'zalo', label: 'Zalo OA', icon: '💬' },
-  { id: 'linkedin', label: 'LinkedIn', icon: '💼' },
-  { id: 'twitter', label: 'X (Twitter)', icon: '🐦' },
-  { id: 'email', label: 'Email', icon: '📧' },
-  { id: 'threads', label: 'Threads', icon: '🧵' },
-  { id: 'pinterest', label: 'Pinterest', icon: '📌' },
+const AVAILABLE_CHANNELS: { id: string; label: string; channelKey: Channel }[] = [
+  { id: 'blog', label: 'Blog', channelKey: 'website' },
+  { id: 'facebook', label: 'Facebook', channelKey: 'facebook' },
+  { id: 'instagram', label: 'Instagram', channelKey: 'instagram' },
+  { id: 'tiktok', label: 'TikTok', channelKey: 'tiktok' },
+  { id: 'zalo', label: 'Zalo OA', channelKey: 'zalo_oa' },
+  { id: 'linkedin', label: 'LinkedIn', channelKey: 'linkedin' },
+  { id: 'twitter', label: 'X (Twitter)', channelKey: 'twitter' },
+  { id: 'email', label: 'Email', channelKey: 'email' },
+  { id: 'threads', label: 'Threads', channelKey: 'threads' },
+  { id: 'pinterest', label: 'Pinterest', channelKey: 'website' },
 ];
 
 const FREQUENCY_OPTIONS = [
@@ -665,7 +667,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                       "flex items-center gap-2 p-2.5 rounded-lg border text-left text-sm transition-all",
                       selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                     )}>
-                      <span className="text-base">{ch.icon}</span>
+                      <ChannelIcon channel={ch.channelKey} size={14} className={channelIconColors[ch.channelKey]} />
                       <span className="text-xs font-medium">{ch.label}</span>
                       {selected && <Check className="w-3.5 h-3.5 text-primary ml-auto" />}
                     </button>
@@ -875,7 +877,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                       <div className="flex flex-wrap gap-1">
                         {selectedChannels.map(ch => {
                           const info = AVAILABLE_CHANNELS.find(c => c.id === ch);
-                          return <Badge key={ch} variant="outline" className="text-[9px]">{info?.icon} {info?.label}</Badge>;
+                          return <Badge key={ch} variant="outline" className="text-[9px] flex items-center gap-1"><ChannelIcon channel={info?.channelKey || 'website'} size={10} className={channelIconColors[info?.channelKey || 'website']} /> {info?.label}</Badge>;
                         })}
                       </div>
                     )}
