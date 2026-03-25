@@ -185,7 +185,7 @@ async function handleSuggest(
   params: TopicAIRequest,
   startTime: number
 ): Promise<Response> {
-  const { contentGoal, format, organizationId, brandTemplateId, recentTopics, seasonality, forceRefresh, skipWebSearch, categoryHint, query } = params as TopicAIRequest & { query?: string };
+  const { contentGoal, format, organizationId, brandTemplateId, recentTopics, seasonality, forceRefresh, skipWebSearch, categoryHint, query, topic, instruction } = params as TopicAIRequest & { query?: string; instruction?: string };
 
   console.log(`[topic-ai:suggest] categoryHint: ${categoryHint || 'none'}`);
 
