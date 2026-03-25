@@ -1,6 +1,8 @@
 export type AgentPipelineStage = 
-  | 'research' | 'creation' | 'optimization' | 'expansion' 
-  | 'compliance' | 'approval' | 'scheduled' | 'published' | 'analyzing';
+  | 'strategy' | 'create' | 'quality' 
+  | 'approval' | 'publish' | 'analyze';
+
+export type ContentType = 'multichannel' | 'video_script' | 'carousel';
 
 export type AgentAutonomyLevel = 'human_in_loop' | 'human_on_loop' | 'full_auto';
 
