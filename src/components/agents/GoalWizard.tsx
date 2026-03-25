@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
-  Target, Radio, Palette, Eye, ChevronLeft, ChevronRight, 
-  Check, Sparkles, ShieldCheck, Zap, Bot, Calendar, X, Plus, MessageSquare
+  Target, Radio, Eye, ChevronLeft, ChevronRight, 
+  Check, Sparkles, ShieldCheck, Zap, Bot, X, Plus, MessageSquare,
+  Megaphone, Heart, Link2, ClipboardList, DollarSign, RefreshCw,
+  PieChart, TrendingUp, Settings2
 } from 'lucide-react';
 import { AgentAutonomyLevel, AgentGoal, AUTONOMY_LEVELS } from '@/types/agent';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,6 +22,8 @@ import { cn } from '@/lib/utils';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { toast } from 'sonner';
 import { ClarificationStep } from './ClarificationStep';
+
+// ─── Constants ───
 
 const AVAILABLE_CHANNELS = [
   { id: 'blog', label: 'Blog', icon: '📝' },
@@ -45,6 +49,7 @@ const DURATION_OPTIONS = [
   { value: 7, label: '1 tuần', description: '3-4 bài viết' },
   { value: 14, label: '2 tuần', description: '5-7 bài viết' },
   { value: 30, label: '1 tháng', description: '8-12 bài viết' },
+  { value: 90, label: '3 tháng', description: '20-30 bài viết' },
   { value: 0, label: 'Tùy chỉnh', description: 'Nhập số ngày' },
 ];
 
@@ -54,13 +59,20 @@ const APPROVAL_MODE_OPTIONS = [
   { value: 'full_auto', label: 'Tự động hoàn toàn', description: 'AI tự lên kế hoạch, tạo và đăng bài tự động', icon: '🚀' },
 ];
 
+const OBJECTIVES = [
+  { id: 'awareness', label: 'Tăng nhận biết', description: 'Nhiều người biết đến thương hiệu hơn', icon: Megaphone, color: 'text-blue-500', kpis: [{ key: 'reach', label: 'Reach mục tiêu', placeholder: '10000' }, { key: 'impressions', label: 'Impressions mục tiêu', placeholder: '50000' }] },
+  { id: 'engagement', label: 'Tăng tương tác', description: 'Nhiều like, comment, share hơn', icon: Heart, color: 'text-pink-500', kpis: [{ key: 'engagement_rate', label: '% tương tác mục tiêu', placeholder: '5' }, { key: 'comments', label: 'Số comment mục tiêu', placeholder: '100' }] },
+  { id: 'traffic', label: 'Tăng traffic', description: 'Kéo người truy cập về website', icon: Link2, color: 'text-emerald-500', kpis: [{ key: 'clicks', label: 'Clicks mục tiêu', placeholder: '5000' }, { key: 'ctr', label: '% CTR mục tiêu', placeholder: '3' }] },
+  { id: 'leads', label: 'Thu thập leads', description: 'Lấy thông tin khách hàng tiềm năng', icon: ClipboardList, color: 'text-amber-500', kpis: [{ key: 'form_fills', label: 'Số form mục tiêu', placeholder: '200' }, { key: 'signups', label: 'Số đăng ký mục tiêu', placeholder: '100' }] },
+  { id: 'revenue', label: 'Tăng doanh thu', description: 'Bán hàng và chuyển đổi', icon: DollarSign, color: 'text-green-500', kpis: [{ key: 'conversions', label: 'Số đơn mục tiêu', placeholder: '50' }, { key: 'roas', label: 'ROAS mục tiêu (x)', placeholder: '3' }] },
+  { id: 'retention', label: 'Giữ chân KH', description: 'Khách hàng quay lại mua thêm', icon: RefreshCw, color: 'text-violet-500', kpis: [{ key: 'repeat_rate', label: '% mua lại mục tiêu', placeholder: '30' }, { key: 'nps', label: 'NPS mục tiêu', placeholder: '50' }] },
+];
+
 const STEPS = [
   { icon: Target, label: 'Mục tiêu' },
-  { icon: MessageSquare, label: 'Nội dung' },
+  { icon: PieChart, label: 'Chiến lược' },
   { icon: Radio, label: 'Kênh' },
-  { icon: Calendar, label: 'Chiến dịch' },
   { icon: ShieldCheck, label: 'Tự động' },
-  { icon: Palette, label: 'Liên kết' },
   { icon: Eye, label: 'Xác nhận' },
 ];
 
@@ -72,7 +84,8 @@ const PILLAR_COLORS = [
   'hsl(var(--chart-5))',
 ];
 
-// Static industry-based key message suggestions
+const BUDGET_COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-4))'];
+
 const INDUSTRY_SUGGESTIONS: Record<string, string[]> = {
   'accounting': ['Tiết kiệm chi phí kế toán', 'Tư vấn thuế chuyên nghiệp', 'Báo cáo tài chính chính xác', 'Hỗ trợ doanh nghiệp SME'],
   'ecommerce': ['Mua sắm tiện lợi', 'Giao hàng nhanh chóng', 'Ưu đãi độc quyền', 'Sản phẩm chất lượng'],
@@ -85,6 +98,14 @@ const INDUSTRY_SUGGESTIONS: Record<string, string[]> = {
 };
 
 const DEFAULT_SUGGESTIONS = ['Chất lượng hàng đầu', 'Giá cả cạnh tranh', 'Dịch vụ chuyên nghiệp', 'Uy tín lâu năm'];
+
+const LEARNING_SPEED_OPTIONS = [
+  { value: 'conservative', label: 'Thận trọng', description: 'Thay đổi ít, ổn định' },
+  { value: 'balanced', label: 'Cân bằng', description: 'Mặc định, phù hợp hầu hết' },
+  { value: 'aggressive', label: 'Nhanh', description: 'Thử nghiệm nhiều, học nhanh' },
+];
+
+// ─── Types ───
 
 interface GoalWizardProps {
   open: boolean;
@@ -106,62 +127,89 @@ interface GoalWizardProps {
   initialData?: AgentGoal | null;
 }
 
+// ─── Component ───
+
 export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWizardProps) {
   const { currentOrganization } = useOrganizationContext();
   const { currentBrand } = useCurrentBrand();
   const [step, setStep] = useState(0);
   
+  // Step 0: Mục tiêu
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
-  const [frequency, setFrequency] = useState<Record<string, string>>({});
-  const [autonomyLevel, setAutonomyLevel] = useState<AgentAutonomyLevel>('human_in_loop');
-  const [brandTemplateId, setBrandTemplateId] = useState<string>('');
-  const [campaignId, setCampaignId] = useState<string | undefined>(undefined);
+  const [selectedObjective, setSelectedObjective] = useState<string | null>(null);
+  const [kpiTargets, setKpiTargets] = useState<Record<string, number>>({});
 
-  // Campaign fields
-  const [campaignDurationDays, setCampaignDurationDays] = useState(14);
-  const [customDuration, setCustomDuration] = useState('');
-  const [campaignStartDate, setCampaignStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [approvalMode, setApprovalMode] = useState('approve_plan');
-
-  // Smart auto-approve thresholds
-  const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
-  const [thresholdQuality, setThresholdQuality] = useState(70);
-  const [thresholdRiskMax, setThresholdRiskMax] = useState(30);
-  const [thresholdGeo, setThresholdGeo] = useState(60);
-
-  // Brief fields
+  // Step 1: Chiến lược
+  const [totalBudget, setTotalBudget] = useState<number>(0);
+  const [budgetAllocation, setBudgetAllocation] = useState({ content: 50, ads: 30, kol: 20 });
   const [keyMessages, setKeyMessages] = useState<string[]>([]);
   const [keyMessageInput, setKeyMessageInput] = useState('');
   const [primaryCta, setPrimaryCta] = useState('');
   const [pillarAllocation, setPillarAllocation] = useState<Record<string, number>>({});
+  const [campaignDurationDays, setCampaignDurationDays] = useState(14);
+  const [customDuration, setCustomDuration] = useState('');
+  const [campaignStartDate, setCampaignStartDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // Clarification state
+  // Step 2: Kênh
+  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
+  const [frequency, setFrequency] = useState<Record<string, string>>({});
+
+  // Step 3: Tự động
+  const [autonomyLevel, setAutonomyLevel] = useState<AgentAutonomyLevel>('human_in_loop');
+  const [approvalMode, setApprovalMode] = useState('approve_plan');
+  const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
+  const [thresholdQuality, setThresholdQuality] = useState(70);
+  const [thresholdRiskMax, setThresholdRiskMax] = useState(30);
+  const [thresholdGeo, setThresholdGeo] = useState(60);
+  const [brandVoiceThreshold, setBrandVoiceThreshold] = useState(70);
+  const [learningSpeed, setLearningSpeed] = useState('balanced');
+
+  // Step 4: Xác nhận
+  const [brandTemplateId, setBrandTemplateId] = useState<string>('');
+  const [campaignId, setCampaignId] = useState<string | undefined>(undefined);
+
+  // Clarification
   const [clarifying, setClarifying] = useState(false);
   const [clarificationQuestions, setClarificationQuestions] = useState<any[] | null>(null);
   const [clarificationUnderstanding, setClarificationUnderstanding] = useState<string | null>(null);
   const [clarificationContext, setClarificationContext] = useState<Record<string, string> | null>(null);
 
-  // Get suggestions based on industry
-  const industrySuggestions = (() => {
+  // ─── Derived ───
+  const industrySuggestions = useMemo(() => {
     const industry = (Array.isArray(currentBrand?.industry) ? currentBrand.industry[0] : currentBrand?.industry)?.toLowerCase() || '';
     for (const [key, suggestions] of Object.entries(INDUSTRY_SUGGESTIONS)) {
       if (industry.includes(key)) return suggestions;
     }
     return DEFAULT_SUGGESTIONS;
-  })();
+  }, [currentBrand?.industry]);
 
-  // Initialize pillar allocation from brand
+  const effectiveDuration = campaignDurationDays > 0 ? campaignDurationDays : parseInt(customDuration) || 14;
+  const isEditing = !!initialData;
+  const confirmStep = STEPS.length - 1;
+  const showClarification = step === confirmStep && (clarifying || clarificationQuestions || clarificationUnderstanding);
+  const pillarEntries = Object.entries(pillarAllocation);
+  const pillarTotal = pillarEntries.reduce((s, [, v]) => s + v, 0);
+
+  // AI Preview computed values
+  const estimatedPosts = useMemo(() => {
+    if (selectedChannels.length === 0) return 0;
+    const freqMultipliers: Record<string, number> = { daily: 7, '3/week': 3, '2/week': 2, weekly: 1 };
+    const weeks = Math.ceil(effectiveDuration / 7);
+    return selectedChannels.reduce((total, ch) => {
+      const f = frequency[ch] || 'weekly';
+      return total + weeks * (freqMultipliers[f] || 1);
+    }, 0);
+  }, [selectedChannels, frequency, effectiveDuration]);
+
+  // ─── Effects ───
   useEffect(() => {
-    if (currentBrand?.content_pillars && currentBrand.content_pillars.length > 0 && Object.keys(pillarAllocation).length === 0) {
-      const pillars = currentBrand.content_pillars as { name: string; keywords?: string[] }[];
+    if (currentBrand?.content_pillars && (currentBrand.content_pillars as any[]).length > 0 && Object.keys(pillarAllocation).length === 0) {
+      const pillars = currentBrand.content_pillars as { name: string }[];
       const evenSplit = Math.floor(100 / pillars.length);
       const remainder = 100 - evenSplit * pillars.length;
       const initial: Record<string, number> = {};
-      pillars.forEach((p, i) => {
-        initial[p.name] = evenSplit + (i === 0 ? remainder : 0);
-      });
+      pillars.forEach((p, i) => { initial[p.name] = evenSplit + (i === 0 ? remainder : 0); });
       setPillarAllocation(initial);
     }
   }, [currentBrand]);
@@ -185,29 +233,25 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   }, [open, initialData]);
 
   useEffect(() => {
-    if (open && currentBrand && !brandTemplateId) {
-      setBrandTemplateId(currentBrand.id);
-    }
+    if (open && currentBrand && !brandTemplateId) setBrandTemplateId(currentBrand.id);
   }, [open, currentBrand]);
 
+  // ─── Handlers ───
   const resetForm = () => {
     setStep(0);
     setName(''); setDescription('');
-    setSelectedChannels([]); setFrequency({});
-    setAutonomyLevel('human_in_loop');
-    setBrandTemplateId(currentBrand?.id || '');
-    setCampaignId(undefined);
-    setCampaignDurationDays(14);
-    setCustomDuration('');
-    setCampaignStartDate(new Date().toISOString().split('T')[0]);
-    setApprovalMode('approve_plan');
-    setAutoApproveEnabled(false); setThresholdQuality(70); setThresholdRiskMax(30); setThresholdGeo(60);
+    setSelectedObjective(null); setKpiTargets({});
+    setTotalBudget(0); setBudgetAllocation({ content: 50, ads: 30, kol: 20 });
     setKeyMessages([]); setKeyMessageInput(''); setPrimaryCta('');
     setPillarAllocation({});
-    setClarifying(false);
-    setClarificationQuestions(null);
-    setClarificationUnderstanding(null);
-    setClarificationContext(null);
+    setCampaignDurationDays(14); setCustomDuration('');
+    setCampaignStartDate(new Date().toISOString().split('T')[0]);
+    setSelectedChannels([]); setFrequency({});
+    setAutonomyLevel('human_in_loop'); setApprovalMode('approve_plan');
+    setAutoApproveEnabled(false); setThresholdQuality(70); setThresholdRiskMax(30); setThresholdGeo(60);
+    setBrandVoiceThreshold(70); setLearningSpeed('balanced');
+    setBrandTemplateId(currentBrand?.id || ''); setCampaignId(undefined);
+    setClarifying(false); setClarificationQuestions(null); setClarificationUnderstanding(null); setClarificationContext(null);
   };
 
   const addKeyMessage = () => {
@@ -219,37 +263,44 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   };
 
   const addSuggestion = (suggestion: string) => {
-    if (keyMessages.length < 5 && !keyMessages.includes(suggestion)) {
-      setKeyMessages([...keyMessages, suggestion]);
-    }
+    if (keyMessages.length < 5 && !keyMessages.includes(suggestion)) setKeyMessages([...keyMessages, suggestion]);
   };
 
   const handlePillarChange = (pillarName: string, newValue: number) => {
     const pillars = Object.keys(pillarAllocation);
     if (pillars.length <= 1) return;
     const others = pillars.filter(p => p !== pillarName);
-    const oldValue = pillarAllocation[pillarName];
-    const diff = newValue - oldValue;
+    const diff = newValue - pillarAllocation[pillarName];
     const totalOthers = others.reduce((s, p) => s + pillarAllocation[p], 0);
     const updated = { ...pillarAllocation, [pillarName]: newValue };
     others.forEach(p => {
       const ratio = totalOthers > 0 ? pillarAllocation[p] / totalOthers : 1 / others.length;
       updated[p] = Math.max(0, Math.round(pillarAllocation[p] - diff * ratio));
     });
-    // Fix rounding to ensure sum = 100
     const sum = Object.values(updated).reduce((s, v) => s + v, 0);
-    if (sum !== 100 && others.length > 0) {
-      updated[others[0]] += 100 - sum;
-    }
+    if (sum !== 100 && others.length > 0) updated[others[0]] += 100 - sum;
     setPillarAllocation(updated);
+  };
+
+  const handleBudgetChange = (key: 'content' | 'ads' | 'kol', newValue: number) => {
+    const keys: ('content' | 'ads' | 'kol')[] = ['content', 'ads', 'kol'];
+    const others = keys.filter(k => k !== key);
+    const diff = newValue - budgetAllocation[key];
+    const totalOthers = others.reduce((s, k) => s + budgetAllocation[k], 0);
+    const updated = { ...budgetAllocation, [key]: newValue };
+    others.forEach(k => {
+      const ratio = totalOthers > 0 ? budgetAllocation[k] / totalOthers : 1 / others.length;
+      (updated as any)[k] = Math.max(0, Math.round(budgetAllocation[k] - diff * ratio));
+    });
+    const sum = updated.content + updated.ads + updated.kol;
+    if (sum !== 100) (updated as any)[others[0]] += 100 - sum;
+    setBudgetAllocation(updated);
   };
 
   const toggleChannel = (ch: string) => {
     if (selectedChannels.includes(ch)) {
       setSelectedChannels(selectedChannels.filter(c => c !== ch));
-      const newFreq = { ...frequency };
-      delete newFreq[ch];
-      setFrequency(newFreq);
+      const newFreq = { ...frequency }; delete newFreq[ch]; setFrequency(newFreq);
     } else {
       setSelectedChannels([...selectedChannels, ch]);
       setFrequency({ ...frequency, [ch]: 'weekly' });
@@ -258,22 +309,15 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
   const canNext = () => {
     switch (step) {
-      case 0: return name.trim().length > 0;
-      case 1: return true; // Content step is optional
+      case 0: return name.trim().length > 0 && !!selectedObjective;
+      case 1: return true; // Strategy step optional
       case 2: return selectedChannels.length > 0;
-      case 3: return (campaignDurationDays > 0 || (customDuration && parseInt(customDuration) > 0)) && !!campaignStartDate;
       default: return true;
     }
   };
 
-  const effectiveDuration = campaignDurationDays > 0 ? campaignDurationDays : parseInt(customDuration) || 14;
-
-  // Trigger clarification check when user reaches last step (confirm)
   const handleConfirmStep = async () => {
-    setClarifying(true);
-    setClarificationQuestions(null);
-    setClarificationUnderstanding(null);
-
+    setClarifying(true); setClarificationQuestions(null); setClarificationUnderstanding(null);
     try {
       const { data, error } = await supabase.functions.invoke('clarify-campaign-intent', {
         body: {
@@ -284,14 +328,10 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
           brand_name: currentBrand?.brand_name || undefined,
         },
       });
-
       if (error) throw error;
-
       if (data?.ready) {
         setClarificationUnderstanding(data.understanding || `Tạo nội dung về "${name}"`);
-        setTimeout(() => {
-          finalSubmit(null);
-        }, 1500);
+        setTimeout(() => finalSubmit(null), 1500);
       } else if (data?.questions?.length > 0) {
         setClarificationQuestions(data.questions);
       } else {
@@ -306,23 +346,21 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   };
 
   const finalSubmit = (context: Record<string, string> | null) => {
-    // Merge brief fields into clarification_context
     const baseContext = context || clarificationContext || {};
     const briefContext: Record<string, any> = { ...baseContext };
+    if (selectedObjective) briefContext.objective = selectedObjective;
+    if (Object.keys(kpiTargets).length > 0) briefContext.kpi_targets = kpiTargets;
+    if (totalBudget > 0) briefContext.total_budget = totalBudget;
+    briefContext.budget_allocation = budgetAllocation;
     if (keyMessages.length > 0) briefContext.key_messages = keyMessages;
     if (primaryCta.trim()) briefContext.primary_cta = primaryCta.trim();
     if (Object.keys(pillarAllocation).length > 0) briefContext.pillar_allocation = pillarAllocation;
+    briefContext.brand_voice_threshold = brandVoiceThreshold;
+    briefContext.learning_speed = learningSpeed;
     if (autoApproveEnabled) {
-      briefContext.auto_approve_rules = {
-        enabled: true,
-        min_quality: thresholdQuality,
-        max_risk: thresholdRiskMax,
-        min_geo: thresholdGeo,
-      };
+      briefContext.auto_approve_rules = { enabled: true, min_quality: thresholdQuality, max_risk: thresholdRiskMax, min_geo: thresholdGeo };
     }
-
     const hasContext = Object.keys(briefContext).length > 0;
-
     onSubmit({
       name: name.trim(),
       description: description.trim() || undefined,
@@ -339,21 +377,10 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     });
   };
 
-  const handleClarificationSubmit = (answers: Record<string, string>) => {
-    setClarificationContext(answers);
-    finalSubmit(answers);
-  };
+  const handleClarificationSubmit = (answers: Record<string, string>) => { setClarificationContext(answers); finalSubmit(answers); };
+  const handleClarificationSkip = () => { finalSubmit(null); };
 
-  const handleClarificationSkip = () => {
-    finalSubmit(null);
-  };
-
-  const isEditing = !!initialData;
-  const confirmStep = STEPS.length - 1; // last step
-  const showClarification = step === confirmStep && (clarifying || clarificationQuestions || clarificationUnderstanding);
-
-  const pillarEntries = Object.entries(pillarAllocation);
-  const pillarTotal = pillarEntries.reduce((s, [, v]) => s + v, 0);
+  const selectedObj = OBJECTIVES.find(o => o.id === selectedObjective);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -390,175 +417,246 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
         {/* Step content */}
         <div className="px-5 pb-5 min-h-[200px] max-h-[55vh] overflow-y-auto">
-          {/* Step 0: Mục tiêu */}
+
+          {/* ═══ Step 0: Mục tiêu ═══ */}
           {step === 0 && (
             <div className="space-y-4">
               <div className="space-y-2">
-                 <Label className="text-xs">Tên chiến dịch *</Label>
+                <Label className="text-xs">Tên chiến dịch *</Label>
                 <Input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Ra mắt sản phẩm mới tháng 4" className="text-sm" />
-                <p className="text-[10px] text-muted-foreground">Đặt tên ngắn gọn để bạn dễ nhận biết chiến dịch này sau này.</p>
               </div>
+
+              {/* Objective Cards */}
               <div className="space-y-2">
-                <Label className="text-xs">Bạn muốn đạt được gì?</Label>
-                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="VD: Tăng nhận biết thương hiệu, thu hút khách hàng mới, quảng bá chương trình khuyến mãi..." rows={3} className="text-sm resize-none" />
-                <p className="text-[10px] text-muted-foreground">Hãy mô tả bằng ngôn ngữ đơn giản — AI sẽ tự hiểu và lên kế hoạch phù hợp.</p>
+                <Label className="text-xs">Mục tiêu chính của chiến dịch *</Label>
+                <p className="text-[10px] text-muted-foreground">Chọn 1 mục tiêu — AI sẽ tối ưu nội dung theo hướng này.</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {OBJECTIVES.map(obj => {
+                    const Icon = obj.icon;
+                    const selected = selectedObjective === obj.id;
+                    return (
+                      <button
+                        key={obj.id}
+                        onClick={() => { setSelectedObjective(obj.id); setKpiTargets({}); }}
+                        className={cn(
+                          "flex items-start gap-2.5 p-3 rounded-lg border text-left transition-all",
+                          selected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-border hover:border-primary/30"
+                        )}
+                      >
+                        <Icon className={cn("w-4 h-4 mt-0.5 shrink-0", obj.color)} />
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium leading-tight">{obj.label}</p>
+                          <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{obj.description}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* KPI Targets — show when objective selected */}
+              {selectedObj && (
+                <div className="space-y-2 p-3 rounded-lg bg-muted/50 border">
+                  <div className="flex items-center gap-1.5">
+                    <TrendingUp className="w-3.5 h-3.5 text-primary" />
+                    <Label className="text-xs">Chỉ tiêu (KPI) — tùy chọn</Label>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Nhập con số mong muốn để AI đánh giá hiệu quả.</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {selectedObj.kpis.map(kpi => (
+                      <div key={kpi.key} className="space-y-1">
+                        <span className="text-[10px] text-muted-foreground">{kpi.label}</span>
+                        <Input
+                          type="number"
+                          value={kpiTargets[kpi.key] || ''}
+                          onChange={e => setKpiTargets({ ...kpiTargets, [kpi.key]: Number(e.target.value) })}
+                          placeholder={kpi.placeholder}
+                          className="text-sm h-8"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label className="text-xs">Mô tả bổ sung</Label>
+                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="VD: Tập trung vào khách hàng nữ 25-35 tuổi, quảng bá chương trình khuyến mãi hè..." rows={2} className="text-sm resize-none" />
               </div>
 
               <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
                 <Bot className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                 <p className="text-[11px] text-muted-foreground">
-                  💡 Bạn chỉ cần nhập tên và mục tiêu — <span className="font-medium text-foreground">AI sẽ tự động</span> lên lịch đăng bài, chọn loại nội dung (bài viết, video, ảnh...) và viết nội dung phù hợp với thương hiệu của bạn.
+                  💡 AI sẽ tự động lên lịch, chọn loại nội dung và viết bài phù hợp dựa trên mục tiêu bạn chọn.
                 </p>
               </div>
             </div>
           )}
 
-          {/* Step 1: Nội dung (NEW) */}
+          {/* ═══ Step 1: Chiến lược ═══ */}
           {step === 1 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-medium">Gợi ý thêm cho AI</Label>
+                <Label className="text-xs font-medium">Chiến lược nội dung</Label>
                 <Badge variant="outline" className="text-[9px] text-muted-foreground">Có thể bỏ qua</Badge>
               </div>
               <p className="text-[10px] text-muted-foreground -mt-2">
-                Thêm thông tin để AI tạo nội dung chính xác hơn. Nếu chưa biết điền gì, hãy bấm "Tiếp" để bỏ qua.
+                Thêm thông tin để AI lên kế hoạch chính xác hơn. Bỏ trống = AI tự quyết.
               </p>
+
+              {/* Duration */}
+              <div className="space-y-2">
+                <Label className="text-xs">Thời lượng chiến dịch</Label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {DURATION_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => { setCampaignDurationDays(opt.value); if (opt.value > 0) setCustomDuration(''); }}
+                      className={cn(
+                        "p-2 rounded-lg border text-center transition-all",
+                        campaignDurationDays === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                      )}
+                    >
+                      <p className="text-xs font-medium">{opt.label}</p>
+                      <p className="text-[9px] text-muted-foreground">{opt.description}</p>
+                    </button>
+                  ))}
+                </div>
+                {campaignDurationDays === 0 && (
+                  <div className="flex items-center gap-2">
+                    <Input type="number" value={customDuration} onChange={e => setCustomDuration(e.target.value)} placeholder="Số ngày" className="text-sm w-24 h-8" min={3} max={365} />
+                    <span className="text-xs text-muted-foreground">ngày</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Label className="text-[10px] text-muted-foreground">Bắt đầu:</Label>
+                  <Input type="date" value={campaignStartDate} onChange={e => setCampaignStartDate(e.target.value)} className="text-sm h-8 w-auto" />
+                </div>
+              </div>
+
+              {/* Budget */}
+              <div className="space-y-2">
+                <Label className="text-xs">Ngân sách (tùy chọn)</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    value={totalBudget || ''}
+                    onChange={e => setTotalBudget(Number(e.target.value))}
+                    placeholder="0"
+                    className="text-sm h-8 flex-1"
+                  />
+                  <span className="text-xs text-muted-foreground shrink-0">VNĐ</span>
+                </div>
+                {totalBudget > 0 && (
+                  <div className="space-y-2 p-3 rounded-lg bg-muted/50 border">
+                    <p className="text-[10px] text-muted-foreground">Phân bổ ngân sách:</p>
+                    {/* Stacked bar */}
+                    <div className="h-2.5 rounded-full overflow-hidden flex bg-muted">
+                      {(['content', 'ads', 'kol'] as const).map((key, i) => (
+                        <div key={key} className="h-full transition-all duration-300" style={{ width: `${budgetAllocation[key]}%`, backgroundColor: BUDGET_COLORS[i] }} />
+                      ))}
+                    </div>
+                    {([
+                      { key: 'content' as const, label: 'Nội dung' },
+                      { key: 'ads' as const, label: 'Quảng cáo' },
+                      { key: 'kol' as const, label: 'KOL/Influencer' },
+                    ]).map(({ key, label }, i) => (
+                      <div key={key} className="space-y-0.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: BUDGET_COLORS[i] }} />
+                            <span className="text-[10px]">{label}</span>
+                          </div>
+                          <span className="text-[10px] font-medium tabular-nums">{budgetAllocation[key]}%</span>
+                        </div>
+                        <Slider value={[budgetAllocation[key]]} min={0} max={100} step={5} onValueChange={([v]) => handleBudgetChange(key, v)} className="w-full" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Key Messages */}
               <div className="space-y-2">
                 <Label className="text-xs flex items-center gap-1">
-                   <MessageSquare className="w-3 h-3" /> Thông điệp chính
-                   <span className="text-muted-foreground font-normal">({keyMessages.length}/5)</span>
-                 </Label>
-                 <p className="text-[10px] text-muted-foreground">Điều gì bạn muốn khách hàng nhớ nhất về sản phẩm/dịch vụ?</p>
+                  <MessageSquare className="w-3 h-3" /> Thông điệp chính
+                  <span className="text-muted-foreground font-normal">({keyMessages.length}/5)</span>
+                </Label>
+                <p className="text-[10px] text-muted-foreground">Điều gì bạn muốn khách hàng nhớ nhất?</p>
                 <div className="flex gap-1.5">
                   <Input
                     value={keyMessageInput}
                     onChange={e => setKeyMessageInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addKeyMessage())}
                     placeholder="VD: Tiết kiệm 30% chi phí..."
-                    className="text-sm flex-1"
+                    className="text-sm flex-1 h-8"
                     disabled={keyMessages.length >= 5}
                   />
-                  <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={addKeyMessage} disabled={!keyMessageInput.trim() || keyMessages.length >= 5}>
-                    <Plus className="w-3.5 h-3.5" />
+                  <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={addKeyMessage} disabled={!keyMessageInput.trim() || keyMessages.length >= 5}>
+                    <Plus className="w-3 h-3" />
                   </Button>
                 </div>
                 {keyMessages.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1">
                     {keyMessages.map((msg, i) => (
                       <Badge key={i} variant="secondary" className="text-[10px] gap-1 pr-1">
                         {msg}
-                        <button onClick={() => setKeyMessages(keyMessages.filter((_, j) => j !== i))} className="hover:text-destructive">
-                          <X className="w-3 h-3" />
-                        </button>
+                        <button onClick={() => setKeyMessages(keyMessages.filter((_, j) => j !== i))} className="hover:text-destructive"><X className="w-3 h-3" /></button>
                       </Badge>
                     ))}
                   </div>
                 )}
-
-                {/* AI Suggestion Chips */}
                 {keyMessages.length < 5 && (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                      <Sparkles className="w-3 h-3 text-primary" />
-                      <span>Gợi ý:</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {industrySuggestions
-                        .filter(s => !keyMessages.includes(s))
-                        .slice(0, 4)
-                        .map((suggestion, i) => (
-                          <button
-                            key={i}
-                            onClick={() => addSuggestion(suggestion)}
-                            className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border border-dashed border-primary/30 text-primary hover:bg-primary/10 transition-colors"
-                          >
-                            <Plus className="w-2.5 h-2.5" />
-                            {suggestion}
-                          </button>
-                        ))}
-                    </div>
+                  <div className="flex flex-wrap gap-1">
+                    {industrySuggestions.filter(s => !keyMessages.includes(s)).slice(0, 4).map((s, i) => (
+                      <button key={i} onClick={() => addSuggestion(s)} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-dashed border-primary/30 text-primary hover:bg-primary/10 transition-colors">
+                        <Plus className="w-2.5 h-2.5" />{s}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
 
-              {/* Primary CTA */}
-              <div className="space-y-2">
-                <Label className="text-xs">Bạn muốn khách hàng làm gì?</Label>
-                <Input value={primaryCta} onChange={e => setPrimaryCta(e.target.value)} placeholder="VD: Đăng ký tư vấn miễn phí, Mua ngay, Liên hệ..." className="text-sm" />
-                <p className="text-[10px] text-muted-foreground">Hành động mà bạn muốn người xem thực hiện sau khi đọc bài (gọi là "lời kêu gọi hành động").</p>
+              {/* CTA */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Kêu gọi hành động (CTA)</Label>
+                <Input value={primaryCta} onChange={e => setPrimaryCta(e.target.value)} placeholder="VD: Đăng ký ngay, Mua ngay, Liên hệ..." className="text-sm h-8" />
               </div>
 
-              {/* Content Pillars Allocation */}
+              {/* Content Pillars */}
               {currentBrand?.content_pillars && (currentBrand.content_pillars as any[]).length > 0 && (
-                <div className="space-y-3">
-                  <Label className="text-xs">Tỷ lệ các chủ đề nội dung</Label>
-                  <p className="text-[10px] text-muted-foreground">Kéo thanh trượt để chọn tỷ lệ nội dung cho từng chủ đề. Tổng luôn = 100%.</p>
-
-                  {/* Stacked bar preview */}
-                  <div className="h-3 rounded-full overflow-hidden flex bg-muted">
-                    {pillarEntries.map(([pillarName, pct], i) => (
-                      <div
-                        key={pillarName}
-                        className="h-full transition-all duration-300"
-                        style={{
-                          width: `${pct}%`,
-                          backgroundColor: PILLAR_COLORS[i % PILLAR_COLORS.length],
-                          opacity: pct > 0 ? 1 : 0,
-                        }}
-                      />
+                <div className="space-y-2">
+                  <Label className="text-xs">Tỷ lệ chủ đề nội dung</Label>
+                  <div className="h-2.5 rounded-full overflow-hidden flex bg-muted">
+                    {pillarEntries.map(([pName, pct], i) => (
+                      <div key={pName} className="h-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: PILLAR_COLORS[i % PILLAR_COLORS.length], opacity: pct > 0 ? 1 : 0 }} />
                     ))}
                   </div>
-
-                  {pillarEntries.map(([pillarName, pct], i) => (
-                    <div key={pillarName} className="space-y-1">
+                  {pillarEntries.map(([pName, pct], i) => (
+                    <div key={pName} className="space-y-0.5">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
-                          <div
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: PILLAR_COLORS[i % PILLAR_COLORS.length] }}
-                          />
-                          <span className="text-xs text-muted-foreground">{pillarName}</span>
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PILLAR_COLORS[i % PILLAR_COLORS.length] }} />
+                          <span className="text-[10px]">{pName}</span>
                         </div>
-                        <span className="text-xs font-medium tabular-nums w-8 text-right">{pct}%</span>
+                        <span className="text-[10px] font-medium tabular-nums">{pct}%</span>
                       </div>
-                      <Slider
-                        value={[pct]}
-                        min={0}
-                        max={100}
-                        step={5}
-                        onValueChange={([v]) => handlePillarChange(pillarName, v)}
-                        className="w-full"
-                      />
+                      <Slider value={[pct]} min={0} max={100} step={5} onValueChange={([v]) => handlePillarChange(pName, v)} className="w-full" />
                     </div>
                   ))}
-
-                  {/* Total indicator */}
-                  <div className={cn(
-                    "text-[10px] font-medium text-right tabular-nums",
-                    pillarTotal === 100 ? "text-green-600" : "text-amber-500"
-                  )}>
-                    Tổng: {pillarTotal}%
-                    {pillarTotal === 100 && <Check className="w-3 h-3 inline ml-1" />}
+                  <div className={cn("text-[10px] font-medium text-right tabular-nums", pillarTotal === 100 ? "text-green-600" : "text-amber-500")}>
+                    Tổng: {pillarTotal}%{pillarTotal === 100 && <Check className="w-3 h-3 inline ml-1" />}
                   </div>
                 </div>
               )}
-
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                <Bot className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                <p className="text-[11px] text-muted-foreground">
-                  💡 Các thông tin trên giúp AI hiểu rõ hơn về mong muốn của bạn. Nếu bỏ trống, AI sẽ tự đề xuất dựa trên thương hiệu và ngành của bạn.
-                </p>
-              </div>
             </div>
           )}
 
-          {/* Step 2: Kênh */}
+          {/* ═══ Step 2: Kênh ═══ */}
           {step === 2 && (
             <div className="space-y-4">
               <Label className="text-xs">Bạn muốn đăng bài ở đâu?</Label>
-              <p className="text-[10px] text-muted-foreground mb-1">Chọn mạng xã hội hoặc kênh mà bạn muốn AI tạo nội dung.</p>
+              <p className="text-[10px] text-muted-foreground mb-1">Chọn kênh mà bạn muốn AI tạo nội dung.</p>
               <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto">
                 {AVAILABLE_CHANNELS.map(ch => {
                   const selected = selectedChannels.includes(ch.id);
@@ -585,9 +683,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                         <Select value={frequency[ch] || 'weekly'} onValueChange={v => setFrequency({ ...frequency, [ch]: v })}>
                           <SelectTrigger className="h-7 text-xs flex-1"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            {FREQUENCY_OPTIONS.map(f => (
-                              <SelectItem key={f.value} value={f.value} className="text-xs">{f.label}</SelectItem>
-                            ))}
+                            {FREQUENCY_OPTIONS.map(f => (<SelectItem key={f.value} value={f.value} className="text-xs">{f.label}</SelectItem>))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -598,55 +694,29 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
             </div>
           )}
 
-          {/* Step 3: Chiến dịch */}
+          {/* ═══ Step 3: Tự động ═══ */}
           {step === 3 && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs">Chiến dịch kéo dài bao lâu?</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {DURATION_OPTIONS.map(opt => (
-                    <button
-                      key={opt.value}
-                      onClick={() => {
-                        setCampaignDurationDays(opt.value);
-                        if (opt.value > 0) setCustomDuration('');
-                      }}
-                      className={cn(
-                        "p-3 rounded-lg border text-left transition-all",
-                        campaignDurationDays === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
-                      )}
-                    >
-                      <p className="text-sm font-medium">{opt.label}</p>
-                      <p className="text-[10px] text-muted-foreground">{opt.description}</p>
-                    </button>
-                  ))}
-                </div>
-                {campaignDurationDays === 0 && (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      value={customDuration}
-                      onChange={e => setCustomDuration(e.target.value)}
-                      placeholder="Số ngày"
-                      className="text-sm w-24"
-                      min={3}
-                      max={90}
-                    />
-                    <span className="text-xs text-muted-foreground">ngày</span>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs">Ngày bắt đầu</Label>
-                <Input
-                  type="date"
-                  value={campaignStartDate}
-                  onChange={e => setCampaignStartDate(e.target.value)}
-                  className="text-sm"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs">Bạn muốn kiểm tra bài trước khi đăng không?</Label>
+            <div className="space-y-3">
+              {/* Autonomy Level */}
+              <Label className="text-xs">AI được tự làm đến đâu?</Label>
+              <p className="text-[10px] text-muted-foreground">Chọn mức độ mà AI có thể tự quyết.</p>
+              {AUTONOMY_LEVELS.map(lvl => (
+                <Card key={lvl.id} className={cn("cursor-pointer transition-all", autonomyLevel === lvl.id ? "border-primary ring-1 ring-primary/20" : "hover:border-primary/30")} onClick={() => setAutonomyLevel(lvl.id)}>
+                  <CardContent className="p-3 flex items-start gap-3">
+                    <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0", autonomyLevel === lvl.id ? "border-primary" : "border-muted-foreground/30")}>
+                      {autonomyLevel === lvl.id && <div className="w-2 h-2 rounded-full bg-primary" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{lvl.label}</p>
+                      <p className="text-[11px] text-muted-foreground">{lvl.description}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {/* Approval Mode */}
+              <div className="space-y-2 border-t pt-3">
+                <Label className="text-xs">Chế độ duyệt bài</Label>
                 {APPROVAL_MODE_OPTIONS.map(opt => (
                   <button
                     key={opt.value}
@@ -664,114 +734,83 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                   </button>
                 ))}
               </div>
-            </div>
-          )}
 
-          {/* Step 4: Tự động */}
-          {step === 4 && (
-            <div className="space-y-3">
-              <Label className="text-xs">AI được tự làm đến đâu?</Label>
-              <p className="text-[10px] text-muted-foreground">Chọn mức độ mà AI có thể tự quyết định mà không cần hỏi bạn.</p>
-              {AUTONOMY_LEVELS.map(lvl => (
-                <Card key={lvl.id} className={cn("cursor-pointer transition-all", autonomyLevel === lvl.id ? "border-primary ring-1 ring-primary/20" : "hover:border-primary/30")} onClick={() => setAutonomyLevel(lvl.id)}>
-                  <CardContent className="p-3 flex items-start gap-3">
-                    <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0", autonomyLevel === lvl.id ? "border-primary" : "border-muted-foreground/30")}>
-                      {autonomyLevel === lvl.id && <div className="w-2 h-2 rounded-full bg-primary" />}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{lvl.label}</p>
-                      <p className="text-[11px] text-muted-foreground">{lvl.description}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-               ))}
-
-              {/* Smart Auto-Approve Rules */}
+              {/* Smart Auto-Approve */}
               {(approvalMode === 'approve_each' || approvalMode === 'approve_plan') && (
-                <div className="mt-4 space-y-3 border-t pt-4">
+                <div className="space-y-3 border-t pt-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs flex items-center gap-1.5">
-                      <Zap className="w-3.5 h-3.5 text-primary" />
-                      Smart Auto-Approve
+                      <Zap className="w-3.5 h-3.5 text-primary" /> Smart Auto-Approve
                     </Label>
                     <button
                       onClick={() => setAutoApproveEnabled(!autoApproveEnabled)}
-                      className={cn(
-                        "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
-                        autoApproveEnabled ? "bg-primary" : "bg-muted-foreground/20"
-                      )}
+                      className={cn("relative inline-flex h-5 w-9 items-center rounded-full transition-colors", autoApproveEnabled ? "bg-primary" : "bg-muted-foreground/20")}
                     >
-                      <span className={cn(
-                        "inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform",
-                        autoApproveEnabled ? "translate-x-[18px]" : "translate-x-[3px]"
-                      )} />
+                      <span className={cn("inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform", autoApproveEnabled ? "translate-x-[18px]" : "translate-x-[3px]")} />
                     </button>
                   </div>
                   {autoApproveEnabled && (
                     <div className="space-y-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                      <p className="text-[10px] text-muted-foreground">
-                        Bài viết đạt đủ ngưỡng sẽ được tự động duyệt, không cần chờ bạn xác nhận.
-                      </p>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px]">Chất lượng tổng ≥</span>
-                          <span className="text-[11px] font-semibold tabular-nums text-primary">{thresholdQuality}</span>
+                      <p className="text-[10px] text-muted-foreground">Bài viết đạt đủ ngưỡng sẽ được tự động duyệt.</p>
+                      {[
+                        { label: 'Chất lượng tổng ≥', value: thresholdQuality, setter: setThresholdQuality, min: 50, max: 95, color: 'text-primary' },
+                        { label: 'GEO Score ≥', value: thresholdGeo, setter: setThresholdGeo, min: 30, max: 90, color: 'text-primary' },
+                        { label: 'Risk Score ≤', value: thresholdRiskMax, setter: setThresholdRiskMax, min: 0, max: 60, color: 'text-destructive' },
+                      ].map(t => (
+                        <div key={t.label} className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px]">{t.label}</span>
+                            <span className={cn("text-[11px] font-semibold tabular-nums", t.color)}>{t.value}</span>
+                          </div>
+                          <Slider value={[t.value]} min={t.min} max={t.max} step={5} onValueChange={([v]) => t.setter(v)} />
                         </div>
-                        <Slider value={[thresholdQuality]} min={50} max={95} step={5} onValueChange={([v]) => setThresholdQuality(v)} />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px]">GEO Score ≥</span>
-                          <span className="text-[11px] font-semibold tabular-nums text-primary">{thresholdGeo}</span>
-                        </div>
-                        <Slider value={[thresholdGeo]} min={30} max={90} step={5} onValueChange={([v]) => setThresholdGeo(v)} />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px]">Risk Score ≤</span>
-                          <span className="text-[11px] font-semibold tabular-nums text-destructive">{thresholdRiskMax}</span>
-                        </div>
-                        <Slider value={[thresholdRiskMax]} min={0} max={60} step={5} onValueChange={([v]) => setThresholdRiskMax(v)} />
-                      </div>
+                      ))}
                     </div>
                   )}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Step 5: Liên kết */}
-          {step === 5 && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs">Brand Template</Label>
-                <div className="flex items-center gap-2 p-2.5 rounded-lg border bg-muted/30">
-                  {currentBrand ? (
-                    <>
-                      <div
-                        className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold text-primary-foreground"
-                        style={{ backgroundColor: currentBrand.primary_color || 'hsl(var(--primary))' }}
-                      >
-                        {currentBrand.brand_name.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="text-sm font-medium">{currentBrand.brand_name}</span>
-                      <Badge variant="secondary" className="text-[9px] ml-auto">Đang dùng</Badge>
-                    </>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">Chưa chọn brand</span>
-                  )}
+              {/* Advanced Settings */}
+              <div className="space-y-3 border-t pt-3">
+                <div className="flex items-center gap-1.5">
+                  <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
+                  <Label className="text-xs">Cài đặt nâng cao</Label>
                 </div>
-                <p className="text-[11px] text-muted-foreground">Brand được lấy từ header. Đổi brand ở menu trên cùng.</p>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs">Liên kết Chiến dịch (tùy chọn)</Label>
-                <CampaignSelector value={campaignId} onValueChange={setCampaignId} placeholder="Chọn chiến dịch liên kết..." className="text-sm" />
-                <p className="text-[11px] text-muted-foreground">Content được AI tạo sẽ tự động gán vào chiến dịch này.</p>
+
+                {/* Brand Voice Threshold */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px]">Mức độ giữ giọng thương hiệu</span>
+                    <span className="text-[11px] font-semibold tabular-nums text-primary">{brandVoiceThreshold}%</span>
+                  </div>
+                  <Slider value={[brandVoiceThreshold]} min={30} max={100} step={5} onValueChange={([v]) => setBrandVoiceThreshold(v)} />
+                  <p className="text-[9px] text-muted-foreground">Cao = giữ đúng tone thương hiệu. Thấp = sáng tạo tự do hơn.</p>
+                </div>
+
+                {/* Learning Speed */}
+                <div className="space-y-1.5">
+                  <span className="text-[11px]">Tốc độ học hỏi</span>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {LEARNING_SPEED_OPTIONS.map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setLearningSpeed(opt.value)}
+                        className={cn(
+                          "p-2 rounded-lg border text-center transition-all",
+                          learningSpeed === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                        )}
+                      >
+                        <p className="text-[10px] font-medium">{opt.label}</p>
+                        <p className="text-[8px] text-muted-foreground">{opt.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Step 6: Xác nhận */}
+          {/* ═══ Step 4: Xác nhận ═══ */}
           {step === confirmStep && (
             <div className="space-y-3">
               {showClarification ? (
@@ -784,71 +823,87 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                 />
               ) : (
                 <>
-                  <Label className="text-xs font-medium">Xác nhận Campaign</Label>
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between py-1.5 border-b">
-                      <span className="text-muted-foreground">Tên</span>
-                      <span className="font-medium">{name}</span>
+                  {/* AI Preview Panel */}
+                  <div className="p-3 rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/15 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs font-medium">Dự kiến chiến dịch</span>
                     </div>
-                    <div className="flex justify-between py-1.5 border-b">
-                      <span className="text-muted-foreground">Thời lượng</span>
-                      <span className="font-medium">{effectiveDuration} ngày (từ {campaignStartDate})</span>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="text-center p-2 rounded-md bg-background/60">
+                        <p className="text-lg font-bold text-primary tabular-nums">{estimatedPosts}</p>
+                        <p className="text-[9px] text-muted-foreground">Bài viết</p>
+                      </div>
+                      <div className="text-center p-2 rounded-md bg-background/60">
+                        <p className="text-lg font-bold text-primary tabular-nums">{selectedChannels.length}</p>
+                        <p className="text-[9px] text-muted-foreground">Kênh</p>
+                      </div>
+                      <div className="text-center p-2 rounded-md bg-background/60">
+                        <p className="text-lg font-bold text-primary tabular-nums">{effectiveDuration}</p>
+                        <p className="text-[9px] text-muted-foreground">Ngày</p>
+                      </div>
                     </div>
-                    <div className="flex justify-between py-1.5 border-b">
-                      <span className="text-muted-foreground">Chế độ duyệt</span>
-                      <span className="font-medium">{APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label}</span>
-                    </div>
-                    <div className="flex justify-between py-1.5 border-b">
-                      <span className="text-muted-foreground">Kênh</span>
-                      <div className="flex gap-1 flex-wrap justify-end">
+                    {selectedObj && (
+                      <div className="flex items-center gap-1.5 text-[10px]">
+                        <selectedObj.icon className={cn("w-3 h-3", selectedObj.color)} />
+                        <span className="text-muted-foreground">Mục tiêu:</span>
+                        <span className="font-medium">{selectedObj.label}</span>
+                      </div>
+                    )}
+                    {selectedChannels.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
                         {selectedChannels.map(ch => {
                           const info = AVAILABLE_CHANNELS.find(c => c.id === ch);
                           return <Badge key={ch} variant="outline" className="text-[9px]">{info?.icon} {info?.label}</Badge>;
                         })}
                       </div>
+                    )}
+                    <p className="text-[9px] text-muted-foreground">
+                      📅 {campaignStartDate} → {new Date(new Date(campaignStartDate).getTime() + effectiveDuration * 86400000).toISOString().split('T')[0]}
+                    </p>
+                  </div>
+
+                  {/* Brand + Campaign Link */}
+                  <div className="space-y-2">
+                    <Label className="text-xs">Brand Template</Label>
+                    <div className="flex items-center gap-2 p-2 rounded-lg border bg-muted/30">
+                      {currentBrand ? (
+                        <>
+                          <div className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold text-primary-foreground" style={{ backgroundColor: currentBrand.primary_color || 'hsl(var(--primary))' }}>
+                            {currentBrand.brand_name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="text-xs font-medium">{currentBrand.brand_name}</span>
+                          <Badge variant="secondary" className="text-[9px] ml-auto">Đang dùng</Badge>
+                        </>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Chưa chọn brand</span>
+                      )}
                     </div>
-                    <div className="flex justify-between py-1.5 border-b">
-                      <span className="text-muted-foreground">Tự động</span>
-                      <span className="font-medium">{AUTONOMY_LEVELS.find(l => l.id === autonomyLevel)?.label}</span>
-                    </div>
-                    <div className="flex justify-between py-1.5 border-b">
-                      <span className="text-muted-foreground">Brand</span>
-                      <span className="font-medium">{currentBrand?.brand_name || 'Mặc định'}</span>
-                    </div>
-                    <div className="flex justify-between py-1.5 border-b">
-                      <span className="text-muted-foreground">Chiến dịch</span>
-                      <span className="font-medium">{campaignId ? '✅ Đã liên kết' : 'Không liên kết'}</span>
-                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Liên kết Chiến dịch (tùy chọn)</Label>
+                    <CampaignSelector value={campaignId} onValueChange={setCampaignId} placeholder="Chọn chiến dịch liên kết..." className="text-sm" />
+                  </div>
+
+                  {/* Review Summary */}
+                  <div className="space-y-1.5 text-xs border-t pt-3">
+                    <Label className="text-xs font-medium">Tóm tắt cài đặt</Label>
+                    <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Tên</span><span className="font-medium truncate ml-2 max-w-[60%] text-right">{name}</span></div>
+                    <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Chế độ duyệt</span><span className="font-medium">{APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label}</span></div>
+                    <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Tự động</span><span className="font-medium">{AUTONOMY_LEVELS.find(l => l.id === autonomyLevel)?.label}</span></div>
+                    {totalBudget > 0 && (
+                      <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Ngân sách</span><span className="font-medium">{totalBudget.toLocaleString('vi-VN')} VNĐ</span></div>
+                    )}
                     {keyMessages.length > 0 && (
-                      <div className="flex justify-between py-1.5 border-b">
-                        <span className="text-muted-foreground">Thông điệp chính</span>
-                        <div className="flex gap-1 flex-wrap justify-end max-w-[60%]">
-                          {keyMessages.map((msg, i) => (
-                            <Badge key={i} variant="secondary" className="text-[9px]">{msg}</Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {primaryCta.trim() && (
-                      <div className="flex justify-between py-1.5 border-b">
-                        <span className="text-muted-foreground">Kêu gọi hành động</span>
-                        <span className="font-medium">{primaryCta}</span>
-                      </div>
-                    )}
-                    {Object.keys(pillarAllocation).length > 0 && (
-                      <div className="py-1.5">
-                        <span className="text-muted-foreground">Tỷ lệ chủ đề</span>
-                        <div className="flex flex-wrap gap-1.5 mt-1">
-                          {Object.entries(pillarAllocation).map(([name, pct]) => (
-                            <Badge key={name} variant="outline" className="text-[9px]">{name}: {pct}%</Badge>
-                          ))}
-                        </div>
+                      <div className="py-1 border-b">
+                        <span className="text-muted-foreground">Thông điệp</span>
+                        <div className="flex gap-1 flex-wrap mt-1">{keyMessages.map((m, i) => <Badge key={i} variant="secondary" className="text-[9px]">{m}</Badge>)}</div>
                       </div>
                     )}
                     {autoApproveEnabled && (
-                      <div className="py-1.5 border-b">
+                      <div className="py-1 border-b">
                         <span className="text-muted-foreground">Smart Auto-Approve</span>
-                        <div className="flex flex-wrap gap-1.5 mt-1">
+                        <div className="flex flex-wrap gap-1 mt-1">
                           <Badge variant="outline" className="text-[9px]">Quality ≥ {thresholdQuality}</Badge>
                           <Badge variant="outline" className="text-[9px]">GEO ≥ {thresholdGeo}</Badge>
                           <Badge variant="outline" className="text-[9px] text-destructive border-destructive/30">Risk ≤ {thresholdRiskMax}</Badge>
