@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Check, Circle, AlertTriangle, Flag, Trash2, ArrowRight, Clock, Zap, DollarSign, Activity, Search, Trophy, Lightbulb, TrendingUp } from 'lucide-react';
+import { Check, Circle, AlertTriangle, Flag, Trash2, ArrowRight, Clock, Zap, DollarSign, Activity, Lightbulb, Trophy, TrendingUp } from 'lucide-react';
 import { AgentPipeline, AgentPipelineStage, PIPELINE_STAGES } from '@/types/agent';
 import { useAgentPipelineLogs } from '@/hooks/useAgentPipelineLogs';
 import { cn } from '@/lib/utils';
