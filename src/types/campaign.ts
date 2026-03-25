@@ -73,6 +73,7 @@ export interface Campaign {
   target_channels: string[];
   status: CampaignStatus;
   tags: string[];
+  content_brief?: CampaignContentBrief | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -111,6 +112,13 @@ export interface CampaignKPILog {
   created_at: string;
 }
 
+// Content Brief for AI Agent
+export interface CampaignContentBrief {
+  key_messages: string[];
+  primary_cta: string;
+  pillar_allocation: Record<string, number>;
+}
+
 // Form Data Types
 export interface CampaignFormData {
   name: string;
@@ -124,6 +132,7 @@ export interface CampaignFormData {
   budget_currency?: string;
   target_channels?: string[];
   tags?: string[];
+  content_brief?: CampaignContentBrief;
 }
 
 export interface MilestoneFormData {
