@@ -1,0 +1,1 @@
+ALTER TABLE public.agent_pipelines DROP CONSTRAINT agent_pipelines_content_id_fkey;
