@@ -89,6 +89,7 @@ interface ScheduleWithContent extends ContentSchedule {
     title: string;
     topic: string;
   };
+  isCampaignSource?: boolean;
 }
 
 
@@ -150,7 +151,12 @@ function DraggableScheduleItem({
       <div className="flex items-center gap-1.5">
         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusColor}`} />
         <ChannelIcon channel={channel} size={14} className={channelIconColors[channel]} />
-        <span className={`truncate font-medium ${colors.text}`}>{schedule.content?.title || 'Không có tiêu đề'}</span>
+        <span className={`truncate font-medium ${colors.text}`}>
+          {schedule.content?.title || (schedule.notes?.replace('Auto-created from campaign plan: ', '') || 'Không có tiêu đề')}
+        </span>
+        {schedule.isCampaignSource && (
+          <Target className="h-3 w-3 shrink-0 text-primary/60" />
+        )}
       </div>
       <div className="text-muted-foreground text-[10px] mt-0.5">
         {format(parseISO(schedule.scheduled_at), 'HH:mm')}
@@ -369,18 +375,32 @@ export default function ContentCalendar() {
 
       if (error) throw error;
 
-      const contentIds = [...new Set((schedulesData || []).map(s => s.content_id))];
+      const contentIds = [...new Set((schedulesData || []).map(s => s.content_id).filter(Boolean))];
       
-      const { data: contentsData } = await supabase
+      // Fetch from multi_channel_contents
+      const { data: mccData } = contentIds.length > 0 ? await supabase
         .from('multi_channel_contents')
         .select('id, title, topic')
-        .in('id', contentIds);
+        .in('id', contentIds) : { data: [] };
 
-      const contentMap = new Map((contentsData || []).map(c => [c.id, c]));
+      // Fetch from core_contents for items not found in multi_channel_contents
+      const mccIds = new Set((mccData || []).map(c => c.id));
+      const missingIds = contentIds.filter(id => !mccIds.has(id));
+      
+      const { data: coreData } = missingIds.length > 0 ? await supabase
+        .from('core_contents')
+        .select('id, title, topic')
+        .in('id', missingIds) : { data: [] };
+
+      const contentMap = new Map([
+        ...(mccData || []).map(c => [c.id, c] as const),
+        ...(coreData || []).map(c => [c.id, c] as const),
+      ]);
 
       const merged: ScheduleWithContent[] = (schedulesData || []).map(s => ({
         ...s as ContentSchedule,
-        content: contentMap.get(s.content_id) || undefined,
+        content: s.content_id ? contentMap.get(s.content_id) || undefined : undefined,
+        isCampaignSource: !!(s.notes && (s.notes as string).startsWith('Auto-created from campaign plan')),
       }));
 
       setSchedules(merged);
@@ -555,6 +575,39 @@ export default function ContentCalendar() {
           to: newScheduledAt.toISOString() 
         },
       });
+
+      // Sync reschedule back to agent_pipelines if campaign-sourced
+      if (schedule.isCampaignSource && schedule.content_id) {
+        try {
+          // Find pipeline by content_id that has schedule_ids in metadata
+          const { data: pipelines } = await supabase
+            .from('agent_pipelines')
+            .select('id, pipeline_state')
+            .eq('content_id', schedule.content_id)
+            .is('completed_at', null)
+            .limit(1);
+          
+          if (pipelines?.length) {
+            const pipeline = pipelines[0];
+            const pState = (pipeline.pipeline_state as Record<string, unknown>) || {};
+            const meta = (pState.metadata as Record<string, unknown>) || {};
+            const scheduleIds = (meta.schedule_ids as Record<string, string>) || {};
+            
+            // Verify this schedule belongs to this pipeline
+            if (Object.values(scheduleIds).includes(schedule.id)) {
+              await supabase
+                .from('agent_pipelines')
+                .update({ 
+                  scheduled_publish_at: newScheduledAt.toISOString() 
+                } as Record<string, unknown>)
+                .eq('id', pipeline.id);
+              console.log(`[Calendar] Synced reschedule to pipeline ${pipeline.id}`);
+            }
+          }
+        } catch (e) {
+          console.warn('[Calendar] Failed to sync reschedule to pipeline:', e);
+        }
+      }
 
       toast({
         title: 'Đã đổi lịch',
