@@ -5,10 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   Target, ChevronRight, Calendar, Clock, CheckCircle2,
-  AlertCircle, Pause, Play, Loader2, Sparkles, ArrowLeft, RefreshCw
+  AlertCircle, Pause, Play, Loader2, Sparkles, ArrowLeft, RefreshCw, ShieldAlert
 } from 'lucide-react';
 import { useAgentGoals } from '@/hooks/useAgentGoals';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
+import { useAgentApprovals } from '@/hooks/useAgentApprovals';
 import { useCampaignPlans } from '@/hooks/useCampaignPlans';
 import { CampaignContentPlan, CampaignContentPiece, AgentGoal } from '@/types/agent';
 import { CampaignPlanReview } from './CampaignPlanReview';
@@ -31,9 +32,17 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
 export function CampaignDashboard() {
   const { goals } = useAgentGoals();
   const { pipelines } = useAgentPipelines();
+  const { approvals } = useAgentApprovals();
   const { plans, isLoading, updatePlan } = useCampaignPlans();
   const [selectedPlan, setSelectedPlan] = useState<{ plan: CampaignContentPlan; goalName: string } | null>(null);
   const [recovering, setRecovering] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
+
+  // Detect pipelines at approval stage missing approval records
+  const approvalPipelines = pipelines.filter(p => p.current_stage === 'approval' && !p.completed_at);
+  const approvalPipelineIds = new Set(approvalPipelines.map(p => p.id));
+  const pipelinesWithApprovals = new Set(approvals.map(a => a.pipeline_id));
+  const missingApprovalCount = approvalPipelines.filter(p => !pipelinesWithApprovals.has(p.id)).length;
 
   // Detect stuck pipelines (stage_started_at > 15 min, not completed, not approval)
   const stuckPipelines = pipelines.filter(p => {
@@ -59,6 +68,21 @@ export function CampaignDashboard() {
       toast.error(`Khôi phục thất bại: ${e.message}`);
     } finally {
       setRecovering(false);
+    }
+  };
+
+  const handleBackfillApprovals = async () => {
+    setBackfilling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-pipeline', {
+        body: { action: 'backfill_approvals' },
+      });
+      if (error) throw error;
+      toast.success(`Đã tạo ${data?.backfilled || 0} approval records`);
+    } catch (e: any) {
+      toast.error(`Tạo approval records thất bại: ${e.message}`);
+    } finally {
+      setBackfilling(false);
     }
   };
 
@@ -178,6 +202,29 @@ export function CampaignDashboard() {
             >
               {recovering ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
               Khôi phục
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      {/* Missing approval records alert */}
+      {missingApprovalCount > 0 && (
+        <Card className="border-orange-500/30 bg-orange-500/5">
+          <CardContent className="p-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <ShieldAlert className="w-4 h-4 text-orange-500 shrink-0" />
+              <p className="text-xs text-orange-700 dark:text-orange-400">
+                <span className="font-semibold">{missingApprovalCount} pipeline</span> ở bước Duyệt nhưng thiếu approval record
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs shrink-0 border-orange-500/30 text-orange-700 dark:text-orange-400 hover:bg-orange-500/10"
+              onClick={handleBackfillApprovals}
+              disabled={backfilling}
+            >
+              {backfilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+              Tạo approval records
             </Button>
           </CardContent>
         </Card>
