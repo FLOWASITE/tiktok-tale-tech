@@ -2475,7 +2475,7 @@ Nội dung sẵn sàng đăng ngay.`;
       }
       
       // NEW: Build Smart Context for enhanced generation
-      const qualityMode: QualityMode = (formData.qualityMode || 'balanced') as QualityMode;
+      const qualityMode = normalizeQualityMode(formData.qualityMode);
       let smartContext: SmartContextResult | null = null;
 
       if (qualityMode !== 'fast') {
