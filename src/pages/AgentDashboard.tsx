@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,12 @@ export default function AgentDashboard() {
   const [editingGoal, setEditingGoal] = useState<AgentGoal | null>(null);
   const [filterGoalId, setFilterGoalId] = useState<string | null>(null);
   const [triggeringGoalId, setTriggeringGoalId] = useState<string | null>(null);
+
+  const goalNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    goals.forEach(g => map.set(g.id, g.name));
+    return map;
+  }, [goals]);
 
   const handleCreateGoal = async (data: Parameters<typeof createGoal.mutateAsync>[0]) => {
     try {
@@ -264,6 +270,7 @@ export default function AgentDashboard() {
                 <PipelineKanban
                   pipelines={filteredPipelines}
                   approvals={approvals}
+                  campaignNames={goalNameMap}
                   onStageChange={handleStageChange}
                   onApprove={(id, notes) => updateApproval.mutate({ id, status: 'approved', notes })}
                   onReject={(id, notes) => updateApproval.mutate({ id, status: 'rejected', notes: notes || 'Từ chối' })}
