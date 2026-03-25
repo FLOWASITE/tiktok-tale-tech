@@ -1,35 +1,43 @@
 
 
-# Fix: Thiếu Approval Records cho Pipelines ở Bước Duyệt
+# Fix: 13 Pipelines Bị Kẹt Ở Bước Đăng Bài (Publish)
 
-## Vấn đề
-- 15/16 pipelines đang ở stage `approval` nhưng **không có record** trong bảng `agent_approvals`
-- Nguyên nhân: Khi recovery re-fire quality → auto-advance tạo approval record bị drop im lặng do concurrency
-- `recover_stuck` cũng bỏ qua stage `approval` (line 300), nên không thể tự sửa
+## Nguyên nhân gốc
 
-## Giải pháp (2 phần)
+Tất cả 13 pipelines ở stage `publish` đều **thiếu `target_channels`** trong `pipeline_state.meta`. Khi không có kênh đăng, Publisher Agent không làm gì và kẹt tại đây.
 
-### Phần 1: Backfill — Tạo approval records cho pipelines bị thiếu
+Ngoài ra:
+- **11 pipelines** có `scheduled_publish_at` trong tương lai → bị block thêm bởi schedule check
+- **2 pipelines** thiếu `content_id`
 
-Thêm action `backfill_approvals` vào `supabase/functions/agent-pipeline/index.ts`:
-- Quét tất cả pipelines có `current_stage = 'approval'` mà **không có** `agent_approvals` record
-- Tạo `agent_approvals` record với `status: 'pending'`, lấy `content_preview` từ `pipeline_state.stages.create.output` và `scores` từ `pipeline_state.stages.quality.output`
-- Return số records đã tạo
+## Giải pháp
 
-### Phần 2: Safety net — Đảm bảo approval record luôn tồn tại
+### Phần 1: Backfill `target_channels` từ goal config
 
-Trong phần `approval` stage handler (line ~815), khi kiểm tra `existingApproval` mà không tìm thấy (else branch), code đã tạo record mới. Tuy nhiên cần thêm error handling cho insert để log lỗi rõ ràng thay vì fail im lặng.
+Thêm action `backfill_publish` vào `agent-pipeline/index.ts`:
+- Quét pipelines ở `publish` stage mà thiếu `target_channels`
+- Lấy `target_channels` từ `agent_goals.config` (nơi user đã chọn kênh khi tạo campaign)
+- Cập nhật vào `pipeline_state.meta.target_channels`
+- Với 2 pipelines thiếu `content_id`: resolve từ `pipeline_state.stages.create.output`
 
-### Phần 3: UI — Thêm nút Backfill trên CampaignDashboard
+### Phần 2: Fix logic tạo pipeline thiếu `target_channels`
 
-Trong `CampaignDashboard.tsx`, thêm logic phát hiện pipelines ở approval mà thiếu record, hiển thị warning và nút "Tạo approval records" gọi action `backfill_approvals`.
+Trong `create_from_plan` action (nơi tạo pipelines từ content plan), đảm bảo `target_channels` được copy từ goal config vào `pipeline_state.meta` khi tạo pipeline mới.
+
+### Phần 3: Xử lý pipelines chờ lịch đã quá hạn
+
+Với pipelines có `scheduled_publish_at` đã qua (VD: 25/3, 27/3), cho phép chạy publish ngay thay vì block.
+
+### Phần 4: UI — Thêm nút "Fix & Retry Publish" trên Kanban
+
+Trên `CampaignDashboard.tsx`, phát hiện pipelines ở publish mà thiếu channels, hiển thị warning + nút backfill tương tự approval backfill.
 
 ### File changes
 
 1. **`supabase/functions/agent-pipeline/index.ts`**:
-   - Thêm action `backfill_approvals` (~30 dòng) trước unknown action response
-   - Thêm error logging cho approval insert tại line ~1144 và ~837
+   - Thêm action `backfill_publish` (~40 dòng)
+   - Fix `create_from_plan` để inject `target_channels` vào meta
 
 2. **`src/components/agents/CampaignDashboard.tsx`**:
-   - Thêm nút "Tạo approval records" khi phát hiện mismatch giữa pipelines ở approval và approval records
+   - Thêm detection + nút "Fix publish data" cho pipelines thiếu channels
 
