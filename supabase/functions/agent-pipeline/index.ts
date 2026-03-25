@@ -566,7 +566,154 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       }
 
     } else if (stage === "compliance") {
-      result.output = { status: "passed", issues: [] };
+      const contentId = pipeline.content_id;
+      if (!contentId) {
+        result.output = { status: "skipped", reason: "No content_id available for compliance check" };
+      } else {
+        // 1. Fetch actual content text
+        const { data: coreContent } = await supabase
+          .from("core_contents")
+          .select("title, content, content_goal")
+          .eq("id", contentId)
+          .single();
+
+        const contentText = coreContent?.content || "";
+        const contentTitle = coreContent?.title || pipeline.content_title || "";
+
+        // 2. Fetch brand template for industry context
+        const compBrandId = brandTemplateId || pipeline.brand_template_id;
+        let brandData: any = null;
+        let industryRules: any[] = [];
+
+        if (compBrandId) {
+          const { data: brand } = await supabase
+            .from("brand_templates")
+            .select("brand_name, industry, tone_of_voice, preferred_words, forbidden_words, formality_level, industry_template_id")
+            .eq("id", compBrandId)
+            .single();
+          brandData = brand;
+
+          // 3. Fetch resolved compliance rules from Industry Park (if available)
+          if (brand?.industry_template_id) {
+            const { data: jurisdictions } = await supabase
+              .from("industry_jurisdiction_profiles")
+              .select("resolved_rules")
+              .eq("industry_template_id", brand.industry_template_id)
+              .limit(1);
+
+            if (jurisdictions?.length > 0 && jurisdictions[0].resolved_rules) {
+              const resolved = jurisdictions[0].resolved_rules;
+              industryRules = [
+                ...(resolved.forbidden_terms || []).map((t: string) => `Từ cấm: "${t}"`),
+                ...(resolved.compliance_rules || []).map((r: string) => `Quy định: ${r}`),
+                ...(resolved.claim_restrictions || []).map((c: any) => `Hạn chế claim: ${typeof c === 'string' ? c : c.description || JSON.stringify(c)}`),
+              ];
+            }
+          }
+        }
+
+        // 4. Build compliance check prompt
+        const industryName = brandData?.industry || "general";
+        const forbiddenWords = brandData?.forbidden_words || [];
+        const toneOfVoice = brandData?.tone_of_voice || "";
+        const formality = brandData?.formality_level || "";
+
+        const compliancePrompt = `Bạn là chuyên gia kiểm tra tuân thủ nội dung cho ngành "${industryName}".
+
+Kiểm tra nội dung sau:
+Tiêu đề: ${contentTitle}
+Nội dung: ${contentText.slice(0, 3000)}
+
+${brandData ? `Brand: ${brandData.brand_name || "N/A"}
+Tone of Voice: ${toneOfVoice}
+Formality: ${formality}
+Từ cấm của brand: ${forbiddenWords.length > 0 ? forbiddenWords.join(", ") : "Không có"}` : "Không có thông tin brand."}
+
+${industryRules.length > 0 ? `Quy định ngành:\n${industryRules.join("\n")}` : `Không có quy định ngành cụ thể. Dựa vào kiến thức chung về ngành "${industryName}" để đánh giá.`}
+
+Kiểm tra:
+1. Tuân thủ pháp luật — có claim nào cần disclaimer không?
+2. Quy định ngành — có vi phạm quy định đặc thù ngành "${industryName}" không?
+3. Brand voice — tone có phù hợp với brand guidelines không?
+4. Từ cấm — có sử dụng từ nào trong danh sách cấm không?
+5. Claim quá mạnh — có lời hứa/cam kết quá mức không?
+
+Trả về JSON (KHÔNG markdown):
+{
+  "status": "passed" | "needs_review" | "failed",
+  "score": 0-100,
+  "issues": [
+    { "type": "legal|brand_voice|industry|language", "severity": "high|medium|low", "description": "...", "suggestion": "..." }
+  ],
+  "summary": "Tóm tắt ngắn kết quả kiểm tra"
+}`;
+
+        try {
+          // Call LLM via Lovable AI gateway
+          const gatewayUrl = Deno.env.get("AI_GATEWAY_URL") || `${supabaseUrl}/functions/v1/ai-gateway`;
+          const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+          
+          const aiResponse = await fetch(gatewayUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(lovableApiKey ? { "Authorization": `Bearer ${lovableApiKey}` } : { "Authorization": `Bearer ${supabaseKey}` }),
+            },
+            body: JSON.stringify({
+              functionName: "compliance-check",
+              messages: [
+                { role: "system", content: "Bạn là AI kiểm tra tuân thủ nội dung. Luôn trả về JSON hợp lệ." },
+                { role: "user", content: compliancePrompt },
+              ],
+              model: "google/gemini-2.5-flash",
+            }),
+          });
+
+          const aiData = await aiResponse.json();
+          const aiContent = aiData?.data?.choices?.[0]?.message?.content
+            || aiData?.choices?.[0]?.message?.content
+            || "";
+
+          // Parse JSON from response
+          const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const complianceResult = JSON.parse(jsonMatch[0]);
+            result.output = complianceResult;
+
+            // Flag pipeline if compliance failed
+            if (complianceResult.status === "failed") {
+              const highIssues = (complianceResult.issues || []).filter((i: any) => i.severity === "high");
+              if (highIssues.length > 0) {
+                await supabase.from("agent_pipelines").update({
+                  is_flagged: true,
+                  flag_reason: `Compliance failed: ${highIssues.map((i: any) => i.description).join("; ")}`,
+                } as any).eq("id", pipelineId);
+                shouldAutoAdvance = false;
+              }
+            }
+          } else {
+            console.warn("[compliance] Could not parse LLM response:", aiContent.slice(0, 200));
+            result.output = { status: "needs_review", score: 50, issues: [], summary: "Could not parse compliance check result" };
+          }
+        } catch (compErr) {
+          console.warn("[compliance] LLM call failed, using basic check:", compErr);
+          // Fallback: basic forbidden word check without LLM
+          const foundForbidden = forbiddenWords.filter((w: string) => 
+            contentText.toLowerCase().includes(w.toLowerCase()) || contentTitle.toLowerCase().includes(w.toLowerCase())
+          );
+          result.output = {
+            status: foundForbidden.length > 0 ? "needs_review" : "passed",
+            score: foundForbidden.length > 0 ? 60 : 85,
+            issues: foundForbidden.map((w: string) => ({
+              type: "language",
+              severity: "medium",
+              description: `Sử dụng từ cấm: "${w}"`,
+              suggestion: `Thay thế từ "${w}" bằng từ ngữ phù hợp hơn`,
+            })),
+            summary: foundForbidden.length > 0 ? `Phát hiện ${foundForbidden.length} từ cấm` : "Basic check passed (LLM unavailable)",
+          };
+        }
+      }
 
     } else if (stage === "approval") {
       if (pipeline.autonomy_level === "human_in_loop") {
