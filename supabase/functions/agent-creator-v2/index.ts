@@ -257,7 +257,7 @@ async function routeMultichannel(
     : ctx?.content_role === "sprout" ? "engagement"
     : input.content_goal || "education";
   const contentAngle = ctx?.angle || input.content_angle || undefined;
-  const contentRole = ctx?.content_role || input.content_role || undefined;
+  const contentRole = (ctx?.content_role || input.content_role || "")?.toLowerCase() || undefined;
   const lengthMode = ctx?.estimated_length || input.length_mode || "medium";
 
   // Additional context from clarifications + campaign
