@@ -443,24 +443,31 @@ async function routeCarousel(
     topic: input.topic,
     platform: targetChannel,
     carouselStyle: "educational",
-    visualPreset: "clean_modern",
+    visualPreset: "minimalist",
     slideCount,
+    aiTool: "ideogram",
+    brandName: brief.brand_name || "Brand",
+    brandGuideline: brief.unique_value_proposition || "",
+    includeLogo: false,
     organization_id: input.organization_id,
     brandTemplateId: input.brand_template_id,
     autoGenerateImages: false,
     userId,
   });
 
+  // generate-carousel returns DB record with slides_content, map to slides
+  const slides = carouselOutput?.slides_content || carouselOutput?.slides || [];
+
   const result: CreatorResult = {
     success: true,
     content_type: "carousel",
-    content_id: carouselOutput?.content_id || carouselOutput?.id || undefined,
+    content_id: carouselOutput?.id || undefined,
     title: carouselOutput?.title || input.topic,
-    output: carouselOutput,
+    output: { ...carouselOutput, slides },
   };
 
   // Self-review on carousel text
-  const slidesText = (carouselOutput?.slides || [])
+  const slidesText = slides
     .map((s: any, i: number) => `Slide ${i + 1}: ${typeof s.textContent === 'string' ? s.textContent : JSON.stringify(s.textContent || s.headline || "")}`)
     .join("\n");
 
