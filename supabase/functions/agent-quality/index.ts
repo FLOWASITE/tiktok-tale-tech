@@ -117,6 +117,7 @@ interface QualityInput {
   orgId: string;
   brandTemplateId?: string;
   pipelineState?: any;
+  contentOverride?: string;
 }
 
 async function runQuality(
