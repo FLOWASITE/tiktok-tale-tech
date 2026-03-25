@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { 
   Target, Radio, Palette, Eye, ChevronLeft, ChevronRight, 
-  Check, Sparkles, ShieldCheck, Zap, Bot
+  Check, Sparkles, ShieldCheck, Zap, Bot, Calendar
 } from 'lucide-react';
 import { AgentAutonomyLevel, AgentGoal, AUTONOMY_LEVELS } from '@/types/agent';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,9 +40,23 @@ const FREQUENCY_OPTIONS = [
   { value: 'weekly', label: 'Hàng tuần' },
 ];
 
+const DURATION_OPTIONS = [
+  { value: 7, label: '1 tuần', description: '3-4 bài viết' },
+  { value: 14, label: '2 tuần', description: '5-7 bài viết' },
+  { value: 30, label: '1 tháng', description: '8-12 bài viết' },
+  { value: 0, label: 'Tùy chỉnh', description: 'Nhập số ngày' },
+];
+
+const APPROVAL_MODE_OPTIONS = [
+  { value: 'approve_plan', label: 'Duyệt kế hoạch', description: 'Duyệt toàn bộ plan trước khi AI bắt đầu tạo', icon: '📋' },
+  { value: 'approve_each', label: 'Duyệt từng bài', description: 'AI tạo từng bài, bạn duyệt mỗi bài trước khi đăng', icon: '✅' },
+  { value: 'full_auto', label: 'Tự động hoàn toàn', description: 'AI tự lên kế hoạch, tạo và đăng bài tự động', icon: '🚀' },
+];
+
 const STEPS = [
   { icon: Target, label: 'Mục tiêu' },
   { icon: Radio, label: 'Kênh' },
+  { icon: Calendar, label: 'Chiến dịch' },
   { icon: ShieldCheck, label: 'Tự động' },
   { icon: Palette, label: 'Liên kết' },
   { icon: Eye, label: 'Xác nhận' },
@@ -61,6 +75,9 @@ interface GoalWizardProps {
     brand_template_id?: string;
     campaign_id?: string;
     clarification_context?: Record<string, string>;
+    campaign_duration_days?: number;
+    campaign_start_date?: string;
+    approval_mode?: string;
   }) => void;
   initialData?: AgentGoal | null;
 }
@@ -78,6 +95,12 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
   const [campaignId, setCampaignId] = useState<string | undefined>(undefined);
 
+  // Campaign fields
+  const [campaignDurationDays, setCampaignDurationDays] = useState(14);
+  const [customDuration, setCustomDuration] = useState('');
+  const [campaignStartDate, setCampaignStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [approvalMode, setApprovalMode] = useState('approve_plan');
+
   // Clarification state
   const [clarifying, setClarifying] = useState(false);
   const [clarificationQuestions, setClarificationQuestions] = useState<any[] | null>(null);
@@ -93,6 +116,9 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
       setAutonomyLevel(initialData.autonomy_level);
       setBrandTemplateId(initialData.brand_template_id || '');
       setCampaignId(initialData.campaign_id || undefined);
+      setCampaignDurationDays(initialData.campaign_duration_days || 14);
+      setCampaignStartDate(initialData.campaign_start_date || new Date().toISOString().split('T')[0]);
+      setApprovalMode(initialData.approval_mode || 'approve_plan');
       setStep(0);
     } else if (open && !initialData) {
       resetForm();
@@ -112,6 +138,10 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     setAutonomyLevel('human_in_loop');
     setBrandTemplateId(currentBrand?.id || '');
     setCampaignId(undefined);
+    setCampaignDurationDays(14);
+    setCustomDuration('');
+    setCampaignStartDate(new Date().toISOString().split('T')[0]);
+    setApprovalMode('approve_plan');
     setClarifying(false);
     setClarificationQuestions(null);
     setClarificationUnderstanding(null);
@@ -134,11 +164,14 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     switch (step) {
       case 0: return name.trim().length > 0;
       case 1: return selectedChannels.length > 0;
+      case 2: return (campaignDurationDays > 0 || (customDuration && parseInt(customDuration) > 0)) && !!campaignStartDate;
       default: return true;
     }
   };
 
-  // Trigger clarification check when user reaches step 4 (confirm)
+  const effectiveDuration = campaignDurationDays > 0 ? campaignDurationDays : parseInt(customDuration) || 14;
+
+  // Trigger clarification check when user reaches last step (confirm)
   const handleConfirmStep = async () => {
     setClarifying(true);
     setClarificationQuestions(null);
@@ -159,19 +192,16 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
       if (data?.ready) {
         setClarificationUnderstanding(data.understanding || `Tạo nội dung về "${name}"`);
-        // Auto-submit after brief delay to show understanding
         setTimeout(() => {
           finalSubmit(null);
         }, 1500);
       } else if (data?.questions?.length > 0) {
         setClarificationQuestions(data.questions);
       } else {
-        // Fallback: just submit
         finalSubmit(null);
       }
     } catch (e) {
       console.error('Clarification error:', e);
-      // On error, just proceed without clarification
       finalSubmit(null);
     } finally {
       setClarifying(false);
@@ -189,6 +219,9 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
       brand_template_id: brandTemplateId || undefined,
       campaign_id: campaignId || undefined,
       clarification_context: context || clarificationContext || undefined,
+      campaign_duration_days: effectiveDuration,
+      campaign_start_date: campaignStartDate,
+      approval_mode: approvalMode,
     });
   };
 
@@ -202,7 +235,8 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   };
 
   const isEditing = !!initialData;
-  const showClarification = step === 4 && (clarifying || clarificationQuestions || clarificationUnderstanding);
+  const confirmStep = STEPS.length - 1; // last step
+  const showClarification = step === confirmStep && (clarifying || clarificationQuestions || clarificationUnderstanding);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -239,6 +273,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
         {/* Step content */}
         <div className="px-5 pb-5 min-h-[200px] max-h-[55vh] overflow-y-auto">
+          {/* Step 0: Mục tiêu */}
           {step === 0 && (
             <div className="space-y-4">
               <div className="space-y-2">
@@ -247,21 +282,22 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
               </div>
               <div className="space-y-2">
                 <Label className="text-xs">Mô tả mục tiêu</Label>
-                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Mô tả mục tiêu campaign để AI nghiên cứu chủ đề phù hợp..." rows={3} className="text-sm resize-none" />
+                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Mô tả mục tiêu campaign để AI lên kế hoạch nội dung phù hợp..." rows={3} className="text-sm resize-none" />
               </div>
               <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
                 <Bot className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                 <p className="text-[11px] text-muted-foreground">
-                  <span className="font-medium text-foreground">Research Agent</span> sẽ tự động nghiên cứu xu hướng và đề xuất chủ đề nội dung dựa trên brand, ngành hàng và mô tả mục tiêu của bạn.
+                  <span className="font-medium text-foreground">Strategy Agent</span> sẽ tự động lên kế hoạch N bài viết với các loại content khác nhau (bài viết, video, carousel) dựa trên brand và mục tiêu của bạn.
                 </p>
               </div>
             </div>
           )}
 
+          {/* Step 1: Kênh */}
           {step === 1 && (
             <div className="space-y-4">
               <Label className="text-xs">Chọn kênh publish & tần suất</Label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto">
                 {AVAILABLE_CHANNELS.map(ch => {
                   const selected = selectedChannels.includes(ch.id);
                   return (
@@ -300,7 +336,77 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
             </div>
           )}
 
+          {/* Step 2: Chiến dịch (NEW) */}
           {step === 2 && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-xs">Thời lượng chiến dịch</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {DURATION_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => {
+                        setCampaignDurationDays(opt.value);
+                        if (opt.value > 0) setCustomDuration('');
+                      }}
+                      className={cn(
+                        "p-3 rounded-lg border text-left transition-all",
+                        campaignDurationDays === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                      )}
+                    >
+                      <p className="text-sm font-medium">{opt.label}</p>
+                      <p className="text-[10px] text-muted-foreground">{opt.description}</p>
+                    </button>
+                  ))}
+                </div>
+                {campaignDurationDays === 0 && (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      value={customDuration}
+                      onChange={e => setCustomDuration(e.target.value)}
+                      placeholder="Số ngày"
+                      className="text-sm w-24"
+                      min={3}
+                      max={90}
+                    />
+                    <span className="text-xs text-muted-foreground">ngày</span>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Ngày bắt đầu</Label>
+                <Input
+                  type="date"
+                  value={campaignStartDate}
+                  onChange={e => setCampaignStartDate(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Chế độ duyệt</Label>
+                {APPROVAL_MODE_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setApprovalMode(opt.value)}
+                    className={cn(
+                      "w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-all",
+                      approvalMode === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                    )}
+                  >
+                    <span className="text-lg">{opt.icon}</span>
+                    <div>
+                      <p className="text-sm font-medium">{opt.label}</p>
+                      <p className="text-[10px] text-muted-foreground">{opt.description}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Tự động */}
+          {step === 3 && (
             <div className="space-y-3">
               <Label className="text-xs">Mức độ tự động</Label>
               {AUTONOMY_LEVELS.map(lvl => (
@@ -319,7 +425,8 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
             </div>
           )}
 
-          {step === 3 && (
+          {/* Step 4: Liên kết */}
+          {step === 4 && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs">Brand Template</Label>
@@ -349,7 +456,8 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
             </div>
           )}
 
-          {step === 4 && (
+          {/* Step 5: Xác nhận */}
+          {step === confirmStep && (
             <div className="space-y-3">
               {showClarification ? (
                 <ClarificationStep
@@ -368,17 +476,19 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                       <span className="font-medium">{name}</span>
                     </div>
                     <div className="flex justify-between py-1.5 border-b">
-                      <span className="text-muted-foreground">Chủ đề</span>
-                      <span className="font-medium text-primary/80 flex items-center gap-1">
-                        <Bot className="w-3 h-3" /> AI tự nghiên cứu
-                      </span>
+                      <span className="text-muted-foreground">Thời lượng</span>
+                      <span className="font-medium">{effectiveDuration} ngày (từ {campaignStartDate})</span>
+                    </div>
+                    <div className="flex justify-between py-1.5 border-b">
+                      <span className="text-muted-foreground">Chế độ duyệt</span>
+                      <span className="font-medium">{APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label}</span>
                     </div>
                     <div className="flex justify-between py-1.5 border-b">
                       <span className="text-muted-foreground">Kênh</span>
                       <div className="flex gap-1 flex-wrap justify-end">
                         {selectedChannels.map(ch => {
                           const info = AVAILABLE_CHANNELS.find(c => c.id === ch);
-                          return <Badge key={ch} variant="outline" className="text-[9px]">{info?.icon} {info?.label} ({frequency[ch]})</Badge>;
+                          return <Badge key={ch} variant="outline" className="text-[9px]">{info?.icon} {info?.label}</Badge>;
                         })}
                       </div>
                     </div>
@@ -406,7 +516,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
           <Button variant="ghost" size="sm" onClick={() => { setStep(s => s - 1); setClarificationQuestions(null); setClarificationUnderstanding(null); }} disabled={step === 0} className="text-xs gap-1">
             <ChevronLeft className="w-3.5 h-3.5" /> Quay lại
           </Button>
-          {step < 4 ? (
+          {step < confirmStep ? (
             <Button size="sm" onClick={() => setStep(s => s + 1)} disabled={!canNext()} className="text-xs gap-1">
               Tiếp theo <ChevronRight className="w-3.5 h-3.5" />
             </Button>

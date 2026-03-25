@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { toast } from 'sonner';
 
 export function useAgentPipelines(goalId?: string) {
+  // Note: Pipeline stages are now: strategy, create, quality, approval, publish, analyze
   const { currentOrganization } = useOrganizationContext();
   const queryClient = useQueryClient();
   const orgId = currentOrganization?.id;
