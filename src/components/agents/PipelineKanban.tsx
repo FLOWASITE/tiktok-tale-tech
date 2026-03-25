@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Search, PenTool, ShieldCheck, UserCheck, Send, BarChart3, InboxIcon, AlertTriangle, Clock } from 'lucide-react';
+import { Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3, InboxIcon, AlertTriangle, Clock } from 'lucide-react';
 import { AgentPipeline, AgentPipelineStage, PIPELINE_STAGES } from '@/types/agent';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
