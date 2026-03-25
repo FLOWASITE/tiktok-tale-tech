@@ -8,7 +8,6 @@ export interface ProgressStepConfig {
 // Step IDs that match backend SSE events
 export type ProgressStepId = 
   | 'init' 
-  | 'brand' 
   | 'personas' 
   | 'industry' 
   | 'prompt' 
