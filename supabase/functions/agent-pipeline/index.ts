@@ -728,6 +728,16 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         pipeline.content_id = contentId;
       }
 
+      // Save multichannel_content_id in pipeline state for Publisher
+      const mcContentId = creatorResult.multichannel_content_id;
+      if (mcContentId) {
+        pState.multichannel_content_id = mcContentId;
+        if (pState.stages?.create) {
+          pState.stages.create.multichannel_content_id = mcContentId;
+        }
+        console.log(`[create] Saved multichannel_content_id: ${mcContentId}`);
+      }
+
       // Save self-review scores
       if (creatorResult.self_review) {
         result.output.self_review = creatorResult.self_review;

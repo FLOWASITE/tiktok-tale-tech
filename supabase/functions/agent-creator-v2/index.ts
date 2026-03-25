@@ -243,6 +243,94 @@ Trả về JSON:
   }
 }
 
+// ─── Helper: Generate images for channels (max 3 concurrent) ───
+
+async function generateImagesForChannels(
+  supabaseUrl: string,
+  serviceKey: string,
+  contentId: string,
+  channels: string[],
+  brandTemplateId: string | null | undefined,
+): Promise<{ success: string[]; failed: string[] }> {
+  const success: string[] = [];
+  const failed: string[] = [];
+  const batchSize = 3;
+
+  for (let i = 0; i < channels.length; i += batchSize) {
+    const batch = channels.slice(i, i + batchSize);
+    const results = await Promise.allSettled(
+      batch.map(channel =>
+        callFunction(supabaseUrl, serviceKey, "generate-brand-image", {
+          contentId,
+          channel,
+          brandTemplateId: brandTemplateId || undefined,
+          imageContentType: "with_text",
+        })
+      )
+    );
+    results.forEach((r, idx) => {
+      if (r.status === "fulfilled") {
+        success.push(batch[idx]);
+      } else {
+        console.warn(`[multichannel] Image failed for channel ${batch[idx]}:`, r.reason);
+        failed.push(batch[idx]);
+      }
+    });
+  }
+  return { success, failed };
+}
+
+// ─── Helper: Generate carousel images (Phase 2) ───
+
+async function generateCarouselImages(
+  supabaseUrl: string,
+  serviceKey: string,
+  carouselId: string,
+  slides: any[],
+  brandTemplateId: string | null | undefined,
+  visualPreset: string,
+  carouselStyle: string,
+): Promise<{ success: number; failed: number }> {
+  let successCount = 0;
+  let failedCount = 0;
+  const batchSize = 3;
+  let previousSceneDescription = "";
+
+  for (let i = 0; i < slides.length; i += batchSize) {
+    const batch = slides.slice(i, i + batchSize);
+    const results = await Promise.allSettled(
+      batch.map((slide: any, batchIdx: number) => {
+        const slideNumber = i + batchIdx + 1;
+        return callFunction(supabaseUrl, serviceKey, "generate-carousel-image", {
+          carouselId,
+          slideNumber,
+          prompt: slide.fullPrompt || slide.designStyle || `Slide ${slideNumber}`,
+          brandTemplateId: brandTemplateId || undefined,
+          visualPreset,
+          carouselStyle,
+          totalSlides: slides.length,
+          seamlessContext: previousSceneDescription || undefined,
+        });
+      })
+    );
+    results.forEach((r, idx) => {
+      if (r.status === "fulfilled") {
+        successCount++;
+        // Capture scene description for seamless continuity
+        const output = r.value;
+        if (output?.sceneDescription) {
+          previousSceneDescription = output.sceneDescription;
+        }
+      } else {
+        const slideNum = i + idx + 1;
+        console.warn(`[carousel] Image failed for slide ${slideNum}:`, r.reason);
+        failedCount++;
+      }
+    });
+  }
+  return { success: successCount, failed: failedCount };
+}
+
 // ─── Route A: Multichannel ───
 
 async function routeMultichannel(
@@ -270,33 +358,48 @@ async function routeMultichannel(
     additionalContext += ` [Campaign piece ${ctx.piece_number}/${ctx.total_pieces}. Angle: ${ctx.angle}. Role: ${ctx.content_role}. Channel: ${ctx.target_channel}.]`;
   }
 
-  // Step 1: Generate core content
-  const coreOutput = await callFunction(supabaseUrl, serviceKey, "generate-core-content", {
-    topic: input.topic,
-    contentGoal,
-    contentAngle: contentAngle || (additionalContext ? additionalContext : undefined),
-    contentRole,
-    lengthMode,
-    organizationId: input.organization_id,
-    brandTemplateId: input.brand_template_id,
-    campaign_id: input.campaign_id || null,
-  });
+  // ─── Decide: Skip Core Content? ───
+  // Skip when: seed role (awareness), no brand template, or single channel target
+  const targetChannels = input.target_channels || [];
+  const shouldSkipCoreContent =
+    contentRole === "seed" ||
+    !input.brand_template_id ||
+    targetChannels.length <= 1;
 
-  const contentId = coreOutput?.content_id || coreOutput?.id;
-  if (!contentId) {
-    return { success: false, content_type: "multichannel", error: "No content_id from generate-core-content" };
+  let contentId: string | null = null;
+  let coreOutput: any = null;
+
+  if (!shouldSkipCoreContent) {
+    // Step 1: Generate core content (optional)
+    console.log(`[multichannel] Step 1: Generating core content`);
+    coreOutput = await callFunction(supabaseUrl, serviceKey, "generate-core-content", {
+      topic: input.topic,
+      contentGoal,
+      contentAngle: contentAngle || (additionalContext ? additionalContext : undefined),
+      contentRole,
+      lengthMode,
+      organizationId: input.organization_id,
+      brandTemplateId: input.brand_template_id,
+      campaign_id: input.campaign_id || null,
+    });
+    contentId = coreOutput?.content_id || coreOutput?.id || null;
+    if (!contentId) {
+      return { success: false, content_type: "multichannel", error: "No content_id from generate-core-content" };
+    }
+  } else {
+    console.log(`[multichannel] Skipping Core Content (role=${contentRole}, brand=${!!input.brand_template_id}, channels=${targetChannels.length})`);
   }
 
   const result: CreatorResult = {
     success: true,
     content_type: "multichannel",
-    content_id: contentId,
+    content_id: contentId || undefined,
     title: coreOutput?.title || input.topic,
-    output: coreOutput,
+    output: coreOutput || {},
   };
 
-  // Step 2: Generate multichannel content from core content
-  const targetChannels = input.target_channels || [];
+  // Step 2: Generate multichannel text for each channel
+  let multichannelContentId: string | null = null;
   if (targetChannels.length > 0) {
     try {
       // Get org owner for auth context
@@ -312,28 +415,49 @@ async function routeMultichannel(
         expansionUserId = owner?.user_id || null;
       } catch { /* ignore */ }
 
-      // Use action "create" with coreContentId instead of "expand"
-      // "expand" requires an existing multi_channel_contents ID, but we only have core_contents ID
-      const mcOutput = await callFunction(supabaseUrl, serviceKey, "generate-multichannel", {
+      console.log(`[multichannel] Step 2: Generating text for ${targetChannels.length} channels`);
+      const mcParams: Record<string, unknown> = {
         action: "create",
         topic: input.topic,
         channels: targetChannels,
-        coreContentId: contentId,
-        contentRole: (ctx?.content_role || input.content_role || "")?.toLowerCase() || undefined,
-        contentGoal: ctx?.content_role === "harvest" ? "conversion"
-          : ctx?.content_role === "sprout" ? "engagement"
-          : input.content_goal || "education",
+        contentRole: contentRole || undefined,
+        contentGoal,
         organizationId: input.organization_id,
         brandTemplateId: input.brand_template_id,
         userId: expansionUserId,
         campaign_id: input.campaign_id || null,
         qualityMode: "speed",
-      });
+      };
+      // Only pass coreContentId if we created core content
+      if (contentId) {
+        mcParams.coreContentId = contentId;
+      }
+
+      const mcOutput = await callFunction(supabaseUrl, serviceKey, "generate-multichannel", mcParams);
       result.output.multichannel = mcOutput;
+      multichannelContentId = mcOutput?.id || mcOutput?.content_id || null;
+
+      // Step 3: Generate images for each channel
+      if (multichannelContentId && targetChannels.length > 0) {
+        console.log(`[multichannel] Step 3: Generating images for ${targetChannels.length} channels`);
+        const imageResults = await generateImagesForChannels(
+          supabaseUrl, serviceKey,
+          multichannelContentId,
+          targetChannels,
+          input.brand_template_id,
+        );
+        result.output.images = imageResults;
+        console.log(`[multichannel] Images done: ${imageResults.success.length} ok, ${imageResults.failed.length} failed`);
+      }
     } catch (e) {
       console.warn("[multichannel] Generation failed:", e);
       result.output.multichannel = { error: e instanceof Error ? e.message : "Unknown" };
     }
+  }
+
+  // Store multichannel_content_id for pipeline
+  if (multichannelContentId) {
+    (result as any).multichannel_content_id = multichannelContentId;
   }
 
   // Self-review
@@ -448,11 +572,16 @@ async function routeCarousel(
     userId = owner?.user_id || null;
   } catch { /* ignore */ }
 
+  const visualPreset = "minimalist";
+  const carouselStyle = "educational";
+
+  // Phase 1: Generate text prompts for slides
+  console.log(`[carousel] Phase 1: Generating text prompts for ${slideCount} slides`);
   const carouselOutput = await callFunction(supabaseUrl, serviceKey, "generate-carousel", {
     topic: input.topic,
     platform: targetChannel,
-    carouselStyle: "educational",
-    visualPreset: "minimalist",
+    carouselStyle,
+    visualPreset,
     slideCount,
     aiTool: "ideogram",
     brandName: brief.brand_name || "Brand",
@@ -466,14 +595,30 @@ async function routeCarousel(
 
   // generate-carousel returns DB record with slides_content, map to slides
   const slides = carouselOutput?.slides_content || carouselOutput?.slides || [];
+  const carouselId = carouselOutput?.id;
 
   const result: CreatorResult = {
     success: true,
     content_type: "carousel",
-    content_id: carouselOutput?.id || undefined,
+    content_id: carouselId || undefined,
     title: carouselOutput?.title || input.topic,
     output: { ...carouselOutput, slides },
   };
+
+  // Phase 2: Generate actual images for each slide
+  if (carouselId && slides.length > 0) {
+    console.log(`[carousel] Phase 2: Generating images for ${slides.length} slides`);
+    const imageResults = await generateCarouselImages(
+      supabaseUrl, serviceKey,
+      carouselId,
+      slides,
+      input.brand_template_id,
+      visualPreset,
+      carouselStyle,
+    );
+    result.output.carousel_images = imageResults;
+    console.log(`[carousel] Images done: ${imageResults.success} ok, ${imageResults.failed} failed`);
+  }
 
   // Self-review on carousel text
   const slidesText = slides
