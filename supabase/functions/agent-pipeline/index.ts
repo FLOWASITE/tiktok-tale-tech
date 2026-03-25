@@ -43,6 +43,15 @@ function createPipelineState(meta: Record<string, unknown> = {}) {
   return { stages, metadata: meta };
 }
 
+function resolveContentId(pipeline: any, pState: any): string | null {
+  return pipeline?.content_id
+    || pState?.content_id
+    || pState?.stages?.creation?.output?.id
+    || pState?.stages?.creation?.output?.content_id
+    || pState?.stages?.creation?.content_id
+    || null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -543,10 +552,28 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       if (output?.content_id || output?.id) {
         const contentId = output.content_id || output.id;
         console.log(`[creation] Saving content_id: ${contentId} to pipeline ${pipeline.id}`);
-        await supabase.from("agent_pipelines")
+
+        const { error: cidError } = await supabase
+          .from("agent_pipelines")
           .update({ content_id: contentId } as any)
           .eq("id", pipeline.id);
+
+        if (cidError) {
+          console.error(`[creation] FAILED to save content_id ${contentId}:`, JSON.stringify(cidError));
+          const { error: retryError } = await supabase.rpc("update_pipeline_content_id", {
+            p_pipeline_id: pipeline.id,
+            p_content_id: contentId,
+          });
+          if (retryError) {
+            console.error("[creation] RPC fallback also failed:", JSON.stringify(retryError));
+          }
+        }
+
         pipeline.content_id = contentId;
+        pState.content_id = contentId;
+        if (pState.stages?.creation) {
+          pState.stages.creation.content_id = contentId;
+        }
 
         // CRITICAL: Re-fetch pipeline to ensure content_id is committed and visible
         const { data: refreshed } = await supabase
@@ -561,26 +588,27 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       }
 
     } else if (stage === "optimization") {
-      if (pipeline.content_id) {
+      const contentId = resolveContentId(pipeline, pState);
+      if (contentId) {
         try {
           // geo-score-content expects contentText, not content_id — fetch content first
           const { data: coreContent } = await supabase
             .from("core_contents")
             .select("title, content")
-            .eq("id", pipeline.content_id)
+            .eq("id", contentId)
             .single();
 
           if (coreContent?.content) {
             const contentText = `${coreContent.title || ""}\n\n${coreContent.content}`;
             const output = await callFunction(supabaseUrl, supabaseKey, "geo-score-content", {
               contentText,
-              contentId: pipeline.content_id,
+              contentId,
               contentType: "core_content",
               organizationId: orgId,
             });
             result.output = output;
           } else {
-            console.warn("[optimization] Core content not found or empty for", pipeline.content_id);
+            console.warn("[optimization] Core content not found or empty for", contentId);
             result.output = { seo_score: 70, geo_score: 65, note: "Core content not found" };
           }
         } catch (e) {
@@ -592,7 +620,8 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       }
 
     } else if (stage === "expansion") {
-      if (pipeline.content_id) {
+      const contentId = resolveContentId(pipeline, pState);
+      if (contentId) {
         try {
           const targetChannels = meta.target_channels || [];
           if (targetChannels.length === 0) {
@@ -601,7 +630,7 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
             // generate-multichannel expects contentId + action:'expand' + newChannels
             const output = await callFunction(supabaseUrl, supabaseKey, "generate-multichannel", {
               action: "expand",
-              contentId: pipeline.content_id,
+              contentId,
               newChannels: targetChannels,
               organizationId: orgId,
               brandTemplateId: brandTemplateId,
@@ -617,7 +646,7 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       }
 
     } else if (stage === "compliance") {
-      const contentId = pipeline.content_id;
+      const contentId = resolveContentId(pipeline, pState);
       if (!contentId) {
         result.output = { status: "skipped", reason: "No content_id available for compliance check" };
       } else {
@@ -919,14 +948,26 @@ Trả về JSON (KHÔNG markdown):
         } as any);
       }
 
-      await supabase.from("agent_pipelines")
-        .update({
-          current_stage: nextStage,
-          pipeline_state: pState,
-          stage_started_at: now,
-          completed_at: nextStage === "analyzing" ? now : null,
-        } as any)
+      const advanceUpdate: any = {
+        current_stage: nextStage,
+        pipeline_state: pState,
+        stage_started_at: now,
+        completed_at: nextStage === "analyzing" ? now : null,
+      };
+
+      const contentIdForAdvance = resolveContentId(pipeline, pState);
+      if (contentIdForAdvance) {
+        advanceUpdate.content_id = contentIdForAdvance;
+      }
+
+      const { error: advanceError } = await supabase
+        .from("agent_pipelines")
+        .update(advanceUpdate)
         .eq("id", pipeline.id);
+
+      if (advanceError) {
+        console.error(`[advance] Failed to advance pipeline ${pipeline.id}:`, advanceError);
+      }
 
       await supabase.from("agent_pipeline_logs").insert({
         pipeline_id: pipeline.id,
