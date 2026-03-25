@@ -455,6 +455,37 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         }
       }
 
+      // === DEDUP: Fetch existing content to avoid duplicates ===
+      let dedupContext = "";
+      try {
+        const { data: existingContent } = await supabase
+          .from("multi_channel_contents")
+          .select("title, content_topic")
+          .eq("organization_id", orgId)
+          .order("created_at", { ascending: false })
+          .limit(30);
+
+        const { data: recentPipelines } = await supabase
+          .from("agent_pipelines")
+          .select("content_title, content_topic")
+          .eq("organization_id", orgId)
+          .neq("id", pipelineId)
+          .order("created_at", { ascending: false })
+          .limit(15);
+
+        const existingTopics = [
+          ...(existingContent || []).map((c: any) => c.title).filter(Boolean),
+          ...(recentPipelines || []).map((p: any) => p.content_title).filter(Boolean),
+        ];
+
+        if (existingTopics.length > 0) {
+          dedupContext = `\n\nDEDUPLICATION — These topics ALREADY EXIST (do NOT suggest similar ones):\n${existingTopics.slice(0, 30).join("\n")}\n\nSuggest DIFFERENT angles that haven't been covered yet.`;
+          instruction += dedupContext;
+        }
+      } catch (dedupErr) {
+        console.warn("[research] Dedup fetch failed, continuing without:", dedupErr);
+      }
+
       const output = await callFunction(supabaseUrl, supabaseKey, "topic-ai", {
         action: "suggest",
         topic: campaignTitle || pipeline.content_topic,
