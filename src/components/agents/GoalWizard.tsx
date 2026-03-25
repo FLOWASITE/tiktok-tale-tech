@@ -12,7 +12,7 @@ import {
   Target, Radio, Eye, ChevronLeft, ChevronRight, 
   Check, Sparkles, ShieldCheck, Zap, Bot, X, Plus, MessageSquare,
   Megaphone, Heart, Link2, ClipboardList, DollarSign, RefreshCw,
-  PieChart, TrendingUp, Settings2
+  PieChart, TrendingUp, Settings2, FileText, Images, Video
 } from 'lucide-react';
 import { AgentAutonomyLevel, AgentGoal, AUTONOMY_LEVELS } from '@/types/agent';
 import { supabase } from '@/integrations/supabase/client';
