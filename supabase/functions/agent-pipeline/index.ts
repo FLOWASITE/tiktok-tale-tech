@@ -51,7 +51,8 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { action, goal_id, pipeline_id, organization_id } = await req.json();
+    const body = await req.json();
+    const { action, goal_id, pipeline_id, organization_id } = body;
 
     // ========== ACTION: trigger_from_goal ==========
     if (action === "trigger_from_goal") {
