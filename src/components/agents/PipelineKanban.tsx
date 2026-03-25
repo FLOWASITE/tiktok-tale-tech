@@ -15,9 +15,28 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { PipelineDetailDialog } from './PipelineDetailDialog';
 
-const STAGE_PROGRESS: Record<AgentPipelineStage, number> = {
-  strategy: 17, create: 33, quality: 50, approval: 67, publish: 83, analyze: 100,
-};
+const TOTAL_STAGES = 6;
+
+function calculatePipelineProgress(pipeline: AgentPipeline): { percent: number; completedCount: number } {
+  if (pipeline.completed_at) return { percent: 100, completedCount: TOTAL_STAGES };
+
+  const stages = (pipeline.pipeline_state as any)?.stages;
+  if (!stages || typeof stages !== 'object') {
+    // Fallback: estimate from current_stage position
+    const idx = PIPELINE_STAGES.findIndex(s => s.id === pipeline.current_stage);
+    return { percent: Math.round((idx / TOTAL_STAGES) * 100), completedCount: idx };
+  }
+
+  let completedCount = 0;
+  let hasInProgress = false;
+  for (const val of Object.values(stages) as any[]) {
+    if (val?.status === 'completed') completedCount++;
+    if (val?.status === 'in_progress') hasInProgress = true;
+  }
+
+  const progress = ((completedCount + (hasInProgress ? 0.5 : 0)) / TOTAL_STAGES) * 100;
+  return { percent: Math.min(Math.round(progress), 100), completedCount };
+}
 
 const GRADE_COLORS: Record<string, string> = {
   'A+': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
@@ -104,7 +123,7 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
   const isCompleted = !!pipeline.completed_at;
   const isRunning = !isCompleted && !pipeline.is_flagged;
   const isApprovalPending = pipeline.current_stage === 'approval' && approval?.status === 'pending';
-  const progress = STAGE_PROGRESS[pipeline.current_stage] || 0;
+  const { percent: progress, completedCount } = calculatePipelineProgress(pipeline);
   const stageLabel = PIPELINE_STAGES.find(s => s.id === pipeline.current_stage)?.label;
   const grade = pipeline.overall_quality_score != null ? getGradeFromScore(pipeline.overall_quality_score) : null;
 
@@ -157,7 +176,7 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
           </div>
           <div className="flex items-center justify-between">
             <span className="text-[9px] text-muted-foreground">{stageLabel}</span>
-            <span className="text-[9px] text-muted-foreground">{isCompleted ? 100 : progress}%</span>
+            <span className="text-[9px] text-muted-foreground">{completedCount}/{TOTAL_STAGES} bước</span>
           </div>
         </div>
 
