@@ -80,6 +80,21 @@ export function CampaignDashboard() {
     }
   };
 
+  const handleBackfillPublish = async () => {
+    setBackfillingPublish(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-pipeline', {
+        body: { action: 'backfill_publish' },
+      });
+      if (error) throw error;
+      toast.success(`Đã fix ${data?.fixed || 0} pipeline publish`);
+    } catch (e: any) {
+      toast.error(`Fix publish thất bại: ${e.message}`);
+    } finally {
+      setBackfillingPublish(false);
+    }
+  };
+
   const handleBackfillApprovals = async () => {
     setBackfilling(true);
     try {
