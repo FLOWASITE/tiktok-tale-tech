@@ -78,6 +78,7 @@ export interface AgentPipeline {
   scheduled_publish_at: string | null;
   content_title: string;
   content_topic: string | null;
+  content_type: ContentType;
   current_stage: AgentPipelineStage;
   pipeline_state: Record<string, any>;
   priority: AgentPriority;
@@ -85,6 +86,8 @@ export interface AgentPipeline {
   is_flagged: boolean;
   flag_reason: string | null;
   content_id: string | null;
+  quality_scores: Record<string, any> | null;
+  overall_quality_score: number | null;
   estimated_completion: string | null;
   completed_at: string | null;
   created_at: string;
