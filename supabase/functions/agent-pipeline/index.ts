@@ -563,12 +563,26 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
     } else if (stage === "optimization") {
       if (pipeline.content_id) {
         try {
-          const output = await callFunction(supabaseUrl, supabaseKey, "geo-score-content", {
-            content_id: pipeline.content_id,
-            content_type: "core_content",
-            organization_id: orgId,
-          });
-          result.output = output;
+          // geo-score-content expects contentText, not content_id — fetch content first
+          const { data: coreContent } = await supabase
+            .from("core_contents")
+            .select("title, content")
+            .eq("id", pipeline.content_id)
+            .single();
+
+          if (coreContent?.content) {
+            const contentText = `${coreContent.title || ""}\n\n${coreContent.content}`;
+            const output = await callFunction(supabaseUrl, supabaseKey, "geo-score-content", {
+              contentText,
+              contentId: pipeline.content_id,
+              contentType: "core_content",
+              organizationId: orgId,
+            });
+            result.output = output;
+          } else {
+            console.warn("[optimization] Core content not found or empty for", pipeline.content_id);
+            result.output = { seo_score: 70, geo_score: 65, note: "Core content not found" };
+          }
         } catch (e) {
           console.warn("GEO scoring failed, using fallback:", e);
           result.output = { seo_score: 70, geo_score: 65, note: "Scoring unavailable, using defaults" };
@@ -581,16 +595,22 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       if (pipeline.content_id) {
         try {
           const targetChannels = meta.target_channels || [];
-          const output = await callFunction(supabaseUrl, supabaseKey, "generate-multichannel", {
-            content_id: pipeline.content_id,
-            organization_id: orgId,
-            brand_template_id: brandTemplateId,
-            channels: targetChannels,
-          });
-          result.output = output;
+          if (targetChannels.length === 0) {
+            result.output = { channels_generated: [], note: "No target channels specified" };
+          } else {
+            // generate-multichannel expects contentId + action:'expand' + newChannels
+            const output = await callFunction(supabaseUrl, supabaseKey, "generate-multichannel", {
+              action: "expand",
+              contentId: pipeline.content_id,
+              newChannels: targetChannels,
+              organizationId: orgId,
+              brandTemplateId: brandTemplateId,
+            });
+            result.output = output;
+          }
         } catch (e) {
           console.warn("Multichannel expansion failed:", e);
-          result.output = { channels_generated: [], note: "Expansion skipped" };
+          result.output = { channels_generated: [], note: `Expansion failed: ${e instanceof Error ? e.message : "Unknown"}` };
         }
       } else {
         result.output = { channels_generated: [], note: "No content_id for expansion" };
