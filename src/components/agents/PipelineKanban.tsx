@@ -39,7 +39,7 @@ function calculatePipelineProgress(pipeline: AgentPipeline): { percent: number; 
   return { percent: Math.min(Math.round(progress), 100), completedCount };
 }
 
-const CONTENT_TYPE_CONFIG: Record<ContentType, { label: string; icon: React.ComponentType<{ className?: string; size?: number }>; color: string }> = {
+const CONTENT_TYPE_CONFIG: Record<ContentType, { label: string; icon: any; color: string }> = {
   multichannel: { label: 'Bài viết', icon: FileText, color: 'text-blue-400' },
   video_script: { label: 'Video', icon: Video, color: 'text-pink-400' },
   carousel: { label: 'Carousel', icon: Images, color: 'text-purple-400' },
