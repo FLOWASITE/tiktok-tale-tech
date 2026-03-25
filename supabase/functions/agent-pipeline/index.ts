@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
         } as any);
 
         // Fire-and-forget: start research stage as NEW invocation
-        fireNextStage(supabaseUrl, supabaseKey, pipeline.id);
+        fireNextStage(supabaseUrl, supabaseKey, pipeline.id, "research");
       }
 
       return json({ success: true, pipelines_created: pipelines.length, pipeline_ids: pipelines.map(p => p.id) });
