@@ -128,8 +128,8 @@ async function runQuality(
 ) {
   const { pipelineId, contentId, contentType, orgId, brandTemplateId, pipelineState } = input;
 
-  // ── 1. Fetch content text ──
-  const contentText = await fetchContentText(supabase, contentId, contentType, pipelineState);
+  // ── 1. Fetch content text (allow override for testing) ──
+  const contentText = input.contentOverride || await fetchContentText(supabase, contentId, contentType, pipelineState);
   if (!contentText || contentText.trim().length < 20) {
     return json({ status: "skipped", reason: "Content text too short or empty" });
   }
