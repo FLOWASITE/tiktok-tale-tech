@@ -416,10 +416,13 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         goalData = g;
       }
 
+      // Campaign context from content plan (takes priority)
+      const campaignCtx = meta.campaign_context;
+
       // Build instruction that prioritizes campaign topic
       const campaignTitle = pipeline.content_title || goalData?.name || "";
       const campaignDesc = pipeline.content_topic || goalData?.description || "";
-      const clarification = goalData?.clarification_context;
+      const clarification = campaignCtx?.clarification_context || goalData?.clarification_context;
 
       let instruction = "";
       if (campaignTitle) {
@@ -430,7 +433,13 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         if (clarification) {
           instruction += ` User clarifications: ${JSON.stringify(clarification)}.`;
         }
-        instruction += ` ALL your topic suggestions MUST be directly related to this subject. Do NOT suggest unrelated trending topics. Suggest 3 angle variations of this specific topic.`;
+        if (campaignCtx) {
+          instruction += ` This is piece ${campaignCtx.piece_number} of ${campaignCtx.total_pieces} in a campaign about "${campaignCtx.campaign_title}".`;
+          instruction += ` Required angle: "${campaignCtx.angle}". Content role: "${campaignCtx.content_role}". Target channel: "${campaignCtx.target_channel}". Format: "${campaignCtx.format}".`;
+          instruction += ` Focus your research on finding data, stats, and insights that support a "${campaignCtx.angle}" angle for this specific topic.`;
+        } else {
+          instruction += ` ALL your topic suggestions MUST be directly related to this subject. Do NOT suggest unrelated trending topics. Suggest 3 angle variations of this specific topic.`;
+        }
       }
 
       const output = await callFunction(supabaseUrl, supabaseKey, "topic-ai", {
