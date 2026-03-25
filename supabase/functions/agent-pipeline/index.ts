@@ -430,6 +430,21 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
   let pipeline = freshPipeline;
   const stage = pipeline.current_stage;
   const pState = (pipeline.pipeline_state as any) || { stages: {}, metadata: {} };
+
+  // ===== DEDUP GUARD =====
+  const stageState = pState.stages?.[stage];
+  if (stageState?.status === 'completed') {
+    console.log(`[${stage}] Already completed, skipping duplicate execution`);
+    return { status: 'skipped', reason: 'already_completed', stage };
+  }
+  if (stageState?.status === 'in_progress' && stageState?.started_at) {
+    const elapsed = Date.now() - new Date(stageState.started_at).getTime();
+    if (elapsed < 10000) {
+      console.log(`[${stage}] Already in_progress (${elapsed}ms ago), skipping duplicate`);
+      return { status: 'skipped', reason: 'already_in_progress', stage };
+    }
+  }
+
   const meta = pState.metadata || {};
   const brandTemplateId = meta.brand_template_id || null;
   const orgId = pipeline.organization_id;
