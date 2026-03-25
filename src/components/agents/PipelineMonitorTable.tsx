@@ -133,7 +133,7 @@ export function PipelineMonitorTable({ pipelines, isLoading }: PipelineMonitorTa
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={hasError ? 'destructive' : pipeline.current_stage === 'published' ? 'default' : 'secondary'} className="text-[11px]">
+                  <Badge variant={hasError ? 'destructive' : pipeline.current_stage === 'analyze' ? 'default' : 'secondary'} className="text-[11px]">
                     {stageInfo?.label || pipeline.current_stage}
                   </Badge>
                   {currentStageState?.last_error && (
