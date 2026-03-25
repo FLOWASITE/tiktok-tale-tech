@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   Target, ChevronRight, Calendar, Clock, CheckCircle2,
-  AlertCircle, Pause, Play, Loader2, Sparkles, ArrowLeft
+  AlertCircle, Pause, Play, Loader2, Sparkles, ArrowLeft, RefreshCw
 } from 'lucide-react';
 import { useAgentGoals } from '@/hooks/useAgentGoals';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
@@ -14,6 +14,8 @@ import { CampaignContentPlan, CampaignContentPiece, AgentGoal } from '@/types/ag
 import { CampaignPlanReview } from './CampaignPlanReview';
 import { cn } from '@/lib/utils';
 import { format, differenceInDays } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Target }> = {
   draft: { label: 'Nháp', color: 'bg-muted text-muted-foreground', icon: Target },
@@ -31,6 +33,34 @@ export function CampaignDashboard() {
   const { pipelines } = useAgentPipelines();
   const { plans, isLoading, updatePlan } = useCampaignPlans();
   const [selectedPlan, setSelectedPlan] = useState<{ plan: CampaignContentPlan; goalName: string } | null>(null);
+  const [recovering, setRecovering] = useState(false);
+
+  // Detect stuck pipelines (stage_started_at > 15 min, not completed, not approval)
+  const stuckPipelines = pipelines.filter(p => {
+    if (p.completed_at || p.current_stage === 'approval') return false;
+    const pState = (p.pipeline_state as any) || { stages: {} };
+    const stageState = pState.stages?.[p.current_stage];
+    if (stageState?.status === 'completed') return false;
+    if (!stageState?.started_at && !p.updated_at) return false;
+    const startedAt = stageState?.started_at || p.updated_at;
+    const elapsed = Date.now() - new Date(startedAt).getTime();
+    return elapsed > 15 * 60 * 1000; // 15 minutes
+  });
+
+  const handleRecoverStuck = async () => {
+    setRecovering(true);
+    try {
+      const { error } = await supabase.functions.invoke('agent-pipeline', {
+        body: { action: 'recover_stuck' },
+      });
+      if (error) throw error;
+      toast.success(`Đã khôi phục ${stuckPipelines.length} pipeline bị kẹt`);
+    } catch (e: any) {
+      toast.error(`Khôi phục thất bại: ${e.message}`);
+    } finally {
+      setRecovering(false);
+    }
+  };
 
   if (selectedPlan) {
     return (
@@ -129,6 +159,29 @@ export function CampaignDashboard() {
 
   return (
     <div className="space-y-4">
+      {/* Stuck pipelines recovery alert */}
+      {stuckPipelines.length > 0 && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardContent className="p-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                <span className="font-semibold">{stuckPipelines.length} pipeline</span> bị kẹt hơn 15 phút
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs shrink-0 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
+              onClick={handleRecoverStuck}
+              disabled={recovering}
+            >
+              {recovering ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+              Khôi phục
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       {/* Quick Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <Card>
