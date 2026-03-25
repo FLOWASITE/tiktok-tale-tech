@@ -35,10 +35,9 @@ export const GENERATION_STEPS: ProgressStepConfig[] = [
 // Map step ID to progress percentage
 export const STEP_PROGRESS_MAP: Record<ProgressStepId, number> = {
   init: 0,
-  brand: 10,
-  personas: 20,
-  industry: 30,
-  prompt: 40,
+  personas: 15,
+  industry: 25,
+  prompt: 35,
   ai: 50,
   retry: 65,
   fallback: 55,
