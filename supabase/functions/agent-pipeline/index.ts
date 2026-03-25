@@ -73,6 +73,8 @@ Deno.serve(async (req) => {
           campaign_id: goal.campaign_id || null,
           autonomy_level: goal.autonomy_level,
           target_channels: goal.target_channels || [],
+          goal_description: goal.description || null,
+          clarification_context: goal.clarification_context || null,
         });
 
         const { data: pipeline, error: pipeErr } = await supabase
