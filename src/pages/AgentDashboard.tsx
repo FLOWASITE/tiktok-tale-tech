@@ -35,7 +35,7 @@ export default function AgentDashboard() {
     return map;
   }, [goals]);
 
-
+  const handleCreateGoal = async (data: Parameters<typeof createGoal.mutateAsync>[0]) => {
     try {
       await createGoal.mutateAsync(data);
       setWizardOpen(false);
