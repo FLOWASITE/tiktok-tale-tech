@@ -1025,7 +1025,7 @@ Trả về JSON (KHÔNG markdown):
 
       // Fire next stage as NEW Edge Function invocation (anti-timeout)
       if (!(nextStage === "approval" && pipeline.autonomy_level === "human_in_loop")) {
-        fireNextStage(supabaseUrl, supabaseKey, pipeline.id);
+        fireNextStage(supabaseUrl, supabaseKey, pipeline.id, nextStage);
       }
     }
   }
