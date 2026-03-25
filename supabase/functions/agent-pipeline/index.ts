@@ -25,15 +25,26 @@ async function callFunction(supabaseUrl: string, supabaseKey: string, fnName: st
 }
 
 /** Fire-and-forget: trigger next stage as a NEW Edge Function invocation */
-function fireNextStage(supabaseUrl: string, supabaseKey: string, pipelineId: string) {
+function fireNextStage(supabaseUrl: string, supabaseKey: string, pipelineId: string, nextStage?: string) {
   fetch(`${supabaseUrl}/functions/v1/agent-pipeline`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${supabaseKey}`,
     },
-    body: JSON.stringify({ action: "run_stage", pipeline_id: pipelineId }),
+    body: JSON.stringify({ action: "run_stage", pipeline_id: pipelineId, stage: nextStage }),
   }).catch(e => console.error("Fire-next-stage failed:", e));
+}
+
+/** Parse JSON from LLM response that may be wrapped in markdown code fences */
+function parseJsonFromLLM(text: string): any {
+  if (!text) return null;
+  try { return JSON.parse(text); } catch {}
+  const stripped = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  try { return JSON.parse(stripped); } catch {}
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) { try { return JSON.parse(jsonMatch[0]); } catch {} }
+  return null;
 }
 
 /** Create initial pipeline_state with metadata */
