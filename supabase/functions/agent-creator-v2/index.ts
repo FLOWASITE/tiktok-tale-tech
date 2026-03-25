@@ -295,11 +295,11 @@ async function routeMultichannel(
     output: coreOutput,
   };
 
-  // Step 2: Expand to channels
+  // Step 2: Generate multichannel content from core content
   const targetChannels = input.target_channels || [];
   if (targetChannels.length > 0) {
     try {
-      // Get org owner for auth
+      // Get org owner for auth context
       let expansionUserId: string | null = null;
       try {
         const { data: owner } = await supabase
@@ -312,17 +312,26 @@ async function routeMultichannel(
         expansionUserId = owner?.user_id || null;
       } catch { /* ignore */ }
 
+      // Use action "create" with coreContentId instead of "expand"
+      // "expand" requires an existing multi_channel_contents ID, but we only have core_contents ID
       const mcOutput = await callFunction(supabaseUrl, serviceKey, "generate-multichannel", {
-        action: "expand",
-        contentId,
-        newChannels: targetChannels,
+        action: "create",
+        topic: input.topic,
+        channels: targetChannels,
+        coreContentId: contentId,
+        contentRole: (ctx?.content_role || input.content_role || "")?.toLowerCase() || undefined,
+        contentGoal: ctx?.content_role === "harvest" ? "conversion"
+          : ctx?.content_role === "sprout" ? "engagement"
+          : input.content_goal || "education",
         organizationId: input.organization_id,
         brandTemplateId: input.brand_template_id,
         userId: expansionUserId,
+        campaign_id: input.campaign_id || null,
+        qualityMode: "speed",
       });
       result.output.multichannel = mcOutput;
     } catch (e) {
-      console.warn("[multichannel] Expansion failed:", e);
+      console.warn("[multichannel] Generation failed:", e);
       result.output.multichannel = { error: e instanceof Error ? e.message : "Unknown" };
     }
   }
