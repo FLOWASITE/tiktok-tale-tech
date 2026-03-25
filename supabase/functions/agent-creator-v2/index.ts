@@ -350,9 +350,12 @@ async function routeVideoScript(
     : "educate";
 
   // Step 1: Generate script
+  const estLength = ctx?.estimated_length || input.length_mode || "medium";
+  const duration = estLength === "short" ? 30 : estLength === "long" ? 90 : 60;
+
   const scriptOutput = await callFunction(supabaseUrl, serviceKey, "generate-script", {
     topic: input.topic,
-    duration: "60s",
+    duration,
     script_purpose: contentGoal,
     video_type: "talking_head",
     organization_id: input.organization_id,
