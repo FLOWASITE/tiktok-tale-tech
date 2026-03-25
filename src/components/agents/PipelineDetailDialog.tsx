@@ -190,8 +190,8 @@ function StrategyOutputTab({ pipelineState }: { pipelineState: Record<string, an
         {/* No output at all */}
         {!bestTopic && !otherTopics.length && !rawText && !insights.length && (
           <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-            <Search className="w-6 h-6 mb-2 opacity-30" />
-            <p className="text-xs">Research hoàn thành nhưng không có output chi tiết</p>
+            <Lightbulb className="w-6 h-6 mb-2 opacity-30" />
+            <p className="text-xs">Chiến lược hoàn thành nhưng không có output chi tiết</p>
           </div>
         )}
       </div>
