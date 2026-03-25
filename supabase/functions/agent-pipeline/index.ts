@@ -302,7 +302,7 @@ Deno.serve(async (req) => {
         if (!pipeErr && newPipeline) {
           triggered++;
           // Fire-and-forget instead of recursive call
-          fireNextStage(supabaseUrl, supabaseKey, newPipeline.id);
+          fireNextStage(supabaseUrl, supabaseKey, newPipeline.id, "research");
         }
       }
 
