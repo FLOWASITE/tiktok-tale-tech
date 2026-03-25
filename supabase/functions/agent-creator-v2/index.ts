@@ -662,15 +662,24 @@ async function routeCarousel(
   if (carouselId && slides.length > 0) {
     console.log(`[carousel] Phase 2: Generating images for ${slides.length} slides`);
     const imageResults = await generateCarouselImages(
-      supabaseUrl, serviceKey,
+      supabaseUrl,
+      serviceKey,
+      supabase,
       carouselId,
       slides,
       input.brand_template_id,
       visualPreset,
       carouselStyle,
+      input.organization_id,
+      userId,
     );
     result.output.carousel_images = imageResults;
     console.log(`[carousel] Images done: ${imageResults.success} ok, ${imageResults.failed} failed`);
+
+    if (imageResults.success === 0) {
+      result.success = false;
+      result.error = "Carousel image generation failed for all slides";
+    }
   }
 
   // Self-review on carousel text
