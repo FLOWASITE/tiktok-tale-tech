@@ -8,7 +8,6 @@ export interface ProgressStepConfig {
 // Step IDs that match backend SSE events
 export type ProgressStepId = 
   | 'init' 
-  | 'brand' 
   | 'personas' 
   | 'industry' 
   | 'prompt' 
@@ -22,7 +21,6 @@ export type ProgressStepId =
 // Durations aligned with backend reality (~40-60s total, including retries)
 export const GENERATION_STEPS: ProgressStepConfig[] = [
   { id: 'init', label: 'Khởi tạo...', baseDuration: 500 },
-  { id: 'brand', label: 'Tải ngữ cảnh thương hiệu', baseDuration: 1500 },
   { id: 'personas', label: 'Phân tích personas & sản phẩm', baseDuration: 1200 },
   { id: 'industry', label: 'Tải dữ liệu ngành', baseDuration: 1000 },
   { id: 'prompt', label: 'Xây dựng prompt AI', baseDuration: 800 },
@@ -36,10 +34,9 @@ export const GENERATION_STEPS: ProgressStepConfig[] = [
 // Map step ID to progress percentage
 export const STEP_PROGRESS_MAP: Record<ProgressStepId, number> = {
   init: 0,
-  brand: 10,
-  personas: 20,
-  industry: 30,
-  prompt: 40,
+  personas: 15,
+  industry: 25,
+  prompt: 35,
   ai: 50,
   retry: 65,
   fallback: 55,

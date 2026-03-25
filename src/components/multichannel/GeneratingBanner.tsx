@@ -155,7 +155,7 @@ export function GeneratingBanner({
 
   // Consolidated progress steps for collapsed view
   const progressGroups = [
-    { id: 'context', label: 'Ngữ cảnh', steps: ['init', 'brand', 'personas', 'industry', 'prompt'] },
+    { id: 'context', label: 'Ngữ cảnh', steps: ['init', 'personas', 'industry', 'prompt'] },
     { id: 'ai', label: 'AI tạo nội dung', steps: ['ai', 'retry'] },
     { id: 'finalize', label: 'Hoàn thiện', steps: ['critique', 'finalize', 'complete'] },
   ];

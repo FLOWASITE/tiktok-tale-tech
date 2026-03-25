@@ -10,6 +10,7 @@ import { Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3, InboxIcon,
 import { AgentPipeline, AgentPipelineStage, AgentApproval, PIPELINE_STAGES, ContentType } from '@/types/agent';
 import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import { getGradeFromScore } from '@/types/creativeScore';
+import { getCreatorActivityLabel } from './creatorStepsConfig';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -298,7 +299,9 @@ function PipelineCard({ pipeline, campaignName, isDragging, onClick, approval, o
                       <>
                         <CurIcon className={cn('w-2.5 h-2.5', isStageActive ? 'text-foreground/60' : 'text-muted-foreground/40')} />
                         <span className={cn(isStageActive && 'text-foreground/60')}>
-                          {STAGE_ACTIVITY[pipeline.current_stage]}
+                          {pipeline.current_stage === 'create'
+                            ? getCreatorActivityLabel(pipeline.content_type)
+                            : STAGE_ACTIVITY[pipeline.current_stage]}
                         </span>
                       </>
                     );
