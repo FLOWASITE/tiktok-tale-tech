@@ -145,7 +145,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
   // Get suggestions based on industry
   const industrySuggestions = (() => {
-    const industry = currentBrand?.industry?.toLowerCase() || '';
+    const industry = (Array.isArray(currentBrand?.industry) ? currentBrand.industry[0] : currentBrand?.industry)?.toLowerCase() || '';
     for (const [key, suggestions] of Object.entries(INDUSTRY_SUGGESTIONS)) {
       if (industry.includes(key)) return suggestions;
     }
