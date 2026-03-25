@@ -273,6 +273,14 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     if (keyMessages.length > 0) briefContext.key_messages = keyMessages;
     if (primaryCta.trim()) briefContext.primary_cta = primaryCta.trim();
     if (Object.keys(pillarAllocation).length > 0) briefContext.pillar_allocation = pillarAllocation;
+    if (autoApproveEnabled) {
+      briefContext.auto_approve_rules = {
+        enabled: true,
+        min_quality: thresholdQuality,
+        max_risk: thresholdRiskMax,
+        min_geo: thresholdGeo,
+      };
+    }
 
     const hasContext = Object.keys(briefContext).length > 0;
 
