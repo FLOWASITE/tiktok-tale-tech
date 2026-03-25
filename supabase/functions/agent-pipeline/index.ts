@@ -51,7 +51,8 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { action, goal_id, pipeline_id, organization_id } = await req.json();
+    const body = await req.json();
+    const { action, goal_id, pipeline_id, organization_id } = body;
 
     // ========== ACTION: trigger_from_goal ==========
     if (action === "trigger_from_goal") {
@@ -281,8 +282,100 @@ Deno.serve(async (req) => {
       return json({ success: true, triggered, active_goals: activeGoals.length });
     }
 
+    // ========== ACTION: create_from_plan ==========
+    if (action === "create_from_plan") {
+      const { plan_id } = body;
+      if (!plan_id) throw new Error("plan_id required");
+
+      const { data: plan, error: planErr } = await supabase
+        .from("campaign_content_plans")
+        .select("*")
+        .eq("id", plan_id)
+        .single();
+
+      if (planErr || !plan) throw new Error("Plan not found");
+      if (!plan.plan_approved) throw new Error("Plan not yet approved");
+
+      const pieces = plan.plan_data as any[];
+      if (!pieces?.length) throw new Error("Plan has no content pieces");
+
+      // Fetch goal for extra context
+      let goalData: any = null;
+      if (plan.goal_id) {
+        const { data: g } = await supabase.from("agent_goals").select("*").eq("id", plan.goal_id).single();
+        goalData = g;
+      }
+
+      const pipelineIds: string[] = [];
+
+      for (const piece of pieces) {
+        const autonomyLevel = plan.approval_mode === "full_auto"
+          ? "full_auto"
+          : plan.approval_mode === "approve_each"
+            ? "human_in_loop"
+            : "human_on_loop";
+
+        const pipelineState = createPipelineState({
+          brand_template_id: goalData?.brand_template_id || null,
+          campaign_id: goalData?.campaign_id || null,
+          target_channels: [piece.target_channel],
+          campaign_context: {
+            total_pieces: pieces.length,
+            piece_number: piece.piece_number,
+            angle: piece.angle,
+            target_channel: piece.target_channel,
+            content_role: piece.content_role,
+            format: piece.format,
+            estimated_length: piece.estimated_length || "medium",
+            campaign_title: goalData?.name || "",
+            clarification_context: plan.clarification_context,
+          },
+        });
+
+        const { data: pipeline, error: pipeErr } = await supabase
+          .from("agent_pipelines")
+          .insert({
+            organization_id: plan.organization_id,
+            goal_id: plan.goal_id,
+            campaign_plan_id: plan.id,
+            piece_number: piece.piece_number,
+            content_title: piece.title,
+            content_topic: piece.key_message,
+            current_stage: "research",
+            pipeline_state: pipelineState,
+            priority: "normal",
+            autonomy_level: autonomyLevel,
+            scheduled_publish_at: piece.scheduled_date ? `${piece.scheduled_date}T09:00:00Z` : null,
+            estimated_completion: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            stage_started_at: new Date().toISOString(),
+          } as any)
+          .select("id")
+          .single();
+
+        if (pipeErr) { console.error("Pipeline creation error:", pipeErr); continue; }
+        pipelineIds.push(pipeline.id);
+        piece.pipeline_id = pipeline.id;
+        piece.status = "in_progress";
+      }
+
+      // Update plan status and plan_data with pipeline IDs
+      await supabase.from("campaign_content_plans").update({
+        plan_data: pieces,
+        status: "executing",
+        updated_at: new Date().toISOString(),
+      } as any).eq("id", plan_id);
+
+      // Start all pipelines with staggered fire-and-forget
+      for (const pid of pipelineIds) {
+        fireNextStage(supabaseUrl, supabaseKey, pid);
+        await new Promise(r => setTimeout(r, 2000));
+      }
+
+      return json({ success: true, pipeline_count: pipelineIds.length, pipeline_ids: pipelineIds });
+    }
+
     return new Response(
-      JSON.stringify({ error: "Unknown action. Use: trigger_from_goal, advance_stage, run_stage, check_scheduled_goals" }),
+      JSON.stringify({ error: "Unknown action. Use: trigger_from_goal, advance_stage, run_stage, check_scheduled_goals, create_from_plan" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
@@ -323,10 +416,13 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         goalData = g;
       }
 
+      // Campaign context from content plan (takes priority)
+      const campaignCtx = meta.campaign_context;
+
       // Build instruction that prioritizes campaign topic
       const campaignTitle = pipeline.content_title || goalData?.name || "";
       const campaignDesc = pipeline.content_topic || goalData?.description || "";
-      const clarification = goalData?.clarification_context;
+      const clarification = campaignCtx?.clarification_context || goalData?.clarification_context;
 
       let instruction = "";
       if (campaignTitle) {
@@ -337,7 +433,13 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         if (clarification) {
           instruction += ` User clarifications: ${JSON.stringify(clarification)}.`;
         }
-        instruction += ` ALL your topic suggestions MUST be directly related to this subject. Do NOT suggest unrelated trending topics. Suggest 3 angle variations of this specific topic.`;
+        if (campaignCtx) {
+          instruction += ` This is piece ${campaignCtx.piece_number} of ${campaignCtx.total_pieces} in a campaign about "${campaignCtx.campaign_title}".`;
+          instruction += ` Required angle: "${campaignCtx.angle}". Content role: "${campaignCtx.content_role}". Target channel: "${campaignCtx.target_channel}". Format: "${campaignCtx.format}".`;
+          instruction += ` Focus your research on finding data, stats, and insights that support a "${campaignCtx.angle}" angle for this specific topic.`;
+        } else {
+          instruction += ` ALL your topic suggestions MUST be directly related to this subject. Do NOT suggest unrelated trending topics. Suggest 3 angle variations of this specific topic.`;
+        }
       }
 
       const output = await callFunction(supabaseUrl, supabaseKey, "topic-ai", {
@@ -350,6 +452,9 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       result.output = output;
 
     } else if (stage === "creation") {
+      // Campaign context from content plan
+      const campaignCtx = meta.campaign_context;
+
       // Derive topic from research output or pipeline fields
       const researchOutput = pState.stages?.research?.output;
       const creationTopic = researchOutput?.suggestions?.[0]?.topic
@@ -361,17 +466,22 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         throw new Error("No topic available for content creation. Research stage may not have produced valid output.");
       }
 
-      // Derive content strategy params from goal or defaults
-      const contentGoal = meta.content_goal || "education";
-      const contentAngle = meta.content_angle || undefined;
-      const contentRole = meta.content_role || undefined;
-      const lengthMode = meta.content_length || "medium";
+      // Use campaign context for strategy params, fallback to metadata
+      const contentGoal = campaignCtx?.content_role === "harvest" ? "conversion"
+        : campaignCtx?.content_role === "sprout" ? "engagement"
+        : meta.content_goal || "education";
+      const contentAngle = campaignCtx?.angle || meta.content_angle || undefined;
+      const contentRole = campaignCtx?.content_role || meta.content_role || undefined;
+      const lengthMode = campaignCtx?.estimated_length || meta.content_length || "medium";
 
       // Build additional context from clarification
-      const clarification = meta.clarification_context;
+      const clarification = campaignCtx?.clarification_context || meta.clarification_context;
       let additionalContext = "";
       if (clarification && typeof clarification === "object") {
         additionalContext = Object.entries(clarification).map(([q, a]) => `${q}: ${a}`).join(". ");
+      }
+      if (campaignCtx) {
+        additionalContext += ` [Campaign piece ${campaignCtx.piece_number}/${campaignCtx.total_pieces}. Angle: ${campaignCtx.angle}. Role: ${campaignCtx.content_role}. Channel: ${campaignCtx.target_channel}. Format: ${campaignCtx.format}.]`;
       }
 
       const output = await callFunction(supabaseUrl, supabaseKey, "generate-core-content", {
