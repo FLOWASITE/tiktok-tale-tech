@@ -550,57 +550,36 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
     // ========== STAGE: quality ==========
     } else if (stage === "quality") {
       const contentId = resolveContentId(pipeline, pState);
+      const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
-      // Quality checks differ by content type
+      // ── 1. GEO Scoring (all content types) ──
       let geoScores: any = null;
-      let complianceResult: any = null;
+      const contentText = await fetchContentText(supabase, contentId, contentType, pState);
 
-      if (contentId && contentType === "multichannel") {
-        // Fetch content text and run GEO scoring
+      if (contentText) {
         try {
-          const { data: coreContent } = await supabase
-            .from("core_contents")
-            .select("title, content")
-            .eq("id", contentId)
-            .single();
-
-          if (coreContent?.content) {
-            const contentText = `${coreContent.title || ""}\n\n${coreContent.content}`;
-            geoScores = await callFunction(supabaseUrl, supabaseKey, "geo-score-content", {
-              contentText,
-              contentId,
-              contentType: "core_content",
-              organizationId: orgId,
-            });
-          }
+          geoScores = await callFunction(supabaseUrl, supabaseKey, "geo-score-content", {
+            contentText,
+            contentId: contentId || undefined,
+            contentType: contentType === "multichannel" ? "core_content" : contentType,
+            organizationId: orgId,
+          });
         } catch (e) {
           console.warn("[quality] GEO scoring failed:", e);
-          geoScores = { seo_score: 70, geo_score: 65, note: "Scoring unavailable" };
         }
       }
 
-      // Compliance check via LLM (all content types)
+      // ── 2. Compliance Check via LLM ──
+      let complianceResult: any = null;
       try {
-        const compBrandId = brandTemplateId;
         let brandData: any = null;
         let industryRules: any[] = [];
-        let contentText = "";
 
-        if (contentId) {
-          const { data: cc } = await supabase.from("core_contents").select("title, content").eq("id", contentId).single();
-          contentText = cc ? `${cc.title || ""}\n\n${cc.content || ""}` : "";
-        }
-        if (!contentText) {
-          // Fallback: get content from pipeline_state
-          const createOutput = pState.stages?.create?.output;
-          contentText = createOutput?.content || createOutput?.script || JSON.stringify(createOutput?.slides || "N/A").slice(0, 2000);
-        }
-
-        if (compBrandId) {
+        if (brandTemplateId) {
           const { data: brand } = await supabase
             .from("brand_templates")
             .select("brand_name, industry, tone_of_voice, forbidden_words, formality_level, industry_template_id")
-            .eq("id", compBrandId)
+            .eq("id", brandTemplateId)
             .single();
           brandData = brand;
 
@@ -620,7 +599,6 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
           }
         }
 
-        const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
         if (lovableApiKey && contentText) {
           const compliancePrompt = `Kiểm tra tuân thủ nội dung ${contentType} cho ngành "${brandData?.industry || "general"}".
 Tiêu đề: ${pipeline.content_title}
@@ -649,15 +627,87 @@ Trả về JSON: { "status": "passed"|"needs_review"|"failed", "score": 0-100, "
         console.warn("[quality] Compliance check failed:", e);
       }
 
-      // Merge scores
-      const geoScore = geoScores?.geo_score || geoScores?.seo_score || null;
+      // ── 3. Persona-Fit Scoring ──
+      let personaFit: any = null;
+      if (lovableApiKey && contentText && brandTemplateId) {
+        try {
+          const { data: personas } = await supabase
+            .from("customer_personas")
+            .select("name, occupation, age_range, pain_points, desires, buying_triggers, communication_style, objections")
+            .eq("brand_template_id", brandTemplateId)
+            .eq("is_primary", true)
+            .limit(1);
+
+          if (personas?.length) {
+            const persona = personas[0];
+            const personaPrompt = `Đánh giá mức độ phù hợp của nội dung sau với persona "${persona.name}" (${persona.occupation || ""}, ${persona.age_range || ""}).
+
+NỘI DUNG (trích): ${contentText.slice(0, 2500)}
+
+PERSONA:
+- Pain points: ${JSON.stringify(persona.pain_points || [])}
+- Desires: ${JSON.stringify(persona.desires || [])}
+- Communication style: ${persona.communication_style || "N/A"}
+- Objections: ${JSON.stringify(persona.objections || [])}
+- Buying triggers: ${JSON.stringify(persona.buying_triggers || [])}
+
+Chấm 5 chiều (0-100): pain_points (30%), desires (25%), communication_style (20%), objections (15%), triggers (10%).
+Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_style": <number>, "objections": <number>, "triggers": <number>, "feedback": "<1 câu>" }`;
+
+            const pfRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${lovableApiKey}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                model: "google/gemini-2.5-flash-lite",
+                messages: [
+                  { role: "system", content: "Đánh giá persona fit. Luôn trả JSON." },
+                  { role: "user", content: personaPrompt },
+                ],
+              }),
+            });
+            const pfData = await pfRes.json();
+            const pfParsed = parseJsonFromLLM(pfData?.choices?.[0]?.message?.content || "");
+            if (pfParsed) {
+              const overall = Math.round(
+                (pfParsed.pain_points || 50) * 0.30 +
+                (pfParsed.desires || 50) * 0.25 +
+                (pfParsed.communication_style || 50) * 0.20 +
+                (pfParsed.objections || 50) * 0.15 +
+                (pfParsed.triggers || 50) * 0.10
+              );
+              personaFit = { ...pfParsed, overall, persona_name: persona.name };
+            }
+          }
+        } catch (e) {
+          console.warn("[quality] Persona-fit check failed:", e);
+        }
+      }
+
+      // ── 4. Merge all scores ──
+      const geoOverall = geoScores?.overall_score || null;
       const compScore = complianceResult?.score || null;
-      const overallScore = geoScore && compScore ? Math.round(geoScore * 0.5 + compScore * 0.5)
-        : geoScore || compScore || null;
+      const selfReview = (pipeline.quality_scores as any)?.self_review || pState.stages?.create?.output?.self_review || null;
+      const selfReviewScore = selfReview?.overall || null;
+      const personaFitScore = personaFit?.overall || null;
+
+      // Weighted overall: GEO 30%, Compliance 25%, Self-review 25%, Persona-fit 20%
+      const scoreParts: { score: number; weight: number }[] = [];
+      if (geoOverall !== null) scoreParts.push({ score: geoOverall, weight: 0.30 });
+      if (compScore !== null) scoreParts.push({ score: compScore, weight: 0.25 });
+      if (selfReviewScore !== null) scoreParts.push({ score: selfReviewScore, weight: 0.25 });
+      if (personaFitScore !== null) scoreParts.push({ score: personaFitScore, weight: 0.20 });
+
+      let overallScore: number | null = null;
+      if (scoreParts.length > 0) {
+        const totalWeight = scoreParts.reduce((sum, p) => sum + p.weight, 0);
+        overallScore = Math.round(scoreParts.reduce((sum, p) => sum + p.score * p.weight, 0) / totalWeight);
+      }
 
       const qualityScores = {
-        geo: geoScores || null,
+        geo: geoScores ? { overall_score: geoOverall, factor_scores: geoScores.factor_scores } : null,
         compliance: complianceResult || null,
+        self_review: selfReview || null,
+        persona_fit: personaFit || null,
         overall: overallScore,
       };
 
@@ -669,17 +719,25 @@ Trả về JSON: { "status": "passed"|"needs_review"|"failed", "score": 0-100, "
 
       result.output = qualityScores;
 
-      // Flag if needs review
-      if (complianceResult?.status === "failed" || complianceResult?.status === "needs_review") {
-        const highIssues = (complianceResult.issues || []).filter((i: any) => i.severity === "high");
-        if (highIssues.length > 0 || complianceResult.status === "failed") {
+      // Flag if quality gate fails
+      const qualityFailed = complianceResult?.status === "failed" 
+        || (overallScore !== null && overallScore < 50);
+      const qualityWarning = complianceResult?.status === "needs_review"
+        || (overallScore !== null && overallScore < 65);
+
+      if (qualityFailed) {
+        await supabase.from("agent_pipelines").update({
+          is_flagged: true,
+          flag_reason: `Quality gate failed (score: ${overallScore}): ${complianceResult?.summary || "Low quality"}`,
+        } as any).eq("id", pipelineId);
+        shouldAutoAdvance = false;
+      } else if (qualityWarning) {
+        const highIssues = (complianceResult?.issues || []).filter((i: any) => i.severity === "high");
+        if (highIssues.length > 0) {
           await supabase.from("agent_pipelines").update({
             is_flagged: true,
-            flag_reason: `Quality: ${complianceResult.summary || "Issues found"}`,
+            flag_reason: `Quality warning: ${complianceResult?.summary || "Needs review"}`,
           } as any).eq("id", pipelineId);
-          if (overallScore !== null && overallScore < 60) {
-            shouldAutoAdvance = false;
-          }
         }
       }
 
