@@ -394,18 +394,20 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
           {step === 0 && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-xs">Tên campaign *</Label>
-                <Input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Dịch vụ kế toán tháng 4" className="text-sm" />
+                 <Label className="text-xs">Tên chiến dịch *</Label>
+                <Input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Ra mắt sản phẩm mới tháng 4" className="text-sm" />
+                <p className="text-[10px] text-muted-foreground">Đặt tên ngắn gọn để bạn dễ nhận biết chiến dịch này sau này.</p>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">Mô tả mục tiêu</Label>
-                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Mô tả mục tiêu campaign để AI lên kế hoạch nội dung phù hợp..." rows={3} className="text-sm resize-none" />
+                <Label className="text-xs">Bạn muốn đạt được gì?</Label>
+                <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="VD: Tăng nhận biết thương hiệu, thu hút khách hàng mới, quảng bá chương trình khuyến mãi..." rows={3} className="text-sm resize-none" />
+                <p className="text-[10px] text-muted-foreground">Hãy mô tả bằng ngôn ngữ đơn giản — AI sẽ tự hiểu và lên kế hoạch phù hợp.</p>
               </div>
 
               <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
                 <Bot className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                 <p className="text-[11px] text-muted-foreground">
-                  <span className="font-medium text-foreground">Strategy Agent</span> sẽ tự động lên kế hoạch N bài viết với các loại content khác nhau (bài viết, video, carousel) dựa trên brand và mục tiêu của bạn.
+                  💡 Bạn chỉ cần nhập tên và mục tiêu — <span className="font-medium text-foreground">AI sẽ tự động</span> lên lịch đăng bài, chọn loại nội dung (bài viết, video, ảnh...) và viết nội dung phù hợp với thương hiệu của bạn.
                 </p>
               </div>
             </div>
@@ -415,16 +417,20 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
           {step === 1 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-medium">Brief nội dung cho AI</Label>
-                <Badge variant="outline" className="text-[9px] text-muted-foreground">Tùy chọn</Badge>
+                <Label className="text-xs font-medium">Gợi ý thêm cho AI</Label>
+                <Badge variant="outline" className="text-[9px] text-muted-foreground">Có thể bỏ qua</Badge>
               </div>
+              <p className="text-[10px] text-muted-foreground -mt-2">
+                Thêm thông tin để AI tạo nội dung chính xác hơn. Nếu chưa biết điền gì, hãy bấm "Tiếp" để bỏ qua.
+              </p>
 
               {/* Key Messages */}
               <div className="space-y-2">
                 <Label className="text-xs flex items-center gap-1">
-                  <MessageSquare className="w-3 h-3" /> Key Messages
-                  <span className="text-muted-foreground font-normal">({keyMessages.length}/5)</span>
-                </Label>
+                   <MessageSquare className="w-3 h-3" /> Thông điệp chính
+                   <span className="text-muted-foreground font-normal">({keyMessages.length}/5)</span>
+                 </Label>
+                 <p className="text-[10px] text-muted-foreground">Điều gì bạn muốn khách hàng nhớ nhất về sản phẩm/dịch vụ?</p>
                 <div className="flex gap-1.5">
                   <Input
                     value={keyMessageInput}
@@ -479,14 +485,16 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
               {/* Primary CTA */}
               <div className="space-y-2">
-                <Label className="text-xs">CTA chính</Label>
-                <Input value={primaryCta} onChange={e => setPrimaryCta(e.target.value)} placeholder="VD: Đăng ký tư vấn miễn phí" className="text-sm" />
+                <Label className="text-xs">Bạn muốn khách hàng làm gì?</Label>
+                <Input value={primaryCta} onChange={e => setPrimaryCta(e.target.value)} placeholder="VD: Đăng ký tư vấn miễn phí, Mua ngay, Liên hệ..." className="text-sm" />
+                <p className="text-[10px] text-muted-foreground">Hành động mà bạn muốn người xem thực hiện sau khi đọc bài (gọi là "lời kêu gọi hành động").</p>
               </div>
 
               {/* Content Pillars Allocation */}
               {currentBrand?.content_pillars && (currentBrand.content_pillars as any[]).length > 0 && (
                 <div className="space-y-3">
-                  <Label className="text-xs">Phân bổ Content Pillars (%)</Label>
+                  <Label className="text-xs">Tỷ lệ các chủ đề nội dung</Label>
+                  <p className="text-[10px] text-muted-foreground">Kéo thanh trượt để chọn tỷ lệ nội dung cho từng chủ đề. Tổng luôn = 100%.</p>
 
                   {/* Stacked bar preview */}
                   <div className="h-3 rounded-full overflow-hidden flex bg-muted">
@@ -540,7 +548,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
               <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
                 <Bot className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                 <p className="text-[11px] text-muted-foreground">
-                  Thông tin này sẽ được <span className="font-medium text-foreground">Strategy Agent</span> sử dụng để lên kế hoạch nội dung phù hợp. Bạn có thể bỏ qua bước này.
+                  💡 Các thông tin trên giúp AI hiểu rõ hơn về mong muốn của bạn. Nếu bỏ trống, AI sẽ tự đề xuất dựa trên thương hiệu và ngành của bạn.
                 </p>
               </div>
             </div>
@@ -549,7 +557,8 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
           {/* Step 2: Kênh */}
           {step === 2 && (
             <div className="space-y-4">
-              <Label className="text-xs">Chọn kênh publish & tần suất</Label>
+              <Label className="text-xs">Bạn muốn đăng bài ở đâu?</Label>
+              <p className="text-[10px] text-muted-foreground mb-1">Chọn mạng xã hội hoặc kênh mà bạn muốn AI tạo nội dung.</p>
               <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto">
                 {AVAILABLE_CHANNELS.map(ch => {
                   const selected = selectedChannels.includes(ch.id);
@@ -567,7 +576,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
               </div>
               {selectedChannels.length > 0 && (
                 <div className="space-y-2 border-t pt-3">
-                  <Label className="text-xs">Tần suất mỗi kênh</Label>
+                  <Label className="text-xs">Đăng bao nhiêu lần?</Label>
                   {selectedChannels.map(ch => {
                     const info = AVAILABLE_CHANNELS.find(c => c.id === ch);
                     return (
@@ -593,7 +602,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
           {step === 3 && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-xs">Thời lượng chiến dịch</Label>
+                <Label className="text-xs">Chiến dịch kéo dài bao lâu?</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {DURATION_OPTIONS.map(opt => (
                     <button
@@ -637,7 +646,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">Chế độ duyệt</Label>
+                <Label className="text-xs">Bạn muốn kiểm tra bài trước khi đăng không?</Label>
                 {APPROVAL_MODE_OPTIONS.map(opt => (
                   <button
                     key={opt.value}
@@ -661,7 +670,8 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
           {/* Step 4: Tự động */}
           {step === 4 && (
             <div className="space-y-3">
-              <Label className="text-xs">Mức độ tự động</Label>
+              <Label className="text-xs">AI được tự làm đến đâu?</Label>
+              <p className="text-[10px] text-muted-foreground">Chọn mức độ mà AI có thể tự quyết định mà không cần hỏi bạn.</p>
               {AUTONOMY_LEVELS.map(lvl => (
                 <Card key={lvl.id} className={cn("cursor-pointer transition-all", autonomyLevel === lvl.id ? "border-primary ring-1 ring-primary/20" : "hover:border-primary/30")} onClick={() => setAutonomyLevel(lvl.id)}>
                   <CardContent className="p-3 flex items-start gap-3">
@@ -811,7 +821,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                     </div>
                     {keyMessages.length > 0 && (
                       <div className="flex justify-between py-1.5 border-b">
-                        <span className="text-muted-foreground">Key Messages</span>
+                        <span className="text-muted-foreground">Thông điệp chính</span>
                         <div className="flex gap-1 flex-wrap justify-end max-w-[60%]">
                           {keyMessages.map((msg, i) => (
                             <Badge key={i} variant="secondary" className="text-[9px]">{msg}</Badge>
@@ -821,13 +831,13 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                     )}
                     {primaryCta.trim() && (
                       <div className="flex justify-between py-1.5 border-b">
-                        <span className="text-muted-foreground">CTA chính</span>
+                        <span className="text-muted-foreground">Kêu gọi hành động</span>
                         <span className="font-medium">{primaryCta}</span>
                       </div>
                     )}
                     {Object.keys(pillarAllocation).length > 0 && (
                       <div className="py-1.5">
-                        <span className="text-muted-foreground">Pillar %</span>
+                        <span className="text-muted-foreground">Tỷ lệ chủ đề</span>
                         <div className="flex flex-wrap gap-1.5 mt-1">
                           {Object.entries(pillarAllocation).map(([name, pct]) => (
                             <Badge key={name} variant="outline" className="text-[9px]">{name}: {pct}%</Badge>
