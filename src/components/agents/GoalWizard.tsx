@@ -720,6 +720,16 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                         </div>
                       </div>
                     )}
+                    {autoApproveEnabled && (
+                      <div className="py-1.5 border-b">
+                        <span className="text-muted-foreground">Smart Auto-Approve</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          <Badge variant="outline" className="text-[9px]">Quality ≥ {thresholdQuality}</Badge>
+                          <Badge variant="outline" className="text-[9px]">GEO ≥ {thresholdGeo}</Badge>
+                          <Badge variant="outline" className="text-[9px] text-destructive border-destructive/30">Risk ≤ {thresholdRiskMax}</Badge>
+                        </div>
+                      </div>
+                    )
                   </div>
                 </>
               )}
