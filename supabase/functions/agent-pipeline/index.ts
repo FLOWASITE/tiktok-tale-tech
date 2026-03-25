@@ -585,6 +585,45 @@ Deno.serve(async (req) => {
         pipelineIds.push(pipeline.id);
         piece.pipeline_id = pipeline.id;
         piece.status = "in_progress";
+
+        // === Create content_schedules for Calendar integration ===
+        if (piece.scheduled_date) {
+          const scheduleIds: Record<string, string> = {};
+          const targetChannels = [piece.target_channel].flat().filter(Boolean);
+          for (const ch of targetChannels) {
+            try {
+              const { data: schedule, error: schedErr } = await supabase
+                .from("content_schedules")
+                .insert({
+                  content_id: null, // Will be updated after create stage
+                  channel: ch,
+                  organization_id: plan.organization_id,
+                  scheduled_at: `${piece.scheduled_date}T09:00:00Z`,
+                  timezone: "Asia/Ho_Chi_Minh",
+                  publish_status: "scheduled",
+                  notes: `Auto-created from campaign plan: ${piece.title}`,
+                  created_by: goalData?.created_by || null,
+                } as any)
+                .select("id")
+                .single();
+              if (schedErr) {
+                console.error(`[create_from_plan] Failed to create schedule for ${ch}:`, schedErr);
+              } else if (schedule) {
+                scheduleIds[ch] = schedule.id;
+              }
+            } catch (e) {
+              console.error(`[create_from_plan] Schedule creation error for ${ch}:`, e);
+            }
+          }
+          // Store schedule_ids in pipeline_state metadata
+          if (Object.keys(scheduleIds).length > 0) {
+            pipelineState.metadata.schedule_ids = scheduleIds;
+            await supabase.from("agent_pipelines")
+              .update({ pipeline_state: pipelineState } as any)
+              .eq("id", pipeline.id);
+            console.log(`[create_from_plan] Created ${Object.keys(scheduleIds).length} schedule(s) for pipeline ${pipeline.id}`);
+          }
+        }
       }
 
       // Update plan status and plan_data with pipeline IDs
@@ -727,6 +766,21 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       if (contentId) {
         await saveContentId(supabase, pipeline, pState, contentId);
         pipeline.content_id = contentId;
+
+        // === Update content_schedules with content_id ===
+        const scheduleIds = meta.schedule_ids as Record<string, string> | undefined;
+        if (scheduleIds && Object.keys(scheduleIds).length > 0) {
+          const ids = Object.values(scheduleIds);
+          const { error: schedUpdateErr } = await supabase
+            .from("content_schedules")
+            .update({ content_id: contentId, updated_at: new Date().toISOString() })
+            .in("id", ids);
+          if (schedUpdateErr) {
+            console.warn("[create] Failed to update content_schedules with content_id:", schedUpdateErr);
+          } else {
+            console.log(`[create] Updated ${ids.length} content_schedule(s) with content_id ${contentId}`);
+          }
+        }
       }
 
       // Save multichannel_content_id in pipeline state for Publisher
@@ -1131,6 +1185,42 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
           publishUserId = owner?.user_id || null;
         } catch { /* ignore */ }
 
+        // === Fallback: create content_schedules if missing (older pipelines) ===
+        const scheduleIds = (meta.schedule_ids || {}) as Record<string, string>;
+        if (Object.keys(scheduleIds).length === 0 && pipeline.scheduled_publish_at) {
+          console.log(`[publish] No schedule_ids in metadata, creating fallback schedules`);
+          for (const ch of targetChannels) {
+            try {
+              const { data: fallbackSchedule } = await supabase
+                .from("content_schedules")
+                .insert({
+                  content_id: contentId,
+                  channel: ch,
+                  organization_id: orgId,
+                  scheduled_at: pipeline.scheduled_publish_at,
+                  timezone: "Asia/Ho_Chi_Minh",
+                  publish_status: "scheduled",
+                  notes: `Auto-created fallback from pipeline: ${pipeline.content_title}`,
+                  created_by: publishUserId,
+                } as any)
+                .select("id")
+                .single();
+              if (fallbackSchedule) {
+                scheduleIds[ch] = fallbackSchedule.id;
+              }
+            } catch (e) {
+              console.warn(`[publish] Fallback schedule creation failed for ${ch}:`, e);
+            }
+          }
+          // Save back to metadata
+          if (Object.keys(scheduleIds).length > 0) {
+            pState.metadata.schedule_ids = scheduleIds;
+            await supabase.from("agent_pipelines")
+              .update({ pipeline_state: pState } as any)
+              .eq("id", pipeline.id);
+          }
+        }
+
         // --- UTM Auto-Generator: fetch channel content texts ---
         const UTM_CHANNEL_COLUMN_MAP: Record<string, string> = {
           website: 'website_content', facebook: 'facebook_content',
@@ -1172,6 +1262,7 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
         const campaignSlug = slugify(pipeline.content_title || meta.goal_name || 'campaign');
 
         for (const channel of targetChannels) {
+          const scheduleId = scheduleIds[channel] || null;
           try {
             // Apply UTM to channel content text
             const rawText = channelTexts[channel] || '';
@@ -1188,14 +1279,39 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
             if (enrichedText) {
               pubPayload.content = enrichedText;
             }
+            if (scheduleId) {
+              pubPayload.scheduleId = scheduleId;
+            }
 
             const pubResult = await callFunction(supabaseUrl, supabaseKey, "channel-publisher", pubPayload);
             publishResults[channel] = { success: true, ...pubResult };
             successCount++;
+
+            // Update schedule status to published
+            if (scheduleId) {
+              await supabase.from("content_schedules")
+                .update({
+                  publish_status: "published",
+                  published_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", scheduleId);
+            }
           } catch (e) {
             console.warn(`[publish] ${channel} failed:`, e);
             publishResults[channel] = { success: false, error: e instanceof Error ? e.message : "Unknown" };
             failCount++;
+
+            // Update schedule status to failed
+            if (scheduleId) {
+              await supabase.from("content_schedules")
+                .update({
+                  publish_status: "failed",
+                  publish_error: e instanceof Error ? e.message : "Unknown error",
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", scheduleId);
+            }
           }
           // Stagger requests
           if (targetChannels.length > 1) await new Promise(r => setTimeout(r, 2000));
