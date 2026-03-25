@@ -315,7 +315,8 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
         {(() => {
           const ctConfig = CONTENT_TYPE_CONFIG[pipeline.content_type as ContentType];
           const state = pipeline.pipeline_state as any;
-          const targetChannel: string | string[] | undefined = state?.target_channel || state?.target_channels;
+          const meta = state?.metadata || {};
+          const targetChannel: string | string[] | undefined = state?.target_channel || state?.target_channels || meta.target_channels || meta.target_channel;
           const channels: string[] = Array.isArray(targetChannel) ? targetChannel : targetChannel ? [targetChannel] : [];
           const CtIcon = ctConfig?.icon;
           const maxChannels = 3;
