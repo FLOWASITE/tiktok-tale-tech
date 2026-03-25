@@ -35,6 +35,9 @@ export function useAgentGoals() {
       brand_template_id?: string;
       campaign_id?: string;
       clarification_context?: Record<string, string>;
+      campaign_duration_days?: number;
+      campaign_start_date?: string;
+      approval_mode?: string;
     }) => {
       if (!orgId) throw new Error('No organization');
       const { data: { user } } = await supabase.auth.getUser();
