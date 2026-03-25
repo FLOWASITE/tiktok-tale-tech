@@ -824,11 +824,13 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
               ) : (
                 <>
                   {/* AI Preview Panel */}
-                  <div className="p-3 rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/15 space-y-2">
+                  <div className="p-3 rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/15 space-y-2.5">
                     <div className="flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-primary" />
                       <span className="text-xs font-medium">Dự kiến chiến dịch</span>
                     </div>
+
+                    {/* Overview metrics */}
                     <div className="grid grid-cols-3 gap-2">
                       <div className="text-center p-2 rounded-md bg-background/60">
                         <p className="text-lg font-bold text-primary tabular-nums">{estimatedPosts}</p>
@@ -843,6 +845,44 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                         <p className="text-[9px] text-muted-foreground">Ngày</p>
                       </div>
                     </div>
+
+                    {/* Content type breakdown */}
+                    {(() => {
+                      const visualChannelIds = ['instagram', 'tiktok', 'facebook', 'pinterest'];
+                      const videoChannelIds = ['tiktok', 'youtube', 'instagram'];
+                      const freqMultipliers: Record<string, number> = { daily: 7, '3/week': 3, '2/week': 2, weekly: 1 };
+                      const weeks = Math.ceil(effectiveDuration / 7);
+
+                      const estCarousels = selectedChannels
+                        .filter(ch => visualChannelIds.includes(ch))
+                        .reduce((sum, ch) => sum + weeks * (freqMultipliers[frequency[ch] || 'weekly'] || 1), 0);
+
+                      const estVideos = selectedChannels
+                        .filter(ch => videoChannelIds.includes(ch))
+                        .reduce((sum, ch) => sum + weeks * (freqMultipliers[frequency[ch] || 'weekly'] || 1), 0);
+
+                      const breakdownItems = [
+                        { icon: FileText, label: 'Nội dung đa kênh', count: estimatedPosts },
+                        { icon: Images, label: 'Carousel', count: estCarousels },
+                        { icon: Video, label: 'Video Script', count: estVideos },
+                      ].filter(item => item.count > 0);
+
+                      return breakdownItems.length > 0 ? (
+                        <div className="border-t border-primary/10 pt-2 space-y-1">
+                          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Phân bổ nội dung</span>
+                          {breakdownItems.map(item => (
+                            <div key={item.label} className="flex items-center justify-between py-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <item.icon className="w-3 h-3 text-muted-foreground/70" />
+                                <span className="text-[11px] text-muted-foreground">{item.label}</span>
+                              </div>
+                              <span className="text-[11px] font-semibold tabular-nums">{item.count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
+
                     {selectedObj && (
                       <div className="flex items-center gap-1.5 text-[10px]">
                         <selectedObj.icon className={cn("w-3 h-3", selectedObj.color)} />
