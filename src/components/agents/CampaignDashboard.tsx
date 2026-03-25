@@ -206,6 +206,29 @@ export function CampaignDashboard() {
           </CardContent>
         </Card>
       )}
+      {/* Missing approval records alert */}
+      {missingApprovalCount > 0 && (
+        <Card className="border-orange-500/30 bg-orange-500/5">
+          <CardContent className="p-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <ShieldAlert className="w-4 h-4 text-orange-500 shrink-0" />
+              <p className="text-xs text-orange-700 dark:text-orange-400">
+                <span className="font-semibold">{missingApprovalCount} pipeline</span> ở bước Duyệt nhưng thiếu approval record
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs shrink-0 border-orange-500/30 text-orange-700 dark:text-orange-400 hover:bg-orange-500/10"
+              onClick={handleBackfillApprovals}
+              disabled={backfilling}
+            >
+              {backfilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+              Tạo approval records
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       {/* Quick Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <Card>
