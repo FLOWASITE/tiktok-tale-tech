@@ -8,6 +8,7 @@ import {
   DollarSign, 
   Layers, 
   Flag,
+  MessageSquare,
   AlertCircle,
   CheckCircle2
 } from 'lucide-react';
@@ -42,6 +43,12 @@ export function CampaignCreatePreviewPanel({
   milestones,
 }: CampaignCreatePreviewPanelProps) {
   const typeConfig = formData.campaign_type ? getCampaignTypeConfig(formData.campaign_type) : null;
+  const contentBrief = formData.content_brief;
+  const hasContentBrief = contentBrief && (
+    (contentBrief.key_messages?.length || 0) > 0 ||
+    contentBrief.primary_cta ||
+    Object.keys(contentBrief.pillar_allocation || {}).length > 0
+  );
 
   // Calculate completeness
   const calculateCompleteness = () => {
@@ -50,14 +57,16 @@ export function CampaignCreatePreviewPanel({
       hasName: !!formData.name,
       hasType: !!formData.campaign_type,
       hasDates: !!formData.start_date && !!formData.end_date,
+      hasContentBrief: !!hasContentBrief,
       hasKPIs: (formData.goals || []).some((g) => g.target > 0),
       hasChannels: (formData.target_channels?.length || 0) > 0,
       hasMilestones: milestones.length > 0,
     };
 
-    if (checks.hasName) score += 20;
-    if (checks.hasType) score += 15;
-    if (checks.hasDates) score += 20;
+    if (checks.hasName) score += 15;
+    if (checks.hasType) score += 10;
+    if (checks.hasDates) score += 15;
+    if (checks.hasContentBrief) score += 15;
     if (checks.hasKPIs) score += 20;
     if (checks.hasChannels) score += 15;
     if (checks.hasMilestones) score += 10;
@@ -69,6 +78,7 @@ export function CampaignCreatePreviewPanel({
 
   // Warnings
   const warnings: string[] = [];
+  if (!checks.hasContentBrief) warnings.push('Chưa thêm mục tiêu nội dung cho AI');
   if (!checks.hasKPIs) warnings.push('Chưa đặt mục tiêu KPI');
   if (!checks.hasChannels) warnings.push('Chưa chọn kênh phân phối');
   if (!checks.hasMilestones) warnings.push('Chưa thêm milestone');
@@ -150,6 +160,53 @@ export function CampaignCreatePreviewPanel({
                 </div>
               </div>
             </div>
+          </div>
+
+          <Separator />
+
+          {/* Content Brief */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Mục tiêu nội dung
+            </h4>
+            {hasContentBrief ? (
+              <div className="space-y-2 text-sm">
+                {(contentBrief?.key_messages?.length || 0) > 0 && (
+                  <div>
+                    <span className="text-muted-foreground text-xs">Thông điệp:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {contentBrief!.key_messages.map((msg, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          {msg}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {contentBrief?.primary_cta && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">CTA</span>
+                    <span className="font-medium">{contentBrief.primary_cta}</span>
+                  </div>
+                )}
+                {Object.keys(contentBrief?.pillar_allocation || {}).length > 0 && (
+                  <div>
+                    <span className="text-muted-foreground text-xs">Pillar:</span>
+                    <div className="space-y-1 mt-1">
+                      {Object.entries(contentBrief!.pillar_allocation).map(([pillar, pct]) => (
+                        <div key={pillar} className="flex justify-between text-xs">
+                          <span className="truncate max-w-[70%]">{pillar}</span>
+                          <span className="text-muted-foreground">{pct}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-xs">Chưa thêm brief cho AI</p>
+            )}
           </div>
 
           <Separator />
