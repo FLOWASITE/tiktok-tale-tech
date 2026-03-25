@@ -203,57 +203,72 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
           )}
         </div>
 
-        {/* Segmented progress bar — one segment per stage */}
-        <div className="space-y-1.5">
-          <div className="flex gap-[2px] w-full">
-            {PIPELINE_STAGES.map((stage) => {
+        {/* Segmented progress — soft luxury style */}
+        <div className="space-y-2">
+          <div className="flex gap-1 w-full">
+            {PIPELINE_STAGES.map((stage, idx) => {
               const stageState = (pipeline.pipeline_state as any)?.stages?.[stage.id];
               const status = stageState?.status;
               const isCurrent = pipeline.current_stage === stage.id;
               const StageIcon = STAGE_ICONS[stage.icon] || Lightbulb;
-
-              let segmentClass = 'bg-secondary';
-              if (isCompleted || status === 'completed') {
-                segmentClass = 'bg-emerald-500';
-              } else if (pipeline.is_flagged && isCurrent) {
-                segmentClass = 'bg-destructive';
-              } else if (status === 'in_progress' || isCurrent) {
-                segmentClass = 'bg-primary animate-pulse';
-              }
-
-              // Tooltip with timing info
               const startedAt = stageState?.started_at;
               const completedAt = stageState?.completed_at;
 
+              const isDone = isCompleted || status === 'completed';
+              const isActive = !isCompleted && (status === 'in_progress' || isCurrent);
+              const isFlagged = pipeline.is_flagged && isCurrent;
+
               return (
-                <TooltipProvider key={stage.id} delayDuration={200}>
+                <TooltipProvider key={stage.id} delayDuration={150}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div
-                        className={cn(
-                          'h-1.5 flex-1 rounded-sm transition-all duration-500 cursor-default',
-                          segmentClass,
-                          isCurrent && !isCompleted && 'ring-1 ring-primary/40'
-                        )}
-                      />
+                      <div className="flex-1 flex flex-col items-center gap-1 group cursor-default">
+                        {/* Dot indicator */}
+                        <div className={cn(
+                          'w-[7px] h-[7px] rounded-full transition-all duration-500 relative',
+                          isDone && 'bg-foreground/70 scale-100',
+                          isActive && !isFlagged && 'bg-foreground scale-110',
+                          isFlagged && 'bg-destructive scale-110',
+                          !isDone && !isActive && 'bg-muted-foreground/20 scale-90',
+                        )}>
+                          {isActive && !isFlagged && (
+                            <span className="absolute inset-0 rounded-full bg-foreground/30 animate-ping" />
+                          )}
+                        </div>
+                        {/* Connector line */}
+                        <div className={cn(
+                          'h-[2px] w-full rounded-full transition-all duration-500',
+                          isDone && 'bg-foreground/25',
+                          isActive && !isFlagged && 'bg-foreground/40',
+                          isFlagged && 'bg-destructive/40',
+                          !isDone && !isActive && 'bg-muted-foreground/10',
+                        )} />
+                      </div>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom" className="px-2 py-1.5 space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <StageIcon className="w-3 h-3" />
-                        <span className="text-[10px] font-medium">{stage.label}</span>
-                        <span className="text-[9px] text-muted-foreground">
-                          {isCompleted || status === 'completed' ? '✓' : status === 'in_progress' || isCurrent ? '⟳' : '—'}
-                        </span>
+                    <TooltipContent side="bottom" className="backdrop-blur-xl bg-popover/90 border-border/50 px-3 py-2 space-y-1 rounded-xl shadow-lg">
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          'p-1 rounded-md',
+                          isDone ? 'bg-foreground/10' : isActive ? 'bg-foreground/10' : 'bg-muted/50'
+                        )}>
+                          <StageIcon className={cn('w-3 h-3', isDone ? 'text-foreground/70' : isActive ? 'text-foreground' : 'text-muted-foreground/40')} />
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-medium tracking-wide">{stage.label}</span>
+                          <span className="text-[9px] text-muted-foreground ml-1.5">
+                            {isDone ? '✓' : isActive ? '●' : ''}
+                          </span>
+                        </div>
                       </div>
                       {startedAt && (
-                        <div className="text-[9px] text-muted-foreground">
+                        <p className="text-[9px] text-muted-foreground/70 font-mono">
                           {completedAt
-                            ? `Hoàn thành: ${format(new Date(completedAt), 'HH:mm:ss', { locale: vi })}`
-                            : (status === 'in_progress' || isCurrent)
-                              ? `Bắt đầu: ${format(new Date(startedAt), 'HH:mm:ss', { locale: vi })}`
+                            ? `${format(new Date(startedAt), 'HH:mm', { locale: vi })} → ${format(new Date(completedAt), 'HH:mm', { locale: vi })}`
+                            : isActive
+                              ? `Bắt đầu ${format(new Date(startedAt), 'HH:mm:ss', { locale: vi })}`
                               : null
                           }
-                        </div>
+                        </p>
                       )}
                     </TooltipContent>
                   </Tooltip>
@@ -262,37 +277,38 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
             })}
           </div>
 
-          {/* Active stage activity label */}
-          {!isCompleted && (
-            <div className="flex items-center justify-between">
-              <span className="text-[9px] text-muted-foreground flex items-center gap-1">
-                {(() => {
-                  const currentStage = PIPELINE_STAGES.find(s => s.id === pipeline.current_stage);
-                  const CurIcon = currentStage ? (STAGE_ICONS[currentStage.icon] || Lightbulb) : Lightbulb;
-                  return (
-                    <>
-                      <CurIcon className="w-2.5 h-2.5" />
-                      <span className={cn(isStageActive && 'text-primary font-medium')}>
-                        {STAGE_ACTIVITY[pipeline.current_stage]}
-                      </span>
-                    </>
-                  );
-                })()}
-              </span>
-              <div className="flex items-center gap-1.5">
-                {elapsed && (
-                  <span className="text-[9px] text-primary font-mono tabular-nums">{elapsed}</span>
-                )}
-                <span className="text-[9px] text-muted-foreground">{completedCount}/{TOTAL_STAGES}</span>
-              </div>
-            </div>
-          )}
-          {isCompleted && (
-            <div className="flex items-center justify-between">
-              <span className="text-[9px] text-emerald-500 font-medium">Hoàn thành</span>
-              <span className="text-[9px] text-muted-foreground">{TOTAL_STAGES}/{TOTAL_STAGES}</span>
-            </div>
-          )}
+          {/* Activity label — monochromatic, understated */}
+          <div className="flex items-center justify-between">
+            {!isCompleted ? (
+              <>
+                <span className="text-[9px] text-muted-foreground/70 flex items-center gap-1.5 tracking-wide">
+                  {(() => {
+                    const currentStage = PIPELINE_STAGES.find(s => s.id === pipeline.current_stage);
+                    const CurIcon = currentStage ? (STAGE_ICONS[currentStage.icon] || Lightbulb) : Lightbulb;
+                    return (
+                      <>
+                        <CurIcon className={cn('w-2.5 h-2.5', isStageActive ? 'text-foreground/60' : 'text-muted-foreground/40')} />
+                        <span className={cn(isStageActive && 'text-foreground/60')}>
+                          {STAGE_ACTIVITY[pipeline.current_stage]}
+                        </span>
+                      </>
+                    );
+                  })()}
+                </span>
+                <div className="flex items-center gap-2">
+                  {elapsed && (
+                    <span className="text-[9px] text-foreground/50 font-mono tabular-nums">{elapsed}</span>
+                  )}
+                  <span className="text-[9px] text-muted-foreground/40 font-medium">{completedCount}/{TOTAL_STAGES}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <span className="text-[9px] text-foreground/50 font-medium tracking-wide">Hoàn thành</span>
+                <span className="text-[9px] text-muted-foreground/40">{TOTAL_STAGES}/{TOTAL_STAGES}</span>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Content type + channel icons */}
