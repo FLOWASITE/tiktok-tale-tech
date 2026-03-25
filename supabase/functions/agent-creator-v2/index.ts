@@ -412,6 +412,7 @@ async function routeVideoScript(
 async function routeCarousel(
   supabaseUrl: string,
   serviceKey: string,
+  supabase: any,
   input: CreatorInput,
   brief: BrandBrief
 ): Promise<CreatorResult> {
@@ -420,15 +421,29 @@ async function routeCarousel(
   const lengthMode = ctx?.estimated_length || input.length_mode || "medium";
   const slideCount = lengthMode === "long" ? 8 : lengthMode === "short" ? 5 : 6;
 
+  // Get org owner userId for auth
+  let userId: string | null = null;
+  try {
+    const { data: owner } = await supabase
+      .from("organization_members")
+      .select("user_id")
+      .eq("organization_id", input.organization_id)
+      .eq("role", "owner")
+      .limit(1)
+      .single();
+    userId = owner?.user_id || null;
+  } catch { /* ignore */ }
+
   const carouselOutput = await callFunction(supabaseUrl, serviceKey, "generate-carousel", {
     topic: input.topic,
     platform: targetChannel,
     carouselStyle: "educational",
     visualPreset: "clean_modern",
     slideCount,
-    organizationId: input.organization_id,
+    organization_id: input.organization_id,
     brandTemplateId: input.brand_template_id,
     autoGenerateImages: false,
+    userId,
   });
 
   const result: CreatorResult = {

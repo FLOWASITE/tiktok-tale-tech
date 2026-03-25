@@ -677,12 +677,17 @@ Deno.serve(withPerf({ functionName: 'generate-carousel', slowThresholdMs: 45000 
     let userId: string | null = null;
     if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.replace("Bearer ", "");
-      const supabaseAuth = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-        global: { headers: { Authorization: authHeader } },
-      });
-      const { data, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-      if (!claimsError && data?.claims?.sub) {
-        userId = data.claims.sub as string;
+      // Check if it's a service role call with userId in body (agent-creator-v2 pattern)
+      if (formData.userId) {
+        userId = formData.userId;
+      } else {
+        const supabaseAuth = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+          global: { headers: { Authorization: authHeader } },
+        });
+        const { data, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+        if (!claimsError && data?.claims?.sub) {
+          userId = data.claims.sub as string;
+        }
       }
     }
 
