@@ -159,8 +159,13 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
   const isRunning = !isCompleted && !pipeline.is_flagged;
   const isApprovalPending = pipeline.current_stage === 'approval' && approval?.status === 'pending';
   const { percent: progress, completedCount } = calculatePipelineProgress(pipeline);
-  const stageLabel = PIPELINE_STAGES.find(s => s.id === pipeline.current_stage)?.label;
   const grade = pipeline.overall_quality_score != null ? getGradeFromScore(pipeline.overall_quality_score) : null;
+
+  // Elapsed time for active stage
+  const currentStageState = (pipeline.pipeline_state as any)?.stages?.[pipeline.current_stage];
+  const stageStartedAt = currentStageState?.started_at || (pipeline as any).stage_started_at;
+  const isStageActive = isRunning && (currentStageState?.status === 'in_progress' || !currentStageState);
+  const elapsed = useElapsed(stageStartedAt, isStageActive);
 
   return (
     <Card
@@ -199,7 +204,7 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
         </div>
 
         {/* Segmented progress bar — one segment per stage */}
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <div className="flex gap-[2px] w-full">
             {PIPELINE_STAGES.map((stage) => {
               const stageState = (pipeline.pipeline_state as any)?.stages?.[stage.id];
@@ -216,6 +221,10 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
                 segmentClass = 'bg-primary animate-pulse';
               }
 
+              // Tooltip with timing info
+              const startedAt = stageState?.started_at;
+              const completedAt = stageState?.completed_at;
+
               return (
                 <TooltipProvider key={stage.id} delayDuration={200}>
                   <Tooltip>
@@ -228,33 +237,62 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
                         )}
                       />
                     </TooltipTrigger>
-                    <TooltipContent side="bottom" className="flex items-center gap-1.5 px-2 py-1">
-                      <StageIcon className="w-3 h-3" />
-                      <span className="text-[10px] font-medium">{stage.label}</span>
-                      <span className="text-[9px] text-muted-foreground">
-                        {isCompleted || status === 'completed' ? '✓' : status === 'in_progress' || isCurrent ? '⟳' : '—'}
-                      </span>
+                    <TooltipContent side="bottom" className="px-2 py-1.5 space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <StageIcon className="w-3 h-3" />
+                        <span className="text-[10px] font-medium">{stage.label}</span>
+                        <span className="text-[9px] text-muted-foreground">
+                          {isCompleted || status === 'completed' ? '✓' : status === 'in_progress' || isCurrent ? '⟳' : '—'}
+                        </span>
+                      </div>
+                      {startedAt && (
+                        <div className="text-[9px] text-muted-foreground">
+                          {completedAt
+                            ? `Hoàn thành: ${format(new Date(completedAt), 'HH:mm:ss', { locale: vi })}`
+                            : (status === 'in_progress' || isCurrent)
+                              ? `Bắt đầu: ${format(new Date(startedAt), 'HH:mm:ss', { locale: vi })}`
+                              : null
+                          }
+                        </div>
+                      )}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               );
             })}
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] text-muted-foreground flex items-center gap-1">
-              {(() => {
-                const currentStage = PIPELINE_STAGES.find(s => s.id === pipeline.current_stage);
-                const CurIcon = currentStage ? (STAGE_ICONS[currentStage.icon] || Lightbulb) : Lightbulb;
-                return (
-                  <>
-                    <CurIcon className="w-2.5 h-2.5" />
-                    {stageLabel}
-                  </>
-                );
-              })()}
-            </span>
-            <span className="text-[9px] text-muted-foreground">{completedCount}/{TOTAL_STAGES}</span>
-          </div>
+
+          {/* Active stage activity label */}
+          {!isCompleted && (
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] text-muted-foreground flex items-center gap-1">
+                {(() => {
+                  const currentStage = PIPELINE_STAGES.find(s => s.id === pipeline.current_stage);
+                  const CurIcon = currentStage ? (STAGE_ICONS[currentStage.icon] || Lightbulb) : Lightbulb;
+                  return (
+                    <>
+                      <CurIcon className="w-2.5 h-2.5" />
+                      <span className={cn(isStageActive && 'text-primary font-medium')}>
+                        {STAGE_ACTIVITY[pipeline.current_stage]}
+                      </span>
+                    </>
+                  );
+                })()}
+              </span>
+              <div className="flex items-center gap-1.5">
+                {elapsed && (
+                  <span className="text-[9px] text-primary font-mono tabular-nums">{elapsed}</span>
+                )}
+                <span className="text-[9px] text-muted-foreground">{completedCount}/{TOTAL_STAGES}</span>
+              </div>
+            </div>
+          )}
+          {isCompleted && (
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] text-emerald-500 font-medium">Hoàn thành</span>
+              <span className="text-[9px] text-muted-foreground">{TOTAL_STAGES}/{TOTAL_STAGES}</span>
+            </div>
+          )}
         </div>
 
         {/* Content type + channel icons */}
