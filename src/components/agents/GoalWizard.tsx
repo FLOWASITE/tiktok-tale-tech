@@ -667,7 +667,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                       "flex items-center gap-2 p-2.5 rounded-lg border text-left text-sm transition-all",
                       selected ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
                     )}>
-                      <span className="text-base">{ch.icon}</span>
+                      <ChannelIcon channel={ch.channelKey} size={14} className={channelIconColors[ch.channelKey]} />
                       <span className="text-xs font-medium">{ch.label}</span>
                       {selected && <Check className="w-3.5 h-3.5 text-primary ml-auto" />}
                     </button>
@@ -877,7 +877,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                       <div className="flex flex-wrap gap-1">
                         {selectedChannels.map(ch => {
                           const info = AVAILABLE_CHANNELS.find(c => c.id === ch);
-                          return <Badge key={ch} variant="outline" className="text-[9px]">{info?.icon} {info?.label}</Badge>;
+                          return <Badge key={ch} variant="outline" className="text-[9px] flex items-center gap-1"><ChannelIcon channel={info?.channelKey || 'website'} size={10} className={channelIconColors[info?.channelKey || 'website']} /> {info?.label}</Badge>;
                         })}
                       </div>
                     )}
