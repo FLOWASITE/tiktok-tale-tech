@@ -152,6 +152,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   const [campaignDurationDays, setCampaignDurationDays] = useState(14);
   const [customDuration, setCustomDuration] = useState('');
   const [campaignStartDate, setCampaignStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [totalPostsTarget, setTotalPostsTarget] = useState<number | ''>('');
 
   // Step 2: Kênh
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
@@ -246,7 +247,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     setTotalBudget(0); setBudgetAllocation({ content: 50, ads: 30, kol: 20 });
     setKeyMessages([]); setKeyMessageInput(''); setPrimaryCta('');
     setPillarAllocation({});
-    setCampaignDurationDays(14); setCustomDuration('');
+    setCampaignDurationDays(14); setCustomDuration(''); setTotalPostsTarget('');
     setCampaignStartDate(new Date().toISOString().split('T')[0]);
     setSelectedChannels([]); setFrequency({});
     setAutonomyLevel('human_in_loop'); setApprovalMode('approve_plan');
@@ -356,6 +357,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     briefContext.budget_allocation = budgetAllocation;
     if (keyMessages.length > 0) briefContext.key_messages = keyMessages;
     if (primaryCta.trim()) briefContext.primary_cta = primaryCta.trim();
+    if (totalPostsTarget) briefContext.total_posts_target = totalPostsTarget;
     if (Object.keys(pillarAllocation).length > 0) briefContext.pillar_allocation = pillarAllocation;
     briefContext.brand_voice_threshold = brandVoiceThreshold;
     briefContext.learning_speed = learningSpeed;
@@ -506,8 +508,8 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                 Thêm thông tin để AI lên kế hoạch chính xác hơn. Bỏ trống = AI tự quyết.
               </p>
 
-              {/* Duration */}
-              <div className="space-y-2">
+              {/* Duration & Posts Target */}
+              <div className="space-y-3">
                 <Label className="text-xs">Thời lượng chiến dịch</Label>
                 <div className="grid grid-cols-3 gap-1.5">
                   {DURATION_OPTIONS.map(opt => (
@@ -530,10 +532,25 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                     <span className="text-xs text-muted-foreground">ngày</span>
                   </div>
                 )}
-                <div className="flex items-center gap-2">
-                  <Label className="text-[10px] text-muted-foreground">Bắt đầu:</Label>
-                  <Input type="date" value={campaignStartDate} onChange={e => setCampaignStartDate(e.target.value)} className="text-sm h-8 w-auto" />
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-[10px] text-muted-foreground whitespace-nowrap">Bắt đầu:</Label>
+                    <Input type="date" value={campaignStartDate} onChange={e => setCampaignStartDate(e.target.value)} className="text-sm h-8 w-full" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-[10px] text-muted-foreground whitespace-nowrap">Số bài:</Label>
+                    <Input
+                      type="number"
+                      value={totalPostsTarget}
+                      onChange={e => setTotalPostsTarget(e.target.value ? parseInt(e.target.value) : '')}
+                      placeholder="VD: 20"
+                      className="text-sm h-8 w-full"
+                      min={1}
+                      max={500}
+                    />
+                  </div>
                 </div>
+                <p className="text-[9px] text-muted-foreground">Nhập số bài viết mong muốn để AI phân bổ lịch đăng phù hợp. Bỏ trống = AI tự tính.</p>
               </div>
 
               {/* Budget */}
