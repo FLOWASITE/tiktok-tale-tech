@@ -10,6 +10,7 @@ import { Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3, InboxIcon,
 import { AgentPipeline, AgentPipelineStage, AgentApproval, PIPELINE_STAGES, ContentType } from '@/types/agent';
 import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import { getGradeFromScore } from '@/types/creativeScore';
+import { getCreatorActivityLabel } from './creatorStepsConfig';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
