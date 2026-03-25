@@ -69,6 +69,7 @@ Deno.serve(async (req) => {
     const contentType = body.content_type || "multichannel";
     const orgId = body.organization_id || body.organizationId;
     const brandTemplateId = body.brand_template_id || body.brandTemplateId;
+    const contentOverride = body.test_content_override || body.contentOverride || null;
 
     // ── Fallback: no content_id ──
     if (!contentId) {
