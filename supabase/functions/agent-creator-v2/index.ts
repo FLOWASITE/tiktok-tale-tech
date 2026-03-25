@@ -527,9 +527,13 @@ Deno.serve(async (req) => {
         result = await routeCarousel(supabaseUrl, serviceKey, input, brief);
         break;
       case "multichannel":
-      default:
         result = await routeMultichannel(supabaseUrl, serviceKey, supabase, input, brief);
         break;
+      default:
+        return new Response(
+          JSON.stringify({ success: false, error: `Unknown content_type: ${input.content_type}` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
     }
 
     console.log(`[creator-v2] Done — type: ${result.content_type}, content_id: ${result.content_id || "N/A"}, review: ${result.self_review?.verdict || "N/A"} (${result.self_review?.overall || "?"}/100)`);
