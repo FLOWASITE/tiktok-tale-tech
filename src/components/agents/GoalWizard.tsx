@@ -729,7 +729,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                           <Badge variant="outline" className="text-[9px] text-destructive border-destructive/30">Risk ≤ {thresholdRiskMax}</Badge>
                         </div>
                       </div>
-                    )
+                    )}
                   </div>
                 </>
               )}
