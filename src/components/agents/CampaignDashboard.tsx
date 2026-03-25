@@ -253,6 +253,29 @@ export function CampaignDashboard() {
           </CardContent>
         </Card>
       )}
+      {/* Missing publish channels alert */}
+      {publishPipelinesMissingChannels.length > 0 && (
+        <Card className="border-red-500/30 bg-red-500/5">
+          <CardContent className="p-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+              <p className="text-xs text-red-700 dark:text-red-400">
+                <span className="font-semibold">{publishPipelinesMissingChannels.length} pipeline</span> ở bước Đăng bài nhưng thiếu kênh đăng
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs shrink-0 border-red-500/30 text-red-700 dark:text-red-400 hover:bg-red-500/10"
+              onClick={handleBackfillPublish}
+              disabled={backfillingPublish}
+            >
+              {backfillingPublish ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+              Fix & Retry Publish
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       {/* Quick Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <Card>
