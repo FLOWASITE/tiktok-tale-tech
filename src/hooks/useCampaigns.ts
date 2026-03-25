@@ -9,7 +9,8 @@ import type {
   CampaignContent,
   MilestoneFormData,
   CampaignGoal,
-  CampaignStatus
+  CampaignStatus,
+  CampaignContentBrief
 } from '@/types/campaign';
 import type { Json } from '@/integrations/supabase/types';
 
@@ -22,6 +23,12 @@ function parseGoals(goals: Json | null): CampaignGoal[] {
 // Helper to convert CampaignGoal[] to Json
 function goalsToJson(goals: CampaignGoal[]): Json {
   return goals as unknown as Json;
+}
+
+// Helper to safely parse content_brief from JSON
+function parseContentBrief(brief: Json | null): CampaignContentBrief | null {
+  if (!brief || typeof brief !== 'object' || Array.isArray(brief)) return null;
+  return brief as unknown as CampaignContentBrief;
 }
 
 export function useCampaigns() {
