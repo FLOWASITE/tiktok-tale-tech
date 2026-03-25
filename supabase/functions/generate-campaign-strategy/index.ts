@@ -24,12 +24,17 @@ function buildStrategyPrompt(params: {
   durationDays: number;
   startDate: string;
   pieceCount: { min: number; max: number };
+  existingTitles: string[];
 }): string {
   const clarificationStr = params.clarificationContext
     ? Object.entries(params.clarificationContext)
         .map(([k, v]) => `- ${k}: ${v}`)
         .join("\n")
     : "Không có thông tin bổ sung";
+
+  const dedupStr = params.existingTitles.length > 0
+    ? `\n\nDEDUPLICATION — These topics ALREADY EXIST (do NOT suggest similar ones):\n${params.existingTitles.join("\n")}\nSuggest DIFFERENT angles.`
+    : "";
 
   return `You are a content strategist. Create a content campaign plan based on:
 
@@ -55,19 +60,25 @@ RULES:
    - Harvest (convert): ~25% of pieces
    - Start campaign with Seed, end with Harvest
 
-4. Distribute across channels strategically:
-   - Educational/long-form → LinkedIn, Facebook, Website
-   - Visual/short → Instagram, TikTok
-   - Direct response → Email, Zalo
+4. Choose content_type strategically for each piece:
+   - "multichannel": For long-form educational content, articles, deep dives → best for LinkedIn, Facebook, Blog, Email
+   - "video_script": For short video scripts (TikTok, Reels, YouTube Shorts) → best for TikTok, Instagram
+   - "carousel": For visual carousel posts with multiple slides → best for Instagram, LinkedIn, Facebook
+   Each campaign should have a MIX of content types. Aim for at least 2 different types.
+
+5. Distribute across channels strategically:
+   - Educational/long-form → multichannel → LinkedIn, Facebook, Website
+   - Visual/short → carousel or video_script → Instagram, TikTok
+   - Direct response → multichannel → Email, Zalo
    - Each channel should get at least 1 piece if selected
 
-5. Schedule pieces with 2-3 day gaps minimum
+6. Schedule pieces with 2-3 day gaps minimum
    - Avoid weekends for B2B content
    - Tuesday-Thursday are best for LinkedIn
-   - Peak hours vary by platform
 
-6. ALL pieces must be directly related to: "${params.title}"
+7. ALL pieces must be directly related to: "${params.title}"
    Do NOT suggest unrelated trending topics.
+${dedupStr}
 
 Respond in the same language as the campaign title.`;
 }
@@ -120,6 +131,27 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Fetch existing titles for dedup
+    let existingTitles: string[] = [];
+    try {
+      const { data: existingContent } = await supabase
+        .from("multi_channel_contents")
+        .select("title")
+        .eq("organization_id", organization_id)
+        .order("created_at", { ascending: false })
+        .limit(30);
+      const { data: recentPipelines } = await supabase
+        .from("agent_pipelines")
+        .select("content_title")
+        .eq("organization_id", organization_id)
+        .order("created_at", { ascending: false })
+        .limit(15);
+      existingTitles = [
+        ...(existingContent || []).map((c: any) => c.title).filter(Boolean),
+        ...(recentPipelines || []).map((p: any) => p.content_title).filter(Boolean),
+      ].slice(0, 30);
+    } catch { /* ignore dedup errors */ }
+
     const durationDays = campaign_duration_days || 14;
     const startDate = campaign_start_date || new Date().toISOString().split("T")[0];
     const channels = target_channels?.length ? target_channels : ["facebook"];
@@ -137,6 +169,7 @@ Deno.serve(async (req) => {
       durationDays,
       startDate,
       pieceCount,
+      existingTitles,
     });
 
     // Call AI via tool calling for structured output
@@ -179,6 +212,11 @@ Deno.serve(async (req) => {
                             "testimonial", "seasonal_hook", "cta_offer", "storytelling",
                           ],
                         },
+                        content_type: {
+                          type: "string",
+                          enum: ["multichannel", "video_script", "carousel"],
+                          description: "Type of content to generate. multichannel=article/post, video_script=short video, carousel=multi-slide visual",
+                        },
                         target_channel: { type: "string" },
                         content_role: { type: "string", enum: ["seed", "sprout", "harvest"] },
                         format: { type: "string", enum: ["post", "carousel", "video_script", "email"] },
@@ -187,7 +225,7 @@ Deno.serve(async (req) => {
                         estimated_length: { type: "string", enum: ["short", "medium", "long"] },
                       },
                       required: [
-                        "piece_number", "title", "angle", "target_channel",
+                        "piece_number", "title", "angle", "content_type", "target_channel",
                         "content_role", "format", "scheduled_date", "key_message",
                       ],
                     },
@@ -234,7 +272,6 @@ Deno.serve(async (req) => {
 
     const aiResult = await aiResponse.json();
 
-    // Extract structured output from tool call
     const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall?.function?.arguments) {
       throw new Error("AI did not return structured plan data");
@@ -247,10 +284,11 @@ Deno.serve(async (req) => {
       throw new Error("Failed to parse AI strategy output");
     }
 
-    // Add default statuses and pipeline_id to each piece
+    // Add default statuses, ensure content_type, and pipeline_id to each piece
     const pieces = planData.plan.map((piece: any, idx: number) => ({
       ...piece,
       piece_number: idx + 1,
+      content_type: piece.content_type || (piece.format === "video_script" ? "video_script" : piece.format === "carousel" ? "carousel" : "multichannel"),
       pipeline_id: null,
       status: "planned",
       estimated_length: piece.estimated_length || "medium",
@@ -275,6 +313,7 @@ Deno.serve(async (req) => {
         campaign_duration_days: durationDays,
         approval_mode: effectiveApprovalMode,
         clarification_context,
+        strategy_summary: planData.strategy_summary || null,
         status: effectiveApprovalMode === "full_auto" ? "approved" : "planned",
         plan_approved: effectiveApprovalMode === "full_auto",
         plan_approved_at: effectiveApprovalMode === "full_auto" ? new Date().toISOString() : null,
@@ -284,53 +323,22 @@ Deno.serve(async (req) => {
 
     if (planError) throw new Error(`Failed to save plan: ${planError.message}`);
 
-    // If full_auto, create pipelines immediately
+    // If full_auto, create pipelines immediately via create_from_plan action
     let pipelinesCreated = 0;
     if (effectiveApprovalMode === "full_auto" && plan) {
-      for (const piece of pieces) {
-        const { data: pipeline, error: pipelineError } = await supabase
-          .from("agent_pipelines")
-          .insert({
-            organization_id,
-            goal_id,
-            campaign_plan_id: plan.id,
-            piece_number: piece.piece_number,
-            content_title: piece.title,
-            content_topic: piece.key_message,
-            current_stage: "research",
-            pipeline_state: {
-              stages: Object.fromEntries(
-                ["research", "creation", "optimization", "expansion", "compliance", "approval", "scheduled", "published", "analyzing"]
-                  .map((s) => [s, { status: "pending" }])
-              ),
-              metadata: {
-                angle: piece.angle,
-                content_role: piece.content_role,
-                format: piece.format,
-                target_channel: piece.target_channel,
-                estimated_length: piece.estimated_length,
-              },
-            },
-            priority: "normal",
-            autonomy_level: "full_auto",
-            scheduled_publish_at: piece.scheduled_date ? `${piece.scheduled_date}T09:00:00Z` : null,
-          } as any)
-          .select()
-          .single();
-
-        if (!pipelineError && pipeline) {
-          pipelinesCreated++;
-          // Update piece with pipeline_id
-          pieces[piece.piece_number - 1].pipeline_id = pipeline.id;
-          pieces[piece.piece_number - 1].status = "in_progress";
-        }
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const res = await fetch(`${supabaseUrl}/functions/v1/agent-pipeline`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${supabaseKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "create_from_plan", plan_id: plan.id }),
+        });
+        const result = await res.json().catch(() => ({}));
+        pipelinesCreated = result.pipeline_count || 0;
+      } catch (e) {
+        console.error("Failed to auto-create pipelines:", e);
       }
-
-      // Update plan_data with pipeline IDs
-      await supabase
-        .from("campaign_content_plans")
-        .update({ plan_data: pieces, status: "executing" } as any)
-        .eq("id", plan.id);
     }
 
     return new Response(

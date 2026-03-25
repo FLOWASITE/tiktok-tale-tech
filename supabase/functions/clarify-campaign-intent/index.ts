@@ -54,14 +54,14 @@ Rules:
 - Return ONLY valid JSON, no markdown`;
 
     // Call AI via Lovable gateway
-    const aiRes = await fetch("https://ai.lovable.dev/api/chat", {
+    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(lovableApiKey ? { "Authorization": `Bearer ${lovableApiKey}` } : {}),
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "user", content: prompt },
         ],

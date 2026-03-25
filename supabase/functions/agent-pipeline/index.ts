@@ -5,10 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const STAGE_ORDER = [
-  "research", "creation", "optimization", "expansion",
-  "compliance", "approval", "scheduled", "published", "analyzing"
-];
+const STAGE_ORDER = ["strategy", "create", "quality", "approval", "publish", "analyze"];
 
 const MAX_RETRIES = 3;
 
@@ -47,7 +44,7 @@ function parseJsonFromLLM(text: string): any {
   return null;
 }
 
-/** Create initial pipeline_state with metadata */
+/** Create initial pipeline_state with 6 new stages */
 function createPipelineState(meta: Record<string, unknown> = {}) {
   const stages: Record<string, { status: string }> = {};
   for (const s of STAGE_ORDER) stages[s] = { status: "pending" };
@@ -57,9 +54,12 @@ function createPipelineState(meta: Record<string, unknown> = {}) {
 function resolveContentId(pipeline: any, pState: any): string | null {
   return pipeline?.content_id
     || pState?.content_id
+    || pState?.stages?.create?.output?.id
+    || pState?.stages?.create?.output?.content_id
+    || pState?.stages?.create?.content_id
+    // Legacy fallbacks
     || pState?.stages?.creation?.output?.id
     || pState?.stages?.creation?.output?.content_id
-    || pState?.stages?.creation?.content_id
     || null;
 }
 
@@ -75,6 +75,7 @@ Deno.serve(async (req) => {
     const { action, goal_id, pipeline_id, organization_id } = body;
 
     // ========== ACTION: trigger_from_goal ==========
+    // New flow: call generate-campaign-strategy instead of creating pipelines directly
     if (action === "trigger_from_goal") {
       if (!goal_id) throw new Error("goal_id required");
 
@@ -85,53 +86,27 @@ Deno.serve(async (req) => {
         .single();
       if (goalErr || !goal) throw new Error("Goal not found");
 
-      const pipelines = [];
-      const topics = (goal.target_topics as string[]) || [];
-      const effectiveTopics = topics.length > 0 ? topics : [goal.name];
-      for (const topic of effectiveTopics) {
-        const pipelineState = createPipelineState({
-          brand_template_id: goal.brand_template_id || null,
-          campaign_id: goal.campaign_id || null,
-          autonomy_level: goal.autonomy_level,
-          target_channels: goal.target_channels || [],
-          goal_description: goal.description || null,
-          clarification_context: goal.clarification_context || null,
-        });
+      // Call generate-campaign-strategy to create a content plan
+      const strategyResult = await callFunction(supabaseUrl, supabaseKey, "generate-campaign-strategy", {
+        goal_id: goal.id,
+        campaign_title: goal.name,
+        campaign_description: goal.description || "",
+        target_channels: goal.target_channels || [],
+        campaign_duration_days: goal.campaign_duration_days || 14,
+        campaign_start_date: goal.campaign_start_date || new Date().toISOString().split("T")[0],
+        approval_mode: goal.approval_mode || "approve_plan",
+        brand_template_id: goal.brand_template_id || null,
+        clarification_context: goal.clarification_context || null,
+        organization_id: goal.organization_id,
+      });
 
-        const { data: pipeline, error: pipeErr } = await supabase
-          .from("agent_pipelines")
-          .insert({
-            organization_id: goal.organization_id,
-            goal_id: goal.id,
-            campaign_id: goal.campaign_id || null,
-            content_title: topic,
-            content_topic: topic,
-            current_stage: "research",
-            pipeline_state: pipelineState,
-            priority: "normal",
-            autonomy_level: goal.autonomy_level,
-            estimated_completion: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-            stage_started_at: new Date().toISOString(),
-          } as any)
-          .select()
-          .single();
-
-        if (pipeErr) { console.error("Pipeline creation error:", pipeErr); continue; }
-        pipelines.push(pipeline);
-
-        await supabase.from("agent_pipeline_logs").insert({
-          pipeline_id: pipeline.id,
-          agent_name: "orchestrator",
-          action: "pipeline_created",
-          input_summary: `Goal: ${goal.name}, Topic: ${topic}`,
-          output_summary: `Pipeline ${pipeline.id} created, firing research stage`,
-        } as any);
-
-        // Fire-and-forget: start research stage as NEW invocation
-        fireNextStage(supabaseUrl, supabaseKey, pipeline.id, "research");
-      }
-
-      return json({ success: true, pipelines_created: pipelines.length, pipeline_ids: pipelines.map(p => p.id) });
+      return json({
+        success: true,
+        plan_id: strategyResult.plan_id,
+        total_pieces: strategyResult.total_pieces || 0,
+        pipelines_created: strategyResult.pipelines_created || 0,
+        approval_mode: strategyResult.approval_mode || "approve_plan",
+      });
     }
 
     // ========== ACTION: advance_stage ==========
@@ -156,18 +131,18 @@ Deno.serve(async (req) => {
       // If advancing to approval + human_in_loop → create approval record
       if (nextStage === "approval" && pipeline.autonomy_level === "human_in_loop") {
         const pState = (pipeline.pipeline_state as any) || {};
-        const creationOutput = pState.stages?.creation?.output;
-        const optimizationOutput = pState.stages?.optimization?.output;
+        const createOutput = pState.stages?.create?.output;
+        const qualityOutput = pState.stages?.quality?.output;
 
         await supabase.from("agent_approvals").insert({
           pipeline_id: pipeline.id,
           organization_id: pipeline.organization_id,
-          content_preview: creationOutput?.content_preview || creationOutput?.title || `Content: ${pipeline.content_title}`,
-          channel_versions: pState.stages?.expansion?.output?.channels || {},
+          content_preview: createOutput?.content_preview || createOutput?.title || `Content: ${pipeline.content_title}`,
+          channel_versions: {},
           scores: {
-            seo: optimizationOutput?.seo_score || null,
-            geo: optimizationOutput?.geo_score || null,
-            compliance: pState.stages?.compliance?.output?.status || null,
+            seo: qualityOutput?.seo_score || null,
+            geo: qualityOutput?.geo_score || null,
+            compliance: qualityOutput?.compliance_status || null,
           },
           status: "pending",
         } as any);
@@ -185,7 +160,7 @@ Deno.serve(async (req) => {
           current_stage: nextStage,
           pipeline_state: pipelineState,
           stage_started_at: now,
-          completed_at: nextStage === "analyzing" ? now : null,
+          completed_at: nextStage === "analyze" ? now : null,
         } as any)
         .eq("id", pipeline_id);
 
@@ -206,7 +181,7 @@ Deno.serve(async (req) => {
     // ========== ACTION: run_stage ==========
     if (action === "run_stage") {
       if (!pipeline_id) throw new Error("pipeline_id required");
-      const requestedStage = body.stage; // May be undefined (backwards compat)
+      const requestedStage = body.stage;
 
       const { data: pipeline } = await supabase
         .from("agent_pipelines")
@@ -215,7 +190,6 @@ Deno.serve(async (req) => {
         .single();
       if (!pipeline) throw new Error("Pipeline not found");
 
-      // If a specific stage was requested, verify pipeline is at that stage
       if (requestedStage && pipeline.current_stage !== requestedStage) {
         console.log(`[run_stage] Requested ${requestedStage} but pipeline is at ${pipeline.current_stage}. Skipping.`);
         return json({ status: 'skipped', reason: 'stage_mismatch' });
@@ -243,7 +217,7 @@ Deno.serve(async (req) => {
           .from("agent_pipelines")
           .select("id", { count: "exact", head: true })
           .eq("goal_id", goal.id)
-          .not("current_stage", "in", '("published","analyzing")');
+          .not("current_stage", "in", '("publish","analyze")');
 
         if ((count || 0) >= 5) continue;
 
@@ -271,42 +245,45 @@ Deno.serve(async (req) => {
 
         if (hoursSinceLast < minIntervalHours) continue;
 
-        const topics = (goal.target_topics as string[]) || [];
-        const effectiveTopics = topics.length > 0 ? topics : [goal.name];
-        const topic = effectiveTopics[Math.floor(Math.random() * effectiveTopics.length)];
-
-        const pipelineState = createPipelineState({
-          brand_template_id: goal.brand_template_id || null,
-          campaign_id: goal.campaign_id || null,
-          target_channels: goal.target_channels || [],
-        });
-
-        const { data: newPipeline, error: pipeErr } = await supabase
-          .from("agent_pipelines")
-          .insert({
-            organization_id: goal.organization_id,
+        // Trigger via strategy instead of direct pipeline creation
+        try {
+          await callFunction(supabaseUrl, supabaseKey, "generate-campaign-strategy", {
             goal_id: goal.id,
-            campaign_id: goal.campaign_id || null,
-            content_title: topic,
-            content_topic: topic,
-            current_stage: "research",
-            pipeline_state: pipelineState,
-            priority: "normal",
-            autonomy_level: goal.autonomy_level,
-            estimated_completion: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-            stage_started_at: new Date().toISOString(),
-          } as any)
-          .select()
-          .single();
-
-        if (!pipeErr && newPipeline) {
+            campaign_title: goal.name,
+            campaign_description: goal.description || "",
+            target_channels: goal.target_channels || [],
+            campaign_duration_days: goal.campaign_duration_days || 7,
+            campaign_start_date: new Date().toISOString().split("T")[0],
+            approval_mode: goal.approval_mode || "full_auto",
+            brand_template_id: goal.brand_template_id || null,
+            clarification_context: goal.clarification_context || null,
+            organization_id: goal.organization_id,
+          });
           triggered++;
-          // Fire-and-forget instead of recursive call
-          fireNextStage(supabaseUrl, supabaseKey, newPipeline.id, "research");
+        } catch (e) {
+          console.error(`Failed to trigger strategy for goal ${goal.id}:`, e);
         }
       }
 
       return json({ success: true, triggered, active_goals: activeGoals.length });
+    }
+
+    // ========== ACTION: check_scheduled_publish ==========
+    if (action === "check_scheduled_publish") {
+      const { data: readyPipelines } = await supabase
+        .from("agent_pipelines")
+        .select("id")
+        .eq("current_stage", "publish")
+        .lte("scheduled_publish_at", new Date().toISOString())
+        .is("completed_at", null);
+
+      let triggered = 0;
+      for (const p of (readyPipelines || [])) {
+        fireNextStage(supabaseUrl, supabaseKey, p.id, "publish");
+        triggered++;
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      return json({ success: true, triggered });
     }
 
     // ========== ACTION: create_from_plan ==========
@@ -326,7 +303,6 @@ Deno.serve(async (req) => {
       const pieces = plan.plan_data as any[];
       if (!pieces?.length) throw new Error("Plan has no content pieces");
 
-      // Fetch goal for extra context
       let goalData: any = null;
       if (plan.goal_id) {
         const { data: g } = await supabase.from("agent_goals").select("*").eq("id", plan.goal_id).single();
@@ -342,14 +318,22 @@ Deno.serve(async (req) => {
             ? "human_in_loop"
             : "human_on_loop";
 
+        // Map piece format to content_type
+        const contentType = piece.content_type
+          || (piece.format === "video_script" ? "video_script"
+            : piece.format === "carousel" ? "carousel"
+            : "multichannel");
+
         const pipelineState = createPipelineState({
           brand_template_id: goalData?.brand_template_id || null,
           campaign_id: goalData?.campaign_id || null,
           target_channels: [piece.target_channel],
           campaign_context: {
+            plan_id: plan.id,
             total_pieces: pieces.length,
             piece_number: piece.piece_number,
             angle: piece.angle,
+            content_type: contentType,
             target_channel: piece.target_channel,
             content_role: piece.content_role,
             format: piece.format,
@@ -358,6 +342,11 @@ Deno.serve(async (req) => {
             clarification_context: plan.clarification_context,
           },
         });
+
+        // Skip strategy stage — it's already done via campaign plan
+        if (pipelineState.stages?.strategy) {
+          pipelineState.stages.strategy = { status: "completed", completed_at: new Date().toISOString() } as any;
+        }
 
         const { data: pipeline, error: pipeErr } = await supabase
           .from("agent_pipelines")
@@ -368,7 +357,8 @@ Deno.serve(async (req) => {
             piece_number: piece.piece_number,
             content_title: piece.title,
             content_topic: piece.key_message,
-            current_stage: "research",
+            content_type: contentType,
+            current_stage: "create",
             pipeline_state: pipelineState,
             priority: "normal",
             autonomy_level: autonomyLevel,
@@ -394,15 +384,15 @@ Deno.serve(async (req) => {
 
       // Start all pipelines with staggered fire-and-forget
       for (const pid of pipelineIds) {
-        fireNextStage(supabaseUrl, supabaseKey, pid, "research");
-        await new Promise(r => setTimeout(r, 2000));
+        fireNextStage(supabaseUrl, supabaseKey, pid, "create");
+        await new Promise(r => setTimeout(r, 3000));
       }
 
       return json({ success: true, pipeline_count: pipelineIds.length, pipeline_ids: pipelineIds });
     }
 
     return new Response(
-      JSON.stringify({ error: "Unknown action. Use: trigger_from_goal, advance_stage, run_stage, check_scheduled_goals, create_from_plan" }),
+      JSON.stringify({ error: "Unknown action. Use: trigger_from_goal, advance_stage, run_stage, check_scheduled_goals, check_scheduled_publish, create_from_plan" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
@@ -414,12 +404,11 @@ Deno.serve(async (req) => {
   }
 });
 
-// ========== CORE: Run a single pipeline stage (NO recursive chaining) ==========
+// ========== CORE: Run a single pipeline stage (6 stages) ==========
 async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string, pipelineInput: any) {
   const startTime = Date.now();
   const pipelineId = pipelineInput.id;
 
-  // CRITICAL: Always re-fetch pipeline from DB to get latest content_id and state
   const { data: freshPipeline, error: fetchErr } = await supabase
     .from("agent_pipelines")
     .select("*")
@@ -448,12 +437,13 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
   const meta = pState.metadata || {};
   const brandTemplateId = meta.brand_template_id || null;
   const orgId = pipeline.organization_id;
+  const contentType = pipeline.content_type || meta.campaign_context?.content_type || "multichannel";
   let result: any = { status: "completed" };
   let shouldAutoAdvance = true;
 
-  console.log(`[${stage}] Pipeline ${pipelineId} — content_id: ${pipeline.content_id || 'NULL'}, brand: ${brandTemplateId || 'NULL'}`);
+  console.log(`[${stage}] Pipeline ${pipelineId} — content_type: ${contentType}, content_id: ${pipeline.content_id || 'NULL'}, brand: ${brandTemplateId || 'NULL'}`);
 
-  // Mark stage as in_progress with timestamp
+  // Mark stage as in_progress
   if (pState.stages?.[stage]) {
     pState.stages[stage].status = "in_progress";
     pState.stages[stage].started_at = new Date().toISOString();
@@ -463,69 +453,19 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
     .eq("id", pipeline.id);
 
   try {
-    if (stage === "research") {
-      // Fetch goal for clarification context
-      let goalData: any = null;
-      if (pipeline.goal_id) {
-        const { data: g } = await supabase.from("agent_goals").select("name, description, clarification_context").eq("id", pipeline.goal_id).single();
-        goalData = g;
-      }
-
-      // Campaign context from content plan (takes priority)
+    // ========== STAGE: strategy ==========
+    if (stage === "strategy") {
+      // Strategy is usually done before pipeline creation (via campaign plan).
+      // Only runs for manually created single-topic pipelines.
       const campaignCtx = meta.campaign_context;
+      const campaignTitle = pipeline.content_title || "";
 
-      // Build instruction that prioritizes campaign topic
-      const campaignTitle = pipeline.content_title || goalData?.name || "";
-      const campaignDesc = pipeline.content_topic || goalData?.description || "";
-      const clarification = campaignCtx?.clarification_context || goalData?.clarification_context;
-
-      let instruction = "";
-      if (campaignTitle) {
-        instruction = `CRITICAL: The user specifically wants content about: "${campaignTitle}".`;
-        if (campaignDesc && campaignDesc !== campaignTitle) {
-          instruction += ` Additional context: ${campaignDesc}.`;
-        }
-        if (clarification) {
-          instruction += ` User clarifications: ${JSON.stringify(clarification)}.`;
-        }
-        if (campaignCtx) {
-          instruction += ` This is piece ${campaignCtx.piece_number} of ${campaignCtx.total_pieces} in a campaign about "${campaignCtx.campaign_title}".`;
-          instruction += ` Required angle: "${campaignCtx.angle}". Content role: "${campaignCtx.content_role}". Target channel: "${campaignCtx.target_channel}". Format: "${campaignCtx.format}".`;
-          instruction += ` Focus your research on finding data, stats, and insights that support a "${campaignCtx.angle}" angle for this specific topic.`;
-        } else {
-          instruction += ` ALL your topic suggestions MUST be directly related to this subject. Do NOT suggest unrelated trending topics. Suggest 3 angle variations of this specific topic.`;
-        }
+      let instruction = `CRITICAL: The user specifically wants content about: "${campaignTitle}".`;
+      if (pipeline.content_topic && pipeline.content_topic !== campaignTitle) {
+        instruction += ` Additional context: ${pipeline.content_topic}.`;
       }
-
-      // === DEDUP: Fetch existing content to avoid duplicates ===
-      let dedupContext = "";
-      try {
-        const { data: existingContent } = await supabase
-          .from("multi_channel_contents")
-          .select("title, content_topic")
-          .eq("organization_id", orgId)
-          .order("created_at", { ascending: false })
-          .limit(30);
-
-        const { data: recentPipelines } = await supabase
-          .from("agent_pipelines")
-          .select("content_title, content_topic")
-          .eq("organization_id", orgId)
-          .neq("id", pipelineId)
-          .order("created_at", { ascending: false })
-          .limit(15);
-
-        const existingTopics = [
-          ...(existingContent || []).map((c: any) => c.title).filter(Boolean),
-          ...(recentPipelines || []).map((p: any) => p.content_title).filter(Boolean),
-        ];
-
-        if (existingTopics.length > 0) {
-          dedupContext = `\n\nDEDUPLICATION — These topics ALREADY EXIST (do NOT suggest similar ones):\n${existingTopics.slice(0, 30).join("\n")}\n\nSuggest DIFFERENT angles that haven't been covered yet.`;
-          instruction += dedupContext;
-        }
-      } catch (dedupErr) {
-        console.warn("[research] Dedup fetch failed, continuing without:", dedupErr);
+      if (campaignCtx?.clarification_context) {
+        instruction += ` User clarifications: ${JSON.stringify(campaignCtx.clarification_context)}.`;
       }
 
       const output = await callFunction(supabaseUrl, supabaseKey, "topic-ai", {
@@ -537,22 +477,31 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       });
       result.output = output;
 
-    } else if (stage === "creation") {
-      // Campaign context from content plan
+    // ========== STAGE: create ==========
+    } else if (stage === "create") {
       const campaignCtx = meta.campaign_context;
 
-      // Derive topic from research output or pipeline fields
-      const researchOutput = pState.stages?.research?.output;
-      const creationTopic = researchOutput?.suggestions?.[0]?.topic
-        || researchOutput?.topic
+      // Derive topic
+      const strategyOutput = pState.stages?.strategy?.output;
+      const creationTopic = strategyOutput?.suggestions?.[0]?.topic
+        || strategyOutput?.topic
         || pipeline.content_topic
         || pipeline.content_title;
 
       if (!creationTopic) {
-        throw new Error("No topic available for content creation. Research stage may not have produced valid output.");
+        throw new Error("No topic available for content creation.");
       }
 
-      // Use campaign context for strategy params, fallback to metadata
+      // Build context
+      const clarification = campaignCtx?.clarification_context || meta.clarification_context;
+      let additionalContext = "";
+      if (clarification && typeof clarification === "object") {
+        additionalContext = Object.entries(clarification).map(([q, a]) => `${q}: ${a}`).join(". ");
+      }
+      if (campaignCtx) {
+        additionalContext += ` [Campaign piece ${campaignCtx.piece_number}/${campaignCtx.total_pieces}. Angle: ${campaignCtx.angle}. Role: ${campaignCtx.content_role}. Channel: ${campaignCtx.target_channel}.]`;
+      }
+
       const contentGoal = campaignCtx?.content_role === "harvest" ? "conversion"
         : campaignCtx?.content_role === "sprout" ? "engagement"
         : meta.content_goal || "education";
@@ -560,71 +509,148 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       const contentRole = campaignCtx?.content_role || meta.content_role || undefined;
       const lengthMode = campaignCtx?.estimated_length || meta.content_length || "medium";
 
-      // Build additional context from clarification
-      const clarification = campaignCtx?.clarification_context || meta.clarification_context;
-      let additionalContext = "";
-      if (clarification && typeof clarification === "object") {
-        additionalContext = Object.entries(clarification).map(([q, a]) => `${q}: ${a}`).join(". ");
-      }
-      if (campaignCtx) {
-        additionalContext += ` [Campaign piece ${campaignCtx.piece_number}/${campaignCtx.total_pieces}. Angle: ${campaignCtx.angle}. Role: ${campaignCtx.content_role}. Channel: ${campaignCtx.target_channel}. Format: ${campaignCtx.format}.]`;
-      }
+      // ===== ROUTE BY CONTENT TYPE =====
+      if (contentType === "video_script") {
+        // Route B: Video Script
+        const scriptOutput = await callFunction(supabaseUrl, supabaseKey, "generate-script", {
+          topic: creationTopic,
+          duration: "60s",
+          scriptPurpose: contentGoal === "conversion" ? "sell" : contentGoal === "engagement" ? "engage" : "educate",
+          videoType: "talking_head",
+          organizationId: orgId,
+          brandTemplateId: brandTemplateId,
+        });
+        result.output = scriptOutput;
 
-      const output = await callFunction(supabaseUrl, supabaseKey, "generate-core-content", {
-        topic: creationTopic,
-        contentGoal,
-        contentAngle: contentAngle || (additionalContext ? additionalContext : undefined),
-        contentRole,
-        lengthMode,
-        organizationId: orgId,
-        brandTemplateId: brandTemplateId,
-        campaign_id: meta.campaign_id || pipeline.campaign_id || null,
-      });
-      result.output = output;
+        // Analyze script quality
+        if (scriptOutput?.script || scriptOutput?.content) {
+          try {
+            const analysisOutput = await callFunction(supabaseUrl, supabaseKey, "analyze-script", {
+              script: scriptOutput.script || scriptOutput.content,
+              organizationId: orgId,
+            });
+            result.output.analysis = analysisOutput;
 
-      if (output?.content_id || output?.id) {
-        const contentId = output.content_id || output.id;
-        console.log(`[creation] Saving content_id: ${contentId} to pipeline ${pipeline.id}`);
-
-        const { error: cidError } = await supabase
-          .from("agent_pipelines")
-          .update({ content_id: contentId } as any)
-          .eq("id", pipeline.id);
-
-        if (cidError) {
-          console.error(`[creation] FAILED to save content_id ${contentId}:`, JSON.stringify(cidError));
-          const { error: retryError } = await supabase.rpc("update_pipeline_content_id", {
-            p_pipeline_id: pipeline.id,
-            p_content_id: contentId,
-          });
-          if (retryError) {
-            console.error("[creation] RPC fallback also failed:", JSON.stringify(retryError));
+            // If score < 70, try to improve
+            if (analysisOutput?.overall_score && analysisOutput.overall_score < 70) {
+              try {
+                const improvedOutput = await callFunction(supabaseUrl, supabaseKey, "improve-script", {
+                  script: scriptOutput.script || scriptOutput.content,
+                  suggestions: analysisOutput.suggestions || [],
+                  organizationId: orgId,
+                  brandTemplateId: brandTemplateId,
+                });
+                result.output.improved = improvedOutput;
+                result.output.was_improved = true;
+              } catch (e) {
+                console.warn("[create] Script improvement failed:", e);
+              }
+            }
+          } catch (e) {
+            console.warn("[create] Script analysis failed:", e);
           }
         }
 
-        pipeline.content_id = contentId;
-        pState.content_id = contentId;
-        if (pState.stages?.creation) {
-          pState.stages.creation.content_id = contentId;
+        // Save content_id if returned
+        if (scriptOutput?.content_id || scriptOutput?.id) {
+          const contentId = scriptOutput.content_id || scriptOutput.id;
+          await saveContentId(supabase, pipeline, pState, contentId);
+          pipeline.content_id = contentId;
         }
 
-        // CRITICAL: Re-fetch pipeline to ensure content_id is committed and visible
-        const { data: refreshed } = await supabase
-          .from("agent_pipelines")
-          .select("*")
-          .eq("id", pipeline.id)
-          .single();
-        if (refreshed) {
-          pipeline = refreshed;
-          console.log(`[creation] Verified content_id after re-fetch: ${pipeline.content_id}`);
+      } else if (contentType === "carousel") {
+        // Route C: Carousel
+        const targetChannel = campaignCtx?.target_channel || "instagram";
+        const carouselOutput = await callFunction(supabaseUrl, supabaseKey, "generate-carousel", {
+          topic: creationTopic,
+          platform: targetChannel,
+          carouselStyle: "educational",
+          visualPreset: "clean_modern",
+          slideCount: lengthMode === "long" ? 8 : lengthMode === "short" ? 5 : 6,
+          organizationId: orgId,
+          brandTemplateId: brandTemplateId,
+          autoGenerateImages: false,
+        });
+        result.output = carouselOutput;
+
+        if (carouselOutput?.content_id || carouselOutput?.id) {
+          const contentId = carouselOutput.content_id || carouselOutput.id;
+          await saveContentId(supabase, pipeline, pState, contentId);
+          pipeline.content_id = contentId;
+        }
+
+      } else {
+        // Route A: Multichannel (default)
+        // Step 1: Generate core content
+        const coreOutput = await callFunction(supabaseUrl, supabaseKey, "generate-core-content", {
+          topic: creationTopic,
+          contentGoal,
+          contentAngle: contentAngle || (additionalContext ? additionalContext : undefined),
+          contentRole,
+          lengthMode,
+          organizationId: orgId,
+          brandTemplateId: brandTemplateId,
+          campaign_id: meta.campaign_id || pipeline.campaign_id || null,
+        });
+        result.output = coreOutput;
+
+        const coreContentId = coreOutput?.content_id || coreOutput?.id;
+        if (coreContentId) {
+          await saveContentId(supabase, pipeline, pState, coreContentId);
+          pipeline.content_id = coreContentId;
+
+          // Step 2: Generate multichannel versions
+          const targetChannels = meta.target_channels || [];
+          if (targetChannels.length > 0) {
+            try {
+              let expansionUserId: string | null = null;
+              try {
+                const { data: owner } = await supabase
+                  .from("organization_members")
+                  .select("user_id")
+                  .eq("organization_id", orgId)
+                  .eq("role", "owner")
+                  .limit(1)
+                  .single();
+                expansionUserId = owner?.user_id || null;
+              } catch { /* ignore */ }
+
+              const mcOutput = await callFunction(supabaseUrl, supabaseKey, "generate-multichannel", {
+                action: "expand",
+                contentId: coreContentId,
+                newChannels: targetChannels,
+                organizationId: orgId,
+                brandTemplateId: brandTemplateId,
+                userId: expansionUserId,
+              });
+              result.output.multichannel = mcOutput;
+            } catch (e) {
+              console.warn("[create] Multichannel expansion failed:", e);
+              result.output.multichannel = { error: e instanceof Error ? e.message : "Unknown" };
+            }
+          }
         }
       }
 
-    } else if (stage === "optimization") {
+      // Re-fetch pipeline to ensure content_id is committed
+      const { data: refreshed } = await supabase
+        .from("agent_pipelines")
+        .select("*")
+        .eq("id", pipeline.id)
+        .single();
+      if (refreshed) pipeline = refreshed;
+
+    // ========== STAGE: quality ==========
+    } else if (stage === "quality") {
       const contentId = resolveContentId(pipeline, pState);
-      if (contentId) {
+
+      // Quality checks differ by content type
+      let geoScores: any = null;
+      let complianceResult: any = null;
+
+      if (contentId && contentType === "multichannel") {
+        // Fetch content text and run GEO scoring
         try {
-          // geo-score-content expects contentText, not content_id — fetch content first
           const { data: coreContent } = await supabase
             .from("core_contents")
             .select("title, content")
@@ -633,214 +659,124 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
 
           if (coreContent?.content) {
             const contentText = `${coreContent.title || ""}\n\n${coreContent.content}`;
-            const output = await callFunction(supabaseUrl, supabaseKey, "geo-score-content", {
+            geoScores = await callFunction(supabaseUrl, supabaseKey, "geo-score-content", {
               contentText,
               contentId,
               contentType: "core_content",
               organizationId: orgId,
             });
-            result.output = output;
-          } else {
-            console.warn("[optimization] Core content not found or empty for", contentId);
-            result.output = { seo_score: 70, geo_score: 65, note: "Core content not found" };
           }
         } catch (e) {
-          console.warn("GEO scoring failed, using fallback:", e);
-          result.output = { seo_score: 70, geo_score: 65, note: "Scoring unavailable, using defaults" };
+          console.warn("[quality] GEO scoring failed:", e);
+          geoScores = { seo_score: 70, geo_score: 65, note: "Scoring unavailable" };
         }
-      } else {
-        result.output = { seo_score: 70, geo_score: 65, note: "No content_id, skipping real scoring" };
       }
 
-    } else if (stage === "expansion") {
-      const contentId = resolveContentId(pipeline, pState);
-      if (contentId) {
-        try {
-          const targetChannels = meta.target_channels || [];
-          if (targetChannels.length === 0) {
-            result.output = { channels_generated: [], note: "No target channels specified" };
-          } else {
-            // generate-multichannel expects contentId + action:'expand' + newChannels
-            // CRITICAL: Pass a userId to avoid "Unauthorized" — fetch org owner as fallback
-            let expansionUserId: string | null = null;
-            try {
-              const { data: owner } = await supabase
-                .from("organization_members")
-                .select("user_id")
-                .eq("organization_id", orgId)
-                .eq("role", "owner")
-                .limit(1)
-                .single();
-              expansionUserId = owner?.user_id || null;
-            } catch { /* ignore */ }
-
-            const output = await callFunction(supabaseUrl, supabaseKey, "generate-multichannel", {
-              action: "expand",
-              contentId,
-              newChannels: targetChannels,
-              organizationId: orgId,
-              brandTemplateId: brandTemplateId,
-              userId: expansionUserId,
-            });
-            result.output = output;
-          }
-        } catch (e) {
-          console.warn("Multichannel expansion failed:", e);
-          result.output = { channels_generated: [], note: `Expansion failed: ${e instanceof Error ? e.message : "Unknown"}` };
-        }
-      } else {
-        result.output = { channels_generated: [], note: "No content_id for expansion" };
-      }
-
-    } else if (stage === "compliance") {
-      const contentId = resolveContentId(pipeline, pState);
-      if (!contentId) {
-        result.output = { status: "skipped", reason: "No content_id available for compliance check" };
-      } else {
-        // 1. Fetch actual content text
-        const { data: coreContent } = await supabase
-          .from("core_contents")
-          .select("title, content, content_goal")
-          .eq("id", contentId)
-          .single();
-
-        const contentText = coreContent?.content || "";
-        const contentTitle = coreContent?.title || pipeline.content_title || "";
-
-        // 2. Fetch brand template for industry context
-        const compBrandId = brandTemplateId || pipeline.brand_template_id;
+      // Compliance check via LLM (all content types)
+      try {
+        const compBrandId = brandTemplateId;
         let brandData: any = null;
         let industryRules: any[] = [];
+        let contentText = "";
+
+        if (contentId) {
+          const { data: cc } = await supabase.from("core_contents").select("title, content").eq("id", contentId).single();
+          contentText = cc ? `${cc.title || ""}\n\n${cc.content || ""}` : "";
+        }
+        if (!contentText) {
+          // Fallback: get content from pipeline_state
+          const createOutput = pState.stages?.create?.output;
+          contentText = createOutput?.content || createOutput?.script || JSON.stringify(createOutput?.slides || "N/A").slice(0, 2000);
+        }
 
         if (compBrandId) {
           const { data: brand } = await supabase
             .from("brand_templates")
-            .select("brand_name, industry, tone_of_voice, preferred_words, forbidden_words, formality_level, industry_template_id")
+            .select("brand_name, industry, tone_of_voice, forbidden_words, formality_level, industry_template_id")
             .eq("id", compBrandId)
             .single();
           brandData = brand;
 
-          // 3. Fetch resolved compliance rules from Industry Park (if available)
           if (brand?.industry_template_id) {
             const { data: jurisdictions } = await supabase
               .from("industry_jurisdiction_profiles")
               .select("resolved_rules")
               .eq("industry_template_id", brand.industry_template_id)
               .limit(1);
-
             if (jurisdictions?.length > 0 && jurisdictions[0].resolved_rules) {
               const resolved = jurisdictions[0].resolved_rules;
               industryRules = [
                 ...(resolved.forbidden_terms || []).map((t: string) => `Từ cấm: "${t}"`),
                 ...(resolved.compliance_rules || []).map((r: string) => `Quy định: ${r}`),
-                ...(resolved.claim_restrictions || []).map((c: any) => `Hạn chế claim: ${typeof c === 'string' ? c : c.description || JSON.stringify(c)}`),
               ];
             }
           }
         }
 
-        // 4. Build compliance check prompt
-        const industryName = brandData?.industry || "general";
-        const forbiddenWords = brandData?.forbidden_words || [];
-        const toneOfVoice = brandData?.tone_of_voice || "";
-        const formality = brandData?.formality_level || "";
+        const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+        if (lovableApiKey && contentText) {
+          const compliancePrompt = `Kiểm tra tuân thủ nội dung ${contentType} cho ngành "${brandData?.industry || "general"}".
+Tiêu đề: ${pipeline.content_title}
+Nội dung (trích): ${contentText.slice(0, 3000)}
+${brandData ? `Brand: ${brandData.brand_name}. Tone: ${brandData.tone_of_voice || "N/A"}. Từ cấm: ${(brandData.forbidden_words || []).join(", ") || "Không"}` : ""}
+${industryRules.length > 0 ? `Quy định ngành:\n${industryRules.join("\n")}` : ""}
 
-        const compliancePrompt = `Bạn là chuyên gia kiểm tra tuân thủ nội dung cho ngành "${industryName}".
+Trả về JSON: { "status": "passed"|"needs_review"|"failed", "score": 0-100, "issues": [{"type":"...","severity":"high|medium|low","description":"..."}], "summary": "..." }`;
 
-Kiểm tra nội dung sau:
-Tiêu đề: ${contentTitle}
-Nội dung: ${contentText.slice(0, 3000)}
-
-${brandData ? `Brand: ${brandData.brand_name || "N/A"}
-Tone of Voice: ${toneOfVoice}
-Formality: ${formality}
-Từ cấm của brand: ${forbiddenWords.length > 0 ? forbiddenWords.join(", ") : "Không có"}` : "Không có thông tin brand."}
-
-${industryRules.length > 0 ? `Quy định ngành:\n${industryRules.join("\n")}` : `Không có quy định ngành cụ thể. Dựa vào kiến thức chung về ngành "${industryName}" để đánh giá.`}
-
-Kiểm tra:
-1. Tuân thủ pháp luật — có claim nào cần disclaimer không?
-2. Quy định ngành — có vi phạm quy định đặc thù ngành "${industryName}" không?
-3. Brand voice — tone có phù hợp với brand guidelines không?
-4. Từ cấm — có sử dụng từ nào trong danh sách cấm không?
-5. Claim quá mạnh — có lời hứa/cam kết quá mức không?
-
-Trả về JSON (KHÔNG markdown):
-{
-  "status": "passed" | "needs_review" | "failed",
-  "score": 0-100,
-  "issues": [
-    { "type": "legal|brand_voice|industry|language", "severity": "high|medium|low", "description": "...", "suggestion": "..." }
-  ],
-  "summary": "Tóm tắt ngắn kết quả kiểm tra"
-}`;
-
-        try {
-          // Call LLM via Lovable AI gateway
-          const gatewayUrl = Deno.env.get("AI_GATEWAY_URL") || `${supabaseUrl}/functions/v1/ai-gateway`;
-          const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-          
-          const aiResponse = await fetch(gatewayUrl, {
+          const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(lovableApiKey ? { "Authorization": `Bearer ${lovableApiKey}` } : { "Authorization": `Bearer ${supabaseKey}` }),
-            },
+            headers: { "Authorization": `Bearer ${lovableApiKey}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-              functionName: "compliance-check",
+              model: "google/gemini-2.5-flash",
               messages: [
                 { role: "system", content: "Bạn là AI kiểm tra tuân thủ nội dung. Luôn trả về JSON hợp lệ." },
                 { role: "user", content: compliancePrompt },
               ],
-              model: "google/gemini-2.5-flash",
             }),
           });
+          const aiData = await aiRes.json();
+          const aiContent = aiData?.choices?.[0]?.message?.content || "";
+          complianceResult = parseJsonFromLLM(aiContent);
+        }
+      } catch (e) {
+        console.warn("[quality] Compliance check failed:", e);
+      }
 
-          const aiData = await aiResponse.json();
-          const aiContent = aiData?.data?.choices?.[0]?.message?.content
-            || aiData?.choices?.[0]?.message?.content
-            || "";
+      // Merge scores
+      const geoScore = geoScores?.geo_score || geoScores?.seo_score || null;
+      const compScore = complianceResult?.score || null;
+      const overallScore = geoScore && compScore ? Math.round(geoScore * 0.5 + compScore * 0.5)
+        : geoScore || compScore || null;
 
-          // Parse JSON from response using robust parser
-          const complianceResult = parseJsonFromLLM(aiContent);
-          if (complianceResult) {
-            result.output = complianceResult;
+      const qualityScores = {
+        geo: geoScores || null,
+        compliance: complianceResult || null,
+        overall: overallScore,
+      };
 
-            // Flag pipeline if compliance failed
-            if (complianceResult.status === "failed") {
-              const highIssues = (complianceResult.issues || []).filter((i: any) => i.severity === "high");
-              if (highIssues.length > 0) {
-                await supabase.from("agent_pipelines").update({
-                  is_flagged: true,
-                  flag_reason: `Compliance failed: ${highIssues.map((i: any) => i.description).join("; ")}`,
-                } as any).eq("id", pipelineId);
-                shouldAutoAdvance = false;
-              }
-            }
-          } else {
-            console.warn("[compliance] Could not parse LLM response:", aiContent.slice(0, 500));
-            result.output = { status: "needs_review", score: 50, issues: [], summary: "Could not parse compliance check result", raw_response: aiContent?.substring(0, 500) };
+      // Save quality scores to pipeline
+      await supabase.from("agent_pipelines").update({
+        quality_scores: qualityScores,
+        overall_quality_score: overallScore,
+      } as any).eq("id", pipeline.id);
+
+      result.output = qualityScores;
+
+      // Flag if needs review
+      if (complianceResult?.status === "failed" || complianceResult?.status === "needs_review") {
+        const highIssues = (complianceResult.issues || []).filter((i: any) => i.severity === "high");
+        if (highIssues.length > 0 || complianceResult.status === "failed") {
+          await supabase.from("agent_pipelines").update({
+            is_flagged: true,
+            flag_reason: `Quality: ${complianceResult.summary || "Issues found"}`,
+          } as any).eq("id", pipelineId);
+          if (overallScore !== null && overallScore < 60) {
+            shouldAutoAdvance = false;
           }
-        } catch (compErr) {
-          console.warn("[compliance] LLM call failed, using basic check:", compErr);
-          // Fallback: basic forbidden word check without LLM
-          const foundForbidden = forbiddenWords.filter((w: string) => 
-            contentText.toLowerCase().includes(w.toLowerCase()) || contentTitle.toLowerCase().includes(w.toLowerCase())
-          );
-          result.output = {
-            status: foundForbidden.length > 0 ? "needs_review" : "passed",
-            score: foundForbidden.length > 0 ? 60 : 85,
-            issues: foundForbidden.map((w: string) => ({
-              type: "language",
-              severity: "medium",
-              description: `Sử dụng từ cấm: "${w}"`,
-              suggestion: `Thay thế từ "${w}" bằng từ ngữ phù hợp hơn`,
-            })),
-            summary: foundForbidden.length > 0 ? `Phát hiện ${foundForbidden.length} từ cấm` : "Basic check passed (LLM unavailable)",
-          };
         }
       }
 
+    // ========== STAGE: approval ==========
     } else if (stage === "approval") {
       if (pipeline.autonomy_level === "human_in_loop") {
         shouldAutoAdvance = false;
@@ -849,20 +785,29 @@ Trả về JSON (KHÔNG markdown):
         result.output = { auto_approved: true };
       }
 
-    } else if (stage === "scheduled") {
-      // Auto-publish: check if full_auto, publish immediately; otherwise schedule
-      const targetChannels = meta.target_channels || [];
-      if (pipeline.autonomy_level === "full_auto" && targetChannels.length > 0) {
-        result.output = { scheduled: true, publish_immediately: true, channels: targetChannels };
-      } else {
-        result.output = { scheduled: true, channels: targetChannels };
+    // ========== STAGE: publish ==========
+    } else if (stage === "publish") {
+      // Check scheduled time
+      if (pipeline.scheduled_publish_at) {
+        const scheduledAt = new Date(pipeline.scheduled_publish_at);
+        if (scheduledAt > new Date()) {
+          // Not time yet — stop, cron will re-trigger
+          shouldAutoAdvance = false;
+          result.output = { waiting_for: "scheduled_time", scheduled_at: pipeline.scheduled_publish_at };
+          // Reset stage to pending so cron can pick it up
+          if (pState.stages?.[stage]) {
+            pState.stages[stage].status = "pending";
+          }
+          await supabase.from("agent_pipelines")
+            .update({ pipeline_state: pState } as any)
+            .eq("id", pipeline.id);
+          return { success: true, stage, result, duration_ms: Date.now() - startTime };
+        }
       }
 
-    } else if (stage === "published") {
-      // Call channel-publisher for each target channel
+      // Publish to channels
       const targetChannels = meta.target_channels || [];
       const publishResults: Record<string, any> = {};
-
       if (pipeline.content_id && targetChannels.length > 0) {
         for (const channel of targetChannels) {
           try {
@@ -881,10 +826,47 @@ Trả về JSON (KHÔNG markdown):
       }
       result.output = { published: true, results: publishResults };
 
-    } else if (stage === "analyzing") {
+    // ========== STAGE: analyze ==========
+    } else if (stage === "analyze") {
       // Final stage — mark pipeline as completed
-      result.output = { completed: true, completed_at: new Date().toISOString() };
-      shouldAutoAdvance = false; // No next stage
+      const now = new Date().toISOString();
+      await supabase.from("agent_pipelines").update({
+        completed_at: now,
+      } as any).eq("id", pipeline.id);
+
+      // Update campaign plan progress if applicable
+      if (pipeline.campaign_plan_id) {
+        try {
+          const { data: plan } = await supabase
+            .from("campaign_content_plans")
+            .select("plan_data, total_pieces, completed_pieces")
+            .eq("id", pipeline.campaign_plan_id)
+            .single();
+          if (plan) {
+            const newCompleted = (plan.completed_pieces || 0) + 1;
+            const updateData: any = {
+              completed_pieces: newCompleted,
+              updated_at: now,
+            };
+            if (newCompleted >= (plan.total_pieces || 0)) {
+              updateData.status = "completed";
+            }
+            // Update piece status in plan_data
+            const planData = (plan.plan_data as any[]) || [];
+            const pieceIdx = planData.findIndex((p: any) => p.pipeline_id === pipeline.id);
+            if (pieceIdx >= 0) {
+              planData[pieceIdx].status = "completed";
+              updateData.plan_data = planData;
+            }
+            await supabase.from("campaign_content_plans").update(updateData).eq("id", pipeline.campaign_plan_id);
+          }
+        } catch (e) {
+          console.warn("[analyze] Campaign plan update failed:", e);
+        }
+      }
+
+      result.output = { completed: true, completed_at: now };
+      shouldAutoAdvance = false;
     }
 
   } catch (e) {
@@ -893,7 +875,6 @@ Trả về JSON (KHÔNG markdown):
     const currentRetries = pState.stages?.[stage]?.retry_count || 0;
 
     if (currentRetries < MAX_RETRIES) {
-      // Update retry count and schedule retry
       if (pState.stages?.[stage]) {
         pState.stages[stage].retry_count = currentRetries + 1;
         pState.stages[stage].last_error = errorMessage;
@@ -911,7 +892,6 @@ Trả về JSON (KHÔNG markdown):
         error_message: errorMessage,
       } as any);
 
-      // Exponential backoff delay then fire retry as new invocation
       const delayMs = Math.pow(2, currentRetries) * 1000;
       await new Promise(r => setTimeout(r, delayMs));
       fireNextStage(supabaseUrl, supabaseKey, pipeline.id, stage);
@@ -919,7 +899,6 @@ Trả về JSON (KHÔNG markdown):
       return { success: false, stage, retrying: true, retry_count: currentRetries + 1, error: errorMessage };
     }
 
-    // Max retries exceeded — mark as failed
     result.status = "failed";
     result.error = errorMessage;
     shouldAutoAdvance = false;
@@ -930,7 +909,6 @@ Trả về JSON (KHÔNG markdown):
       pState.stages[stage].retry_count = currentRetries;
     }
 
-    // Flag the pipeline
     await supabase.from("agent_pipelines")
       .update({
         pipeline_state: pState,
@@ -964,7 +942,7 @@ Trả về JSON (KHÔNG markdown):
     error_message: result.error || null,
   } as any);
 
-  // Auto-advance to next stage via fire-and-forget (NOT recursive)
+  // Auto-advance to next stage via fire-and-forget
   if (shouldAutoAdvance && result.status === "completed") {
     const currentIdx = STAGE_ORDER.indexOf(stage);
     if (currentIdx >= 0 && currentIdx < STAGE_ORDER.length - 1) {
@@ -977,18 +955,18 @@ Trả về JSON (KHÔNG markdown):
 
       // If next stage is approval + human_in_loop, create approval record
       if (nextStage === "approval" && pipeline.autonomy_level === "human_in_loop") {
-        const creationOutput = pState.stages?.creation?.output;
-        const optimizationOutput = pState.stages?.optimization?.output;
+        const createOutput = pState.stages?.create?.output;
+        const qualityOutput = pState.stages?.quality?.output;
 
         await supabase.from("agent_approvals").insert({
           pipeline_id: pipeline.id,
           organization_id: pipeline.organization_id,
-          content_preview: creationOutput?.content_preview || creationOutput?.title || `Content: ${pipeline.content_title}`,
-          channel_versions: pState.stages?.expansion?.output?.channels || {},
+          content_preview: createOutput?.content_preview || createOutput?.title || `Content: ${pipeline.content_title}`,
+          channel_versions: {},
           scores: {
-            seo: optimizationOutput?.seo_score || null,
-            geo: optimizationOutput?.geo_score || null,
-            compliance: pState.stages?.compliance?.output?.status || null,
+            seo: qualityOutput?.geo?.seo_score || null,
+            geo: qualityOutput?.geo?.geo_score || null,
+            compliance: qualityOutput?.compliance?.status || null,
           },
           status: "pending",
         } as any);
@@ -998,7 +976,7 @@ Trả về JSON (KHÔNG markdown):
         current_stage: nextStage,
         pipeline_state: pState,
         stage_started_at: now,
-        completed_at: nextStage === "analyzing" ? now : null,
+        completed_at: nextStage === "analyze" ? now : null,
       };
 
       const contentIdForAdvance = resolveContentId(pipeline, pState);
@@ -1023,7 +1001,6 @@ Trả về JSON (KHÔNG markdown):
         output_summary: `To: ${nextStage}`,
       } as any);
 
-      // Fire next stage as NEW Edge Function invocation (anti-timeout)
       if (!(nextStage === "approval" && pipeline.autonomy_level === "human_in_loop")) {
         fireNextStage(supabaseUrl, supabaseKey, pipeline.id, nextStage);
       }
@@ -1031,6 +1008,32 @@ Trả về JSON (KHÔNG markdown):
   }
 
   return { success: result.status === "completed", stage, result, duration_ms: durationMs };
+}
+
+/** Helper: save content_id to pipeline with RPC fallback */
+async function saveContentId(supabase: any, pipeline: any, pState: any, contentId: string) {
+  console.log(`[create] Saving content_id: ${contentId} to pipeline ${pipeline.id}`);
+
+  const { error: cidError } = await supabase
+    .from("agent_pipelines")
+    .update({ content_id: contentId } as any)
+    .eq("id", pipeline.id);
+
+  if (cidError) {
+    console.error(`[create] FAILED to save content_id:`, JSON.stringify(cidError));
+    const { error: retryError } = await supabase.rpc("update_pipeline_content_id", {
+      p_pipeline_id: pipeline.id,
+      p_content_id: contentId,
+    });
+    if (retryError) {
+      console.error("[create] RPC fallback also failed:", JSON.stringify(retryError));
+    }
+  }
+
+  pState.content_id = contentId;
+  if (pState.stages?.create) {
+    pState.stages.create.content_id = contentId;
+  }
 }
 
 function json(data: unknown) {

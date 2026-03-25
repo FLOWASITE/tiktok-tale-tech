@@ -30,10 +30,12 @@ export default function AgentDashboard() {
   const [triggeringGoalId, setTriggeringGoalId] = useState<string | null>(null);
 
   const handleCreateGoal = async (data: Parameters<typeof createGoal.mutateAsync>[0]) => {
-    await createGoal.mutateAsync(data);
-    setWizardOpen(false);
-    setEditingGoal(null);
     try {
+      await createGoal.mutateAsync(data);
+      setWizardOpen(false);
+      setEditingGoal(null);
+
+      // Fetch newly created goal
       const goalsList = await supabase
         .from('agent_goals')
         .select('id')
@@ -41,15 +43,45 @@ export default function AgentDashboard() {
         .order('created_at', { ascending: false })
         .limit(1);
       const newGoalId = goalsList.data?.[0]?.id;
+
       if (newGoalId) {
-        const { data: result } = await supabase.functions.invoke('agent-pipeline', {
-          body: { action: 'trigger_from_goal', goal_id: newGoalId },
+        toast.info('Đang lên kế hoạch nội dung...');
+
+        // Call generate-campaign-strategy directly
+        const { data: result, error } = await supabase.functions.invoke('generate-campaign-strategy', {
+          body: {
+            goal_id: newGoalId,
+            campaign_title: data.name,
+            campaign_description: data.description || '',
+            target_channels: data.target_channels || [],
+            campaign_duration_days: data.campaign_duration_days || 14,
+            campaign_start_date: data.campaign_start_date || new Date().toISOString().split('T')[0],
+            approval_mode: data.approval_mode || 'approve_plan',
+            brand_template_id: data.brand_template_id || null,
+            clarification_context: data.clarification_context || null,
+            organization_id: currentOrganization?.id,
+          },
         });
-        const count = result?.pipelines_created || 0;
-        toast.success(`Đã tạo ${count} pipeline và bắt đầu chạy tự động`);
+
+        if (error) {
+          console.error('Strategy error:', error);
+          toast.error('Lỗi khi lên kế hoạch: ' + (error.message || 'Unknown'));
+          return;
+        }
+
+        const approvalMode = result?.approval_mode || data.approval_mode;
+        if (approvalMode === 'full_auto') {
+          toast.success(`Đã tạo ${result?.pipelines_created || 0} pipeline tự động`);
+          setActiveTab('pipeline');
+        } else {
+          toast.success(`Đã lên kế hoạch ${result?.total_pieces || 0} bài viết`);
+          // Switch to campaign plans tab for user to review
+          setActiveTab('campaign-plans');
+        }
       }
     } catch (e) {
-      console.error('Pipeline trigger error:', e);
+      console.error('Create goal error:', e);
+      toast.error('Không thể tạo campaign');
     }
   };
 
@@ -67,13 +99,32 @@ export default function AgentDashboard() {
   const handleRunNow = async (goal: AgentGoal) => {
     setTriggeringGoalId(goal.id);
     try {
-      const { data: result } = await supabase.functions.invoke('agent-pipeline', {
-        body: { action: 'trigger_from_goal', goal_id: goal.id },
+      toast.info('Đang lên kế hoạch nội dung...');
+      const { data: result, error } = await supabase.functions.invoke('generate-campaign-strategy', {
+        body: {
+          goal_id: goal.id,
+          campaign_title: goal.name,
+          campaign_description: goal.description || '',
+          target_channels: goal.target_channels || [],
+          campaign_duration_days: goal.campaign_duration_days || 14,
+          campaign_start_date: goal.campaign_start_date || new Date().toISOString().split('T')[0],
+          approval_mode: goal.approval_mode || 'approve_plan',
+          brand_template_id: goal.brand_template_id || null,
+          clarification_context: goal.clarification_context || null,
+          organization_id: currentOrganization?.id,
+        },
       });
-      const count = result?.pipelines_created || 0;
-      toast.success(`Đã tạo ${count} pipeline mới cho "${goal.name}"`);
+
+      if (error) throw error;
+
+      if (result?.approval_mode === 'full_auto') {
+        toast.success(`Đã tạo ${result?.pipelines_created || 0} pipeline tự động`);
+      } else {
+        toast.success(`Đã lên kế hoạch ${result?.total_pieces || 0} bài viết`);
+        setActiveTab('campaign-plans');
+      }
     } catch (e) {
-      toast.error('Không thể kích hoạt pipeline');
+      toast.error('Không thể tạo kế hoạch');
     } finally {
       setTriggeringGoalId(null);
     }
@@ -97,7 +148,7 @@ export default function AgentDashboard() {
   };
 
   const getPipelineCountForGoal = (goalId: string) =>
-    pipelines.filter(p => p.goal_id === goalId && !['published', 'analyzing'].includes(p.current_stage)).length;
+    pipelines.filter(p => p.goal_id === goalId && p.current_stage !== 'analyze' && !p.completed_at).length;
 
   return (
     <>
@@ -187,7 +238,6 @@ export default function AgentDashboard() {
           </TabsList>
 
           <TabsContent value="pipeline" className="mt-4">
-            {/* Goal filter */}
             {goals.length > 0 && (
               <div className="flex items-center gap-1.5 mb-3 flex-wrap">
                 <Badge
