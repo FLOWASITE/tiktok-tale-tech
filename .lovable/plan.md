@@ -1,74 +1,54 @@
 
 
-# Phase 4: UI Form Mục tiêu AI cho Campaign Create
+# Cải tiến UI Form "Mục tiêu" trong GoalWizard
 
-## Tổng quan
+## Phân tích hiện tại
 
-Form tạo Campaign hiện tại (`CampaignCreate.tsx`) có 4 bước: Thông tin cơ bản → KPIs & Ngân sách → Kênh → Milestones. Tuy nhiên **thiếu hoàn toàn** các trường "Mục tiêu nội dung" dành cho AI Agent — cụ thể là Key Messages, CTA chính, và Phân bổ Content Pillars mà GoalWizard đã hỗ trợ.
+GoalWizard Step 0 ("Mục tiêu") hiện đã có đầy đủ các trường: Tên campaign, Mô tả, Key Messages, CTA chính, Phân bổ Pillars. Tuy nhiên tất cả **dồn vào 1 step duy nhất**, gây quá tải trên mobile (350px viewport). Các trường brief (Key Messages, CTA, Pillars) trộn lẫn với thông tin cơ bản.
 
-Mục tiêu: Thêm một bước mới **"Mục tiêu nội dung"** vào form Campaign Create để khi tạo campaign, user có thể cung cấp brief cho AI Agent ngay từ đầu — thay vì phải tạo Goal riêng sau đó.
+## Kế hoạch cải tiến
 
-## Thay đổi cần thiết
+### 1. Tách Step 0 thành 2 bước riêng biệt
 
-### 1. Migration: Thêm cột `content_brief` vào bảng `campaigns`
+**Step 0 — "Mục tiêu"** (giữ nguyên):
+- Tên campaign (bắt buộc)
+- Mô tả mục tiêu (textarea)
+- Info box Strategy Agent
 
-Thêm cột JSONB `content_brief` để lưu key messages, primary CTA, pillar allocation:
+**Step 1 — "Nội dung" (MỚI)** (icon: `MessageSquare`):
+- Key Messages (badge input, max 5)
+- CTA chính
+- Phân bổ Content Pillars (%) với sliders
+- Label "Bước này tùy chọn" để user biết có thể bỏ qua
 
-```sql
-ALTER TABLE public.campaigns 
-  ADD COLUMN content_brief jsonb DEFAULT null;
+Các step sau dịch +1: Kênh → Chiến dịch → Tự động → Liên kết → Xác nhận (tổng 7 steps).
 
-COMMENT ON COLUMN public.campaigns.content_brief IS 
-  'AI content brief: key_messages, primary_cta, pillar_allocation';
-```
+### 2. Cải thiện UI Key Messages
 
-### 2. Cập nhật types (`src/types/campaign.ts`)
+- Thêm AI suggestion chips: gọi edge function hoặc dùng static suggestions dựa trên `currentBrand.industry` để gợi ý 3-4 key messages mẫu (click để thêm nhanh)
+- Placeholder rõ ràng hơn theo industry
 
-- Thêm interface `CampaignContentBrief` với `key_messages: string[]`, `primary_cta: string`, `pillar_allocation: Record<string, number>`
-- Thêm `content_brief?: CampaignContentBrief` vào `Campaign` và `CampaignFormData`
+### 3. Cải thiện UI Pillar Allocation
 
-### 3. Stepper 5 bước (`src/components/campaign/CampaignFormStepper.tsx`)
+- Thêm thanh preview tổng hợp (stacked bar) hiển thị tỷ lệ phân bổ bằng màu sắc
+- Hiển thị label "Tổng: 100%" với màu xanh/vàng feedback
 
-Thêm bước 2 mới **"Mục tiêu"** (icon: `MessageSquare`) giữa "Thông tin cơ bản" và "KPIs & Ngân sách":
+### 4. Update STEPS array và step indices
 
-1. Thông tin cơ bản
-2. **Mục tiêu nội dung** ← MỚI
-3. KPIs & Ngân sách
-4. Kênh phân phối
-5. Milestones
+- STEPS: 7 items thay vì 6
+- `canNext()`: thêm case cho step 1 mới (luôn return true — tùy chọn)
+- `confirmStep`: vẫn = STEPS.length - 1
+- Tất cả `step === N` conditions dịch +1 cho steps sau "Nội dung"
 
-### 4. Form Step "Mục tiêu nội dung" (`src/pages/CampaignCreate.tsx`)
+### 5. Update Xác nhận step
 
-Thêm step mới với các fields (tái sử dụng pattern từ GoalWizard):
-
-- **Key Messages** (tối đa 5): Input + badge list, enter để thêm
-- **CTA chính**: Input text đơn giản
-- **Phân bổ Content Pillars (%)**: Hiển thị sliders cho từng pillar từ brand đã chọn (nếu có). Tự động cân bằng tổng = 100%.
-- Info box giải thích: "Thông tin này sẽ được Strategy Agent sử dụng để lên kế hoạch nội dung phù hợp"
-- Bước này **tùy chọn** (canProceed luôn return true)
-
-### 5. Cập nhật hook `useCampaigns` (`src/hooks/useCampaigns.ts`)
-
-- Trong `createMutation` và `updateMutation`: thêm `content_brief` vào payload insert/update
-
-### 6. Cập nhật Preview Panel (`src/components/campaign/CampaignCreatePreviewPanel.tsx`)
-
-- Hiển thị key messages, CTA, pillar allocation trong preview bên phải
-- Thêm vào completeness check (bonus points)
-
-### 7. Cập nhật Template logic (`src/data/campaignTemplates.ts`)
-
-- Thêm `content_brief` vào `CampaignTemplate` interface
-- Templates có thể pre-fill key messages và CTA mẫu
+- Hiển thị Key Messages, CTA, Pillars trong phần review (đã có, chỉ cần đảm bảo step index đúng)
 
 ## Files thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| Migration SQL | MỚI — thêm cột `content_brief` jsonb |
-| `src/types/campaign.ts` | SỬA — thêm `CampaignContentBrief`, update interfaces |
-| `src/components/campaign/CampaignFormStepper.tsx` | SỬA — 5 bước thay vì 4 |
-| `src/pages/CampaignCreate.tsx` | SỬA — thêm step "Mục tiêu nội dung", update step indices |
-| `src/hooks/useCampaigns.ts` | SỬA — persist `content_brief` |
-| `src/components/campaign/CampaignCreatePreviewPanel.tsx` | SỬA — hiển thị brief info |
+| `src/components/agents/GoalWizard.tsx` | SỬA — tách step 0, thêm step "Nội dung", update indices, cải thiện UI pillars & key messages |
+
+Không cần migration. Không cần file mới. Logic submit (`finalSubmit`) giữ nguyên.
 
