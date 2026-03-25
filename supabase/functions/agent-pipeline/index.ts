@@ -492,144 +492,51 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         throw new Error("No topic available for content creation.");
       }
 
-      // Build context
-      const clarification = campaignCtx?.clarification_context || meta.clarification_context;
-      let additionalContext = "";
-      if (clarification && typeof clarification === "object") {
-        additionalContext = Object.entries(clarification).map(([q, a]) => `${q}: ${a}`).join(". ");
+      // ===== Delegate to agent-creator-v2 =====
+      const creatorResult = await callFunction(supabaseUrl, supabaseKey, "agent-creator-v2", {
+        pipeline_id: pipeline.id,
+        content_type: contentType,
+        topic: creationTopic,
+        organization_id: orgId,
+        brand_template_id: brandTemplateId,
+        campaign_context: campaignCtx || undefined,
+        target_channels: meta.target_channels || [],
+        content_goal: meta.content_goal || undefined,
+        content_angle: meta.content_angle || undefined,
+        content_role: meta.content_role || undefined,
+        length_mode: meta.content_length || undefined,
+        campaign_id: meta.campaign_id || pipeline.campaign_id || null,
+      });
+
+      result.output = creatorResult.output || creatorResult;
+
+      // Save content_id
+      const contentId = creatorResult.content_id;
+      if (contentId) {
+        await saveContentId(supabase, pipeline, pState, contentId);
+        pipeline.content_id = contentId;
       }
-      if (campaignCtx) {
-        additionalContext += ` [Campaign piece ${campaignCtx.piece_number}/${campaignCtx.total_pieces}. Angle: ${campaignCtx.angle}. Role: ${campaignCtx.content_role}. Channel: ${campaignCtx.target_channel}.]`;
+
+      // Save self-review scores
+      if (creatorResult.self_review) {
+        result.output.self_review = creatorResult.self_review;
+        // Store review scores in pipeline quality_scores
+        await supabase.from("agent_pipelines").update({
+          quality_scores: { ...(pipeline.quality_scores || {}), self_review: creatorResult.self_review },
+        } as any).eq("id", pipeline.id);
+
+        // If self-review verdict is "fail", flag pipeline
+        if (creatorResult.self_review.verdict === "fail") {
+          await supabase.from("agent_pipelines").update({
+            is_flagged: true,
+            flag_reason: `Self-review failed: ${creatorResult.self_review.feedback || "Score " + creatorResult.self_review.overall + "/100"}`,
+          } as any).eq("id", pipeline.id);
+          shouldAutoAdvance = false;
+        }
       }
 
-      const contentGoal = campaignCtx?.content_role === "harvest" ? "conversion"
-        : campaignCtx?.content_role === "sprout" ? "engagement"
-        : meta.content_goal || "education";
-      const contentAngle = campaignCtx?.angle || meta.content_angle || undefined;
-      const contentRole = campaignCtx?.content_role || meta.content_role || undefined;
-      const lengthMode = campaignCtx?.estimated_length || meta.content_length || "medium";
-
-      // ===== ROUTE BY CONTENT TYPE =====
-      if (contentType === "video_script") {
-        // Route B: Video Script
-        const scriptOutput = await callFunction(supabaseUrl, supabaseKey, "generate-script", {
-          topic: creationTopic,
-          duration: "60s",
-          scriptPurpose: contentGoal === "conversion" ? "sell" : contentGoal === "engagement" ? "engage" : "educate",
-          videoType: "talking_head",
-          organizationId: orgId,
-          brandTemplateId: brandTemplateId,
-        });
-        result.output = scriptOutput;
-
-        // Analyze script quality
-        if (scriptOutput?.script || scriptOutput?.content) {
-          try {
-            const analysisOutput = await callFunction(supabaseUrl, supabaseKey, "analyze-script", {
-              script: scriptOutput.script || scriptOutput.content,
-              organizationId: orgId,
-            });
-            result.output.analysis = analysisOutput;
-
-            // If score < 70, try to improve
-            if (analysisOutput?.overall_score && analysisOutput.overall_score < 70) {
-              try {
-                const improvedOutput = await callFunction(supabaseUrl, supabaseKey, "improve-script", {
-                  script: scriptOutput.script || scriptOutput.content,
-                  suggestions: analysisOutput.suggestions || [],
-                  organizationId: orgId,
-                  brandTemplateId: brandTemplateId,
-                });
-                result.output.improved = improvedOutput;
-                result.output.was_improved = true;
-              } catch (e) {
-                console.warn("[create] Script improvement failed:", e);
-              }
-            }
-          } catch (e) {
-            console.warn("[create] Script analysis failed:", e);
-          }
-        }
-
-        // Save content_id if returned
-        if (scriptOutput?.content_id || scriptOutput?.id) {
-          const contentId = scriptOutput.content_id || scriptOutput.id;
-          await saveContentId(supabase, pipeline, pState, contentId);
-          pipeline.content_id = contentId;
-        }
-
-      } else if (contentType === "carousel") {
-        // Route C: Carousel
-        const targetChannel = campaignCtx?.target_channel || "instagram";
-        const carouselOutput = await callFunction(supabaseUrl, supabaseKey, "generate-carousel", {
-          topic: creationTopic,
-          platform: targetChannel,
-          carouselStyle: "educational",
-          visualPreset: "clean_modern",
-          slideCount: lengthMode === "long" ? 8 : lengthMode === "short" ? 5 : 6,
-          organizationId: orgId,
-          brandTemplateId: brandTemplateId,
-          autoGenerateImages: false,
-        });
-        result.output = carouselOutput;
-
-        if (carouselOutput?.content_id || carouselOutput?.id) {
-          const contentId = carouselOutput.content_id || carouselOutput.id;
-          await saveContentId(supabase, pipeline, pState, contentId);
-          pipeline.content_id = contentId;
-        }
-
-      } else {
-        // Route A: Multichannel (default)
-        // Step 1: Generate core content
-        const coreOutput = await callFunction(supabaseUrl, supabaseKey, "generate-core-content", {
-          topic: creationTopic,
-          contentGoal,
-          contentAngle: contentAngle || (additionalContext ? additionalContext : undefined),
-          contentRole,
-          lengthMode,
-          organizationId: orgId,
-          brandTemplateId: brandTemplateId,
-          campaign_id: meta.campaign_id || pipeline.campaign_id || null,
-        });
-        result.output = coreOutput;
-
-        const coreContentId = coreOutput?.content_id || coreOutput?.id;
-        if (coreContentId) {
-          await saveContentId(supabase, pipeline, pState, coreContentId);
-          pipeline.content_id = coreContentId;
-
-          // Step 2: Generate multichannel versions
-          const targetChannels = meta.target_channels || [];
-          if (targetChannels.length > 0) {
-            try {
-              let expansionUserId: string | null = null;
-              try {
-                const { data: owner } = await supabase
-                  .from("organization_members")
-                  .select("user_id")
-                  .eq("organization_id", orgId)
-                  .eq("role", "owner")
-                  .limit(1)
-                  .single();
-                expansionUserId = owner?.user_id || null;
-              } catch { /* ignore */ }
-
-              const mcOutput = await callFunction(supabaseUrl, supabaseKey, "generate-multichannel", {
-                action: "expand",
-                contentId: coreContentId,
-                newChannels: targetChannels,
-                organizationId: orgId,
-                brandTemplateId: brandTemplateId,
-                userId: expansionUserId,
-              });
-              result.output.multichannel = mcOutput;
-            } catch (e) {
-              console.warn("[create] Multichannel expansion failed:", e);
-              result.output.multichannel = { error: e instanceof Error ? e.message : "Unknown" };
-            }
-          }
-        }
+      if (!creatorResult.success) {
+        throw new Error(creatorResult.error || "Creator agent failed");
       }
 
       // Re-fetch pipeline to ensure content_id is committed
