@@ -388,8 +388,19 @@ Deno.serve(async (req) => {
 });
 
 // ========== CORE: Run a single pipeline stage (NO recursive chaining) ==========
-async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string, pipeline: any) {
+async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string, pipelineInput: any) {
   const startTime = Date.now();
+  const pipelineId = pipelineInput.id;
+
+  // CRITICAL: Always re-fetch pipeline from DB to get latest content_id and state
+  const { data: freshPipeline, error: fetchErr } = await supabase
+    .from("agent_pipelines")
+    .select("*")
+    .eq("id", pipelineId)
+    .single();
+  if (fetchErr || !freshPipeline) throw new Error(`Pipeline ${pipelineId} not found on re-fetch`);
+
+  let pipeline = freshPipeline;
   const stage = pipeline.current_stage;
   const pState = (pipeline.pipeline_state as any) || { stages: {}, metadata: {} };
   const meta = pState.metadata || {};
@@ -397,6 +408,8 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
   const orgId = pipeline.organization_id;
   let result: any = { status: "completed" };
   let shouldAutoAdvance = true;
+
+  console.log(`[${stage}] Pipeline ${pipelineId} — content_id: ${pipeline.content_id || 'NULL'}, brand: ${brandTemplateId || 'NULL'}`);
 
   // Mark stage as in_progress with timestamp
   if (pState.stages?.[stage]) {
