@@ -801,10 +801,9 @@ Trả về JSON (KHÔNG markdown):
             || aiData?.choices?.[0]?.message?.content
             || "";
 
-          // Parse JSON from response
-          const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const complianceResult = JSON.parse(jsonMatch[0]);
+          // Parse JSON from response using robust parser
+          const complianceResult = parseJsonFromLLM(aiContent);
+          if (complianceResult) {
             result.output = complianceResult;
 
             // Flag pipeline if compliance failed
@@ -819,8 +818,8 @@ Trả về JSON (KHÔNG markdown):
               }
             }
           } else {
-            console.warn("[compliance] Could not parse LLM response:", aiContent.slice(0, 200));
-            result.output = { status: "needs_review", score: 50, issues: [], summary: "Could not parse compliance check result" };
+            console.warn("[compliance] Could not parse LLM response:", aiContent.slice(0, 500));
+            result.output = { status: "needs_review", score: 50, issues: [], summary: "Could not parse compliance check result", raw_response: aiContent?.substring(0, 500) };
           }
         } catch (compErr) {
           console.warn("[compliance] LLM call failed, using basic check:", compErr);
