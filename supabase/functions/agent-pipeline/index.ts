@@ -661,12 +661,26 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
             result.output = { channels_generated: [], note: "No target channels specified" };
           } else {
             // generate-multichannel expects contentId + action:'expand' + newChannels
+            // CRITICAL: Pass a userId to avoid "Unauthorized" — fetch org owner as fallback
+            let expansionUserId: string | null = null;
+            try {
+              const { data: owner } = await supabase
+                .from("organization_members")
+                .select("user_id")
+                .eq("organization_id", orgId)
+                .eq("role", "owner")
+                .limit(1)
+                .single();
+              expansionUserId = owner?.user_id || null;
+            } catch { /* ignore */ }
+
             const output = await callFunction(supabaseUrl, supabaseKey, "generate-multichannel", {
               action: "expand",
               contentId,
               newChannels: targetChannels,
               organizationId: orgId,
               brandTemplateId: brandTemplateId,
+              userId: expansionUserId,
             });
             result.output = output;
           }
