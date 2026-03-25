@@ -14,7 +14,7 @@ import { vi } from 'date-fns/locale';
 import { PipelineDetailDialog } from './PipelineDetailDialog';
 
 const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  Search, PenTool, ShieldCheck, UserCheck, Send, BarChart3,
+  Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3,
 };
 
 interface PipelineKanbanProps {
