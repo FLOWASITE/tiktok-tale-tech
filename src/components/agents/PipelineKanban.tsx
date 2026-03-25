@@ -89,6 +89,7 @@ const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> =
 interface PipelineKanbanProps {
   pipelines: AgentPipeline[];
   approvals?: AgentApproval[];
+  campaignNames?: Map<string, string>;
   onStageChange?: (id: string, stage: AgentPipelineStage) => void;
   onFlagToggle?: (id: string, flagged: boolean) => void;
   onDelete?: (id: string) => void;
@@ -96,7 +97,7 @@ interface PipelineKanbanProps {
   onReject?: (approvalId: string, notes: string) => void;
 }
 
-function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, onApprove, onReject }: { stage: typeof PIPELINE_STAGES[0]; pipelines: AgentPipeline[]; onCardClick?: (p: AgentPipeline) => void; approvalMap?: Map<string, AgentApproval>; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void }) {
+function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, campaignNames, onApprove, onReject }: { stage: typeof PIPELINE_STAGES[0]; pipelines: AgentPipeline[]; onCardClick?: (p: AgentPipeline) => void; approvalMap?: Map<string, AgentApproval>; campaignNames?: Map<string, string>; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void }) {
   const { isOver, setNodeRef } = useDroppable({ id: stage.id });
   const Icon = STAGE_ICONS[stage.icon] || Lightbulb;
 
@@ -129,6 +130,7 @@ function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, onApprove,
             <PipelineCard
               key={p.id}
               pipeline={p}
+              campaignName={campaignNames?.get(p.goal_id || '') || campaignNames?.get(p.campaign_id || '')}
               onClick={() => onCardClick?.(p)}
               approval={approvalMap?.get(p.id)}
               onApprove={onApprove}
@@ -147,7 +149,7 @@ function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, onApprove,
   );
 }
 
-function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onReject }: { pipeline: AgentPipeline; isDragging?: boolean; onClick?: () => void; approval?: AgentApproval; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void }) {
+function PipelineCard({ pipeline, campaignName, isDragging, onClick, approval, onApprove, onReject }: { pipeline: AgentPipeline; campaignName?: string; isDragging?: boolean; onClick?: () => void; approval?: AgentApproval; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void }) {
   const priorityColors: Record<string, string> = {
     urgent: 'border-l-red-500',
     high: 'border-l-orange-500',
@@ -180,6 +182,13 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
       onClick={(e) => { e.stopPropagation(); onClick?.(); }}
     >
       <CardContent className="p-3 space-y-2">
+        {/* Campaign name */}
+        {campaignName && (
+          <div className="flex items-center gap-1.5">
+            <Target className="w-2.5 h-2.5 text-muted-foreground/50 flex-shrink-0" />
+            <span className="text-[9px] text-muted-foreground/70 font-medium truncate tracking-wide uppercase">{campaignName}</span>
+          </div>
+        )}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-1.5 min-w-0">
             {isCompleted && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />}
@@ -391,7 +400,7 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
   );
 }
 
-export function PipelineKanban({ pipelines, approvals, onStageChange, onFlagToggle, onDelete, onApprove, onReject }: PipelineKanbanProps) {
+export function PipelineKanban({ pipelines, approvals, campaignNames, onStageChange, onFlagToggle, onDelete, onApprove, onReject }: PipelineKanbanProps) {
   const [activePipeline, setActivePipeline] = useState<AgentPipeline | null>(null);
   const [selectedPipeline, setSelectedPipeline] = useState<AgentPipeline | null>(null);
 
@@ -442,6 +451,7 @@ export function PipelineKanban({ pipelines, approvals, onStageChange, onFlagTogg
               pipelines={grouped[stage.id]}
               onCardClick={setSelectedPipeline}
               approvalMap={stage.id === 'approval' ? approvalMap : undefined}
+              campaignNames={campaignNames}
               onApprove={onApprove}
               onReject={onReject}
             />
