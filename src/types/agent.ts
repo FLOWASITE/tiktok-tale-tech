@@ -71,6 +71,9 @@ export interface AgentPipeline {
   organization_id: string;
   goal_id: string | null;
   campaign_id: string | null;
+  campaign_plan_id: string | null;
+  piece_number: number | null;
+  scheduled_publish_at: string | null;
   content_title: string;
   content_topic: string | null;
   current_stage: AgentPipelineStage;
