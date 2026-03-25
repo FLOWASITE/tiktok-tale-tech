@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
   Target, Radio, Palette, Eye, ChevronLeft, ChevronRight, 
-  Check, Sparkles, ShieldCheck, Zap, Bot, Calendar
+  Check, Sparkles, ShieldCheck, Zap, Bot, Calendar, X, Plus, MessageSquare
 } from 'lucide-react';
 import { AgentAutonomyLevel, AgentGoal, AUTONOMY_LEVELS } from '@/types/agent';
 import { supabase } from '@/integrations/supabase/client';
@@ -101,11 +102,31 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   const [campaignStartDate, setCampaignStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [approvalMode, setApprovalMode] = useState('approve_plan');
 
+  // Brief fields
+  const [keyMessages, setKeyMessages] = useState<string[]>([]);
+  const [keyMessageInput, setKeyMessageInput] = useState('');
+  const [primaryCta, setPrimaryCta] = useState('');
+  const [pillarAllocation, setPillarAllocation] = useState<Record<string, number>>({});
+
   // Clarification state
   const [clarifying, setClarifying] = useState(false);
   const [clarificationQuestions, setClarificationQuestions] = useState<any[] | null>(null);
   const [clarificationUnderstanding, setClarificationUnderstanding] = useState<string | null>(null);
   const [clarificationContext, setClarificationContext] = useState<Record<string, string> | null>(null);
+
+  // Initialize pillar allocation from brand
+  useEffect(() => {
+    if (currentBrand?.content_pillars && currentBrand.content_pillars.length > 0 && Object.keys(pillarAllocation).length === 0) {
+      const pillars = currentBrand.content_pillars as { name: string; keywords?: string[] }[];
+      const evenSplit = Math.floor(100 / pillars.length);
+      const remainder = 100 - evenSplit * pillars.length;
+      const initial: Record<string, number> = {};
+      pillars.forEach((p, i) => {
+        initial[p.name] = evenSplit + (i === 0 ? remainder : 0);
+      });
+      setPillarAllocation(initial);
+    }
+  }, [currentBrand]);
 
   useEffect(() => {
     if (open && initialData) {
@@ -142,10 +163,40 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     setCustomDuration('');
     setCampaignStartDate(new Date().toISOString().split('T')[0]);
     setApprovalMode('approve_plan');
+    setKeyMessages([]); setKeyMessageInput(''); setPrimaryCta('');
+    setPillarAllocation({});
     setClarifying(false);
     setClarificationQuestions(null);
     setClarificationUnderstanding(null);
     setClarificationContext(null);
+  };
+
+  const addKeyMessage = () => {
+    const msg = keyMessageInput.trim();
+    if (msg && keyMessages.length < 5 && !keyMessages.includes(msg)) {
+      setKeyMessages([...keyMessages, msg]);
+      setKeyMessageInput('');
+    }
+  };
+
+  const handlePillarChange = (pillarName: string, newValue: number) => {
+    const pillars = Object.keys(pillarAllocation);
+    if (pillars.length <= 1) return;
+    const others = pillars.filter(p => p !== pillarName);
+    const oldValue = pillarAllocation[pillarName];
+    const diff = newValue - oldValue;
+    const totalOthers = others.reduce((s, p) => s + pillarAllocation[p], 0);
+    const updated = { ...pillarAllocation, [pillarName]: newValue };
+    others.forEach(p => {
+      const ratio = totalOthers > 0 ? pillarAllocation[p] / totalOthers : 1 / others.length;
+      updated[p] = Math.max(0, Math.round(pillarAllocation[p] - diff * ratio));
+    });
+    // Fix rounding to ensure sum = 100
+    const sum = Object.values(updated).reduce((s, v) => s + v, 0);
+    if (sum !== 100 && others.length > 0) {
+      updated[others[0]] += 100 - sum;
+    }
+    setPillarAllocation(updated);
   };
 
   const toggleChannel = (ch: string) => {
@@ -209,6 +260,15 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   };
 
   const finalSubmit = (context: Record<string, string> | null) => {
+    // Merge brief fields into clarification_context
+    const baseContext = context || clarificationContext || {};
+    const briefContext: Record<string, any> = { ...baseContext };
+    if (keyMessages.length > 0) briefContext.key_messages = keyMessages;
+    if (primaryCta.trim()) briefContext.primary_cta = primaryCta.trim();
+    if (Object.keys(pillarAllocation).length > 0) briefContext.pillar_allocation = pillarAllocation;
+
+    const hasContext = Object.keys(briefContext).length > 0;
+
     onSubmit({
       name: name.trim(),
       description: description.trim() || undefined,
@@ -218,7 +278,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
       autonomy_level: autonomyLevel,
       brand_template_id: brandTemplateId || undefined,
       campaign_id: campaignId || undefined,
-      clarification_context: context || clarificationContext || undefined,
+      clarification_context: hasContext ? briefContext as any : undefined,
       campaign_duration_days: effectiveDuration,
       campaign_start_date: campaignStartDate,
       approval_mode: approvalMode,
@@ -284,6 +344,69 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                 <Label className="text-xs">Mô tả mục tiêu</Label>
                 <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Mô tả mục tiêu campaign để AI lên kế hoạch nội dung phù hợp..." rows={3} className="text-sm resize-none" />
               </div>
+
+              {/* Key Messages */}
+              <div className="space-y-2">
+                <Label className="text-xs flex items-center gap-1">
+                  <MessageSquare className="w-3 h-3" /> Key Messages
+                  <span className="text-muted-foreground font-normal">({keyMessages.length}/5)</span>
+                </Label>
+                <div className="flex gap-1.5">
+                  <Input
+                    value={keyMessageInput}
+                    onChange={e => setKeyMessageInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addKeyMessage())}
+                    placeholder="VD: Tiết kiệm 30% chi phí..."
+                    className="text-sm flex-1"
+                    disabled={keyMessages.length >= 5}
+                  />
+                  <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={addKeyMessage} disabled={!keyMessageInput.trim() || keyMessages.length >= 5}>
+                    <Plus className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                {keyMessages.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {keyMessages.map((msg, i) => (
+                      <Badge key={i} variant="secondary" className="text-[10px] gap-1 pr-1">
+                        {msg}
+                        <button onClick={() => setKeyMessages(keyMessages.filter((_, j) => j !== i))} className="hover:text-destructive">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Primary CTA */}
+              <div className="space-y-2">
+                <Label className="text-xs">CTA chính</Label>
+                <Input value={primaryCta} onChange={e => setPrimaryCta(e.target.value)} placeholder="VD: Đăng ký tư vấn miễn phí" className="text-sm" />
+              </div>
+
+              {/* Content Pillars Allocation */}
+              {currentBrand?.content_pillars && (currentBrand.content_pillars as any[]).length > 0 && (
+                <div className="space-y-3">
+                  <Label className="text-xs">Phân bổ Content Pillars (%)</Label>
+                  {Object.entries(pillarAllocation).map(([pillarName, pct]) => (
+                    <div key={pillarName} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">{pillarName}</span>
+                        <span className="text-xs font-medium tabular-nums w-8 text-right">{pct}%</span>
+                      </div>
+                      <Slider
+                        value={[pct]}
+                        min={0}
+                        max={100}
+                        step={5}
+                        onValueChange={([v]) => handlePillarChange(pillarName, v)}
+                        className="w-full"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
                 <Bot className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                 <p className="text-[11px] text-muted-foreground">
@@ -500,10 +623,36 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                       <span className="text-muted-foreground">Brand</span>
                       <span className="font-medium">{currentBrand?.brand_name || 'Mặc định'}</span>
                     </div>
-                    <div className="flex justify-between py-1.5">
+                    <div className="flex justify-between py-1.5 border-b">
                       <span className="text-muted-foreground">Chiến dịch</span>
                       <span className="font-medium">{campaignId ? '✅ Đã liên kết' : 'Không liên kết'}</span>
                     </div>
+                    {keyMessages.length > 0 && (
+                      <div className="flex justify-between py-1.5 border-b">
+                        <span className="text-muted-foreground">Key Messages</span>
+                        <div className="flex gap-1 flex-wrap justify-end max-w-[60%]">
+                          {keyMessages.map((msg, i) => (
+                            <Badge key={i} variant="secondary" className="text-[9px]">{msg}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {primaryCta.trim() && (
+                      <div className="flex justify-between py-1.5 border-b">
+                        <span className="text-muted-foreground">CTA chính</span>
+                        <span className="font-medium">{primaryCta}</span>
+                      </div>
+                    )}
+                    {Object.keys(pillarAllocation).length > 0 && (
+                      <div className="py-1.5">
+                        <span className="text-muted-foreground">Pillar %</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {Object.entries(pillarAllocation).map(([name, pct]) => (
+                            <Badge key={name} variant="outline" className="text-[9px]">{name}: {pct}%</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
