@@ -1,24 +1,57 @@
 
 
-# Sửa Agent Sáng tạo: Đúng Quy Trình Tạo Nội Dung — ĐÃ HOÀN THÀNH
+# Phase 1: Campaign Brief + Content Pillar % Allocation
 
-## Đã thực hiện
+## Tổng quan
 
-### Phần 1: Multichannel — Skip Core Content khi không cần ✅
-- Thêm logic quyết định: skip khi `content_role=seed`, không có `brand_template_id`, hoặc chỉ 1 kênh
-- Gọi thẳng `generate-multichannel` (action: "create") mà không cần core content
+Mở rộng GoalWizard với 3 trường mới (key_messages, primary_cta, content_pillars_allocation) và cập nhật Strategy Agent để đọc pillar allocation khi phân bổ bài viết.
 
-### Phần 2: Multichannel — Thêm Step 3 tạo ảnh ✅
-- Sau khi tạo text đa kênh, gọi `generate-brand-image` cho từng kênh (batch 3)
-- Lỗi ảnh không block pipeline, chỉ log warning
+## Hiện trạng
 
-### Phần 3: Carousel — Thêm Phase 2 tạo ảnh thật ✅
-- Sau `generate-carousel` (text prompts), gọi `generate-carousel-image` cho từng slide (batch 3)
-- Kế thừa `seamlessContext` giữa các slide để đảm bảo tính liên tục
+- **GoalWizard** (6 bước): Mục tiêu → Kênh → Chiến dịch → Tự động → Liên kết → Xác nhận
+- **`generate-campaign-strategy`**: Nhận `campaign_title`, `description`, `clarification_context`, channels, duration → AI tạo plan với role distribution cố định (Seed 40%, Sprout 35%, Harvest 25%)
+- **Brand Templates** đã có `content_pillars` (mảng `{name, keywords}`) nhưng chưa có % allocation
+- **`agent_goals`** table có `clarification_context` (JSONB) — có thể dùng để lưu thêm brief data mà không cần migration
 
-### Phần 4: Pipeline state — Lưu multichannel_content_id ✅
-- `agent-pipeline` lưu `multichannel_content_id` vào `pipeline_state` cho Publisher
+## Kế hoạch thay đổi
 
-## Files đã sửa
-- `supabase/functions/agent-creator-v2/index.ts`: +2 helpers, sửa routeMultichannel + routeCarousel
-- `supabase/functions/agent-pipeline/index.ts`: Lưu multichannel_content_id trong stage create
+### 1. Mở rộng GoalWizard UI — Thêm Brief Fields vào Step 0
+
+**File: `src/components/agents/GoalWizard.tsx`**
+
+Bổ sung vào Step 0 (Mục tiêu), sau textarea mô tả:
+- **Key Messages** (`string[]`): Input chips — nhập key message, Enter để thêm, X để xóa. Max 5 items
+- **CTA chính** (`string`): Input text đơn giản, placeholder "VD: Đăng ký tư vấn miễn phí"
+- **Content Pillars Allocation**: Đọc `content_pillars` từ `currentBrand`, hiển thị mỗi pillar kèm slider % (tổng = 100%). Nếu brand chưa có pillars → ẩn section này
+
+State mới:
+```
+keyMessages: string[]
+primaryCta: string
+pillarAllocation: Record<string, number>  // { "Tips": 40, "Case Study": 30, "Product": 30 }
+```
+
+Truyền qua `onSubmit` → lưu vào `clarification_context` (JSONB, không cần migration):
+```json
+{
+  "key_messages": ["msg1", "msg2"],
+  "primary_cta": "Đăng ký ngay",
+  "pillar_allocation": { "Tips": 40, "Case Study": 30, "Product": 30 }
+}
+```
+
+### 2. Cập nhật GoalWizard onSubmit interface
+
+**File: `src/components/agents/GoalWizard.tsx`**
+
+`finalSubmit` merge brief fields vào `clarification_context`:
+```typescript
+const briefContext = {
+  ...context,
+  key_messages: keyMessages.length > 0 ? keyMessages : undefined,
+  primary_cta: primaryCta || undefined,
+  pillar_allocation: Object.keys(pillarAllocation).length > 0 ? pillarAllocation : undefined,
+};
+```
+
+### 3. Cập nhật Step
