@@ -67,24 +67,24 @@ function StageTimeline({ currentStage, pipelineState }: { currentStage: AgentPip
   );
 }
 
-function ResearchOutputTab({ pipelineState }: { pipelineState: Record<string, any> }) {
-  const researchData = pipelineState?.stages?.research;
-  const output = researchData?.output;
+function StrategyOutputTab({ pipelineState }: { pipelineState: Record<string, any> }) {
+  const strategyData = pipelineState?.stages?.strategy;
+  const output = strategyData?.output;
 
-  if (!researchData || researchData.status === 'pending') {
+  if (!strategyData || strategyData.status === 'pending') {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-        <Search className="w-8 h-8 mb-2 opacity-30" />
-        <p className="text-xs">Research chưa bắt đầu</p>
+        <Lightbulb className="w-8 h-8 mb-2 opacity-30" />
+        <p className="text-xs">Chiến lược chưa bắt đầu</p>
       </div>
     );
   }
 
-  if (researchData.status === 'in_progress') {
+  if (strategyData.status === 'in_progress') {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-        <Search className="w-8 h-8 mb-2 animate-pulse" />
-        <p className="text-xs">Đang nghiên cứu...</p>
+        <Lightbulb className="w-8 h-8 mb-2 animate-pulse" />
+        <p className="text-xs">Đang lên chiến lược...</p>
       </div>
     );
   }
