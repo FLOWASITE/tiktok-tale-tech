@@ -761,28 +761,6 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
 
       result.output = creatorResult.output || creatorResult;
 
-      // Save content_id
-      const contentId = creatorResult.content_id;
-      if (contentId) {
-        await saveContentId(supabase, pipeline, pState, contentId);
-        pipeline.content_id = contentId;
-
-        // === Update content_schedules with content_id ===
-        const scheduleIds = meta.schedule_ids as Record<string, string> | undefined;
-        if (scheduleIds && Object.keys(scheduleIds).length > 0) {
-          const ids = Object.values(scheduleIds);
-          const { error: schedUpdateErr } = await supabase
-            .from("content_schedules")
-            .update({ content_id: contentId, updated_at: new Date().toISOString() })
-            .in("id", ids);
-          if (schedUpdateErr) {
-            console.warn("[create] Failed to update content_schedules with content_id:", schedUpdateErr);
-          } else {
-            console.log(`[create] Updated ${ids.length} content_schedule(s) with content_id ${contentId}`);
-          }
-        }
-      }
-
       // Save multichannel_content_id in pipeline state for Publisher
       const mcContentId = creatorResult.multichannel_content_id;
       if (mcContentId) {
@@ -791,6 +769,30 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
           pState.stages.create.multichannel_content_id = mcContentId;
         }
         console.log(`[create] Saved multichannel_content_id: ${mcContentId}`);
+      }
+
+      const contentId = creatorResult.content_id || (contentType === "multichannel" ? mcContentId : null);
+      if (!creatorResult.success || !contentId) {
+        throw new Error(creatorResult.error || "Creator agent failed to return content_id");
+      }
+
+      // Save content_id
+      await saveContentId(supabase, pipeline, pState, contentId);
+      pipeline.content_id = contentId;
+
+      // === Update content_schedules with content_id ===
+      const scheduleIds = meta.schedule_ids as Record<string, string> | undefined;
+      if (scheduleIds && Object.keys(scheduleIds).length > 0) {
+        const ids = Object.values(scheduleIds);
+        const { error: schedUpdateErr } = await supabase
+          .from("content_schedules")
+          .update({ content_id: contentId, updated_at: new Date().toISOString() })
+          .in("id", ids);
+        if (schedUpdateErr) {
+          console.warn("[create] Failed to update content_schedules with content_id:", schedUpdateErr);
+        } else {
+          console.log(`[create] Updated ${ids.length} content_schedule(s) with content_id ${contentId}`);
+        }
       }
 
       // Save self-review scores
@@ -809,10 +811,6 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
           } as any).eq("id", pipeline.id);
           shouldAutoAdvance = false;
         }
-      }
-
-      if (!creatorResult.success) {
-        throw new Error(creatorResult.error || "Creator agent failed");
       }
 
       // Re-fetch pipeline to ensure content_id is committed
