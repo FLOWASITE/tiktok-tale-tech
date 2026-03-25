@@ -479,11 +479,33 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const input: CreatorInput = await req.json();
+    const rawInput = await req.json();
+    
+    // Accept both camelCase and snake_case field names
+    const input: CreatorInput = {
+      ...rawInput,
+      organization_id: rawInput.organization_id || rawInput.organizationId,
+      brand_template_id: rawInput.brand_template_id || rawInput.brandTemplateId,
+      target_channels: rawInput.target_channels || rawInput.targetChannels,
+      content_goal: rawInput.content_goal || rawInput.contentGoal,
+      content_angle: rawInput.content_angle || rawInput.contentAngle,
+      content_role: rawInput.content_role || rawInput.contentRole,
+      length_mode: rawInput.length_mode || rawInput.lengthMode,
+      campaign_context: rawInput.campaign_context || rawInput.campaignContext,
+    };
 
     if (!input.topic || !input.organization_id || !input.content_type) {
       return new Response(
         JSON.stringify({ success: false, error: "Missing required fields: topic, organization_id, content_type" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate content_type
+    const validTypes = ["multichannel", "video_script", "carousel"];
+    if (!validTypes.includes(input.content_type)) {
+      return new Response(
+        JSON.stringify({ success: false, error: `Unknown content_type: ${input.content_type}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
