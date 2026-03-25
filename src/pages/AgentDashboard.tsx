@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Pause, Play, LayoutGrid, CheckSquare, Target, Bot, Zap, Trash2, Pencil, Rocket } from 'lucide-react';
+import { Plus, Pause, Play, LayoutGrid, CheckSquare, Target, Bot, Zap, Trash2, Pencil, Rocket, BarChart3 } from 'lucide-react';
 import { PipelineKanban } from '@/components/agents/PipelineKanban';
 import { AgentStatusPanel } from '@/components/agents/AgentStatusPanel';
 import { ApprovalQueue } from '@/components/agents/ApprovalQueue';
@@ -12,6 +12,7 @@ import { GoalWizard } from '@/components/agents/GoalWizard';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
 import { useAgentApprovals } from '@/hooks/useAgentApprovals';
 import { useAgentGoals } from '@/hooks/useAgentGoals';
+import { CampaignDashboard } from '@/components/agents/CampaignDashboard';
 import { AgentGoal, AgentPipelineStage, AUTONOMY_LEVELS } from '@/types/agent';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -180,6 +181,9 @@ export default function AgentDashboard() {
             <TabsTrigger value="campaigns" className="gap-1.5 text-xs">
               <Target className="w-3.5 h-3.5" /> Campaigns
             </TabsTrigger>
+            <TabsTrigger value="campaign-plans" className="gap-1.5 text-xs">
+              <BarChart3 className="w-3.5 h-3.5" /> Kế hoạch
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="pipeline" className="mt-4">
@@ -295,6 +299,10 @@ export default function AgentDashboard() {
                 })
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="campaign-plans" className="mt-4">
+            <CampaignDashboard />
           </TabsContent>
         </Tabs>
 
