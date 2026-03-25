@@ -37,12 +37,21 @@ export function CampaignDashboard() {
   const [selectedPlan, setSelectedPlan] = useState<{ plan: CampaignContentPlan; goalName: string } | null>(null);
   const [recovering, setRecovering] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
+  const [backfillingPublish, setBackfillingPublish] = useState(false);
 
   // Detect pipelines at approval stage missing approval records
   const approvalPipelines = pipelines.filter(p => p.current_stage === 'approval' && !p.completed_at);
   const approvalPipelineIds = new Set(approvalPipelines.map(p => p.id));
   const pipelinesWithApprovals = new Set(approvals.map(a => a.pipeline_id));
   const missingApprovalCount = approvalPipelines.filter(p => !pipelinesWithApprovals.has(p.id)).length;
+
+  // Detect pipelines at publish stage missing target_channels
+  const publishPipelinesMissingChannels = pipelines.filter(p => {
+    if (p.current_stage !== 'publish' || p.completed_at) return false;
+    const pState = (p.pipeline_state as any) || { stages: {}, metadata: {} };
+    const meta = pState.metadata || {};
+    return !meta.target_channels || meta.target_channels.length === 0;
+  });
 
   // Detect stuck pipelines (stage_started_at > 15 min, not completed, not approval)
   const stuckPipelines = pipelines.filter(p => {
@@ -68,6 +77,21 @@ export function CampaignDashboard() {
       toast.error(`Khôi phục thất bại: ${e.message}`);
     } finally {
       setRecovering(false);
+    }
+  };
+
+  const handleBackfillPublish = async () => {
+    setBackfillingPublish(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-pipeline', {
+        body: { action: 'backfill_publish' },
+      });
+      if (error) throw error;
+      toast.success(`Đã fix ${data?.fixed || 0} pipeline publish`);
+    } catch (e: any) {
+      toast.error(`Fix publish thất bại: ${e.message}`);
+    } finally {
+      setBackfillingPublish(false);
     }
   };
 
@@ -225,6 +249,29 @@ export function CampaignDashboard() {
             >
               {backfilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
               Tạo approval records
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      {/* Missing publish channels alert */}
+      {publishPipelinesMissingChannels.length > 0 && (
+        <Card className="border-red-500/30 bg-red-500/5">
+          <CardContent className="p-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+              <p className="text-xs text-red-700 dark:text-red-400">
+                <span className="font-semibold">{publishPipelinesMissingChannels.length} pipeline</span> ở bước Đăng bài nhưng thiếu kênh đăng
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs shrink-0 border-red-500/30 text-red-700 dark:text-red-400 hover:bg-red-500/10"
+              onClick={handleBackfillPublish}
+              disabled={backfillingPublish}
+            >
+              {backfillingPublish ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+              Fix & Retry Publish
             </Button>
           </CardContent>
         </Card>

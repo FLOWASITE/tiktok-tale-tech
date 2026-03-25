@@ -270,15 +270,29 @@ Deno.serve(async (req) => {
 
     // ========== ACTION: check_scheduled_publish ==========
     if (action === "check_scheduled_publish") {
-      const { data: readyPipelines } = await supabase
+      // Find pipelines at publish stage: either scheduled_publish_at <= now OR scheduled_publish_at is null
+      const now = new Date().toISOString();
+      const { data: scheduledPipelines } = await supabase
         .from("agent_pipelines")
         .select("id")
         .eq("current_stage", "publish")
-        .lte("scheduled_publish_at", new Date().toISOString())
+        .lte("scheduled_publish_at", now)
         .is("completed_at", null);
 
+      const { data: unscheduledPipelines } = await supabase
+        .from("agent_pipelines")
+        .select("id")
+        .eq("current_stage", "publish")
+        .is("scheduled_publish_at", null)
+        .is("completed_at", null);
+
+      const allReady = [...(scheduledPipelines || []), ...(unscheduledPipelines || [])];
+      // Deduplicate
+      const seen = new Set<string>();
+      const readyPipelines = allReady.filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; });
+
       let triggered = 0;
-      for (const p of (readyPipelines || [])) {
+      for (const p of readyPipelines) {
         fireNextStage(supabaseUrl, supabaseKey, p.id, "publish");
         triggered++;
         await new Promise(r => setTimeout(r, 1000));
@@ -415,6 +429,74 @@ Deno.serve(async (req) => {
       return json({ success: true, backfilled, total_at_approval: candidates.length });
     }
 
+    // ========== ACTION: backfill_publish ==========
+    if (action === "backfill_publish") {
+      // Find pipelines at publish stage missing target_channels in meta
+      const { data: publishPipelines } = await supabase
+        .from("agent_pipelines")
+        .select("id, organization_id, goal_id, pipeline_state, content_id")
+        .eq("current_stage", "publish")
+        .is("completed_at", null);
+
+      if (!publishPipelines?.length) {
+        return json({ success: true, fixed: 0, message: "No pipelines at publish stage" });
+      }
+
+      const candidates = organization_id
+        ? publishPipelines.filter((p: any) => p.organization_id === organization_id)
+        : publishPipelines;
+
+      let fixed = 0;
+      for (const p of candidates) {
+        const pState = (p.pipeline_state as any) || { stages: {}, metadata: {} };
+        const meta = pState.metadata || {};
+        const hasChannels = meta.target_channels && meta.target_channels.length > 0;
+        const hasContentId = !!p.content_id;
+
+        if (hasChannels && hasContentId) continue; // Already OK
+
+        // Resolve target_channels from goal
+        let targetChannels = meta.target_channels || [];
+        if (!hasChannels && p.goal_id) {
+          const { data: goal } = await supabase
+            .from("agent_goals")
+            .select("target_channels")
+            .eq("id", p.goal_id)
+            .single();
+          if (goal?.target_channels?.length) {
+            targetChannels = goal.target_channels;
+          }
+        }
+
+        // Resolve content_id from pipeline_state
+        let contentId = p.content_id;
+        if (!contentId) {
+          contentId = resolveContentId(p, pState);
+        }
+
+        // Update pipeline
+        pState.metadata = { ...meta, target_channels: targetChannels };
+        const updates: any = { pipeline_state: pState };
+        if (contentId && !p.content_id) {
+          updates.content_id = contentId;
+        }
+
+        const { error: updErr } = await supabase
+          .from("agent_pipelines")
+          .update(updates)
+          .eq("id", p.id);
+
+        if (updErr) {
+          console.error(`[backfill_publish] Failed for pipeline ${p.id}:`, JSON.stringify(updErr));
+        } else {
+          fixed++;
+          console.log(`[backfill_publish] Fixed pipeline ${p.id}: channels=${targetChannels.length}, contentId=${contentId ? 'yes' : 'no'}`);
+        }
+      }
+
+      return json({ success: true, fixed, total_at_publish: candidates.length });
+    }
+
     // ========== ACTION: create_from_plan ==========
     if (action === "create_from_plan") {
       const { plan_id } = body;
@@ -521,7 +603,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Unknown action. Use: trigger_from_goal, advance_stage, run_stage, check_scheduled_goals, check_scheduled_publish, create_from_plan, recover_stuck" }),
+      JSON.stringify({ error: "Unknown action. Use: trigger_from_goal, advance_stage, run_stage, check_scheduled_goals, check_scheduled_publish, create_from_plan, recover_stuck, backfill_approvals, backfill_publish" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
