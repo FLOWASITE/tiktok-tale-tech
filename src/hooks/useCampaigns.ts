@@ -117,6 +117,9 @@ export function useCampaigns() {
       if (updateData.goals) {
         updatePayload.goals = goalsToJson(updateData.goals);
       }
+      if (updateData.content_brief !== undefined) {
+        updatePayload.content_brief = updateData.content_brief ? (updateData.content_brief as unknown as Json) : null;
+      }
       
       const { data, error } = await supabase
         .from('campaigns')
