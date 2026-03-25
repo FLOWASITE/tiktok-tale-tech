@@ -73,6 +73,8 @@ Deno.serve(async (req) => {
           campaign_id: goal.campaign_id || null,
           autonomy_level: goal.autonomy_level,
           target_channels: goal.target_channels || [],
+          goal_description: goal.description || null,
+          clarification_context: goal.clarification_context || null,
         });
 
         const { data: pipeline, error: pipeErr } = await supabase
@@ -314,9 +316,34 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
 
   try {
     if (stage === "research") {
+      // Fetch goal for clarification context
+      let goalData: any = null;
+      if (pipeline.goal_id) {
+        const { data: g } = await supabase.from("agent_goals").select("name, description, clarification_context").eq("id", pipeline.goal_id).single();
+        goalData = g;
+      }
+
+      // Build instruction that prioritizes campaign topic
+      const campaignTitle = pipeline.content_title || goalData?.name || "";
+      const campaignDesc = pipeline.content_topic || goalData?.description || "";
+      const clarification = goalData?.clarification_context;
+
+      let instruction = "";
+      if (campaignTitle) {
+        instruction = `CRITICAL: The user specifically wants content about: "${campaignTitle}".`;
+        if (campaignDesc && campaignDesc !== campaignTitle) {
+          instruction += ` Additional context: ${campaignDesc}.`;
+        }
+        if (clarification) {
+          instruction += ` User clarifications: ${JSON.stringify(clarification)}.`;
+        }
+        instruction += ` ALL your topic suggestions MUST be directly related to this subject. Do NOT suggest unrelated trending topics. Suggest 3 angle variations of this specific topic.`;
+      }
+
       const output = await callFunction(supabaseUrl, supabaseKey, "topic-ai", {
         action: "suggest",
-        topic: pipeline.content_topic,
+        topic: campaignTitle || pipeline.content_topic,
+        instruction,
         organization_id: orgId,
         brand_template_id: brandTemplateId,
       });
@@ -340,10 +367,17 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       const contentRole = meta.content_role || undefined;
       const lengthMode = meta.content_length || "medium";
 
+      // Build additional context from clarification
+      const clarification = meta.clarification_context;
+      let additionalContext = "";
+      if (clarification && typeof clarification === "object") {
+        additionalContext = Object.entries(clarification).map(([q, a]) => `${q}: ${a}`).join(". ");
+      }
+
       const output = await callFunction(supabaseUrl, supabaseKey, "generate-core-content", {
         topic: creationTopic,
         contentGoal,
-        contentAngle,
+        contentAngle: contentAngle || (additionalContext ? additionalContext : undefined),
         contentRole,
         lengthMode,
         organizationId: orgId,

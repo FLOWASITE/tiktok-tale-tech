@@ -34,6 +34,7 @@ export function useAgentGoals() {
       autonomy_level: AgentAutonomyLevel;
       brand_template_id?: string;
       campaign_id?: string;
+      clarification_context?: Record<string, string>;
     }) => {
       if (!orgId) throw new Error('No organization');
       const { data: { user } } = await supabase.auth.getUser();
@@ -44,6 +45,7 @@ export function useAgentGoals() {
           organization_id: orgId,
           created_by: user?.id,
           campaign_id: goal.campaign_id || null,
+          clarification_context: goal.clarification_context || null,
         } as any)
         .select()
         .single();
