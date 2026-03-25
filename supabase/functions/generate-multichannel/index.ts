@@ -2978,7 +2978,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             // SELF-CRITIQUE LOOP (Post-streaming)
             // Based on qualityMode: fast skips, balanced/quality runs
             // ============================================
-            const qualityMode = formData.qualityMode || 'balanced';
+            const qualityMode = normalizeQualityMode(formData.qualityMode);
             const qualityConfig = QUALITY_MODE_CONFIG[qualityMode];
             console.log(`[streaming-mode][quality-mode] Using '${qualityMode}': skipCritique=${qualityConfig.skipCritique}`);
             
@@ -3433,7 +3433,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
     }
 
     // NEW: Build Smart Context for enhanced generation
-    const qualityMode: QualityMode = (formData.qualityMode || 'balanced') as QualityMode;
+    const qualityMode = normalizeQualityMode(formData.qualityMode);
     let smartContext: SmartContextResult | null = null;
 
     if (qualityMode !== 'fast') {
