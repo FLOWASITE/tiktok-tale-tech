@@ -353,9 +353,9 @@ async function routeVideoScript(
   const scriptOutput = await callFunction(supabaseUrl, serviceKey, "generate-script", {
     topic: input.topic,
     duration: "60s",
-    scriptPurpose: contentGoal,
-    videoType: "talking_head",
-    organizationId: input.organization_id,
+    script_purpose: contentGoal,
+    video_type: "talking_head",
+    organization_id: input.organization_id,
     brandTemplateId: input.brand_template_id,
   });
 
