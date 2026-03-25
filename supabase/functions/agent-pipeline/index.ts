@@ -929,9 +929,10 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
           content_preview: createOutput?.content_preview || createOutput?.title || `Content: ${pipeline.content_title}`,
           channel_versions: {},
           scores: {
-            seo: qualityOutput?.geo?.seo_score || null,
-            geo: qualityOutput?.geo?.geo_score || null,
+            geo: qualityOutput?.geo?.overall_score || null,
             compliance: qualityOutput?.compliance?.status || null,
+            persona_fit: qualityOutput?.persona_fit?.overall || null,
+            overall: qualityOutput?.overall || null,
           },
           status: "pending",
         } as any);
