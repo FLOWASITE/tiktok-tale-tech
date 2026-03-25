@@ -511,10 +511,22 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
 
       if (output?.content_id || output?.id) {
         const contentId = output.content_id || output.id;
+        console.log(`[creation] Saving content_id: ${contentId} to pipeline ${pipeline.id}`);
         await supabase.from("agent_pipelines")
           .update({ content_id: contentId } as any)
           .eq("id", pipeline.id);
         pipeline.content_id = contentId;
+
+        // CRITICAL: Re-fetch pipeline to ensure content_id is committed and visible
+        const { data: refreshed } = await supabase
+          .from("agent_pipelines")
+          .select("*")
+          .eq("id", pipeline.id)
+          .single();
+        if (refreshed) {
+          pipeline = refreshed;
+          console.log(`[creation] Verified content_id after re-fetch: ${pipeline.content_id}`);
+        }
       }
 
     } else if (stage === "optimization") {
