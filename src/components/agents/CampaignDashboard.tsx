@@ -71,6 +71,21 @@ export function CampaignDashboard() {
     }
   };
 
+  const handleBackfillApprovals = async () => {
+    setBackfilling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('agent-pipeline', {
+        body: { action: 'backfill_approvals' },
+      });
+      if (error) throw error;
+      toast.success(`Đã tạo ${data?.backfilled || 0} approval records`);
+    } catch (e: any) {
+      toast.error(`Tạo approval records thất bại: ${e.message}`);
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
   if (selectedPlan) {
     return (
       <div className="space-y-3">
