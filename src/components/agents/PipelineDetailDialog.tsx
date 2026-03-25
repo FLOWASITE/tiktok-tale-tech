@@ -205,10 +205,11 @@ export function PipelineDetailDialog({ pipeline, open, onOpenChange, onStageChan
 
   if (!pipeline) return null;
 
-  const scores = pipeline.pipeline_state?.scores || {};
-  const hasSeo = scores.seo_score != null;
-  const hasGeo = scores.geo_score != null;
-  const hasCompliance = scores.compliance_status != null;
+  const qualityScores = pipeline.quality_scores as Record<string, any> || {};
+  const overallScore = pipeline.overall_quality_score;
+  const hasGeo = qualityScores.geo?.overall_score != null;
+  const hasCompliance = qualityScores.compliance?.status != null;
+  const hasPersonaFit = qualityScores.persona_fit?.overall != null;
 
   const priorityColors: Record<string, string> = {
     urgent: 'bg-red-500/10 text-red-600 border-red-500/30',
