@@ -20,22 +20,24 @@ import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { cn } from '@/lib/utils';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
+import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
+import { Channel } from '@/types/multichannel';
 import { toast } from 'sonner';
 import { ClarificationStep } from './ClarificationStep';
 
 // ─── Constants ───
 
-const AVAILABLE_CHANNELS = [
-  { id: 'blog', label: 'Blog', icon: '📝' },
-  { id: 'facebook', label: 'Facebook', icon: '📘' },
-  { id: 'instagram', label: 'Instagram', icon: '📷' },
-  { id: 'tiktok', label: 'TikTok', icon: '🎵' },
-  { id: 'zalo', label: 'Zalo OA', icon: '💬' },
-  { id: 'linkedin', label: 'LinkedIn', icon: '💼' },
-  { id: 'twitter', label: 'X (Twitter)', icon: '🐦' },
-  { id: 'email', label: 'Email', icon: '📧' },
-  { id: 'threads', label: 'Threads', icon: '🧵' },
-  { id: 'pinterest', label: 'Pinterest', icon: '📌' },
+const AVAILABLE_CHANNELS: { id: string; label: string; channelKey: Channel }[] = [
+  { id: 'blog', label: 'Blog', channelKey: 'website' },
+  { id: 'facebook', label: 'Facebook', channelKey: 'facebook' },
+  { id: 'instagram', label: 'Instagram', channelKey: 'instagram' },
+  { id: 'tiktok', label: 'TikTok', channelKey: 'tiktok' },
+  { id: 'zalo', label: 'Zalo OA', channelKey: 'zalo_oa' },
+  { id: 'linkedin', label: 'LinkedIn', channelKey: 'linkedin' },
+  { id: 'twitter', label: 'X (Twitter)', channelKey: 'twitter' },
+  { id: 'email', label: 'Email', channelKey: 'email' },
+  { id: 'threads', label: 'Threads', channelKey: 'threads' },
+  { id: 'pinterest', label: 'Pinterest', channelKey: 'website' },
 ];
 
 const FREQUENCY_OPTIONS = [
