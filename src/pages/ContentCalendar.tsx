@@ -89,6 +89,7 @@ interface ScheduleWithContent extends ContentSchedule {
     title: string;
     topic: string;
   };
+  isCampaignSource?: boolean;
 }
 
 
@@ -150,7 +151,12 @@ function DraggableScheduleItem({
       <div className="flex items-center gap-1.5">
         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusColor}`} />
         <ChannelIcon channel={channel} size={14} className={channelIconColors[channel]} />
-        <span className={`truncate font-medium ${colors.text}`}>{schedule.content?.title || 'Không có tiêu đề'}</span>
+        <span className={`truncate font-medium ${colors.text}`}>
+          {schedule.content?.title || (schedule.notes?.replace('Auto-created from campaign plan: ', '') || 'Không có tiêu đề')}
+        </span>
+        {schedule.isCampaignSource && (
+          <Target className="h-3 w-3 shrink-0 text-primary/60" />
+        )}
       </div>
       <div className="text-muted-foreground text-[10px] mt-0.5">
         {format(parseISO(schedule.scheduled_at), 'HH:mm')}
