@@ -321,27 +321,27 @@ export function PipelineDetailDialog({ pipeline, open, onOpenChange, onStageChan
           </TabsContent>
 
           <TabsContent value="scores" className="mt-2">
+            {/* Overall Score */}
+            {overallScore != null && (
+              <div className="mb-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium">Overall Quality</p>
+                  <p className={cn(
+                    'text-2xl font-bold',
+                    overallScore >= 65 ? 'text-primary' : overallScore >= 50 ? 'text-amber-500' : 'text-destructive'
+                  )}>{Math.round(overallScore)}</p>
+                </div>
+                <Progress value={overallScore} className="h-1.5 mt-2" />
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-3">
-              <Card>
-                <CardContent className="p-3 space-y-2">
-                  <p className="text-[11px] font-medium">SEO Score</p>
-                  {hasSeo ? (
-                    <>
-                      <p className="text-2xl font-bold text-primary">{scores.seo_score}</p>
-                      <Progress value={scores.seo_score} className="h-1.5" />
-                    </>
-                  ) : (
-                    <p className="text-xs text-muted-foreground/50">Chưa có</p>
-                  )}
-                </CardContent>
-              </Card>
               <Card>
                 <CardContent className="p-3 space-y-2">
                   <p className="text-[11px] font-medium">GEO Score</p>
                   {hasGeo ? (
                     <>
-                      <p className="text-2xl font-bold text-primary">{scores.geo_score}</p>
-                      <Progress value={scores.geo_score} className="h-1.5" />
+                      <p className="text-2xl font-bold text-primary">{Math.round(qualityScores.geo.overall_score)}</p>
+                      <Progress value={qualityScores.geo.overall_score} className="h-1.5" />
                     </>
                   ) : (
                     <p className="text-xs text-muted-foreground/50">Chưa có</p>
@@ -352,9 +352,22 @@ export function PipelineDetailDialog({ pipeline, open, onOpenChange, onStageChan
                 <CardContent className="p-3 space-y-2">
                   <p className="text-[11px] font-medium">Compliance</p>
                   {hasCompliance ? (
-                    <Badge variant={scores.compliance_status === 'pass' ? 'default' : 'destructive'} className="text-xs">
-                      {scores.compliance_status}
+                    <Badge variant={qualityScores.compliance.status === 'pass' ? 'default' : 'destructive'} className="text-xs">
+                      {qualityScores.compliance.status}
                     </Badge>
+                  ) : (
+                    <p className="text-xs text-muted-foreground/50">Chưa có</p>
+                  )}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-3 space-y-2">
+                  <p className="text-[11px] font-medium">Persona Fit</p>
+                  {hasPersonaFit ? (
+                    <>
+                      <p className="text-2xl font-bold text-primary">{Math.round(qualityScores.persona_fit.overall)}</p>
+                      <Progress value={qualityScores.persona_fit.overall} className="h-1.5" />
+                    </>
                   ) : (
                     <p className="text-xs text-muted-foreground/50">Chưa có</p>
                   )}
