@@ -744,10 +744,83 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
     // ========== STAGE: approval ==========
     } else if (stage === "approval") {
       if (pipeline.autonomy_level === "human_in_loop") {
-        shouldAutoAdvance = false;
-        result.output = { waiting_for: "human_approval" };
+        // Check if approval record already exists
+        const { data: existingApproval } = await supabase
+          .from("agent_approvals")
+          .select("id, status")
+          .eq("pipeline_id", pipeline.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingApproval?.status === "approved") {
+          // Already approved — auto-advance
+          result.output = { already_approved: true, approval_id: existingApproval.id };
+        } else if (existingApproval?.status === "pending") {
+          // Waiting for human
+          shouldAutoAdvance = false;
+          result.output = { waiting_for: "human_approval", approval_id: existingApproval.id };
+        } else {
+          // Create new approval record
+          const createOutput = pState.stages?.create?.output;
+          const qualityOutput = pState.stages?.quality?.output;
+
+          const { data: newApproval } = await supabase.from("agent_approvals").insert({
+            pipeline_id: pipeline.id,
+            organization_id: pipeline.organization_id,
+            content_preview: createOutput?.title || pipeline.content_title || `Content: ${pipeline.content_title}`,
+            channel_versions: {},
+            scores: {
+              geo: qualityOutput?.geo?.overall_score || null,
+              compliance: qualityOutput?.compliance?.status || null,
+              persona_fit: qualityOutput?.persona_fit?.overall || null,
+              overall: qualityOutput?.overall || null,
+              self_review: qualityOutput?.self_review?.overall || null,
+            },
+            status: "pending",
+          } as any).select("id").single();
+
+          shouldAutoAdvance = false;
+          result.output = { waiting_for: "human_approval", approval_id: newApproval?.id };
+
+          // Send notification
+          try {
+            const { data: orgMembers } = await supabase
+              .from("organization_members")
+              .select("user_id")
+              .eq("organization_id", pipeline.organization_id)
+              .in("role", ["owner", "admin"])
+              .limit(5);
+
+            if (orgMembers?.length) {
+              const notifications = orgMembers.map((m: any) => ({
+                user_id: m.user_id,
+                organization_id: pipeline.organization_id,
+                type: "agent_approval_pending",
+                title: "Nội dung chờ duyệt",
+                message: `"${pipeline.content_title}" đã sẵn sàng để bạn xem xét.`,
+                data: { pipeline_id: pipeline.id, approval_id: newApproval?.id },
+              }));
+              await supabase.from("notifications").insert(notifications);
+            }
+          } catch (e) {
+            console.warn("[approval] Notification failed:", e);
+          }
+        }
+      } else if (pipeline.autonomy_level === "human_on_loop") {
+        // Auto-approve but create a record for tracking
+        await supabase.from("agent_approvals").insert({
+          pipeline_id: pipeline.id,
+          organization_id: pipeline.organization_id,
+          content_preview: pipeline.content_title,
+          scores: pState.stages?.quality?.output || {},
+          status: "auto_approved",
+          decided_at: new Date().toISOString(),
+        } as any);
+        result.output = { auto_approved: true, mode: "human_on_loop" };
       } else {
-        result.output = { auto_approved: true };
+        // full_auto — skip entirely
+        result.output = { auto_approved: true, mode: "full_auto" };
       }
 
     // ========== STAGE: publish ==========
@@ -756,10 +829,8 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
       if (pipeline.scheduled_publish_at) {
         const scheduledAt = new Date(pipeline.scheduled_publish_at);
         if (scheduledAt > new Date()) {
-          // Not time yet — stop, cron will re-trigger
           shouldAutoAdvance = false;
           result.output = { waiting_for: "scheduled_time", scheduled_at: pipeline.scheduled_publish_at };
-          // Reset stage to pending so cron can pick it up
           if (pState.stages?.[stage]) {
             pState.stages[stage].status = "pending";
           }
@@ -770,34 +841,92 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
         }
       }
 
-      // Publish to channels
+      // Resolve content and get org owner for auth
+      const contentId = resolveContentId(pipeline, pState);
       const targetChannels = meta.target_channels || [];
       const publishResults: Record<string, any> = {};
-      if (pipeline.content_id && targetChannels.length > 0) {
+      let successCount = 0;
+      let failCount = 0;
+
+      if (contentId && targetChannels.length > 0) {
+        // Get org owner user_id for auth context
+        let publishUserId: string | null = null;
+        try {
+          const { data: owner } = await supabase
+            .from("organization_members")
+            .select("user_id")
+            .eq("organization_id", orgId)
+            .eq("role", "owner")
+            .limit(1)
+            .single();
+          publishUserId = owner?.user_id || null;
+        } catch { /* ignore */ }
+
         for (const channel of targetChannels) {
           try {
             const pubResult = await callFunction(supabaseUrl, supabaseKey, "channel-publisher", {
               action: channel,
-              content_id: pipeline.content_id,
+              content_id: contentId,
               organization_id: orgId,
               pipeline_id: pipeline.id,
+              user_id: publishUserId,
             });
             publishResults[channel] = { success: true, ...pubResult };
+            successCount++;
           } catch (e) {
-            console.warn(`Publish to ${channel} failed:`, e);
-            publishResults[channel] = { success: false, error: e instanceof Error ? e.message : "Unknown error" };
+            console.warn(`[publish] ${channel} failed:`, e);
+            publishResults[channel] = { success: false, error: e instanceof Error ? e.message : "Unknown" };
+            failCount++;
           }
+          // Stagger requests
+          if (targetChannels.length > 1) await new Promise(r => setTimeout(r, 2000));
         }
       }
-      result.output = { published: true, results: publishResults };
+
+      result.output = {
+        published: successCount > 0,
+        results: publishResults,
+        success_count: successCount,
+        fail_count: failCount,
+        total_channels: targetChannels.length,
+      };
+
+      // Flag if all channels failed
+      if (targetChannels.length > 0 && successCount === 0) {
+        await supabase.from("agent_pipelines").update({
+          is_flagged: true,
+          flag_reason: `Publishing failed on all ${failCount} channels`,
+        } as any).eq("id", pipelineId);
+      }
 
     // ========== STAGE: analyze ==========
     } else if (stage === "analyze") {
-      // Final stage — mark pipeline as completed
       const now = new Date().toISOString();
+
+      // Mark pipeline as completed
       await supabase.from("agent_pipelines").update({
         completed_at: now,
       } as any).eq("id", pipeline.id);
+
+      // Collect final summary
+      const qualityOutput = pState.stages?.quality?.output || {};
+      const publishOutput = pState.stages?.publish?.output || {};
+      const selfReview = (pipeline.quality_scores as any)?.self_review || pState.stages?.create?.output?.self_review;
+
+      const analysisSummary = {
+        completed_at: now,
+        content_type: contentType,
+        quality_score: qualityOutput.overall || pipeline.overall_quality_score || null,
+        geo_score: qualityOutput.geo?.overall_score || null,
+        compliance_status: qualityOutput.compliance?.status || null,
+        persona_fit: qualityOutput.persona_fit?.overall || null,
+        self_review_score: selfReview?.overall || null,
+        publish_success: publishOutput.success_count || 0,
+        publish_fail: publishOutput.fail_count || 0,
+        channels_published: Object.keys(publishOutput.results || {}).filter(
+          (ch: string) => publishOutput.results[ch]?.success
+        ),
+      };
 
       // Update campaign plan progress if applicable
       if (pipeline.campaign_plan_id) {
@@ -816,11 +945,11 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
             if (newCompleted >= (plan.total_pieces || 0)) {
               updateData.status = "completed";
             }
-            // Update piece status in plan_data
             const planData = (plan.plan_data as any[]) || [];
             const pieceIdx = planData.findIndex((p: any) => p.pipeline_id === pipeline.id);
             if (pieceIdx >= 0) {
               planData[pieceIdx].status = "completed";
+              planData[pieceIdx].quality_score = analysisSummary.quality_score;
               updateData.plan_data = planData;
             }
             await supabase.from("campaign_content_plans").update(updateData).eq("id", pipeline.campaign_plan_id);
@@ -830,7 +959,27 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
         }
       }
 
-      result.output = { completed: true, completed_at: now };
+      // Send completion notification
+      try {
+        const goalId = pipeline.goal_id;
+        if (goalId) {
+          const { data: goal } = await supabase.from("agent_goals").select("created_by").eq("id", goalId).single();
+          if (goal?.created_by) {
+            await supabase.from("notifications").insert({
+              user_id: goal.created_by,
+              organization_id: pipeline.organization_id,
+              type: "agent_pipeline_completed",
+              title: "Nội dung đã hoàn thành",
+              message: `"${pipeline.content_title}" đã hoàn thành pipeline (Score: ${analysisSummary.quality_score || "N/A"}).`,
+              data: { pipeline_id: pipeline.id, ...analysisSummary },
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("[analyze] Notification failed:", e);
+      }
+
+      result.output = analysisSummary;
       shouldAutoAdvance = false;
     }
 
