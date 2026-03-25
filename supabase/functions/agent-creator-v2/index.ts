@@ -572,11 +572,16 @@ async function routeCarousel(
     userId = owner?.user_id || null;
   } catch { /* ignore */ }
 
+  const visualPreset = "minimalist";
+  const carouselStyle = "educational";
+
+  // Phase 1: Generate text prompts for slides
+  console.log(`[carousel] Phase 1: Generating text prompts for ${slideCount} slides`);
   const carouselOutput = await callFunction(supabaseUrl, serviceKey, "generate-carousel", {
     topic: input.topic,
     platform: targetChannel,
-    carouselStyle: "educational",
-    visualPreset: "minimalist",
+    carouselStyle,
+    visualPreset,
     slideCount,
     aiTool: "ideogram",
     brandName: brief.brand_name || "Brand",
@@ -590,14 +595,30 @@ async function routeCarousel(
 
   // generate-carousel returns DB record with slides_content, map to slides
   const slides = carouselOutput?.slides_content || carouselOutput?.slides || [];
+  const carouselId = carouselOutput?.id;
 
   const result: CreatorResult = {
     success: true,
     content_type: "carousel",
-    content_id: carouselOutput?.id || undefined,
+    content_id: carouselId || undefined,
     title: carouselOutput?.title || input.topic,
     output: { ...carouselOutput, slides },
   };
+
+  // Phase 2: Generate actual images for each slide
+  if (carouselId && slides.length > 0) {
+    console.log(`[carousel] Phase 2: Generating images for ${slides.length} slides`);
+    const imageResults = await generateCarouselImages(
+      supabaseUrl, serviceKey,
+      carouselId,
+      slides,
+      input.brand_template_id,
+      visualPreset,
+      carouselStyle,
+    );
+    result.output.carousel_images = imageResults;
+    console.log(`[carousel] Images done: ${imageResults.success} ok, ${imageResults.failed} failed`);
+  }
 
   // Self-review on carousel text
   const slidesText = slides
