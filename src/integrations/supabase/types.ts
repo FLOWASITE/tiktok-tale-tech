@@ -10567,6 +10567,10 @@ export type Database = {
           path_weight: number
         }[]
       }
+      update_pipeline_content_id: {
+        Args: { p_content_id: string; p_pipeline_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       ad_funnel_stage:
