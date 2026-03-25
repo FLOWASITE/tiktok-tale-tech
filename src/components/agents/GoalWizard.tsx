@@ -623,10 +623,36 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                       <span className="text-muted-foreground">Brand</span>
                       <span className="font-medium">{currentBrand?.brand_name || 'Mặc định'}</span>
                     </div>
-                    <div className="flex justify-between py-1.5">
+                    <div className="flex justify-between py-1.5 border-b">
                       <span className="text-muted-foreground">Chiến dịch</span>
                       <span className="font-medium">{campaignId ? '✅ Đã liên kết' : 'Không liên kết'}</span>
                     </div>
+                    {keyMessages.length > 0 && (
+                      <div className="flex justify-between py-1.5 border-b">
+                        <span className="text-muted-foreground">Key Messages</span>
+                        <div className="flex gap-1 flex-wrap justify-end max-w-[60%]">
+                          {keyMessages.map((msg, i) => (
+                            <Badge key={i} variant="secondary" className="text-[9px]">{msg}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {primaryCta.trim() && (
+                      <div className="flex justify-between py-1.5 border-b">
+                        <span className="text-muted-foreground">CTA chính</span>
+                        <span className="font-medium">{primaryCta}</span>
+                      </div>
+                    )}
+                    {Object.keys(pillarAllocation).length > 0 && (
+                      <div className="py-1.5">
+                        <span className="text-muted-foreground">Pillar %</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {Object.entries(pillarAllocation).map(([name, pct]) => (
+                            <Badge key={name} variant="outline" className="text-[9px]">{name}: {pct}%</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
