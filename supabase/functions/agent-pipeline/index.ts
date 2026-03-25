@@ -795,24 +795,6 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         }
       }
 
-      // Save self-review scores
-      if (creatorResult.self_review) {
-        result.output.self_review = creatorResult.self_review;
-        // Store review scores in pipeline quality_scores
-        await supabase.from("agent_pipelines").update({
-          quality_scores: { ...(pipeline.quality_scores || {}), self_review: creatorResult.self_review },
-        } as any).eq("id", pipeline.id);
-
-        // If self-review verdict is "fail", flag pipeline
-        if (creatorResult.self_review.verdict === "fail") {
-          await supabase.from("agent_pipelines").update({
-            is_flagged: true,
-            flag_reason: `Self-review failed: ${creatorResult.self_review.feedback || "Score " + creatorResult.self_review.overall + "/100"}`,
-          } as any).eq("id", pipeline.id);
-          shouldAutoAdvance = false;
-        }
-      }
-
       // Re-fetch pipeline to ensure content_id is committed
       const { data: refreshed } = await supabase
         .from("agent_pipelines")
