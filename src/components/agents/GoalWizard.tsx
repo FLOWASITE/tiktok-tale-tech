@@ -12,13 +12,13 @@ import {
   Check, Sparkles, ShieldCheck, Zap, Bot
 } from 'lucide-react';
 import { AgentAutonomyLevel, AgentGoal, AUTONOMY_LEVELS } from '@/types/agent';
-import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { useCurrentBrand } from '@/contexts/BrandContext';
 import { cn } from '@/lib/utils';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { toast } from 'sonner';
+import { ClarificationStep } from './ClarificationStep';
 
 const AVAILABLE_CHANNELS = [
   { id: 'blog', label: 'Blog', icon: '📝' },
@@ -60,6 +60,7 @@ interface GoalWizardProps {
     autonomy_level: AgentAutonomyLevel;
     brand_template_id?: string;
     campaign_id?: string;
+    clarification_context?: Record<string, string>;
   }) => void;
   initialData?: AgentGoal | null;
 }
@@ -77,7 +78,12 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   const [brandTemplateId, setBrandTemplateId] = useState<string>('');
   const [campaignId, setCampaignId] = useState<string | undefined>(undefined);
 
-  // Pre-fill when editing
+  // Clarification state
+  const [clarifying, setClarifying] = useState(false);
+  const [clarificationQuestions, setClarificationQuestions] = useState<any[] | null>(null);
+  const [clarificationUnderstanding, setClarificationUnderstanding] = useState<string | null>(null);
+  const [clarificationContext, setClarificationContext] = useState<Record<string, string> | null>(null);
+
   useEffect(() => {
     if (open && initialData) {
       setName(initialData.name);
@@ -93,7 +99,6 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     }
   }, [open, initialData]);
 
-  // Auto-fill brandTemplateId from currentBrand
   useEffect(() => {
     if (open && currentBrand && !brandTemplateId) {
       setBrandTemplateId(currentBrand.id);
@@ -107,8 +112,11 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     setAutonomyLevel('human_in_loop');
     setBrandTemplateId(currentBrand?.id || '');
     setCampaignId(undefined);
+    setClarifying(false);
+    setClarificationQuestions(null);
+    setClarificationUnderstanding(null);
+    setClarificationContext(null);
   };
-
 
   const toggleChannel = (ch: string) => {
     if (selectedChannels.includes(ch)) {
@@ -130,7 +138,47 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     }
   };
 
-  const handleSubmit = () => {
+  // Trigger clarification check when user reaches step 4 (confirm)
+  const handleConfirmStep = async () => {
+    setClarifying(true);
+    setClarificationQuestions(null);
+    setClarificationUnderstanding(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('clarify-campaign-intent', {
+        body: {
+          title: name.trim(),
+          description: description.trim() || undefined,
+          industry: currentBrand?.industry || undefined,
+          channels: selectedChannels,
+          brand_name: currentBrand?.brand_name || undefined,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.ready) {
+        setClarificationUnderstanding(data.understanding || `Tạo nội dung về "${name}"`);
+        // Auto-submit after brief delay to show understanding
+        setTimeout(() => {
+          finalSubmit(null);
+        }, 1500);
+      } else if (data?.questions?.length > 0) {
+        setClarificationQuestions(data.questions);
+      } else {
+        // Fallback: just submit
+        finalSubmit(null);
+      }
+    } catch (e) {
+      console.error('Clarification error:', e);
+      // On error, just proceed without clarification
+      finalSubmit(null);
+    } finally {
+      setClarifying(false);
+    }
+  };
+
+  const finalSubmit = (context: Record<string, string> | null) => {
     onSubmit({
       name: name.trim(),
       description: description.trim() || undefined,
@@ -140,10 +188,21 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
       autonomy_level: autonomyLevel,
       brand_template_id: brandTemplateId || undefined,
       campaign_id: campaignId || undefined,
+      clarification_context: context || clarificationContext || undefined,
     });
   };
 
+  const handleClarificationSubmit = (answers: Record<string, string>) => {
+    setClarificationContext(answers);
+    finalSubmit(answers);
+  };
+
+  const handleClarificationSkip = () => {
+    finalSubmit(null);
+  };
+
   const isEditing = !!initialData;
+  const showClarification = step === 4 && (clarifying || clarificationQuestions || clarificationUnderstanding);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -184,7 +243,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs">Tên campaign *</Label>
-                <Input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Q2 Skincare Campaign" className="text-sm" />
+                <Input value={name} onChange={e => setName(e.target.value)} placeholder="VD: Dịch vụ kế toán tháng 4" className="text-sm" />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs">Mô tả mục tiêu</Label>
@@ -262,7 +321,6 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
           {step === 3 && (
             <div className="space-y-4">
-              {/* Brand — readonly from header */}
               <div className="space-y-2">
                 <Label className="text-xs">Brand Template</Label>
                 <div className="flex items-center gap-2 p-2.5 rounded-lg border bg-muted/30">
@@ -293,58 +351,70 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
           {step === 4 && (
             <div className="space-y-3">
-              <Label className="text-xs font-medium">Xác nhận Campaign</Label>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between py-1.5 border-b">
-                  <span className="text-muted-foreground">Tên</span>
-                  <span className="font-medium">{name}</span>
-                </div>
-                <div className="flex justify-between py-1.5 border-b">
-                  <span className="text-muted-foreground">Chủ đề</span>
-                  <span className="font-medium text-primary/80 flex items-center gap-1">
-                    <Bot className="w-3 h-3" /> AI tự nghiên cứu
-                  </span>
-                </div>
-                <div className="flex justify-between py-1.5 border-b">
-                  <span className="text-muted-foreground">Kênh</span>
-                  <div className="flex gap-1 flex-wrap justify-end">
-                    {selectedChannels.map(ch => {
-                      const info = AVAILABLE_CHANNELS.find(c => c.id === ch);
-                      return <Badge key={ch} variant="outline" className="text-[9px]">{info?.icon} {info?.label} ({frequency[ch]})</Badge>;
-                    })}
+              {showClarification ? (
+                <ClarificationStep
+                  questions={clarificationQuestions || []}
+                  understanding={clarificationUnderstanding || undefined}
+                  onSubmit={handleClarificationSubmit}
+                  onSkip={handleClarificationSkip}
+                  isLoading={clarifying}
+                />
+              ) : (
+                <>
+                  <Label className="text-xs font-medium">Xác nhận Campaign</Label>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between py-1.5 border-b">
+                      <span className="text-muted-foreground">Tên</span>
+                      <span className="font-medium">{name}</span>
+                    </div>
+                    <div className="flex justify-between py-1.5 border-b">
+                      <span className="text-muted-foreground">Chủ đề</span>
+                      <span className="font-medium text-primary/80 flex items-center gap-1">
+                        <Bot className="w-3 h-3" /> AI tự nghiên cứu
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1.5 border-b">
+                      <span className="text-muted-foreground">Kênh</span>
+                      <div className="flex gap-1 flex-wrap justify-end">
+                        {selectedChannels.map(ch => {
+                          const info = AVAILABLE_CHANNELS.find(c => c.id === ch);
+                          return <Badge key={ch} variant="outline" className="text-[9px]">{info?.icon} {info?.label} ({frequency[ch]})</Badge>;
+                        })}
+                      </div>
+                    </div>
+                    <div className="flex justify-between py-1.5 border-b">
+                      <span className="text-muted-foreground">Tự động</span>
+                      <span className="font-medium">{AUTONOMY_LEVELS.find(l => l.id === autonomyLevel)?.label}</span>
+                    </div>
+                    <div className="flex justify-between py-1.5 border-b">
+                      <span className="text-muted-foreground">Brand</span>
+                      <span className="font-medium">{currentBrand?.brand_name || 'Mặc định'}</span>
+                    </div>
+                    <div className="flex justify-between py-1.5">
+                      <span className="text-muted-foreground">Chiến dịch</span>
+                      <span className="font-medium">{campaignId ? '✅ Đã liên kết' : 'Không liên kết'}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="flex justify-between py-1.5 border-b">
-                  <span className="text-muted-foreground">Tự động</span>
-                  <span className="font-medium">{AUTONOMY_LEVELS.find(l => l.id === autonomyLevel)?.label}</span>
-                </div>
-                <div className="flex justify-between py-1.5 border-b">
-                  <span className="text-muted-foreground">Brand</span>
-                  <span className="font-medium">{currentBrand?.brand_name || 'Mặc định'}</span>
-                </div>
-                <div className="flex justify-between py-1.5">
-                  <span className="text-muted-foreground">Chiến dịch</span>
-                  <span className="font-medium">{campaignId ? '✅ Đã liên kết' : 'Không liên kết'}</span>
-                </div>
-              </div>
+                </>
+              )}
             </div>
           )}
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
-          <Button variant="ghost" size="sm" onClick={() => setStep(s => s - 1)} disabled={step === 0} className="text-xs gap-1">
+          <Button variant="ghost" size="sm" onClick={() => { setStep(s => s - 1); setClarificationQuestions(null); setClarificationUnderstanding(null); }} disabled={step === 0} className="text-xs gap-1">
             <ChevronLeft className="w-3.5 h-3.5" /> Quay lại
           </Button>
           {step < 4 ? (
             <Button size="sm" onClick={() => setStep(s => s + 1)} disabled={!canNext()} className="text-xs gap-1">
               Tiếp theo <ChevronRight className="w-3.5 h-3.5" />
             </Button>
-          ) : (
-            <Button size="sm" onClick={handleSubmit} className="text-xs gap-1">
+          ) : !showClarification ? (
+            <Button size="sm" onClick={handleConfirmStep} disabled={clarifying} className="text-xs gap-1">
               <Zap className="w-3.5 h-3.5" /> {isEditing ? 'Cập nhật Campaign' : 'Khởi chạy Campaign'}
             </Button>
-          )}
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>
