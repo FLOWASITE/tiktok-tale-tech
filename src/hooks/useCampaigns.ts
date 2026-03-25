@@ -55,6 +55,7 @@ export function useCampaigns() {
         goals: parseGoals(campaign.goals),
         target_channels: campaign.target_channels || [],
         tags: campaign.tags || [],
+        content_brief: parseContentBrief(campaign.content_brief),
       })) as Campaign[];
     },
     enabled: !!orgId,
@@ -95,6 +96,7 @@ export function useCampaigns() {
         goals: parseGoals(data.goals),
         target_channels: data.target_channels || [],
         tags: data.tags || [],
+        content_brief: parseContentBrief(data.content_brief),
       } as Campaign;
     },
     onSuccess: () => {
@@ -129,6 +131,7 @@ export function useCampaigns() {
         goals: parseGoals(data.goals),
         target_channels: data.target_channels || [],
         tags: data.tags || [],
+        content_brief: parseContentBrief(data.content_brief),
       } as Campaign;
     },
     onSuccess: () => {
@@ -178,6 +181,7 @@ export function useCampaigns() {
         goals: parseGoals(data.goals),
         target_channels: data.target_channels || [],
         tags: data.tags || [],
+        content_brief: parseContentBrief(data.content_brief),
       } as Campaign;
     },
     onSuccess: () => {
@@ -207,6 +211,7 @@ export function useCampaigns() {
         goals: parseGoals(data.goals),
         target_channels: data.target_channels || [],
         tags: data.tags || [],
+        content_brief: parseContentBrief(data.content_brief),
       } as Campaign;
     },
     onSuccess: () => {
@@ -266,6 +271,7 @@ export function useCampaignDetail(campaignId: string | undefined) {
           goals: parseGoals(data.goals),
           target_channels: data.target_channels || [],
           tags: data.tags || [],
+          content_brief: parseContentBrief(data.content_brief),
         } as Campaign,
         industries: brandTemplate?.industry ?? null,
       };
@@ -412,6 +418,7 @@ export function useCampaignDetail(campaignId: string | undefined) {
         goals: parseGoals(data.goals),
         target_channels: data.target_channels || [],
         tags: data.tags || [],
+        content_brief: parseContentBrief(data.content_brief),
       } as Campaign;
     },
     onSuccess: () => {
