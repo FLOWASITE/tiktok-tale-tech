@@ -247,6 +247,7 @@ Deno.serve(async (req) => {
                         scheduled_date: { type: "string", description: "YYYY-MM-DD" },
                         key_message: { type: "string" },
                         estimated_length: { type: "string", enum: ["short", "medium", "long"] },
+                        pillar: { type: "string", description: "Content pillar this piece belongs to (must match pillar names from brief)" },
                       },
                       required: [
                         "piece_number", "title", "angle", "content_type", "target_channel",
