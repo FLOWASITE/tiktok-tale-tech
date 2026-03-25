@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAgentGoals } from '@/hooks/useAgentGoals';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
+import { useAgentApprovals } from '@/hooks/useAgentApprovals';
 import { useCampaignPlans } from '@/hooks/useCampaignPlans';
 import { CampaignContentPlan, CampaignContentPiece, AgentGoal } from '@/types/agent';
 import { CampaignPlanReview } from './CampaignPlanReview';
