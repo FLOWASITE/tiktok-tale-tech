@@ -1,52 +1,53 @@
 
 
-# Thêm content type & channel icons vào Pipeline Card
+# Loại bỏ "Brief Assembly" khỏi Progress Bar của Creator Agent
 
-## Mục tiêu
-Hiển thị trực quan loại nội dung (post, carousel, video) và kênh phân phối (Facebook, TikTok, Instagram...) trên mỗi pipeline card.
+## Phân tích hiện trạng
 
-## Dữ liệu có sẵn
-Mỗi `AgentPipeline` đã có:
-- `content_type`: `'multichannel' | 'video_script' | 'carousel'`
-- `pipeline_state`: có thể chứa thông tin channel từ campaign plan
+`assembleBrief()` trong `agent-creator-v2/index.ts` fetch nhẹ brand_name, tone, industry, personas (~50ms). Nhưng mỗi route downstream (multichannel, carousel, video_script) đều tự fetch đầy đủ brand template, products, personas, industry data. Brief chỉ phục vụ logging và self-review prompt — không đáng là một bước visible trên UI.
 
-## Thay đổi
+## Kế hoạch
 
-### `src/components/agents/PipelineKanban.tsx`
+### 1. Cập nhật progress steps cho Agent Creator
 
-1. **Content type badge** — Thêm badge icon+label ngay dưới title:
-   - `multichannel` → icon FileText + "Bài viết"
-   - `video_script` → icon Video + "Video"  
-   - `carousel` → icon Images + "Carousel"
+**File:** `src/components/agents/PipelineKanban.tsx` (hoặc nơi định nghĩa sub-steps)
 
-2. **Channel icons** — Nếu pipeline có thông tin channel (từ `pipeline_state.target_channel` hoặc campaign plan piece), hiển thị icon kênh nhỏ (Facebook, TikTok, Instagram, LinkedIn...) dạng row icons 14x14px, tối đa 3 icons + "+N"
+- Loại bỏ bước "Brief Assembly" / "Tải ngữ cảnh thương hiệu" khỏi danh sách sub-steps hiển thị trên progress bar của stage `create`
+- Giữ lại các bước thực tế có ý nghĩa theo từng content_type:
 
-3. **Vị trí trên card**: Đặt dòng content type + channel icons giữa progress bar và priority badge, layout compact
+**Multichannel (4 bước):**
+1. Tạo nội dung gốc (Core Content)
+2. Chuyển đổi đa kênh (Channel Expansion)
+3. Tạo ảnh song song (Image Generation)
+4. Tự đánh giá (Self-Review)
 
-```text
-┌─────────────────────────┐
-│ ● Content Title         │
-│ ▓▓▓▓▓▓░░░░  3/6 bước   │
-│ 📝 Bài viết  [fb][ig]  │  ← NEW
-│ [normal] [B+]    ~2h   │
-└─────────────────────────┘
-```
+**Carousel (4 bước):**
+1. Tạo nội dung slides
+2. Tạo prompt hình ảnh
+3. Tạo ảnh từng slide
+4. Tự đánh giá
 
-### Content type config (thêm vào file hoặc inline)
-```typescript
-const CONTENT_TYPE_CONFIG = {
-  multichannel: { label: 'Bài viết', icon: FileText, color: 'text-blue-400' },
-  video_script: { label: 'Video', icon: Video, color: 'text-pink-400' },
-  carousel: { label: 'Carousel', icon: Images, color: 'text-purple-400' },
-};
-```
+**Video Script (3-4 bước):**
+1. Tạo kịch bản
+2. Chấm điểm
+3. Cải thiện (nếu cần)
+4. Tự đánh giá
 
-### Channel icons (reuse từ hệ thống channel hiện có)
-Hiển thị dựa trên `pipeline_state.target_channel` hoặc fallback phỏng đoán từ content_type.
+### 2. Cập nhật backend progress events (nếu có SSE)
 
-## File thay đổi
+**File:** `supabase/functions/agent-creator-v2/index.ts`
 
-| File | Thay đổi |
-|------|----------|
-| `src/components/agents/PipelineKanban.tsx` | Thêm content type badge + channel icons row vào PipelineCard |
+- Không cần xóa `assembleBrief()` — nó vẫn hữu ích cho logging và self-review
+- Chỉ đảm bảo không emit progress event cho bước này
+
+### 3. Tạo mapping sub-steps theo content_type
+
+**File mới hoặc mở rộng:** constants cho creator sub-steps
+
+- Map `content_type` → danh sách sub-steps tương ứng
+- UI progress bar đọc từ mapping này để render đúng số bước và label
+
+## Kết quả
+
+Progress bar sẽ chỉ hiển thị các bước **thực sự tốn thời gian và có ý nghĩa**, không còn bước "Brief Assembly" gây hiểu nhầm là một bước quan trọng.
 
