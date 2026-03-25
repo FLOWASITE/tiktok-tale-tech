@@ -206,6 +206,7 @@ Deno.serve(async (req) => {
     // ========== ACTION: run_stage ==========
     if (action === "run_stage") {
       if (!pipeline_id) throw new Error("pipeline_id required");
+      const requestedStage = body.stage; // May be undefined (backwards compat)
 
       const { data: pipeline } = await supabase
         .from("agent_pipelines")
@@ -213,6 +214,12 @@ Deno.serve(async (req) => {
         .eq("id", pipeline_id)
         .single();
       if (!pipeline) throw new Error("Pipeline not found");
+
+      // If a specific stage was requested, verify pipeline is at that stage
+      if (requestedStage && pipeline.current_stage !== requestedStage) {
+        console.log(`[run_stage] Requested ${requestedStage} but pipeline is at ${pipeline.current_stage}. Skipping.`);
+        return json({ status: 'skipped', reason: 'stage_mismatch' });
+      }
 
       const result = await runStage(supabase, supabaseUrl, supabaseKey, pipeline);
       return json(result);
