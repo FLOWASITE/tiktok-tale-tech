@@ -469,7 +469,7 @@ async function routeMultichannel(
         brandTemplateId: input.brand_template_id,
         userId: expansionUserId,
         campaign_id: input.campaign_id || null,
-        qualityMode: "speed",
+        qualityMode: "fast",
       };
       // Only pass coreContentId if we created core content
       if (contentId) {
@@ -493,14 +493,24 @@ async function routeMultichannel(
         console.log(`[multichannel] Images done: ${imageResults.success.length} ok, ${imageResults.failed.length} failed`);
       }
     } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : "Unknown";
       console.warn("[multichannel] Generation failed:", e);
-      result.output.multichannel = { error: e instanceof Error ? e.message : "Unknown" };
+      result.success = false;
+      result.error = `Multichannel generation failed: ${errorMessage}`;
+      result.output.multichannel = { error: errorMessage };
     }
+  }
+
+  if (targetChannels.length > 0 && !multichannelContentId) {
+    result.success = false;
+    result.error = result.error || "No multichannel content generated";
+    return result;
   }
 
   // Store multichannel_content_id for pipeline
   if (multichannelContentId) {
     (result as any).multichannel_content_id = multichannelContentId;
+    result.content_id = multichannelContentId;
   }
 
   // Self-review
