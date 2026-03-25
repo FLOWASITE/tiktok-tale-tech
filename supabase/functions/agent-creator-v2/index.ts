@@ -539,7 +539,7 @@ Deno.serve(async (req) => {
         result = await routeVideoScript(supabaseUrl, serviceKey, input, brief);
         break;
       case "carousel":
-        result = await routeCarousel(supabaseUrl, serviceKey, input, brief);
+        result = await routeCarousel(supabaseUrl, serviceKey, supabase, input, brief);
         break;
       case "multichannel":
         result = await routeMultichannel(supabaseUrl, serviceKey, supabase, input, brief);
