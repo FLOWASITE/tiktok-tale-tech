@@ -323,10 +323,31 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       result.output = output;
 
     } else if (stage === "creation") {
+      // Derive topic from research output or pipeline fields
+      const researchOutput = pState.stages?.research?.output;
+      const creationTopic = researchOutput?.suggestions?.[0]?.topic
+        || researchOutput?.topic
+        || pipeline.content_topic
+        || pipeline.content_title;
+
+      if (!creationTopic) {
+        throw new Error("No topic available for content creation. Research stage may not have produced valid output.");
+      }
+
+      // Derive content strategy params from goal or defaults
+      const contentGoal = meta.content_goal || "education";
+      const contentAngle = meta.content_angle || undefined;
+      const contentRole = meta.content_role || undefined;
+      const lengthMode = meta.content_length || "medium";
+
       const output = await callFunction(supabaseUrl, supabaseKey, "generate-core-content", {
-        topic: pipeline.content_topic || pipeline.content_title,
-        organization_id: orgId,
-        brand_template_id: brandTemplateId,
+        topic: creationTopic,
+        contentGoal,
+        contentAngle,
+        contentRole,
+        lengthMode,
+        organizationId: orgId,
+        brandTemplateId: brandTemplateId,
         campaign_id: meta.campaign_id || pipeline.campaign_id || null,
       });
       result.output = output;
