@@ -1,4 +1,4 @@
-import { Search, Workflow, PenTool, Gauge, Layers, ShieldCheck, Send, BarChart3, Brain, Lightbulb } from 'lucide-react';
+import { Workflow, Lightbulb, PenTool, ShieldCheck, CheckCircle2, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AgentDetailCard, AgentInfo } from '@/components/agents/AgentDetailCard';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
@@ -6,67 +6,25 @@ import { PIPELINE_STAGES } from '@/types/agent';
 
 const AGENTS: AgentInfo[] = [
   {
-    id: 'orchestrator',
-    name: 'Orchestrator',
-    nameVi: 'Điều phối',
-    icon: Brain,
-    color: 'from-purple-500/20 to-purple-500/10',
-    role: 'Điều phối toàn bộ pipeline, phân công tasks cho agents, theo dõi tiến độ và quyết định khi nào cần human intervention.',
-    tasks: [
-      'Phân tách goal thành Content Plan cụ thể',
-      'Scheduling pipeline cho từng content piece',
-      'Quản lý dependency giữa các agents',
-      'Escalation logic khi có lỗi hoặc quality thấp',
-      'Quyết định autonomy level cho từng bước',
-    ],
-    input: 'Goal từ user (topics, channels, frequency, autonomy level)',
-    output: 'Pipeline instances + task assignments cho từng agent',
-    tools: ['plan_compiler', 'dependency_resolver', 'escalation_engine'],
-    model: 'gemini-2.5-flash',
-    costPerCall: '$0.002',
-    pipelinePosition: -1,
-  },
-  {
-    id: 'research',
-    name: 'Research Agent',
-    nameVi: 'Nghiên cứu',
-    icon: Search,
-    color: 'from-violet-500/20 to-violet-500/10',
-    role: 'Nghiên cứu xu hướng, phân tích đối thủ, và chọn topic tốt nhất phù hợp chiến lược brand.',
-    tasks: [
-      'Quét trending topics từ Google Trends & social listening',
-      'Phân tích competitor content và gaps',
-      'Tổng hợp dữ liệu từ Topic Bank',
-      'Chọn topic có score + brand alignment cao nhất',
-      'Tạo Content Brief với outline, keywords, references',
-    ],
-    input: 'Goal config (topics, brand, industry)',
-    output: 'Content Brief (topic, keywords, outline, references, persona)',
-    tools: ['web_search', 'search_topics', 'discover_topics', 'competitor_analyzer'],
-    model: 'gemini-2.5-flash',
-    costPerCall: '$0.005',
-    pipelinePosition: 0,
-  },
-  {
     id: 'strategy',
     name: 'Strategy Agent',
     nameVi: 'Chiến lược',
     icon: Lightbulb,
-    color: 'from-amber-500/20 to-amber-500/10',
-    role: 'Lập kế hoạch content chi tiết, phân tích gap, và đề xuất content calendar tối ưu.',
+    color: 'from-violet-500/20 to-violet-500/10',
+    role: 'Nghiên cứu thị trường, phân tích brand & đối thủ, lên kế hoạch content calendar với N bài viết tối ưu.',
     tasks: [
-      'Phân tích content gap so với đối thủ',
-      'Đề xuất content calendar tuần/tháng',
-      'Xác định format phù hợp (blog, listicle, how-to, FAQ)',
-      'Mapping content với customer journey stages',
-      'Ưu tiên topics theo business impact',
+      'Phân tích trending topics, competitor gaps, brand context',
+      'Lập Content Plan chi tiết (N bài, content role, format, kênh, ngày đăng)',
+      'Mapping content với customer journey (Seed → Sprout → Harvest)',
+      'Clarify intent với user nếu mục tiêu chưa rõ',
+      'Đề xuất content calendar tối ưu theo tần suất & kênh',
     ],
-    input: 'Content Brief từ Research Agent + brand context',
-    output: 'Content Strategy (format, angle, CTA, audience mapping)',
-    tools: ['gap_analyzer', 'calendar_planner', 'persona_matcher'],
+    input: 'Goal config (topics, channels, frequency, brand, industry)',
+    output: 'Campaign Content Plan (N pieces với title, angle, format, schedule)',
+    tools: ['web_search', 'gap_analyzer', 'calendar_planner', 'persona_matcher', 'clarify_intent'],
     model: 'gemini-2.5-flash',
-    costPerCall: '$0.003',
-    pipelinePosition: 1,
+    costPerCall: '$0.005',
+    pipelinePosition: 0,
   },
   {
     id: 'creator',
@@ -74,118 +32,93 @@ const AGENTS: AgentInfo[] = [
     nameVi: 'Sáng tạo',
     icon: PenTool,
     color: 'from-blue-500/20 to-blue-500/10',
-    role: 'Viết content hoàn chỉnh từ brief, tuân thủ brand voice, tối ưu sẵn cho SEO và GEO.',
+    role: 'Viết content hoàn chỉnh từ brief, tối ưu SEO + GEO, chuyển đổi đa kênh, tuân thủ brand voice.',
     tasks: [
-      'Tạo outline chi tiết với heading hierarchy chuẩn GEO',
-      'Viết full draft với answer-first structure',
-      'Thêm citation blocks và data points',
+      'Tạo core content với answer-first structure chuẩn GEO',
       'Tự review: intent, depth, brand voice, factual accuracy',
-      'Xử lý tiếng Việt: xưng hô, dấu thanh, tone phù hợp',
+      'Tối ưu SEO (keywords, headings, meta) & GEO (citations, entities)',
+      'Chuyển đổi đa kênh: Facebook, TikTok, Blog, Email...',
+      'Tạo video scripts & carousel slides nếu cần',
     ],
     input: 'Content Brief + Brand DNA + Style Guide + Industry Pack',
-    output: 'Core Content piece (long-form, SEO+GEO ready)',
-    tools: ['brand_voice_check', 'fact_checker', 'readability_scorer'],
+    output: 'Core Content + Channel Versions (đa kênh) + SEO/GEO optimized',
+    tools: ['brand_voice_check', 'seo_analyzer', 'geo_scorer', 'channel_adapter'],
     model: 'gemini-2.5-flash',
-    costPerCall: '$0.008',
+    costPerCall: '$0.010',
+    pipelinePosition: 1,
+  },
+  {
+    id: 'quality',
+    name: 'Quality Agent',
+    nameVi: 'Chất lượng',
+    icon: ShieldCheck,
+    color: 'from-cyan-500/20 to-cyan-500/10',
+    role: 'Kiểm tra chất lượng tổng hợp: GEO scoring, compliance, persona-fit, và tự động flag nếu dưới ngưỡng.',
+    tasks: [
+      'Chấm GEO Score cho tất cả content types',
+      'Kiểm tra compliance: luật QC, brand guidelines, platform policies',
+      'Đánh giá persona-fit: pain points, desires, communication style',
+      'Tính overall quality score (GEO 30% + Compliance 25% + Self-review 25% + Persona 20%)',
+      'Tự động flag nếu score < 50 hoặc compliance fail',
+    ],
+    input: 'Content draft + Persona data + Brand rules',
+    output: 'Quality Report (overall score, GEO, compliance, persona-fit)',
+    tools: ['geo_scorer', 'regulation_checker', 'brand_validator', 'persona_evaluator'],
+    model: 'gemini-2.5-flash',
+    costPerCall: '$0.004',
     pipelinePosition: 2,
   },
   {
-    id: 'optimizer',
-    name: 'Optimizer Agent',
-    nameVi: 'Tối ưu',
-    icon: Gauge,
-    color: 'from-cyan-500/20 to-cyan-500/10',
-    role: 'Tối ưu đồng thời cho Google Search (SEO) và AI Search (GEO), đạt dual score > 70.',
+    id: 'approval',
+    name: 'Approval Agent',
+    nameVi: 'Duyệt',
+    icon: CheckCircle2,
+    color: 'from-amber-500/20 to-amber-500/10',
+    role: 'Quản lý quy trình duyệt content: tự động duyệt hoặc chờ human review tùy autonomy level.',
     tasks: [
-      'Keyword placement: title, H1, meta, first paragraph, H2s',
-      'Internal linking suggestions',
-      'GEO optimization: answer blocks, citations, entity clarity',
-      'Auto-generate schema markup (Article, FAQ, HowTo)',
-      'Nếu score < 70 → tự fix hoặc escalate',
+      'Tạo approval request với summary scores (GEO, compliance, persona)',
+      'Human-in-loop: dừng chờ user approve/reject/edit',
+      'Human-on-loop: tự approve nhưng ghi log để review sau',
+      'Full-auto: skip và chuyển thẳng qua publish',
+      'Nếu reject → trả về Creator Agent để tạo lại',
     ],
-    input: 'Draft content từ Creator Agent',
-    output: 'Optimized content + SEO Score + GEO Score + Schema markup',
-    tools: ['seo_analyzer', 'geo_scorer', 'schema_generator', 'keyword_optimizer'],
+    input: 'Content + Quality scores + Autonomy level',
+    output: 'Approval decision (approve → publish, reject → create)',
+    tools: ['notification_sender', 'approval_tracker'],
     model: 'gemini-2.5-flash-lite',
-    costPerCall: '$0.003',
+    costPerCall: '$0.001',
     pipelinePosition: 3,
   },
   {
-    id: 'expander',
-    name: 'Expander Agent',
-    nameVi: 'Mở rộng',
-    icon: Layers,
-    color: 'from-teal-500/20 to-teal-500/10',
-    role: 'Chuyển đổi core content thành phiên bản tối ưu cho 10+ kênh, giữ brand voice nhưng adapt format.',
+    id: 'publisher',
+    name: 'Publisher Agent',
+    nameVi: 'Đăng bài',
+    icon: Send,
+    color: 'from-emerald-500/20 to-emerald-500/10',
+    role: 'Đăng bài lên các kênh, theo dõi performance, và cập nhật tiến độ campaign.',
     tasks: [
-      'Extract key messages, quotes, statistics từ core content',
-      'Tạo phiên bản Blog, Facebook, Instagram, TikTok, Zalo OA',
-      'Adapt tone + length cho từng platform',
-      'Auto-generate image prompts cho AI Image Studio',
-      'Hashtag research per platform per market',
+      'Đăng content lên các kênh đã chọn (Facebook, TikTok, Blog...)',
+      'Staggered publishing: đăng tuần tự tránh spam',
+      'Thu thập analytics sau khi đăng (engagement, traffic, conversions)',
+      'Cập nhật campaign progress (completed_pieces++)',
+      'Gửi notification hoàn thành cho user',
     ],
-    input: 'Optimized core content + target channels',
-    output: 'Multi-channel versions (10+ kênh) + image prompts',
-    tools: ['channel_adapter', 'hashtag_researcher', 'image_prompt_generator'],
-    model: 'gemini-2.5-flash-lite',
-    costPerCall: '$0.004',
-    pipelinePosition: 4,
-  },
-  {
-    id: 'compliance',
-    name: 'Compliance Agent',
-    nameVi: 'Tuân thủ',
-    icon: ShieldCheck,
-    color: 'from-orange-500/20 to-orange-500/10',
-    role: 'Kiểm tra tuân thủ regulations, brand guidelines, content quality, và platform rules tại mọi giai đoạn.',
-    tasks: [
-      'Lớp 1: Regulatory — Luật QC VN, ATVSTP, Pharma, PDPA',
-      'Lớp 2: Brand — Terminology, tone consistency, competitor mentions',
-      'Lớp 3: Quality — Factual accuracy, plagiarism, AI detection',
-      'Lớp 4: Platform — Facebook/TikTok/Google policies',
-      'Output: Pass (🟢) / Warning (🟡) / Block (🔴)',
-    ],
-    input: 'Content draft (post-Creator) + channel versions (post-Expander)',
-    output: 'Compliance report + Pass/Warning/Block status',
-    tools: ['regulation_checker', 'brand_validator', 'plagiarism_scanner', 'policy_checker'],
-    model: 'gemini-2.5-flash-lite',
-    costPerCall: '$0.002',
-    pipelinePosition: -1,
-    isParallel: true,
-  },
-  {
-    id: 'analyst',
-    name: 'Analyst Agent',
-    nameVi: 'Phân tích',
-    icon: BarChart3,
-    color: 'from-pink-500/20 to-pink-500/10',
-    role: 'Theo dõi performance mọi content đã publish, rút kinh nghiệm, và feed insights cho toàn bộ pipeline.',
-    tasks: [
-      'Track engagement, traffic, SEO rankings, GEO citations',
-      'Topic learning: topic nào perform tốt nhất',
-      'Format learning: listicle vs how-to vs review',
-      'Timing learning: giờ/ngày nào engagement cao nhất',
-      'Tạo weekly performance report + recommendations',
-    ],
-    input: 'Published content + analytics data từ platforms',
-    output: 'Performance insights + learning data cho Research & Creator',
-    tools: ['analytics_aggregator', 'trend_detector', 'report_generator'],
+    input: 'Approved content + Channel configs + Schedule',
+    output: 'Published URLs + Analytics snapshot + Campaign update',
+    tools: ['channel_publisher', 'analytics_aggregator', 'notification_sender'],
     model: 'gemini-2.5-flash-lite',
     costPerCall: '$0.003',
-    pipelinePosition: 7,
+    pipelinePosition: 4,
   },
 ];
 
 // Map agent id to pipeline stages
 const AGENT_STAGE_MAP: Record<string, string[]> = {
-  research: ['research'],
-  strategy: ['research'],
-  creator: ['creation'],
-  optimizer: ['optimization'],
-  expander: ['expansion'],
-  compliance: ['compliance'],
-  analyst: ['analyzing'],
-  orchestrator: ['research', 'creation', 'optimization', 'expansion', 'compliance', 'approval', 'scheduled', 'published', 'analyzing'],
+  strategy: ['strategy'],
+  creator: ['create'],
+  quality: ['quality'],
+  approval: ['approval'],
+  publisher: ['publish', 'analyze'],
 };
 
 export default function AgentDirectoryPage() {
@@ -193,7 +126,6 @@ export default function AgentDirectoryPage() {
 
   const getActivePipelines = (agentId: string): number => {
     const stages = AGENT_STAGE_MAP[agentId] || [];
-    if (agentId === 'orchestrator') return pipelines.length;
     return pipelines.filter(p => stages.includes(p.current_stage)).length;
   };
 
@@ -203,7 +135,7 @@ export default function AgentDirectoryPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Agent Directory</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          8 AI agents chuyên biệt trong pipeline — từ nghiên cứu đến phân tích
+          5 AI agents chuyên biệt trong pipeline — từ chiến lược đến đăng bài
         </p>
       </div>
 
@@ -244,19 +176,19 @@ export default function AgentDirectoryPage() {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-muted-foreground">
           <div>
-            <span className="block text-foreground font-mono text-sm">~$0.028</span>
+            <span className="block text-foreground font-mono text-sm">~$0.023</span>
             per content piece
           </div>
           <div>
-            <span className="block text-foreground font-mono text-sm">~$0.56</span>
+            <span className="block text-foreground font-mono text-sm">~$0.46</span>
             20 bài/tháng
           </div>
           <div>
-            <span className="block text-foreground font-mono text-sm">8 agents</span>
+            <span className="block text-foreground font-mono text-sm">5 agents</span>
             trong pipeline
           </div>
           <div>
-            <span className="block text-foreground font-mono text-sm">9 stages</span>
+            <span className="block text-foreground font-mono text-sm">6 stages</span>
             end-to-end
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { Search, PenTool, Gauge, Layers, ShieldCheck, Send, BarChart3 } from 'lucide-react';
+import { Lightbulb, PenTool, ShieldCheck, CheckCircle2, Send } from 'lucide-react';
 import { AgentPipeline } from '@/types/agent';
 import { cn } from '@/lib/utils';
 
@@ -7,13 +7,11 @@ interface AgentStatusPanelProps {
 }
 
 const AGENTS = [
-  { name: 'Research', icon: Search, stages: ['research'] },
-  { name: 'Creator', icon: PenTool, stages: ['creation'] },
-  { name: 'Optimizer', icon: Gauge, stages: ['optimization'] },
-  { name: 'Expander', icon: Layers, stages: ['expansion'] },
-  { name: 'Compliance', icon: ShieldCheck, stages: ['compliance'] },
-  { name: 'Publisher', icon: Send, stages: ['scheduled', 'published'] },
-  { name: 'Analyst', icon: BarChart3, stages: ['analyzing'] },
+  { name: 'Strategy', icon: Lightbulb, stages: ['strategy'] },
+  { name: 'Creator', icon: PenTool, stages: ['create'] },
+  { name: 'Quality', icon: ShieldCheck, stages: ['quality'] },
+  { name: 'Approval', icon: CheckCircle2, stages: ['approval'] },
+  { name: 'Publisher', icon: Send, stages: ['publish', 'analyze'] },
 ];
 
 export function AgentStatusPanel({ pipelines }: AgentStatusPanelProps) {
