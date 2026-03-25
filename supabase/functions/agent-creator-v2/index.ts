@@ -375,8 +375,10 @@ async function routeVideoScript(
     // Step 2: Analyze
     try {
       const analysis = await callFunction(supabaseUrl, serviceKey, "analyze-script", {
-        script: scriptContent,
-        organizationId: input.organization_id,
+        scriptContent: scriptContent,
+        topic: input.topic,
+        duration,
+        videoType: "talking_head",
       });
       result.output.analysis = analysis;
 
