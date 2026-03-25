@@ -170,20 +170,62 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
           )}
         </div>
 
-        {/* Progress bar */}
+        {/* Segmented progress bar — one segment per stage */}
         <div className="space-y-1">
-          <div className="h-1 w-full bg-secondary overflow-hidden rounded-full">
-            <div
-              className={cn(
-                'h-full rounded-full transition-all duration-500',
-                isCompleted ? 'bg-emerald-500' : pipeline.is_flagged ? 'bg-destructive' : 'bg-primary'
-              )}
-              style={{ width: `${isCompleted ? 100 : progress}%` }}
-            />
+          <div className="flex gap-[2px] w-full">
+            {PIPELINE_STAGES.map((stage) => {
+              const stageState = (pipeline.pipeline_state as any)?.stages?.[stage.id];
+              const status = stageState?.status;
+              const isCurrent = pipeline.current_stage === stage.id;
+              const StageIcon = STAGE_ICONS[stage.icon] || Lightbulb;
+
+              let segmentClass = 'bg-secondary';
+              if (isCompleted || status === 'completed') {
+                segmentClass = 'bg-emerald-500';
+              } else if (pipeline.is_flagged && isCurrent) {
+                segmentClass = 'bg-destructive';
+              } else if (status === 'in_progress' || isCurrent) {
+                segmentClass = 'bg-primary animate-pulse';
+              }
+
+              return (
+                <TooltipProvider key={stage.id} delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className={cn(
+                          'h-1.5 flex-1 rounded-sm transition-all duration-500 cursor-default',
+                          segmentClass,
+                          isCurrent && !isCompleted && 'ring-1 ring-primary/40'
+                        )}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="flex items-center gap-1.5 px-2 py-1">
+                      <StageIcon className="w-3 h-3" />
+                      <span className="text-[10px] font-medium">{stage.label}</span>
+                      <span className="text-[9px] text-muted-foreground">
+                        {isCompleted || status === 'completed' ? '✓' : status === 'in_progress' || isCurrent ? '⟳' : '—'}
+                      </span>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })}
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[9px] text-muted-foreground">{stageLabel}</span>
-            <span className="text-[9px] text-muted-foreground">{completedCount}/{TOTAL_STAGES} bước</span>
+            <span className="text-[9px] text-muted-foreground flex items-center gap-1">
+              {(() => {
+                const currentStage = PIPELINE_STAGES.find(s => s.id === pipeline.current_stage);
+                const CurIcon = currentStage ? (STAGE_ICONS[currentStage.icon] || Lightbulb) : Lightbulb;
+                return (
+                  <>
+                    <CurIcon className="w-2.5 h-2.5" />
+                    {stageLabel}
+                  </>
+                );
+              })()}
+            </span>
+            <span className="text-[9px] text-muted-foreground">{completedCount}/{TOTAL_STAGES}</span>
           </div>
         </div>
 
