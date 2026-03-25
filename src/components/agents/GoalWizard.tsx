@@ -821,7 +821,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                     </div>
                     {keyMessages.length > 0 && (
                       <div className="flex justify-between py-1.5 border-b">
-                        <span className="text-muted-foreground">Key Messages</span>
+                        <span className="text-muted-foreground">Thông điệp chính</span>
                         <div className="flex gap-1 flex-wrap justify-end max-w-[60%]">
                           {keyMessages.map((msg, i) => (
                             <Badge key={i} variant="secondary" className="text-[9px]">{msg}</Badge>
@@ -831,13 +831,13 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                     )}
                     {primaryCta.trim() && (
                       <div className="flex justify-between py-1.5 border-b">
-                        <span className="text-muted-foreground">CTA chính</span>
+                        <span className="text-muted-foreground">Kêu gọi hành động</span>
                         <span className="font-medium">{primaryCta}</span>
                       </div>
                     )}
                     {Object.keys(pillarAllocation).length > 0 && (
                       <div className="py-1.5">
-                        <span className="text-muted-foreground">Pillar %</span>
+                        <span className="text-muted-foreground">Tỷ lệ chủ đề</span>
                         <div className="flex flex-wrap gap-1.5 mt-1">
                           {Object.entries(pillarAllocation).map(([name, pct]) => (
                             <Badge key={name} variant="outline" className="text-[9px]">{name}: {pct}%</Badge>
