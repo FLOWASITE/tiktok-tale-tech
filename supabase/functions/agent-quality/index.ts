@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
     }
 
     return await runQuality(supabase, supabaseUrl, supabaseKey, lovableApiKey, {
-      pipelineId, contentId, contentType, orgId, brandTemplateId,
+      pipelineId, contentId, contentType, orgId, brandTemplateId, contentOverride,
     });
   } catch (err) {
     console.error("[agent-quality] Error:", err);
