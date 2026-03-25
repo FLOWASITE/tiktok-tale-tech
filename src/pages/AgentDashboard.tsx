@@ -12,6 +12,7 @@ import { GoalWizard } from '@/components/agents/GoalWizard';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
 import { useAgentApprovals } from '@/hooks/useAgentApprovals';
 import { useAgentGoals } from '@/hooks/useAgentGoals';
+import { CampaignDashboard } from '@/components/agents/CampaignDashboard';
 import { AgentGoal, AgentPipelineStage, AUTONOMY_LEVELS } from '@/types/agent';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
