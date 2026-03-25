@@ -1381,6 +1381,7 @@ export type Database = {
           autonomy_level: Database["public"]["Enums"]["agent_autonomy_level"]
           brand_template_id: string | null
           campaign_id: string | null
+          clarification_context: Json | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -1398,6 +1399,7 @@ export type Database = {
           autonomy_level?: Database["public"]["Enums"]["agent_autonomy_level"]
           brand_template_id?: string | null
           campaign_id?: string | null
+          clarification_context?: Json | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1415,6 +1417,7 @@ export type Database = {
           autonomy_level?: Database["public"]["Enums"]["agent_autonomy_level"]
           brand_template_id?: string | null
           campaign_id?: string | null
+          clarification_context?: Json | null
           created_at?: string
           created_by?: string | null
           description?: string | null

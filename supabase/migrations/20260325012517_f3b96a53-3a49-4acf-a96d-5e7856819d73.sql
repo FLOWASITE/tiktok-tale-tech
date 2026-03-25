@@ -1,0 +1,1 @@
+ALTER TABLE agent_goals ADD COLUMN IF NOT EXISTS clarification_context JSONB DEFAULT NULL;
