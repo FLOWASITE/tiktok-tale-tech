@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { slugify, appendUtmToUrls } from "../_shared/utm-helper.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1130,15 +1131,65 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
           publishUserId = owner?.user_id || null;
         } catch { /* ignore */ }
 
+        // --- UTM Auto-Generator: fetch channel content texts ---
+        const UTM_CHANNEL_COLUMN_MAP: Record<string, string> = {
+          website: 'website_content', facebook: 'facebook_content',
+          instagram: 'instagram_content', twitter: 'twitter_content',
+          google_maps: 'google_maps_content', linkedin: 'linkedin_content',
+          email: 'email_content', youtube: 'youtube_content',
+          zalo_oa: 'zalo_oa_content', telegram: 'telegram_content',
+          tiktok: 'tiktok_content', threads: 'threads_content',
+        };
+        const UTM_SOURCE_MAP: Record<string, string> = {
+          facebook: 'facebook', instagram: 'instagram', twitter: 'twitter',
+          linkedin: 'linkedin', zalo_oa: 'zalo', threads: 'threads',
+          website: 'website', google_maps: 'google-maps', tiktok: 'tiktok',
+          youtube: 'youtube', telegram: 'telegram', email: 'email',
+        };
+
+        let channelTexts: Record<string, string> = {};
+        try {
+          const columns = [...new Set(targetChannels.map((ch: string) => UTM_CHANNEL_COLUMN_MAP[ch]).filter(Boolean))];
+          if (columns.length > 0) {
+            const { data: mcc } = await supabase
+              .from("multi_channel_contents")
+              .select(columns.join(','))
+              .eq("id", contentId)
+              .single();
+            if (mcc) {
+              for (const ch of targetChannels) {
+                const col = UTM_CHANNEL_COLUMN_MAP[ch];
+                if (col && (mcc as any)[col]) {
+                  channelTexts[ch] = String((mcc as any)[col]);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[publish] Failed to fetch channel texts for UTM:', e);
+        }
+
+        const campaignSlug = slugify(pipeline.content_title || meta.goal_name || 'campaign');
+
         for (const channel of targetChannels) {
           try {
-            const pubResult = await callFunction(supabaseUrl, supabaseKey, "channel-publisher", {
+            // Apply UTM to channel content text
+            const rawText = channelTexts[channel] || '';
+            const utmSource = UTM_SOURCE_MAP[channel] || channel;
+            const enrichedText = rawText ? appendUtmToUrls(rawText, { source: utmSource, campaign: campaignSlug }) : '';
+
+            const pubPayload: Record<string, any> = {
               action: channel,
               content_id: contentId,
               organization_id: orgId,
               pipeline_id: pipeline.id,
               user_id: publishUserId,
-            });
+            };
+            if (enrichedText) {
+              pubPayload.content = enrichedText;
+            }
+
+            const pubResult = await callFunction(supabaseUrl, supabaseKey, "channel-publisher", pubPayload);
             publishResults[channel] = { success: true, ...pubResult };
             successCount++;
           } catch (e) {
