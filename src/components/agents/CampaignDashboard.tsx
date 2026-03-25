@@ -37,12 +37,21 @@ export function CampaignDashboard() {
   const [selectedPlan, setSelectedPlan] = useState<{ plan: CampaignContentPlan; goalName: string } | null>(null);
   const [recovering, setRecovering] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
+  const [backfillingPublish, setBackfillingPublish] = useState(false);
 
   // Detect pipelines at approval stage missing approval records
   const approvalPipelines = pipelines.filter(p => p.current_stage === 'approval' && !p.completed_at);
   const approvalPipelineIds = new Set(approvalPipelines.map(p => p.id));
   const pipelinesWithApprovals = new Set(approvals.map(a => a.pipeline_id));
   const missingApprovalCount = approvalPipelines.filter(p => !pipelinesWithApprovals.has(p.id)).length;
+
+  // Detect pipelines at publish stage missing target_channels
+  const publishPipelinesMissingChannels = pipelines.filter(p => {
+    if (p.current_stage !== 'publish' || p.completed_at) return false;
+    const pState = (p.pipeline_state as any) || { stages: {}, metadata: {} };
+    const meta = pState.metadata || {};
+    return !meta.target_channels || meta.target_channels.length === 0;
+  });
 
   // Detect stuck pipelines (stage_started_at > 15 min, not completed, not approval)
   const stuckPipelines = pipelines.filter(p => {
