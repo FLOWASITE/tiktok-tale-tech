@@ -299,7 +299,9 @@ function PipelineCard({ pipeline, campaignName, isDragging, onClick, approval, o
                       <>
                         <CurIcon className={cn('w-2.5 h-2.5', isStageActive ? 'text-foreground/60' : 'text-muted-foreground/40')} />
                         <span className={cn(isStageActive && 'text-foreground/60')}>
-                          {STAGE_ACTIVITY[pipeline.current_stage]}
+                          {pipeline.current_stage === 'create'
+                            ? getCreatorActivityLabel(pipeline.content_type)
+                            : STAGE_ACTIVITY[pipeline.current_stage]}
                         </span>
                       </>
                     );
