@@ -300,6 +300,10 @@ export default function AgentDashboard() {
               )}
             </div>
           </TabsContent>
+
+          <TabsContent value="campaign-plans" className="mt-4">
+            <CampaignDashboard />
+          </TabsContent>
         </Tabs>
 
         <GoalWizard
