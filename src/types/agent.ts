@@ -1,6 +1,8 @@
 export type AgentPipelineStage = 
-  | 'research' | 'creation' | 'optimization' | 'expansion' 
-  | 'compliance' | 'approval' | 'scheduled' | 'published' | 'analyzing';
+  | 'strategy' | 'create' | 'quality' 
+  | 'approval' | 'publish' | 'analyze';
+
+export type ContentType = 'multichannel' | 'video_script' | 'carousel';
 
 export type AgentAutonomyLevel = 'human_in_loop' | 'human_on_loop' | 'full_auto';
 
@@ -38,11 +40,13 @@ export interface CampaignContentPiece {
   piece_number: number;
   title: string;
   angle: string;
+  content_type: ContentType;
   target_channel: string;
   content_role: string;
   scheduled_date: string | null;
   format: 'post' | 'carousel' | 'video_script' | 'email';
   key_message: string;
+  estimated_length: string | null;
   pipeline_id: string | null;
   status: 'planned' | 'approved' | 'in_progress' | 'completed' | 'failed';
 }
@@ -61,6 +65,7 @@ export interface CampaignContentPlan {
   plan_approved: boolean;
   plan_approved_at: string | null;
   clarification_context: Record<string, any> | null;
+  strategy_summary: string | null;
   status: CampaignPlanStatus;
   created_at: string;
   updated_at: string;
@@ -76,6 +81,7 @@ export interface AgentPipeline {
   scheduled_publish_at: string | null;
   content_title: string;
   content_topic: string | null;
+  content_type: ContentType;
   current_stage: AgentPipelineStage;
   pipeline_state: Record<string, any>;
   priority: AgentPriority;
@@ -83,6 +89,8 @@ export interface AgentPipeline {
   is_flagged: boolean;
   flag_reason: string | null;
   content_id: string | null;
+  quality_scores: Record<string, any> | null;
+  overall_quality_score: number | null;
   estimated_completion: string | null;
   completed_at: string | null;
   created_at: string;
@@ -144,15 +152,12 @@ export interface AgentTeamMember {
 
 // Pipeline stage metadata for UI
 export const PIPELINE_STAGES: { id: AgentPipelineStage; label: string; icon: string; color: string }[] = [
-  { id: 'research', label: 'Nghiên cứu', icon: 'Search', color: 'from-violet-500/20 to-violet-500/10' },
-  { id: 'creation', label: 'Sáng tạo', icon: 'PenTool', color: 'from-blue-500/20 to-blue-500/10' },
-  { id: 'optimization', label: 'Tối ưu', icon: 'Gauge', color: 'from-cyan-500/20 to-cyan-500/10' },
-  { id: 'expansion', label: 'Mở rộng', icon: 'Layers', color: 'from-teal-500/20 to-teal-500/10' },
-  { id: 'compliance', label: 'Tuân thủ', icon: 'ShieldCheck', color: 'from-orange-500/20 to-orange-500/10' },
+  { id: 'strategy', label: 'Chiến lược', icon: 'Search', color: 'from-violet-500/20 to-violet-500/10' },
+  { id: 'create', label: 'Sáng tạo', icon: 'PenTool', color: 'from-blue-500/20 to-blue-500/10' },
+  { id: 'quality', label: 'Chất lượng', icon: 'ShieldCheck', color: 'from-cyan-500/20 to-cyan-500/10' },
   { id: 'approval', label: 'Duyệt', icon: 'UserCheck', color: 'from-amber-500/20 to-amber-500/10' },
-  { id: 'scheduled', label: 'Đã lên lịch', icon: 'Calendar', color: 'from-indigo-500/20 to-indigo-500/10' },
-  { id: 'published', label: 'Đã đăng', icon: 'Send', color: 'from-emerald-500/20 to-emerald-500/10' },
-  { id: 'analyzing', label: 'Phân tích', icon: 'BarChart3', color: 'from-pink-500/20 to-pink-500/10' },
+  { id: 'publish', label: 'Đăng bài', icon: 'Send', color: 'from-emerald-500/20 to-emerald-500/10' },
+  { id: 'analyze', label: 'Phân tích', icon: 'BarChart3', color: 'from-pink-500/20 to-pink-500/10' },
 ];
 
 export const AUTONOMY_LEVELS: { id: AgentAutonomyLevel; label: string; description: string }[] = [

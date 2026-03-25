@@ -1533,6 +1533,7 @@ export type Database = {
           content_id: string | null
           content_title: string
           content_topic: string | null
+          content_type: string
           created_at: string
           current_stage: Database["public"]["Enums"]["agent_pipeline_stage"]
           estimated_completion: string | null
@@ -1541,9 +1542,11 @@ export type Database = {
           id: string
           is_flagged: boolean
           organization_id: string
+          overall_quality_score: number | null
           piece_number: number | null
           pipeline_state: Json | null
           priority: Database["public"]["Enums"]["agent_priority"]
+          quality_scores: Json | null
           scheduled_publish_at: string | null
           stage_started_at: string | null
           updated_at: string
@@ -1556,6 +1559,7 @@ export type Database = {
           content_id?: string | null
           content_title: string
           content_topic?: string | null
+          content_type?: string
           created_at?: string
           current_stage?: Database["public"]["Enums"]["agent_pipeline_stage"]
           estimated_completion?: string | null
@@ -1564,9 +1568,11 @@ export type Database = {
           id?: string
           is_flagged?: boolean
           organization_id: string
+          overall_quality_score?: number | null
           piece_number?: number | null
           pipeline_state?: Json | null
           priority?: Database["public"]["Enums"]["agent_priority"]
+          quality_scores?: Json | null
           scheduled_publish_at?: string | null
           stage_started_at?: string | null
           updated_at?: string
@@ -1579,6 +1585,7 @@ export type Database = {
           content_id?: string | null
           content_title?: string
           content_topic?: string | null
+          content_type?: string
           created_at?: string
           current_stage?: Database["public"]["Enums"]["agent_pipeline_stage"]
           estimated_completion?: string | null
@@ -1587,9 +1594,11 @@ export type Database = {
           id?: string
           is_flagged?: boolean
           organization_id?: string
+          overall_quality_score?: number | null
           piece_number?: number | null
           pipeline_state?: Json | null
           priority?: Database["public"]["Enums"]["agent_priority"]
+          quality_scores?: Json | null
           scheduled_publish_at?: string | null
           stage_started_at?: string | null
           updated_at?: string
@@ -3163,6 +3172,7 @@ export type Database = {
           plan_approved_at: string | null
           plan_data: Json
           status: string | null
+          strategy_summary: string | null
           total_pieces: number
           updated_at: string | null
         }
@@ -3181,6 +3191,7 @@ export type Database = {
           plan_approved_at?: string | null
           plan_data?: Json
           status?: string | null
+          strategy_summary?: string | null
           total_pieces?: number
           updated_at?: string | null
         }
@@ -3199,6 +3210,7 @@ export type Database = {
           plan_approved_at?: string | null
           plan_data?: Json
           status?: string | null
+          strategy_summary?: string | null
           total_pieces?: number
           updated_at?: string | null
         }
@@ -10600,15 +10612,12 @@ export type Database = {
       agent_approval_status: "pending" | "approved" | "rejected" | "edited"
       agent_autonomy_level: "human_in_loop" | "human_on_loop" | "full_auto"
       agent_pipeline_stage:
-        | "research"
-        | "creation"
-        | "optimization"
-        | "expansion"
-        | "compliance"
+        | "strategy"
+        | "create"
+        | "quality"
         | "approval"
-        | "scheduled"
-        | "published"
-        | "analyzing"
+        | "publish"
+        | "analyze"
       agent_priority: "low" | "normal" | "high" | "urgent"
       app_role: "user" | "pro" | "admin"
       carousel_ai_tool: "ideogram" | "midjourney" | "dalle" | "leonardo"
@@ -10795,15 +10804,12 @@ export const Constants = {
       agent_approval_status: ["pending", "approved", "rejected", "edited"],
       agent_autonomy_level: ["human_in_loop", "human_on_loop", "full_auto"],
       agent_pipeline_stage: [
-        "research",
-        "creation",
-        "optimization",
-        "expansion",
-        "compliance",
+        "strategy",
+        "create",
+        "quality",
         "approval",
-        "scheduled",
-        "published",
-        "analyzing",
+        "publish",
+        "analyze",
       ],
       agent_priority: ["low", "normal", "high", "urgent"],
       app_role: ["user", "pro", "admin"],

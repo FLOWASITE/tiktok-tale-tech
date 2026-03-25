@@ -17,8 +17,7 @@ interface PipelineMonitorTableProps {
 }
 
 const STAGE_ORDER: AgentPipelineStage[] = [
-  'research', 'creation', 'optimization', 'expansion',
-  'compliance', 'approval', 'scheduled', 'published', 'analyzing'
+  'strategy', 'create', 'quality', 'approval', 'publish', 'analyze'
 ];
 
 function StageProgressBar({ pipeline }: { pipeline: AgentPipeline }) {
@@ -134,7 +133,7 @@ export function PipelineMonitorTable({ pipelines, isLoading }: PipelineMonitorTa
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={hasError ? 'destructive' : pipeline.current_stage === 'published' ? 'default' : 'secondary'} className="text-[11px]">
+                  <Badge variant={hasError ? 'destructive' : pipeline.current_stage === 'analyze' ? 'default' : 'secondary'} className="text-[11px]">
                     {stageInfo?.label || pipeline.current_stage}
                   </Badge>
                   {currentStageState?.last_error && (

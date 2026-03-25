@@ -98,11 +98,13 @@ export function CampaignPlanReview({ plan, goalName, onClose }: CampaignPlanRevi
       piece_number: pieces.length + 1,
       title: 'Nội dung mới',
       angle: 'educational',
+      content_type: 'multichannel',
       target_channel: 'facebook',
       content_role: 'seed',
       format: 'post',
       scheduled_date: null,
       key_message: '',
+      estimated_length: null,
       pipeline_id: null,
       status: 'planned',
     };

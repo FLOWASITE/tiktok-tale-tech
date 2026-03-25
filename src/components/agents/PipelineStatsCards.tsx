@@ -11,12 +11,12 @@ export function PipelineStatsCards({ pipelines }: PipelineStatsCardsProps) {
   today.setHours(0, 0, 0, 0);
 
   const todayPipelines = pipelines.filter(p => new Date(p.created_at) >= today);
-  const completed = pipelines.filter(p => p.current_stage === 'published' || p.current_stage === 'analyzing');
+  const completed = pipelines.filter(p => p.current_stage === 'analyze' || p.completed_at);
   const failed = pipelines.filter(p => p.is_flagged);
   const running = pipelines.filter(p =>
     !p.is_flagged &&
-    p.current_stage !== 'published' &&
-    p.current_stage !== 'analyzing'
+    p.current_stage !== 'analyze' &&
+    !p.completed_at
   );
 
   const successRate = pipelines.length > 0

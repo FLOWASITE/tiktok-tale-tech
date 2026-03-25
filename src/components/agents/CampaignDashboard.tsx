@@ -59,10 +59,10 @@ export function CampaignDashboard() {
     const totalPieces = latestPlan?.total_pieces || 0;
     const completedPieces = latestPlan
       ? ((latestPlan.plan_data || []) as CampaignContentPiece[]).filter(p => p.status === 'completed').length
-      : goalPipelines.filter(p => p.current_stage === 'published' || p.current_stage === 'analyzing').length;
+      : goalPipelines.filter(p => p.current_stage === 'analyze' || p.completed_at).length;
     const inProgressPieces = latestPlan
       ? ((latestPlan.plan_data || []) as CampaignContentPiece[]).filter(p => p.status === 'in_progress').length
-      : goalPipelines.filter(p => !['published', 'analyzing'].includes(p.current_stage)).length;
+      : goalPipelines.filter(p => p.current_stage !== 'analyze' && !p.completed_at).length;
 
     const effectiveTotalPieces = totalPieces || goalPipelines.length;
     const progressPercent = effectiveTotalPieces > 0 ? (completedPieces / effectiveTotalPieces) * 100 : 0;

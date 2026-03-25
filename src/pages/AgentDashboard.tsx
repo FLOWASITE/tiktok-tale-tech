@@ -80,9 +80,9 @@ export default function AgentDashboard() {
   };
 
   const activeGoals = goals.filter(g => g.is_active && !g.is_paused);
-  const totalInPipeline = pipelines.filter(p => !['published', 'analyzing'].includes(p.current_stage)).length;
+  const totalInPipeline = pipelines.filter(p => p.current_stage !== 'analyze' && !p.completed_at).length;
   const publishedThisWeek = pipelines.filter(p => {
-    if (p.current_stage !== 'published') return false;
+    if (p.current_stage !== 'publish' && p.current_stage !== 'analyze') return false;
     const d = new Date(p.completed_at || p.updated_at);
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     return d >= weekAgo;
