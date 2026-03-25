@@ -394,7 +394,7 @@ Deno.serve(async (req) => {
 
       // Start all pipelines with staggered fire-and-forget
       for (const pid of pipelineIds) {
-        fireNextStage(supabaseUrl, supabaseKey, pid);
+        fireNextStage(supabaseUrl, supabaseKey, pid, "research");
         await new Promise(r => setTimeout(r, 2000));
       }
 
