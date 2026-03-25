@@ -29,7 +29,13 @@ export default function AgentDashboard() {
   const [filterGoalId, setFilterGoalId] = useState<string | null>(null);
   const [triggeringGoalId, setTriggeringGoalId] = useState<string | null>(null);
 
-  const handleCreateGoal = async (data: Parameters<typeof createGoal.mutateAsync>[0]) => {
+  const goalNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    goals.forEach(g => map.set(g.id, g.name));
+    return map;
+  }, [goals]);
+
+
     try {
       await createGoal.mutateAsync(data);
       setWizardOpen(false);
