@@ -1,59 +1,74 @@
 
 
-# Phase 4: Scheduled Publishing — Calendar Integration
+# Phase 4: UI Form Mục tiêu AI cho Campaign Create
 
 ## Tổng quan
 
-Hệ thống pipeline đã có `check_scheduled_publish` (cron 10 phút) + publish stage kiểm tra `scheduled_publish_at`. Tuy nhiên **thiếu cầu nối** giữa pipeline và Content Calendar:
+Form tạo Campaign hiện tại (`CampaignCreate.tsx`) có 4 bước: Thông tin cơ bản → KPIs & Ngân sách → Kênh → Milestones. Tuy nhiên **thiếu hoàn toàn** các trường "Mục tiêu nội dung" dành cho AI Agent — cụ thể là Key Messages, CTA chính, và Phân bổ Content Pillars mà GoalWizard đã hỗ trợ.
 
-1. Pipeline không tạo `content_schedules` → Calendar không hiển thị scheduled items từ campaign
-2. Publish stage không truyền `scheduleId` cho channel-publisher → publisher không update trạng thái trên Calendar
+Mục tiêu: Thêm một bước mới **"Mục tiêu nội dung"** vào form Campaign Create để khi tạo campaign, user có thể cung cấp brief cho AI Agent ngay từ đầu — thay vì phải tạo Goal riêng sau đó.
 
-## Kế hoạch
+## Thay đổi cần thiết
 
-### 1. Tạo `content_schedules` khi spawn pipeline từ campaign plan
+### 1. Migration: Thêm cột `content_brief` vào bảng `campaigns`
 
-**File: `supabase/functions/agent-pipeline/index.ts`** (SỬA — action `create_from_plan`)
+Thêm cột JSONB `content_brief` để lưu key messages, primary CTA, pillar allocation:
 
-Sau khi insert pipeline (line ~582), nếu `piece.scheduled_date` tồn tại:
-- Insert `content_schedules` record cho mỗi `target_channel` của piece
-- Lưu `schedule_id` vào `pipeline_state.metadata.schedule_ids[channel]`
-- Fields: `content_id` = null (chưa có, sẽ update sau), `channel`, `organization_id`, `scheduled_at`, `publish_status = 'scheduled'`, `created_by`
+```sql
+ALTER TABLE public.campaigns 
+  ADD COLUMN content_brief jsonb DEFAULT null;
 
-### 2. Update `content_schedules.content_id` khi content được tạo
+COMMENT ON COLUMN public.campaigns.content_brief IS 
+  'AI content brief: key_messages, primary_cta, pillar_allocation';
+```
 
-**File: `supabase/functions/agent-pipeline/index.ts`** (SỬA — stage `create`)
+### 2. Cập nhật types (`src/types/campaign.ts`)
 
-Sau khi `content_id` được resolve (sau create stage):
-- Lấy `schedule_ids` từ `pipeline_state.metadata`
-- Update tất cả `content_schedules` có id trong danh sách với `content_id` mới
+- Thêm interface `CampaignContentBrief` với `key_messages: string[]`, `primary_cta: string`, `pillar_allocation: Record<string, number>`
+- Thêm `content_brief?: CampaignContentBrief` vào `Campaign` và `CampaignFormData`
 
-### 3. Truyền `scheduleId` trong publish stage
+### 3. Stepper 5 bước (`src/components/campaign/CampaignFormStepper.tsx`)
 
-**File: `supabase/functions/agent-pipeline/index.ts`** (SỬA — stage `publish`)
+Thêm bước 2 mới **"Mục tiêu"** (icon: `MessageSquare`) giữa "Thông tin cơ bản" và "KPIs & Ngân sách":
 
-Trong vòng lặp `for (const channel of targetChannels)`:
-- Lấy `scheduleId` từ `pState.metadata.schedule_ids[channel]`
-- Thêm `scheduleId` vào `pubPayload`
-- Các publisher hiện tại (facebook, twitter, instagram...) **đã có logic** update `content_schedules` khi nhận `scheduleId`
+1. Thông tin cơ bản
+2. **Mục tiêu nội dung** ← MỚI
+3. KPIs & Ngân sách
+4. Kênh phân phối
+5. Milestones
 
-### 4. Update schedule status khi publish fail
+### 4. Form Step "Mục tiêu nội dung" (`src/pages/CampaignCreate.tsx`)
 
-**File: `supabase/functions/agent-pipeline/index.ts`** (SỬA — stage `publish`)
+Thêm step mới với các fields (tái sử dụng pattern từ GoalWizard):
 
-Trong catch block cho mỗi channel:
-- Nếu có `scheduleId`, update `content_schedules` set `publish_status = 'failed'`, `publish_error`
+- **Key Messages** (tối đa 5): Input + badge list, enter để thêm
+- **CTA chính**: Input text đơn giản
+- **Phân bổ Content Pillars (%)**: Hiển thị sliders cho từng pillar từ brand đã chọn (nếu có). Tự động cân bằng tổng = 100%.
+- Info box giải thích: "Thông tin này sẽ được Strategy Agent sử dụng để lên kế hoạch nội dung phù hợp"
+- Bước này **tùy chọn** (canProceed luôn return true)
 
-### 5. Tạo schedules cho pipeline không qua campaign (optional fallback)
+### 5. Cập nhật hook `useCampaigns` (`src/hooks/useCampaigns.ts`)
 
-Nếu pipeline có `scheduled_publish_at` nhưng không có `schedule_ids` trong metadata (pipelines cũ hoặc single-goal):
-- Tự tạo `content_schedules` ngay đầu publish stage trước khi gọi publisher
+- Trong `createMutation` và `updateMutation`: thêm `content_brief` vào payload insert/update
+
+### 6. Cập nhật Preview Panel (`src/components/campaign/CampaignCreatePreviewPanel.tsx`)
+
+- Hiển thị key messages, CTA, pillar allocation trong preview bên phải
+- Thêm vào completeness check (bonus points)
+
+### 7. Cập nhật Template logic (`src/data/campaignTemplates.ts`)
+
+- Thêm `content_brief` vào `CampaignTemplate` interface
+- Templates có thể pre-fill key messages và CTA mẫu
 
 ## Files thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| `supabase/functions/agent-pipeline/index.ts` | SỬA — create schedules on plan spawn, pass scheduleId to publisher, update on fail |
-
-Không cần migration (bảng `content_schedules` đã tồn tại). Không cần file mới. UTM tracking đã tích hợp sẵn trong publish stage.
+| Migration SQL | MỚI — thêm cột `content_brief` jsonb |
+| `src/types/campaign.ts` | SỬA — thêm `CampaignContentBrief`, update interfaces |
+| `src/components/campaign/CampaignFormStepper.tsx` | SỬA — 5 bước thay vì 4 |
+| `src/pages/CampaignCreate.tsx` | SỬA — thêm step "Mục tiêu nội dung", update step indices |
+| `src/hooks/useCampaigns.ts` | SỬA — persist `content_brief` |
+| `src/components/campaign/CampaignCreatePreviewPanel.tsx` | SỬA — hiển thị brief info |
 
