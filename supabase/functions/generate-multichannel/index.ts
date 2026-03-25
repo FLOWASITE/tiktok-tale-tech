@@ -194,6 +194,19 @@ const QUALITY_MODE_CONFIG: Record<QualityMode, { skipCritique: boolean; maxRefin
   quality: { skipCritique: false, maxRefinements: 2 },
 };
 
+function normalizeQualityMode(mode?: string | null): QualityMode {
+  if (mode === 'fast' || mode === 'balanced' || mode === 'quality') {
+    return mode;
+  }
+
+  if (mode) {
+    console.warn(`[quality-mode] Invalid value '${mode}', fallback to 'fast'`);
+    return 'fast';
+  }
+
+  return 'balanced';
+}
+
 // Selected hook structure for multichannel
 interface SelectedHook {
   channel: string;
