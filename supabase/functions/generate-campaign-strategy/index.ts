@@ -28,9 +28,33 @@ function buildStrategyPrompt(params: {
 }): string {
   const clarificationStr = params.clarificationContext
     ? Object.entries(params.clarificationContext)
+        .filter(([k]) => !['key_messages', 'primary_cta', 'pillar_allocation'].includes(k))
         .map(([k, v]) => `- ${k}: ${v}`)
         .join("\n")
     : "Không có thông tin bổ sung";
+
+  // Extract brief fields from clarification context
+  const ctx = params.clarificationContext || {};
+  const keyMessages = Array.isArray(ctx.key_messages) ? ctx.key_messages as string[] : [];
+  const primaryCta = typeof ctx.primary_cta === 'string' ? ctx.primary_cta : '';
+  const pillarAllocation = (ctx.pillar_allocation && typeof ctx.pillar_allocation === 'object' && !Array.isArray(ctx.pillar_allocation))
+    ? ctx.pillar_allocation as Record<string, number>
+    : null;
+
+  let briefSection = '';
+  if (keyMessages.length > 0) {
+    briefSection += `\nKEY MESSAGES (weave these into content naturally):\n${keyMessages.map((m, i) => `${i + 1}. ${m}`).join("\n")}\n`;
+  }
+  if (primaryCta) {
+    briefSection += `\nPRIMARY CTA (use in harvest/conversion pieces): "${primaryCta}"\n`;
+  }
+  if (pillarAllocation) {
+    const totalPieces = Math.round((params.pieceCount.min + params.pieceCount.max) / 2);
+    const pillarLines = Object.entries(pillarAllocation)
+      .map(([name, pct]) => `- ${name}: ${pct}% (~${Math.round(totalPieces * (pct as number) / 100)} pieces)`)
+      .join("\n");
+    briefSection += `\nCONTENT PILLAR DISTRIBUTION (MUST follow these percentages):\n${pillarLines}\nEach piece MUST have a "pillar" field matching one of these pillar names.\n`;
+  }
 
   const dedupStr = params.existingTitles.length > 0
     ? `\n\nDEDUPLICATION — These topics ALREADY EXIST (do NOT suggest similar ones):\n${params.existingTitles.join("\n")}\nSuggest DIFFERENT angles.`
@@ -46,7 +70,7 @@ Brand: ${params.brandName} in ${params.industry}
 Available channels: ${params.channels.join(", ")}
 Duration: ${params.durationDays} days starting ${params.startDate}
 Brand voice: ${params.brandVoice || "professional, friendly"}
-
+${briefSection}
 RULES:
 1. Create ${params.pieceCount.min}-${params.pieceCount.max} content pieces spread across the campaign duration.
 
@@ -75,8 +99,8 @@ RULES:
 6. Schedule pieces with 2-3 day gaps minimum
    - Avoid weekends for B2B content
    - Tuesday-Thursday are best for LinkedIn
-
-7. ALL pieces must be directly related to: "${params.title}"
+${pillarAllocation ? '\n7. PILLAR ALLOCATION is MANDATORY — distribute pieces according to the specified percentages above.\n   Every piece must be assigned to a pillar.\n' : ''}
+7${pillarAllocation ? '' : ''}. ALL pieces must be directly related to: "${params.title}"
    Do NOT suggest unrelated trending topics.
 ${dedupStr}
 
