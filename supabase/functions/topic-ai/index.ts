@@ -1372,8 +1372,35 @@ function buildSuggestPrompts(params: {
   const currentDate = now.toLocaleDateString('vi-VN', { day: 'numeric', month: 'numeric', year: 'numeric' });
   const currentMonth = now.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' });
 
-  const systemPrompt = `Bạn là Content Strategist chuyên nghiệp với 10+ năm kinh nghiệm content marketing tại Việt Nam.
+  // Build topic anchoring section (HIGHEST PRIORITY — prevents topic drift)
+  let topicAnchoringSection = '';
+  if (topic) {
+    topicAnchoringSection = `
+## ⛔ ABSOLUTE RULE — READ THIS FIRST:
+The user has specified a SPECIFIC topic for their content: "${topic}".
+${instruction ? `Additional context: ${instruction}` : ''}
 
+ALL your topic suggestions MUST be directly about "${topic}".
+You may suggest different ANGLES or HOOKS for this topic, but the CORE SUBJECT must match.
+
+FORBIDDEN: Do NOT suggest unrelated trending topics like AI trends, marketing trends,
+or any topic that is NOT about "${topic}".
+
+GOOD examples for "${topic}":
+- Different angles of "${topic}" (educational, comparison, case study, tips)
+- Specific sub-topics within "${topic}"
+- Pain points related to "${topic}"
+
+BAD examples (NEVER suggest these):
+- Topics about unrelated industries or trends
+- Generic trending topics that don't mention "${topic}"
+
+→ If you suggest ANY topic not directly related to "${topic}", the output is INVALID.
+`;
+  }
+
+  const systemPrompt = `Bạn là Content Strategist chuyên nghiệp với 10+ năm kinh nghiệm content marketing tại Việt Nam.
+${topicAnchoringSection}
 ⚠️ NGÀY HIỆN TẠI: ${currentDate}. Chúng ta đang ở ${currentMonth}.
 - TẤT CẢ topics PHẢI phản ánh thời điểm hiện tại (${now.getFullYear()}).
 - TUYỆT ĐỐI KHÔNG đề cập năm cũ (2024, 2025) trừ khi so sánh với hiện tại.
@@ -1384,7 +1411,7 @@ ${audienceQASection}
 ${learningSection}
 
 ## OUTPUT FORMAT:
-Trả về JSON array với 8-10 topics:
+Trả về JSON array với ${topic ? '3-5' : '8-10'} topics:
 [{
   "topic": "Tiêu đề chi tiết (15-50 từ)",
   "category": "evergreen" | "trending" | "seasonal" | "reactive",
