@@ -153,7 +153,6 @@ export const PIPELINE_STAGES: { id: AgentPipelineStage; label: string; icon: str
   { id: 'publish', label: 'Đăng bài', icon: 'Send', color: 'from-emerald-500/20 to-emerald-500/10' },
   { id: 'analyze', label: 'Phân tích', icon: 'BarChart3', color: 'from-pink-500/20 to-pink-500/10' },
 ];
-];
 
 export const AUTONOMY_LEVELS: { id: AgentAutonomyLevel; label: string; description: string }[] = [
   { id: 'human_in_loop', label: 'Human-in-the-loop', description: 'Duyệt từng bước trước khi tiếp tục' },
