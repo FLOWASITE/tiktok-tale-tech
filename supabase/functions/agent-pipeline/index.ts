@@ -367,10 +367,17 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
       const contentRole = meta.content_role || undefined;
       const lengthMode = meta.content_length || "medium";
 
+      // Build additional context from clarification
+      const clarification = meta.clarification_context;
+      let additionalContext = "";
+      if (clarification && typeof clarification === "object") {
+        additionalContext = Object.entries(clarification).map(([q, a]) => `${q}: ${a}`).join(". ");
+      }
+
       const output = await callFunction(supabaseUrl, supabaseKey, "generate-core-content", {
         topic: creationTopic,
         contentGoal,
-        contentAngle,
+        contentAngle: contentAngle || (additionalContext ? additionalContext : undefined),
         contentRole,
         lengthMode,
         organizationId: orgId,
