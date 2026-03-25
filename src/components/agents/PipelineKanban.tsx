@@ -123,7 +123,7 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
   const isCompleted = !!pipeline.completed_at;
   const isRunning = !isCompleted && !pipeline.is_flagged;
   const isApprovalPending = pipeline.current_stage === 'approval' && approval?.status === 'pending';
-  const progress = STAGE_PROGRESS[pipeline.current_stage] || 0;
+  const { percent: progress, completedCount } = calculatePipelineProgress(pipeline);
   const stageLabel = PIPELINE_STAGES.find(s => s.id === pipeline.current_stage)?.label;
   const grade = pipeline.overall_quality_score != null ? getGradeFromScore(pipeline.overall_quality_score) : null;
 
