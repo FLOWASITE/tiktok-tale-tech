@@ -6,8 +6,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3, InboxIcon, AlertTriangle, Clock, Check, X, CheckCircle2 } from 'lucide-react';
-import { AgentPipeline, AgentPipelineStage, AgentApproval, PIPELINE_STAGES } from '@/types/agent';
+import { Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3, InboxIcon, AlertTriangle, Clock, Check, X, CheckCircle2, FileText, Video, Images } from 'lucide-react';
+import { AgentPipeline, AgentPipelineStage, AgentApproval, PIPELINE_STAGES, ContentType } from '@/types/agent';
+import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import { getGradeFromScore } from '@/types/creativeScore';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -37,6 +38,12 @@ function calculatePipelineProgress(pipeline: AgentPipeline): { percent: number; 
   const progress = ((completedCount + (hasInProgress ? 0.5 : 0)) / TOTAL_STAGES) * 100;
   return { percent: Math.min(Math.round(progress), 100), completedCount };
 }
+
+const CONTENT_TYPE_CONFIG: Record<ContentType, { label: string; icon: any; color: string }> = {
+  multichannel: { label: 'Bài viết', icon: FileText, color: 'text-blue-400' },
+  video_script: { label: 'Video', icon: Video, color: 'text-pink-400' },
+  carousel: { label: 'Carousel', icon: Images, color: 'text-purple-400' },
+};
 
 const GRADE_COLORS: Record<string, string> = {
   'A+': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
@@ -179,6 +186,38 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
             <span className="text-[9px] text-muted-foreground">{completedCount}/{TOTAL_STAGES} bước</span>
           </div>
         </div>
+
+        {/* Content type + channel icons */}
+        {(() => {
+          const ctConfig = CONTENT_TYPE_CONFIG[pipeline.content_type as ContentType];
+          const state = pipeline.pipeline_state as any;
+          const targetChannel: string | string[] | undefined = state?.target_channel || state?.target_channels;
+          const channels: string[] = Array.isArray(targetChannel) ? targetChannel : targetChannel ? [targetChannel] : [];
+          const CtIcon = ctConfig?.icon;
+          const maxChannels = 3;
+          const extraCount = channels.length > maxChannels ? channels.length - maxChannels : 0;
+
+          return (
+            <div className="flex items-center justify-between">
+              {ctConfig && CtIcon && (
+                <div className={cn('flex items-center gap-1', ctConfig.color)}>
+                  <CtIcon className="w-3 h-3" />
+                  <span className="text-[10px] font-medium">{ctConfig.label}</span>
+                </div>
+              )}
+              {channels.length > 0 && (
+                <div className="flex items-center gap-0.5">
+                  {channels.slice(0, maxChannels).map(ch => (
+                    <ChannelIcon key={ch} channel={ch} size="sm" />
+                  ))}
+                  {extraCount > 0 && (
+                    <span className="text-[9px] text-muted-foreground ml-0.5">+{extraCount}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {pipeline.content_topic && (
           <p className="text-[10px] text-muted-foreground line-clamp-1">{pipeline.content_topic}</p>
