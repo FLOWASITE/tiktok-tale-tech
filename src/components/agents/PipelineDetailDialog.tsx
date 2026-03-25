@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Check, Circle, AlertTriangle, Flag, Trash2, ArrowRight, Clock, Zap, DollarSign, Activity, Search, Trophy, Lightbulb, TrendingUp } from 'lucide-react';
+import { Check, Circle, AlertTriangle, Flag, Trash2, ArrowRight, Clock, Zap, DollarSign, Activity, Lightbulb, Trophy, TrendingUp } from 'lucide-react';
 import { AgentPipeline, AgentPipelineStage, PIPELINE_STAGES } from '@/types/agent';
 import { useAgentPipelineLogs } from '@/hooks/useAgentPipelineLogs';
 import { cn } from '@/lib/utils';
@@ -67,24 +67,24 @@ function StageTimeline({ currentStage, pipelineState }: { currentStage: AgentPip
   );
 }
 
-function ResearchOutputTab({ pipelineState }: { pipelineState: Record<string, any> }) {
-  const researchData = pipelineState?.stages?.research;
-  const output = researchData?.output;
+function StrategyOutputTab({ pipelineState }: { pipelineState: Record<string, any> }) {
+  const strategyData = pipelineState?.stages?.strategy;
+  const output = strategyData?.output;
 
-  if (!researchData || researchData.status === 'pending') {
+  if (!strategyData || strategyData.status === 'pending') {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-        <Search className="w-8 h-8 mb-2 opacity-30" />
-        <p className="text-xs">Research chưa bắt đầu</p>
+        <Lightbulb className="w-8 h-8 mb-2 opacity-30" />
+        <p className="text-xs">Chiến lược chưa bắt đầu</p>
       </div>
     );
   }
 
-  if (researchData.status === 'in_progress') {
+  if (strategyData.status === 'in_progress') {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-        <Search className="w-8 h-8 mb-2 animate-pulse" />
-        <p className="text-xs">Đang nghiên cứu...</p>
+        <Lightbulb className="w-8 h-8 mb-2 animate-pulse" />
+        <p className="text-xs">Đang lên chiến lược...</p>
       </div>
     );
   }
@@ -190,8 +190,8 @@ function ResearchOutputTab({ pipelineState }: { pipelineState: Record<string, an
         {/* No output at all */}
         {!bestTopic && !otherTopics.length && !rawText && !insights.length && (
           <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-            <Search className="w-6 h-6 mb-2 opacity-30" />
-            <p className="text-xs">Research hoàn thành nhưng không có output chi tiết</p>
+            <Lightbulb className="w-6 h-6 mb-2 opacity-30" />
+            <p className="text-xs">Chiến lược hoàn thành nhưng không có output chi tiết</p>
           </div>
         )}
       </div>
@@ -205,10 +205,11 @@ export function PipelineDetailDialog({ pipeline, open, onOpenChange, onStageChan
 
   if (!pipeline) return null;
 
-  const scores = pipeline.pipeline_state?.scores || {};
-  const hasSeo = scores.seo_score != null;
-  const hasGeo = scores.geo_score != null;
-  const hasCompliance = scores.compliance_status != null;
+  const qualityScores = pipeline.quality_scores as Record<string, any> || {};
+  const overallScore = pipeline.overall_quality_score;
+  const hasGeo = qualityScores.geo?.overall_score != null;
+  const hasCompliance = qualityScores.compliance?.status != null;
+  const hasPersonaFit = qualityScores.persona_fit?.overall != null;
 
   const priorityColors: Record<string, string> = {
     urgent: 'bg-red-500/10 text-red-600 border-red-500/30',
@@ -263,16 +264,16 @@ export function PipelineDetailDialog({ pipeline, open, onOpenChange, onStageChan
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="research" className="flex-1 overflow-hidden flex flex-col">
+        <Tabs defaultValue="strategy" className="flex-1 overflow-hidden flex flex-col">
           <TabsList className="grid w-full grid-cols-4 h-8">
-            <TabsTrigger value="research" className="text-xs">Research</TabsTrigger>
+            <TabsTrigger value="strategy" className="text-xs">Chiến lược</TabsTrigger>
             <TabsTrigger value="logs" className="text-xs">Logs ({logs.length})</TabsTrigger>
             <TabsTrigger value="scores" className="text-xs">Scores</TabsTrigger>
             <TabsTrigger value="actions" className="text-xs">Actions</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="research" className="flex-1 overflow-hidden mt-2">
-            <ResearchOutputTab pipelineState={pipeline.pipeline_state} />
+          <TabsContent value="strategy" className="flex-1 overflow-hidden mt-2">
+            <StrategyOutputTab pipelineState={pipeline.pipeline_state} />
           </TabsContent>
 
           <TabsContent value="logs" className="flex-1 overflow-hidden mt-2">
@@ -320,27 +321,27 @@ export function PipelineDetailDialog({ pipeline, open, onOpenChange, onStageChan
           </TabsContent>
 
           <TabsContent value="scores" className="mt-2">
+            {/* Overall Score */}
+            {overallScore != null && (
+              <div className="mb-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium">Overall Quality</p>
+                  <p className={cn(
+                    'text-2xl font-bold',
+                    overallScore >= 65 ? 'text-primary' : overallScore >= 50 ? 'text-amber-500' : 'text-destructive'
+                  )}>{Math.round(overallScore)}</p>
+                </div>
+                <Progress value={overallScore} className="h-1.5 mt-2" />
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-3">
-              <Card>
-                <CardContent className="p-3 space-y-2">
-                  <p className="text-[11px] font-medium">SEO Score</p>
-                  {hasSeo ? (
-                    <>
-                      <p className="text-2xl font-bold text-primary">{scores.seo_score}</p>
-                      <Progress value={scores.seo_score} className="h-1.5" />
-                    </>
-                  ) : (
-                    <p className="text-xs text-muted-foreground/50">Chưa có</p>
-                  )}
-                </CardContent>
-              </Card>
               <Card>
                 <CardContent className="p-3 space-y-2">
                   <p className="text-[11px] font-medium">GEO Score</p>
                   {hasGeo ? (
                     <>
-                      <p className="text-2xl font-bold text-primary">{scores.geo_score}</p>
-                      <Progress value={scores.geo_score} className="h-1.5" />
+                      <p className="text-2xl font-bold text-primary">{Math.round(qualityScores.geo.overall_score)}</p>
+                      <Progress value={qualityScores.geo.overall_score} className="h-1.5" />
                     </>
                   ) : (
                     <p className="text-xs text-muted-foreground/50">Chưa có</p>
@@ -351,9 +352,22 @@ export function PipelineDetailDialog({ pipeline, open, onOpenChange, onStageChan
                 <CardContent className="p-3 space-y-2">
                   <p className="text-[11px] font-medium">Compliance</p>
                   {hasCompliance ? (
-                    <Badge variant={scores.compliance_status === 'pass' ? 'default' : 'destructive'} className="text-xs">
-                      {scores.compliance_status}
+                    <Badge variant={qualityScores.compliance.status === 'pass' ? 'default' : 'destructive'} className="text-xs">
+                      {qualityScores.compliance.status}
                     </Badge>
+                  ) : (
+                    <p className="text-xs text-muted-foreground/50">Chưa có</p>
+                  )}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-3 space-y-2">
+                  <p className="text-[11px] font-medium">Persona Fit</p>
+                  {hasPersonaFit ? (
+                    <>
+                      <p className="text-2xl font-bold text-primary">{Math.round(qualityScores.persona_fit.overall)}</p>
+                      <Progress value={qualityScores.persona_fit.overall} className="h-1.5" />
+                    </>
                   ) : (
                     <p className="text-xs text-muted-foreground/50">Chưa có</p>
                   )}

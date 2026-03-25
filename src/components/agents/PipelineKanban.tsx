@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Search, PenTool, Gauge, Layers, ShieldCheck, UserCheck, Calendar, Send, BarChart3, InboxIcon, AlertTriangle, Clock } from 'lucide-react';
+import { Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3, InboxIcon, AlertTriangle, Clock } from 'lucide-react';
 import { AgentPipeline, AgentPipelineStage, PIPELINE_STAGES } from '@/types/agent';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -14,7 +14,7 @@ import { vi } from 'date-fns/locale';
 import { PipelineDetailDialog } from './PipelineDetailDialog';
 
 const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  Search, PenTool, Gauge, Layers, ShieldCheck, UserCheck, Calendar, Send, BarChart3,
+  Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3,
 };
 
 interface PipelineKanbanProps {
@@ -26,7 +26,7 @@ interface PipelineKanbanProps {
 
 function PipelineColumn({ stage, pipelines, onCardClick }: { stage: typeof PIPELINE_STAGES[0]; pipelines: AgentPipeline[]; onCardClick?: (p: AgentPipeline) => void }) {
   const { isOver, setNodeRef } = useDroppable({ id: stage.id });
-  const Icon = STAGE_ICONS[stage.icon] || Search;
+  const Icon = STAGE_ICONS[stage.icon] || Lightbulb;
 
   return (
     <div
