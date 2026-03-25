@@ -187,6 +187,38 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
           </div>
         </div>
 
+        {/* Content type + channel icons */}
+        {(() => {
+          const ctConfig = CONTENT_TYPE_CONFIG[pipeline.content_type as ContentType];
+          const state = pipeline.pipeline_state as any;
+          const targetChannel: string | string[] | undefined = state?.target_channel || state?.target_channels;
+          const channels: string[] = Array.isArray(targetChannel) ? targetChannel : targetChannel ? [targetChannel] : [];
+          const CtIcon = ctConfig?.icon;
+          const maxChannels = 3;
+          const extraCount = channels.length > maxChannels ? channels.length - maxChannels : 0;
+
+          return (
+            <div className="flex items-center justify-between">
+              {ctConfig && CtIcon && (
+                <div className={cn('flex items-center gap-1', ctConfig.color)}>
+                  <CtIcon className="w-3 h-3" />
+                  <span className="text-[10px] font-medium">{ctConfig.label}</span>
+                </div>
+              )}
+              {channels.length > 0 && (
+                <div className="flex items-center gap-0.5">
+                  {channels.slice(0, maxChannels).map(ch => (
+                    <ChannelIcon key={ch} channel={ch} size="sm" />
+                  ))}
+                  {extraCount > 0 && (
+                    <span className="text-[9px] text-muted-foreground ml-0.5">+{extraCount}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {pipeline.content_topic && (
           <p className="text-[10px] text-muted-foreground line-clamp-1">{pipeline.content_topic}</p>
         )}
