@@ -1002,6 +1002,36 @@ async function saveContentId(supabase: any, pipeline: any, pState: any, contentI
   }
 }
 
+/** Helper: fetch content text for quality scoring based on content_type */
+async function fetchContentText(supabase: any, contentId: string | null, contentType: string, pState: any): Promise<string> {
+  // Try fetching from database first
+  if (contentId) {
+    if (contentType === "multichannel" || contentType === "core_content") {
+      const { data: cc } = await supabase.from("core_contents").select("title, content").eq("id", contentId).single();
+      if (cc?.content) return `${cc.title || ""}\n\n${cc.content}`;
+    }
+    if (contentType === "video_script") {
+      const { data: script } = await supabase.from("video_scripts").select("title, script_content").eq("id", contentId).single();
+      if (script?.script_content) return `${script.title || ""}\n\n${typeof script.script_content === 'string' ? script.script_content : JSON.stringify(script.script_content)}`;
+    }
+    if (contentType === "carousel") {
+      const { data: carousel } = await supabase.from("carousels").select("title, slides_data").eq("id", contentId).single();
+      if (carousel?.slides_data) {
+        const slides = Array.isArray(carousel.slides_data) ? carousel.slides_data : [];
+        const slidesText = slides.map((s: any, i: number) => `Slide ${i + 1}: ${typeof s.textContent === 'string' ? s.textContent : s.headline || JSON.stringify(s)}`).join("\n");
+        return `${carousel.title || ""}\n\n${slidesText}`;
+      }
+    }
+  }
+
+  // Fallback: extract from pipeline_state create output
+  const createOutput = pState.stages?.create?.output;
+  if (createOutput) {
+    return createOutput.content || createOutput.article || createOutput.script || JSON.stringify(createOutput.slides || "N/A").slice(0, 3000);
+  }
+  return "";
+}
+
 function json(data: unknown) {
   return new Response(JSON.stringify(data), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
