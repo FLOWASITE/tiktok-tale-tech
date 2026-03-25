@@ -672,25 +672,6 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                   );
                 })}
               </div>
-              {selectedChannels.length > 0 && (
-                <div className="space-y-2 border-t pt-3">
-                  <Label className="text-xs">Đăng bao nhiêu lần?</Label>
-                  {selectedChannels.map(ch => {
-                    const info = AVAILABLE_CHANNELS.find(c => c.id === ch);
-                    return (
-                      <div key={ch} className="flex items-center gap-2">
-                        <span className="text-xs w-24">{info?.icon} {info?.label}</span>
-                        <Select value={frequency[ch] || 'weekly'} onValueChange={v => setFrequency({ ...frequency, [ch]: v })}>
-                          <SelectTrigger className="h-7 text-xs flex-1"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {FREQUENCY_OPTIONS.map(f => (<SelectItem key={f.value} value={f.value} className="text-xs">{f.label}</SelectItem>))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           )}
 
