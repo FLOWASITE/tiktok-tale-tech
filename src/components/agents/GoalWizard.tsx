@@ -260,6 +260,15 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   };
 
   const finalSubmit = (context: Record<string, string> | null) => {
+    // Merge brief fields into clarification_context
+    const baseContext = context || clarificationContext || {};
+    const briefContext: Record<string, any> = { ...baseContext };
+    if (keyMessages.length > 0) briefContext.key_messages = keyMessages;
+    if (primaryCta.trim()) briefContext.primary_cta = primaryCta.trim();
+    if (Object.keys(pillarAllocation).length > 0) briefContext.pillar_allocation = pillarAllocation;
+
+    const hasContext = Object.keys(briefContext).length > 0;
+
     onSubmit({
       name: name.trim(),
       description: description.trim() || undefined,
@@ -269,7 +278,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
       autonomy_level: autonomyLevel,
       brand_template_id: brandTemplateId || undefined,
       campaign_id: campaignId || undefined,
-      clarification_context: context || clarificationContext || undefined,
+      clarification_context: hasContext ? briefContext as any : undefined,
       campaign_duration_days: effectiveDuration,
       campaign_start_date: campaignStartDate,
       approval_mode: approvalMode,
@@ -335,6 +344,69 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                 <Label className="text-xs">Mô tả mục tiêu</Label>
                 <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Mô tả mục tiêu campaign để AI lên kế hoạch nội dung phù hợp..." rows={3} className="text-sm resize-none" />
               </div>
+
+              {/* Key Messages */}
+              <div className="space-y-2">
+                <Label className="text-xs flex items-center gap-1">
+                  <MessageSquare className="w-3 h-3" /> Key Messages
+                  <span className="text-muted-foreground font-normal">({keyMessages.length}/5)</span>
+                </Label>
+                <div className="flex gap-1.5">
+                  <Input
+                    value={keyMessageInput}
+                    onChange={e => setKeyMessageInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addKeyMessage())}
+                    placeholder="VD: Tiết kiệm 30% chi phí..."
+                    className="text-sm flex-1"
+                    disabled={keyMessages.length >= 5}
+                  />
+                  <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={addKeyMessage} disabled={!keyMessageInput.trim() || keyMessages.length >= 5}>
+                    <Plus className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                {keyMessages.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {keyMessages.map((msg, i) => (
+                      <Badge key={i} variant="secondary" className="text-[10px] gap-1 pr-1">
+                        {msg}
+                        <button onClick={() => setKeyMessages(keyMessages.filter((_, j) => j !== i))} className="hover:text-destructive">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Primary CTA */}
+              <div className="space-y-2">
+                <Label className="text-xs">CTA chính</Label>
+                <Input value={primaryCta} onChange={e => setPrimaryCta(e.target.value)} placeholder="VD: Đăng ký tư vấn miễn phí" className="text-sm" />
+              </div>
+
+              {/* Content Pillars Allocation */}
+              {currentBrand?.content_pillars && (currentBrand.content_pillars as any[]).length > 0 && (
+                <div className="space-y-3">
+                  <Label className="text-xs">Phân bổ Content Pillars (%)</Label>
+                  {Object.entries(pillarAllocation).map(([pillarName, pct]) => (
+                    <div key={pillarName} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">{pillarName}</span>
+                        <span className="text-xs font-medium tabular-nums w-8 text-right">{pct}%</span>
+                      </div>
+                      <Slider
+                        value={[pct]}
+                        min={0}
+                        max={100}
+                        step={5}
+                        onValueChange={([v]) => handlePillarChange(pillarName, v)}
+                        className="w-full"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
                 <Bot className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                 <p className="text-[11px] text-muted-foreground">
