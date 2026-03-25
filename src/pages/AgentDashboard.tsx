@@ -181,6 +181,9 @@ export default function AgentDashboard() {
             <TabsTrigger value="campaigns" className="gap-1.5 text-xs">
               <Target className="w-3.5 h-3.5" /> Campaigns
             </TabsTrigger>
+            <TabsTrigger value="campaign-plans" className="gap-1.5 text-xs">
+              <BarChart3 className="w-3.5 h-3.5" /> Kế hoạch
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="pipeline" className="mt-4">
