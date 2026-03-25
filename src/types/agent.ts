@@ -22,6 +22,46 @@ export interface AgentGoal {
   is_active: boolean;
   is_paused: boolean;
   created_by: string | null;
+  clarification_context: Record<string, string> | null;
+  campaign_duration_days: number | null;
+  campaign_start_date: string | null;
+  campaign_end_date: string | null;
+  approval_mode: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CampaignPlanStatus = 'draft' | 'clarifying' | 'planning' | 'planned' | 'approved' | 'executing' | 'completed' | 'paused';
+export type CampaignApprovalMode = 'approve_plan' | 'approve_each' | 'full_auto';
+
+export interface CampaignContentPiece {
+  piece_number: number;
+  title: string;
+  angle: string;
+  target_channel: string;
+  content_role: string;
+  scheduled_date: string | null;
+  format: 'post' | 'carousel' | 'video_script' | 'email';
+  key_message: string;
+  pipeline_id: string | null;
+  status: 'planned' | 'approved' | 'in_progress' | 'completed' | 'failed';
+}
+
+export interface CampaignContentPlan {
+  id: string;
+  goal_id: string;
+  organization_id: string;
+  plan_data: CampaignContentPiece[];
+  total_pieces: number;
+  completed_pieces: number;
+  campaign_start_date: string | null;
+  campaign_end_date: string | null;
+  campaign_duration_days: number | null;
+  approval_mode: CampaignApprovalMode;
+  plan_approved: boolean;
+  plan_approved_at: string | null;
+  clarification_context: Record<string, any> | null;
+  status: CampaignPlanStatus;
   created_at: string;
   updated_at: string;
 }
@@ -31,6 +71,9 @@ export interface AgentPipeline {
   organization_id: string;
   goal_id: string | null;
   campaign_id: string | null;
+  campaign_plan_id: string | null;
+  piece_number: number | null;
+  scheduled_publish_at: string | null;
   content_title: string;
   content_topic: string | null;
   current_stage: AgentPipelineStage;
