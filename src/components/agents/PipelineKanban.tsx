@@ -39,6 +39,12 @@ function calculatePipelineProgress(pipeline: AgentPipeline): { percent: number; 
   return { percent: Math.min(Math.round(progress), 100), completedCount };
 }
 
+const CONTENT_TYPE_CONFIG: Record<ContentType, { label: string; icon: React.ComponentType<{ className?: string; size?: number }>; color: string }> = {
+  multichannel: { label: 'Bài viết', icon: FileText, color: 'text-blue-400' },
+  video_script: { label: 'Video', icon: Video, color: 'text-pink-400' },
+  carousel: { label: 'Carousel', icon: Images, color: 'text-purple-400' },
+};
+
 const GRADE_COLORS: Record<string, string> = {
   'A+': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
   'A': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
