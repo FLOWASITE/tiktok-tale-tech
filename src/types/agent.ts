@@ -40,11 +40,13 @@ export interface CampaignContentPiece {
   piece_number: number;
   title: string;
   angle: string;
+  content_type: ContentType;
   target_channel: string;
   content_role: string;
   scheduled_date: string | null;
   format: 'post' | 'carousel' | 'video_script' | 'email';
   key_message: string;
+  estimated_length: string | null;
   pipeline_id: string | null;
   status: 'planned' | 'approved' | 'in_progress' | 'completed' | 'failed';
 }
@@ -63,6 +65,7 @@ export interface CampaignContentPlan {
   plan_approved: boolean;
   plan_approved_at: string | null;
   clarification_context: Record<string, any> | null;
+  strategy_summary: string | null;
   status: CampaignPlanStatus;
   created_at: string;
   updated_at: string;
