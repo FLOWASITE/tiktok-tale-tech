@@ -1,65 +1,59 @@
 
 
-# Phase 4: Campaign Pipeline Analytics Dashboard
+# Phase 4: Scheduled Publishing — Calendar Integration
 
 ## Tổng quan
 
-Bổ sung vào tab Analytics của Campaign Detail các thống kê từ Agent Pipeline: pipeline performance (tỷ lệ hoàn thành, thời gian TB), approval rate, quality scores trung bình, và pillar/channel distribution.
+Hệ thống pipeline đã có `check_scheduled_publish` (cron 10 phút) + publish stage kiểm tra `scheduled_publish_at`. Tuy nhiên **thiếu cầu nối** giữa pipeline và Content Calendar:
+
+1. Pipeline không tạo `content_schedules` → Calendar không hiển thị scheduled items từ campaign
+2. Publish stage không truyền `scheduleId` cho channel-publisher → publisher không update trạng thái trên Calendar
 
 ## Kế hoạch
 
-### 1. Hook mới: `useCampaignPipelineStats`
+### 1. Tạo `content_schedules` khi spawn pipeline từ campaign plan
 
-**File: `src/hooks/useCampaignPipelineStats.ts`** (MỚI)
+**File: `supabase/functions/agent-pipeline/index.ts`** (SỬA — action `create_from_plan`)
 
-- Query `agent_pipelines` WHERE `campaign_id = campaignId`
-- Tính toán client-side:
-  - **Pipeline stats**: total, completed, failed (is_flagged), in-progress, completion rate, avg completion time
-  - **Approval rate**: pipelines qua stage `approval` không bị flagged / tổng pipelines đã tới approval
-  - **Quality scores**: trung bình `overall_quality_score`, distribution theo grade (A-F)
-  - **Stage distribution**: count pipelines ở mỗi stage (strategy→analyze)
-  - **Channel distribution**: group by `content_type` hoặc parse từ `pipeline_state.metadata.target_channels`
-- Cũng query `campaign_content_plans` WHERE `goal_id` IN campaign's goals để lấy pillar distribution từ `plan_data[].content_role`
+Sau khi insert pipeline (line ~582), nếu `piece.scheduled_date` tồn tại:
+- Insert `content_schedules` record cho mỗi `target_channel` của piece
+- Lưu `schedule_id` vào `pipeline_state.metadata.schedule_ids[channel]`
+- Fields: `content_id` = null (chưa có, sẽ update sau), `channel`, `organization_id`, `scheduled_at`, `publish_status = 'scheduled'`, `created_by`
 
-### 2. Component mới: `PipelineAnalyticsSection`
+### 2. Update `content_schedules.content_id` khi content được tạo
 
-**File: `src/components/campaign/analytics/PipelineAnalyticsSection.tsx`** (MỚI)
+**File: `supabase/functions/agent-pipeline/index.ts`** (SỬA — stage `create`)
 
-Gồm 3 phần:
+Sau khi `content_id` được resolve (sau create stage):
+- Lấy `schedule_ids` từ `pipeline_state.metadata`
+- Update tất cả `content_schedules` có id trong danh sách với `content_id` mới
 
-**a) Stats Cards Row** (4 cards):
-- Tổng pipelines / Hoàn thành
-- Tỷ lệ Approval (%)
-- Quality Score TB (với badge A-F)
-- Thời gian hoàn thành TB
+### 3. Truyền `scheduleId` trong publish stage
 
-**b) Stage Distribution Bar Chart**:
-- Horizontal bar chart hiển thị số pipelines ở mỗi stage (6 stages, color-coded theo `PIPELINE_STAGES`)
-- Dùng Recharts BarChart (đã có trong project)
+**File: `supabase/functions/agent-pipeline/index.ts`** (SỬA — stage `publish`)
 
-**c) Pillar/Content Role Distribution**:
-- Donut chart hoặc horizontal bars hiển thị phân bổ `content_role` (educate, engage, convert, inspire...)
-- Hiển thị tỷ lệ % so với campaign plan
+Trong vòng lặp `for (const channel of targetChannels)`:
+- Lấy `scheduleId` từ `pState.metadata.schedule_ids[channel]`
+- Thêm `scheduleId` vào `pubPayload`
+- Các publisher hiện tại (facebook, twitter, instagram...) **đã có logic** update `content_schedules` khi nhận `scheduleId`
 
-### 3. Tích hợp vào CampaignAnalyticsDashboard
+### 4. Update schedule status khi publish fail
 
-**File: `src/components/campaign/analytics/CampaignAnalyticsDashboard.tsx`** (SỬA)
+**File: `supabase/functions/agent-pipeline/index.ts`** (SỬA — stage `publish`)
 
-- Import `PipelineAnalyticsSection`
-- Thêm section "Pipeline Performance" phía trên KPI charts
-- Truyền `campaign.id` để hook fetch data
+Trong catch block cho mỗi channel:
+- Nếu có `scheduleId`, update `content_schedules` set `publish_status = 'failed'`, `publish_error`
 
-### 4. Cập nhật CampaignDetail page
+### 5. Tạo schedules cho pipeline không qua campaign (optional fallback)
 
-**File: `src/pages/CampaignDetail.tsx`** (KHÔNG CẦN SỬA — campaign object đã được truyền)
+Nếu pipeline có `scheduled_publish_at` nhưng không có `schedule_ids` trong metadata (pipelines cũ hoặc single-goal):
+- Tự tạo `content_schedules` ngay đầu publish stage trước khi gọi publisher
 
 ## Files thay đổi
 
 | File | Thay đổi |
 |------|----------|
-| `src/hooks/useCampaignPipelineStats.ts` | MỚI — fetch pipelines + plans, tính stats |
-| `src/components/campaign/analytics/PipelineAnalyticsSection.tsx` | MỚI — stats cards + stage chart + pillar chart |
-| `src/components/campaign/analytics/CampaignAnalyticsDashboard.tsx` | SỬA — thêm PipelineAnalyticsSection |
+| `supabase/functions/agent-pipeline/index.ts` | SỬA — create schedules on plan spawn, pass scheduleId to publisher, update on fail |
 
-Không cần migration. Không cần edge function. Dữ liệu từ `agent_pipelines` và `campaign_content_plans` đã có sẵn.
+Không cần migration (bảng `content_schedules` đã tồn tại). Không cần file mới. UTM tracking đã tích hợp sẵn trong publish stage.
 
