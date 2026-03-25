@@ -56,12 +56,35 @@ const APPROVAL_MODE_OPTIONS = [
 
 const STEPS = [
   { icon: Target, label: 'Mục tiêu' },
+  { icon: MessageSquare, label: 'Nội dung' },
   { icon: Radio, label: 'Kênh' },
   { icon: Calendar, label: 'Chiến dịch' },
   { icon: ShieldCheck, label: 'Tự động' },
   { icon: Palette, label: 'Liên kết' },
   { icon: Eye, label: 'Xác nhận' },
 ];
+
+const PILLAR_COLORS = [
+  'hsl(var(--primary))',
+  'hsl(var(--chart-2))',
+  'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))',
+  'hsl(var(--chart-5))',
+];
+
+// Static industry-based key message suggestions
+const INDUSTRY_SUGGESTIONS: Record<string, string[]> = {
+  'accounting': ['Tiết kiệm chi phí kế toán', 'Tư vấn thuế chuyên nghiệp', 'Báo cáo tài chính chính xác', 'Hỗ trợ doanh nghiệp SME'],
+  'ecommerce': ['Mua sắm tiện lợi', 'Giao hàng nhanh chóng', 'Ưu đãi độc quyền', 'Sản phẩm chất lượng'],
+  'education': ['Học tập hiệu quả', 'Phương pháp tiên tiến', 'Cam kết đầu ra', 'Giảng viên chất lượng'],
+  'healthcare': ['Sức khỏe toàn diện', 'Đội ngũ bác sĩ giỏi', 'Công nghệ hiện đại', 'Chăm sóc tận tâm'],
+  'technology': ['Giải pháp công nghệ', 'Tối ưu hiệu suất', 'Bảo mật dữ liệu', 'Hỗ trợ 24/7'],
+  'food': ['Nguyên liệu tươi sạch', 'Hương vị đặc biệt', 'Giao hàng nhanh', 'Giá cả hợp lý'],
+  'beauty': ['Làm đẹp tự nhiên', 'Sản phẩm an toàn', 'Kết quả rõ rệt', 'Xu hướng mới nhất'],
+  'real_estate': ['Vị trí đắc địa', 'Pháp lý minh bạch', 'Tiềm năng tăng giá', 'Hỗ trợ vay vốn'],
+};
+
+const DEFAULT_SUGGESTIONS = ['Chất lượng hàng đầu', 'Giá cả cạnh tranh', 'Dịch vụ chuyên nghiệp', 'Uy tín lâu năm'];
 
 interface GoalWizardProps {
   open: boolean;
@@ -119,6 +142,15 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   const [clarificationQuestions, setClarificationQuestions] = useState<any[] | null>(null);
   const [clarificationUnderstanding, setClarificationUnderstanding] = useState<string | null>(null);
   const [clarificationContext, setClarificationContext] = useState<Record<string, string> | null>(null);
+
+  // Get suggestions based on industry
+  const industrySuggestions = (() => {
+    const industry = currentBrand?.industry?.toLowerCase() || '';
+    for (const [key, suggestions] of Object.entries(INDUSTRY_SUGGESTIONS)) {
+      if (industry.includes(key)) return suggestions;
+    }
+    return DEFAULT_SUGGESTIONS;
+  })();
 
   // Initialize pillar allocation from brand
   useEffect(() => {
@@ -186,6 +218,12 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     }
   };
 
+  const addSuggestion = (suggestion: string) => {
+    if (keyMessages.length < 5 && !keyMessages.includes(suggestion)) {
+      setKeyMessages([...keyMessages, suggestion]);
+    }
+  };
+
   const handlePillarChange = (pillarName: string, newValue: number) => {
     const pillars = Object.keys(pillarAllocation);
     if (pillars.length <= 1) return;
@@ -221,8 +259,9 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   const canNext = () => {
     switch (step) {
       case 0: return name.trim().length > 0;
-      case 1: return selectedChannels.length > 0;
-      case 2: return (campaignDurationDays > 0 || (customDuration && parseInt(customDuration) > 0)) && !!campaignStartDate;
+      case 1: return true; // Content step is optional
+      case 2: return selectedChannels.length > 0;
+      case 3: return (campaignDurationDays > 0 || (customDuration && parseInt(customDuration) > 0)) && !!campaignStartDate;
       default: return true;
     }
   };
@@ -313,6 +352,9 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   const confirmStep = STEPS.length - 1; // last step
   const showClarification = step === confirmStep && (clarifying || clarificationQuestions || clarificationUnderstanding);
 
+  const pillarEntries = Object.entries(pillarAllocation);
+  const pillarTotal = pillarEntries.reduce((s, [, v]) => s + v, 0);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
@@ -360,6 +402,23 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                 <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Mô tả mục tiêu campaign để AI lên kế hoạch nội dung phù hợp..." rows={3} className="text-sm resize-none" />
               </div>
 
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                <Bot className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                <p className="text-[11px] text-muted-foreground">
+                  <span className="font-medium text-foreground">Strategy Agent</span> sẽ tự động lên kế hoạch N bài viết với các loại content khác nhau (bài viết, video, carousel) dựa trên brand và mục tiêu của bạn.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Step 1: Nội dung (NEW) */}
+          {step === 1 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-medium">Brief nội dung cho AI</Label>
+                <Badge variant="outline" className="text-[9px] text-muted-foreground">Tùy chọn</Badge>
+              </div>
+
               {/* Key Messages */}
               <div className="space-y-2">
                 <Label className="text-xs flex items-center gap-1">
@@ -391,6 +450,31 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                     ))}
                   </div>
                 )}
+
+                {/* AI Suggestion Chips */}
+                {keyMessages.length < 5 && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <Sparkles className="w-3 h-3 text-primary" />
+                      <span>Gợi ý:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {industrySuggestions
+                        .filter(s => !keyMessages.includes(s))
+                        .slice(0, 4)
+                        .map((suggestion, i) => (
+                          <button
+                            key={i}
+                            onClick={() => addSuggestion(suggestion)}
+                            className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-full border border-dashed border-primary/30 text-primary hover:bg-primary/10 transition-colors"
+                          >
+                            <Plus className="w-2.5 h-2.5" />
+                            {suggestion}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Primary CTA */}
@@ -403,10 +487,32 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
               {currentBrand?.content_pillars && (currentBrand.content_pillars as any[]).length > 0 && (
                 <div className="space-y-3">
                   <Label className="text-xs">Phân bổ Content Pillars (%)</Label>
-                  {Object.entries(pillarAllocation).map(([pillarName, pct]) => (
+
+                  {/* Stacked bar preview */}
+                  <div className="h-3 rounded-full overflow-hidden flex bg-muted">
+                    {pillarEntries.map(([pillarName, pct], i) => (
+                      <div
+                        key={pillarName}
+                        className="h-full transition-all duration-300"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: PILLAR_COLORS[i % PILLAR_COLORS.length],
+                          opacity: pct > 0 ? 1 : 0,
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  {pillarEntries.map(([pillarName, pct], i) => (
                     <div key={pillarName} className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">{pillarName}</span>
+                        <div className="flex items-center gap-1.5">
+                          <div
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: PILLAR_COLORS[i % PILLAR_COLORS.length] }}
+                          />
+                          <span className="text-xs text-muted-foreground">{pillarName}</span>
+                        </div>
                         <span className="text-xs font-medium tabular-nums w-8 text-right">{pct}%</span>
                       </div>
                       <Slider
@@ -419,20 +525,29 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                       />
                     </div>
                   ))}
+
+                  {/* Total indicator */}
+                  <div className={cn(
+                    "text-[10px] font-medium text-right tabular-nums",
+                    pillarTotal === 100 ? "text-green-600" : "text-amber-500"
+                  )}>
+                    Tổng: {pillarTotal}%
+                    {pillarTotal === 100 && <Check className="w-3 h-3 inline ml-1" />}
+                  </div>
                 </div>
               )}
 
               <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
                 <Bot className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                 <p className="text-[11px] text-muted-foreground">
-                  <span className="font-medium text-foreground">Strategy Agent</span> sẽ tự động lên kế hoạch N bài viết với các loại content khác nhau (bài viết, video, carousel) dựa trên brand và mục tiêu của bạn.
+                  Thông tin này sẽ được <span className="font-medium text-foreground">Strategy Agent</span> sử dụng để lên kế hoạch nội dung phù hợp. Bạn có thể bỏ qua bước này.
                 </p>
               </div>
             </div>
           )}
 
-          {/* Step 1: Kênh */}
-          {step === 1 && (
+          {/* Step 2: Kênh */}
+          {step === 2 && (
             <div className="space-y-4">
               <Label className="text-xs">Chọn kênh publish & tần suất</Label>
               <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto">
@@ -474,8 +589,8 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
             </div>
           )}
 
-          {/* Step 2: Chiến dịch (NEW) */}
-          {step === 2 && (
+          {/* Step 3: Chiến dịch */}
+          {step === 3 && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs">Thời lượng chiến dịch</Label>
@@ -543,8 +658,8 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
             </div>
           )}
 
-          {/* Step 3: Tự động */}
-          {step === 3 && (
+          {/* Step 4: Tự động */}
+          {step === 4 && (
             <div className="space-y-3">
               <Label className="text-xs">Mức độ tự động</Label>
               {AUTONOMY_LEVELS.map(lvl => (
@@ -615,8 +730,8 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
             </div>
           )}
 
-          {/* Step 4: Liên kết */}
-          {step === 4 && (
+          {/* Step 5: Liên kết */}
+          {step === 5 && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs">Brand Template</Label>
@@ -646,7 +761,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
             </div>
           )}
 
-          {/* Step 5: Xác nhận */}
+          {/* Step 6: Xác nhận */}
           {step === confirmStep && (
             <div className="space-y-3">
               {showClarification ? (
