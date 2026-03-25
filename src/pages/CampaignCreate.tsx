@@ -100,7 +100,7 @@ export default function CampaignCreate() {
 
   // Get brand pillars from selected brand
   const selectedBrand = brands.find(b => b.id === formData.brand_template_id);
-  const brandPillars: string[] = selectedBrand?.content_pillars || [];
+  const brandPillars: string[] = (selectedBrand?.content_pillars || []).map((p: any) => typeof p === 'string' ? p : p.name || '');
 
   // Handle template selection
   const handleTemplateSelect = (template: CampaignTemplate) => {
