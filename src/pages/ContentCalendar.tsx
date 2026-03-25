@@ -576,6 +576,39 @@ export default function ContentCalendar() {
         },
       });
 
+      // Sync reschedule back to agent_pipelines if campaign-sourced
+      if (schedule.isCampaignSource && schedule.content_id) {
+        try {
+          // Find pipeline by content_id that has schedule_ids in metadata
+          const { data: pipelines } = await supabase
+            .from('agent_pipelines')
+            .select('id, pipeline_state')
+            .eq('content_id', schedule.content_id)
+            .is('completed_at', null)
+            .limit(1);
+          
+          if (pipelines?.length) {
+            const pipeline = pipelines[0];
+            const pState = (pipeline.pipeline_state as Record<string, unknown>) || {};
+            const meta = (pState.metadata as Record<string, unknown>) || {};
+            const scheduleIds = (meta.schedule_ids as Record<string, string>) || {};
+            
+            // Verify this schedule belongs to this pipeline
+            if (Object.values(scheduleIds).includes(schedule.id)) {
+              await supabase
+                .from('agent_pipelines')
+                .update({ 
+                  scheduled_publish_at: newScheduledAt.toISOString() 
+                } as Record<string, unknown>)
+                .eq('id', pipeline.id);
+              console.log(`[Calendar] Synced reschedule to pipeline ${pipeline.id}`);
+            }
+          }
+        } catch (e) {
+          console.warn('[Calendar] Failed to sync reschedule to pipeline:', e);
+        }
+      }
+
       toast({
         title: 'Đã đổi lịch',
         description: `Đã chuyển sang ${format(newScheduledAt, 'dd/MM/yyyy HH:mm', { locale: vi })}`,
