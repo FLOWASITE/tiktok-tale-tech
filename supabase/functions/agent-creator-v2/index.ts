@@ -6,7 +6,7 @@
 //   video_script  → generate-script + analyze-script + improve-script
 //   carousel      → generate-carousel
 //
-// Includes Brief Assembly + Self-Review (6 criteria)
+// Includes Brief Assembly for brand context
 // ============================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
@@ -58,25 +58,12 @@ interface BrandBrief {
   unique_value_proposition?: string;
 }
 
-interface SelfReviewScores {
-  brand_voice: number;
-  topic_relevance: number;
-  structure: number;
-  depth: number;
-  language_quality: number;
-  platform_fit: number;
-  overall: number;
-  verdict: "pass" | "revise" | "fail";
-  feedback?: string;
-}
-
 interface CreatorResult {
   success: boolean;
   content_type: string;
   content_id?: string;
   title?: string;
   output?: any;
-  self_review?: SelfReviewScores;
   error?: string;
 }
 
@@ -144,103 +131,6 @@ async function assembleBrief(
     language_style: brand.language_style,
     target_audience: targetAudience,
   };
-}
-
-// ─── Self-Review (6 criteria) ───
-
-async function selfReview(
-  contentText: string,
-  contentType: string,
-  topic: string,
-  brief: BrandBrief,
-  targetChannel?: string
-): Promise<SelfReviewScores | null> {
-  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!lovableApiKey || !contentText) return null;
-
-  const prompt = `Đánh giá chất lượng nội dung ${contentType} theo 6 tiêu chí (0-100):
-
-CHỦ ĐỀ: ${topic}
-KÊNH: ${targetChannel || "đa kênh"}
-${brief.brand_name ? `BRAND: ${brief.brand_name}. Tone: ${brief.tone_of_voice || "N/A"}. Ngành: ${brief.industry || "N/A"}.` : ""}
-${brief.forbidden_words?.length ? `TỪ CẤM: ${brief.forbidden_words.join(", ")}` : ""}
-
-NỘI DUNG (trích):
-${contentText.slice(0, 4000)}
-
-Đánh giá 6 tiêu chí:
-1. brand_voice (0-100): Tone phù hợp với brand? Có dùng từ cấm không?
-2. topic_relevance (0-100): Bám sát chủ đề "${topic}"?
-3. structure (0-100): Cấu trúc logic, rõ ràng?
-4. depth (0-100): Nội dung sâu, có giá trị?
-5. language_quality (0-100): Ngôn ngữ tự nhiên, không lỗi?
-6. platform_fit (0-100): Phù hợp với kênh ${targetChannel || "đa kênh"}?
-
-Trả về JSON:
-{
-  "brand_voice": <number>,
-  "topic_relevance": <number>,
-  "structure": <number>,
-  "depth": <number>,
-  "language_quality": <number>,
-  "platform_fit": <number>,
-  "feedback": "<1-2 câu nhận xét ngắn>"
-}`;
-
-  try {
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: "Bạn là AI đánh giá chất lượng nội dung. Luôn trả về JSON hợp lệ." },
-          { role: "user", content: prompt },
-        ],
-      }),
-    });
-
-    const aiData = await aiRes.json();
-    const raw = aiData?.choices?.[0]?.message?.content || "";
-    const parsed = parseJsonFromLLM(raw);
-
-    if (!parsed) return null;
-
-    const scores = {
-      brand_voice: clamp(parsed.brand_voice || 70),
-      topic_relevance: clamp(parsed.topic_relevance || 70),
-      structure: clamp(parsed.structure || 70),
-      depth: clamp(parsed.depth || 70),
-      language_quality: clamp(parsed.language_quality || 70),
-      platform_fit: clamp(parsed.platform_fit || 70),
-    };
-
-    // Weighted average
-    const overall = Math.round(
-      scores.brand_voice * 0.20 +
-      scores.topic_relevance * 0.25 +
-      scores.structure * 0.15 +
-      scores.depth * 0.15 +
-      scores.language_quality * 0.10 +
-      scores.platform_fit * 0.15
-    );
-
-    const verdict: "pass" | "revise" | "fail" =
-      overall >= 70 ? "pass" : overall >= 50 ? "revise" : "fail";
-
-    return {
-      ...scores,
-      overall,
-      verdict,
-      feedback: parsed.feedback || undefined,
-    };
-  } catch (e) {
-    console.warn("[self-review] Failed:", e);
-    return null;
-  }
 }
 
 // ─── Helper: Generate images for channels (max 3 concurrent) ───
@@ -513,12 +403,6 @@ async function routeMultichannel(
     result.content_id = multichannelContentId;
   }
 
-  // Self-review
-  const contentText = coreOutput?.content || coreOutput?.article || "";
-  if (contentText) {
-    result.self_review = await selfReview(contentText, "multichannel", input.topic, brief, ctx?.target_channel) || undefined;
-  }
-
   return result;
 }
 
@@ -590,9 +474,6 @@ async function routeVideoScript(
       console.warn("[video_script] Analysis failed:", e);
     }
 
-    // Self-review on final script
-    const finalScript = result.output.improved?.improvedScript || scriptContent;
-    result.self_review = await selfReview(finalScript, "video_script", input.topic, brief, ctx?.target_channel || "tiktok") || undefined;
   }
 
   return result;
@@ -682,32 +563,7 @@ async function routeCarousel(
     }
   }
 
-  // Self-review on carousel text
-  const slidesText = slides
-    .map((s: any, i: number) => `Slide ${i + 1}: ${typeof s.textContent === 'string' ? s.textContent : JSON.stringify(s.textContent || s.headline || "")}`)
-    .join("\n");
-
-  if (slidesText) {
-    result.self_review = await selfReview(slidesText, "carousel", input.topic, brief, targetChannel) || undefined;
-  }
-
   return result;
-}
-
-// ─── JSON parsing ───
-
-function parseJsonFromLLM(text: string): any {
-  if (!text) return null;
-  try { return JSON.parse(text); } catch { /* noop */ }
-  const stripped = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
-  try { return JSON.parse(stripped); } catch { /* noop */ }
-  const match = text.match(/\{[\s\S]*\}/);
-  if (match) { try { return JSON.parse(match[0]); } catch { /* noop */ } }
-  return null;
-}
-
-function clamp(v: number, min = 0, max = 100): number {
-  return Math.max(min, Math.min(max, v));
 }
 
 // ─── Main Handler ───
@@ -779,7 +635,7 @@ Deno.serve(async (req) => {
         );
     }
 
-    console.log(`[creator-v2] Done — type: ${result.content_type}, content_id: ${result.content_id || "N/A"}, review: ${result.self_review?.verdict || "N/A"} (${result.self_review?.overall || "?"}/100)`);
+    console.log(`[creator-v2] Done — type: ${result.content_type}, content_id: ${result.content_id || "N/A"}`);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -286,32 +286,16 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
     }
   }
 
-  // ── 5. Self-review (from pipeline if available) ──
-  let selfReview: any = null;
-  if (pipelineId) {
-    const { data: pipeline } = await supabase
-      .from("agent_pipelines")
-      .select("quality_scores, pipeline_state")
-      .eq("id", pipelineId)
-      .single();
-    const pState = pipeline?.pipeline_state || {};
-    selfReview = (pipeline?.quality_scores as any)?.self_review
-      || pState?.stages?.create?.output?.self_review
-      || null;
-  }
-
-  // ── 6. Merge all scores ──
+  // ── 5. Merge all scores ──
   const geoOverall = geoScores?.overall_score ?? null;
   const compScore = complianceResult?.score ?? null;
-  const selfReviewScore = selfReview?.overall ?? null;
   const personaFitScore = personaFit?.overall ?? null;
 
-  // Weighted overall: GEO 30%, Compliance 25%, Self-review 25%, Persona-fit 20%
+  // Weighted overall: GEO 40%, Compliance 35%, Persona-fit 25%
   const scoreParts: { score: number; weight: number }[] = [];
-  if (geoOverall !== null) scoreParts.push({ score: geoOverall, weight: 0.30 });
-  if (compScore !== null) scoreParts.push({ score: compScore, weight: 0.25 });
-  if (selfReviewScore !== null) scoreParts.push({ score: selfReviewScore, weight: 0.25 });
-  if (personaFitScore !== null) scoreParts.push({ score: personaFitScore, weight: 0.20 });
+  if (geoOverall !== null) scoreParts.push({ score: geoOverall, weight: 0.40 });
+  if (compScore !== null) scoreParts.push({ score: compScore, weight: 0.35 });
+  if (personaFitScore !== null) scoreParts.push({ score: personaFitScore, weight: 0.25 });
 
   let overallScore: number | null = null;
   if (scoreParts.length > 0) {
@@ -337,7 +321,6 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
     compliance_status: complianceResult?.status || null,
     compliance_score: compScore,
     compliance_issues: complianceResult?.issues || [],
-    self_review: selfReview || null,
     persona_fit: personaFit || null,
     overall: overallScore,
     verdict,
