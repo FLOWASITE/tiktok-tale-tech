@@ -261,7 +261,13 @@ export default function AgentDashboard() {
             )}
             <div className="flex gap-4">
               <div className="flex-1 min-w-0">
-                <PipelineKanban pipelines={filteredPipelines} onStageChange={handleStageChange} />
+                <PipelineKanban
+                  pipelines={filteredPipelines}
+                  approvals={approvals}
+                  onStageChange={handleStageChange}
+                  onApprove={(id, notes) => updateApproval.mutate({ id, status: 'approved', notes })}
+                  onReject={(id, notes) => updateApproval.mutate({ id, status: 'rejected', notes: notes || 'Từ chối' })}
+                />
               </div>
               <div className="hidden lg:block w-[200px] flex-shrink-0">
                 <AgentStatusPanel pipelines={filteredPipelines} />
