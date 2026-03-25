@@ -1205,7 +1205,7 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
         const createOutput = pState.stages?.create?.output;
         const qualityOutput = pState.stages?.quality?.output;
 
-        await supabase.from("agent_approvals").insert({
+        const { error: autoApprovalErr } = await supabase.from("agent_approvals").insert({
           pipeline_id: pipeline.id,
           organization_id: pipeline.organization_id,
           content_preview: createOutput?.content_preview || createOutput?.title || `Content: ${pipeline.content_title}`,
@@ -1218,6 +1218,10 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
           },
           status: "pending",
         } as any);
+
+        if (autoApprovalErr) {
+          console.error(`[auto-advance] Failed to create approval record for pipeline ${pipeline.id}:`, JSON.stringify(autoApprovalErr));
+        }
       }
 
       const advanceUpdate: any = {
