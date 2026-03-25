@@ -964,7 +964,51 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
 
     // ========== STAGE: approval ==========
     } else if (stage === "approval") {
-      if (pipeline.autonomy_level === "human_in_loop") {
+      // --- Smart Auto-Approve check ---
+      const qualityOutput = pState.stages?.quality?.output;
+      let smartAutoApproved = false;
+
+      if (pipeline.autonomy_level === "human_in_loop" && pipeline.goal_id) {
+        try {
+          const { data: goalForRules } = await supabase
+            .from("agent_goals")
+            .select("clarification_context")
+            .eq("id", pipeline.goal_id)
+            .single();
+
+          const autoRules = (goalForRules?.clarification_context as any)?.auto_approve_rules;
+          if (autoRules?.enabled && qualityOutput) {
+            const overallScore = qualityOutput.overall ?? 0;
+            const geoScore = qualityOutput.geo?.overall_score ?? 0;
+            const riskScore = qualityOutput.compliance?.risk_score ?? 0;
+            const complianceStatus = qualityOutput.compliance?.status;
+
+            const meetsQuality = overallScore >= (autoRules.min_quality ?? 70);
+            const meetsGeo = geoScore >= (autoRules.min_geo ?? 60);
+            const meetsRisk = riskScore <= (autoRules.max_risk ?? 30);
+            const noBlockingCompliance = complianceStatus !== "blocked";
+
+            if (meetsQuality && meetsGeo && meetsRisk && noBlockingCompliance) {
+              smartAutoApproved = true;
+              await supabase.from("agent_approvals").insert({
+                pipeline_id: pipeline.id,
+                organization_id: pipeline.organization_id,
+                content_preview: pipeline.content_title,
+                scores: qualityOutput,
+                status: "auto_approved",
+                decided_at: new Date().toISOString(),
+                reviewer_notes: `Smart auto-approved: quality=${overallScore}≥${autoRules.min_quality}, geo=${geoScore}≥${autoRules.min_geo}, risk=${riskScore}≤${autoRules.max_risk}`,
+              } as any);
+              result.output = { auto_approved: true, mode: "smart_auto_approve", scores: { overall: overallScore, geo: geoScore, risk: riskScore } };
+              console.log(`[approval] Smart auto-approved pipeline ${pipeline.id}: quality=${overallScore}, geo=${geoScore}, risk=${riskScore}`);
+            }
+          }
+        } catch (e) {
+          console.warn("[approval] Smart auto-approve check failed, falling back:", e);
+        }
+      }
+
+      if (!smartAutoApproved && pipeline.autonomy_level === "human_in_loop") {
         // Check if approval record already exists
         const { data: existingApproval } = await supabase
           .from("agent_approvals")
@@ -984,7 +1028,6 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
         } else {
           // Create new approval record
           const createOutput = pState.stages?.create?.output;
-          const qualityOutput = pState.stages?.quality?.output;
 
           const { data: newApproval, error: approvalInsertErr } = await supabase.from("agent_approvals").insert({
             pipeline_id: pipeline.id,
@@ -1032,7 +1075,7 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
             console.warn("[approval] Notification failed:", e);
           }
         }
-      } else if (pipeline.autonomy_level === "human_on_loop") {
+      } else if (!smartAutoApproved && pipeline.autonomy_level === "human_on_loop") {
         // Auto-approve but create a record for tracking
         await supabase.from("agent_approvals").insert({
           pipeline_id: pipeline.id,
@@ -1043,7 +1086,7 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
           decided_at: new Date().toISOString(),
         } as any);
         result.output = { auto_approved: true, mode: "human_on_loop" };
-      } else {
+      } else if (!smartAutoApproved) {
         // full_auto — skip entirely
         result.output = { auto_approved: true, mode: "full_auto" };
       }

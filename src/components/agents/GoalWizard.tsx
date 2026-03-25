@@ -102,6 +102,12 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   const [campaignStartDate, setCampaignStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [approvalMode, setApprovalMode] = useState('approve_plan');
 
+  // Smart auto-approve thresholds
+  const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
+  const [thresholdQuality, setThresholdQuality] = useState(70);
+  const [thresholdRiskMax, setThresholdRiskMax] = useState(30);
+  const [thresholdGeo, setThresholdGeo] = useState(60);
+
   // Brief fields
   const [keyMessages, setKeyMessages] = useState<string[]>([]);
   const [keyMessageInput, setKeyMessageInput] = useState('');
@@ -163,6 +169,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     setCustomDuration('');
     setCampaignStartDate(new Date().toISOString().split('T')[0]);
     setApprovalMode('approve_plan');
+    setAutoApproveEnabled(false); setThresholdQuality(70); setThresholdRiskMax(30); setThresholdGeo(60);
     setKeyMessages([]); setKeyMessageInput(''); setPrimaryCta('');
     setPillarAllocation({});
     setClarifying(false);
@@ -266,6 +273,14 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     if (keyMessages.length > 0) briefContext.key_messages = keyMessages;
     if (primaryCta.trim()) briefContext.primary_cta = primaryCta.trim();
     if (Object.keys(pillarAllocation).length > 0) briefContext.pillar_allocation = pillarAllocation;
+    if (autoApproveEnabled) {
+      briefContext.auto_approve_rules = {
+        enabled: true,
+        min_quality: thresholdQuality,
+        max_risk: thresholdRiskMax,
+        min_geo: thresholdGeo,
+      };
+    }
 
     const hasContext = Object.keys(briefContext).length > 0;
 
@@ -544,7 +559,59 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+               ))}
+
+              {/* Smart Auto-Approve Rules */}
+              {(approvalMode === 'approve_each' || approvalMode === 'approve_plan') && (
+                <div className="mt-4 space-y-3 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-primary" />
+                      Smart Auto-Approve
+                    </Label>
+                    <button
+                      onClick={() => setAutoApproveEnabled(!autoApproveEnabled)}
+                      className={cn(
+                        "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+                        autoApproveEnabled ? "bg-primary" : "bg-muted-foreground/20"
+                      )}
+                    >
+                      <span className={cn(
+                        "inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform",
+                        autoApproveEnabled ? "translate-x-[18px]" : "translate-x-[3px]"
+                      )} />
+                    </button>
+                  </div>
+                  {autoApproveEnabled && (
+                    <div className="space-y-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                      <p className="text-[10px] text-muted-foreground">
+                        Bài viết đạt đủ ngưỡng sẽ được tự động duyệt, không cần chờ bạn xác nhận.
+                      </p>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px]">Chất lượng tổng ≥</span>
+                          <span className="text-[11px] font-semibold tabular-nums text-primary">{thresholdQuality}</span>
+                        </div>
+                        <Slider value={[thresholdQuality]} min={50} max={95} step={5} onValueChange={([v]) => setThresholdQuality(v)} />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px]">GEO Score ≥</span>
+                          <span className="text-[11px] font-semibold tabular-nums text-primary">{thresholdGeo}</span>
+                        </div>
+                        <Slider value={[thresholdGeo]} min={30} max={90} step={5} onValueChange={([v]) => setThresholdGeo(v)} />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px]">Risk Score ≤</span>
+                          <span className="text-[11px] font-semibold tabular-nums text-destructive">{thresholdRiskMax}</span>
+                        </div>
+                        <Slider value={[thresholdRiskMax]} min={0} max={60} step={5} onValueChange={([v]) => setThresholdRiskMax(v)} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -650,6 +717,16 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                           {Object.entries(pillarAllocation).map(([name, pct]) => (
                             <Badge key={name} variant="outline" className="text-[9px]">{name}: {pct}%</Badge>
                           ))}
+                        </div>
+                      </div>
+                    )}
+                    {autoApproveEnabled && (
+                      <div className="py-1.5 border-b">
+                        <span className="text-muted-foreground">Smart Auto-Approve</span>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          <Badge variant="outline" className="text-[9px]">Quality ≥ {thresholdQuality}</Badge>
+                          <Badge variant="outline" className="text-[9px]">GEO ≥ {thresholdGeo}</Badge>
+                          <Badge variant="outline" className="text-[9px] text-destructive border-destructive/30">Risk ≤ {thresholdRiskMax}</Badge>
                         </div>
                       </div>
                     )}
