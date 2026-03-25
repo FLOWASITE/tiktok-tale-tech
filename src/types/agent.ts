@@ -146,15 +146,13 @@ export interface AgentTeamMember {
 
 // Pipeline stage metadata for UI
 export const PIPELINE_STAGES: { id: AgentPipelineStage; label: string; icon: string; color: string }[] = [
-  { id: 'research', label: 'Nghiên cứu', icon: 'Search', color: 'from-violet-500/20 to-violet-500/10' },
-  { id: 'creation', label: 'Sáng tạo', icon: 'PenTool', color: 'from-blue-500/20 to-blue-500/10' },
-  { id: 'optimization', label: 'Tối ưu', icon: 'Gauge', color: 'from-cyan-500/20 to-cyan-500/10' },
-  { id: 'expansion', label: 'Mở rộng', icon: 'Layers', color: 'from-teal-500/20 to-teal-500/10' },
-  { id: 'compliance', label: 'Tuân thủ', icon: 'ShieldCheck', color: 'from-orange-500/20 to-orange-500/10' },
+  { id: 'strategy', label: 'Chiến lược', icon: 'Search', color: 'from-violet-500/20 to-violet-500/10' },
+  { id: 'create', label: 'Sáng tạo', icon: 'PenTool', color: 'from-blue-500/20 to-blue-500/10' },
+  { id: 'quality', label: 'Chất lượng', icon: 'ShieldCheck', color: 'from-cyan-500/20 to-cyan-500/10' },
   { id: 'approval', label: 'Duyệt', icon: 'UserCheck', color: 'from-amber-500/20 to-amber-500/10' },
-  { id: 'scheduled', label: 'Đã lên lịch', icon: 'Calendar', color: 'from-indigo-500/20 to-indigo-500/10' },
-  { id: 'published', label: 'Đã đăng', icon: 'Send', color: 'from-emerald-500/20 to-emerald-500/10' },
-  { id: 'analyzing', label: 'Phân tích', icon: 'BarChart3', color: 'from-pink-500/20 to-pink-500/10' },
+  { id: 'publish', label: 'Đăng bài', icon: 'Send', color: 'from-emerald-500/20 to-emerald-500/10' },
+  { id: 'analyze', label: 'Phân tích', icon: 'BarChart3', color: 'from-pink-500/20 to-pink-500/10' },
+];
 ];
 
 export const AUTONOMY_LEVELS: { id: AgentAutonomyLevel; label: string; description: string }[] = [

@@ -17,8 +17,7 @@ interface PipelineMonitorTableProps {
 }
 
 const STAGE_ORDER: AgentPipelineStage[] = [
-  'research', 'creation', 'optimization', 'expansion',
-  'compliance', 'approval', 'scheduled', 'published', 'analyzing'
+  'strategy', 'create', 'quality', 'approval', 'publish', 'analyze'
 ];
 
 function StageProgressBar({ pipeline }: { pipeline: AgentPipeline }) {
