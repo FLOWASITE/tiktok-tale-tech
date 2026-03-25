@@ -263,16 +263,16 @@ export function PipelineDetailDialog({ pipeline, open, onOpenChange, onStageChan
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="research" className="flex-1 overflow-hidden flex flex-col">
+        <Tabs defaultValue="strategy" className="flex-1 overflow-hidden flex flex-col">
           <TabsList className="grid w-full grid-cols-4 h-8">
-            <TabsTrigger value="research" className="text-xs">Research</TabsTrigger>
+            <TabsTrigger value="strategy" className="text-xs">Chiến lược</TabsTrigger>
             <TabsTrigger value="logs" className="text-xs">Logs ({logs.length})</TabsTrigger>
             <TabsTrigger value="scores" className="text-xs">Scores</TabsTrigger>
             <TabsTrigger value="actions" className="text-xs">Actions</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="research" className="flex-1 overflow-hidden mt-2">
-            <ResearchOutputTab pipelineState={pipeline.pipeline_state} />
+          <TabsContent value="strategy" className="flex-1 overflow-hidden mt-2">
+            <StrategyOutputTab pipelineState={pipeline.pipeline_state} />
           </TabsContent>
 
           <TabsContent value="logs" className="flex-1 overflow-hidden mt-2">
