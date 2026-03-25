@@ -559,7 +559,59 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+               ))}
+
+              {/* Smart Auto-Approve Rules */}
+              {(approvalMode === 'approve_each' || approvalMode === 'approve_plan') && (
+                <div className="mt-4 space-y-3 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-primary" />
+                      Smart Auto-Approve
+                    </Label>
+                    <button
+                      onClick={() => setAutoApproveEnabled(!autoApproveEnabled)}
+                      className={cn(
+                        "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
+                        autoApproveEnabled ? "bg-primary" : "bg-muted-foreground/20"
+                      )}
+                    >
+                      <span className={cn(
+                        "inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform",
+                        autoApproveEnabled ? "translate-x-[18px]" : "translate-x-[3px]"
+                      )} />
+                    </button>
+                  </div>
+                  {autoApproveEnabled && (
+                    <div className="space-y-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                      <p className="text-[10px] text-muted-foreground">
+                        Bài viết đạt đủ ngưỡng sẽ được tự động duyệt, không cần chờ bạn xác nhận.
+                      </p>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px]">Chất lượng tổng ≥</span>
+                          <span className="text-[11px] font-semibold tabular-nums text-primary">{thresholdQuality}</span>
+                        </div>
+                        <Slider value={[thresholdQuality]} min={50} max={95} step={5} onValueChange={([v]) => setThresholdQuality(v)} />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px]">GEO Score ≥</span>
+                          <span className="text-[11px] font-semibold tabular-nums text-primary">{thresholdGeo}</span>
+                        </div>
+                        <Slider value={[thresholdGeo]} min={30} max={90} step={5} onValueChange={([v]) => setThresholdGeo(v)} />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px]">Risk Score ≤</span>
+                          <span className="text-[11px] font-semibold tabular-nums text-destructive">{thresholdRiskMax}</span>
+                        </div>
+                        <Slider value={[thresholdRiskMax]} min={0} max={60} step={5} onValueChange={([v]) => setThresholdRiskMax(v)} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
