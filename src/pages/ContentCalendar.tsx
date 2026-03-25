@@ -375,18 +375,32 @@ export default function ContentCalendar() {
 
       if (error) throw error;
 
-      const contentIds = [...new Set((schedulesData || []).map(s => s.content_id))];
+      const contentIds = [...new Set((schedulesData || []).map(s => s.content_id).filter(Boolean))];
       
-      const { data: contentsData } = await supabase
+      // Fetch from multi_channel_contents
+      const { data: mccData } = contentIds.length > 0 ? await supabase
         .from('multi_channel_contents')
         .select('id, title, topic')
-        .in('id', contentIds);
+        .in('id', contentIds) : { data: [] };
 
-      const contentMap = new Map((contentsData || []).map(c => [c.id, c]));
+      // Fetch from core_contents for items not found in multi_channel_contents
+      const mccIds = new Set((mccData || []).map(c => c.id));
+      const missingIds = contentIds.filter(id => !mccIds.has(id));
+      
+      const { data: coreData } = missingIds.length > 0 ? await supabase
+        .from('core_contents')
+        .select('id, title, topic')
+        .in('id', missingIds) : { data: [] };
+
+      const contentMap = new Map([
+        ...(mccData || []).map(c => [c.id, c] as const),
+        ...(coreData || []).map(c => [c.id, c] as const),
+      ]);
 
       const merged: ScheduleWithContent[] = (schedulesData || []).map(s => ({
         ...s as ContentSchedule,
-        content: contentMap.get(s.content_id) || undefined,
+        content: s.content_id ? contentMap.get(s.content_id) || undefined : undefined,
+        isCampaignSource: !!(s.notes && (s.notes as string).startsWith('Auto-created from campaign plan')),
       }));
 
       setSchedules(merged);
