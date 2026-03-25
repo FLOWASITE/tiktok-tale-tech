@@ -51,10 +51,17 @@ export function AgentDetailCard({ agent, activePipelines }: AgentDetailCardProps
                 <p className="text-sm text-muted-foreground mt-0.5">{agent.role}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge className={cn('text-[10px] px-2 py-0.5', statusColor)}>
-                {statusLabel} {activePipelines > 0 && `(${activePipelines})`}
-              </Badge>
+          <div className="flex items-center gap-2">
+              <div className="flex flex-col items-end gap-1">
+                <Badge className={cn('text-[10px] px-2 py-0.5', statusColor)}>
+                  {statusLabel} {activePipelines > 0 && `(${activePipelines})`}
+                </Badge>
+                {activePipelines > 0 && (
+                  <div className="h-1 w-16 bg-secondary overflow-hidden rounded-full">
+                    <div className="h-full w-full bg-primary rounded-full animate-pulse" />
+                  </div>
+                )}
+              </div>
               <CollapsibleTrigger asChild>
                 <button className="p-1 rounded-md hover:bg-muted/50 transition-colors">
                   <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />

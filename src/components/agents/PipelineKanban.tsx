@@ -6,13 +6,27 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3, InboxIcon, AlertTriangle, Clock, Check, X } from 'lucide-react';
+import { Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3, InboxIcon, AlertTriangle, Clock, Check, X, CheckCircle2 } from 'lucide-react';
 import { AgentPipeline, AgentPipelineStage, AgentApproval, PIPELINE_STAGES } from '@/types/agent';
+import { getGradeFromScore } from '@/types/creativeScore';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { PipelineDetailDialog } from './PipelineDetailDialog';
+
+const STAGE_PROGRESS: Record<AgentPipelineStage, number> = {
+  strategy: 17, create: 33, quality: 50, approval: 67, publish: 83, analyze: 100,
+};
+
+const GRADE_COLORS: Record<string, string> = {
+  'A+': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+  'A': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
+  'B': 'bg-blue-500/15 text-blue-400 border-blue-500/25',
+  'C': 'bg-amber-500/15 text-amber-400 border-amber-500/25',
+  'D': 'bg-orange-500/15 text-orange-400 border-orange-500/25',
+  'F': 'bg-destructive/15 text-destructive border-destructive/25',
+};
 
 const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3,
@@ -87,6 +101,13 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
     low: 'border-l-muted-foreground/30',
   };
 
+  const isCompleted = !!pipeline.completed_at;
+  const isRunning = !isCompleted && !pipeline.is_flagged;
+  const isApprovalPending = pipeline.current_stage === 'approval' && approval?.status === 'pending';
+  const progress = STAGE_PROGRESS[pipeline.current_stage] || 0;
+  const stageLabel = PIPELINE_STAGES.find(s => s.id === pipeline.current_stage)?.label;
+  const grade = pipeline.overall_quality_score != null ? getGradeFromScore(pipeline.overall_quality_score) : null;
+
   return (
     <Card
       className={cn(
@@ -94,12 +115,23 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
         priorityColors[pipeline.priority] || 'border-l-border',
         isDragging && 'opacity-80 rotate-2 shadow-2xl scale-105',
         pipeline.is_flagged && 'ring-1 ring-destructive/50',
+        isCompleted && 'border-l-emerald-500',
+        isApprovalPending && 'ring-1 ring-amber-500/30 bg-amber-500/[0.03]',
       )}
       onClick={(e) => { e.stopPropagation(); onClick?.(); }}
     >
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-xs font-medium line-clamp-2 leading-relaxed">{pipeline.content_title}</p>
+          <div className="flex items-start gap-1.5 min-w-0">
+            {isCompleted && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />}
+            {isRunning && !isCompleted && (
+              <span className="relative flex h-2 w-2 flex-shrink-0 mt-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/60 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+              </span>
+            )}
+            <p className="text-xs font-medium line-clamp-2 leading-relaxed">{pipeline.content_title}</p>
+          </div>
           {pipeline.is_flagged && (
             <TooltipProvider>
               <Tooltip>
@@ -111,13 +143,38 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
             </TooltipProvider>
           )}
         </div>
+
+        {/* Progress bar */}
+        <div className="space-y-1">
+          <div className="h-1 w-full bg-secondary overflow-hidden rounded-full">
+            <div
+              className={cn(
+                'h-full rounded-full transition-all duration-500',
+                isCompleted ? 'bg-emerald-500' : pipeline.is_flagged ? 'bg-destructive' : 'bg-primary'
+              )}
+              style={{ width: `${isCompleted ? 100 : progress}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] text-muted-foreground">{stageLabel}</span>
+            <span className="text-[9px] text-muted-foreground">{isCompleted ? 100 : progress}%</span>
+          </div>
+        </div>
+
         {pipeline.content_topic && (
           <p className="text-[10px] text-muted-foreground line-clamp-1">{pipeline.content_topic}</p>
         )}
         <div className="flex items-center justify-between">
-          <Badge variant="outline" className="text-[9px] h-4 px-1.5">
-            {pipeline.priority}
-          </Badge>
+          <div className="flex items-center gap-1.5">
+            <Badge variant="outline" className="text-[9px] h-4 px-1.5">
+              {pipeline.priority}
+            </Badge>
+            {grade && (
+              <Badge className={cn('text-[9px] h-4 px-1.5 font-bold border', GRADE_COLORS[grade])}>
+                {grade}
+              </Badge>
+            )}
+          </div>
           {pipeline.estimated_completion && (
             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
               <Clock className="w-2.5 h-2.5" />
@@ -126,13 +183,13 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
           )}
         </div>
         {/* Approve/Reject buttons for approval stage */}
-        {pipeline.current_stage === 'approval' && approval && approval.status === 'pending' && (
+        {isApprovalPending && (
           <div className="flex items-center gap-1.5 pt-1 border-t border-border/30">
             <Button
               size="sm"
               variant="default"
               className="h-7 flex-1 text-[10px] gap-1"
-              onClick={(e) => { e.stopPropagation(); onApprove?.(approval.id); }}
+              onClick={(e) => { e.stopPropagation(); onApprove?.(approval!.id); }}
             >
               <Check className="w-3 h-3" /> Duyệt
             </Button>
@@ -140,7 +197,7 @@ function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onRe
               size="sm"
               variant="destructive"
               className="h-7 flex-1 text-[10px] gap-1"
-              onClick={(e) => { e.stopPropagation(); onReject?.(approval.id, 'Từ chối từ Kanban'); }}
+              onClick={(e) => { e.stopPropagation(); onReject?.(approval!.id, 'Từ chối từ Kanban'); }}
             >
               <X className="w-3 h-3" /> Từ chối
             </Button>
