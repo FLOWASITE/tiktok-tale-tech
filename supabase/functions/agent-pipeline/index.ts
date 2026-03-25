@@ -198,7 +198,7 @@ Deno.serve(async (req) => {
       } as any);
 
       // Fire-and-forget: run the next stage
-      fireNextStage(supabaseUrl, supabaseKey, pipeline_id);
+      fireNextStage(supabaseUrl, supabaseKey, pipeline_id, nextStage);
 
       return json({ success: true, previous_stage: pipeline.current_stage, current_stage: nextStage });
     }
