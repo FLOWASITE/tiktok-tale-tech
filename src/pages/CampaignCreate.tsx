@@ -6,17 +6,21 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Slider } from '@/components/ui/slider';
 import { 
   ArrowLeft, 
   ArrowRight, 
   Check,
   Target,
+  MessageSquare,
   DollarSign,
   Layers,
   Flag,
   X,
   Loader2,
-  Sparkles
+  Sparkles,
+  Info,
+  Plus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCampaigns, useCampaignDetail } from '@/hooks/useCampaigns';
@@ -30,6 +34,7 @@ import {
   type CampaignGoal,
   type CampaignMetric,
   type MilestoneFormData,
+  type CampaignContentBrief,
 } from '@/types/campaign';
 import {
   Select,
@@ -61,7 +66,7 @@ const CHANNELS = [
   { value: 'email', label: 'Email' },
 ];
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 export default function CampaignCreate() {
   const navigate = useNavigate();
@@ -84,12 +89,18 @@ export default function CampaignCreate() {
     budget_currency: 'VND',
     target_channels: [],
     brand_template_id: undefined,
+    content_brief: undefined,
   });
   const [milestones, setMilestones] = useState<MilestoneFormData[]>([]);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const [showTemplateSelector, setShowTemplateSelector] = useState(!isEditMode);
   const [selectedTemplate, setSelectedTemplate] = useState<CampaignTemplate | null>(null);
+  const [newKeyMessage, setNewKeyMessage] = useState('');
+
+  // Get brand pillars from selected brand
+  const selectedBrand = brands.find(b => b.id === formData.brand_template_id);
+  const brandPillars: string[] = (selectedBrand?.content_pillars || []).map((p: any) => typeof p === 'string' ? p : p.name || '');
 
   // Handle template selection
   const handleTemplateSelect = (template: CampaignTemplate) => {
@@ -126,6 +137,7 @@ export default function CampaignCreate() {
         budget_currency: existingCampaign.budget_currency || 'VND',
         target_channels: existingCampaign.target_channels || [],
         brand_template_id: existingCampaign.brand_template_id || undefined,
+        content_brief: existingCampaign.content_brief || undefined,
       });
       
       // Convert existing milestones to form data
@@ -151,14 +163,17 @@ export default function CampaignCreate() {
       completed.push(1);
     }
     if (completed.includes(1)) {
-      completed.push(2); // KPIs step is always "completable"
+      completed.push(2); // Content goals step is always "completable" (optional)
+    }
+    if (completed.includes(2)) {
+      completed.push(3); // KPIs step is always "completable"
     }
     if ((formData.target_channels?.length || 0) > 0) {
-      completed.push(3);
-    }
-    // Step 4 is optional
-    if (milestones.length > 0) {
       completed.push(4);
+    }
+    // Step 5 is optional
+    if (milestones.length > 0) {
+      completed.push(5);
     }
     setCompletedSteps(completed);
   }, [formData, milestones]);
@@ -171,7 +186,6 @@ export default function CampaignCreate() {
     const typeConfig = CAMPAIGN_TYPES.find(t => t.value === type);
     const defaultGoals: CampaignGoal[] = (typeConfig?.defaultMetrics || []).map(metric => {
       const metricConfig = KPI_METRICS.find(m => m.value === metric);
-      // Preserve existing target values if they exist
       const existingGoal = formData.goals?.find(g => g.metric === metric);
       return {
         metric,
@@ -204,15 +218,80 @@ export default function CampaignCreate() {
     updateField('target_channels', newChannels);
   };
 
+  // Content brief helpers
+  const contentBrief = formData.content_brief || { key_messages: [], primary_cta: '', pillar_allocation: {} };
+
+  const updateContentBrief = (updates: Partial<CampaignContentBrief>) => {
+    setFormData(prev => ({
+      ...prev,
+      content_brief: { ...contentBrief, ...updates },
+    }));
+  };
+
+  const addKeyMessage = () => {
+    const msg = newKeyMessage.trim();
+    if (!msg || contentBrief.key_messages.length >= 5) return;
+    if (contentBrief.key_messages.includes(msg)) return;
+    updateContentBrief({ key_messages: [...contentBrief.key_messages, msg] });
+    setNewKeyMessage('');
+  };
+
+  const removeKeyMessage = (index: number) => {
+    updateContentBrief({ key_messages: contentBrief.key_messages.filter((_, i) => i !== index) });
+  };
+
+  const handlePillarSliderChange = (pillar: string, value: number) => {
+    const otherPillars = brandPillars.filter(p => p !== pillar);
+    const currentAlloc = { ...contentBrief.pillar_allocation };
+    const oldValue = currentAlloc[pillar] || 0;
+    const diff = value - oldValue;
+    
+    // Distribute the difference among other pillars proportionally
+    const otherTotal = otherPillars.reduce((sum, p) => sum + (currentAlloc[p] || 0), 0);
+    
+    const newAlloc: Record<string, number> = { ...currentAlloc, [pillar]: value };
+    
+    if (otherTotal > 0 && diff !== 0) {
+      otherPillars.forEach(p => {
+        const share = (currentAlloc[p] || 0) / otherTotal;
+        newAlloc[p] = Math.max(0, Math.round((currentAlloc[p] || 0) - diff * share));
+      });
+    } else if (otherPillars.length > 0) {
+      const remaining = 100 - value;
+      const perPillar = Math.round(remaining / otherPillars.length);
+      otherPillars.forEach((p, i) => {
+        newAlloc[p] = i === otherPillars.length - 1 
+          ? remaining - perPillar * (otherPillars.length - 1) 
+          : perPillar;
+      });
+    }
+    
+    updateContentBrief({ pillar_allocation: newAlloc });
+  };
+
+  // Initialize pillar allocation when brand changes
+  useEffect(() => {
+    if (brandPillars.length > 0 && Object.keys(contentBrief.pillar_allocation).length === 0) {
+      const perPillar = Math.round(100 / brandPillars.length);
+      const alloc: Record<string, number> = {};
+      brandPillars.forEach((p, i) => {
+        alloc[p] = i === brandPillars.length - 1 ? 100 - perPillar * (brandPillars.length - 1) : perPillar;
+      });
+      updateContentBrief({ pillar_allocation: alloc });
+    }
+  }, [brandPillars.length, formData.brand_template_id]);
+
   const canProceed = () => {
     switch (step) {
       case 1:
         return formData.name && formData.start_date && formData.end_date && formData.campaign_type;
       case 2:
-        return true; // KPIs optional
+        return true; // Content goals optional
       case 3:
-        return (formData.target_channels?.length || 0) > 0;
+        return true; // KPIs optional
       case 4:
+        return (formData.target_channels?.length || 0) > 0;
+      case 5:
         return true; // Milestones optional
       default:
         return false;
@@ -220,7 +299,6 @@ export default function CampaignCreate() {
   };
 
   const handleStepClick = (targetStep: number) => {
-    // Only allow going back or to completed steps
     if (targetStep < step || completedSteps.includes(targetStep - 1)) {
       setStep(targetStep);
     }
@@ -235,22 +313,18 @@ export default function CampaignCreate() {
       let savedCampaignId: string;
       
       if (isEditMode && campaignId) {
-        // Update existing campaign
         await updateCampaign({ id: campaignId, data: formData as CampaignFormData });
         savedCampaignId = campaignId;
         
-        // Delete existing milestones and recreate them
         await supabase
           .from('campaign_milestones')
           .delete()
           .eq('campaign_id', campaignId);
       } else {
-        // Create new campaign
         const newCampaign = await createCampaign(formData as CampaignFormData);
         savedCampaignId = newCampaign.id;
       }
       
-      // Insert milestones
       if (milestones.length > 0) {
         const milestonesData = milestones.map((m, index) => ({
           campaign_id: savedCampaignId,
@@ -277,7 +351,6 @@ export default function CampaignCreate() {
     }
   };
 
-  // Show loading state for edit mode
   if (isEditMode && isLoadingCampaign) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -287,6 +360,7 @@ export default function CampaignCreate() {
   }
 
   const isSubmitting = isCreating || isUpdating;
+  const pillarTotal = Object.values(contentBrief.pillar_allocation).reduce((s, v) => s + v, 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -458,8 +532,140 @@ export default function CampaignCreate() {
               </Card>
             )}
 
-            {/* Step 2: KPIs & Budget */}
+            {/* Step 2: Content Goals (NEW) */}
             {step === 2 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-primary" />
+                    Mục tiêu nội dung
+                  </CardTitle>
+                  <CardDescription>
+                    Cung cấp brief để AI Agent lên kế hoạch nội dung phù hợp
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Info box */}
+                  <div className="flex items-start gap-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
+                    <Info className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                    <div className="text-sm text-muted-foreground">
+                      <p className="font-medium text-foreground mb-1">Bước này là tùy chọn</p>
+                      <p>Thông tin này sẽ được Strategy Agent sử dụng để lên kế hoạch nội dung phù hợp với chiến dịch. Bạn có thể bỏ qua và bổ sung sau.</p>
+                    </div>
+                  </div>
+
+                  {/* Key Messages */}
+                  <div className="space-y-3">
+                    <Label>Thông điệp chính (tối đa 5)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="VD: Sản phẩm chất lượng cao, giá hợp lý..."
+                        value={newKeyMessage}
+                        onChange={(e) => setNewKeyMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addKeyMessage();
+                          }
+                        }}
+                        disabled={contentBrief.key_messages.length >= 5}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={addKeyMessage}
+                        disabled={!newKeyMessage.trim() || contentBrief.key_messages.length >= 5}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {contentBrief.key_messages.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {contentBrief.key_messages.map((msg, i) => (
+                          <Badge key={i} variant="secondary" className="gap-1 py-1.5 px-3">
+                            {msg}
+                            <button
+                              type="button"
+                              onClick={() => removeKeyMessage(i)}
+                              className="ml-1 hover:text-destructive transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Nhấn Enter hoặc nút + để thêm. {contentBrief.key_messages.length}/5 thông điệp.
+                    </p>
+                  </div>
+
+                  {/* Primary CTA */}
+                  <div className="space-y-2">
+                    <Label htmlFor="primary_cta">CTA chính (Call-to-Action)</Label>
+                    <Input
+                      id="primary_cta"
+                      placeholder="VD: Mua ngay, Đăng ký dùng thử, Tìm hiểu thêm..."
+                      value={contentBrief.primary_cta}
+                      onChange={(e) => updateContentBrief({ primary_cta: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Hành động chính bạn muốn khách hàng thực hiện
+                    </p>
+                  </div>
+
+                  {/* Pillar Allocation */}
+                  {brandPillars.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label>Phân bổ Content Pillars (%)</Label>
+                        <span className={cn(
+                          'text-sm font-medium',
+                          pillarTotal === 100 ? 'text-green-600' : 'text-yellow-600'
+                        )}>
+                          Tổng: {pillarTotal}%
+                        </span>
+                      </div>
+                      <div className="space-y-4">
+                        {brandPillars.map((pillar) => {
+                          const value = contentBrief.pillar_allocation[pillar] || 0;
+                          return (
+                            <div key={pillar} className="space-y-2">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="font-medium truncate max-w-[70%]">{pillar}</span>
+                                <span className="text-muted-foreground">{value}%</span>
+                              </div>
+                              <Slider
+                                value={[value]}
+                                onValueChange={([v]) => handlePillarSliderChange(pillar, v)}
+                                max={100}
+                                step={5}
+                                className="w-full"
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Kéo slider để phân bổ tỷ lệ nội dung cho từng pillar. Hệ thống tự động cân bằng tổng = 100%.
+                      </p>
+                    </div>
+                  )}
+
+                  {brandPillars.length === 0 && (
+                    <div className="p-4 rounded-lg border border-dashed border-border">
+                      <p className="text-sm text-muted-foreground text-center">
+                        Chọn Brand ở bước 1 để hiển thị Content Pillars và phân bổ tỷ lệ
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Step 3: KPIs & Budget */}
+            {step === 3 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -529,8 +735,8 @@ export default function CampaignCreate() {
               </Card>
             )}
 
-            {/* Step 3: Channels */}
-            {step === 3 && (
+            {/* Step 4: Channels */}
+            {step === 4 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -578,8 +784,8 @@ export default function CampaignCreate() {
               </Card>
             )}
 
-            {/* Step 4: Milestones */}
-            {step === 4 && (
+            {/* Step 5: Milestones */}
+            {step === 5 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">

@@ -9,7 +9,8 @@ import type {
   CampaignContent,
   MilestoneFormData,
   CampaignGoal,
-  CampaignStatus
+  CampaignStatus,
+  CampaignContentBrief
 } from '@/types/campaign';
 import type { Json } from '@/integrations/supabase/types';
 
@@ -22,6 +23,12 @@ function parseGoals(goals: Json | null): CampaignGoal[] {
 // Helper to convert CampaignGoal[] to Json
 function goalsToJson(goals: CampaignGoal[]): Json {
   return goals as unknown as Json;
+}
+
+// Helper to safely parse content_brief from JSON
+function parseContentBrief(brief: Json | null): CampaignContentBrief | null {
+  if (!brief || typeof brief !== 'object' || Array.isArray(brief)) return null;
+  return brief as unknown as CampaignContentBrief;
 }
 
 export function useCampaigns() {
@@ -48,6 +55,7 @@ export function useCampaigns() {
         goals: parseGoals(campaign.goals),
         target_channels: campaign.target_channels || [],
         tags: campaign.tags || [],
+        content_brief: parseContentBrief(campaign.content_brief),
       })) as Campaign[];
     },
     enabled: !!orgId,
@@ -75,6 +83,7 @@ export function useCampaigns() {
           budget_currency: formData.budget_currency || 'VND',
           target_channels: formData.target_channels || [],
           tags: formData.tags || [],
+          content_brief: formData.content_brief ? (formData.content_brief as unknown as Json) : null,
           created_by: userData.user?.id || null,
           status: 'draft',
         })
@@ -88,6 +97,7 @@ export function useCampaigns() {
         goals: parseGoals(data.goals),
         target_channels: data.target_channels || [],
         tags: data.tags || [],
+        content_brief: parseContentBrief(data.content_brief),
       } as Campaign;
     },
     onSuccess: () => {
@@ -107,6 +117,9 @@ export function useCampaigns() {
       if (updateData.goals) {
         updatePayload.goals = goalsToJson(updateData.goals);
       }
+      if (updateData.content_brief !== undefined) {
+        updatePayload.content_brief = updateData.content_brief ? (updateData.content_brief as unknown as Json) : null;
+      }
       
       const { data, error } = await supabase
         .from('campaigns')
@@ -122,6 +135,7 @@ export function useCampaigns() {
         goals: parseGoals(data.goals),
         target_channels: data.target_channels || [],
         tags: data.tags || [],
+        content_brief: parseContentBrief(data.content_brief),
       } as Campaign;
     },
     onSuccess: () => {
@@ -171,6 +185,7 @@ export function useCampaigns() {
         goals: parseGoals(data.goals),
         target_channels: data.target_channels || [],
         tags: data.tags || [],
+        content_brief: parseContentBrief(data.content_brief),
       } as Campaign;
     },
     onSuccess: () => {
@@ -200,6 +215,7 @@ export function useCampaigns() {
         goals: parseGoals(data.goals),
         target_channels: data.target_channels || [],
         tags: data.tags || [],
+        content_brief: parseContentBrief(data.content_brief),
       } as Campaign;
     },
     onSuccess: () => {
@@ -259,6 +275,7 @@ export function useCampaignDetail(campaignId: string | undefined) {
           goals: parseGoals(data.goals),
           target_channels: data.target_channels || [],
           tags: data.tags || [],
+          content_brief: parseContentBrief(data.content_brief),
         } as Campaign,
         industries: brandTemplate?.industry ?? null,
       };
@@ -405,6 +422,7 @@ export function useCampaignDetail(campaignId: string | undefined) {
         goals: parseGoals(data.goals),
         target_channels: data.target_channels || [],
         tags: data.tags || [],
+        content_brief: parseContentBrief(data.content_brief),
       } as Campaign;
     },
     onSuccess: () => {

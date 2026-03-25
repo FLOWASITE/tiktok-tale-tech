@@ -1,4 +1,4 @@
-import { Check, Target, DollarSign, Layers, Flag } from 'lucide-react';
+import { Check, Target, MessageSquare, DollarSign, Layers, Flag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 
@@ -11,9 +11,10 @@ interface Step {
 
 const CAMPAIGN_FORM_STEPS: Step[] = [
   { id: 1, title: 'Thông tin cơ bản', shortTitle: 'Cơ bản', icon: Target },
-  { id: 2, title: 'KPIs & Ngân sách', shortTitle: 'KPIs', icon: DollarSign },
-  { id: 3, title: 'Kênh phân phối', shortTitle: 'Kênh', icon: Layers },
-  { id: 4, title: 'Milestones', shortTitle: 'Milestones', icon: Flag },
+  { id: 2, title: 'Mục tiêu nội dung', shortTitle: 'Mục tiêu', icon: MessageSquare },
+  { id: 3, title: 'KPIs & Ngân sách', shortTitle: 'KPIs', icon: DollarSign },
+  { id: 4, title: 'Kênh phân phối', shortTitle: 'Kênh', icon: Layers },
+  { id: 5, title: 'Milestones', shortTitle: 'Milestones', icon: Flag },
 ];
 
 interface CampaignFormStepperProps {
