@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   Target, ChevronRight, Calendar, Clock, CheckCircle2,
-  AlertCircle, Pause, Play, Loader2, Sparkles, ArrowLeft, RefreshCw
+  AlertCircle, Pause, Play, Loader2, Sparkles, ArrowLeft, RefreshCw, ShieldAlert
 } from 'lucide-react';
 import { useAgentGoals } from '@/hooks/useAgentGoals';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
