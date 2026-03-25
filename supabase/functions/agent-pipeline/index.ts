@@ -915,7 +915,7 @@ Trả về JSON (KHÔNG markdown):
       // Exponential backoff delay then fire retry as new invocation
       const delayMs = Math.pow(2, currentRetries) * 1000;
       await new Promise(r => setTimeout(r, delayMs));
-      fireNextStage(supabaseUrl, supabaseKey, pipeline.id);
+      fireNextStage(supabaseUrl, supabaseKey, pipeline.id, stage);
 
       return { success: false, stage, retrying: true, retry_count: currentRetries + 1, error: errorMessage };
     }
