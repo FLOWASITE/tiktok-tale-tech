@@ -18,6 +18,34 @@ import { PipelineDetailDialog } from './PipelineDetailDialog';
 
 const TOTAL_STAGES = 6;
 
+/** What each agent stage is actively doing — shown below progress bar */
+const STAGE_ACTIVITY: Record<AgentPipelineStage, string> = {
+  strategy: 'Đang phân tích chiến lược...',
+  create: 'Đang sáng tạo nội dung...',
+  quality: 'Đang kiểm tra chất lượng...',
+  approval: 'Chờ duyệt nội dung',
+  publish: 'Đang đăng bài...',
+  analyze: 'Đang phân tích hiệu quả...',
+};
+
+/** Elapsed time hook — ticks every second while stage is in_progress */
+function useElapsed(startedAt: string | null | undefined, active: boolean) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!active || !startedAt) return;
+    const id = setInterval(() => tick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [active, startedAt]);
+  if (!active || !startedAt) return null;
+  const ms = Date.now() - new Date(startedAt).getTime();
+  if (ms < 0) return null;
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${s % 60}s`;
+  return `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+
 function calculatePipelineProgress(pipeline: AgentPipeline): { percent: number; completedCount: number } {
   if (pipeline.completed_at) return { percent: 100, completedCount: TOTAL_STAGES };
 
