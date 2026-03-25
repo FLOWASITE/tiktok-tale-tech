@@ -286,6 +286,75 @@ Deno.serve(async (req) => {
       return json({ success: true, triggered });
     }
 
+    // ========== ACTION: recover_stuck ==========
+    if (action === "recover_stuck") {
+      const stuckThresholdMs = 15 * 60 * 1000; // 15 minutes
+      const cutoff = new Date(Date.now() - stuckThresholdMs).toISOString();
+
+      // Find pipelines stuck: stage_started_at > 15 min ago, not completed
+      const { data: stuckPipelines, error: stuckErr } = await supabase
+        .from("agent_pipelines")
+        .select("id, current_stage, pipeline_state, organization_id")
+        .is("completed_at", null)
+        .lt("stage_started_at", cutoff)
+        .not("current_stage", "eq", "approval"); // Don't auto-recover approval (needs human)
+
+      if (stuckErr) throw new Error(`Query stuck pipelines failed: ${stuckErr.message}`);
+      if (!stuckPipelines?.length) {
+        return json({ success: true, recovered: 0, message: "No stuck pipelines found" });
+      }
+
+      // Optionally filter by organization_id
+      const filtered = organization_id
+        ? stuckPipelines.filter((p: any) => p.organization_id === organization_id)
+        : stuckPipelines;
+
+      let recovered = 0;
+      for (const p of filtered) {
+        const pState = (p.pipeline_state as any) || { stages: {} };
+        const stageState = pState.stages?.[p.current_stage];
+
+        // Reset stage status to pending for re-execution
+        if (pState.stages?.[p.current_stage]) {
+          pState.stages[p.current_stage] = {
+            ...stageState,
+            status: "pending",
+            last_error: stageState?.last_error || null,
+            retry_count: (stageState?.retry_count || 0) + 1,
+            recovered_at: new Date().toISOString(),
+          };
+        }
+
+        const now = new Date().toISOString();
+        await supabase
+          .from("agent_pipelines")
+          .update({
+            pipeline_state: pState,
+            stage_started_at: now,
+            is_flagged: false,
+          } as any)
+          .eq("id", p.id);
+
+        await supabase.from("agent_pipeline_logs").insert({
+          pipeline_id: p.id,
+          agent_name: "recovery",
+          action: "recover_stuck",
+          input_summary: `Stage: ${p.current_stage}, stuck > 15min`,
+          output_summary: "Reset to pending, re-firing",
+        } as any);
+
+        // Staggered re-fire: 5s between each pipeline
+        const delay = recovered * 5000;
+        setTimeout(() => {
+          fireNextStage(supabaseUrl, supabaseKey, p.id, p.current_stage);
+        }, delay);
+
+        recovered++;
+      }
+
+      return json({ success: true, recovered, total_stuck: filtered.length });
+    }
+
     // ========== ACTION: create_from_plan ==========
     if (action === "create_from_plan") {
       const { plan_id } = body;
@@ -392,7 +461,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Unknown action. Use: trigger_from_goal, advance_stage, run_stage, check_scheduled_goals, check_scheduled_publish, create_from_plan" }),
+      JSON.stringify({ error: "Unknown action. Use: trigger_from_goal, advance_stage, run_stage, check_scheduled_goals, check_scheduled_publish, create_from_plan, recover_stuck" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
@@ -1117,7 +1186,16 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
       } as any);
 
       if (!(nextStage === "approval" && pipeline.autonomy_level === "human_in_loop")) {
-        fireNextStage(supabaseUrl, supabaseKey, pipeline.id, nextStage);
+        // Stagger quality stage invocations to prevent concurrency overload
+        if (nextStage === "quality") {
+          const staggerDelay = Math.floor(Math.random() * 15000); // 0-15s random delay
+          console.log(`[advance] Staggering quality stage fire by ${staggerDelay}ms for pipeline ${pipeline.id}`);
+          setTimeout(() => {
+            fireNextStage(supabaseUrl, supabaseKey, pipeline.id, nextStage);
+          }, staggerDelay);
+        } else {
+          fireNextStage(supabaseUrl, supabaseKey, pipeline.id, nextStage);
+        }
       }
     }
   }
