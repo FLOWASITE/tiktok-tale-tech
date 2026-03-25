@@ -285,11 +285,14 @@ async function generateImagesForChannels(
 async function generateCarouselImages(
   supabaseUrl: string,
   serviceKey: string,
+  supabase: any,
   carouselId: string,
   slides: any[],
   brandTemplateId: string | null | undefined,
   visualPreset: string,
   carouselStyle: string,
+  organizationId: string,
+  createdBy: string | null,
 ): Promise<{ success: number; failed: number }> {
   let successCount = 0;
   let failedCount = 0;
@@ -313,21 +316,61 @@ async function generateCarouselImages(
         });
       })
     );
-    results.forEach((r, idx) => {
-      if (r.status === "fulfilled") {
+
+    for (let idx = 0; idx < results.length; idx++) {
+      const slideNumber = i + idx + 1;
+      const slide = batch[idx];
+      const result = results[idx];
+
+      if (result.status !== "fulfilled") {
+        console.warn(`[carousel] Image failed for slide ${slideNumber}:`, result.reason);
+        failedCount++;
+        continue;
+      }
+
+      const output = result.value;
+      const imageUrl = output?.imageUrl || output?.backgroundUrl;
+      if (!imageUrl) {
+        console.warn(`[carousel] Missing imageUrl for slide ${slideNumber}`);
+        failedCount++;
+        continue;
+      }
+
+      try {
+        await supabase
+          .from("carousel_images")
+          .update({ is_selected: false })
+          .eq("carousel_id", carouselId)
+          .eq("slide_number", slideNumber)
+          .eq("is_selected", true);
+
+        const { error: insertErr } = await supabase
+          .from("carousel_images")
+          .insert({
+            carousel_id: carouselId,
+            slide_number: slideNumber,
+            image_url: imageUrl,
+            prompt: slide?.fullPrompt || slide?.designStyle || null,
+            is_selected: true,
+            organization_id: organizationId,
+            created_by: createdBy || null,
+          });
+
+        if (insertErr) {
+          throw insertErr;
+        }
+
         successCount++;
-        // Capture scene description for seamless continuity
-        const output = r.value;
         if (output?.sceneDescription) {
           previousSceneDescription = output.sceneDescription;
         }
-      } else {
-        const slideNum = i + idx + 1;
-        console.warn(`[carousel] Image failed for slide ${slideNum}:`, r.reason);
+      } catch (dbErr) {
+        console.warn(`[carousel] Failed to persist image for slide ${slideNumber}:`, dbErr);
         failedCount++;
       }
-    });
+    }
   }
+
   return { success: successCount, failed: failedCount };
 }
 
@@ -426,7 +469,7 @@ async function routeMultichannel(
         brandTemplateId: input.brand_template_id,
         userId: expansionUserId,
         campaign_id: input.campaign_id || null,
-        qualityMode: "speed",
+        qualityMode: "fast",
       };
       // Only pass coreContentId if we created core content
       if (contentId) {
@@ -450,14 +493,24 @@ async function routeMultichannel(
         console.log(`[multichannel] Images done: ${imageResults.success.length} ok, ${imageResults.failed.length} failed`);
       }
     } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : "Unknown";
       console.warn("[multichannel] Generation failed:", e);
-      result.output.multichannel = { error: e instanceof Error ? e.message : "Unknown" };
+      result.success = false;
+      result.error = `Multichannel generation failed: ${errorMessage}`;
+      result.output.multichannel = { error: errorMessage };
     }
+  }
+
+  if (targetChannels.length > 0 && !multichannelContentId) {
+    result.success = false;
+    result.error = result.error || "No multichannel content generated";
+    return result;
   }
 
   // Store multichannel_content_id for pipeline
   if (multichannelContentId) {
     (result as any).multichannel_content_id = multichannelContentId;
+    result.content_id = multichannelContentId;
   }
 
   // Self-review
@@ -609,15 +662,24 @@ async function routeCarousel(
   if (carouselId && slides.length > 0) {
     console.log(`[carousel] Phase 2: Generating images for ${slides.length} slides`);
     const imageResults = await generateCarouselImages(
-      supabaseUrl, serviceKey,
+      supabaseUrl,
+      serviceKey,
+      supabase,
       carouselId,
       slides,
       input.brand_template_id,
       visualPreset,
       carouselStyle,
+      input.organization_id,
+      userId,
     );
     result.output.carousel_images = imageResults;
     console.log(`[carousel] Images done: ${imageResults.success} ok, ${imageResults.failed} failed`);
+
+    if (imageResults.success === 0) {
+      result.success = false;
+      result.error = "Carousel image generation failed for all slides";
+    }
   }
 
   // Self-review on carousel text

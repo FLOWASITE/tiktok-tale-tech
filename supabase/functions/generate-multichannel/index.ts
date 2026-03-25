@@ -194,6 +194,19 @@ const QUALITY_MODE_CONFIG: Record<QualityMode, { skipCritique: boolean; maxRefin
   quality: { skipCritique: false, maxRefinements: 2 },
 };
 
+function normalizeQualityMode(mode?: string | null): QualityMode {
+  if (mode === 'fast' || mode === 'balanced' || mode === 'quality') {
+    return mode;
+  }
+
+  if (mode) {
+    console.warn(`[quality-mode] Invalid value '${mode}', fallback to 'fast'`);
+    return 'fast';
+  }
+
+  return 'balanced';
+}
+
 // Selected hook structure for multichannel
 interface SelectedHook {
   channel: string;
@@ -2462,7 +2475,7 @@ Nội dung sẵn sàng đăng ngay.`;
       }
       
       // NEW: Build Smart Context for enhanced generation
-      const qualityMode: QualityMode = (formData.qualityMode || 'balanced') as QualityMode;
+      const qualityMode = normalizeQualityMode(formData.qualityMode);
       let smartContext: SmartContextResult | null = null;
 
       if (qualityMode !== 'fast') {
@@ -2965,7 +2978,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             // SELF-CRITIQUE LOOP (Post-streaming)
             // Based on qualityMode: fast skips, balanced/quality runs
             // ============================================
-            const qualityMode = formData.qualityMode || 'balanced';
+            const qualityMode = normalizeQualityMode(formData.qualityMode);
             const qualityConfig = QUALITY_MODE_CONFIG[qualityMode];
             console.log(`[streaming-mode][quality-mode] Using '${qualityMode}': skipCritique=${qualityConfig.skipCritique}`);
             
@@ -3420,7 +3433,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
     }
 
     // NEW: Build Smart Context for enhanced generation
-    const qualityMode: QualityMode = (formData.qualityMode || 'balanced') as QualityMode;
+    const qualityMode = normalizeQualityMode(formData.qualityMode);
     let smartContext: SmartContextResult | null = null;
 
     if (qualityMode !== 'fast') {
@@ -3853,56 +3866,66 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       
       console.log(`Calling AI (${modelConfig.model}) for channels: ${channelsToGenerate.join(', ')}`);
       
-      const result = await callAI({
-        functionName: 'generate-multichannel',
-        organizationId: organizationId || undefined,
-        modelOverride: modelConfig.model,
-        temperatureOverride: modelConfig.temperature,
-        messages: [
-          { role: "system", content: aiConfig.custom_system_prompt || systemPrompt },
-          { role: "user", content: currentPrompt + `\n\n[CHỈ TẠO NỘI DUNG CHO CÁC KÊNH: ${channelsToGenerate.join(', ').toUpperCase()}]` },
-        ],
-        tools: channelTools,
-        toolChoice: { type: "function", function: { name: "generate_multichannel_content" } },
-        maxTokensOverride: effectiveMaxTokens,
-      });
+      const MAX_INVALID_FORMAT_RETRIES = 2;
 
-      if (!result.success) {
-        console.error("AI call failed:", result.error);
-        
-        if (result.error?.includes("Rate limit") || result.error?.includes("429")) {
-          throw { status: 429, message: "Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau." };
+      for (let attempt = 0; attempt <= MAX_INVALID_FORMAT_RETRIES; attempt++) {
+        const result = await callAI({
+          functionName: 'generate-multichannel',
+          organizationId: organizationId || undefined,
+          modelOverride: modelConfig.model,
+          temperatureOverride: modelConfig.temperature,
+          messages: [
+            { role: "system", content: aiConfig.custom_system_prompt || systemPrompt },
+            { role: "user", content: currentPrompt + `\n\n[CHỈ TẠO NỘI DUNG CHO CÁC KÊNH: ${channelsToGenerate.join(', ').toUpperCase()}]` },
+          ],
+          tools: channelTools,
+          toolChoice: { type: "function", function: { name: "generate_multichannel_content" } },
+          maxTokensOverride: effectiveMaxTokens,
+        });
+
+        if (!result.success) {
+          console.error("AI call failed:", result.error);
+
+          if (result.error?.includes("Rate limit") || result.error?.includes("429")) {
+            throw { status: 429, message: "Đã vượt giới hạn yêu cầu. Vui lòng thử lại sau." };
+          }
+          if (result.error?.includes("Payment required") || result.error?.includes("402")) {
+            throw { status: 402, message: "Cần nạp thêm credits để tiếp tục sử dụng." };
+          }
+          throw new Error(`AI error: ${result.error}`);
         }
-        if (result.error?.includes("Payment required") || result.error?.includes("402")) {
-          throw { status: 402, message: "Cần nạp thêm credits để tiếp tục sử dụng." };
+
+        console.log(`AI response from ${result.provider}${result.fromFallback ? ' (fallback)' : ''} for ${channelsToGenerate.length} channels`);
+
+        const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
+        if (!toolCall || toolCall.function.name !== "generate_multichannel_content") {
+          if (attempt < MAX_INVALID_FORMAT_RETRIES) {
+            console.warn(`[ai-format] Invalid response format, retry ${attempt + 1}/${MAX_INVALID_FORMAT_RETRIES}`);
+            continue;
+          }
+          throw new Error("Invalid AI response format");
         }
-        throw new Error(`AI error: ${result.error}`);
+
+        // Extract actual token usage from API response
+        const usage = result.data?.usage ? {
+          prompt_tokens: result.data.usage.prompt_tokens || 0,
+          completion_tokens: result.data.usage.completion_tokens || 0,
+        } : null;
+
+        // Extract actual cost from provider (Lovable Gateway returns upstream_inference_cost)
+        const upstreamCost = result.data?.usage?.cost_details?.upstream_inference_cost;
+        if (usage && upstreamCost) {
+          (usage as any).upstream_cost = upstreamCost;
+        }
+
+        return {
+          parsed: JSON.parse(toolCall.function.arguments),
+          usage,
+          modelUsed: result.model || modelConfig.model,
+        };
       }
 
-      console.log(`AI response from ${result.provider}${result.fromFallback ? ' (fallback)' : ''} for ${channelsToGenerate.length} channels`);
-
-      const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
-      if (!toolCall || toolCall.function.name !== "generate_multichannel_content") {
-        throw new Error("Invalid AI response format");
-      }
-
-      // Extract actual token usage from API response
-      const usage = result.data?.usage ? {
-        prompt_tokens: result.data.usage.prompt_tokens || 0,
-        completion_tokens: result.data.usage.completion_tokens || 0,
-      } : null;
-      
-      // Extract actual cost from provider (Lovable Gateway returns upstream_inference_cost)
-      const upstreamCost = result.data?.usage?.cost_details?.upstream_inference_cost;
-      if (usage && upstreamCost) {
-        (usage as any).upstream_cost = upstreamCost;
-      }
-
-      return { 
-        parsed: JSON.parse(toolCall.function.arguments), 
-        usage,
-        modelUsed: result.model || modelConfig.model,
-      };
+      throw new Error("Invalid AI response format");
     };
 
     // ============================================
