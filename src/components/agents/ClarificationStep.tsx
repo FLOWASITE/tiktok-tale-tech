@@ -56,10 +56,10 @@ export function ClarificationStep({ questions, understanding, onSubmit, onSkip, 
   if (understanding) {
     return (
       <div className="space-y-4">
-        <div className="flex items-start gap-2.5 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-          <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+        <div className="flex items-start gap-2.5 p-3 rounded-lg bg-primary/10 border border-primary/20">
+          <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-medium text-green-700 dark:text-green-400">AI đã hiểu mục tiêu</p>
+            <p className="text-sm font-medium text-foreground">AI đã hiểu mục tiêu</p>
             <p className="text-xs text-muted-foreground mt-1">{understanding}</p>
           </div>
         </div>
