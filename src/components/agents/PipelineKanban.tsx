@@ -6,8 +6,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3, InboxIcon, AlertTriangle, Clock } from 'lucide-react';
-import { AgentPipeline, AgentPipelineStage, PIPELINE_STAGES } from '@/types/agent';
+import { Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3, InboxIcon, AlertTriangle, Clock, Check, X } from 'lucide-react';
+import { AgentPipeline, AgentPipelineStage, AgentApproval, PIPELINE_STAGES } from '@/types/agent';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -19,12 +20,15 @@ const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> =
 
 interface PipelineKanbanProps {
   pipelines: AgentPipeline[];
+  approvals?: AgentApproval[];
   onStageChange?: (id: string, stage: AgentPipelineStage) => void;
   onFlagToggle?: (id: string, flagged: boolean) => void;
   onDelete?: (id: string) => void;
+  onApprove?: (approvalId: string, notes?: string) => void;
+  onReject?: (approvalId: string, notes: string) => void;
 }
 
-function PipelineColumn({ stage, pipelines, onCardClick }: { stage: typeof PIPELINE_STAGES[0]; pipelines: AgentPipeline[]; onCardClick?: (p: AgentPipeline) => void }) {
+function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, onApprove, onReject }: { stage: typeof PIPELINE_STAGES[0]; pipelines: AgentPipeline[]; onCardClick?: (p: AgentPipeline) => void; approvalMap?: Map<string, AgentApproval>; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void }) {
   const { isOver, setNodeRef } = useDroppable({ id: stage.id });
   const Icon = STAGE_ICONS[stage.icon] || Lightbulb;
 
@@ -54,7 +58,14 @@ function PipelineColumn({ stage, pipelines, onCardClick }: { stage: typeof PIPEL
       <ScrollArea className="h-[calc(100vh-420px)] min-h-[300px]">
         <div className="p-2 space-y-2">
           {pipelines.map(p => (
-            <PipelineCard key={p.id} pipeline={p} onClick={() => onCardClick?.(p)} />
+            <PipelineCard
+              key={p.id}
+              pipeline={p}
+              onClick={() => onCardClick?.(p)}
+              approval={approvalMap?.get(p.id)}
+              onApprove={onApprove}
+              onReject={onReject}
+            />
           ))}
           {pipelines.length === 0 && (
             <div className="flex flex-col items-center justify-center py-10 text-center">
@@ -68,7 +79,7 @@ function PipelineColumn({ stage, pipelines, onCardClick }: { stage: typeof PIPEL
   );
 }
 
-function PipelineCard({ pipeline, isDragging, onClick }: { pipeline: AgentPipeline; isDragging?: boolean; onClick?: () => void }) {
+function PipelineCard({ pipeline, isDragging, onClick, approval, onApprove, onReject }: { pipeline: AgentPipeline; isDragging?: boolean; onClick?: () => void; approval?: AgentApproval; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void }) {
   const priorityColors: Record<string, string> = {
     urgent: 'border-l-red-500',
     high: 'border-l-orange-500',
@@ -114,14 +125,42 @@ function PipelineCard({ pipeline, isDragging, onClick }: { pipeline: AgentPipeli
             </span>
           )}
         </div>
+        {/* Approve/Reject buttons for approval stage */}
+        {pipeline.current_stage === 'approval' && approval && approval.status === 'pending' && (
+          <div className="flex items-center gap-1.5 pt-1 border-t border-border/30">
+            <Button
+              size="sm"
+              variant="default"
+              className="h-7 flex-1 text-[10px] gap-1"
+              onClick={(e) => { e.stopPropagation(); onApprove?.(approval.id); }}
+            >
+              <Check className="w-3 h-3" /> Duyệt
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-7 flex-1 text-[10px] gap-1"
+              onClick={(e) => { e.stopPropagation(); onReject?.(approval.id, 'Từ chối từ Kanban'); }}
+            >
+              <X className="w-3 h-3" /> Từ chối
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-export function PipelineKanban({ pipelines, onStageChange, onFlagToggle, onDelete }: PipelineKanbanProps) {
+export function PipelineKanban({ pipelines, approvals, onStageChange, onFlagToggle, onDelete, onApprove, onReject }: PipelineKanbanProps) {
   const [activePipeline, setActivePipeline] = useState<AgentPipeline | null>(null);
   const [selectedPipeline, setSelectedPipeline] = useState<AgentPipeline | null>(null);
+
+  // Map pipeline_id -> approval for quick lookup
+  const approvalMap = useMemo(() => {
+    const map = new Map<string, AgentApproval>();
+    approvals?.forEach(a => map.set(a.pipeline_id, a));
+    return map;
+  }, [approvals]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -157,7 +196,15 @@ export function PipelineKanban({ pipelines, onStageChange, onFlagToggle, onDelet
       <div className="w-full overflow-x-auto">
         <div className="flex gap-3 pb-4 min-w-max">
           {PIPELINE_STAGES.map(stage => (
-            <PipelineColumn key={stage.id} stage={stage} pipelines={grouped[stage.id]} onCardClick={setSelectedPipeline} />
+            <PipelineColumn
+              key={stage.id}
+              stage={stage}
+              pipelines={grouped[stage.id]}
+              onCardClick={setSelectedPipeline}
+              approvalMap={stage.id === 'approval' ? approvalMap : undefined}
+              onApprove={onApprove}
+              onReject={onReject}
+            />
           ))}
         </div>
       </div>
