@@ -32,9 +32,17 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
 export function CampaignDashboard() {
   const { goals } = useAgentGoals();
   const { pipelines } = useAgentPipelines();
+  const { approvals } = useAgentApprovals();
   const { plans, isLoading, updatePlan } = useCampaignPlans();
   const [selectedPlan, setSelectedPlan] = useState<{ plan: CampaignContentPlan; goalName: string } | null>(null);
   const [recovering, setRecovering] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
+
+  // Detect pipelines at approval stage missing approval records
+  const approvalPipelines = pipelines.filter(p => p.current_stage === 'approval' && !p.completed_at);
+  const approvalPipelineIds = new Set(approvalPipelines.map(p => p.id));
+  const pipelinesWithApprovals = new Set(approvals.map(a => a.pipeline_id));
+  const missingApprovalCount = approvalPipelines.filter(p => !pipelinesWithApprovals.has(p.id)).length;
 
   // Detect stuck pipelines (stage_started_at > 15 min, not completed, not approval)
   const stuckPipelines = pipelines.filter(p => {
