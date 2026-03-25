@@ -83,6 +83,7 @@ export function useCampaigns() {
           budget_currency: formData.budget_currency || 'VND',
           target_channels: formData.target_channels || [],
           tags: formData.tags || [],
+          content_brief: formData.content_brief ? (formData.content_brief as unknown as Json) : null,
           created_by: userData.user?.id || null,
           status: 'draft',
         })
