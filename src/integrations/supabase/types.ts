@@ -1378,9 +1378,13 @@ export type Database = {
       }
       agent_goals: {
         Row: {
+          approval_mode: string | null
           autonomy_level: Database["public"]["Enums"]["agent_autonomy_level"]
           brand_template_id: string | null
+          campaign_duration_days: number | null
+          campaign_end_date: string | null
           campaign_id: string | null
+          campaign_start_date: string | null
           clarification_context: Json | null
           created_at: string
           created_by: string | null
@@ -1396,9 +1400,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          approval_mode?: string | null
           autonomy_level?: Database["public"]["Enums"]["agent_autonomy_level"]
           brand_template_id?: string | null
+          campaign_duration_days?: number | null
+          campaign_end_date?: string | null
           campaign_id?: string | null
+          campaign_start_date?: string | null
           clarification_context?: Json | null
           created_at?: string
           created_by?: string | null
@@ -1414,9 +1422,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          approval_mode?: string | null
           autonomy_level?: Database["public"]["Enums"]["agent_autonomy_level"]
           brand_template_id?: string | null
+          campaign_duration_days?: number | null
+          campaign_end_date?: string | null
           campaign_id?: string | null
+          campaign_start_date?: string | null
           clarification_context?: Json | null
           created_at?: string
           created_by?: string | null
@@ -1516,6 +1528,7 @@ export type Database = {
         Row: {
           autonomy_level: Database["public"]["Enums"]["agent_autonomy_level"]
           campaign_id: string | null
+          campaign_plan_id: string | null
           completed_at: string | null
           content_id: string | null
           content_title: string
@@ -1528,14 +1541,17 @@ export type Database = {
           id: string
           is_flagged: boolean
           organization_id: string
+          piece_number: number | null
           pipeline_state: Json | null
           priority: Database["public"]["Enums"]["agent_priority"]
+          scheduled_publish_at: string | null
           stage_started_at: string | null
           updated_at: string
         }
         Insert: {
           autonomy_level?: Database["public"]["Enums"]["agent_autonomy_level"]
           campaign_id?: string | null
+          campaign_plan_id?: string | null
           completed_at?: string | null
           content_id?: string | null
           content_title: string
@@ -1548,14 +1564,17 @@ export type Database = {
           id?: string
           is_flagged?: boolean
           organization_id: string
+          piece_number?: number | null
           pipeline_state?: Json | null
           priority?: Database["public"]["Enums"]["agent_priority"]
+          scheduled_publish_at?: string | null
           stage_started_at?: string | null
           updated_at?: string
         }
         Update: {
           autonomy_level?: Database["public"]["Enums"]["agent_autonomy_level"]
           campaign_id?: string | null
+          campaign_plan_id?: string | null
           completed_at?: string | null
           content_id?: string | null
           content_title?: string
@@ -1568,8 +1587,10 @@ export type Database = {
           id?: string
           is_flagged?: boolean
           organization_id?: string
+          piece_number?: number | null
           pipeline_state?: Json | null
           priority?: Database["public"]["Enums"]["agent_priority"]
+          scheduled_publish_at?: string | null
           stage_started_at?: string | null
           updated_at?: string
         }
@@ -1579,6 +1600,13 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_pipelines_campaign_plan_id_fkey"
+            columns: ["campaign_plan_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_content_plans"
             referencedColumns: ["id"]
           },
           {
@@ -3119,6 +3147,78 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "calendar_notes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_content_plans: {
+        Row: {
+          approval_mode: string | null
+          campaign_duration_days: number | null
+          campaign_end_date: string | null
+          campaign_start_date: string | null
+          clarification_context: Json | null
+          completed_pieces: number
+          created_at: string | null
+          goal_id: string
+          id: string
+          organization_id: string
+          plan_approved: boolean | null
+          plan_approved_at: string | null
+          plan_data: Json
+          status: string | null
+          total_pieces: number
+          updated_at: string | null
+        }
+        Insert: {
+          approval_mode?: string | null
+          campaign_duration_days?: number | null
+          campaign_end_date?: string | null
+          campaign_start_date?: string | null
+          clarification_context?: Json | null
+          completed_pieces?: number
+          created_at?: string | null
+          goal_id: string
+          id?: string
+          organization_id: string
+          plan_approved?: boolean | null
+          plan_approved_at?: string | null
+          plan_data?: Json
+          status?: string | null
+          total_pieces?: number
+          updated_at?: string | null
+        }
+        Update: {
+          approval_mode?: string | null
+          campaign_duration_days?: number | null
+          campaign_end_date?: string | null
+          campaign_start_date?: string | null
+          clarification_context?: Json | null
+          completed_pieces?: number
+          created_at?: string | null
+          goal_id?: string
+          id?: string
+          organization_id?: string
+          plan_approved?: boolean | null
+          plan_approved_at?: string | null
+          plan_data?: Json
+          status?: string | null
+          total_pieces?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_content_plans_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "agent_goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_content_plans_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
