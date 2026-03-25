@@ -1610,13 +1610,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "agent_pipelines_content_id_fkey"
-            columns: ["content_id"]
-            isOneToOne: false
-            referencedRelation: "multi_channel_contents"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "agent_pipelines_goal_id_fkey"
             columns: ["goal_id"]
             isOneToOne: false
