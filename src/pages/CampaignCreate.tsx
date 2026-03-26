@@ -197,13 +197,14 @@ export default function CampaignCreate() {
   // Track completed steps
   useEffect(() => {
     const completed: number[] = [];
+    const brief = formData.content_brief || { key_messages: [], primary_cta: '', pillar_allocation: {} };
     const hasValidDates = formData.start_date && formData.end_date && 
       new Date(formData.end_date) >= new Date(formData.start_date);
     if (formData.name?.trim() && hasValidDates && formData.campaign_type) {
       completed.push(1);
     }
     // Step 2: completed when has at least 1 key_message or CTA
-    if (completed.includes(1) && (contentBrief.key_messages.length > 0 || contentBrief.primary_cta?.trim())) {
+    if (completed.includes(1) && (brief.key_messages.length > 0 || brief.primary_cta?.trim())) {
       completed.push(2);
     }
     // Step 3: completed when at least 1 KPI target > 0
@@ -217,7 +218,7 @@ export default function CampaignCreate() {
       completed.push(5);
     }
     setCompletedSteps(completed);
-  }, [formData, milestones, contentBrief]);
+  }, [formData, milestones]);
 
   const updateField = <K extends keyof CampaignFormData>(field: K, value: CampaignFormData[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
