@@ -393,7 +393,7 @@ async function routeMultichannel(
       if (multichannelContentId && targetChannels.length > 0) {
         console.log(`[multichannel] Step 3: Generating images for ${targetChannels.length} channels`);
         const imageResults = await generateImagesForChannels(
-          supabaseUrl, serviceKey,
+          supabaseUrl, serviceKey, supabase,
           multichannelContentId,
           targetChannels,
           input.brand_template_id,
