@@ -30,6 +30,7 @@ export default function AgentDashboard() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<AgentGoal | null>(null);
   const [filterGoalId, setFilterGoalId] = useState<string | null>(null);
+  const [goalFilterOpen, setGoalFilterOpen] = useState(false);
   const [triggeringGoalId, setTriggeringGoalId] = useState<string | null>(null);
 
   const goalNameMap = useMemo(() => {
@@ -250,24 +251,36 @@ export default function AgentDashboard() {
             {goals.length > 0 && (
               <div className="flex items-center gap-2 mb-3">
                 <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                <Select
-                  value={filterGoalId || 'all'}
-                  onValueChange={(v) => setFilterGoalId(v === 'all' ? null : v)}
-                >
-                  <SelectTrigger className="w-[260px] h-8 text-xs">
-                    <SelectValue placeholder="Lọc theo campaign" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      Tất cả campaign ({pipelines.length})
-                    </SelectItem>
-                    {goals.map(g => (
-                      <SelectItem key={g.id} value={g.id}>
-                        {g.name} ({getPipelineCountForGoal(g.id)})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={goalFilterOpen} onOpenChange={setGoalFilterOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" aria-expanded={goalFilterOpen} className="w-[260px] h-8 text-xs justify-between font-normal">
+                      <span className="truncate">
+                        {filterGoalId ? (goals.find(g => g.id === filterGoalId)?.name ?? 'Campaign') + ` (${getPipelineCountForGoal(filterGoalId)})` : `Tất cả campaign (${pipelines.length})`}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[260px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Tìm campaign..." className="h-8 text-xs" />
+                      <CommandList>
+                        <CommandEmpty>Không tìm thấy.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem value="all" onSelect={() => { setFilterGoalId(null); setGoalFilterOpen(false); }} className="text-xs">
+                            <Check className={cn("mr-2 h-3 w-3", !filterGoalId ? "opacity-100" : "opacity-0")} />
+                            Tất cả campaign ({pipelines.length})
+                          </CommandItem>
+                          {goals.map(g => (
+                            <CommandItem key={g.id} value={g.name} onSelect={() => { setFilterGoalId(g.id); setGoalFilterOpen(false); }} className="text-xs">
+                              <Check className={cn("mr-2 h-3 w-3", filterGoalId === g.id ? "opacity-100" : "opacity-0")} />
+                              <span className="truncate">{g.name} ({getPipelineCountForGoal(g.id)})</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
             <div className="flex gap-4">
