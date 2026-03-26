@@ -1,0 +1,1 @@
+UPDATE brand_templates SET deleted_at = NULL WHERE id = '8dd69b10-17e1-4daf-968a-4ec8a241c858';
