@@ -460,6 +460,7 @@ async function routeMultichannel(
           multichannelContentId,
           targetChannels,
           input.brand_template_id,
+          brief,
         );
         result.output.images = imageResults;
         console.log(`[multichannel] Images done: ${imageResults.success.length} ok, ${imageResults.failed.length} failed`);
