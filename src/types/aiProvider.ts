@@ -1,4 +1,4 @@
-export type AIProviderType = 'gemini' | 'openai' | 'replicate' | 'custom' | 'openrouter' | 'kie' | 'poyo';
+export type AIProviderType = 'gemini' | 'openai' | 'replicate' | 'custom' | 'openrouter' | 'kie' | 'poyo' | 'dashscope';
 
 export interface AIProviderConfig {
   apiKey: string;
@@ -99,6 +99,14 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     getKeyUrl: 'https://poyo.ai/dashboard/api-key',
     models: ['poyo/nano-banana-2-new', 'poyo/nano-banana-2-new-edit', 'poyo/nano-banana-2', 'poyo/nano-banana-2-edit', 'poyo/gpt-4o-image', 'poyo/gpt-4o-image-edit', 'poyo/gpt-image-1.5', 'poyo/z-image', 'poyo/flux-2-pro', 'poyo/flux-2-pro-edit', 'poyo/flux-2-flex', 'poyo/flux-2-flex-edit', 'poyo/seedream-4.5', 'poyo/seedream-4.5-edit', 'poyo/grok-imagine'],
     icon: '🐱',
+  },
+  {
+    id: 'dashscope',
+    name: 'DashScope (Alibaba Cloud)',
+    description: 'Qwen Plus, Qwen Max, Qwen Turbo, Qwen VL, Qwen Long',
+    getKeyUrl: 'https://dashscope.console.aliyun.com/',
+    models: ['qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-vl-max', 'qwen-long'],
+    icon: '☁️',
   },
   {
     id: 'custom',

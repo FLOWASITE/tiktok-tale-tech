@@ -25,6 +25,7 @@ const PROVIDER_ENDPOINTS: Record<string, string> = {
   anthropic: "https://api.anthropic.com/v1/messages",
   gemini: "https://generativelanguage.googleapis.com/v1beta/models",
   openrouter: "https://openrouter.ai/api/v1/chat/completions",
+  dashscope: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
 };
 
 // Model prefix to provider mapping
@@ -41,6 +42,10 @@ const MODEL_TO_PROVIDER: Record<string, string> = {
   "claude-": "anthropic",        // Direct Anthropic
   "gemini-": "gemini",           // Direct Gemini (without prefix)
   
+  // DashScope models (Alibaba Cloud - OpenAI-compatible)
+  "qwen-": "dashscope",           // qwen-plus, qwen-max, qwen-turbo (DashScope native)
+  "qwen2": "dashscope",           // qwen2.5-*, qwen2-* (DashScope native)
+  
   // OpenRouter models (200+ third-party models)
   "openrouter/": "openrouter",   // OpenRouter explicit prefix
   "anthropic/": "openrouter",    // Claude via OpenRouter
@@ -48,7 +53,7 @@ const MODEL_TO_PROVIDER: Record<string, string> = {
   "mistralai/": "openrouter",    // Mistral via OpenRouter
   "deepseek/": "openrouter",     // DeepSeek via OpenRouter
   "moonshotai/": "openrouter",   // Kimi models via OpenRouter
-  "qwen/": "openrouter",         // Qwen models via OpenRouter
+  "qwen/": "openrouter",         // Qwen models via OpenRouter (with provider prefix)
   "cohere/": "openrouter",       // Cohere models via OpenRouter
   "perplexity/": "openrouter",   // Perplexity models via OpenRouter
   "x-ai/": "openrouter",         // xAI/Grok models via OpenRouter
@@ -561,6 +566,72 @@ async function callOpenRouter(
 }
 
 /**
+ * Call DashScope (Alibaba Cloud) - OpenAI-compatible API
+ */
+async function callDashScope(
+  messages: AIMessage[],
+  model: string,
+  config: AIFunctionConfig,
+  options: AICallOptions
+): Promise<AICallResult> {
+  const apiKey = Deno.env.get("DASHSCOPE_API_KEY");
+  if (!apiKey) {
+    return { success: false, error: "DASHSCOPE_API_KEY not configured", provider: "dashscope", model };
+  }
+
+  try {
+    const body: any = {
+      model,
+      messages,
+      max_tokens: options.maxTokensOverride || config.max_tokens,
+      temperature: config.temperature,
+    };
+
+    if (options.tools) {
+      body.tools = options.tools;
+    }
+    if (options.toolChoice) {
+      body.tool_choice = options.toolChoice;
+    }
+    if (options.stream) {
+      body.stream = true;
+    }
+
+    const response = await fetch(PROVIDER_ENDPOINTS.dashscope, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[ai-provider] DashScope error:", response.status, errorText);
+      
+      if (response.status === 429) {
+        return { success: false, error: "Rate limit exceeded", provider: "dashscope", model };
+      }
+      if (response.status === 402) {
+        return { success: false, error: "Payment required", provider: "dashscope", model };
+      }
+      return { success: false, error: `DashScope error: ${response.status}`, provider: "dashscope", model };
+    }
+
+    if (options.stream) {
+      return { success: true, data: response.body, provider: "dashscope", model };
+    }
+
+    const data = await response.json();
+    return { success: true, data, provider: "dashscope", model };
+  } catch (err) {
+    console.error("[ai-provider] DashScope call failed:", err);
+    return { success: false, error: String(err), provider: "dashscope", model };
+  }
+}
+
+/**
  * Call Gemini directly (without Lovable Gateway)
  */
 async function callGeminiDirect(
@@ -724,6 +795,8 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
             return callGeminiDirect(apiKey, messages, effectiveModel, effectiveConfig, options);
           case "openrouter":
             return callOpenRouter(apiKey, messages, effectiveModel, effectiveConfig, options);
+          case "dashscope":
+            return callDashScope(messages, effectiveModel, effectiveConfig, options);
           default:
             return callLovableGateway(messages, effectiveModel, effectiveConfig, options);
         }
