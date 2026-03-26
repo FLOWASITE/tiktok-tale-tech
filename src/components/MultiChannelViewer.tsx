@@ -261,6 +261,8 @@ export function MultiChannelViewer({
   regeneratingChannel,
   aiEditingChannel,
   expandingChannels,
+  autoOpenImageGen,
+  onImageGenOpened,
 }: MultiChannelViewerProps) {
   const { currentOrganization } = useOrganizationContext();
   const queryClient = useQueryClient();
