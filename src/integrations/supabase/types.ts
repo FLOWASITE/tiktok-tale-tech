@@ -1701,6 +1701,59 @@ export type Database = {
           },
         ]
       }
+      ai_agent_model_configs: {
+        Row: {
+          agent_name: string
+          created_at: string | null
+          fallback_model: string | null
+          id: string
+          is_enabled: boolean | null
+          max_tokens: number | null
+          model_override: string | null
+          notes: string | null
+          organization_id: string | null
+          quality_mode: string | null
+          temperature: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_name: string
+          created_at?: string | null
+          fallback_model?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_tokens?: number | null
+          model_override?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          quality_mode?: string | null
+          temperature?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_name?: string
+          created_at?: string | null
+          fallback_model?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_tokens?: number | null
+          model_override?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          quality_mode?: string | null
+          temperature?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_model_configs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_channel_model_configs: {
         Row: {
           allow_user_override: boolean | null

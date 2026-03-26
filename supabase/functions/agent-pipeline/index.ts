@@ -64,6 +64,23 @@ function resolveContentId(pipeline: any, pState: any): string | null {
     || null;
 }
 
+/** Fetch agent model config from ai_agent_model_configs table */
+async function getAgentModelConfig(supabase: any, orgId: string, agentName: string) {
+  try {
+    const { data } = await supabase
+      .from("ai_agent_model_configs")
+      .select("model_override, temperature, max_tokens, quality_mode, fallback_model, is_enabled")
+      .eq("organization_id", orgId)
+      .eq("agent_name", agentName)
+      .eq("is_enabled", true)
+      .maybeSingle();
+    return data || null;
+  } catch (e) {
+    console.warn(`[getAgentModelConfig] Failed for ${agentName}:`, e);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -692,7 +709,14 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
   let result: any = { status: "completed" };
   let shouldAutoAdvance = true;
 
-  console.log(`[${stage}] Pipeline ${pipelineId} — content_type: ${contentType}, content_id: ${pipeline.content_id || 'NULL'}, brand: ${brandTemplateId || 'NULL'}`);
+  // Fetch agent model config for this stage
+  const agentConfig = await getAgentModelConfig(supabase, orgId, stage);
+  const modelOverride = agentConfig?.model_override || undefined;
+  const agentTemperature = agentConfig?.temperature || undefined;
+  const agentMaxTokens = agentConfig?.max_tokens || undefined;
+  const fallbackModel = agentConfig?.fallback_model || undefined;
+
+  console.log(`[${stage}] Pipeline ${pipelineId} — content_type: ${contentType}, content_id: ${pipeline.content_id || 'NULL'}, brand: ${brandTemplateId || 'NULL'}, model: ${modelOverride || 'default'}`);
 
   // Mark stage as in_progress
   if (pState.stages?.[stage]) {
@@ -725,6 +749,8 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         instruction,
         organization_id: orgId,
         brand_template_id: brandTemplateId,
+        ...(modelOverride && { model_override: modelOverride }),
+        ...(agentTemperature && { temperature: agentTemperature }),
       });
       result.output = output;
 
@@ -757,6 +783,9 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         content_role: meta.content_role || undefined,
         length_mode: meta.content_length || undefined,
         campaign_id: meta.campaign_id || pipeline.campaign_id || null,
+        ...(modelOverride && { model_override: modelOverride }),
+        ...(agentTemperature && { temperature: agentTemperature }),
+        ...(agentMaxTokens && { max_tokens: agentMaxTokens }),
       });
 
       result.output = creatorResult.output || creatorResult;
