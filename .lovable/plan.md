@@ -1,79 +1,65 @@
 
 
-# Agent Model Configuration — AI Management Tab
+# Fix: Agent Model Config thực sự được áp dụng cho tất cả 6 Agents
 
-## Tổng quan
-Thêm tab **"Agents"** vào trang AI Management (`/admin/ai`) cho phép admin cấu hình model AI cho từng Agent/Stage trong pipeline 6 giai đoạn (Strategy, Create, Quality, Approval, Publish, Analyze).
+## Vấn đề
 
-## Hiện trạng
-- Pipeline 6 stage gọi các edge functions (`topic-ai`, `agent-creator-v2`, `agent-quality`, v.v.) — mỗi function dùng model mặc định hardcoded hoặc từ `ai_function_configs`
-- `AgentConfig` interface có `defaultModel` nhưng chưa có UI quản lý riêng cho Agents
-- Đã có `ai_function_configs` table và `ai_channel_model_configs` table — pattern tương tự
+Agent pipeline truyền `model_override` từ `ai_agent_model_configs` nhưng **không có edge function nào đọc và sử dụng nó**. Tất cả đều dùng model hardcoded hoặc Lovable Gateway mặc định.
 
-## Giải pháp
-
-### 1. Database — Tạo bảng `ai_agent_model_configs`
-
-```sql
-CREATE TABLE public.ai_agent_model_configs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  agent_name TEXT NOT NULL, -- 'strategy', 'create', 'quality', 'approval', 'publish', 'analyze'
-  model_override TEXT,
-  temperature NUMERIC DEFAULT 0.7,
-  max_tokens INTEGER,
-  is_enabled BOOLEAN DEFAULT true,
-  quality_mode TEXT DEFAULT 'balanced', -- 'fast', 'balanced', 'quality'
-  fallback_model TEXT,
-  notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(organization_id, agent_name)
-);
-
-ALTER TABLE public.ai_agent_model_configs ENABLE ROW LEVEL SECURITY;
-
--- RLS: org admins can manage
-CREATE POLICY "Org admins manage agent configs"
-  ON public.ai_agent_model_configs FOR ALL TO authenticated
-  USING (public.is_org_admin(auth.uid(), organization_id));
+```text
+ai_agent_model_configs (DB) → agent-pipeline (đọc ✅, truyền ✅)
+  → topic-ai: KHÔNG đọc model_override từ body ❌
+  → agent-creator-v2: KHÔNG truyền xuống generate-multichannel ❌
+  → quality (inline): hardcode google/gemini-2.5-flash ❌
+  → generate-campaign-strategy: hardcode google/gemini-3-flash-preview ❌
 ```
 
-### 2. Frontend — Hook `useAgentModelConfig`
+## Giải pháp — 5 file cần sửa
 
-File: `src/hooks/useAgentModelConfig.ts`
+### 1. `topic-ai/index.ts` — Đọc `model_override` từ request body
 
-- Pattern giống `useChannelModelConfig` — CRUD operations cho `ai_agent_model_configs`
-- Định nghĩa 6 agents với metadata (name, description, icon, default model, recommended models)
-- Export `ALL_AGENTS` constant
+- Thêm `model_override?: string` và `temperature?: number` vào `TopicAIRequest` interface
+- Trong `handleSuggest`, `handleRefine`, và các handler khác: nếu `params.model_override` tồn tại, truyền vào `callAIWithMetrics` qua field `modelOverride`
+- Ưu tiên: `params.model_override` > hardcoded model > default từ `getAIConfig`
 
-### 3. Frontend — Component `AIAgentModelConfig`
+### 2. `agent-creator-v2/index.ts` — Truyền model override xuống downstream
 
-File: `src/components/admin/ai/AIAgentModelConfig.tsx`
+- Thêm `model_override?: string`, `temperature?: number`, `max_tokens?: number` vào `CreatorInput` interface
+- Truyền vào `callFunction("generate-core-content", { ..., model_override })` 
+- Truyền vào `callFunction("generate-multichannel", { ..., model_override })`
+- `generate-multichannel` đã hỗ trợ `modelOverride` trong `callAIWithMetrics` — chỉ cần đọc từ request body
 
-- Grid 6 cards, mỗi card đại diện 1 agent stage
-- Mỗi card hiển thị: tên agent, icon, model hiện tại, temperature slider, quality mode selector
-- Click card → Dialog chỉnh sửa chi tiết (model selector, temperature, max tokens, fallback model)
-- Tái sử dụng `ModelSelector` component đã có
-- Badge trạng thái: enabled/disabled, custom/default
+### 3. `agent-pipeline/index.ts` — Quality stage sử dụng modelOverride thay vì hardcode
 
-### 4. Thêm tab "Agents" vào AdminAIManagement
+- Quality stage hiện gọi trực tiếp `fetch("https://ai.gateway.lovable.dev/...")` với hardcoded model
+- Thay đổi: sử dụng `modelOverride` (đã fetch ở dòng 714) thay cho `"google/gemini-2.5-flash"`
+- Cũng áp dụng cho Persona-fit scoring (thay `"google/gemini-2.5-flash-lite"`)
+- **Quan trọng**: Nếu model được cấu hình KHÔNG phải Lovable Gateway (ví dụ `qwen/`, `deepseek/`), cần route qua `callAIWithMetrics` thay vì gọi trực tiếp Lovable Gateway
+- Refactor 2 lệnh `fetch` trực tiếp trong quality stage thành `callAIWithMetrics` để tự động route theo provider
 
-File: `src/pages/AdminAIManagement.tsx`
+### 4. `generate-campaign-strategy/index.ts` — Đọc config từ DB
 
-- Thêm tab thứ 9 "Agents" với icon `Bot`
-- Render `<AIAgentModelConfig />`
+- Query `ai_agent_model_configs` cho agent `strategy` trước khi gọi AI
+- Sử dụng `model_override` thay vì hardcode `"google/gemini-3-flash-preview"`
+- **Quan trọng**: Nếu model không phải Lovable Gateway, cần route qua `callAIWithMetrics` thay vì gọi trực tiếp Lovable Gateway URL
+- Import và sử dụng `callAIWithMetrics` từ `_shared/ai-provider.ts`
 
-### 5. Backend — Đọc config trong pipeline
+### 5. `generate-multichannel/index.ts` — Đọc agent-level override từ body
 
-File: `supabase/functions/agent-pipeline/index.ts`
+- Function đã hỗ trợ `modelOverride` trong `callAIWithMetrics` ✅
+- Chỉ cần thêm logic: nếu body có `model_override`, dùng nó làm fallback khi không có channel-level config
+- Ưu tiên: channel config > agent config (body.model_override) > function config > default
 
-- Thêm helper `getAgentModelConfig(supabase, orgId, agentName)` query `ai_agent_model_configs`
-- Trước khi gọi mỗi stage function, lookup config và truyền `model_override` vào body
-- Fallback về model mặc định nếu không có config
+## Điểm then chốt — Routing provider
+
+`callAIWithMetrics` (trong `_shared/ai-provider.ts`) đã có logic auto-route:
+- `google/gemini-*`, `openai/gpt-5*` → Lovable Gateway
+- `qwen/`, `deepseek/`, `anthropic/` → OpenRouter (cần API key)
+- `gpt-*` → Direct OpenAI
+
+Vì vậy chỉ cần **truyền đúng `modelOverride`** vào `callAIWithMetrics` là hệ thống tự route đúng provider. Các chỗ gọi trực tiếp `fetch("https://ai.gateway.lovable.dev/...")` phải được refactor thành `callAIWithMetrics`.
 
 ## Kết quả
-- Admin có thể chọn model riêng cho từng Agent stage (ví dụ: Strategy dùng Gemini Flash giá rẻ, Create dùng GPT-5 chất lượng cao, Quality dùng model reasoning)
-- Hỗ trợ fallback model khi model chính lỗi
-- Cấu hình per-organization
+
+Admin cấu hình model `qwen/qwen3.5-397b-a17b` cho Strategy → pipeline thực sự gọi Qwen qua OpenRouter. Admin cấu hình `openai/gpt-5` cho Creator → pipeline gọi GPT-5 qua Lovable Gateway. Mỗi agent stage độc lập, không ảnh hưởng lẫn nhau.
 
