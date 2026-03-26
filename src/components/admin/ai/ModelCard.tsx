@@ -63,6 +63,12 @@ const PROVIDER_STYLES: Record<string, {
     icon: <Image className="h-3 w-3" />,
     label: 'PoYo.ai',
   },
+  dashscope: {
+    border: 'border-l-orange-500',
+    badge: 'bg-orange-500/10 text-orange-600 border-orange-500/30',
+    icon: <Sparkles className="h-3 w-3" />,
+    label: 'DashScope',
+  },
 };
 
 export function ModelCard({ modelId, info, isSelected, isDefault, onClick, compact, pricing, contextLength }: ModelCardProps) {
