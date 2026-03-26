@@ -20,7 +20,7 @@ import { useOrganizationContext } from '@/contexts/OrganizationContext';
 
 export default function AgentDashboard() {
   const { currentOrganization } = useOrganizationContext();
-  const { pipelines, isLoading: pipelinesLoading, updateStage } = useAgentPipelines();
+  const { pipelines, isLoading: pipelinesLoading, updateStage, deletePipeline, retryPipeline } = useAgentPipelines();
   const { approvals, pendingCount, updateApproval } = useAgentApprovals();
   const { goals, createGoal, updateGoal, deleteGoal } = useAgentGoals();
   const [activeTab, setActiveTab] = useState('pipeline');
@@ -272,6 +272,8 @@ export default function AgentDashboard() {
                   approvals={approvals}
                   campaignNames={goalNameMap}
                   onStageChange={handleStageChange}
+                  onRetry={(id) => retryPipeline.mutate(id)}
+                  onDelete={(id) => deletePipeline.mutate(id)}
                   onApprove={(id, notes) => updateApproval.mutate({ id, status: 'approved', notes })}
                   onReject={(id, notes) => updateApproval.mutate({ id, status: 'rejected', notes: notes || 'Từ chối' })}
                 />

@@ -488,6 +488,8 @@ export function PipelineKanban({ pipelines, approvals, campaignNames, onStageCha
               campaignNames={campaignNames}
               onApprove={onApprove}
               onReject={onReject}
+              onRetry={onRetry}
+              onDelete={onDelete}
             />
           ))}
         </div>
