@@ -1,65 +1,44 @@
 
 
-# Fix: Agent Model Config thực sự được áp dụng cho tất cả 6 Agents
+# Thêm DashScope (Alibaba Cloud) Provider
 
-## Vấn đề
+## Tổng quan
+Thêm DashScope làm provider mới trong hệ thống multi-provider, **không thay thế** bất kỳ provider nào hiện có. Admin có thể chọn DashScope models khi cấu hình Agent hoặc Channel.
 
-Agent pipeline truyền `model_override` từ `ai_agent_model_configs` nhưng **không có edge function nào đọc và sử dụng nó**. Tất cả đều dùng model hardcoded hoặc Lovable Gateway mặc định.
+## Thay đổi
 
-```text
-ai_agent_model_configs (DB) → agent-pipeline (đọc ✅, truyền ✅)
-  → topic-ai: KHÔNG đọc model_override từ body ❌
-  → agent-creator-v2: KHÔNG truyền xuống generate-multichannel ❌
-  → quality (inline): hardcode google/gemini-2.5-flash ❌
-  → generate-campaign-strategy: hardcode google/gemini-3-flash-preview ❌
-```
+### 1. Backend: `supabase/functions/_shared/ai-provider.ts`
 
-## Giải pháp — 5 file cần sửa
+- Thêm endpoint vào `PROVIDER_ENDPOINTS`:
+  ```
+  dashscope: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions"
+  ```
+- Thêm model prefix mapping vào `MODEL_TO_PROVIDER`:
+  ```
+  "qwen-": "dashscope"    // qwen-plus, qwen-max, qwen-turbo
+  "qwen2": "dashscope"    // qwen2.5-*, qwen2-*
+  ```
+- Tạo function `callDashScope()` — tương tự `callOpenRouter` vì DashScope là OpenAI-compatible. API key từ `DASHSCOPE_API_KEY` env var.
+- Thêm `case "dashscope"` vào switch trong `callAI()` routing logic (line ~718)
 
-### 1. `topic-ai/index.ts` — Đọc `model_override` từ request body
+### 2. Frontend: `src/types/aiProvider.ts`
 
-- Thêm `model_override?: string` và `temperature?: number` vào `TopicAIRequest` interface
-- Trong `handleSuggest`, `handleRefine`, và các handler khác: nếu `params.model_override` tồn tại, truyền vào `callAIWithMetrics` qua field `modelOverride`
-- Ưu tiên: `params.model_override` > hardcoded model > default từ `getAIConfig`
+- Thêm `'dashscope'` vào `AIProviderType`
+- Thêm entry mới vào `AI_PROVIDERS` array:
+  ```
+  id: 'dashscope'
+  name: 'DashScope (Alibaba Cloud)'
+  models: ['qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-vl-max', 'qwen-long']
+  getKeyUrl: 'https://dashscope.console.aliyun.com/'
+  icon: '☁️'
+  ```
 
-### 2. `agent-creator-v2/index.ts` — Truyền model override xuống downstream
+### 3. Frontend: AI Management UI
 
-- Thêm `model_override?: string`, `temperature?: number`, `max_tokens?: number` vào `CreatorInput` interface
-- Truyền vào `callFunction("generate-core-content", { ..., model_override })` 
-- Truyền vào `callFunction("generate-multichannel", { ..., model_override })`
-- `generate-multichannel` đã hỗ trợ `modelOverride` trong `callAIWithMetrics` — chỉ cần đọc từ request body
+- Kiểm tra component cấu hình Agent model có tự động hiển thị models từ `AI_PROVIDERS` không — nếu có thì không cần sửa thêm UI
 
-### 3. `agent-pipeline/index.ts` — Quality stage sử dụng modelOverride thay vì hardcode
-
-- Quality stage hiện gọi trực tiếp `fetch("https://ai.gateway.lovable.dev/...")` với hardcoded model
-- Thay đổi: sử dụng `modelOverride` (đã fetch ở dòng 714) thay cho `"google/gemini-2.5-flash"`
-- Cũng áp dụng cho Persona-fit scoring (thay `"google/gemini-2.5-flash-lite"`)
-- **Quan trọng**: Nếu model được cấu hình KHÔNG phải Lovable Gateway (ví dụ `qwen/`, `deepseek/`), cần route qua `callAIWithMetrics` thay vì gọi trực tiếp Lovable Gateway
-- Refactor 2 lệnh `fetch` trực tiếp trong quality stage thành `callAIWithMetrics` để tự động route theo provider
-
-### 4. `generate-campaign-strategy/index.ts` — Đọc config từ DB
-
-- Query `ai_agent_model_configs` cho agent `strategy` trước khi gọi AI
-- Sử dụng `model_override` thay vì hardcode `"google/gemini-3-flash-preview"`
-- **Quan trọng**: Nếu model không phải Lovable Gateway, cần route qua `callAIWithMetrics` thay vì gọi trực tiếp Lovable Gateway URL
-- Import và sử dụng `callAIWithMetrics` từ `_shared/ai-provider.ts`
-
-### 5. `generate-multichannel/index.ts` — Đọc agent-level override từ body
-
-- Function đã hỗ trợ `modelOverride` trong `callAIWithMetrics` ✅
-- Chỉ cần thêm logic: nếu body có `model_override`, dùng nó làm fallback khi không có channel-level config
-- Ưu tiên: channel config > agent config (body.model_override) > function config > default
-
-## Điểm then chốt — Routing provider
-
-`callAIWithMetrics` (trong `_shared/ai-provider.ts`) đã có logic auto-route:
-- `google/gemini-*`, `openai/gpt-5*` → Lovable Gateway
-- `qwen/`, `deepseek/`, `anthropic/` → OpenRouter (cần API key)
-- `gpt-*` → Direct OpenAI
-
-Vì vậy chỉ cần **truyền đúng `modelOverride`** vào `callAIWithMetrics` là hệ thống tự route đúng provider. Các chỗ gọi trực tiếp `fetch("https://ai.gateway.lovable.dev/...")` phải được refactor thành `callAIWithMetrics`.
-
-## Kết quả
-
-Admin cấu hình model `qwen/qwen3.5-397b-a17b` cho Strategy → pipeline thực sự gọi Qwen qua OpenRouter. Admin cấu hình `openai/gpt-5` cho Creator → pipeline gọi GPT-5 qua Lovable Gateway. Mỗi agent stage độc lập, không ảnh hưởng lẫn nhau.
+### Không thay đổi
+- Tất cả edge functions giữ nguyên — chúng đã dùng `callAIWithMetrics` hoặc sẽ route qua `callAI`
+- Các provider khác không bị ảnh hưởng
+- Secret `DASHSCOPE_API_KEY` đã được user thêm sẵn
 
