@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -138,6 +139,28 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Fetch agent model config for strategy stage
+    let strategyModel = "google/gemini-3-flash-preview"; // default
+    let strategyTemperature: number | undefined;
+    try {
+      const { data: agentConfig } = await supabase
+        .from("ai_agent_model_configs")
+        .select("model_override, temperature, is_enabled")
+        .eq("organization_id", organization_id)
+        .eq("agent_name", "strategy")
+        .eq("is_enabled", true)
+        .maybeSingle();
+      if (agentConfig?.model_override) {
+        strategyModel = agentConfig.model_override;
+        console.log(`[generate-campaign-strategy] Using agent config model: ${strategyModel}`);
+      }
+      if (agentConfig?.temperature) {
+        strategyTemperature = agentConfig.temperature;
+      }
+    } catch (e) {
+      console.warn("[generate-campaign-strategy] Failed to fetch agent config, using default:", e);
+    }
+
     // Fetch brand context
     let brandName = "";
     let industry = "";
@@ -196,108 +219,103 @@ Deno.serve(async (req) => {
       existingTitles,
     });
 
-    // Call AI via tool calling for structured output
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: `Create a detailed content plan for the campaign "${campaign_title}". Return the plan using the generate_campaign_plan tool.`,
-          },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "generate_campaign_plan",
-              description: "Generate a structured content campaign plan",
-              parameters: {
-                type: "object",
-                properties: {
-                  plan: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        piece_number: { type: "number" },
-                        title: { type: "string" },
-                        angle: {
-                          type: "string",
-                          enum: [
-                            "educational", "comparison", "case_study",
-                            "behind_the_scenes", "tips_tricks", "myth_busting",
-                            "testimonial", "seasonal_hook", "cta_offer", "storytelling",
-                          ],
-                        },
-                        content_type: {
-                          type: "string",
-                          enum: ["multichannel", "video_script", "carousel"],
-                          description: "Type of content to generate. multichannel=article/post, video_script=short video, carousel=multi-slide visual",
-                        },
-                        target_channel: { type: "string" },
-                        content_role: { type: "string", enum: ["seed", "sprout", "harvest"] },
-                        format: { type: "string", enum: ["post", "carousel", "video_script", "email"] },
-                        scheduled_date: { type: "string", description: "YYYY-MM-DD" },
-                        key_message: { type: "string" },
-                        estimated_length: { type: "string", enum: ["short", "medium", "long"] },
-                        pillar: { type: "string", description: "Content pillar this piece belongs to (must match pillar names from brief)" },
-                      },
-                      required: [
-                        "piece_number", "title", "angle", "content_type", "target_channel",
-                        "content_role", "format", "scheduled_date", "key_message",
-                      ],
-                    },
-                  },
-                  strategy_summary: { type: "string" },
-                  content_mix: {
+    // Call AI via callAIWithMetrics — routes to correct provider based on model prefix
+    console.log(`[generate-campaign-strategy] Calling AI with model: ${strategyModel}`);
+    const aiResult = await callAIWithMetrics(supabase, {
+      functionName: 'generate-campaign-strategy',
+      organizationId: organization_id,
+      actionType: 'strategy',
+      modelOverride: strategyModel,
+      ...(strategyTemperature && { temperatureOverride: strategyTemperature }),
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: `Create a detailed content plan for the campaign "${campaign_title}". Return the plan using the generate_campaign_plan tool.`,
+        },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "generate_campaign_plan",
+            description: "Generate a structured content campaign plan",
+            parameters: {
+              type: "object",
+              properties: {
+                plan: {
+                  type: "array",
+                  items: {
                     type: "object",
                     properties: {
-                      seed: { type: "number" },
-                      sprout: { type: "number" },
-                      harvest: { type: "number" },
+                      piece_number: { type: "number" },
+                      title: { type: "string" },
+                      angle: {
+                        type: "string",
+                        enum: [
+                          "educational", "comparison", "case_study",
+                          "behind_the_scenes", "tips_tricks", "myth_busting",
+                          "testimonial", "seasonal_hook", "cta_offer", "storytelling",
+                        ],
+                      },
+                      content_type: {
+                        type: "string",
+                        enum: ["multichannel", "video_script", "carousel"],
+                        description: "Type of content to generate. multichannel=article/post, video_script=short video, carousel=multi-slide visual",
+                      },
+                      target_channel: { type: "string" },
+                      content_role: { type: "string", enum: ["seed", "sprout", "harvest"] },
+                      format: { type: "string", enum: ["post", "carousel", "video_script", "email"] },
+                      scheduled_date: { type: "string", description: "YYYY-MM-DD" },
+                      key_message: { type: "string" },
+                      estimated_length: { type: "string", enum: ["short", "medium", "long"] },
+                      pillar: { type: "string", description: "Content pillar this piece belongs to (must match pillar names from brief)" },
                     },
-                    required: ["seed", "sprout", "harvest"],
+                    required: [
+                      "piece_number", "title", "angle", "content_type", "target_channel",
+                      "content_role", "format", "scheduled_date", "key_message",
+                    ],
                   },
                 },
-                required: ["plan", "strategy_summary", "content_mix"],
+                strategy_summary: { type: "string" },
+                content_mix: {
+                  type: "object",
+                  properties: {
+                    seed: { type: "number" },
+                    sprout: { type: "number" },
+                    harvest: { type: "number" },
+                  },
+                  required: ["seed", "sprout", "harvest"],
+                },
               },
+              required: ["plan", "strategy_summary", "content_mix"],
             },
           },
-        ],
-        tool_choice: { type: "function", function: { name: "generate_campaign_plan" } },
-      }),
+        },
+      ],
+      toolChoice: { type: "function", function: { name: "generate_campaign_plan" } },
     });
 
-    if (!aiResponse.ok) {
-      const status = aiResponse.status;
-      const errorText = await aiResponse.text();
-      console.error("AI gateway error:", status, errorText);
+    if (!aiResult.success) {
+      const errorMsg = aiResult.error || "AI call failed";
+      console.error("AI call error:", errorMsg);
 
-      if (status === 429) {
+      if (errorMsg.includes("Rate limit") || errorMsg.includes("429")) {
         return new Response(
           JSON.stringify({ success: false, error: "Rate limit exceeded. Vui lòng thử lại sau.", errorCode: "RATE_LIMITED" }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (status === 402) {
+      if (errorMsg.includes("Payment") || errorMsg.includes("402")) {
         return new Response(
           JSON.stringify({ success: false, error: "AI credits đã hết. Vui lòng nạp thêm tại Settings → Usage.", errorCode: "CREDITS_EXHAUSTED" }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      throw new Error(`AI gateway returned ${status}`);
+      throw new Error(`AI call failed: ${errorMsg}`);
     }
 
-    const aiResult = await aiResponse.json();
-
-    const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
+    const toolCall = aiResult.data?.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall?.function?.arguments) {
       throw new Error("AI did not return structured plan data");
     }

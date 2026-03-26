@@ -107,6 +107,9 @@ interface TopicAIRequest {
     term: string;
     reason: string;
   }>;
+  // Agent pipeline model override
+  model_override?: string;     // from ai_agent_model_configs
+  temperature?: number;        // from ai_agent_model_configs
 }
 
 // ========== Main Handler ==========
@@ -284,6 +287,8 @@ async function handleSuggest(
     userId: params._userId,
     brandTemplateId,
     actionType: 'suggest',
+    ...(params.model_override && { modelOverride: params.model_override }),
+    ...(params.temperature && { temperatureOverride: params.temperature }),
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -471,7 +476,8 @@ RETURN JSON ONLY, NO ADDITIONAL EXPLANATION.
     userId: params._userId,
     brandTemplateId,
     actionType: 'refine',
-    modelOverride: 'google/gemini-2.5-pro',
+    modelOverride: params.model_override || 'google/gemini-2.5-pro',
+    ...(params.temperature && { temperatureOverride: params.temperature }),
     messages: [{ role: 'user', content: finalPrompt }],
   });
 
@@ -600,6 +606,8 @@ What should we learn from this to improve future recommendations? Respond in Vie
     userId: params._userId,
     brandTemplateId,
     actionType: action,
+    ...(params.model_override && { modelOverride: params.model_override }),
+    ...(params.temperature && { temperatureOverride: params.temperature }),
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -786,6 +794,8 @@ Analyze and generate a list of NEW trending topics.`;
     organizationId,
     userId: params._userId,
     actionType: 'trending',
+    ...(params.model_override && { modelOverride: params.model_override }),
+    ...(params.temperature && { temperatureOverride: params.temperature }),
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -953,6 +963,8 @@ Trả về JSON: {
     userId: params._userId,
     brandTemplateId,
     actionType: action,
+    ...(params.model_override && { modelOverride: params.model_override }),
+    ...(params.temperature && { temperatureOverride: params.temperature }),
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -1039,7 +1051,8 @@ CHỈ TRẢ VỀ TOPIC MỚI, KHÔNG GIẢI THÍCH.`;
       },
       { role: 'user', content: prompt }
     ],
-    modelOverride: 'google/gemini-2.5-flash-lite', // Fast, cheap
+    modelOverride: params.model_override || 'google/gemini-2.5-flash-lite',
+    ...(params.temperature && { temperatureOverride: params.temperature }),
   });
 
   if (!result.success) {
@@ -1097,6 +1110,8 @@ Trả về JSON:
       userId: params._userId,
       brandTemplateId,
       actionType: 'suggest_audience',
+      ...(params.model_override && { modelOverride: params.model_override }),
+      ...(params.temperature && { temperatureOverride: params.temperature }),
       messages: [
         { role: 'system', content: 'Bạn là Content Strategist chuyên phân tích đối tượng mục tiêu cho nội dung marketing.' },
         { role: 'user', content: prompt }
@@ -1242,7 +1257,8 @@ Trả về JSON:
       { role: 'system', content: 'Bạn là Content Strategist chuyên nghiệp, giỏi phân tích target audience và matching content với personas.' },
       { role: 'user', content: prompt }
     ],
-    modelOverride: 'google/gemini-2.5-flash',
+    modelOverride: params.model_override || 'google/gemini-2.5-flash',
+    ...(params.temperature && { temperatureOverride: params.temperature }),
   });
 
   if (!result.success) {

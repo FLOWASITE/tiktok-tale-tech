@@ -42,6 +42,10 @@ interface CreatorInput {
   content_role?: string;
   length_mode?: string;
   campaign_id?: string | null;
+  // Agent model config overrides
+  model_override?: string;
+  temperature?: number;
+  max_tokens?: number;
 }
 
 interface BrandBrief {
@@ -395,6 +399,8 @@ async function routeMultichannel(
       organizationId: input.organization_id,
       brandTemplateId: input.brand_template_id,
       campaign_id: input.campaign_id || null,
+      ...(input.model_override && { model_override: input.model_override }),
+      ...(input.temperature && { temperature: input.temperature }),
     });
     contentId = coreOutput?.content_id || coreOutput?.id || null;
     if (!contentId) {
@@ -442,6 +448,9 @@ async function routeMultichannel(
         campaign_id: input.campaign_id || null,
         qualityMode: "fast",
         agentMode: true, // Use plain text generation instead of tool calling — compatible with all models
+        // Agent model override — used as fallback when no channel-specific config exists
+        ...(input.model_override && { model_override: input.model_override }),
+        ...(input.temperature && { temperature: input.temperature }),
       };
       // Only pass coreContentId if we created core content
       if (contentId) {

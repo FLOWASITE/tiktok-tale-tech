@@ -266,6 +266,8 @@ interface FormData {
   // NEW: Background task tracking
   taskId?: string;
   agentMode?: boolean; // Agent pipeline mode: use plain text generation (no tool calling)
+  // Agent model override — fallback when no channel-specific config exists
+  model_override?: string;
 }
 
 // ============================================
@@ -4244,7 +4246,8 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         
         for (const channel of formData.channels) {
           const channelConfig = channelModelConfigs.get(channel);
-          const model = channelConfig?.model || aiConfig.model;
+          // Priority: channel config > agent-level override (from body) > function config
+          const model = channelConfig?.model || formData.model_override || aiConfig.model;
           const temp = channelConfig?.temperature ?? aiConfig.temperature;
           const maxTokens = channelConfig?.maxTokens ?? aiConfig.max_tokens;
           

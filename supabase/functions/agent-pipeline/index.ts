@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { slugify, appendUtmToUrls } from "../_shared/utm-helper.ts";
+import { callAIWithMetrics } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -884,7 +885,7 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
           }
         }
 
-        if (lovableApiKey && contentText) {
+        if (contentText) {
           const compliancePrompt = `Kiểm tra tuân thủ nội dung ${contentType} cho ngành "${brandData?.industry || "general"}".
 Tiêu đề: ${pipeline.content_title}
 Nội dung (trích): ${contentText.slice(0, 3000)}
@@ -893,19 +894,19 @@ ${industryRules.length > 0 ? `Quy định ngành:\n${industryRules.join("\n")}` 
 
 Trả về JSON: { "status": "passed"|"needs_review"|"failed", "score": 0-100, "issues": [{"type":"...","severity":"high|medium|low","description":"..."}], "summary": "..." }`;
 
-          const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${lovableApiKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
-              messages: [
-                { role: "system", content: "Bạn là AI kiểm tra tuân thủ nội dung. Luôn trả về JSON hợp lệ." },
-                { role: "user", content: compliancePrompt },
-              ],
-            }),
+          const complianceModel = modelOverride || "google/gemini-2.5-flash";
+          const complianceResult2 = await callAIWithMetrics(supabase, {
+            functionName: 'agent-pipeline-quality',
+            organizationId: orgId,
+            actionType: 'compliance_check',
+            modelOverride: complianceModel,
+            ...(agentTemperature && { temperatureOverride: agentTemperature }),
+            messages: [
+              { role: "system", content: "Bạn là AI kiểm tra tuân thủ nội dung. Luôn trả về JSON hợp lệ." },
+              { role: "user", content: compliancePrompt },
+            ],
           });
-          const aiData = await aiRes.json();
-          const aiContent = aiData?.choices?.[0]?.message?.content || "";
+          const aiContent = complianceResult2.data?.choices?.[0]?.message?.content || "";
           complianceResult = parseJsonFromLLM(aiContent);
         }
       } catch (e) {
@@ -914,7 +915,7 @@ Trả về JSON: { "status": "passed"|"needs_review"|"failed", "score": 0-100, "
 
       // ── 3. Persona-Fit Scoring ──
       let personaFit: any = null;
-      if (lovableApiKey && contentText && brandTemplateId) {
+      if (contentText && brandTemplateId) {
         try {
           const { data: personas } = await supabase
             .from("customer_personas")
@@ -939,19 +940,19 @@ PERSONA:
 Chấm 5 chiều (0-100): pain_points (30%), desires (25%), communication_style (20%), objections (15%), triggers (10%).
 Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_style": <number>, "objections": <number>, "triggers": <number>, "feedback": "<1 câu>" }`;
 
-            const pfRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-              method: "POST",
-              headers: { "Authorization": `Bearer ${lovableApiKey}`, "Content-Type": "application/json" },
-              body: JSON.stringify({
-                model: "google/gemini-2.5-flash-lite",
-                messages: [
-                  { role: "system", content: "Đánh giá persona fit. Luôn trả JSON." },
-                  { role: "user", content: personaPrompt },
-                ],
-              }),
+            const personaModel = modelOverride || "google/gemini-2.5-flash-lite";
+            const pfResult = await callAIWithMetrics(supabase, {
+              functionName: 'agent-pipeline-quality',
+              organizationId: orgId,
+              actionType: 'persona_fit',
+              modelOverride: personaModel,
+              ...(agentTemperature && { temperatureOverride: agentTemperature }),
+              messages: [
+                { role: "system", content: "Đánh giá persona fit. Luôn trả JSON." },
+                { role: "user", content: personaPrompt },
+              ],
             });
-            const pfData = await pfRes.json();
-            const pfParsed = parseJsonFromLLM(pfData?.choices?.[0]?.message?.content || "");
+            const pfParsed = parseJsonFromLLM(pfResult.data?.choices?.[0]?.message?.content || "");
             if (pfParsed) {
               const overall = Math.round(
                 (pfParsed.pain_points || 50) * 0.30 +
