@@ -1,111 +1,91 @@
+# Rà soát Form Tạo Campaign — Các vấn đề cần cải thiện
 
+## Tóm tắt
 
-# Rà soát Agent System — Các vấn đề cần cải thiện
-
-## 1. Bug: `useAgentTeam` đếm pipeline sai
-
-**File**: `src/hooks/useAgentTeam.ts` dòng 62
-
-```typescript
-pipelines_this_month: (pipelineCounts || []).length, // simplified
-```
-
-Mọi member đều nhận **cùng một con số** (tổng pipeline của cả org) thay vì đếm pipeline riêng từng user. Cần group theo `created_by` từ `agent_goals` hoặc thêm trường `created_by` vào pipeline query.
-
-**Fix**: Join pipeline với goal để lấy `created_by`, rồi filter theo `user_id` của từng member.
+File chính: `src/pages/CampaignCreate.tsx` (861 dòng) — form 5 bước tạo/sửa campaign. Sau khi rà soát chi tiết, phát hiện 8 vấn đề cần fix.
 
 ---
 
-## 2. `useAgentPipelines` không giới hạn số lượng rows
+## 1. Thiếu validation ngày: end_date < start_date
 
-**File**: `src/hooks/useAgentPipelines.ts` dòng 18-25
+**Dòng 284-298**: `canProceed()` chỉ check có giá trị, không check `end_date >= start_date`. User có thể tạo campaign với ngày kết thúc trước ngày bắt đầu.
 
-Query lấy **tất cả** pipeline không có `.limit()`. Khi org có > 1000 pipeline sẽ bị Supabase cắt tại 1000 rows mà không báo lỗi → dữ liệu bị thiếu âm thầm.
-
-**Fix**: Thêm `.limit(200)` hoặc pagination, hoặc lọc theo khoảng thời gian (ví dụ 30 ngày gần nhất).
+**Fix**: Thêm check `new Date(formData.end_date) >= new Date(formData.start_date)` vào case 1.
 
 ---
 
-## 3. `useAgentApprovals` cũng thiếu limit
+## 2. Thiếu validation tên campaign (độ dài, ký tự đặc biệt)
 
-**File**: `src/hooks/useAgentApprovals.ts` dòng 17-22
+**Dòng 446-451**: Input tên không có `maxLength`, không trim whitespace khi submit. User có thể nhập tên rỗng chỉ gồm spaces.
 
-Tương tự issue #2, query lấy tất cả approvals không giới hạn.
-
-**Fix**: Thêm `.limit()` hoặc filter chỉ lấy pending + 30 ngày gần nhất.
+**Fix**: Thêm `maxLength={100}`, trim tên trong `handleSubmit`, và check `formData.name.trim()` trong `canProceed()`.
 
 ---
 
-## 4. `AgentMonitorPage` thiếu filter/pagination
+## 3. Budget nhận giá trị âm
 
-**File**: `src/pages/AgentMonitorPage.tsx`
+**Dòng 713-718**: Input budget type="number" không có `min={0}`. User có thể nhập số âm.
 
-Trang monitor hiển thị tất cả pipeline trong một bảng duy nhất, không có:
-- Filter theo status (running/completed/flagged)
-- Filter theo thời gian
-- Pagination
-- Tìm kiếm theo tên
-
-Khi có nhiều pipeline, trang sẽ rất chậm và khó sử dụng.
-
-**Fix**: Thêm filter bar (status, date range) + pagination cho `PipelineMonitorTable`.
+**Fix**: Thêm `min={0}` cho input budget và các input KPI target.
 
 ---
 
-## 5. `useAgentPerformance` thiếu filter theo org
+## 4. Submit không có confirm dialog
 
-**File**: `src/hooks/useAgentPerformance.ts` dòng 42-46
+**Dòng 307-351**: `handleSubmit` thực hiện tạo/sửa campaign ngay lập tức không có confirm. Đặc biệt ở edit mode, milestones bị xóa toàn bộ rồi insert lại — nếu insert fail thì mất data.
 
-Query `agent_execution_logs` **không filter theo `organization_id`** mặc dù đã kiểm tra `currentOrganization?.id`. Nếu bảng có RLS thì OK, nhưng nếu không thì sẽ lấy logs của tất cả org.
-
-**Fix**: Thêm `.eq('organization_id', currentOrganization.id)` hoặc xác nhận RLS policy đã cover.
+**Fix**: Thêm confirm dialog trước khi submit. Wrap milestone delete+insert trong transaction logic (check insert success trước khi toast navigate).
 
 ---
 
-## 6. `PipelineMonitorTable` retry gọi `run_stage` thay vì logic retry đúng
+## 5. Completed steps logic quá lỏng
 
-**File**: `src/components/agents/PipelineMonitorTable.tsx` dòng 60-74
+**Dòng 160-179**: Step 2 và 3 được tự động mark completed nếu step 1 xong, bất kể user có điền gì. Điều này khiến stepper misleading — user nghĩ đã hoàn thành nhưng thực tế chưa điền KPI.
 
-Hàm `handleRetry` gọi `agent-pipeline` với `action: 'run_stage'` nhưng **không reset pipeline state** (không clear `is_flagged`, `flag_reason`, v.v.). Trong khi `useAgentPipelines.retryPipeline` (hook) có logic reset đầy đủ hơn.
-
-**Fix**: Thống nhất sử dụng `retryPipeline` mutation từ hook thay vì gọi edge function trực tiếp.
+**Fix**: Step 2 completed khi có ít nhất 1 key_message hoặc CTA. Step 3 completed khi có ít nhất 1 KPI target > 0. Giữ logic cho phép skip (canProceed = true) nhưng không đánh dấu completed.
 
 ---
 
-## 7. `ApprovalQueue` preview dialog thiếu `DialogDescription`
+## 6. MilestoneEditor dialog thiếu DialogDescription
 
-**File**: `src/components/agents/ApprovalQueue.tsx` dòng 148-176
+**File**: `src/components/campaign/CampaignMilestoneEditor.tsx` dòng 205-211. Dialog thiếu `DialogDescription` → console warning accessibility.
 
-Console logs cho thấy lỗi accessibility: `DialogContent requires a DialogTitle` và `Missing Description`. Preview dialog tại dòng 148 thiếu `DialogDescription`.
-
-**Fix**: Thêm `<DialogDescription>` (hoặc `VisuallyHidden` wrapper) vào cả reject dialog và preview dialog.
+**Fix**: Thêm `<DialogDescription>` vào edit milestone dialog.
 
 ---
 
-## 8. `GoalWizard` quá lớn — 978 dòng trong 1 file
+## 7. Channel selection không có icon
 
-**File**: `src/components/agents/GoalWizard.tsx` — 978 lines
+**Dòng 751-768**: Channels chỉ hiển thị text, không có visual indicator. So với campaign type selector (có emoji icon), channel selector kém trực quan.
 
-Component này chứa tất cả 5 steps wizard, constants, handlers trong 1 file. Khó maintain và debug.
+**Fix**: Thêm icon cho mỗi channel 
 
-**Đề xuất** (không urgent): Tách thành các sub-components: `ObjectiveStep`, `StrategyStep`, `ChannelStep`, `AutomationStep`, `ConfirmStep`.
+---
+
+## 8. Form không có unsaved changes warning
+
+User có thể navigate away (nhấn Back/Hủy) khi đang có data chưa save mà không có warning.
+
+**Fix**: Thêm `useBeforeUnload` hoặc confirm dialog khi user nhấn Hủy/Back mà form đã có data.
 
 ---
 
 ## Tóm tắt mức độ ưu tiên
 
-| # | Vấn đề | Mức độ |
-|---|--------|--------|
-| 1 | Bug đếm pipeline/user sai | **Cao** — dữ liệu sai |
-| 2 | Thiếu limit pipeline query | **Cao** — silent data loss |
-| 3 | Thiếu limit approvals query | **Trung bình** |
-| 4 | Monitor thiếu filter/pagination | **Trung bình** — UX |
-| 5 | Performance hook thiếu org filter | **Trung bình** — security |
-| 6 | Retry logic không nhất quán | **Thấp** — functional nhưng chưa clean |
-| 7 | Thiếu DialogDescription | **Thấp** — accessibility |
-| 8 | GoalWizard quá lớn | **Thấp** — maintenance |
 
-## Đề xuất
+| #   | Vấn đề                      | Mức độ                   |
+| --- | --------------------------- | ------------------------ |
+| 1   | end_date < start_date       | **Cao** — data sai       |
+| 2   | Tên campaign không validate | **Cao** — data sai       |
+| 3   | Budget/KPI âm               | **Trung bình**           |
+| 4   | Submit không confirm        | **Trung bình** — UX      |
+| 5   | Completed steps misleading  | **Trung bình** — UX      |
+| 6   | Missing DialogDescription   | **Thấp** — accessibility |
+| 7   | Channel thiếu icon          | **Thấp** — UX            |
+| 8   | Unsaved changes warning     | **Thấp** — UX            |
 
-Fix ngay **#1, #2, #3** (bugs/data issues). Sau đó **#4, #5** (UX + security). Các items còn lại là technical debt có thể xử lý dần.
 
+## Thay đổi files
+
+- `src/pages/CampaignCreate.tsx` — fix #1, #2, #3, #4, #5, #7, #8
+- `src/components/campaign/CampaignMilestoneEditor.tsx` — fix #6
