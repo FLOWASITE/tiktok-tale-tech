@@ -8,6 +8,15 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3, InboxIcon, AlertTriangle, Clock, Check, X, CheckCircle2, FileText, Video, Images, Target, RefreshCw, Trash2 } from 'lucide-react';
 import { AgentPipeline, AgentPipelineStage, AgentApproval, PIPELINE_STAGES, ContentType } from '@/types/agent';
+
+const STAGE_BADGE_COLORS: Record<string, string> = {
+  strategy: 'bg-violet-500 text-white',
+  create: 'bg-blue-500 text-white',
+  quality: 'bg-cyan-500 text-white',
+  approval: 'bg-amber-500 text-white',
+  publish: 'bg-emerald-500 text-white',
+  analyze: 'bg-pink-500 text-white',
+};
 import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import { getGradeFromScore } from '@/types/creativeScore';
 import { getCreatorActivityLabel } from './creatorStepsConfig';
