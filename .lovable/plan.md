@@ -1,44 +1,40 @@
 
 
-# Thêm DashScope (Alibaba Cloud) Provider
+# Bổ sung DashScope (Alibaba Cloud) vào tất cả UI chọn Model
 
-## Tổng quan
-Thêm DashScope làm provider mới trong hệ thống multi-provider, **không thay thế** bất kỳ provider nào hiện có. Admin có thể chọn DashScope models khi cấu hình Agent hoặc Channel.
+## Vấn đề
+DashScope đã có trong `MODELS_BY_PROVIDER` và `AI_PROVIDERS`, nhưng các model Qwen không xuất hiện trong ModelSelector vì thiếu ở nhiều chỗ:
+- `MODELS_BY_TYPE.text` không có model DashScope
+- `MODEL_INFO` không có entries cho qwen-plus/max/turbo/vl-max/long
+- `ModelInfo.provider` type không có `'dashscope'`
+- `ModelSelector` không có tab/filter cho DashScope
+- Không có helper `isDashScopeModel()`
+- `getModelInfo()` fallback không nhận diện DashScope models
 
 ## Thay đổi
 
-### 1. Backend: `supabase/functions/_shared/ai-provider.ts`
+### 1. `src/hooks/useAIConfig.ts`
 
-- Thêm endpoint vào `PROVIDER_ENDPOINTS`:
-  ```
-  dashscope: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions"
-  ```
-- Thêm model prefix mapping vào `MODEL_TO_PROVIDER`:
-  ```
-  "qwen-": "dashscope"    // qwen-plus, qwen-max, qwen-turbo
-  "qwen2": "dashscope"    // qwen2.5-*, qwen2-*
-  ```
-- Tạo function `callDashScope()` — tương tự `callOpenRouter` vì DashScope là OpenAI-compatible. API key từ `DASHSCOPE_API_KEY` env var.
-- Thêm `case "dashscope"` vào switch trong `callAI()` routing logic (line ~718)
+- Thêm 5 model DashScope vào `MODELS_BY_TYPE.text`: `qwen-plus`, `qwen-max`, `qwen-turbo`, `qwen-vl-max`, `qwen-long`
+- Mở rộng `ModelInfo.provider` type thêm `'dashscope'`
+- Thêm 5 entries vào `MODEL_INFO` với metadata chi tiết (shortName, description, speed, quality, cost, bestFor, provider)
+- Thêm `DASHSCOPE_MODEL_PREFIXES` và helper `isDashScopeModel()`
+- Cập nhật `getModelInfo()` fallback để nhận diện DashScope models (trả provider `'dashscope'`)
 
-### 2. Frontend: `src/types/aiProvider.ts`
+### 2. `src/components/admin/ai/ModelSelector.tsx`
 
-- Thêm `'dashscope'` vào `AIProviderType`
-- Thêm entry mới vào `AI_PROVIDERS` array:
-  ```
-  id: 'dashscope'
-  name: 'DashScope (Alibaba Cloud)'
-  models: ['qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-vl-max', 'qwen-long']
-  getKeyUrl: 'https://dashscope.console.aliyun.com/'
-  icon: '☁️'
-  ```
+- Thêm `'dashscope'` vào `ProviderFilter` type
+- Thêm logic split DashScope models (tương tự KIE/PoYo) trong `filteredModels`
+- Thêm tab provider "DashScope" với icon ☁️ và count
+- Thêm section hiển thị DashScope models trong danh sách (header orange, badge `DASHSCOPE_API_KEY`)
+- Cập nhật `totalModels` count
 
-### 3. Frontend: AI Management UI
+### 3. `src/components/admin/ai/AIAgentModelConfig.tsx`
 
-- Kiểm tra component cấu hình Agent model có tự động hiển thị models từ `AI_PROVIDERS` không — nếu có thì không cần sửa thêm UI
+- Thêm model DashScope vào `recommendedModels` của một số agent (Strategy, Create, Analyze) trong `ALL_AGENTS` — thực tế nằm ở `useAgentModelConfig.ts`, cần thêm `qwen-plus` hoặc `qwen-max` vào recommended list
 
 ### Không thay đổi
-- Tất cả edge functions giữ nguyên — chúng đã dùng `callAIWithMetrics` hoặc sẽ route qua `callAI`
-- Các provider khác không bị ảnh hưởng
-- Secret `DASHSCOPE_API_KEY` đã được user thêm sẵn
+- Backend edge functions — đã xử lý routing DashScope
+- Database — constraint đã được cập nhật
+- `AIProviderManager.tsx` — đã có DashScope
 
