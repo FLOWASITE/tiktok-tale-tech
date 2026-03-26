@@ -1,38 +1,41 @@
 
-Mục tiêu: sửa để 2 nút **Giữ brand / Toàn quyền** tạo ra khác biệt rõ ràng trong Manual Mode (không chỉ đổi highlight UI).
 
-1) Nguyên nhân chính đã thấy trong code
-- `promptMode` có đổi ở UI, nhưng hiệu ứng thực tế đang “mờ” nên user cảm giác không hoạt động.
-- Trong `useAutoImagePipeline.ts`, `includeLogo` đang set giống nhau cho mọi mode:
-  - `mode === 'brand_only' ? !!brandLogoUrl : !!brandLogoUrl`
-  - Kết quả: `raw` vẫn bị overlay logo như mode khác → khác biệt bị mất.
-- Pipeline vẫn chạy logic chọn style V3 trước cả khi không phải `full` (tạo cảm giác mode nào cũng giống nhau).
-- Manual generation hiện chưa tốt cho so sánh mode vì state ảnh/progress dễ bị reset theo lượt tạo.
+# Manual Mode → Navigate to "Tạo ảnh AI" in Viewer
 
-2) Kế hoạch sửa (3 file)
+## Problem
+Khi chọn "Tự chọn & tạo sau" (Manual), sau khi tạo văn bản xong, wizard hiện đang show một UI inline tạo ảnh tự chế tại Step 5. User muốn thay vào đó **navigate thẳng đến trang `/multichannel` (Viewer)** — nơi đã có nút **"Tạo ảnh AI"** hoàn chỉnh với đầy đủ chức năng.
 
-A. `src/hooks/useAutoImagePipeline.ts` (fix hành vi mode ở backend pipeline)
-- Chuẩn hóa rule theo mode:
-  - `full`: dùng V3 style + role/angle + logo (nếu có).
-  - `brand_only`: giữ brand (logo + màu), bỏ strategic directives nặng.
-  - `raw`: **tắt hoàn toàn logo overlay** (`includeLogo=false`, `logoUrl=undefined`), không style/strategy từ brand.
-- Chỉ chạy `suggestImageStylesV3` khi `mode === 'full'`.
-- Đảm bảo `genOptions.promptMode` luôn nhận đúng mode từ Step 5.
+## Solution — 1 file
 
-B. `src/hooks/useAutoImageGeneration.ts` (fix trạng thái manual để không “ảo giác không đổi”)
-- Thêm cơ chế generate dạng additive cho manual single-channel:
-  - Không reset toàn bộ `generatedImages/progress` khi chỉ tạo 1 kênh.
-- Lưu metadata mode cho mỗi ảnh (ví dụ `promptModeUsed`) để UI biết ảnh hiện tại được tạo bằng mode nào.
+### `src/components/multichannel/MultiChannelFormWizard.tsx`
 
-C. `src/components/multichannel/MultiChannelFormWizard.tsx` (làm khác biệt mode thấy ngay)
-- Dưới cụm 3 nút mode, thêm khối mô tả “Mode hiện tại” (rõ ràng: bật/tắt logo, mức AI can thiệp, mức bám brand).
-- Ở mỗi card kênh manual:
-  - Hiển thị badge mode của ảnh hiện tại (nếu đã có ảnh).
-  - Nếu user đổi mode khác với mode ảnh hiện tại, hiện cảnh báo ngắn: “Đã đổi mode, bấm Tạo lại để áp dụng.”
-- Giữ nguyên flow manual hiện tại (không điều hướng ra ngoài).
+**1. Thay đổi auto-advance logic (line 893-899)**
 
-3) Tiêu chí nghiệm thu (E2E)
-- Chọn `Giữ brand` rồi tạo ảnh: ảnh có dấu hiệu giữ nhận diện brand.
-- Chuyển `Toàn quyền` rồi `Tạo lại`: ảnh đổi theo mode mới, **không còn logo overlay tự động**.
-- Badge mode trên card cập nhật đúng theo ảnh mới.
-- Manual mode vẫn tạo từng kênh độc lập, UI không biến mất sau mỗi lượt tạo.
+Khi `imageMode === 'manual'` và `generationComplete`, thay vì advance đến Step 5, navigate thẳng đến `/multichannel` với `viewContentId` từ kết quả multichannel generation.
+
+```tsx
+useEffect(() => {
+  if (generationComplete && currentStep === 4) {
+    setCompletedSteps(prev => [...prev.filter(s => s !== 4), 4]);
+    if (imageMode === 'manual') {
+      // Navigate to viewer — user uses "Tạo ảnh AI" button there
+      navigate('/multichannel', { 
+        state: { viewContentId: formData.coreContentId } 
+      });
+    } else {
+      setCurrentStep(5);
+    }
+  }
+}, [generationComplete, currentStep]);
+```
+
+Nếu `coreContentId` không đúng ID của multichannel content, sẽ cần lấy ID từ task result (`result.data.id`) và lưu vào state (ví dụ `multiChannelContentId`).
+
+**2. Xóa toàn bộ block manual UI tại Step 5 (line ~2063-2195)**
+
+Block `{imageMode === 'manual' && generationComplete ? (...)}` với grid cards, mode badges, v.v. sẽ bị xóa vì không còn cần thiết — user sẽ không bao giờ thấy Step 5 trong manual mode nữa.
+
+## Kết quả
+- **Auto mode**: Vẫn advance đến Step 5, auto-trigger pipeline như cũ
+- **Manual mode**: Sau khi văn bản xong → navigate đến Viewer → user bấm "Tạo ảnh AI" trên toolbar để tạo ảnh với đầy đủ tùy chọn (Giữ Brand / Toàn quyền / v.v.)
+
