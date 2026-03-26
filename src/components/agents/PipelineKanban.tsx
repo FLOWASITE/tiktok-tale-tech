@@ -434,7 +434,7 @@ function PipelineCard({ pipeline, campaignName, isDragging, onClick, approval, o
   );
 }
 
-export function PipelineKanban({ pipelines, approvals, campaignNames, onStageChange, onFlagToggle, onDelete, onApprove, onReject }: PipelineKanbanProps) {
+export function PipelineKanban({ pipelines, approvals, campaignNames, onStageChange, onFlagToggle, onDelete, onRetry, onApprove, onReject }: PipelineKanbanProps) {
   const [activePipeline, setActivePipeline] = useState<AgentPipeline | null>(null);
   const [selectedPipeline, setSelectedPipeline] = useState<AgentPipeline | null>(null);
 
