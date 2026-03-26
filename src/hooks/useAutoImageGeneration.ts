@@ -94,6 +94,7 @@ export interface GeneratedImage {
   aspectRatio: string;
   logoOverlayFailed?: boolean;
   modelUsed?: string;
+  promptMode?: 'full' | 'brand_only' | 'raw';
 }
 
 export interface ChannelProgress {
@@ -409,6 +410,7 @@ export function useAutoImageGeneration() {
           aspectRatio: channelAspectRatio,
           logoOverlayFailed: logoFailed,
           modelUsed,
+          promptMode: promptMode || 'full',
         };
 
         setProgress(prev => ({ ...prev, [channel]: 'done' }));
