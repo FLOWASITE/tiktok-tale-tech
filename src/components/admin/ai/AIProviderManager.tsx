@@ -309,6 +309,7 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                     <p className="mt-1 text-xs">
                       Models: gemini-2.5-pro, gpt-5, gpt-5-mini...
                     </p>
+                    {renderUsageSection(provider.type)}
                   </div>
                 ) : hasConnector ? (
                   <div className="space-y-3">
@@ -328,6 +329,7 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                         Cấu hình
                       </Button>
                     </div>
+                    {renderUsageSection(provider.type)}
                   </div>
                 ) : configured ? (
                   <div className="space-y-3">
@@ -360,9 +362,10 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                         size="sm"
                         onClick={() => deleteProvider(configured.id)}
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                     </div>
+                    {renderUsageSection(provider.type)}
                   </div>
                 ) : (
                   <Button
