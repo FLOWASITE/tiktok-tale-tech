@@ -429,9 +429,7 @@ export function PipelineDetailDialog({ pipeline, open, onOpenChange, onStageChan
                 variant="destructive"
                 size="sm"
                 className="text-xs"
-                onClick={() => {
-                  if (confirm('Xóa pipeline này?')) onDelete?.(pipeline.id);
-                }}
+                onClick={() => onDelete?.(pipeline.id)}
               >
                 <Trash2 className="w-3.5 h-3.5 mr-1.5" />
                 Xóa
