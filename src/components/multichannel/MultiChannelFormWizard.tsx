@@ -294,6 +294,9 @@ export function MultiChannelFormWizard({
   
   // NEW: Pending generation - when user wants to generate multichannel but Core Content not ready
   const [pendingMultiChannelGeneration, setPendingMultiChannelGeneration] = useState(false);
+
+  // Image generation mode: 'auto' = go to Step 5, 'manual' = navigate to detail page after content done
+  const [imageMode, setImageMode] = useState<'auto' | 'manual'>('auto');
   
   // NEW: Preview popup state
   const [showPreviewPopup, setShowPreviewPopup] = useState(false);
@@ -887,13 +890,19 @@ export function MultiChannelFormWizard({
     }
   }, [currentStep]);
 
-  // Auto-advance to Step 5 (AI Control) when multichannel generation completes
+  // Auto-advance when multichannel generation completes
   useEffect(() => {
     if (generationComplete && currentStep === 4) {
       setCompletedSteps(prev => [...prev.filter(s => s !== 4), 4]);
-      setCurrentStep(5);
+      if (imageMode === 'auto') {
+        setCurrentStep(5);
+      } else {
+        // Manual mode: navigate to content list
+        toast.success('Nội dung đã tạo xong! Bạn có thể tạo ảnh trong trang chi tiết.');
+        navigate('/multichannel');
+      }
     }
-  }, [generationComplete, currentStep]);
+  }, [generationComplete, currentStep, imageMode]);
 
   // Resume from background tasks on mount
   useEffect(() => {
@@ -1873,6 +1882,75 @@ export function MultiChannelFormWizard({
                     }
                     disabled={isGenerating}
                   />
+                </div>
+              </div>
+
+              {/* Image Mode Selector */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Image className="w-4 h-4 text-primary" />
+                  Tạo ảnh AI
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setImageMode('auto')}
+                    disabled={isGenerating}
+                    className={cn(
+                      "relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-all",
+                      imageMode === 'auto'
+                        ? "border-primary bg-primary/5 shadow-sm"
+                        : "border-border hover:border-primary/40 hover:bg-accent/30"
+                    )}
+                  >
+                    {imageMode === 'auto' && (
+                      <div className="absolute top-2 right-2">
+                        <CheckCircle2 className="w-4 h-4 text-primary" />
+                      </div>
+                    )}
+                    <div className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
+                      imageMode === 'auto' ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                    )}>
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">⚡ Tự động tạo ảnh</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground leading-tight">
+                        AI tạo ảnh ngay khi nội dung hoàn tất
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setImageMode('manual')}
+                    disabled={isGenerating}
+                    className={cn(
+                      "relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-all",
+                      imageMode === 'manual'
+                        ? "border-primary bg-primary/5 shadow-sm"
+                        : "border-border hover:border-primary/40 hover:bg-accent/30"
+                    )}
+                  >
+                    {imageMode === 'manual' && (
+                      <div className="absolute top-2 right-2">
+                        <CheckCircle2 className="w-4 h-4 text-primary" />
+                      </div>
+                    )}
+                    <div className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
+                      imageMode === 'manual' ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                    )}>
+                      <Image className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">🎨 Tự chọn & tạo sau</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground leading-tight">
+                        Vào trang chi tiết để tùy chỉnh từng kênh
+                      </p>
+                    </div>
+                  </button>
                 </div>
               </div>
 
