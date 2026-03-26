@@ -1,41 +1,79 @@
 
 
-# Manual Mode → Navigate to "Tạo ảnh AI" in Viewer
+# Agent Model Configuration — AI Management Tab
 
-## Problem
-Khi chọn "Tự chọn & tạo sau" (Manual), sau khi tạo văn bản xong, wizard hiện đang show một UI inline tạo ảnh tự chế tại Step 5. User muốn thay vào đó **navigate thẳng đến trang `/multichannel` (Viewer)** — nơi đã có nút **"Tạo ảnh AI"** hoàn chỉnh với đầy đủ chức năng.
+## Tổng quan
+Thêm tab **"Agents"** vào trang AI Management (`/admin/ai`) cho phép admin cấu hình model AI cho từng Agent/Stage trong pipeline 6 giai đoạn (Strategy, Create, Quality, Approval, Publish, Analyze).
 
-## Solution — 1 file
+## Hiện trạng
+- Pipeline 6 stage gọi các edge functions (`topic-ai`, `agent-creator-v2`, `agent-quality`, v.v.) — mỗi function dùng model mặc định hardcoded hoặc từ `ai_function_configs`
+- `AgentConfig` interface có `defaultModel` nhưng chưa có UI quản lý riêng cho Agents
+- Đã có `ai_function_configs` table và `ai_channel_model_configs` table — pattern tương tự
 
-### `src/components/multichannel/MultiChannelFormWizard.tsx`
+## Giải pháp
 
-**1. Thay đổi auto-advance logic (line 893-899)**
+### 1. Database — Tạo bảng `ai_agent_model_configs`
 
-Khi `imageMode === 'manual'` và `generationComplete`, thay vì advance đến Step 5, navigate thẳng đến `/multichannel` với `viewContentId` từ kết quả multichannel generation.
+```sql
+CREATE TABLE public.ai_agent_model_configs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+  agent_name TEXT NOT NULL, -- 'strategy', 'create', 'quality', 'approval', 'publish', 'analyze'
+  model_override TEXT,
+  temperature NUMERIC DEFAULT 0.7,
+  max_tokens INTEGER,
+  is_enabled BOOLEAN DEFAULT true,
+  quality_mode TEXT DEFAULT 'balanced', -- 'fast', 'balanced', 'quality'
+  fallback_model TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(organization_id, agent_name)
+);
 
-```tsx
-useEffect(() => {
-  if (generationComplete && currentStep === 4) {
-    setCompletedSteps(prev => [...prev.filter(s => s !== 4), 4]);
-    if (imageMode === 'manual') {
-      // Navigate to viewer — user uses "Tạo ảnh AI" button there
-      navigate('/multichannel', { 
-        state: { viewContentId: formData.coreContentId } 
-      });
-    } else {
-      setCurrentStep(5);
-    }
-  }
-}, [generationComplete, currentStep]);
+ALTER TABLE public.ai_agent_model_configs ENABLE ROW LEVEL SECURITY;
+
+-- RLS: org admins can manage
+CREATE POLICY "Org admins manage agent configs"
+  ON public.ai_agent_model_configs FOR ALL TO authenticated
+  USING (public.is_org_admin(auth.uid(), organization_id));
 ```
 
-Nếu `coreContentId` không đúng ID của multichannel content, sẽ cần lấy ID từ task result (`result.data.id`) và lưu vào state (ví dụ `multiChannelContentId`).
+### 2. Frontend — Hook `useAgentModelConfig`
 
-**2. Xóa toàn bộ block manual UI tại Step 5 (line ~2063-2195)**
+File: `src/hooks/useAgentModelConfig.ts`
 
-Block `{imageMode === 'manual' && generationComplete ? (...)}` với grid cards, mode badges, v.v. sẽ bị xóa vì không còn cần thiết — user sẽ không bao giờ thấy Step 5 trong manual mode nữa.
+- Pattern giống `useChannelModelConfig` — CRUD operations cho `ai_agent_model_configs`
+- Định nghĩa 6 agents với metadata (name, description, icon, default model, recommended models)
+- Export `ALL_AGENTS` constant
+
+### 3. Frontend — Component `AIAgentModelConfig`
+
+File: `src/components/admin/ai/AIAgentModelConfig.tsx`
+
+- Grid 6 cards, mỗi card đại diện 1 agent stage
+- Mỗi card hiển thị: tên agent, icon, model hiện tại, temperature slider, quality mode selector
+- Click card → Dialog chỉnh sửa chi tiết (model selector, temperature, max tokens, fallback model)
+- Tái sử dụng `ModelSelector` component đã có
+- Badge trạng thái: enabled/disabled, custom/default
+
+### 4. Thêm tab "Agents" vào AdminAIManagement
+
+File: `src/pages/AdminAIManagement.tsx`
+
+- Thêm tab thứ 9 "Agents" với icon `Bot`
+- Render `<AIAgentModelConfig />`
+
+### 5. Backend — Đọc config trong pipeline
+
+File: `supabase/functions/agent-pipeline/index.ts`
+
+- Thêm helper `getAgentModelConfig(supabase, orgId, agentName)` query `ai_agent_model_configs`
+- Trước khi gọi mỗi stage function, lookup config và truyền `model_override` vào body
+- Fallback về model mặc định nếu không có config
 
 ## Kết quả
-- **Auto mode**: Vẫn advance đến Step 5, auto-trigger pipeline như cũ
-- **Manual mode**: Sau khi văn bản xong → navigate đến Viewer → user bấm "Tạo ảnh AI" trên toolbar để tạo ảnh với đầy đủ tùy chọn (Giữ Brand / Toàn quyền / v.v.)
+- Admin có thể chọn model riêng cho từng Agent stage (ví dụ: Strategy dùng Gemini Flash giá rẻ, Create dùng GPT-5 chất lượng cao, Quality dùng model reasoning)
+- Hỗ trợ fallback model khi model chính lỗi
+- Cấu hình per-organization
 
