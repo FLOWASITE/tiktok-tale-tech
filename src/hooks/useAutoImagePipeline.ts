@@ -85,7 +85,10 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
 
     abortRef.current = false;
     setPhase('preparing');
-    setImageResults(null);
+    // Only reset results when generating all channels; preserve existing results for single-channel manual triggers
+    if (channels.length > 1) {
+      setImageResults(null);
+    }
 
     console.log(`[AutoImagePipeline] 🎬 PIPELINE INIT`, {
       contentId,
@@ -182,8 +185,20 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
 
       const result = await autoImageGen.generateAllImages(genOptions, onImageGenerated, autoSave);
       
-      setImageResults(result);
-      setPhase(result.failed.length === channels.length ? 'error' : 'complete');
+      // Merge results with existing for additive single-channel generation
+      setImageResults(prev => {
+        if (!prev) return result;
+        return {
+          successful: [...new Set([...prev.successful, ...result.successful])],
+          failed: prev.failed.filter(ch => !result.successful.includes(ch) && !result.failed.includes(ch)).concat(result.failed),
+        };
+      });
+      // For single-channel manual triggers, return to idle so user can trigger more
+      if (channels.length === 1) {
+        setPhase('idle');
+      } else {
+        setPhase(result.failed.length === channels.length ? 'error' : 'complete');
+      }
 
       // Summary toast
       if (result.successful.length > 0 && result.failed.length > 0) {
