@@ -107,6 +107,9 @@ interface TopicAIRequest {
     term: string;
     reason: string;
   }>;
+  // Agent pipeline model override
+  model_override?: string;     // from ai_agent_model_configs
+  temperature?: number;        // from ai_agent_model_configs
 }
 
 // ========== Main Handler ==========
