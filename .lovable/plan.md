@@ -1,56 +1,38 @@
 
+Mục tiêu: sửa để 2 nút **Giữ brand / Toàn quyền** tạo ra khác biệt rõ ràng trong Manual Mode (không chỉ đổi highlight UI).
 
-# Fix Manual Mode Image Generation (All Prompt Modes)
+1) Nguyên nhân chính đã thấy trong code
+- `promptMode` có đổi ở UI, nhưng hiệu ứng thực tế đang “mờ” nên user cảm giác không hoạt động.
+- Trong `useAutoImagePipeline.ts`, `includeLogo` đang set giống nhau cho mọi mode:
+  - `mode === 'brand_only' ? !!brandLogoUrl : !!brandLogoUrl`
+  - Kết quả: `raw` vẫn bị overlay logo như mode khác → khác biệt bị mất.
+- Pipeline vẫn chạy logic chọn style V3 trước cả khi không phải `full` (tạo cảm giác mode nào cũng giống nhau).
+- Manual generation hiện chưa tốt cho so sánh mode vì state ảnh/progress dễ bị reset theo lượt tạo.
 
-## Root Cause
+2) Kế hoạch sửa (3 file)
 
-The manual mode per-channel "Tạo ảnh" buttons call `onStartImagePipeline([singleChannel], ...)` which triggers the full pipeline — setting `imagePhase` from `'idle'` → `'preparing'` → `'generating_images'` → `'complete'`. 
+A. `src/hooks/useAutoImagePipeline.ts` (fix hành vi mode ở backend pipeline)
+- Chuẩn hóa rule theo mode:
+  - `full`: dùng V3 style + role/angle + logo (nếu có).
+  - `brand_only`: giữ brand (logo + màu), bỏ strategic directives nặng.
+  - `raw`: **tắt hoàn toàn logo overlay** (`includeLogo=false`, `logoUrl=undefined`), không style/strategy từ brand.
+- Chỉ chạy `suggestImageStylesV3` khi `mode === 'full'`.
+- Đảm bảo `genOptions.promptMode` luôn nhận đúng mode từ Step 5.
 
-Once `imagePhase` leaves `'idle'`, the manual UI (channel cards with individual buttons) disappears permanently because it only renders when `imagePhase === 'idle'`. After one channel completes, the user is stuck on the completion screen and cannot generate images for remaining channels.
+B. `src/hooks/useAutoImageGeneration.ts` (fix trạng thái manual để không “ảo giác không đổi”)
+- Thêm cơ chế generate dạng additive cho manual single-channel:
+  - Không reset toàn bộ `generatedImages/progress` khi chỉ tạo 1 kênh.
+- Lưu metadata mode cho mỗi ảnh (ví dụ `promptModeUsed`) để UI biết ảnh hiện tại được tạo bằng mode nào.
 
-This affects **all prompt modes** in manual mode, but is most noticeable with "Giữ Brand" and "Toàn quyền" since users choosing manual mode with these modes expect granular control.
+C. `src/components/multichannel/MultiChannelFormWizard.tsx` (làm khác biệt mode thấy ngay)
+- Dưới cụm 3 nút mode, thêm khối mô tả “Mode hiện tại” (rõ ràng: bật/tắt logo, mức AI can thiệp, mức bám brand).
+- Ở mỗi card kênh manual:
+  - Hiển thị badge mode của ảnh hiện tại (nếu đã có ảnh).
+  - Nếu user đổi mode khác với mode ảnh hiện tại, hiện cảnh báo ngắn: “Đã đổi mode, bấm Tạo lại để áp dụng.”
+- Giữ nguyên flow manual hiện tại (không điều hướng ra ngoài).
 
-## Solution — 2 files
-
-### 1. `src/components/multichannel/MultiChannelFormWizard.tsx`
-
-**Replace the manual mode idle-only UI with a persistent manual interface that works across all phases:**
-
-- Change the manual mode rendering condition: instead of only showing when `imagePhase === 'idle'`, show the channel cards **whenever `imageMode === 'manual'`** regardless of phase
-- Each channel card shows its individual status: idle → generating → complete/error
-- Use `imageProgress` (per-channel status) to show inline spinners on channels being generated
-- Use `generatedImages` to show completed channels with preview thumbnails and "Tạo lại" option
-- Keep the "Tạo tất cả" button available at all times
-- After generating a single channel, the pipeline completes but the manual UI stays visible — user can click another channel
-
-**Key change:** The `imagePhase === 'idle'` guard on the manual UI block (line 2123) should be removed. Instead, render the manual channel grid as the primary view when `imageMode === 'manual'`, showing per-channel progress inline on each card.
-
-### 2. `src/hooks/useAutoImagePipeline.ts`
-
-**Make `startPipeline` additive — don't reset all progress when generating a single channel:**
-
-- When `startPipeline` is called with a subset of channels (e.g., 1 channel in manual mode), preserve existing `generatedImages` for other channels instead of resetting everything
-- Add a parameter or check: if `channels.length < totalChannels`, merge new results with existing ones instead of wiping
-- After single-channel generation completes, set `phase` back to `'idle'` if we detect this was a manual single-channel request (based on channels.length === 1 or a new `isManualTrigger` flag)
-
-### Summary of UI behavior after fix
-
-```text
-Manual mode, Step 5:
-┌────────────────────────────────────────┐
-│  [Tạo tất cả]                         │
-│                                        │
-│  ┌─ facebook ──────────┐  ✅ Done     │
-│  │  Preview text...    │  [Tạo lại]   │
-│  └─────────────────────┘              │
-│  ┌─ instagram ─────────┐  ⏳ Generating│
-│  │  Preview text...    │  [Spinner]    │
-│  └─────────────────────┘              │
-│  ┌─ tiktok ────────────┐  🔘 Idle     │
-│  │  Preview text...    │  [Tạo ảnh]   │
-│  └─────────────────────┘              │
-└────────────────────────────────────────┘
-```
-
-Each channel operates independently. Completed channels show thumbnails. The UI never disappears.
-
+3) Tiêu chí nghiệm thu (E2E)
+- Chọn `Giữ brand` rồi tạo ảnh: ảnh có dấu hiệu giữ nhận diện brand.
+- Chuyển `Toàn quyền` rồi `Tạo lại`: ảnh đổi theo mode mới, **không còn logo overlay tự động**.
+- Badge mode trên card cập nhật đúng theo ảnh mới.
+- Manual mode vẫn tạo từng kênh độc lập, UI không biến mất sau mỗi lượt tạo.
