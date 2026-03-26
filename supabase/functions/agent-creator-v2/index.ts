@@ -42,6 +42,10 @@ interface CreatorInput {
   content_role?: string;
   length_mode?: string;
   campaign_id?: string | null;
+  // Agent model config overrides
+  model_override?: string;
+  temperature?: number;
+  max_tokens?: number;
 }
 
 interface BrandBrief {
