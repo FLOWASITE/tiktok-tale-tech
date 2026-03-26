@@ -38,8 +38,8 @@ export function AIAgentModelConfig() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
 
-  const openRouterProvider = providers?.find(p => p.provider_type === 'openrouter');
-  const hasOpenRouterApiKey = !!openRouterProvider?.api_key;
+  const openRouterProvider = providers?.find(p => p.providerType === 'openrouter');
+  const hasOpenRouterApiKey = !!openRouterProvider?.apiKey;
 
   const handleEdit = (agentId: string) => {
     const existing = configs.find(c => c.agentName === agentId);
@@ -350,6 +350,7 @@ export function AIAgentModelConfig() {
           setIsModelSelectorOpen(false);
         }}
         functionType="text"
+        defaultModel={editingAgent ? (ALL_AGENTS.find(a => a.id === editingAgent)?.defaultModel || 'google/gemini-2.5-flash') : 'google/gemini-2.5-flash'}
         hasOpenRouterApiKey={hasOpenRouterApiKey}
       />
     </div>
