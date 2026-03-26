@@ -144,7 +144,7 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
       // Step 3: Start parallel image generation
       setPhase('generating_images');
 
-      const mode = contentMeta.promptMode || 'full';
+      // mode already declared above
 
       // Mode-specific rules:
       // - full: V3 style + strategic context + logo
