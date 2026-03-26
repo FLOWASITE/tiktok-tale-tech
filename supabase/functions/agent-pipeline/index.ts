@@ -885,7 +885,7 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
           }
         }
 
-        if (lovableApiKey && contentText) {
+        if (contentText) {
           const compliancePrompt = `Kiểm tra tuân thủ nội dung ${contentType} cho ngành "${brandData?.industry || "general"}".
 Tiêu đề: ${pipeline.content_title}
 Nội dung (trích): ${contentText.slice(0, 3000)}
@@ -915,7 +915,7 @@ Trả về JSON: { "status": "passed"|"needs_review"|"failed", "score": 0-100, "
 
       // ── 3. Persona-Fit Scoring ──
       let personaFit: any = null;
-      if (lovableApiKey && contentText && brandTemplateId) {
+      if (contentText && brandTemplateId) {
         try {
           const { data: personas } = await supabase
             .from("customer_personas")
