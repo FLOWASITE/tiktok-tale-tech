@@ -64,6 +64,23 @@ function resolveContentId(pipeline: any, pState: any): string | null {
     || null;
 }
 
+/** Fetch agent model config from ai_agent_model_configs table */
+async function getAgentModelConfig(supabase: any, orgId: string, agentName: string) {
+  try {
+    const { data } = await supabase
+      .from("ai_agent_model_configs")
+      .select("model_override, temperature, max_tokens, quality_mode, fallback_model, is_enabled")
+      .eq("organization_id", orgId)
+      .eq("agent_name", agentName)
+      .eq("is_enabled", true)
+      .maybeSingle();
+    return data || null;
+  } catch (e) {
+    console.warn(`[getAgentModelConfig] Failed for ${agentName}:`, e);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
