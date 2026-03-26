@@ -32,7 +32,7 @@ export const ALL_AGENTS: {
     description: 'Phân tích intent, đề xuất chủ đề và lập lịch nội dung',
     icon: 'Lightbulb',
     defaultModel: 'google/gemini-2.5-flash',
-    recommendedModels: ['google/gemini-2.5-flash', 'google/gemini-2.5-pro', 'openai/gpt-5-mini'],
+    recommendedModels: ['google/gemini-2.5-flash', 'google/gemini-2.5-pro', 'openai/gpt-5-mini', 'qwen-plus'],
   },
   {
     id: 'create',
@@ -40,7 +40,7 @@ export const ALL_AGENTS: {
     description: 'Tạo nội dung multichannel, carousel, video script',
     icon: 'PenTool',
     defaultModel: 'google/gemini-2.5-pro',
-    recommendedModels: ['google/gemini-2.5-pro', 'openai/gpt-5', 'google/gemini-2.5-flash'],
+    recommendedModels: ['google/gemini-2.5-pro', 'openai/gpt-5', 'google/gemini-2.5-flash', 'qwen-max'],
   },
   {
     id: 'quality',
@@ -72,7 +72,7 @@ export const ALL_AGENTS: {
     description: 'Phân tích hiệu quả và cập nhật tiến độ',
     icon: 'BarChart3',
     defaultModel: 'google/gemini-2.5-flash',
-    recommendedModels: ['google/gemini-2.5-flash', 'google/gemini-2.5-pro'],
+    recommendedModels: ['google/gemini-2.5-flash', 'google/gemini-2.5-pro', 'qwen-plus'],
   },
 ];
 

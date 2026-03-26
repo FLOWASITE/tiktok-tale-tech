@@ -412,7 +412,42 @@ export function ModelSelector({
               </div>
             )}
 
-            {/* KIE.ai Models (only for image functions) */}
+            {/* DashScope (Alibaba Cloud) Models */}
+            {filteredModels.dashscope.length > 0 && (
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-orange-500/5 border border-orange-500/20 sticky top-0 z-10">
+                  <div className="w-2 h-2 rounded-full bg-orange-500" />
+                  <Key className="h-4 w-4 text-orange-500" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-xs sm:text-sm text-orange-700 dark:text-orange-400">☁️ DashScope</h3>
+                    <p className="text-[10px] sm:text-xs text-orange-600/70 dark:text-orange-400/70 truncate">
+                      Qwen Plus, Max, Turbo, VL — Alibaba Cloud
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-[9px] sm:text-[10px] bg-orange-500/10 text-orange-600 border-orange-500/30">
+                    {filteredModels.dashscope.length}
+                  </Badge>
+                </div>
+                <div className="p-2 rounded-lg bg-orange-500/5 border border-orange-500/10 flex items-center gap-2">
+                  <Key className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                  <p className="text-[10px] sm:text-xs text-orange-600/80 dark:text-orange-400/80">
+                    Yêu cầu <code className="font-mono font-medium">DASHSCOPE_API_KEY</code> trong Secrets
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
+                  {filteredModels.dashscope.map((modelId) => (
+                    <ModelCard
+                      key={modelId}
+                      modelId={modelId}
+                      info={getModelInfo(modelId)}
+                      isSelected={selectedModel === modelId}
+                      onClick={() => handleSelectModel(modelId)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {filteredModels.kie.length > 0 && (
               <div className="space-y-2 sm:space-y-3">
                 <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-violet-500/5 border border-violet-500/20 sticky top-0 z-10">
