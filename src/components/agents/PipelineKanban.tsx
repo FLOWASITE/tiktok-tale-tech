@@ -430,7 +430,7 @@ function PipelineCard({ pipeline, campaignName, isDragging, onClick, approval, o
                 className="h-7 text-[10px] gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (confirm('Xóa pipeline này?')) onDelete(pipeline.id);
+                  onDelete(pipeline.id);
                 }}
               >
                 <Trash2 className="w-3 h-3" /> Xóa
