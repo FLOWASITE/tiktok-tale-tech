@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useParams, useBlocker } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -22,6 +32,7 @@ import {
   Info,
   Plus
 } from 'lucide-react';
+import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
 import { cn } from '@/lib/utils';
 import { useCampaigns, useCampaignDetail } from '@/hooks/useCampaigns';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
@@ -56,14 +67,14 @@ import {
 import { toast } from 'sonner';
 
 const CHANNELS = [
-  { value: 'facebook', label: 'Facebook' },
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'tiktok', label: 'TikTok' },
-  { value: 'youtube', label: 'YouTube' },
-  { value: 'linkedin', label: 'LinkedIn' },
-  { value: 'twitter', label: 'Twitter/X' },
-  { value: 'zalo', label: 'Zalo' },
-  { value: 'email', label: 'Email' },
+  { value: 'facebook', label: 'Facebook', icon: 'facebook' as const },
+  { value: 'instagram', label: 'Instagram', icon: 'instagram' as const },
+  { value: 'tiktok', label: 'TikTok', icon: 'tiktok' as const },
+  { value: 'youtube', label: 'YouTube', icon: 'youtube' as const },
+  { value: 'linkedin', label: 'LinkedIn', icon: 'linkedin' as const },
+  { value: 'twitter', label: 'Twitter/X', icon: 'twitter' as const },
+  { value: 'zalo', label: 'Zalo', icon: 'zalo_oa' as const },
+  { value: 'email', label: 'Email', icon: 'email' as const },
 ];
 
 const TOTAL_STEPS = 5;
@@ -97,6 +108,33 @@ export default function CampaignCreate() {
   const [showTemplateSelector, setShowTemplateSelector] = useState(!isEditMode);
   const [selectedTemplate, setSelectedTemplate] = useState<CampaignTemplate | null>(null);
   const [newKeyMessage, setNewKeyMessage] = useState('');
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Track unsaved changes
+  useEffect(() => {
+    if (isInitialized || !isEditMode) {
+      const hasData = !!(formData.name?.trim() || formData.description || formData.start_date || formData.end_date || milestones.length > 0);
+      setHasUnsavedChanges(hasData);
+    }
+  }, [formData, milestones, isInitialized, isEditMode]);
+
+  // Block navigation when there are unsaved changes
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname
+  );
+
+  // Warn on browser tab close
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   // Get brand pillars from selected brand
   const selectedBrand = brands.find(b => b.id === formData.brand_template_id);
@@ -159,24 +197,27 @@ export default function CampaignCreate() {
   // Track completed steps
   useEffect(() => {
     const completed: number[] = [];
-    if (formData.name && formData.start_date && formData.end_date && formData.campaign_type) {
+    const hasValidDates = formData.start_date && formData.end_date && 
+      new Date(formData.end_date) >= new Date(formData.start_date);
+    if (formData.name?.trim() && hasValidDates && formData.campaign_type) {
       completed.push(1);
     }
-    if (completed.includes(1)) {
-      completed.push(2); // Content goals step is always "completable" (optional)
+    // Step 2: completed when has at least 1 key_message or CTA
+    if (completed.includes(1) && (contentBrief.key_messages.length > 0 || contentBrief.primary_cta?.trim())) {
+      completed.push(2);
     }
-    if (completed.includes(2)) {
-      completed.push(3); // KPIs step is always "completable"
+    // Step 3: completed when at least 1 KPI target > 0
+    if (completed.includes(1) && (formData.goals || []).some(g => g.target > 0)) {
+      completed.push(3);
     }
     if ((formData.target_channels?.length || 0) > 0) {
       completed.push(4);
     }
-    // Step 5 is optional
     if (milestones.length > 0) {
       completed.push(5);
     }
     setCompletedSteps(completed);
-  }, [formData, milestones]);
+  }, [formData, milestones, contentBrief]);
 
   const updateField = <K extends keyof CampaignFormData>(field: K, value: CampaignFormData[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -283,8 +324,12 @@ export default function CampaignCreate() {
 
   const canProceed = () => {
     switch (step) {
-      case 1:
-        return formData.name && formData.start_date && formData.end_date && formData.campaign_type;
+      case 1: {
+        const hasName = !!formData.name?.trim();
+        const hasDates = !!formData.start_date && !!formData.end_date;
+        const validDates = hasDates && new Date(formData.end_date!) >= new Date(formData.start_date!);
+        return hasName && validDates && !!formData.campaign_type;
+      }
       case 2:
         return true; // Content goals optional
       case 3:
@@ -305,23 +350,27 @@ export default function CampaignCreate() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.start_date || !formData.end_date || !formData.campaign_type) {
+    const trimmedName = formData.name?.trim();
+    if (!trimmedName || !formData.start_date || !formData.end_date || !formData.campaign_type) {
       return;
     }
+
+    const submissionData = { ...formData, name: trimmedName } as CampaignFormData;
     
     try {
       let savedCampaignId: string;
       
       if (isEditMode && campaignId) {
-        await updateCampaign({ id: campaignId, data: formData as CampaignFormData });
+        await updateCampaign({ id: campaignId, data: submissionData });
         savedCampaignId = campaignId;
         
+        // Delete old milestones first
         await supabase
           .from('campaign_milestones')
           .delete()
           .eq('campaign_id', campaignId);
       } else {
-        const newCampaign = await createCampaign(formData as CampaignFormData);
+        const newCampaign = await createCampaign(submissionData);
         savedCampaignId = newCampaign.id;
       }
       
@@ -345,6 +394,7 @@ export default function CampaignCreate() {
         }
       }
       
+      setHasUnsavedChanges(false);
       navigate('/campaigns');
     } catch (error) {
       console.error('Error saving campaign:', error);
@@ -448,7 +498,11 @@ export default function CampaignCreate() {
                       placeholder="VD: Black Friday 2025, Tết Nguyên Đán..."
                       value={formData.name}
                       onChange={(e) => updateField('name', e.target.value)}
+                      maxLength={100}
                     />
+                    {formData.name && !formData.name.trim() && (
+                      <p className="text-xs text-destructive">Tên chiến dịch không được chỉ gồm khoảng trắng</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -507,6 +561,9 @@ export default function CampaignCreate() {
                         onChange={(e) => updateField('end_date', e.target.value)}
                         min={formData.start_date}
                       />
+                      {formData.start_date && formData.end_date && new Date(formData.end_date) < new Date(formData.start_date) && (
+                        <p className="text-xs text-destructive">Ngày kết thúc phải sau ngày bắt đầu</p>
+                      )}
                     </div>
                   </div>
 
@@ -695,8 +752,9 @@ export default function CampaignCreate() {
                                 type="number"
                                 placeholder="Target"
                                 className="w-32"
+                                min={0}
                                 value={goal.target || ''}
-                                onChange={(e) => handleGoalChange(goal.metric, Number(e.target.value))}
+                                onChange={(e) => handleGoalChange(goal.metric, Math.max(0, Number(e.target.value)))}
                               />
                               {goal.unit && <span className="text-sm text-muted-foreground">{goal.unit}</span>}
                             </div>
@@ -713,8 +771,9 @@ export default function CampaignCreate() {
                       <Input
                         type="number"
                         placeholder="VD: 10000000"
+                        min={0}
                         value={formData.budget_total || ''}
-                        onChange={(e) => updateField('budget_total', Number(e.target.value) || undefined)}
+                        onChange={(e) => updateField('budget_total', Math.max(0, Number(e.target.value)) || undefined)}
                         className="flex-1"
                       />
                       <Select 
@@ -762,7 +821,10 @@ export default function CampaignCreate() {
                               : 'border-border hover:border-primary/50'
                           )}
                         >
-                          <p className="font-medium text-sm">{channel.label}</p>
+                          <div className="flex flex-col items-center gap-2">
+                            <ChannelIcon channel={channel.icon} size={24} className={isSelected ? channelIconColors[channel.icon] : 'text-muted-foreground'} />
+                            <p className="font-medium text-sm">{channel.label}</p>
+                          </div>
                         </div>
                       );
                     })}
@@ -828,7 +890,7 @@ export default function CampaignCreate() {
                 </Button>
               ) : (
                 <Button
-                  onClick={handleSubmit}
+                  onClick={() => setShowSubmitConfirm(true)}
                   disabled={!canProceed() || isSubmitting}
                 >
                   {isSubmitting ? 'Đang lưu...' : isEditMode ? 'Cập nhật' : 'Tạo chiến dịch'}
@@ -856,6 +918,46 @@ export default function CampaignCreate() {
         onOpenChange={setShowTemplateSelector}
         onSelect={handleTemplateSelect}
       />
+
+      {/* Submit Confirmation Dialog */}
+      <AlertDialog open={showSubmitConfirm} onOpenChange={setShowSubmitConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isEditMode ? 'Xác nhận cập nhật chiến dịch?' : 'Xác nhận tạo chiến dịch?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isEditMode
+                ? 'Các thay đổi sẽ được lưu lại. Milestones hiện tại sẽ được cập nhật.'
+                : `Chiến dịch "${formData.name?.trim()}" sẽ được tạo với ${milestones.length} milestone(s) và ${formData.target_channels?.length || 0} kênh phân phối.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? 'Đang lưu...' : 'Xác nhận'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unsaved Changes Navigation Warning */}
+      <AlertDialog open={blocker.state === 'blocked'} onOpenChange={() => blocker.state === 'blocked' && blocker.reset()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bạn có thay đổi chưa lưu</AlertDialogTitle>
+            <AlertDialogDescription>
+              Nếu rời khỏi trang này, các thay đổi sẽ bị mất. Bạn có chắc chắn muốn rời đi?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => blocker.reset?.()}>Ở lại</AlertDialogCancel>
+            <AlertDialogAction onClick={() => blocker.proceed?.()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Rời đi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

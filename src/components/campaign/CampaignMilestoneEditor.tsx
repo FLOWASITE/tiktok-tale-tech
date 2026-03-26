@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -208,6 +209,9 @@ export function CampaignMilestoneEditor({
             <DialogTitle>
               {editingIndex !== null ? 'Sửa Milestone' : 'Thêm Milestone'}
             </DialogTitle>
+            <DialogDescription>
+              {editingIndex !== null ? 'Chỉnh sửa thông tin milestone' : 'Thêm mốc thời gian mới cho chiến dịch'}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
