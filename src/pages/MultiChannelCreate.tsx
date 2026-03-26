@@ -231,7 +231,7 @@ export default function MultiChannelCreate() {
     setGenerationState('idle');
     setSseProgress(null);
     setGeneratedContentId(null);
-    autoImageTriggeredRef.current = false;
+    // autoImageTriggeredRef removed — user chooses mode in Step 5
     contentNotifiedRef.current = false;
     imagesNotifiedRef.current = false;
     imagePipeline.resetPipeline();
