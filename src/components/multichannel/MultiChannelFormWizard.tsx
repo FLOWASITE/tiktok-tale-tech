@@ -2142,6 +2142,11 @@ export function MultiChannelFormWizard({
                             <div className="flex items-center gap-1.5">
                               <p className="text-xs font-medium text-foreground capitalize">{ch.replace('_', ' ')}</p>
                               {hasImage && <CheckCircle2 className="w-3 h-3 text-primary" />}
+                              {hasImage && typeof hasImage === 'object' && (hasImage as any).promptMode && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">
+                                  {(hasImage as any).promptMode === 'raw' ? '🎨' : (hasImage as any).promptMode === 'brand_only' ? '🏷️' : '✨'}
+                                </Badge>
+                              )}
                             </div>
                             {hasImage && typeof hasImage === 'object' && hasImage.url ? (
                               <img src={hasImage.url} alt={ch} className="w-full h-16 object-cover rounded-md border border-border/50" />
