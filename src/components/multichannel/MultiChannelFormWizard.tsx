@@ -1968,7 +1968,7 @@ export function MultiChannelFormWizard({
                     <div>
                       <p className="text-sm font-medium text-foreground">🎨 Tự chọn & tạo sau</p>
                       <p className="mt-0.5 text-[11px] text-muted-foreground leading-tight">
-                        Vào trang chi tiết để tùy chỉnh từng kênh
+                        Xem nội dung xong rồi tạo ảnh từng kênh
                       </p>
                     </div>
                   </button>
