@@ -52,12 +52,52 @@ interface TestResult {
 }
 
 export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
-  const { providers, isLoading, upsertProvider, deleteProvider } = useAIConfig(organizationId);
+  const { providers, functions: functionConfigs, isLoading, upsertProvider, deleteProvider } = useAIConfig(organizationId);
+  const { configs: agentConfigs } = useAgentModelConfig(organizationId);
+  const { configs: channelConfigs } = useChannelModelConfig(organizationId);
   const [editingProvider, setEditingProvider] = useState<Partial<AIProviderConfig> & { apiKey?: string } | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>({});
+
+  // Build usage map: for each provider type, list functions/agents/channels using it
+  type UsageItem = { name: string; model: string; shortName: string; source: 'F' | 'A' | 'C' };
+  const providerUsageMap = useMemo(() => {
+    const map: Record<string, UsageItem[]> = {};
+
+    // Functions
+    AI_FUNCTIONS.forEach((fn) => {
+      const dbConfig = functionConfigs.find(c => c.functionName === fn.name);
+      const model = dbConfig?.modelOverride || fn.currentModel;
+      const provider = dbConfig?.forceProvider || getModelInfo(model).provider;
+      if (!map[provider]) map[provider] = [];
+      map[provider].push({ name: fn.name, model, shortName: getModelInfo(model).shortName, source: 'F' });
+    });
+
+    // Agents
+    ALL_AGENTS.forEach((agent) => {
+      const dbConfig = agentConfigs.find(c => c.agentName === agent.id);
+      const model = dbConfig?.modelOverride || agent.defaultModel;
+      const provider = getModelInfo(model).provider;
+      if (!map[provider]) map[provider] = [];
+      map[provider].push({ name: agent.label, model, shortName: getModelInfo(model).shortName, source: 'A' });
+    });
+
+    // Channels
+    ALL_CHANNELS.forEach((ch) => {
+      const dbConfig = channelConfigs.find(c => c.channel === ch.id);
+      if (dbConfig?.modelOverride) {
+        const model = dbConfig.modelOverride;
+        const provider = dbConfig.forceProvider || getModelInfo(model).provider;
+        if (!map[provider]) map[provider] = [];
+        map[provider].push({ name: ch.name, model, shortName: getModelInfo(model).shortName, source: 'C' });
+      }
+    });
+
+    return map;
+  }, [functionConfigs, agentConfigs, channelConfigs]);
 
   const handleSaveProvider = async () => {
     if (!editingProvider?.providerType) return;
