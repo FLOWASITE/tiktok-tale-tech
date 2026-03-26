@@ -1,89 +1,66 @@
 
 
-# Tại sao Agent không tạo được Multichannel nhưng UI tạo bình thường
+# Fix: Agent Multichannel không tạo được ảnh đúng
 
-## Nguyên nhân gốc
+## Nguyên nhân
 
-Có **2 code path hoàn toàn khác nhau** trong `generate-multichannel`:
+Khi Agent gọi `generate-brand-image`, nó chỉ truyền `contentId`, `channel`, `brandTemplateId` và `imageContentType: "with_text"`. Trong khi UI (manual flow) truyền đầy đủ:
 
-1. **UI (tạo thủ công)** → gửi `stream: true` → vào **Streaming Mode** (line 2455)
-   - Gọi AI dạng **plain text** (không dùng tool calling)
-   - Mỗi channel được generate riêng lẻ bằng `generateChannelStreaming()`
-   - AI chỉ cần viết text thẳng → **bất kỳ model nào cũng chạy được**
+- `contentSummary` — nội dung text của kênh (để AI hiểu context tạo ảnh)
+- `textToInclude` — text cần render lên ảnh (bắt buộc khi `imageContentType = "with_text"`)
+- `contentRole`, `contentAngle`, `hookMessage`...
 
-2. **Agent (agent-creator-v2)** → gọi `callFunction()` **KHÔNG có `stream: true`** → vào **Normal Mode** (line 3421)
-   - Bắt buộc AI phải trả về format `tool_calls` với function name `generate_multichannel_content`
-   - Dùng `toolChoice: { type: "function", function: { name: "generate_multichannel_content" } }`
-   - Model phải hỗ trợ **structured tool calling** → nhiều model (như Qwen) trả về sai format → fail sau 3 retries
+Khi `imageContentType = "with_text"` mà `textToInclude` rỗng → ảnh sinh ra không có text → hoặc lỗi khi render.
+Khi `contentSummary` undefined → prompt tạo ảnh không có context nội dung → ảnh generic.
 
-**Bằng chứng từ logs:**
-```
-[single] Generating single channel facebook with model qwen/qwen3.5-plus-02-15
-[ai-format] Invalid response format, retry 1/2
-[ai-format] Invalid response format, retry 2/2
-Error: Invalid AI response format
-```
+## Giải pháp
 
-## Giải pháp: Agent dùng streaming-style generation (plain text, không tool calling)
+### File: `supabase/functions/agent-creator-v2/index.ts`
 
-### Thay đổi trong `agent-creator-v2/index.ts`
+**Thay đổi trong `generateImagesForChannels()`** — sau khi multichannel content đã tạo xong, trước khi gọi `generate-brand-image`:
 
-Trong `routeMultichannel()`, thêm `stream: false` nhưng kèm `agentMode: true` vào params gửi cho `generate-multichannel`:
+1. Fetch nội dung text từng channel từ bảng `multi_channel_contents` (dùng `contentId`)
+2. Truyền `contentSummary` = nội dung channel text (truncated ~500 chars)
+3. Đổi `imageContentType` từ `"with_text"` → `"background_only"` (vì agent không có decompose step để tạo structured overlay — ảnh background_only vẫn đẹp và phù hợp hơn)
+4. Truyền thêm `contentRole`, `contentAngle` từ content data
 
-```typescript
-const mcParams = {
-  ...existingParams,
-  agentMode: true,  // Signal to use text-based generation instead of tool calling
-};
-```
-
-### Thay đổi trong `generate-multichannel/index.ts` (Normal Mode)
-
-Khi phát hiện `agentMode: true`, thay vì dùng `generateAIContentForChannels` (tool calling), sẽ:
-
-1. Gọi AI dạng plain text cho từng channel riêng lẻ (giống streaming mode nhưng không stream)
-2. Parse kết quả text trực tiếp thành `channelResults`
-3. Bỏ qua hoàn toàn tool calling
-
-Cụ thể, thêm một function `generatePlainTextForChannel()` trước block parallel generation (line ~3930):
+Cụ thể:
+- Thêm param `supabase` vào `generateImagesForChannels()` 
+- Fetch `multi_channel_contents` record 1 lần để lấy text các channel
+- Map `{channel}_content` → `contentSummary` cho từng channel
+- Đổi `imageContentType: "background_only"` (agent không cần text overlay phức tạp)
 
 ```typescript
-// Agent mode: generate plain text per channel (no tool calling required)
-if (formData.agentMode) {
-  for (const channel of formData.channels) {
-    const channelConfig = channelModelConfigs.get(channel);
-    const model = channelConfig?.model || aiConfig.model;
-    const temp = channelConfig?.temperature ?? aiConfig.temperature;
-    
-    const result = await callAI({
-      functionName: 'generate-multichannel',
-      organizationId,
-      modelOverride: model,
-      temperatureOverride: temp,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt + `\nViết nội dung cho kênh: ${channel.toUpperCase()}\nViết TRỰC TIẾP, KHÔNG giải thích.` },
-      ],
-      // NO tools, NO toolChoice → plain text response
-    });
-    
-    channelResults[channel] = result.data?.choices?.[0]?.message?.content || '';
-  }
-  // Skip to save step
+async function generateImagesForChannels(
+  supabaseUrl: string,
+  serviceKey: string,
+  supabase: any,           // NEW
+  contentId: string,
+  channels: string[],
+  brandTemplateId: string | null | undefined,
+): Promise<{ success: string[]; failed: string[] }> {
+  // Fetch content text for all channels
+  const { data: mcContent } = await supabase
+    .from("multi_channel_contents")
+    .select("*")
+    .eq("id", contentId)
+    .single();
+
+  // ... rest of function, pass contentSummary per channel
+  callFunction(supabaseUrl, serviceKey, "generate-brand-image", {
+    contentId,
+    channel,
+    contentSummary: (mcContent?.[`${channel}_content`] || '').slice(0, 500),
+    brandTemplateId,
+    imageContentType: "background_only",
+    contentRole: mcContent?.content_role,
+    contentAngle: mcContent?.content_angle,
+  });
 }
 ```
 
-### Phạm vi thay đổi: 2 files
+- Cập nhật call site ở `routeMultichannel()` line 377 truyền thêm `supabase`
 
-| File | Thay đổi |
-|------|----------|
-| `supabase/functions/agent-creator-v2/index.ts` | Thêm `agentMode: true` vào `mcParams` (1 dòng) |
-| `supabase/functions/generate-multichannel/index.ts` | Thêm branch `agentMode` trong Normal Mode (~40 dòng) — generate plain text per channel, skip tool calling, map results vào DB columns |
-
-### Lợi ích
-
-- Agent hoạt động với **mọi model** (Qwen, Claude, Gemini, GPT...) — không phụ thuộc tool calling
-- Tái sử dụng cùng system prompt, brand context, channel overrides đã có
-- Không ảnh hưởng đến UI flow (vẫn dùng streaming mode như cũ)
-- Không cần thay đổi model config
+### Phạm vi: 1 file
+`supabase/functions/agent-creator-v2/index.ts` — sửa `generateImagesForChannels()` + call site
 
