@@ -9,6 +9,7 @@ import {
   getModelInfo,
   isKieModel,
   isPoyoModel,
+  isDashScopeModel,
   AIFunctionType,
   ModelInfo 
 } from '@/hooks/useAIConfig';
@@ -28,7 +29,7 @@ interface ModelSelectorProps {
 }
 
 type FilterType = 'all' | 'fast' | 'quality' | 'cheap' | 'reasoning' | 'coding' | 'multimodal';
-type ProviderFilter = 'all' | 'lovable' | 'kie' | 'poyo' | 'openrouter';
+type ProviderFilter = 'all' | 'lovable' | 'kie' | 'poyo' | 'dashscope' | 'openrouter';
 
 export function ModelSelector({
   open,
@@ -66,17 +67,19 @@ export function ModelSelector({
     return groupModelsByProvider(openRouterModels);
   }, [openRouterModels]);
 
-  // Split Lovable/KIE/PoYo models (only for image function type)
-  const { kieModels: availableKieModels, poyoModels: availablePoyoModels, lovableOnlyModels: availableLovableOnlyModels } = useMemo(() => {
-    if (functionType !== 'image') {
-      return { kieModels: [] as string[], poyoModels: [] as string[], lovableOnlyModels: availableModels.lovable };
-    }
+  // Split Lovable/KIE/PoYo/DashScope models
+  const { kieModels: availableKieModels, poyoModels: availablePoyoModels, dashscopeModels: availableDashScopeModels, lovableOnlyModels: availableLovableOnlyModels } = useMemo(() => {
+    const kie = availableModels.lovable.filter(id => isKieModel(id));
+    const poyo = availableModels.lovable.filter(id => isPoyoModel(id));
+    const dashscope = availableModels.lovable.filter(id => isDashScopeModel(id));
+    const lovableOnly = availableModels.lovable.filter(id => !isKieModel(id) && !isPoyoModel(id) && !isDashScopeModel(id));
     return {
-      kieModels: availableModels.lovable.filter(id => isKieModel(id)),
-      poyoModels: availableModels.lovable.filter(id => isPoyoModel(id)),
-      lovableOnlyModels: availableModels.lovable.filter(id => !isKieModel(id) && !isPoyoModel(id)),
+      kieModels: kie,
+      poyoModels: poyo,
+      dashscopeModels: dashscope,
+      lovableOnlyModels: lovableOnly,
     };
-  }, [availableModels.lovable, functionType]);
+  }, [availableModels.lovable]);
 
   // Filter models based on search, filter, and provider
   const filteredModels = useMemo(() => {
@@ -148,26 +151,31 @@ export function ModelSelector({
     // Apply provider filter
     if (providerFilter === 'lovable') {
       openrouterFiltered = [];
-      lovableFiltered = lovableFiltered.filter(id => !isKieModel(id) && !isPoyoModel(id));
+      lovableFiltered = lovableFiltered.filter(id => !isKieModel(id) && !isPoyoModel(id) && !isDashScopeModel(id));
     } else if (providerFilter === 'kie') {
       openrouterFiltered = [];
       lovableFiltered = lovableFiltered.filter(id => isKieModel(id));
     } else if (providerFilter === 'poyo') {
       openrouterFiltered = [];
       lovableFiltered = lovableFiltered.filter(id => isPoyoModel(id));
+    } else if (providerFilter === 'dashscope') {
+      openrouterFiltered = [];
+      lovableFiltered = lovableFiltered.filter(id => isDashScopeModel(id));
     } else if (providerFilter === 'openrouter') {
       lovableFiltered = [];
     }
 
-    // For image functions, split into KIE vs PoYo vs pure Lovable
-    const kieFiltered = functionType === 'image' ? lovableFiltered.filter(id => isKieModel(id)) : [];
-    const poyoFiltered = functionType === 'image' ? lovableFiltered.filter(id => isPoyoModel(id)) : [];
-    const lovableOnlyFiltered = functionType === 'image' ? lovableFiltered.filter(id => !isKieModel(id) && !isPoyoModel(id)) : lovableFiltered;
+    // Split into provider groups
+    const kieFiltered = lovableFiltered.filter(id => isKieModel(id));
+    const poyoFiltered = lovableFiltered.filter(id => isPoyoModel(id));
+    const dashscopeFiltered = lovableFiltered.filter(id => isDashScopeModel(id));
+    const lovableOnlyFiltered = lovableFiltered.filter(id => !isKieModel(id) && !isPoyoModel(id) && !isDashScopeModel(id));
 
     return {
       lovable: lovableOnlyFiltered,
       kie: kieFiltered,
       poyo: poyoFiltered,
+      dashscope: dashscopeFiltered,
       openrouter: openrouterFiltered,
     };
   }, [availableModels, searchQuery, activeFilter, providerFilter, functionType]);
@@ -182,8 +190,9 @@ export function ModelSelector({
     onOpenChange(false);
   };
 
-  const totalModels = filteredModels.lovable.length + filteredModels.kie.length + filteredModels.poyo.length + filteredModels.openrouter.length;
+  const totalModels = filteredModels.lovable.length + filteredModels.kie.length + filteredModels.poyo.length + filteredModels.dashscope.length + filteredModels.openrouter.length;
   const hasOpenRouter = hasOpenRouterApiKey && functionType === 'text';
+  const hasDashScope = availableDashScopeModels.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -196,7 +205,7 @@ export function ModelSelector({
         </DialogHeader>
 
         {/* Provider Tabs */}
-        {(hasOpenRouter || functionType === 'image') && (
+        {(hasOpenRouter || functionType === 'image' || hasDashScope) && (
           <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
             <ProviderTab
               active={providerFilter === 'all'}
@@ -223,6 +232,17 @@ export function ModelSelector({
                 count={availableKieModels.length}
               >
                 KIE.ai
+              </ProviderTab>
+            )}
+            {hasDashScope && (
+              <ProviderTab
+                active={providerFilter === 'dashscope'}
+                onClick={() => setProviderFilter('dashscope')}
+                provider="dashscope"
+                count={availableDashScopeModels.length}
+              >
+                <span className="hidden sm:inline">DashScope</span>
+                <span className="sm:hidden">DS</span>
               </ProviderTab>
             )}
             {hasOpenRouter && (
@@ -392,7 +412,42 @@ export function ModelSelector({
               </div>
             )}
 
-            {/* KIE.ai Models (only for image functions) */}
+            {/* DashScope (Alibaba Cloud) Models */}
+            {filteredModels.dashscope.length > 0 && (
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-orange-500/5 border border-orange-500/20 sticky top-0 z-10">
+                  <div className="w-2 h-2 rounded-full bg-orange-500" />
+                  <Key className="h-4 w-4 text-orange-500" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-xs sm:text-sm text-orange-700 dark:text-orange-400">☁️ DashScope</h3>
+                    <p className="text-[10px] sm:text-xs text-orange-600/70 dark:text-orange-400/70 truncate">
+                      Qwen Plus, Max, Turbo, VL — Alibaba Cloud
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-[9px] sm:text-[10px] bg-orange-500/10 text-orange-600 border-orange-500/30">
+                    {filteredModels.dashscope.length}
+                  </Badge>
+                </div>
+                <div className="p-2 rounded-lg bg-orange-500/5 border border-orange-500/10 flex items-center gap-2">
+                  <Key className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                  <p className="text-[10px] sm:text-xs text-orange-600/80 dark:text-orange-400/80">
+                    Yêu cầu <code className="font-mono font-medium">DASHSCOPE_API_KEY</code> trong Secrets
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
+                  {filteredModels.dashscope.map((modelId) => (
+                    <ModelCard
+                      key={modelId}
+                      modelId={modelId}
+                      info={getModelInfo(modelId)}
+                      isSelected={selectedModel === modelId}
+                      onClick={() => handleSelectModel(modelId)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {filteredModels.kie.length > 0 && (
               <div className="space-y-2 sm:space-y-3">
                 <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-violet-500/5 border border-violet-500/20 sticky top-0 z-10">
@@ -537,7 +592,7 @@ interface ProviderTabProps {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
-  provider?: 'lovable' | 'kie' | 'poyo' | 'openrouter';
+  provider?: 'lovable' | 'kie' | 'poyo' | 'dashscope' | 'openrouter';
   count?: number;
   isLoading?: boolean;
 }
@@ -547,6 +602,7 @@ function ProviderTab({ active, onClick, children, provider, count, isLoading }: 
     lovable: 'text-blue-600 bg-blue-500/10',
     kie: 'text-violet-600 bg-violet-500/10',
     poyo: 'text-teal-600 bg-teal-500/10',
+    dashscope: 'text-orange-600 bg-orange-500/10',
     openrouter: 'text-orange-600 bg-orange-500/10',
   };
 
@@ -554,6 +610,7 @@ function ProviderTab({ active, onClick, children, provider, count, isLoading }: 
     lovable: 'bg-blue-500',
     kie: 'bg-violet-500',
     poyo: 'bg-teal-500',
+    dashscope: 'bg-orange-500',
     openrouter: 'bg-orange-500',
   };
 
