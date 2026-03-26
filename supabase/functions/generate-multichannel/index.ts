@@ -265,6 +265,7 @@ interface FormData {
   contentRole?: ContentRole; // seed = awareness, sprout = trust, harvest = conversion
   // NEW: Background task tracking
   taskId?: string;
+  agentMode?: boolean; // Agent pipeline mode: use plain text generation (no tool calling)
 }
 
 // ============================================
@@ -4233,6 +4234,64 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
     let currentUserPrompt = userPrompt;
 
     try {
+      // ============================================
+      // AGENT MODE: Plain text generation per channel (no tool calling)
+      // Compatible with ALL models — Qwen, Claude, Gemini, GPT, etc.
+      // ============================================
+      if (formData.agentMode) {
+        console.log(`[agent-mode] 🤖 Agent mode enabled — plain text generation for ${formData.channels.length} channels`);
+        const agentData: any = { title: formData.topic };
+        
+        for (const channel of formData.channels) {
+          const channelConfig = channelModelConfigs.get(channel);
+          const model = channelConfig?.model || aiConfig.model;
+          const temp = channelConfig?.temperature ?? aiConfig.temperature;
+          const maxTokens = channelConfig?.maxTokens ?? aiConfig.max_tokens;
+          
+          const channelDesc = {
+            website: "Bài viết chuẩn SEO (1000-2000 chữ), Markdown format, có H1/H2/H3.",
+            facebook: "Nội dung Facebook (250-500 chữ, hook mạnh, CTA cuối)",
+            instagram: "Nội dung Instagram (50-150 chữ, ngắn gọn, có hashtag cuối)",
+            twitter: "Thread X/Twitter (5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
+            google_maps: "Nội dung Google Maps (80-150 chữ, trung tính, không emoji)",
+            linkedin: "Nội dung LinkedIn (300-600 chữ, B2B authority, insight sâu)",
+            email: "Email marketing (250-500 chữ, subject line + body + CTA)",
+            youtube: "Script YouTube (500-800 chữ, hook + content + CTA)",
+            zalo_oa: "Nội dung Zalo OA (60-150 chữ, thân thiện, local)",
+            telegram: "Nội dung Telegram (200-500 chữ, bullet, dễ đọc)",
+            tiktok: "Short-form TikTok (60-150 chữ, hook 3s đầu, năng lượng cao)",
+            threads: "Nội dung Threads (50-200 chữ, conversational, dễ tương tác)",
+          } as Record<string, string>;
+          
+          const channelPrompt = `${userPrompt}\n\nViết nội dung cho kênh: ${channel.toUpperCase()}\nYêu cầu: ${channelDesc[channel] || 'Nội dung phù hợp kênh'}\nViết TRỰC TIẾP nội dung, KHÔNG giải thích, KHÔNG markdown wrapper.`;
+          
+          console.log(`[agent-mode] Generating ${channel} with ${model}`);
+          const result = await callAI({
+            functionName: 'generate-multichannel',
+            organizationId: organizationId || undefined,
+            modelOverride: model,
+            temperatureOverride: temp,
+            messages: [
+              { role: 'system', content: fullSystemPrompt },
+              { role: 'user', content: channelPrompt },
+            ],
+            maxTokensOverride: maxTokens,
+          });
+          
+          if (result.success) {
+            const content = result.data?.choices?.[0]?.message?.content || '';
+            agentData[`${channel}_content`] = content;
+            console.log(`[agent-mode] ✅ ${channel} done (${content.length} chars)`);
+          } else {
+            console.warn(`[agent-mode] ❌ ${channel} failed: ${result.error}`);
+            agentData[`${channel}_content`] = '';
+          }
+        }
+        
+        generatedData = agentData;
+        fromCache = false;
+        console.log(`[agent-mode] All channels complete`);
+      } else {
       // Generate with retry logic for website content
       // Uses multi-model generation when Admin has configured per-channel models
       const generateWithRetry = async () => {
@@ -4304,6 +4363,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       generatedData = cacheResult.data;
       fromCache = cacheResult.fromCache;
       console.log(`Content generation: ${fromCache ? 'CACHE HIT' : 'AI GENERATED'}${retryCount > 0 ? `, retries: ${retryCount}` : ''}`);
+      } // end else (non-agent mode)
     } catch (err: any) {
       // Handle rate limit / credit errors specially
       if (err.status === 429) {

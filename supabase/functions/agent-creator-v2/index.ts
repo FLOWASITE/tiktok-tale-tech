@@ -360,6 +360,7 @@ async function routeMultichannel(
         userId: expansionUserId,
         campaign_id: input.campaign_id || null,
         qualityMode: "fast",
+        agentMode: true, // Use plain text generation instead of tool calling — compatible with all models
       };
       // Only pass coreContentId if we created core content
       if (contentId) {
