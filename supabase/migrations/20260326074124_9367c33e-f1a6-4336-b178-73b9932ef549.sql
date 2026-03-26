@@ -1,0 +1,2 @@
+ALTER TABLE public.ai_provider_configs DROP CONSTRAINT ai_provider_configs_provider_type_check;
+ALTER TABLE public.ai_provider_configs ADD CONSTRAINT ai_provider_configs_provider_type_check CHECK (provider_type = ANY (ARRAY['lovable','perplexity','firecrawl','openai','anthropic','gemini','replicate','custom','openrouter','kie','poyo','dashscope']));
