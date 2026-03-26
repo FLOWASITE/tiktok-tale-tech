@@ -1,70 +1,63 @@
 
 
-# Fix Agent Image Generation — Match Manual Quality
+# Thêm nút "Tạo ảnh" thủ công vào Step 5
 
-## Problem
-Agent images lack text and logos because of 3 small but critical gaps in `agent-creator-v2/index.ts`. The `generate-brand-image` edge function already handles all brand data internally — **no extra DB fetch needed**.
+## Vấn đề
 
-## Root Cause (line 179-187 of agent-creator-v2)
+Step 5 ("Tạo ảnh") hiện tại hoàn toàn tự động — không có nút bấm nào để người dùng chủ động tạo ảnh. Khi ở trạng thái idle, chỉ hiển thị text "Đang chờ nội dung hoàn tất..." hoặc "Đang chuẩn bị tạo ảnh tự động..." mà không có CTA rõ ràng.
 
-```typescript
-// CURRENT — hardcoded, no logo overlay
-callFunction(supabaseUrl, serviceKey, "generate-brand-image", {
-  contentId,
-  channel,
-  brandTemplateId,
-  imageContentType: "background_only",  // ← always no text
-  contentSummary: channelText.slice(0, 500),
-  contentRole, contentAngle,
-  // missing: logoSafeZone
-});
-// missing: overlay-logo-canvas call after
+Nếu auto-trigger không hoạt động (ví dụ: race condition, state không đúng), người dùng bị stuck không có cách nào trigger thủ công — chỉ có nút "Thử lại" khi đã lỗi và nút "Bỏ qua".
+
+## Giải pháp
+
+Thêm nút **"Tạo ảnh AI"** rõ ràng vào Step 5 khi `imagePhase === 'idle'` và `generationComplete === true` (nội dung đã tạo xong). Nút này gọi cùng logic `onStartImagePipeline` như auto-trigger.
+
+## Thay đổi — 1 file
+
+### `src/components/multichannel/MultiChannelFormWizard.tsx` (~line 1995)
+
+Thay block hiện tại:
+```tsx
+{imagePhase === 'idle' && generationComplete && (
+  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+    <Loader2 className="w-4 h-4 animate-spin" />
+    Đang chuẩn bị tạo ảnh tự động...
+  </div>
+)}
 ```
 
-## Solution — 3 changes, 1 file
-
-### File: `supabase/functions/agent-creator-v2/index.ts`
-
-**Change 1: Smart `imageContentType`** (line ~183)
-Instead of hardcoding `"background_only"`, derive from channel text length:
-- Text ≤ 120 chars → `"with_text"` (AI renders text directly)
-- Text > 120 chars → `"background_only"` (too long for in-image text)
-
-Also pass `textToInclude` when using `with_text` mode.
-
-**Change 2: Pass `logoSafeZone`** (line ~187)
-The brand brief already has `include_logo` and `logo_url` (fetched at line 100-144). Use them:
-```typescript
-logoSafeZone: brief.include_logo && brief.logo_url
-  ? { position: 'bottom-right', sizePercent: 12 }
-  : undefined,
+Thành:
+```tsx
+{imagePhase === 'idle' && generationComplete && (
+  <div className="flex flex-col items-center gap-3">
+    <Button
+      onClick={() => {
+        if (getChannelText && onStartImagePipeline) {
+          const channelTexts: Record<string, string> = {};
+          formData.channels.forEach(ch => {
+            channelTexts[ch] = getChannelText(ch);
+          });
+          onStartImagePipeline(formData.channels, channelTexts, {
+            contentGoal: formData.contentGoal,
+            contentRole: formData.contentRole,
+            contentAngle: formData.contentAngle,
+            topic: formData.topic,
+            promptMode,
+          });
+        }
+      }}
+      className="w-full gap-2 gradient-primary glow-primary"
+      size="lg"
+    >
+      <Sparkles className="w-5 h-5" />
+      Tạo ảnh AI cho {formData.channels.length} kênh
+    </Button>
+    <p className="text-xs text-muted-foreground">
+      Hoặc ảnh sẽ tự động được tạo sau vài giây
+    </p>
+  </div>
+)}
 ```
 
-**Change 3: Call `overlay-logo-canvas` after image generation** (after line ~197)
-When `brief.include_logo && brief.logo_url`, call `overlay-logo-canvas` with the generated image URL:
-```typescript
-if (brief.include_logo && brief.logo_url && result.imageUrl) {
-  const overlayResult = await callFunction(supabaseUrl, serviceKey, "overlay-logo-canvas", {
-    baseImageUrl: result.imageUrl,
-    logoUrl: brief.logo_url,
-    position: 'bottom-right',
-    logoStyle: 'shadow',
-    logoSizePercent: 12,
-    contentId,
-    channel,
-  });
-  if (overlayResult.success) {
-    result.imageUrl = overlayResult.imageUrl;
-  }
-}
-```
-
-### Why this works
-- `generate-brand-image` already fetches brand colors, style, persona, hooks internally from `brandTemplateId` + `contentId`
-- `overlay-logo-canvas` uses ImageScript (pixel-level canvas) — deterministic, fast (~2-3s)
-- The brand brief is already fetched at line 93-144 — we just use `brief.include_logo` and `brief.logo_url` that are already available
-- No new DB queries, no new dependencies
-
-### Scope: 1 file
-- `supabase/functions/agent-creator-v2/index.ts` — modify `generateImagesForChannels` function (~20 lines changed)
+Giữ nguyên auto-trigger logic trong `MultiChannelCreate.tsx` — nút thủ công là fallback song song, đảm bảo người dùng luôn có CTA rõ ràng.
 
