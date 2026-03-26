@@ -1940,14 +1940,6 @@ export function MultiChannelFormWizard({
                         <CheckCircle2 className="w-5 h-5 text-primary fill-primary/10" />
                       </div>
                     )}
-                    <div className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
-                      imageMode === 'auto'
-                        ? "bg-primary/10 text-primary"
-                        : "bg-muted/60 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
-                    )}>
-                      <Sparkles className="w-5 h-5" />
-                    </div>
                     <div className="space-y-0.5">
                       <p className="text-sm font-semibold text-foreground">
                         ⚡ Tự động tạo ảnh
@@ -1981,14 +1973,6 @@ export function MultiChannelFormWizard({
                         <CheckCircle2 className="w-5 h-5 text-primary fill-primary/10" />
                       </div>
                     )}
-                    <div className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
-                      imageMode === 'manual'
-                        ? "bg-primary/10 text-primary"
-                        : "bg-muted/60 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
-                    )}>
-                      <Image className="w-5 h-5" />
-                    </div>
                     <div className="space-y-0.5">
                       <p className="text-sm font-semibold text-foreground">
                         🎨 Tự chọn & tạo sau
