@@ -205,7 +205,7 @@ export function ModelSelector({
         </DialogHeader>
 
         {/* Provider Tabs */}
-        {(hasOpenRouter || functionType === 'image') && (
+        {(hasOpenRouter || functionType === 'image' || hasDashScope) && (
           <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
             <ProviderTab
               active={providerFilter === 'all'}
@@ -232,6 +232,17 @@ export function ModelSelector({
                 count={availableKieModels.length}
               >
                 KIE.ai
+              </ProviderTab>
+            )}
+            {hasDashScope && (
+              <ProviderTab
+                active={providerFilter === 'dashscope'}
+                onClick={() => setProviderFilter('dashscope')}
+                provider="dashscope"
+                count={availableDashScopeModels.length}
+              >
+                <span className="hidden sm:inline">DashScope</span>
+                <span className="sm:hidden">DS</span>
               </ProviderTab>
             )}
             {hasOpenRouter && (
