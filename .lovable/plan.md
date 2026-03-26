@@ -1,93 +1,89 @@
 
 
-# Cập nhật Agent Directory — Hiển thị sub-steps thực tế theo Route
+# Tại sao Agent không tạo được Multichannel nhưng UI tạo bình thường
 
-## Vấn đề hiện tại
+## Nguyên nhân gốc
 
-Trang Agent Directory hiển thị danh sách `tasks` tĩnh, viết tay, không phản ánh đúng logic backend thực tế. Ví dụ: Creator Agent liệt kê 5 tasks chung chung, trong khi backend thực sự có 3 route riêng biệt (Multichannel, Video Script, Carousel) với các bước hoàn toàn khác nhau.
+Có **2 code path hoàn toàn khác nhau** trong `generate-multichannel`:
 
-## Thiết kế mới
+1. **UI (tạo thủ công)** → gửi `stream: true` → vào **Streaming Mode** (line 2455)
+   - Gọi AI dạng **plain text** (không dùng tool calling)
+   - Mỗi channel được generate riêng lẻ bằng `generateChannelStreaming()`
+   - AI chỉ cần viết text thẳng → **bất kỳ model nào cũng chạy được**
 
-Thay thế mảng `tasks: string[]` bằng cấu trúc `routes` mô tả chính xác các sub-steps thực tế từ backend code.
+2. **Agent (agent-creator-v2)** → gọi `callFunction()` **KHÔNG có `stream: true`** → vào **Normal Mode** (line 3421)
+   - Bắt buộc AI phải trả về format `tool_calls` với function name `generate_multichannel_content`
+   - Dùng `toolChoice: { type: "function", function: { name: "generate_multichannel_content" } }`
+   - Model phải hỗ trợ **structured tool calling** → nhiều model (như Qwen) trả về sai format → fail sau 3 retries
 
-### Dữ liệu thực tế từ backend
+**Bằng chứng từ logs:**
+```
+[single] Generating single channel facebook with model qwen/qwen3.5-plus-02-15
+[ai-format] Invalid response format, retry 1/2
+[ai-format] Invalid response format, retry 2/2
+Error: Invalid AI response format
+```
 
-**Strategy Agent** (1 route):
-1. Phân tích goal config + clarification context
-2. Gọi `generate-campaign-strategy` → tạo content plan (N bài)
-3. Mapping content role (Seed/Sprout/Harvest) + schedule
+## Giải pháp: Agent dùng streaming-style generation (plain text, không tool calling)
 
-**Creator Agent** (3 routes):
-- **Route A — Multichannel**: Core Content → Channel Expansion (N kênh) → Image Gen song song
-- **Route B — Video Script**: Script Gen → Analyze & Score → Improve (nếu score < 70)
-- **Route C — Carousel**: Slide Text + Prompts → Image Gen tuần tự (5-8 slides)
+### Thay đổi trong `agent-creator-v2/index.ts`
 
-**Quality Agent** (3 bước song song):
-1. GEO Scoring (`geo-score-content`)
-2. Compliance Check (LLM — `gemini-2.5-flash`)
-3. Persona-Fit Scoring (LLM — `gemini-2.5-flash-lite`)
-→ Merge: GEO 40% + Compliance 35% + Persona 25%
+Trong `routeMultichannel()`, thêm `stream: false` nhưng kèm `agentMode: true` vào params gửi cho `generate-multichannel`:
 
-**Approval Agent** (3 modes):
-- Human-in-loop: Tạo approval record → chờ human
-- Human-on-loop: Auto-approve + ghi log
-- Full-auto: Skip → publish
-- Smart Auto-Approve: Tự duyệt nếu quality ≥ threshold
-
-**Publisher Agent** (3 bước):
-1. Resolve content + UTM tagging
-2. Publish tuần tự (stagger 2s) qua `channel-publisher`
-3. Update `content_schedules` status
-
-**Analyze** (stage cuối, không phải agent riêng):
-1. Mark pipeline completed
-2. Update campaign plan progress
-3. Send completion notification
-
-## Thay đổi cụ thể
-
-### 1. Cập nhật `AgentInfo` interface
-**File:** `src/components/agents/AgentDetailCard.tsx`
-
-- Thêm field `routes` thay cho `tasks`:
 ```typescript
-interface AgentRoute {
-  id: string;
-  label: string;        // "Multichannel", "Video Script"...
-  condition?: string;    // "content_type = multichannel"
-  steps: { label: string; detail?: string }[];
-}
+const mcParams = {
+  ...existingParams,
+  agentMode: true,  // Signal to use text-based generation instead of tool calling
+};
+```
 
-interface AgentInfo {
-  // ...existing fields
-  tasks?: string[];      // deprecated, giữ lại cho backward compat
-  routes?: AgentRoute[];
+### Thay đổi trong `generate-multichannel/index.ts` (Normal Mode)
+
+Khi phát hiện `agentMode: true`, thay vì dùng `generateAIContentForChannels` (tool calling), sẽ:
+
+1. Gọi AI dạng plain text cho từng channel riêng lẻ (giống streaming mode nhưng không stream)
+2. Parse kết quả text trực tiếp thành `channelResults`
+3. Bỏ qua hoàn toàn tool calling
+
+Cụ thể, thêm một function `generatePlainTextForChannel()` trước block parallel generation (line ~3930):
+
+```typescript
+// Agent mode: generate plain text per channel (no tool calling required)
+if (formData.agentMode) {
+  for (const channel of formData.channels) {
+    const channelConfig = channelModelConfigs.get(channel);
+    const model = channelConfig?.model || aiConfig.model;
+    const temp = channelConfig?.temperature ?? aiConfig.temperature;
+    
+    const result = await callAI({
+      functionName: 'generate-multichannel',
+      organizationId,
+      modelOverride: model,
+      temperatureOverride: temp,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt + `\nViết nội dung cho kênh: ${channel.toUpperCase()}\nViết TRỰC TIẾP, KHÔNG giải thích.` },
+      ],
+      // NO tools, NO toolChoice → plain text response
+    });
+    
+    channelResults[channel] = result.data?.choices?.[0]?.message?.content || '';
+  }
+  // Skip to save step
 }
 ```
 
-### 2. Cập nhật `AgentDetailCard` UI
-**File:** `src/components/agents/AgentDetailCard.tsx`
+### Phạm vi thay đổi: 2 files
 
-- Nếu có `routes` → render route tabs/sections với numbered steps
-- Mỗi route hiển thị dạng: Route label → Step 1 → Step 2 → Step 3
-- Routes có `condition` hiển thị badge nhỏ (e.g. "khi content_type = carousel")
-- Fallback về `tasks` nếu không có `routes`
+| File | Thay đổi |
+|------|----------|
+| `supabase/functions/agent-creator-v2/index.ts` | Thêm `agentMode: true` vào `mcParams` (1 dòng) |
+| `supabase/functions/generate-multichannel/index.ts` | Thêm branch `agentMode` trong Normal Mode (~40 dòng) — generate plain text per channel, skip tool calling, map results vào DB columns |
 
-### 3. Cập nhật dữ liệu AGENTS
-**File:** `src/pages/AgentDirectoryPage.tsx`
+### Lợi ích
 
-Thay thế mảng `tasks` bằng `routes` cho mỗi agent với dữ liệu chính xác từ backend:
-
-- **Strategy**: 1 route, 3 steps
-- **Creator**: 3 routes (A/B/C), mỗi route 3 steps
-- **Quality**: 1 route, 3 steps song song + merge
-- **Approval**: 3 routes theo autonomy level
-- **Publisher**: 1 route, 3 steps
-
-### 4. Cập nhật cost summary
-Bỏ "6 stages" → "5 agents, 6 stages" (giữ nguyên vì analyze vẫn là stage)
-
-## Phạm vi: 2 files
-- `src/components/agents/AgentDetailCard.tsx` — interface + UI rendering
-- `src/pages/AgentDirectoryPage.tsx` — data definitions
+- Agent hoạt động với **mọi model** (Qwen, Claude, Gemini, GPT...) — không phụ thuộc tool calling
+- Tái sử dụng cùng system prompt, brand context, channel overrides đã có
+- Không ảnh hưởng đến UI flow (vẫn dùng streaming mode như cũ)
+- Không cần thay đổi model config
 
