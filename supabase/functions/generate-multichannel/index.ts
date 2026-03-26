@@ -4362,6 +4362,7 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
       generatedData = cacheResult.data;
       fromCache = cacheResult.fromCache;
       console.log(`Content generation: ${fromCache ? 'CACHE HIT' : 'AI GENERATED'}${retryCount > 0 ? `, retries: ${retryCount}` : ''}`);
+      } // end else (non-agent mode)
     } catch (err: any) {
       // Handle rate limit / credit errors specially
       if (err.status === 429) {
