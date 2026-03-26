@@ -23,6 +23,7 @@ function parseModelUsed(raw: string) {
 /** Get provider info from model name */
 function getProviderInfo(model: string): { name: string; emoji: string; color: string } {
   if (model.startsWith('poyo/')) return { name: 'PoYo.ai', emoji: '🐱', color: 'text-teal-600 dark:text-teal-400' };
+  if (model.startsWith('qwen-') || model.startsWith('qwen2')) return { name: 'DashScope', emoji: '☁️', color: 'text-orange-600 dark:text-orange-400' };
   if (model.includes('kie') || model.includes('flux-kontext')) return { name: 'KIE.ai', emoji: '🔮', color: 'text-violet-600 dark:text-violet-400' };
   if (model.includes('google/') || model.includes('gemini')) return { name: 'Lovable AI', emoji: '✨', color: 'text-blue-600 dark:text-blue-400' };
   if (model.includes('openai/') || model.includes('dall-e') || model.includes('gpt-image')) return { name: 'OpenAI', emoji: '🤖', color: 'text-green-600 dark:text-green-400' };

@@ -28,6 +28,7 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   replicate: <Wand2 className="h-5 w-5 text-cyan-500" />,
   kie: <Wand2 className="h-5 w-5 text-violet-500" />,
   poyo: <Wand2 className="h-5 w-5 text-teal-500" />,
+  dashscope: <Bot className="h-5 w-5 text-orange-600" />,
   custom: <Settings className="h-5 w-5 text-muted-foreground" />,
 };
 
@@ -39,6 +40,7 @@ const PROVIDER_KEY_URLS: Record<string, string> = {
   replicate: 'https://replicate.com/account/api-tokens',
   kie: 'https://kie.ai',
   poyo: 'https://poyo.ai/dashboard/api-key',
+  dashscope: 'https://dashscope.console.aliyun.com/',
 };
 
 interface TestResult {
