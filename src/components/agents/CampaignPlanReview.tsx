@@ -468,7 +468,7 @@ export function CampaignPlanReview({ plan, goalName, onClose }: CampaignPlanRevi
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {isEditable && !isApproved && (
+              {isEditable && !isApproved && !approvePlan.isSuccess && (
                 <>
                   <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleAddPiece}>
                     <Plus className="w-3 h-3" /> Thêm
