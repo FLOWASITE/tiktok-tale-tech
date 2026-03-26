@@ -104,27 +104,34 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
     });
 
     try {
-      // Step 1: Use V3 Suggestion Engine to pick best style for the first channel
-      const firstChannel = channels[0];
-      const industry = (brandIndustry?.[0] || 'general') as Industry;
-      
-      const suggestions = suggestImageStylesV3({
-        contentGoal: (contentMeta.contentGoal || 'engagement') as ContentGoal,
-        contentAngle: (contentMeta.contentAngle || 'educational') as ContentAngle,
-        contentRole: (contentMeta.contentRole || 'seed') as ContentRole,
-        channel: toChannelKey(firstChannel),
-        industry,
-        contentSummary: channelTexts[firstChannel] || contentMeta.topic,
-      });
+      const mode = contentMeta.promptMode || 'full';
+      let imageStylePreset = 'photorealistic';
 
-      const topSuggestion = suggestions[0];
-      const imageStylePreset = topSuggestion?.style || 'photorealistic';
+      // Step 1: V3 Suggestion Engine — only for 'full' mode
+      if (mode === 'full') {
+        const firstChannel = channels[0];
+        const industry = (brandIndustry?.[0] || 'general') as Industry;
+        
+        const suggestions = suggestImageStylesV3({
+          contentGoal: (contentMeta.contentGoal || 'engagement') as ContentGoal,
+          contentAngle: (contentMeta.contentAngle || 'educational') as ContentAngle,
+          contentRole: (contentMeta.contentRole || 'seed') as ContentRole,
+          channel: toChannelKey(firstChannel),
+          industry,
+          contentSummary: channelTexts[firstChannel] || contentMeta.topic,
+        });
 
-      console.log(`[AutoImagePipeline] ✓ V3 style selected: ${imageStylePreset}`, {
-        score: topSuggestion?.score || 0,
-        top3: suggestions.slice(0, 3).map(s => `${s.style}(${s.score})`),
-        industry,
-      });
+        const topSuggestion = suggestions[0];
+        imageStylePreset = topSuggestion?.style || 'photorealistic';
+
+        console.log(`[AutoImagePipeline] ✓ V3 style selected: ${imageStylePreset}`, {
+          score: topSuggestion?.score || 0,
+          top3: suggestions.slice(0, 3).map(s => `${s.style}(${s.score})`),
+          industry,
+        });
+      } else {
+        console.log(`[AutoImagePipeline] ⏭ V3 style skipped — mode: ${mode}`);
+      }
 
       // Step 2: Build content summaries per channel
       const contentSummaries: Record<Channel, string> = {} as Record<Channel, string>;
