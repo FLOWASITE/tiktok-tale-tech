@@ -283,6 +283,7 @@ const PROVIDER_DOT_COLORS: Record<string, string> = {
   openrouter: 'bg-orange-500',
   kie: 'bg-violet-500',
   poyo: 'bg-teal-500',
+  dashscope: 'bg-orange-500',
 };
 
 export function ProviderIndicator({ provider, className }: ProviderIndicatorProps) {

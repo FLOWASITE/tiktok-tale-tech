@@ -219,10 +219,19 @@ export function AIChannelModelConfig({ organizationId }: AIChannelModelConfigPro
                               <ProviderIndicator provider={modelInfo.provider} />
                               <div className="flex flex-col">
                                 <span className="text-sm font-medium">
-                                  {modelInfo.shortName}
+                                  {modelInfo.provider === 'dashscope' ? '☁️ ' : ''}{modelInfo.shortName}
                                 </span>
                                 <span className="text-[10px] text-muted-foreground">
-                                  {isCustomized ? 'Custom' : 'Default'}
+                                  {isCustomized ? (
+                                    <>
+                                      {modelInfo.provider === 'lovable' && 'Lovable AI'}
+                                      {modelInfo.provider === 'openrouter' && 'OpenRouter'}
+                                      {modelInfo.provider === 'kie' && 'KIE.ai'}
+                                      {modelInfo.provider === 'poyo' && 'PoYo.ai'}
+                                      {modelInfo.provider === 'dashscope' && 'DashScope'}
+                                      {!['lovable', 'openrouter', 'kie', 'poyo', 'dashscope'].includes(modelInfo.provider) && 'Custom'}
+                                    </>
+                                  ) : 'Default'}
                                 </span>
                               </div>
                             </div>
