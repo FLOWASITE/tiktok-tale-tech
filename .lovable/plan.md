@@ -1,66 +1,40 @@
 
 
-# Fix: Ảnh tạo bởi Agent không hiển thị trên giao diện xem nội dung
+# Đổi màu Badge số lượng Pipeline — nổi bật hơn
 
-## Nguyên nhân gốc
-
-Khi Agent pipeline tạo ảnh cho multichannel, luồng gọi là:
-1. `agent-creator-v2` gọi `generate-brand-image` cho từng kênh
-2. `generate-brand-image` lưu ảnh vào **`channel_image_history`** table
-3. Nhưng **KHÔNG** cập nhật cột **`multi_channel_contents.channel_images`** (JSON)
-
-Khi user tạo ảnh thủ công qua UI, callback `onSaveChannelImage` sẽ cập nhật `channel_images` JSON column. Nên ảnh hiển thị bình thường.
-
-Giao diện xem (MultiChannelViewer) đọc ảnh từ:
-```
-content.channel_images?.[channel]?.url
-```
-Do Agent không ghi vào đây → ảnh không hiện.
-
-Carousel **không bị lỗi này** — hệ thống carousel dùng bảng `carousel_images` riêng và viewer đọc đúng từ bảng đó.
+## Vấn đề
+Badge số lượng pipeline ở header mỗi cột Kanban hiện dùng `bg-background/80` (màu nền nhạt), khó nhìn — phải click vào mới thấy rõ con số.
 
 ## Giải pháp
+Thay đổi Badge để sử dụng **màu tương ứng với từng stage** thay vì màu nền chung. Mỗi stage đã có `color` riêng (violet, blue, cyan, amber, emerald, pink) — ta sẽ map sang màu đậm hơn cho badge.
 
-Sửa `generate-brand-image/index.ts` — sau khi lưu vào `channel_image_history`, **đồng thời cập nhật** `multi_channel_contents.channel_images` JSON column.
+## Chi tiết kỹ thuật
 
-### File: `supabase/functions/generate-brand-image/index.ts` (~line 765-788)
+### File: `src/components/agents/PipelineKanban.tsx`
 
-Thêm logic cập nhật `channel_images` sau khi insert vào `channel_image_history`:
+**Thay đổi tại PipelineColumn (~line 124):**
 
+Thêm map màu badge theo stage ID:
 ```typescript
-// After saving to channel_image_history, also update channel_images on the content record
-if (contentId && channel) {
-  try {
-    const { data: currentContent } = await supabase
-      .from("multi_channel_contents")
-      .select("channel_images")
-      .eq("id", contentId)
-      .single();
+const STAGE_BADGE_COLORS: Record<string, string> = {
+  strategy: 'bg-violet-500 text-white',
+  create: 'bg-blue-500 text-white',
+  quality: 'bg-cyan-500 text-white',
+  approval: 'bg-amber-500 text-white',
+  publish: 'bg-emerald-500 text-white',
+  analyze: 'bg-pink-500 text-white',
+};
+```
 
-    const currentImages = (currentContent?.channel_images as Record<string, any>) || {};
-    currentImages[channel] = {
-      url: imageUrl,
-      provider: modelUsed,
-      aspectRatio: finalAspectRatio,
-    };
-
-    await supabase
-      .from("multi_channel_contents")
-      .update({ channel_images: JSON.parse(JSON.stringify(currentImages)) })
-      .eq("id", contentId);
-
-    console.log(`[generate-brand-image] Updated channel_images for ${channel}`);
-  } catch (syncErr) {
-    console.warn("[generate-brand-image] channel_images sync error:", syncErr);
-  }
-}
+Đổi Badge từ:
+```tsx
+<Badge variant="secondary" className="text-[10px] font-bold min-w-[24px] h-5 justify-center bg-background/80">
+```
+Thành:
+```tsx
+<Badge className={cn("text-[10px] font-bold min-w-[24px] h-5 justify-center shadow-sm", STAGE_BADGE_COLORS[stage.id] || 'bg-primary text-white')}>
 ```
 
 ### Phạm vi: 1 file
-- `supabase/functions/generate-brand-image/index.ts` — thêm sync vào `channel_images`
-
-### Lưu ý
-- Không ảnh hưởng luồng tạo ảnh thủ công (vẫn giữ callback cũ)
-- Carousel không bị ảnh hưởng (dùng bảng riêng)
-- Ảnh cũ đã tạo bởi Agent sẽ không tự hiện — chỉ áp dụng cho pipeline mới
+- `src/components/agents/PipelineKanban.tsx` — thêm map màu + đổi className Badge
 
