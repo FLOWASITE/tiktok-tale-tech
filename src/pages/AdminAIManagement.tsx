@@ -37,7 +37,7 @@ export default function AdminAIManagement() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-8 w-full max-w-5xl mb-6">
+        <TabsList className="grid grid-cols-9 w-full max-w-5xl mb-6">
           <TabsTrigger value="dashboard" className="flex items-center gap-1.5 text-xs sm:text-sm">
             <LayoutDashboard className="h-4 w-4" />
             <span className="hidden sm:inline">Dashboard</span>
@@ -53,6 +53,10 @@ export default function AdminAIManagement() {
           <TabsTrigger value="functions" className="flex items-center gap-1.5 text-xs sm:text-sm">
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Functions</span>
+          </TabsTrigger>
+          <TabsTrigger value="agents" className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <Bot className="h-4 w-4" />
+            <span className="hidden sm:inline">Agents</span>
           </TabsTrigger>
           <TabsTrigger value="prompts" className="flex items-center gap-1.5 text-xs sm:text-sm">
             <FileText className="h-4 w-4" />
@@ -86,6 +90,10 @@ export default function AdminAIManagement() {
         
         <TabsContent value="functions">
           <AIFunctionConfigComponent />
+        </TabsContent>
+        
+        <TabsContent value="agents">
+          <AIAgentModelConfig />
         </TabsContent>
         
         <TabsContent value="prompts">
