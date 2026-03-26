@@ -56,6 +56,11 @@ interface BrandBrief {
   formality_level?: string;
   language_style?: string;
   unique_value_proposition?: string;
+  brand_guideline?: string;
+  include_logo?: boolean;
+  logo_url?: string;
+  primary_color?: string;
+  secondary_colors?: string[];
 }
 
 interface CreatorResult {
@@ -96,7 +101,8 @@ async function assembleBrief(
     .from("brand_templates")
     .select(
       "brand_name, brand_positioning, tone_of_voice, industry, content_pillars, " +
-      "unique_value_proposition, forbidden_words, preferred_words, formality_level, language_style"
+      "unique_value_proposition, forbidden_words, preferred_words, formality_level, language_style, " +
+      "brand_guideline, include_logo, logo_url, primary_color, secondary_colors"
     )
     .eq("id", brandTemplateId)
     .single();
@@ -130,6 +136,11 @@ async function assembleBrief(
     formality_level: brand.formality_level,
     language_style: brand.language_style,
     target_audience: targetAudience,
+    brand_guideline: brand.brand_guideline,
+    include_logo: brand.include_logo,
+    logo_url: brand.logo_url,
+    primary_color: brand.primary_color,
+    secondary_colors: brand.secondary_colors,
   };
 }
 
@@ -538,12 +549,15 @@ async function routeCarousel(
     slideCount,
     aiTool: "ideogram",
     brandName: brief.brand_name || "Brand",
-    brandGuideline: brief.unique_value_proposition || "",
-    includeLogo: false,
+    brandGuideline: brief.brand_guideline || brief.unique_value_proposition || "",
+    includeLogo: brief.include_logo ?? false,
+    logoUrl: brief.logo_url || undefined,
     organization_id: input.organization_id,
     brandTemplateId: input.brand_template_id,
     autoGenerateImages: false,
     userId,
+    brandPrimaryColor: brief.primary_color || undefined,
+    brandSecondaryColors: brief.secondary_colors || undefined,
   });
 
   // generate-carousel returns DB record with slides_content, map to slides
