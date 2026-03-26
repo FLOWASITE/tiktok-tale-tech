@@ -193,30 +193,7 @@ export default function MultiChannelCreate() {
     }
   };
 
-  // Auto-trigger image pipeline when content generation completes
-  const autoImageTriggeredRef = useRef(false);
-
-  useEffect(() => {
-    if (
-      generationState === 'complete' &&
-      generatedContentId &&
-      selectedBrandId &&
-      !autoImageTriggeredRef.current &&
-      imagePipeline.phase === 'idle'
-    ) {
-      autoImageTriggeredRef.current = true;
-      const channelTexts: Record<string, string> = {};
-      (formData.channels || []).forEach(ch => {
-        channelTexts[ch] = getChannelText(ch);
-      });
-      imagePipeline.startPipeline(generatedContentId, formData.channels || [], channelTexts, {
-        contentGoal: formData.contentGoal,
-        contentRole: formData.contentRole,
-        contentAngle: formData.contentAngle,
-        topic: formData.topic,
-      });
-    }
-  }, [generationState, generatedContentId, selectedBrandId, imagePipeline.phase]);
+  // Auto-trigger removed — user now chooses between auto and manual in Step 5 UI
 
   // Notify when content generation completes
   useEffect(() => {
@@ -254,7 +231,7 @@ export default function MultiChannelCreate() {
     setGenerationState('idle');
     setSseProgress(null);
     setGeneratedContentId(null);
-    autoImageTriggeredRef.current = false;
+    // autoImageTriggeredRef removed — user chooses mode in Step 5
     contentNotifiedRef.current = false;
     imagesNotifiedRef.current = false;
     imagePipeline.resetPipeline();
