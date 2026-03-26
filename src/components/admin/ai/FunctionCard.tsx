@@ -267,7 +267,7 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex items-center gap-1.5 cursor-help">
-                  <ProviderIndicator provider={modelInfo.provider} />
+                  <ProviderIndicator provider={modelInfo.provider} showLabel />
                   <span className="text-xs font-medium truncate max-w-[120px]">{modelInfo.shortName}</span>
                 </div>
               </TooltipTrigger>
@@ -515,7 +515,7 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
       <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-border/50">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <ProviderIndicator provider={modelInfo.provider} />
+            <ProviderIndicator provider={modelInfo.provider} showLabel />
             <div>
               <p className="text-sm font-medium">{modelInfo.shortName}</p>
               <p className="text-xs text-muted-foreground">{modelInfo.description}</p>
