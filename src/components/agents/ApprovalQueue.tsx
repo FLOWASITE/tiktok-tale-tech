@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Check, X, Edit3, Eye, Clock, Shield, BarChart3 } from 'lucide-react';
 import { AgentApproval } from '@/types/agent';
 import { formatDistanceToNow } from 'date-fns';
@@ -130,6 +130,7 @@ export function ApprovalQueue({ approvals, onApprove, onReject }: ApprovalQueueP
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Từ chối nội dung</DialogTitle>
+            <DialogDescription>Vui lòng nhập lý do từ chối để gửi phản hồi cho AI.</DialogDescription>
           </DialogHeader>
           <Textarea
             placeholder="Lý do từ chối (bắt buộc)..."
@@ -149,6 +150,7 @@ export function ApprovalQueue({ approvals, onApprove, onReject }: ApprovalQueueP
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Xem trước nội dung</DialogTitle>
+            <DialogDescription>Nội dung đang chờ duyệt từ pipeline AI Agent.</DialogDescription>
           </DialogHeader>
           {previewApproval && (
             <div className="space-y-4">

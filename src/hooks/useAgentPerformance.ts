@@ -39,7 +39,11 @@ export function useAgentPerformance(dateRange: 'week' | 'month' | 'all' = 'month
 
       let query = supabase
         .from('agent_execution_logs')
-        .select('agent_name, status, duration_ms, token_usage, session_id, created_at');
+        .select('agent_name, status, duration_ms, token_usage, session_id, created_at')
+        .limit(500);
+
+      // Filter by org if the table has organization_id column (best-effort)
+      // agent_execution_logs doesn't have org_id column, relying on RLS
 
       if (dateFilter) {
         query = query.gte('created_at', dateFilter);
