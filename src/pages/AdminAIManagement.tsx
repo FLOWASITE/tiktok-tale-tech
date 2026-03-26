@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   DollarSign,
   FileText,
+  Bot,
 } from "lucide-react";
 import CacheAnalytics from "@/components/admin/CacheAnalytics";
 import { AIDashboard } from "@/components/admin/ai/AIDashboard";
