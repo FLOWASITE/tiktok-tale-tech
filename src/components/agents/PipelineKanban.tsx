@@ -121,7 +121,7 @@ function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, campaignNa
             </div>
             <h3 className="font-semibold text-xs">{stage.label}</h3>
           </div>
-          <Badge variant="secondary" className="text-[10px] font-bold min-w-[24px] h-5 justify-center bg-background/80">
+          <Badge className={cn("text-[10px] font-bold min-w-[24px] h-5 justify-center shadow-sm border-0", STAGE_BADGE_COLORS[stage.id] || 'bg-primary text-white')}>
             {pipelines.length}
           </Badge>
         </div>
