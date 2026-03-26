@@ -2062,6 +2062,22 @@ export function MultiChannelFormWizard({
             {/* Image generation status */}
             {imageMode === 'manual' && generationComplete ? (
               <div className="space-y-4">
+                {/* Active mode description */}
+                <div className={cn(
+                  "rounded-lg border p-3 text-xs",
+                  promptMode === 'raw' ? "border-orange-500/30 bg-orange-500/5 text-orange-700 dark:text-orange-300" :
+                  promptMode === 'brand_only' ? "border-blue-500/30 bg-blue-500/5 text-blue-700 dark:text-blue-300" :
+                  "border-primary/30 bg-primary/5 text-primary"
+                )}>
+                  {promptMode === 'raw' ? (
+                    <p>🎨 <strong>Toàn quyền</strong> — Không logo, không style brand. AI tự do sáng tạo theo nội dung.</p>
+                  ) : promptMode === 'brand_only' ? (
+                    <p>🏷️ <strong>Giữ Brand</strong> — Giữ logo + màu brand. Không áp dụng AI strategy (V3 style, role, angle).</p>
+                  ) : (
+                    <p>✨ <strong>Đầy đủ</strong> — AI chọn style tối ưu + logo + brand colors + strategic context.</p>
+                  )}
+                </div>
+
                 {/* Prompt Preview */}
                 <PromptPreview
                   channels={formData.channels}
