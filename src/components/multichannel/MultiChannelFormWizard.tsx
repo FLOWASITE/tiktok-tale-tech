@@ -897,9 +897,9 @@ export function MultiChannelFormWizard({
     if (generationComplete && currentStep === 4) {
       setCompletedSteps(prev => [...prev.filter(s => s !== 4), 4]);
       if (imageMode === 'manual') {
-        // Navigate to viewer — user uses "Tạo ảnh AI" button there
+        // Navigate to viewer and auto-open image generator dialog
         navigate('/multichannel', { 
-          state: { viewContentId: generatedContentIdProp || formData.coreContentId } 
+          state: { viewContentId: generatedContentIdProp || formData.coreContentId, autoOpenImageGen: true } 
         });
       } else {
         setCurrentStep(5);

@@ -101,6 +101,9 @@ interface MultiChannelViewerProps {
   regeneratingChannel?: string | null;
   aiEditingChannel?: string | null;
   expandingChannels?: boolean;
+  /** Auto-open the image generator dialog when viewer opens */
+  autoOpenImageGen?: boolean;
+  onImageGenOpened?: () => void;
 }
 
 const channelConfig: Record<Channel, { 
@@ -258,6 +261,8 @@ export function MultiChannelViewer({
   regeneratingChannel,
   aiEditingChannel,
   expandingChannels,
+  autoOpenImageGen,
+  onImageGenOpened,
 }: MultiChannelViewerProps) {
   const { currentOrganization } = useOrganizationContext();
   const queryClient = useQueryClient();
@@ -270,6 +275,14 @@ export function MultiChannelViewer({
   const [showDraftRestorePrompt, setShowDraftRestorePrompt] = useState(false);
   // Unified image generator state (replaces imageEditorOpen + imageEditorChannel)
   const [showImageGenerator, setShowImageGenerator] = useState(false);
+
+  // Auto-open image generator when navigated from manual mode
+  useEffect(() => {
+    if (autoOpenImageGen && open && content) {
+      setShowImageGenerator(true);
+      onImageGenOpened?.();
+    }
+  }, [autoOpenImageGen, open, content]);
   const [activeImageChannel, setActiveImageChannel] = useState<Channel | null>(null);
   const [generatedImages, setGeneratedImages] = useState<Record<Channel, string>>({} as Record<Channel, string>);
   const [showSchedule, setShowSchedule] = useState(false);
