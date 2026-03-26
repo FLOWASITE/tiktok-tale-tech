@@ -890,19 +890,40 @@ export function MultiChannelFormWizard({
     }
   }, [currentStep]);
 
-  // Auto-advance when multichannel generation completes
+  // Auto-advance when multichannel generation completes — both modes go to Step 5
   useEffect(() => {
     if (generationComplete && currentStep === 4) {
       setCompletedSteps(prev => [...prev.filter(s => s !== 4), 4]);
-      if (imageMode === 'auto') {
-        setCurrentStep(5);
-      } else {
-        // Manual mode: navigate to content list
-        toast.success('Nội dung đã tạo xong! Bạn có thể tạo ảnh trong trang chi tiết.');
-        navigate('/multichannel');
-      }
+      setCurrentStep(5);
     }
-  }, [generationComplete, currentStep, imageMode]);
+  }, [generationComplete, currentStep]);
+
+  // Auto-trigger image pipeline when entering Step 5 in auto mode
+  const autoImageTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (
+      currentStep === 5 &&
+      imageMode === 'auto' &&
+      imagePhase === 'idle' &&
+      generationComplete &&
+      !autoImageTriggeredRef.current &&
+      getChannelText &&
+      onStartImagePipeline
+    ) {
+      autoImageTriggeredRef.current = true;
+      const channelTexts: Record<string, string> = {};
+      formData.channels.forEach(ch => {
+        channelTexts[ch] = getChannelText(ch);
+      });
+      onStartImagePipeline(formData.channels, channelTexts, {
+        contentGoal: formData.contentGoal,
+        contentRole: formData.contentRole,
+        contentAngle: formData.contentAngle,
+        topic: formData.topic,
+        promptMode,
+      });
+    }
+  }, [currentStep, imageMode, imagePhase, generationComplete]);
 
   // Resume from background tasks on mount
   useEffect(() => {
@@ -1947,7 +1968,7 @@ export function MultiChannelFormWizard({
                     <div>
                       <p className="text-sm font-medium text-foreground">🎨 Tự chọn & tạo sau</p>
                       <p className="mt-0.5 text-[11px] text-muted-foreground leading-tight">
-                        Vào trang chi tiết để tùy chỉnh từng kênh
+                        Xem nội dung xong rồi tạo ảnh từng kênh
                       </p>
                     </div>
                   </button>
@@ -2070,7 +2091,7 @@ export function MultiChannelFormWizard({
                         Đang chờ nội dung hoàn tất...
                       </div>
                     )}
-                    {imagePhase === 'idle' && generationComplete && (
+                    {imagePhase === 'idle' && generationComplete && imageMode === 'auto' && (
                       <div className="flex flex-col items-center gap-3">
                         <Button
                           onClick={() => {
@@ -2097,6 +2118,82 @@ export function MultiChannelFormWizard({
                         <p className="text-xs text-muted-foreground">
                           Bấm để bắt đầu tạo ảnh AI cho tất cả kênh
                         </p>
+                      </div>
+                    )}
+                    {imagePhase === 'idle' && generationComplete && imageMode === 'manual' && (
+                      <div className="w-full space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-foreground">Tạo ảnh cho từng kênh</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (getChannelText && onStartImagePipeline) {
+                                const channelTexts: Record<string, string> = {};
+                                formData.channels.forEach(ch => {
+                                  channelTexts[ch] = getChannelText(ch);
+                                });
+                                onStartImagePipeline(formData.channels, channelTexts, {
+                                  contentGoal: formData.contentGoal,
+                                  contentRole: formData.contentRole,
+                                  contentAngle: formData.contentAngle,
+                                  topic: formData.topic,
+                                  promptMode,
+                                });
+                              }
+                            }}
+                            className="gap-1.5 text-xs"
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            Tạo tất cả
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {formData.channels.map(ch => {
+                            const channelText = getChannelText?.(ch) || '';
+                            const preview = channelText.replace(/#{1,6}\s?/g, '').replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1').slice(0, 80);
+                            const hasImage = generatedImages?.[ch];
+                            return (
+                              <div
+                                key={ch}
+                                className={cn(
+                                  "flex items-start gap-3 rounded-xl border p-3 transition-all",
+                                  hasImage ? "border-primary/30 bg-primary/5" : "border-border bg-card"
+                                )}
+                              >
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                                  {channelIcons[ch]}
+                                </div>
+                                <div className="flex-1 min-w-0 space-y-1.5">
+                                  <p className="text-xs font-medium text-foreground capitalize">{ch.replace('_', ' ')}</p>
+                                  {preview && (
+                                    <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">{preview}...</p>
+                                  )}
+                                </div>
+                                <Button
+                                  variant={hasImage ? "outline" : "default"}
+                                  size="sm"
+                                  className="shrink-0 gap-1 text-xs h-7"
+                                  onClick={() => {
+                                    if (getChannelText && onStartImagePipeline) {
+                                      const texts: Record<string, string> = { [ch]: getChannelText(ch) };
+                                      onStartImagePipeline([ch], texts, {
+                                        contentGoal: formData.contentGoal,
+                                        contentRole: formData.contentRole,
+                                        contentAngle: formData.contentAngle,
+                                        topic: formData.topic,
+                                        promptMode,
+                                      });
+                                    }
+                                  }}
+                                >
+                                  {hasImage ? <RefreshCw className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
+                                  {hasImage ? 'Tạo lại' : 'Tạo ảnh'}
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                     {(imagePhase === 'preparing' || imagePhase === 'generating_images') && (
