@@ -1,40 +1,61 @@
 
 
-# Bổ sung DashScope (Alibaba Cloud) vào tất cả UI chọn Model
+# Thêm thông tin Functions đang sử dụng vào mỗi Provider Card
 
-## Vấn đề
-DashScope đã có trong `MODELS_BY_PROVIDER` và `AI_PROVIDERS`, nhưng các model Qwen không xuất hiện trong ModelSelector vì thiếu ở nhiều chỗ:
-- `MODELS_BY_TYPE.text` không có model DashScope
-- `MODEL_INFO` không có entries cho qwen-plus/max/turbo/vl-max/long
-- `ModelInfo.provider` type không có `'dashscope'`
-- `ModelSelector` không có tab/filter cho DashScope
-- Không có helper `isDashScopeModel()`
-- `getModelInfo()` fallback không nhận diện DashScope models
+## Mục tiêu
+Trong trang **AI Providers** (`AIProviderManager.tsx`), mỗi card Provider hiện chỉ hiển thị tên, trạng thái và API key. Cần bổ sung danh sách **functions đang gắn với model thuộc provider đó**, giúp admin biết provider nào đang phục vụ những tác vụ gì.
+
+## Cách hoạt động
+
+Dữ liệu đã có sẵn:
+- `AI_FUNCTIONS` (static, 50+ functions) chứa `currentModel` (model mặc định)
+- `ai_function_configs` (DB) chứa `modelOverride` và `forceProvider` (cấu hình thực tế)
+- `ai_agent_model_configs` (DB) chứa `modelOverride` cho 6 agents
+- `ai_channel_model_configs` (DB) chứa `modelOverride` cho 12 channels
+- `getModelInfo()` trả về `provider` cho mỗi model
+
+Logic: Với mỗi provider type, quét tất cả functions/agents/channels, kiểm tra model override (hoặc default model) thuộc provider nào → nhóm lại → hiển thị trên card.
 
 ## Thay đổi
 
-### 1. `src/hooks/useAIConfig.ts`
+### 1. `src/components/admin/ai/AIProviderManager.tsx`
 
-- Thêm 5 model DashScope vào `MODELS_BY_TYPE.text`: `qwen-plus`, `qwen-max`, `qwen-turbo`, `qwen-vl-max`, `qwen-long`
-- Mở rộng `ModelInfo.provider` type thêm `'dashscope'`
-- Thêm 5 entries vào `MODEL_INFO` với metadata chi tiết (shortName, description, speed, quality, cost, bestFor, provider)
-- Thêm `DASHSCOPE_MODEL_PREFIXES` và helper `isDashScopeModel()`
-- Cập nhật `getModelInfo()` fallback để nhận diện DashScope models (trả provider `'dashscope'`)
+- Import thêm `AI_FUNCTIONS`, `getModelInfo` từ `useAIConfig`, `useAgentModelConfig` (ALL_AGENTS), `useChannelModelConfig` (ALL_CHANNELS)
+- Tạo helper `useProviderUsageMap()` — với mỗi provider type, tính danh sách `{ name, model, source }`:
+  - **Functions**: Duyệt `AI_FUNCTIONS`, lấy `modelOverride` từ DB config (nếu có) hoặc `currentModel` mặc định → `getModelInfo(model).provider` → nhóm theo provider
+  - **Agents**: Duyệt `ALL_AGENTS`, lấy `modelOverride` từ agent configs → nhóm
+  - **Channels**: Duyệt `ALL_CHANNELS`, lấy `modelOverride` từ channel configs → nhóm
+- Trong mỗi **Provider Card** (`CardContent`), thêm section hiển thị:
+  - Tổng số functions/agents/channels đang dùng provider này
+  - Danh sách rút gọn (tối đa 5 items, có "xem thêm") với format: `function-name → model-shortName`
+  - Phân biệt bằng badge nhỏ: `F` (Function), `A` (Agent), `C` (Channel)
+  - Nếu không có item nào → hiển thị "Chưa có function nào sử dụng"
 
-### 2. `src/components/admin/ai/ModelSelector.tsx`
+### UI mẫu trên mỗi card
 
-- Thêm `'dashscope'` vào `ProviderFilter` type
-- Thêm logic split DashScope models (tương tự KIE/PoYo) trong `filteredModels`
-- Thêm tab provider "DashScope" với icon ☁️ và count
-- Thêm section hiển thị DashScope models trong danh sách (header orange, badge `DASHSCOPE_API_KEY`)
-- Cập nhật `totalModels` count
+```text
+┌─────────────────────────────┐
+│ ☁️ DashScope (Alibaba)  [Active] │
+│ Qwen Plus, Max, Turbo...         │
+│                                   │
+│ ✅ API Key đã cấu hình           │
+│ Model: qwen-plus                  │
+│                                   │
+│ 📋 Đang sử dụng (3)              │
+│  F generate-multichannel → Qwen+  │
+│  A Strategy Agent → Qwen Plus     │
+│  C threads → Qwen Plus            │
+│                                   │
+│ [Chỉnh sửa]  [🗑️]               │
+└─────────────────────────────┘
+```
 
-### 3. `src/components/admin/ai/AIAgentModelConfig.tsx`
+### 2. Không thay đổi
+- Database, Edge Functions, hooks — chỉ đọc dữ liệu có sẵn
+- Các component khác không bị ảnh hưởng
 
-- Thêm model DashScope vào `recommendedModels` của một số agent (Strategy, Create, Analyze) trong `ALL_AGENTS` — thực tế nằm ở `useAgentModelConfig.ts`, cần thêm `qwen-plus` hoặc `qwen-max` vào recommended list
-
-### Không thay đổi
-- Backend edge functions — đã xử lý routing DashScope
-- Database — constraint đã được cập nhật
-- `AIProviderManager.tsx` — đã có DashScope
+## Kỹ thuật
+- Dùng `useMemo` để tính usage map, tránh re-render
+- Collapsible list nếu > 5 items (dùng state `showAll`)
+- Tooltip cho model name dài
 
