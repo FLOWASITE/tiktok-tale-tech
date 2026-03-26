@@ -276,6 +276,7 @@ export function QuickSelectButton({ label, description, icon, isSelected, onClic
 interface ProviderIndicatorProps {
   provider: string;
   className?: string;
+  showLabel?: boolean;
 }
 
 const PROVIDER_DOT_COLORS: Record<string, string> = {
@@ -286,7 +287,7 @@ const PROVIDER_DOT_COLORS: Record<string, string> = {
   dashscope: 'bg-orange-500',
 };
 
-export function ProviderIndicator({ provider, className }: ProviderIndicatorProps) {
+export function ProviderIndicator({ provider, className, showLabel }: ProviderIndicatorProps) {
   const style = PROVIDER_STYLES[provider] || PROVIDER_STYLES.lovable;
   return (
     <span className={cn("inline-flex items-center gap-1", className)}>
@@ -294,6 +295,11 @@ export function ProviderIndicator({ provider, className }: ProviderIndicatorProp
         "w-2 h-2 rounded-full",
         PROVIDER_DOT_COLORS[provider] ?? 'bg-muted'
       )} />
+      {showLabel && (
+        <span className={cn("text-[10px] font-medium", style.badge.split(' ').find(c => c.startsWith('text-')) || 'text-muted-foreground')}>
+          {style.label}
+        </span>
+      )}
     </span>
   );
 }
