@@ -32,6 +32,7 @@ interface LocationState {
   contentPurpose?: string;
   marketingFramework?: string;
   viewContentId?: string;
+  autoOpenImageGen?: boolean;
 }
 
 export default function MultiChannel() {
@@ -88,12 +89,16 @@ export default function MultiChannel() {
   }, [prefillData, navigate]);
 
   // Handle viewContentId from Create page - auto-open viewer
+  const [autoOpenImageGen, setAutoOpenImageGen] = useState(false);
   useEffect(() => {
     if (prefillData?.viewContentId && !loading) {
       const contentToView = contents.find(c => c.id === prefillData.viewContentId);
       if (contentToView) {
         setSelectedContent(contentToView);
         setViewerOpen(true);
+        if (prefillData.autoOpenImageGen) {
+          setAutoOpenImageGen(true);
+        }
         // Clear state to prevent re-opening on refresh
         window.history.replaceState({}, document.title);
       }
@@ -561,6 +566,8 @@ export default function MultiChannel() {
         regeneratingChannel={regeneratingChannel}
         aiEditingChannel={aiEditingChannel}
         expandingChannels={expandingChannels}
+        autoOpenImageGen={autoOpenImageGen}
+        onImageGenOpened={() => setAutoOpenImageGen(false)}
       />
 
       {/* Bulk Schedule Dialog */}
