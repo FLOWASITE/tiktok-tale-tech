@@ -15,11 +15,13 @@ export function useAgentPipelines(goalId?: string) {
     queryKey: ['agent-pipelines', orgId, goalId],
     queryFn: async () => {
       if (!orgId) return [];
+      // Limit to recent 200 pipelines to avoid silent 1000-row Supabase cap
       let q = supabase
         .from('agent_pipelines')
         .select('*')
         .eq('organization_id', orgId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(200);
       if (goalId) q = q.eq('goal_id', goalId);
       const { data, error } = await q;
       if (error) throw error;
