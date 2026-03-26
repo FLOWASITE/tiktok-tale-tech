@@ -153,6 +153,7 @@ async function generateImagesForChannels(
   contentId: string,
   channels: string[],
   brandTemplateId: string | null | undefined,
+  brief: BrandBrief = {},
 ): Promise<{ success: string[]; failed: string[] }> {
   const success: string[] = [];
   const failed: string[] = [];
@@ -171,20 +172,71 @@ async function generateImagesForChannels(
     console.warn(`[multichannel] Could not fetch content for image context:`, e);
   }
 
+  const hasLogo = !!(brief.include_logo && brief.logo_url);
+
   for (let i = 0; i < channels.length; i += batchSize) {
     const batch = channels.slice(i, i + batchSize);
     const results = await Promise.allSettled(
-      batch.map(channel => {
+      batch.map(async (channel) => {
         const channelText = mcContent?.[`${channel}_content`] || '';
-        return callFunction(supabaseUrl, serviceKey, "generate-brand-image", {
+        // Smart content type: short text → with_text (AI renders), long → background_only
+        const isShortText = channelText.length > 0 && channelText.length <= 120;
+        const imageContentType = isShortText ? "with_text" : "background_only";
+
+        const genResult = await callFunction(supabaseUrl, serviceKey, "generate-brand-image", {
           contentId,
           channel,
           brandTemplateId: brandTemplateId || undefined,
-          imageContentType: "background_only",
+          imageContentType,
           contentSummary: channelText.slice(0, 500),
           contentRole: mcContent?.content_role || undefined,
           contentAngle: mcContent?.content_angle || undefined,
+          // Pass text for AI to render when using with_text mode
+          ...(isShortText ? { textToInclude: channelText } : {}),
+          // Reserve space for logo so AI doesn't draw over it
+          ...(hasLogo ? { logoSafeZone: { position: 'bottom-right', sizePercent: 12 } } : {}),
         });
+
+        // Step 2: Overlay logo if brand has one
+        const imageUrl = genResult?.imageUrl || genResult?.backgroundUrl;
+        if (hasLogo && imageUrl) {
+          try {
+            const overlayResult = await callFunction(supabaseUrl, serviceKey, "overlay-logo-canvas", {
+              baseImageUrl: imageUrl,
+              logoUrl: brief.logo_url,
+              position: 'bottom-right',
+              logoStyle: 'shadow',
+              logoSizePercent: 12,
+              contentId,
+              channel,
+            });
+            if (overlayResult?.success && overlayResult.imageUrl) {
+              // Update channel_images with logo-overlaid URL
+              try {
+                const { data: content } = await supabase
+                  .from('multi_channel_contents')
+                  .select('channel_images')
+                  .eq('id', contentId)
+                  .single();
+                const currentImages = (content?.channel_images as Record<string, any>) || {};
+                if (currentImages[channel]) {
+                  currentImages[channel].url = overlayResult.imageUrl;
+                  await supabase
+                    .from('multi_channel_contents')
+                    .update({ channel_images: currentImages })
+                    .eq('id', contentId);
+                }
+              } catch (dbErr) {
+                console.warn(`[multichannel] Failed to update logo URL for ${channel}:`, dbErr);
+              }
+            }
+          } catch (logoErr) {
+            console.warn(`[multichannel] Logo overlay failed for ${channel}:`, logoErr);
+            // Non-fatal: image still usable without logo
+          }
+        }
+
+        return genResult;
       })
     );
     results.forEach((r, idx) => {
@@ -408,6 +460,7 @@ async function routeMultichannel(
           multichannelContentId,
           targetChannels,
           input.brand_template_id,
+          brief,
         );
         result.output.images = imageResults;
         console.log(`[multichannel] Images done: ${imageResults.success.length} ok, ${imageResults.failed.length} failed`);
