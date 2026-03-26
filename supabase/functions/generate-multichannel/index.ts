@@ -265,6 +265,7 @@ interface FormData {
   contentRole?: ContentRole; // seed = awareness, sprout = trust, harvest = conversion
   // NEW: Background task tracking
   taskId?: string;
+  agentMode?: boolean; // Agent pipeline mode: use plain text generation (no tool calling)
 }
 
 // ============================================
