@@ -1993,32 +1993,60 @@ export function MultiChannelFormWizard({
                       </div>
                     )}
                     {imagePhase === 'idle' && generationComplete && (
-                      <div className="flex flex-col items-center gap-3">
-                        <Button
-                          onClick={() => {
-                            if (getChannelText && onStartImagePipeline) {
-                              const channelTexts: Record<string, string> = {};
-                              formData.channels.forEach(ch => {
-                                channelTexts[ch] = getChannelText(ch);
-                              });
-                              onStartImagePipeline(formData.channels, channelTexts, {
-                                contentGoal: formData.contentGoal,
-                                contentRole: formData.contentRole,
-                                contentAngle: formData.contentAngle,
-                                topic: formData.topic,
-                                promptMode,
-                              });
-                            }
-                          }}
-                          className="w-full gap-2 gradient-primary glow-primary"
-                          size="lg"
-                        >
-                          <Sparkles className="w-5 h-5" />
-                          Tạo ảnh AI cho {formData.channels.length} kênh
-                        </Button>
-                        <p className="text-xs text-muted-foreground">
-                          Hoặc ảnh sẽ tự động được tạo sau vài giây
+                      <div className="w-full max-w-lg mx-auto space-y-4">
+                        <p className="text-center text-sm font-medium text-foreground">
+                          Nội dung đã sẵn sàng! Bạn muốn tạo ảnh như thế nào?
                         </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* Option A: Auto generate */}
+                          <button
+                            onClick={() => {
+                              if (getChannelText && onStartImagePipeline) {
+                                const channelTexts: Record<string, string> = {};
+                                formData.channels.forEach(ch => {
+                                  channelTexts[ch] = getChannelText(ch);
+                                });
+                                onStartImagePipeline(formData.channels, channelTexts, {
+                                  contentGoal: formData.contentGoal,
+                                  contentRole: formData.contentRole,
+                                  contentAngle: formData.contentAngle,
+                                  topic: formData.topic,
+                                  promptMode,
+                                });
+                              }
+                            }}
+                            className="group relative flex flex-col items-center gap-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-5 text-center transition-all hover:border-primary hover:bg-primary/10 hover:shadow-lg hover:shadow-primary/10"
+                          >
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform">
+                              <Sparkles className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-foreground">⚡ Tự động tạo ảnh</p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                AI tạo ảnh cho tất cả {formData.channels.length} kênh cùng lúc
+                              </p>
+                            </div>
+                          </button>
+
+                          {/* Option B: Manual - go to detail */}
+                          <button
+                            onClick={() => {
+                              toast.success('Bạn có thể tạo ảnh sau trong trang chi tiết nội dung');
+                              navigate('/multichannel');
+                            }}
+                            className="group relative flex flex-col items-center gap-3 rounded-xl border-2 border-border bg-card p-5 text-center transition-all hover:border-accent-foreground/30 hover:bg-accent/50 hover:shadow-lg"
+                          >
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground group-hover:scale-110 transition-transform">
+                              <ImageIcon className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-foreground">🎨 Tự chọn & tạo ảnh</p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                Vào trang chi tiết để tùy chỉnh từng kênh
+                              </p>
+                            </div>
+                          </button>
+                        </div>
                       </div>
                     )}
                     {(imagePhase === 'preparing' || imagePhase === 'generating_images') && (
