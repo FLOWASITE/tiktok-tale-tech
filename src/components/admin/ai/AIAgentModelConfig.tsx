@@ -18,7 +18,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useAgentModelConfig, ALL_AGENTS, type AgentModelConfig } from '@/hooks/useAgentModelConfig';
 import { ModelSelector } from './ModelSelector';
-import { useAIConfig } from '@/hooks/useAIConfig';
+import { ProviderIndicator } from './ModelCard';
+import { useAIConfig, getModelInfo } from '@/hooks/useAIConfig';
 
 const ICON_MAP: Record<string, React.ElementType> = {
   Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3,
@@ -144,8 +145,8 @@ export function AIAgentModelConfig() {
               </CardHeader>
               <CardContent className="pt-0 space-y-2.5">
                 <div className="flex items-center gap-2 text-xs">
-                  <Cpu className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="text-muted-foreground truncate">{displayModel}</span>
+                  <ProviderIndicator provider={getModelInfo(displayModel).provider} showLabel />
+                  <span className="text-muted-foreground truncate">{getModelInfo(displayModel).shortName}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1.5 text-xs">
