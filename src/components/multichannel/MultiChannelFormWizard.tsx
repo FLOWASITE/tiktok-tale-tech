@@ -294,6 +294,9 @@ export function MultiChannelFormWizard({
   
   // NEW: Pending generation - when user wants to generate multichannel but Core Content not ready
   const [pendingMultiChannelGeneration, setPendingMultiChannelGeneration] = useState(false);
+
+  // Image generation mode: 'auto' = go to Step 5, 'manual' = navigate to detail page after content done
+  const [imageMode, setImageMode] = useState<'auto' | 'manual'>('auto');
   
   // NEW: Preview popup state
   const [showPreviewPopup, setShowPreviewPopup] = useState(false);
@@ -887,13 +890,19 @@ export function MultiChannelFormWizard({
     }
   }, [currentStep]);
 
-  // Auto-advance to Step 5 (AI Control) when multichannel generation completes
+  // Auto-advance when multichannel generation completes
   useEffect(() => {
     if (generationComplete && currentStep === 4) {
       setCompletedSteps(prev => [...prev.filter(s => s !== 4), 4]);
-      setCurrentStep(5);
+      if (imageMode === 'auto') {
+        setCurrentStep(5);
+      } else {
+        // Manual mode: navigate to content list
+        toast.success('Nội dung đã tạo xong! Bạn có thể tạo ảnh trong trang chi tiết.');
+        navigate('/multichannel');
+      }
     }
-  }, [generationComplete, currentStep]);
+  }, [generationComplete, currentStep, imageMode]);
 
   // Resume from background tasks on mount
   useEffect(() => {
@@ -1876,6 +1885,75 @@ export function MultiChannelFormWizard({
                 </div>
               </div>
 
+              {/* Image Mode Selector */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Image className="w-4 h-4 text-primary" />
+                  Tạo ảnh AI
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setImageMode('auto')}
+                    disabled={isGenerating}
+                    className={cn(
+                      "relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-all",
+                      imageMode === 'auto'
+                        ? "border-primary bg-primary/5 shadow-sm"
+                        : "border-border hover:border-primary/40 hover:bg-accent/30"
+                    )}
+                  >
+                    {imageMode === 'auto' && (
+                      <div className="absolute top-2 right-2">
+                        <CheckCircle2 className="w-4 h-4 text-primary" />
+                      </div>
+                    )}
+                    <div className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
+                      imageMode === 'auto' ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                    )}>
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">⚡ Tự động tạo ảnh</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground leading-tight">
+                        AI tạo ảnh ngay khi nội dung hoàn tất
+                      </p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setImageMode('manual')}
+                    disabled={isGenerating}
+                    className={cn(
+                      "relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-all",
+                      imageMode === 'manual'
+                        ? "border-primary bg-primary/5 shadow-sm"
+                        : "border-border hover:border-primary/40 hover:bg-accent/30"
+                    )}
+                  >
+                    {imageMode === 'manual' && (
+                      <div className="absolute top-2 right-2">
+                        <CheckCircle2 className="w-4 h-4 text-primary" />
+                      </div>
+                    )}
+                    <div className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
+                      imageMode === 'manual' ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                    )}>
+                      <Image className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">🎨 Tự chọn & tạo sau</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground leading-tight">
+                        Vào trang chi tiết để tùy chỉnh từng kênh
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* Estimated Time */}
               {formData.channels.length > 0 && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1993,60 +2071,32 @@ export function MultiChannelFormWizard({
                       </div>
                     )}
                     {imagePhase === 'idle' && generationComplete && (
-                      <div className="w-full max-w-lg mx-auto space-y-4">
-                        <p className="text-center text-sm font-medium text-foreground">
-                          Nội dung đã sẵn sàng! Bạn muốn tạo ảnh như thế nào?
+                      <div className="flex flex-col items-center gap-3">
+                        <Button
+                          onClick={() => {
+                            if (getChannelText && onStartImagePipeline) {
+                              const channelTexts: Record<string, string> = {};
+                              formData.channels.forEach(ch => {
+                                channelTexts[ch] = getChannelText(ch);
+                              });
+                              onStartImagePipeline(formData.channels, channelTexts, {
+                                contentGoal: formData.contentGoal,
+                                contentRole: formData.contentRole,
+                                contentAngle: formData.contentAngle,
+                                topic: formData.topic,
+                                promptMode,
+                              });
+                            }
+                          }}
+                          className="w-full gap-2 gradient-primary glow-primary"
+                          size="lg"
+                        >
+                          <Sparkles className="w-5 h-5" />
+                          Tạo ảnh AI cho {formData.channels.length} kênh
+                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                          Bấm để bắt đầu tạo ảnh AI cho tất cả kênh
                         </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {/* Option A: Auto generate */}
-                          <button
-                            onClick={() => {
-                              if (getChannelText && onStartImagePipeline) {
-                                const channelTexts: Record<string, string> = {};
-                                formData.channels.forEach(ch => {
-                                  channelTexts[ch] = getChannelText(ch);
-                                });
-                                onStartImagePipeline(formData.channels, channelTexts, {
-                                  contentGoal: formData.contentGoal,
-                                  contentRole: formData.contentRole,
-                                  contentAngle: formData.contentAngle,
-                                  topic: formData.topic,
-                                  promptMode,
-                                });
-                              }
-                            }}
-                            className="group relative flex flex-col items-center gap-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-5 text-center transition-all hover:border-primary hover:bg-primary/10 hover:shadow-lg hover:shadow-primary/10"
-                          >
-                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                              <Sparkles className="w-6 h-6" />
-                            </div>
-                            <div>
-                              <p className="font-semibold text-foreground">⚡ Tự động tạo ảnh</p>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                AI tạo ảnh cho tất cả {formData.channels.length} kênh cùng lúc
-                              </p>
-                            </div>
-                          </button>
-
-                          {/* Option B: Manual - go to detail */}
-                          <button
-                            onClick={() => {
-                              toast.success('Bạn có thể tạo ảnh sau trong trang chi tiết nội dung');
-                              navigate('/multichannel');
-                            }}
-                            className="group relative flex flex-col items-center gap-3 rounded-xl border-2 border-border bg-card p-5 text-center transition-all hover:border-accent-foreground/30 hover:bg-accent/50 hover:shadow-lg"
-                          >
-                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground group-hover:scale-110 transition-transform">
-                              <Image className="w-6 h-6" />
-                            </div>
-                            <div>
-                              <p className="font-semibold text-foreground">🎨 Tự chọn & tạo ảnh</p>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                Vào trang chi tiết để tùy chỉnh từng kênh
-                              </p>
-                            </div>
-                          </button>
-                        </div>
                       </div>
                     )}
                     {(imagePhase === 'preparing' || imagePhase === 'generating_images') && (
