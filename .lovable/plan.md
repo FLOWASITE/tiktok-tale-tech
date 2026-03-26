@@ -1,61 +1,111 @@
 
 
-# Thêm thông tin Functions đang sử dụng vào mỗi Provider Card
+# Rà soát Agent System — Các vấn đề cần cải thiện
 
-## Mục tiêu
-Trong trang **AI Providers** (`AIProviderManager.tsx`), mỗi card Provider hiện chỉ hiển thị tên, trạng thái và API key. Cần bổ sung danh sách **functions đang gắn với model thuộc provider đó**, giúp admin biết provider nào đang phục vụ những tác vụ gì.
+## 1. Bug: `useAgentTeam` đếm pipeline sai
 
-## Cách hoạt động
+**File**: `src/hooks/useAgentTeam.ts` dòng 62
 
-Dữ liệu đã có sẵn:
-- `AI_FUNCTIONS` (static, 50+ functions) chứa `currentModel` (model mặc định)
-- `ai_function_configs` (DB) chứa `modelOverride` và `forceProvider` (cấu hình thực tế)
-- `ai_agent_model_configs` (DB) chứa `modelOverride` cho 6 agents
-- `ai_channel_model_configs` (DB) chứa `modelOverride` cho 12 channels
-- `getModelInfo()` trả về `provider` cho mỗi model
-
-Logic: Với mỗi provider type, quét tất cả functions/agents/channels, kiểm tra model override (hoặc default model) thuộc provider nào → nhóm lại → hiển thị trên card.
-
-## Thay đổi
-
-### 1. `src/components/admin/ai/AIProviderManager.tsx`
-
-- Import thêm `AI_FUNCTIONS`, `getModelInfo` từ `useAIConfig`, `useAgentModelConfig` (ALL_AGENTS), `useChannelModelConfig` (ALL_CHANNELS)
-- Tạo helper `useProviderUsageMap()` — với mỗi provider type, tính danh sách `{ name, model, source }`:
-  - **Functions**: Duyệt `AI_FUNCTIONS`, lấy `modelOverride` từ DB config (nếu có) hoặc `currentModel` mặc định → `getModelInfo(model).provider` → nhóm theo provider
-  - **Agents**: Duyệt `ALL_AGENTS`, lấy `modelOverride` từ agent configs → nhóm
-  - **Channels**: Duyệt `ALL_CHANNELS`, lấy `modelOverride` từ channel configs → nhóm
-- Trong mỗi **Provider Card** (`CardContent`), thêm section hiển thị:
-  - Tổng số functions/agents/channels đang dùng provider này
-  - Danh sách rút gọn (tối đa 5 items, có "xem thêm") với format: `function-name → model-shortName`
-  - Phân biệt bằng badge nhỏ: `F` (Function), `A` (Agent), `C` (Channel)
-  - Nếu không có item nào → hiển thị "Chưa có function nào sử dụng"
-
-### UI mẫu trên mỗi card
-
-```text
-┌─────────────────────────────┐
-│ ☁️ DashScope (Alibaba)  [Active] │
-│ Qwen Plus, Max, Turbo...         │
-│                                   │
-│ ✅ API Key đã cấu hình           │
-│ Model: qwen-plus                  │
-│                                   │
-│ 📋 Đang sử dụng (3)              │
-│  F generate-multichannel → Qwen+  │
-│  A Strategy Agent → Qwen Plus     │
-│  C threads → Qwen Plus            │
-│                                   │
-│ [Chỉnh sửa]  [🗑️]               │
-└─────────────────────────────┘
+```typescript
+pipelines_this_month: (pipelineCounts || []).length, // simplified
 ```
 
-### 2. Không thay đổi
-- Database, Edge Functions, hooks — chỉ đọc dữ liệu có sẵn
-- Các component khác không bị ảnh hưởng
+Mọi member đều nhận **cùng một con số** (tổng pipeline của cả org) thay vì đếm pipeline riêng từng user. Cần group theo `created_by` từ `agent_goals` hoặc thêm trường `created_by` vào pipeline query.
 
-## Kỹ thuật
-- Dùng `useMemo` để tính usage map, tránh re-render
-- Collapsible list nếu > 5 items (dùng state `showAll`)
-- Tooltip cho model name dài
+**Fix**: Join pipeline với goal để lấy `created_by`, rồi filter theo `user_id` của từng member.
+
+---
+
+## 2. `useAgentPipelines` không giới hạn số lượng rows
+
+**File**: `src/hooks/useAgentPipelines.ts` dòng 18-25
+
+Query lấy **tất cả** pipeline không có `.limit()`. Khi org có > 1000 pipeline sẽ bị Supabase cắt tại 1000 rows mà không báo lỗi → dữ liệu bị thiếu âm thầm.
+
+**Fix**: Thêm `.limit(200)` hoặc pagination, hoặc lọc theo khoảng thời gian (ví dụ 30 ngày gần nhất).
+
+---
+
+## 3. `useAgentApprovals` cũng thiếu limit
+
+**File**: `src/hooks/useAgentApprovals.ts` dòng 17-22
+
+Tương tự issue #2, query lấy tất cả approvals không giới hạn.
+
+**Fix**: Thêm `.limit()` hoặc filter chỉ lấy pending + 30 ngày gần nhất.
+
+---
+
+## 4. `AgentMonitorPage` thiếu filter/pagination
+
+**File**: `src/pages/AgentMonitorPage.tsx`
+
+Trang monitor hiển thị tất cả pipeline trong một bảng duy nhất, không có:
+- Filter theo status (running/completed/flagged)
+- Filter theo thời gian
+- Pagination
+- Tìm kiếm theo tên
+
+Khi có nhiều pipeline, trang sẽ rất chậm và khó sử dụng.
+
+**Fix**: Thêm filter bar (status, date range) + pagination cho `PipelineMonitorTable`.
+
+---
+
+## 5. `useAgentPerformance` thiếu filter theo org
+
+**File**: `src/hooks/useAgentPerformance.ts` dòng 42-46
+
+Query `agent_execution_logs` **không filter theo `organization_id`** mặc dù đã kiểm tra `currentOrganization?.id`. Nếu bảng có RLS thì OK, nhưng nếu không thì sẽ lấy logs của tất cả org.
+
+**Fix**: Thêm `.eq('organization_id', currentOrganization.id)` hoặc xác nhận RLS policy đã cover.
+
+---
+
+## 6. `PipelineMonitorTable` retry gọi `run_stage` thay vì logic retry đúng
+
+**File**: `src/components/agents/PipelineMonitorTable.tsx` dòng 60-74
+
+Hàm `handleRetry` gọi `agent-pipeline` với `action: 'run_stage'` nhưng **không reset pipeline state** (không clear `is_flagged`, `flag_reason`, v.v.). Trong khi `useAgentPipelines.retryPipeline` (hook) có logic reset đầy đủ hơn.
+
+**Fix**: Thống nhất sử dụng `retryPipeline` mutation từ hook thay vì gọi edge function trực tiếp.
+
+---
+
+## 7. `ApprovalQueue` preview dialog thiếu `DialogDescription`
+
+**File**: `src/components/agents/ApprovalQueue.tsx` dòng 148-176
+
+Console logs cho thấy lỗi accessibility: `DialogContent requires a DialogTitle` và `Missing Description`. Preview dialog tại dòng 148 thiếu `DialogDescription`.
+
+**Fix**: Thêm `<DialogDescription>` (hoặc `VisuallyHidden` wrapper) vào cả reject dialog và preview dialog.
+
+---
+
+## 8. `GoalWizard` quá lớn — 978 dòng trong 1 file
+
+**File**: `src/components/agents/GoalWizard.tsx` — 978 lines
+
+Component này chứa tất cả 5 steps wizard, constants, handlers trong 1 file. Khó maintain và debug.
+
+**Đề xuất** (không urgent): Tách thành các sub-components: `ObjectiveStep`, `StrategyStep`, `ChannelStep`, `AutomationStep`, `ConfirmStep`.
+
+---
+
+## Tóm tắt mức độ ưu tiên
+
+| # | Vấn đề | Mức độ |
+|---|--------|--------|
+| 1 | Bug đếm pipeline/user sai | **Cao** — dữ liệu sai |
+| 2 | Thiếu limit pipeline query | **Cao** — silent data loss |
+| 3 | Thiếu limit approvals query | **Trung bình** |
+| 4 | Monitor thiếu filter/pagination | **Trung bình** — UX |
+| 5 | Performance hook thiếu org filter | **Trung bình** — security |
+| 6 | Retry logic không nhất quán | **Thấp** — functional nhưng chưa clean |
+| 7 | Thiếu DialogDescription | **Thấp** — accessibility |
+| 8 | GoalWizard quá lớn | **Thấp** — maintenance |
+
+## Đề xuất
+
+Fix ngay **#1, #2, #3** (bugs/data issues). Sau đó **#4, #5** (UX + security). Các items còn lại là technical debt có thể xử lý dần.
 
