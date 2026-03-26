@@ -1,63 +1,51 @@
 
 
-# Fix: Text trên Carousel Agent tạo không giống với tự tạo
+# Fix: ETA trên Pipeline Card không chính xác
 
 ## Nguyên nhân
 
-Trong `routeCarousel()` (line 533-547), Agent truyền thiếu/sai nhiều params so với UI:
+Trong `supabase/functions/agent-pipeline/index.ts` (line 578), `estimated_completion` được hardcode:
+```typescript
+estimated_completion: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+// = luôn luôn +24 giờ từ lúc tạo
+```
 
-| Param | UI (CarouselForm) | Agent (routeCarousel) |
-|-------|---|---|
-| `brandGuideline` | **Full brand_guideline** từ brand_templates (chi tiết tone, rules, examples) | `brief.unique_value_proposition` — chỉ 1 câu UVP ngắn |
-| `carouselStyle` | User chọn (seamless/educational/listicle/gallery) | Hardcode `"educational"` |
-| `visualPreset` | User chọn (minimalist/flat_design/gradient/geometric/illustration/product_only) | Hardcode `"minimalist"` |
-| `brandPrimaryColor` | Từ brand template | Không truyền |
-| `brandSecondaryColors` | Từ brand template | Không truyền |
-| `includeLogo` | Từ brand template | Hardcode `false` |
-| `logoUrl` | Từ brand template | Không truyền |
-
-Hậu quả: `generate-carousel` dùng `brandGuideline` làm system prompt chính → Agent chỉ có 1 câu UVP → nội dung text trên slide thiếu tone/voice/style → text khác hoàn toàn so với tự tạo.
+Pipeline thực tế chỉ mất ~2-10 phút → hiển thị "khoảng 24 giờ nữa" là sai hoàn toàn.
 
 ## Giải pháp
 
-### File: `supabase/functions/agent-creator-v2/index.ts`
+### 1. Backend: Tính ETA thực tế theo content_type
 
-**1. Trong `assembleBrief()`** — thêm fetch `brand_guideline`, `primary_color`, `secondary_colors`, `include_logo` từ brand_templates (thêm vào select query line 97-99, thêm field vào BrandBrief interface)
+**File: `supabase/functions/agent-pipeline/index.ts`** (line ~578)
 
-**2. Trong `routeCarousel()`** — truyền đúng params:
+Thay hardcode 24h bằng ước tính hợp lý theo loại nội dung:
 
 ```typescript
-const carouselOutput = await callFunction(supabaseUrl, serviceKey, "generate-carousel", {
-  topic: input.topic,
-  platform: targetChannel,
-  carouselStyle: carouselStyle,
-  visualPreset: visualPreset,
-  slideCount,
-  aiTool: "ideogram",
-  brandName: brief.brand_name || "Brand",
-  brandGuideline: brief.brand_guideline || brief.unique_value_proposition || "",
-  includeLogo: brief.include_logo ?? false,
-  logoUrl: brief.logo_url || undefined,
-  organization_id: input.organization_id,
-  brandTemplateId: input.brand_template_id,
-  autoGenerateImages: false,
-  userId,
-  brandPrimaryColor: brief.primary_color || undefined,
-  brandSecondaryColors: brief.secondary_colors || undefined,
-});
+const ETA_MINUTES: Record<string, number> = {
+  multichannel: 5,
+  carousel: 8,
+  video_script: 4,
+};
+const etaMs = (ETA_MINUTES[contentType] || 6) * 60 * 1000;
+estimated_completion: new Date(Date.now() + etaMs).toISOString(),
 ```
 
-**3. BrandBrief interface** — thêm fields:
-```typescript
-brand_guideline?: string;
-include_logo?: boolean;
-logo_url?: string;
-primary_color?: string;
-secondary_colors?: string[];
+### 2. Frontend: Ẩn ETA khi pipeline đã hoàn thành
+
+**File: `src/components/agents/PipelineKanban.tsx`** (line ~373)
+
+Thêm điều kiện không hiển thị ETA nếu pipeline đã xong (`completed_at` có giá trị hoặc stage = `analyze`):
+
+```tsx
+{pipeline.estimated_completion && !pipeline.completed_at && pipeline.current_stage !== 'analyze' && (
+  <span>...</span>
+)}
 ```
 
-**4. assembleBrief() select** — thêm `brand_guideline, primary_color, secondary_colors, include_logo` vào query
+**File: `src/components/agents/PipelineDetailDialog.tsx`** (line ~249) — tương tự.
 
-### Phạm vi: 1 file
-`supabase/functions/agent-creator-v2/index.ts`
+### Phạm vi: 3 file
+- `supabase/functions/agent-pipeline/index.ts` — sửa ETA calculation
+- `src/components/agents/PipelineKanban.tsx` — ẩn ETA khi hoàn thành
+- `src/components/agents/PipelineDetailDialog.tsx` — ẩn ETA khi hoàn thành
 
