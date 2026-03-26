@@ -826,6 +826,16 @@ export async function callAI(options: AICallOptions): Promise<AICallResult> {
     }
   }
 
+  // DashScope uses env var directly (no DB config needed)
+  if (primaryProvider === "dashscope") {
+    console.log("[ai-provider] Using DashScope (Alibaba Cloud)");
+    return callWithCircuitBreaker(
+      () => callDashScope(messages, effectiveModel, effectiveConfig, options),
+      effectiveModel,
+      options
+    );
+  }
+
   // Default: Use Lovable Gateway
   console.log("[ai-provider] Using Lovable AI Gateway (default)");
   return callWithCircuitBreaker(
