@@ -138,6 +138,7 @@ async function assembleBrief(
 async function generateImagesForChannels(
   supabaseUrl: string,
   serviceKey: string,
+  supabase: any,
   contentId: string,
   channels: string[],
   brandTemplateId: string | null | undefined,
@@ -146,17 +147,34 @@ async function generateImagesForChannels(
   const failed: string[] = [];
   const batchSize = 3;
 
+  // Fetch content text to provide context for image generation
+  let mcContent: Record<string, any> | null = null;
+  try {
+    const { data } = await supabase
+      .from("multi_channel_contents")
+      .select("*")
+      .eq("id", contentId)
+      .single();
+    mcContent = data;
+  } catch (e) {
+    console.warn(`[multichannel] Could not fetch content for image context:`, e);
+  }
+
   for (let i = 0; i < channels.length; i += batchSize) {
     const batch = channels.slice(i, i + batchSize);
     const results = await Promise.allSettled(
-      batch.map(channel =>
-        callFunction(supabaseUrl, serviceKey, "generate-brand-image", {
+      batch.map(channel => {
+        const channelText = mcContent?.[`${channel}_content`] || '';
+        return callFunction(supabaseUrl, serviceKey, "generate-brand-image", {
           contentId,
           channel,
           brandTemplateId: brandTemplateId || undefined,
-          imageContentType: "with_text",
-        })
-      )
+          imageContentType: "background_only",
+          contentSummary: channelText.slice(0, 500),
+          contentRole: mcContent?.content_role || undefined,
+          contentAngle: mcContent?.content_angle || undefined,
+        });
+      })
     );
     results.forEach((r, idx) => {
       if (r.status === "fulfilled") {
@@ -375,7 +393,7 @@ async function routeMultichannel(
       if (multichannelContentId && targetChannels.length > 0) {
         console.log(`[multichannel] Step 3: Generating images for ${targetChannels.length} channels`);
         const imageResults = await generateImagesForChannels(
-          supabaseUrl, serviceKey,
+          supabaseUrl, serviceKey, supabase,
           multichannelContentId,
           targetChannels,
           input.brand_template_id,
