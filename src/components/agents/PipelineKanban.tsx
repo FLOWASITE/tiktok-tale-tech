@@ -401,6 +401,34 @@ function PipelineCard({ pipeline, campaignName, isDragging, onClick, approval, o
             </Button>
           </div>
         )}
+        {/* Retry/Delete buttons for flagged (stuck/errored) pipelines */}
+        {pipeline.is_flagged && (onRetry || onDelete) && (
+          <div className="flex items-center gap-1.5 pt-1 border-t border-border/30">
+            {onRetry && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 flex-1 text-[10px] gap-1"
+                onClick={(e) => { e.stopPropagation(); onRetry(pipeline.id); }}
+              >
+                <RefreshCw className="w-3 h-3" /> Chạy lại
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-[10px] gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (confirm('Xóa pipeline này?')) onDelete(pipeline.id);
+                }}
+              >
+                <Trash2 className="w-3 h-3" /> Xóa
+              </Button>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
