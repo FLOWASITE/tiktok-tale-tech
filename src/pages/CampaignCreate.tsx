@@ -37,6 +37,20 @@ import { cn } from '@/lib/utils';
 import { useCampaigns, useCampaignDetail } from '@/hooks/useCampaigns';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { supabase } from '@/integrations/supabase/client';
+const KEY_MESSAGE_SUGGESTIONS: Record<string, string[]> = {
+  awareness: ['Giải pháp #1 cho ngành', 'Đột phá công nghệ mới', 'Được tin dùng bởi hàng nghìn khách hàng', 'Cam kết chất lượng hàng đầu', 'Thương hiệu uy tín hàng đầu', 'Sứ mệnh nâng tầm trải nghiệm'],
+  engagement: ['Cộng đồng sáng tạo cùng nhau', 'Chia sẻ câu chuyện của bạn', 'Kết nối - Trải nghiệm - Yêu thích', 'Cùng tạo nên xu hướng mới', 'Trải nghiệm đáng nhớ mỗi ngày'],
+  conversion: ['Tiết kiệm đến 30% chi phí', 'Ưu đãi có hạn - Hành động ngay', 'Miễn phí dùng thử 14 ngày', 'Hoàn tiền nếu không hài lòng', 'Giá tốt nhất thị trường'],
+  retention: ['Ưu đãi dành riêng khách hàng thân thiết', 'Nâng cấp trải nghiệm của bạn', 'Đồng hành cùng bạn mỗi ngày', 'Tri ân khách hàng - Ưu đãi đặc biệt', 'Càng gắn bó - Càng nhiều quyền lợi'],
+};
+
+const CTA_SUGGESTIONS: Record<string, string[]> = {
+  awareness: ['Tìm hiểu thêm', 'Khám phá ngay', 'Xem chi tiết', 'Tìm hiểu ngay'],
+  engagement: ['Tham gia ngay', 'Bình luận ý kiến', 'Chia sẻ với bạn bè', 'Thử ngay'],
+  conversion: ['Mua ngay', 'Đăng ký dùng thử', 'Nhận ưu đãi', 'Đặt hàng ngay', 'Sở hữu ngay'],
+  retention: ['Nhận ưu đãi VIP', 'Gia hạn ngay', 'Nâng cấp gói', 'Đổi điểm ngay'],
+};
+
 import { 
   CAMPAIGN_TYPES, 
   KPI_METRICS,
@@ -657,6 +671,33 @@ export default function CampaignCreate() {
                     <p className="text-xs text-muted-foreground">
                       Nhấn Enter hoặc nút + để thêm. {contentBrief.key_messages.length}/5 thông điệp.
                     </p>
+                    {contentBrief.key_messages.length < 5 && (
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap gap-1.5">
+                          {(KEY_MESSAGE_SUGGESTIONS[formData.campaign_type || 'awareness'] || [])
+                            .filter(s => !contentBrief.key_messages.includes(s))
+                            .map(suggestion => (
+                              <Badge
+                                key={suggestion}
+                                variant="outline"
+                                className="cursor-pointer border-dashed border-primary/40 text-primary hover:bg-primary/10 hover:border-primary transition-colors text-xs gap-1"
+                                onClick={() => {
+                                  if (contentBrief.key_messages.length < 5) {
+                                    updateContentBrief({ key_messages: [...contentBrief.key_messages, suggestion] });
+                                  }
+                                }}
+                              >
+                                <Plus className="h-3 w-3" />
+                                {suggestion}
+                              </Badge>
+                            ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Sparkles className="h-3 w-3" />
+                          Gợi ý theo chiến dịch {CAMPAIGN_TYPES.find(t => t.value === formData.campaign_type)?.label || 'Awareness'}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Primary CTA */}
@@ -668,6 +709,23 @@ export default function CampaignCreate() {
                       value={contentBrief.primary_cta}
                       onChange={(e) => updateContentBrief({ primary_cta: e.target.value })}
                     />
+                    <div className="flex flex-wrap gap-1.5">
+                      {(CTA_SUGGESTIONS[formData.campaign_type || 'awareness'] || []).map(suggestion => (
+                        <Badge
+                          key={suggestion}
+                          variant="outline"
+                          className={cn(
+                            "cursor-pointer border-dashed text-xs transition-colors gap-1",
+                            contentBrief.primary_cta === suggestion
+                              ? "bg-primary/15 border-primary text-primary"
+                              : "border-primary/40 text-primary hover:bg-primary/10 hover:border-primary"
+                          )}
+                          onClick={() => updateContentBrief({ primary_cta: suggestion })}
+                        >
+                          {suggestion}
+                        </Badge>
+                      ))}
+                    </div>
                     <p className="text-xs text-muted-foreground">
                       Hành động chính bạn muốn khách hàng thực hiện
                     </p>
