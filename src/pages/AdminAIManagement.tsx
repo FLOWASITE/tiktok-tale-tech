@@ -19,6 +19,7 @@ import { AIFunctionConfigComponent } from "@/components/admin/ai/AIFunctionConfi
 import { AIChannelModelConfig } from "@/components/admin/ai/AIChannelModelConfig";
 import { CostDashboard } from "@/components/admin/ai/CostDashboard";
 import { PromptManager } from "@/components/admin/ai/prompts";
+import { AIAgentModelConfig } from "@/components/admin/ai/AIAgentModelConfig";
 
 export default function AdminAIManagement() {
   const [activeTab, setActiveTab] = useState("dashboard");
