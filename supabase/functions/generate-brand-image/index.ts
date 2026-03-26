@@ -782,6 +782,33 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
             created_by: userId,
           });
         console.log("[generate-brand-image] Saved to channel_image_history");
+
+        // Sync channel_images JSON column so MultiChannelViewer can display the image
+        if (contentId && channel) {
+          try {
+            const { data: currentContent } = await supabase
+              .from("multi_channel_contents")
+              .select("channel_images")
+              .eq("id", contentId)
+              .single();
+
+            const currentImages = (currentContent?.channel_images as Record<string, any>) || {};
+            currentImages[channel] = {
+              url: imageUrl,
+              provider: modelUsed,
+              aspectRatio: finalAspectRatio,
+            };
+
+            await supabase
+              .from("multi_channel_contents")
+              .update({ channel_images: JSON.parse(JSON.stringify(currentImages)) })
+              .eq("id", contentId);
+
+            console.log(`[generate-brand-image] Synced channel_images for ${channel}`);
+          } catch (syncErr) {
+            console.warn("[generate-brand-image] channel_images sync error:", syncErr);
+          }
+        }
       } catch (historyErr) {
         console.error("[generate-brand-image] History save error:", historyErr);
       }
