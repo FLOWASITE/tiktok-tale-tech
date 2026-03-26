@@ -340,6 +340,7 @@ export default function MultiChannelCreate() {
               onRetryImageChannel={(channel) => imagePipeline.regenerateForChannel(channel, {} as any)}
               generationComplete={generationState === 'complete'}
               getChannelText={getChannelText}
+              generatedContentId={generatedContentId}
             />
           </div>
         </div>

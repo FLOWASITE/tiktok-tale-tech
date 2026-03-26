@@ -167,6 +167,7 @@ interface MultiChannelFormWizardProps {
   onDownloadImage?: (channel: Channel) => void;
   generationComplete?: boolean;
   getChannelText?: (channel: Channel) => string;
+  generatedContentId?: string | null;
 }
 
 // 5-step flow with merged AI control + image generation
@@ -274,6 +275,7 @@ export function MultiChannelFormWizard({
   onDownloadImage,
   generationComplete,
   getChannelText,
+  generatedContentId: generatedContentIdProp,
 }: MultiChannelFormWizardProps) {
   const navigate = useNavigate();
   const topicInputRef = useRef<HTMLTextAreaElement>(null);
@@ -890,11 +892,18 @@ export function MultiChannelFormWizard({
     }
   }, [currentStep]);
 
-  // Auto-advance when multichannel generation completes — both modes go to Step 5
+  // Auto-advance when multichannel generation completes
   useEffect(() => {
     if (generationComplete && currentStep === 4) {
       setCompletedSteps(prev => [...prev.filter(s => s !== 4), 4]);
-      setCurrentStep(5);
+      if (imageMode === 'manual') {
+        // Navigate to viewer — user uses "Tạo ảnh AI" button there
+        navigate('/multichannel', { 
+          state: { viewContentId: generatedContentIdProp || formData.coreContentId } 
+        });
+      } else {
+        setCurrentStep(5);
+      }
     }
   }, [generationComplete, currentStep]);
 
@@ -2060,142 +2069,7 @@ export function MultiChannelFormWizard({
             </Card>
 
             {/* Image generation status */}
-            {imageMode === 'manual' && generationComplete ? (
-              <div className="space-y-4">
-                {/* Active mode description */}
-                <div className={cn(
-                  "rounded-lg border p-3 text-xs",
-                  promptMode === 'raw' ? "border-orange-500/30 bg-orange-500/5 text-orange-700 dark:text-orange-300" :
-                  promptMode === 'brand_only' ? "border-blue-500/30 bg-blue-500/5 text-blue-700 dark:text-blue-300" :
-                  "border-primary/30 bg-primary/5 text-primary"
-                )}>
-                  {promptMode === 'raw' ? (
-                    <p>🎨 <strong>Toàn quyền</strong> — Không logo, không style brand. AI tự do sáng tạo theo nội dung.</p>
-                  ) : promptMode === 'brand_only' ? (
-                    <p>🏷️ <strong>Giữ Brand</strong> — Giữ logo + màu brand. Không áp dụng AI strategy (V3 style, role, angle).</p>
-                  ) : (
-                    <p>✨ <strong>Đầy đủ</strong> — AI chọn style tối ưu + logo + brand colors + strategic context.</p>
-                  )}
-                </div>
-
-                {/* Prompt Preview */}
-                <PromptPreview
-                  channels={formData.channels}
-                  promptMode={promptMode}
-                  imageStyle="auto"
-                  contentRole={formData.contentRole as any}
-                  contentAngle={formData.contentAngle as any}
-                  imageContentType="with_text"
-                  brandPrimaryColor={brandTemplate?.tone_of_voice?.[0] ? undefined : undefined}
-                  personaName={formData.personaId ? 'Đã chọn persona' : undefined}
-                />
-
-                {/* Manual per-channel image creation — persistent UI */}
-                <div className="w-full space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-foreground">Tạo ảnh cho từng kênh</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={imagePhase === 'preparing' || imagePhase === 'generating_images'}
-                      onClick={() => {
-                        if (getChannelText && onStartImagePipeline) {
-                          const channelTexts: Record<string, string> = {};
-                          formData.channels.forEach(ch => {
-                            channelTexts[ch] = getChannelText(ch);
-                          });
-                          onStartImagePipeline(formData.channels, channelTexts, {
-                            contentGoal: formData.contentGoal,
-                            contentRole: formData.contentRole,
-                            contentAngle: formData.contentAngle,
-                            topic: formData.topic,
-                            promptMode,
-                          });
-                        }
-                      }}
-                      className="gap-1.5 text-xs"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Tạo tất cả
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {formData.channels.map(ch => {
-                      const channelText = getChannelText?.(ch) || '';
-                      const preview = channelText.replace(/#{1,6}\s?/g, '').replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1').slice(0, 80);
-                      const hasImage = generatedImages?.[ch];
-                      const chProgress = (imageProgress as Record<string, any>)?.[ch];
-                      const isGeneratingThis = chProgress === 'generating' || chProgress === 'pending';
-                      return (
-                        <div
-                          key={ch}
-                          className={cn(
-                            "flex items-start gap-3 rounded-xl border p-3 transition-all",
-                            isGeneratingThis ? "border-primary/50 bg-primary/10 animate-pulse" :
-                            hasImage ? "border-primary/30 bg-primary/5" : "border-border bg-card"
-                          )}
-                        >
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                            {channelIcons[ch]}
-                          </div>
-                          <div className="flex-1 min-w-0 space-y-1.5">
-                            <div className="flex items-center gap-1.5">
-                              <p className="text-xs font-medium text-foreground capitalize">{ch.replace('_', ' ')}</p>
-                              {hasImage && <CheckCircle2 className="w-3 h-3 text-primary" />}
-                              {hasImage && typeof hasImage === 'object' && (hasImage as any).promptMode && (
-                                <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">
-                                  {(hasImage as any).promptMode === 'raw' ? '🎨' : (hasImage as any).promptMode === 'brand_only' ? '🏷️' : '✨'}
-                                </Badge>
-                              )}
-                            </div>
-                            {hasImage && typeof hasImage === 'object' && hasImage.url ? (
-                              <img src={hasImage.url} alt={ch} className="w-full h-16 object-cover rounded-md border border-border/50" />
-                            ) : preview ? (
-                              <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">{preview}...</p>
-                            ) : null}
-                          </div>
-                          <Button
-                            variant={hasImage ? "outline" : "default"}
-                            size="sm"
-                            className="shrink-0 gap-1 text-xs h-7"
-                            disabled={isGeneratingThis}
-                            onClick={() => {
-                              if (getChannelText && onStartImagePipeline) {
-                                const texts: Record<string, string> = { [ch]: getChannelText(ch) };
-                                onStartImagePipeline([ch], texts, {
-                                  contentGoal: formData.contentGoal,
-                                  contentRole: formData.contentRole,
-                                  contentAngle: formData.contentAngle,
-                                  topic: formData.topic,
-                                  promptMode,
-                                });
-                              }
-                            }}
-                          >
-                            {isGeneratingThis ? (
-                              <><Loader2 className="w-3 h-3 animate-spin" /> Đang tạo</>
-                            ) : hasImage ? (
-                              <><RefreshCw className="w-3 h-3" /> Tạo lại</>
-                            ) : (
-                              <><Sparkles className="w-3 h-3" /> Tạo ảnh</>
-                            )}
-                          </Button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="pt-2 text-center">
-                  <button
-                    onClick={() => navigate('/multichannel')}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
-                  >
-                    Bỏ qua bước này →
-                  </button>
-                </div>
-              </div>
-            ) : (imagePhase === 'idle' || !imagePhase) ? (
+            {(imagePhase === 'idle' || !imagePhase) ? (
               <div className="space-y-4">
                 {/* Prompt Preview */}
                 <PromptPreview
