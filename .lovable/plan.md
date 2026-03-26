@@ -1,51 +1,66 @@
 
 
-# Fix: ETA trên Pipeline Card không chính xác
+# Fix: Ảnh tạo bởi Agent không hiển thị trên giao diện xem nội dung
 
-## Nguyên nhân
+## Nguyên nhân gốc
 
-Trong `supabase/functions/agent-pipeline/index.ts` (line 578), `estimated_completion` được hardcode:
-```typescript
-estimated_completion: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-// = luôn luôn +24 giờ từ lúc tạo
+Khi Agent pipeline tạo ảnh cho multichannel, luồng gọi là:
+1. `agent-creator-v2` gọi `generate-brand-image` cho từng kênh
+2. `generate-brand-image` lưu ảnh vào **`channel_image_history`** table
+3. Nhưng **KHÔNG** cập nhật cột **`multi_channel_contents.channel_images`** (JSON)
+
+Khi user tạo ảnh thủ công qua UI, callback `onSaveChannelImage` sẽ cập nhật `channel_images` JSON column. Nên ảnh hiển thị bình thường.
+
+Giao diện xem (MultiChannelViewer) đọc ảnh từ:
 ```
+content.channel_images?.[channel]?.url
+```
+Do Agent không ghi vào đây → ảnh không hiện.
 
-Pipeline thực tế chỉ mất ~2-10 phút → hiển thị "khoảng 24 giờ nữa" là sai hoàn toàn.
+Carousel **không bị lỗi này** — hệ thống carousel dùng bảng `carousel_images` riêng và viewer đọc đúng từ bảng đó.
 
 ## Giải pháp
 
-### 1. Backend: Tính ETA thực tế theo content_type
+Sửa `generate-brand-image/index.ts` — sau khi lưu vào `channel_image_history`, **đồng thời cập nhật** `multi_channel_contents.channel_images` JSON column.
 
-**File: `supabase/functions/agent-pipeline/index.ts`** (line ~578)
+### File: `supabase/functions/generate-brand-image/index.ts` (~line 765-788)
 
-Thay hardcode 24h bằng ước tính hợp lý theo loại nội dung:
+Thêm logic cập nhật `channel_images` sau khi insert vào `channel_image_history`:
 
 ```typescript
-const ETA_MINUTES: Record<string, number> = {
-  multichannel: 5,
-  carousel: 8,
-  video_script: 4,
-};
-const etaMs = (ETA_MINUTES[contentType] || 6) * 60 * 1000;
-estimated_completion: new Date(Date.now() + etaMs).toISOString(),
+// After saving to channel_image_history, also update channel_images on the content record
+if (contentId && channel) {
+  try {
+    const { data: currentContent } = await supabase
+      .from("multi_channel_contents")
+      .select("channel_images")
+      .eq("id", contentId)
+      .single();
+
+    const currentImages = (currentContent?.channel_images as Record<string, any>) || {};
+    currentImages[channel] = {
+      url: imageUrl,
+      provider: modelUsed,
+      aspectRatio: finalAspectRatio,
+    };
+
+    await supabase
+      .from("multi_channel_contents")
+      .update({ channel_images: JSON.parse(JSON.stringify(currentImages)) })
+      .eq("id", contentId);
+
+    console.log(`[generate-brand-image] Updated channel_images for ${channel}`);
+  } catch (syncErr) {
+    console.warn("[generate-brand-image] channel_images sync error:", syncErr);
+  }
+}
 ```
 
-### 2. Frontend: Ẩn ETA khi pipeline đã hoàn thành
+### Phạm vi: 1 file
+- `supabase/functions/generate-brand-image/index.ts` — thêm sync vào `channel_images`
 
-**File: `src/components/agents/PipelineKanban.tsx`** (line ~373)
-
-Thêm điều kiện không hiển thị ETA nếu pipeline đã xong (`completed_at` có giá trị hoặc stage = `analyze`):
-
-```tsx
-{pipeline.estimated_completion && !pipeline.completed_at && pipeline.current_stage !== 'analyze' && (
-  <span>...</span>
-)}
-```
-
-**File: `src/components/agents/PipelineDetailDialog.tsx`** (line ~249) — tương tự.
-
-### Phạm vi: 3 file
-- `supabase/functions/agent-pipeline/index.ts` — sửa ETA calculation
-- `src/components/agents/PipelineKanban.tsx` — ẩn ETA khi hoàn thành
-- `src/components/agents/PipelineDetailDialog.tsx` — ẩn ETA khi hoàn thành
+### Lưu ý
+- Không ảnh hưởng luồng tạo ảnh thủ công (vẫn giữ callback cũ)
+- Carousel không bị ảnh hưởng (dùng bảng riêng)
+- Ảnh cũ đã tạo bởi Agent sẽ không tự hiện — chỉ áp dụng cho pipeline mới
 
