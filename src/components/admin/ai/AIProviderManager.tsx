@@ -183,6 +183,59 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
     return providers.find(p => p.providerType === type);
   };
 
+  const toggleExpanded = (providerType: string) => {
+    setExpandedProviders(prev => ({ ...prev, [providerType]: !prev[providerType] }));
+  };
+
+  const renderUsageSection = (providerType: string) => {
+    const items = providerUsageMap[providerType] || [];
+    if (items.length === 0) {
+      return (
+        <div className="mt-3 pt-3 border-t border-border/50">
+          <p className="text-xs text-muted-foreground italic">Chưa có function nào sử dụng</p>
+        </div>
+      );
+    }
+    const isExpanded = expandedProviders[providerType];
+    const displayItems = isExpanded ? items : items.slice(0, 5);
+    const sourceBadgeClass: Record<string, string> = {
+      F: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      A: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+      C: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    };
+    return (
+      <div className="mt-3 pt-3 border-t border-border/50">
+        <p className="text-xs font-medium text-muted-foreground mb-2">📋 Đang sử dụng ({items.length})</p>
+        <div className="space-y-1">
+          {displayItems.map((item, i) => (
+            <div key={`${item.source}-${item.name}-${i}`} className="flex items-center gap-1.5 text-xs">
+              <span className={`px-1 py-0.5 rounded text-[10px] font-bold leading-none ${sourceBadgeClass[item.source]}`}>
+                {item.source}
+              </span>
+              <span className="text-foreground truncate max-w-[120px]" title={item.name}>{item.name}</span>
+              <span className="text-muted-foreground">→</span>
+              <span className="text-muted-foreground truncate max-w-[80px]" title={item.model}>{item.shortName}</span>
+            </div>
+          ))}
+        </div>
+        {items.length > 5 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full h-6 mt-1 text-xs text-muted-foreground"
+            onClick={() => toggleExpanded(providerType)}
+          >
+            {isExpanded ? (
+              <><ChevronUp className="h-3 w-3 mr-1" />Thu gọn</>
+            ) : (
+              <><ChevronDown className="h-3 w-3 mr-1" />Xem thêm ({items.length - 5})</>
+            )}
+          </Button>
+        )}
+      </div>
+    );
+  };
+
   const hasApiKey = (provider: Partial<AIProviderConfig>) => {
     return !!(provider as any).encryptedApiKey || !!provider.apiKeySecretName;
   };
