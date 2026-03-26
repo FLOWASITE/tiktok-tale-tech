@@ -1916,16 +1916,11 @@ export function MultiChannelFormWizard({
               </div>
 
               {/* Image Mode Selector */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground/5">
-                    <Image className="w-3.5 h-3.5 text-foreground/70" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground tracking-tight">Tạo ảnh AI</p>
-                    <p className="text-[10px] text-muted-foreground tracking-wide uppercase">Image Generation</p>
-                  </div>
-                </div>
+              <div className="space-y-2.5">
+                <Label className="text-sm font-medium flex items-center gap-2 text-foreground">
+                  <Image className="w-4 h-4 text-primary" />
+                  Tạo ảnh AI
+                </Label>
 
                 <div className="grid grid-cols-2 gap-3">
                   {/* Auto option */}
@@ -1934,39 +1929,39 @@ export function MultiChannelFormWizard({
                     onClick={() => setImageMode('auto')}
                     disabled={isGenerating}
                     className={cn(
-                      "group relative flex flex-col items-center gap-3 rounded-2xl p-5 text-center transition-all duration-300",
+                      "group relative flex flex-col items-start gap-2.5 rounded-xl p-4 text-left transition-all duration-200",
                       imageMode === 'auto'
-                        ? "bg-background text-foreground shadow-lg shadow-foreground/5 scale-[1.02] border-2 border-foreground/15"
-                        : "bg-muted/30 hover:bg-muted/50 border border-border/40 hover:border-border"
+                        ? "bg-primary/5 border-2 border-primary/30 shadow-sm"
+                        : "bg-background border border-border/60 hover:border-primary/20 hover:bg-primary/[0.02]"
                     )}
                   >
                     {imageMode === 'auto' && (
                       <div className="absolute top-3 right-3">
-                        <CheckCircle2 className="w-4 h-4 text-foreground/60" />
+                        <CheckCircle2 className="w-5 h-5 text-primary fill-primary/10" />
                       </div>
                     )}
                     <div className={cn(
-                      "flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-300",
+                      "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
                       imageMode === 'auto'
-                        ? "bg-foreground/10 text-foreground"
-                        : "bg-foreground/5 text-muted-foreground group-hover:text-foreground group-hover:bg-foreground/10"
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted/60 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
                     )}>
                       <Sparkles className="w-5 h-5" />
                     </div>
-                    <div className="space-y-1">
-                      <p className={cn(
-                        "text-sm font-medium tracking-tight",
-                        imageMode === 'auto' ? "text-foreground" : "text-foreground"
-                      )}>
-                        Tự động tạo ảnh
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-semibold text-foreground">
+                        ⚡ Tự động tạo ảnh
                       </p>
-                      <p className={cn(
-                        "text-[11px] leading-relaxed",
-                        imageMode === 'auto' ? "text-muted-foreground" : "text-muted-foreground"
-                      )}>
+                      <p className="text-[11px] text-muted-foreground leading-snug">
                         AI tạo ảnh ngay khi nội dung hoàn tất
                       </p>
                     </div>
+                    {imageMode === 'auto' && (
+                      <div className="flex flex-wrap gap-1.5 mt-0.5">
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-primary/30 text-primary bg-background">Nhanh</span>
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-primary/30 text-primary bg-background">Tự động</span>
+                      </div>
+                    )}
                   </button>
 
                   {/* Manual option */}
@@ -1975,39 +1970,39 @@ export function MultiChannelFormWizard({
                     onClick={() => setImageMode('manual')}
                     disabled={isGenerating}
                     className={cn(
-                      "group relative flex flex-col items-center gap-3 rounded-2xl p-5 text-center transition-all duration-300",
+                      "group relative flex flex-col items-start gap-2.5 rounded-xl p-4 text-left transition-all duration-200",
                       imageMode === 'manual'
-                        ? "bg-background text-foreground shadow-lg shadow-foreground/5 scale-[1.02] border-2 border-foreground/15"
-                        : "bg-muted/30 hover:bg-muted/50 border border-border/40 hover:border-border"
+                        ? "bg-primary/5 border-2 border-primary/30 shadow-sm"
+                        : "bg-background border border-border/60 hover:border-primary/20 hover:bg-primary/[0.02]"
                     )}
                   >
                     {imageMode === 'manual' && (
                       <div className="absolute top-3 right-3">
-                        <CheckCircle2 className="w-4 h-4 text-foreground/60" />
+                        <CheckCircle2 className="w-5 h-5 text-primary fill-primary/10" />
                       </div>
                     )}
                     <div className={cn(
-                      "flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-300",
+                      "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
                       imageMode === 'manual'
-                        ? "bg-foreground/10 text-foreground"
-                        : "bg-foreground/5 text-muted-foreground group-hover:text-foreground group-hover:bg-foreground/10"
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted/60 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
                     )}>
                       <Image className="w-5 h-5" />
                     </div>
-                    <div className="space-y-1">
-                      <p className={cn(
-                        "text-sm font-medium tracking-tight",
-                        imageMode === 'manual' ? "text-foreground" : "text-foreground"
-                      )}>
-                        Tự chọn & tạo sau
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-semibold text-foreground">
+                        🎨 Tự chọn & tạo sau
                       </p>
-                      <p className={cn(
-                        "text-[11px] leading-relaxed",
-                        imageMode === 'manual' ? "text-muted-foreground" : "text-muted-foreground"
-                      )}>
+                      <p className="text-[11px] text-muted-foreground leading-snug">
                         Xem nội dung xong rồi tạo ảnh từng kênh
                       </p>
                     </div>
+                    {imageMode === 'manual' && (
+                      <div className="flex flex-wrap gap-1.5 mt-0.5">
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-primary/30 text-primary bg-background">Tùy chỉnh</span>
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border border-primary/30 text-primary bg-background">Linh hoạt</span>
+                      </div>
+                    )}
                   </button>
                 </div>
               </div>
