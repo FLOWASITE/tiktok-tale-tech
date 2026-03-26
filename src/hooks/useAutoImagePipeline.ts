@@ -139,6 +139,12 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
 
       const mode = contentMeta.promptMode || 'full';
 
+      // Mode-specific rules:
+      // - full: V3 style + strategic context + logo
+      // - brand_only: brand colors + logo, no strategic AI directives
+      // - raw: NO logo, NO brand styling, pure AI generation
+      const shouldIncludeLogo = mode !== 'raw' && !!brandLogoUrl;
+
       const genOptions: AutoGenerateOptions = {
         contentId,
         brandTemplateId,
@@ -151,10 +157,10 @@ export function useAutoImagePipeline(options: AutoImagePipelineOptions = {}) {
         // Strategic context only for 'full' — other modes skip AI intervention
         contentRole: mode === 'full' ? ((contentMeta.contentRole || 'seed') as any) : undefined,
         contentAngle: mode === 'full' ? contentMeta.contentAngle : undefined,
-        // Logo: force on for brand_only when URL exists
-        includeLogo: mode === 'brand_only' ? !!brandLogoUrl : !!brandLogoUrl,
+        // Logo: ON for full/brand_only, OFF for raw
+        includeLogo: shouldIncludeLogo,
         logoPosition: 'auto',
-        logoUrl: brandLogoUrl || undefined,
+        logoUrl: shouldIncludeLogo ? (brandLogoUrl || undefined) : undefined,
         // Content type: full mode defaults to with_text, others should receive from caller
         imageContentType: contentMeta.imageContentType || 'with_text',
         // Default to ai_render mode — AI renders text directly, no Satori overlay needed
