@@ -943,6 +943,7 @@ export const AI_PROVIDERS = [
   { type: 'replicate', name: 'Replicate', description: 'Flux, SDXL', hasKey: true },
   { type: 'kie', name: 'KIE.ai', description: 'Flux Kontext, GPT-Image (gateway)', hasKey: true, secretName: 'KIE_API_KEY' },
   { type: 'poyo', name: 'PoYo.ai', description: 'GPT-4o Image, Z-Image, Flux 2, Seedream, Grok', hasKey: true, secretName: 'POYO_API_KEY' },
+  { type: 'dashscope', name: 'DashScope (Alibaba Cloud)', description: 'Qwen Plus, Max, Turbo, VL (Singapore)', hasKey: true, secretName: 'DASHSCOPE_API_KEY' },
   { type: 'custom', name: 'Custom API', description: 'OpenAI-compatible endpoints', hasKey: true },
 ] as const;
 
@@ -986,6 +987,7 @@ export const MODELS_BY_PROVIDER: Record<string, string[]> = {
   perplexity: ['sonar-pro', 'sonar'],
   kie: ['flux-kontext-pro', 'flux-kontext-max', 'gpt-image-1', 'gpt-image-1.5'],
   poyo: ['poyo/nano-banana-2-new', 'poyo/nano-banana-2-new-edit', 'poyo/nano-banana-2', 'poyo/nano-banana-2-edit', 'poyo/gpt-4o-image', 'poyo/gpt-4o-image-edit', 'poyo/gpt-image-1.5', 'poyo/z-image', 'poyo/flux-2-pro', 'poyo/flux-2-pro-edit', 'poyo/flux-2-flex', 'poyo/flux-2-flex-edit', 'poyo/seedream-4.5', 'poyo/seedream-4.5-edit', 'poyo/grok-imagine'],
+  dashscope: ['qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-vl-max', 'qwen-long'],
   custom: [],
 };
 
