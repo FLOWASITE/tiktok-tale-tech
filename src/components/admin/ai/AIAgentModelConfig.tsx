@@ -39,7 +39,7 @@ export function AIAgentModelConfig() {
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
 
   const openRouterProvider = providers?.find(p => p.providerType === 'openrouter');
-  const hasOpenRouterApiKey = !!openRouterProvider?.apiKey;
+  const hasOpenRouterApiKey = !!openRouterProvider?.encryptedApiKey;
 
   const handleEdit = (agentId: string) => {
     const existing = configs.find(c => c.agentName === agentId);
