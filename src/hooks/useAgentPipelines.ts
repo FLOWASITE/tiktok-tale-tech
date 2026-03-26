@@ -57,10 +57,57 @@ export function useAgentPipelines(goalId?: string) {
     onError: (e: Error) => toast.error(`Lỗi: ${e.message}`),
   });
 
+  const deletePipeline = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('agent_pipelines')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agent-pipelines', orgId] });
+      toast.success('Đã xóa pipeline');
+    },
+    onError: (e: Error) => toast.error(`Lỗi xóa: ${e.message}`),
+  });
+
+  const retryPipeline = useMutation({
+    mutationFn: async (id: string) => {
+      // Reset pipeline: clear flag, reset to strategy stage, clear completed_at
+      const { error } = await supabase
+        .from('agent_pipelines')
+        .update({
+          is_flagged: false,
+          flag_reason: null,
+          current_stage: 'strategy' as any,
+          completed_at: null,
+          stage_started_at: new Date().toISOString(),
+          pipeline_state: { stages: {} },
+          updated_at: new Date().toISOString(),
+        } as any)
+        .eq('id', id);
+      if (error) throw error;
+
+      // Trigger the orchestrator to pick it up again
+      const { error: invokeError } = await supabase.functions.invoke('agent-pipeline', {
+        body: { action: 'advance', pipelineId: id },
+      });
+      if (invokeError) console.warn('Retry invoke warning:', invokeError);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agent-pipelines', orgId] });
+      toast.success('Đang chạy lại pipeline...');
+    },
+    onError: (e: Error) => toast.error(`Lỗi retry: ${e.message}`),
+  });
+
   return {
     pipelines: query.data || [],
     isLoading: query.isLoading,
     refetch: query.refetch,
     updateStage,
+    deletePipeline,
+    retryPipeline,
   };
 }

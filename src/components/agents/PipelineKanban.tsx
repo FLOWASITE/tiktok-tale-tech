@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3, InboxIcon, AlertTriangle, Clock, Check, X, CheckCircle2, FileText, Video, Images, Target } from 'lucide-react';
+import { Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3, InboxIcon, AlertTriangle, Clock, Check, X, CheckCircle2, FileText, Video, Images, Target, RefreshCw, Trash2 } from 'lucide-react';
 import { AgentPipeline, AgentPipelineStage, AgentApproval, PIPELINE_STAGES, ContentType } from '@/types/agent';
 import { ChannelIcon } from '@/components/multichannel/streaming/ChannelIcon';
 import { getGradeFromScore } from '@/types/creativeScore';
@@ -94,11 +94,12 @@ interface PipelineKanbanProps {
   onStageChange?: (id: string, stage: AgentPipelineStage) => void;
   onFlagToggle?: (id: string, flagged: boolean) => void;
   onDelete?: (id: string) => void;
+  onRetry?: (id: string) => void;
   onApprove?: (approvalId: string, notes?: string) => void;
   onReject?: (approvalId: string, notes: string) => void;
 }
 
-function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, campaignNames, onApprove, onReject }: { stage: typeof PIPELINE_STAGES[0]; pipelines: AgentPipeline[]; onCardClick?: (p: AgentPipeline) => void; approvalMap?: Map<string, AgentApproval>; campaignNames?: Map<string, string>; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void }) {
+function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, campaignNames, onApprove, onReject, onRetry, onDelete }: { stage: typeof PIPELINE_STAGES[0]; pipelines: AgentPipeline[]; onCardClick?: (p: AgentPipeline) => void; approvalMap?: Map<string, AgentApproval>; campaignNames?: Map<string, string>; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void; onRetry?: (id: string) => void; onDelete?: (id: string) => void }) {
   const { isOver, setNodeRef } = useDroppable({ id: stage.id });
   const Icon = STAGE_ICONS[stage.icon] || Lightbulb;
 
@@ -136,6 +137,8 @@ function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, campaignNa
               approval={approvalMap?.get(p.id)}
               onApprove={onApprove}
               onReject={onReject}
+              onRetry={onRetry}
+              onDelete={onDelete}
             />
           ))}
           {pipelines.length === 0 && (
@@ -150,7 +153,7 @@ function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, campaignNa
   );
 }
 
-function PipelineCard({ pipeline, campaignName, isDragging, onClick, approval, onApprove, onReject }: { pipeline: AgentPipeline; campaignName?: string; isDragging?: boolean; onClick?: () => void; approval?: AgentApproval; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void }) {
+function PipelineCard({ pipeline, campaignName, isDragging, onClick, approval, onApprove, onReject, onRetry, onDelete }: { pipeline: AgentPipeline; campaignName?: string; isDragging?: boolean; onClick?: () => void; approval?: AgentApproval; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void; onRetry?: (id: string) => void; onDelete?: (id: string) => void }) {
   const priorityColors: Record<string, string> = {
     urgent: 'border-l-red-500',
     high: 'border-l-orange-500',
@@ -398,12 +401,40 @@ function PipelineCard({ pipeline, campaignName, isDragging, onClick, approval, o
             </Button>
           </div>
         )}
+        {/* Retry/Delete buttons for flagged (stuck/errored) pipelines */}
+        {pipeline.is_flagged && (onRetry || onDelete) && (
+          <div className="flex items-center gap-1.5 pt-1 border-t border-border/30">
+            {onRetry && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 flex-1 text-[10px] gap-1"
+                onClick={(e) => { e.stopPropagation(); onRetry(pipeline.id); }}
+              >
+                <RefreshCw className="w-3 h-3" /> Chạy lại
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-[10px] gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (confirm('Xóa pipeline này?')) onDelete(pipeline.id);
+                }}
+              >
+                <Trash2 className="w-3 h-3" /> Xóa
+              </Button>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-export function PipelineKanban({ pipelines, approvals, campaignNames, onStageChange, onFlagToggle, onDelete, onApprove, onReject }: PipelineKanbanProps) {
+export function PipelineKanban({ pipelines, approvals, campaignNames, onStageChange, onFlagToggle, onDelete, onRetry, onApprove, onReject }: PipelineKanbanProps) {
   const [activePipeline, setActivePipeline] = useState<AgentPipeline | null>(null);
   const [selectedPipeline, setSelectedPipeline] = useState<AgentPipeline | null>(null);
 
@@ -457,6 +488,8 @@ export function PipelineKanban({ pipelines, approvals, campaignNames, onStageCha
               campaignNames={campaignNames}
               onApprove={onApprove}
               onReject={onReject}
+              onRetry={onRetry}
+              onDelete={onDelete}
             />
           ))}
         </div>
