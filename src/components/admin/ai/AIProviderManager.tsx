@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,8 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { useAIConfig, AI_PROVIDERS, MODELS_BY_PROVIDER, AIProviderConfig } from '@/hooks/useAIConfig';
-import { Check, X, Settings, Plus, Trash2, ExternalLink, Sparkles, Search, Flame, Bot, Wand2, Eye, EyeOff, Loader2, CheckCircle2, XCircle, Workflow } from 'lucide-react';
+import { useAIConfig, AI_PROVIDERS, MODELS_BY_PROVIDER, AIProviderConfig, AI_FUNCTIONS, getModelInfo } from '@/hooks/useAIConfig';
+import { ALL_AGENTS } from '@/hooks/useAgentModelConfig';
+import { useAgentModelConfig } from '@/hooks/useAgentModelConfig';
+import { ALL_CHANNELS, useChannelModelConfig } from '@/hooks/useChannelModelConfig';
+import { Check, X, Settings, Plus, Trash2, ExternalLink, Sparkles, Search, Flame, Bot, Wand2, Eye, EyeOff, Loader2, CheckCircle2, XCircle, Workflow, ChevronDown, ChevronUp } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -49,12 +52,52 @@ interface TestResult {
 }
 
 export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
-  const { providers, isLoading, upsertProvider, deleteProvider } = useAIConfig(organizationId);
+  const { providers, functions: functionConfigs, isLoading, upsertProvider, deleteProvider } = useAIConfig(organizationId);
+  const { configs: agentConfigs } = useAgentModelConfig(organizationId);
+  const { configs: channelConfigs } = useChannelModelConfig(organizationId);
   const [editingProvider, setEditingProvider] = useState<Partial<AIProviderConfig> & { apiKey?: string } | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [expandedProviders, setExpandedProviders] = useState<Record<string, boolean>>({});
+
+  // Build usage map: for each provider type, list functions/agents/channels using it
+  type UsageItem = { name: string; model: string; shortName: string; source: 'F' | 'A' | 'C' };
+  const providerUsageMap = useMemo(() => {
+    const map: Record<string, UsageItem[]> = {};
+
+    // Functions
+    AI_FUNCTIONS.forEach((fn) => {
+      const dbConfig = functionConfigs.find(c => c.functionName === fn.name);
+      const model = dbConfig?.modelOverride || fn.currentModel;
+      const provider = dbConfig?.forceProvider || getModelInfo(model).provider;
+      if (!map[provider]) map[provider] = [];
+      map[provider].push({ name: fn.name, model, shortName: getModelInfo(model).shortName, source: 'F' });
+    });
+
+    // Agents
+    ALL_AGENTS.forEach((agent) => {
+      const dbConfig = agentConfigs.find(c => c.agentName === agent.id);
+      const model = dbConfig?.modelOverride || agent.defaultModel;
+      const provider = getModelInfo(model).provider;
+      if (!map[provider]) map[provider] = [];
+      map[provider].push({ name: agent.label, model, shortName: getModelInfo(model).shortName, source: 'A' });
+    });
+
+    // Channels
+    ALL_CHANNELS.forEach((ch) => {
+      const dbConfig = channelConfigs.find(c => c.channel === ch.id);
+      if (dbConfig?.modelOverride) {
+        const model = dbConfig.modelOverride;
+        const provider = dbConfig.forceProvider || getModelInfo(model).provider;
+        if (!map[provider]) map[provider] = [];
+        map[provider].push({ name: ch.name, model, shortName: getModelInfo(model).shortName, source: 'C' });
+      }
+    });
+
+    return map;
+  }, [functionConfigs, agentConfigs, channelConfigs]);
 
   const handleSaveProvider = async () => {
     if (!editingProvider?.providerType) return;
@@ -140,6 +183,59 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
     return providers.find(p => p.providerType === type);
   };
 
+  const toggleExpanded = (providerType: string) => {
+    setExpandedProviders(prev => ({ ...prev, [providerType]: !prev[providerType] }));
+  };
+
+  const renderUsageSection = (providerType: string) => {
+    const items = providerUsageMap[providerType] || [];
+    if (items.length === 0) {
+      return (
+        <div className="mt-3 pt-3 border-t border-border/50">
+          <p className="text-xs text-muted-foreground italic">Chưa có function nào sử dụng</p>
+        </div>
+      );
+    }
+    const isExpanded = expandedProviders[providerType];
+    const displayItems = isExpanded ? items : items.slice(0, 5);
+    const sourceBadgeClass: Record<string, string> = {
+      F: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      A: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+      C: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    };
+    return (
+      <div className="mt-3 pt-3 border-t border-border/50">
+        <p className="text-xs font-medium text-muted-foreground mb-2">📋 Đang sử dụng ({items.length})</p>
+        <div className="space-y-1">
+          {displayItems.map((item, i) => (
+            <div key={`${item.source}-${item.name}-${i}`} className="flex items-center gap-1.5 text-xs">
+              <span className={`px-1 py-0.5 rounded text-[10px] font-bold leading-none ${sourceBadgeClass[item.source]}`}>
+                {item.source}
+              </span>
+              <span className="text-foreground truncate max-w-[120px]" title={item.name}>{item.name}</span>
+              <span className="text-muted-foreground">→</span>
+              <span className="text-muted-foreground truncate max-w-[80px]" title={item.model}>{item.shortName}</span>
+            </div>
+          ))}
+        </div>
+        {items.length > 5 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full h-6 mt-1 text-xs text-muted-foreground"
+            onClick={() => toggleExpanded(providerType)}
+          >
+            {isExpanded ? (
+              <><ChevronUp className="h-3 w-3 mr-1" />Thu gọn</>
+            ) : (
+              <><ChevronDown className="h-3 w-3 mr-1" />Xem thêm ({items.length - 5})</>
+            )}
+          </Button>
+        )}
+      </div>
+    );
+  };
+
   const hasApiKey = (provider: Partial<AIProviderConfig>) => {
     return !!(provider as any).encryptedApiKey || !!provider.apiKeySecretName;
   };
@@ -213,6 +309,7 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                     <p className="mt-1 text-xs">
                       Models: gemini-2.5-pro, gpt-5, gpt-5-mini...
                     </p>
+                    {renderUsageSection(provider.type)}
                   </div>
                 ) : hasConnector ? (
                   <div className="space-y-3">
@@ -232,6 +329,7 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                         Cấu hình
                       </Button>
                     </div>
+                    {renderUsageSection(provider.type)}
                   </div>
                 ) : configured ? (
                   <div className="space-y-3">
@@ -264,9 +362,10 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
                         size="sm"
                         onClick={() => deleteProvider(configured.id)}
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                     </div>
+                    {renderUsageSection(provider.type)}
                   </div>
                 ) : (
                   <Button
