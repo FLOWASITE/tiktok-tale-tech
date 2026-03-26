@@ -557,7 +557,7 @@ interface ProviderTabProps {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
-  provider?: 'lovable' | 'kie' | 'poyo' | 'openrouter';
+  provider?: 'lovable' | 'kie' | 'poyo' | 'dashscope' | 'openrouter';
   count?: number;
   isLoading?: boolean;
 }
@@ -567,6 +567,7 @@ function ProviderTab({ active, onClick, children, provider, count, isLoading }: 
     lovable: 'text-blue-600 bg-blue-500/10',
     kie: 'text-violet-600 bg-violet-500/10',
     poyo: 'text-teal-600 bg-teal-500/10',
+    dashscope: 'text-orange-600 bg-orange-500/10',
     openrouter: 'text-orange-600 bg-orange-500/10',
   };
 
@@ -574,6 +575,7 @@ function ProviderTab({ active, onClick, children, provider, count, isLoading }: 
     lovable: 'bg-blue-500',
     kie: 'bg-violet-500',
     poyo: 'bg-teal-500',
+    dashscope: 'bg-orange-500',
     openrouter: 'bg-orange-500',
   };
 
