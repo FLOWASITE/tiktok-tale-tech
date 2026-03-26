@@ -1,63 +1,54 @@
 
 
-# Redesign Step 5: Image Generation Mode Selection
+# Fix "Tự chọn & tạo sau" — Show Image Creator Instead of Navigating Away
 
 ## Problem
-Currently Step 5 auto-triggers image generation immediately after content completes, with the manual button being just a fallback. Users have no choice — images are always auto-generated. The user wants **two clear options**:
+Currently when user selects "Tự chọn & tạo sau", the system navigates to `/multichannel` after content completes. This is wrong — user should stay on the wizard and see the image creation interface where they can manually trigger image generation.
 
-1. **Tự động tạo ảnh** — Auto-generate immediately (current behavior)
-2. **Tự chọn & tạo ảnh** — Navigate to a dedicated image creation interface after content is done
+## Changes — 1 file
 
-## Solution
+### `src/components/multichannel/MultiChannelFormWizard.tsx`
 
-### Phase 1: Add Image Mode Selector in Step 5
+**1. Fix auto-advance logic (line ~894-905)**
 
-When `generationComplete === true` and `imagePhase === 'idle'`, instead of showing one button, show **two option cards**:
+Change the `manual` branch: instead of `navigate('/multichannel')`, advance to Step 5 just like auto mode, but without auto-triggering the pipeline.
 
-```text
-┌─────────────────────────────────────────────────────┐
-│  Step 5: Tạo ảnh AI cho các kênh                    │
-│                                                     │
-│  ┌─────────────────┐  ┌─────────────────────────┐   │
-│  │ ⚡ Tự động       │  │ 🎨 Tự chọn & tạo ảnh   │   │
-│  │ AI tạo ảnh ngay │  │ Vào trang chi tiết để   │   │
-│  │ cho N kênh      │  │ tùy chỉnh từng kênh    │   │
-│  └─────────────────┘  └─────────────────────────┘   │
-│                                                     │
-│  [Bỏ qua bước này →]                               │
-└─────────────────────────────────────────────────────┘
+```tsx
+useEffect(() => {
+  if (generationComplete && currentStep === 4) {
+    setCompletedSteps(prev => [...prev.filter(s => s !== 4), 4]);
+    // Both modes advance to Step 5 — the difference is whether pipeline auto-starts
+    setCurrentStep(5);
+  }
+}, [generationComplete, currentStep]);
 ```
 
-### Phase 2: Disable Auto-trigger
+**2. Update Step 5 idle state UI (line ~2073-2100)**
 
-The `useEffect` in `MultiChannelCreate.tsx` (line 199-219) currently auto-starts the pipeline. **Remove** this auto-trigger — let the user decide via the Step 5 UI.
+When `imageMode === 'manual'` and `generationComplete`, show a per-channel image creation interface with individual trigger buttons instead of the single "Tạo ảnh AI cho N kênh" bulk button:
 
-### Phase 3: "Tự chọn & tạo ảnh" navigates to content detail
+- Show each channel as a card with its generated text preview
+- Each card has a "Tạo ảnh" button to trigger image generation for that specific channel
+- Add a "Tạo tất cả" button at the top as convenience
 
-When user picks option 2, navigate to `/multichannel` (content list) where they can open the content and use the existing image management features there. Or if a detail route exists, navigate directly.
+When `imageMode === 'auto'`, auto-trigger the pipeline immediately upon entering Step 5 (restore auto-trigger behavior but only for auto mode).
 
-## Technical Changes — 2 files
+**3. Add auto-trigger for auto mode only (new useEffect)**
 
-### 1. `src/pages/MultiChannelCreate.tsx`
-- **Remove** the auto-trigger `useEffect` (lines 196-219) that calls `imagePipeline.startPipeline` automatically
-- Keep the `onStartImagePipeline` prop handler — it's used by the manual "Tự động" button
+```tsx
+useEffect(() => {
+  if (currentStep === 5 && imageMode === 'auto' && imagePhase === 'idle' && generationComplete) {
+    // Auto-start pipeline
+    if (getChannelText && onStartImagePipeline) {
+      const channelTexts = {};
+      formData.channels.forEach(ch => channelTexts[ch] = getChannelText(ch));
+      onStartImagePipeline(formData.channels, channelTexts, { ... });
+    }
+  }
+}, [currentStep, imageMode, imagePhase, generationComplete]);
+```
 
-### 2. `src/components/multichannel/MultiChannelFormWizard.tsx` (~line 1988-2060)
-
-Replace the current idle state UI block with two option cards:
-
-**Option A — "Tự động tạo ảnh"**: Existing button logic calling `onStartImagePipeline` with all current params. Shows Sparkles icon, gradient style.
-
-**Option B — "Tự chọn & tạo ảnh"**: A card that navigates to `/multichannel` (content list) so user can open the content and manually manage images per channel. Shows Palette/Image icon, outline style.
-
-Both cards are presented side-by-side (grid-cols-2) with clear descriptions:
-- Card A: "AI sẽ tự động tạo ảnh cho tất cả kênh cùng lúc"
-- Card B: "Xem nội dung đã tạo và tạo ảnh từng kênh theo ý bạn"
-
-Keep all other states (generating, complete, error) unchanged.
-
-### Props
-- Add `imageAutoMode` state (boolean) to track if user chose auto. Default: `undefined` (not yet chosen)
-- When auto is chosen → trigger pipeline immediately
-- When manual is chosen → navigate away with toast "Bạn có thể tạo ảnh sau trong trang chi tiết nội dung"
+This way:
+- **Auto mode**: enters Step 5 → pipeline starts automatically
+- **Manual mode**: enters Step 5 → shows channel cards with individual "Tạo ảnh" buttons, user controls the pace
 
