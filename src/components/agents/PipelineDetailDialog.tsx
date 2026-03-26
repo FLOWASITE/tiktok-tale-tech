@@ -246,7 +246,7 @@ export function PipelineDetailDialog({ pipeline, open, onOpenChange, onStageChan
           </div>
           <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground pt-1">
             <span>Tạo: {format(new Date(pipeline.created_at), 'dd/MM/yyyy HH:mm', { locale: vi })}</span>
-            {pipeline.estimated_completion && (
+            {pipeline.estimated_completion && !pipeline.completed_at && pipeline.current_stage !== 'analyze' && (
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 ETA: {formatDistanceToNow(new Date(pipeline.estimated_completion), { locale: vi, addSuffix: true })}

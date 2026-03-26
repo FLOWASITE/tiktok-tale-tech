@@ -575,7 +575,7 @@ Deno.serve(async (req) => {
             priority: "normal",
             autonomy_level: autonomyLevel,
             scheduled_publish_at: piece.scheduled_date ? `${piece.scheduled_date}T09:00:00Z` : null,
-            estimated_completion: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            estimated_completion: new Date(Date.now() + ({ multichannel: 5, carousel: 8, video_script: 4 }[contentType] || 6) * 60 * 1000).toISOString(),
             stage_started_at: new Date().toISOString(),
           } as any)
           .select("id")
