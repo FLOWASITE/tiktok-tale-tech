@@ -783,6 +783,9 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         content_role: meta.content_role || undefined,
         length_mode: meta.content_length || undefined,
         campaign_id: meta.campaign_id || pipeline.campaign_id || null,
+        ...(modelOverride && { model_override: modelOverride }),
+        ...(agentTemperature && { temperature: agentTemperature }),
+        ...(agentMaxTokens && { max_tokens: agentMaxTokens }),
       });
 
       result.output = creatorResult.output || creatorResult;
