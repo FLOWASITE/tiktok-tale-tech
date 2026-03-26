@@ -14,11 +14,15 @@ export function useAgentApprovals() {
     queryKey: ['agent-approvals', orgId],
     queryFn: async () => {
       if (!orgId) return [];
+      // Fetch pending + recent 30 days of reviewed approvals
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
         .from('agent_approvals')
         .select('*')
         .eq('organization_id', orgId)
-        .order('created_at', { ascending: false });
+        .or(`status.eq.pending,created_at.gte.${thirtyDaysAgo}`)
+        .order('created_at', { ascending: false })
+        .limit(200);
       if (error) throw error;
       return data as unknown as AgentApproval[];
     },

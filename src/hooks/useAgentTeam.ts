@@ -36,16 +36,25 @@ export function useAgentTeam() {
 
       if (permError) throw permError;
 
-      // Count pipelines this month per user (via agent_goals created_by)
+      // Count pipelines this month per user (via agent_goals.created_by)
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
 
-      const { data: pipelineCounts } = await supabase
+      const { data: pipelineGoalData } = await supabase
         .from('agent_pipelines')
-        .select('id, goal_id')
+        .select('id, goal_id, agent_goals!agent_pipelines_goal_id_fkey(created_by)')
         .eq('organization_id', currentOrganization.id)
         .gte('created_at', startOfMonth.toISOString());
+
+      // Group pipeline counts by creator
+      const pipelineCountByUser = new Map<string, number>();
+      for (const p of pipelineGoalData || []) {
+        const createdBy = (p as any).agent_goals?.created_by;
+        if (createdBy) {
+          pipelineCountByUser.set(createdBy, (pipelineCountByUser.get(createdBy) || 0) + 1);
+        }
+      }
 
       // Build member list
       const result: AgentTeamMember[] = (orgMembers || []).map((m: any) => {
@@ -59,7 +68,7 @@ export function useAgentTeam() {
           avatar_url: profile?.avatar_url || null,
           org_role: m.role,
           permission: perm as AgentTeamPermission | null,
-          pipelines_this_month: (pipelineCounts || []).length, // simplified
+          pipelines_this_month: pipelineCountByUser.get(m.user_id) || 0,
         };
       });
 

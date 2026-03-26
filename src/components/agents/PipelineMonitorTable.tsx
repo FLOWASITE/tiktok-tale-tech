@@ -1,19 +1,18 @@
-import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AgentPipeline, PIPELINE_STAGES, AgentPipelineStage } from '@/types/agent';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { RefreshCw, CheckCircle, Eye, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useQueryClient } from '@tanstack/react-query';
+import { UseMutationResult } from '@tanstack/react-query';
 
 interface PipelineMonitorTableProps {
   pipelines: AgentPipeline[];
   isLoading: boolean;
+  retryPipeline?: UseMutationResult<void, Error, string>;
+  onApprove?: (pipelineId: string) => void;
 }
 
 const STAGE_ORDER: AgentPipelineStage[] = [
@@ -53,39 +52,7 @@ function StageProgressBar({ pipeline }: { pipeline: AgentPipeline }) {
   );
 }
 
-export function PipelineMonitorTable({ pipelines, isLoading }: PipelineMonitorTableProps) {
-  const [retrying, setRetrying] = useState<string | null>(null);
-  const queryClient = useQueryClient();
-
-  const handleRetry = async (pipelineId: string) => {
-    setRetrying(pipelineId);
-    try {
-      const { error } = await supabase.functions.invoke('agent-pipeline', {
-        body: { action: 'run_stage', pipeline_id: pipelineId },
-      });
-      if (error) throw error;
-      toast.success('Đã gửi lệnh retry pipeline');
-      queryClient.invalidateQueries({ queryKey: ['agent-pipelines'] });
-    } catch (e: any) {
-      toast.error(`Retry thất bại: ${e.message}`);
-    } finally {
-      setRetrying(null);
-    }
-  };
-
-  const handleApprove = async (pipelineId: string) => {
-    try {
-      const { error } = await supabase.functions.invoke('agent-approve', {
-        body: { pipeline_id: pipelineId, action: 'approve' },
-      });
-      if (error) throw error;
-      toast.success('Đã duyệt pipeline');
-      queryClient.invalidateQueries({ queryKey: ['agent-pipelines'] });
-    } catch (e: any) {
-      toast.error(`Duyệt thất bại: ${e.message}`);
-    }
-  };
-
+export function PipelineMonitorTable({ pipelines, isLoading, retryPipeline, onApprove }: PipelineMonitorTableProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -158,28 +125,28 @@ export function PipelineMonitorTable({ pipelines, isLoading }: PipelineMonitorTa
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
-                    {hasError && (
+                    {hasError && retryPipeline && (
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7"
-                        onClick={() => handleRetry(pipeline.id)}
-                        disabled={retrying === pipeline.id}
+                        onClick={() => retryPipeline.mutate(pipeline.id)}
+                        disabled={retryPipeline.isPending}
                         title="Retry"
                       >
-                        {retrying === pipeline.id ? (
+                        {retryPipeline.isPending ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
                           <RefreshCw className="w-3.5 h-3.5" />
                         )}
                       </Button>
                     )}
-                    {pipeline.current_stage === 'approval' && pipeline.autonomy_level === 'human_in_loop' && (
+                    {pipeline.current_stage === 'approval' && pipeline.autonomy_level === 'human_in_loop' && onApprove && (
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-emerald-600"
-                        onClick={() => handleApprove(pipeline.id)}
+                        onClick={() => onApprove(pipeline.id)}
                         title="Duyệt"
                       >
                         <CheckCircle className="w-3.5 h-3.5" />
