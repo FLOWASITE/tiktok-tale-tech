@@ -4,7 +4,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Pause, Play, LayoutGrid, CheckSquare, Target, Bot, Zap, Trash2, Pencil, Rocket, BarChart3 } from 'lucide-react';
+import { Plus, Pause, Play, LayoutGrid, CheckSquare, Target, Bot, Zap, Trash2, Pencil, Rocket, BarChart3, Filter } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { PipelineKanban } from '@/components/agents/PipelineKanban';
 import { AgentStatusPanel } from '@/components/agents/AgentStatusPanel';
 import { ApprovalQueue } from '@/components/agents/ApprovalQueue';
@@ -245,24 +252,26 @@ export default function AgentDashboard() {
 
           <TabsContent value="pipeline" className="mt-4">
             {goals.length > 0 && (
-              <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-                <Badge
-                  variant={filterGoalId ? 'outline' : 'default'}
-                  className="text-[10px] cursor-pointer"
-                  onClick={() => setFilterGoalId(null)}
+              <div className="flex items-center gap-2 mb-3">
+                <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <Select
+                  value={filterGoalId || 'all'}
+                  onValueChange={(v) => setFilterGoalId(v === 'all' ? null : v)}
                 >
-                  Tất cả ({pipelines.length})
-                </Badge>
-                {goals.map(g => (
-                  <Badge
-                    key={g.id}
-                    variant={filterGoalId === g.id ? 'default' : 'outline'}
-                    className="text-[10px] cursor-pointer"
-                    onClick={() => setFilterGoalId(filterGoalId === g.id ? null : g.id)}
-                  >
-                    {g.name} ({getPipelineCountForGoal(g.id)})
-                  </Badge>
-                ))}
+                  <SelectTrigger className="w-[260px] h-8 text-xs">
+                    <SelectValue placeholder="Lọc theo campaign" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      Tất cả campaign ({pipelines.length})
+                    </SelectItem>
+                    {goals.map(g => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name} ({getPipelineCountForGoal(g.id)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
             <div className="flex gap-4">
