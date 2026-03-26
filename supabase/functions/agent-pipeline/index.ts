@@ -709,7 +709,14 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
   let result: any = { status: "completed" };
   let shouldAutoAdvance = true;
 
-  console.log(`[${stage}] Pipeline ${pipelineId} — content_type: ${contentType}, content_id: ${pipeline.content_id || 'NULL'}, brand: ${brandTemplateId || 'NULL'}`);
+  // Fetch agent model config for this stage
+  const agentConfig = await getAgentModelConfig(supabase, orgId, stage);
+  const modelOverride = agentConfig?.model_override || undefined;
+  const agentTemperature = agentConfig?.temperature || undefined;
+  const agentMaxTokens = agentConfig?.max_tokens || undefined;
+  const fallbackModel = agentConfig?.fallback_model || undefined;
+
+  console.log(`[${stage}] Pipeline ${pipelineId} — content_type: ${contentType}, content_id: ${pipeline.content_id || 'NULL'}, brand: ${brandTemplateId || 'NULL'}, model: ${modelOverride || 'default'}`);
 
   // Mark stage as in_progress
   if (pState.stages?.[stage]) {
@@ -742,6 +749,8 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         instruction,
         organization_id: orgId,
         brand_template_id: brandTemplateId,
+        ...(modelOverride && { model_override: modelOverride }),
+        ...(agentTemperature && { temperature: agentTemperature }),
       });
       result.output = output;
 
