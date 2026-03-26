@@ -1,66 +1,63 @@
 
 
-# Fix: Agent Multichannel không tạo được ảnh đúng
+# Fix: Text trên Carousel Agent tạo không giống với tự tạo
 
 ## Nguyên nhân
 
-Khi Agent gọi `generate-brand-image`, nó chỉ truyền `contentId`, `channel`, `brandTemplateId` và `imageContentType: "with_text"`. Trong khi UI (manual flow) truyền đầy đủ:
+Trong `routeCarousel()` (line 533-547), Agent truyền thiếu/sai nhiều params so với UI:
 
-- `contentSummary` — nội dung text của kênh (để AI hiểu context tạo ảnh)
-- `textToInclude` — text cần render lên ảnh (bắt buộc khi `imageContentType = "with_text"`)
-- `contentRole`, `contentAngle`, `hookMessage`...
+| Param | UI (CarouselForm) | Agent (routeCarousel) |
+|-------|---|---|
+| `brandGuideline` | **Full brand_guideline** từ brand_templates (chi tiết tone, rules, examples) | `brief.unique_value_proposition` — chỉ 1 câu UVP ngắn |
+| `carouselStyle` | User chọn (seamless/educational/listicle/gallery) | Hardcode `"educational"` |
+| `visualPreset` | User chọn (minimalist/flat_design/gradient/geometric/illustration/product_only) | Hardcode `"minimalist"` |
+| `brandPrimaryColor` | Từ brand template | Không truyền |
+| `brandSecondaryColors` | Từ brand template | Không truyền |
+| `includeLogo` | Từ brand template | Hardcode `false` |
+| `logoUrl` | Từ brand template | Không truyền |
 
-Khi `imageContentType = "with_text"` mà `textToInclude` rỗng → ảnh sinh ra không có text → hoặc lỗi khi render.
-Khi `contentSummary` undefined → prompt tạo ảnh không có context nội dung → ảnh generic.
+Hậu quả: `generate-carousel` dùng `brandGuideline` làm system prompt chính → Agent chỉ có 1 câu UVP → nội dung text trên slide thiếu tone/voice/style → text khác hoàn toàn so với tự tạo.
 
 ## Giải pháp
 
 ### File: `supabase/functions/agent-creator-v2/index.ts`
 
-**Thay đổi trong `generateImagesForChannels()`** — sau khi multichannel content đã tạo xong, trước khi gọi `generate-brand-image`:
+**1. Trong `assembleBrief()`** — thêm fetch `brand_guideline`, `primary_color`, `secondary_colors`, `include_logo` từ brand_templates (thêm vào select query line 97-99, thêm field vào BrandBrief interface)
 
-1. Fetch nội dung text từng channel từ bảng `multi_channel_contents` (dùng `contentId`)
-2. Truyền `contentSummary` = nội dung channel text (truncated ~500 chars)
-3. Đổi `imageContentType` từ `"with_text"` → `"background_only"` (vì agent không có decompose step để tạo structured overlay — ảnh background_only vẫn đẹp và phù hợp hơn)
-4. Truyền thêm `contentRole`, `contentAngle` từ content data
-
-Cụ thể:
-- Thêm param `supabase` vào `generateImagesForChannels()` 
-- Fetch `multi_channel_contents` record 1 lần để lấy text các channel
-- Map `{channel}_content` → `contentSummary` cho từng channel
-- Đổi `imageContentType: "background_only"` (agent không cần text overlay phức tạp)
+**2. Trong `routeCarousel()`** — truyền đúng params:
 
 ```typescript
-async function generateImagesForChannels(
-  supabaseUrl: string,
-  serviceKey: string,
-  supabase: any,           // NEW
-  contentId: string,
-  channels: string[],
-  brandTemplateId: string | null | undefined,
-): Promise<{ success: string[]; failed: string[] }> {
-  // Fetch content text for all channels
-  const { data: mcContent } = await supabase
-    .from("multi_channel_contents")
-    .select("*")
-    .eq("id", contentId)
-    .single();
-
-  // ... rest of function, pass contentSummary per channel
-  callFunction(supabaseUrl, serviceKey, "generate-brand-image", {
-    contentId,
-    channel,
-    contentSummary: (mcContent?.[`${channel}_content`] || '').slice(0, 500),
-    brandTemplateId,
-    imageContentType: "background_only",
-    contentRole: mcContent?.content_role,
-    contentAngle: mcContent?.content_angle,
-  });
-}
+const carouselOutput = await callFunction(supabaseUrl, serviceKey, "generate-carousel", {
+  topic: input.topic,
+  platform: targetChannel,
+  carouselStyle: carouselStyle,
+  visualPreset: visualPreset,
+  slideCount,
+  aiTool: "ideogram",
+  brandName: brief.brand_name || "Brand",
+  brandGuideline: brief.brand_guideline || brief.unique_value_proposition || "",
+  includeLogo: brief.include_logo ?? false,
+  logoUrl: brief.logo_url || undefined,
+  organization_id: input.organization_id,
+  brandTemplateId: input.brand_template_id,
+  autoGenerateImages: false,
+  userId,
+  brandPrimaryColor: brief.primary_color || undefined,
+  brandSecondaryColors: brief.secondary_colors || undefined,
+});
 ```
 
-- Cập nhật call site ở `routeMultichannel()` line 377 truyền thêm `supabase`
+**3. BrandBrief interface** — thêm fields:
+```typescript
+brand_guideline?: string;
+include_logo?: boolean;
+logo_url?: string;
+primary_color?: string;
+secondary_colors?: string[];
+```
+
+**4. assembleBrief() select** — thêm `brand_guideline, primary_color, secondary_colors, include_logo` vào query
 
 ### Phạm vi: 1 file
-`supabase/functions/agent-creator-v2/index.ts` — sửa `generateImagesForChannels()` + call site
+`supabase/functions/agent-creator-v2/index.ts`
 
