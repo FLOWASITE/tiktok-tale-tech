@@ -1936,19 +1936,19 @@ export function MultiChannelFormWizard({
                     className={cn(
                       "group relative flex flex-col items-center gap-3 rounded-2xl p-5 text-center transition-all duration-300",
                       imageMode === 'auto'
-                        ? "bg-foreground text-background shadow-lg shadow-foreground/10 scale-[1.02]"
+                        ? "bg-background text-foreground shadow-lg shadow-foreground/5 scale-[1.02] border-2 border-foreground/15"
                         : "bg-muted/30 hover:bg-muted/50 border border-border/40 hover:border-border"
                     )}
                   >
                     {imageMode === 'auto' && (
                       <div className="absolute top-3 right-3">
-                        <CheckCircle2 className="w-4 h-4 text-background/60" />
+                        <CheckCircle2 className="w-4 h-4 text-foreground/60" />
                       </div>
                     )}
                     <div className={cn(
                       "flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-300",
                       imageMode === 'auto'
-                        ? "bg-background/15 text-background"
+                        ? "bg-foreground/10 text-foreground"
                         : "bg-foreground/5 text-muted-foreground group-hover:text-foreground group-hover:bg-foreground/10"
                     )}>
                       <Sparkles className="w-5 h-5" />
@@ -1956,13 +1956,13 @@ export function MultiChannelFormWizard({
                     <div className="space-y-1">
                       <p className={cn(
                         "text-sm font-medium tracking-tight",
-                        imageMode === 'auto' ? "text-background" : "text-foreground"
+                        imageMode === 'auto' ? "text-foreground" : "text-foreground"
                       )}>
                         Tự động tạo ảnh
                       </p>
                       <p className={cn(
                         "text-[11px] leading-relaxed",
-                        imageMode === 'auto' ? "text-background/50" : "text-muted-foreground"
+                        imageMode === 'auto' ? "text-muted-foreground" : "text-muted-foreground"
                       )}>
                         AI tạo ảnh ngay khi nội dung hoàn tất
                       </p>
@@ -1977,19 +1977,19 @@ export function MultiChannelFormWizard({
                     className={cn(
                       "group relative flex flex-col items-center gap-3 rounded-2xl p-5 text-center transition-all duration-300",
                       imageMode === 'manual'
-                        ? "bg-foreground text-background shadow-lg shadow-foreground/10 scale-[1.02]"
+                        ? "bg-background text-foreground shadow-lg shadow-foreground/5 scale-[1.02] border-2 border-foreground/15"
                         : "bg-muted/30 hover:bg-muted/50 border border-border/40 hover:border-border"
                     )}
                   >
                     {imageMode === 'manual' && (
                       <div className="absolute top-3 right-3">
-                        <CheckCircle2 className="w-4 h-4 text-background/60" />
+                        <CheckCircle2 className="w-4 h-4 text-foreground/60" />
                       </div>
                     )}
                     <div className={cn(
                       "flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-300",
                       imageMode === 'manual'
-                        ? "bg-background/15 text-background"
+                        ? "bg-foreground/10 text-foreground"
                         : "bg-foreground/5 text-muted-foreground group-hover:text-foreground group-hover:bg-foreground/10"
                     )}>
                       <Image className="w-5 h-5" />
@@ -1997,13 +1997,13 @@ export function MultiChannelFormWizard({
                     <div className="space-y-1">
                       <p className={cn(
                         "text-sm font-medium tracking-tight",
-                        imageMode === 'manual' ? "text-background" : "text-foreground"
+                        imageMode === 'manual' ? "text-foreground" : "text-foreground"
                       )}>
                         Tự chọn & tạo sau
                       </p>
                       <p className={cn(
                         "text-[11px] leading-relaxed",
-                        imageMode === 'manual' ? "text-background/50" : "text-muted-foreground"
+                        imageMode === 'manual' ? "text-muted-foreground" : "text-muted-foreground"
                       )}>
                         Xem nội dung xong rồi tạo ảnh từng kênh
                       </p>
