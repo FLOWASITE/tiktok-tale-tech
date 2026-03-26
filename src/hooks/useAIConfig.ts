@@ -126,6 +126,12 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
     'openai/gpt-5',
     'openai/gpt-5-mini',
     'openai/gpt-5-nano',
+    // DashScope (Alibaba Cloud)
+    'qwen-plus',
+    'qwen-max',
+    'qwen-turbo',
+    'qwen-vl-max',
+    'qwen-long',
   ],
   image: [
     // Lovable AI models
@@ -184,7 +190,7 @@ export interface ModelInfo {
   quality: ModelQuality;
   cost: ModelCost;
   bestFor: string[];
-  provider: 'lovable' | 'openrouter' | 'kie' | 'poyo';
+  provider: 'lovable' | 'openrouter' | 'kie' | 'poyo' | 'dashscope';
   isRecommended?: boolean;
 }
 
@@ -559,6 +565,53 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
     bestFor: ['Creative', 'Artistic styles'],
     provider: 'poyo',
   },
+  // DashScope (Alibaba Cloud) Models
+  'qwen-plus': {
+    shortName: 'Qwen Plus',
+    description: 'Cân bằng tốc độ & chất lượng, đa ngôn ngữ',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Nội dung đa ngôn ngữ', 'Chat', 'Phân tích'],
+    provider: 'dashscope',
+    isRecommended: true,
+  },
+  'qwen-max': {
+    shortName: 'Qwen Max',
+    description: 'Mạnh nhất Qwen, suy luận phức tạp',
+    speed: 'slow',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Suy luận phức tạp', 'Nội dung cao cấp', 'Chiến lược'],
+    provider: 'dashscope',
+  },
+  'qwen-turbo': {
+    shortName: 'Qwen Turbo',
+    description: 'Nhanh nhất, chi phí thấp nhất',
+    speed: 'fast',
+    quality: 'standard',
+    cost: 'low',
+    bestFor: ['Tác vụ đơn giản', 'Batch processing', 'Chi phí thấp'],
+    provider: 'dashscope',
+  },
+  'qwen-vl-max': {
+    shortName: 'Qwen VL Max',
+    description: 'Vision-Language, phân tích hình ảnh',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Phân tích hình ảnh', 'Multimodal', 'OCR'],
+    provider: 'dashscope',
+  },
+  'qwen-long': {
+    shortName: 'Qwen Long',
+    description: 'Context cực dài, xử lý tài liệu',
+    speed: 'medium',
+    quality: 'high',
+    cost: 'medium',
+    bestFor: ['Tài liệu dài', 'Tóm tắt', 'Research'],
+    provider: 'dashscope',
+  },
   // OpenRouter Models
   'anthropic/claude-sonnet-4-20250514': {
     shortName: 'Claude Sonnet 4',
@@ -851,6 +904,14 @@ export const POYO_MODEL_PREFIXES = ['poyo/'];
 // Check if a model is a PoYo.ai model
 export const isPoyoModel = (modelId: string): boolean => {
   return modelId.startsWith('poyo/');
+};
+
+// DashScope model prefixes
+export const DASHSCOPE_MODEL_PREFIXES = ['qwen-', 'qwen2'];
+
+// Check if a model is a DashScope model
+export const isDashScopeModel = (modelId: string): boolean => {
+  return DASHSCOPE_MODEL_PREFIXES.some(prefix => modelId.startsWith(prefix));
 };
 
 // Lovable AI model prefixes - models that are served through Lovable AI gateway
