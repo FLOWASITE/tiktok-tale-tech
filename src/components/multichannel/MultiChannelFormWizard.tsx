@@ -2037,7 +2037,7 @@ export function MultiChannelFormWizard({
                             className="group relative flex flex-col items-center gap-3 rounded-xl border-2 border-border bg-card p-5 text-center transition-all hover:border-accent-foreground/30 hover:bg-accent/50 hover:shadow-lg"
                           >
                             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground group-hover:scale-110 transition-transform">
-                              <ImageIcon className="w-6 h-6" />
+                              <Image className="w-6 h-6" />
                             </div>
                             <div>
                               <p className="font-semibold text-foreground">🎨 Tự chọn & tạo ảnh</p>
