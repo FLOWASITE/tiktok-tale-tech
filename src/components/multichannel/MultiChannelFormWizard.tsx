@@ -1993,9 +1993,32 @@ export function MultiChannelFormWizard({
                       </div>
                     )}
                     {imagePhase === 'idle' && generationComplete && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Đang chuẩn bị tạo ảnh tự động...
+                      <div className="flex flex-col items-center gap-3">
+                        <Button
+                          onClick={() => {
+                            if (getChannelText && onStartImagePipeline) {
+                              const channelTexts: Record<string, string> = {};
+                              formData.channels.forEach(ch => {
+                                channelTexts[ch] = getChannelText(ch);
+                              });
+                              onStartImagePipeline(formData.channels, channelTexts, {
+                                contentGoal: formData.contentGoal,
+                                contentRole: formData.contentRole,
+                                contentAngle: formData.contentAngle,
+                                topic: formData.topic,
+                                promptMode,
+                              });
+                            }
+                          }}
+                          className="w-full gap-2 gradient-primary glow-primary"
+                          size="lg"
+                        >
+                          <Sparkles className="w-5 h-5" />
+                          Tạo ảnh AI cho {formData.channels.length} kênh
+                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                          Hoặc ảnh sẽ tự động được tạo sau vài giây
+                        </p>
                       </div>
                     )}
                     {(imagePhase === 'preparing' || imagePhase === 'generating_images') && (
