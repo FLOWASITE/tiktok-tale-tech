@@ -9,6 +9,7 @@ import {
   getModelInfo,
   isKieModel,
   isPoyoModel,
+  isDashScopeModel,
   AIFunctionType,
   ModelInfo 
 } from '@/hooks/useAIConfig';
@@ -28,7 +29,7 @@ interface ModelSelectorProps {
 }
 
 type FilterType = 'all' | 'fast' | 'quality' | 'cheap' | 'reasoning' | 'coding' | 'multimodal';
-type ProviderFilter = 'all' | 'lovable' | 'kie' | 'poyo' | 'openrouter';
+type ProviderFilter = 'all' | 'lovable' | 'kie' | 'poyo' | 'dashscope' | 'openrouter';
 
 export function ModelSelector({
   open,
@@ -66,17 +67,19 @@ export function ModelSelector({
     return groupModelsByProvider(openRouterModels);
   }, [openRouterModels]);
 
-  // Split Lovable/KIE/PoYo models (only for image function type)
-  const { kieModels: availableKieModels, poyoModels: availablePoyoModels, lovableOnlyModels: availableLovableOnlyModels } = useMemo(() => {
-    if (functionType !== 'image') {
-      return { kieModels: [] as string[], poyoModels: [] as string[], lovableOnlyModels: availableModels.lovable };
-    }
+  // Split Lovable/KIE/PoYo/DashScope models
+  const { kieModels: availableKieModels, poyoModels: availablePoyoModels, dashscopeModels: availableDashScopeModels, lovableOnlyModels: availableLovableOnlyModels } = useMemo(() => {
+    const kie = availableModels.lovable.filter(id => isKieModel(id));
+    const poyo = availableModels.lovable.filter(id => isPoyoModel(id));
+    const dashscope = availableModels.lovable.filter(id => isDashScopeModel(id));
+    const lovableOnly = availableModels.lovable.filter(id => !isKieModel(id) && !isPoyoModel(id) && !isDashScopeModel(id));
     return {
-      kieModels: availableModels.lovable.filter(id => isKieModel(id)),
-      poyoModels: availableModels.lovable.filter(id => isPoyoModel(id)),
-      lovableOnlyModels: availableModels.lovable.filter(id => !isKieModel(id) && !isPoyoModel(id)),
+      kieModels: kie,
+      poyoModels: poyo,
+      dashscopeModels: dashscope,
+      lovableOnlyModels: lovableOnly,
     };
-  }, [availableModels.lovable, functionType]);
+  }, [availableModels.lovable]);
 
   // Filter models based on search, filter, and provider
   const filteredModels = useMemo(() => {
@@ -148,26 +151,31 @@ export function ModelSelector({
     // Apply provider filter
     if (providerFilter === 'lovable') {
       openrouterFiltered = [];
-      lovableFiltered = lovableFiltered.filter(id => !isKieModel(id) && !isPoyoModel(id));
+      lovableFiltered = lovableFiltered.filter(id => !isKieModel(id) && !isPoyoModel(id) && !isDashScopeModel(id));
     } else if (providerFilter === 'kie') {
       openrouterFiltered = [];
       lovableFiltered = lovableFiltered.filter(id => isKieModel(id));
     } else if (providerFilter === 'poyo') {
       openrouterFiltered = [];
       lovableFiltered = lovableFiltered.filter(id => isPoyoModel(id));
+    } else if (providerFilter === 'dashscope') {
+      openrouterFiltered = [];
+      lovableFiltered = lovableFiltered.filter(id => isDashScopeModel(id));
     } else if (providerFilter === 'openrouter') {
       lovableFiltered = [];
     }
 
-    // For image functions, split into KIE vs PoYo vs pure Lovable
-    const kieFiltered = functionType === 'image' ? lovableFiltered.filter(id => isKieModel(id)) : [];
-    const poyoFiltered = functionType === 'image' ? lovableFiltered.filter(id => isPoyoModel(id)) : [];
-    const lovableOnlyFiltered = functionType === 'image' ? lovableFiltered.filter(id => !isKieModel(id) && !isPoyoModel(id)) : lovableFiltered;
+    // Split into provider groups
+    const kieFiltered = lovableFiltered.filter(id => isKieModel(id));
+    const poyoFiltered = lovableFiltered.filter(id => isPoyoModel(id));
+    const dashscopeFiltered = lovableFiltered.filter(id => isDashScopeModel(id));
+    const lovableOnlyFiltered = lovableFiltered.filter(id => !isKieModel(id) && !isPoyoModel(id) && !isDashScopeModel(id));
 
     return {
       lovable: lovableOnlyFiltered,
       kie: kieFiltered,
       poyo: poyoFiltered,
+      dashscope: dashscopeFiltered,
       openrouter: openrouterFiltered,
     };
   }, [availableModels, searchQuery, activeFilter, providerFilter, functionType]);
@@ -182,8 +190,9 @@ export function ModelSelector({
     onOpenChange(false);
   };
 
-  const totalModels = filteredModels.lovable.length + filteredModels.kie.length + filteredModels.poyo.length + filteredModels.openrouter.length;
+  const totalModels = filteredModels.lovable.length + filteredModels.kie.length + filteredModels.poyo.length + filteredModels.dashscope.length + filteredModels.openrouter.length;
   const hasOpenRouter = hasOpenRouterApiKey && functionType === 'text';
+  const hasDashScope = availableDashScopeModels.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

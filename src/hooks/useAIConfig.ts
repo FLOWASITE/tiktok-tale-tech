@@ -978,6 +978,19 @@ export const getModelInfo = (modelId: string): ModelInfo => {
     };
   }
 
+  // Check DashScope models
+  if (isDashScopeModel(modelId)) {
+    return {
+      shortName: extractShortName(modelId),
+      description: 'DashScope (Alibaba Cloud) model',
+      speed: 'medium' as ModelSpeed,
+      quality: 'high' as ModelQuality,
+      cost: 'low' as ModelCost,
+      bestFor: ['Đa ngôn ngữ', 'Nội dung'],
+      provider: 'dashscope',
+    };
+  }
+
   // Determine provider: Lovable AI models vs OpenRouter
   const isLovableModel = isLovableAIModel(modelId);
     
