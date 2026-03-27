@@ -1,78 +1,97 @@
 
 
-# Nâng cấp Agent Mode ngang Manual Mode
+# So sánh Step-by-Step: Thủ công (Manual) vs AI Agent
 
-## Tóm tắt vấn đề
+Dựa trên phân tích code thực tế trong `generate-multichannel/index.ts` (5250 dòng), dưới đây là toàn bộ pipeline từ Input → Output của cả hai luồng.
 
-Agent Mode (qua `agent-creator-v2`) hiện hardcode `qualityMode: "fast"` (line 449), khiến toàn bộ pipeline chất lượng bị bỏ qua. Ngoài ra, agent mode dùng **sequential generation** thay vì parallel, và thiếu Smart Context trong prompt.
+---
 
-## Phân tích Gap hiện tại
-
-| Feature | Normal Mode | Agent Mode | Nguyên nhân bị skip |
-|---------|-------------|------------|---------------------|
-| Smart Context | ✅ (line 3442) | ❌ | `qualityMode === 'fast'` → skip |
-| Self-Critique | ✅ (line 4603) | ❌ | `qualityConfig.skipCritique` = true |
-| Length Validation | ✅ (line 4652) | ❌ | `qualityMode === 'fast'` → skip |
-| Semantic Dedup | ✅ (line 4426) | ⚠️ runs but fails | Embedding API not supported → fail-open |
-| Cross-Channel Dedup | ✅ (line 4471) | ⚠️ runs but fails | Same embedding issue |
-| Parallel Generation | ✅ `generateChannelsInParallel` | ❌ Sequential loop | Agent mode has own loop |
-
-## Thay đổi chi tiết
-
-### 1. Sửa `supabase/functions/agent-creator-v2/index.ts`
-
-**Đổi `qualityMode` từ `"fast"` sang `"balanced"`:**
-- Line 449: `qualityMode: "balanced"` 
-- Chỉ thay đổi 1 dòng — toàn bộ pipeline chất lượng downstream tự động được kích hoạt:
-  - Smart Context sẽ được build (line 3442: `qualityMode !== 'fast'`)
-  - Self-Critique sẽ chạy với `maxRefinements: 1` (balanced config)
-  - Length Validation sẽ chạy (line 4652: `qualityMode !== 'fast'`)
-
-### 2. Sửa `supabase/functions/generate-multichannel/index.ts` — Agent Mode block (line 4243-4329)
-
-**A. Chuyển từ Sequential → Parallel generation:**
-- Thay vòng lặp `for (const channel of formData.channels)` bằng `Promise.all()` 
-- Mỗi channel vẫn dùng plain-text callAI (giữ tương thích mọi model)
-- Giữ nguyên retry logic per-channel
-- Ước tính giảm ~60% thời gian cho 3 kênh (3x → 1x)
-
-**B. Inject Smart Context vào agent mode prompt:**
-- Hiện tại agent mode dùng `fullSystemPrompt` (đã có Smart Context nếu `qualityMode !== 'fast'`)
-- Sau khi đổi qualityMode sang `"balanced"`, Smart Context sẽ tự động được include trong `systemPrompt` → `fullSystemPrompt`
-- Không cần thay đổi thêm cho phần này
-
-**C. Semantic Dedup & Cross-Channel Dedup:**
-- Cả 2 đều chạy ở post-processing (line 4422-4496), **ngoài** block `if (formData.agentMode)`
-- Vấn đề: embedding API không supported → fail-open (luôn return `isDuplicate: false`)
-- **Fix**: Thay vì dùng embedding, sử dụng **text-based similarity** (Jaccard/cosine trên TF-IDF) cho cross-channel dedup
-- Semantic dedup (so với content cũ trong DB) vẫn cần embedding → giữ fail-open, log warning
-
-### 3. Sửa `supabase/functions/_shared/cross-channel-dedup.ts`
-
-**Thay embedding-based bằng text-based similarity:**
-- Hiện tại `checkCrossChannelDuplicate` dùng embedding → fails
-- Chuyển sang **Jaccard similarity trên n-grams** (không cần API call)
-- Thuật toán: tokenize → extract 3-grams → tính Jaccard index giữa các cặp kênh
-- Threshold giữ nguyên: 0.80 (duplicate), 0.70 (warning)
-
-## Tác động kỹ thuật
+## Pipeline đầy đủ
 
 ```text
-Agent Mode Flow (sau nâng cấp):
-
-[Request] → [Smart Context ✅] → [System Prompt enriched]
-         → [Parallel Generation ✅] (3 channels đồng thời)
-         → [Semantic Dedup] (fail-open, cần embedding)
-         → [Cross-Channel Dedup ✅] (text-based Jaccard)
-         → [Self-Critique ✅] (balanced, 1 refinement)
-         → [Length Validation ✅] (auto-expand nếu short)
-         → [Save to DB]
+Step  Manual Mode                              Agent Mode                    Status
+────  ─────────────────────────────────────     ────────────────────────────  ──────
+ 1    Detect Target Audience (DB query)         ✅ Chạy (shared code)         ✅ SAME
+ 2    Derive Content Goal (journey→goal map)    ✅ Chạy (shared code)         ✅ SAME
+ 3    Build Smart Context (RAG, hooks, CTAs)    ✅ qualityMode≠fast           ✅ SAME *
+ 4    Knowledge Graph Context (regulations)     ✅ qualityMode≠fast           ✅ SAME *
+ 5    Build System Prompt (brand+industry)      ✅ getSystemPrompt()          ✅ SAME
+ 6    Fetch Targeted Product/Persona            ✅ DB query                   ✅ SAME
+ 7    Build Hook Sections (per channel)         ✅ buildHookSection()         ❌ SKIP
+ 8    Build User Prompt (topic+hooks+edits)     Rich prompt + hook + edits   Simple prompt
+ 9    Build Tool Schema (structured JSON)       ✅ tool_calling               ❌ SKIP
+10    Multi-Model Grouping (per channel)        ✅ groupChannelsByModel       ❌ SKIP
+11    Content Generation                        Parallel (Promise.all)        Parallel ✅
+      - Format                                  Structured JSON (tool_call)   Plain text
+      - Retry (website word count)              ✅ MAX_RETRIES=2              ✅ retry 2x
+12    Cache (withCache wrapper)                 ✅ 7-day TTL                   ❌ NO CACHE
+13    SEO Post-Processing (website)             ✅ Auto-fix score/density      ❌ SKIP
+14    Self-Critique Loop                        ✅ qualityMode≠fast            ✅ SAME *
+15    Length Validation + Auto-Expansion         ✅ qualityMode≠fast            ✅ SAME *
+16    Semantic Dedup (vs DB content)            ✅ embedding (fail-open)       ✅ SAME
+17    Cross-Channel Dedup                       ✅ text-based Jaccard          ✅ SAME
+18    Footer Info Append                        ✅ Per-channel formatting       ✅ SAME
+19    Save to DB                                ✅ Structured fields            ✅ Same table
+20    Return Response + Metadata                Full metadata bundle           Basic response
 ```
 
-**Trade-off**: Thời gian xử lý tăng ~15-20s do Self-Critique (1 LLM call thêm), nhưng chất lượng tăng đáng kể. Parallel generation bù lại ~5-8s.
+\* Đánh dấu "SAME" sau upgrade gần đây (qualityMode: "balanced")
 
-## File thay đổi
-- **Sửa**: `supabase/functions/agent-creator-v2/index.ts` (1 dòng: qualityMode)
-- **Sửa**: `supabase/functions/generate-multichannel/index.ts` (agent mode block: parallel + cleanup)
-- **Sửa**: `supabase/functions/_shared/cross-channel-dedup.ts` (text-based similarity)
+---
+
+## Chi tiết các Gap còn lại (7 điểm khác biệt)
+
+### Gap 1: Hook Sections bị bỏ qua (Step 7-8)
+- **Manual**: `buildHookOverview()` + `buildHookSection()` per channel → inject vào user prompt
+- **Agent**: User prompt chỉ có `channelDesc` ngắn gọn, KHÔNG có hook instructions
+- **Impact**: Agent không sử dụng được các hook pattern mà user đã chọn
+
+### Gap 2: User Prompt thiếu Edited Previews (Step 8)
+- **Manual**: Nếu user đã edit preview, nội dung gốc + chỉnh sửa được inject vào prompt để AI học theo phong cách
+- **Agent**: Không inject `editedPreviews` → không học từ feedback của user
+- **Impact**: Agent bỏ lỡ cơ hội personalization từ user edits
+
+### Gap 3: Không dùng Tool Calling / Structured JSON (Step 9)
+- **Manual**: Dùng `tool_calling` với JSON schema chi tiết cho mỗi channel (đặc biệt website có ~15 SEO fields riêng)
+- **Agent**: Plain text generation → không có structured output
+- **Impact**: Website content từ Agent là string thay vì object có `seo_title`, `meta_description`, `focus_keyword`...
+- **Lý do**: Giữ tương thích với mọi model (Qwen, Claude...) vì không phải model nào cũng support tool_calling
+
+### Gap 4: Multi-Model Grouping bị skip (Step 10)
+- **Manual**: Nhóm channels theo model config từ Admin → mỗi nhóm chạy với model riêng
+- **Agent**: Đã dùng `channelModelConfigs.get(channel)` per channel → **Thực tế đã fix**, mỗi channel lấy model riêng
+- **Impact**: Thấp — Agent đã handle multi-model ở mức per-channel
+
+### Gap 5: Cache bị skip hoàn toàn (Step 12)
+- **Manual**: Dùng `withCache()` wrapper, TTL 7 ngày, validate cache trước khi dùng
+- **Agent**: Không wrap qua cache → luôn generate mới
+- **Impact**: Agent luôn tốn AI call, không reuse nội dung cho cùng topic
+
+### Gap 6: SEO Post-Processing bị skip (Step 13)
+- **Manual**: Auto-calculate `keyword_density_percent`, `seo_score_estimate`, `og_title`, `og_description`, `reading_time_minutes` cho website
+- **Agent**: Website content là plain text → KHÔNG có SEO metadata
+- **Impact**: Nếu agent tạo nội dung cho kênh website, thiếu toàn bộ SEO data
+
+### Gap 7: Response Metadata thiếu (Step 20)
+- **Manual**: Trả về `dedupWarning`, `personaFit`, `strategyValidation`, `lengthCompliance`, `crossChannelDedup`, `channelPrioritization`
+- **Agent**: Trả về basic `generatedData` qua `agent-creator-v2`
+- **Impact**: UI không hiển thị được quality insights cho content từ Agent
+
+---
+
+## Tóm tắt theo Priority
+
+| Priority | Gap | Effort | Impact |
+|----------|-----|--------|--------|
+| **P0** | Hook Sections + Edited Previews vào agent prompt | Thấp | Cao - chất lượng prompt |
+| **P1** | SEO Post-Processing cho website channel | Trung bình | Cao - website SEO data |
+| **P2** | Cache wrapper cho agent mode | Thấp | Trung bình - tiết kiệm cost |
+| **P3** | Tool Calling (structured output) | Cao | Trung bình - phá tương thích model |
+| **P4** | Response Metadata enrichment | Thấp | Thấp - UI enhancement |
+
+---
+
+## Đề xuất
+
+Nếu muốn tiếp tục nâng cấp, ưu tiên **P0** (inject hooks + edited previews vào agent prompt) và **P1** (SEO post-processing) vì effort thấp nhưng impact lớn nhất. Cache (P2) cũng dễ thêm. Tool Calling (P3) nên giữ nguyên plain text để đảm bảo tương thích đa model.
 
