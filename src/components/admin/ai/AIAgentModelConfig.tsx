@@ -185,7 +185,7 @@ export function AIAgentModelConfig() {
           </DialogHeader>
 
           {editingConfig && editingAgent && (
-            <div className="space-y-5">
+            <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-5">
               {/* Enable/Disable */}
               <div className="flex items-center justify-between">
                 <Label>Kích hoạt</Label>
