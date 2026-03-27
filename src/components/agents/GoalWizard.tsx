@@ -171,29 +171,50 @@ const LEARNING_SPEED_OPTIONS = [
 
 // ─── Types ───
 
+type GoalSubmitData = {
+  name: string;
+  description?: string;
+  target_topics: string[];
+  target_channels: string[];
+  frequency: Record<string, string>;
+  autonomy_level: AgentAutonomyLevel;
+  brand_template_id?: string;
+  campaign_id?: string;
+  clarification_context?: Record<string, string>;
+  campaign_duration_days?: number;
+  campaign_start_date?: string;
+  approval_mode?: string;
+};
+
+type GeneratingStatus = 'idle' | 'saving' | 'generating' | 'done' | 'error';
+
+interface GenerationResult {
+  total_pieces?: number;
+  pipelines_created?: number;
+  approval_mode?: string;
+}
+
 interface GoalWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: {
+  onSaveGoal: (data: GoalSubmitData) => Promise<string>;
+  onGenerateStrategy: (goalId: string, data: {
     name: string;
     description?: string;
-    target_topics: string[];
     target_channels: string[];
-    frequency: Record<string, string>;
-    autonomy_level: AgentAutonomyLevel;
-    brand_template_id?: string;
-    campaign_id?: string;
-    clarification_context?: Record<string, string>;
     campaign_duration_days?: number;
     campaign_start_date?: string;
     approval_mode?: string;
-  }) => void;
+    brand_template_id?: string;
+    clarification_context?: Record<string, string>;
+  }) => Promise<GenerationResult>;
+  onComplete: (result: GenerationResult) => void;
   initialData?: AgentGoal | null;
 }
 
 // ─── Component ───
 
-export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWizardProps) {
+export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy, onComplete, initialData }: GoalWizardProps) {
   const { currentOrganization } = useOrganizationContext();
   const { currentBrand } = useCurrentBrand();
   const [step, setStep] = useState(0);
