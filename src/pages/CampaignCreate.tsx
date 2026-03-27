@@ -179,6 +179,7 @@ import { CampaignFormStepper } from '@/components/campaign/CampaignFormStepper';
 import { CampaignMilestoneEditor } from '@/components/campaign/CampaignMilestoneEditor';
 import { CampaignCreatePreviewPanel } from '@/components/campaign/CampaignCreatePreviewPanel';
 import { CampaignTemplateSelector } from '@/components/campaign/CampaignTemplateSelector';
+import { CampaignConfirmDialog } from '@/components/campaign/CampaignConfirmDialog';
 import { 
   CampaignTemplate, 
   generateGoalsFromTemplate, 
@@ -1086,26 +1087,15 @@ export default function CampaignCreate() {
       />
 
       {/* Submit Confirmation Dialog */}
-      <AlertDialog open={showSubmitConfirm} onOpenChange={setShowSubmitConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {isEditMode ? 'Xác nhận cập nhật chiến dịch?' : 'Xác nhận tạo chiến dịch?'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {isEditMode
-                ? 'Các thay đổi sẽ được lưu lại. Milestones hiện tại sẽ được cập nhật.'
-                : `Chiến dịch "${formData.name?.trim()}" sẽ được tạo với ${milestones.length} milestone(s) và ${formData.target_channels?.length || 0} kênh phân phối.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? 'Đang lưu...' : 'Xác nhận'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <CampaignConfirmDialog
+        open={showSubmitConfirm}
+        onOpenChange={setShowSubmitConfirm}
+        formData={formData}
+        milestones={milestones}
+        isEditMode={isEditMode}
+        isSubmitting={isSubmitting}
+        onConfirm={handleSubmit}
+      />
 
       {/* Unsaved Changes Navigation Warning */}
       <AlertDialog open={blocker.state === 'blocked'} onOpenChange={() => blocker.state === 'blocked' && blocker.reset()}>
