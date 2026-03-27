@@ -1260,18 +1260,41 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
 
         {/* Footer */}
         <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
-          <Button variant="ghost" size="sm" onClick={() => { setStep(s => s - 1); setClarificationQuestions(null); setClarificationUnderstanding(null); }} disabled={step === 0} className="text-xs gap-1">
-            <ChevronLeft className="w-3.5 h-3.5" /> Quay lại
-          </Button>
-          {step < confirmStep ? (
-            <Button size="sm" onClick={() => setStep(s => s + 1)} disabled={!canNext()} className="text-xs gap-1">
-              Tiếp theo <ChevronRight className="w-3.5 h-3.5" />
-            </Button>
-          ) : !showClarification ? (
-            <Button size="sm" onClick={handleConfirmStep} disabled={clarifying} className="text-xs gap-1">
-              <Zap className="w-3.5 h-3.5" /> {isEditing ? 'Cập nhật Campaign' : 'Khởi chạy Campaign'}
-            </Button>
-          ) : null}
+          {isGenerating ? (
+            <>
+              <div />
+              {generatingStatus === 'done' ? (
+                <Button size="sm" onClick={() => onComplete(generationResult || {})} className="text-xs gap-1.5">
+                  {generationResult?.approval_mode === 'full_auto' ? 'Xem Pipeline' : 'Xem kế hoạch'}
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              ) : generatingStatus === 'error' ? (
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => { setGeneratingStatus('idle'); setGenerationError(null); }} className="text-xs gap-1">
+                    <ChevronLeft className="w-3.5 h-3.5" /> Quay lại
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => onOpenChange(false)} className="text-xs">
+                    Đóng
+                  </Button>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" onClick={() => { setStep(s => s - 1); setClarificationQuestions(null); setClarificationUnderstanding(null); }} disabled={step === 0} className="text-xs gap-1">
+                <ChevronLeft className="w-3.5 h-3.5" /> Quay lại
+              </Button>
+              {step < confirmStep ? (
+                <Button size="sm" onClick={() => setStep(s => s + 1)} disabled={!canNext()} className="text-xs gap-1">
+                  Tiếp theo <ChevronRight className="w-3.5 h-3.5" />
+                </Button>
+              ) : !showClarification ? (
+                <Button size="sm" onClick={handleConfirmStep} disabled={clarifying} className="text-xs gap-1">
+                  <Zap className="w-3.5 h-3.5" /> {isEditing ? 'Cập nhật Campaign' : 'Khởi chạy Campaign'}
+                </Button>
+              ) : null}
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
