@@ -56,9 +56,9 @@ const DURATION_OPTIONS = [
 ];
 
 const APPROVAL_MODE_OPTIONS = [
-  { value: 'approve_plan', label: 'Duyệt kế hoạch', description: 'Duyệt toàn bộ plan trước khi AI bắt đầu tạo', icon: '📋' },
-  { value: 'approve_each', label: 'Duyệt từng bài', description: 'AI tạo từng bài, bạn duyệt mỗi bài trước khi đăng', icon: '✅' },
-  { value: 'full_auto', label: 'Tự động hoàn toàn', description: 'AI tự lên kế hoạch, tạo và đăng bài tự động', icon: '🚀' },
+  { value: 'approve_each', label: 'Duyệt từng bài', description: 'AI tạo từng bài, bạn duyệt mỗi bài trước khi đăng', icon: '✅', autonomy: 'human_in_loop' as AgentAutonomyLevel },
+  { value: 'approve_plan', label: 'Duyệt kế hoạch', description: 'Duyệt toàn bộ plan, AI tự chạy theo kế hoạch đã duyệt', icon: '📋', autonomy: 'human_on_loop' as AgentAutonomyLevel },
+  { value: 'full_auto', label: 'Tự động hoàn toàn', description: 'AI tự lên kế hoạch, tạo và đăng bài tự động', icon: '🚀', autonomy: 'full_auto' as AgentAutonomyLevel },
 ];
 
 const OBJECTIVES = [
@@ -220,7 +220,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
   // Step 3: Tự động
   const [autonomyLevel, setAutonomyLevel] = useState<AgentAutonomyLevel>('human_in_loop');
-  const [approvalMode, setApprovalMode] = useState('approve_plan');
+  const [approvalMode, setApprovalMode] = useState('approve_each');
   const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
   const [thresholdQuality, setThresholdQuality] = useState(70);
   const [thresholdRiskMax, setThresholdRiskMax] = useState(30);
@@ -319,7 +319,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     setCampaignDurationDays(14); setCustomDuration(''); setTotalPostsTarget('');
     setCampaignStartDate(new Date().toISOString().split('T')[0]);
     setSelectedChannels([]); setFrequency({});
-    setAutonomyLevel('human_in_loop'); setApprovalMode('approve_plan');
+    setAutonomyLevel('human_in_loop'); setApprovalMode('approve_each');
     setAutoApproveEnabled(false); setThresholdQuality(70); setThresholdRiskMax(30); setThresholdGeo(60);
     setBrandVoiceThreshold(70); setLearningSpeed('balanced');
     setBrandTemplateId(currentBrand?.id || ''); setCampaignId(undefined);
@@ -788,43 +788,29 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
           {/* ═══ Step 3: Tự động ═══ */}
           {step === 3 && (
             <div className="space-y-3">
-              {/* Autonomy Level */}
-              <Label className="text-xs">AI được tự làm đến đâu?</Label>
-              <p className="text-[10px] text-muted-foreground">Chọn mức độ mà AI có thể tự quyết.</p>
-              {AUTONOMY_LEVELS.map(lvl => (
-                <Card key={lvl.id} className={cn("cursor-pointer transition-all", autonomyLevel === lvl.id ? "border-primary ring-1 ring-primary/20" : "hover:border-primary/30")} onClick={() => setAutonomyLevel(lvl.id)}>
-                  <CardContent className="p-3 flex items-start gap-3">
-                    <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0", autonomyLevel === lvl.id ? "border-primary" : "border-muted-foreground/30")}>
-                      {autonomyLevel === lvl.id && <div className="w-2 h-2 rounded-full bg-primary" />}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{lvl.label}</p>
-                      <p className="text-[11px] text-muted-foreground">{lvl.description}</p>
-                    </div>
-                  </CardContent>
-                </Card>
+              {/* Approval Mode — single unified control */}
+              <Label className="text-xs">AI hoạt động như thế nào?</Label>
+              <p className="text-[10px] text-muted-foreground">Chọn mức độ tự động mà AI được phép thực hiện.</p>
+              {APPROVAL_MODE_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    setApprovalMode(opt.value);
+                    setAutonomyLevel(opt.autonomy);
+                  }}
+                  className={cn(
+                    "w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-all",
+                    approvalMode === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                  )}
+                >
+                  <span className="text-lg">{opt.icon}</span>
+                  <div>
+                    <p className="text-sm font-medium">{opt.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{opt.description}</p>
+                  </div>
+                  {approvalMode === opt.value && <Check className="w-4 h-4 text-primary ml-auto mt-0.5 shrink-0" />}
+                </button>
               ))}
-
-              {/* Approval Mode */}
-              <div className="space-y-2 border-t pt-3">
-                <Label className="text-xs">Chế độ duyệt bài</Label>
-                {APPROVAL_MODE_OPTIONS.map(opt => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setApprovalMode(opt.value)}
-                    className={cn(
-                      "w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-all",
-                      approvalMode === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
-                    )}
-                  >
-                    <span className="text-lg">{opt.icon}</span>
-                    <div>
-                      <p className="text-sm font-medium">{opt.label}</p>
-                      <p className="text-[10px] text-muted-foreground">{opt.description}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
 
               {/* Smart Auto-Approve */}
               {(approvalMode === 'approve_each' || approvalMode === 'approve_plan') && (
@@ -1020,8 +1006,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                   <div className="space-y-1.5 text-xs border-t pt-3">
                     <Label className="text-xs font-medium">Tóm tắt cài đặt</Label>
                     <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Tên</span><span className="font-medium truncate ml-2 max-w-[60%] text-right">{name}</span></div>
-                    <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Chế độ duyệt</span><span className="font-medium">{APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label}</span></div>
-                    <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Tự động</span><span className="font-medium">{AUTONOMY_LEVELS.find(l => l.id === autonomyLevel)?.label}</span></div>
+                    <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Chế độ</span><span className="font-medium">{APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label}</span></div>
                     {totalBudget > 0 && (
                       <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Ngân sách</span><span className="font-medium">{totalBudget.toLocaleString('vi-VN')} VNĐ</span></div>
                     )}
