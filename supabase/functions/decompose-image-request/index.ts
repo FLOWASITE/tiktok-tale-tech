@@ -460,7 +460,7 @@ Secondary color: ${secondaryColor}`;
 
     // Non-blocking metrics save
     const totalDurationMs = Math.round(performance.now() - startTime);
-    const model = "google/gemini-2.5-flash";
+    const model = usedModel;
     const inputTokens = estimateTokens(description);
     const outputTokens = estimateTokens(JSON.stringify(result));
     const estimatedCostUsd = estimateCost(model, inputTokens, outputTokens);
