@@ -350,6 +350,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     setAutoApproveEnabled(false); setThresholdQuality(70); setThresholdRiskMax(30); setThresholdGeo(60);
     setBrandVoiceThreshold(70); setLearningSpeed('balanced');
     setBrandTemplateId(currentBrand?.id || ''); setCampaignId(undefined);
+    setGeneratingStatus('idle'); setGenerationResult(null); setGenerationError(null);
     setClarifying(false); setClarificationQuestions(null); setClarificationUnderstanding(null); setClarificationContext(null);
   };
 
@@ -444,7 +445,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     }
   };
 
-  const finalSubmit = (context: Record<string, string> | null) => {
+  const finalSubmit = async (context: Record<string, string> | null) => {
     const baseContext = context || clarificationContext || {};
     const briefContext: Record<string, any> = { ...baseContext };
     if (selectedObjective) briefContext.objective = selectedObjective;
@@ -461,7 +462,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       briefContext.auto_approve_rules = { enabled: true, min_quality: thresholdQuality, max_risk: thresholdRiskMax, min_geo: thresholdGeo };
     }
     const hasContext = Object.keys(briefContext).length > 0;
-    onSubmit({
+    const submitData: GoalSubmitData = {
       name: name.trim(),
       description: description.trim() || undefined,
       target_topics: [],
@@ -474,7 +475,35 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
       campaign_duration_days: effectiveDuration,
       campaign_start_date: campaignStartDate,
       approval_mode: approvalMode,
-    });
+    };
+
+    // Start generating flow inside dialog
+    setGeneratingStatus('saving');
+    setGenerationError(null);
+    setGenerationResult(null);
+
+    try {
+      const goalId = await onSaveGoal(submitData);
+      setGeneratingStatus('generating');
+      
+      const result = await onGenerateStrategy(goalId, {
+        name: submitData.name,
+        description: submitData.description,
+        target_channels: submitData.target_channels,
+        campaign_duration_days: submitData.campaign_duration_days,
+        campaign_start_date: submitData.campaign_start_date,
+        approval_mode: submitData.approval_mode,
+        brand_template_id: submitData.brand_template_id,
+        clarification_context: submitData.clarification_context,
+      });
+      
+      setGenerationResult(result);
+      setGeneratingStatus('done');
+    } catch (e: any) {
+      console.error('Campaign generation error:', e);
+      setGenerationError(e?.message || 'Đã xảy ra lỗi');
+      setGeneratingStatus('error');
+    }
   };
 
   const handleClarificationSubmit = (answers: Record<string, string>) => { setClarificationContext(answers); finalSubmit(answers); };
