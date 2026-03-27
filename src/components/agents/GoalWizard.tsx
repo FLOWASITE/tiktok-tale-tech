@@ -220,7 +220,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
   // Step 3: Tự động
   const [autonomyLevel, setAutonomyLevel] = useState<AgentAutonomyLevel>('human_in_loop');
-  const [approvalMode, setApprovalMode] = useState('approve_plan');
+  const [approvalMode, setApprovalMode] = useState('approve_each');
   const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
   const [thresholdQuality, setThresholdQuality] = useState(70);
   const [thresholdRiskMax, setThresholdRiskMax] = useState(30);
