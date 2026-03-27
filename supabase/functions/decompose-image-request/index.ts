@@ -243,149 +243,179 @@ ${description.slice(0, 3000)}
 Primary color: ${primaryColor}
 Secondary color: ${secondaryColor}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "decompose_image_request",
-              description: "Decompose content into background prompt, overlay config, and suggested layout",
-              parameters: {
-                type: "object",
-                properties: {
-                  suggestedLayout: {
-                    type: "string",
-                    enum: ["poster", "infographic", "quote_card", "feature_list", "contact_card", "education_infographic"],
-                    description: "Best layout template based on content analysis and strategic context",
+    const toolSpec = {
+      type: "function" as const,
+      function: {
+        name: "decompose_image_request",
+        description: "Decompose content into background prompt, overlay config, and suggested layout",
+        parameters: {
+          type: "object",
+          properties: {
+            suggestedLayout: {
+              type: "string",
+              enum: ["poster", "infographic", "quote_card", "feature_list", "contact_card", "education_infographic"],
+              description: "Best layout template based on content analysis and strategic context",
+            },
+            backgroundPrompt: {
+              type: "object",
+              properties: {
+                description: {
+                  type: "string",
+                  description: "Clean visual background prompt for AI image generation. Must end with instruction to not include text.",
+                },
+                mood: {
+                  type: "string",
+                  description: "Overall mood/atmosphere (e.g., 'professional, modern')",
+                },
+                elements: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Key visual elements to include (e.g., 'city skyline', 'Vietnamese businessperson')",
+                },
+              },
+              required: ["description", "mood", "elements"],
+            },
+            overlayConfig: {
+              type: "object",
+              properties: {
+                banner: {
+                  type: "object",
+                  properties: {
+                    text: { type: "string", description: "2-4 word UPPERCASE label summarizing the topic" },
+                    position: { type: "string", enum: ["top", "bottom"] },
                   },
-                  backgroundPrompt: {
-                    type: "object",
-                    properties: {
-                      description: {
-                        type: "string",
-                        description: "Clean visual background prompt for AI image generation. Must end with instruction to not include text.",
+                  required: ["text", "position"],
+                },
+                heroText: {
+                  type: "object",
+                  properties: {
+                    text: { type: "string", description: "Key statistic or powerful keyword, max 20 chars" },
+                    fontSize: { type: "string", enum: ["xl", "2xl", "3xl"] },
+                    effect: { type: "string", enum: ["none", "gradient"] },
+                  },
+                  required: ["text", "fontSize"],
+                },
+                headline: { type: "string", description: "Main headline text" },
+                cards: {
+                  type: "object",
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          icon: { type: "string" },
+                          label: { type: "string", description: "3-8 word meaningful summary point from actual content" },
+                          description: { type: "string", description: "Optional subtitle/detail for this card, max 60 chars. Use for education_infographic or detailed content" },
+                          number: { type: "number", description: "Numbered index (1,2,3...) for education_infographic layout" },
+                        },
+                        required: ["label"],
                       },
-                      mood: {
-                        type: "string",
-                        description: "Overall mood/atmosphere (e.g., 'professional, modern')",
-                      },
-                      elements: {
-                        type: "array",
-                        items: { type: "string" },
-                        description: "Key visual elements to include (e.g., 'city skyline', 'Vietnamese businessperson')",
-                      },
+                      description: "Summary cards with meaningful labels extracted from content. Add 'number' field for education_infographic.",
                     },
-                    required: ["description", "mood", "elements"],
+                    layout: { type: "string", enum: ["grid-2x2", "horizontal", "vertical"] },
                   },
-                  overlayConfig: {
-                    type: "object",
-                    properties: {
-                      banner: {
+                  required: ["items", "layout"],
+                },
+                cta: { type: "string", description: "Call-to-action text (for conversion/harvest content or education_infographic)" },
+                summaryRibbon: {
+                  type: "object",
+                  properties: {
+                    text: { type: "string", description: "1-sentence summary ribbon text (for education_infographic)" },
+                    bgColor: { type: "string", description: "Optional background color for ribbon" },
+                  },
+                  required: ["text"],
+                },
+                footer: {
+                  type: "object",
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: {
                         type: "object",
                         properties: {
-                          text: { type: "string", description: "2-4 word UPPERCASE label summarizing the topic" },
-                          position: { type: "string", enum: ["top", "bottom"] },
-                        },
-                        required: ["text", "position"],
-                      },
-                      heroText: {
-                        type: "object",
-                        properties: {
-                          text: { type: "string", description: "Key statistic or powerful keyword, max 20 chars" },
-                          fontSize: { type: "string", enum: ["xl", "2xl", "3xl"] },
-                          effect: { type: "string", enum: ["none", "gradient"] },
-                        },
-                        required: ["text", "fontSize"],
-                      },
-                      headline: { type: "string", description: "Main headline text" },
-                      cards: {
-                        type: "object",
-                        properties: {
-                          items: {
-                            type: "array",
-                            items: {
-                              type: "object",
-                              properties: {
-                                icon: { type: "string" },
-                                label: { type: "string", description: "3-8 word meaningful summary point from actual content" },
-                                description: { type: "string", description: "Optional subtitle/detail for this card, max 60 chars. Use for education_infographic or detailed content" },
-                                number: { type: "number", description: "Numbered index (1,2,3...) for education_infographic layout" },
-                              },
-                              required: ["label"],
-                            },
-                            description: "Summary cards with meaningful labels extracted from content. Add 'number' field for education_infographic.",
-                          },
-                          layout: { type: "string", enum: ["grid-2x2", "horizontal", "vertical"] },
-                        },
-                        required: ["items", "layout"],
-                      },
-                      cta: { type: "string", description: "Call-to-action text (for conversion/harvest content or education_infographic)" },
-                      summaryRibbon: {
-                        type: "object",
-                        properties: {
-                          text: { type: "string", description: "1-sentence summary ribbon text (for education_infographic)" },
-                          bgColor: { type: "string", description: "Optional background color for ribbon" },
+                          icon: { type: "string", description: "Emoji icon for this contact item (📞📍🌐📧)" },
+                          text: { type: "string", description: "Contact info text (phone, address, website, email)" },
                         },
                         required: ["text"],
                       },
-                      footer: {
-                        type: "object",
-                        properties: {
-                          items: {
-                            type: "array",
-                            items: {
-                              type: "object",
-                              properties: {
-                                icon: { type: "string", description: "Emoji icon for this contact item (📞📍🌐📧)" },
-                                text: { type: "string", description: "Contact info text (phone, address, website, email)" },
-                              },
-                              required: ["text"],
-                            },
-                            description: "Contact info items for footer bar. Only include when content has contact details.",
-                          },
-                        },
-                        required: ["items"],
-                      },
+                      description: "Contact info items for footer bar. Only include when content has contact details.",
                     },
                   },
+                  required: ["items"],
                 },
-                required: ["suggestedLayout", "backgroundPrompt", "overlayConfig"],
-                additionalProperties: false,
               },
             },
           },
-        ],
-        tool_choice: { type: "function", function: { name: "decompose_image_request" } },
-      }),
-    });
+          required: ["suggestedLayout", "backgroundPrompt", "overlayConfig"],
+          additionalProperties: false,
+        },
+      },
+    };
+
+    // Helper: call AI gateway with a given model
+    const callAI = async (model: string) => {
+      return fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          tools: [toolSpec],
+          tool_choice: { type: "function", function: { name: "decompose_image_request" } },
+        }),
+      });
+    };
+
+    // Primary model call with fallback chain on 402 (credits exhausted)
+    const PRIMARY_MODEL = "google/gemini-2.5-flash";
+    const FALLBACK_MODELS = ["google/gemini-2.5-flash-lite", "google/gemini-3-flash-preview"];
+    let usedModel = PRIMARY_MODEL;
+
+    let response = await callAI(PRIMARY_MODEL);
+
+    if (response.status === 402) {
+      console.warn(`[decompose-image-request] Primary model (${PRIMARY_MODEL}) credits exhausted, trying fallbacks...`);
+      await response.text(); // consume body to avoid leak
+
+      for (const fallbackModel of FALLBACK_MODELS) {
+        console.log(`[decompose-image-request] Trying fallback model: ${fallbackModel}`);
+        response = await callAI(fallbackModel);
+        if (response.status !== 402) {
+          usedModel = fallbackModel;
+          console.log(`[decompose-image-request] Fallback model ${fallbackModel} responded (status: ${response.status})`);
+          break;
+        }
+        console.warn(`[decompose-image-request] Fallback ${fallbackModel} also returned 402`);
+        await response.text(); // consume body
+      }
+    }
 
     if (!response.ok) {
       const status = response.status;
+      const errText = await response.text();
+      console.error("AI gateway error:", status, errText);
+
       if (status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later." }), {
-          status: 429,
+        // Return 200 with error payload so client-side fallback (regex decomposition) can activate
+        return new Response(JSON.stringify({ error: "Rate limit exceeded", errorCode: "RATE_LIMIT" }), {
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required, please add credits." }), {
-          status: 402,
+        // All models exhausted — return 200 with error payload for graceful client fallback
+        return new Response(JSON.stringify({ error: "AI credits exhausted", errorCode: "CREDITS_EXHAUSTED" }), {
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const errText = await response.text();
-      console.error("AI gateway error:", status, errText);
       return new Response(JSON.stringify({ error: "AI analysis failed" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
