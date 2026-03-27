@@ -286,7 +286,8 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const effectiveDuration = campaignDurationDays > 0 ? campaignDurationDays : parseInt(customDuration) || 14;
   const isEditing = !!initialData;
   const confirmStep = STEPS.length - 1;
-  const showClarification = step === confirmStep && (clarifying || clarificationQuestions || clarificationUnderstanding);
+  const showClarification = step === confirmStep && generatingStatus === 'idle' && (clarifying || clarificationQuestions || clarificationUnderstanding);
+  const isGenerating = generatingStatus !== 'idle';
   const pillarEntries = Object.entries(pillarAllocation);
   const pillarTotal = pillarEntries.reduce((s, [, v]) => s + v, 0);
 
