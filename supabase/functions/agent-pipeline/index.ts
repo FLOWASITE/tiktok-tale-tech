@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { slugify, appendUtmToUrls } from "../_shared/utm-helper.ts";
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
+import { runSelfCritiqueLoop, CRITIQUE_CONFIG } from "../_shared/self-critique.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
