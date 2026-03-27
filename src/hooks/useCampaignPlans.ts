@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { CampaignContentPlan, CampaignContentPiece } from '@/types/agent';
 import { toast } from 'sonner';
+import { parseEdgeFunctionError } from '@/lib/edgeFunctionErrors';
 
 export function useCampaignPlans(goalId?: string) {
   const { currentOrganization } = useOrganizationContext();
@@ -99,7 +100,10 @@ export function useCampaignPlans(goalId?: string) {
           organization_id: params.organization_id,
         },
       });
-      if (error) throw error;
+      if (error) {
+        const parsedError = parseEdgeFunctionError(error, 'Không thể tạo kế hoạch mới');
+        throw new Error(parsedError.message);
+      }
       return data;
     },
     onSuccess: () => {
