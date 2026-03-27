@@ -215,7 +215,15 @@ export default function AgentDashboard() {
           </TabsList>
 
           <TabsContent value="overview" className="mt-4">
-            <AICampaignOverview goals={goals} pipelines={pipelines} plans={plans} />
+            <AICampaignOverview
+              goals={goals}
+              pipelines={pipelines}
+              plans={plans}
+              onNavigateToPipeline={(goalId) => {
+                setFilterGoalId(goalId);
+                setActiveTab('pipeline');
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="pipeline" className="mt-4">

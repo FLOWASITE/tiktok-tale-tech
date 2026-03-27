@@ -2,18 +2,23 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Target, Zap, CheckSquare, Award, Clock, TrendingUp } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Target, Zap, CheckSquare, Award, Clock, TrendingUp, BarChart3 } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, AreaChart, Area, CartesianGrid,
+} from 'recharts';
 import { AgentGoal, AgentPipeline, PIPELINE_STAGES } from '@/types/agent';
 import { CampaignContentPlan } from '@/types/agent';
 import { getGradeFromScore, GRADE_COLORS } from '@/types/creativeScore';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, subDays, format, eachDayOfInterval, startOfDay } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { CampaignMetricCard } from './CampaignMetricCard';
 
 interface AICampaignOverviewProps {
   goals: AgentGoal[];
   pipelines: AgentPipeline[];
   plans: CampaignContentPlan[];
+  onNavigateToPipeline?: (goalId: string) => void;
 }
 
 const STAGE_COLORS: Record<string, string> = {
@@ -35,18 +40,11 @@ const GRADE_CHART_COLORS: Record<string, string> = {
 };
 
 const CHANNEL_ICONS: Record<string, string> = {
-  facebook: '📘',
-  tiktok: '🎵',
-  instagram: '📸',
-  linkedin: '💼',
-  twitter: '🐦',
-  youtube: '▶️',
-  email: '📧',
-  blog: '📝',
-  website: '🌐',
+  facebook: '📘', tiktok: '🎵', instagram: '📸', linkedin: '💼',
+  twitter: '🐦', youtube: '▶️', email: '📧', blog: '📝', website: '🌐',
 };
 
-export function AICampaignOverview({ goals, pipelines, plans }: AICampaignOverviewProps) {
+export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeline }: AICampaignOverviewProps) {
   const activeGoals = useMemo(() => goals.filter(g => g.is_active && !g.is_paused), [goals]);
 
   const runningPipelines = useMemo(
@@ -84,6 +82,22 @@ export function AICampaignOverview({ goals, pipelines, plans }: AICampaignOvervi
     }));
   }, [runningPipelines]);
 
+  // 14-day completion trend
+  const completionTrend = useMemo(() => {
+    const now = new Date();
+    const days = eachDayOfInterval({ start: subDays(now, 13), end: now });
+    const completed = pipelines.filter(p => p.completed_at || p.current_stage === 'analyze');
+
+    return days.map(day => {
+      const dayStart = startOfDay(day);
+      const count = completed.filter(p => {
+        const d = startOfDay(new Date(p.completed_at || p.updated_at));
+        return d.getTime() === dayStart.getTime();
+      }).length;
+      return { date: format(day, 'dd/MM'), count };
+    });
+  }, [pipelines]);
+
   // Quality grade distribution
   const gradeData = useMemo(() => {
     const grades: Record<string, number> = { 'A+': 0, 'A': 0, 'B': 0, 'C': 0, 'D': 0, 'F': 0 };
@@ -107,7 +121,6 @@ export function AICampaignOverview({ goals, pipelines, plans }: AICampaignOvervi
         counts[ch] = (counts[ch] || 0) + 1;
       });
     });
-    // Fallback: count from goal target_channels if no plans
     if (!Object.keys(counts).length) {
       goals.forEach(g => {
         (g.target_channels || []).forEach(ch => {
@@ -120,19 +133,6 @@ export function AICampaignOverview({ goals, pipelines, plans }: AICampaignOvervi
       .sort((a, b) => b[1] - a[1])
       .map(([channel, count]) => ({ channel, count, icon: CHANNEL_ICONS[channel] || '📌' }));
   }, [plans, goals, pipelines]);
-
-  // Campaign progress
-  const campaignProgress = useMemo(() => {
-    return activeGoals.map(goal => {
-      const goalPipelines = pipelines.filter(p => p.goal_id === goal.id);
-      const completed = goalPipelines.filter(p => p.completed_at || p.current_stage === 'analyze').length;
-      const total = goalPipelines.length;
-      const plan = plans.find(p => p.goal_id === goal.id);
-      const totalPieces = plan?.total_pieces || total;
-      const pct = totalPieces > 0 ? Math.round((completed / totalPieces) * 100) : 0;
-      return { goal, completed, total: totalPieces, pct, channels: goal.target_channels || [] };
-    });
-  }, [activeGoals, pipelines, plans]);
 
   // Recent completions
   const recentCompletions = useMemo(() => {
@@ -165,7 +165,7 @@ export function AICampaignOverview({ goals, pipelines, plans }: AICampaignOvervi
         </Card>
       </div>
 
-      {/* Charts Row */}
+      {/* Charts Row: Stage Distribution + Completion Trend */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Pipeline Stage Distribution */}
         <Card>
@@ -200,41 +200,50 @@ export function AICampaignOverview({ goals, pipelines, plans }: AICampaignOvervi
           </CardContent>
         </Card>
 
-        {/* Channel Distribution */}
+        {/* 14-day Completion Trend */}
         <Card>
           <CardHeader className="pb-2 p-4">
-            <CardTitle className="text-sm font-semibold">Nội dung theo kênh</CardTitle>
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-muted-foreground" />
+              Hoàn thành 14 ngày
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            {channelData.length === 0 ? (
+            {completionTrend.every(d => d.count === 0) ? (
               <div className="h-[180px] flex items-center justify-center text-xs text-muted-foreground">
-                Chưa có dữ liệu kênh
+                Chưa có dữ liệu hoàn thành
               </div>
             ) : (
-              <div className="space-y-2.5">
-                {channelData.slice(0, 6).map(({ channel, count, icon }) => {
-                  const max = channelData[0]?.count || 1;
-                  return (
-                    <div key={channel} className="flex items-center gap-2">
-                      <span className="text-sm w-5 text-center">{icon}</span>
-                      <span className="text-xs capitalize w-20 truncate">{channel}</span>
-                      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-primary/70 transition-all"
-                          style={{ width: `${(count / max) * 100}%` }}
-                        />
-                      </div>
-                      <span className="text-xs font-medium w-8 text-right">{count}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              <ResponsiveContainer width="100%" height={180}>
+                <AreaChart data={completionTrend} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+                  <defs>
+                    <linearGradient id="completionGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(160, 84%, 39%)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(160, 84%, 39%)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                  <XAxis dataKey="date" tick={{ fontSize: 9 }} interval="preserveStartEnd" />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                  <Tooltip
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid hsl(var(--border))' }}
+                    formatter={(value: number) => [value, 'Hoàn thành']}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    stroke="hsl(160, 84%, 39%)"
+                    strokeWidth={2}
+                    fill="url(#completionGradient)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Bottom Row */}
+      {/* Bottom Row: Quality + Channel + Recent */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Quality Grade Donut */}
         <Card>
@@ -271,33 +280,34 @@ export function AICampaignOverview({ goals, pipelines, plans }: AICampaignOvervi
           </CardContent>
         </Card>
 
-        {/* Campaign Progress */}
+        {/* Channel Distribution */}
         <Card>
           <CardHeader className="pb-2 p-4">
-            <CardTitle className="text-sm font-semibold">Tiến độ Campaigns</CardTitle>
+            <CardTitle className="text-sm font-semibold">Nội dung theo kênh</CardTitle>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            {campaignProgress.length === 0 ? (
+            {channelData.length === 0 ? (
               <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">
-                Chưa có campaign nào
+                Chưa có dữ liệu kênh
               </div>
             ) : (
-              <div className="space-y-3">
-                {campaignProgress.slice(0, 4).map(({ goal, completed, total, pct, channels }) => (
-                  <div key={goal.id} className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium truncate max-w-[60%]">{goal.name}</span>
-                      <span className="text-[10px] text-muted-foreground">{completed}/{total}</span>
+              <div className="space-y-2.5">
+                {channelData.slice(0, 6).map(({ channel, count, icon }) => {
+                  const max = channelData[0]?.count || 1;
+                  return (
+                    <div key={channel} className="flex items-center gap-2">
+                      <span className="text-sm w-5 text-center">{icon}</span>
+                      <span className="text-xs capitalize w-20 truncate">{channel}</span>
+                      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary/70 transition-all"
+                          style={{ width: `${(count / max) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-medium w-8 text-right">{count}</span>
                     </div>
-                    <Progress value={pct} className="h-1.5" />
-                    <div className="flex items-center gap-1">
-                      {channels.slice(0, 3).map(ch => (
-                        <span key={ch} className="text-[9px] text-muted-foreground">{CHANNEL_ICONS[ch.toLowerCase()] || ch}</span>
-                      ))}
-                      <span className="text-[10px] text-muted-foreground ml-auto">{pct}%</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -337,6 +347,28 @@ export function AICampaignOverview({ goals, pipelines, plans }: AICampaignOvervi
           </CardContent>
         </Card>
       </div>
+
+      {/* Per-Campaign Metrics Section */}
+      {goals.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Đo lường từng chiến dịch</h3>
+            <Badge variant="secondary" className="text-[9px] h-4">{goals.length}</Badge>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {goals.map(goal => (
+              <CampaignMetricCard
+                key={goal.id}
+                goal={goal}
+                pipelines={pipelines}
+                plan={plans.find(p => p.goal_id === goal.id)}
+                onClick={() => onNavigateToPipeline?.(goal.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
