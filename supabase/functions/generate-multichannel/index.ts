@@ -4269,27 +4269,60 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
           const channelPrompt = `${userPrompt}\n\nViết nội dung cho kênh: ${channel.toUpperCase()}\nYêu cầu: ${channelDesc[channel] || 'Nội dung phù hợp kênh'}\nViết TRỰC TIẾP nội dung, KHÔNG giải thích, KHÔNG markdown wrapper.`;
           
           console.log(`[agent-mode] Generating ${channel} with ${model}`);
-          const result = await callAI({
-            functionName: 'generate-multichannel',
-            organizationId: organizationId || undefined,
-            modelOverride: model,
-            temperatureOverride: temp,
-            messages: [
-              { role: 'system', content: fullSystemPrompt },
-              { role: 'user', content: channelPrompt },
-            ],
-            maxTokensOverride: maxTokens,
-          });
           
-          if (result.success) {
-            const content = result.data?.choices?.[0]?.message?.content || '';
-            agentData[`${channel}_content`] = content;
-            console.log(`[agent-mode] ✅ ${channel} done (${content.length} chars)`);
-          } else {
-            console.warn(`[agent-mode] ❌ ${channel} failed: ${result.error}`);
-            agentData[`${channel}_content`] = '';
+          // Retry logic: retry up to 2 times if content is empty or too short
+          const MAX_CHANNEL_RETRIES = 2;
+          let channelContent = '';
+          
+          for (let attempt = 0; attempt <= MAX_CHANNEL_RETRIES; attempt++) {
+            const result = await callAI({
+              functionName: 'generate-multichannel',
+              organizationId: organizationId || undefined,
+              modelOverride: model,
+              temperatureOverride: temp,
+              messages: [
+                { role: 'system', content: fullSystemPrompt },
+                { role: 'user', content: channelPrompt },
+              ],
+              maxTokensOverride: maxTokens,
+            });
+            
+            if (result.success) {
+              channelContent = result.data?.choices?.[0]?.message?.content || '';
+              if (channelContent.length >= 50) {
+                console.log(`[agent-mode] ✅ ${channel} done (${channelContent.length} chars, attempt ${attempt + 1})`);
+                break; // Good content, stop retrying
+              }
+              console.warn(`[agent-mode] ⚠️ ${channel} attempt ${attempt + 1}/${MAX_CHANNEL_RETRIES + 1}: content too short (${channelContent.length} chars)`);
+            } else {
+              console.warn(`[agent-mode] ❌ ${channel} attempt ${attempt + 1}/${MAX_CHANNEL_RETRIES + 1} failed: ${result.error}`);
+            }
+            
+            // Wait before retry (skip wait on last attempt)
+            if (attempt < MAX_CHANNEL_RETRIES) {
+              await new Promise(r => setTimeout(r, 2000));
+            }
+          }
+          
+          agentData[`${channel}_content`] = channelContent;
+          if (channelContent.length < 50) {
+            console.error(`[agent-mode] ❗ ${channel} FINAL content is empty/short after ${MAX_CHANNEL_RETRIES + 1} attempts (${channelContent.length} chars, model=${model})`);
           }
         }
+        
+        // Validation: ensure at least one channel has meaningful content
+        const channelsWithContent = formData.channels.filter(
+          (ch: string) => (agentData[`${ch}_content`] || '').length >= 50
+        );
+        
+        if (channelsWithContent.length === 0) {
+          const channelLengths = formData.channels.map(
+            (ch: string) => `${ch}=${(agentData[`${ch}_content`] || '').length}`
+          ).join(', ');
+          throw new Error(`Agent mode: All ${formData.channels.length} channels returned empty/short content (${channelLengths}). Model may be failing silently.`);
+        }
+        
+        console.log(`[agent-mode] ✅ ${channelsWithContent.length}/${formData.channels.length} channels have content`);
         
         generatedData = agentData;
         fromCache = false;
@@ -5034,15 +5067,15 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           website_seo_data: typeof generatedData.website_content === 'object' 
             ? generatedData.website_content 
             : null,
-          facebook_content: generatedData.facebook_content || null,
-          instagram_content: generatedData.instagram_content || null,
-          twitter_content: generatedData.twitter_content || null,
-          google_maps_content: generatedData.google_maps_content || null,
-          linkedin_content: generatedData.linkedin_content || null,
-          email_content: generatedData.email_content || null,
-          youtube_content: generatedData.youtube_content || null,
-          zalo_oa_content: generatedData.zalo_oa_content || null,
-          telegram_content: generatedData.telegram_content || null,
+          facebook_content: (generatedData.facebook_content && generatedData.facebook_content.length > 0) ? generatedData.facebook_content : null,
+          instagram_content: (generatedData.instagram_content && generatedData.instagram_content.length > 0) ? generatedData.instagram_content : null,
+          twitter_content: (generatedData.twitter_content && generatedData.twitter_content.length > 0) ? generatedData.twitter_content : null,
+          google_maps_content: (generatedData.google_maps_content && generatedData.google_maps_content.length > 0) ? generatedData.google_maps_content : null,
+          linkedin_content: (generatedData.linkedin_content && generatedData.linkedin_content.length > 0) ? generatedData.linkedin_content : null,
+          email_content: (generatedData.email_content && generatedData.email_content.length > 0) ? generatedData.email_content : null,
+          youtube_content: (generatedData.youtube_content && generatedData.youtube_content.length > 0) ? generatedData.youtube_content : null,
+          zalo_oa_content: (generatedData.zalo_oa_content && generatedData.zalo_oa_content.length > 0) ? generatedData.zalo_oa_content : null,
+          telegram_content: (generatedData.telegram_content && generatedData.telegram_content.length > 0) ? generatedData.telegram_content : null,
         })
         .select()
         .single();
