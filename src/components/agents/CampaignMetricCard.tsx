@@ -7,10 +7,13 @@ import { AgentGoal, AgentPipeline, PIPELINE_STAGES } from '@/types/agent';
 import { CampaignContentPlan } from '@/types/agent';
 import { getGradeFromScore, GRADE_COLORS } from '@/types/creativeScore';
 import { cn } from '@/lib/utils';
+import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
+import { Channel } from '@/types/multichannel';
 
-const CHANNEL_ICONS: Record<string, string> = {
-  facebook: '📘', tiktok: '🎵', instagram: '📸', linkedin: '💼',
-  twitter: '🐦', youtube: '▶️', email: '📧', blog: '📝', website: '🌐',
+const CHANNEL_TO_KEY: Record<string, Channel> = {
+  facebook: 'facebook', tiktok: 'tiktok', instagram: 'instagram', linkedin: 'linkedin',
+  twitter: 'twitter', youtube: 'youtube', email: 'email', blog: 'website', website: 'website',
+  zalo: 'zalo_oa', 'zalo_oa': 'zalo_oa', threads: 'threads', telegram: 'telegram',
 };
 
 interface CampaignMetricCardProps {

@@ -20,6 +20,8 @@ import { formatDistanceToNow, subDays, format, eachDayOfInterval, startOfDay, di
 import { vi } from 'date-fns/locale';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { cn } from '@/lib/utils';
+import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
+import { Channel } from '@/types/multichannel';
 
 interface AICampaignOverviewProps {
   goals: AgentGoal[];
@@ -46,9 +48,10 @@ const GRADE_CHART_COLORS: Record<string, string> = {
   'F': 'hsl(0, 72%, 45%)',
 };
 
-const CHANNEL_ICONS: Record<string, string> = {
-  facebook: '📘', tiktok: '🎵', instagram: '📸', linkedin: '💼',
-  twitter: '🐦', youtube: '▶️', email: '📧', blog: '📝', website: '🌐',
+const CHANNEL_TO_KEY: Record<string, Channel> = {
+  facebook: 'facebook', tiktok: 'tiktok', instagram: 'instagram', linkedin: 'linkedin',
+  twitter: 'twitter', youtube: 'youtube', email: 'email', blog: 'website', website: 'website',
+  zalo: 'zalo_oa', 'zalo_oa': 'zalo_oa', threads: 'threads', telegram: 'telegram',
 };
 
 const PILLAR_COLORS: Record<string, string> = {
