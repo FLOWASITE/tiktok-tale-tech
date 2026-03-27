@@ -89,17 +89,77 @@ const PILLAR_COLORS = [
 const BUDGET_COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-4))'];
 
 const INDUSTRY_SUGGESTIONS: Record<string, string[]> = {
-  'accounting': ['Tiết kiệm chi phí kế toán', 'Tư vấn thuế chuyên nghiệp', 'Báo cáo tài chính chính xác', 'Hỗ trợ doanh nghiệp SME'],
-  'ecommerce': ['Mua sắm tiện lợi', 'Giao hàng nhanh chóng', 'Ưu đãi độc quyền', 'Sản phẩm chất lượng'],
-  'education': ['Học tập hiệu quả', 'Phương pháp tiên tiến', 'Cam kết đầu ra', 'Giảng viên chất lượng'],
-  'healthcare': ['Sức khỏe toàn diện', 'Đội ngũ bác sĩ giỏi', 'Công nghệ hiện đại', 'Chăm sóc tận tâm'],
-  'technology': ['Giải pháp công nghệ', 'Tối ưu hiệu suất', 'Bảo mật dữ liệu', 'Hỗ trợ 24/7'],
-  'food': ['Nguyên liệu tươi sạch', 'Hương vị đặc biệt', 'Giao hàng nhanh', 'Giá cả hợp lý'],
-  'beauty': ['Làm đẹp tự nhiên', 'Sản phẩm an toàn', 'Kết quả rõ rệt', 'Xu hướng mới nhất'],
-  'real_estate': ['Vị trí đắc địa', 'Pháp lý minh bạch', 'Tiềm năng tăng giá', 'Hỗ trợ vay vốn'],
+  'accounting': ['Tiết kiệm chi phí kế toán', 'Tư vấn thuế chuyên nghiệp', 'Báo cáo tài chính chính xác', 'Hỗ trợ doanh nghiệp SME', 'Tuân thủ pháp luật', 'Quy trình tự động hoá'],
+  'ecommerce': ['Mua sắm tiện lợi', 'Giao hàng nhanh chóng', 'Ưu đãi độc quyền', 'Sản phẩm chất lượng', 'Đổi trả miễn phí', 'Thanh toán an toàn'],
+  'education': ['Học tập hiệu quả', 'Phương pháp tiên tiến', 'Cam kết đầu ra', 'Giảng viên chất lượng', 'Lộ trình cá nhân hoá', 'Chứng chỉ được công nhận'],
+  'healthcare': ['Sức khỏe toàn diện', 'Đội ngũ bác sĩ giỏi', 'Công nghệ hiện đại', 'Chăm sóc tận tâm', 'Kết quả rõ ràng', 'Chi phí hợp lý'],
+  'technology': ['Giải pháp công nghệ', 'Tối ưu hiệu suất', 'Bảo mật dữ liệu', 'Hỗ trợ 24/7', 'Tích hợp dễ dàng', 'Mở rộng linh hoạt'],
+  'food': ['Nguyên liệu tươi sạch', 'Hương vị đặc biệt', 'Giao hàng nhanh', 'Giá cả hợp lý', 'Đóng gói sạch sẽ', 'Thực đơn đa dạng'],
+  'beauty': ['Làm đẹp tự nhiên', 'Sản phẩm an toàn', 'Kết quả rõ rệt', 'Xu hướng mới nhất', 'Thành phần minh bạch', 'Phù hợp mọi làn da'],
+  'real_estate': ['Vị trí đắc địa', 'Pháp lý minh bạch', 'Tiềm năng tăng giá', 'Hỗ trợ vay vốn', 'Thiết kế hiện đại', 'Tiện ích đầy đủ'],
+  'fitness': ['Lịch tập cá nhân hoá', 'Huấn luyện viên chuyên nghiệp', 'Kết quả sau 30 ngày', 'Cộng đồng năng động'],
+  'travel': ['Trải nghiệm độc đáo', 'Hành trình an toàn', 'Giá cạnh tranh', 'Hỗ trợ 24/7', 'Lịch trình linh hoạt'],
+  'finance': ['Đầu tư thông minh', 'Lãi suất hấp dẫn', 'Bảo mật tuyệt đối', 'Tư vấn miễn phí', 'Giải ngân nhanh'],
 };
 
-const DEFAULT_SUGGESTIONS = ['Chất lượng hàng đầu', 'Giá cả cạnh tranh', 'Dịch vụ chuyên nghiệp', 'Uy tín lâu năm'];
+const OBJECTIVE_SUGGESTIONS: Record<string, string[]> = {
+  'awareness': [
+    'Thương hiệu uy tín hàng đầu',
+    'Giải pháp #1 cho ngành',
+    'Được tin dùng bởi hàng nghìn khách hàng',
+    'Cam kết chất lượng vượt trội',
+    'Nâng tầm trải nghiệm',
+    'Thiết kế tối ưu — dễ dùng, hiệu quả',
+  ],
+  'engagement': [
+    'Chia sẻ câu chuyện của bạn',
+    'Kết nối - Trải nghiệm - Yêu thích',
+    'Cùng tạo nên xu hướng mới',
+    'Thử thách hôm nay — khác biệt ngày mai',
+    'Tương tác liền tay — nhận quà ngay',
+    'Cộng đồng sáng tạo cùng nhau',
+  ],
+  'traffic': [
+    'Khám phá nội dung hữu ích',
+    'Cập nhật xu hướng mỗi ngày',
+    'Bài viết chuyên sâu theo ngành',
+    'Tài liệu miễn phí — tải ngay',
+    'Blog & hướng dẫn từ chuyên gia',
+  ],
+  'leads': [
+    'Nhận tư vấn miễn phí',
+    'Đăng ký để nhận ưu đãi đặc biệt',
+    'Demo sản phẩm 1:1',
+    'Báo giá nhanh trong 24h',
+    'Dùng thử không giới hạn 14 ngày',
+  ],
+  'revenue': [
+    'Tiết kiệm đến 30% chi phí',
+    'Ưu đãi có hạn — chốt ngay hôm nay',
+    'Hoàn tiền nếu không hài lòng',
+    'Giá tốt — rủi ro thấp',
+    'Mua 1 lần — dùng lâu dài',
+    'Combo tối ưu cho người mới',
+  ],
+  'retention': [
+    'Ưu đãi dành riêng khách thân thiết',
+    'Càng gắn bó — càng nhiều quyền lợi',
+    'Nâng cấp trải nghiệm của bạn',
+    'Tri ân khách hàng định kỳ',
+    'Hỗ trợ ưu tiên & xử lý nhanh',
+  ],
+};
+
+const CTA_SUGGESTIONS: Record<string, string[]> = {
+  'awareness': ['Tìm hiểu thêm', 'Khám phá ngay', 'Xem chi tiết', 'Xem demo', 'Tải brochure', 'Xem case study'],
+  'engagement': ['Tham gia ngay', 'Chia sẻ với bạn bè', 'Bình luận ý kiến', 'Thử ngay', 'Tham gia thử thách', 'Vote ngay'],
+  'traffic': ['Đọc ngay', 'Xem bài viết', 'Tải miễn phí', 'Truy cập ngay', 'Xem hướng dẫn'],
+  'leads': ['Đăng ký ngay', 'Nhận tư vấn', 'Nhận báo giá', 'Đặt lịch demo', 'Dùng thử miễn phí', 'Liên hệ ngay'],
+  'revenue': ['Mua ngay', 'Đặt hàng ngay', 'Nhận ưu đãi', 'Chốt đơn hôm nay', 'Nhận mã giảm giá', 'Bắt đầu ngay', 'Sở hữu ngay'],
+  'retention': ['Gia hạn ngay', 'Nâng cấp gói', 'Nhận ưu đãi VIP', 'Kích hoạt lại', 'Đổi điểm ngay', 'Xem quyền lợi'],
+};
+
+const DEFAULT_SUGGESTIONS = ['Chất lượng hàng đầu', 'Giá cả cạnh tranh', 'Dịch vụ chuyên nghiệp', 'Uy tín lâu năm', 'An tâm sử dụng', 'Tối ưu chi phí'];
 
 const LEARNING_SPEED_OPTIONS = [
   { value: 'conservative', label: 'Thận trọng', description: 'Thay đổi ít, ổn định' },
@@ -181,11 +241,20 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   // ─── Derived ───
   const industrySuggestions = useMemo(() => {
     const industry = (Array.isArray(currentBrand?.industry) ? currentBrand.industry[0] : currentBrand?.industry)?.toLowerCase() || '';
-    for (const [key, suggestions] of Object.entries(INDUSTRY_SUGGESTIONS)) {
-      if (industry.includes(key)) return suggestions;
+    let suggestions = DEFAULT_SUGGESTIONS;
+    for (const [key, vals] of Object.entries(INDUSTRY_SUGGESTIONS)) {
+      if (industry.includes(key)) { suggestions = vals; break; }
     }
-    return DEFAULT_SUGGESTIONS;
-  }, [currentBrand?.industry]);
+    // Merge objective-based suggestions
+    const objSuggestions = OBJECTIVE_SUGGESTIONS[selectedObjective || ''] || [];
+    const merged = [...suggestions];
+    objSuggestions.forEach(s => { if (!merged.includes(s)) merged.push(s); });
+    return merged;
+  }, [currentBrand?.industry, selectedObjective]);
+
+  const ctaSuggestions = useMemo(() => {
+    return CTA_SUGGESTIONS[selectedObjective || ''] || CTA_SUGGESTIONS['awareness'];
+  }, [selectedObjective]);
 
   const effectiveDuration = campaignDurationDays > 0 ? campaignDurationDays : parseInt(customDuration) || 14;
   const isEditing = !!initialData;
@@ -626,12 +695,18 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                   </div>
                 )}
                 {keyMessages.length < 5 && (
-                  <div className="flex flex-wrap gap-1">
-                    {industrySuggestions.filter(s => !keyMessages.includes(s)).slice(0, 4).map((s, i) => (
-                      <button key={i} onClick={() => addSuggestion(s)} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-dashed border-primary/30 text-primary hover:bg-primary/10 transition-colors">
-                        <Plus className="w-2.5 h-2.5" />{s}
-                      </button>
-                    ))}
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap gap-1">
+                      {industrySuggestions.filter(s => !keyMessages.includes(s)).slice(0, 8).map((s, i) => (
+                        <button key={i} onClick={() => addSuggestion(s)} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-dashed border-primary/30 text-primary hover:bg-primary/10 transition-colors">
+                          <Plus className="w-2.5 h-2.5" />{s}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      Gợi ý theo {selectedObjective ? OBJECTIVES.find(o => o.id === selectedObjective)?.label?.toLowerCase() : 'ngành'} & thương hiệu
+                    </p>
                   </div>
                 )}
               </div>
@@ -640,6 +715,22 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
               <div className="space-y-1.5">
                 <Label className="text-xs">Kêu gọi hành động (CTA)</Label>
                 <Input value={primaryCta} onChange={e => setPrimaryCta(e.target.value)} placeholder="VD: Đăng ký ngay, Mua ngay, Liên hệ..." className="text-sm h-8" />
+                <div className="flex flex-wrap gap-1">
+                  {ctaSuggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setPrimaryCta(s)}
+                      className={cn(
+                        "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-dashed transition-colors",
+                        primaryCta === s
+                          ? "bg-primary/15 border-primary text-primary"
+                          : "border-primary/30 text-primary hover:bg-primary/10"
+                      )}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Content Pillars */}
