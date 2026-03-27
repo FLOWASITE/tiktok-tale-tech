@@ -788,43 +788,29 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
           {/* ═══ Step 3: Tự động ═══ */}
           {step === 3 && (
             <div className="space-y-3">
-              {/* Autonomy Level */}
-              <Label className="text-xs">AI được tự làm đến đâu?</Label>
-              <p className="text-[10px] text-muted-foreground">Chọn mức độ mà AI có thể tự quyết.</p>
-              {AUTONOMY_LEVELS.map(lvl => (
-                <Card key={lvl.id} className={cn("cursor-pointer transition-all", autonomyLevel === lvl.id ? "border-primary ring-1 ring-primary/20" : "hover:border-primary/30")} onClick={() => setAutonomyLevel(lvl.id)}>
-                  <CardContent className="p-3 flex items-start gap-3">
-                    <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center mt-0.5 flex-shrink-0", autonomyLevel === lvl.id ? "border-primary" : "border-muted-foreground/30")}>
-                      {autonomyLevel === lvl.id && <div className="w-2 h-2 rounded-full bg-primary" />}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{lvl.label}</p>
-                      <p className="text-[11px] text-muted-foreground">{lvl.description}</p>
-                    </div>
-                  </CardContent>
-                </Card>
+              {/* Approval Mode — single unified control */}
+              <Label className="text-xs">AI hoạt động như thế nào?</Label>
+              <p className="text-[10px] text-muted-foreground">Chọn mức độ tự động mà AI được phép thực hiện.</p>
+              {APPROVAL_MODE_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    setApprovalMode(opt.value);
+                    setAutonomyLevel(opt.autonomy);
+                  }}
+                  className={cn(
+                    "w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-all",
+                    approvalMode === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
+                  )}
+                >
+                  <span className="text-lg">{opt.icon}</span>
+                  <div>
+                    <p className="text-sm font-medium">{opt.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{opt.description}</p>
+                  </div>
+                  {approvalMode === opt.value && <Check className="w-4 h-4 text-primary ml-auto mt-0.5 shrink-0" />}
+                </button>
               ))}
-
-              {/* Approval Mode */}
-              <div className="space-y-2 border-t pt-3">
-                <Label className="text-xs">Chế độ duyệt bài</Label>
-                {APPROVAL_MODE_OPTIONS.map(opt => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setApprovalMode(opt.value)}
-                    className={cn(
-                      "w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-all",
-                      approvalMode === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
-                    )}
-                  >
-                    <span className="text-lg">{opt.icon}</span>
-                    <div>
-                      <p className="text-sm font-medium">{opt.label}</p>
-                      <p className="text-[10px] text-muted-foreground">{opt.description}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
 
               {/* Smart Auto-Approve */}
               {(approvalMode === 'approve_each' || approvalMode === 'approve_plan') && (
