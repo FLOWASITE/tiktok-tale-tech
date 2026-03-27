@@ -190,45 +190,6 @@ export default function AgentDashboard() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Card>
-            <CardContent className="p-3 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500/10"><Target className="w-4 h-4 text-blue-500" /></div>
-              <div>
-                <p className="text-lg font-bold">{activeGoals.length}</p>
-                <p className="text-[10px] text-muted-foreground">Campaigns</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-amber-500/10"><Zap className="w-4 h-4 text-amber-500" /></div>
-              <div>
-                <p className="text-lg font-bold">{totalInPipeline}</p>
-                <p className="text-[10px] text-muted-foreground">Trong pipeline</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-emerald-500/10"><CheckSquare className="w-4 h-4 text-emerald-500" /></div>
-              <div>
-                <p className="text-lg font-bold">{publishedThisWeek}</p>
-                <p className="text-[10px] text-muted-foreground">Đã đăng tuần này</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-3 flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-orange-500/10"><CheckSquare className="w-4 h-4 text-orange-500" /></div>
-              <div>
-                <p className="text-lg font-bold">{pendingCount}</p>
-                <p className="text-[10px] text-muted-foreground">Chờ duyệt</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
