@@ -241,11 +241,20 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   // ─── Derived ───
   const industrySuggestions = useMemo(() => {
     const industry = (Array.isArray(currentBrand?.industry) ? currentBrand.industry[0] : currentBrand?.industry)?.toLowerCase() || '';
-    for (const [key, suggestions] of Object.entries(INDUSTRY_SUGGESTIONS)) {
-      if (industry.includes(key)) return suggestions;
+    let suggestions = DEFAULT_SUGGESTIONS;
+    for (const [key, vals] of Object.entries(INDUSTRY_SUGGESTIONS)) {
+      if (industry.includes(key)) { suggestions = vals; break; }
     }
-    return DEFAULT_SUGGESTIONS;
-  }, [currentBrand?.industry]);
+    // Merge objective-based suggestions
+    const objSuggestions = OBJECTIVE_SUGGESTIONS[selectedObjective || ''] || [];
+    const merged = [...suggestions];
+    objSuggestions.forEach(s => { if (!merged.includes(s)) merged.push(s); });
+    return merged;
+  }, [currentBrand?.industry, selectedObjective]);
+
+  const ctaSuggestions = useMemo(() => {
+    return CTA_SUGGESTIONS[selectedObjective || ''] || CTA_SUGGESTIONS['awareness'];
+  }, [selectedObjective]);
 
   const effectiveDuration = campaignDurationDays > 0 ? campaignDurationDays : parseInt(customDuration) || 14;
   const isEditing = !!initialData;
