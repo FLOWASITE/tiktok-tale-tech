@@ -792,7 +792,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
           )}
 
           {/* ═══ Step 1: Chiến lược ═══ */}
-          {step === 1 && (
+          {!isGenerating && step === 1 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-medium">Chiến lược nội dung</Label>
