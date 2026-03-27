@@ -4299,7 +4299,14 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
               threads: "Nội dung Threads (50-200 chữ, conversational, dễ tương tác)",
             };
             
-            const channelPrompt = `${userPrompt}\n\nViết nội dung cho kênh: ${channel.toUpperCase()}\nYêu cầu: ${channelDesc[channel] || 'Nội dung phù hợp kênh'}\nViết TRỰC TIẾP nội dung, KHÔNG giải thích, KHÔNG markdown wrapper.`;
+            // P0: Build rich prompt with hooks + edited previews (like manual mode)
+            const hookSection = agentChannelHookSections[channel] || '';
+            let channelPrompt = `${userPrompt}${agentHookOverview}\n\nViết nội dung cho kênh: ${channel.toUpperCase()}\nYêu cầu: ${channelDesc[channel] || 'Nội dung phù hợp kênh'}`;
+            if (hookSection) {
+              channelPrompt += `\n\n## HOOK INSTRUCTIONS CHO ${channel.toUpperCase()}${hookSection}`;
+            }
+            channelPrompt += agentEditedSection;
+            channelPrompt += `\nViết TRỰC TIẾP nội dung, KHÔNG giải thích, KHÔNG markdown wrapper.`;
             
             console.log(`[agent-mode] Generating ${channel} with ${model}`);
             
