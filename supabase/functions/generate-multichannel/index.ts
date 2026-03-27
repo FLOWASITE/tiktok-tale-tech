@@ -4298,24 +4298,19 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
             const maxTokens = channelConfig?.maxTokens ?? dynamicTokens;
             console.log(`[dynamic-tokens][agent] ${channel}: ${maxTokens} tokens (admin=${channelConfig?.maxTokens ?? 'none'}, dynamic=${dynamicTokens})`);
             
-            const channelDesc: Record<string, string> = {
-              website: "Bài viết chuẩn SEO (1000-2000 chữ), Markdown format, có H1/H2/H3.",
-              facebook: "Nội dung Facebook (250-500 chữ, hook mạnh, CTA cuối)",
-              instagram: "Nội dung Instagram (50-150 chữ, ngắn gọn, có hashtag cuối)",
-              twitter: "Thread X/Twitter (5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
-              google_maps: "Nội dung Google Maps (80-150 chữ, trung tính, không emoji)",
-              linkedin: "Nội dung LinkedIn (300-600 chữ, B2B authority, insight sâu)",
-              email: "Email marketing (250-500 chữ, subject line + body + CTA)",
-              youtube: "Script YouTube (500-800 chữ, hook + content + CTA)",
-              zalo_oa: "Nội dung Zalo OA (60-150 chữ, thân thiện, local)",
-              telegram: "Nội dung Telegram (200-500 chữ, bullet, dễ đọc)",
-              tiktok: "Short-form TikTok (60-150 chữ, hook 3s đầu, năng lượng cao)",
-              threads: "Nội dung Threads (50-200 chữ, conversational, dễ tương tác)",
-            };
+            // Use channelSettings from DB (same as Manual Mode) instead of hardcoded descriptions
+            const brandAllowEmoji = brandVoice?.allow_emoji ?? true;
+            const channelSettings = mergeChannelSettings(channel, channelOverrides);
+            const channelRulesPrompt = buildChannelRulesPrompt(channel, channelSettings, brandAllowEmoji);
+            const lengthLabel = channelSettings.length_unit === 'chars' ? 'ký tự' : 'chữ';
+            const lengthDesc = channelSettings.min_length 
+              ? `${channelSettings.min_length}-${channelSettings.max_length} ${lengthLabel}`
+              : `tối đa ${channelSettings.max_length} ${lengthLabel}`;
+            console.log(`[agent-mode][channel-settings] ${channel}: ${lengthDesc}, format=${channelSettings.format_description?.substring(0, 50)}`);
             
             // P0: Build rich prompt with hooks + edited previews (like manual mode)
             const hookSection = agentChannelHookSections[channel] || '';
-            let channelPrompt = `${userPrompt}${agentHookOverview}\n\nViết nội dung cho kênh: ${channel.toUpperCase()}\nYêu cầu: ${channelDesc[channel] || 'Nội dung phù hợp kênh'}`;
+            let channelPrompt = `${userPrompt}${agentHookOverview}\n\nViết nội dung cho kênh: ${channel.toUpperCase()}\n\n${channelRulesPrompt}`;
             if (hookSection) {
               channelPrompt += `\n\n## HOOK INSTRUCTIONS CHO ${channel.toUpperCase()}${hookSection}`;
             }
