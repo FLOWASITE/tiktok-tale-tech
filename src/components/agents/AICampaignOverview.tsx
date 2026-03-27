@@ -144,6 +144,26 @@ export function AICampaignOverview({ goals, pipelines, plans }: AICampaignOvervi
 
   return (
     <div className="space-y-4">
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard icon={<Target className="w-4 h-4 text-blue-500" />} iconBg="bg-blue-500/10" value={activeGoals.length} label="Campaigns đang chạy" />
+        <StatCard icon={<Zap className="w-4 h-4 text-amber-500" />} iconBg="bg-amber-500/10" value={runningPipelines.length} label="Pipeline đang xử lý" />
+        <StatCard icon={<CheckSquare className="w-4 h-4 text-emerald-500" />} iconBg="bg-emerald-500/10" value={completedThisWeek.length} label="Hoàn thành tuần này" />
+        <Card>
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-purple-500/10"><Award className="w-4 h-4 text-purple-500" /></div>
+            <div className="flex items-center gap-2">
+              <div>
+                <p className="text-lg font-bold">{avgQuality ?? '—'}</p>
+                <p className="text-[10px] text-muted-foreground">Chất lượng TB</p>
+              </div>
+              {avgGrade && (
+                <Badge className={`${GRADE_COLORS[avgGrade]} text-[10px] h-5 px-1.5`}>{avgGrade}</Badge>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
