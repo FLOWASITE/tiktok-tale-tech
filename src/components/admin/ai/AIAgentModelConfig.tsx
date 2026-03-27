@@ -173,7 +173,7 @@ export function AIAgentModelConfig() {
 
       {/* Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings2 className="h-5 w-5" />
@@ -185,7 +185,7 @@ export function AIAgentModelConfig() {
           </DialogHeader>
 
           {editingConfig && editingAgent && (
-            <div className="space-y-5">
+            <div className="max-h-[60vh] overflow-y-auto pr-1 space-y-5">
               {/* Enable/Disable */}
               <div className="flex items-center justify-between">
                 <Label>Kích hoạt</Label>
