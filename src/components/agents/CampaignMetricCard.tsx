@@ -80,11 +80,12 @@ export function CampaignMetricCard({ goal, pipelines, plan, onClick }: CampaignM
             </Badge>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            {(goal.target_channels || []).slice(0, 4).map(ch => (
-              <span key={ch} className="text-xs" title={ch}>
-                {CHANNEL_ICONS[ch.toLowerCase()] || '📌'}
-              </span>
-            ))}
+            {(goal.target_channels || []).slice(0, 4).map(ch => {
+              const key = CHANNEL_TO_KEY[ch.toLowerCase()] || 'website' as Channel;
+              return (
+                <ChannelIcon key={ch} channel={key} size={12} className={channelIconColors[key]} />
+              );
+            })}
             <ChevronRight className="w-3.5 h-3.5 text-muted-foreground ml-1" />
           </div>
         </div>
