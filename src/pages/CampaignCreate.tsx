@@ -845,7 +845,7 @@ export default function CampaignCreate() {
                         <Label>Phân bổ Content Pillars (%)</Label>
                         <span className={cn(
                           'text-sm font-medium',
-                          pillarTotal === 100 ? 'text-green-600' : 'text-yellow-600'
+                          pillarTotal === 100 ? 'text-foreground' : 'text-muted-foreground'
                         )}>
                           Tổng: {pillarTotal}%
                         </span>
