@@ -319,7 +319,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     setCampaignDurationDays(14); setCustomDuration(''); setTotalPostsTarget('');
     setCampaignStartDate(new Date().toISOString().split('T')[0]);
     setSelectedChannels([]); setFrequency({});
-    setAutonomyLevel('human_in_loop'); setApprovalMode('approve_plan');
+    setAutonomyLevel('human_in_loop'); setApprovalMode('approve_each');
     setAutoApproveEnabled(false); setThresholdQuality(70); setThresholdRiskMax(30); setThresholdGeo(60);
     setBrandVoiceThreshold(70); setLearningSpeed('balanced');
     setBrandTemplateId(currentBrand?.id || ''); setCampaignId(undefined);
