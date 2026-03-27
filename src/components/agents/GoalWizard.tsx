@@ -695,12 +695,18 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                   </div>
                 )}
                 {keyMessages.length < 5 && (
-                  <div className="flex flex-wrap gap-1">
-                    {industrySuggestions.filter(s => !keyMessages.includes(s)).slice(0, 4).map((s, i) => (
-                      <button key={i} onClick={() => addSuggestion(s)} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-dashed border-primary/30 text-primary hover:bg-primary/10 transition-colors">
-                        <Plus className="w-2.5 h-2.5" />{s}
-                      </button>
-                    ))}
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap gap-1">
+                      {industrySuggestions.filter(s => !keyMessages.includes(s)).slice(0, 8).map((s, i) => (
+                        <button key={i} onClick={() => addSuggestion(s)} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-dashed border-primary/30 text-primary hover:bg-primary/10 transition-colors">
+                          <Plus className="w-2.5 h-2.5" />{s}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      Gợi ý theo {selectedObjective ? OBJECTIVES.find(o => o.id === selectedObjective)?.label?.toLowerCase() : 'ngành'} & thương hiệu
+                    </p>
                   </div>
                 )}
               </div>
@@ -709,6 +715,22 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
               <div className="space-y-1.5">
                 <Label className="text-xs">Kêu gọi hành động (CTA)</Label>
                 <Input value={primaryCta} onChange={e => setPrimaryCta(e.target.value)} placeholder="VD: Đăng ký ngay, Mua ngay, Liên hệ..." className="text-sm h-8" />
+                <div className="flex flex-wrap gap-1">
+                  {ctaSuggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setPrimaryCta(s)}
+                      className={cn(
+                        "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border border-dashed transition-colors",
+                        primaryCta === s
+                          ? "bg-primary/15 border-primary text-primary"
+                          : "border-primary/30 text-primary hover:bg-primary/10"
+                      )}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Content Pillars */}
