@@ -1,67 +1,78 @@
 
 
-# Fix: AI Agent không lưu nội dung kênh (facebook_content = null)
+# Nâng cấp Agent Mode ngang Manual Mode
 
-## Nguyên nhân gốc
-Trong agent mode (`generate-multichannel/index.ts` line 4284-4290), khi `callAI` trả về content rỗng (`''`), giá trị được gán là `''`, sau đó khi lưu DB (`line 5037: generatedData.facebook_content || null`), `'' || null` = `null`. Pipeline vẫn báo "completed" nhưng nội dung thực tế bị mất.
+## Tóm tắt vấn đề
 
-Không có retry logic hay validation nào kiểm tra content có thực sự được tạo hay không trước khi lưu.
+Agent Mode (qua `agent-creator-v2`) hiện hardcode `qualityMode: "fast"` (line 449), khiến toàn bộ pipeline chất lượng bị bỏ qua. Ngoài ra, agent mode dùng **sequential generation** thay vì parallel, và thiếu Smart Context trong prompt.
 
-## Thay đổi
+## Phân tích Gap hiện tại
 
-### 1. Sửa `supabase/functions/generate-multichannel/index.ts`
+| Feature | Normal Mode | Agent Mode | Nguyên nhân bị skip |
+|---------|-------------|------------|---------------------|
+| Smart Context | ✅ (line 3442) | ❌ | `qualityMode === 'fast'` → skip |
+| Self-Critique | ✅ (line 4603) | ❌ | `qualityConfig.skipCritique` = true |
+| Length Validation | ✅ (line 4652) | ❌ | `qualityMode === 'fast'` → skip |
+| Semantic Dedup | ✅ (line 4426) | ⚠️ runs but fails | Embedding API not supported → fail-open |
+| Cross-Channel Dedup | ✅ (line 4471) | ⚠️ runs but fails | Same embedding issue |
+| Parallel Generation | ✅ `generateChannelsInParallel` | ❌ Sequential loop | Agent mode has own loop |
 
-**A. Thêm retry logic trong agent mode (line ~4284-4291)**
-- Nếu `callAI` trả content rỗng hoặc quá ngắn (< 50 chars), retry tối đa 2 lần với delay
-- Log rõ ràng khi content rỗng để debug
+## Thay đổi chi tiết
 
-**B. Thêm validation sau agent mode (line ~4294)**
-- Kiểm tra xem có ít nhất 1 channel có content > 50 chars
-- Nếu tất cả channel đều rỗng → throw Error thay vì lưu record rỗng vào DB
-- Log warning chi tiết: model nào, channel nào, error gì
+### 1. Sửa `supabase/functions/agent-creator-v2/index.ts`
 
-**C. Sửa save logic (line ~5037)**
-- Thay `generatedData.facebook_content || null` bằng kiểm tra explicit: nếu string rỗng `''` thì retry hoặc flag
+**Đổi `qualityMode` từ `"fast"` sang `"balanced"`:**
+- Line 449: `qualityMode: "balanced"` 
+- Chỉ thay đổi 1 dòng — toàn bộ pipeline chất lượng downstream tự động được kích hoạt:
+  - Smart Context sẽ được build (line 3442: `qualityMode !== 'fast'`)
+  - Self-Critique sẽ chạy với `maxRefinements: 1` (balanced config)
+  - Length Validation sẽ chạy (line 4652: `qualityMode !== 'fast'`)
 
-### 2. Sửa `supabase/functions/agent-creator-v2/index.ts`
+### 2. Sửa `supabase/functions/generate-multichannel/index.ts` — Agent Mode block (line 4243-4329)
 
-**Thêm validation response từ generate-multichannel**
-- Sau khi nhận `mcOutput`, kiểm tra xem content của target channels có tồn tại hay không
-- Nếu content null cho tất cả channels → set `success: false` với error message rõ ràng thay vì tiếp tục pipeline
+**A. Chuyển từ Sequential → Parallel generation:**
+- Thay vòng lặp `for (const channel of formData.channels)` bằng `Promise.all()` 
+- Mỗi channel vẫn dùng plain-text callAI (giữ tương thích mọi model)
+- Giữ nguyên retry logic per-channel
+- Ước tính giảm ~60% thời gian cho 3 kênh (3x → 1x)
 
-## Code mẫu
+**B. Inject Smart Context vào agent mode prompt:**
+- Hiện tại agent mode dùng `fullSystemPrompt` (đã có Smart Context nếu `qualityMode !== 'fast'`)
+- Sau khi đổi qualityMode sang `"balanced"`, Smart Context sẽ tự động được include trong `systemPrompt` → `fullSystemPrompt`
+- Không cần thay đổi thêm cho phần này
 
-```typescript
-// generate-multichannel/index.ts — Agent mode với retry
-for (const channel of formData.channels) {
-  let content = '';
-  const MAX_CHANNEL_RETRIES = 2;
-  
-  for (let attempt = 0; attempt <= MAX_CHANNEL_RETRIES; attempt++) {
-    const result = await callAI({ ... });
-    if (result.success) {
-      content = result.data?.choices?.[0]?.message?.content || '';
-      if (content.length >= 50) break; // Good content
-      console.warn(`[agent-mode] ⚠️ ${channel} attempt ${attempt+1}: content too short (${content.length} chars)`);
-    } else {
-      console.warn(`[agent-mode] ❌ ${channel} attempt ${attempt+1} failed: ${result.error}`);
-    }
-    if (attempt < MAX_CHANNEL_RETRIES) await new Promise(r => setTimeout(r, 2000));
-  }
-  
-  agentData[`${channel}_content`] = content || '';
-}
+**C. Semantic Dedup & Cross-Channel Dedup:**
+- Cả 2 đều chạy ở post-processing (line 4422-4496), **ngoài** block `if (formData.agentMode)`
+- Vấn đề: embedding API không supported → fail-open (luôn return `isDuplicate: false`)
+- **Fix**: Thay vì dùng embedding, sử dụng **text-based similarity** (Jaccard/cosine trên TF-IDF) cho cross-channel dedup
+- Semantic dedup (so với content cũ trong DB) vẫn cần embedding → giữ fail-open, log warning
 
-// Validation sau agent mode
-const hasAnyContent = formData.channels.some(
-  ch => (agentData[`${ch}_content`] || '').length >= 50
-);
-if (!hasAnyContent) {
-  throw new Error(`Agent mode: All ${formData.channels.length} channels returned empty content`);
-}
+### 3. Sửa `supabase/functions/_shared/cross-channel-dedup.ts`
+
+**Thay embedding-based bằng text-based similarity:**
+- Hiện tại `checkCrossChannelDuplicate` dùng embedding → fails
+- Chuyển sang **Jaccard similarity trên n-grams** (không cần API call)
+- Thuật toán: tokenize → extract 3-grams → tính Jaccard index giữa các cặp kênh
+- Threshold giữ nguyên: 0.80 (duplicate), 0.70 (warning)
+
+## Tác động kỹ thuật
+
+```text
+Agent Mode Flow (sau nâng cấp):
+
+[Request] → [Smart Context ✅] → [System Prompt enriched]
+         → [Parallel Generation ✅] (3 channels đồng thời)
+         → [Semantic Dedup] (fail-open, cần embedding)
+         → [Cross-Channel Dedup ✅] (text-based Jaccard)
+         → [Self-Critique ✅] (balanced, 1 refinement)
+         → [Length Validation ✅] (auto-expand nếu short)
+         → [Save to DB]
 ```
 
+**Trade-off**: Thời gian xử lý tăng ~15-20s do Self-Critique (1 LLM call thêm), nhưng chất lượng tăng đáng kể. Parallel generation bù lại ~5-8s.
+
 ## File thay đổi
-- **Sửa**: `supabase/functions/generate-multichannel/index.ts`
-- **Sửa**: `supabase/functions/agent-creator-v2/index.ts`
+- **Sửa**: `supabase/functions/agent-creator-v2/index.ts` (1 dòng: qualityMode)
+- **Sửa**: `supabase/functions/generate-multichannel/index.ts` (agent mode block: parallel + cleanup)
+- **Sửa**: `supabase/functions/_shared/cross-channel-dedup.ts` (text-based similarity)
 
