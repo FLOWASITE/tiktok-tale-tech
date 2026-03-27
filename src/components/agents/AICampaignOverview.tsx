@@ -20,6 +20,8 @@ import { formatDistanceToNow, subDays, format, eachDayOfInterval, startOfDay, di
 import { vi } from 'date-fns/locale';
 import { useCampaigns } from '@/hooks/useCampaigns';
 import { cn } from '@/lib/utils';
+import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
+import { Channel } from '@/types/multichannel';
 
 interface AICampaignOverviewProps {
   goals: AgentGoal[];
@@ -46,9 +48,10 @@ const GRADE_CHART_COLORS: Record<string, string> = {
   'F': 'hsl(0, 72%, 45%)',
 };
 
-const CHANNEL_ICONS: Record<string, string> = {
-  facebook: '📘', tiktok: '🎵', instagram: '📸', linkedin: '💼',
-  twitter: '🐦', youtube: '▶️', email: '📧', blog: '📝', website: '🌐',
+const CHANNEL_TO_KEY: Record<string, Channel> = {
+  facebook: 'facebook', tiktok: 'tiktok', instagram: 'instagram', linkedin: 'linkedin',
+  twitter: 'twitter', youtube: 'youtube', email: 'email', blog: 'website', website: 'website',
+  zalo: 'zalo_oa', 'zalo_oa': 'zalo_oa', threads: 'threads', telegram: 'telegram',
 };
 
 const PILLAR_COLORS: Record<string, string> = {
@@ -204,7 +207,7 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
     }
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
-      .map(([channel, count]) => ({ channel, count, icon: CHANNEL_ICONS[channel] || '📌' }));
+      .map(([channel, count]) => ({ channel, count, channelKey: CHANNEL_TO_KEY[channel] || 'website' as Channel }));
   }, [filteredPlans, filteredGoals, filteredPipelines]);
 
   // Content Pillar distribution
@@ -321,11 +324,12 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
               <Badge variant="outline" className="text-[9px] h-4 px-1.5 capitalize">
                 {selectedCampaign.campaign_type}
               </Badge>
-              {(selectedCampaign.target_channels || []).slice(0, 4).map(ch => (
-                <span key={ch} className="text-sm" title={ch}>
-                  {CHANNEL_ICONS[ch.toLowerCase()] || '📌'}
-                </span>
-              ))}
+              {(selectedCampaign.target_channels || []).slice(0, 4).map(ch => {
+                const key = CHANNEL_TO_KEY[ch.toLowerCase()] || 'website' as Channel;
+                return (
+                  <ChannelIcon key={ch} channel={key} size={14} className={channelIconColors[key]} />
+                );
+              })}
             </div>
 
             {/* Row 2: Progress + Timeline */}
@@ -532,11 +536,11 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
               </div>
             ) : (
               <div className="space-y-2.5">
-                {channelData.slice(0, 6).map(({ channel, count, icon }) => {
+                {channelData.slice(0, 6).map(({ channel, count, channelKey }) => {
                   const max = channelData[0]?.count || 1;
                   return (
                     <div key={channel} className="flex items-center gap-2">
-                      <span className="text-sm w-5 text-center">{icon}</span>
+                      <ChannelIcon channel={channelKey} size={14} className={cn("shrink-0", channelIconColors[channelKey])} />
                       <span className="text-xs capitalize w-20 truncate">{channel}</span>
                       <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
                         <div

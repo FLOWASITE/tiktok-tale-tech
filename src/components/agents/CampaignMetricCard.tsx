@@ -7,10 +7,13 @@ import { AgentGoal, AgentPipeline, PIPELINE_STAGES } from '@/types/agent';
 import { CampaignContentPlan } from '@/types/agent';
 import { getGradeFromScore, GRADE_COLORS } from '@/types/creativeScore';
 import { cn } from '@/lib/utils';
+import { ChannelIcon, channelIconColors } from '@/components/ui/channel-icon';
+import { Channel } from '@/types/multichannel';
 
-const CHANNEL_ICONS: Record<string, string> = {
-  facebook: '📘', tiktok: '🎵', instagram: '📸', linkedin: '💼',
-  twitter: '🐦', youtube: '▶️', email: '📧', blog: '📝', website: '🌐',
+const CHANNEL_TO_KEY: Record<string, Channel> = {
+  facebook: 'facebook', tiktok: 'tiktok', instagram: 'instagram', linkedin: 'linkedin',
+  twitter: 'twitter', youtube: 'youtube', email: 'email', blog: 'website', website: 'website',
+  zalo: 'zalo_oa', 'zalo_oa': 'zalo_oa', threads: 'threads', telegram: 'telegram',
 };
 
 interface CampaignMetricCardProps {
@@ -77,11 +80,12 @@ export function CampaignMetricCard({ goal, pipelines, plan, onClick }: CampaignM
             </Badge>
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            {(goal.target_channels || []).slice(0, 4).map(ch => (
-              <span key={ch} className="text-xs" title={ch}>
-                {CHANNEL_ICONS[ch.toLowerCase()] || '📌'}
-              </span>
-            ))}
+            {(goal.target_channels || []).slice(0, 4).map(ch => {
+              const key = CHANNEL_TO_KEY[ch.toLowerCase()] || 'website' as Channel;
+              return (
+                <ChannelIcon key={ch} channel={key} size={12} className={channelIconColors[key]} />
+              );
+            })}
             <ChevronRight className="w-3.5 h-3.5 text-muted-foreground ml-1" />
           </div>
         </div>
