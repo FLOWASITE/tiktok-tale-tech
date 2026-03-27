@@ -8,11 +8,13 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Target, Radio, Eye, ChevronLeft, ChevronRight, 
   Check, Sparkles, ShieldCheck, Zap, Bot, X, Plus, MessageSquare,
   Megaphone, Heart, Link2, ClipboardList, DollarSign, RefreshCw,
-  PieChart, TrendingUp, Settings2, FileText, Images, Video
+  PieChart, TrendingUp, Settings2, FileText, Images, Video,
+  Loader2, CheckCircle2, AlertCircle, ArrowRight, Save, Brain
 } from 'lucide-react';
 import { AgentAutonomyLevel, AgentGoal, AUTONOMY_LEVELS } from '@/types/agent';
 import { supabase } from '@/integrations/supabase/client';
