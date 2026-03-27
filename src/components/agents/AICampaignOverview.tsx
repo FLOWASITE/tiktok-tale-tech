@@ -1,8 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Target, Zap, CheckSquare, Award, Clock, TrendingUp, BarChart3 } from 'lucide-react';
+import { Target, Zap, CheckSquare, Award, Clock, TrendingUp, BarChart3, ChevronDown } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, CartesianGrid,
@@ -348,26 +355,14 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
         </Card>
       </div>
 
-      {/* Per-Campaign Metrics Section */}
+      {/* Per-Campaign Metrics Section with Selector */}
       {goals.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold">Đo lường từng chiến dịch</h3>
-            <Badge variant="secondary" className="text-[9px] h-4">{goals.length}</Badge>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {goals.map(goal => (
-              <CampaignMetricCard
-                key={goal.id}
-                goal={goal}
-                pipelines={pipelines}
-                plan={plans.find(p => p.goal_id === goal.id)}
-                onClick={() => onNavigateToPipeline?.(goal.id)}
-              />
-            ))}
-          </div>
-        </div>
+        <CampaignDetailSection
+          goals={goals}
+          pipelines={pipelines}
+          plans={plans}
+          onNavigateToPipeline={onNavigateToPipeline}
+        />
       )}
     </div>
   );
@@ -384,5 +379,65 @@ function StatCard({ icon, iconBg, value, label }: { icon: React.ReactNode; iconB
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function CampaignDetailSection({
+  goals,
+  pipelines,
+  plans,
+  onNavigateToPipeline,
+}: {
+  goals: AgentGoal[];
+  pipelines: AgentPipeline[];
+  plans: CampaignContentPlan[];
+  onNavigateToPipeline?: (goalId: string) => void;
+}) {
+  const [selectedGoalId, setSelectedGoalId] = useState<string>(goals[0]?.id || '');
+
+  const selectedGoal = useMemo(
+    () => goals.find(g => g.id === selectedGoalId) || goals[0],
+    [goals, selectedGoalId]
+  );
+
+  if (!selectedGoal) return null;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">Đo lường chiến dịch</h3>
+        </div>
+        <Select value={selectedGoalId} onValueChange={setSelectedGoalId}>
+          <SelectTrigger className="w-auto max-w-[260px] h-8 text-xs gap-1.5">
+            <Target className="w-3.5 h-3.5 text-primary shrink-0" />
+            <SelectValue placeholder="Chọn chiến dịch" />
+          </SelectTrigger>
+          <SelectContent>
+            {goals.map(goal => (
+              <SelectItem key={goal.id} value={goal.id}>
+                <div className="flex items-center gap-2">
+                  <span className="truncate">{goal.name}</span>
+                  <Badge
+                    variant={goal.is_paused ? 'secondary' : 'default'}
+                    className="text-[9px] h-4 px-1.5 shrink-0"
+                  >
+                    {goal.is_paused ? 'Tạm dừng' : 'Đang chạy'}
+                  </Badge>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <CampaignMetricCard
+        goal={selectedGoal}
+        pipelines={pipelines}
+        plan={plans.find(p => p.goal_id === selectedGoal.id)}
+        onClick={() => onNavigateToPipeline?.(selectedGoal.id)}
+      />
+    </div>
   );
 }
