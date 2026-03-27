@@ -988,7 +988,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
           )}
 
           {/* ═══ Step 2: Kênh ═══ */}
-          {step === 2 && (
+          {!isGenerating && step === 2 && (
             <div className="space-y-4">
               <Label className="text-xs">Bạn muốn đăng bài ở đâu?</Label>
               <p className="text-[10px] text-muted-foreground mb-1">Chọn kênh mà bạn muốn AI tạo nội dung.</p>
@@ -1011,7 +1011,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
           )}
 
           {/* ═══ Step 3: Tự động ═══ */}
-          {step === 3 && (
+          {!isGenerating && step === 3 && (
             <div className="space-y-3">
               {/* Approval Mode — single unified control */}
               <Label className="text-xs">AI hoạt động như thế nào?</Label>
@@ -1113,7 +1113,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
           )}
 
           {/* ═══ Step 4: Xác nhận ═══ */}
-          {step === confirmStep && (
+          {!isGenerating && step === confirmStep && (
             <div className="space-y-3">
               {showClarification ? (
                 <ClarificationStep
