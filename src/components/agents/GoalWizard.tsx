@@ -261,6 +261,11 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
   const [clarificationUnderstanding, setClarificationUnderstanding] = useState<string | null>(null);
   const [clarificationContext, setClarificationContext] = useState<Record<string, string> | null>(null);
 
+  // Generating state
+  const [generatingStatus, setGeneratingStatus] = useState<GeneratingStatus>('idle');
+  const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+
   // ─── Derived ───
   const industrySuggestions = useMemo(() => {
     const industry = (Array.isArray(currentBrand?.industry) ? currentBrand.industry[0] : currentBrand?.industry)?.toLowerCase() || '';
@@ -268,7 +273,6 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
     for (const [key, vals] of Object.entries(INDUSTRY_SUGGESTIONS)) {
       if (industry.includes(key)) { suggestions = vals; break; }
     }
-    // Merge objective-based suggestions
     const objSuggestions = OBJECTIVE_SUGGESTIONS[selectedObjective || ''] || [];
     const merged = [...suggestions];
     objSuggestions.forEach(s => { if (!merged.includes(s)) merged.push(s); });
