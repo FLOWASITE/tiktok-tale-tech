@@ -1,90 +1,67 @@
 
 
-# Làm lại Tổng quan Campaign AI — Dashboard Marketing toàn diện
+# Fix: AI Agent không lưu nội dung kênh (facebook_content = null)
 
-## Vấn đề hiện tại
-Dashboard hiện chỉ tập trung vào **pipeline operations** (số lượng pipeline, stage distribution, completion trend). Thiếu các tiêu chí marketing quan trọng mà một Campaign Manager cần theo dõi:
-- Không thấy **tiến độ KPI** (reach, engagement, conversion)
-- Không thấy **ngân sách** đã chi / còn lại
-- Không thấy **timeline** chiến dịch (bao nhiêu ngày còn lại, milestone)
-- Không thấy **phân bổ nội dung theo pillar** (Hero/Hub/Help)
-- Không thấy **tỷ lệ duyệt** (approval rate) và **thời gian trung bình hoàn thành**
+## Nguyên nhân gốc
+Trong agent mode (`generate-multichannel/index.ts` line 4284-4290), khi `callAI` trả về content rỗng (`''`), giá trị được gán là `''`, sau đó khi lưu DB (`line 5037: generatedData.facebook_content || null`), `'' || null` = `null`. Pipeline vẫn báo "completed" nhưng nội dung thực tế bị mất.
 
-## Thiết kế mới
+Không có retry logic hay validation nào kiểm tra content có thực sự được tạo hay không trước khi lưu.
 
-Khi chọn **"Tất cả"** → hiển thị tổng hợp operations như hiện tại.
-Khi chọn **một chiến dịch cụ thể** → hiển thị dashboard marketing đầy đủ cho chiến dịch đó.
+## Thay đổi
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│  [📊 Tổng quan]  [▼ Chọn chiến dịch]                    │
-├─────────────────────────────────────────────────────────┤
-│  KHI CHỌN "TẤT CẢ": (giữ nguyên layout hiện tại)       │
-│  [4 Stats] → [Charts] → [Quality+Channel+Recent]        │
-├─────────────────────────────────────────────────────────┤
-│  KHI CHỌN 1 CHIẾN DỊCH:                                 │
-│                                                         │
-│  ROW 1: Campaign Header                                 │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │ Tên CD [Active] [Awareness] 📘📸               │    │
-│  │ ████████░░░░░ 62% · 12 ngày còn lại             │    │
-│  │ Budget: 8.5M / 15M (57%)                        │    │
-│  └─────────────────────────────────────────────────┘    │
-│                                                         │
-│  ROW 2: 6 Stats Cards                                   │
-│  [Pipeline] [Hoàn thành] [Đang chạy] [Flag]            │
-│  [Chất lượng TB] [Tỷ lệ duyệt]                         │
-│                                                         │
-│  ROW 3: Charts (2 cột)                                  │
-│  ┌─ Pipeline stages ─┐ ┌─ Hoàn thành 14 ngày ─┐       │
-│  │  BarChart          │ │  AreaChart            │       │
-│  └────────────────────┘ └───────────────────────┘       │
-│                                                         │
-│  ROW 4: Chi tiết (3 cột)                                │
-│  ┌─ Chất lượng ─┐ ┌─ Kênh ─┐ ┌─ Content Pillar ─┐     │
-│  │  Donut        │ │ Bars   │ │ Hero/Hub/Help %  │     │
-│  └───────────────┘ └────────┘ └──────────────────┘     │
-│                                                         │
-│  ROW 5: Hoạt động gần đây                               │
-└─────────────────────────────────────────────────────────┘
+### 1. Sửa `supabase/functions/generate-multichannel/index.ts`
+
+**A. Thêm retry logic trong agent mode (line ~4284-4291)**
+- Nếu `callAI` trả content rỗng hoặc quá ngắn (< 50 chars), retry tối đa 2 lần với delay
+- Log rõ ràng khi content rỗng để debug
+
+**B. Thêm validation sau agent mode (line ~4294)**
+- Kiểm tra xem có ít nhất 1 channel có content > 50 chars
+- Nếu tất cả channel đều rỗng → throw Error thay vì lưu record rỗng vào DB
+- Log warning chi tiết: model nào, channel nào, error gì
+
+**C. Sửa save logic (line ~5037)**
+- Thay `generatedData.facebook_content || null` bằng kiểm tra explicit: nếu string rỗng `''` thì retry hoặc flag
+
+### 2. Sửa `supabase/functions/agent-creator-v2/index.ts`
+
+**Thêm validation response từ generate-multichannel**
+- Sau khi nhận `mcOutput`, kiểm tra xem content của target channels có tồn tại hay không
+- Nếu content null cho tất cả channels → set `success: false` với error message rõ ràng thay vì tiếp tục pipeline
+
+## Code mẫu
+
+```typescript
+// generate-multichannel/index.ts — Agent mode với retry
+for (const channel of formData.channels) {
+  let content = '';
+  const MAX_CHANNEL_RETRIES = 2;
+  
+  for (let attempt = 0; attempt <= MAX_CHANNEL_RETRIES; attempt++) {
+    const result = await callAI({ ... });
+    if (result.success) {
+      content = result.data?.choices?.[0]?.message?.content || '';
+      if (content.length >= 50) break; // Good content
+      console.warn(`[agent-mode] ⚠️ ${channel} attempt ${attempt+1}: content too short (${content.length} chars)`);
+    } else {
+      console.warn(`[agent-mode] ❌ ${channel} attempt ${attempt+1} failed: ${result.error}`);
+    }
+    if (attempt < MAX_CHANNEL_RETRIES) await new Promise(r => setTimeout(r, 2000));
+  }
+  
+  agentData[`${channel}_content`] = content || '';
+}
+
+// Validation sau agent mode
+const hasAnyContent = formData.channels.some(
+  ch => (agentData[`${ch}_content`] || '').length >= 50
+);
+if (!hasAnyContent) {
+  throw new Error(`Agent mode: All ${formData.channels.length} channels returned empty content`);
+}
 ```
 
-## Thay đổi chi tiết
-
-### 1. Sửa `src/components/agents/AICampaignOverview.tsx`
-
-**A. Fetch thêm dữ liệu Campaign khi chọn cụ thể:**
-- Import `useCampaigns` hook để lấy thông tin campaign (budget, KPI goals, dates, type, status)
-- Map `selectedGoalId` → `campaign_id` từ goal → tìm campaign tương ứng
-
-**B. Thêm Campaign Header Card (chỉ hiện khi chọn 1 chiến dịch):**
-- Tên chiến dịch + Status badge + Type badge + Channel icons
-- Progress bar tổng (dựa trên pipeline completion)
-- Timeline: ngày bắt đầu → kết thúc, số ngày còn lại
-- Budget: đã chi / tổng, phần trăm
-
-**C. Mở rộng Stats Cards từ 4 → 6 (khi chọn 1 chiến dịch):**
-- Giữ: Tổng pipeline, Hoàn thành, Đang chạy, Chất lượng TB
-- Thêm: **Bị flag** (số pipeline lỗi) + **Tỷ lệ duyệt** (% qua approval không flag)
-
-**D. Thêm Content Pillar Distribution (thay Recent khi chọn 1 chiến dịch):**
-- Lấy `content_role` từ `plan_data` (Hero/Hub/Help/Hygiene)
-- Hiển thị dạng horizontal bars hoặc stacked bar
-
-**E. Giữ nguyên** charts Pipeline Stages, Completion Trend, Quality Donut, Channel Distribution — chỉ filter theo campaign đã chọn (đã có logic `filteredPipelines`/`filteredPlans`)
-
-### 2. Sửa `src/components/agents/CampaignMetricCard.tsx`
-- Không cần nữa khi chọn 1 chiến dịch (logic đã gộp vào header card) → giữ lại component cho mục đích khác nhưng bỏ render trong overview
-
-## Chi tiết kỹ thuật
-
-- **Dữ liệu Campaign**: Dùng `useCampaigns()` hook đã có sẵn, tìm campaign qua `goal.campaign_id`
-- **Approval rate**: Tính từ pipelines đã qua stage `publish`/`analyze` mà không bị flag chia tổng pipelines qua approval
-- **Content Pillar**: Parse từ `plan_data[].content_role` trong `CampaignContentPlan`
-- **Budget**: Lấy trực tiếp từ `campaign.budget_total` / `campaign.budget_spent`
-- **Timeline**: Dùng `differenceInDays` từ date-fns
-- Không cần migration DB
-
-### File thay đổi
-- **Sửa**: `src/components/agents/AICampaignOverview.tsx`
+## File thay đổi
+- **Sửa**: `supabase/functions/generate-multichannel/index.ts`
+- **Sửa**: `supabase/functions/agent-creator-v2/index.ts`
 
