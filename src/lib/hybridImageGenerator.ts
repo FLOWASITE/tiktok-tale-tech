@@ -120,6 +120,12 @@ export async function decomposeRequestWithAI(
       return decomposeRequest(description, primaryColor, secondaryColor);
     }
 
+    // Handle graceful error payloads (CREDITS_EXHAUSTED, RATE_LIMIT)
+    if (data?.errorCode || (data?.error && !data?.backgroundPrompt)) {
+      console.warn('[HybridImageGen] AI returned error payload:', data.errorCode || data.error, '— falling back to regex');
+      return decomposeRequest(description, primaryColor, secondaryColor);
+    }
+
     // Validate required fields
     if (!data?.backgroundPrompt?.description || !data?.overlayConfig) {
       console.warn('[HybridImageGen] AI returned incomplete data, falling back to regex');
