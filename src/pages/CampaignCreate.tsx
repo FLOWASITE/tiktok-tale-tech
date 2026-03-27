@@ -38,17 +38,124 @@ import { useCampaigns, useCampaignDetail } from '@/hooks/useCampaigns';
 import { useBrandTemplates } from '@/hooks/useBrandTemplates';
 import { supabase } from '@/integrations/supabase/client';
 const KEY_MESSAGE_SUGGESTIONS: Record<string, string[]> = {
-  awareness: ['Giải pháp #1 cho ngành', 'Đột phá công nghệ mới', 'Được tin dùng bởi hàng nghìn khách hàng', 'Cam kết chất lượng hàng đầu', 'Thương hiệu uy tín hàng đầu', 'Sứ mệnh nâng tầm trải nghiệm'],
-  engagement: ['Cộng đồng sáng tạo cùng nhau', 'Chia sẻ câu chuyện của bạn', 'Kết nối - Trải nghiệm - Yêu thích', 'Cùng tạo nên xu hướng mới', 'Trải nghiệm đáng nhớ mỗi ngày'],
-  conversion: ['Tiết kiệm đến 30% chi phí', 'Ưu đãi có hạn - Hành động ngay', 'Miễn phí dùng thử 14 ngày', 'Hoàn tiền nếu không hài lòng', 'Giá tốt nhất thị trường'],
-  retention: ['Ưu đãi dành riêng khách hàng thân thiết', 'Nâng cấp trải nghiệm của bạn', 'Đồng hành cùng bạn mỗi ngày', 'Tri ân khách hàng - Ưu đãi đặc biệt', 'Càng gắn bó - Càng nhiều quyền lợi'],
+  awareness: [
+    'Giải pháp #1 cho [ngành]',
+    'Đột phá công nghệ mới — khác biệt từ lần đầu trải nghiệm',
+    'Được tin dùng bởi hàng nghìn khách hàng',
+    'Cam kết chất lượng hàng đầu',
+    'Thiết kế tối ưu — dễ dùng, hiệu quả rõ rệt',
+    'Chuẩn hoá quy trình — tiết kiệm thời gian vận hành',
+    'Nâng tầm trải nghiệm với tiêu chuẩn mới',
+    'An tâm sử dụng — hỗ trợ nhanh, rõ ràng',
+    'Tối ưu chi phí nhưng không giảm chất lượng',
+    'Lựa chọn thông minh cho người bận rộn',
+    'Trải nghiệm mượt mà — kết quả nhất quán',
+    'Bắt đầu đơn giản — tăng trưởng bền vững',
+  ],
+  engagement: [
+    'Cộng đồng sáng tạo cùng nhau',
+    'Chia sẻ câu chuyện của bạn',
+    'Kết nối - Trải nghiệm - Yêu thích',
+    'Cùng tạo nên xu hướng mới',
+    'Thử thách hôm nay — khác biệt ngày mai',
+    'Bí kíp nhanh — áp dụng là thấy ngay',
+    'Tương tác liền tay — nhận quà liền ngay',
+    'Gợi ý cá nhân hoá theo bạn',
+    'Tham gia để nhận quyền lợi sớm',
+    'Chọn phiên bản bạn thích — tụi mình lo phần còn lại',
+    'Tạo nội dung dễ hơn, vui hơn',
+    'Lan toả điều bạn tin — cùng nhau',
+  ],
+  conversion: [
+    'Tiết kiệm đến 30% chi phí',
+    'Ưu đãi có hạn — chốt ngay hôm nay',
+    'Miễn phí dùng thử 14 ngày',
+    'Hoàn tiền nếu không hài lòng',
+    'Giảm ngay khi đăng ký trong 24h',
+    'Giá tốt — quyền lợi nhiều — rủi ro thấp',
+    'Combo tối ưu cho người mới bắt đầu',
+    'Mua 1 lần — dùng lâu dài',
+    'Chốt đơn nhanh — giao/triển khai đúng hẹn',
+    'Tặng thêm dịch vụ khi đặt sớm',
+    'Đặt ngay để giữ mức giá ưu đãi',
+    'Sẵn sàng dùng ngay — không mất công thiết lập',
+  ],
+  retention: [
+    'Ưu đãi dành riêng cho khách hàng thân thiết',
+    'Nâng cấp trải nghiệm của bạn',
+    'Đồng hành cùng bạn mỗi ngày',
+    'Tri ân khách hàng — đặc quyền theo hạng',
+    'Càng gắn bó — càng nhiều quyền lợi',
+    'Gia hạn hôm nay — nhận thêm ưu đãi',
+    'Được ưu tiên hỗ trợ & xử lý nhanh',
+    'Cập nhật tính năng mới trước mọi người',
+    'Quà tặng sinh nhật/tri ân định kỳ',
+    'Tối ưu hiệu suất theo lịch sử sử dụng',
+    'Đề xuất cá nhân hoá để bạn dùng “đúng thứ cần”',
+    'Nâng cấp để không bỏ lỡ tính năng mới',
+  ],
+  launch: [
+    'Ra mắt chính thức — số lượng ưu đãi giới hạn',
+    'Early access — trải nghiệm trước, ưu đãi trước',
+    'Phiên bản mới — hiệu năng tốt hơn, trải nghiệm mượt hơn',
+    'Mở bán/đăng ký sớm — nhận quà đặc biệt',
+    'Đặt lịch ngay — là người đầu tiên trải nghiệm',
+    'Launch deal — ưu đãi chỉ trong tuần đầu',
+    'Đăng ký nhận thông báo để không bỏ lỡ',
+    'Mở khóa quyền lợi dành cho người tiên phong',
+  ],
 };
 
 const CTA_SUGGESTIONS: Record<string, string[]> = {
-  awareness: ['Tìm hiểu thêm', 'Khám phá ngay', 'Xem chi tiết', 'Tìm hiểu ngay'],
-  engagement: ['Tham gia ngay', 'Bình luận ý kiến', 'Chia sẻ với bạn bè', 'Thử ngay'],
-  conversion: ['Mua ngay', 'Đăng ký dùng thử', 'Nhận ưu đãi', 'Đặt hàng ngay', 'Sở hữu ngay'],
-  retention: ['Nhận ưu đãi VIP', 'Gia hạn ngay', 'Nâng cấp gói', 'Đổi điểm ngay'],
+  awareness: [
+    'Tìm hiểu thêm',
+    'Khám phá ngay',
+    'Xem chi tiết',
+    'Xem demo',
+    'Xem bảng giá',
+    'Xem case study',
+    'Tải brochure',
+    'Nhận tư vấn',
+  ],
+  engagement: [
+    'Tham gia ngay',
+    'Bình luận ý kiến',
+    'Chia sẻ với bạn bè',
+    'Thử ngay',
+    'Tham gia thử thách',
+    'Nhận template miễn phí',
+    'Gửi câu hỏi',
+    'Vote lựa chọn',
+  ],
+  conversion: [
+    'Mua ngay',
+    'Đặt hàng ngay',
+    'Nhận ưu đãi',
+    'Đăng ký dùng thử',
+    'Nhận báo giá',
+    'Đặt lịch tư vấn',
+    'Chốt đơn hôm nay',
+    'Nhận mã giảm giá',
+    'Bắt đầu ngay',
+  ],
+  retention: [
+    'Gia hạn ngay',
+    'Nâng cấp gói',
+    'Nhận ưu đãi VIP',
+    'Kích hoạt lại',
+    'Xem quyền lợi',
+    'Nhận hỗ trợ ưu tiên',
+    'Đổi điểm ngay',
+    'Quay lại sử dụng',
+  ],
+  launch: [
+    'Đăng ký sớm',
+    'Nhận Early Access',
+    'Giữ chỗ ngay',
+    'Nhận ưu đãi Launch',
+    'Đặt lịch trải nghiệm',
+    'Nhận thông báo ra mắt',
+  ],
 };
 
 import { 
@@ -738,7 +845,7 @@ export default function CampaignCreate() {
                         <Label>Phân bổ Content Pillars (%)</Label>
                         <span className={cn(
                           'text-sm font-medium',
-                          pillarTotal === 100 ? 'text-green-600' : 'text-yellow-600'
+                          pillarTotal === 100 ? 'text-foreground' : 'text-muted-foreground'
                         )}>
                           Tổng: {pillarTotal}%
                         </span>
