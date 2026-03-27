@@ -461,6 +461,22 @@ async function routeMultichannel(
       result.output.multichannel = mcOutput;
       multichannelContentId = mcOutput?.id || mcOutput?.content_id || null;
 
+      // Validate that target channels actually have content
+      if (multichannelContentId && mcOutput) {
+        const channelContentKeys = targetChannels.map(ch => `${ch}_content`);
+        const emptyChannels = targetChannels.filter(ch => {
+          const content = mcOutput[`${ch}_content`];
+          return !content || (typeof content === 'string' && content.length < 50);
+        });
+        if (emptyChannels.length === targetChannels.length) {
+          console.error(`[multichannel] ❗ All ${targetChannels.length} target channels have empty content: ${emptyChannels.join(', ')}`);
+          result.success = false;
+          result.error = `Content generation completed but all channels (${emptyChannels.join(', ')}) returned empty content`;
+        } else if (emptyChannels.length > 0) {
+          console.warn(`[multichannel] ⚠️ ${emptyChannels.length}/${targetChannels.length} channels have empty content: ${emptyChannels.join(', ')}`);
+        }
+      }
+
       // Step 3: Generate images for each channel
       if (multichannelContentId && targetChannels.length > 0) {
         console.log(`[multichannel] Step 3: Generating images for ${targetChannels.length} channels`);
