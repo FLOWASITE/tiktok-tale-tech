@@ -4242,6 +4242,38 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       // ============================================
       if (formData.agentMode) {
         console.log(`[agent-mode] 🤖 Agent mode enabled — PARALLEL plain text generation for ${formData.channels.length} channels`);
+        
+        // P0: Build hook overview & channel-specific hooks (same as manual mode)
+        const agentHookOverview = buildHookOverview(formData.selectedHooks, formData.globalHook);
+        const agentChannelHookSections: Record<string, string> = {};
+        for (const ch of formData.channels) {
+          agentChannelHookSections[ch] = buildHookSection(ch, formData.selectedHooks, formData.globalHook);
+        }
+        if (formData.selectedHooks?.length || formData.globalHook) {
+          console.log(`[agent-mode] Hooks injected: ${formData.selectedHooks?.length || 0} channel-specific, globalHook: ${!!formData.globalHook}`);
+        }
+        
+        // P0: Build edited previews section (same as manual mode)
+        let agentEditedSection = '';
+        if (formData.editedPreviews && Object.keys(formData.editedPreviews).length > 0) {
+          const editedChannels = Object.entries(formData.editedPreviews)
+            .filter(([_, preview]: [string, any]) => preview.original !== preview.edited)
+            .map(([channel, preview]: [string, any]) => ({ channel, ...preview }));
+
+          if (editedChannels.length > 0) {
+            agentEditedSection = `\n\n## VÍ DỤ ĐƯỢC NGƯỜI DÙNG CHỈNH SỬA (HỌC THEO PHONG CÁCH NÀY)\nNgười dùng đã chỉnh sửa một số preview. Hãy HỌC THEO phong cách, cách diễn đạt, và tone.\n\n`;
+            editedChannels.forEach(({ channel, original, edited }: any) => {
+              agentEditedSection += `### Kênh ${channel.toUpperCase()}:\n**Nội dung gốc từ AI:**\n${original.substring(0, 500)}${original.length > 500 ? '...' : ''}\n\n**Nội dung sau khi người dùng chỉnh sửa (HỌC THEO):**\n${edited.substring(0, 500)}${edited.length > 500 ? '...' : ''}\n\n`;
+            });
+            agentEditedSection += `**QUAN TRỌNG**: Phân tích sự khác biệt và áp dụng phong cách chỉnh sửa của người dùng cho tất cả các kênh.`;
+            console.log(`[agent-mode] Injected ${editedChannels.length} edited preview(s) as examples`);
+          }
+        }
+
+        // P2: Cache wrapper for agent mode
+        const agentCacheInput = { ...cacheInput, agentMode: true };
+
+        const generateAgentContent = async () => {
         const agentData: any = { title: formData.topic };
         
         // Parallel generation: all channels generated simultaneously
