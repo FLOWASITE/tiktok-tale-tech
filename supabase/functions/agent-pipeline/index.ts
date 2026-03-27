@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { slugify, appendUtmToUrls } from "../_shared/utm-helper.ts";
 import { callAIWithMetrics } from "../_shared/ai-provider.ts";
+import { runSelfCritiqueLoop, CRITIQUE_CONFIG } from "../_shared/self-critique.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1002,6 +1003,109 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
         quality_scores: qualityScores,
         overall_quality_score: overallScore,
       } as any).eq("id", pipeline.id);
+
+      // ── 5. Self-Critique Loop — sync critique_score to multi_channel_contents ──
+      if (contentId && (contentType === "multichannel" || contentType === "core_content")) {
+        try {
+          // Fetch channel content from multi_channel_contents for critique
+          const { data: mccRow } = await supabase
+            .from("multi_channel_contents")
+            .select("facebook_content, instagram_content, twitter_content, linkedin_content, website_content, email_content, youtube_content, tiktok_content, threads_content, google_maps_content, zalo_oa_content, telegram_content, selected_channels")
+            .eq("id", contentId)
+            .single();
+
+          if (mccRow) {
+            // Build content object matching Manual Mode format
+            const contentForCritique: Record<string, any> = {};
+            const channelColumns: Record<string, string> = {
+              facebook: 'facebook_content', instagram: 'instagram_content',
+              twitter: 'twitter_content', linkedin: 'linkedin_content',
+              website: 'website_content', email: 'email_content',
+              youtube: 'youtube_content', tiktok: 'tiktok_content',
+              threads: 'threads_content', google_maps: 'google_maps_content',
+              zalo_oa: 'zalo_oa_content', telegram: 'telegram_content',
+            };
+
+            const channels = mccRow.selected_channels || [];
+            for (const ch of channels) {
+              const col = channelColumns[ch];
+              if (col && (mccRow as any)[col]) {
+                contentForCritique[col] = (mccRow as any)[col];
+              }
+            }
+
+            // Fetch brand voice for critique context
+            let brandVoice: any = undefined;
+            if (brandTemplateId) {
+              const { data: brand } = await supabase
+                .from("brand_templates")
+                .select("tone_of_voice, forbidden_words, formality_level, language_style, preferred_words")
+                .eq("id", brandTemplateId)
+                .single();
+              if (brand) {
+                brandVoice = {
+                  tone_of_voice: brand.tone_of_voice || [],
+                  forbidden_words: brand.forbidden_words || [],
+                  formality_level: brand.formality_level,
+                  language_style: brand.language_style,
+                  preferred_words: brand.preferred_words || [],
+                };
+              }
+            }
+
+            const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+            if (lovableKey && Object.keys(contentForCritique).length > 0) {
+              console.log(`[quality][self-critique] Running critique loop for content ${contentId}, channels: ${channels.join(', ')}`);
+
+              const critiqueLoop = await runSelfCritiqueLoop({
+                content: contentForCritique,
+                contentType: 'multichannel',
+                brandVoice,
+                additionalContext: `Channels: ${channels.join(', ')}`,
+                apiKey: lovableKey,
+                maxRefinements: 0, // Agent mode: score only, no refinement (quality gate handles flagging)
+                organizationId: orgId,
+              });
+
+              const critiqueResult = critiqueLoop.critiqueResult;
+              const critiqueScore = critiqueResult?.overall_score ?? null;
+
+              // Sync critique_score to multi_channel_contents
+              const { error: updateErr } = await supabase
+                .from("multi_channel_contents")
+                .update({
+                  critique_score: critiqueScore,
+                  critique_details: critiqueResult || null,
+                  was_refined: critiqueLoop.wasRefined,
+                  refinement_count: critiqueLoop.refinementCount,
+                  needs_manual_review: critiqueLoop.needsManualReview,
+                } as any)
+                .eq("id", contentId);
+
+              if (updateErr) {
+                console.warn(`[quality][self-critique] Failed to sync critique_score to mcc:`, updateErr);
+              } else {
+                console.log(`[quality][self-critique] Synced critique_score=${critiqueScore} to multi_channel_contents ${contentId}`);
+              }
+
+              // Also include in pipeline quality_scores for unified view
+              (qualityScores as any).self_critique = {
+                overall_score: critiqueScore,
+                quality_tier: critiqueResult?.quality_tier,
+                passed: critiqueResult?.passed,
+                issues_count: critiqueResult?.issues?.length || 0,
+              };
+
+              // Re-save pipeline with self_critique included
+              await supabase.from("agent_pipelines").update({
+                quality_scores: qualityScores,
+              } as any).eq("id", pipeline.id);
+            }
+          }
+        } catch (critiqueErr) {
+          console.warn("[quality][self-critique] Self-critique sync failed (non-blocking):", critiqueErr);
+        }
+      }
 
       result.output = qualityScores;
 
