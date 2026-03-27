@@ -2,13 +2,12 @@ import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Target, Zap, CheckSquare, Award, Clock, TrendingUp, BarChart3, Filter } from 'lucide-react';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Target, Zap, CheckSquare, Award, Clock, TrendingUp, BarChart3, Filter,
+  AlertTriangle, ShieldCheck, Calendar, DollarSign,
+} from 'lucide-react';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -17,9 +16,9 @@ import {
 import { AgentGoal, AgentPipeline, PIPELINE_STAGES } from '@/types/agent';
 import { CampaignContentPlan } from '@/types/agent';
 import { getGradeFromScore, GRADE_COLORS } from '@/types/creativeScore';
-import { formatDistanceToNow, subDays, format, eachDayOfInterval, startOfDay } from 'date-fns';
+import { formatDistanceToNow, subDays, format, eachDayOfInterval, startOfDay, differenceInDays, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { CampaignMetricCard } from './CampaignMetricCard';
+import { useCampaigns } from '@/hooks/useCampaigns';
 import { cn } from '@/lib/utils';
 
 interface AICampaignOverviewProps {
@@ -52,29 +51,56 @@ const CHANNEL_ICONS: Record<string, string> = {
   twitter: '🐦', youtube: '▶️', email: '📧', blog: '📝', website: '🌐',
 };
 
+const PILLAR_COLORS: Record<string, string> = {
+  hero: 'hsl(263, 70%, 58%)',
+  hub: 'hsl(217, 91%, 60%)',
+  help: 'hsl(160, 84%, 39%)',
+  hygiene: 'hsl(38, 92%, 50%)',
+  other: 'hsl(var(--muted-foreground))',
+};
+
+const PILLAR_LABELS: Record<string, string> = {
+  hero: 'Hero',
+  hub: 'Hub',
+  help: 'Help',
+  hygiene: 'Hygiene',
+  other: 'Khác',
+};
+
+const PAST_APPROVAL_STAGES = ['publish', 'analyze'];
+
 export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeline }: AICampaignOverviewProps) {
   const [selectedGoalId, setSelectedGoalId] = useState<string>('all');
+  const { campaigns } = useCampaigns();
+
+  const isSpecific = selectedGoalId !== 'all';
 
   // Filter data based on selection
   const filteredPipelines = useMemo(
-    () => selectedGoalId === 'all' ? pipelines : pipelines.filter(p => p.goal_id === selectedGoalId),
-    [pipelines, selectedGoalId]
+    () => isSpecific ? pipelines.filter(p => p.goal_id === selectedGoalId) : pipelines,
+    [pipelines, selectedGoalId, isSpecific]
   );
 
   const filteredPlans = useMemo(
-    () => selectedGoalId === 'all' ? plans : plans.filter(p => p.goal_id === selectedGoalId),
-    [plans, selectedGoalId]
+    () => isSpecific ? plans.filter(p => p.goal_id === selectedGoalId) : plans,
+    [plans, selectedGoalId, isSpecific]
   );
 
   const filteredGoals = useMemo(
-    () => selectedGoalId === 'all' ? goals : goals.filter(g => g.id === selectedGoalId),
-    [goals, selectedGoalId]
+    () => isSpecific ? goals.filter(g => g.id === selectedGoalId) : goals,
+    [goals, selectedGoalId, isSpecific]
   );
 
   const selectedGoal = useMemo(
-    () => selectedGoalId !== 'all' ? goals.find(g => g.id === selectedGoalId) : null,
-    [goals, selectedGoalId]
+    () => isSpecific ? goals.find(g => g.id === selectedGoalId) : null,
+    [goals, selectedGoalId, isSpecific]
   );
+
+  // Find the campaign linked to the selected goal
+  const selectedCampaign = useMemo(() => {
+    if (!selectedGoal?.campaign_id || !campaigns.length) return null;
+    return campaigns.find(c => c.id === selectedGoal.campaign_id) || null;
+  }, [selectedGoal, campaigns]);
 
   const activeGoals = useMemo(() => filteredGoals.filter(g => g.is_active && !g.is_paused), [filteredGoals]);
 
@@ -83,12 +109,33 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
     [filteredPipelines]
   );
 
+  const completedPipelines = useMemo(
+    () => filteredPipelines.filter(p => p.completed_at || p.current_stage === 'analyze'),
+    [filteredPipelines]
+  );
+
   const completedThisWeek = useMemo(() => {
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    return filteredPipelines.filter(p => {
+    return completedPipelines.filter(p => {
       const d = new Date(p.completed_at || p.updated_at);
-      return (p.current_stage === 'analyze' || p.completed_at) && d >= weekAgo;
+      return d >= weekAgo;
     });
+  }, [completedPipelines]);
+
+  // Flagged pipelines
+  const flaggedPipelines = useMemo(
+    () => filteredPipelines.filter(p => p.is_flagged),
+    [filteredPipelines]
+  );
+
+  // Approval rate
+  const approvalRate = useMemo(() => {
+    const pastApproval = filteredPipelines.filter(
+      p => PAST_APPROVAL_STAGES.includes(p.current_stage) || p.completed_at
+    );
+    if (pastApproval.length === 0) return null;
+    const clean = pastApproval.filter(p => !p.is_flagged).length;
+    return Math.round((clean / pastApproval.length) * 100);
   }, [filteredPipelines]);
 
   // Avg quality score
@@ -106,10 +153,7 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
     PIPELINE_STAGES.forEach(s => (counts[s.id] = 0));
     runningPipelines.forEach(p => { counts[p.current_stage] = (counts[p.current_stage] || 0) + 1; });
     return PIPELINE_STAGES.map(s => ({
-      stage: s.label,
-      id: s.id,
-      count: counts[s.id] || 0,
-      fill: STAGE_COLORS[s.id],
+      stage: s.label, id: s.id, count: counts[s.id] || 0, fill: STAGE_COLORS[s.id],
     }));
   }, [runningPipelines]);
 
@@ -117,17 +161,15 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
   const completionTrend = useMemo(() => {
     const now = new Date();
     const days = eachDayOfInterval({ start: subDays(now, 13), end: now });
-    const completed = filteredPipelines.filter(p => p.completed_at || p.current_stage === 'analyze');
-
     return days.map(day => {
       const dayStart = startOfDay(day);
-      const count = completed.filter(p => {
+      const count = completedPipelines.filter(p => {
         const d = startOfDay(new Date(p.completed_at || p.updated_at));
         return d.getTime() === dayStart.getTime();
       }).length;
       return { date: format(day, 'dd/MM'), count };
     });
-  }, [filteredPipelines]);
+  }, [completedPipelines]);
 
   // Quality grade distribution
   const gradeData = useMemo(() => {
@@ -165,13 +207,69 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
       .map(([channel, count]) => ({ channel, count, icon: CHANNEL_ICONS[channel] || '📌' }));
   }, [filteredPlans, filteredGoals, filteredPipelines]);
 
+  // Content Pillar distribution
+  const pillarData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    let total = 0;
+    filteredPlans.forEach(plan => {
+      (plan.plan_data || []).forEach(piece => {
+        const role = (piece.content_role || 'other').toLowerCase();
+        counts[role] = (counts[role] || 0) + 1;
+        total++;
+      });
+    });
+    if (total === 0) return [];
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([role, count]) => ({
+        role,
+        label: PILLAR_LABELS[role] || role,
+        count,
+        percentage: Math.round((count / total) * 100),
+        color: PILLAR_COLORS[role] || PILLAR_COLORS.other,
+      }));
+  }, [filteredPlans]);
+
   // Recent completions
   const recentCompletions = useMemo(() => {
-    return filteredPipelines
-      .filter(p => p.completed_at || p.current_stage === 'analyze')
+    return completedPipelines
       .sort((a, b) => new Date(b.completed_at || b.updated_at).getTime() - new Date(a.completed_at || a.updated_at).getTime())
       .slice(0, 8);
-  }, [filteredPipelines]);
+  }, [completedPipelines]);
+
+  // Campaign timeline info
+  const campaignTimeline = useMemo(() => {
+    if (!selectedCampaign) return null;
+    const now = new Date();
+    const start = parseISO(selectedCampaign.start_date);
+    const end = parseISO(selectedCampaign.end_date);
+    const totalDays = differenceInDays(end, start) || 1;
+    const elapsed = differenceInDays(now, start);
+    const remaining = differenceInDays(end, now);
+    const progressPct = Math.min(100, Math.max(0, Math.round((elapsed / totalDays) * 100)));
+    return { start, end, totalDays, remaining, progressPct };
+  }, [selectedCampaign]);
+
+  // Budget info
+  const budgetInfo = useMemo(() => {
+    if (!selectedCampaign || !selectedCampaign.budget_total) return null;
+    const total = selectedCampaign.budget_total;
+    const spent = selectedCampaign.budget_spent || 0;
+    const pct = Math.round((spent / total) * 100);
+    const currency = selectedCampaign.budget_currency || 'VND';
+    const fmt = (v: number) => {
+      if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+      if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
+      return v.toString();
+    };
+    return { total, spent, pct, currency, fmtTotal: fmt(total), fmtSpent: fmt(spent) };
+  }, [selectedCampaign]);
+
+  // Pipeline completion rate for campaign header
+  const completionRate = useMemo(() => {
+    if (filteredPipelines.length === 0) return 0;
+    return Math.round((completedPipelines.length / filteredPipelines.length) * 100);
+  }, [filteredPipelines, completedPipelines]);
 
   return (
     <div className="space-y-4">
@@ -210,11 +308,75 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
         </Select>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard icon={<Target className="w-4 h-4 text-blue-500" />} iconBg="bg-blue-500/10" value={activeGoals.length} label="Campaigns đang chạy" />
-        <StatCard icon={<Zap className="w-4 h-4 text-amber-500" />} iconBg="bg-amber-500/10" value={runningPipelines.length} label="Pipeline đang xử lý" />
-        <StatCard icon={<CheckSquare className="w-4 h-4 text-emerald-500" />} iconBg="bg-emerald-500/10" value={completedThisWeek.length} label="Hoàn thành tuần này" />
+      {/* Campaign Header Card — only when a specific campaign is selected */}
+      {isSpecific && selectedCampaign && (
+        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+          <CardContent className="p-4 space-y-3">
+            {/* Row 1: Name + Badges */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="font-semibold text-sm">{selectedCampaign.name}</h4>
+              <Badge variant={selectedCampaign.status === 'active' ? 'default' : 'secondary'} className="text-[9px] h-4 px-1.5 capitalize">
+                {selectedCampaign.status}
+              </Badge>
+              <Badge variant="outline" className="text-[9px] h-4 px-1.5 capitalize">
+                {selectedCampaign.campaign_type}
+              </Badge>
+              {(selectedCampaign.target_channels || []).slice(0, 4).map(ch => (
+                <span key={ch} className="text-sm" title={ch}>
+                  {CHANNEL_ICONS[ch.toLowerCase()] || '📌'}
+                </span>
+              ))}
+            </div>
+
+            {/* Row 2: Progress + Timeline */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Tiến độ pipeline</span>
+                <span className="font-medium">{completionRate}% · {completedPipelines.length}/{filteredPipelines.length} hoàn thành</span>
+              </div>
+              <Progress value={completionRate} className="h-2" />
+            </div>
+
+            {/* Row 3: Timeline + Budget */}
+            <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-xs">
+              {campaignTimeline && (
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>
+                    {format(campaignTimeline.start, 'dd/MM')} → {format(campaignTimeline.end, 'dd/MM/yyyy')}
+                  </span>
+                  <Badge variant={campaignTimeline.remaining > 7 ? 'outline' : 'destructive'} className="text-[9px] h-4 px-1.5 ml-1">
+                    {campaignTimeline.remaining > 0 ? `${campaignTimeline.remaining} ngày còn lại` : 'Đã hết hạn'}
+                  </Badge>
+                </div>
+              )}
+              {budgetInfo && (
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <DollarSign className="w-3.5 h-3.5" />
+                  <span>
+                    {budgetInfo.fmtSpent} / {budgetInfo.fmtTotal} {budgetInfo.currency}
+                  </span>
+                  <span className="font-medium text-foreground">({budgetInfo.pct}%)</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Stats Row — 6 cards when specific, 4 when all */}
+      <div className={cn(
+        "grid gap-3",
+        isSpecific ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6" : "grid-cols-2 sm:grid-cols-4"
+      )}>
+        <StatCard icon={<Target className="w-4 h-4 text-blue-500" />} iconBg="bg-blue-500/10" value={isSpecific ? filteredPipelines.length : activeGoals.length} label={isSpecific ? 'Tổng pipeline' : 'Campaigns đang chạy'} />
+        <StatCard icon={<CheckSquare className="w-4 h-4 text-emerald-500" />} iconBg="bg-emerald-500/10" value={isSpecific ? completedPipelines.length : completedThisWeek.length} label={isSpecific ? 'Hoàn thành' : 'Hoàn thành tuần này'} />
+        <StatCard icon={<Zap className="w-4 h-4 text-amber-500" />} iconBg="bg-amber-500/10" value={runningPipelines.length} label="Đang xử lý" />
+        
+        {isSpecific && (
+          <StatCard icon={<AlertTriangle className="w-4 h-4 text-destructive" />} iconBg="bg-destructive/10" value={flaggedPipelines.length} label="Bị flag" />
+        )}
+
         <Card>
           <CardContent className="p-3 flex items-center gap-3">
             <div className="p-2 rounded-lg bg-purple-500/10"><Award className="w-4 h-4 text-purple-500" /></div>
@@ -229,6 +391,18 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
             </div>
           </CardContent>
         </Card>
+
+        {isSpecific && (
+          <Card>
+            <CardContent className="p-3 flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-cyan-500/10"><ShieldCheck className="w-4 h-4 text-cyan-500" /></div>
+              <div>
+                <p className="text-lg font-bold">{approvalRate != null ? `${approvalRate}%` : '—'}</p>
+                <p className="text-[10px] text-muted-foreground">Tỷ lệ duyệt</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Charts Row: Stage Distribution + Completion Trend */}
@@ -309,7 +483,7 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
         </Card>
       </div>
 
-      {/* Bottom Row: Quality + Channel + Recent */}
+      {/* Bottom Row: Quality + Channel + Pillar/Recent */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Quality Grade Donut */}
         <Card>
@@ -379,7 +553,69 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
           </CardContent>
         </Card>
 
-        {/* Recent Completions */}
+        {/* Content Pillar (specific) or Recent Completions (all) */}
+        {isSpecific && pillarData.length > 0 ? (
+          <Card>
+            <CardHeader className="pb-2 p-4">
+              <CardTitle className="text-sm font-semibold">Content Pillar</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="space-y-3">
+                {pillarData.map(({ role, label, count, percentage, color }) => (
+                  <div key={role} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium">{label}</span>
+                      <span className="text-muted-foreground">{count} ({percentage}%)</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${percentage}%`, backgroundColor: color }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader className="pb-2 p-4">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                Hoạt động gần đây
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              {recentCompletions.length === 0 ? (
+                <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">
+                  Chưa có hoạt động
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {recentCompletions.map(p => (
+                    <div key={p.id} className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs truncate">{p.content_title}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {formatDistanceToNow(new Date(p.completed_at || p.updated_at), { addSuffix: true, locale: vi })}
+                          {p.overall_quality_score != null && (
+                            <> · <span className="font-medium">{p.overall_quality_score}đ</span></>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Recent activity — shown below pillar when specific campaign selected */}
+      {isSpecific && pillarData.length > 0 && (
         <Card>
           <CardHeader className="pb-2 p-4">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -389,13 +625,13 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
           </CardHeader>
           <CardContent className="p-4 pt-0">
             {recentCompletions.length === 0 ? (
-              <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">
+              <div className="h-[100px] flex items-center justify-center text-xs text-muted-foreground">
                 Chưa có hoạt động
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {recentCompletions.map(p => (
-                  <div key={p.id} className="flex items-start gap-2">
+                  <div key={p.id} className="flex items-start gap-2 p-2 rounded-lg bg-muted/50">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs truncate">{p.content_title}</p>
@@ -412,16 +648,6 @@ export function AICampaignOverview({ goals, pipelines, plans, onNavigateToPipeli
             )}
           </CardContent>
         </Card>
-      </div>
-
-      {/* Campaign Detail Card - shown when a specific campaign is selected */}
-      {selectedGoal && (
-        <CampaignMetricCard
-          goal={selectedGoal}
-          pipelines={pipelines}
-          plan={plans.find(p => p.goal_id === selectedGoal.id)}
-          onClick={() => onNavigateToPipeline?.(selectedGoal.id)}
-        />
       )}
     </div>
   );
