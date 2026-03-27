@@ -12,9 +12,11 @@ import { PipelineKanban } from '@/components/agents/PipelineKanban';
 import { AgentStatusPanel } from '@/components/agents/AgentStatusPanel';
 import { ApprovalQueue } from '@/components/agents/ApprovalQueue';
 import { GoalWizard } from '@/components/agents/GoalWizard';
+import { AICampaignOverview } from '@/components/agents/AICampaignOverview';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
 import { useAgentApprovals } from '@/hooks/useAgentApprovals';
 import { useAgentGoals } from '@/hooks/useAgentGoals';
+import { useCampaignPlans } from '@/hooks/useCampaignPlans';
 import { CampaignDashboard } from '@/components/agents/CampaignDashboard';
 import { AgentGoal, AgentPipelineStage, AUTONOMY_LEVELS } from '@/types/agent';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,9 +26,10 @@ import { useOrganizationContext } from '@/contexts/OrganizationContext';
 export default function AgentDashboard() {
   const { currentOrganization } = useOrganizationContext();
   const { pipelines, isLoading: pipelinesLoading, updateStage, deletePipeline, retryPipeline } = useAgentPipelines();
+  const { plans } = useCampaignPlans();
   const { approvals, pendingCount, updateApproval } = useAgentApprovals();
   const { goals, createGoal, updateGoal, deleteGoal } = useAgentGoals();
-  const [activeTab, setActiveTab] = useState('pipeline');
+  const [activeTab, setActiveTab] = useState('overview');
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<AgentGoal | null>(null);
   const [filterGoalId, setFilterGoalId] = useState<string | null>(null);
@@ -230,6 +233,9 @@ export default function AgentDashboard() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
+            <TabsTrigger value="overview" className="gap-1.5 text-xs">
+              <BarChart3 className="w-3.5 h-3.5" /> Tổng quan
+            </TabsTrigger>
             <TabsTrigger value="pipeline" className="gap-1.5 text-xs">
               <LayoutGrid className="w-3.5 h-3.5" /> Pipeline
             </TabsTrigger>
@@ -246,6 +252,10 @@ export default function AgentDashboard() {
               <BarChart3 className="w-3.5 h-3.5" /> Kế hoạch
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="overview" className="mt-4">
+            <AICampaignOverview goals={goals} pipelines={pipelines} plans={plans} />
+          </TabsContent>
 
           <TabsContent value="pipeline" className="mt-4">
             {goals.length > 0 && (
