@@ -22,6 +22,7 @@ import { AgentGoal, AgentPipelineStage, AUTONOMY_LEVELS } from '@/types/agent';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
+import { parseEdgeFunctionError } from '@/lib/edgeFunctionErrors';
 
 export default function AgentDashboard() {
   const { currentOrganization } = useOrganizationContext();
@@ -77,8 +78,8 @@ export default function AgentDashboard() {
         });
 
         if (error) {
-          console.error('Strategy error:', error);
-          toast.error('Lỗi khi lên kế hoạch: ' + (error.message || 'Unknown'));
+          const parsedError = parseEdgeFunctionError(error, 'Không thể tạo kế hoạch nội dung');
+          toast.error(parsedError.message);
           return;
         }
 
@@ -128,7 +129,11 @@ export default function AgentDashboard() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        const parsedError = parseEdgeFunctionError(error, 'Không thể tạo kế hoạch');
+        toast.error(parsedError.message);
+        return;
+      }
 
       if (result?.approval_mode === 'full_auto') {
         toast.success(`Đã tạo ${result?.pipelines_created || 0} pipeline tự động`);
@@ -137,7 +142,8 @@ export default function AgentDashboard() {
         setActiveTab('campaign-plans');
       }
     } catch (e) {
-      toast.error('Không thể tạo kế hoạch');
+      const parsedError = parseEdgeFunctionError(e, 'Không thể tạo kế hoạch');
+      toast.error(parsedError.message);
     } finally {
       setTriggeringGoalId(null);
     }

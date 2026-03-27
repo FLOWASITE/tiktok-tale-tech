@@ -142,10 +142,11 @@ Deno.serve(async (req) => {
     // Fetch agent model config for strategy stage
     let strategyModel = "google/gemini-3-flash-preview"; // default
     let strategyTemperature: number | undefined;
+    let strategyFallbackModel: string | undefined;
     try {
       const { data: agentConfig } = await supabase
         .from("ai_agent_model_configs")
-        .select("model_override, temperature, is_enabled")
+        .select("model_override, temperature, fallback_model, is_enabled")
         .eq("organization_id", organization_id)
         .eq("agent_name", "strategy")
         .eq("is_enabled", true)
@@ -156,6 +157,9 @@ Deno.serve(async (req) => {
       }
       if (agentConfig?.temperature) {
         strategyTemperature = agentConfig.temperature;
+      }
+      if (agentConfig?.fallback_model) {
+        strategyFallbackModel = agentConfig.fallback_model;
       }
     } catch (e) {
       console.warn("[generate-campaign-strategy] Failed to fetch agent config, using default:", e);
@@ -221,7 +225,7 @@ Deno.serve(async (req) => {
 
     // Call AI via callAIWithMetrics — routes to correct provider based on model prefix
     console.log(`[generate-campaign-strategy] Calling AI with model: ${strategyModel}`);
-    const aiResult = await callAIWithMetrics(supabase, {
+    let aiResult = await callAIWithMetrics(supabase, {
       functionName: 'generate-campaign-strategy',
       organizationId: organization_id,
       actionType: 'strategy',
@@ -296,13 +300,109 @@ Deno.serve(async (req) => {
       toolChoice: { type: "function", function: { name: "generate_campaign_plan" } },
     });
 
+    // Graceful fallback for exhausted workspace credits on primary provider
+    if (!aiResult.success) {
+      const primaryError = aiResult.error || "AI call failed";
+      const isCreditsError =
+        primaryError.includes("Payment") ||
+        primaryError.includes("402") ||
+        primaryError.includes("Not enough credits");
+
+      const fallbackModel =
+        strategyFallbackModel || (strategyModel !== "qwen-plus" ? "qwen-plus" : undefined);
+
+      if (isCreditsError && fallbackModel && fallbackModel !== strategyModel) {
+        console.warn(`[generate-campaign-strategy] Primary model credits exhausted, retrying with fallback model: ${fallbackModel}`);
+        const fallbackResult = await callAIWithMetrics(supabase, {
+          functionName: 'generate-campaign-strategy',
+          organizationId: organization_id,
+          actionType: 'strategy',
+          modelOverride: fallbackModel,
+          ...(strategyTemperature && { temperatureOverride: strategyTemperature }),
+          messages: [
+            { role: "system", content: systemPrompt },
+            {
+              role: "user",
+              content: `Create a detailed content plan for the campaign "${campaign_title}". Return the plan using the generate_campaign_plan tool.`,
+            },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "generate_campaign_plan",
+                description: "Generate a structured content campaign plan",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    plan: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          piece_number: { type: "number" },
+                          title: { type: "string" },
+                          angle: {
+                            type: "string",
+                            enum: [
+                              "educational", "comparison", "case_study",
+                              "behind_the_scenes", "tips_tricks", "myth_busting",
+                              "testimonial", "seasonal_hook", "cta_offer", "storytelling",
+                            ],
+                          },
+                          content_type: {
+                            type: "string",
+                            enum: ["multichannel", "video_script", "carousel"],
+                            description: "Type of content to generate. multichannel=article/post, video_script=short video, carousel=multi-slide visual",
+                          },
+                          target_channel: { type: "string" },
+                          content_role: { type: "string", enum: ["seed", "sprout", "harvest"] },
+                          format: { type: "string", enum: ["post", "carousel", "video_script", "email"] },
+                          scheduled_date: { type: "string", description: "YYYY-MM-DD" },
+                          key_message: { type: "string" },
+                          estimated_length: { type: "string", enum: ["short", "medium", "long"] },
+                          pillar: { type: "string", description: "Content pillar this piece belongs to (must match pillar names from brief)" },
+                        },
+                        required: [
+                          "piece_number", "title", "angle", "content_type", "target_channel",
+                          "content_role", "format", "scheduled_date", "key_message",
+                        ],
+                      },
+                    },
+                    strategy_summary: { type: "string" },
+                    content_mix: {
+                      type: "object",
+                      properties: {
+                        seed: { type: "number" },
+                        sprout: { type: "number" },
+                        harvest: { type: "number" },
+                      },
+                      required: ["seed", "sprout", "harvest"],
+                    },
+                  },
+                  required: ["plan", "strategy_summary", "content_mix"],
+                },
+              },
+            },
+          ],
+          toolChoice: { type: "function", function: { name: "generate_campaign_plan" } },
+        });
+
+        if (fallbackResult.success) {
+          aiResult = fallbackResult;
+        } else {
+          console.error("Fallback AI call error:", fallbackResult.error);
+        }
+      }
+    }
+
     if (!aiResult.success) {
       const errorMsg = aiResult.error || "AI call failed";
       console.error("AI call error:", errorMsg);
 
       if (errorMsg.includes("Rate limit") || errorMsg.includes("429")) {
         return new Response(
-          JSON.stringify({ success: false, error: "Rate limit exceeded. Vui lòng thử lại sau.", errorCode: "RATE_LIMITED" }),
+          JSON.stringify({ success: false, error: "Rate limit exceeded. Vui lòng thử lại sau.", errorCode: "RATE_LIMIT" }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
