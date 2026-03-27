@@ -1006,8 +1006,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
                   <div className="space-y-1.5 text-xs border-t pt-3">
                     <Label className="text-xs font-medium">Tóm tắt cài đặt</Label>
                     <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Tên</span><span className="font-medium truncate ml-2 max-w-[60%] text-right">{name}</span></div>
-                    <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Chế độ duyệt</span><span className="font-medium">{APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label}</span></div>
-                    <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Tự động</span><span className="font-medium">{AUTONOMY_LEVELS.find(l => l.id === autonomyLevel)?.label}</span></div>
+                    <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Chế độ</span><span className="font-medium">{APPROVAL_MODE_OPTIONS.find(o => o.value === approvalMode)?.label}</span></div>
                     {totalBudget > 0 && (
                       <div className="flex justify-between py-1 border-b"><span className="text-muted-foreground">Ngân sách</span><span className="font-medium">{totalBudget.toLocaleString('vi-VN')} VNĐ</span></div>
                     )}
