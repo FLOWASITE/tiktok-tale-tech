@@ -550,8 +550,174 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
         {/* Step content */}
         <div className="px-5 pb-5 min-h-[200px] max-h-[55vh] overflow-y-auto">
 
+          {/* ═══ Generating Progress UI ═══ */}
+          {isGenerating && (
+            <div className="space-y-6 py-4">
+              {/* Progress Steps */}
+              <div className="relative pl-8">
+                {/* Vertical line */}
+                <div className="absolute left-[11px] top-3 bottom-3 w-px bg-border" />
+                
+                <div className="space-y-4">
+                  {/* Step 1: Save goal */}
+                  <div className="relative flex items-start gap-3">
+                    <div className="absolute -left-8 mt-0.5 flex items-center justify-center">
+                      <div className={cn(
+                        "h-[22px] w-[22px] rounded-full flex items-center justify-center transition-all duration-500",
+                        generatingStatus === 'saving' ? "bg-primary/20 border-2 border-primary" : "bg-primary text-primary-foreground"
+                      )}>
+                        {generatingStatus === 'saving' ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                        ) : (
+                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
+                            <Check className="h-3 w-3" />
+                          </motion.div>
+                        )}
+                      </div>
+                    </div>
+                    <div className={cn(
+                      "flex items-center gap-2 py-1.5 px-3 rounded-lg text-sm transition-all",
+                      generatingStatus === 'saving' ? "bg-primary/5 text-primary font-medium" : "text-muted-foreground"
+                    )}>
+                      <Save className="h-3.5 w-3.5" />
+                      <span>Lưu campaign goal</span>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Generate strategy */}
+                  <div className="relative flex items-start gap-3">
+                    <div className="absolute -left-8 mt-0.5 flex items-center justify-center">
+                      <div className={cn(
+                        "h-[22px] w-[22px] rounded-full flex items-center justify-center transition-all duration-500",
+                        generatingStatus === 'saving' && "bg-muted border border-border",
+                        generatingStatus === 'generating' && "bg-primary/20 border-2 border-primary",
+                        (generatingStatus === 'done' || generatingStatus === 'error') && (generatingStatus === 'done' ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground")
+                      )}>
+                        {generatingStatus === 'saving' ? (
+                          <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+                        ) : generatingStatus === 'generating' ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                        ) : generatingStatus === 'done' ? (
+                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
+                            <Check className="h-3 w-3" />
+                          </motion.div>
+                        ) : (
+                          <AlertCircle className="h-3 w-3" />
+                        )}
+                      </div>
+                    </div>
+                    <div className={cn(
+                      "flex items-center gap-2 py-1.5 px-3 rounded-lg text-sm transition-all",
+                      generatingStatus === 'generating' ? "bg-primary/5 text-primary font-medium" :
+                      generatingStatus === 'done' ? "text-muted-foreground" :
+                      generatingStatus === 'error' ? "text-destructive" :
+                      "text-muted-foreground/50"
+                    )}>
+                      <Brain className="h-3.5 w-3.5" />
+                      <span>AI đang lên kế hoạch nội dung</span>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Complete */}
+                  <div className="relative flex items-start gap-3">
+                    <div className="absolute -left-8 mt-0.5 flex items-center justify-center">
+                      <div className={cn(
+                        "h-[22px] w-[22px] rounded-full flex items-center justify-center transition-all duration-500",
+                        generatingStatus === 'done' ? "bg-primary text-primary-foreground" : "bg-muted border border-border"
+                      )}>
+                        {generatingStatus === 'done' ? (
+                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
+                            <CheckCircle2 className="h-3 w-3" />
+                          </motion.div>
+                        ) : (
+                          <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+                        )}
+                      </div>
+                    </div>
+                    <div className={cn(
+                      "flex items-center gap-2 py-1.5 px-3 rounded-lg text-sm transition-all",
+                      generatingStatus === 'done' ? "text-primary font-medium" : "text-muted-foreground/50"
+                    )}>
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>Hoàn tất</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Generating animation */}
+              {generatingStatus === 'generating' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center justify-center gap-2 text-xs text-muted-foreground"
+                >
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                  <span>AI đang phân tích & lên lịch nội dung...</span>
+                </motion.div>
+              )}
+
+              {/* Error state */}
+              {generatingStatus === 'error' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2"
+                >
+                  <div className="flex items-center gap-2 text-sm text-destructive font-medium">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Không thể tạo kế hoạch</span>
+                  </div>
+                  <p className="text-xs text-destructive/80">{generationError}</p>
+                </motion.div>
+              )}
+
+              {/* Done state — results */}
+              {generatingStatus === 'done' && generationResult && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="space-y-3"
+                >
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/15 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-primary" />
+                      <span className="text-sm font-semibold">Chiến dịch đã sẵn sàng!</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="text-center p-2 rounded-lg bg-background/60">
+                        <p className="text-lg font-bold text-primary tabular-nums">
+                          {generationResult.approval_mode === 'full_auto' 
+                            ? generationResult.pipelines_created || 0
+                            : generationResult.total_pieces || 0}
+                        </p>
+                        <p className="text-[9px] text-muted-foreground">
+                          {generationResult.approval_mode === 'full_auto' ? 'Pipeline' : 'Bài viết'}
+                        </p>
+                      </div>
+                      <div className="text-center p-2 rounded-lg bg-background/60">
+                        <p className="text-lg font-bold text-primary tabular-nums">{selectedChannels.length}</p>
+                        <p className="text-[9px] text-muted-foreground">Kênh</p>
+                      </div>
+                      <div className="text-center p-2 rounded-lg bg-background/60">
+                        <p className="text-lg font-bold text-primary tabular-nums">{effectiveDuration}</p>
+                        <p className="text-[9px] text-muted-foreground">Ngày</p>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      {generationResult.approval_mode === 'full_auto' 
+                        ? '🚀 Pipeline đã được tạo tự động và đang chạy.'
+                        : '📋 Kế hoạch đã sẵn sàng để bạn xem và duyệt.'}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          )}
+
           {/* ═══ Step 0: Mục tiêu ═══ */}
-          {step === 0 && (
+          {!isGenerating && step === 0 && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs">Tên chiến dịch *</Label>
