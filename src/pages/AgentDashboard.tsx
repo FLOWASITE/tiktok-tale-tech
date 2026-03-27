@@ -43,59 +43,58 @@ export default function AgentDashboard() {
     return map;
   }, [goals]);
 
-  const handleCreateGoal = async (data: Parameters<typeof createGoal.mutateAsync>[0]) => {
-    try {
-      await createGoal.mutateAsync(data);
-      setWizardOpen(false);
-      setEditingGoal(null);
+  const handleSaveGoal = async (data: Parameters<typeof createGoal.mutateAsync>[0]): Promise<string> => {
+    await createGoal.mutateAsync(data);
+    // Fetch newly created goal id
+    const goalsList = await supabase
+      .from('agent_goals')
+      .select('id')
+      .eq('organization_id', currentOrganization?.id || '')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    const newGoalId = goalsList.data?.[0]?.id;
+    if (!newGoalId) throw new Error('Không tìm thấy goal vừa tạo');
+    return newGoalId;
+  };
 
-      // Fetch newly created goal
-      const goalsList = await supabase
-        .from('agent_goals')
-        .select('id')
-        .eq('organization_id', currentOrganization?.id || '')
-        .order('created_at', { ascending: false })
-        .limit(1);
-      const newGoalId = goalsList.data?.[0]?.id;
+  const handleGenerateStrategy = async (goalId: string, data: {
+    name: string;
+    description?: string;
+    target_channels: string[];
+    campaign_duration_days?: number;
+    campaign_start_date?: string;
+    approval_mode?: string;
+    brand_template_id?: string;
+    clarification_context?: Record<string, string>;
+  }): Promise<{ total_pieces?: number; pipelines_created?: number; approval_mode?: string }> => {
+    const { data: result, error } = await supabase.functions.invoke('generate-campaign-strategy', {
+      body: {
+        goal_id: goalId,
+        campaign_title: data.name,
+        campaign_description: data.description || '',
+        target_channels: data.target_channels || [],
+        campaign_duration_days: data.campaign_duration_days || 14,
+        campaign_start_date: data.campaign_start_date || new Date().toISOString().split('T')[0],
+        approval_mode: data.approval_mode || 'approve_plan',
+        brand_template_id: data.brand_template_id || null,
+        clarification_context: data.clarification_context || null,
+        organization_id: currentOrganization?.id,
+      },
+    });
+    if (error) {
+      const parsedError = parseEdgeFunctionError(error, 'Không thể tạo kế hoạch nội dung');
+      throw new Error(parsedError.message);
+    }
+    return result || {};
+  };
 
-      if (newGoalId) {
-        toast.info('Đang lên kế hoạch nội dung...');
-
-        // Call generate-campaign-strategy directly
-        const { data: result, error } = await supabase.functions.invoke('generate-campaign-strategy', {
-          body: {
-            goal_id: newGoalId,
-            campaign_title: data.name,
-            campaign_description: data.description || '',
-            target_channels: data.target_channels || [],
-            campaign_duration_days: data.campaign_duration_days || 14,
-            campaign_start_date: data.campaign_start_date || new Date().toISOString().split('T')[0],
-            approval_mode: data.approval_mode || 'approve_plan',
-            brand_template_id: data.brand_template_id || null,
-            clarification_context: data.clarification_context || null,
-            organization_id: currentOrganization?.id,
-          },
-        });
-
-        if (error) {
-          const parsedError = parseEdgeFunctionError(error, 'Không thể tạo kế hoạch nội dung');
-          toast.error(parsedError.message);
-          return;
-        }
-
-        const approvalMode = result?.approval_mode || data.approval_mode;
-        if (approvalMode === 'full_auto') {
-          toast.success(`Đã tạo ${result?.pipelines_created || 0} pipeline tự động`);
-          setActiveTab('pipeline');
-        } else {
-          toast.success(`Đã lên kế hoạch ${result?.total_pieces || 0} bài viết`);
-          // Switch to campaign plans tab for user to review
-          setActiveTab('campaign-plans');
-        }
-      }
-    } catch (e) {
-      console.error('Create goal error:', e);
-      toast.error('Không thể tạo campaign');
+  const handleWizardComplete = (result: { approval_mode?: string; total_pieces?: number; pipelines_created?: number }) => {
+    setWizardOpen(false);
+    setEditingGoal(null);
+    if (result.approval_mode === 'full_auto') {
+      setActiveTab('pipeline');
+    } else {
+      setActiveTab('campaign-plans');
     }
   };
 
@@ -377,7 +376,9 @@ export default function AgentDashboard() {
         <GoalWizard
           open={wizardOpen}
           onOpenChange={(open) => { setWizardOpen(open); if (!open) setEditingGoal(null); }}
-          onSubmit={handleCreateGoal}
+          onSaveGoal={handleSaveGoal}
+          onGenerateStrategy={handleGenerateStrategy}
+          onComplete={handleWizardComplete}
           initialData={editingGoal}
         />
       </div>

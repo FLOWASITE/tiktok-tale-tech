@@ -8,11 +8,13 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Target, Radio, Eye, ChevronLeft, ChevronRight, 
   Check, Sparkles, ShieldCheck, Zap, Bot, X, Plus, MessageSquare,
   Megaphone, Heart, Link2, ClipboardList, DollarSign, RefreshCw,
-  PieChart, TrendingUp, Settings2, FileText, Images, Video
+  PieChart, TrendingUp, Settings2, FileText, Images, Video,
+  Loader2, CheckCircle2, AlertCircle, ArrowRight, Save, Brain
 } from 'lucide-react';
 import { AgentAutonomyLevel, AgentGoal, AUTONOMY_LEVELS } from '@/types/agent';
 import { supabase } from '@/integrations/supabase/client';
@@ -169,29 +171,50 @@ const LEARNING_SPEED_OPTIONS = [
 
 // ─── Types ───
 
+type GoalSubmitData = {
+  name: string;
+  description?: string;
+  target_topics: string[];
+  target_channels: string[];
+  frequency: Record<string, string>;
+  autonomy_level: AgentAutonomyLevel;
+  brand_template_id?: string;
+  campaign_id?: string;
+  clarification_context?: Record<string, string>;
+  campaign_duration_days?: number;
+  campaign_start_date?: string;
+  approval_mode?: string;
+};
+
+type GeneratingStatus = 'idle' | 'saving' | 'generating' | 'done' | 'error';
+
+interface GenerationResult {
+  total_pieces?: number;
+  pipelines_created?: number;
+  approval_mode?: string;
+}
+
 interface GoalWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: {
+  onSaveGoal: (data: GoalSubmitData) => Promise<string>;
+  onGenerateStrategy: (goalId: string, data: {
     name: string;
     description?: string;
-    target_topics: string[];
     target_channels: string[];
-    frequency: Record<string, string>;
-    autonomy_level: AgentAutonomyLevel;
-    brand_template_id?: string;
-    campaign_id?: string;
-    clarification_context?: Record<string, string>;
     campaign_duration_days?: number;
     campaign_start_date?: string;
     approval_mode?: string;
-  }) => void;
+    brand_template_id?: string;
+    clarification_context?: Record<string, string>;
+  }) => Promise<GenerationResult>;
+  onComplete: (result: GenerationResult) => void;
   initialData?: AgentGoal | null;
 }
 
 // ─── Component ───
 
-export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWizardProps) {
+export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy, onComplete, initialData }: GoalWizardProps) {
   const { currentOrganization } = useOrganizationContext();
   const { currentBrand } = useCurrentBrand();
   const [step, setStep] = useState(0);
@@ -238,6 +261,11 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   const [clarificationUnderstanding, setClarificationUnderstanding] = useState<string | null>(null);
   const [clarificationContext, setClarificationContext] = useState<Record<string, string> | null>(null);
 
+  // Generating state
+  const [generatingStatus, setGeneratingStatus] = useState<GeneratingStatus>('idle');
+  const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+
   // ─── Derived ───
   const industrySuggestions = useMemo(() => {
     const industry = (Array.isArray(currentBrand?.industry) ? currentBrand.industry[0] : currentBrand?.industry)?.toLowerCase() || '';
@@ -245,7 +273,6 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     for (const [key, vals] of Object.entries(INDUSTRY_SUGGESTIONS)) {
       if (industry.includes(key)) { suggestions = vals; break; }
     }
-    // Merge objective-based suggestions
     const objSuggestions = OBJECTIVE_SUGGESTIONS[selectedObjective || ''] || [];
     const merged = [...suggestions];
     objSuggestions.forEach(s => { if (!merged.includes(s)) merged.push(s); });
@@ -259,7 +286,8 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
   const effectiveDuration = campaignDurationDays > 0 ? campaignDurationDays : parseInt(customDuration) || 14;
   const isEditing = !!initialData;
   const confirmStep = STEPS.length - 1;
-  const showClarification = step === confirmStep && (clarifying || clarificationQuestions || clarificationUnderstanding);
+  const showClarification = step === confirmStep && generatingStatus === 'idle' && (clarifying || clarificationQuestions || clarificationUnderstanding);
+  const isGenerating = generatingStatus !== 'idle';
   const pillarEntries = Object.entries(pillarAllocation);
   const pillarTotal = pillarEntries.reduce((s, [, v]) => s + v, 0);
 
@@ -323,6 +351,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     setAutoApproveEnabled(false); setThresholdQuality(70); setThresholdRiskMax(30); setThresholdGeo(60);
     setBrandVoiceThreshold(70); setLearningSpeed('balanced');
     setBrandTemplateId(currentBrand?.id || ''); setCampaignId(undefined);
+    setGeneratingStatus('idle'); setGenerationResult(null); setGenerationError(null);
     setClarifying(false); setClarificationQuestions(null); setClarificationUnderstanding(null); setClarificationContext(null);
   };
 
@@ -417,7 +446,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
     }
   };
 
-  const finalSubmit = (context: Record<string, string> | null) => {
+  const finalSubmit = async (context: Record<string, string> | null) => {
     const baseContext = context || clarificationContext || {};
     const briefContext: Record<string, any> = { ...baseContext };
     if (selectedObjective) briefContext.objective = selectedObjective;
@@ -434,7 +463,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
       briefContext.auto_approve_rules = { enabled: true, min_quality: thresholdQuality, max_risk: thresholdRiskMax, min_geo: thresholdGeo };
     }
     const hasContext = Object.keys(briefContext).length > 0;
-    onSubmit({
+    const submitData: GoalSubmitData = {
       name: name.trim(),
       description: description.trim() || undefined,
       target_topics: [],
@@ -447,7 +476,35 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
       campaign_duration_days: effectiveDuration,
       campaign_start_date: campaignStartDate,
       approval_mode: approvalMode,
-    });
+    };
+
+    // Start generating flow inside dialog
+    setGeneratingStatus('saving');
+    setGenerationError(null);
+    setGenerationResult(null);
+
+    try {
+      const goalId = await onSaveGoal(submitData);
+      setGeneratingStatus('generating');
+      
+      const result = await onGenerateStrategy(goalId, {
+        name: submitData.name,
+        description: submitData.description,
+        target_channels: submitData.target_channels,
+        campaign_duration_days: submitData.campaign_duration_days,
+        campaign_start_date: submitData.campaign_start_date,
+        approval_mode: submitData.approval_mode,
+        brand_template_id: submitData.brand_template_id,
+        clarification_context: submitData.clarification_context,
+      });
+      
+      setGenerationResult(result);
+      setGeneratingStatus('done');
+    } catch (e: any) {
+      console.error('Campaign generation error:', e);
+      setGenerationError(e?.message || 'Đã xảy ra lỗi');
+      setGeneratingStatus('error');
+    }
   };
 
   const handleClarificationSubmit = (answers: Record<string, string>) => { setClarificationContext(answers); finalSubmit(answers); };
@@ -457,42 +514,210 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden" onInteractOutside={(e) => { if (isGenerating) e.preventDefault(); }}>
         <DialogHeader className="px-5 pt-5 pb-3">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Sparkles className="w-4 h-4 text-primary" />
-            {isEditing ? 'Chỉnh sửa Campaign' : 'Tạo AI Campaign'}
+            {isGenerating ? 'Đang tạo chiến dịch...' : isEditing ? 'Chỉnh sửa Campaign' : 'Tạo AI Campaign'}
           </DialogTitle>
         </DialogHeader>
 
-        {/* Step indicator */}
-        <div className="flex items-center gap-1 px-5 pb-4">
-          {STEPS.map((s, i) => (
-            <div key={i} className="flex items-center gap-1 flex-1">
-              <button
-                onClick={() => i < step && setStep(i)}
-                className={cn(
-                  "flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full transition-all",
-                  i === step ? "bg-primary text-primary-foreground" :
-                  i < step ? "bg-primary/10 text-primary cursor-pointer" :
-                  "bg-muted text-muted-foreground"
+        {/* Step indicator — hide when generating */}
+        {!isGenerating && (
+          <div className="flex items-center gap-1 px-5 pb-4">
+            {STEPS.map((s, i) => (
+              <div key={i} className="flex items-center gap-1 flex-1">
+                <button
+                  onClick={() => i < step && setStep(i)}
+                  className={cn(
+                    "flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full transition-all",
+                    i === step ? "bg-primary text-primary-foreground" :
+                    i < step ? "bg-primary/10 text-primary cursor-pointer" :
+                    "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {i < step ? <Check className="w-3 h-3" /> : <s.icon className="w-3 h-3" />}
+                  <span className="hidden sm:inline">{s.label}</span>
+                </button>
+                {i < STEPS.length - 1 && (
+                  <div className={cn("h-px flex-1", i < step ? "bg-primary/30" : "bg-border")} />
                 )}
-              >
-                {i < step ? <Check className="w-3 h-3" /> : <s.icon className="w-3 h-3" />}
-                <span className="hidden sm:inline">{s.label}</span>
-              </button>
-              {i < STEPS.length - 1 && (
-                <div className={cn("h-px flex-1", i < step ? "bg-primary/30" : "bg-border")} />
-              )}
-            </div>
-          ))}
-        </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Step content */}
         <div className="px-5 pb-5 min-h-[200px] max-h-[55vh] overflow-y-auto">
 
+          {/* ═══ Generating Progress UI ═══ */}
+          {isGenerating && (
+            <div className="space-y-6 py-4">
+              {/* Progress Steps */}
+              <div className="relative pl-8">
+                {/* Vertical line */}
+                <div className="absolute left-[11px] top-3 bottom-3 w-px bg-border" />
+                
+                <div className="space-y-4">
+                  {/* Step 1: Save goal */}
+                  <div className="relative flex items-start gap-3">
+                    <div className="absolute -left-8 mt-0.5 flex items-center justify-center">
+                      <div className={cn(
+                        "h-[22px] w-[22px] rounded-full flex items-center justify-center transition-all duration-500",
+                        generatingStatus === 'saving' ? "bg-primary/20 border-2 border-primary" : "bg-primary text-primary-foreground"
+                      )}>
+                        {generatingStatus === 'saving' ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                        ) : (
+                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
+                            <Check className="h-3 w-3" />
+                          </motion.div>
+                        )}
+                      </div>
+                    </div>
+                    <div className={cn(
+                      "flex items-center gap-2 py-1.5 px-3 rounded-lg text-sm transition-all",
+                      generatingStatus === 'saving' ? "bg-primary/5 text-primary font-medium" : "text-muted-foreground"
+                    )}>
+                      <Save className="h-3.5 w-3.5" />
+                      <span>Lưu campaign goal</span>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Generate strategy */}
+                  <div className="relative flex items-start gap-3">
+                    <div className="absolute -left-8 mt-0.5 flex items-center justify-center">
+                      <div className={cn(
+                        "h-[22px] w-[22px] rounded-full flex items-center justify-center transition-all duration-500",
+                        generatingStatus === 'saving' && "bg-muted border border-border",
+                        generatingStatus === 'generating' && "bg-primary/20 border-2 border-primary",
+                        (generatingStatus === 'done' || generatingStatus === 'error') && (generatingStatus === 'done' ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground")
+                      )}>
+                        {generatingStatus === 'saving' ? (
+                          <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+                        ) : generatingStatus === 'generating' ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                        ) : generatingStatus === 'done' ? (
+                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
+                            <Check className="h-3 w-3" />
+                          </motion.div>
+                        ) : (
+                          <AlertCircle className="h-3 w-3" />
+                        )}
+                      </div>
+                    </div>
+                    <div className={cn(
+                      "flex items-center gap-2 py-1.5 px-3 rounded-lg text-sm transition-all",
+                      generatingStatus === 'generating' ? "bg-primary/5 text-primary font-medium" :
+                      generatingStatus === 'done' ? "text-muted-foreground" :
+                      generatingStatus === 'error' ? "text-destructive" :
+                      "text-muted-foreground/50"
+                    )}>
+                      <Brain className="h-3.5 w-3.5" />
+                      <span>AI đang lên kế hoạch nội dung</span>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Complete */}
+                  <div className="relative flex items-start gap-3">
+                    <div className="absolute -left-8 mt-0.5 flex items-center justify-center">
+                      <div className={cn(
+                        "h-[22px] w-[22px] rounded-full flex items-center justify-center transition-all duration-500",
+                        generatingStatus === 'done' ? "bg-primary text-primary-foreground" : "bg-muted border border-border"
+                      )}>
+                        {generatingStatus === 'done' ? (
+                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
+                            <CheckCircle2 className="h-3 w-3" />
+                          </motion.div>
+                        ) : (
+                          <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+                        )}
+                      </div>
+                    </div>
+                    <div className={cn(
+                      "flex items-center gap-2 py-1.5 px-3 rounded-lg text-sm transition-all",
+                      generatingStatus === 'done' ? "text-primary font-medium" : "text-muted-foreground/50"
+                    )}>
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>Hoàn tất</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Generating animation */}
+              {generatingStatus === 'generating' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center justify-center gap-2 text-xs text-muted-foreground"
+                >
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                  <span>AI đang phân tích & lên lịch nội dung...</span>
+                </motion.div>
+              )}
+
+              {/* Error state */}
+              {generatingStatus === 'error' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 space-y-2"
+                >
+                  <div className="flex items-center gap-2 text-sm text-destructive font-medium">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Không thể tạo kế hoạch</span>
+                  </div>
+                  <p className="text-xs text-destructive/80">{generationError}</p>
+                </motion.div>
+              )}
+
+              {/* Done state — results */}
+              {generatingStatus === 'done' && generationResult && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="space-y-3"
+                >
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/15 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-primary" />
+                      <span className="text-sm font-semibold">Chiến dịch đã sẵn sàng!</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="text-center p-2 rounded-lg bg-background/60">
+                        <p className="text-lg font-bold text-primary tabular-nums">
+                          {generationResult.approval_mode === 'full_auto' 
+                            ? generationResult.pipelines_created || 0
+                            : generationResult.total_pieces || 0}
+                        </p>
+                        <p className="text-[9px] text-muted-foreground">
+                          {generationResult.approval_mode === 'full_auto' ? 'Pipeline' : 'Bài viết'}
+                        </p>
+                      </div>
+                      <div className="text-center p-2 rounded-lg bg-background/60">
+                        <p className="text-lg font-bold text-primary tabular-nums">{selectedChannels.length}</p>
+                        <p className="text-[9px] text-muted-foreground">Kênh</p>
+                      </div>
+                      <div className="text-center p-2 rounded-lg bg-background/60">
+                        <p className="text-lg font-bold text-primary tabular-nums">{effectiveDuration}</p>
+                        <p className="text-[9px] text-muted-foreground">Ngày</p>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      {generationResult.approval_mode === 'full_auto' 
+                        ? '🚀 Pipeline đã được tạo tự động và đang chạy.'
+                        : '📋 Kế hoạch đã sẵn sàng để bạn xem và duyệt.'}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          )}
+
           {/* ═══ Step 0: Mục tiêu ═══ */}
-          {step === 0 && (
+          {!isGenerating && step === 0 && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs">Tên chiến dịch *</Label>
@@ -567,7 +792,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
           )}
 
           {/* ═══ Step 1: Chiến lược ═══ */}
-          {step === 1 && (
+          {!isGenerating && step === 1 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-medium">Chiến lược nội dung</Label>
@@ -763,7 +988,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
           )}
 
           {/* ═══ Step 2: Kênh ═══ */}
-          {step === 2 && (
+          {!isGenerating && step === 2 && (
             <div className="space-y-4">
               <Label className="text-xs">Bạn muốn đăng bài ở đâu?</Label>
               <p className="text-[10px] text-muted-foreground mb-1">Chọn kênh mà bạn muốn AI tạo nội dung.</p>
@@ -786,7 +1011,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
           )}
 
           {/* ═══ Step 3: Tự động ═══ */}
-          {step === 3 && (
+          {!isGenerating && step === 3 && (
             <div className="space-y-3">
               {/* Approval Mode — single unified control */}
               <Label className="text-xs">AI hoạt động như thế nào?</Label>
@@ -888,7 +1113,7 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
           )}
 
           {/* ═══ Step 4: Xác nhận ═══ */}
-          {step === confirmStep && (
+          {!isGenerating && step === confirmStep && (
             <div className="space-y-3">
               {showClarification ? (
                 <ClarificationStep
@@ -1035,18 +1260,41 @@ export function GoalWizard({ open, onOpenChange, onSubmit, initialData }: GoalWi
 
         {/* Footer */}
         <div className="flex items-center justify-between px-5 py-3 border-t bg-muted/30">
-          <Button variant="ghost" size="sm" onClick={() => { setStep(s => s - 1); setClarificationQuestions(null); setClarificationUnderstanding(null); }} disabled={step === 0} className="text-xs gap-1">
-            <ChevronLeft className="w-3.5 h-3.5" /> Quay lại
-          </Button>
-          {step < confirmStep ? (
-            <Button size="sm" onClick={() => setStep(s => s + 1)} disabled={!canNext()} className="text-xs gap-1">
-              Tiếp theo <ChevronRight className="w-3.5 h-3.5" />
-            </Button>
-          ) : !showClarification ? (
-            <Button size="sm" onClick={handleConfirmStep} disabled={clarifying} className="text-xs gap-1">
-              <Zap className="w-3.5 h-3.5" /> {isEditing ? 'Cập nhật Campaign' : 'Khởi chạy Campaign'}
-            </Button>
-          ) : null}
+          {isGenerating ? (
+            <>
+              <div />
+              {generatingStatus === 'done' ? (
+                <Button size="sm" onClick={() => onComplete(generationResult || {})} className="text-xs gap-1.5">
+                  {generationResult?.approval_mode === 'full_auto' ? 'Xem Pipeline' : 'Xem kế hoạch'}
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              ) : generatingStatus === 'error' ? (
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => { setGeneratingStatus('idle'); setGenerationError(null); }} className="text-xs gap-1">
+                    <ChevronLeft className="w-3.5 h-3.5" /> Quay lại
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => onOpenChange(false)} className="text-xs">
+                    Đóng
+                  </Button>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" onClick={() => { setStep(s => s - 1); setClarificationQuestions(null); setClarificationUnderstanding(null); }} disabled={step === 0} className="text-xs gap-1">
+                <ChevronLeft className="w-3.5 h-3.5" /> Quay lại
+              </Button>
+              {step < confirmStep ? (
+                <Button size="sm" onClick={() => setStep(s => s + 1)} disabled={!canNext()} className="text-xs gap-1">
+                  Tiếp theo <ChevronRight className="w-3.5 h-3.5" />
+                </Button>
+              ) : !showClarification ? (
+                <Button size="sm" onClick={handleConfirmStep} disabled={clarifying} className="text-xs gap-1">
+                  <Zap className="w-3.5 h-3.5" /> {isEditing ? 'Cập nhật Campaign' : 'Khởi chạy Campaign'}
+                </Button>
+              ) : null}
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
