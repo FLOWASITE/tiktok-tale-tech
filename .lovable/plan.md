@@ -1,81 +1,41 @@
 
 
-# Tích hợp dynamic-tokens.ts vào cả Agent Mode và Manual Mode
+# Hoàn thiện UI bước xác nhận khi tạo mới Campaign AI
 
-## Vấn đề
+## Hiện trạng
 
-`dynamic-tokens.ts` đã được import (line 32) nhưng **chưa bao giờ được gọi**. Cả hai mode đều dùng token budget cố định:
+Dialog xác nhận hiện tại (line 1088-1108 trong `CampaignCreate.tsx`) chỉ là `AlertDialog` đơn giản với 1 dòng title + 1 dòng description text. Không hiển thị tổng quan dữ liệu campaign để user review trước khi submit.
 
-- **Manual Mode** (line 3868): `modelConfig.maxTokens ?? (includesWebsite ? 12288 : aiConfig.max_tokens)` — cố định, không theo channel
-- **Agent Mode** (line 4285): `channelConfig?.maxTokens ?? aiConfig.max_tokens` — cố định per-channel từ DB config
-
-Kết quả: Instagram nhận cùng token budget với Website, gây lãng phí token và content dài bất thường ở kênh ngắn.
+Trong khi đó, `CampaignCreatePreviewPanel` đã có layout tổng quan đầy đủ nhưng chỉ hiển thị ở sidebar (desktop only, hidden on mobile).
 
 ## Thay đổi
 
-### 1. Manual Mode — `generateAIContentForChannels()` (line ~3868)
+### 1. Tạo component `CampaignConfirmDialog.tsx`
 
-Thay fixed token calculation bằng `calculateTotalMaxTokens()`:
+Thay thế `AlertDialog` đơn giản bằng một `Dialog` đầy đủ hiển thị tổng quan campaign theo phong cách Soft Luxury:
 
-```typescript
-// TRƯỚC:
-const effectiveMaxTokens = modelConfig.maxTokens ?? (includesWebsite ? Math.max(aiConfig.max_tokens, 12288) : aiConfig.max_tokens);
+- **Header**: Icon + title động (Tạo mới / Cập nhật)
+- **Summary sections** (compact, monochromatic):
+  - Tên + Loại chiến dịch (badge)
+  - Thời gian (start → end, duration)
+  - Key Messages + CTA (badges)
+  - KPIs có target > 0 (danh sách metric → target)
+  - Ngân sách
+  - Kênh phân phối (ChannelIcon với brand colors)
+  - Milestones count
+- **Completeness score** (Progress bar + %)
+- **Warnings** nếu thiếu thông tin quan trọng (vàng, icon AlertCircle)
+- **Ready indicator** khi đủ điều kiện (xanh, icon CheckCircle)
+- **Footer**: Nút Hủy + Xác nhận (với loading state)
 
-// SAU:
-const dynamicMaxTokens = calculateTotalMaxTokens(channelsToGenerate, {
-  contentGoal: formData.contentGoal || derivedContentGoal,
-  qualityMode: qualityMode,
-});
-const effectiveMaxTokens = modelConfig.maxTokens ?? Math.max(dynamicMaxTokens, aiConfig.max_tokens);
-```
+### 2. Cập nhật `CampaignCreate.tsx`
 
-### 2. Manual Mode — `channelModelMap` build (line ~4006-4013)
-
-Khi build per-channel config cho parallel generation, inject dynamic tokens:
-
-```typescript
-const maxTokens = channelConfig?.maxTokens ?? calculateChannelMaxTokens(channel, {
-  contentGoal: formData.contentGoal || derivedContentGoal,
-  qualityMode: qualityMode,
-});
-```
-
-### 3. Agent Mode — per-channel token (line ~4285)
-
-Thay cố định bằng dynamic:
-
-```typescript
-// TRƯỚC:
-const maxTokens = channelConfig?.maxTokens ?? aiConfig.max_tokens;
-
-// SAU:
-const maxTokens = channelConfig?.maxTokens ?? calculateChannelMaxTokens(channel, {
-  contentGoal: formData.contentGoal || derivedContentGoal,
-  qualityMode: qualityMode,
-});
-```
-
-### 4. Logging — thêm token budget transparency
-
-Thêm log cho cả hai mode để track dynamic token allocation:
-
-```typescript
-console.log(`[dynamic-tokens] ${channel}: ${maxTokens} tokens (goal=${contentGoal}, quality=${qualityMode})`);
-```
+- Import component mới
+- Thay block `AlertDialog` submit confirm (line 1088-1108) bằng `CampaignConfirmDialog`
+- Truyền props: `formData`, `milestones`, `isEditMode`, `isSubmitting`, `onConfirm`, `open/onOpenChange`
 
 ## File thay đổi
 
-- **Sửa**: `supabase/functions/generate-multichannel/index.ts` — 3 điểm sửa (Manual grouped, Manual parallel, Agent per-channel)
-
-## Tác động
-
-| Channel | Trước (cố định) | Sau (dynamic) | Tiết kiệm |
-|---------|-----------------|---------------|------------|
-| Instagram | 4096 | 500 | -88% |
-| Twitter | 4096 | 400 | -90% |
-| Facebook | 4096 | 2000 | -51% |
-| Website | 4096→12288 | 8000 | -35% |
-| LinkedIn | 4096 | 2500 | -39% |
-
-Admin override (`channelConfig.maxTokens` từ DB) vẫn được ưu tiên cao nhất — dynamic tokens chỉ là fallback thông minh thay vì hardcode.
+- **Tạo**: `src/components/campaign/CampaignConfirmDialog.tsx`
+- **Sửa**: `src/pages/CampaignCreate.tsx` — thay AlertDialog confirm bằng component mới
 
