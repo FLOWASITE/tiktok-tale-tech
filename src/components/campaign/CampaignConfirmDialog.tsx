@@ -37,7 +37,7 @@ import { vi } from 'date-fns/locale';
 interface CampaignConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  formData: CampaignFormData;
+  formData: Partial<CampaignFormData>;
   milestones: MilestoneFormData[];
   isEditMode: boolean;
   isSubmitting: boolean;
@@ -136,14 +136,14 @@ export function CampaignConfirmDialog({
           {warnings.length > 0 ? (
             <div className="space-y-1">
               {warnings.map((w, i) => (
-                <div key={i} className="flex items-center gap-1.5 text-xs text-yellow-600 dark:text-yellow-400">
-                  <AlertCircle className="h-3 w-3 shrink-0" />
+                <div key={i} className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="h-3 w-3 shrink-0 text-amber-500" />
                   <span>{w}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+            <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="h-3.5 w-3.5" />
               <span className="font-medium">Đã điền đầy đủ thông tin</span>
             </div>
