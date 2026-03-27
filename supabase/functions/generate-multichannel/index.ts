@@ -4368,10 +4368,86 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
         }
         
         console.log(`[agent-mode] ✅ ${channelsWithContent.length}/${formData.channels.length} channels have content`);
-        
-        generatedData = agentData;
-        fromCache = false;
-        console.log(`[agent-mode] All channels complete`);
+          return agentData;
+        };
+
+        // P1: SEO post-processing for agent website content
+        const postProcessAgentSEO = (data: any) => {
+          const hasWebsite = formData.channels.includes('website');
+          if (hasWebsite && data.website_content && typeof data.website_content === 'string') {
+            const websiteText = data.website_content;
+            const words = websiteText.split(/\s+/).filter((w: string) => w.length > 0);
+            const wordCount = words.length;
+            
+            // Extract headings from markdown
+            const h1Match = websiteText.match(/^#\s+(.+)$/m);
+            const h2Matches = websiteText.match(/^##\s+(.+)$/gm) || [];
+            const h2s = h2Matches.map((h: string) => h.replace(/^##\s+/, ''));
+            
+            // Extract first paragraph as meta
+            const firstPara = websiteText.split('\n').find((l: string) => l.trim() && !l.startsWith('#'));
+            const metaDesc = firstPara ? firstPara.trim().substring(0, 160) : '';
+            
+            // Simple keyword extraction: most frequent 4+ char word
+            const wordFreq: Record<string, number> = {};
+            words.forEach((w: string) => {
+              const lw = w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+              if (lw.length > 3) wordFreq[lw] = (wordFreq[lw] || 0) + 1;
+            });
+            const focusKeyword = Object.entries(wordFreq).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+            
+            // Calculate keyword density
+            const keywordCount = focusKeyword ? words.filter((w: string) => w.toLowerCase().includes(focusKeyword)).length : 0;
+            const keywordDensity = wordCount > 0 ? Math.round((keywordCount / wordCount) * 100 * 100) / 100 : 0;
+            
+            // Calculate SEO score
+            let seoScore = 0;
+            if (h1Match) seoScore += 15;
+            if (h2s.length >= 4) seoScore += 10; else if (h2s.length >= 2) seoScore += 7;
+            if (wordCount >= 1000) seoScore += 10; else if (wordCount >= 500) seoScore += 5;
+            if (metaDesc.length >= 50) seoScore += 10;
+            if (focusKeyword) seoScore += 10;
+            if (keywordDensity >= 0.5 && keywordDensity <= 3) seoScore += 10;
+            
+            // Convert plain text to structured SEO object
+            data.website_content = {
+              content: websiteText,
+              seo_title: (h1Match?.[1] || formData.topic).substring(0, 60),
+              meta_description: metaDesc,
+              focus_keyword: focusKeyword,
+              secondary_keywords: Object.entries(wordFreq).sort((a, b) => b[1] - a[1]).slice(1, 5).map(([w]) => w),
+              slug_suggestion: formData.topic.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '-').substring(0, 60),
+              heading_structure: { h1: h1Match?.[1] || formData.topic, h2s },
+              word_count: wordCount,
+              keyword_density_percent: keywordDensity,
+              seo_score_estimate: seoScore,
+              og_title: (h1Match?.[1] || formData.topic).substring(0, 60),
+              og_description: metaDesc,
+              reading_time_minutes: Math.ceil(wordCount / 200),
+            };
+            console.log(`[agent-mode] SEO post-processed: score=${seoScore}, keyword=${focusKeyword}, words=${wordCount}`);
+          }
+          return data;
+        };
+
+        // P2: Use cache wrapper (same as manual mode)
+        const agentCacheResult = await withCache({
+          functionName,
+          scope,
+          organizationId: organizationId || undefined,
+          brandTemplateId: formData.brandTemplateId,
+          input: agentCacheInput,
+          versions: {
+            industryMemory: industryMemory?.version,
+            brandVoice: brandVoice?.formality_level || undefined,
+          },
+          ttlDays,
+          generateFn: generateAgentContent,
+        });
+
+        generatedData = postProcessAgentSEO(agentCacheResult.data);
+        fromCache = agentCacheResult.fromCache;
+        console.log(`[agent-mode] Content: ${fromCache ? 'CACHE HIT' : 'AI GENERATED'}`);
       } else {
       // Generate with retry logic for website content
       // Uses multi-model generation when Admin has configured per-channel models
