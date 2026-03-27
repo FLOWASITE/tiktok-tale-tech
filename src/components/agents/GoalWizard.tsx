@@ -514,36 +514,38 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden" onInteractOutside={(e) => { if (isGenerating) e.preventDefault(); }}>
         <DialogHeader className="px-5 pt-5 pb-3">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Sparkles className="w-4 h-4 text-primary" />
-            {isEditing ? 'Chỉnh sửa Campaign' : 'Tạo AI Campaign'}
+            {isGenerating ? 'Đang tạo chiến dịch...' : isEditing ? 'Chỉnh sửa Campaign' : 'Tạo AI Campaign'}
           </DialogTitle>
         </DialogHeader>
 
-        {/* Step indicator */}
-        <div className="flex items-center gap-1 px-5 pb-4">
-          {STEPS.map((s, i) => (
-            <div key={i} className="flex items-center gap-1 flex-1">
-              <button
-                onClick={() => i < step && setStep(i)}
-                className={cn(
-                  "flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full transition-all",
-                  i === step ? "bg-primary text-primary-foreground" :
-                  i < step ? "bg-primary/10 text-primary cursor-pointer" :
-                  "bg-muted text-muted-foreground"
+        {/* Step indicator — hide when generating */}
+        {!isGenerating && (
+          <div className="flex items-center gap-1 px-5 pb-4">
+            {STEPS.map((s, i) => (
+              <div key={i} className="flex items-center gap-1 flex-1">
+                <button
+                  onClick={() => i < step && setStep(i)}
+                  className={cn(
+                    "flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full transition-all",
+                    i === step ? "bg-primary text-primary-foreground" :
+                    i < step ? "bg-primary/10 text-primary cursor-pointer" :
+                    "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {i < step ? <Check className="w-3 h-3" /> : <s.icon className="w-3 h-3" />}
+                  <span className="hidden sm:inline">{s.label}</span>
+                </button>
+                {i < STEPS.length - 1 && (
+                  <div className={cn("h-px flex-1", i < step ? "bg-primary/30" : "bg-border")} />
                 )}
-              >
-                {i < step ? <Check className="w-3 h-3" /> : <s.icon className="w-3 h-3" />}
-                <span className="hidden sm:inline">{s.label}</span>
-              </button>
-              {i < STEPS.length - 1 && (
-                <div className={cn("h-px flex-1", i < step ? "bg-primary/30" : "bg-border")} />
-              )}
-            </div>
-          ))}
-        </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Step content */}
         <div className="px-5 pb-5 min-h-[200px] max-h-[55vh] overflow-y-auto">
