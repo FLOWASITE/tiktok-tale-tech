@@ -3864,8 +3864,12 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       modelConfig: { model: string; temperature: number; maxTokens: number | null }
     ): Promise<{ parsed: any; usage: { prompt_tokens: number; completion_tokens: number } | null; modelUsed: string }> => {
       const channelTools = buildToolsForChannels(channelsToGenerate);
-      const includesWebsite = channelsToGenerate.includes('website');
-      const effectiveMaxTokens = modelConfig.maxTokens ?? (includesWebsite ? Math.max(aiConfig.max_tokens, 12288) : aiConfig.max_tokens);
+      const dynamicMaxTokens = calculateTotalMaxTokens(channelsToGenerate, {
+        contentGoal: formData.contentGoal || derivedContentGoal,
+        qualityMode: qualityMode as 'fast' | 'balanced' | 'quality',
+      });
+      const effectiveMaxTokens = modelConfig.maxTokens ?? Math.max(dynamicMaxTokens, aiConfig.max_tokens);
+      console.log(`[dynamic-tokens] Grouped channels [${channelsToGenerate.join(', ')}]: ${effectiveMaxTokens} tokens (dynamic=${dynamicMaxTokens}, fallback=${aiConfig.max_tokens})`);
       
       console.log(`Calling AI (${modelConfig.model}) for channels: ${channelsToGenerate.join(', ')}`);
       
@@ -4006,10 +4010,15 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       const channelModelMap = new Map<string, { model: string; temperature: number; maxTokens: number | null }>();
       for (const channel of channels) {
         const channelConfig = channelModelConfigs.get(channel);
-        // Use channel-specific config if available, otherwise use default function config
+        // Use channel-specific config if available, otherwise dynamic tokens as fallback
         const model = channelConfig?.model || aiConfig.model;
         const temperature = channelConfig?.temperature ?? aiConfig.temperature;
-        const maxTokens = channelConfig?.maxTokens ?? null;
+        const dynamicTokens = calculateChannelMaxTokens(channel, {
+          contentGoal: formData.contentGoal || derivedContentGoal,
+          qualityMode: qualityMode as 'fast' | 'balanced' | 'quality',
+        });
+        const maxTokens = channelConfig?.maxTokens ?? dynamicTokens;
+        console.log(`[dynamic-tokens] ${channel}: ${maxTokens} tokens (admin=${channelConfig?.maxTokens ?? 'none'}, dynamic=${dynamicTokens})`);
         channelModelMap.set(channel, { model, temperature, maxTokens });
       }
       
@@ -4282,7 +4291,12 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
             const channelConfig = channelModelConfigs.get(channel);
             const model = channelConfig?.model || formData.model_override || aiConfig.model;
             const temp = channelConfig?.temperature ?? aiConfig.temperature;
-            const maxTokens = channelConfig?.maxTokens ?? aiConfig.max_tokens;
+            const dynamicTokens = calculateChannelMaxTokens(channel, {
+              contentGoal: formData.contentGoal || derivedContentGoal,
+              qualityMode: qualityMode as 'fast' | 'balanced' | 'quality',
+            });
+            const maxTokens = channelConfig?.maxTokens ?? dynamicTokens;
+            console.log(`[dynamic-tokens][agent] ${channel}: ${maxTokens} tokens (admin=${channelConfig?.maxTokens ?? 'none'}, dynamic=${dynamicTokens})`);
             
             const channelDesc: Record<string, string> = {
               website: "Bài viết chuẩn SEO (1000-2000 chữ), Markdown format, có H1/H2/H3.",
