@@ -4241,73 +4241,79 @@ KHÔNG ĐƯỢC dùng <h1>, <h2>, <p>, <strong>, <em>, <ul>, <li> hoặc bất k
       // Compatible with ALL models — Qwen, Claude, Gemini, GPT, etc.
       // ============================================
       if (formData.agentMode) {
-        console.log(`[agent-mode] 🤖 Agent mode enabled — plain text generation for ${formData.channels.length} channels`);
+        console.log(`[agent-mode] 🤖 Agent mode enabled — PARALLEL plain text generation for ${formData.channels.length} channels`);
         const agentData: any = { title: formData.topic };
         
-        for (const channel of formData.channels) {
-          const channelConfig = channelModelConfigs.get(channel);
-          // Priority: channel config > agent-level override (from body) > function config
-          const model = channelConfig?.model || formData.model_override || aiConfig.model;
-          const temp = channelConfig?.temperature ?? aiConfig.temperature;
-          const maxTokens = channelConfig?.maxTokens ?? aiConfig.max_tokens;
-          
-          const channelDesc = {
-            website: "Bài viết chuẩn SEO (1000-2000 chữ), Markdown format, có H1/H2/H3.",
-            facebook: "Nội dung Facebook (250-500 chữ, hook mạnh, CTA cuối)",
-            instagram: "Nội dung Instagram (50-150 chữ, ngắn gọn, có hashtag cuối)",
-            twitter: "Thread X/Twitter (5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
-            google_maps: "Nội dung Google Maps (80-150 chữ, trung tính, không emoji)",
-            linkedin: "Nội dung LinkedIn (300-600 chữ, B2B authority, insight sâu)",
-            email: "Email marketing (250-500 chữ, subject line + body + CTA)",
-            youtube: "Script YouTube (500-800 chữ, hook + content + CTA)",
-            zalo_oa: "Nội dung Zalo OA (60-150 chữ, thân thiện, local)",
-            telegram: "Nội dung Telegram (200-500 chữ, bullet, dễ đọc)",
-            tiktok: "Short-form TikTok (60-150 chữ, hook 3s đầu, năng lượng cao)",
-            threads: "Nội dung Threads (50-200 chữ, conversational, dễ tương tác)",
-          } as Record<string, string>;
-          
-          const channelPrompt = `${userPrompt}\n\nViết nội dung cho kênh: ${channel.toUpperCase()}\nYêu cầu: ${channelDesc[channel] || 'Nội dung phù hợp kênh'}\nViết TRỰC TIẾP nội dung, KHÔNG giải thích, KHÔNG markdown wrapper.`;
-          
-          console.log(`[agent-mode] Generating ${channel} with ${model}`);
-          
-          // Retry logic: retry up to 2 times if content is empty or too short
-          const MAX_CHANNEL_RETRIES = 2;
-          let channelContent = '';
-          
-          for (let attempt = 0; attempt <= MAX_CHANNEL_RETRIES; attempt++) {
-            const result = await callAI({
-              functionName: 'generate-multichannel',
-              organizationId: organizationId || undefined,
-              modelOverride: model,
-              temperatureOverride: temp,
-              messages: [
-                { role: 'system', content: fullSystemPrompt },
-                { role: 'user', content: channelPrompt },
-              ],
-              maxTokensOverride: maxTokens,
-            });
+        // Parallel generation: all channels generated simultaneously
+        const channelResults = await Promise.all(
+          formData.channels.map(async (channel: string) => {
+            const channelConfig = channelModelConfigs.get(channel);
+            const model = channelConfig?.model || formData.model_override || aiConfig.model;
+            const temp = channelConfig?.temperature ?? aiConfig.temperature;
+            const maxTokens = channelConfig?.maxTokens ?? aiConfig.max_tokens;
             
-            if (result.success) {
-              channelContent = result.data?.choices?.[0]?.message?.content || '';
-              if (channelContent.length >= 50) {
-                console.log(`[agent-mode] ✅ ${channel} done (${channelContent.length} chars, attempt ${attempt + 1})`);
-                break; // Good content, stop retrying
+            const channelDesc: Record<string, string> = {
+              website: "Bài viết chuẩn SEO (1000-2000 chữ), Markdown format, có H1/H2/H3.",
+              facebook: "Nội dung Facebook (250-500 chữ, hook mạnh, CTA cuối)",
+              instagram: "Nội dung Instagram (50-150 chữ, ngắn gọn, có hashtag cuối)",
+              twitter: "Thread X/Twitter (5-7 tweets, mỗi tweet ≤280 ký tự, đánh số)",
+              google_maps: "Nội dung Google Maps (80-150 chữ, trung tính, không emoji)",
+              linkedin: "Nội dung LinkedIn (300-600 chữ, B2B authority, insight sâu)",
+              email: "Email marketing (250-500 chữ, subject line + body + CTA)",
+              youtube: "Script YouTube (500-800 chữ, hook + content + CTA)",
+              zalo_oa: "Nội dung Zalo OA (60-150 chữ, thân thiện, local)",
+              telegram: "Nội dung Telegram (200-500 chữ, bullet, dễ đọc)",
+              tiktok: "Short-form TikTok (60-150 chữ, hook 3s đầu, năng lượng cao)",
+              threads: "Nội dung Threads (50-200 chữ, conversational, dễ tương tác)",
+            };
+            
+            const channelPrompt = `${userPrompt}\n\nViết nội dung cho kênh: ${channel.toUpperCase()}\nYêu cầu: ${channelDesc[channel] || 'Nội dung phù hợp kênh'}\nViết TRỰC TIẾP nội dung, KHÔNG giải thích, KHÔNG markdown wrapper.`;
+            
+            console.log(`[agent-mode] Generating ${channel} with ${model}`);
+            
+            const MAX_CHANNEL_RETRIES = 2;
+            let channelContent = '';
+            
+            for (let attempt = 0; attempt <= MAX_CHANNEL_RETRIES; attempt++) {
+              const result = await callAI({
+                functionName: 'generate-multichannel',
+                organizationId: organizationId || undefined,
+                modelOverride: model,
+                temperatureOverride: temp,
+                messages: [
+                  { role: 'system', content: fullSystemPrompt },
+                  { role: 'user', content: channelPrompt },
+                ],
+                maxTokensOverride: maxTokens,
+              });
+              
+              if (result.success) {
+                channelContent = result.data?.choices?.[0]?.message?.content || '';
+                if (channelContent.length >= 50) {
+                  console.log(`[agent-mode] ✅ ${channel} done (${channelContent.length} chars, attempt ${attempt + 1})`);
+                  break;
+                }
+                console.warn(`[agent-mode] ⚠️ ${channel} attempt ${attempt + 1}/${MAX_CHANNEL_RETRIES + 1}: content too short (${channelContent.length} chars)`);
+              } else {
+                console.warn(`[agent-mode] ❌ ${channel} attempt ${attempt + 1}/${MAX_CHANNEL_RETRIES + 1} failed: ${result.error}`);
               }
-              console.warn(`[agent-mode] ⚠️ ${channel} attempt ${attempt + 1}/${MAX_CHANNEL_RETRIES + 1}: content too short (${channelContent.length} chars)`);
-            } else {
-              console.warn(`[agent-mode] ❌ ${channel} attempt ${attempt + 1}/${MAX_CHANNEL_RETRIES + 1} failed: ${result.error}`);
+              
+              if (attempt < MAX_CHANNEL_RETRIES) {
+                await new Promise(r => setTimeout(r, 2000));
+              }
             }
             
-            // Wait before retry (skip wait on last attempt)
-            if (attempt < MAX_CHANNEL_RETRIES) {
-              await new Promise(r => setTimeout(r, 2000));
+            if (channelContent.length < 50) {
+              console.error(`[agent-mode] ❗ ${channel} FINAL content is empty/short after ${MAX_CHANNEL_RETRIES + 1} attempts (${channelContent.length} chars, model=${model})`);
             }
-          }
-          
-          agentData[`${channel}_content`] = channelContent;
-          if (channelContent.length < 50) {
-            console.error(`[agent-mode] ❗ ${channel} FINAL content is empty/short after ${MAX_CHANNEL_RETRIES + 1} attempts (${channelContent.length} chars, model=${model})`);
-          }
+            
+            return { channel, content: channelContent };
+          })
+        );
+        
+        // Assign results to agentData
+        for (const { channel, content } of channelResults) {
+          agentData[`${channel}_content`] = content;
         }
         
         // Validation: ensure at least one channel has meaningful content

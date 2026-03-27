@@ -1,11 +1,8 @@
 // ============================================
 // Cross-Channel Deduplication (P3)
 // Prevents repetitive content across channels within the same generation batch
+// Uses text-based Jaccard n-gram similarity (no embedding API needed)
 // ============================================
-
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-const EMBEDDING_MODEL = 'text-embedding-3-small';
-const EMBEDDING_DIMENSIONS = 1536;
 
 // Cross-channel dedup configuration
 export const CROSS_CHANNEL_CONFIG = {
@@ -36,58 +33,67 @@ export interface CrossChannelDedupResult {
   diversificationSuggestions: Record<string, string>;
 }
 
-export interface ChannelEmbedding {
-  channel: string;
-  content: string;
-  embedding: number[];
+// ============================================
+// Text-based Jaccard N-gram Similarity
+// No API calls needed — runs entirely in-process
+// ============================================
+
+/**
+ * Tokenize text: lowercase, remove punctuation, split into words
+ */
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter(t => t.length > 1);
 }
 
 /**
- * Generate embedding for text using Lovable AI Gateway
- * 
- * NOTE: Lovable AI Gateway currently does not support embedding models.
- * This function throws an error to gracefully skip cross-channel dedup.
- * The caller (checkCrossChannelDuplicate) has fail-open logic that will
- * return a default result when this fails.
+ * Extract n-grams from token array
  */
-async function generateEmbedding(_text: string): Promise<number[]> {
-  // Lovable AI Gateway only supports LLM models, not embedding models.
-  // text-embedding-3-small is not in the allowed models list.
-  // Skip embedding-based cross-channel dedup until embedding support is added.
-  console.log('[cross-channel-dedup] Embedding not supported by Lovable AI Gateway - skipping check');
-  throw new Error('Embedding not supported - skipping cross-channel dedup check');
+function extractNgrams(tokens: string[], n: number = 3): Set<string> {
+  const ngrams = new Set<string>();
+  for (let i = 0; i <= tokens.length - n; i++) {
+    ngrams.add(tokens.slice(i, i + n).join(' '));
+  }
+  return ngrams;
 }
 
 /**
- * Generate embeddings for multiple texts in a single batch request
- * 
- * NOTE: Lovable AI Gateway currently does not support embedding models.
- * This function throws an error to gracefully skip cross-channel dedup.
+ * Calculate Jaccard similarity between two sets
  */
-async function generateBatchEmbeddings(_texts: string[]): Promise<number[][]> {
-  // Lovable AI Gateway only supports LLM models, not embedding models.
-  console.log('[cross-channel-dedup] Batch embedding not supported by Lovable AI Gateway - skipping check');
-  throw new Error('Embedding not supported - skipping cross-channel dedup check');
-}
-
-/**
- * Calculate cosine similarity between two embeddings
- */
-function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length) return 0;
+function jaccardSimilarity(setA: Set<string>, setB: Set<string>): number {
+  if (setA.size === 0 && setB.size === 0) return 0;
   
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-  
-  for (let i = 0; i < a.length; i++) {
-    dotProduct += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
+  let intersection = 0;
+  for (const item of setA) {
+    if (setB.has(item)) intersection++;
   }
   
-  const magnitude = Math.sqrt(normA) * Math.sqrt(normB);
-  return magnitude === 0 ? 0 : dotProduct / magnitude;
+  const union = setA.size + setB.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
+
+/**
+ * Calculate text similarity using Jaccard on n-grams
+ * Combines bigrams and trigrams for balanced accuracy
+ */
+function textSimilarity(textA: string, textB: string): number {
+  const tokensA = tokenize(textA);
+  const tokensB = tokenize(textB);
+  
+  // Use both bigrams and trigrams for better accuracy
+  const bigramsA = extractNgrams(tokensA, 2);
+  const bigramsB = extractNgrams(tokensB, 2);
+  const trigramsA = extractNgrams(tokensA, 3);
+  const trigramsB = extractNgrams(tokensB, 3);
+  
+  const bigramSim = jaccardSimilarity(bigramsA, bigramsB);
+  const trigramSim = jaccardSimilarity(trigramsA, trigramsB);
+  
+  // Weighted average: trigrams weighted higher (more specific)
+  return bigramSim * 0.4 + trigramSim * 0.6;
 }
 
 /**
@@ -95,7 +101,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
  */
 function getDiversificationSuggestion(
   channel: string, 
-  similarChannels: string[]
+  _similarChannels: string[]
 ): string {
   const suggestions: Record<string, string[]> = {
     facebook: [
@@ -166,12 +172,12 @@ function getDiversificationSuggestion(
     'Điều chỉnh tone phù hợp platform',
   ];
 
-  // Pick a random suggestion to avoid repetition
   return channelSuggestions[Math.floor(Math.random() * channelSuggestions.length)];
 }
 
 /**
  * Check cross-channel content similarity within a generation batch
+ * Uses text-based Jaccard n-gram similarity (no API calls)
  */
 export async function checkCrossChannelDuplicate(
   channelContents: Record<string, string>
@@ -207,53 +213,42 @@ export async function checkCrossChannelDuplicate(
       };
     }
 
-    // Generate embeddings for all channels in batch
-    const contents = validChannels.map(ch => channelContents[ch]);
-    const embeddings = await generateBatchEmbeddings(contents);
-
-    const channelEmbeddings: ChannelEmbedding[] = validChannels.map((ch, i) => ({
-      channel: ch,
-      content: contents[i],
-      embedding: embeddings[i],
-    }));
-
-    // Compare all pairs
+    // Compare all pairs using text-based similarity
     const pairs: ChannelSimilarityPair[] = [];
     const channelsNeedingDiversification = new Set<string>();
     const similarChannelsMap = new Map<string, string[]>();
 
-    for (let i = 0; i < channelEmbeddings.length; i++) {
-      for (let j = i + 1; j < channelEmbeddings.length; j++) {
-        const similarity = cosineSimilarity(
-          channelEmbeddings[i].embedding,
-          channelEmbeddings[j].embedding
+    for (let i = 0; i < validChannels.length; i++) {
+      for (let j = i + 1; j < validChannels.length; j++) {
+        const similarity = textSimilarity(
+          channelContents[validChannels[i]],
+          channelContents[validChannels[j]]
         );
 
         const needsDiversification = similarity >= CROSS_CHANNEL_CONFIG.SIMILARITY_THRESHOLD;
         const isWarning = !needsDiversification && similarity >= CROSS_CHANNEL_CONFIG.WARNING_THRESHOLD;
 
         pairs.push({
-          channel1: channelEmbeddings[i].channel,
-          channel2: channelEmbeddings[j].channel,
+          channel1: validChannels[i],
+          channel2: validChannels[j],
           similarity,
           needsDiversification,
           isWarning,
         });
 
         if (needsDiversification) {
-          channelsNeedingDiversification.add(channelEmbeddings[i].channel);
-          channelsNeedingDiversification.add(channelEmbeddings[j].channel);
+          channelsNeedingDiversification.add(validChannels[i]);
+          channelsNeedingDiversification.add(validChannels[j]);
           
-          // Track similar channels for suggestion building
-          if (!similarChannelsMap.has(channelEmbeddings[i].channel)) {
-            similarChannelsMap.set(channelEmbeddings[i].channel, []);
+          if (!similarChannelsMap.has(validChannels[i])) {
+            similarChannelsMap.set(validChannels[i], []);
           }
-          similarChannelsMap.get(channelEmbeddings[i].channel)!.push(channelEmbeddings[j].channel);
+          similarChannelsMap.get(validChannels[i])!.push(validChannels[j]);
           
-          if (!similarChannelsMap.has(channelEmbeddings[j].channel)) {
-            similarChannelsMap.set(channelEmbeddings[j].channel, []);
+          if (!similarChannelsMap.has(validChannels[j])) {
+            similarChannelsMap.set(validChannels[j], []);
           }
-          similarChannelsMap.get(channelEmbeddings[j].channel)!.push(channelEmbeddings[i].channel);
+          similarChannelsMap.get(validChannels[j])!.push(validChannels[i]);
         }
       }
     }
@@ -274,7 +269,7 @@ export async function checkCrossChannelDuplicate(
     const hasDuplicates = channelsNeedingDiversification.size > 0;
     const hasWarnings = pairs.some(p => p.isWarning);
 
-    console.log(`[cross-channel-dedup] Checked ${pairs.length} pairs, diversity score: ${overallScore}%, duplicates: ${hasDuplicates}`);
+    console.log(`[cross-channel-dedup] ✅ Text-based check: ${pairs.length} pairs, diversity score: ${overallScore}%, duplicates: ${hasDuplicates}`);
 
     return {
       hasDuplicates,
@@ -310,7 +305,7 @@ export function buildCrossChannelDiversifyInstruction(
   if (otherChannels.length === 0) return '';
 
   const previews = otherChannels
-    .slice(0, 3) // Limit to 3 to save tokens
+    .slice(0, 3)
     .map(ch => `- ${ch.toUpperCase()}: \"${otherChannelPreviews[ch].substring(0, 150)}...\"`)
     .join('\n');
 
@@ -341,13 +336,11 @@ export function getChannelsToRegenerate(
 
   const needsRegen = dedupResult.channelsNeedingDiversification;
   
-  // If priority channels are specified, only regenerate non-priority ones
   if (priorityChannels.length > 0) {
     const nonPriority = needsRegen.filter(ch => !priorityChannels.includes(ch));
     return nonPriority.length > 0 ? nonPriority : needsRegen.slice(0, 1);
   }
 
-  // Otherwise, regenerate all except the first one (keep as reference)
   return needsRegen.slice(1);
 }
 
@@ -355,9 +348,9 @@ export function getChannelsToRegenerate(
  * Calculate diversity bonus for quality scoring
  */
 export function calculateDiversityBonus(overallScore: number): number {
-  if (overallScore >= 90) return 10; // Excellent diversity
-  if (overallScore >= 80) return 5;  // Good diversity
-  if (overallScore >= 70) return 0;  // Acceptable
-  if (overallScore >= 60) return -5; // Needs improvement
-  return -10; // Poor diversity
+  if (overallScore >= 90) return 10;
+  if (overallScore >= 80) return 5;
+  if (overallScore >= 70) return 0;
+  if (overallScore >= 60) return -5;
+  return -10;
 }

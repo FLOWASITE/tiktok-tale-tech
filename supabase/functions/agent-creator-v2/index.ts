@@ -446,7 +446,7 @@ async function routeMultichannel(
         brandTemplateId: input.brand_template_id,
         userId: expansionUserId,
         campaign_id: input.campaign_id || null,
-        qualityMode: "fast",
+        qualityMode: "balanced",
         agentMode: true, // Use plain text generation instead of tool calling — compatible with all models
         // Agent model override — used as fallback when no channel-specific config exists
         ...(input.model_override && { model_override: input.model_override }),
