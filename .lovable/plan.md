@@ -1,61 +1,65 @@
 
 
-# Dashboard Tổng quan Chiến dịch AI
+# Hoàn thiện Tổng quan Campaign AI — Đo lường từng chiến dịch & Trực quan hơn
 
 ## Mục tiêu
-Xây dựng tab **"Tổng quan"** mới trong trang AI Agents (`/agents`) hiển thị cái nhìn tổng thể về hiệu suất chiến dịch AI, thay vì chỉ có stats cards đơn giản hiện tại.
+1. **Đo lường từng chiến dịch** — Thêm section "Campaign Cards" chi tiết với metrics riêng cho mỗi campaign (pipeline progress, quality score, completion rate, flagged count, channel breakdown)
+2. **Trực quan hơn** — Bổ sung biểu đồ timeline, cải thiện visual density
 
-## Thiết kế UI
+## Thay đổi
+
+### 1. Sửa `src/components/agents/AICampaignOverview.tsx`
+
+**A. Thay thế section "Tiến độ Campaigns" đơn giản → Campaign Detail Cards**
+
+Mỗi campaign (goal) sẽ có card riêng hiển thị:
+- **Header**: Tên campaign + status badge (đang chạy/tạm dừng) + channel icons
+- **Metrics row** (4 mini stats): Tổng pipeline | Hoàn thành | Đang chạy | Bị flag
+- **Progress bar** với label "X/Y bài" và phần trăm
+- **Quality score** trung bình + Grade badge (tính từ pipelines thuộc campaign đó)
+- **Mini stage distribution**: 6 dots/bar nhỏ cho thấy pipeline đang ở stage nào
+- Click vào card → chuyển sang tab Pipeline với filter theo campaign đó
+
+**B. Thêm biểu đồ "Xu hướng hoàn thành" (AreaChart)**
+
+- Hiển thị số pipeline hoàn thành theo ngày trong 14 ngày gần nhất
+- Dùng `AreaChart` từ Recharts, gradient fill
+- Đặt cạnh biểu đồ Pipeline Stage Distribution (thay thế vị trí Channel Distribution lên dưới)
+
+**C. Cải thiện layout tổng thể**
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│  [Tổng quan]  [Pipeline]  [Duyệt]  [Campaigns]  [Kế hoạch] │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
-│  │ Campaigns │ │ Pipeline │ │ Hoàn thành│ │ Tỷ lệ   │       │
-│  │    5      │ │   12     │ │   48     │ │  85%     │       │
-│  │ active    │ │ running  │ │ tuần này │ │ quality  │       │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │
-│                                                             │
-│  ┌──── Pipeline theo giai đoạn ────┐ ┌── Nội dung/Kênh ──┐ │
-│  │  BarChart (6 stages)            │ │  Channel breakdown │ │
-│  │  strategy | create | quality..  │ │  facebook: 12      │ │
-│  └─────────────────────────────────┘ │  tiktok: 8         │ │
-│                                      │  instagram: 6      │ │
-│  ┌── Chất lượng trung bình ────────┐ └────────────────────┘ │
-│  │  Donut: Quality Grade A/B/C/D   │                        │
-│  │  Avg Score: 82 (Grade B)        │ ┌── Hoạt động gần ──┐ │
-│  └──────────────────────────────────┘ │  Timeline pipeline │ │
-│                                       │  completions       │ │
-│  ┌── Campaigns đang chạy ─────────┐  └────────────────────┘ │
-│  │  Campaign cards with progress   │                        │
-│  └─────────────────────────────────┘                        │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│  [4 Stats Cards - giữ nguyên]                           │
+├─────────────────────────────────────────────────────────┤
+│  ┌─ Pipeline theo giai đoạn ─┐  ┌─ Hoàn thành 14 ngày ┐│
+│  │  BarChart                 │  │  AreaChart            ││
+│  └───────────────────────────┘  └───────────────────────┘│
+├─────────────────────────────────────────────────────────┤
+│  ┌─ Phân bổ chất lượng ─┐ ┌─ Kênh ─┐ ┌─ Gần đây ─┐    │
+│  │  Donut               │ │ Bars   │ │ Timeline  │    │
+│  └──────────────────────┘ └────────┘ └───────────┘    │
+├─────────────────────────────────────────────────────────┤
+│  📊 Đo lường từng chiến dịch                            │
+│  ┌─ Campaign A ──────────────────────────────────────┐  │
+│  │ Name [Active] 📘📸   Pipeline: 8 | Done: 5 |     │  │
+│  │ Flag: 1 | Quality: 82 (B)                         │  │
+│  │ ████████████░░░░ 62%   [stage dots: ●●●○○○]       │  │
+│  └───────────────────────────────────────────────────┘  │
+│  ┌─ Campaign B ──────────────────────────────────────┐  │
+│  │ ...                                               │  │
+│  └───────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## File thay đổi
+### 2. Sửa `src/pages/AgentDashboard.tsx` (nhỏ)
 
-### 1. Tạo `src/components/agents/AICampaignOverview.tsx` (mới)
-Component dashboard tổng quan gồm:
-- **Stats Row** (4 cards): Active campaigns, Running pipelines, Completed this week, Avg Quality Score (grade badge)
-- **Pipeline Stage Distribution** (BarChart - Recharts): Hiển thị số lượng pipeline ở mỗi giai đoạn (6 stages)
-- **Channel Distribution**: Thống kê nội dung theo kênh target từ campaign plans
-- **Quality Grade Distribution**: Donut chart phân bổ điểm chất lượng A-F
-- **Campaign Progress Cards**: Danh sách campaigns đang active kèm progress bar, timeline, completion %
-- **Recent Completions Timeline**: 10 pipeline hoàn thành gần nhất với thời gian
+- Truyền thêm callback `onNavigateToPipeline(goalId)` vào `AICampaignOverview` để khi click campaign card → set `filterGoalId` + chuyển tab `pipeline`
 
-Dữ liệu lấy từ hooks sẵn có: `useAgentGoals`, `useAgentPipelines`, `useAgentApprovals`, `useCampaignPlans`
+## Chi tiết kỹ thuật
 
-### 2. Sửa `src/pages/AgentDashboard.tsx`
-- Thêm tab "Tổng quan" (icon `BarChart3`) đặt đầu tiên
-- Default tab thành `overview` thay vì `pipeline`
-- Import và render `AICampaignOverview` trong TabsContent
-
-## Thiết kế kỹ thuật
-- Tất cả dữ liệu đã có sẵn từ hooks hiện tại, không cần migration DB
-- Sử dụng Recharts (đã có trong project) cho biểu đồ
-- Tuân thủ Soft Luxury design: `backdrop-blur`, `rounded-2xl`, monochromatic tones
-- Quality Grade sử dụng `getGradeFromScore` từ `@/types/creativeScore`
-- Responsive: 2 cols trên desktop, 1 col trên mobile
+- **Dữ liệu**: Tất cả đã có sẵn trong props (`goals`, `pipelines`, `plans`). Tính toán metrics cho từng campaign bằng `useMemo` filter theo `goal_id`
+- **AreaChart**: Group pipelines có `completed_at` theo ngày (14 ngày), dùng `eachDayOfInterval` từ date-fns
+- **Campaign cards**: Dùng component con `CampaignMetricCard` để tránh code dài
+- **Không cần migration DB** — chỉ tính toán frontend từ dữ liệu hiện có
 
