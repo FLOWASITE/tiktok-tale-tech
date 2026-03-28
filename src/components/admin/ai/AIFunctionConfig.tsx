@@ -10,12 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAIConfig, AI_FUNCTIONS, AIFunctionType, AIFunctionTag, AIFunctionConfig as FunctionConfigType, getModelInfo, ModelInfo } from '@/hooks/useAIConfig';
+import { useGroupModelConfig } from '@/hooks/useGroupModelConfig';
 import { useOpenRouterModels, openRouterModelToModelInfo } from '@/hooks/useOpenRouterModels';
 import { useCategoryConfig } from '@/hooks/useCategoryConfig';
 import { ModelSelector } from './ModelSelector';
 import { QuickSelectButton, ProviderIndicator } from './ModelCard';
 import { FunctionCategoryGroup } from './FunctionCategoryGroup';
 import { CategoryManager } from './CategoryManager';
+import { GroupDefaultsPanel } from './GroupDefaultsPanel';
 import { AIFunction } from './FunctionCard';
 import { countByTag } from './FunctionTagBadges';
 import { Settings, Search, Zap, MessageSquare, Lightbulb, Image, Wand2, Type, Globe, ChevronRight, Sparkles, Star, LayoutGrid, List, FolderOpen, Network, DollarSign } from 'lucide-react';
@@ -53,6 +55,7 @@ const IMAGE_QUICK_PRESETS = {
 
 export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigProps) {
   const { functions, providers, isLoading, upsertFunction } = useAIConfig(organizationId);
+  const { getGroupConfig, getEffectiveModel } = useGroupModelConfig(organizationId);
   const { categories, isLoading: categoriesLoading, getCategoryConfig } = useCategoryConfig(organizationId);
   const [editingFunction, setEditingFunction] = useState<Partial<FunctionConfigType> | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -359,22 +362,33 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
         </div>
       </div>
 
+      {/* Group Defaults */}
+      <GroupDefaultsPanel organizationId={organizationId} functionConfigs={configsMap} />
+
       {/* Function Groups */}
       <div className="space-y-3">
-        {Array.from(groupedFunctions.entries()).map(([category, fns]) => (
-          <FunctionCategoryGroup
-            key={category}
-            category={category}
-            functions={fns}
-            configs={configsMap}
-            onEdit={openEditDialog}
-            onQuickModelChange={handleQuickModelChange}
-            onBulkReset={handleBulkReset}
-            categoryConfig={getCategoryConfig(category)}
-            defaultExpanded={category === 'content' || category === 'ideation'}
-            getEnhancedModelInfo={getEnhancedModelInfo}
-          />
-        ))}
+        {Array.from(groupedFunctions.entries()).map(([category, fns]) => {
+          // Determine dominant function type for this category to find group override
+          const dominantType = fns[0]?.type === 'image' || fns[0]?.type === 'image-direct' ? 'image' : fns[0]?.type || 'text';
+          const groupConfig = getGroupConfig(dominantType);
+          
+          return (
+            <FunctionCategoryGroup
+              key={category}
+              category={category}
+              functions={fns}
+              configs={configsMap}
+              onEdit={openEditDialog}
+              onQuickModelChange={handleQuickModelChange}
+              onBulkReset={handleBulkReset}
+              categoryConfig={getCategoryConfig(category)}
+              defaultExpanded={category === 'content' || category === 'ideation'}
+              getEnhancedModelInfo={getEnhancedModelInfo}
+              groupModelOverride={groupConfig?.modelOverride || null}
+              getEffectiveModel={getEffectiveModel}
+            />
+          );
+        })}
 
         {groupedFunctions.size === 0 && (
           <Card>

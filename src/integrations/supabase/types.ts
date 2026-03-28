@@ -1938,6 +1938,50 @@ export type Database = {
           },
         ]
       }
+      ai_function_group_configs: {
+        Row: {
+          created_at: string | null
+          force_provider: string | null
+          function_type: string
+          id: string
+          is_enabled: boolean | null
+          model_override: string | null
+          organization_id: string | null
+          temperature: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          force_provider?: string | null
+          function_type: string
+          id?: string
+          is_enabled?: boolean | null
+          model_override?: string | null
+          organization_id?: string | null
+          temperature?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          force_provider?: string | null
+          function_type?: string
+          id?: string
+          is_enabled?: boolean | null
+          model_override?: string | null
+          organization_id?: string | null
+          temperature?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_function_group_configs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_metrics: {
         Row: {
           ab_test_id: string | null

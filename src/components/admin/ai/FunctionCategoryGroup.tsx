@@ -25,6 +25,8 @@ interface FunctionCategoryGroupProps {
   defaultExpanded?: boolean;
   getEnhancedModelInfo: (modelId: string) => ReturnType<typeof getModelInfo>;
   categoryConfig?: CategoryConfig;
+  groupModelOverride?: string | null;
+  getEffectiveModel?: (functionName: string, config?: { modelOverride: string | null } | null) => { model: string; source: 'individual' | 'group' | 'default' };
 }
 
 // Fallback config for hardcoded categories (legacy support)
@@ -124,6 +126,8 @@ export function FunctionCategoryGroup({
   defaultExpanded = true,
   getEnhancedModelInfo,
   categoryConfig: dbCategoryConfig,
+  groupModelOverride,
+  getEffectiveModel,
 }: FunctionCategoryGroupProps) {
   const [isOpen, setIsOpen] = useState(defaultExpanded);
   
@@ -191,6 +195,11 @@ export function FunctionCategoryGroup({
                     {overrideCount} override
                   </Badge>
                 )}
+                {groupModelOverride && (
+                  <Badge variant="outline" className="text-[10px] bg-violet-500/10 text-violet-600 border-violet-500/30">
+                    Group: {getEnhancedModelInfo(groupModelOverride).shortName}
+                  </Badge>
+                )}
                 {disabledCount > 0 && (
                   <Badge variant="outline" className="text-[10px] bg-muted">
                     {disabledCount} off
@@ -243,8 +252,10 @@ export function FunctionCategoryGroup({
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {functions.map((fn) => {
               const config = getConfig(fn.name);
-              const displayModel = config?.modelOverride || fn.currentModel;
-              const modelInfo = getEnhancedModelInfo(displayModel);
+              const effectiveResult = getEffectiveModel 
+                ? getEffectiveModel(fn.name, config ? { modelOverride: config.modelOverride } : null)
+                : { model: config?.modelOverride || fn.currentModel, source: 'default' as const };
+              const modelInfo = getEnhancedModelInfo(effectiveResult.model);
               
               return (
                 <FunctionCard
@@ -252,6 +263,7 @@ export function FunctionCategoryGroup({
                   fn={fn}
                   config={config}
                   modelInfo={modelInfo}
+                  modelSource={effectiveResult.source}
                   onEdit={() => onEdit(fn)}
                   onQuickModelChange={
                     onQuickModelChange 
