@@ -165,7 +165,7 @@ function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, campaignNa
   );
 }
 
-function PipelineCard({ pipeline, campaignName, isDragging, onClick, approval, onApprove, onReject, onRetry, onDelete }: { pipeline: AgentPipeline; campaignName?: string; isDragging?: boolean; onClick?: () => void; approval?: AgentApproval; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void; onRetry?: (id: string) => void; onDelete?: (id: string) => void }) {
+function PipelineCard({ pipeline, campaignName, isDragging, onClick, approval, onApprove, onReject, onRetry, onDelete, isSelected, onToggleSelect }: { pipeline: AgentPipeline; campaignName?: string; isDragging?: boolean; onClick?: () => void; approval?: AgentApproval; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void; onRetry?: (id: string) => void; onDelete?: (id: string) => void; isSelected?: boolean; onToggleSelect?: (id: string) => void }) {
   const priorityColors: Record<string, string> = {
     urgent: 'border-l-red-500',
     high: 'border-l-orange-500',
@@ -188,15 +188,30 @@ function PipelineCard({ pipeline, campaignName, isDragging, onClick, approval, o
   return (
     <Card
       className={cn(
-        'border-l-[3px] cursor-grab active:cursor-grabbing transition-all hover:shadow-md',
+        'border-l-[3px] cursor-grab active:cursor-grabbing transition-all hover:shadow-md group/card relative',
         priorityColors[pipeline.priority] || 'border-l-border',
         isDragging && 'opacity-80 rotate-2 shadow-2xl scale-105',
         pipeline.is_flagged && 'ring-1 ring-destructive/50',
         isCompleted && 'border-l-emerald-500',
         isApprovalPending && 'ring-1 ring-amber-500/30 bg-amber-500/[0.03]',
+        isSelected && 'ring-2 ring-primary bg-primary/5',
       )}
       onClick={(e) => { e.stopPropagation(); onClick?.(); }}
     >
+      {/* Selection checkbox */}
+      {onToggleSelect && (
+        <button
+          className={cn(
+            'absolute top-2 right-2 z-10 w-5 h-5 rounded border-2 flex items-center justify-center transition-all',
+            isSelected
+              ? 'bg-primary border-primary text-primary-foreground'
+              : 'border-muted-foreground/30 bg-background opacity-0 group-hover/card:opacity-100',
+          )}
+          onClick={(e) => { e.stopPropagation(); onToggleSelect(pipeline.id); }}
+        >
+          {isSelected && <Check className="w-3 h-3" />}
+        </button>
+      )}
       <CardContent className="p-3 space-y-2">
         {/* Campaign name */}
         {campaignName && (
