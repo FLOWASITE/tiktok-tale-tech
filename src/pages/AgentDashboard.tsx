@@ -373,7 +373,11 @@ export default function AgentDashboard() {
           </TabsContent>
 
           <TabsContent value="campaign-plans" className="mt-4">
-            <CampaignDashboard />
+            <CampaignDashboard
+              autoSelectPlanId={autoSelectPlan?.planId}
+              autoSelectGoalName={autoSelectPlan?.goalName}
+              onAutoSelectHandled={() => setAutoSelectPlan(null)}
+            />
           </TabsContent>
         </Tabs>
 
