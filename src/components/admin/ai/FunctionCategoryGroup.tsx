@@ -252,8 +252,10 @@ export function FunctionCategoryGroup({
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {functions.map((fn) => {
               const config = getConfig(fn.name);
-              const displayModel = config?.modelOverride || fn.currentModel;
-              const modelInfo = getEnhancedModelInfo(displayModel);
+              const effectiveResult = getEffectiveModel 
+                ? getEffectiveModel(fn.name, config ? { modelOverride: config.modelOverride } : null)
+                : { model: config?.modelOverride || fn.currentModel, source: 'default' as const };
+              const modelInfo = getEnhancedModelInfo(effectiveResult.model);
               
               return (
                 <FunctionCard
@@ -261,6 +263,7 @@ export function FunctionCategoryGroup({
                   fn={fn}
                   config={config}
                   modelInfo={modelInfo}
+                  modelSource={effectiveResult.source}
                   onEdit={() => onEdit(fn)}
                   onQuickModelChange={
                     onQuickModelChange 
