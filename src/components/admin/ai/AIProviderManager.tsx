@@ -55,6 +55,7 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
   const { providers, functions: functionConfigs, isLoading, upsertProvider, deleteProvider, refetchAll } = useAIConfig(organizationId);
   const { configs: agentConfigs } = useAgentModelConfig(organizationId);
   const { configs: channelConfigs } = useChannelModelConfig(organizationId);
+  const { getEffectiveModel } = useGroupModelConfig(organizationId);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [editingProvider, setEditingProvider] = useState<Partial<AIProviderConfig> & { apiKey?: string } | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
