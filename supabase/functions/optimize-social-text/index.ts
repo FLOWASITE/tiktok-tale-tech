@@ -71,26 +71,50 @@ Examples:
       cacheInputText,
       { functionName: 'optimize-social-text', similarityThreshold: 0.92 },
       async () => {
-        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash-lite',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: `Optimize this text for a social graphic overlay:\n\n"${text}"` }
-            ],
-            temperature: 0.7,
-            max_tokens: 100,
-          }),
-        });
+        const PRIMARY_MODEL = 'google/gemini-2.5-flash-lite';
+        const FALLBACK_MODELS = ['google/gemini-3-flash-preview'];
+
+        const callAI = async (model: string) => {
+          return fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: `Optimize this text for a social graphic overlay:\n\n"${text}"` }
+              ],
+              temperature: 0.7,
+              max_tokens: 100,
+            }),
+          });
+        };
+
+        let response = await callAI(PRIMARY_MODEL);
+
+        // Fallback chain on 402 (credits exhausted)
+        if (response.status === 402) {
+          console.warn(`[optimize-social-text] Primary model credits exhausted, trying fallbacks...`);
+          await response.text(); // consume body
+
+          for (const fallbackModel of FALLBACK_MODELS) {
+            console.log(`[optimize-social-text] Trying fallback: ${fallbackModel}`);
+            response = await callAI(fallbackModel);
+            if (response.status !== 402) break;
+            console.warn(`[optimize-social-text] Fallback ${fallbackModel} also returned 402`);
+            await response.text(); // consume body
+          }
+        }
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('AI API error:', errorText);
+          console.error('[optimize-social-text] AI API error:', response.status, errorText);
+          if (response.status === 402) {
+            throw new Error('AI credits exhausted');
+          }
           throw new Error('Failed to optimize text with AI');
         }
 
