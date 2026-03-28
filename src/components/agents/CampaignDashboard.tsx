@@ -244,7 +244,7 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
 
   return (
     <div className="space-y-4">
-      {/* Stuck pipelines recovery alert */}
+      {/* Alerts */}
       {stuckPipelines.length > 0 && (
         <Card className="border-amber-500/30 bg-amber-500/5">
           <CardContent className="p-3 flex items-center justify-between gap-3">
@@ -254,20 +254,12 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
                 <span className="font-semibold">{stuckPipelines.length} pipeline</span> bị kẹt hơn 15 phút
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5 text-xs shrink-0 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
-              onClick={handleRecoverStuck}
-              disabled={recovering}
-            >
-              {recovering ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-              Khôi phục
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs shrink-0 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10" onClick={handleRecoverStuck} disabled={recovering}>
+              {recovering ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Khôi phục
             </Button>
           </CardContent>
         </Card>
       )}
-      {/* Missing approval records alert */}
       {missingApprovalCount > 0 && (
         <Card className="border-orange-500/30 bg-orange-500/5">
           <CardContent className="p-3 flex items-center justify-between gap-3">
@@ -277,20 +269,12 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
                 <span className="font-semibold">{missingApprovalCount} pipeline</span> ở bước Duyệt nhưng thiếu approval record
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5 text-xs shrink-0 border-orange-500/30 text-orange-700 dark:text-orange-400 hover:bg-orange-500/10"
-              onClick={handleBackfillApprovals}
-              disabled={backfilling}
-            >
-              {backfilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-              Tạo approval records
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs shrink-0 border-orange-500/30 text-orange-700 dark:text-orange-400 hover:bg-orange-500/10" onClick={handleBackfillApprovals} disabled={backfilling}>
+              {backfilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Tạo approval records
             </Button>
           </CardContent>
         </Card>
       )}
-      {/* Missing publish channels alert */}
       {publishPipelinesMissingChannels.length > 0 && (
         <Card className="border-red-500/30 bg-red-500/5">
           <CardContent className="p-3 flex items-center justify-between gap-3">
@@ -300,19 +284,13 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
                 <span className="font-semibold">{publishPipelinesMissingChannels.length} pipeline</span> ở bước Đăng bài nhưng thiếu kênh đăng
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5 text-xs shrink-0 border-red-500/30 text-red-700 dark:text-red-400 hover:bg-red-500/10"
-              onClick={handleBackfillPublish}
-              disabled={backfillingPublish}
-            >
-              {backfillingPublish ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-              Fix & Retry Publish
+            <Button size="sm" variant="outline" className="gap-1.5 text-xs shrink-0 border-red-500/30 text-red-700 dark:text-red-400 hover:bg-red-500/10" onClick={handleBackfillPublish} disabled={backfillingPublish}>
+              {backfillingPublish ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Fix & Retry Publish
             </Button>
           </CardContent>
         </Card>
       )}
+
       {/* Quick Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <Card>
@@ -353,101 +331,175 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
         </Card>
       </div>
 
-      {/* Campaign Cards */}
-      <div className="space-y-3">
-        {campaignData.map(({ goal, plan, totalPieces, completedPieces, progressPercent, status, startDate, endDate, daysRemaining, channels }) => {
-          const statusConf = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
-          const StatusIcon = statusConf.icon;
+      {/* View Toggle */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">{plans.length} kế hoạch · {campaignData.length} chiến dịch</p>
+        <div className="flex items-center border rounded-lg overflow-hidden">
+          <button
+            className={cn('flex items-center gap-1 px-2.5 py-1 text-[10px] transition-colors', viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}
+            onClick={() => setViewMode('list')}
+          >
+            <List className="w-3 h-3" /> Danh sách
+          </button>
+          <button
+            className={cn('flex items-center gap-1 px-2.5 py-1 text-[10px] transition-colors', viewMode === 'campaign' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}
+            onClick={() => setViewMode('campaign')}
+          >
+            <LayoutGrid className="w-3 h-3" /> Chiến dịch
+          </button>
+        </div>
+      </div>
 
-          return (
-            <Card
-              key={goal.id}
-              className="group cursor-pointer hover:border-primary/30 transition-colors"
-              onClick={() => {
-                if (plan) setSelectedPlan({ planId: plan.id, goalName: goal.name });
-              }}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0 space-y-2">
-                    {/* Title + Status */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-semibold">{goal.name}</p>
-                      <Badge variant="outline" className={cn('text-[9px] h-4 gap-0.5', statusConf.color)}>
-                        <StatusIcon className="w-2.5 h-2.5" />
-                        {statusConf.label}
-                      </Badge>
+      {/* Content */}
+      {viewMode === 'list' ? (
+        /* Flat list of all plans */
+        <div className="space-y-2">
+          {plans.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-xs text-muted-foreground">Chưa có kế hoạch nào</p>
+            </div>
+          ) : (
+            plans.map(plan => {
+              const goalName = goalNameMap.get(plan.goal_id) || 'Campaign';
+              const statusConf = STATUS_CONFIG[plan.status] || STATUS_CONFIG.draft;
+              const StatusIcon = statusConf.icon;
+              const pieces = (plan.plan_data || []) as CampaignContentPiece[];
+              const completedCount = pieces.filter(p => p.status === 'completed').length;
+              const progressPct = plan.total_pieces > 0 ? (completedCount / plan.total_pieces) * 100 : 0;
+              const channels = [...new Set(pieces.map(p => p.target_channel).filter(Boolean))];
+
+              return (
+                <Card
+                  key={plan.id}
+                  className="group cursor-pointer hover:border-primary/30 transition-colors"
+                  onClick={() => setSelectedPlan({ planId: plan.id, goalName })}
+                >
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium truncate">{goalName}</p>
+                          <Badge variant="outline" className={cn('text-[9px] h-4 gap-0.5', statusConf.color)}>
+                            <StatusIcon className="w-2.5 h-2.5" />
+                            {statusConf.label}
+                          </Badge>
+                          {plan.approval_mode === 'full_auto' && (
+                            <Badge variant="outline" className="text-[9px] h-4 bg-primary/5">Tự động</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 flex-wrap text-[10px] text-muted-foreground">
+                          <span>{plan.total_pieces} bài · {completedCount} xong</span>
+                          {plan.campaign_start_date && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {format(new Date(plan.campaign_start_date), 'dd/MM')}
+                              {plan.campaign_end_date && ` → ${format(new Date(plan.campaign_end_date), 'dd/MM')}`}
+                            </span>
+                          )}
+                          {channels.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              {channels.slice(0, 4).map(ch => (
+                                <Badge key={ch} variant="outline" className="text-[8px] h-3.5 px-1">{ch}</Badge>
+                              ))}
+                              {channels.length > 4 && <span className="text-[8px]">+{channels.length - 4}</span>}
+                            </div>
+                          )}
+                        </div>
+                        {plan.total_pieces > 0 && (
+                          <Progress value={progressPct} className="h-1" />
+                        )}
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
                     </div>
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
+        </div>
+      ) : (
+        /* Campaign grouped view */
+        <div className="space-y-3">
+          {campaignData.map(({ goal, plan, totalPieces, completedPieces, progressPercent, status, startDate, endDate, daysRemaining, channels }) => {
+            const statusConf = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
+            const StatusIcon = statusConf.icon;
 
-                    {/* Progress */}
-                    {totalPieces > 0 && (
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-muted-foreground">
-                            {completedPieces}/{totalPieces} nội dung
+            return (
+              <Card
+                key={goal.id}
+                className="group cursor-pointer hover:border-primary/30 transition-colors"
+                onClick={() => {
+                  if (plan) setSelectedPlan({ planId: plan.id, goalName: goal.name });
+                }}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold">{goal.name}</p>
+                        <Badge variant="outline" className={cn('text-[9px] h-4 gap-0.5', statusConf.color)}>
+                          <StatusIcon className="w-2.5 h-2.5" />
+                          {statusConf.label}
+                        </Badge>
+                      </div>
+
+                      {totalPieces > 0 && (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">{completedPieces}/{totalPieces} nội dung</span>
+                            <span className="text-[10px] font-medium">{Math.round(progressPercent)}%</span>
+                          </div>
+                          <Progress value={progressPercent} className="h-1.5" />
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-3 flex-wrap text-[10px] text-muted-foreground">
+                        {startDate && (
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {format(new Date(startDate), 'dd/MM')}
+                            {endDate && ` → ${format(new Date(endDate), 'dd/MM')}`}
                           </span>
-                          <span className="text-[10px] font-medium">{Math.round(progressPercent)}%</span>
-                        </div>
-                        <Progress value={progressPercent} className="h-1.5" />
+                        )}
+                        {daysRemaining !== null && daysRemaining > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> Còn {daysRemaining} ngày
+                          </span>
+                        )}
+                        {channels.length > 0 && (
+                          <div className="flex items-center gap-1">
+                            {channels.map(ch => (
+                              <Badge key={ch} variant="outline" className="text-[8px] h-3.5 px-1">{ch}</Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
 
-                    {/* Timeline + Channels */}
-                    <div className="flex items-center gap-3 flex-wrap text-[10px] text-muted-foreground">
-                      {startDate && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {format(new Date(startDate), 'dd/MM')}
-                          {endDate && ` → ${format(new Date(endDate), 'dd/MM')}`}
-                        </span>
-                      )}
-                      {daysRemaining !== null && daysRemaining > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          Còn {daysRemaining} ngày
-                        </span>
-                      )}
-                      {channels.length > 0 && (
-                        <div className="flex items-center gap-1">
-                          {channels.map(ch => (
-                            <Badge key={ch} variant="outline" className="text-[8px] h-3.5 px-1">
-                              {ch}
-                            </Badge>
-                          ))}
+                      {plan && totalPieces > 0 && (
+                        <div className="flex items-center gap-0.5">
+                          {((plan.plan_data || []) as CampaignContentPiece[]).map((piece) => {
+                            const dotColor = piece.status === 'completed' ? 'bg-emerald-500'
+                              : piece.status === 'in_progress' ? 'bg-amber-500'
+                              : piece.status === 'failed' ? 'bg-destructive'
+                              : 'bg-muted-foreground/30';
+                            return (
+                              <div key={piece.piece_number} className={cn('w-2 h-2 rounded-full', dotColor)} title={`#${piece.piece_number}: ${piece.title} (${piece.status})`} />
+                            );
+                          })}
                         </div>
                       )}
                     </div>
 
-                    {/* Piece mini-timeline */}
-                    {plan && totalPieces > 0 && (
-                      <div className="flex items-center gap-0.5">
-                        {((plan.plan_data || []) as CampaignContentPiece[]).map((piece) => {
-                          const dotColor = piece.status === 'completed' ? 'bg-emerald-500'
-                            : piece.status === 'in_progress' ? 'bg-amber-500'
-                            : piece.status === 'failed' ? 'bg-destructive'
-                            : 'bg-muted-foreground/30';
-                          return (
-                            <div
-                              key={piece.piece_number}
-                              className={cn('w-2 h-2 rounded-full', dotColor)}
-                              title={`#${piece.piece_number}: ${piece.title} (${piece.status})`}
-                            />
-                          );
-                        })}
-                      </div>
+                    {plan && (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0 mt-1" />
                     )}
                   </div>
-
-                  {/* Arrow */}
-                  {plan && (
-                    <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0 mt-1" />
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
