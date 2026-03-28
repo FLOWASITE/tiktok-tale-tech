@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,11 +13,8 @@ serve(async (req) => {
   }
 
   try {
-    const { contentText, schemaType, brandName } = await req.json();
+    const { contentText, schemaType, brandName, organizationId } = await req.json();
     if (!contentText) throw new Error("contentText is required");
-
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableApiKey) throw new Error("LOVABLE_API_KEY not configured");
 
     const prompt = `Generate a valid JSON-LD schema markup for this content.
 
@@ -35,37 +33,32 @@ Rules:
 - For Product: extract product details
 - Use Vietnamese content as-is, do not translate`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        messages: [
-          { role: "system", content: "You are a JSON-LD schema markup generator. Return only valid JSON-LD code." },
-          { role: "user", content: prompt },
-        ],
-      }),
+    // Use centralized callAI — respects Admin model config & auto-fallback
+    const result = await callAI({
+      functionName: "geo-generate-schema",
+      organizationId,
+      messages: [
+        { role: "system", content: "You are a JSON-LD schema markup generator. Return only valid JSON-LD code." },
+        { role: "user", content: prompt },
+      ],
     });
 
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
+    if (!result.success) {
+      const isCredits = result.error?.includes("402") || result.error?.includes("Payment");
+      if (isCredits) {
+        return new Response(JSON.stringify({ error: "Hết credits AI", errorCode: "CREDITS_EXHAUSTED" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (result.error?.includes("429") || result.error?.includes("Rate limit")) {
         return new Response(JSON.stringify({ error: "Rate limited" }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Credits exhausted" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`AI error: ${aiResponse.status}`);
+      throw new Error(result.error || "AI call failed");
     }
 
-    const aiData = await aiResponse.json();
-    let jsonLd = aiData.choices?.[0]?.message?.content || "";
+    let jsonLd = result.data?.choices?.[0]?.message?.content || "";
 
     // Clean markdown code blocks if present
     jsonLd = jsonLd.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
@@ -76,6 +69,8 @@ Rules:
     } catch {
       throw new Error("AI returned invalid JSON-LD");
     }
+
+    console.log(`[geo-generate-schema] Generated via ${result.provider}/${result.model}`);
 
     return new Response(
       JSON.stringify({ success: true, json_ld: jsonLd, schema_type: schemaType || "Article" }),

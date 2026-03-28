@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,9 +16,6 @@ serve(async (req) => {
   try {
     const { monitorId } = await req.json();
     if (!monitorId) throw new Error("monitorId required");
-
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableApiKey) throw new Error("LOVABLE_API_KEY not configured");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -35,6 +33,7 @@ serve(async (req) => {
     const brandName = monitor.brand_name;
     const competitors = (monitor.competitors || []) as string[];
     const keywords = (monitor.keywords || []) as string[];
+    const organizationId = monitor.organization_id;
 
     if (competitors.length === 0) {
       return new Response(
@@ -59,87 +58,86 @@ Phân tích dựa trên:
 3. Content quality & quantity
 4. Khả năng được AI trích dẫn`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        messages: [
-          { role: "system", content: "Bạn là competitive intelligence analyst." },
-          { role: "user", content: analysisPrompt },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "submit_competitive_analysis",
-              description: "Submit competitive analysis results",
-              parameters: {
-                type: "object",
-                properties: {
-                  brands: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        name: { type: "string" },
-                        estimated_sov: { type: "number", description: "0-100" },
-                        strengths: { type: "array", items: { type: "string" } },
-                        weaknesses: { type: "array", items: { type: "string" } },
-                        citation_likelihood: { type: "number", description: "0-100" },
-                        content_authority: { type: "number", description: "0-100" },
-                      },
-                      required: ["name", "estimated_sov", "strengths", "weaknesses", "citation_likelihood", "content_authority"],
-                    },
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "submit_competitive_analysis",
+          description: "Submit competitive analysis results",
+          parameters: {
+            type: "object",
+            properties: {
+              brands: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    estimated_sov: { type: "number", description: "0-100" },
+                    strengths: { type: "array", items: { type: "string" } },
+                    weaknesses: { type: "array", items: { type: "string" } },
+                    citation_likelihood: { type: "number", description: "0-100" },
+                    content_authority: { type: "number", description: "0-100" },
                   },
-                  opportunities: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        title: { type: "string" },
-                        description: { type: "string" },
-                        impact: { type: "string", enum: ["high", "medium", "low"] },
-                        effort: { type: "string", enum: ["high", "medium", "low"] },
-                      },
-                      required: ["title", "description", "impact", "effort"],
-                    },
-                  },
+                  required: ["name", "estimated_sov", "strengths", "weaknesses", "citation_likelihood", "content_authority"],
                 },
-                required: ["brands", "opportunities"],
-                additionalProperties: false,
+              },
+              opportunities: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string" },
+                    description: { type: "string" },
+                    impact: { type: "string", enum: ["high", "medium", "low"] },
+                    effort: { type: "string", enum: ["high", "medium", "low"] },
+                  },
+                  required: ["title", "description", "impact", "effort"],
+                },
               },
             },
+            required: ["brands", "opportunities"],
+            additionalProperties: false,
           },
-        ],
-        tool_choice: { type: "function", function: { name: "submit_competitive_analysis" } },
-      }),
+        },
+      },
+    ];
+
+    // Use centralized callAI — respects Admin model config & auto-fallback
+    const result = await callAI({
+      functionName: "geo-track-competitors",
+      organizationId,
+      messages: [
+        { role: "system", content: "Bạn là competitive intelligence analyst." },
+        { role: "user", content: analysisPrompt },
+      ],
+      tools,
+      toolChoice: { type: "function", function: { name: "submit_competitive_analysis" } },
     });
 
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
+    if (!result.success) {
+      const isCredits = result.error?.includes("402") || result.error?.includes("Payment");
+      if (isCredits) {
+        return new Response(JSON.stringify({ error: "Hết credits AI", errorCode: "CREDITS_EXHAUSTED" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (result.error?.includes("429") || result.error?.includes("Rate limit")) {
         return new Response(JSON.stringify({ error: "Rate limited, thử lại sau" }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Hết credits" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`AI gateway error: ${aiResponse.status}`);
+      throw new Error(result.error || "AI call failed");
     }
 
-    const aiData = await aiResponse.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
 
     let analysis = { brands: [], opportunities: [] };
     if (toolCall?.function?.arguments) {
       analysis = JSON.parse(toolCall.function.arguments);
     }
+
+    console.log(`[geo-track-competitors] Analyzed via ${result.provider}/${result.model}`);
 
     return new Response(
       JSON.stringify({ success: true, ...analysis }),
