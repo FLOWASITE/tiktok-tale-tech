@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callAI } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,9 +28,6 @@ serve(async (req) => {
   try {
     const { contentId, contentType, contentText, organizationId } = await req.json();
     if (!contentText || !organizationId) throw new Error("contentText and organizationId required");
-
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableApiKey) throw new Error("LOVABLE_API_KEY not configured");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -110,98 +108,80 @@ AI có thể trích xuất snippet độc lập.
 - Nội dung kém phải dưới 60
 - Phân biệt rõ ràng giữa các mức điểm`;
 
-    const MODELS = ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite", "google/gemini-3-flash-preview"];
-
-    const buildBody = (model: string) => JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: "Bạn là GEO scoring engine chuyên nghiệp. Chấm điểm CHÍNH XÁC và KHÁCH QUAN. Không cho điểm an toàn — nội dung tốt phải được điểm cao, nội dung kém phải điểm thấp." },
-          { role: "user", content: scoringPrompt },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "submit_geo_score",
-              description: "Submit GEO score results",
-              parameters: {
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "submit_geo_score",
+          description: "Submit GEO score results",
+          parameters: {
+            type: "object",
+            properties: {
+              factor_scores: {
                 type: "object",
                 properties: {
-                  factor_scores: {
-                    type: "object",
-                    properties: {
-                      answer_first: { type: "number" },
-                      citation_signals: { type: "number" },
-                      structured_data: { type: "number" },
-                      entity_clarity: { type: "number" },
-                      heading_hierarchy: { type: "number" },
-                      content_depth: { type: "number" },
-                      freshness: { type: "number" },
-                      extractability: { type: "number" },
-                    },
-                    required: ["answer_first", "citation_signals", "structured_data", "entity_clarity", "heading_hierarchy", "content_depth", "freshness", "extractability"],
-                  },
-                  issues: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        severity: { type: "string", enum: ["critical", "important", "improvement"] },
-                        factor: { type: "string" },
-                        title: { type: "string" },
-                        description: { type: "string" },
-                        suggestion: { type: "string" },
-                      },
-                      required: ["severity", "factor", "title", "description", "suggestion"],
-                    },
-                  },
+                  answer_first: { type: "number" },
+                  citation_signals: { type: "number" },
+                  structured_data: { type: "number" },
+                  entity_clarity: { type: "number" },
+                  heading_hierarchy: { type: "number" },
+                  content_depth: { type: "number" },
+                  freshness: { type: "number" },
+                  extractability: { type: "number" },
                 },
-                required: ["factor_scores", "issues"],
-                additionalProperties: false,
+                required: ["answer_first", "citation_signals", "structured_data", "entity_clarity", "heading_hierarchy", "content_depth", "freshness", "extractability"],
+              },
+              issues: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    severity: { type: "string", enum: ["critical", "important", "improvement"] },
+                    factor: { type: "string" },
+                    title: { type: "string" },
+                    description: { type: "string" },
+                    suggestion: { type: "string" },
+                  },
+                  required: ["severity", "factor", "title", "description", "suggestion"],
+                },
               },
             },
+            required: ["factor_scores", "issues"],
+            additionalProperties: false,
           },
-        ],
-        tool_choice: { type: "function", function: { name: "submit_geo_score" } },
-      });
-
-    let aiResponse: Response | null = null;
-    for (const model of MODELS) {
-      console.log(`[geo-score-content] Trying model: ${model}`);
-      aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${lovableApiKey}`,
-          "Content-Type": "application/json",
         },
-        body: buildBody(model),
-      });
+      },
+    ];
 
-      if (aiResponse.status === 402) {
-        console.warn(`[geo-score-content] ${model} returned 402, trying next fallback...`);
-        await aiResponse.text(); // consume body
-        continue;
+    // Use centralized callAI — respects Admin model config & auto-fallback
+    const result = await callAI({
+      functionName: "geo-score-content",
+      organizationId,
+      messages: [
+        { role: "system", content: "Bạn là GEO scoring engine chuyên nghiệp. Chấm điểm CHÍNH XÁC và KHÁCH QUAN. Không cho điểm an toàn — nội dung tốt phải được điểm cao, nội dung kém phải điểm thấp." },
+        { role: "user", content: scoringPrompt },
+      ],
+      tools,
+      toolChoice: { type: "function", function: { name: "submit_geo_score" } },
+    });
+
+    if (!result.success) {
+      const isCredits = result.error?.includes("402") || result.error?.includes("Payment");
+      if (isCredits) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Hết credits AI", errorCode: "CREDITS_EXHAUSTED" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
-      break;
-    }
-
-    if (!aiResponse || !aiResponse.ok) {
-      const status = aiResponse?.status || 500;
-      if (status === 429) {
+      if (result.error?.includes("429") || result.error?.includes("Rate limit")) {
         return new Response(JSON.stringify({ error: "Rate limited, thử lại sau" }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (status === 402) {
-        return new Response(JSON.stringify({ error: "Tất cả AI models đều hết credits" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`AI gateway error: ${status}`);
+      throw new Error(result.error || "AI call failed");
     }
 
-    const aiData = await aiResponse.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    const toolCall = result.data?.choices?.[0]?.message?.tool_calls?.[0];
     
     let factorScores: Record<string, number> = {};
     let issues: any[] = [];
@@ -246,6 +226,8 @@ AI có thể trích xuất snippet độc lập.
 
       if (upsertErr) console.error("Upsert error:", upsertErr);
     }
+
+    console.log(`[geo-score-content] Scored via ${result.provider}/${result.model}${result.fromFallback ? ' (fallback)' : ''}`);
 
     return new Response(
       JSON.stringify({
