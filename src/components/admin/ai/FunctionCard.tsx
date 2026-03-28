@@ -28,6 +28,7 @@ interface FunctionCardProps {
   fn: AIFunction;
   config?: AIFunctionConfig;
   modelInfo: ModelInfo;
+  modelSource?: 'individual' | 'group' | 'default';
   onEdit: () => void;
   onQuickModelChange?: (model: string | null) => void;
   compact?: boolean;
@@ -201,7 +202,7 @@ const getPresetColorClasses = (color: string, isSelected: boolean) => {
   }
 };
 
-export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange, compact }: FunctionCardProps) {
+export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', onEdit, onQuickModelChange, compact }: FunctionCardProps) {
   const typeBadge = TYPE_BADGES[fn.type];
   const borderClass = CATEGORY_BORDER[fn.category] || 'border-l-muted';
   const displayModel = config?.modelOverride || fn.currentModel;
@@ -237,9 +238,14 @@ export function FunctionCard({ fn, config, modelInfo, onEdit, onQuickModelChange
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="font-medium text-sm truncate">{fn.name}</span>
               <FunctionTagBadges tags={fn.tags} compact />
-              {hasOverride && (
+              {modelSource === 'individual' && (
                 <Badge variant="outline" className="text-[9px] py-0 px-1 bg-primary/10 text-primary border-primary/30">
                   Override
+                </Badge>
+              )}
+              {modelSource === 'group' && (
+                <Badge variant="outline" className="text-[9px] py-0 px-1 bg-violet-500/10 text-violet-600 border-violet-500/30">
+                  Group
                 </Badge>
               )}
               {isDisabled && (
