@@ -192,6 +192,8 @@ interface GenerationResult {
   total_pieces?: number;
   pipelines_created?: number;
   approval_mode?: string;
+  plan_id?: string;
+  goal_name?: string;
 }
 
 interface GoalWizardProps {
@@ -498,7 +500,7 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
         clarification_context: submitData.clarification_context,
       });
       
-      setGenerationResult(result);
+      setGenerationResult({ ...result, goal_name: name.trim() });
       setGeneratingStatus('done');
     } catch (e: any) {
       console.error('Campaign generation error:', e);

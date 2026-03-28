@@ -29,7 +29,13 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
   paused: { label: 'Tạm dừng', color: 'bg-muted text-muted-foreground', icon: Pause },
 };
 
-export function CampaignDashboard() {
+interface CampaignDashboardProps {
+  autoSelectPlanId?: string;
+  autoSelectGoalName?: string;
+  onAutoSelectHandled?: () => void;
+}
+
+export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAutoSelectHandled }: CampaignDashboardProps) {
   const { goals } = useAgentGoals();
   const { pipelines } = useAgentPipelines();
   const { approvals } = useAgentApprovals();
@@ -112,6 +118,17 @@ export function CampaignDashboard() {
       setBackfilling(false);
     }
   };
+
+  // Auto-select plan from wizard navigation
+  useEffect(() => {
+    if (autoSelectPlanId && plans.length > 0 && !isLoading) {
+      const plan = plans.find(p => p.id === autoSelectPlanId);
+      if (plan) {
+        setSelectedPlan({ planId: autoSelectPlanId, goalName: autoSelectGoalName || '' });
+        onAutoSelectHandled?.();
+      }
+    }
+  }, [autoSelectPlanId, plans, isLoading]);
 
   // If plan was deleted while viewing, reset selection
   useEffect(() => {
