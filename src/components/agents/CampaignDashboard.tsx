@@ -113,6 +113,13 @@ export function CampaignDashboard() {
     }
   };
 
+  // If plan was deleted while viewing, reset selection
+  useEffect(() => {
+    if (selectedPlan && !currentPlan && !isLoading) {
+      setSelectedPlan(null);
+    }
+  }, [selectedPlan, currentPlan, isLoading]);
+
   if (selectedPlan && currentPlan) {
     return (
       <div className="space-y-3">
@@ -130,13 +137,6 @@ export function CampaignDashboard() {
       </div>
     );
   }
-
-  // If plan was deleted while viewing, reset selection
-  useEffect(() => {
-    if (selectedPlan && !currentPlan && !isLoading) {
-      setSelectedPlan(null);
-    }
-  }, [selectedPlan, currentPlan, isLoading]);
 
   // Build campaign data: merge goals with their plans
   const campaignData = goals.map(goal => {
