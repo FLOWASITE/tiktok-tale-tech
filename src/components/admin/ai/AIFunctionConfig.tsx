@@ -10,12 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAIConfig, AI_FUNCTIONS, AIFunctionType, AIFunctionTag, AIFunctionConfig as FunctionConfigType, getModelInfo, ModelInfo } from '@/hooks/useAIConfig';
+import { useGroupModelConfig } from '@/hooks/useGroupModelConfig';
 import { useOpenRouterModels, openRouterModelToModelInfo } from '@/hooks/useOpenRouterModels';
 import { useCategoryConfig } from '@/hooks/useCategoryConfig';
 import { ModelSelector } from './ModelSelector';
 import { QuickSelectButton, ProviderIndicator } from './ModelCard';
 import { FunctionCategoryGroup } from './FunctionCategoryGroup';
 import { CategoryManager } from './CategoryManager';
+import { GroupDefaultsPanel } from './GroupDefaultsPanel';
 import { AIFunction } from './FunctionCard';
 import { countByTag } from './FunctionTagBadges';
 import { Settings, Search, Zap, MessageSquare, Lightbulb, Image, Wand2, Type, Globe, ChevronRight, Sparkles, Star, LayoutGrid, List, FolderOpen, Network, DollarSign } from 'lucide-react';
@@ -53,6 +55,7 @@ const IMAGE_QUICK_PRESETS = {
 
 export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigProps) {
   const { functions, providers, isLoading, upsertFunction } = useAIConfig(organizationId);
+  const { getGroupConfig, getEffectiveModel } = useGroupModelConfig(organizationId);
   const { categories, isLoading: categoriesLoading, getCategoryConfig } = useCategoryConfig(organizationId);
   const [editingFunction, setEditingFunction] = useState<Partial<FunctionConfigType> | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
