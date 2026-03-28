@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Target, ChevronRight, Calendar, Clock, CheckCircle2,
-  AlertCircle, Pause, Play, Loader2, Sparkles, ArrowLeft, RefreshCw, ShieldAlert
+  AlertCircle, Pause, Play, Loader2, Sparkles, ArrowLeft, RefreshCw, ShieldAlert,
+  List, LayoutGrid
 } from 'lucide-react';
 import { useAgentGoals } from '@/hooks/useAgentGoals';
 import { useAgentPipelines } from '@/hooks/useAgentPipelines';
