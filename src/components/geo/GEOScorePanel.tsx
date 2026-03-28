@@ -131,7 +131,15 @@ export function GEOScorePanel({ contentId, contentType = 'multi_channel', conten
         </div>
       </CardHeader>
       <CardContent>
-        {overallScore === null ? (
+        {creditsError && (
+          <TopicCreditsAlert
+            errorCode={creditsError.code}
+            errorMessage={creditsError.message}
+            onRetry={handleScore}
+            className="mb-4"
+          />
+        )}
+        {overallScore === null && !creditsError ? (
           <p className="text-sm text-muted-foreground text-center py-4">
             Nhấn "Chấm điểm GEO" để phân tích nội dung theo 8 yếu tố AI Visibility.
           </p>
