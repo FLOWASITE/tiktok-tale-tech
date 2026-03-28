@@ -367,20 +367,28 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
 
       {/* Function Groups */}
       <div className="space-y-3">
-        {Array.from(groupedFunctions.entries()).map(([category, fns]) => (
-          <FunctionCategoryGroup
-            key={category}
-            category={category}
-            functions={fns}
-            configs={configsMap}
-            onEdit={openEditDialog}
-            onQuickModelChange={handleQuickModelChange}
-            onBulkReset={handleBulkReset}
-            categoryConfig={getCategoryConfig(category)}
-            defaultExpanded={category === 'content' || category === 'ideation'}
-            getEnhancedModelInfo={getEnhancedModelInfo}
-          />
-        ))}
+        {Array.from(groupedFunctions.entries()).map(([category, fns]) => {
+          // Determine dominant function type for this category to find group override
+          const dominantType = fns[0]?.type === 'image' || fns[0]?.type === 'image-direct' ? 'image' : fns[0]?.type || 'text';
+          const groupConfig = getGroupConfig(dominantType);
+          
+          return (
+            <FunctionCategoryGroup
+              key={category}
+              category={category}
+              functions={fns}
+              configs={configsMap}
+              onEdit={openEditDialog}
+              onQuickModelChange={handleQuickModelChange}
+              onBulkReset={handleBulkReset}
+              categoryConfig={getCategoryConfig(category)}
+              defaultExpanded={category === 'content' || category === 'ideation'}
+              getEnhancedModelInfo={getEnhancedModelInfo}
+              groupModelOverride={groupConfig?.modelOverride || null}
+              getEffectiveModel={getEffectiveModel}
+            />
+          );
+        })}
 
         {groupedFunctions.size === 0 && (
           <Card>
