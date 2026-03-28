@@ -120,9 +120,11 @@ export function GroupDefaultsPanel({ organizationId, functionConfigs }: GroupDef
                 <ModelSelector
                   open={selectorOpen === group.id}
                   onOpenChange={(open) => { if (!open) setSelectorOpen(null); }}
-                  currentModel={config?.modelOverride || ''}
+                  selectedModel={config?.modelOverride || null}
+                  defaultModel=""
                   functionType={group.id}
-                  onSelect={(model) => {
+                  hasOpenRouterApiKey={false}
+                  onSelectModel={(model) => {
                     upsertGroupConfig({ functionType: group.id, modelOverride: model });
                     setSelectorOpen(null);
                   }}
