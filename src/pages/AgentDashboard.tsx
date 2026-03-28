@@ -36,6 +36,7 @@ export default function AgentDashboard() {
   const [filterGoalId, setFilterGoalId] = useState<string | null>(null);
   const [goalFilterOpen, setGoalFilterOpen] = useState(false);
   const [triggeringGoalId, setTriggeringGoalId] = useState<string | null>(null);
+  const [autoSelectPlan, setAutoSelectPlan] = useState<{ planId: string; goalName: string } | null>(null);
 
   const goalNameMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -66,7 +67,7 @@ export default function AgentDashboard() {
     approval_mode?: string;
     brand_template_id?: string;
     clarification_context?: Record<string, string>;
-  }): Promise<{ total_pieces?: number; pipelines_created?: number; approval_mode?: string }> => {
+  }): Promise<{ total_pieces?: number; pipelines_created?: number; approval_mode?: string; plan_id?: string }> => {
     const { data: result, error } = await supabase.functions.invoke('generate-campaign-strategy', {
       body: {
         goal_id: goalId,
@@ -88,13 +89,16 @@ export default function AgentDashboard() {
     return result || {};
   };
 
-  const handleWizardComplete = (result: { approval_mode?: string; total_pieces?: number; pipelines_created?: number }) => {
+  const handleWizardComplete = (result: { approval_mode?: string; total_pieces?: number; pipelines_created?: number; plan_id?: string; goal_name?: string }) => {
     setWizardOpen(false);
     setEditingGoal(null);
     if (result.approval_mode === 'full_auto') {
       setActiveTab('pipeline');
     } else {
       setActiveTab('campaign-plans');
+      if (result.plan_id) {
+        setAutoSelectPlan({ planId: result.plan_id, goalName: result.goal_name || '' });
+      }
     }
   };
 
