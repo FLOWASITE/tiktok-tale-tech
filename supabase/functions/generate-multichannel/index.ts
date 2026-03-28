@@ -336,6 +336,7 @@ PHONG CÁCH HARVEST:
 // Channel content column mapping (for expand mode)
 const CHANNEL_COLUMN_MAP: Record<string, string> = {
   website: 'website_content',
+  blog: 'website_content', // blog is alias for website
   facebook: 'facebook_content',
   instagram: 'instagram_content',
   twitter: 'twitter_content',
@@ -348,6 +349,15 @@ const CHANNEL_COLUMN_MAP: Record<string, string> = {
   tiktok: 'tiktok_content',
   threads: 'threads_content',
 };
+
+// Normalize channel aliases to canonical names used in DB columns
+const CHANNEL_ALIASES: Record<string, string> = {
+  blog: 'website',
+};
+
+function normalizeChannels(channels: string[]): string[] {
+  return channels.map(ch => CHANNEL_ALIASES[ch] || ch);
+}
 
 // Journey Stage → Content Goal Mapping
 // Auto-derive contentGoal from journeyStage to reduce user input
@@ -1287,6 +1297,16 @@ Deno.serve(withPerf({ functionName: 'generate-multichannel', slowThresholdMs: 60
   try {
     const requestStartTime = Date.now();
     const formData: FormData = await req.json();
+    // Normalize channel aliases (e.g. blog → website) early
+    if (formData.channels) {
+      formData.channels = normalizeChannels(formData.channels);
+    }
+    if (formData.newChannels) {
+      formData.newChannels = normalizeChannels(formData.newChannels as string[]);
+    }
+    if (formData.channel && CHANNEL_ALIASES[formData.channel]) {
+      formData.channel = CHANNEL_ALIASES[formData.channel];
+    }
     console.log("Generating multi-channel content for:", formData.topic);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -5206,6 +5226,8 @@ KHÔNG ĐƯỢC dừng giữa chừng. KHÔNG viết tắt. Viết ĐẦY ĐỦ 
           youtube_content: (generatedData.youtube_content && generatedData.youtube_content.length > 0) ? generatedData.youtube_content : null,
           zalo_oa_content: (generatedData.zalo_oa_content && generatedData.zalo_oa_content.length > 0) ? generatedData.zalo_oa_content : null,
           telegram_content: (generatedData.telegram_content && generatedData.telegram_content.length > 0) ? generatedData.telegram_content : null,
+          tiktok_content: (generatedData.tiktok_content && generatedData.tiktok_content.length > 0) ? generatedData.tiktok_content : null,
+          threads_content: (generatedData.threads_content && generatedData.threads_content.length > 0) ? generatedData.threads_content : null,
         })
         .select()
         .single();
