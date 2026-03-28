@@ -345,7 +345,10 @@ async function executeGenerateMultichannel(
   params: Record<string, any>,
   context: ExecutionContext
 ): Promise<ToolCallResult> {
-  const { topic, channels, content_goal, journey_stage, content_angle, content_role, auto_research, target_audience } = params;
+  const { topic, content_goal, journey_stage, content_angle, content_role, auto_research, target_audience } = params;
+  // Normalize channel aliases (e.g. blog → website)
+  const CHANNEL_ALIASES: Record<string, string> = { blog: 'website' };
+  const channels = (params.channels as string[] | undefined)?.map(ch => CHANNEL_ALIASES[ch] || ch);
 
   if (!context.userId) {
     return {
