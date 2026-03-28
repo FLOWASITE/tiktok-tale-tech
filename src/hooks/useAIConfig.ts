@@ -1263,6 +1263,15 @@ export function useAIConfig(organizationId?: string) {
     },
   });
 
+  const refetchAll = async () => {
+    await Promise.all([
+      providersQuery.refetch(),
+      functionsQuery.refetch(),
+      queryClient.invalidateQueries({ queryKey: ['agent-model-configs'] }),
+      queryClient.invalidateQueries({ queryKey: ['channel-model-configs'] }),
+    ]);
+  };
+
   return {
     providers: providersQuery.data || [],
     functions: functionsQuery.data || [],
@@ -1274,5 +1283,6 @@ export function useAIConfig(organizationId?: string) {
       providersQuery.refetch();
       functionsQuery.refetch();
     },
+    refetchAll,
   };
 }
