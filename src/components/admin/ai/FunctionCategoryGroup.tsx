@@ -195,6 +195,11 @@ export function FunctionCategoryGroup({
                     {overrideCount} override
                   </Badge>
                 )}
+                {groupModelOverride && (
+                  <Badge variant="outline" className="text-[10px] bg-violet-500/10 text-violet-600 border-violet-500/30">
+                    Group: {getEnhancedModelInfo(groupModelOverride).shortName}
+                  </Badge>
+                )}
                 {disabledCount > 0 && (
                   <Badge variant="outline" className="text-[10px] bg-muted">
                     {disabledCount} off
