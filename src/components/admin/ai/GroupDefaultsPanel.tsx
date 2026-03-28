@@ -117,18 +117,16 @@ export function GroupDefaultsPanel({ organizationId, functionConfigs }: GroupDef
                 )}
 
                 {/* Model Selector Dialog */}
-                {selectorOpen === group.id && (
-                  <ModelSelector
-                    isOpen={true}
-                    onClose={() => setSelectorOpen(null)}
-                    currentModel={config?.modelOverride || ''}
-                    functionType={group.id}
-                    onSelect={(model) => {
-                      upsertGroupConfig({ functionType: group.id, modelOverride: model });
-                      setSelectorOpen(null);
-                    }}
-                  />
-                )}
+                <ModelSelector
+                  open={selectorOpen === group.id}
+                  onOpenChange={(open) => { if (!open) setSelectorOpen(null); }}
+                  currentModel={config?.modelOverride || ''}
+                  functionType={group.id}
+                  onSelect={(model) => {
+                    upsertGroupConfig({ functionType: group.id, modelOverride: model });
+                    setSelectorOpen(null);
+                  }}
+                />
               </div>
             );
           })}
