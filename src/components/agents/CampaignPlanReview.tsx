@@ -295,7 +295,7 @@ function TimelineView({
   );
 }
 
-// ─── List View (original) ───
+// ─── List View (default, polished) ───
 function ListView({
   pieces, isEditable, onEdit, onDelete,
 }: {
@@ -304,64 +304,122 @@ function ListView({
   onEdit: (p: CampaignContentPiece) => void;
   onDelete: (n: number) => void;
 }) {
+  const sorted = sortedPieces(pieces);
+
   return (
-    <div className="space-y-2">
-      {pieces.map((piece) => (
-        <Card key={piece.piece_number} className="group hover:border-primary/30 transition-colors">
-          <CardContent className="p-3">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1 shrink-0">
-                {isEditable && <GripVertical className="w-3 h-3 text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity" />}
-                <span className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium">
+    <div className="space-y-1.5">
+      {/* Table header */}
+      <div className="hidden sm:grid grid-cols-[2rem_1fr_auto_auto_auto_auto_auto] gap-2 px-3 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+        <span>#</span>
+        <span>Nội dung</span>
+        <span>Kênh</span>
+        <span>Vai trò</span>
+        <span>Format</span>
+        <span>Ngày</span>
+        <span>Trạng thái</span>
+      </div>
+      {sorted.map((piece) => {
+        const role = ROLE_CONFIG[piece.content_role];
+        const fmt = FORMAT_CONFIG[piece.format] || FORMAT_CONFIG.post;
+        const FormatIcon = fmt.icon;
+        const angle = ANGLE_LABELS[piece.angle] || piece.angle;
+
+        return (
+          <Card key={piece.piece_number} className="group hover:border-primary/30 transition-colors">
+            <CardContent className="p-0">
+              {/* Desktop row */}
+              <div className="hidden sm:grid grid-cols-[2rem_1fr_auto_auto_auto_auto_auto] gap-2 items-center px-3 py-2.5">
+                <span className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold text-muted-foreground">
                   {piece.piece_number}
                 </span>
-              </div>
-              <div className="flex-1 min-w-0 space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-medium truncate">{piece.title}</p>
-                  {statusBadge(piece.status)}
+                <div className="min-w-0 space-y-0.5">
+                  <p className="text-sm font-medium truncate leading-tight">{piece.title}</p>
+                  {piece.key_message && (
+                    <p className="text-[10px] text-muted-foreground truncate">{piece.key_message}</p>
+                  )}
                 </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
+                <div className="flex items-center gap-1 shrink-0">
                   <ChannelIcon channel={piece.target_channel} size="sm" />
                   <span className="text-[10px] text-muted-foreground">{getChannelLabel(piece.target_channel)}</span>
-                  <Badge variant="outline" className={cn('text-[9px] h-4', ROLE_CONFIG[piece.content_role]?.color)}>
-                    {ROLE_CONFIG[piece.content_role]?.label || piece.content_role}
-                  </Badge>
-                  <Badge variant="outline" className="text-[9px] h-4">
-                    {ANGLE_LABELS[piece.angle] || piece.angle}
-                  </Badge>
-                  <Badge variant="outline" className="text-[9px] h-4 bg-muted/50">
-                    {(FORMAT_CONFIG[piece.format] || FORMAT_CONFIG.post).label}
-                  </Badge>
                 </div>
-                {piece.key_message && (
-                  <p className="text-[11px] text-muted-foreground line-clamp-1">{piece.key_message}</p>
-                )}
+                <div className="shrink-0">
+                  {role && (
+                    <Badge variant="outline" className={cn('text-[9px] h-4', role.color)}>
+                      {role.emoji} {role.label}
+                    </Badge>
+                  )}
+                </div>
+                <Badge variant="outline" className="text-[9px] h-4 gap-0.5 bg-muted/50 shrink-0">
+                  <FormatIcon className="w-2.5 h-2.5" />
+                  {fmt.label}
+                </Badge>
+                <span className="text-[10px] text-muted-foreground shrink-0 min-w-[3rem] text-right">
+                  {piece.scheduled_date ? format(new Date(piece.scheduled_date), 'dd/MM') : '—'}
+                </span>
+                <div className="flex items-center gap-1 shrink-0">
+                  {statusBadge(piece.status)}
+                  {isEditable && (
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => onEdit(piece)}>
+                        <Pencil className="w-2.5 h-2.5" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => onDelete(piece.piece_number)}>
+                        <Trash2 className="w-2.5 h-2.5 text-destructive" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="shrink-0 text-right">
-                {piece.scheduled_date && (
-                  <span className="text-[10px] text-muted-foreground">
-                    {format(new Date(piece.scheduled_date), 'dd/MM')}
+
+              {/* Mobile layout */}
+              <div className="sm:hidden p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold text-muted-foreground shrink-0 mt-0.5">
+                    {piece.piece_number}
                   </span>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium truncate flex-1">{piece.title}</p>
+                      {statusBadge(piece.status)}
+                    </div>
+                    {piece.key_message && (
+                      <p className="text-[11px] text-muted-foreground line-clamp-1">{piece.key_message}</p>
+                    )}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <ChannelIcon channel={piece.target_channel} size="sm" />
+                      <span className="text-[10px] text-muted-foreground">{getChannelLabel(piece.target_channel)}</span>
+                      {role && (
+                        <Badge variant="outline" className={cn('text-[9px] h-4', role.color)}>
+                          {role.emoji} {role.label}
+                        </Badge>
+                      )}
+                      <Badge variant="outline" className="text-[9px] h-4 gap-0.5 bg-muted/50">
+                        <FormatIcon className="w-2.5 h-2.5" />
+                        {fmt.label}
+                      </Badge>
+                      {piece.scheduled_date && (
+                        <span className="text-[10px] text-muted-foreground ml-auto">
+                          {format(new Date(piece.scheduled_date), 'dd/MM')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {isEditable && (
+                  <div className="flex items-center gap-1 justify-end">
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onEdit(piece)}>
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onDelete(piece.piece_number)}>
+                      <Trash2 className="w-3 h-3 text-destructive" />
+                    </Button>
+                  </div>
                 )}
               </div>
-              {isEditable && (
-                <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onEdit(piece)}>
-                    <Pencil className="w-3 h-3" />
-                  </Button>
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onDelete(piece.piece_number)}>
-                    <Trash2 className="w-3 h-3 text-destructive" />
-                  </Button>
-                </div>
-              )}
-              {piece.pipeline_id && (
-                <ArrowRight className="w-3 h-3 text-muted-foreground shrink-0" />
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
@@ -369,7 +427,7 @@ function ListView({
 // ─── Main Component ───
 export function CampaignPlanReview({ plan, goalName, onClose }: CampaignPlanReviewProps) {
   const { updatePlan, approvePlan } = useCampaignPlans();
-  const [viewMode, setViewMode] = useState<ViewMode>('channel');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [editingPiece, setEditingPiece] = useState<CampaignContentPiece | null>(null);
   const [editDialog, setEditDialog] = useState(false);
   const [editForm, setEditForm] = useState<Partial<CampaignContentPiece>>({});
