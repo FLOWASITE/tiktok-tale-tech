@@ -68,6 +68,8 @@ export const AI_FUNCTIONS = [
   // Analysis Functions
   { name: 'analyze-script', description: 'Phân tích kịch bản', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'critique-content', description: 'Đánh giá nội dung', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
+  { name: 'geo-score-content', description: 'Chấm điểm GEO (AI Visibility)', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
+  { name: 'geo-generate-schema', description: 'Tạo JSON-LD schema markup', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
   { name: 'kpi-ai', description: 'AI phân tích và gợi ý KPI', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'analyze-dashboard-insights', description: 'Phân tích insights từ dashboard', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash' },
   { name: 'learn-from-edits', description: 'Học từ chỉnh sửa của user', category: 'analysis', type: 'text' as AIFunctionType, currentModel: 'google/gemini-2.5-flash-lite' },
