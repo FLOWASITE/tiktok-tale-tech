@@ -8,6 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { GEOIssuesList } from './GEOIssuesList';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { parseEdgeFunctionError } from '@/lib/edgeFunctionErrors';
+import { TopicCreditsAlert } from '@/components/topic/TopicCreditsAlert';
 
 interface GEOScorePanelProps {
   contentId?: string;
@@ -69,6 +71,7 @@ export function GEOScorePanel({ contentId, contentType = 'multi_channel', conten
   const [factorScores, setFactorScores] = useState<Record<string, number>>({});
   const [issues, setIssues] = useState<GEOIssue[]>([]);
   const [showDetails, setShowDetails] = useState(false);
+  const [creditsError, setCreditsError] = useState<{ code?: string; message?: string } | null>(null);
 
   const handleScore = async () => {
     if (!contentText.trim()) {
@@ -77,12 +80,27 @@ export function GEOScorePanel({ contentId, contentType = 'multi_channel', conten
     }
 
     setScoring(true);
+    setCreditsError(null);
     try {
       const { data, error } = await supabase.functions.invoke('geo-score-content', {
         body: { contentId, contentType, contentText, organizationId },
       });
 
-      if (error) throw error;
+      if (error) {
+        const parsed = parseEdgeFunctionError(error, 'Lỗi chấm điểm GEO');
+        if (parsed.code === 'CREDITS_EXHAUSTED') {
+          setCreditsError({ code: parsed.code, message: parsed.message });
+          return;
+        }
+        throw new Error(parsed.message);
+      }
+      
+      // Check for inline error from edge function (200 with errorCode)
+      if (data?.errorCode === 'CREDITS_EXHAUSTED' || data?.error?.includes?.('credits')) {
+        setCreditsError({ code: 'CREDITS_EXHAUSTED', message: data.error || 'AI credits đã hết' });
+        return;
+      }
+      
       if (!data.success) throw new Error(data.error);
 
       setOverallScore(data.overall_score);
@@ -113,7 +131,15 @@ export function GEOScorePanel({ contentId, contentType = 'multi_channel', conten
         </div>
       </CardHeader>
       <CardContent>
-        {overallScore === null ? (
+        {creditsError && (
+          <TopicCreditsAlert
+            errorCode={creditsError.code}
+            errorMessage={creditsError.message}
+            onRetry={handleScore}
+            className="mb-4"
+          />
+        )}
+        {overallScore === null && !creditsError ? (
           <p className="text-sm text-muted-foreground text-center py-4">
             Nhấn "Chấm điểm GEO" để phân tích nội dung theo 8 yếu tố AI Visibility.
           </p>
