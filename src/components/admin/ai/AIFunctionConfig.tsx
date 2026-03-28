@@ -362,6 +362,9 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
         </div>
       </div>
 
+      {/* Group Defaults */}
+      <GroupDefaultsPanel organizationId={organizationId} functionConfigs={configsMap} />
+
       {/* Function Groups */}
       <div className="space-y-3">
         {Array.from(groupedFunctions.entries()).map(([category, fns]) => (
