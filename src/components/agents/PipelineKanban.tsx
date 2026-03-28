@@ -103,12 +103,13 @@ interface PipelineKanbanProps {
   onStageChange?: (id: string, stage: AgentPipelineStage) => void;
   onFlagToggle?: (id: string, flagged: boolean) => void;
   onDelete?: (id: string) => void;
+  onBulkDelete?: (ids: string[]) => void;
   onRetry?: (id: string) => void;
   onApprove?: (approvalId: string, notes?: string) => void;
   onReject?: (approvalId: string, notes: string) => void;
 }
 
-function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, campaignNames, onApprove, onReject, onRetry, onDelete }: { stage: typeof PIPELINE_STAGES[0]; pipelines: AgentPipeline[]; onCardClick?: (p: AgentPipeline) => void; approvalMap?: Map<string, AgentApproval>; campaignNames?: Map<string, string>; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void; onRetry?: (id: string) => void; onDelete?: (id: string) => void }) {
+function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, campaignNames, onApprove, onReject, onRetry, onDelete, selectedIds, onToggleSelect }: { stage: typeof PIPELINE_STAGES[0]; pipelines: AgentPipeline[]; onCardClick?: (p: AgentPipeline) => void; approvalMap?: Map<string, AgentApproval>; campaignNames?: Map<string, string>; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void; onRetry?: (id: string) => void; onDelete?: (id: string) => void; selectedIds?: Set<string>; onToggleSelect?: (id: string) => void }) {
   const { isOver, setNodeRef } = useDroppable({ id: stage.id });
   const Icon = STAGE_ICONS[stage.icon] || Lightbulb;
 
@@ -148,6 +149,8 @@ function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, campaignNa
               onReject={onReject}
               onRetry={onRetry}
               onDelete={onDelete}
+              isSelected={selectedIds?.has(p.id)}
+              onToggleSelect={onToggleSelect}
             />
           ))}
           {pipelines.length === 0 && (
