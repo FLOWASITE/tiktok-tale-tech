@@ -1,34 +1,37 @@
 
 
-# Refactor 3 GEO Edge Functions để sử dụng `callAI` tập trung
+# Auto-navigate đến "Duyệt kế hoạch" sau khi tạo chiến dịch
 
 ## Vấn đề
-3 edge functions GEO gọi thẳng `https://ai.gateway.lovable.dev/...` với model hardcoded, bỏ qua hoàn toàn hệ thống `callAI()` từ `_shared/ai-provider.ts`. Kết quả: dù Admin đã cấu hình model Qwen (DashScope) trong trang Cài đặt, các function GEO vẫn dùng Lovable Gateway → hết credits thì lỗi 402.
+Khi user click "Xem kế hoạch", hệ thống chỉ chuyển tab sang `campaign-plans` nhưng không tự mở plan cụ thể vừa tạo. User phải tìm và click vào plan thủ công.
 
-Hệ thống `callAI()` đã xử lý đầy đủ: đọc model override từ DB → route đúng provider (DashScope, OpenRouter...) → fallback tự động. Chỉ cần chuyển sang dùng nó.
+## Giải pháp
+Truyền `plan_id` và `goal_name` từ kết quả tạo chiến dịch → `CampaignDashboard` tự động mở đúng plan đó.
 
-## Thay đổi
+### 1. `src/components/agents/GoalWizard.tsx`
+- Mở rộng `GenerationResult` thêm `plan_id?: string` và `goal_name?: string`
+- Truyền `goalName` (tên campaign) vào result khi gọi `onComplete`
 
-### 1. `supabase/functions/geo-score-content/index.ts`
-- Import `callAI` từ `../_shared/ai-provider.ts`
-- Xóa biến `MODELS`, `buildBody`, và vòng lặp fetch trực tiếp
-- Thay bằng `callAI({ functionName: 'geo-score-content', organizationId, messages, tools, toolChoice })`
-- Giữ nguyên prompt, tool schema, logic xử lý response (parse tool_calls)
+### 2. `src/pages/AgentDashboard.tsx`
+- `handleGenerateStrategy`: trả về thêm `plan_id` và `goal_name` từ edge function response
+- `handleWizardComplete`: lưu `plan_id` + `goal_name` vào state mới `autoSelectPlan`
+- Truyền `autoSelectPlanId` và `autoSelectGoalName` props xuống `<CampaignDashboard />`
 
-### 2. `supabase/functions/geo-generate-schema/index.ts`
-- Import `callAI` từ `../_shared/ai-provider.ts`
-- Xóa fetch trực tiếp đến Lovable Gateway
-- Thay bằng `callAI({ functionName: 'geo-generate-schema', messages })`
-- Giữ nguyên prompt và logic clean JSON-LD
+### 3. `src/components/agents/CampaignDashboard.tsx`
+- Thêm props: `autoSelectPlanId?: string`, `autoSelectGoalName?: string`
+- Thêm `useEffect`: khi `autoSelectPlanId` có giá trị và plan tồn tại trong `plans`, tự động `setSelectedPlan({ planId, goalName })` → mở thẳng màn hình review
 
-### 3. `supabase/functions/geo-track-competitors/index.ts`
-- Import `callAI` từ `../_shared/ai-provider.ts`
-- Xóa fetch trực tiếp đến Lovable Gateway
-- Thay bằng `callAI({ functionName: 'geo-track-competitors', messages, tools, toolChoice })`
-- Giữ nguyên prompt và logic parse competitive analysis
+## Flow
+```text
+GoalWizard (click "Xem kế hoạch")
+  → onComplete({ plan_id, goal_name, approval_mode })
+  → AgentDashboard.handleWizardComplete
+    → setActiveTab('campaign-plans')
+    → setAutoSelectPlan({ planId, goalName })
+  → CampaignDashboard receives autoSelectPlanId
+    → useEffect auto-selects the plan
+    → CampaignPlanReview renders immediately
+```
 
-## Kết quả
-- Cả 3 functions sẽ **dùng đúng model đã cấu hình** trong trang Cài đặt (ví dụ: `qwen-plus`) ngay từ đầu
-- Không còn phụ thuộc vào Lovable Gateway credits
-- Tự động hưởng circuit breaker, retry, và cost tracking từ `callAI()`
+Tổng: sửa **3 file**, không thay đổi DB hay edge function.
 
