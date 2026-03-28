@@ -1,57 +1,61 @@
 
 
-# Hoàn thiện flow tạo AI Campaign — hiển thị tiến trình thay vì đóng dialog
+# Thêm Group Model Override cho AI Functions
 
-## Vấn đề hiện tại
+## Tổng quan
+Thêm khả năng đặt 1 model mặc định cho toàn bộ functions trong một nhóm type (text, image, search). Khi function cụ thể có `modelOverride` riêng thì dùng cái riêng, không thì dùng group default.
 
-Khi user nhấn "Khởi chạy Campaign" ở bước cuối:
-1. AI clarification chạy → hiển thị "understanding" 1.5 giây
-2. `finalSubmit` gọi `onSubmit` → `handleCreateGoal` **đóng dialog ngay** (`setWizardOpen(false)`)
-3. Gọi `generate-campaign-strategy` trong background — user chỉ thấy toast nhỏ, không biết đang xử lý gì
-4. Khi xong → toast thông báo kết quả, chuyển tab
+## Cách tiếp cận
 
-User muốn: sau khi xác nhận, dialog **không đóng** mà tiếp tục hiển thị tiến trình AI đang tạo kế hoạch, rồi mới kết thúc.
+### 1. Database — Bảng `ai_function_group_configs`
+Tạo bảng mới lưu group-level model override:
 
-## Giải pháp
+```sql
+CREATE TABLE public.ai_function_group_configs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID REFERENCES organizations(id),
+  function_type TEXT NOT NULL, -- 'text', 'image', 'search'
+  model_override TEXT,
+  force_provider TEXT,
+  temperature NUMERIC,
+  is_enabled BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(organization_id, function_type)
+);
 
-Chuyển logic gọi `generate-campaign-strategy` **vào trong GoalWizard**, thêm 1 bước "Generating" hiển thị trong dialog thay vì đóng và chạy background.
-
-### Flow mới
-
-```text
-Step 4 (Xác nhận) → Nhấn "Khởi chạy"
-  → AI Clarification (giữ nguyên)
-  → finalSubmit gọi onSubmit (tạo goal trong DB)
-  → Dialog KHÔNG đóng → chuyển sang trạng thái "generating"
-  → Hiển thị animation + progress steps trong dialog:
-     ✓ Đã tạo campaign goal
-     ⟳ Đang lên kế hoạch nội dung...
-     ○ Hoàn tất
-  → Khi strategy xong → hiển thị kết quả (số bài, số pipeline)
-  → Nút "Xem kế hoạch" đóng dialog + chuyển tab
+ALTER TABLE ai_function_group_configs ENABLE ROW LEVEL SECURITY;
+-- RLS: admin read/write
 ```
 
-### Thay đổi cụ thể
+### 2. Hook — Thêm logic group config vào `useAIConfig.ts`
+- Thêm query fetch `ai_function_group_configs`
+- Thêm mutation upsert group config
+- Export helper `getEffectiveModel(functionName)`: function override > group override > hardcoded default
 
-#### 1. Sửa `GoalWizard.tsx`
-- Thêm state: `generatingStatus: 'idle' | 'saving' | 'generating' | 'done' | 'error'` và `generationResult`
-- Thêm prop `onGenerateStrategy` (callback trả về Promise với kết quả)
-- Sau `finalSubmit` → không gọi `onSubmit` đơn giản, mà:
-  1. Set status = `'saving'`, gọi `onSubmit` (tạo goal)
-  2. Set status = `'generating'`, gọi `onGenerateStrategy` (tạo kế hoạch)
-  3. Set status = `'done'`, hiển thị kết quả
-- Render trạng thái generating trong dialog body (thay vì step 4 content):
-  - Progress steps với checkmarks animated
-  - Kết quả cuối cùng: số bài viết, kênh, nút "Xem kế hoạch"
+### 3. UI — Thêm Group Model Selector vào `FunctionCategoryGroup.tsx`
+- Trong header của mỗi category group, thêm nút "Set model cho nhóm" (chỉ hiện cho type-based groups)
+- Hiển thị badge "Group: qwen-plus" khi group có override
+- Trên `FunctionCard`, hiển thị nguồn model: "Group default" vs "Custom override"
 
-#### 2. Sửa `AgentDashboard.tsx`
-- Tách logic `handleCreateGoal` thành 2 phần:
-  - `handleSaveGoal`: chỉ tạo goal trong DB, trả về `goalId`
-  - `handleGenerateStrategy`: nhận goalId + data, gọi edge function, trả về result
-- Truyền cả 2 callback vào GoalWizard
-- Không `setWizardOpen(false)` ngay — GoalWizard tự đóng khi user nhấn "Xem kế hoạch"
+### 4. UI — Thêm Group Config Panel vào `AIFunctionConfig.tsx`
+- Thêm 1 section phía trên danh sách functions: **"Group Defaults"** với 3 cards (Text, Image, Search)
+- Mỗi card có ModelSelector để chọn model mặc định cho group
+- Hiển thị số functions sẽ bị ảnh hưởng (trừ những function đã có override riêng)
 
-### File thay đổi
-- **Sửa**: `src/components/agents/GoalWizard.tsx` — thêm generating state + UI progress steps
-- **Sửa**: `src/pages/AgentDashboard.tsx` — tách logic, truyền callbacks mới
+### Flow ưu tiên model
+```text
+Function có modelOverride riêng? → Dùng nó
+  ↓ Không
+Group type có model_override? → Dùng nó  
+  ↓ Không
+Dùng hardcoded currentModel trong AI_FUNCTIONS
+```
+
+### Files thay đổi
+- **Migration SQL**: Tạo bảng `ai_function_group_configs` + RLS
+- **`src/hooks/useAIConfig.ts`**: Thêm query/mutation cho group configs, helper `getEffectiveModel`
+- **`src/components/admin/ai/FunctionCategoryGroup.tsx`**: Thêm group model selector trong header
+- **`src/components/admin/ai/AIFunctionConfig.tsx`**: Thêm Group Defaults section, truyền group config xuống FunctionCategoryGroup
+- **`src/components/admin/ai/FunctionCard.tsx`**: Hiển thị badge nguồn model (group/custom)
 
