@@ -403,7 +403,7 @@ Secondary color: ${secondaryColor}`;
 
     if (!response.ok) {
       const status = response.status;
-      const errText = await response.text();
+      const errText = bodyConsumed ? '(body already consumed)' : await response.text();
       console.error("AI gateway error:", status, errText);
 
       if (status === 429) {
