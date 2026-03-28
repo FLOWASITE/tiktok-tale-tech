@@ -1,28 +1,34 @@
 
 
-# Sửa lỗi: Không thể chỉnh sửa chi tiết trong Kế hoạch AI Campaign
+# Refactor 3 GEO Edge Functions để sử dụng `callAI` tập trung
 
-## Nguyên nhân
+## Vấn đề
+3 edge functions GEO gọi thẳng `https://ai.gateway.lovable.dev/...` với model hardcoded, bỏ qua hoàn toàn hệ thống `callAI()` từ `_shared/ai-provider.ts`. Kết quả: dù Admin đã cấu hình model Qwen (DashScope) trong trang Cài đặt, các function GEO vẫn dùng Lovable Gateway → hết credits thì lỗi 402.
 
-Bug nằm ở **stale state** trong `CampaignDashboard.tsx`:
+Hệ thống `callAI()` đã xử lý đầy đủ: đọc model override từ DB → route đúng provider (DashScope, OpenRouter...) → fallback tự động. Chỉ cần chuyển sang dùng nó.
 
-1. Khi user click vào một plan, object plan được lưu vào state: `setSelectedPlan({ plan, goalName })`
-2. Object plan này là **snapshot tại thời điểm click** — không cập nhật khi data thay đổi
-3. Khi user sửa một piece và nhấn "Lưu", mutation `updatePlan` ghi DB thành công và invalidate query
-4. Query re-fetch trả về data mới → mảng `plans` cập nhật
-5. **Nhưng** `selectedPlan.plan` vẫn giữ object cũ → UI hiển thị data cũ, trông như edit không có tác dụng
+## Thay đổi
 
-## Giải pháp
+### 1. `supabase/functions/geo-score-content/index.ts`
+- Import `callAI` từ `../_shared/ai-provider.ts`
+- Xóa biến `MODELS`, `buildBody`, và vòng lặp fetch trực tiếp
+- Thay bằng `callAI({ functionName: 'geo-score-content', organizationId, messages, tools, toolChoice })`
+- Giữ nguyên prompt, tool schema, logic xử lý response (parse tool_calls)
 
-### File: `src/components/agents/CampaignDashboard.tsx`
-- Thay đổi `selectedPlan` state từ `{ plan, goalName }` thành `{ planId, goalName }`
-- Derive plan thực tế từ mảng `plans` (luôn fresh): `plans.find(p => p.id === selectedPlan.planId)`
-- Nếu plan không tìm thấy (bị xóa), tự động quay lại danh sách
+### 2. `supabase/functions/geo-generate-schema/index.ts`
+- Import `callAI` từ `../_shared/ai-provider.ts`
+- Xóa fetch trực tiếp đến Lovable Gateway
+- Thay bằng `callAI({ functionName: 'geo-generate-schema', messages })`
+- Giữ nguyên prompt và logic clean JSON-LD
 
-### File: `src/components/agents/CampaignPlanReview.tsx`  
-- Thêm **optimistic update** cho `handleSaveEdit`: cập nhật local pieces ngay lập tức trước khi mutation hoàn thành
-- Đảm bảo `handleDeletePiece` và `handleAddPiece` cũng cập nhật local state tương tự
-- Thêm loading indicator trên nút "Lưu" khi mutation đang pending
+### 3. `supabase/functions/geo-track-competitors/index.ts`
+- Import `callAI` từ `../_shared/ai-provider.ts`
+- Xóa fetch trực tiếp đến Lovable Gateway
+- Thay bằng `callAI({ functionName: 'geo-track-competitors', messages, tools, toolChoice })`
+- Giữ nguyên prompt và logic parse competitive analysis
 
-Tổng cộng sửa **2 file**, không thay đổi DB hay edge function.
+## Kết quả
+- Cả 3 functions sẽ **dùng đúng model đã cấu hình** trong trang Cài đặt (ví dụ: `qwen-plus`) ngay từ đầu
+- Không còn phụ thuộc vào Lovable Gateway credits
+- Tự động hưởng circuit breaker, retry, và cost tracking từ `callAI()`
 
