@@ -47,6 +47,13 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
 
   // Derive the actual plan from fresh query data to avoid stale state
   const currentPlan = selectedPlan ? plans.find(p => p.id === selectedPlan.planId) : null;
+
+  // Goal name lookup
+  const goalNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    goals.forEach(g => map.set(g.id, g.name));
+    return map;
+  }, [goals]);
   const [recovering, setRecovering] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillingPublish, setBackfillingPublish] = useState(false);
