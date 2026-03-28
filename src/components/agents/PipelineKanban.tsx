@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Lightbulb, PenTool, ShieldCheck, UserCheck, Send, BarChart3, InboxIcon, AlertTriangle, Clock, Check, X, CheckCircle2, FileText, Video, Images, Target, RefreshCw, Trash2 } from 'lucide-react';
 import { AgentPipeline, AgentPipelineStage, AgentApproval, PIPELINE_STAGES, ContentType } from '@/types/agent';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 const STAGE_BADGE_COLORS: Record<string, string> = {
   strategy: 'bg-violet-500 text-white',
@@ -103,12 +105,13 @@ interface PipelineKanbanProps {
   onStageChange?: (id: string, stage: AgentPipelineStage) => void;
   onFlagToggle?: (id: string, flagged: boolean) => void;
   onDelete?: (id: string) => void;
+  onBulkDelete?: (ids: string[]) => void;
   onRetry?: (id: string) => void;
   onApprove?: (approvalId: string, notes?: string) => void;
   onReject?: (approvalId: string, notes: string) => void;
 }
 
-function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, campaignNames, onApprove, onReject, onRetry, onDelete }: { stage: typeof PIPELINE_STAGES[0]; pipelines: AgentPipeline[]; onCardClick?: (p: AgentPipeline) => void; approvalMap?: Map<string, AgentApproval>; campaignNames?: Map<string, string>; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void; onRetry?: (id: string) => void; onDelete?: (id: string) => void }) {
+function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, campaignNames, onApprove, onReject, onRetry, onDelete, selectedIds, onToggleSelect }: { stage: typeof PIPELINE_STAGES[0]; pipelines: AgentPipeline[]; onCardClick?: (p: AgentPipeline) => void; approvalMap?: Map<string, AgentApproval>; campaignNames?: Map<string, string>; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void; onRetry?: (id: string) => void; onDelete?: (id: string) => void; selectedIds?: Set<string>; onToggleSelect?: (id: string) => void }) {
   const { isOver, setNodeRef } = useDroppable({ id: stage.id });
   const Icon = STAGE_ICONS[stage.icon] || Lightbulb;
 
@@ -148,6 +151,8 @@ function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, campaignNa
               onReject={onReject}
               onRetry={onRetry}
               onDelete={onDelete}
+              isSelected={selectedIds?.has(p.id)}
+              onToggleSelect={onToggleSelect}
             />
           ))}
           {pipelines.length === 0 && (
@@ -162,7 +167,7 @@ function PipelineColumn({ stage, pipelines, onCardClick, approvalMap, campaignNa
   );
 }
 
-function PipelineCard({ pipeline, campaignName, isDragging, onClick, approval, onApprove, onReject, onRetry, onDelete }: { pipeline: AgentPipeline; campaignName?: string; isDragging?: boolean; onClick?: () => void; approval?: AgentApproval; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void; onRetry?: (id: string) => void; onDelete?: (id: string) => void }) {
+function PipelineCard({ pipeline, campaignName, isDragging, onClick, approval, onApprove, onReject, onRetry, onDelete, isSelected, onToggleSelect }: { pipeline: AgentPipeline; campaignName?: string; isDragging?: boolean; onClick?: () => void; approval?: AgentApproval; onApprove?: (id: string, notes?: string) => void; onReject?: (id: string, notes: string) => void; onRetry?: (id: string) => void; onDelete?: (id: string) => void; isSelected?: boolean; onToggleSelect?: (id: string) => void }) {
   const priorityColors: Record<string, string> = {
     urgent: 'border-l-red-500',
     high: 'border-l-orange-500',
@@ -185,15 +190,30 @@ function PipelineCard({ pipeline, campaignName, isDragging, onClick, approval, o
   return (
     <Card
       className={cn(
-        'border-l-[3px] cursor-grab active:cursor-grabbing transition-all hover:shadow-md',
+        'border-l-[3px] cursor-grab active:cursor-grabbing transition-all hover:shadow-md group/card relative',
         priorityColors[pipeline.priority] || 'border-l-border',
         isDragging && 'opacity-80 rotate-2 shadow-2xl scale-105',
         pipeline.is_flagged && 'ring-1 ring-destructive/50',
         isCompleted && 'border-l-emerald-500',
         isApprovalPending && 'ring-1 ring-amber-500/30 bg-amber-500/[0.03]',
+        isSelected && 'ring-2 ring-primary bg-primary/5',
       )}
       onClick={(e) => { e.stopPropagation(); onClick?.(); }}
     >
+      {/* Selection checkbox */}
+      {onToggleSelect && (
+        <button
+          className={cn(
+            'absolute top-2 right-2 z-10 w-5 h-5 rounded border-2 flex items-center justify-center transition-all',
+            isSelected
+              ? 'bg-primary border-primary text-primary-foreground'
+              : 'border-muted-foreground/30 bg-background opacity-0 group-hover/card:opacity-100',
+          )}
+          onClick={(e) => { e.stopPropagation(); onToggleSelect(pipeline.id); }}
+        >
+          {isSelected && <Check className="w-3 h-3" />}
+        </button>
+      )}
       <CardContent className="p-3 space-y-2">
         {/* Campaign name */}
         {campaignName && (
@@ -443,9 +463,38 @@ function PipelineCard({ pipeline, campaignName, isDragging, onClick, approval, o
   );
 }
 
-export function PipelineKanban({ pipelines, approvals, campaignNames, onStageChange, onFlagToggle, onDelete, onRetry, onApprove, onReject }: PipelineKanbanProps) {
+export function PipelineKanban({ pipelines, approvals, campaignNames, onStageChange, onFlagToggle, onDelete, onBulkDelete, onRetry, onApprove, onReject }: PipelineKanbanProps) {
   const [activePipeline, setActivePipeline] = useState<AgentPipeline | null>(null);
   const [selectedPipeline, setSelectedPipeline] = useState<AgentPipeline | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      if (onBulkDelete) {
+        onBulkDelete(Array.from(selectedIds));
+      } else if (onDelete) {
+        for (const id of selectedIds) {
+          onDelete(id);
+        }
+      }
+      setSelectedIds(new Set());
+    } catch {
+      toast.error('Có lỗi khi xóa pipeline');
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
 
   // Map pipeline_id -> approval for quick lookup
   const approvalMap = useMemo(() => {
@@ -499,6 +548,8 @@ export function PipelineKanban({ pipelines, approvals, campaignNames, onStageCha
               onReject={onReject}
               onRetry={onRetry}
               onDelete={onDelete}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
             />
           ))}
         </div>
@@ -514,6 +565,65 @@ export function PipelineKanban({ pipelines, approvals, campaignNames, onStageCha
         onFlagToggle={onFlagToggle}
         onDelete={(id) => { onDelete?.(id); setSelectedPipeline(null); }}
       />
+
+      {/* Bulk actions bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-background/95 backdrop-blur-sm border border-border rounded-xl px-4 py-3 shadow-lg flex items-center gap-3 animate-fade-in">
+          <Badge variant="secondary" className="bg-primary/10 text-primary text-sm px-3 py-1">
+            {selectedIds.size}
+          </Badge>
+          <span className="text-sm text-muted-foreground">pipeline đã chọn</span>
+          <div className="w-px h-6 bg-border" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs"
+            onClick={() => {
+              if (selectedIds.size === pipelines.length) {
+                setSelectedIds(new Set());
+              } else {
+                setSelectedIds(new Set(pipelines.map(p => p.id)));
+              }
+            }}
+          >
+            {selectedIds.size === pipelines.length ? 'Bỏ chọn tất cả' : `Chọn tất cả (${pipelines.length})`}
+          </Button>
+          <div className="w-px h-6 bg-border" />
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" disabled={isBulkDeleting} className="gap-1.5">
+                <Trash2 className="w-3.5 h-3.5" />
+                Xóa ({selectedIds.size})
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Bạn có chắc muốn xóa {selectedIds.size} pipeline đã chọn? Hành động này không thể hoàn tác.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleBulkDelete}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Xóa
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
     </DndContext>
   );
 }

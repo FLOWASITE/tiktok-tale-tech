@@ -74,6 +74,21 @@ export function useAgentPipelines(goalId?: string) {
     onError: (e: Error) => toast.error(`Lỗi xóa: ${e.message}`),
   });
 
+  const bulkDeletePipelines = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('agent_pipelines')
+        .delete()
+        .in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: (_data, ids) => {
+      queryClient.invalidateQueries({ queryKey: ['agent-pipelines', orgId] });
+      toast.success(`Đã xóa ${ids.length} pipeline`);
+    },
+    onError: (e: Error) => toast.error(`Lỗi xóa: ${e.message}`),
+  });
+
   const retryPipeline = useMutation({
     mutationFn: async (id: string) => {
       // Reset pipeline: clear flag, reset to strategy stage, clear completed_at
@@ -110,6 +125,7 @@ export function useAgentPipelines(goalId?: string) {
     refetch: query.refetch,
     updateStage,
     deletePipeline,
+    bulkDeletePipelines,
     retryPipeline,
   };
 }

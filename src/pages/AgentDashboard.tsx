@@ -26,7 +26,7 @@ import { parseEdgeFunctionError } from '@/lib/edgeFunctionErrors';
 
 export default function AgentDashboard() {
   const { currentOrganization } = useOrganizationContext();
-  const { pipelines, isLoading: pipelinesLoading, updateStage, deletePipeline, retryPipeline } = useAgentPipelines();
+  const { pipelines, isLoading: pipelinesLoading, updateStage, deletePipeline, bulkDeletePipelines, retryPipeline } = useAgentPipelines();
   const { plans } = useCampaignPlans();
   const { approvals, pendingCount, updateApproval } = useAgentApprovals();
   const { goals, createGoal, updateGoal, deleteGoal } = useAgentGoals();
@@ -280,6 +280,7 @@ export default function AgentDashboard() {
                   onStageChange={handleStageChange}
                   onRetry={(id) => retryPipeline.mutate(id)}
                   onDelete={(id) => deletePipeline.mutate(id)}
+                  onBulkDelete={(ids) => bulkDeletePipelines.mutate(ids)}
                   onApprove={(id, notes) => updateApproval.mutate({ id, status: 'approved', notes })}
                   onReject={(id, notes) => updateApproval.mutate({ id, status: 'rejected', notes: notes || 'Từ chối' })}
                 />
