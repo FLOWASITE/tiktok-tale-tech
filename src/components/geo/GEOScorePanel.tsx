@@ -80,12 +80,27 @@ export function GEOScorePanel({ contentId, contentType = 'multi_channel', conten
     }
 
     setScoring(true);
+    setCreditsError(null);
     try {
       const { data, error } = await supabase.functions.invoke('geo-score-content', {
         body: { contentId, contentType, contentText, organizationId },
       });
 
-      if (error) throw error;
+      if (error) {
+        const parsed = parseEdgeFunctionError(error, 'Lỗi chấm điểm GEO');
+        if (parsed.code === 'CREDITS_EXHAUSTED') {
+          setCreditsError({ code: parsed.code, message: parsed.message });
+          return;
+        }
+        throw new Error(parsed.message);
+      }
+      
+      // Check for inline error from edge function (200 with errorCode)
+      if (data?.errorCode === 'CREDITS_EXHAUSTED' || data?.error?.includes?.('credits')) {
+        setCreditsError({ code: 'CREDITS_EXHAUSTED', message: data.error || 'AI credits đã hết' });
+        return;
+      }
+      
       if (!data.success) throw new Error(data.error);
 
       setOverallScore(data.overall_score);
