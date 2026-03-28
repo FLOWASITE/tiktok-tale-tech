@@ -377,16 +377,19 @@ Secondary color: ${secondaryColor}`;
     const PRIMARY_MODEL = "google/gemini-2.5-flash";
     const FALLBACK_MODELS = ["google/gemini-2.5-flash-lite", "google/gemini-3-flash-preview"];
     let usedModel = PRIMARY_MODEL;
+    let bodyConsumed = false;
 
     let response = await callAI(PRIMARY_MODEL);
 
     if (response.status === 402) {
       console.warn(`[decompose-image-request] Primary model (${PRIMARY_MODEL}) credits exhausted, trying fallbacks...`);
       await response.text(); // consume body to avoid leak
+      bodyConsumed = true;
 
       for (const fallbackModel of FALLBACK_MODELS) {
         console.log(`[decompose-image-request] Trying fallback model: ${fallbackModel}`);
         response = await callAI(fallbackModel);
+        bodyConsumed = false;
         if (response.status !== 402) {
           usedModel = fallbackModel;
           console.log(`[decompose-image-request] Fallback model ${fallbackModel} responded (status: ${response.status})`);
@@ -394,6 +397,7 @@ Secondary color: ${secondaryColor}`;
         }
         console.warn(`[decompose-image-request] Fallback ${fallbackModel} also returned 402`);
         await response.text(); // consume body
+        bodyConsumed = true;
       }
     }
 
