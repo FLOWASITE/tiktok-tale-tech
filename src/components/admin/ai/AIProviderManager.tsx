@@ -11,7 +11,7 @@ import { useAIConfig, AI_PROVIDERS, MODELS_BY_PROVIDER, AIProviderConfig, AI_FUN
 import { ALL_AGENTS } from '@/hooks/useAgentModelConfig';
 import { useAgentModelConfig } from '@/hooks/useAgentModelConfig';
 import { ALL_CHANNELS, useChannelModelConfig } from '@/hooks/useChannelModelConfig';
-import { Check, X, Settings, Plus, Trash2, ExternalLink, Sparkles, Search, Flame, Bot, Wand2, Eye, EyeOff, Loader2, CheckCircle2, XCircle, Workflow, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, X, Settings, Plus, Trash2, ExternalLink, Sparkles, Search, Flame, Bot, Wand2, Eye, EyeOff, Loader2, CheckCircle2, XCircle, Workflow, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -52,9 +52,10 @@ interface TestResult {
 }
 
 export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
-  const { providers, functions: functionConfigs, isLoading, upsertProvider, deleteProvider } = useAIConfig(organizationId);
+  const { providers, functions: functionConfigs, isLoading, upsertProvider, deleteProvider, refetchAll } = useAIConfig(organizationId);
   const { configs: agentConfigs } = useAgentModelConfig(organizationId);
   const { configs: channelConfigs } = useChannelModelConfig(organizationId);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [editingProvider, setEditingProvider] = useState<Partial<AIProviderConfig> & { apiKey?: string } | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -267,6 +268,25 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
             Quản lý các nhà cung cấp AI và API keys
           </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={isRefreshing}
+          onClick={async () => {
+            setIsRefreshing(true);
+            try {
+              await refetchAll();
+              toast.success('Đã cập nhật thông tin providers');
+            } catch {
+              toast.error('Không thể cập nhật');
+            } finally {
+              setIsRefreshing(false);
+            }
+          }}
+        >
+          <RefreshCw className={`h-4 w-4 mr-1.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
