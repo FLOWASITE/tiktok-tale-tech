@@ -8,9 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useAIConfig, AI_PROVIDERS, MODELS_BY_PROVIDER, AIProviderConfig, AI_FUNCTIONS, getModelInfo } from '@/hooks/useAIConfig';
-import { ALL_AGENTS } from '@/hooks/useAgentModelConfig';
-import { useAgentModelConfig } from '@/hooks/useAgentModelConfig';
+import { ALL_AGENTS, useAgentModelConfig } from '@/hooks/useAgentModelConfig';
 import { ALL_CHANNELS, useChannelModelConfig } from '@/hooks/useChannelModelConfig';
+import { useGroupModelConfig } from '@/hooks/useGroupModelConfig';
 import { Check, X, Settings, Plus, Trash2, ExternalLink, Sparkles, Search, Flame, Bot, Wand2, Eye, EyeOff, Loader2, CheckCircle2, XCircle, Workflow, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,6 +55,7 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
   const { providers, functions: functionConfigs, isLoading, upsertProvider, deleteProvider, refetchAll } = useAIConfig(organizationId);
   const { configs: agentConfigs } = useAgentModelConfig(organizationId);
   const { configs: channelConfigs } = useChannelModelConfig(organizationId);
+  const { getEffectiveModel } = useGroupModelConfig(organizationId);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [editingProvider, setEditingProvider] = useState<Partial<AIProviderConfig> & { apiKey?: string } | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -71,10 +72,11 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
     // Functions
     AI_FUNCTIONS.forEach((fn) => {
       const dbConfig = functionConfigs.find(c => c.functionName === fn.name);
-      const model = dbConfig?.modelOverride || fn.currentModel;
-      const provider = dbConfig?.forceProvider || getModelInfo(model).provider;
+      const { model } = getEffectiveModel(fn.name, dbConfig ? { modelOverride: dbConfig.modelOverride } : null);
+      const effectiveModel = model || fn.currentModel;
+      const provider = dbConfig?.forceProvider || getModelInfo(effectiveModel).provider;
       if (!map[provider]) map[provider] = [];
-      map[provider].push({ name: fn.name, model, shortName: getModelInfo(model).shortName, source: 'F' });
+      map[provider].push({ name: fn.name, model: effectiveModel, shortName: getModelInfo(effectiveModel).shortName, source: 'F' });
     });
 
     // Agents
