@@ -43,6 +43,7 @@ export function CampaignDashboard({ autoSelectPlanId, autoSelectGoalName, onAuto
   const { approvals } = useAgentApprovals();
   const { plans, isLoading, updatePlan } = useCampaignPlans();
   const [selectedPlan, setSelectedPlan] = useState<{ planId: string; goalName: string } | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'campaign'>('list');
 
   // Derive the actual plan from fresh query data to avoid stale state
   const currentPlan = selectedPlan ? plans.find(p => p.id === selectedPlan.planId) : null;
