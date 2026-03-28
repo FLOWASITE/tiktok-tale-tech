@@ -25,6 +25,8 @@ interface FunctionCategoryGroupProps {
   defaultExpanded?: boolean;
   getEnhancedModelInfo: (modelId: string) => ReturnType<typeof getModelInfo>;
   categoryConfig?: CategoryConfig;
+  groupModelOverride?: string | null;
+  getEffectiveModel?: (functionName: string, config?: { modelOverride: string | null } | null) => { model: string; source: 'individual' | 'group' | 'default' };
 }
 
 // Fallback config for hardcoded categories (legacy support)
@@ -124,6 +126,8 @@ export function FunctionCategoryGroup({
   defaultExpanded = true,
   getEnhancedModelInfo,
   categoryConfig: dbCategoryConfig,
+  groupModelOverride,
+  getEffectiveModel,
 }: FunctionCategoryGroupProps) {
   const [isOpen, setIsOpen] = useState(defaultExpanded);
   
