@@ -374,7 +374,19 @@ export function CampaignPlanReview({ plan, goalName, onClose }: CampaignPlanRevi
   const [editDialog, setEditDialog] = useState(false);
   const [editForm, setEditForm] = useState<Partial<CampaignContentPiece>>({});
 
-  const pieces = (plan.plan_data || []) as CampaignContentPiece[];
+  const [localPieces, setLocalPieces] = useState<CampaignContentPiece[]>(
+    (plan.plan_data || []) as CampaignContentPiece[]
+  );
+
+  // Sync local pieces when plan data changes (e.g. after mutation + refetch)
+  const planDataJson = JSON.stringify(plan.plan_data);
+  useState(() => {}); // placeholder
+  // Use a ref-like approach: update localPieces when plan.plan_data changes
+  if (JSON.stringify(localPieces) !== planDataJson && !updatePlan.isPending) {
+    setLocalPieces((plan.plan_data || []) as CampaignContentPiece[]);
+  }
+
+  const pieces = localPieces;
   const isEditable = ['planned', 'draft'].includes(plan.status);
   const isApproved = plan.plan_approved;
   const completedCount = pieces.filter(p => p.status === 'completed').length;
@@ -394,6 +406,8 @@ export function CampaignPlanReview({ plan, goalName, onClose }: CampaignPlanRevi
     const updatedPieces = pieces.map(p =>
       p.piece_number === editingPiece.piece_number ? { ...p, ...editForm } : p
     );
+    // Optimistic update: apply locally immediately
+    setLocalPieces(updatedPieces);
     updatePlan.mutate({ id: plan.id, plan_data: updatedPieces as any });
     setEditDialog(false);
     setEditingPiece(null);
@@ -404,6 +418,7 @@ export function CampaignPlanReview({ plan, goalName, onClose }: CampaignPlanRevi
     const updatedPieces = pieces
       .filter(p => p.piece_number !== pieceNumber)
       .map((p, i) => ({ ...p, piece_number: i + 1 }));
+    setLocalPieces(updatedPieces);
     updatePlan.mutate({
       id: plan.id,
       plan_data: updatedPieces as any,
@@ -426,10 +441,12 @@ export function CampaignPlanReview({ plan, goalName, onClose }: CampaignPlanRevi
       pipeline_id: null,
       status: 'planned',
     };
+    const updatedPieces = [...pieces, newPiece];
+    setLocalPieces(updatedPieces);
     updatePlan.mutate({
       id: plan.id,
-      plan_data: [...pieces, newPiece] as any,
-      total_pieces: pieces.length + 1,
+      plan_data: updatedPieces as any,
+      total_pieces: updatedPieces.length,
     });
   };
 
