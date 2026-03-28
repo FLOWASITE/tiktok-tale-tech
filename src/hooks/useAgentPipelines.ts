@@ -93,7 +93,7 @@ export function useAgentPipelines(goalId?: string) {
 
       // Trigger the orchestrator to pick it up again
       const { error: invokeError } = await supabase.functions.invoke('agent-pipeline', {
-        body: { action: 'advance_stage', pipelineId: id },
+        body: { action: 'advance_stage', pipeline_id: id },
       });
       if (invokeError) console.warn('Retry invoke warning:', invokeError);
     },
