@@ -72,10 +72,11 @@ export function AIProviderManager({ organizationId }: AIProviderManagerProps) {
     // Functions
     AI_FUNCTIONS.forEach((fn) => {
       const dbConfig = functionConfigs.find(c => c.functionName === fn.name);
-      const model = dbConfig?.modelOverride || fn.currentModel;
-      const provider = dbConfig?.forceProvider || getModelInfo(model).provider;
+      const { model } = getEffectiveModel(fn.name, dbConfig ? { modelOverride: dbConfig.modelOverride } : null);
+      const effectiveModel = model || fn.currentModel;
+      const provider = dbConfig?.forceProvider || getModelInfo(effectiveModel).provider;
       if (!map[provider]) map[provider] = [];
-      map[provider].push({ name: fn.name, model, shortName: getModelInfo(model).shortName, source: 'F' });
+      map[provider].push({ name: fn.name, model: effectiveModel, shortName: getModelInfo(effectiveModel).shortName, source: 'F' });
     });
 
     // Agents
