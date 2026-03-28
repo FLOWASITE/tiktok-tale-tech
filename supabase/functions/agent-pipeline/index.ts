@@ -608,7 +608,7 @@ Deno.serve(async (req) => {
         // === Create content_schedules for Calendar integration ===
         if (piece.scheduled_date) {
           const scheduleIds: Record<string, string> = {};
-          const targetChannels = [piece.target_channel].flat().filter(Boolean);
+          const targetChannels = [piece.target_channel].flat().filter(Boolean).map(ch => ch === 'blog' ? 'website' : ch);
           for (const ch of targetChannels) {
             try {
               const { data: schedule, error: schedErr } = await supabase
