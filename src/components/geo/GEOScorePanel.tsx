@@ -71,6 +71,7 @@ export function GEOScorePanel({ contentId, contentType = 'multi_channel', conten
   const [factorScores, setFactorScores] = useState<Record<string, number>>({});
   const [issues, setIssues] = useState<GEOIssue[]>([]);
   const [showDetails, setShowDetails] = useState(false);
+  const [creditsError, setCreditsError] = useState<{ code?: string; message?: string } | null>(null);
 
   const handleScore = async () => {
     if (!contentText.trim()) {
