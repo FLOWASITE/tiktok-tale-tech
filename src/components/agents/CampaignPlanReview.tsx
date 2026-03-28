@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -374,7 +374,18 @@ export function CampaignPlanReview({ plan, goalName, onClose }: CampaignPlanRevi
   const [editDialog, setEditDialog] = useState(false);
   const [editForm, setEditForm] = useState<Partial<CampaignContentPiece>>({});
 
-  const pieces = (plan.plan_data || []) as CampaignContentPiece[];
+  const [localPieces, setLocalPieces] = useState<CampaignContentPiece[]>(
+    (plan.plan_data || []) as CampaignContentPiece[]
+  );
+
+  // Sync local pieces when plan data changes from server (after mutation + refetch)
+  useEffect(() => {
+    if (!updatePlan.isPending) {
+      setLocalPieces((plan.plan_data || []) as CampaignContentPiece[]);
+    }
+  }, [plan.plan_data, updatePlan.isPending]);
+
+  const pieces = localPieces;
   const isEditable = ['planned', 'draft'].includes(plan.status);
   const isApproved = plan.plan_approved;
   const completedCount = pieces.filter(p => p.status === 'completed').length;
@@ -394,6 +405,8 @@ export function CampaignPlanReview({ plan, goalName, onClose }: CampaignPlanRevi
     const updatedPieces = pieces.map(p =>
       p.piece_number === editingPiece.piece_number ? { ...p, ...editForm } : p
     );
+    // Optimistic update: apply locally immediately
+    setLocalPieces(updatedPieces);
     updatePlan.mutate({ id: plan.id, plan_data: updatedPieces as any });
     setEditDialog(false);
     setEditingPiece(null);
@@ -404,6 +417,7 @@ export function CampaignPlanReview({ plan, goalName, onClose }: CampaignPlanRevi
     const updatedPieces = pieces
       .filter(p => p.piece_number !== pieceNumber)
       .map((p, i) => ({ ...p, piece_number: i + 1 }));
+    setLocalPieces(updatedPieces);
     updatePlan.mutate({
       id: plan.id,
       plan_data: updatedPieces as any,
@@ -426,10 +440,12 @@ export function CampaignPlanReview({ plan, goalName, onClose }: CampaignPlanRevi
       pipeline_id: null,
       status: 'planned',
     };
+    const updatedPieces = [...pieces, newPiece];
+    setLocalPieces(updatedPieces);
     updatePlan.mutate({
       id: plan.id,
-      plan_data: [...pieces, newPiece] as any,
-      total_pieces: pieces.length + 1,
+      plan_data: updatedPieces as any,
+      total_pieces: updatedPieces.length,
     });
   };
 

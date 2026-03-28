@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,7 +34,10 @@ export function CampaignDashboard() {
   const { pipelines } = useAgentPipelines();
   const { approvals } = useAgentApprovals();
   const { plans, isLoading, updatePlan } = useCampaignPlans();
-  const [selectedPlan, setSelectedPlan] = useState<{ plan: CampaignContentPlan; goalName: string } | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<{ planId: string; goalName: string } | null>(null);
+
+  // Derive the actual plan from fresh query data to avoid stale state
+  const currentPlan = selectedPlan ? plans.find(p => p.id === selectedPlan.planId) : null;
   const [recovering, setRecovering] = useState(false);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillingPublish, setBackfillingPublish] = useState(false);
@@ -110,7 +113,14 @@ export function CampaignDashboard() {
     }
   };
 
-  if (selectedPlan) {
+  // If plan was deleted while viewing, reset selection
+  useEffect(() => {
+    if (selectedPlan && !currentPlan && !isLoading) {
+      setSelectedPlan(null);
+    }
+  }, [selectedPlan, currentPlan, isLoading]);
+
+  if (selectedPlan && currentPlan) {
     return (
       <div className="space-y-3">
         <Button
@@ -120,7 +130,7 @@ export function CampaignDashboard() {
           <ArrowLeft className="w-3 h-3" /> Quay lại
         </Button>
         <CampaignPlanReview
-          plan={selectedPlan.plan}
+          plan={currentPlan}
           goalName={selectedPlan.goalName}
           onClose={() => setSelectedPlan(null)}
         />
@@ -327,7 +337,7 @@ export function CampaignDashboard() {
               key={goal.id}
               className="group cursor-pointer hover:border-primary/30 transition-colors"
               onClick={() => {
-                if (plan) setSelectedPlan({ plan, goalName: goal.name });
+                if (plan) setSelectedPlan({ planId: plan.id, goalName: goal.name });
               }}
             >
               <CardContent className="p-4">
