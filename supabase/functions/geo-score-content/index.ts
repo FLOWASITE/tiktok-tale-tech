@@ -110,14 +110,10 @@ AI có thể trích xuất snippet độc lập.
 - Nội dung kém phải dưới 60
 - Phân biệt rõ ràng giữa các mức điểm`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+    const MODELS = ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite", "google/gemini-3-flash-preview"];
+
+    const buildBody = (model: string) => JSON.stringify({
+        model,
         messages: [
           { role: "system", content: "Bạn là GEO scoring engine chuyên nghiệp. Chấm điểm CHÍNH XÁC và KHÁCH QUAN. Không cho điểm an toàn — nội dung tốt phải được điểm cao, nội dung kém phải điểm thấp." },
           { role: "user", content: scoringPrompt },
@@ -167,23 +163,41 @@ AI có thể trích xuất snippet độc lập.
           },
         ],
         tool_choice: { type: "function", function: { name: "submit_geo_score" } },
-      }),
-    });
+      });
 
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited, thử lại sau" }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    let aiResponse: Response | null = null;
+    for (const model of MODELS) {
+      console.log(`[geo-score-content] Trying model: ${model}`);
+      aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${lovableApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: buildBody(model),
+      });
+
       if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "Hết credits, vui lòng nạp thêm" }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        console.warn(`[geo-score-content] ${model} returned 402, trying next fallback...`);
+        await aiResponse.text(); // consume body
+        continue;
+      }
+      break;
+    }
+
+    if (!aiResponse || !aiResponse.ok) {
+      const status = aiResponse?.status || 500;
+      if (status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limited, thử lại sau" }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error(`AI gateway error: ${aiResponse.status}`);
+      if (status === 402) {
+        return new Response(JSON.stringify({ error: "Tất cả AI models đều hết credits" }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`AI gateway error: ${status}`);
     }
 
     const aiData = await aiResponse.json();
