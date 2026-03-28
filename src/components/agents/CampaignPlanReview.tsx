@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -378,13 +378,12 @@ export function CampaignPlanReview({ plan, goalName, onClose }: CampaignPlanRevi
     (plan.plan_data || []) as CampaignContentPiece[]
   );
 
-  // Sync local pieces when plan data changes (e.g. after mutation + refetch)
-  const planDataJson = JSON.stringify(plan.plan_data);
-  useState(() => {}); // placeholder
-  // Use a ref-like approach: update localPieces when plan.plan_data changes
-  if (JSON.stringify(localPieces) !== planDataJson && !updatePlan.isPending) {
-    setLocalPieces((plan.plan_data || []) as CampaignContentPiece[]);
-  }
+  // Sync local pieces when plan data changes from server (after mutation + refetch)
+  useEffect(() => {
+    if (!updatePlan.isPending) {
+      setLocalPieces((plan.plan_data || []) as CampaignContentPiece[]);
+    }
+  }, [plan.plan_data, updatePlan.isPending]);
 
   const pieces = localPieces;
   const isEditable = ['planned', 'draft'].includes(plan.status);
