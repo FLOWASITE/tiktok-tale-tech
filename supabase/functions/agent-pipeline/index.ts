@@ -237,6 +237,7 @@ Deno.serve(async (req) => {
           .from("agent_pipelines")
           .select("id", { count: "exact", head: true })
           .eq("goal_id", goal.id)
+          .eq("is_flagged", false)
           .not("current_stage", "in", '("publish","analyze")');
 
         if ((count || 0) >= 5) continue;
@@ -325,11 +326,12 @@ Deno.serve(async (req) => {
       const stuckThresholdMs = 15 * 60 * 1000; // 15 minutes
       const cutoff = new Date(Date.now() - stuckThresholdMs).toISOString();
 
-      // Find pipelines stuck: stage_started_at > 15 min ago, not completed
+      // Find pipelines stuck: stage_started_at > 15 min ago, not completed, not flagged
       const { data: stuckPipelines, error: stuckErr } = await supabase
         .from("agent_pipelines")
         .select("id, current_stage, pipeline_state, organization_id")
         .is("completed_at", null)
+        .eq("is_flagged", false)
         .lt("stage_started_at", cutoff)
         .not("current_stage", "eq", "approval"); // Don't auto-recover approval (needs human)
 
@@ -343,10 +345,35 @@ Deno.serve(async (req) => {
         ? stuckPipelines.filter((p: any) => p.organization_id === organization_id)
         : stuckPipelines;
 
+      const MAX_RETRY_LIMIT = 3;
       let recovered = 0;
+      let flagged = 0;
       for (const p of filtered) {
         const pState = (p.pipeline_state as any) || { stages: {} };
         const stageState = pState.stages?.[p.current_stage];
+        const retryCount = stageState?.retry_count || 0;
+
+        // If exceeded max retry limit, flag the pipeline and skip
+        if (retryCount >= MAX_RETRY_LIMIT) {
+          await supabase
+            .from("agent_pipelines")
+            .update({
+              is_flagged: true,
+              flag_reason: `Auto-flagged: exceeded max retry limit (${retryCount} retries at stage ${p.current_stage})`,
+            } as any)
+            .eq("id", p.id);
+
+          await supabase.from("agent_pipeline_logs").insert({
+            pipeline_id: p.id,
+            agent_name: "recovery",
+            action: "flag_max_retries",
+            input_summary: `Stage: ${p.current_stage}, retry_count: ${retryCount}`,
+            output_summary: `Flagged: exceeded max retry limit of ${MAX_RETRY_LIMIT}`,
+          } as any);
+
+          flagged++;
+          continue;
+        }
 
         // Reset stage status to pending for re-execution
         if (pState.stages?.[p.current_stage]) {
@@ -354,7 +381,7 @@ Deno.serve(async (req) => {
             ...stageState,
             status: "pending",
             last_error: stageState?.last_error || null,
-            retry_count: (stageState?.retry_count || 0) + 1,
+            retry_count: retryCount + 1,
             recovered_at: new Date().toISOString(),
           };
         }
@@ -365,7 +392,6 @@ Deno.serve(async (req) => {
           .update({
             pipeline_state: pState,
             stage_started_at: now,
-            is_flagged: false,
           } as any)
           .eq("id", p.id);
 
@@ -373,7 +399,7 @@ Deno.serve(async (req) => {
           pipeline_id: p.id,
           agent_name: "recovery",
           action: "recover_stuck",
-          input_summary: `Stage: ${p.current_stage}, stuck > 15min`,
+          input_summary: `Stage: ${p.current_stage}, stuck > 15min, retry ${retryCount + 1}/${MAX_RETRY_LIMIT}`,
           output_summary: "Reset to pending, re-firing",
         } as any);
 
@@ -386,7 +412,7 @@ Deno.serve(async (req) => {
         recovered++;
       }
 
-      return json({ success: true, recovered, total_stuck: filtered.length });
+      return json({ success: true, recovered, flagged, total_stuck: filtered.length });
     }
 
     // ========== ACTION: backfill_approvals ==========
