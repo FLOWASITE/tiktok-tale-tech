@@ -325,11 +325,12 @@ Deno.serve(async (req) => {
       const stuckThresholdMs = 15 * 60 * 1000; // 15 minutes
       const cutoff = new Date(Date.now() - stuckThresholdMs).toISOString();
 
-      // Find pipelines stuck: stage_started_at > 15 min ago, not completed
+      // Find pipelines stuck: stage_started_at > 15 min ago, not completed, not flagged
       const { data: stuckPipelines, error: stuckErr } = await supabase
         .from("agent_pipelines")
         .select("id, current_stage, pipeline_state, organization_id")
         .is("completed_at", null)
+        .eq("is_flagged", false)
         .lt("stage_started_at", cutoff)
         .not("current_stage", "eq", "approval"); // Don't auto-recover approval (needs human)
 
