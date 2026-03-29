@@ -76,6 +76,13 @@ export function useAgentGoals() {
 
   const deleteGoal = useMutation({
     mutationFn: async (id: string) => {
+      // Nullify goal_id on related pipelines first (FK is NO ACTION)
+      const { error: unlinkError } = await supabase
+        .from('agent_pipelines')
+        .update({ goal_id: null } as any)
+        .eq('goal_id', id);
+      if (unlinkError) throw unlinkError;
+
       const { error } = await supabase.from('agent_goals').delete().eq('id', id);
       if (error) throw error;
     },
