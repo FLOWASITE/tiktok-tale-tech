@@ -1,51 +1,51 @@
 
 
-# Fix: Agent-generated multichannel content saves empty (null content fields)
+# Sửa lỗi: Pipeline tự tạo nội dung liên tục không dừng
 
-## Root Causes Found
+## Nguyên nhân gốc
 
-### Cause 1: Channel `blog` not mapped to DB column
-The campaign plan AI creates pieces with `target_channel: "blog"`, but the `generate-multichannel` function only recognizes `website` as a valid channel (maps to `website_content` column). When `channels: ["blog"]` is passed, AI generates content keyed as `blog_content`, which doesn't exist in the DB schema. Result: content is generated but silently discarded during insert.
+Hàm `recover_stuck` (dòng 323-389) có 3 vấn đề nghiêm trọng:
 
-**Evidence**: DB records show `selected_channels: ["blog"]` with `website_content: null`.
+1. **Không giới hạn số lần retry** — Mỗi 10 phút, cron job gọi `recover_stuck`, reset TẤT CẢ pipeline bị kẹt >15 phút. Pipeline lỗi liên tục bị retry vô hạn (có pipeline đạt retry_count: 45+).
 
-### Cause 2: Missing `tiktok_content` and `threads_content` in non-streaming insert
-The non-streaming DB insert (line 5200-5208) includes all channel columns except `tiktok_content` and `threads_content`. So even when TikTok/Threads content is generated, it's not saved.
+2. **Xóa cờ `is_flagged`** — Dòng 368 set `is_flagged: false`, nghĩa là ngay cả pipeline đã bị đánh cờ lỗi bởi quality gate hay publish cũng bị reset và chạy lại.
 
-**Evidence**: DB records show `selected_channels: ["tiktok"]` with `tiktok_content: null`.
+3. **Không lọc pipeline đã flagged** — Query tìm pipeline kẹt (dòng 329-334) không loại trừ `is_flagged = true`, nên pipeline lỗi vẫn bị kéo vào vòng lặp.
 
-### Cause 3: Cache returning empty data
-Cache stores results from previous (possibly failed) generations. Subsequent calls return cached empty content. This amplifies Causes 1 and 2.
+## Kế hoạch sửa
 
-## Fix Plan
+### 1. File `supabase/functions/agent-pipeline/index.ts`
 
-### 1. `supabase/functions/generate-multichannel/index.ts`
-**a)** Add `blog` alias to `CHANNEL_COLUMN_MAP`:
-```typescript
-blog: 'website_content',  // blog is alias for website
+**a) Thêm giới hạn retry tối đa trong `recover_stuck`:**
+- Trước khi reset pipeline, kiểm tra `retry_count`. Nếu >= 3 lần, đánh dấu `is_flagged: true` với lý do và **bỏ qua**, không retry nữa.
+
+**b) Lọc pipeline đã flagged khỏi query stuck:**
+- Thêm `.eq("is_flagged", false)` vào query tìm pipeline kẹt (dòng 329-334).
+
+**c) Không reset `is_flagged` khi recover:**
+- Bỏ `is_flagged: false` khỏi update (dòng 368).
+
+**d) Cập nhật `check_scheduled_goals`:**
+- Thêm filter `.eq("is_flagged", false)` vào query đếm pipeline đang chạy (dòng 236-240), để pipeline lỗi không chiếm slot.
+
+### 2. SQL Migration — Dọn dẹp pipeline đang kẹt
+
+```sql
+-- Flag tất cả pipeline đang kẹt với retry >= 3
+UPDATE agent_pipelines 
+SET is_flagged = true, 
+    flag_reason = 'Auto-flagged: exceeded max retry limit'
+WHERE completed_at IS NULL 
+  AND is_flagged = false
+  AND (pipeline_state::jsonb->'stages'->current_stage->>'retry_count')::int >= 3;
+
+-- Xóa cron job trùng lặp (giữ lại 1 job duy nhất cho check_scheduled_goals)
 ```
 
-**b)** Add channel normalization early in the request handler (after `formData` is parsed): normalize `blog` → `website` in `formData.channels` so the entire pipeline uses `website` consistently.
+## Kết quả
+- Pipeline lỗi sẽ dừng sau tối đa 3 lần retry
+- Pipeline đã flagged không bị recover lại
+- Hệ thống không còn tạo nội dung liên tục vô hạn
 
-**c)** Add missing columns to non-streaming insert (line ~5208):
-```typescript
-tiktok_content: (generatedData.tiktok_content && generatedData.tiktok_content.length > 0) ? generatedData.tiktok_content : null,
-threads_content: (generatedData.threads_content && generatedData.threads_content.length > 0) ? generatedData.threads_content : null,
-```
-
-### 2. `supabase/functions/agent-pipeline/index.ts`
-Add channel normalization when extracting `target_channels` from plan pieces (line ~561):
-```typescript
-target_channels: [piece.target_channel].map(ch => ch === 'blog' ? 'website' : ch),
-```
-
-### 3. `supabase/functions/_shared/tool-executor.ts`
-Add channel normalization in `executeGenerateMultichannel` before passing channels to the API call, ensuring `blog` → `website` mapping.
-
-## Result
-- All agent-created content will correctly save channel content to DB
-- `blog` channel from campaign plans maps to `website_content`
-- TikTok and Threads content no longer silently lost
-
-Total: 3 files modified.
+**Tổng: 1 file code + 1 migration SQL**
 
