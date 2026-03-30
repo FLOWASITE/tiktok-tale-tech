@@ -465,9 +465,9 @@ async function routeMultichannel(
 
       // Validate that target channels actually have content
       if (multichannelContentId && mcOutput) {
-        const channelContentKeys = targetChannels.map(ch => `${ch}_content`);
+        const channelToDbKey = (ch: string) => ch === 'blog' ? 'website_content' : `${ch}_content`;
         const emptyChannels = targetChannels.filter(ch => {
-          const content = mcOutput[`${ch}_content`];
+          const content = mcOutput[channelToDbKey(ch)];
           return !content || (typeof content === 'string' && content.length < 50);
         });
         if (emptyChannels.length === targetChannels.length) {

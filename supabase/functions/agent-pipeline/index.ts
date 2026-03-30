@@ -797,6 +797,45 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         throw new Error("No topic available for content creation.");
       }
 
+      // ─── Resolve target_channels with fallback ───
+      let resolvedChannels: string[] = (meta.target_channels || []).flatMap((ch: string) =>
+        ch.includes(',') ? ch.split(',').map((s: string) => s.trim()) : [ch]
+      ).filter(Boolean).map((ch: string) => ch === 'blog' ? 'website' : ch);
+
+      if (resolvedChannels.length === 0 && pipeline.goal_id) {
+        console.log(`[create] target_channels empty, fetching from goal ${pipeline.goal_id}`);
+        const { data: goal } = await supabase
+          .from("agent_goals")
+          .select("target_channels")
+          .eq("id", pipeline.goal_id)
+          .single();
+        if (goal?.target_channels?.length) {
+          resolvedChannels = goal.target_channels.map((ch: string) => ch === 'blog' ? 'website' : ch);
+        }
+      }
+
+      if (resolvedChannels.length === 0 && pipeline.campaign_plan_id && pipeline.piece_number) {
+        console.log(`[create] Fallback: fetching channels from campaign plan`);
+        const { data: planData } = await supabase
+          .from("campaign_content_plans")
+          .select("plan_data")
+          .eq("id", pipeline.campaign_plan_id)
+          .single();
+        if (planData?.plan_data) {
+          const pieces = Array.isArray(planData.plan_data) ? planData.plan_data : [];
+          const matchPiece = pieces.find((p: any) => p.piece_number === pipeline.piece_number);
+          if (matchPiece?.target_channel) {
+            resolvedChannels = matchPiece.target_channel.split(',').map((s: string) => s.trim()).filter(Boolean).map((ch: string) => ch === 'blog' ? 'website' : ch);
+          }
+        }
+      }
+
+      // Persist resolved channels back to pipeline_state
+      if (resolvedChannels.length > 0 && (!meta.target_channels || meta.target_channels.length === 0)) {
+        pState.metadata = { ...meta, target_channels: resolvedChannels };
+        await supabase.from("agent_pipelines").update({ pipeline_state: pState } as any).eq("id", pipeline.id);
+      }
+
       // ===== Delegate to agent-creator-v2 =====
       const creatorResult = await callFunction(supabaseUrl, supabaseKey, "agent-creator-v2", {
         pipeline_id: pipeline.id,
@@ -805,7 +844,7 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
         organization_id: orgId,
         brand_template_id: brandTemplateId,
         campaign_context: campaignCtx || undefined,
-        target_channels: meta.target_channels || [],
+        target_channels: resolvedChannels,
         content_goal: meta.content_goal || undefined,
         content_angle: meta.content_angle || undefined,
         content_role: meta.content_role || undefined,
