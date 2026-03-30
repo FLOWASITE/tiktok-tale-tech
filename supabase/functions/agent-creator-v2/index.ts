@@ -378,7 +378,9 @@ async function routeMultichannel(
 
   // ─── Decide: Skip Core Content? ───
   // Skip when: seed role (awareness), no brand template, or single channel target
-  const targetChannels = input.target_channels || [];
+  const targetChannels = (input.target_channels || []).flatMap((ch: string) =>
+    ch.includes(',') ? ch.split(',').map((s: string) => s.trim()) : [ch]
+  ).filter(Boolean).map((ch: string) => ch === 'blog' ? 'website' : ch);
   const shouldSkipCoreContent =
     contentRole === "seed" ||
     !input.brand_template_id ||
@@ -463,9 +465,9 @@ async function routeMultichannel(
 
       // Validate that target channels actually have content
       if (multichannelContentId && mcOutput) {
-        const channelContentKeys = targetChannels.map(ch => `${ch}_content`);
+        const channelToDbKey = (ch: string) => ch === 'blog' ? 'website_content' : `${ch}_content`;
         const emptyChannels = targetChannels.filter(ch => {
-          const content = mcOutput[`${ch}_content`];
+          const content = mcOutput[channelToDbKey(ch)];
           return !content || (typeof content === 'string' && content.length < 50);
         });
         if (emptyChannels.length === targetChannels.length) {
