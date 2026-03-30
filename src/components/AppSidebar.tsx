@@ -399,6 +399,9 @@ export function AppSidebar() {
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {agentItems.map((item) => (
+                <PremiumMenuItem key={item.url} item={item} isCollapsed={isCollapsed} />
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
