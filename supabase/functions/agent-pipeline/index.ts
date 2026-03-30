@@ -584,7 +584,7 @@ Deno.serve(async (req) => {
         const pipelineState = createPipelineState({
           brand_template_id: goalData?.brand_template_id || null,
           campaign_id: goalData?.campaign_id || null,
-          target_channels: [piece.target_channel].map(ch => ch === 'blog' ? 'website' : ch),
+          target_channels: (piece.target_channel || '').split(',').map((s: string) => s.trim()).filter(Boolean).map((ch: string) => ch === 'blog' ? 'website' : ch),
           campaign_context: {
             plan_id: plan.id,
             total_pieces: pieces.length,
