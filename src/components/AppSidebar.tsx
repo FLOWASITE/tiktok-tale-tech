@@ -261,11 +261,15 @@ export function AppSidebar() {
     { title: 'Ad Copies', titleKey: 'app.sidebar.adCopies', url: '/ad-copies', icon: Megaphone },
   ];
 
-  // Nhóm 3: Management
-  const managementItems: MenuItem[] = [
+  // Agent items under Flowa Team
+  const agentItems: MenuItem[] = [
     { title: 'AI Agents', titleKey: 'app.sidebar.agents', url: '/agents', icon: Bot },
     { title: 'Agent Team', titleKey: 'app.sidebar.agentTeam', url: '/agents/team', icon: Users },
     { title: 'Agent Directory', titleKey: 'app.sidebar.agentDirectory', url: '/agents/directory', icon: Radar },
+  ];
+
+  // Nhóm 3: Management
+  const managementItems: MenuItem[] = [
     { title: 'Chiến dịch', titleKey: 'app.sidebar.campaigns', url: '/campaigns', icon: Target },
     { title: 'Công việc', titleKey: 'app.sidebar.tasks', url: '/tasks', icon: ClipboardList },
     { title: 'Lịch đăng', titleKey: 'app.sidebar.calendar', url: '/calendar', icon: CalendarDays },
@@ -395,6 +399,9 @@ export function AppSidebar() {
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {agentItems.map((item) => (
+                <PremiumMenuItem key={item.url} item={item} isCollapsed={isCollapsed} />
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
