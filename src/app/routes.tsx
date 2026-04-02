@@ -61,7 +61,6 @@ import FlowaChatPage from "@/pages/FlowaChatPage";
 import Gallery from "@/pages/Gallery";
 import PaymentResult from "@/pages/PaymentResult";
 import AgentDashboard from "@/pages/AgentDashboard";
-import AgentDirectoryPage from "@/pages/AgentDirectoryPage";
 import AgentMonitorPage from "@/pages/AgentMonitorPage";
 
 // Landing pages (lazy loaded for app domain preview/dev access)
@@ -162,7 +161,6 @@ export function AppRoutes() {
       <Route path="/calendar" element={<ProtectedRoute><AppLayout><ContentCalendar /></AppLayout></ProtectedRoute>} />
       <Route path="/agents" element={<ProtectedRoute><AppLayout><AgentDashboard /></AppLayout></ProtectedRoute>} />
       
-      <Route path="/agents/directory" element={<ProtectedRoute><AppLayout><AgentDirectoryPage /></AppLayout></ProtectedRoute>} />
       <Route path="/agent-monitor" element={<ProtectedRoute><AppLayout><AgentMonitorPage /></AppLayout></ProtectedRoute>} />
       <Route path="/account" element={<ProtectedRoute><AppLayout><Account /></AppLayout></ProtectedRoute>} />
 

@@ -4,7 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Pause, Play, LayoutGrid, CheckSquare, Target, Bot, Zap, Trash2, Pencil, Rocket, BarChart3, Filter, Check, ChevronsUpDown, Users } from 'lucide-react';
+import { Plus, Pause, Play, LayoutGrid, CheckSquare, Target, Bot, Zap, Trash2, Pencil, Rocket, BarChart3, Filter, Check, ChevronsUpDown, Users, Radar } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
@@ -24,6 +25,7 @@ import { toast } from 'sonner';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { parseEdgeFunctionError } from '@/lib/edgeFunctionErrors';
 import AgentTeamPage from '@/pages/AgentTeamPage';
+import AgentDirectoryPage from '@/pages/AgentDirectoryPage';
 
 export default function AgentDashboard() {
   const { currentOrganization } = useOrganizationContext();
@@ -38,6 +40,7 @@ export default function AgentDashboard() {
   const [goalFilterOpen, setGoalFilterOpen] = useState(false);
   const [triggeringGoalId, setTriggeringGoalId] = useState<string | null>(null);
   const [autoSelectPlan, setAutoSelectPlan] = useState<{ planId: string; goalName: string } | null>(null);
+  const [directoryOpen, setDirectoryOpen] = useState(false);
 
   const goalNameMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -189,6 +192,9 @@ export default function AgentDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setDirectoryOpen(true)}>
+              <Radar className="w-3.5 h-3.5" /> Directory
+            </Button>
             <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => {
               goals.filter(g => g.is_active && !g.is_paused).forEach(g => updateGoal.mutate({ id: g.id, is_paused: true }));
             }}>
@@ -399,6 +405,19 @@ export default function AgentDashboard() {
           initialData={editingGoal}
         />
       </div>
+
+      <Sheet open={directoryOpen} onOpenChange={setDirectoryOpen}>
+        <SheetContent side="right" className="sm:max-w-2xl w-full overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Radar className="w-5 h-5 text-primary" /> Agent Directory
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            <AgentDirectoryPage />
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
