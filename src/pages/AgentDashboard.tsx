@@ -384,6 +384,10 @@ export default function AgentDashboard() {
               onAutoSelectHandled={() => setAutoSelectPlan(null)}
             />
           </TabsContent>
+
+          <TabsContent value="team" className="mt-4">
+            <AgentTeamPage />
+          </TabsContent>
         </Tabs>
 
         <GoalWizard
