@@ -264,7 +264,6 @@ export function AppSidebar() {
   // Agent items under Flowa Team
   const agentItems: MenuItem[] = [
     { title: 'AI Agents', titleKey: 'app.sidebar.agents', url: '/agents', icon: Bot },
-    { title: 'Agent Team', titleKey: 'app.sidebar.agentTeam', url: '/agents/team', icon: Users },
     { title: 'Agent Directory', titleKey: 'app.sidebar.agentDirectory', url: '/agents/directory', icon: Radar },
   ];
 
