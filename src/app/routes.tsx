@@ -61,7 +61,6 @@ import FlowaChatPage from "@/pages/FlowaChatPage";
 import Gallery from "@/pages/Gallery";
 import PaymentResult from "@/pages/PaymentResult";
 import AgentDashboard from "@/pages/AgentDashboard";
-import AgentTeamPage from "@/pages/AgentTeamPage";
 import AgentDirectoryPage from "@/pages/AgentDirectoryPage";
 import AgentMonitorPage from "@/pages/AgentMonitorPage";
 
