@@ -1014,100 +1014,154 @@ export function GoalWizard({ open, onOpenChange, onSaveGoal, onGenerateStrategy,
 
           {/* ═══ Step 3: Tự động ═══ */}
           {!isGenerating && step === 3 && (
-            <div className="space-y-3">
-              {/* Approval Mode — single unified control */}
-              <Label className="text-xs">AI hoạt động như thế nào?</Label>
-              <p className="text-[10px] text-muted-foreground">Chọn mức độ tự động mà AI được phép thực hiện.</p>
-              {APPROVAL_MODE_OPTIONS.map(opt => (
-                <button
-                  key={opt.value}
-                  onClick={() => {
-                    setApprovalMode(opt.value);
-                    setAutonomyLevel(opt.autonomy);
-                  }}
-                  className={cn(
-                    "w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-all",
-                    approvalMode === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
-                  )}
-                >
-                  <span className="text-lg">{opt.icon}</span>
-                  <div>
-                    <p className="text-sm font-medium">{opt.label}</p>
-                    <p className="text-[10px] text-muted-foreground">{opt.description}</p>
-                  </div>
-                  {approvalMode === opt.value && <Check className="w-4 h-4 text-primary ml-auto mt-0.5 shrink-0" />}
-                </button>
-              ))}
+            <div className="space-y-5">
+              {/* Section header */}
+              <div className="space-y-1">
+                <h3 className="text-sm font-medium tracking-tight">AI hoạt động như thế nào?</h3>
+                <p className="text-xs text-muted-foreground">Chọn mức độ tự động mà AI được phép thực hiện.</p>
+              </div>
+
+              {/* Approval Mode Cards */}
+              <div className="space-y-2">
+                {APPROVAL_MODE_OPTIONS.map((opt) => {
+                  const isSelected = approvalMode === opt.value;
+                  const Icon = opt.icon;
+                  return (
+                    <motion.button
+                      key={opt.value}
+                      onClick={() => { setApprovalMode(opt.value); setAutonomyLevel(opt.autonomy); }}
+                      whileTap={{ scale: 0.985 }}
+                      className={cn(
+                        "w-full flex items-center gap-3.5 p-3.5 rounded-xl border text-left transition-all duration-200",
+                        isSelected
+                          ? "border-primary/40 bg-primary/[0.04] shadow-sm shadow-primary/5 ring-1 ring-primary/20"
+                          : "border-border/60 bg-background hover:border-muted-foreground/20 hover:bg-muted/30"
+                      )}
+                    >
+                      <div className={cn(
+                        "flex items-center justify-center w-10 h-10 rounded-xl shrink-0 transition-colors duration-200",
+                        isSelected ? "bg-primary/10 text-primary" : "bg-muted/60 text-muted-foreground"
+                      )}>
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={cn("text-sm font-medium transition-colors", isSelected && "text-foreground")}>{opt.label}</p>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">{opt.description}</p>
+                      </div>
+                      <div className={cn(
+                        "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-200",
+                        isSelected ? "border-primary bg-primary" : "border-muted-foreground/30"
+                      )}>
+                        {isSelected && <Check className="w-3 h-3 text-primary-foreground" strokeWidth={3} />}
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </div>
 
               {/* Smart Auto-Approve */}
               {(approvalMode === 'approve_each' || approvalMode === 'approve_plan') && (
-                <div className="space-y-3 border-t pt-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs flex items-center gap-1.5">
-                      <Zap className="w-3.5 h-3.5 text-primary" /> Smart Auto-Approve
-                    </Label>
+                <motion.div 
+                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
+                  className="space-y-3"
+                >
+                  <div className="flex items-center justify-between py-1">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs font-medium">Smart Auto-Approve</span>
+                    </div>
                     <button
                       onClick={() => setAutoApproveEnabled(!autoApproveEnabled)}
-                      className={cn("relative inline-flex h-5 w-9 items-center rounded-full transition-colors", autoApproveEnabled ? "bg-primary" : "bg-muted-foreground/20")}
+                      className={cn(
+                        "relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200",
+                        autoApproveEnabled ? "bg-primary" : "bg-muted-foreground/20"
+                      )}
                     >
-                      <span className={cn("inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform", autoApproveEnabled ? "translate-x-[18px]" : "translate-x-[3px]")} />
+                      <span className={cn(
+                        "inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow-sm transition-transform duration-200",
+                        autoApproveEnabled ? "translate-x-[22px]" : "translate-x-[3px]"
+                      )} />
                     </button>
                   </div>
-                  {autoApproveEnabled && (
-                    <div className="space-y-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                      <p className="text-[10px] text-muted-foreground">Bài viết đạt đủ ngưỡng sẽ được tự động duyệt.</p>
-                      {[
-                        { label: 'Chất lượng tổng ≥', value: thresholdQuality, setter: setThresholdQuality, min: 50, max: 95, color: 'text-primary' },
-                        { label: 'GEO Score ≥', value: thresholdGeo, setter: setThresholdGeo, min: 30, max: 90, color: 'text-primary' },
-                        { label: 'Risk Score ≤', value: thresholdRiskMax, setter: setThresholdRiskMax, min: 0, max: 60, color: 'text-destructive' },
-                      ].map(t => (
-                        <div key={t.label} className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[11px]">{t.label}</span>
-                            <span className={cn("text-[11px] font-semibold tabular-nums", t.color)}>{t.value}</span>
-                          </div>
-                          <Slider value={[t.value]} min={t.min} max={t.max} step={5} onValueChange={([v]) => t.setter(v)} />
+
+                  <AnimatePresence>
+                    {autoApproveEnabled && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="space-y-3 p-3.5 rounded-xl bg-muted/30 border border-border/50">
+                          <p className="text-[11px] text-muted-foreground">Bài viết đạt đủ ngưỡng sẽ được tự động duyệt.</p>
+                          {[
+                            { label: 'Chất lượng tổng ≥', value: thresholdQuality, setter: setThresholdQuality, min: 50, max: 95 },
+                            { label: 'GEO Score ≥', value: thresholdGeo, setter: setThresholdGeo, min: 30, max: 90 },
+                            { label: 'Risk Score ≤', value: thresholdRiskMax, setter: setThresholdRiskMax, min: 0, max: 60 },
+                          ].map(t => (
+                            <div key={t.label} className="space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] text-muted-foreground">{t.label}</span>
+                                <span className="text-[11px] font-semibold tabular-nums text-foreground">{t.value}</span>
+                              </div>
+                              <Slider value={[t.value]} min={t.min} max={t.max} step={5} onValueChange={([v]) => t.setter(v)} />
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
               )}
 
+              {/* Divider */}
+              <div className="border-t border-border/40" />
+
               {/* Advanced Settings */}
-              <div className="space-y-3 border-t pt-3">
-                <div className="flex items-center gap-1.5">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
                   <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
-                  <Label className="text-xs">Cài đặt nâng cao</Label>
+                  <span className="text-xs font-medium tracking-wide uppercase text-muted-foreground">Cài đặt nâng cao</span>
                 </div>
 
-                {/* Brand Voice Threshold */}
-                <div className="space-y-1">
+                {/* Brand Voice Threshold — Dual-tone gradient slider */}
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px]">Mức độ giữ giọng thương hiệu</span>
-                    <span className="text-[11px] font-semibold tabular-nums text-primary">{brandVoiceThreshold}%</span>
+                    <span className="text-xs text-foreground">Mức độ giữ giọng thương hiệu</span>
+                    <span className="text-xs font-semibold tabular-nums text-primary">{brandVoiceThreshold}%</span>
                   </div>
-                  <Slider value={[brandVoiceThreshold]} min={30} max={100} step={5} onValueChange={([v]) => setBrandVoiceThreshold(v)} />
-                  <p className="text-[9px] text-muted-foreground">Cao = giữ đúng tone thương hiệu. Thấp = sáng tạo tự do hơn.</p>
+                  <div className="relative">
+                    <div className="absolute inset-0 h-2 top-[9px] rounded-full overflow-hidden pointer-events-none">
+                      <div 
+                        className="h-full bg-gradient-to-r from-primary to-[hsl(var(--chart-3))]" 
+                        style={{ width: `${((brandVoiceThreshold - 30) / 70) * 100}%` }} 
+                      />
+                    </div>
+                    <Slider value={[brandVoiceThreshold]} min={30} max={100} step={5} onValueChange={([v]) => setBrandVoiceThreshold(v)} className="relative" />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">Cao = giữ đúng tone thương hiệu. Thấp = sáng tạo tự do hơn.</p>
                 </div>
 
                 {/* Learning Speed */}
-                <div className="space-y-1.5">
-                  <span className="text-[11px]">Tốc độ học hỏi</span>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {LEARNING_SPEED_OPTIONS.map(opt => (
-                      <button
-                        key={opt.value}
-                        onClick={() => setLearningSpeed(opt.value)}
-                        className={cn(
-                          "p-2 rounded-lg border text-center transition-all",
-                          learningSpeed === opt.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/30"
-                        )}
-                      >
-                        <p className="text-[10px] font-medium">{opt.label}</p>
-                        <p className="text-[8px] text-muted-foreground">{opt.description}</p>
-                      </button>
-                    ))}
+                <div className="space-y-2">
+                  <span className="text-xs text-foreground">Tốc độ học hỏi</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {LEARNING_SPEED_OPTIONS.map(opt => {
+                      const isActive = learningSpeed === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => setLearningSpeed(opt.value)}
+                          className={cn(
+                            "p-2.5 rounded-xl border text-center transition-all duration-200",
+                            isActive
+                              ? "border-primary/40 bg-primary/[0.04] shadow-sm ring-1 ring-primary/20"
+                              : "border-border/60 bg-background hover:border-muted-foreground/20 hover:bg-muted/30"
+                          )}
+                        >
+                          <p className={cn("text-[11px] font-medium", isActive ? "text-foreground" : "text-muted-foreground")}>{opt.label}</p>
+                          <p className="text-[9px] text-muted-foreground mt-0.5">{opt.description}</p>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
