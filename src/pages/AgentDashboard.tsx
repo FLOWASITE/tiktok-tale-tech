@@ -405,6 +405,19 @@ export default function AgentDashboard() {
           initialData={editingGoal}
         />
       </div>
+
+      <Sheet open={directoryOpen} onOpenChange={setDirectoryOpen}>
+        <SheetContent side="right" className="sm:max-w-2xl w-full overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Radar className="w-5 h-5 text-primary" /> Agent Directory
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            <AgentDirectoryPage />
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
