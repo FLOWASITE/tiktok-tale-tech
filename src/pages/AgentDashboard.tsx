@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Pause, Play, LayoutGrid, CheckSquare, Target, Bot, Zap, Trash2, Pencil, Rocket, BarChart3, Filter, Check, ChevronsUpDown } from 'lucide-react';
+import { Plus, Pause, Play, LayoutGrid, CheckSquare, Target, Bot, Zap, Trash2, Pencil, Rocket, BarChart3, Filter, Check, ChevronsUpDown, Users } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
@@ -23,6 +23,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { parseEdgeFunctionError } from '@/lib/edgeFunctionErrors';
+import AgentTeamPage from '@/pages/AgentTeamPage';
 
 export default function AgentDashboard() {
   const { currentOrganization } = useOrganizationContext();
@@ -221,6 +222,9 @@ export default function AgentDashboard() {
             <TabsTrigger value="campaign-plans" className="gap-1.5 text-xs">
               <BarChart3 className="w-3.5 h-3.5" /> Kế hoạch
             </TabsTrigger>
+            <TabsTrigger value="team" className="gap-1.5 text-xs">
+              <Users className="w-3.5 h-3.5" /> Team
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-4">
@@ -379,6 +383,10 @@ export default function AgentDashboard() {
               autoSelectGoalName={autoSelectPlan?.goalName}
               onAutoSelectHandled={() => setAutoSelectPlan(null)}
             />
+          </TabsContent>
+
+          <TabsContent value="team" className="mt-4">
+            <AgentTeamPage />
           </TabsContent>
         </Tabs>
 
