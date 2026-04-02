@@ -58,9 +58,9 @@ const DURATION_OPTIONS = [
 ];
 
 const APPROVAL_MODE_OPTIONS = [
-  { value: 'approve_each', label: 'Duyệt từng bài', description: 'AI tạo từng bài, bạn duyệt mỗi bài trước khi đăng', icon: '✅', autonomy: 'human_in_loop' as AgentAutonomyLevel },
-  { value: 'approve_plan', label: 'Duyệt kế hoạch', description: 'Duyệt toàn bộ plan, AI tự chạy theo kế hoạch đã duyệt', icon: '📋', autonomy: 'human_on_loop' as AgentAutonomyLevel },
-  { value: 'full_auto', label: 'Tự động hoàn toàn', description: 'AI tự lên kế hoạch, tạo và đăng bài tự động', icon: '🚀', autonomy: 'full_auto' as AgentAutonomyLevel },
+  { value: 'approve_each', label: 'Duyệt từng bài', description: 'AI tạo từng bài, bạn duyệt mỗi bài trước khi đăng', icon: ShieldCheck, autonomy: 'human_in_loop' as AgentAutonomyLevel },
+  { value: 'approve_plan', label: 'Duyệt kế hoạch', description: 'Duyệt toàn bộ plan, AI tự chạy theo kế hoạch đã duyệt', icon: FileText, autonomy: 'human_on_loop' as AgentAutonomyLevel },
+  { value: 'full_auto', label: 'Tự động hoàn toàn', description: 'AI tự lên kế hoạch, tạo và đăng bài tự động', icon: Sparkles, autonomy: 'full_auto' as AgentAutonomyLevel },
 ];
 
 const OBJECTIVES = [
