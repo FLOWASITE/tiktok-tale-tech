@@ -192,6 +192,9 @@ export default function AgentDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setDirectoryOpen(true)}>
+              <Radar className="w-3.5 h-3.5" /> Directory
+            </Button>
             <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => {
               goals.filter(g => g.is_active && !g.is_paused).forEach(g => updateGoal.mutate({ id: g.id, is_paused: true }));
             }}>
