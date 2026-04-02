@@ -23,6 +23,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useOrganizationContext } from '@/contexts/OrganizationContext';
 import { parseEdgeFunctionError } from '@/lib/edgeFunctionErrors';
+import AgentTeamPage from '@/pages/AgentTeamPage';
 
 export default function AgentDashboard() {
   const { currentOrganization } = useOrganizationContext();
