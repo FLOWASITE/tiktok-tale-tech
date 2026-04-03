@@ -913,7 +913,7 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
           geoScores = await callFunction(supabaseUrl, supabaseKey, "geo-score-content", {
             contentText,
             contentId: contentId || undefined,
-            contentType: contentType === "multichannel" ? "core_content" : contentType,
+            contentType: contentType === "multichannel" ? "multi_channel" : contentType,
             organizationId: orgId,
           });
         } catch (e) {
@@ -1782,7 +1782,34 @@ async function saveContentId(supabase: any, pipeline: any, pState: any, contentI
 async function fetchContentText(supabase: any, contentId: string | null, contentType: string, pState: any): Promise<string> {
   // Try fetching from database first
   if (contentId) {
-    if (contentType === "multichannel" || contentType === "core_content") {
+    if (contentType === "multichannel") {
+      // For multichannel: query multi_channel_contents first, aggregate all channel texts (same as manual flow)
+      const { data: mcc } = await supabase
+        .from("multi_channel_contents")
+        .select("title, facebook_content, website_content, instagram_content, linkedin_content, twitter_content, tiktok_content, threads_content, email_content")
+        .eq("id", contentId)
+        .single();
+      if (mcc) {
+        const channelTexts = [
+          mcc.facebook_content,
+          mcc.website_content,
+          mcc.instagram_content,
+          mcc.linkedin_content,
+          mcc.twitter_content,
+          mcc.tiktok_content,
+          mcc.threads_content,
+          mcc.email_content,
+        ].filter(Boolean);
+        if (channelTexts.length > 0) {
+          const combined = `${mcc.title || ""}\n\n${channelTexts.join("\n\n")}`;
+          return combined.slice(0, 10000);
+        }
+      }
+      // Fallback: try core_contents if MCC not found (legacy case)
+      const { data: cc } = await supabase.from("core_contents").select("title, content").eq("id", contentId).single();
+      if (cc?.content) return `${cc.title || ""}\n\n${cc.content}`;
+    }
+    if (contentType === "core_content") {
       const { data: cc } = await supabase.from("core_contents").select("title, content").eq("id", contentId).single();
       if (cc?.content) return `${cc.title || ""}\n\n${cc.content}`;
     }
