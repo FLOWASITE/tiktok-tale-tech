@@ -913,7 +913,7 @@ async function runStage(supabase: any, supabaseUrl: string, supabaseKey: string,
           geoScores = await callFunction(supabaseUrl, supabaseKey, "geo-score-content", {
             contentText,
             contentId: contentId || undefined,
-            contentType: contentType === "multichannel" ? "core_content" : contentType,
+            contentType: contentType === "multichannel" ? "multi_channel" : contentType,
             organizationId: orgId,
           });
         } catch (e) {
