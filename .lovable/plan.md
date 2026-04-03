@@ -1,24 +1,30 @@
 
 
-# Đưa Agent Directory vào AI Agent Dashboard
+# Sửa lỗi: Bài viết từ Agent thiếu điểm GEO và Critique
 
-## Hiện trạng
-- Agent Directory hiện là một trang riêng tại `/agents/directory` và có mục riêng trên sidebar.
-- AI Agent Dashboard (`/agents`) đã có các tab: Tổng quan, Pipeline, Duyệt, Campaigns, Kế hoạch, Team.
+## Nguyên nhân gốc
 
-## Kế hoạch
+### Bug 1: `fetchContentText` dùng sai bảng (Nghiêm trọng)
+- Trong giai đoạn `quality` của agent-pipeline, `contentId` là ID của `multi_channel_contents` (MCC)
+- Nhưng `fetchContentText()` (dòng 1786) truy vấn bảng `core_contents` với MCC ID → **không tìm thấy gì**
+- Kết quả: `contentText` rỗng → `geo-score-content` không được gọi → không có điểm GEO
 
-### 1. Thêm nút "Agent Directory" vào header của AgentDashboard
-- Đặt một **Button** (icon `Radar` + text "Directory") cạnh nút "Pause All" trong phần header.
-- Khi click, mở một **Sheet** (slide-in panel từ bên phải) hiển thị nội dung `AgentDirectoryPage`.
-- Dùng Sheet thay vì tab để tránh làm quá tải thanh tab hiện tại, đồng thời giữ tính chất "tra cứu / tham khảo" của Directory.
+### Bug 2: GEO chỉ score core content, không score channel texts
+- Luồng thủ công (`triggerAutoGEOScore`): gộp tất cả nội dung kênh (facebook, instagram, ...) rồi score
+- Luồng Agent: chỉ lấy `core_contents.content` → dù có fix Bug 1, nội dung score vẫn khác biệt và không đầy đủ
 
-### 2. Xoá mục sidebar "Agent Directory"
-- Loại bỏ item `Agent Directory` khỏi `agentItems` trong `AppSidebar.tsx`.
-- Xoá route `/agents/directory` khỏi `routes.tsx`.
+### Bug 3: `contentType` truyền cho `geo-score-content` không đồng nhất
+- Agent truyền `"core_content"`, thủ công truyền `"multi_channel"` → `geo_content_scores` lưu với type khác nhau cho cùng loại nội dung
 
-### 3. File cần sửa
-- **`src/pages/AgentDashboard.tsx`**: Import `Sheet`, `AgentDirectoryPage`, icon `Radar`. Thêm state `directoryOpen` và nút + Sheet component.
-- **`src/components/AppSidebar.tsx`**: Xoá item Agent Directory khỏi `agentItems`.
-- **`src/app/routes.tsx`**: Xoá route `/agents/directory`.
+## Kế hoạch sửa
+
+### 1. File `supabase/functions/agent-pipeline/index.ts` — `fetchContentText`
+- Khi `contentType === "multichannel"`: **thử `multi_channel_contents` trước**, gộp tất cả channel texts giống luồng thủ công
+- Fallback sang `core_contents` nếu MCC không tìm thấy (trường hợp contentId là core_content ID)
+
+### 2. File `supabase/functions/agent-pipeline/index.ts` — GEO scoring call
+- Sửa `contentType` truyền cho `geo-score-content`: dùng `"multi_channel"` thay vì `"core_content"` khi pipeline là multichannel
+- Đảm bảo đồng nhất với luồng thủ công
+
+### 3. Tổng: 1 file edge function, 2 chỗ sửa
 
