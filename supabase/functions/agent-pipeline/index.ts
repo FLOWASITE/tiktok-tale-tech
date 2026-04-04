@@ -1818,10 +1818,22 @@ async function fetchContentText(supabase: any, contentId: string | null, content
       if (script?.script_content) return `${script.title || ""}\n\n${typeof script.script_content === 'string' ? script.script_content : JSON.stringify(script.script_content)}`;
     }
     if (contentType === "carousel") {
-      const { data: carousel } = await supabase.from("carousels").select("title, slides_data").eq("id", contentId).single();
-      if (carousel?.slides_data) {
-        const slides = Array.isArray(carousel.slides_data) ? carousel.slides_data : [];
-        const slidesText = slides.map((s: any, i: number) => `Slide ${i + 1}: ${typeof s.textContent === 'string' ? s.textContent : s.headline || JSON.stringify(s)}`).join("\n");
+      const { data: carousel } = await supabase.from("carousels").select("title, slides_content").eq("id", contentId).single();
+      if (carousel?.slides_content) {
+        const slides = Array.isArray(carousel.slides_content) ? carousel.slides_content : [];
+        const slidesText = slides.map((s: any, i: number) => {
+          const tc = s.textContent;
+          if (typeof tc === 'string') return `Slide ${i + 1}: ${tc}`;
+          if (tc && typeof tc === 'object') {
+            const parts: string[] = [];
+            if (tc.headline) parts.push(tc.headline);
+            if (tc.subtitle) parts.push(tc.subtitle);
+            if (tc.caption) parts.push(tc.caption);
+            if (tc.dataValue) parts.push(`${tc.dataValue} ${tc.dataLabel || ''}`);
+            return `Slide ${i + 1}: ${parts.join(' — ')}`;
+          }
+          return `Slide ${i + 1}: ${s.headline || JSON.stringify(s)}`;
+        }).join("\n");
         return `${carousel.title || ""}\n\n${slidesText}`;
       }
     }

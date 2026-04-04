@@ -599,7 +599,7 @@ async function routeCarousel(
   brief: BrandBrief
 ): Promise<CreatorResult> {
   const ctx = input.campaign_context;
-  const targetChannel = ctx?.target_channel || "instagram";
+  const targetChannel = ctx?.target_channel || ctx?.target_channels?.[0] || "facebook";
   const lengthMode = ctx?.estimated_length || input.length_mode || "medium";
   const slideCount = lengthMode === "long" ? 8 : lengthMode === "short" ? 5 : 6;
 
@@ -616,8 +616,25 @@ async function routeCarousel(
     userId = owner?.user_id || null;
   } catch { /* ignore */ }
 
-  const visualPreset = "minimalist";
-  const carouselStyle = "educational";
+  // Derive carousel style from campaign context or content_role instead of hardcoding
+  const contentRole = ctx?.content_role || "nurture";
+  const visualPreset = ctx?.visual_preset || input.visual_preset || (() => {
+    switch (contentRole) {
+      case "seed": return "gradient";
+      case "harvest": return "flat_design";
+      case "nurture": return "minimalist";
+      default: return "minimalist";
+    }
+  })();
+  const carouselStyle = ctx?.carousel_style || input.carousel_style || (() => {
+    switch (contentRole) {
+      case "seed": return "gallery";
+      case "harvest": return "listicle";
+      case "nurture": return "educational";
+      default: return "educational";
+    }
+  })();
+  console.log(`[carousel] Style: ${carouselStyle}, Preset: ${visualPreset}, Role: ${contentRole}, Channel: ${targetChannel}`);
 
   // Phase 1: Generate text prompts for slides
   console.log(`[carousel] Phase 1: Generating text prompts for ${slideCount} slides`);
