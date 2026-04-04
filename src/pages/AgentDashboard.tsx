@@ -41,6 +41,7 @@ export default function AgentDashboard() {
   const [triggeringGoalId, setTriggeringGoalId] = useState<string | null>(null);
   const [autoSelectPlan, setAutoSelectPlan] = useState<{ planId: string; goalName: string } | null>(null);
   const [directoryOpen, setDirectoryOpen] = useState(false);
+  const [campaignSubTab, setCampaignSubTab] = useState<'list' | 'plans'>('list');
 
   const goalNameMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -99,7 +100,8 @@ export default function AgentDashboard() {
     if (result.approval_mode === 'full_auto') {
       setActiveTab('pipeline');
     } else {
-      setActiveTab('campaign-plans');
+      setActiveTab('campaigns');
+      setCampaignSubTab('plans');
       if (result.plan_id) {
         setAutoSelectPlan({ planId: result.plan_id, goalName: result.goal_name || '' });
       }
@@ -146,7 +148,8 @@ export default function AgentDashboard() {
         toast.success(`Đã tạo ${result?.pipelines_created || 0} pipeline tự động`);
       } else {
         toast.success(`Đã lên kế hoạch ${result?.total_pieces || 0} bài viết`);
-        setActiveTab('campaign-plans');
+        setActiveTab('campaigns');
+        setCampaignSubTab('plans');
       }
     } catch (e) {
       const parsedError = parseEdgeFunctionError(e, 'Không thể tạo kế hoạch');
@@ -224,9 +227,6 @@ export default function AgentDashboard() {
             </TabsTrigger>
             <TabsTrigger value="campaigns" className="gap-1.5 text-xs">
               <Target className="w-3.5 h-3.5" /> Campaigns
-            </TabsTrigger>
-            <TabsTrigger value="campaign-plans" className="gap-1.5 text-xs">
-              <BarChart3 className="w-3.5 h-3.5" /> Kế hoạch
             </TabsTrigger>
             <TabsTrigger value="team" className="gap-1.5 text-xs">
               <Users className="w-3.5 h-3.5" /> Team
@@ -309,86 +309,99 @@ export default function AgentDashboard() {
             />
           </TabsContent>
 
-          <TabsContent value="campaigns" className="mt-4">
-            <div className="space-y-3">
-              {goals.length === 0 ? (
-                <div className="text-center py-16">
-                  <Target className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground mb-3">Chưa có campaign nào</p>
-                  <Button size="sm" className="gap-1.5" onClick={() => { setEditingGoal(null); setWizardOpen(true); }}>
-                    <Plus className="w-3.5 h-3.5" /> Tạo campaign đầu tiên
-                  </Button>
-                </div>
-              ) : (
-                goals.map(goal => {
-                  const pipeCount = getPipelineCountForGoal(goal.id);
-                  const autonomyLabel = AUTONOMY_LEVELS.find(l => l.id === goal.autonomy_level)?.label || goal.autonomy_level;
-                  return (
-                    <Card key={goal.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1.5 flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-sm font-medium">{goal.name}</p>
-                              <Badge variant={goal.is_active ? 'default' : 'secondary'} className="text-[10px] h-4">
-                                {goal.is_paused ? 'Tạm dừng' : goal.is_active ? 'Đang chạy' : 'Tắt'}
-                              </Badge>
-                              {pipeCount > 0 && (
-                                <Badge variant="outline" className="text-[10px] h-4">
-                                  {pipeCount} pipeline
-                                </Badge>
-                              )}
-                            </div>
-                            {goal.description && (
-                              <p className="text-xs text-muted-foreground line-clamp-1">{goal.description}</p>
-                            )}
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant="outline" className="text-[9px] h-4 bg-primary/5">{autonomyLabel}</Badge>
-                              {goal.target_channels.map(ch => (
-                                <Badge key={ch} variant="outline" className="text-[9px] h-4">{ch}</Badge>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost" size="sm" className="h-7 w-7 p-0"
-                              onClick={() => handleRunNow(goal)}
-                              disabled={triggeringGoalId === goal.id}
-                              title="Chạy ngay"
-                            >
-                              <Rocket className="w-3.5 h-3.5 text-primary" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => updateGoal.mutate({ id: goal.id, is_paused: !goal.is_paused })}>
-                              {goal.is_paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEditGoal(goal)} title="Chỉnh sửa">
-                              <Pencil className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleDeleteGoal(goal)} title="Xóa">
-                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                            </Button>
-                            <Button
-                              variant="ghost" size="sm" className="h-7 px-2 text-[10px]"
-                              onClick={() => { setFilterGoalId(goal.id); setActiveTab('pipeline'); }}
-                            >
-                              Xem pipeline →
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
-              )}
-            </div>
-          </TabsContent>
+          <TabsContent value="campaigns" className="mt-4 space-y-4">
+            <Tabs value={campaignSubTab} onValueChange={(v) => setCampaignSubTab(v as 'list' | 'plans')}>
+              <TabsList className="h-8">
+                <TabsTrigger value="list" className="text-xs h-6 px-3 gap-1">
+                  <Target className="w-3 h-3" /> Danh sách
+                </TabsTrigger>
+                <TabsTrigger value="plans" className="text-xs h-6 px-3 gap-1">
+                  <BarChart3 className="w-3 h-3" /> Kế hoạch
+                </TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="campaign-plans" className="mt-4">
-            <CampaignDashboard
-              autoSelectPlanId={autoSelectPlan?.planId}
-              autoSelectGoalName={autoSelectPlan?.goalName}
-              onAutoSelectHandled={() => setAutoSelectPlan(null)}
-            />
+              <TabsContent value="list" className="mt-3">
+                <div className="space-y-3">
+                  {goals.length === 0 ? (
+                    <div className="text-center py-16">
+                      <Target className="w-10 h-10 text-muted-foreground/20 mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground mb-3">Chưa có campaign nào</p>
+                      <Button size="sm" className="gap-1.5" onClick={() => { setEditingGoal(null); setWizardOpen(true); }}>
+                        <Plus className="w-3.5 h-3.5" /> Tạo campaign đầu tiên
+                      </Button>
+                    </div>
+                  ) : (
+                    goals.map(goal => {
+                      const pipeCount = getPipelineCountForGoal(goal.id);
+                      const autonomyLabel = AUTONOMY_LEVELS.find(l => l.id === goal.autonomy_level)?.label || goal.autonomy_level;
+                      return (
+                        <Card key={goal.id}>
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="space-y-1.5 flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-medium">{goal.name}</p>
+                                  <Badge variant={goal.is_active ? 'default' : 'secondary'} className="text-[10px] h-4">
+                                    {goal.is_paused ? 'Tạm dừng' : goal.is_active ? 'Đang chạy' : 'Tắt'}
+                                  </Badge>
+                                  {pipeCount > 0 && (
+                                    <Badge variant="outline" className="text-[10px] h-4">
+                                      {pipeCount} pipeline
+                                    </Badge>
+                                  )}
+                                </div>
+                                {goal.description && (
+                                  <p className="text-xs text-muted-foreground line-clamp-1">{goal.description}</p>
+                                )}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <Badge variant="outline" className="text-[9px] h-4 bg-primary/5">{autonomyLabel}</Badge>
+                                  {goal.target_channels.map(ch => (
+                                    <Badge key={ch} variant="outline" className="text-[9px] h-4">{ch}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost" size="sm" className="h-7 w-7 p-0"
+                                  onClick={() => handleRunNow(goal)}
+                                  disabled={triggeringGoalId === goal.id}
+                                  title="Chạy ngay"
+                                >
+                                  <Rocket className="w-3.5 h-3.5 text-primary" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => updateGoal.mutate({ id: goal.id, is_paused: !goal.is_paused })}>
+                                  {goal.is_paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEditGoal(goal)} title="Chỉnh sửa">
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleDeleteGoal(goal)} title="Xóa">
+                                  <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                                </Button>
+                                <Button
+                                  variant="ghost" size="sm" className="h-7 px-2 text-[10px]"
+                                  onClick={() => { setFilterGoalId(goal.id); setActiveTab('pipeline'); }}
+                                >
+                                  Xem pipeline →
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="plans" className="mt-3">
+                <CampaignDashboard
+                  autoSelectPlanId={autoSelectPlan?.planId}
+                  autoSelectGoalName={autoSelectPlan?.goalName}
+                  onAutoSelectHandled={() => setAutoSelectPlan(null)}
+                />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="team" className="mt-4">
