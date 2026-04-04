@@ -41,6 +41,7 @@ export default function AgentDashboard() {
   const [triggeringGoalId, setTriggeringGoalId] = useState<string | null>(null);
   const [autoSelectPlan, setAutoSelectPlan] = useState<{ planId: string; goalName: string } | null>(null);
   const [directoryOpen, setDirectoryOpen] = useState(false);
+  const [campaignSubTab, setCampaignSubTab] = useState<'list' | 'plans'>('list');
 
   const goalNameMap = useMemo(() => {
     const map = new Map<string, string>();
