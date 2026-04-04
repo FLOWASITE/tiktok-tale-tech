@@ -1,30 +1,30 @@
 
 
-# Sửa lỗi: Bài viết từ Agent thiếu điểm GEO và Critique
+# Gộp tab "Campaigns" và "Kế hoạch" thành một tab duy nhất
 
-## Nguyên nhân gốc
+## Hiện trạng
+- **Tab Campaigns**: Hiển thị danh sách các campaign (goals) với các nút hành động (chạy, pause, edit, xóa, xem pipeline)
+- **Tab Kế hoạch**: Hiển thị `CampaignDashboard` — danh sách các kế hoạch nội dung (plans) và màn hình review chi tiết
 
-### Bug 1: `fetchContentText` dùng sai bảng (Nghiêm trọng)
-- Trong giai đoạn `quality` của agent-pipeline, `contentId` là ID của `multi_channel_contents` (MCC)
-- Nhưng `fetchContentText()` (dòng 1786) truy vấn bảng `core_contents` với MCC ID → **không tìm thấy gì**
-- Kết quả: `contentText` rỗng → `geo-score-content` không được gọi → không có điểm GEO
+Hai tab này có mối quan hệ chặt: mỗi campaign tạo ra kế hoạch → nên gộp lại cho gọn.
 
-### Bug 2: GEO chỉ score core content, không score channel texts
-- Luồng thủ công (`triggerAutoGEOScore`): gộp tất cả nội dung kênh (facebook, instagram, ...) rồi score
-- Luồng Agent: chỉ lấy `core_contents.content` → dù có fix Bug 1, nội dung score vẫn khác biệt và không đầy đủ
+## Thiết kế
 
-### Bug 3: `contentType` truyền cho `geo-score-content` không đồng nhất
-- Agent truyền `"core_content"`, thủ công truyền `"multi_channel"` → `geo_content_scores` lưu với type khác nhau cho cùng loại nội dung
+Gộp thành **1 tab "Campaigns"** với 2 phần:
+1. **Phần trên**: Danh sách campaigns (goals) — giữ nguyên UI hiện tại nhưng thu gọn thành section có thể collapse
+2. **Phần dưới**: `CampaignDashboard` (kế hoạch) — hiển thị ngay bên dưới
 
-## Kế hoạch sửa
+Hoặc dùng **sub-tabs** bên trong: "Danh sách Campaign" | "Kế hoạch nội dung"
 
-### 1. File `supabase/functions/agent-pipeline/index.ts` — `fetchContentText`
-- Khi `contentType === "multichannel"`: **thử `multi_channel_contents` trước**, gộp tất cả channel texts giống luồng thủ công
-- Fallback sang `core_contents` nếu MCC không tìm thấy (trường hợp contentId là core_content ID)
+## Thay đổi
 
-### 2. File `supabase/functions/agent-pipeline/index.ts` — GEO scoring call
-- Sửa `contentType` truyền cho `geo-score-content`: dùng `"multi_channel"` thay vì `"core_content"` khi pipeline là multichannel
-- Đảm bảo đồng nhất với luồng thủ công
+### 1. `src/pages/AgentDashboard.tsx`
+- Xóa tab "campaign-plans", chỉ giữ tab "campaigns"
+- Trong `TabsContent value="campaigns"`: render cả danh sách goals và `CampaignDashboard` — dùng sub-tabs hoặc section layout
+- Truyền props `autoSelectPlan` cho `CampaignDashboard` trong tab campaigns
 
-### 3. Tổng: 1 file edge function, 2 chỗ sửa
+### 2. Cập nhật label/icon
+- Tab "Campaigns" giữ icon `Target`, đổi text nếu cần
+
+Tổng: 1 file sửa (`AgentDashboard.tsx`), không thêm file mới.
 
