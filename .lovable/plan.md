@@ -1,30 +1,40 @@
 
 
-# Gộp tab "Campaigns" và "Kế hoạch" thành một tab duy nhất
+# Sửa lỗi: Carousel từ Agent khác với tạo thủ công
 
-## Hiện trạng
-- **Tab Campaigns**: Hiển thị danh sách các campaign (goals) với các nút hành động (chạy, pause, edit, xóa, xem pipeline)
-- **Tab Kế hoạch**: Hiển thị `CampaignDashboard` — danh sách các kế hoạch nội dung (plans) và màn hình review chi tiết
+## Vấn đề phát hiện
 
-Hai tab này có mối quan hệ chặt: mỗi campaign tạo ra kế hoạch → nên gộp lại cho gọn.
+### Bug 1: `fetchContentText` dùng sai tên cột (Nghiêm trọng)
+- **Dòng 1821**: Truy vấn `slides_data` nhưng bảng `carousels` chỉ có cột `slides_content`
+- Kết quả: `contentText` rỗng → GEO scoring không chạy → carousel từ Agent không có điểm GEO
 
-## Thiết kế
+### Bug 2: `carouselStyle` và `visualPreset` bị hardcode
+- **Dòng 619-620** trong `routeCarousel`:
+  ```
+  const visualPreset = "minimalist";
+  const carouselStyle = "educational";
+  ```
+- Agent luôn tạo carousel "educational + minimalist" bất kể campaign context hay brand preference
+- Luồng thủ công cho phép chọn: seamless, listicle, gallery, v.v.
 
-Gộp thành **1 tab "Campaigns"** với 2 phần:
-1. **Phần trên**: Danh sách campaigns (goals) — giữ nguyên UI hiện tại nhưng thu gọn thành section có thể collapse
-2. **Phần dưới**: `CampaignDashboard` (kế hoạch) — hiển thị ngay bên dưới
+### Bug 3: Platform bị hardcode thành "instagram"
+- **Dòng 602**: `const targetChannel = ctx?.target_channel || "instagram"`
+- Nhưng DB cho thấy tất cả carousel đều lưu `platform: facebook` (do `generate-carousel` ghi đè?) → không nhất quán
 
-Hoặc dùng **sub-tabs** bên trong: "Danh sách Campaign" | "Kế hoạch nội dung"
+## Kế hoạch sửa
 
-## Thay đổi
+### File: `supabase/functions/agent-pipeline/index.ts`
 
-### 1. `src/pages/AgentDashboard.tsx`
-- Xóa tab "campaign-plans", chỉ giữ tab "campaigns"
-- Trong `TabsContent value="campaigns"`: render cả danh sách goals và `CampaignDashboard` — dùng sub-tabs hoặc section layout
-- Truyền props `autoSelectPlan` cho `CampaignDashboard` trong tab campaigns
+**Sửa `fetchContentText` — carousel branch (dòng 1820-1827)**:
+- Đổi `slides_data` → `slides_content`
+- Parse `textContent` đúng cách (string hoặc structured object với headline/subtitle)
 
-### 2. Cập nhật label/icon
-- Tab "Campaigns" giữ icon `Target`, đổi text nếu cần
+### File: `supabase/functions/agent-creator-v2/index.ts`
 
-Tổng: 1 file sửa (`AgentDashboard.tsx`), không thêm file mới.
+**Sửa `routeCarousel` (dòng 619-620)**:
+- Đọc `carouselStyle` và `visualPreset` từ `campaign_context` hoặc brand config thay vì hardcode
+- Cho phép truyền từ `CreatorInput` (thêm field optional)
+- Fallback hợp lý hơn: dựa trên `content_role` (seed → gallery, harvest → listicle, nurture → educational)
+
+### Tổng: 2 file edge function, 3 chỗ sửa. Deploy lại cả 2 function.
 
