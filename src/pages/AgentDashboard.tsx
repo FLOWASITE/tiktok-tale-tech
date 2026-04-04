@@ -99,7 +99,8 @@ export default function AgentDashboard() {
     if (result.approval_mode === 'full_auto') {
       setActiveTab('pipeline');
     } else {
-      setActiveTab('campaign-plans');
+      setActiveTab('campaigns');
+      setCampaignSubTab('plans');
       if (result.plan_id) {
         setAutoSelectPlan({ planId: result.plan_id, goalName: result.goal_name || '' });
       }
