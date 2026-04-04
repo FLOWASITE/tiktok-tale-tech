@@ -148,7 +148,8 @@ export default function AgentDashboard() {
         toast.success(`Đã tạo ${result?.pipelines_created || 0} pipeline tự động`);
       } else {
         toast.success(`Đã lên kế hoạch ${result?.total_pieces || 0} bài viết`);
-        setActiveTab('campaign-plans');
+        setActiveTab('campaigns');
+        setCampaignSubTab('plans');
       }
     } catch (e) {
       const parsedError = parseEdgeFunctionError(e, 'Không thể tạo kế hoạch');
