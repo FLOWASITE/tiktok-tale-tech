@@ -615,6 +615,49 @@ function buildPlanCacheKey(message: string): string {
   return `planCache:${intentBucket}:${hasTopic}:${hasChannel}:${hasImage}:${lengthBucket}`;
 }
 
+// ---- Fast-Path Decision Logging ----
+
+/**
+ * Fire-and-forget: log fast-path decision to agent_pipeline_logs for analysis.
+ * Logs both HITs and MISSes to enable pattern tuning over time.
+ */
+function logFastPathDecision(
+  state: GraphState,
+  matchResult: FastPathResult | null,
+  templateKey: string | null,
+  supabaseClient: any
+): void {
+  if (!supabaseClient) return;
+
+  const logEntry = {
+    pipeline_id: state.metadata?.pipelineId || null,
+    agent_name: 'orchestrator_fastpath',
+    action: matchResult ? 'fast_path_hit' : 'fast_path_miss',
+    input_summary: state.userMessage.slice(0, 300),
+    output_summary: JSON.stringify({
+      intent: matchResult?.intent || null,
+      confidence: matchResult?.confidence || null,
+      allScores: matchResult?.allScores || {},
+      ambiguityFlag: matchResult?.ambiguityFlag || false,
+      matchedPatterns: matchResult?.matchedPatterns || [],
+      templateChosen: templateKey,
+      messageLength: state.userMessage.length,
+    }),
+    tokens_used: 0,
+    cost_usd: 0,
+    duration_ms: 0,
+  };
+
+  // Non-blocking insert
+  supabaseClient
+    .from('agent_pipeline_logs')
+    .insert(logEntry)
+    .then(() => {})
+    .catch((_: any) => {
+      console.warn('[Orchestrator] Failed to log fast-path decision (non-critical)');
+    });
+}
+
 // ---- Main Orchestrator ----
 
 /**
@@ -627,7 +670,8 @@ function buildPlanCacheKey(message: string): string {
  */
 export async function orchestrateWorkflow(
   state: GraphState,
-  options: OrchestratorOptions = {}
+  options: OrchestratorOptions = {},
+  supabaseClient?: any
 ): Promise<GraphPlan> {
   // 1. Forced template
   if (options.forceTemplate && TEMPLATE_PLANS[options.forceTemplate]) {
@@ -636,8 +680,16 @@ export async function orchestrateWorkflow(
   }
 
   // 2. Fast-path heuristic
-  const fastPlan = tryFastPath(state.userMessage);
-  if (fastPlan) return fastPlan;
+  const fastResult = tryFastPath(state.userMessage);
+  if (fastResult) {
+    const templateKey = intentToTemplate(fastResult.matchResult.intent, state.userMessage);
+    logFastPathDecision(state, fastResult.matchResult, templateKey, supabaseClient);
+    return fastResult.plan;
+  }
+
+  // Log fast-path miss (for analysis of what LLM handles)
+  const missMatch = matchIntent(state.userMessage);
+  logFastPathDecision(state, missMatch, null, supabaseClient);
 
   // 3. Plan cache lookup
   const cacheKey = buildPlanCacheKey(state.userMessage);
