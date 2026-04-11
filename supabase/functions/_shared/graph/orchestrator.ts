@@ -844,9 +844,14 @@ export async function orchestrateWorkflow(
   // 2. Fast-path heuristic
   const fastResult = tryFastPath(state.userMessage);
   if (fastResult) {
+    let plan = fastResult.plan;
     const templateKey = intentToTemplate(fastResult.matchResult.intent, state.userMessage);
     logFastPathDecision(state, fastResult.matchResult, templateKey, supabaseClient);
-    return fastResult.plan;
+
+    // 2b. Semantic topic validation — override hasTopic if brand data says it's noise
+    plan = await applySemanticTopicOverride(state.userMessage, plan, options, supabaseClient);
+
+    return plan;
   }
 
   // Log fast-path miss (for analysis of what LLM handles)
@@ -858,7 +863,9 @@ export async function orchestrateWorkflow(
   const cachedPlan = memoryCache.get<GraphPlan>(cacheKey);
   if (cachedPlan) {
     console.log(`[Orchestrator] Plan cache HIT: ${cacheKey}`);
-    return { ...cachedPlan, fastPath: false, fromPlanCache: true };
+    let plan = { ...cachedPlan, fastPath: false, fromPlanCache: true };
+    plan = await applySemanticTopicOverride(state.userMessage, plan, options, supabaseClient);
+    return plan;
   }
 
   // 4. LLM planning
@@ -867,6 +874,58 @@ export async function orchestrateWorkflow(
 
   // Store in cache (TTL 10 minutes)
   memoryCache.set(cacheKey, plan, 600);
+
+  return plan;
+}
+
+/**
+ * If heuristic says "has topic" but semantic validation against brand data says otherwise,
+ * inject research node to discover a proper topic.
+ * Only runs when brandTemplateId is available and supabaseClient exists.
+ */
+async function applySemanticTopicOverride(
+  message: string,
+  plan: GraphPlan,
+  options: OrchestratorOptions,
+  supabaseClient?: any
+): Promise<GraphPlan> {
+  if (!options.brandTemplateId || !supabaseClient) return plan;
+  if (!hasExplicitTopic(message)) return plan; // heuristic already says no topic
+
+  const candidate = extractTopicCandidate(message);
+  if (!candidate || candidate.length < 3) return plan;
+
+  try {
+    const validation = await validateTopicSemantically(candidate, options.brandTemplateId, supabaseClient);
+
+    if (!validation.isValidTopic) {
+      console.log(`[Orchestrator] Semantic override: "${candidate}" rejected (similarity: ${validation.topSimilarity}) — injecting research`);
+
+      // Inject research if not already present
+      const hasResearch = plan.steps.some(s => s.node === 'research');
+      if (!hasResearch) {
+        const newSteps = [
+          { node: 'research' },
+          ...plan.steps.map(s => {
+            if (s.node === 'content' && !s.dependsOn?.includes('research')) {
+              return { ...s, dependsOn: [...(s.dependsOn || []), 'research'] };
+            }
+            return s;
+          }),
+        ];
+        return {
+          ...plan,
+          steps: newSteps,
+          skipNodes: plan.skipNodes.filter(n => n !== 'research'),
+          reasoning: plan.reasoning + ` [semantic topic override: "${candidate}" not recognized by brand data]`,
+        };
+      }
+    } else if (validation.matchedContent) {
+      console.log(`[Orchestrator] Semantic topic confirmed: "${candidate}" matches "${validation.matchedContent}" (sim: ${validation.topSimilarity.toFixed(3)})`);
+    }
+  } catch (err) {
+    console.warn('[Orchestrator] Semantic topic override failed (non-critical):', err);
+  }
 
   return plan;
 }
