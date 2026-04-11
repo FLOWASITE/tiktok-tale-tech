@@ -32,6 +32,7 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   kie: <Wand2 className="h-5 w-5 text-violet-500" />,
   poyo: <Wand2 className="h-5 w-5 text-teal-500" />,
   dashscope: <Bot className="h-5 w-5 text-orange-600" />,
+  geminigen: <Sparkles className="h-5 w-5 text-emerald-500" />,
   custom: <Settings className="h-5 w-5 text-muted-foreground" />,
 };
 
@@ -44,6 +45,7 @@ const PROVIDER_KEY_URLS: Record<string, string> = {
   kie: 'https://kie.ai',
   poyo: 'https://poyo.ai/dashboard/api-key',
   dashscope: 'https://dashscope.console.aliyun.com/',
+  geminigen: 'https://geminigen.ai/profile/integration/api-keys',
 };
 
 interface TestResult {
