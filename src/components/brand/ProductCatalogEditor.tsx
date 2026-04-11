@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Package, Star, Pencil, Trash2, ChevronDown, ChevronUp, X, Tag, Users, Zap, MessageSquare, UserCheck, Sparkles, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Plus, Package, Star, Pencil, Trash2, ChevronDown, ChevronUp, X, Tag, Users, Zap, MessageSquare, UserCheck, Sparkles, AlertTriangle, CheckCircle2, Loader2, Lightbulb, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -89,6 +89,7 @@ const CATEGORY_USP_TEMPLATES: Record<string, string[]> = {
   digital: ['Cập nhật miễn phí trọn đời', 'Hỗ trợ kỹ thuật 24/7', 'Tích hợp 50+ nền tảng', 'Dùng thử 14 ngày miễn phí'],
   subscription: ['Hủy bất cứ lúc nào', 'Giảm 30% khi đăng ký năm', 'Dùng thử 7 ngày miễn phí', 'Nâng cấp linh hoạt'],
   consulting: ['ROI cam kết bằng hợp đồng', 'Báo cáo chi tiết hàng tuần', 'Đội ngũ chuyên gia đa ngành', 'Case study thành công 95%'],
+  other: ['Uy tín 10+ năm hoạt động', 'Giá cạnh tranh nhất thị trường', 'Hỗ trợ tận tâm mọi lúc', 'Giải pháp tùy chỉnh theo nhu cầu'],
 };
 
 export function ProductCatalogEditor({ 
@@ -539,29 +540,54 @@ export function ProductCatalogEditor({
                   </div>
                 )}
 
-                {/* Category templates */}
-                {categoryTemplates.length > 0 && formData.unique_selling_points.length === 0 && !uspSuggestions.length && (
-                  <div className="mt-2 p-2 rounded-lg border border-dashed border-muted-foreground/20">
-                    <p className="text-xs text-muted-foreground mb-1.5">
-                      Mẫu USP cho {PRODUCT_CATEGORIES.find(c => c.value === formData.category)?.label}:
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {categoryTemplates
-                        .filter(t => !formData.unique_selling_points.includes(t))
-                        .map((template, idx) => (
-                        <Badge
-                          key={idx}
-                          variant="outline"
-                          className="cursor-pointer hover:bg-accent transition-colors text-xs"
-                          onClick={() => addUspFromTemplate(template)}
-                        >
-                          <Plus className="h-3 w-3 mr-0.5" />
-                          {template}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Category templates - always visible when category selected */}
+                {(() => {
+                  const availableTemplates = categoryTemplates.filter(t => !formData.unique_selling_points.includes(t));
+                  if (availableTemplates.length === 0 || !formData.category) return null;
+                  return (
+                    <Collapsible defaultOpen={formData.unique_selling_points.length === 0}>
+                      <div className="mt-2 p-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                            <Lightbulb className="h-3 w-3 text-amber-500" />
+                            Mẫu USP cho {PRODUCT_CATEGORIES.find(c => c.value === formData.category)?.label}
+                            <ChevronDown className="h-3 w-3" />
+                          </CollapsibleTrigger>
+                          {availableTemplates.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 px-1.5 text-[10px] text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
+                              onClick={() => {
+                                const updated = [...formData.unique_selling_points, ...availableTemplates];
+                                setFormData(prev => ({ ...prev, unique_selling_points: updated }));
+                              }}
+                            >
+                              <PlusCircle className="h-3 w-3 mr-0.5" />
+                              Thêm tất cả
+                            </Button>
+                          )}
+                        </div>
+                        <CollapsibleContent>
+                          <div className="flex flex-wrap gap-1.5">
+                            {availableTemplates.map((template, idx) => (
+                              <Badge
+                                key={idx}
+                                variant="outline"
+                                className="cursor-pointer hover:bg-amber-500/10 hover:border-amber-500/40 transition-colors text-xs"
+                                onClick={() => addUspFromTemplate(template)}
+                              >
+                                <Plus className="h-3 w-3 mr-0.5" />
+                                {template}
+                              </Badge>
+                            ))}
+                          </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+                  );
+                })()}
 
                 {/* Current USPs with quality indicators */}
                 <TooltipProvider>
