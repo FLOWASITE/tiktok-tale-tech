@@ -14,7 +14,7 @@ import { useGroupModelConfig } from '@/hooks/useGroupModelConfig';
 import { useOpenRouterModels, openRouterModelToModelInfo } from '@/hooks/useOpenRouterModels';
 import { useCategoryConfig } from '@/hooks/useCategoryConfig';
 import { ProviderIndicator } from './ModelCard';
-import { InlineModelPicker } from './InlineModelPicker';
+
 import { FunctionCategoryGroup } from './FunctionCategoryGroup';
 import { CategoryManager } from './CategoryManager';
 import { GroupDefaultsPanel } from './GroupDefaultsPanel';
