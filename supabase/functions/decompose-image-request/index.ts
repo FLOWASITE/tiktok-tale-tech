@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
+import { callAI as callAIProvider } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -132,13 +133,8 @@ Deno.serve(withPerf({ functionName: 'decompose-image-request', slowThresholdMs: 
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Resolve organizationId from context if available
+    const organizationId = context?.organizationId || undefined;
 
     // Build strategic context section if provided
     const contentRole = context?.contentRole || '';
@@ -353,69 +349,34 @@ Secondary color: ${secondaryColor}`;
       },
     };
 
-    // Helper: call AI gateway with a given model
-    const callAI = async (model: string) => {
-      return fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          tools: [toolSpec],
-          tool_choice: { type: "function", function: { name: "decompose_image_request" } },
-        }),
-      });
-    };
+    // Use shared AI provider with dynamic config + multi-provider fallback
+    const aiResult = await callAIProvider({
+      functionName: 'decompose-image-request',
+      organizationId,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      tools: [toolSpec],
+      toolChoice: { type: "function", function: { name: "decompose_image_request" } },
+    });
 
-    // Primary model call with fallback chain on 402 (credits exhausted)
-    const PRIMARY_MODEL = "google/gemini-2.5-flash";
-    const FALLBACK_MODELS = ["google/gemini-2.5-flash-lite", "google/gemini-3-flash-preview"];
-    let usedModel = PRIMARY_MODEL;
-    let bodyConsumed = false;
+    const usedModel = aiResult.model || 'unknown';
 
-    let response = await callAI(PRIMARY_MODEL);
+    if (!aiResult.success) {
+      const errorMsg = aiResult.error || 'AI call failed';
+      console.error("[decompose-image-request] AI call failed:", errorMsg);
 
-    if (response.status === 402) {
-      console.warn(`[decompose-image-request] Primary model (${PRIMARY_MODEL}) credits exhausted, trying fallbacks...`);
-      await response.text(); // consume body to avoid leak
-      bodyConsumed = true;
-
-      for (const fallbackModel of FALLBACK_MODELS) {
-        console.log(`[decompose-image-request] Trying fallback model: ${fallbackModel}`);
-        response = await callAI(fallbackModel);
-        bodyConsumed = false;
-        if (response.status !== 402) {
-          usedModel = fallbackModel;
-          console.log(`[decompose-image-request] Fallback model ${fallbackModel} responded (status: ${response.status})`);
-          break;
-        }
-        console.warn(`[decompose-image-request] Fallback ${fallbackModel} also returned 402`);
-        await response.text(); // consume body
-        bodyConsumed = true;
-      }
-    }
-
-    if (!response.ok) {
-      const status = response.status;
-      const errText = bodyConsumed ? '(body already consumed)' : await response.text();
-      console.error("AI gateway error:", status, errText);
-
-      if (status === 429) {
-        // Return 200 with error payload so client-side fallback (regex decomposition) can activate
-        return new Response(JSON.stringify({ error: "Rate limit exceeded", errorCode: "RATE_LIMIT" }), {
+      // Check for credits exhausted or rate limit from provider
+      const errorLower = errorMsg.toLowerCase();
+      if (errorLower.includes('402') || errorLower.includes('credits') || errorLower.includes('payment') || errorLower.includes('credits_exhausted')) {
+        return new Response(JSON.stringify({ error: "AI credits exhausted", errorCode: "CREDITS_EXHAUSTED" }), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (status === 402) {
-        // All models exhausted — return 200 with error payload for graceful client fallback
-        return new Response(JSON.stringify({ error: "AI credits exhausted", errorCode: "CREDITS_EXHAUSTED" }), {
+      if (errorLower.includes('429') || errorLower.includes('rate') || errorLower.includes('rate_limit')) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded", errorCode: "RATE_LIMIT" }), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -426,8 +387,8 @@ Secondary color: ${secondaryColor}`;
       });
     }
 
-    const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    const data = aiResult.data;
+    const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0];
 
     if (!toolCall?.function?.arguments) {
       console.error("No tool call in response:", JSON.stringify(data));
