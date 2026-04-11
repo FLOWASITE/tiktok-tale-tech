@@ -13,14 +13,14 @@ import { useAIConfig, AI_FUNCTIONS, AIFunctionType, AIFunctionTag, AIFunctionCon
 import { useGroupModelConfig } from '@/hooks/useGroupModelConfig';
 import { useOpenRouterModels, openRouterModelToModelInfo } from '@/hooks/useOpenRouterModels';
 import { useCategoryConfig } from '@/hooks/useCategoryConfig';
-import { ModelSelector } from './ModelSelector';
-import { QuickSelectButton, ProviderIndicator } from './ModelCard';
+import { ProviderIndicator } from './ModelCard';
+import { InlineModelPicker } from './InlineModelPicker';
 import { FunctionCategoryGroup } from './FunctionCategoryGroup';
 import { CategoryManager } from './CategoryManager';
 import { GroupDefaultsPanel } from './GroupDefaultsPanel';
 import { AIFunction } from './FunctionCard';
 import { countByTag } from './FunctionTagBadges';
-import { Settings, Search, Zap, MessageSquare, Lightbulb, Image, Wand2, Type, Globe, ChevronRight, Sparkles, Star, LayoutGrid, List, FolderOpen, Network, DollarSign } from 'lucide-react';
+import { Settings, Search, Image, Type, Globe, LayoutGrid, List, FolderOpen, Network } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -36,22 +36,6 @@ const TYPE_FILTERS = [
   { id: 'knowledge-graph', label: 'Knowledge Graph', icon: <Network className="h-3 w-3" />, isTagFilter: true },
 ];
 
-const CATEGORY_ORDER = ['content', 'ideation', 'chat', 'brand', 'image', 'analysis', 'research', 'utility'];
-
-const QUICK_PRESETS = {
-  default: { label: 'Mặc định', description: 'Model được khuyến nghị cho function này', icon: <Sparkles className="h-5 w-5" /> },
-  or_deepseek: { label: '🔥 DeepSeek V3.2', description: 'OpenRouter - Giá rẻ, hiệu suất cao', icon: <Zap className="h-5 w-5" />, model: 'deepseek/deepseek-v3.2' },
-  or_minimax: { label: '🏆 MiniMax M2.5', description: 'OpenRouter - #1 weekly ranking', icon: <Star className="h-5 w-5" />, model: 'minimax/minimax-m2.5' },
-  fast: { label: 'Nhanh nhất', description: 'Gemini 2.5 Flash Lite - Phản hồi cực nhanh', icon: <Zap className="h-5 w-5" />, model: 'google/gemini-2.5-flash-lite' },
-  quality: { label: 'Chất lượng cao', description: 'Gemini 3 Pro - Kết quả tốt nhất', icon: <Star className="h-5 w-5" />, model: 'google/gemini-3-pro-preview' },
-};
-
-const IMAGE_QUICK_PRESETS = {
-  poyo_nano: { label: '🐱 Nano Banana Pro ⭐', description: 'PoYo.ai - 4K, text rendering, giá rẻ', icon: <Star className="h-5 w-5" />, model: 'poyo/nano-banana-2' },
-  gemini_flash: { label: 'Gemini Flash Image', description: 'Lovable AI - Nhanh & tiết kiệm', icon: <Zap className="h-5 w-5" />, model: 'google/gemini-2.5-flash-image' },
-  flux_kontext: { label: 'Flux Kontext Pro', description: 'KIE.ai - Chất lượng cao, giá rẻ', icon: <DollarSign className="h-5 w-5" />, model: 'flux-kontext-pro' },
-  gemini_pro: { label: 'Gemini 3 Image', description: 'Lovable AI - Chất lượng cao nhất', icon: <Star className="h-5 w-5" />, model: 'google/gemini-3-pro-image-preview' },
-};
 
 export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigProps) {
   const { functions, providers, isLoading, upsertFunction } = useAIConfig(organizationId);
@@ -59,7 +43,6 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
   const { categories, isLoading: categoriesLoading, getCategoryConfig } = useCategoryConfig(organizationId);
   const [editingFunction, setEditingFunction] = useState<Partial<FunctionConfigType> | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -230,18 +213,6 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
     setIsDialogOpen(true);
   };
 
-  const getCurrentQuickPreset = (): 'default' | 'or_deepseek' | 'or_minimax' | 'fast' | 'quality' | 'image_poyo_nano' | 'image_gemini_flash' | 'image_flux' | 'image_gemini_pro' | 'custom' => {
-    if (!editingFunction?.modelOverride) return 'default';
-    if (editingFunction.modelOverride === QUICK_PRESETS.or_deepseek.model) return 'or_deepseek';
-    if (editingFunction.modelOverride === QUICK_PRESETS.or_minimax.model) return 'or_minimax';
-    if (editingFunction.modelOverride === QUICK_PRESETS.fast.model) return 'fast';
-    if (editingFunction.modelOverride === QUICK_PRESETS.quality.model) return 'quality';
-    if (editingFunction.modelOverride === IMAGE_QUICK_PRESETS.poyo_nano.model) return 'image_poyo_nano';
-    if (editingFunction.modelOverride === IMAGE_QUICK_PRESETS.gemini_flash.model) return 'image_gemini_flash';
-    if (editingFunction.modelOverride === IMAGE_QUICK_PRESETS.flux_kontext.model) return 'image_flux';
-    if (editingFunction.modelOverride === IMAGE_QUICK_PRESETS.gemini_pro.model) return 'image_gemini_pro';
-    return 'custom';
-  };
 
   const currentFunctionMeta = editingFunction?.functionName 
     ? AI_FUNCTIONS.find(f => f.name === editingFunction.functionName) 
@@ -450,121 +421,17 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                 </div>
 
                 <TabsContent value="model" className="mt-0 space-y-3">
-                  {/* Quick Select Buttons */}
-                  <div className="grid gap-2">
-                    <QuickSelectButton
-                      label={QUICK_PRESETS.default.label}
-                      description={`${currentFunctionMeta?.currentModel ? getModelInfo(currentFunctionMeta.currentModel).shortName : 'Auto'} - ${QUICK_PRESETS.default.description}`}
-                      icon={QUICK_PRESETS.default.icon}
-                      isSelected={getCurrentQuickPreset() === 'default'}
-                      onClick={() => setEditingFunction({ ...editingFunction, modelOverride: null })}
+                  {/* Inline Model Picker */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Chọn Model</Label>
+                    <InlineModelPicker
+                      functionType={currentFunctionMeta?.type || 'text'}
+                      selectedModel={editingFunction.modelOverride || null}
+                      defaultModel={currentFunctionMeta?.currentModel || 'google/gemini-2.5-flash'}
+                      onSelect={(model) => setEditingFunction({ ...editingFunction, modelOverride: model })}
+                      hasOpenRouterApiKey={hasOpenRouterApiKey}
                     />
-                    
-                    {currentFunctionMeta?.type === 'text' && (
-                      <>
-                        <QuickSelectButton
-                          label={QUICK_PRESETS.or_deepseek.label}
-                          description={QUICK_PRESETS.or_deepseek.description}
-                          icon={QUICK_PRESETS.or_deepseek.icon}
-                          isSelected={getCurrentQuickPreset() === 'or_deepseek'}
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: QUICK_PRESETS.or_deepseek.model })}
-                        />
-                        <QuickSelectButton
-                          label={QUICK_PRESETS.or_minimax.label}
-                          description={QUICK_PRESETS.or_minimax.description}
-                          icon={QUICK_PRESETS.or_minimax.icon}
-                          isSelected={getCurrentQuickPreset() === 'or_minimax'}
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: QUICK_PRESETS.or_minimax.model })}
-                        />
-                        <QuickSelectButton
-                          label={QUICK_PRESETS.fast.label}
-                          description={QUICK_PRESETS.fast.description}
-                          icon={QUICK_PRESETS.fast.icon}
-                          isSelected={getCurrentQuickPreset() === 'fast'}
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: QUICK_PRESETS.fast.model })}
-                        />
-                        <QuickSelectButton
-                          label={QUICK_PRESETS.quality.label}
-                          description={QUICK_PRESETS.quality.description}
-                          icon={QUICK_PRESETS.quality.icon}
-                          isSelected={getCurrentQuickPreset() === 'quality'}
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: QUICK_PRESETS.quality.model })}
-                        />
-                      </>
-                    )}
-
-                    {(currentFunctionMeta?.type === 'image' || currentFunctionMeta?.type === 'image-direct') && (
-                      <>
-                        <QuickSelectButton
-                          label={IMAGE_QUICK_PRESETS.poyo_nano.label}
-                          description={IMAGE_QUICK_PRESETS.poyo_nano.description}
-                          icon={IMAGE_QUICK_PRESETS.poyo_nano.icon}
-                          isSelected={getCurrentQuickPreset() === 'image_poyo_nano'}
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: IMAGE_QUICK_PRESETS.poyo_nano.model })}
-                        />
-                        <QuickSelectButton
-                          label={IMAGE_QUICK_PRESETS.gemini_flash.label}
-                          description={IMAGE_QUICK_PRESETS.gemini_flash.description}
-                          icon={IMAGE_QUICK_PRESETS.gemini_flash.icon}
-                          isSelected={getCurrentQuickPreset() === 'image_gemini_flash'}
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: IMAGE_QUICK_PRESETS.gemini_flash.model })}
-                        />
-                        <QuickSelectButton
-                          label={IMAGE_QUICK_PRESETS.flux_kontext.label}
-                          description={IMAGE_QUICK_PRESETS.flux_kontext.description}
-                          icon={IMAGE_QUICK_PRESETS.flux_kontext.icon}
-                          isSelected={getCurrentQuickPreset() === 'image_flux'}
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: IMAGE_QUICK_PRESETS.flux_kontext.model })}
-                        />
-                        <QuickSelectButton
-                          label={IMAGE_QUICK_PRESETS.gemini_pro.label}
-                          description={IMAGE_QUICK_PRESETS.gemini_pro.description}
-                          icon={IMAGE_QUICK_PRESETS.gemini_pro.icon}
-                          isSelected={getCurrentQuickPreset() === 'image_gemini_pro'}
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: IMAGE_QUICK_PRESETS.gemini_pro.model })}
-                        />
-                      </>
-                    )}
                   </div>
-
-                  {/* Custom Model Selection */}
-                  <button
-                    onClick={() => setIsModelSelectorOpen(true)}
-                    className={cn(
-                      "w-full flex items-center justify-between p-3 rounded-lg border text-left transition-all",
-                      getCurrentQuickPreset() === 'custom'
-                        ? "border-primary bg-primary/5"
-                        : "border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-accent/50"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "h-10 w-10 rounded-full flex items-center justify-center",
-                        getCurrentQuickPreset() === 'custom' ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                      )}>
-                        <Settings className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0">
-                        {getCurrentQuickPreset() === 'custom' ? (
-                          <>
-                            <p className="font-medium text-sm truncate">{currentModelInfo.shortName}</p>
-                            <p className="text-xs text-muted-foreground truncate">{currentModelInfo.description}</p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="font-medium text-sm">Chọn model khác...</p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {hasOpenRouterApiKey && currentFunctionMeta?.type === 'text'
-                                ? 'OpenRouter + Lovable AI models'
-                                : 'Xem tất cả models khả dụng'
-                              }
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                  </button>
 
                   {/* Current Selection Info */}
                   {editingFunction.modelOverride && (
@@ -698,18 +565,6 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
         </DialogContent>
       </Dialog>
 
-      {/* Model Selector Dialog */}
-      {editingFunction && (
-        <ModelSelector
-          open={isModelSelectorOpen}
-          onOpenChange={setIsModelSelectorOpen}
-          selectedModel={editingFunction.modelOverride || null}
-          onSelectModel={(model) => setEditingFunction({ ...editingFunction, modelOverride: model })}
-          functionType={currentFunctionMeta?.type || 'text'}
-          defaultModel={currentFunctionMeta?.currentModel || 'google/gemini-2.5-flash'}
-          hasOpenRouterApiKey={hasOpenRouterApiKey}
-        />
-      )}
 
       {/* Category Manager Dialog */}
       <Dialog open={isCategoryManagerOpen} onOpenChange={setIsCategoryManagerOpen}>
