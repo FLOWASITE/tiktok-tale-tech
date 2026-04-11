@@ -450,121 +450,17 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                 </div>
 
                 <TabsContent value="model" className="mt-0 space-y-3">
-                  {/* Quick Select Buttons */}
-                  <div className="grid gap-2">
-                    <QuickSelectButton
-                      label={QUICK_PRESETS.default.label}
-                      description={`${currentFunctionMeta?.currentModel ? getModelInfo(currentFunctionMeta.currentModel).shortName : 'Auto'} - ${QUICK_PRESETS.default.description}`}
-                      icon={QUICK_PRESETS.default.icon}
-                      isSelected={getCurrentQuickPreset() === 'default'}
-                      onClick={() => setEditingFunction({ ...editingFunction, modelOverride: null })}
+                  {/* Inline Model Picker */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Chọn Model</Label>
+                    <InlineModelPicker
+                      functionType={currentFunctionMeta?.type || 'text'}
+                      selectedModel={editingFunction.modelOverride || null}
+                      defaultModel={currentFunctionMeta?.currentModel || 'google/gemini-2.5-flash'}
+                      onSelect={(model) => setEditingFunction({ ...editingFunction, modelOverride: model })}
+                      hasOpenRouterApiKey={hasOpenRouterApiKey}
                     />
-                    
-                    {currentFunctionMeta?.type === 'text' && (
-                      <>
-                        <QuickSelectButton
-                          label={QUICK_PRESETS.or_deepseek.label}
-                          description={QUICK_PRESETS.or_deepseek.description}
-                          icon={QUICK_PRESETS.or_deepseek.icon}
-                          isSelected={getCurrentQuickPreset() === 'or_deepseek'}
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: QUICK_PRESETS.or_deepseek.model })}
-                        />
-                        <QuickSelectButton
-                          label={QUICK_PRESETS.or_minimax.label}
-                          description={QUICK_PRESETS.or_minimax.description}
-                          icon={QUICK_PRESETS.or_minimax.icon}
-                          isSelected={getCurrentQuickPreset() === 'or_minimax'}
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: QUICK_PRESETS.or_minimax.model })}
-                        />
-                        <QuickSelectButton
-                          label={QUICK_PRESETS.fast.label}
-                          description={QUICK_PRESETS.fast.description}
-                          icon={QUICK_PRESETS.fast.icon}
-                          isSelected={getCurrentQuickPreset() === 'fast'}
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: QUICK_PRESETS.fast.model })}
-                        />
-                        <QuickSelectButton
-                          label={QUICK_PRESETS.quality.label}
-                          description={QUICK_PRESETS.quality.description}
-                          icon={QUICK_PRESETS.quality.icon}
-                          isSelected={getCurrentQuickPreset() === 'quality'}
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: QUICK_PRESETS.quality.model })}
-                        />
-                      </>
-                    )}
-
-                    {(currentFunctionMeta?.type === 'image' || currentFunctionMeta?.type === 'image-direct') && (
-                      <>
-                        <QuickSelectButton
-                          label={IMAGE_QUICK_PRESETS.poyo_nano.label}
-                          description={IMAGE_QUICK_PRESETS.poyo_nano.description}
-                          icon={IMAGE_QUICK_PRESETS.poyo_nano.icon}
-                          isSelected={getCurrentQuickPreset() === 'image_poyo_nano'}
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: IMAGE_QUICK_PRESETS.poyo_nano.model })}
-                        />
-                        <QuickSelectButton
-                          label={IMAGE_QUICK_PRESETS.gemini_flash.label}
-                          description={IMAGE_QUICK_PRESETS.gemini_flash.description}
-                          icon={IMAGE_QUICK_PRESETS.gemini_flash.icon}
-                          isSelected={getCurrentQuickPreset() === 'image_gemini_flash'}
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: IMAGE_QUICK_PRESETS.gemini_flash.model })}
-                        />
-                        <QuickSelectButton
-                          label={IMAGE_QUICK_PRESETS.flux_kontext.label}
-                          description={IMAGE_QUICK_PRESETS.flux_kontext.description}
-                          icon={IMAGE_QUICK_PRESETS.flux_kontext.icon}
-                          isSelected={getCurrentQuickPreset() === 'image_flux'}
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: IMAGE_QUICK_PRESETS.flux_kontext.model })}
-                        />
-                        <QuickSelectButton
-                          label={IMAGE_QUICK_PRESETS.gemini_pro.label}
-                          description={IMAGE_QUICK_PRESETS.gemini_pro.description}
-                          icon={IMAGE_QUICK_PRESETS.gemini_pro.icon}
-                          isSelected={getCurrentQuickPreset() === 'image_gemini_pro'}
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: IMAGE_QUICK_PRESETS.gemini_pro.model })}
-                        />
-                      </>
-                    )}
                   </div>
-
-                  {/* Custom Model Selection */}
-                  <button
-                    onClick={() => setIsModelSelectorOpen(true)}
-                    className={cn(
-                      "w-full flex items-center justify-between p-3 rounded-lg border text-left transition-all",
-                      getCurrentQuickPreset() === 'custom'
-                        ? "border-primary bg-primary/5"
-                        : "border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-accent/50"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "h-10 w-10 rounded-full flex items-center justify-center",
-                        getCurrentQuickPreset() === 'custom' ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                      )}>
-                        <Settings className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0">
-                        {getCurrentQuickPreset() === 'custom' ? (
-                          <>
-                            <p className="font-medium text-sm truncate">{currentModelInfo.shortName}</p>
-                            <p className="text-xs text-muted-foreground truncate">{currentModelInfo.description}</p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="font-medium text-sm">Chọn model khác...</p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {hasOpenRouterApiKey && currentFunctionMeta?.type === 'text'
-                                ? 'OpenRouter + Lovable AI models'
-                                : 'Xem tất cả models khả dụng'
-                              }
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                  </button>
 
                   {/* Current Selection Info */}
                   {editingFunction.modelOverride && (
