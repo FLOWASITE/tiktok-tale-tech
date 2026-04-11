@@ -368,7 +368,8 @@ Secondary color: ${secondaryColor}`;
       console.error("[decompose-image-request] AI call failed:", errorMsg);
 
       // Check for credits exhausted or rate limit from provider
-      if (errorMsg.includes('402') || errorMsg.includes('credits') || errorMsg.includes('CREDITS_EXHAUSTED')) {
+      const errorLower = errorMsg.toLowerCase();
+      if (errorLower.includes('402') || errorLower.includes('credits') || errorLower.includes('payment') || errorLower.includes('credits_exhausted')) {
         return new Response(JSON.stringify({ error: "AI credits exhausted", errorCode: "CREDITS_EXHAUSTED" }), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
