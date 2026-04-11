@@ -164,6 +164,7 @@ Deno.serve(withPerf({ functionName: 'chat-topics', slowThresholdMs: 30000 }, asy
           maxExecutionMs: 55000,
           conversationHistory: processedMessages.map(m => ({ role: m.role, content: m.content })),
           onEvent: (event) => { enqueueEvent(event); },
+          supabaseClient: supabase,
         });
 
         await pendingWrites;

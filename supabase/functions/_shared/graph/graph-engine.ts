@@ -563,6 +563,8 @@ export interface RunOrchestratorOptions {
   traceId?: string;
   /** Conversation history for multi-turn context */
   conversationHistory?: Array<{ role: string; content: string }>;
+  /** Supabase client for logging orchestrator decisions */
+  supabaseClient?: any;
 }
 
 // ---- Post-plan validation: inject research when no explicit topic ----
@@ -664,7 +666,7 @@ export async function runOrchestrator(
     forceTemplate: options.forceTemplate,
   };
 
-  let plan = await orchestrateWorkflow(state, orchestratorOpts);
+  let plan = await orchestrateWorkflow(state, orchestratorOpts, options.supabaseClient);
   endSpan(orchSpan);
   const orchDurationMs = Date.now() - orchStart;
 
