@@ -1,8 +1,14 @@
 export { LandingNav } from "./LandingNav";
 export { HeroSection } from "./HeroSection";
-export { WorkflowSection } from "./WorkflowSection";
-export { IndustryMemorySection } from "./IndustryMemorySection";
 export { SocialProofSection } from "./SocialProofSection";
+export { ProblemSection } from "./ProblemSection";
+export { ReframeSection } from "./ReframeSection";
+export { WorkflowSection } from "./WorkflowSection";
+export { CampaignSection } from "./CampaignSection";
+export { FeaturesSection } from "./FeaturesSection";
+export { IndustryMemorySection } from "./IndustryMemorySection";
+export { LearningSection } from "./LearningSection";
+export { TrustSection } from "./TrustSection";
 export { PricingSection } from "./PricingSection";
 export { FAQSection } from "./FAQSection";
 export { CTASection } from "./CTASection";

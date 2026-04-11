@@ -1,10 +1,15 @@
 import {
   LandingNav,
   HeroSection,
-  WorkflowSection,
-  IndustryMemorySection,
   SocialProofSection,
-  TestimonialsSection,
+  ProblemSection,
+  ReframeSection,
+  WorkflowSection,
+  CampaignSection,
+  FeaturesSection,
+  IndustryMemorySection,
+  LearningSection,
+  TrustSection,
   PricingSection,
   FAQSection,
   CTASection,
@@ -17,10 +22,10 @@ import { SEOHead, LandingSEOSchemas } from "@/components/SEOHead";
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#09090b]">
       <SEOHead
-        title="Flowa - Nền Tảng AI Tạo Content Đa Kênh | Tự Động Hóa Marketing"
-        description="Flowa giúp Marketing Team tạo content cho 12 kênh chỉ trong 10 phút. Tự động hóa 90% quy trình, giữ brand voice nhất quán với AI."
+        title="Flowa — AI Marketing Agent tự vận hành Content Pipeline"
+        description="AI Agent tự nghiên cứu, tạo nội dung 12 kênh, tự chấm điểm chất lượng, tự đăng bài. Campaign Autopilot cho chiến dịch tháng, lễ hội, ra mắt sản phẩm. Hỗ trợ VI/TH/EN."
         canonicalPath="/"
       />
       <LandingSEOSchemas />
@@ -28,10 +33,15 @@ export default function Landing() {
       <LandingNav />
       <main>
         <HeroSection />
-        <WorkflowSection />
-        <IndustryMemorySection />
         <SocialProofSection />
-        <TestimonialsSection />
+        <ProblemSection />
+        <ReframeSection />
+        <WorkflowSection />
+        <CampaignSection />
+        <FeaturesSection />
+        <IndustryMemorySection />
+        <LearningSection />
+        <TrustSection />
         <PricingSection />
         <FAQSection />
         <CTASection />
