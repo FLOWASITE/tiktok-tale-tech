@@ -1,62 +1,42 @@
 
 
-# Hoàn thiện InlineModelPicker — Sửa UI/UX còn thiếu
+# Fix: Thêm lại OpenRouter models vào MODELS_BY_TYPE.text và InlineModelPicker
 
-## Vấn đề nhìn từ screenshot
+## Vấn đề
 
-1. **"Mặc định" row quá nổi bật** — nền hồng/đỏ đậm, chiếm không gian lớn ở đầu danh sách "Tất cả"
-2. **Selected state (Gemini 2.5 Flash) dùng checkmark nhỏ** — khó nhận biết, không có highlight row
-3. **Speed icons (Clock/Zap) quá nhỏ** — chỉ 12px, khó phân biệt giữa fast/medium/slow
-4. **Thiếu model description** trong tab "Tất cả" — chỉ hiện tên model, thiếu context
-5. **Provider filter chips** — "All" badge quá nhỏ, khó click
-6. **Card compact mode** — thiếu tooltip cho model info khi tên bị truncate
-7. **Edit Dialog tab Model** — vẫn hiện nhưng gần như trống, chỉ có read-only info + Reset
+Khi refactor InlineModelPicker, các danh sách hardcoded cũ (`OPENROUTER_TEXT_MODELS`) đã bị xóa, nhưng các model OpenRouter **không được thêm vào** `MODELS_BY_TYPE.text` trong `useAIConfig.ts`. Do đó, InlineModelPicker không hiển thị provider OpenRouter cho text functions.
+
+Ngoài ra, hàm `getProviderGroups()` trong `InlineModelPicker.tsx` không có logic phân loại model OpenRouter (các model có prefix như `anthropic/`, `x-ai/`, `deepseek/`, `minimax/`, `qwen/qwen3...`, `inception/`, `stepfun/`, `bytedance-seed/`).
 
 ## Thay đổi
 
-### 1. `InlineModelPicker.tsx`
+### 1. `src/hooks/useAIConfig.ts` — Thêm OpenRouter models vào `MODELS_BY_TYPE.text`
 
-**"Mặc định" row:**
-- Thu nhỏ thành 1 row bình thường (giống các model khác), bỏ highlight block lớn
-- Dùng `bg-accent` nhẹ thay vì `bg-primary/10` khi selected
+Thêm các model từ `AI_PROVIDERS` OpenRouter vào danh sách text:
+```
+'openai/gpt-5.4', 'openai/gpt-5.4-pro', 'openai/gpt-5.3-codex', 'openai/gpt-5.3-chat', 'openai/gpt-5.2',
+'x-ai/grok-4.20-beta', 'x-ai/grok-4.20-multi-agent-beta',
+'anthropic/claude-sonnet-4.6', 'anthropic/claude-sonnet-4.5',
+'google/gemini-3.1-flash-lite-preview', 'google/gemini-3-flash-preview',
+'deepseek/deepseek-v3.2', 'minimax/minimax-m2.5',
+'qwen/qwen3.5-397b-a17b', 'qwen/qwen3.5-flash-02-23',
+'inception/mercury-2', 'stepfun/step-3.5-flash', 'bytedance-seed/seed-2.0-lite'
+```
 
-**Selected state:**
-- Thêm `bg-accent/80` cho row đang selected + left border accent (`border-l-2 border-primary`)
-- Bỏ dùng `bg-primary/10` (hiện ra màu hồng) → dùng `bg-accent` + `border-l-primary`
+Thêm `ModelInfo` entries cho các model mới (shortName, description, speed, quality, cost, provider: 'openrouter').
 
-**Model rows trong tab "Tất cả":**
-- Thêm 1 dòng description nhỏ (text-[10px]) dưới tên model — lấy từ `ModelInfo.description`
-- Speed icon: tăng lên 14px, thêm title tooltip
-- Cost badge: giữ nguyên
+### 2. `src/components/admin/ai/InlineModelPicker.tsx` — Thêm logic phân loại OpenRouter
 
-**Provider filter chips:**
-- Tăng padding, thêm hover effect rõ hơn
-- Active chip: dùng solid background thay vì outline
+Thêm hàm `isOpenRouterModel()` để nhận diện các model có prefix không thuộc lovable/poyo/kie/geminigen/dashscope (ví dụ: `anthropic/`, `x-ai/`, `deepseek/`, `minimax/`, `inception/`, `stepfun/`, `bytedance-seed/`).
 
-**Presets tab:**
-- "Nhanh" preset đang selected có checkmark — OK
-- Thêm model ID nhỏ dưới description để biết đang map model nào
+Cập nhật `getProviderGroups()` để thêm nhóm OpenRouter.
 
-### 2. `FunctionCard.tsx`
+### 3. `src/hooks/useAIConfig.ts` — Thêm `MODEL_INFO` entries
 
-**Compact card:**
-- Bỏ nền hồng cho "Nhanh" button khi đang override — dùng outline + dot color thay thế
-- Thêm title attribute cho truncated model name
-
-**Expanded card:**
-- Model section: giảm padding, gộp chặt hơn
-
-### 3. `AIFunctionConfig.tsx`
-
-- Gộp tab "Model" và "Cache & Priority" thành 1 tab "Settings"
-- Bỏ tab Model riêng (vì đã có picker trên card)
-- Dialog chỉ còn 2 tabs: "Parameters" (cho text functions) và "Settings" (cache, priority, force provider)
-
-## Files thay đổi
+Thêm entries cho tất cả OpenRouter models mới với provider = 'openrouter'.
 
 | File | Thay đổi |
 |------|----------|
-| `src/components/admin/ai/InlineModelPicker.tsx` | Fix selected state colors, thêm description row, cải thiện filter chips |
-| `src/components/admin/ai/FunctionCard.tsx` | Fix button highlight color, thêm tooltips |
-| `src/components/admin/ai/AIFunctionConfig.tsx` | Gộp tabs, đơn giản hóa dialog |
+| `src/hooks/useAIConfig.ts` | Thêm OpenRouter models vào `MODELS_BY_TYPE.text` + `MODEL_INFO` |
+| `src/components/admin/ai/InlineModelPicker.tsx` | Thêm `isOpenRouterModel()` + cập nhật `getProviderGroups()` |
 
