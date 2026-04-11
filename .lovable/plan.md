@@ -1,68 +1,62 @@
 
 
-# Hoàn thiện InlineModelPicker & Function Config UI
+# Hoàn thiện InlineModelPicker — Sửa UI/UX còn thiếu
 
-## Vấn đề hiện tại (từ screenshot)
+## Vấn đề nhìn từ screenshot
 
-1. **Mặc định option quá to** — chiếm cả chiều rộng với nền đỏ/hồng, gây rối mắt
-2. **Provider dots đồng màu** — tất cả model hiển thị cùng một chấm tròn xanh đậm, không phân biệt được provider
-3. **Thiếu speed/cost indicators** trên mỗi model row — chỉ thấy tên + description cắt ngắn
-4. **Selected state dùng màu đỏ/hồng** thay vì primary color nhẹ nhàng
-5. **Popover hẹp** — description bị cắt, không đủ chỗ hiển thị thông tin
-6. **Provider badges ở Presets tab** chỉ là link sang tab "Tất cả", không có tác dụng lọc
-7. **Edit Dialog vẫn có tab Model** với InlineModelPicker — thừa vì đã có picker trên card
+1. **"Mặc định" row quá nổi bật** — nền hồng/đỏ đậm, chiếm không gian lớn ở đầu danh sách "Tất cả"
+2. **Selected state (Gemini 2.5 Flash) dùng checkmark nhỏ** — khó nhận biết, không có highlight row
+3. **Speed icons (Clock/Zap) quá nhỏ** — chỉ 12px, khó phân biệt giữa fast/medium/slow
+4. **Thiếu model description** trong tab "Tất cả" — chỉ hiện tên model, thiếu context
+5. **Provider filter chips** — "All" badge quá nhỏ, khó click
+6. **Card compact mode** — thiếu tooltip cho model info khi tên bị truncate
+7. **Edit Dialog tab Model** — vẫn hiện nhưng gần như trống, chỉ có read-only info + Reset
 
-## Thay đổi chi tiết
+## Thay đổi
 
-### 1. `InlineModelPicker.tsx` — Nâng cấp toàn diện
+### 1. `InlineModelPicker.tsx`
 
-**UI/UX improvements:**
-- Tăng width từ 340px lên **380px** để description không bị cắt
-- **ModelRow**: thêm speed indicator (icon Zap/Turtle), cost badge ($/$$/$$$), và provider-colored dot
-- **Selected state**: dùng `bg-primary/10 border-primary/30` nhẹ nhàng thay vì nền đỏ
-- **Default option**: thu gọn, chỉ là 1 row bình thường, không highlight cả khối
-- **Provider badges ở Presets tab**: click vào sẽ chuyển sang tab "Tất cả" VÀ filter theo provider đó
-- Thêm **provider filter chips** ở tab "Tất cả" (ngang trên đầu) để lọc nhanh
-- Thêm **keyboard navigation**: ArrowUp/ArrowDown để duyệt, Enter để chọn
-- **Search**: khi đang search, ẩn tabs, hiện kết quả trực tiếp
+**"Mặc định" row:**
+- Thu nhỏ thành 1 row bình thường (giống các model khác), bỏ highlight block lớn
+- Dùng `bg-accent` nhẹ thay vì `bg-primary/10` khi selected
 
-**Data improvements:**
-- ModelRow hiển thị: `[ProviderDot] Model Name    [SpeedIcon] [$Cost]  [✓]`
-- Thêm prop `quality`/`speed`/`cost` từ `ModelInfo` vào hiển thị
+**Selected state:**
+- Thêm `bg-accent/80` cho row đang selected + left border accent (`border-l-2 border-primary`)
+- Bỏ dùng `bg-primary/10` (hiện ra màu hồng) → dùng `bg-accent` + `border-l-primary`
 
-### 2. `FunctionCard.tsx` — Cải thiện card layout
+**Model rows trong tab "Tất cả":**
+- Thêm 1 dòng description nhỏ (text-[10px]) dưới tên model — lấy từ `ModelInfo.description`
+- Speed icon: tăng lên 14px, thêm title tooltip
+- Cost badge: giữ nguyên
 
-**Compact mode:**
-- Model info row: thay vì chỉ hiện provider + tên model, hiện thêm **cost badge** nhỏ
-- InlineModelPicker button: hiện rõ hơn, không cần hover mới thấy
-- Bỏ tooltip wrapper cho model info — thông tin đã đủ trên card
+**Provider filter chips:**
+- Tăng padding, thêm hover effect rõ hơn
+- Active chip: dùng solid background thay vì outline
 
-**Expanded mode:**
-- Model section: gộp model display + picker vào 1 dòng gọn hơn
-- Thêm quick action: "Reset to default" button nhỏ bên cạnh picker khi có override
+**Presets tab:**
+- "Nhanh" preset đang selected có checkmark — OK
+- Thêm model ID nhỏ dưới description để biết đang map model nào
 
-### 3. `AIFunctionConfig.tsx` — Đơn giản hóa Edit Dialog
+### 2. `FunctionCard.tsx`
 
-- **Tab "Model"**: bỏ InlineModelPicker ra khỏi dialog (đã có trên card). Chỉ giữ:
-  - Current model display (read-only info)
-  - Reset button
-  - Force OpenRouter toggle
-- Hoặc gộp tab Model vào header dialog (1 dòng compact) để giảm tab
+**Compact card:**
+- Bỏ nền hồng cho "Nhanh" button khi đang override — dùng outline + dot color thay thế
+- Thêm title attribute cho truncated model name
 
-### 4. `ModelCard.tsx` — Cập nhật ProviderIndicator
+**Expanded card:**
+- Model section: giảm padding, gộp chặt hơn
 
-- Đảm bảo `ProviderIndicator` render đúng màu cho từng provider (lovable=blue, poyo=teal, kie=violet, geminigen=emerald, dashscope=orange, openrouter=purple)
+### 3. `AIFunctionConfig.tsx`
+
+- Gộp tab "Model" và "Cache & Priority" thành 1 tab "Settings"
+- Bỏ tab Model riêng (vì đã có picker trên card)
+- Dialog chỉ còn 2 tabs: "Parameters" (cho text functions) và "Settings" (cache, priority, force provider)
 
 ## Files thay đổi
 
-| File | Hành động |
-|------|-----------|
-| `src/components/admin/ai/InlineModelPicker.tsx` | Nâng cấp UI: wider, provider filter, speed/cost badges, keyboard nav |
-| `src/components/admin/ai/FunctionCard.tsx` | Cải thiện layout compact/expanded, thêm reset button |
-| `src/components/admin/ai/AIFunctionConfig.tsx` | Đơn giản hóa tab Model trong dialog |
-
-## Kết quả mong đợi
-- Picker rõ ràng hơn: thấy ngay provider, speed, cost của mỗi model
-- Lọc theo provider ngay trong picker (không cần mở dialog khác)
-- Edit Dialog tập trung vào parameters/cache — model chọn trực tiếp trên card
+| File | Thay đổi |
+|------|----------|
+| `src/components/admin/ai/InlineModelPicker.tsx` | Fix selected state colors, thêm description row, cải thiện filter chips |
+| `src/components/admin/ai/FunctionCard.tsx` | Fix button highlight color, thêm tooltips |
+| `src/components/admin/ai/AIFunctionConfig.tsx` | Gộp tabs, đơn giản hóa dialog |
 
