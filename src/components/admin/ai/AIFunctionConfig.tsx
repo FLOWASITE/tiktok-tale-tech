@@ -13,8 +13,8 @@ import { useAIConfig, AI_FUNCTIONS, AIFunctionType, AIFunctionTag, AIFunctionCon
 import { useGroupModelConfig } from '@/hooks/useGroupModelConfig';
 import { useOpenRouterModels, openRouterModelToModelInfo } from '@/hooks/useOpenRouterModels';
 import { useCategoryConfig } from '@/hooks/useCategoryConfig';
-import { ModelSelector } from './ModelSelector';
-import { QuickSelectButton, ProviderIndicator } from './ModelCard';
+import { ProviderIndicator } from './ModelCard';
+import { InlineModelPicker } from './InlineModelPicker';
 import { FunctionCategoryGroup } from './FunctionCategoryGroup';
 import { CategoryManager } from './CategoryManager';
 import { GroupDefaultsPanel } from './GroupDefaultsPanel';
