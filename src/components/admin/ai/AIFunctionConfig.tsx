@@ -20,7 +20,7 @@ import { CategoryManager } from './CategoryManager';
 import { GroupDefaultsPanel } from './GroupDefaultsPanel';
 import { AIFunction } from './FunctionCard';
 import { countByTag } from './FunctionTagBadges';
-import { Settings, Search, Type, Globe, LayoutGrid, List, FolderOpen, Network } from 'lucide-react';
+import { Settings, Search, Image, Type, Globe, LayoutGrid, List, FolderOpen, Network } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
