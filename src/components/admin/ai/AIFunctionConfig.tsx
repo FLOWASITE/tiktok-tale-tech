@@ -43,7 +43,6 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
   const { categories, isLoading: categoriesLoading, getCategoryConfig } = useCategoryConfig(organizationId);
   const [editingFunction, setEditingFunction] = useState<Partial<FunctionConfigType> | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
