@@ -1,42 +1,36 @@
 
 
-# Hoàn thiện Templates USP theo Ngành Hàng
+# Phase 2: Navbar Redesign
 
-## Issues hiện tại
+## Thay đổi trong `src/landing/components/LandingNav.tsx`
 
-1. **Thiếu category "Khác"**: `other` chưa có templates
-2. **Visibility hạn chế**: Templates chỉ hiện khi USP list rỗng (dòng 543)
-3. **Không thể re-show**: Sau khi thêm USP, templates biến mất vĩnh viễn
-4. **UX chưa tốt**: Không có nút refresh hoặc thêm tất cả templates
+### 1. Logo
+- Bỏ import logo image, thay bằng text "Flowa" với gradient dot sau chữ "a"
+- Dot: `w-1.5 h-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500`
 
-## Thay đổi
+### 2. Menu items (updated)
+- "Tính năng" → `#features`
+- "Cách hoạt động" → `#workflow`
+- "Campaign" → `#campaign`
+- "Pricing" → `#pricing`
+- "Blog" → `/blog` (link)
+- Style: `text-sm text-gray-400 hover:text-white transition`
 
-### 1. Thêm templates cho category "Khác"
-**File**: `src/components/brand/ProductCatalogEditor.tsx`
-- Thêm `other: ['Uy tín 10+ năm', 'Giá cạnh tranh', 'Hỗ trợ tận tâm', 'Giải pháp tùy chỉnh']` vào `CATEGORY_USP_TEMPLATES`
+### 3. Scroll detection sections
+- Update sections array to match new section IDs: `features`, `workflow`, `campaign`, `pricing`
 
-### 2. Cải thiện visibility logic
-**File**: `src/components/brand/ProductCatalogEditor.tsx`
-- Thay đổi condition: templates luôn hiển thị khi có category được chọn
-- Chỉ filter ra những template chưa được thêm (không ẩn toàn bộ section)
-- Thêm collapse/expand để tiết kiệm không gian
+### 4. Header styling
+- When scrolled: `bg-[#09090b]/80 backdrop-blur-xl border-b border-white/10`
+- When not scrolled: `bg-transparent`
 
-### 3. Thêm "Thêm tất cả" button
-**File**: `src/components/brand/ProductCatalogEditor.tsx`
-- Nút nhỏ "Thêm tất cả" ở góc templates section
-- Click để thêm tất cả templates chưa có vào USP list
+### 5. CTA buttons
+- "Đăng nhập": text link style, `text-gray-400 hover:text-white`
+- "Bắt đầu miễn phí": `bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full px-5 py-2 text-white text-sm font-semibold`
 
-### 4. Phân biệt visual rõ hơn
-**File**: `src/components/brand/ProductCatalogEditor.tsx`
-- AI suggestions: border-primary/20, Sparkles icon
-- Category templates: border-amber/20, Lightbulb icon
-- Rõ ràng hơn cho marketer phân biệt nguồn gợi ý
+### 6. Mobile menu
+- Update background to dark theme: `bg-[#09090b] border-b border-white/10`
+- Same menu items and CTA styling
 
-## Files thay đổi
-- **Edit**: `src/components/brand/ProductCatalogEditor.tsx` (templates logic + UI)
-
-## Không thay đổi
-- AI suggest USP logic
-- Quality scoring
-- Database schema
+## File thay đổi
+- **Edit**: `src/landing/components/LandingNav.tsx` (single file)
 
