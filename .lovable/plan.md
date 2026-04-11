@@ -1,36 +1,37 @@
 
 
-# Phase 2: Navbar Redesign
+# Phase 3: Hero Section — Rewrite
 
-## Thay đổi trong `src/landing/components/LandingNav.tsx`
+## Thay đổi trong `src/landing/components/HeroSection.tsx`
 
-### 1. Logo
-- Bỏ import logo image, thay bằng text "Flowa" với gradient dot sau chữ "a"
-- Dot: `w-1.5 h-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500`
+Rewrite toàn bộ component theo brief. Giữ lại `getAuthUrl` import và `framer-motion`.
 
-### 2. Menu items (updated)
-- "Tính năng" → `#features`
-- "Cách hoạt động" → `#workflow`
-- "Campaign" → `#campaign`
-- "Pricing" → `#pricing`
-- "Blog" → `/blog` (link)
-- Style: `text-sm text-gray-400 hover:text-white transition`
+### Layout
+- 2 cột trên desktop (text 55% / visual 45%), stack trên mobile
+- Dark theme: section bg `bg-[#09090b]`
 
-### 3. Scroll detection sections
-- Update sections array to match new section IDs: `features`, `workflow`, `campaign`, `pricing`
+### Cột trái — Text
+1. **Badge**: `"🤖 AI Marketing Agent — Không phải AI Writing Tool"` — border-indigo-500/30, bg-indigo-500/10, rounded-full
+2. **Headline**: `"Đội ngũ content của bạn — chạy bằng AI Agent"` — "AI Agent" có gradient text indigo→violet
+3. **Sub-headline**: text-xl text-gray-400, mô tả pipeline tự động
+4. **2 CTA buttons**: Primary gradient rounded-full + Secondary outline rounded-full (scroll to `#workflow`)
+5. **3 micro-stats**: "⚡ Setup 5 phút" · "🔒 Không cần thẻ tín dụng" · "🌏 Hỗ trợ VI · TH · EN"
 
-### 4. Header styling
-- When scrolled: `bg-[#09090b]/80 backdrop-blur-xl border-b border-white/10`
-- When not scrolled: `bg-transparent`
+### Cột phải — Pipeline Visual
+1. **Chat input mockup**: Message bubble với prompt mẫu
+2. **Pipeline 6 nodes**: Research → Strategy → Create → Review → Approve → Publish
+   - Pulse dot animation chạy từ trái sang phải (CSS keyframes)
+   - Node "Create" active với glow, tooltip "Đang tạo 20 bài cho 4 kênh..."
+   - Nodes trước "Create" có checkmark xanh
+3. **3 channel output cards**: Facebook (Score 89 ✅), Instagram (Score 91 ✅), TikTok (Score 85 ⏳)
 
-### 5. CTA buttons
-- "Đăng nhập": text link style, `text-gray-400 hover:text-white`
-- "Bắt đầu miễn phí": `bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full px-5 py-2 text-white text-sm font-semibold`
+### Bỏ
+- AnimatedCounter, stats grid, industry badges, dashboard preview mockup, i18n translations (hardcode Vietnamese)
 
-### 6. Mobile menu
-- Update background to dark theme: `bg-[#09090b] border-b border-white/10`
-- Same menu items and CTA styling
+### Animation
+- Framer Motion staggered fade-up cho text elements
+- CSS `@keyframes` cho pulse dot trên pipeline
 
 ## File thay đổi
-- **Edit**: `src/landing/components/LandingNav.tsx` (single file)
+- **Edit**: `src/landing/components/HeroSection.tsx` (single file, full rewrite)
 
