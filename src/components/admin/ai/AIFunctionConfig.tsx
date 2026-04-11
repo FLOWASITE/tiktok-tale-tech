@@ -594,18 +594,6 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
         </DialogContent>
       </Dialog>
 
-      {/* Model Selector Dialog */}
-      {editingFunction && (
-        <ModelSelector
-          open={isModelSelectorOpen}
-          onOpenChange={setIsModelSelectorOpen}
-          selectedModel={editingFunction.modelOverride || null}
-          onSelectModel={(model) => setEditingFunction({ ...editingFunction, modelOverride: model })}
-          functionType={currentFunctionMeta?.type || 'text'}
-          defaultModel={currentFunctionMeta?.currentModel || 'google/gemini-2.5-flash'}
-          hasOpenRouterApiKey={hasOpenRouterApiKey}
-        />
-      )}
 
       {/* Category Manager Dialog */}
       <Dialog open={isCategoryManagerOpen} onOpenChange={setIsCategoryManagerOpen}>
