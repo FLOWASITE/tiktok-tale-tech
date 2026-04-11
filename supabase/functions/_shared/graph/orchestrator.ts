@@ -223,6 +223,166 @@ export function hasExplicitTopic(message: string): boolean {
   return words.filter(w => w.length >= 3 && !NON_TOPIC_TERMS.has(w)).length >= 2;
 }
 
+// ---- Topic Candidate Extraction ----
+
+/**
+ * Extract the topic candidate string from a message.
+ * Reuses the same regex patterns as hasExplicitTopic but returns the matched text.
+ */
+export function extractTopicCandidate(message: string): string | null {
+  const lowerMsg = message.toLowerCase();
+
+  const hasRealWords = (raw: string): boolean => {
+    const words = raw.toLowerCase().replace(/[^\w\u00C0-\u1EF9\s]/g, ' ').split(/\s+/).filter(Boolean);
+    return words.filter(w => w.length >= 3 && !NON_TOPIC_TERMS.has(w)).length > 0;
+  };
+
+  // Quoted text
+  const quoted = message.match(/["'「]([^"'」]{5,})["'」]/);
+  if (quoted && hasRealWords(quoted[1])) return quoted[1].trim();
+
+  // "về X" pattern
+  const veMatch = lowerMsg.match(/về\s+([^.,!?\n]+)/i);
+  if (veMatch && hasRealWords(veMatch[1])) return veMatch[1].trim();
+
+  // "about X" pattern
+  const aboutMatch = lowerMsg.match(/about\s+([^.,!?\n]+)/i);
+  if (aboutMatch && hasRealWords(aboutMatch[1])) return aboutMatch[1].trim();
+
+  // "topic: X" pattern
+  const colonMatch = message.match(/(?:topic|chủ đề|subject)\s*[:：]\s*([^.,!?\n]{3,})/i);
+  if (colonMatch && hasRealWords(colonMatch[1])) return colonMatch[1].trim();
+
+  // General colon
+  const generalColon = message.match(/:\s*([^.,!?\n]{3,})/);
+  if (generalColon && hasRealWords(generalColon[1])) return generalColon[1].trim();
+
+  // "content about X"
+  const contentMatch = lowerMsg.match(/(?:bài|content|nội dung|post|script|carousel)\s+(?:về\s+)?([^.,!?\n]+)/i);
+  if (contentMatch && hasRealWords(contentMatch[1])) return contentMatch[1].trim();
+
+  // Hashtag
+  const hashtagMatch = message.match(/#(\w{3,})/);
+  if (hashtagMatch) return hashtagMatch[1];
+
+  // Fallback: remaining real words
+  const words = lowerMsg.replace(/[^\w\u00C0-\u1EF9\s]/g, ' ').split(/\s+/).filter(Boolean);
+  const realWords = words.filter(w => w.length >= 3 && !NON_TOPIC_TERMS.has(w));
+  if (realWords.length >= 2) return realWords.join(' ');
+
+  return null;
+}
+
+// ---- Semantic Topic Validation ----
+
+// deno-lint-ignore no-explicit-any
+declare const Supabase: any;
+
+let _topicEmbeddingModel: any = null;
+
+function getTopicEmbeddingModel() {
+  if (!_topicEmbeddingModel) {
+    try {
+      _topicEmbeddingModel = new Supabase.ai.Session('gte-small');
+    } catch (err) {
+      console.warn('[SemanticTopic] Failed to init gte-small:', err);
+    }
+  }
+  return _topicEmbeddingModel;
+}
+
+interface SemanticTopicResult {
+  isValidTopic: boolean;
+  topSimilarity: number;
+  matchedContent?: string;
+}
+
+/**
+ * Validate a topic candidate against brand's known topics/products using embeddings.
+ * Only called when heuristic hasExplicitTopic() returns true.
+ * Fail-open: returns isValidTopic=true on any error.
+ */
+async function validateTopicSemantically(
+  candidateText: string,
+  brandTemplateId: string,
+  supabaseClient: any
+): Promise<SemanticTopicResult> {
+  try {
+    const model = getTopicEmbeddingModel();
+    if (!model) return { isValidTopic: true, topSimilarity: 1 };
+
+    // Generate embedding for candidate
+    const output = await model.run(candidateText, { mean_pool: true, normalize: true });
+    const embedding = Array.from(output as Float32Array);
+    const embeddingStr = `[${embedding.join(',')}]`;
+
+    // Search content_embeddings for similar topics/content under this brand
+    const { data: matches, error } = await supabaseClient.rpc('search_embeddings', {
+      query_embedding: embeddingStr,
+      match_organization_id: await getOrgIdFromBrand(supabaseClient, brandTemplateId),
+      match_brand_template_id: brandTemplateId,
+      match_content_types: ['topic', 'script', 'carousel', 'multichannel'],
+      match_threshold: 0.35,
+      match_count: 3,
+    });
+
+    if (error) {
+      console.warn('[SemanticTopic] search_embeddings error:', error.message);
+      return { isValidTopic: true, topSimilarity: 1 };
+    }
+
+    if (matches && matches.length > 0) {
+      const top = matches[0];
+      return {
+        isValidTopic: true,
+        topSimilarity: top.similarity,
+        matchedContent: top.content_text?.substring(0, 100),
+      };
+    }
+
+    // No embedding matches — try simple text match against brand_products
+    const { data: products } = await supabaseClient
+      .from('brand_products')
+      .select('name, category')
+      .eq('brand_template_id', brandTemplateId)
+      .eq('is_active', true)
+      .limit(20);
+
+    if (products?.length) {
+      const candidateLower = candidateText.toLowerCase();
+      const textMatch = products.find((p: any) =>
+        candidateLower.includes(p.name?.toLowerCase()) ||
+        p.name?.toLowerCase().includes(candidateLower) ||
+        (p.category && candidateLower.includes(p.category.toLowerCase()))
+      );
+      if (textMatch) {
+        return { isValidTopic: true, topSimilarity: 0.5, matchedContent: textMatch.name };
+      }
+    }
+
+    // No matches at all — likely not a real topic for this brand
+    console.log(`[SemanticTopic] No match for "${candidateText}" — marking as false positive`);
+    return { isValidTopic: false, topSimilarity: 0 };
+  } catch (err) {
+    console.warn('[SemanticTopic] Validation error (fail-open):', err);
+    return { isValidTopic: true, topSimilarity: 1 };
+  }
+}
+
+/** Helper: get organization_id from brand_template_id */
+async function getOrgIdFromBrand(supabaseClient: any, brandTemplateId: string): Promise<string | null> {
+  try {
+    const { data } = await supabaseClient
+      .from('brand_templates')
+      .select('organization_id')
+      .eq('id', brandTemplateId)
+      .single();
+    return data?.organization_id || null;
+  } catch {
+    return null;
+  }
+}
+
 /** Extract requested topic count from message (e.g., "5 chủ đề" → 5) */
 function extractRequestedCount(message: string): number | null {
   const match = message.match(/(\d+)\s*(?:chủ đề|topic|ý tưởng|idea|cái)/i);
