@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Package, Star, Pencil, Trash2, ChevronDown, ChevronUp, X, Tag, Users, Zap, MessageSquare, UserCheck } from 'lucide-react';
+import { Plus, Package, Star, Pencil, Trash2, ChevronDown, ChevronUp, X, Tag, Users, Zap, MessageSquare, UserCheck, Sparkles, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,6 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useProductCatalog } from '@/hooks/useProductCatalog';
 import { 
   BrandProduct, 
@@ -20,6 +21,8 @@ import {
 } from '@/types/product';
 import { cn } from '@/lib/utils';
 import { ProductPersonaSelector } from './ProductPersonaSelector';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 // Local product type for temp products (no db fields)
 export interface LocalProduct extends ProductFormData {
@@ -30,7 +33,6 @@ interface ProductCatalogEditorProps {
   brandTemplateId?: string;
   organizationId?: string;
   className?: string;
-  // For local mode (new brand, not yet saved)
   localProducts?: LocalProduct[];
   onLocalProductsChange?: (products: LocalProduct[]) => void;
 }
@@ -53,6 +55,42 @@ const defaultFormData: ProductFormData = {
   is_active: true,
 };
 
+// --- USP Quality Scoring ---
+const GENERIC_USP_LIST = [
+  'chất lượng tốt', 'giá rẻ', 'uy tín', 'chuyên nghiệp', 'tốt nhất',
+  'hàng đầu', 'số 1', 'chất lượng cao', 'giá tốt', 'đáng tin cậy',
+  'nhanh chóng', 'tiện lợi', 'an toàn', 'hiệu quả', 'đa dạng',
+];
+
+type UspQuality = 'strong' | 'weak' | 'generic';
+
+function assessUspQuality(usp: string): { quality: UspQuality; reason: string } {
+  const trimmed = usp.trim().toLowerCase();
+  if (trimmed.length < 5) {
+    return { quality: 'weak', reason: 'Quá ngắn — hãy mô tả cụ thể hơn' };
+  }
+  if (GENERIC_USP_LIST.some(g => trimmed === g || trimmed.includes(g))) {
+    return { quality: 'generic', reason: 'Quá chung chung — thêm số liệu hoặc chi tiết cụ thể' };
+  }
+  if (/\d+/.test(usp) || /(%|giờ|phút|ngày|tháng|năm|km|m2)/.test(trimmed)) {
+    return { quality: 'strong', reason: 'Có số liệu cụ thể — USP mạnh!' };
+  }
+  if (trimmed.length >= 10) {
+    return { quality: 'strong', reason: 'USP đủ chi tiết' };
+  }
+  return { quality: 'weak', reason: 'Nên thêm chi tiết cụ thể hơn' };
+}
+
+// --- Category-based USP Templates ---
+const CATEGORY_USP_TEMPLATES: Record<string, string[]> = {
+  product: ['Giao hàng trong 2h', 'Đổi trả 30 ngày miễn phí', 'Nguyên liệu nhập khẩu 100%', 'Bảo hành 12 tháng'],
+  service: ['Hỗ trợ 24/7', 'Cam kết hoàn tiền nếu không hài lòng', 'Chuyên gia 10+ năm kinh nghiệm', 'Tư vấn miễn phí'],
+  course: ['Cấp chứng chỉ quốc tế', 'Mentor 1-1 hàng tuần', 'Học lại miễn phí trọn đời', 'Cam kết việc làm sau tốt nghiệp'],
+  digital: ['Cập nhật miễn phí trọn đời', 'Hỗ trợ kỹ thuật 24/7', 'Tích hợp 50+ nền tảng', 'Dùng thử 14 ngày miễn phí'],
+  subscription: ['Hủy bất cứ lúc nào', 'Giảm 30% khi đăng ký năm', 'Dùng thử 7 ngày miễn phí', 'Nâng cấp linh hoạt'],
+  consulting: ['ROI cam kết bằng hợp đồng', 'Báo cáo chi tiết hàng tuần', 'Đội ngũ chuyên gia đa ngành', 'Case study thành công 95%'],
+};
+
 export function ProductCatalogEditor({ 
   brandTemplateId, 
   organizationId,
@@ -60,12 +98,10 @@ export function ProductCatalogEditor({
   localProducts,
   onLocalProductsChange,
 }: ProductCatalogEditorProps) {
-  // Use local mode if brandTemplateId is not available but localProducts handlers are provided
   const isLocalMode = !brandTemplateId && !!onLocalProductsChange;
   
   const { products: dbProducts, isLoading, isSubmitting, createProduct, updateProduct, deleteProduct, toggleFeatured } = useProductCatalog(brandTemplateId);
   
-  // Determine which products to display
   const products = isLocalMode ? (localProducts || []) : dbProducts;
   
   const [isOpen, setIsOpen] = useState(true);
@@ -74,10 +110,13 @@ export function ProductCatalogEditor({
   const [formData, setFormData] = useState<ProductFormData>(defaultFormData);
   const [newItem, setNewItem] = useState('');
   const [activeArrayField, setActiveArrayField] = useState<keyof ProductFormData | null>(null);
+  const [uspSuggestions, setUspSuggestions] = useState<string[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
   const handleOpenCreate = () => {
     setEditingProduct(null);
     setFormData(defaultFormData);
+    setUspSuggestions([]);
     setDialogOpen(true);
   };
 
@@ -100,6 +139,7 @@ export function ProductCatalogEditor({
       is_featured: product.is_featured,
       is_active: product.is_active,
     });
+    setUspSuggestions([]);
     setDialogOpen(true);
   };
 
@@ -107,7 +147,6 @@ export function ProductCatalogEditor({
     if (!formData.name.trim()) return;
 
     if (isLocalMode && onLocalProductsChange) {
-      // Local mode: update local state
       if (editingProduct) {
         const updatedProducts = (localProducts || []).map(p => 
           p.id === editingProduct.id ? { ...p, ...formData } : p
@@ -124,7 +163,6 @@ export function ProductCatalogEditor({
       return;
     }
 
-    // Database mode
     let result;
     if (editingProduct && 'brand_template_id' in editingProduct) {
       result = await updateProduct(editingProduct.id, formData);
@@ -132,7 +170,6 @@ export function ProductCatalogEditor({
       result = await createProduct(formData);
     }
     
-    // Only close dialog on success
     if (result) {
       setDialogOpen(false);
     }
@@ -195,7 +232,57 @@ export function ProductCatalogEditor({
     }
   };
 
-  // Show nothing if not in local mode and no brandTemplateId
+  const addUspFromSuggestion = (usp: string) => {
+    if (!formData.unique_selling_points.includes(usp)) {
+      setFormData(prev => ({
+        ...prev,
+        unique_selling_points: [...prev.unique_selling_points, usp],
+      }));
+    }
+    setUspSuggestions(prev => prev.filter(s => s !== usp));
+  };
+
+  const addUspFromTemplate = (usp: string) => {
+    if (!formData.unique_selling_points.includes(usp)) {
+      setFormData(prev => ({
+        ...prev,
+        unique_selling_points: [...prev.unique_selling_points, usp],
+      }));
+    }
+  };
+
+  const handleSuggestUSP = async () => {
+    if (!formData.name && !formData.description) {
+      toast.error('Cần có tên hoặc mô tả sản phẩm để gợi ý USP');
+      return;
+    }
+    setIsLoadingSuggestions(true);
+    setUspSuggestions([]);
+    try {
+      const { data, error } = await supabase.functions.invoke('suggest-usp', {
+        body: {
+          productName: formData.name,
+          description: formData.description,
+          category: formData.category,
+          industry: '',
+        },
+      });
+      if (error) throw error;
+      const suggestions = data?.suggestions || [];
+      // Filter out already-added USPs
+      const filtered = suggestions.filter((s: string) => !formData.unique_selling_points.includes(s));
+      setUspSuggestions(filtered);
+      if (filtered.length === 0 && suggestions.length > 0) {
+        toast.info('Tất cả gợi ý đã được thêm rồi');
+      }
+    } catch (err: any) {
+      console.error('Suggest USP error:', err);
+      toast.error('Không thể gợi ý USP. Thử lại sau.');
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  };
+
   if (!brandTemplateId && !isLocalMode) {
     return (
       <div className={cn("rounded-lg border border-dashed border-muted-foreground/30 p-4 text-center text-muted-foreground text-sm", className)}>
@@ -203,6 +290,8 @@ export function ProductCatalogEditor({
       </div>
     );
   }
+
+  const categoryTemplates = CATEGORY_USP_TEMPLATES[formData.category] || [];
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -390,12 +479,30 @@ export function ProductCatalogEditor({
                 />
               </div>
 
-              {/* USP */}
+              {/* USP with AI Suggest + Quality + Templates */}
               <div>
-                <Label className="flex items-center gap-2">
-                  <Zap className="h-4 w-4" />
-                  Điểm bán hàng độc đáo (USP)
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <Zap className="h-4 w-4" />
+                    Điểm bán hàng độc đáo (USP)
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSuggestUSP}
+                    disabled={isLoadingSuggestions || (!formData.name && !formData.description)}
+                    className="h-7 text-xs gap-1"
+                  >
+                    {isLoadingSuggestions ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3 w-3" />
+                    )}
+                    Gợi ý USP
+                  </Button>
+                </div>
+
                 <div className="flex gap-2 mt-1">
                   <Input
                     value={activeArrayField === 'unique_selling_points' ? newItem : ''}
@@ -408,19 +515,93 @@ export function ProductCatalogEditor({
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
-                {formData.unique_selling_points.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {formData.unique_selling_points.map((item, idx) => (
-                      <Badge key={idx} variant="secondary" className="flex items-center gap-1">
-                        {item}
-                        <X 
-                          className="h-3 w-3 cursor-pointer hover:text-destructive" 
-                          onClick={() => removeArrayItem('unique_selling_points', item)}
-                        />
-                      </Badge>
-                    ))}
+
+                {/* AI Suggestions */}
+                {uspSuggestions.length > 0 && (
+                  <div className="mt-2 p-2.5 rounded-lg border border-primary/20 bg-primary/5">
+                    <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
+                      <Sparkles className="h-3 w-3 text-primary" />
+                      Gợi ý từ AI — click để thêm
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {uspSuggestions.map((suggestion, idx) => (
+                        <Badge
+                          key={idx}
+                          variant="outline"
+                          className="cursor-pointer hover:bg-primary/10 hover:border-primary/40 transition-colors text-xs"
+                          onClick={() => addUspFromSuggestion(suggestion)}
+                        >
+                          <Plus className="h-3 w-3 mr-0.5" />
+                          {suggestion}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 )}
+
+                {/* Category templates */}
+                {categoryTemplates.length > 0 && formData.unique_selling_points.length === 0 && !uspSuggestions.length && (
+                  <div className="mt-2 p-2 rounded-lg border border-dashed border-muted-foreground/20">
+                    <p className="text-xs text-muted-foreground mb-1.5">
+                      Mẫu USP cho {PRODUCT_CATEGORIES.find(c => c.value === formData.category)?.label}:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {categoryTemplates
+                        .filter(t => !formData.unique_selling_points.includes(t))
+                        .map((template, idx) => (
+                        <Badge
+                          key={idx}
+                          variant="outline"
+                          className="cursor-pointer hover:bg-accent transition-colors text-xs"
+                          onClick={() => addUspFromTemplate(template)}
+                        >
+                          <Plus className="h-3 w-3 mr-0.5" />
+                          {template}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Current USPs with quality indicators */}
+                <TooltipProvider>
+                  {formData.unique_selling_points.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {formData.unique_selling_points.map((item, idx) => {
+                        const { quality, reason } = assessUspQuality(item);
+                        return (
+                          <Tooltip key={idx}>
+                            <TooltipTrigger asChild>
+                              <Badge 
+                                variant="secondary" 
+                                className={cn(
+                                  "flex items-center gap-1",
+                                  quality === 'strong' && "border-emerald-500/30 bg-emerald-500/10",
+                                  quality === 'generic' && "border-amber-500/30 bg-amber-500/10",
+                                  quality === 'weak' && "border-amber-500/30 bg-amber-500/10",
+                                )}
+                              >
+                                {quality === 'strong' ? (
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                ) : (
+                                  <AlertTriangle className="h-3 w-3 text-amber-600" />
+                                )}
+                                {item}
+                                <X 
+                                  className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                                  onClick={() => removeArrayItem('unique_selling_points', item)}
+                                />
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs max-w-[200px]">
+                              {reason}
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })}
+                    </div>
+                  )}
+                </TooltipProvider>
               </div>
 
               {/* Pain Points */}
@@ -556,7 +737,7 @@ export function ProductCatalogEditor({
                 </div>
               </div>
 
-              {/* Personas phù hợp - only show for existing products in DB mode */}
+              {/* Personas */}
               {brandTemplateId && editingProduct && 'brand_template_id' in editingProduct && (
                 <div className="pt-4 border-t">
                   <div className="flex items-center gap-2 mb-3">
