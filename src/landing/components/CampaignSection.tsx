@@ -37,7 +37,7 @@ export function CampaignSection() {
   const [active, setActive] = useState(0);
 
   return (
-    <section id="campaign" className="py-16 lg:py-24 bg-[#09090b]">
+    <section id="campaign" className="py-16 lg:py-24 bg-background">
       <div className="container mx-auto px-4 max-w-5xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -46,16 +46,16 @@ export function CampaignSection() {
           transition={{ duration: 0.4 }}
           className="text-center mb-12"
         >
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 mb-4">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 mb-4">
             CAMPAIGN AUTOPILOT
           </span>
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
             Một câu lệnh →{" "}
             <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
               cả chiến dịch hoàn chỉnh
             </span>
           </h2>
-          <p className="text-gray-400 max-w-2xl mx-auto">
+          <p className="text-muted-foreground max-w-2xl mx-auto">
             Content plan cả tháng. Chuỗi ra mắt sản phẩm. Chiến dịch Tết. Agent tự lên kế hoạch, phân bổ chủ đề, tạo nội dung, xếp lịch.
           </p>
         </motion.div>
@@ -70,8 +70,8 @@ export function CampaignSection() {
                 onClick={() => setActive(i)}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
                   active === i
-                    ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40"
-                    : "text-gray-500 border border-white/10 hover:text-gray-300"
+                    ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/40"
+                    : "text-muted-foreground border border-border hover:text-foreground"
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -89,17 +89,17 @@ export function CampaignSection() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.25 }}
-            className="rounded-xl border border-white/10 bg-white/[0.03] p-6 lg:p-8"
+            className="rounded-xl border border-border bg-muted/30 p-6 lg:p-8"
           >
             <div className="space-y-4">
               <div>
                 <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Input</span>
-                <p className="text-white mt-1 text-sm lg:text-base">"{tabs[active].input}"</p>
+                <p className="text-foreground mt-1 text-sm lg:text-base">"{tabs[active].input}"</p>
               </div>
-              <div className="h-px bg-white/10" />
+              <div className="h-px bg-border" />
               <div>
                 <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Output</span>
-                <p className="text-gray-300 mt-1 text-sm lg:text-base leading-relaxed">{tabs[active].output}</p>
+                <p className="text-muted-foreground mt-1 text-sm lg:text-base leading-relaxed">{tabs[active].output}</p>
               </div>
             </div>
           </motion.div>
@@ -113,7 +113,7 @@ export function CampaignSection() {
           transition={{ delay: 0.2 }}
           className="mt-10 text-center"
         >
-          <p className="text-gray-400 italic text-sm lg:text-base max-w-2xl mx-auto">
+          <p className="text-muted-foreground italic text-sm lg:text-base max-w-2xl mx-auto">
             "Trước mất 2 ngày lên content plan cho 1 tháng. Giờ Flowa tạo trong 30 phút — và output tốt hơn vì Agent nhớ data từ những tháng trước."
           </p>
         </motion.blockquote>

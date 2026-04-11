@@ -28,15 +28,15 @@ const fadeUp = {
 
 export function HeroSection() {
   return (
-    <section className="relative min-h-screen bg-[#09090b] overflow-hidden pt-24 pb-16 lg:pt-32 lg:pb-24">
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
+    <section className="relative min-h-screen bg-background overflow-hidden pt-24 pb-16 lg:pt-32 lg:pb-24">
+      <div className="absolute inset-0 bg-[linear-gradient(hsl(var(--foreground)/0.03)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--foreground)/0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
 
       <div className="container mx-auto px-4 relative z-10">
         <div className="grid lg:grid-cols-[55%_45%] gap-12 lg:gap-16 items-center">
           {/* Left — Text */}
           <div className="space-y-6">
             <motion.div custom={0} variants={fadeUp} initial="hidden" animate="visible">
-              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
+              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm border border-indigo-500/30 bg-indigo-500/10 text-indigo-400">
                 🤖 AI Marketing Agent — Không phải AI Writing Tool
               </span>
             </motion.div>
@@ -46,7 +46,7 @@ export function HeroSection() {
               variants={fadeUp}
               initial="hidden"
               animate="visible"
-              className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-[1.1] tracking-tight"
+              className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-[1.1] tracking-tight"
             >
               Đội ngũ content của bạn
               <br />
@@ -61,7 +61,7 @@ export function HeroSection() {
               variants={fadeUp}
               initial="hidden"
               animate="visible"
-              className="text-lg sm:text-xl text-gray-400 max-w-lg leading-relaxed"
+              className="text-lg sm:text-xl text-muted-foreground max-w-lg leading-relaxed"
             >
               Flowa tự nghiên cứu thị trường, lên chiến dịch cả tháng, tạo nội dung cho 12 kênh, tự chấm điểm chất lượng, và đăng bài — không cần bạn ngồi viết từng bài.
             </motion.p>
@@ -82,7 +82,7 @@ export function HeroSection() {
               </a>
               <a
                 href="#workflow"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-white/10 text-gray-300 text-sm font-medium hover:bg-white/5 transition-all"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-border text-muted-foreground text-sm font-medium hover:bg-muted/50 transition-all"
               >
                 <Play className="w-4 h-4" />
                 Xem cách hoạt động
@@ -94,7 +94,7 @@ export function HeroSection() {
               variants={fadeUp}
               initial="hidden"
               animate="visible"
-              className="flex flex-wrap gap-4 pt-2 text-sm text-gray-500"
+              className="flex flex-wrap gap-4 pt-2 text-sm text-muted-foreground"
             >
               <span>⚡ Setup 5 phút</span>
               <span>🔒 Không cần thẻ tín dụng</span>
@@ -110,19 +110,19 @@ export function HeroSection() {
             className="space-y-4"
           >
             {/* Chat input mockup */}
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="rounded-xl border border-border bg-muted/30 p-4">
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
                   M
                 </div>
-                <div className="bg-white/[0.06] rounded-lg rounded-tl-none px-4 py-2.5 text-sm text-gray-300 leading-relaxed">
+                <div className="bg-muted/50 rounded-lg rounded-tl-none px-4 py-2.5 text-sm text-muted-foreground leading-relaxed">
                   "Lên content plan tháng 8, tập trung skincare mùa hè, 20 bài cho FB + IG + TikTok"
                 </div>
               </div>
             </div>
 
             {/* Pipeline nodes */}
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="rounded-xl border border-border bg-muted/30 p-4">
               <div className="flex items-center justify-between gap-1 mb-3">
                 {pipelineNodes.map((node) => {
                   const Icon = node.icon;
@@ -136,12 +136,12 @@ export function HeroSection() {
                             ? "bg-emerald-500/20 text-emerald-400"
                             : isActive
                             ? "bg-indigo-500/20 text-indigo-400 ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-500/20"
-                            : "bg-white/5 text-gray-600"
+                            : "bg-muted/50 text-muted-foreground/50"
                         }`}
                       >
                         {isDone ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
                       </div>
-                      <span className={`text-[10px] font-medium ${isDone ? "text-emerald-400" : isActive ? "text-indigo-400" : "text-gray-600"}`}>
+                      <span className={`text-[10px] font-medium ${isDone ? "text-emerald-400" : isActive ? "text-indigo-400" : "text-muted-foreground/50"}`}>
                         {node.label}
                       </span>
                       {isActive && (
@@ -158,7 +158,7 @@ export function HeroSection() {
                 })}
               </div>
               <div className="h-5" />
-              <div className="relative h-1 bg-white/5 rounded-full overflow-hidden">
+              <div className="relative h-1 bg-muted rounded-full overflow-hidden">
                 <motion.div
                   className="absolute left-0 top-0 h-full w-1/3 bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full"
                   animate={{ left: ["0%", "40%"] }}
@@ -175,17 +175,17 @@ export function HeroSection() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.6 + i * 0.15 }}
-                  className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-center"
+                  className="rounded-xl border border-border bg-muted/30 p-3 text-center"
                 >
                   <div className={`text-xs font-semibold bg-gradient-to-r ${ch.color} bg-clip-text text-transparent mb-1`}>
                     {ch.channel}
                   </div>
-                  <div className="text-lg font-bold text-white">{ch.score}</div>
-                  <div className="text-[10px] text-gray-500 flex items-center justify-center gap-1">
+                  <div className="text-lg font-bold text-foreground">{ch.score}</div>
+                  <div className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
                     {ch.status === "done" ? (
                       <>Score <Check className="w-3 h-3 text-emerald-400" /></>
                     ) : (
-                      <>Score <Loader2 className="w-3 h-3 text-gray-400 animate-spin" /></>
+                      <>Score <Loader2 className="w-3 h-3 text-muted-foreground animate-spin" /></>
                     )}
                   </div>
                 </motion.div>
@@ -193,7 +193,7 @@ export function HeroSection() {
             </div>
 
             {/* Pipeline timing note */}
-            <p className="text-center text-xs text-gray-600">
+            <p className="text-center text-xs text-muted-foreground/70">
               Toàn bộ pipeline chạy trong ~10 phút, không cần can thiệp
             </p>
           </motion.div>

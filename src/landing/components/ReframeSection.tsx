@@ -25,7 +25,7 @@ const agentItems = [
 
 export function ReframeSection() {
   return (
-    <section className="py-16 lg:py-24 bg-[#09090b]">
+    <section className="py-16 lg:py-24 bg-background">
       <div className="container mx-auto px-4 max-w-5xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -34,10 +34,10 @@ export function ReframeSection() {
           transition={{ duration: 0.4 }}
           className="text-center mb-12"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
             Bạn cần một <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">Agent</span>, không phải thêm một Tool
           </h2>
-          <p className="text-gray-400">AI Tool chờ lệnh. AI Agent tự hành động.</p>
+          <p className="text-muted-foreground">AI Tool chờ lệnh. AI Agent tự hành động.</p>
         </motion.div>
 
         <div className="grid md:grid-cols-2 gap-4">
@@ -47,12 +47,12 @@ export function ReframeSection() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.4 }}
-            className="rounded-xl border border-white/10 bg-white/[0.03] p-6"
+            className="rounded-xl border border-border bg-muted/30 p-6"
           >
             <div className="text-sm font-semibold text-red-400 mb-4">❌ AI Writing Tool</div>
             <ul className="space-y-3">
               {toolItems.map((item, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm text-gray-400">
+                <li key={i} className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <X className="w-4 h-4 text-red-400/60 mt-0.5 shrink-0" />
                   {item}
                 </li>
@@ -71,7 +71,7 @@ export function ReframeSection() {
             <div className="text-sm font-semibold text-indigo-400 mb-4">✅ Flowa AI Agent</div>
             <ul className="space-y-3">
               {agentItems.map((item, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm text-gray-300">
+                <li key={i} className="flex items-start gap-2.5 text-sm text-foreground/80">
                   <Check className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />
                   {item}
                 </li>

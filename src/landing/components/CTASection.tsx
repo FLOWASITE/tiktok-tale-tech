@@ -4,7 +4,7 @@ import { getAuthUrl } from "@/hooks/useDomainRouting";
 
 export function CTASection() {
   return (
-    <section className="py-16 lg:py-24 bg-[#09090b]">
+    <section className="py-16 lg:py-24 bg-background">
       <div className="container mx-auto px-4 max-w-3xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -13,13 +13,13 @@ export function CTASection() {
           transition={{ duration: 0.4 }}
           className="text-center"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
             Ngừng viết content.{" "}
             <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
               Bắt đầu vận hành content.
             </span>
           </h2>
-          <p className="text-gray-400 text-lg mb-8 max-w-xl mx-auto">
+          <p className="text-muted-foreground text-lg mb-8 max-w-xl mx-auto">
             Để AI Agent lo chiến dịch — bạn tập trung vào chiến lược tăng trưởng.
           </p>
 
@@ -33,13 +33,13 @@ export function CTASection() {
             </a>
             <a
               href="mailto:info@flowa.one"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-white/10 text-gray-300 text-sm font-medium hover:bg-white/5 transition-all"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-border text-muted-foreground text-sm font-medium hover:bg-muted/50 transition-all"
             >
               Đặt lịch demo 15 phút
             </a>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-500">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
               Miễn phí mãi mãi cho gói Starter

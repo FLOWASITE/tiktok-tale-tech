@@ -10,7 +10,7 @@ const items = [
 
 export function TrustSection() {
   return (
-    <section className="py-16 lg:py-24 bg-[#09090b]">
+    <section className="py-16 lg:py-24 bg-background">
       <div className="container mx-auto px-4 max-w-4xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -19,7 +19,7 @@ export function TrustSection() {
           transition={{ duration: 0.4 }}
           className="text-center mb-10"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
             Dữ liệu thương hiệu của bạn, được{" "}
             <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">bảo vệ tuyệt đối</span>
           </h2>
@@ -35,12 +35,12 @@ export function TrustSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.3, delay: i * 0.06 }}
-                className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-center"
+                className="rounded-xl border border-border bg-muted/30 p-4 text-center"
               >
                 <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center mx-auto mb-3">
                   <Icon className="w-5 h-5 text-indigo-400" />
                 </div>
-                <p className="text-sm text-gray-300">{item.text}</p>
+                <p className="text-sm text-muted-foreground">{item.text}</p>
               </motion.div>
             );
           })}
@@ -50,7 +50,7 @@ export function TrustSection() {
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          className="text-center text-sm text-gray-500"
+          className="text-center text-sm text-muted-foreground/70"
         >
           Nội dung gửi đến AI providers được ẩn danh hóa. Flowa không bán dữ liệu.
         </motion.p>
