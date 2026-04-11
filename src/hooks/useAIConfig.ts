@@ -180,6 +180,9 @@ export const MODELS_BY_TYPE: Record<AIFunctionType, string[]> = {
     'poyo/seedream-4.5',
     'poyo/seedream-4.5-edit',
     'poyo/grok-imagine',
+    'geminigen/nano-banana-pro',
+    'geminigen/nano-banana-2',
+    'geminigen/imagen-4',
   ],
   'image-direct': [
     'google/gemini-3-pro-image-preview',
@@ -203,7 +206,7 @@ export interface ModelInfo {
   quality: ModelQuality;
   cost: ModelCost;
   bestFor: string[];
-  provider: 'lovable' | 'openrouter' | 'kie' | 'poyo' | 'dashscope';
+  provider: 'lovable' | 'openrouter' | 'kie' | 'poyo' | 'dashscope' | 'geminigen';
   isRecommended?: boolean;
 }
 
@@ -577,6 +580,35 @@ export const MODEL_INFO: Record<string, ModelInfo> = {
     cost: 'medium',
     bestFor: ['Creative', 'Artistic styles'],
     provider: 'poyo',
+  },
+  // GeminiGen.ai Models
+  'geminigen/nano-banana-pro': {
+    shortName: 'Nano Banana Pro',
+    description: 'Gemini 3 Pro image generation, premium quality',
+    speed: 'medium',
+    quality: 'premium',
+    cost: 'medium',
+    bestFor: ['Premium images', 'High quality generation'],
+    provider: 'geminigen',
+    isRecommended: true,
+  },
+  'geminigen/nano-banana-2': {
+    shortName: 'Nano Banana 2',
+    description: 'Gemini 3.1 Flash image generation, fast',
+    speed: 'fast',
+    quality: 'high',
+    cost: 'low',
+    bestFor: ['Fast generation', 'Batch processing'],
+    provider: 'geminigen',
+  },
+  'geminigen/imagen-4': {
+    shortName: 'Imagen 4',
+    description: 'Google Imagen 4, high quality photorealistic',
+    speed: 'slow',
+    quality: 'premium',
+    cost: 'high',
+    bestFor: ['Photorealistic', 'High fidelity'],
+    provider: 'geminigen',
   },
   // DashScope (Alibaba Cloud) Models
   'qwen-plus': {
@@ -988,6 +1020,19 @@ export const getModelInfo = (modelId: string): ModelInfo => {
       cost: 'medium' as ModelCost,
       bestFor: ['Image generation'],
       provider: 'poyo',
+    };
+  }
+
+  // Check GeminiGen models
+  if (modelId.startsWith('geminigen/')) {
+    return {
+      shortName: extractShortName(modelId),
+      description: 'GeminiGen.ai image model',
+      speed: 'medium' as ModelSpeed,
+      quality: 'premium' as ModelQuality,
+      cost: 'medium' as ModelCost,
+      bestFor: ['Image generation'],
+      provider: 'geminigen',
     };
   }
 
