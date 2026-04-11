@@ -1,109 +1,68 @@
 
 
-# Landing Page Content Overhaul — Text & New Sections
+# Rà soát Dark Theme nhất quán + Thêm Theme Toggle cho Landing Page
 
-## Overview
-Update all landing page text to "AI Marketing Agent" positioning and add 6 new sections. Keep all existing layouts, animations, and design patterns. Hardcode Vietnamese text (remove i18n dependency where needed for new content).
+## Tổng quan
+Chuyển toàn bộ landing page từ hardcoded dark colors sang CSS variable-based theming (Tailwind semantic classes), và thêm nút toggle theme vào Navbar. Khi user chuyển theme (light/dark/lime), landing page sẽ thay đổi theo.
 
-## Files to Edit (Existing Sections)
+## Phạm vi thay đổi
 
-### 1. SEO Meta — `src/pages/Landing.tsx` + `src/landing/pages/Landing.tsx`
-- Update SEO title/description to Agent positioning
-- Add new sections to page assembly (Problem, Reframe, Campaign, Features, Learning, Trust)
-- Reorder sections per brief
+### 1. Thêm Landing Theme Variables vào `src/index.css`
+- Thêm CSS custom properties cho landing-specific colors (gradient dots, indigo/violet accents) cho cả `:root`, `.dark`, `.lime`
+- Ví dụ: `--landing-accent`, `--landing-card-bg`, `--landing-card-border`
 
-### 2. Hero — `src/landing/components/HeroSection.tsx`
-- Update sub-headline text to full brief version
-- Update CTA text: "Dùng thử miễn phí →" (instead of "Bắt đầu miễn phí")
-- Add "Toàn bộ pipeline chạy trong ~10 phút" line under pipeline visual
-- Chat bubble text update to match brief
+### 2. Thêm Theme Toggle vào `src/landing/components/LandingNav.tsx`
+- Import và render `ThemeToggle` component (đã có sẵn) vào navbar, cạnh CTA buttons
+- Style toggle phù hợp với landing aesthetic (ghost variant, icon nhỏ)
 
-### 3. Social Proof — `src/landing/components/SocialProofSection.tsx`
-- Replace metrics/reviews with simple logo bar
-- Text: "Được sử dụng bởi các Marketing Team tại Việt Nam & Thái Lan"
-- 6 placeholder company names
+### 3. Chuyển đổi hardcoded colors trong 15 files landing
 
-### 4. Workflow — `src/landing/components/WorkflowSection.tsx`
-- Rewrite to 5-step vertical timeline with hardcoded Vietnamese
-- Add "BẠN LÀM" / "AGENT LÀM" badges
-- Remove image carousels, replace with text-based mockups
-- Remove i18n, hardcode all copy
+Thay thế pattern chung trong tất cả các section components:
 
-### 5. Industry Memory — `src/landing/components/IndustryMemorySection.tsx`
-- Keep existing interactive demo (it's excellent)
-- Update header text to match brief positioning language
+| Hardcoded | Thay bằng |
+|-----------|-----------|
+| `bg-[#09090b]` | `bg-background` |
+| `text-white` | `text-foreground` |
+| `text-gray-400` | `text-muted-foreground` |
+| `text-gray-500` | `text-muted-foreground` |
+| `text-gray-600` | `text-muted-foreground/70` |
+| `border-white/10` | `border-border` |
+| `border-white/5` | `border-border/50` |
+| `bg-white/5` | `bg-muted/50` |
+| `bg-white/[0.03]` | `bg-muted/30` |
+| `hover:bg-white/10` | `hover:bg-muted` |
+| `hover:text-white` | `hover:text-foreground` |
 
-### 6. Pricing — `src/landing/components/PricingSection.tsx`
-- Change from 4 plans to 3: Starter (0đ), Pro (Liên hệ), Enterprise (Tuỳ chỉnh)
-- Remove monthly/yearly toggle
-- Middle card: gradient border + glow + scale-105
-- Hardcode Vietnamese features list
+**Files cần sửa (15 files):**
+- `HeroSection.tsx` — section bg, text colors, pipeline cards, channel outputs
+- `LandingNav.tsx` — header bg, scroll state, mobile menu bg, links
+- `SocialProofSection.tsx` — section bg, text, borders
+- `ProblemSection.tsx` — section bg, cards, stats
+- `ReframeSection.tsx` — section bg, comparison columns
+- `WorkflowSection.tsx` — section bg, step cards, badges
+- `CampaignSection.tsx` — section bg, tabs, cards
+- `FeaturesSection.tsx` — section bg, feature cards
+- `IndustryMemorySection.tsx` — section bg (600 lines, careful audit)
+- `LearningSection.tsx` — section bg, memory cards
+- `TrustSection.tsx` — section bg, trust items
+- `PricingSection.tsx` — section bg, plan cards, gradient borders
+- `FAQSection.tsx` — section bg, accordion items
+- `CTASection.tsx` — section bg, CTA card
+- `FooterSection.tsx` — footer bg, links, borders
 
-### 7. FAQ — `src/landing/components/FAQSection.tsx`
-- Replace i18n with 6 hardcoded FAQ items from brief
-- Keep accordion animation
+### 4. Cập nhật `PublicPageLayout.tsx`
+- Đã dùng `bg-background` (OK), không cần sửa
 
-### 8. CTA — `src/landing/components/CTASection.tsx`
-- Heading: "Ngừng viết content. Bắt đầu vận hành content."
-- Add secondary CTA: "Đặt lịch demo 15 phút"
-- Update guarantees text
+### 5. Cập nhật `src/landing/pages/Landing.tsx` + `src/pages/Landing.tsx`
+- Thay `bg-[#09090b]` → `bg-background`
 
-### 9. Footer — `src/landing/components/FooterSection.tsx`
-- Update tagline, columns, bottom bar text per brief
-- Add "Designed for Marketing Teams in 🇻🇳 🇹🇭 🌏"
+### 6. Giữ nguyên gradient accents
+- Gradient indigo→violet cho CTAs và highlights giữ nguyên (không phụ thuộc theme)
+- Chỉ thay background/text/border colors
 
-## New Files to Create (6 New Sections)
-
-### 10. `src/landing/components/ProblemSection.tsx`
-- 3 problem cards with red stat highlights
-- Tag "VẤN ĐỀ", heading, sub per brief
-
-### 11. `src/landing/components/ReframeSection.tsx`
-- 2-column comparison: AI Tool (❌) vs Flowa Agent (✅)
-- 8 items each column
-
-### 12. `src/landing/components/CampaignSection.tsx`
-- 4 tabs with AnimatePresence switching
-- Calendar/timeline mockups per tab
-- Pull quote blockquote
-
-### 13. `src/landing/components/FeaturesSection.tsx`
-- 4 feature blocks alternating layout
-- Text + visual mockup per feature
-
-### 14. `src/landing/components/LearningSection.tsx`
-- 3 memory cards grid
-
-### 15. `src/landing/components/TrustSection.tsx`
-- 4 inline trust items + privacy note
-
-### 16. Update `src/landing/components/index.ts`
-- Export all new components
-
-### 17. Remove Testimonials from page assembly
-- TestimonialsSection removed (social proof bar replaces it)
-
-## Section Order in Final Page
-1. Navbar
-2. Hero
-3. Social Proof Bar (simplified)
-4. Problem Section (new)
-5. Reframe/Comparison (new)
-6. Workflow (rewritten, 5 steps)
-7. Campaign Autopilot (new)
-8. Features Deep-Dive (new)
-9. Industry Memory (existing, updated text)
-10. Learning & Memory (new)
-11. Trust & Security (new)
-12. Pricing (updated)
-13. FAQ (updated)
-14. Final CTA (updated)
-15. Footer (updated)
-
-## Technical Notes
-- All new sections use Framer Motion `whileInView` with `once: true`
-- Dark theme classes consistent with Hero (`bg-[#09090b]`, `border-white/10`, `bg-white/[0.03]`)
-- New sections hardcode Vietnamese, no i18n dependency
-- Existing section updates keep layout/animation, only change text content
-- `src/components/landing/` old copies are unused (index.ts re-exports), no need to touch them
+## Lưu ý kỹ thuật
+- Indigo/violet gradients trên CTA buttons giữ nguyên vì đây là brand color, không phải theme color
+- Hero grid background pattern cần điều chỉnh opacity cho light mode
+- SalesChatWidget (674 lines) cần audit riêng nếu có hardcoded colors
+- Tổng cộng ~15 files cần edit, mỗi file thay thế 3-15 class names
 
