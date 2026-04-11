@@ -1,13 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { AIFunctionType, MODELS_BY_TYPE, getModelInfo, ModelInfo, isKieModel, isPoyoModel } from '@/hooks/useAIConfig';
-import { ProviderIndicator } from './ModelCard';
-import { Check, ChevronDown, Search, Sparkles, Zap, Star, Coins, Scale, Settings } from 'lucide-react';
+import { Check, ChevronDown, Search, Sparkles, Zap, Star, Coins, Scale, DollarSign, Turtle, Clock } from 'lucide-react';
 
 interface InlineModelPickerProps {
   functionType: AIFunctionType;
@@ -44,45 +42,92 @@ const IMAGE_PRESETS: PresetItem[] = [
   { id: 'flux', label: 'Flux Kontext Pro', model: 'flux-kontext-pro', icon: <Zap className="h-3.5 w-3.5" />, description: 'KIE.ai - nhanh, giá rẻ' },
 ];
 
+// Provider styling
+const PROVIDER_DOTS: Record<string, { color: string; label: string; emoji: string }> = {
+  lovable: { color: 'bg-blue-500', label: 'Lovable AI', emoji: '✨' },
+  poyo: { color: 'bg-teal-500', label: 'PoYo.ai', emoji: '🐱' },
+  kie: { color: 'bg-violet-500', label: 'KIE.ai', emoji: '🔮' },
+  geminigen: { color: 'bg-emerald-500', label: 'GeminiGen.ai', emoji: '💎' },
+  dashscope: { color: 'bg-orange-500', label: 'DashScope', emoji: '☁️' },
+  openrouter: { color: 'bg-purple-500', label: 'OpenRouter', emoji: '🔗' },
+};
+
+// Speed/Cost indicators
+function SpeedIcon({ speed }: { speed: string }) {
+  if (speed === 'fast') return <Zap className="h-3 w-3 text-green-500" />;
+  if (speed === 'slow') return <Turtle className="h-3 w-3 text-orange-500" />;
+  return <Clock className="h-3 w-3 text-yellow-500" />;
+}
+
+function CostBadge({ cost }: { cost: string }) {
+  const config = {
+    low: { label: '$', className: 'text-green-600' },
+    medium: { label: '$$', className: 'text-yellow-600' },
+    high: { label: '$$$', className: 'text-red-500' },
+  }[cost] || { label: '$$', className: 'text-yellow-600' };
+  
+  return <span className={cn("text-[10px] font-bold flex-shrink-0", config.className)}>{config.label}</span>;
+}
+
 interface ProviderGroup {
   key: string;
   label: string;
   emoji: string;
-  colorClass: string;
+  dotColor: string;
   models: string[];
 }
 
 function getProviderGroups(allModels: string[]): ProviderGroup[] {
   const groups: ProviderGroup[] = [];
-
   const lovable = allModels.filter(id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id));
   const poyo = allModels.filter(isPoyoModel);
   const kie = allModels.filter(isKieModel);
   const geminigen = allModels.filter(isGeminigenModel);
   const dashscope = allModels.filter(isDashScopeModel);
 
-  if (lovable.length) groups.push({ key: 'lovable', label: 'Lovable AI', emoji: '✨', colorClass: 'text-blue-500', models: lovable });
-  if (poyo.length) groups.push({ key: 'poyo', label: 'PoYo.ai', emoji: '🐱', colorClass: 'text-teal-500', models: poyo });
-  if (kie.length) groups.push({ key: 'kie', label: 'KIE.ai', emoji: '🔮', colorClass: 'text-violet-500', models: kie });
-  if (geminigen.length) groups.push({ key: 'geminigen', label: 'GeminiGen.ai', emoji: '💎', colorClass: 'text-emerald-500', models: geminigen });
-  if (dashscope.length) groups.push({ key: 'dashscope', label: 'DashScope', emoji: '☁️', colorClass: 'text-orange-500', models: dashscope });
+  if (lovable.length) groups.push({ key: 'lovable', label: 'Lovable AI', emoji: '✨', dotColor: 'bg-blue-500', models: lovable });
+  if (poyo.length) groups.push({ key: 'poyo', label: 'PoYo.ai', emoji: '🐱', dotColor: 'bg-teal-500', models: poyo });
+  if (kie.length) groups.push({ key: 'kie', label: 'KIE.ai', emoji: '🔮', dotColor: 'bg-violet-500', models: kie });
+  if (geminigen.length) groups.push({ key: 'geminigen', label: 'GeminiGen.ai', emoji: '💎', dotColor: 'bg-emerald-500', models: geminigen });
+  if (dashscope.length) groups.push({ key: 'dashscope', label: 'DashScope', emoji: '☁️', dotColor: 'bg-orange-500', models: dashscope });
 
   return groups;
 }
 
-function ModelRow({ modelId, info, isSelected, onSelect }: { modelId: string; info: ModelInfo; isSelected: boolean; onSelect: () => void }) {
+function ModelRow({ 
+  modelId, info, isSelected, onSelect, isHighlighted 
+}: { 
+  modelId: string; info: ModelInfo; isSelected: boolean; onSelect: () => void; isHighlighted?: boolean;
+}) {
+  const dot = PROVIDER_DOTS[info.provider] || PROVIDER_DOTS.lovable;
+  
   return (
     <button
       onClick={onSelect}
+      data-highlighted={isHighlighted || undefined}
       className={cn(
-        "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-left transition-colors text-xs",
-        isSelected ? "bg-primary/10 text-primary" : "hover:bg-accent"
+        "w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-left transition-colors text-xs group",
+        isSelected 
+          ? "bg-primary/10 text-foreground ring-1 ring-primary/30" 
+          : isHighlighted 
+            ? "bg-accent" 
+            : "hover:bg-accent"
       )}
     >
-      <ProviderIndicator provider={info.provider} />
+      {/* Provider dot */}
+      <span className={cn("w-2 h-2 rounded-full flex-shrink-0", dot.color)} />
+      
+      {/* Name */}
       <span className="flex-1 min-w-0 truncate font-medium">{info.shortName}</span>
-      <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{info.description}</span>
-      {isSelected && <Check className="h-3 w-3 text-primary flex-shrink-0" />}
+      
+      {/* Speed indicator */}
+      <SpeedIcon speed={info.speed} />
+      
+      {/* Cost badge */}
+      <CostBadge cost={info.cost} />
+      
+      {/* Selected check */}
+      {isSelected && <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />}
     </button>
   );
 }
@@ -91,6 +136,9 @@ export function InlineModelPicker({ functionType, selectedModel, defaultModel, o
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'presets' | 'all'>('presets');
+  const [providerFilter, setProviderFilter] = useState<string | null>(null);
+  const [highlightIndex, setHighlightIndex] = useState(-1);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const isImageFunction = functionType === 'image' || functionType === 'image-direct';
   const presets = isImageFunction ? IMAGE_PRESETS : TEXT_PRESETS;
@@ -101,28 +149,76 @@ export function InlineModelPicker({ functionType, selectedModel, defaultModel, o
 
   const providerGroups = useMemo(() => getProviderGroups(allModels), [allModels]);
 
-  const filteredGroups = useMemo(() => {
-    if (!search.trim()) return providerGroups;
-    const q = search.toLowerCase();
-    return providerGroups
-      .map(g => ({
-        ...g,
-        models: g.models.filter(id => {
-          const info = getModelInfo(id);
-          return id.toLowerCase().includes(q) || info.shortName.toLowerCase().includes(q) || info.description.toLowerCase().includes(q);
-        }),
-      }))
-      .filter(g => g.models.length > 0);
-  }, [providerGroups, search]);
+  // Flat list of all model IDs for keyboard nav
+  const flatModels = useMemo(() => {
+    let groups = providerGroups;
+    if (providerFilter) {
+      groups = groups.filter(g => g.key === providerFilter);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      groups = groups
+        .map(g => ({
+          ...g,
+          models: g.models.filter(id => {
+            const info = getModelInfo(id);
+            return id.toLowerCase().includes(q) || info.shortName.toLowerCase().includes(q);
+          }),
+        }))
+        .filter(g => g.models.length > 0);
+    }
+    return groups;
+  }, [providerGroups, search, providerFilter]);
+
+  // All visible model IDs for keyboard nav
+  const visibleModelIds = useMemo(() => {
+    const ids: (string | null)[] = [];
+    if ((tab === 'all' || search.trim()) && !search.trim()) ids.push(null); // default option
+    flatModels.forEach(g => g.models.forEach(id => ids.push(id)));
+    return ids;
+  }, [flatModels, tab, search]);
 
   const currentInfo = getModelInfo(selectedModel || defaultModel);
   const currentPreset = presets.find(p => p.model === selectedModel);
 
-  const handleSelect = (model: string | null) => {
+  const handleSelect = useCallback((model: string | null) => {
     onSelect(model);
     setOpen(false);
     setSearch('');
-  };
+    setProviderFilter(null);
+    setHighlightIndex(-1);
+  }, [onSelect]);
+
+  // Keyboard navigation
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightIndex(prev => Math.min(prev + 1, visibleModelIds.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightIndex(prev => Math.max(prev - 1, 0));
+    } else if (e.key === 'Enter' && highlightIndex >= 0 && highlightIndex < visibleModelIds.length) {
+      e.preventDefault();
+      handleSelect(visibleModelIds[highlightIndex]);
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+    }
+  }, [highlightIndex, visibleModelIds, handleSelect]);
+
+  // Auto-focus search on open
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => searchRef.current?.focus(), 50);
+      setHighlightIndex(-1);
+    }
+  }, [open]);
+
+  // Switch to all tab when searching
+  useEffect(() => {
+    if (search.trim()) {
+      setTab('all');
+    }
+  }, [search]);
 
   const triggerLabel = currentPreset
     ? currentPreset.label
@@ -130,54 +226,91 @@ export function InlineModelPicker({ functionType, selectedModel, defaultModel, o
       ? currentInfo.shortName
       : 'Mặc định';
 
-  const triggerIcon = currentPreset?.icon || (selectedModel ? <Settings className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />);
+  const triggerDot = selectedModel ? PROVIDER_DOTS[currentInfo.provider] : null;
 
   return (
-    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSearch(''); }}>
+    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setSearch(''); setProviderFilter(null); setHighlightIndex(-1); } }}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className={cn("justify-between gap-1", compact ? "h-7 text-xs w-full" : "h-8 text-xs")}>
           <span className="flex items-center gap-1.5 min-w-0">
-            {triggerIcon}
-            <span className="truncate max-w-[120px]">{triggerLabel}</span>
+            {triggerDot ? (
+              <span className={cn("w-2 h-2 rounded-full flex-shrink-0", triggerDot.color)} />
+            ) : (
+              <Sparkles className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+            )}
+            <span className="truncate max-w-[140px]">{triggerLabel}</span>
           </span>
           <ChevronDown className="h-3 w-3 opacity-50 flex-shrink-0" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[340px] p-0" align="start" side="bottom" sideOffset={4}>
+      <PopoverContent className="w-[380px] p-0" align="start" side="bottom" sideOffset={4}>
         {/* Search */}
-        <div className="flex items-center border-b px-3 py-2">
+        <div className="flex items-center border-b px-3 py-2" onKeyDown={handleKeyDown}>
           <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground flex-shrink-0" />
           <input
+            ref={searchRef}
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); setHighlightIndex(-1); }}
+            onKeyDown={handleKeyDown}
             placeholder="Tìm model..."
             className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
           />
+          {search && (
+            <button onClick={() => { setSearch(''); setTab('presets'); }} className="text-muted-foreground hover:text-foreground">
+              <span className="text-xs">✕</span>
+            </button>
+          )}
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b">
-          <button
-            onClick={() => setTab('presets')}
-            className={cn("flex-1 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
-              tab === 'presets' ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            ⚡ Presets
-          </button>
-          <button
-            onClick={() => setTab('all')}
-            className={cn("flex-1 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
-              tab === 'all' ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            📋 Tất cả ({allModels.length})
-          </button>
-        </div>
+        {/* Tabs - hidden when searching */}
+        {!search.trim() && (
+          <div className="flex border-b">
+            <button
+              onClick={() => { setTab('presets'); setProviderFilter(null); }}
+              className={cn("flex-1 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
+                tab === 'presets' ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              ⚡ Presets
+            </button>
+            <button
+              onClick={() => { setTab('all'); setProviderFilter(null); }}
+              className={cn("flex-1 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
+                tab === 'all' ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              📋 Tất cả ({allModels.length})
+            </button>
+          </div>
+        )}
+
+        {/* Provider filter chips - show in "all" tab or when searching */}
+        {(tab === 'all' || search.trim()) && providerGroups.length > 1 && (
+          <div className="flex items-center gap-1 px-2 py-1.5 border-b overflow-x-auto">
+            <Badge
+              variant={providerFilter === null ? "default" : "outline"}
+              className="text-[10px] cursor-pointer flex-shrink-0 py-0 px-1.5"
+              onClick={() => setProviderFilter(null)}
+            >
+              All
+            </Badge>
+            {providerGroups.map(g => (
+              <Badge
+                key={g.key}
+                variant={providerFilter === g.key ? "default" : "outline"}
+                className="text-[10px] cursor-pointer flex-shrink-0 py-0 px-1.5"
+                onClick={() => setProviderFilter(providerFilter === g.key ? null : g.key)}
+              >
+                {g.emoji} {g.label}
+              </Badge>
+            ))}
+          </div>
+        )}
 
         {/* Content */}
-        <ScrollArea className="max-h-[360px]">
+        <ScrollArea className="max-h-[340px]">
           <div className="p-1.5">
+            {/* Presets tab */}
             {tab === 'presets' && !search.trim() && (
               <div className="space-y-0.5">
                 {presets.map(preset => {
@@ -188,10 +321,10 @@ export function InlineModelPicker({ functionType, selectedModel, defaultModel, o
                       onClick={() => handleSelect(preset.model)}
                       className={cn(
                         "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left transition-colors",
-                        isSelected ? "bg-primary/10 text-primary" : "hover:bg-accent"
+                        isSelected ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-accent"
                       )}
                     >
-                      <span className={cn("flex-shrink-0", isSelected && "text-primary")}>{preset.icon}</span>
+                      <span className={cn("flex-shrink-0", isSelected ? "text-primary" : "text-muted-foreground")}>{preset.icon}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium">{preset.label}</p>
                         <p className="text-[10px] text-muted-foreground">{preset.description}</p>
@@ -201,19 +334,20 @@ export function InlineModelPicker({ functionType, selectedModel, defaultModel, o
                   );
                 })}
 
-                {/* Quick provider groups in presets tab */}
+                {/* Provider shortcuts */}
                 {providerGroups.length > 0 && (
                   <div className="mt-2 pt-2 border-t border-border/50">
-                    <p className="text-[10px] text-muted-foreground px-2.5 mb-1">Hoặc chọn theo provider:</p>
+                    <p className="text-[10px] text-muted-foreground px-2.5 mb-1.5">Chọn theo provider:</p>
                     <div className="flex flex-wrap gap-1 px-2.5">
                       {providerGroups.map(g => (
                         <Badge
                           key={g.key}
                           variant="outline"
-                          className="text-[10px] cursor-pointer hover:bg-accent"
-                          onClick={() => { setTab('all'); }}
+                          className="text-[10px] cursor-pointer hover:bg-accent gap-1"
+                          onClick={() => { setTab('all'); setProviderFilter(g.key); }}
                         >
-                          {g.emoji} {g.label} ({g.models.length})
+                          <span className={cn("w-1.5 h-1.5 rounded-full", g.dotColor)} />
+                          {g.label} ({g.models.length})
                         </Badge>
                       ))}
                     </div>
@@ -222,34 +356,39 @@ export function InlineModelPicker({ functionType, selectedModel, defaultModel, o
               </div>
             )}
 
+            {/* All models tab / search results */}
             {(tab === 'all' || search.trim()) && (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {/* Default option */}
-                {!search.trim() && (
+                {!search.trim() && !providerFilter && (
                   <button
                     onClick={() => handleSelect(null)}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left transition-colors",
-                      selectedModel === null ? "bg-primary/10 text-primary" : "hover:bg-accent"
+                      "w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-left transition-colors text-xs",
+                      selectedModel === null ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-accent"
                     )}
                   >
-                    <Sparkles className="h-3.5 w-3.5 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium">Mặc định</p>
-                      <p className="text-[10px] text-muted-foreground">Sử dụng model mặc định hệ thống</p>
-                    </div>
+                    <Sparkles className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                    <span className="flex-1 font-medium">Mặc định</span>
+                    <span className="text-[10px] text-muted-foreground">Hệ thống</span>
                     {selectedModel === null && <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />}
                   </button>
                 )}
 
-                {filteredGroups.map(group => (
+                {flatModels.map(group => (
                   <div key={group.key}>
-                    <p className={cn("text-[10px] font-medium px-2.5 py-1", group.colorClass)}>
-                      {group.emoji} {group.label}
-                    </p>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 mt-1">
+                      <span className={cn("w-2 h-2 rounded-full", group.dotColor)} />
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                        {group.label}
+                      </span>
+                      <span className="text-[9px] text-muted-foreground">({group.models.length})</span>
+                    </div>
                     <div className="space-y-0.5">
-                      {group.models.map(modelId => {
+                      {group.models.map((modelId, idx) => {
                         const info = getModelInfo(modelId);
+                        // Find global index for keyboard highlight
+                        const globalIdx = visibleModelIds.indexOf(modelId);
                         return (
                           <ModelRow
                             key={modelId}
@@ -257,6 +396,7 @@ export function InlineModelPicker({ functionType, selectedModel, defaultModel, o
                             info={info}
                             isSelected={selectedModel === modelId}
                             onSelect={() => handleSelect(modelId)}
+                            isHighlighted={highlightIndex === globalIdx}
                           />
                         );
                       })}
@@ -264,8 +404,8 @@ export function InlineModelPicker({ functionType, selectedModel, defaultModel, o
                   </div>
                 ))}
 
-                {filteredGroups.length === 0 && search.trim() && (
-                  <p className="text-xs text-muted-foreground text-center py-4">
+                {flatModels.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-6">
                     Không tìm thấy model nào
                   </p>
                 )}
