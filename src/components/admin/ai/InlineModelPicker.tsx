@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { AIFunctionType, MODELS_BY_TYPE, getModelInfo, ModelInfo, isKieModel, isPoyoModel, isLovableAIModel } from '@/hooks/useAIConfig';
 import { Check, ChevronDown, Search, Sparkles, Zap, Star, Coins, Scale, Turtle, Clock } from 'lucide-react';
@@ -329,7 +328,7 @@ export function InlineModelPicker({ functionType, selectedModel, defaultModel, o
         )}
 
         {/* Content */}
-        <ScrollArea className="max-h-[360px]">
+        <div className="max-h-[360px] overflow-y-auto overscroll-contain">
           <div className="p-1.5">
             {/* Presets tab */}
             {tab === 'presets' && !search.trim() && (
@@ -435,7 +434,7 @@ export function InlineModelPicker({ functionType, selectedModel, defaultModel, o
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </PopoverContent>
     </Popover>
   );
