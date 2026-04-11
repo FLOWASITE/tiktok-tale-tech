@@ -36,22 +36,6 @@ const TYPE_FILTERS = [
   { id: 'knowledge-graph', label: 'Knowledge Graph', icon: <Network className="h-3 w-3" />, isTagFilter: true },
 ];
 
-const CATEGORY_ORDER = ['content', 'ideation', 'chat', 'brand', 'image', 'analysis', 'research', 'utility'];
-
-const QUICK_PRESETS = {
-  default: { label: 'Mặc định', description: 'Model được khuyến nghị cho function này', icon: <Sparkles className="h-5 w-5" /> },
-  or_deepseek: { label: '🔥 DeepSeek V3.2', description: 'OpenRouter - Giá rẻ, hiệu suất cao', icon: <Zap className="h-5 w-5" />, model: 'deepseek/deepseek-v3.2' },
-  or_minimax: { label: '🏆 MiniMax M2.5', description: 'OpenRouter - #1 weekly ranking', icon: <Star className="h-5 w-5" />, model: 'minimax/minimax-m2.5' },
-  fast: { label: 'Nhanh nhất', description: 'Gemini 2.5 Flash Lite - Phản hồi cực nhanh', icon: <Zap className="h-5 w-5" />, model: 'google/gemini-2.5-flash-lite' },
-  quality: { label: 'Chất lượng cao', description: 'Gemini 3 Pro - Kết quả tốt nhất', icon: <Star className="h-5 w-5" />, model: 'google/gemini-3-pro-preview' },
-};
-
-const IMAGE_QUICK_PRESETS = {
-  poyo_nano: { label: '🐱 Nano Banana Pro ⭐', description: 'PoYo.ai - 4K, text rendering, giá rẻ', icon: <Star className="h-5 w-5" />, model: 'poyo/nano-banana-2' },
-  gemini_flash: { label: 'Gemini Flash Image', description: 'Lovable AI - Nhanh & tiết kiệm', icon: <Zap className="h-5 w-5" />, model: 'google/gemini-2.5-flash-image' },
-  flux_kontext: { label: 'Flux Kontext Pro', description: 'KIE.ai - Chất lượng cao, giá rẻ', icon: <DollarSign className="h-5 w-5" />, model: 'flux-kontext-pro' },
-  gemini_pro: { label: 'Gemini 3 Image', description: 'Lovable AI - Chất lượng cao nhất', icon: <Star className="h-5 w-5" />, model: 'google/gemini-3-pro-image-preview' },
-};
 
 export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigProps) {
   const { functions, providers, isLoading, upsertFunction } = useAIConfig(organizationId);
