@@ -650,8 +650,10 @@ export async function runOrchestrator(
   const rootSpan = trace.spans.get(trace.rootSpanId)!;
   rootSpan.name = 'runOrchestrator';
 
-  // 1. Create initial state
-  let state = createGraphState(sessionId, userMessage);
+  // 1. Create initial state (or restore from checkpoint)
+  let state = options.resumedState
+    ? { ...options.resumedState, status: 'running' as const, continuationToken: undefined, continuingFromNode: undefined }
+    : createGraphState(sessionId, userMessage);
   state.metadata.traceId = trace.traceId;
   state.metadata.rootSpanId = trace.rootSpanId;
   if (options.brandMemoryContext) {
@@ -893,6 +895,7 @@ export async function runOrchestrator(
     maxExecutionMs: options.maxExecutionMs,
     abortSignal: options.abortSignal,
     continuationThresholdMs: options.continuationThresholdMs,
+    preCompletedNodes: options.completedNodes,
   });
 
   // End root span
