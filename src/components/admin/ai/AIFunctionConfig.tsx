@@ -386,14 +386,8 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
           </DialogHeader>
           
           {editingFunction && (
-            <Tabs defaultValue="model" className="w-full">
+            <Tabs defaultValue={currentFunctionMeta?.type === 'text' ? 'params' : 'settings'} className="w-full">
               <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto">
-                <TabsTrigger 
-                  value="model" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 text-xs sm:text-sm"
-                >
-                  Model
-                </TabsTrigger>
                 {currentFunctionMeta?.type === 'text' && (
                   <TabsTrigger 
                     value="params" 
@@ -403,10 +397,10 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                   </TabsTrigger>
                 )}
                 <TabsTrigger 
-                  value="cache" 
+                  value="settings" 
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 text-xs sm:text-sm"
                 >
-                  Cache & Priority
+                  Settings
                 </TabsTrigger>
               </TabsList>
 
@@ -420,7 +414,108 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                   />
                 </div>
 
-                <TabsContent value="model" className="mt-0 space-y-3">
+                {/* Current model info - compact display */}
+                <div className="p-3 rounded-lg bg-muted/30 border">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <ProviderIndicator provider={currentModelInfo.provider} showLabel />
+                      <span className="font-medium text-sm truncate">{currentModelInfo.shortName}</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground flex-shrink-0">Chọn model trên Card</p>
+                  </div>
+                </div>
+
+                <TabsContent value="params" className="mt-0 space-y-4">
+                  <div className="space-y-2">
+                    <Label>Temperature: {editingFunction.temperature ?? 0.7}</Label>
+                    <Slider
+                      value={[editingFunction.temperature ?? 0.7]}
+                      min={0}
+                      max={2}
+                      step={0.1}
+                      onValueChange={([value]) => setEditingFunction({ 
+                        ...editingFunction, 
+                        temperature: value,
+                      })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      0 = Deterministic, 2 = Creative
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Max Tokens</Label>
+                    <Input
+                      type="number"
+                      value={editingFunction.maxTokens || ''}
+                      onChange={(e) => setEditingFunction({ 
+                        ...editingFunction, 
+                        maxTokens: e.target.value ? parseInt(e.target.value) : null,
+                      })}
+                      placeholder="Default (auto)"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Giới hạn tokens output. Để trống = auto
+                    </p>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="settings" className="mt-0 space-y-4">
+                  <div className="space-y-2">
+                    <Label>Cache TTL (giờ)</Label>
+                    <Input
+                      type="number"
+                      value={editingFunction.cacheTtlHours ?? 24}
+                      onChange={(e) => setEditingFunction({ 
+                        ...editingFunction, 
+                        cacheTtlHours: parseInt(e.target.value) || 24
+                      })}
+                      min={1}
+                      max={168}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Thời gian cache response (1-168 giờ)
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Priority Level</Label>
+                    <Select
+                      value={editingFunction.priorityLevel || 'normal'}
+                      onValueChange={(value) => setEditingFunction({ ...editingFunction, priorityLevel: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low (Queue)</SelectItem>
+                        <SelectItem value="normal">Normal</SelectItem>
+                        <SelectItem value="high">High (Priority)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {editingFunction.modelOverride && (
+                    <div className="flex items-center justify-between p-3 rounded-lg border">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs font-medium">Force OpenRouter</Label>
+                        <p className="text-[10px] text-muted-foreground leading-tight">
+                          Bỏ qua Lovable Gateway, dùng OpenRouter API key
+                        </p>
+                      </div>
+                      <Switch
+                        checked={editingFunction.forceProvider === 'openrouter'}
+                        onCheckedChange={(checked) => setEditingFunction({
+                          ...editingFunction,
+                          forceProvider: checked ? 'openrouter' : null,
+                        })}
+                        disabled={!hasOpenRouterApiKey}
+                      />
+                    </div>
+                  )}
+                </TabsContent>
+              </div>
+            </Tabs>
                   {/* Current model display */}
                   <div className="p-3 rounded-lg bg-muted/30 border space-y-2">
                     <div className="flex items-center justify-between gap-2">
