@@ -228,7 +228,7 @@ function getFunctionTypeGroup(functionName: string): string | null {
     'topic-ai', 'generate-brand-voice', 'generate-brand-guideline',
     'expand-multichannel-channels', 'generate-ad-copy',
     'intent-classifier', 'research-agent', 'strategy-agent', 'content-agent',
-    'reviewer-agent', 'learning-agent',
+    'reviewer-agent', 'learning-agent', 'decompose-image-request', 'suggest-usp',
   ];
   const imageFunctions = [
     'generate-brand-image', 'generate-carousel-image', 'edit-image-background', 'generate-kie-image',
