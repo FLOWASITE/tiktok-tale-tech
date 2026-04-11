@@ -916,12 +916,19 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
       }).catch(() => {});
     } catch {}
 
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const is402 = errorMessage.includes('402') || (error as any)?.statusCode === 402;
+    const is429 = errorMessage.includes('429') || (error as any)?.statusCode === 429;
+    const errorCode = is402 ? 'CREDITS_EXHAUSTED' : is429 ? 'RATE_LIMIT' : 'UNKNOWN';
+
     return new Response(
       JSON.stringify({
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage,
+        errorCode,
+        fallback: !is402 && !is429,
       }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: is402 || is429 ? 200 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 }));
