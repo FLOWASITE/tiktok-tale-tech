@@ -218,6 +218,29 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
   },
 };
 
+/**
+ * Map function name to its group type for group-level overrides
+ */
+function getFunctionTypeGroup(functionName: string): string | null {
+  const textFunctions = [
+    'generate-multichannel', 'generate-script', 'generate-carousel', 'chat-topics',
+    'critique-content', 'refine-content', 'analyze-script', 'generate-hooks',
+    'topic-ai', 'generate-brand-voice', 'generate-brand-guideline',
+    'expand-multichannel-channels', 'generate-ad-copy',
+    'intent-classifier', 'research-agent', 'strategy-agent', 'content-agent',
+    'reviewer-agent', 'learning-agent',
+  ];
+  const imageFunctions = [
+    'generate-brand-image', 'generate-carousel-image', 'edit-image-background', 'generate-kie-image',
+  ];
+  const searchFunctions = ['topic-ai']; // topic-ai can also be search, but primarily text
+
+  if (imageFunctions.includes(functionName)) return 'image';
+  if (textFunctions.includes(functionName)) return 'text';
+  // search group currently empty in practice; extend as needed
+  return null;
+}
+
 // In-memory cache with TTL to reduce DB calls
 const configCache: Map<string, { config: AIFunctionConfig; fetchedAt: number }> = new Map();
 const CACHE_TTL_MS = 60000; // 1 minute cache for faster config updates from Admin Panel
