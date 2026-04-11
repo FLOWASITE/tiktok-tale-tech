@@ -7,6 +7,7 @@
 import { GraphState, GraphPlan } from "./graph-state.ts";
 import { TEMPLATE_PLANS } from "./graph-engine.ts";
 import { BlackboardRetriever, formatRetrievedContext } from "./blackboard-retriever.ts";
+import { memoryCache } from "../cache/memory-cache.ts";
 
 // ---- Types ----
 
