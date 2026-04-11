@@ -375,7 +375,7 @@ Secondary color: ${secondaryColor}`;
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (errorMsg.includes('429') || errorMsg.includes('rate') || errorMsg.includes('RATE_LIMIT')) {
+      if (errorLower.includes('429') || errorLower.includes('rate') || errorLower.includes('rate_limit')) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded", errorCode: "RATE_LIMIT" }), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
