@@ -739,14 +739,14 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           const statusCode = parseInt(err.message.split(':')[1]);
           if (statusCode === 429) {
             return new Response(
-              JSON.stringify({ success: false, error: "Rate limit exceeded. Please try again later." }),
-              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              JSON.stringify({ success: false, error: "Rate limit exceeded. Please try again later.", errorCode: "RATE_LIMIT" }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
           if (statusCode === 402) {
             return new Response(
-              JSON.stringify({ success: false, error: "Payment required. Please add credits to your Lovable AI workspace." }),
-              { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              JSON.stringify({ success: false, error: "Đã hết credits AI. Vui lòng nạp thêm để tiếp tục.", errorCode: "CREDITS_EXHAUSTED" }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
         }
