@@ -162,9 +162,11 @@ Examples:
   } catch (error: unknown) {
     console.error('[optimize-social-text] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to optimize text';
+    const isCredits = errorMessage.includes('credits exhausted') || errorMessage.includes('402');
+    const errorCode = isCredits ? 'CREDITS_EXHAUSTED' : 'UNKNOWN';
     return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: errorMessage, errorCode }),
+      { status: isCredits ? 200 : 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 }));
