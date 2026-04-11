@@ -477,11 +477,24 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Resolve organizationId from carousel for proper config resolution
+    let organizationId: string | undefined;
+    try {
+      const { data: carouselData } = await supabase
+        .from('carousels')
+        .select('organization_id')
+        .eq('id', carouselId)
+        .maybeSingle();
+      organizationId = carouselData?.organization_id || undefined;
+    } catch (e) {
+      console.warn('[generate-carousel-image] Could not resolve organizationId from carousel:', e);
+    }
+
     const resolvedPresetKey = visualPreset || carouselStyle || 'minimalist';
-    console.log(`[generate-carousel-image] Resolved preset key: '${resolvedPresetKey}' (visualPreset='${visualPreset}', carouselStyle='${carouselStyle}')`);
+    console.log(`[generate-carousel-image] Resolved preset key: '${resolvedPresetKey}' (visualPreset='${visualPreset}', carouselStyle='${carouselStyle}', orgId=${organizationId || 'none'})`);
 
     const [aiConfig, dbPreset] = await Promise.all([
-      getAIConfig('generate-carousel-image'),
+      getAIConfig('generate-carousel-image', organizationId),
       fetchStylePreset(supabase, resolvedPresetKey),
     ]);
 
