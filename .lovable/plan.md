@@ -1,95 +1,68 @@
 
 
-# Thiết kế lại UI chọn Model — Giảm thao tác, tăng hiệu quả
+# Hoàn thiện InlineModelPicker & Function Config UI
 
-## Vấn đề hiện tại
+## Vấn đề hiện tại (từ screenshot)
 
-Hiện tại để đổi model cho 1 function cần **3-5 bước**:
-1. Click vào Settings icon trên FunctionCard → Mở Edit Dialog
-2. Ở tab "Model", chọn Quick Preset hoặc click "Chọn model khác..."
-3. Mở thêm ModelSelector Dialog (dialog chồng dialog)
-4. Lọc provider → Tìm model → Click chọn
-5. Quay lại Edit Dialog → Click "Lưu cấu hình"
+1. **Mặc định option quá to** — chiếm cả chiều rộng với nền đỏ/hồng, gây rối mắt
+2. **Provider dots đồng màu** — tất cả model hiển thị cùng một chấm tròn xanh đậm, không phân biệt được provider
+3. **Thiếu speed/cost indicators** trên mỗi model row — chỉ thấy tên + description cắt ngắn
+4. **Selected state dùng màu đỏ/hồng** thay vì primary color nhẹ nhàng
+5. **Popover hẹp** — description bị cắt, không đủ chỗ hiển thị thông tin
+6. **Provider badges ở Presets tab** chỉ là link sang tab "Tất cả", không có tác dụng lọc
+7. **Edit Dialog vẫn có tab Model** với InlineModelPicker — thừa vì đã có picker trên card
 
-Ngoài ra, **dropdown quick select** trên FunctionCard (compact mode) có danh sách model **hardcoded riêng** (POYO_MODELS, KIE_MODELS, OPENROUTER_TEXT_MODELS) — không đồng bộ với ModelSelector, gây nhầm lẫn.
+## Thay đổi chi tiết
 
-## Giải pháp: Inline Model Selector + Unified Dropdown
+### 1. `InlineModelPicker.tsx` — Nâng cấp toàn diện
 
-### Nguyên tắc
-- **1 click để mở** danh sách model đầy đủ
-- **1 click để chọn** model → tự động lưu ngay (không cần dialog + nút Save)
-- **Loại bỏ dialog chồng dialog** — ModelSelector mở trực tiếp từ FunctionCard
-- **Unified model list** — 1 nguồn dữ liệu duy nhất cho cả dropdown và full selector
+**UI/UX improvements:**
+- Tăng width từ 340px lên **380px** để description không bị cắt
+- **ModelRow**: thêm speed indicator (icon Zap/Turtle), cost badge ($/$$/$$$), và provider-colored dot
+- **Selected state**: dùng `bg-primary/10 border-primary/30` nhẹ nhàng thay vì nền đỏ
+- **Default option**: thu gọn, chỉ là 1 row bình thường, không highlight cả khối
+- **Provider badges ở Presets tab**: click vào sẽ chuyển sang tab "Tất cả" VÀ filter theo provider đó
+- Thêm **provider filter chips** ở tab "Tất cả" (ngang trên đầu) để lọc nhanh
+- Thêm **keyboard navigation**: ArrowUp/ArrowDown để duyệt, Enter để chọn
+- **Search**: khi đang search, ẩn tabs, hiện kết quả trực tiếp
 
-### Thay đổi chi tiết
+**Data improvements:**
+- ModelRow hiển thị: `[ProviderDot] Model Name    [SpeedIcon] [$Cost]  [✓]`
+- Thêm prop `quality`/`speed`/`cost` từ `ModelInfo` vào hiển thị
 
-#### 1. FunctionCard: Nâng cấp Dropdown thành "Smart Model Picker"
-**File**: `src/components/admin/ai/FunctionCard.tsx`
+### 2. `FunctionCard.tsx` — Cải thiện card layout
 
-- Thay DropdownMenu bằng **Popover** rộng hơn (~320px), có:
-  - Search input inline
-  - 3 tab nhỏ: Presets | Tất cả | Provider
-  - Tab "Presets": giữ 3-5 quick presets (Mặc định / Nhanh / Chất lượng)
-  - Tab "Tất cả": render model cards nhỏ gọn, nhóm theo provider, scroll trong popover
-  - Tab "Provider": filter theo provider (Lovable, PoYo, KIE, GeminiGen, DashScope, OpenRouter)
-- Click chọn model → **lưu ngay** via `onQuickModelChange` (đã có sẵn, không cần Save button)
-- Xóa bỏ các danh sách hardcoded trùng lặp (KIE_MODELS, POYO_MODELS, OPENROUTER_TEXT_MODELS) — thay bằng đọc từ `MODELS_BY_TYPE` + `MODELS_BY_PROVIDER`
+**Compact mode:**
+- Model info row: thay vì chỉ hiện provider + tên model, hiện thêm **cost badge** nhỏ
+- InlineModelPicker button: hiện rõ hơn, không cần hover mới thấy
+- Bỏ tooltip wrapper cho model info — thông tin đã đủ trên card
 
-#### 2. AIFunctionConfig Edit Dialog: Đơn giản hóa tab Model
-**File**: `src/components/admin/ai/AIFunctionConfig.tsx`
+**Expanded mode:**
+- Model section: gộp model display + picker vào 1 dòng gọn hơn
+- Thêm quick action: "Reset to default" button nhỏ bên cạnh picker khi có override
 
-- Tab "Model" trong Edit Dialog: bỏ Quick Presets + nút "Chọn model khác..." (vì đã có Smart Picker trên card)
-- Giữ lại chỉ: Current model display + Reset button + Force OpenRouter toggle
-- Edit Dialog tập trung vào Parameters, Cache & Priority — những thứ ít thay đổi
+### 3. `AIFunctionConfig.tsx` — Đơn giản hóa Edit Dialog
 
-#### 3. ModelSelector Dialog: Giữ nhưng chỉ dùng cho Group Defaults
-**File**: `src/components/admin/ai/ModelSelector.tsx`
+- **Tab "Model"**: bỏ InlineModelPicker ra khỏi dialog (đã có trên card). Chỉ giữ:
+  - Current model display (read-only info)
+  - Reset button
+  - Force OpenRouter toggle
+- Hoặc gộp tab Model vào header dialog (1 dòng compact) để giảm tab
 
-- Không xóa, vẫn dùng cho `GroupDefaultsPanel` và `AIChannelModelConfig`
-- Không thay đổi gì
+### 4. `ModelCard.tsx` — Cập nhật ProviderIndicator
 
-#### 4. Tạo component mới: InlineModelPicker
-**File mới**: `src/components/admin/ai/InlineModelPicker.tsx`
+- Đảm bảo `ProviderIndicator` render đúng màu cho từng provider (lovable=blue, poyo=teal, kie=violet, geminigen=emerald, dashscope=orange, openrouter=purple)
 
-- Popover-based component, nhận props: `functionType`, `selectedModel`, `onSelect`, `hasOpenRouterApiKey`
-- Reuse logic filter từ ModelSelector (import `MODELS_BY_TYPE`, `getModelInfo`, etc.)
-- Render compact ModelCard (chỉ icon + tên + provider dot)
-- Kích thước: 320px width, max 400px height, scrollable
-
-```text
-┌──────────────────────────────────┐
-│ 🔍 Tìm model...                 │
-├──────────────────────────────────┤
-│ [Presets] [Tất cả] [Provider ▾] │
-├──────────────────────────────────┤
-│ ⭐ Mặc định                    ✓│
-│ ⚡ Nhanh — gemini-2.5-flash     │
-│ 🏆 Chất lượng — gemini-3-pro   │
-│ ────────────────────────────     │
-│ 🐱 PoYo.ai                      │
-│   Nano Banana Pro                │
-│   GPT-4o Image                   │
-│ 🔮 KIE.ai                       │
-│   Flux Kontext Pro               │
-│ 💎 GeminiGen.ai                  │
-│   Nano Banana Pro                │
-│   Imagen 4                       │
-│ ☁️ DashScope                     │
-│   Qwen Plus                      │
-└──────────────────────────────────┘
-```
-
-## Tóm tắt thay đổi
+## Files thay đổi
 
 | File | Hành động |
 |------|-----------|
-| `src/components/admin/ai/InlineModelPicker.tsx` | Tạo mới — Popover model picker |
-| `src/components/admin/ai/FunctionCard.tsx` | Thay DropdownMenu bằng InlineModelPicker, xóa hardcoded lists |
-| `src/components/admin/ai/AIFunctionConfig.tsx` | Đơn giản hóa tab Model (bỏ Quick Presets, bỏ nested ModelSelector) |
-| `src/components/admin/ai/ModelSelector.tsx` | Không đổi |
+| `src/components/admin/ai/InlineModelPicker.tsx` | Nâng cấp UI: wider, provider filter, speed/cost badges, keyboard nav |
+| `src/components/admin/ai/FunctionCard.tsx` | Cải thiện layout compact/expanded, thêm reset button |
+| `src/components/admin/ai/AIFunctionConfig.tsx` | Đơn giản hóa tab Model trong dialog |
 
-## Kết quả
-
-- **Trước**: 3-5 clicks, 2 dialog chồng nhau, 2 nguồn dữ liệu model khác nhau
-- **Sau**: **1 click mở picker → 1 click chọn → tự động lưu**. Một nguồn dữ liệu duy nhất.
+## Kết quả mong đợi
+- Picker rõ ràng hơn: thấy ngay provider, speed, cost của mỗi model
+- Lọc theo provider ngay trong picker (không cần mở dialog khác)
+- Edit Dialog tập trung vào parameters/cache — model chọn trực tiếp trên card
 
