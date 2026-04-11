@@ -11,6 +11,7 @@ import {
   DollarSign,
   FileText,
   Bot,
+  Crosshair,
 } from "lucide-react";
 import CacheAnalytics from "@/components/admin/CacheAnalytics";
 import { AIDashboard } from "@/components/admin/ai/AIDashboard";
@@ -20,6 +21,7 @@ import { AIChannelModelConfig } from "@/components/admin/ai/AIChannelModelConfig
 import { CostDashboard } from "@/components/admin/ai/CostDashboard";
 import { PromptManager } from "@/components/admin/ai/prompts";
 import { AIAgentModelConfig } from "@/components/admin/ai/AIAgentModelConfig";
+import { IntentAnalyticsDashboard } from "@/components/admin/ai/IntentAnalyticsDashboard";
 
 export default function AdminAIManagement() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -37,7 +39,7 @@ export default function AdminAIManagement() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-9 w-full max-w-5xl mb-6">
+        <TabsList className="flex w-full max-w-5xl mb-6 overflow-x-auto">
           <TabsTrigger value="dashboard" className="flex items-center gap-1.5 text-xs sm:text-sm">
             <LayoutDashboard className="h-4 w-4" />
             <span className="hidden sm:inline">Dashboard</span>
@@ -73,6 +75,10 @@ export default function AdminAIManagement() {
           <TabsTrigger value="cache" className="flex items-center gap-1.5 text-xs sm:text-sm">
             <Database className="h-4 w-4" />
             <span className="hidden sm:inline">Cache</span>
+          </TabsTrigger>
+          <TabsTrigger value="intent" className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <Crosshair className="h-4 w-4" />
+            <span className="hidden sm:inline">Intent</span>
           </TabsTrigger>
         </TabsList>
         
@@ -110,6 +116,10 @@ export default function AdminAIManagement() {
         
         <TabsContent value="cache">
           <CacheAnalytics />
+        </TabsContent>
+        
+        <TabsContent value="intent">
+          <IntentAnalyticsDashboard />
         </TabsContent>
       </Tabs>
     </div>
