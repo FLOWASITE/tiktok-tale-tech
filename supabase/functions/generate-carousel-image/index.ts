@@ -619,6 +619,43 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
         fallbackFromModel = requestedModel;
       }
     }
+    // --- GeminiGen routing ---
+    else if (isGeminiGenModel(requestedModel)) {
+      const GEMINIGEN_API_KEY = Deno.env.get('GEMINIGEN_API_KEY');
+      if (!GEMINIGEN_API_KEY) {
+        return new Response(
+          JSON.stringify({ error: 'GEMINIGEN_API_KEY chưa được cấu hình. Vui lòng thêm trong project secrets.', errorCode: 'MISSING_API_KEY' }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`[generate-carousel-image] Routing to GeminiGen.ai: ${requestedModel}`);
+      try {
+        externalImageUrl = await generateImageViaGeminiGen({
+          prompt: backgroundPrompt,
+          model: requestedModel,
+          aspectRatio: mapAspectRatioToGeminiGen(platform === 'tiktok' ? '9:16' : '1:1'),
+        }, GEMINIGEN_API_KEY);
+        modelUsed = requestedModel;
+      } catch (geminiGenErr) {
+        const errMsg = geminiGenErr instanceof Error ? geminiGenErr.message : String(geminiGenErr);
+        console.error(`[generate-carousel-image] GeminiGen.ai failed: ${errMsg}`);
+
+        if (errMsg.includes('GEMINIGEN_AUTH_ERROR') || errMsg.includes('GEMINIGEN_CREDITS_EXHAUSTED') || errMsg.includes('GEMINIGEN_RATE_LIMIT')) {
+          return new Response(
+            JSON.stringify({ error: errMsg, errorCode: 'PROVIDER_ERROR' }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Fallback to Lovable AI
+        console.log('[generate-carousel-image] GeminiGen failed, falling back to Lovable AI...');
+        imageModel = 'google/gemini-3-pro-image-preview';
+        modelUsed = `${imageModel} (fallback from ${requestedModel})`;
+        usedFallback = true;
+        fallbackFromModel = requestedModel;
+      }
+    }
 
     // --- Lovable AI Gateway (default or fallback) ---
     if (!externalImageUrl) {
