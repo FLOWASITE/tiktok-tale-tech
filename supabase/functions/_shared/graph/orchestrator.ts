@@ -554,6 +554,32 @@ function validatePlan(raw: any): GraphPlan {
   };
 }
 
+// ---- Plan Cache ----
+
+const CHANNEL_DETECT_RE = /facebook|instagram|tiktok|linkedin|youtube|twitter|threads|email|blog|website|zalo|fb|ig|tt|yt/i;
+const IMAGE_DETECT_RE = /tạo ảnh|tạo hình|generate image|make image|thiết kế ảnh|design image|thumbnail|banner|poster|สร้างภาพ/i;
+
+/**
+ * Build a deterministic cache key from message signals (not raw content).
+ * Messages with the same structural shape produce the same plan.
+ */
+function buildPlanCacheKey(message: string): string {
+  const lower = message.toLowerCase();
+
+  // Intent bucket — use matchIntent even if confidence is low
+  const intentResult = matchIntent(message);
+  const intentBucket = intentResult?.intent || 'unknown';
+
+  const hasTopic = hasExplicitTopic(message);
+  const hasChannel = CHANNEL_DETECT_RE.test(lower);
+  const hasImage = IMAGE_DETECT_RE.test(lower);
+
+  const len = message.length;
+  const lengthBucket = len < 30 ? 'short' : len <= 100 ? 'medium' : 'long';
+
+  return `planCache:${intentBucket}:${hasTopic}:${hasChannel}:${hasImage}:${lengthBucket}`;
+}
+
 // ---- Main Orchestrator ----
 
 /**
@@ -561,7 +587,8 @@ function validatePlan(raw: any): GraphPlan {
  *
  * 1. If forceTemplate is set, use that template directly.
  * 2. Try fast-path heuristic (no LLM cost).
- * 3. Fall back to LLM planning for complex/ambiguous intents.
+ * 3. Check plan cache for previously computed LLM plans.
+ * 4. Fall back to LLM planning for complex/ambiguous intents.
  */
 export async function orchestrateWorkflow(
   state: GraphState,
@@ -577,7 +604,20 @@ export async function orchestrateWorkflow(
   const fastPlan = tryFastPath(state.userMessage);
   if (fastPlan) return fastPlan;
 
-  // 3. LLM planning
-  console.log("[Orchestrator] No fast-path match, using LLM planning");
-  return planWithLLM(state, options);
+  // 3. Plan cache lookup
+  const cacheKey = buildPlanCacheKey(state.userMessage);
+  const cachedPlan = memoryCache.get<GraphPlan>(cacheKey);
+  if (cachedPlan) {
+    console.log(`[Orchestrator] Plan cache HIT: ${cacheKey}`);
+    return { ...cachedPlan, fastPath: false, fromPlanCache: true };
+  }
+
+  // 4. LLM planning
+  console.log(`[Orchestrator] Plan cache MISS (${cacheKey}), using LLM planning`);
+  const plan = await planWithLLM(state, options);
+
+  // Store in cache (TTL 10 minutes)
+  memoryCache.set(cacheKey, plan, 600);
+
+  return plan;
 }
