@@ -287,10 +287,11 @@ interface ProviderIndicatorProps {
 
 const PROVIDER_DOT_COLORS: Record<string, string> = {
   lovable: 'bg-blue-500',
-  openrouter: 'bg-orange-500',
+  openrouter: 'bg-purple-500',
   kie: 'bg-violet-500',
   poyo: 'bg-teal-500',
   dashscope: 'bg-orange-500',
+  geminigen: 'bg-emerald-500',
 };
 
 export function ProviderIndicator({ provider, className, showLabel }: ProviderIndicatorProps) {
