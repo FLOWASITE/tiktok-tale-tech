@@ -1,0 +1,1 @@
+ALTER TABLE public.agent_pipeline_logs ALTER COLUMN pipeline_id DROP NOT NULL;

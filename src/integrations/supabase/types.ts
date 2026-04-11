@@ -1485,7 +1485,7 @@ export type Database = {
           id: string
           input_summary: string | null
           output_summary: string | null
-          pipeline_id: string
+          pipeline_id: string | null
           tokens_used: number | null
         }
         Insert: {
@@ -1498,7 +1498,7 @@ export type Database = {
           id?: string
           input_summary?: string | null
           output_summary?: string | null
-          pipeline_id: string
+          pipeline_id?: string | null
           tokens_used?: number | null
         }
         Update: {
@@ -1511,7 +1511,7 @@ export type Database = {
           id?: string
           input_summary?: string | null
           output_summary?: string | null
-          pipeline_id?: string
+          pipeline_id?: string | null
           tokens_used?: number | null
         }
         Relationships: [
