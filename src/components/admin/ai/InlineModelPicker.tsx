@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { AIFunctionType, MODELS_BY_TYPE, getModelInfo, ModelInfo, isKieModel, isPoyoModel } from '@/hooks/useAIConfig';
-import { Check, ChevronDown, Search, Sparkles, Zap, Star, Coins, Scale, DollarSign, Turtle, Clock } from 'lucide-react';
+import { Check, ChevronDown, Search, Sparkles, Zap, Star, Coins, Scale, Turtle, Clock } from 'lucide-react';
 
 interface InlineModelPickerProps {
   functionType: AIFunctionType;
@@ -54,9 +54,9 @@ const PROVIDER_DOTS: Record<string, { color: string; label: string; emoji: strin
 
 // Speed/Cost indicators
 function SpeedIcon({ speed }: { speed: string }) {
-  if (speed === 'fast') return <Zap className="h-3 w-3 text-green-500" />;
-  if (speed === 'slow') return <Turtle className="h-3 w-3 text-orange-500" />;
-  return <Clock className="h-3 w-3 text-yellow-500" />;
+  if (speed === 'fast') return <span title="Nhanh"><Zap className="h-3.5 w-3.5 text-green-500" /></span>;
+  if (speed === 'slow') return <span title="Chậm"><Turtle className="h-3.5 w-3.5 text-orange-500" /></span>;
+  return <span title="Trung bình"><Clock className="h-3.5 w-3.5 text-yellow-500" /></span>;
 }
 
 function CostBadge({ cost }: { cost: string }) {
@@ -66,7 +66,7 @@ function CostBadge({ cost }: { cost: string }) {
     high: { label: '$$$', className: 'text-red-500' },
   }[cost] || { label: '$$', className: 'text-yellow-600' };
   
-  return <span className={cn("text-[10px] font-bold flex-shrink-0", config.className)}>{config.label}</span>;
+  return <span className={cn("text-[10px] font-bold flex-shrink-0", config.className)} title={`Chi phí: ${cost}`}>{config.label}</span>;
 }
 
 interface ProviderGroup {
@@ -105,20 +105,26 @@ function ModelRow({
     <button
       onClick={onSelect}
       data-highlighted={isHighlighted || undefined}
+      title={`${info.shortName} — ${info.description}`}
       className={cn(
-        "w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-left transition-colors text-xs group",
+        "w-full flex items-start gap-2 px-2.5 py-2 rounded-md text-left transition-colors text-xs group",
         isSelected 
-          ? "bg-primary/10 text-foreground ring-1 ring-primary/30" 
+          ? "bg-accent border-l-2 border-l-primary" 
           : isHighlighted 
-            ? "bg-accent" 
-            : "hover:bg-accent"
+            ? "bg-accent/60" 
+            : "hover:bg-accent/50"
       )}
     >
       {/* Provider dot */}
-      <span className={cn("w-2 h-2 rounded-full flex-shrink-0", dot.color)} />
+      <span className={cn("w-2 h-2 rounded-full flex-shrink-0 mt-1", dot.color)} />
       
-      {/* Name */}
-      <span className="flex-1 min-w-0 truncate font-medium">{info.shortName}</span>
+      {/* Name + Description */}
+      <div className="flex-1 min-w-0">
+        <span className="font-medium truncate block">{info.shortName}</span>
+        {info.description && (
+          <span className="text-[10px] text-muted-foreground line-clamp-1 block">{info.description}</span>
+        )}
+      </div>
       
       {/* Speed indicator */}
       <SpeedIcon speed={info.speed} />
@@ -127,7 +133,7 @@ function ModelRow({
       <CostBadge cost={info.cost} />
       
       {/* Selected check */}
-      {isSelected && <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />}
+      {isSelected && <Check className="h-3.5 w-3.5 text-primary flex-shrink-0 mt-0.5" />}
     </button>
   );
 }
@@ -162,7 +168,7 @@ export function InlineModelPicker({ functionType, selectedModel, defaultModel, o
           ...g,
           models: g.models.filter(id => {
             const info = getModelInfo(id);
-            return id.toLowerCase().includes(q) || info.shortName.toLowerCase().includes(q);
+            return id.toLowerCase().includes(q) || info.shortName.toLowerCase().includes(q) || info.description.toLowerCase().includes(q);
           }),
         }))
         .filter(g => g.models.length > 0);
@@ -286,48 +292,61 @@ export function InlineModelPicker({ functionType, selectedModel, defaultModel, o
 
         {/* Provider filter chips - show in "all" tab or when searching */}
         {(tab === 'all' || search.trim()) && providerGroups.length > 1 && (
-          <div className="flex items-center gap-1 px-2 py-1.5 border-b overflow-x-auto">
-            <Badge
-              variant={providerFilter === null ? "default" : "outline"}
-              className="text-[10px] cursor-pointer flex-shrink-0 py-0 px-1.5"
+          <div className="flex items-center gap-1.5 px-2.5 py-2 border-b overflow-x-auto">
+            <button
               onClick={() => setProviderFilter(null)}
+              className={cn(
+                "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors flex-shrink-0",
+                providerFilter === null
+                  ? "bg-foreground text-background"
+                  : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
             >
               All
-            </Badge>
+            </button>
             {providerGroups.map(g => (
-              <Badge
+              <button
                 key={g.key}
-                variant={providerFilter === g.key ? "default" : "outline"}
-                className="text-[10px] cursor-pointer flex-shrink-0 py-0 px-1.5"
                 onClick={() => setProviderFilter(providerFilter === g.key ? null : g.key)}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors flex-shrink-0",
+                  providerFilter === g.key
+                    ? "bg-foreground text-background"
+                    : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
+                )}
               >
-                {g.emoji} {g.label}
-              </Badge>
+                <span className={cn("w-1.5 h-1.5 rounded-full", g.dotColor)} />
+                {g.label}
+              </button>
             ))}
           </div>
         )}
 
         {/* Content */}
-        <ScrollArea className="max-h-[340px]">
+        <ScrollArea className="max-h-[360px]">
           <div className="p-1.5">
             {/* Presets tab */}
             {tab === 'presets' && !search.trim() && (
               <div className="space-y-0.5">
                 {presets.map(preset => {
                   const isSelected = preset.model === selectedModel;
+                  const presetModelInfo = preset.model ? getModelInfo(preset.model) : null;
                   return (
                     <button
                       key={preset.id}
                       onClick={() => handleSelect(preset.model)}
                       className={cn(
                         "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left transition-colors",
-                        isSelected ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-accent"
+                        isSelected ? "bg-accent border-l-2 border-l-primary" : "hover:bg-accent/50"
                       )}
                     >
                       <span className={cn("flex-shrink-0", isSelected ? "text-primary" : "text-muted-foreground")}>{preset.icon}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium">{preset.label}</p>
                         <p className="text-[10px] text-muted-foreground">{preset.description}</p>
+                        {presetModelInfo && (
+                          <p className="text-[9px] text-muted-foreground/70 font-mono mt-0.5">{preset.model}</p>
+                        )}
                       </div>
                       {isSelected && <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />}
                     </button>
@@ -338,17 +357,16 @@ export function InlineModelPicker({ functionType, selectedModel, defaultModel, o
                 {providerGroups.length > 0 && (
                   <div className="mt-2 pt-2 border-t border-border/50">
                     <p className="text-[10px] text-muted-foreground px-2.5 mb-1.5">Chọn theo provider:</p>
-                    <div className="flex flex-wrap gap-1 px-2.5">
+                    <div className="flex flex-wrap gap-1.5 px-2.5">
                       {providerGroups.map(g => (
-                        <Badge
+                        <button
                           key={g.key}
-                          variant="outline"
-                          className="text-[10px] cursor-pointer hover:bg-accent gap-1"
+                          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium bg-muted text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                           onClick={() => { setTab('all'); setProviderFilter(g.key); }}
                         >
                           <span className={cn("w-1.5 h-1.5 rounded-full", g.dotColor)} />
                           {g.label} ({g.models.length})
-                        </Badge>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -359,13 +377,13 @@ export function InlineModelPicker({ functionType, selectedModel, defaultModel, o
             {/* All models tab / search results */}
             {(tab === 'all' || search.trim()) && (
               <div className="space-y-1">
-                {/* Default option */}
+                {/* Default option - simple row */}
                 {!search.trim() && !providerFilter && (
                   <button
                     onClick={() => handleSelect(null)}
                     className={cn(
                       "w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-left transition-colors text-xs",
-                      selectedModel === null ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-accent"
+                      selectedModel === null ? "bg-accent border-l-2 border-l-primary" : "hover:bg-accent/50"
                     )}
                   >
                     <Sparkles className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
@@ -385,9 +403,8 @@ export function InlineModelPicker({ functionType, selectedModel, defaultModel, o
                       <span className="text-[9px] text-muted-foreground">({group.models.length})</span>
                     </div>
                     <div className="space-y-0.5">
-                      {group.models.map((modelId, idx) => {
+                      {group.models.map((modelId) => {
                         const info = getModelInfo(modelId);
-                        // Find global index for keyboard highlight
                         const globalIdx = visibleModelIds.indexOf(modelId);
                         return (
                           <ModelRow

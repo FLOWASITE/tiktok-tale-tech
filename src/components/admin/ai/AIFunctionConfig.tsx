@@ -386,14 +386,8 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
           </DialogHeader>
           
           {editingFunction && (
-            <Tabs defaultValue="model" className="w-full">
+            <Tabs defaultValue={currentFunctionMeta?.type === 'text' ? 'params' : 'settings'} className="w-full">
               <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0 h-auto">
-                <TabsTrigger 
-                  value="model" 
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 text-xs sm:text-sm"
-                >
-                  Model
-                </TabsTrigger>
                 {currentFunctionMeta?.type === 'text' && (
                   <TabsTrigger 
                     value="params" 
@@ -403,10 +397,10 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                   </TabsTrigger>
                 )}
                 <TabsTrigger 
-                  value="cache" 
+                  value="settings" 
                   className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 text-xs sm:text-sm"
                 >
-                  Cache & Priority
+                  Settings
                 </TabsTrigger>
               </TabsList>
 
@@ -420,54 +414,16 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                   />
                 </div>
 
-                <TabsContent value="model" className="mt-0 space-y-3">
-                  {/* Current model display */}
-                  <div className="p-3 rounded-lg bg-muted/30 border space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <ProviderIndicator provider={currentModelInfo.provider} showLabel />
-                        <span className="font-medium text-sm truncate">{currentModelInfo.shortName}</span>
-                      </div>
-                      {editingFunction.modelOverride && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={() => setEditingFunction({ ...editingFunction, modelOverride: null, forceProvider: null })}
-                        >
-                          Reset
-                        </Button>
-                      )}
+                {/* Current model info - compact display */}
+                <div className="p-3 rounded-lg bg-muted/30 border">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <ProviderIndicator provider={currentModelInfo.provider} showLabel />
+                      <span className="font-medium text-sm truncate">{currentModelInfo.shortName}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{currentModelInfo.description}</p>
-                    {editingFunction.modelOverride && (
-                      <p className="text-[10px] font-mono text-muted-foreground truncate">{editingFunction.modelOverride}</p>
-                    )}
-                    {!editingFunction.modelOverride && (
-                      <p className="text-[10px] text-muted-foreground">Đang dùng model mặc định. Chọn model khác trực tiếp trên Function Card.</p>
-                    )}
+                    <p className="text-[10px] text-muted-foreground flex-shrink-0">Chọn model trên Card</p>
                   </div>
-
-                  {/* Force Provider Toggle - only when override is set */}
-                  {editingFunction.modelOverride && (
-                    <div className="flex items-center justify-between p-3 rounded-lg border">
-                      <div className="space-y-0.5">
-                        <Label className="text-xs font-medium">Force OpenRouter</Label>
-                        <p className="text-[10px] text-muted-foreground leading-tight">
-                          Bỏ qua Lovable Gateway, dùng OpenRouter API key
-                        </p>
-                      </div>
-                      <Switch
-                        checked={editingFunction.forceProvider === 'openrouter'}
-                        onCheckedChange={(checked) => setEditingFunction({
-                          ...editingFunction,
-                          forceProvider: checked ? 'openrouter' : null,
-                        })}
-                        disabled={!hasOpenRouterApiKey}
-                      />
-                    </div>
-                  )}
-                </TabsContent>
+                </div>
 
                 <TabsContent value="params" className="mt-0 space-y-4">
                   <div className="space-y-2">
@@ -504,7 +460,7 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                   </div>
                 </TabsContent>
 
-                <TabsContent value="cache" className="mt-0 space-y-4">
+                <TabsContent value="settings" className="mt-0 space-y-4">
                   <div className="space-y-2">
                     <Label>Cache TTL (giờ)</Label>
                     <Input
@@ -538,6 +494,25 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {editingFunction.modelOverride && (
+                    <div className="flex items-center justify-between p-3 rounded-lg border">
+                      <div className="space-y-0.5">
+                        <Label className="text-xs font-medium">Force OpenRouter</Label>
+                        <p className="text-[10px] text-muted-foreground leading-tight">
+                          Bỏ qua Lovable Gateway, dùng OpenRouter API key
+                        </p>
+                      </div>
+                      <Switch
+                        checked={editingFunction.forceProvider === 'openrouter'}
+                        onCheckedChange={(checked) => setEditingFunction({
+                          ...editingFunction,
+                          forceProvider: checked ? 'openrouter' : null,
+                        })}
+                        disabled={!hasOpenRouterApiKey}
+                      />
+                    </div>
+                  )}
                 </TabsContent>
               </div>
             </Tabs>

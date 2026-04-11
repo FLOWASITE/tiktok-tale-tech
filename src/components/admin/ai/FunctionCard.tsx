@@ -71,7 +71,7 @@ export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', o
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-medium text-sm truncate">{fn.name}</span>
+              <span className="font-medium text-sm truncate" title={fn.name}>{fn.name}</span>
               <FunctionTagBadges tags={fn.tags} compact />
               {modelSource === 'individual' && (
                 <Badge variant="outline" className="text-[9px] py-0 px-1 bg-primary/10 text-primary border-primary/30">
@@ -106,7 +106,7 @@ export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', o
         <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50 gap-2">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <ProviderIndicator provider={modelInfo.provider} showLabel />
-            <span className="text-xs font-medium truncate max-w-[100px]">{modelInfo.shortName}</span>
+            <span className="text-xs font-medium truncate max-w-[100px]" title={modelInfo.shortName}>{modelInfo.shortName}</span>
             <span className={cn("text-[10px] font-bold flex-shrink-0", costInfo.className)}>{costInfo.text}</span>
           </div>
 
