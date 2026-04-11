@@ -1,269 +1,204 @@
 import { motion } from "framer-motion";
-import { ArrowRight, Play, Users, FileText, TrendingUp, CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { ArrowRight, Play, Check, Loader2, Search, Lightbulb, PenTool, ShieldCheck, ThumbsUp, Send } from "lucide-react";
 import { getAuthUrl } from "@/hooks/useDomainRouting";
 
-const industryBadges = [
-  "E-commerce", "F&B", "Bất động sản", "Y tế", "Giáo dục", "Tài chính"
+const pipelineNodes = [
+  { label: "Research", icon: Search, status: "done" as const },
+  { label: "Strategy", icon: Lightbulb, status: "done" as const },
+  { label: "Create", icon: PenTool, status: "active" as const },
+  { label: "Review", icon: ShieldCheck, status: "pending" as const },
+  { label: "Approve", icon: ThumbsUp, status: "pending" as const },
+  { label: "Publish", icon: Send, status: "pending" as const },
 ];
 
-function AnimatedCounter({ value, suffix }: { value: number; suffix: string }) {
-  const [count, setCount] = useState(0);
+const channelOutputs = [
+  { channel: "Facebook", score: 89, status: "done", color: "from-blue-500 to-blue-600" },
+  { channel: "Instagram", score: 91, status: "done", color: "from-pink-500 to-purple-500" },
+  { channel: "TikTok", score: 85, status: "loading", color: "from-cyan-400 to-pink-500" },
+];
 
-  useEffect(() => {
-    const duration = 2000;
-    const steps = 60;
-    const increment = value / steps;
-    let current = 0;
-
-    const timer = setInterval(() => {
-      current += increment;
-      if (current >= value) {
-        setCount(value);
-        clearInterval(timer);
-      } else {
-        setCount(Math.floor(current));
-      }
-    }, duration / steps);
-
-    return () => clearInterval(timer);
-  }, [value]);
-
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
-    if (num >= 1000) return (num / 1000).toFixed(0) + "K";
-    return num.toString();
-  };
-
-  return (
-    <span>
-      {formatNumber(count)}
-      {suffix}
-    </span>
-  );
-}
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.12, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] },
+  }),
+};
 
 export function HeroSection() {
-  const { t } = useTranslation();
-
-  const stats = [
-    { icon: Users, value: 500, suffix: "+", label: t("hero.stats.marketers") },
-    { icon: FileText, value: 50000, suffix: "+", label: t("hero.stats.content") },
-    { icon: TrendingUp, value: 98, suffix: "%", label: t("hero.stats.satisfaction") },
-  ];
-
-  const urgencyBenefits = [
-    t("hero.benefits.noCard"),
-    t("hero.benefits.freeTrial"),
-    t("hero.benefits.cancelAnytime"),
-  ];
-
   return (
-    <section className="relative min-h-screen flex items-center justify-center pt-20 pb-16 lg:pt-28 lg:pb-20 bg-background">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto text-center">
-          {/* Problem Statement */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-4"
-          >
-            <span className="text-base sm:text-lg text-muted-foreground">
-              {t("hero.problem")}
-            </span>
-          </motion.div>
+    <section className="relative min-h-screen bg-[#09090b] overflow-hidden pt-24 pb-16 lg:pt-32 lg:pb-24">
+      {/* Subtle grid bg */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
 
-          {/* Solution Headline */}
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6"
-          >
-            <span className="text-foreground">{t("hero.titleLine1")}</span>
-            <br />
-            <span className="text-primary">{t("hero.titleLine2")}</span>
-          </motion.h1>
+      <div className="container mx-auto px-4 relative z-10">
+        <div className="grid lg:grid-cols-[55%_45%] gap-12 lg:gap-16 items-center">
 
-          {/* Value Proposition */}
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-6 leading-relaxed"
-          >
-            {t("hero.descPlain")}
-          </motion.p>
+          {/* Left — Text */}
+          <div className="space-y-6">
+            <motion.div custom={0} variants={fadeUp} initial="hidden" animate="visible">
+              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
+                🤖 AI Marketing Agent — Không phải AI Writing Tool
+              </span>
+            </motion.div>
 
-          {/* Quick Benefits */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="flex flex-wrap items-center justify-center gap-5 mb-10"
-          >
-            {urgencyBenefits.map((benefit) => (
-              <div
-                key={benefit}
-                className="flex items-center gap-2 text-sm text-muted-foreground"
-              >
-                <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <span>{benefit}</span>
-              </div>
-            ))}
-          </motion.div>
-
-          {/* CTAs */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
-          >
-            <Button
-              size="lg"
-              className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground px-8 h-14 text-base font-medium"
-              asChild
+            <motion.h1
+              custom={1}
+              variants={fadeUp}
+              initial="hidden"
+              animate="visible"
+              className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-[1.1] tracking-tight"
             >
-              <a href={getAuthUrl('register')}>
-                {t("hero.cta.startFree")}
-                <ArrowRight className="ml-2 w-5 h-5" />
+              Đội ngũ content của bạn
+              <br />
+              — chạy bằng{" "}
+              <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
+                AI Agent
+              </span>
+            </motion.h1>
+
+            <motion.p
+              custom={2}
+              variants={fadeUp}
+              initial="hidden"
+              animate="visible"
+              className="text-lg sm:text-xl text-gray-400 max-w-lg leading-relaxed"
+            >
+              Flowa tự nghiên cứu, lên chiến dịch, tạo content đa kênh, tự đánh giá chất lượng và đăng bài — hoàn toàn tự động.
+            </motion.p>
+
+            <motion.div
+              custom={3}
+              variants={fadeUp}
+              initial="hidden"
+              animate="visible"
+              className="flex flex-wrap gap-3 pt-2"
+            >
+              <a
+                href={getAuthUrl("register")}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 text-white text-sm font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all"
+              >
+                Bắt đầu miễn phí
+                <ArrowRight className="w-4 h-4" />
               </a>
-            </Button>
-            
-            <Button
-              size="lg"
-              variant="outline"
-              className="w-full sm:w-auto h-14 text-base font-medium border-border"
-              onClick={() => document.querySelector("#how-it-works")?.scrollIntoView({ behavior: "smooth" })}
-            >
-              <Play className="mr-2 w-5 h-5" />
-              {t("hero.cta.watchHow")}
-            </Button>
-          </motion.div>
-
-          {/* Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            className="grid grid-cols-3 gap-4 sm:gap-8 max-w-xl mx-auto mb-16"
-          >
-            {stats.map((stat) => (
-              <div
-                key={stat.label}
-                className="text-center p-4"
+              <a
+                href="#workflow"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-white/10 text-gray-300 text-sm font-medium hover:bg-white/5 transition-all"
               >
-                <div className="flex items-center justify-center gap-1 mb-1">
-                  <stat.icon className="w-5 h-5 text-primary" />
+                <Play className="w-4 h-4" />
+                Xem cách hoạt động
+              </a>
+            </motion.div>
+
+            <motion.div
+              custom={4}
+              variants={fadeUp}
+              initial="hidden"
+              animate="visible"
+              className="flex flex-wrap gap-4 pt-2 text-sm text-gray-500"
+            >
+              <span>⚡ Setup 5 phút</span>
+              <span>🔒 Không cần thẻ tín dụng</span>
+              <span>🌏 Hỗ trợ VI · TH · EN</span>
+            </motion.div>
+          </div>
+
+          {/* Right — Pipeline Visual */}
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.7, delay: 0.3 }}
+            className="space-y-4"
+          >
+            {/* Chat input mockup */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  M
                 </div>
-                <div className="text-2xl sm:text-3xl font-bold text-foreground">
-                  <AnimatedCounter value={stat.value} suffix={stat.suffix} />
-                </div>
-                <div className="text-xs sm:text-sm text-muted-foreground mt-1">
-                  {stat.label}
+                <div className="bg-white/[0.06] rounded-lg rounded-tl-none px-4 py-2.5 text-sm text-gray-300 leading-relaxed">
+                  "Tạo campaign 2 tuần cho dòng sản phẩm mới, ưu tiên Facebook + Instagram + TikTok, tone trẻ trung năng động"
                 </div>
               </div>
-            ))}
-          </motion.div>
+            </div>
 
-          {/* Trust Logos */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.6 }}
-          >
-            <p className="text-xs text-muted-foreground uppercase tracking-widest mb-5">
-              {t("hero.trustBadge")}
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-3 lg:gap-4">
-              {industryBadges.map((badge) => (
-                <span
-                  key={badge}
-                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border/50"
+            {/* Pipeline nodes */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="flex items-center justify-between gap-1 mb-3">
+                {pipelineNodes.map((node) => {
+                  const Icon = node.icon;
+                  const isDone = node.status === "done";
+                  const isActive = node.status === "active";
+                  return (
+                    <div key={node.label} className="flex flex-col items-center gap-1.5 flex-1 relative">
+                      <div
+                        className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
+                          isDone
+                            ? "bg-emerald-500/20 text-emerald-400"
+                            : isActive
+                            ? "bg-indigo-500/20 text-indigo-400 ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-500/20"
+                            : "bg-white/5 text-gray-600"
+                        }`}
+                      >
+                        {isDone ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
+                      </div>
+                      <span className={`text-[10px] font-medium ${isDone ? "text-emerald-400" : isActive ? "text-indigo-400" : "text-gray-600"}`}>
+                        {node.label}
+                      </span>
+                      {isActive && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="absolute -bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap bg-indigo-500/90 text-white text-[10px] px-2 py-0.5 rounded-full"
+                        >
+                          Đang tạo 20 bài cho 4 kênh...
+                        </motion.div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Spacer for tooltip */}
+              <div className="h-5" />
+
+              {/* Pulse animation bar */}
+              <div className="relative h-1 bg-white/5 rounded-full overflow-hidden">
+                <motion.div
+                  className="absolute left-0 top-0 h-full w-1/3 bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full"
+                  animate={{ left: ["0%", "40%"] }}
+                  transition={{ duration: 2, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
+                />
+              </div>
+            </div>
+
+            {/* Channel output cards */}
+            <div className="grid grid-cols-3 gap-3">
+              {channelOutputs.map((ch, i) => (
+                <motion.div
+                  key={ch.channel}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6 + i * 0.15 }}
+                  className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-center"
                 >
-                  {badge}
-                </span>
+                  <div className={`text-xs font-semibold bg-gradient-to-r ${ch.color} bg-clip-text text-transparent mb-1`}>
+                    {ch.channel}
+                  </div>
+                  <div className="text-lg font-bold text-white">{ch.score}</div>
+                  <div className="text-[10px] text-gray-500 flex items-center justify-center gap-1">
+                    {ch.status === "done" ? (
+                      <>Score <Check className="w-3 h-3 text-emerald-400" /></>
+                    ) : (
+                      <>Score <Loader2 className="w-3 h-3 text-gray-400 animate-spin" /></>
+                    )}
+                  </div>
+                </motion.div>
               ))}
             </div>
           </motion.div>
         </div>
-
-        {/* Product Preview */}
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.7 }}
-          className="relative max-w-5xl mx-auto mt-16"
-        >
-          <div className="rounded-2xl overflow-hidden border border-border shadow-xl bg-card">
-            {/* Browser Chrome */}
-            <div className="flex items-center gap-2 px-4 py-3 bg-muted/50 border-b border-border">
-              <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-red-400" />
-                <div className="w-3 h-3 rounded-full bg-yellow-400" />
-                <div className="w-3 h-3 rounded-full bg-green-400" />
-              </div>
-              <div className="flex-1 flex justify-center">
-                <div className="px-4 py-1 rounded-md bg-background text-xs text-muted-foreground flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-green-500" />
-                  app.flowa.vn
-                </div>
-              </div>
-            </div>
-            
-            {/* Dashboard Preview */}
-            <div className="aspect-[16/9] bg-muted/20 p-4 sm:p-8">
-              <div className="h-full rounded-xl border border-border bg-background p-4 sm:p-6">
-                {/* Mock Dashboard Content */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
-                  {[
-                    { label: t("hero.dashboard.postsToday"), value: "12", color: "bg-primary/10" },
-                    { label: t("hero.dashboard.scheduled"), value: "24", color: "bg-blue-500/10" },
-                    { label: t("hero.dashboard.engagement"), value: "1.2K", color: "bg-green-500/10" },
-                    { label: t("hero.dashboard.performance"), value: "+45%", color: "bg-orange-500/10" },
-                  ].map((item, i) => (
-                    <div
-                      key={i}
-                      className={`p-3 sm:p-4 rounded-lg ${item.color} border border-border/50`}
-                    >
-                      <div className="text-xs text-muted-foreground mb-1">{item.label}</div>
-                      <div className="text-lg sm:text-xl font-bold text-foreground">{item.value}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="sm:col-span-2 h-28 sm:h-36 rounded-lg bg-muted/30 border border-border/50 p-4">
-                    <div className="text-xs text-muted-foreground mb-2">{t("hero.dashboard.calendar")}</div>
-                    <div className="grid grid-cols-7 gap-1">
-                      {Array.from({ length: 14 }).map((_, i) => (
-                        <div
-                          key={i}
-                          className={`h-4 rounded ${i % 3 === 0 ? 'bg-primary/40' : 'bg-muted/60'}`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <div className="h-28 sm:h-36 rounded-lg bg-muted/30 border border-border/50 p-4">
-                    <div className="text-xs text-muted-foreground mb-2">{t("hero.dashboard.aiGeneration")}</div>
-                    <div className="space-y-2">
-                      {[1, 2, 3].map((i) => (
-                        <div
-                          key={i}
-                          className="h-3 rounded bg-primary/30"
-                          style={{ width: `${100 - i * 20}%` }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
       </div>
     </section>
   );
