@@ -232,37 +232,58 @@ function extractRequestedCount(message: string): number | null {
 interface FastPathResult {
   intent: string;
   confidence: number;
+  matchedPatterns: string[];
+  allScores: Record<string, number>;
+  ambiguityFlag: boolean;
 }
 
 function matchIntent(message: string): FastPathResult | null {
   const lower = message.toLowerCase();
+  const matchedPatterns: string[] = [];
 
   // Priority order: conversational > multi_step > complex_workflow > image > topic_discovery > others
 
   // Conversational — simple chat, no workflow needed
-  if (INTENT_PATTERNS.conversational?.some(p => p.test(lower))) {
-    return { intent: 'conversational', confidence: 0.95 };
+  if (INTENT_PATTERNS.conversational?.some(p => {
+    const m = p.test(lower);
+    if (m) matchedPatterns.push(p.source);
+    return m;
+  })) {
+    return { intent: 'conversational', confidence: 0.95, matchedPatterns, allScores: { conversational: 1 }, ambiguityFlag: false };
   }
 
   for (const p of INTENT_PATTERNS.multi_step) {
-    if (p.test(lower)) return { intent: 'multi_step', confidence: 0.88 };
+    if (p.test(lower)) {
+      matchedPatterns.push(p.source);
+      return { intent: 'multi_step', confidence: 0.88, matchedPatterns, allScores: { multi_step: 1 }, ambiguityFlag: false };
+    }
   }
   for (const p of INTENT_PATTERNS.complex_workflow) {
-    if (p.test(lower)) return { intent: 'complex_workflow', confidence: 0.85 };
+    if (p.test(lower)) {
+      matchedPatterns.push(p.source);
+      return { intent: 'complex_workflow', confidence: 0.85, matchedPatterns, allScores: { complex_workflow: 1 }, ambiguityFlag: false };
+    }
   }
   for (const p of INTENT_PATTERNS.image_generate) {
-    if (p.test(lower)) return { intent: 'image_generate', confidence: 0.88 };
+    if (p.test(lower)) {
+      matchedPatterns.push(p.source);
+      return { intent: 'image_generate', confidence: 0.88, matchedPatterns, allScores: { image_generate: 1 }, ambiguityFlag: false };
+    }
   }
   // Topic discovery
   for (const p of INTENT_PATTERNS.topic_discovery) {
-    if (p.test(lower)) return { intent: 'topic_discovery', confidence: 0.9 };
+    if (p.test(lower)) {
+      matchedPatterns.push(p.source);
+      return { intent: 'topic_discovery', confidence: 0.9, matchedPatterns, allScores: { topic_discovery: 1 }, ambiguityFlag: false };
+    }
   }
   // Ambiguity check — very short or missing info prompts
   for (const p of INTENT_PATTERNS.clarify_needed) {
     if (p.test(lower)) {
+      matchedPatterns.push(p.source);
       const ambiguity = detectAmbiguity(message);
       if (ambiguity.isAmbiguous) {
-        return { intent: 'clarify_needed', confidence: 0.8 };
+        return { intent: 'clarify_needed', confidence: 0.8, matchedPatterns, allScores: { clarify_needed: 1 }, ambiguityFlag: true };
       }
     }
   }
@@ -273,18 +294,31 @@ function matchIntent(message: string): FastPathResult | null {
   for (const [intent, patterns] of Object.entries(INTENT_PATTERNS)) {
     if (skipIntents.includes(intent)) continue;
     for (const p of patterns) {
-      if (p.test(lower)) scores[intent] = (scores[intent] || 0) + 1;
+      if (p.test(lower)) {
+        scores[intent] = (scores[intent] || 0) + 1;
+        matchedPatterns.push(p.source);
+      }
     }
   }
 
   // Multi-intent detection: if both research and generate score, it's likely complex
   if (scores.research >= 1 && scores.generate >= 1) {
-    return { intent: 'complex_workflow', confidence: 0.82 };
+    return { intent: 'complex_workflow', confidence: 0.82, matchedPatterns, allScores: scores, ambiguityFlag: false };
   }
 
-  const top = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
+  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+  const top = sorted[0];
   if (top && top[1] > 0) {
-    return { intent: top[0], confidence: Math.min(0.9, 0.6 + top[1] * 0.15) };
+    // Ambiguity: top 2 intents have same score or differ by ≤ 1
+    const second = sorted[1];
+    const ambiguityFlag = !!(second && second[1] > 0 && (top[1] - second[1]) <= 1);
+    return {
+      intent: top[0],
+      confidence: Math.min(0.9, 0.6 + top[1] * 0.15),
+      matchedPatterns,
+      allScores: scores,
+      ambiguityFlag,
+    };
   }
 
   return null;
@@ -317,8 +351,9 @@ function intentToTemplate(intent: string, message: string): string {
 /**
  * Try fast-path: heuristic intent → template plan.
  * Returns null if confidence < 0.7 (should use LLM).
+ * Also returns the match result for logging purposes.
  */
-function tryFastPath(message: string): GraphPlan | null {
+function tryFastPath(message: string): { plan: GraphPlan; matchResult: FastPathResult } | null {
   const match = matchIntent(message);
   if (!match || match.confidence < 0.7) return null;
 
@@ -326,8 +361,8 @@ function tryFastPath(message: string): GraphPlan | null {
   const plan = TEMPLATE_PLANS[templateKey];
   if (!plan) return null;
 
-  console.log(`[Orchestrator] Fast-path: intent=${match.intent} → template=${templateKey} (confidence=${match.confidence})`);
-  return { ...plan, fastPath: true };
+  console.log(`[Orchestrator] Fast-path: intent=${match.intent} → template=${templateKey} (confidence=${match.confidence}, ambiguity=${match.ambiguityFlag})`);
+  return { plan: { ...plan, fastPath: true }, matchResult: match };
 }
 
 // ---- LLM Planning ----
@@ -580,6 +615,49 @@ function buildPlanCacheKey(message: string): string {
   return `planCache:${intentBucket}:${hasTopic}:${hasChannel}:${hasImage}:${lengthBucket}`;
 }
 
+// ---- Fast-Path Decision Logging ----
+
+/**
+ * Fire-and-forget: log fast-path decision to agent_pipeline_logs for analysis.
+ * Logs both HITs and MISSes to enable pattern tuning over time.
+ */
+function logFastPathDecision(
+  state: GraphState,
+  matchResult: FastPathResult | null,
+  templateKey: string | null,
+  supabaseClient: any
+): void {
+  if (!supabaseClient) return;
+
+  const logEntry = {
+    pipeline_id: state.metadata?.pipelineId || null,
+    agent_name: 'orchestrator_fastpath',
+    action: matchResult ? 'fast_path_hit' : 'fast_path_miss',
+    input_summary: state.userMessage.slice(0, 300),
+    output_summary: JSON.stringify({
+      intent: matchResult?.intent || null,
+      confidence: matchResult?.confidence || null,
+      allScores: matchResult?.allScores || {},
+      ambiguityFlag: matchResult?.ambiguityFlag || false,
+      matchedPatterns: matchResult?.matchedPatterns || [],
+      templateChosen: templateKey,
+      messageLength: state.userMessage.length,
+    }),
+    tokens_used: 0,
+    cost_usd: 0,
+    duration_ms: 0,
+  };
+
+  // Non-blocking insert
+  supabaseClient
+    .from('agent_pipeline_logs')
+    .insert(logEntry)
+    .then(() => {})
+    .catch((_: any) => {
+      console.warn('[Orchestrator] Failed to log fast-path decision (non-critical)');
+    });
+}
+
 // ---- Main Orchestrator ----
 
 /**
@@ -592,7 +670,8 @@ function buildPlanCacheKey(message: string): string {
  */
 export async function orchestrateWorkflow(
   state: GraphState,
-  options: OrchestratorOptions = {}
+  options: OrchestratorOptions = {},
+  supabaseClient?: any
 ): Promise<GraphPlan> {
   // 1. Forced template
   if (options.forceTemplate && TEMPLATE_PLANS[options.forceTemplate]) {
@@ -601,8 +680,16 @@ export async function orchestrateWorkflow(
   }
 
   // 2. Fast-path heuristic
-  const fastPlan = tryFastPath(state.userMessage);
-  if (fastPlan) return fastPlan;
+  const fastResult = tryFastPath(state.userMessage);
+  if (fastResult) {
+    const templateKey = intentToTemplate(fastResult.matchResult.intent, state.userMessage);
+    logFastPathDecision(state, fastResult.matchResult, templateKey, supabaseClient);
+    return fastResult.plan;
+  }
+
+  // Log fast-path miss (for analysis of what LLM handles)
+  const missMatch = matchIntent(state.userMessage);
+  logFastPathDecision(state, missMatch, null, supabaseClient);
 
   // 3. Plan cache lookup
   const cacheKey = buildPlanCacheKey(state.userMessage);
