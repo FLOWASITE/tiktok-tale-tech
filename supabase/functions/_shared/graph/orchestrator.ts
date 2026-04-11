@@ -19,6 +19,8 @@ export interface OrchestratorOptions {
   forceTemplate?: string;
   /** Blackboard retriever for cross-session memory */
   retriever?: BlackboardRetriever;
+  /** Brand template ID for semantic topic validation */
+  brandTemplateId?: string;
 }
 
 // ---- Intent Patterns (enhanced Vietnamese + English + Thai) ----

@@ -678,6 +678,7 @@ export async function runOrchestrator(
   const orchestratorOpts: OrchestratorOptions = {
     organizationId: options.organizationId,
     forceTemplate: options.forceTemplate,
+    brandTemplateId: options.brandTemplateId,
   };
 
   let plan = await orchestrateWorkflow(state, orchestratorOpts, options.supabaseClient);
