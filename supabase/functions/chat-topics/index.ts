@@ -263,6 +263,7 @@ Deno.serve(withPerf({ functionName: 'chat-topics', slowThresholdMs: 30000 }, asy
           conversationHistory: processedMessages.map(m => ({ role: m.role, content: m.content })),
           onEvent: (event) => { enqueueEvent(event); },
           supabaseClient: supabase,
+          brandTemplateId: brandTemplateId || undefined,
         });
 
         await pendingWrites;

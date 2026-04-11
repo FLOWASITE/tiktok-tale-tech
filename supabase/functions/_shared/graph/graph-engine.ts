@@ -577,6 +577,8 @@ export interface RunOrchestratorOptions {
   completedNodes?: Set<string>;
   /** Restored state from checkpoint (for continuation resume) */
   resumedState?: GraphState;
+  /** Brand template ID for semantic topic validation */
+  brandTemplateId?: string;
 }
 
 // ---- Post-plan validation: inject research when no explicit topic ----
@@ -678,6 +680,7 @@ export async function runOrchestrator(
   const orchestratorOpts: OrchestratorOptions = {
     organizationId: options.organizationId,
     forceTemplate: options.forceTemplate,
+    brandTemplateId: options.brandTemplateId,
   };
 
   let plan = await orchestrateWorkflow(state, orchestratorOpts, options.supabaseClient);

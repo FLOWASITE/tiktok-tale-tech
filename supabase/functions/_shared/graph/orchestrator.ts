@@ -19,6 +19,8 @@ export interface OrchestratorOptions {
   forceTemplate?: string;
   /** Blackboard retriever for cross-session memory */
   retriever?: BlackboardRetriever;
+  /** Brand template ID for semantic topic validation */
+  brandTemplateId?: string;
 }
 
 // ---- Intent Patterns (enhanced Vietnamese + English + Thai) ----
@@ -219,6 +221,166 @@ export function hasExplicitTopic(message: string): boolean {
 
   const words = lowerMsg.replace(/[^\w\u00C0-\u1EF9\s]/g, ' ').split(/\s+/).filter(Boolean);
   return words.filter(w => w.length >= 3 && !NON_TOPIC_TERMS.has(w)).length >= 2;
+}
+
+// ---- Topic Candidate Extraction ----
+
+/**
+ * Extract the topic candidate string from a message.
+ * Reuses the same regex patterns as hasExplicitTopic but returns the matched text.
+ */
+export function extractTopicCandidate(message: string): string | null {
+  const lowerMsg = message.toLowerCase();
+
+  const hasRealWords = (raw: string): boolean => {
+    const words = raw.toLowerCase().replace(/[^\w\u00C0-\u1EF9\s]/g, ' ').split(/\s+/).filter(Boolean);
+    return words.filter(w => w.length >= 3 && !NON_TOPIC_TERMS.has(w)).length > 0;
+  };
+
+  // Quoted text
+  const quoted = message.match(/["'「]([^"'」]{5,})["'」]/);
+  if (quoted && hasRealWords(quoted[1])) return quoted[1].trim();
+
+  // "về X" pattern
+  const veMatch = lowerMsg.match(/về\s+([^.,!?\n]+)/i);
+  if (veMatch && hasRealWords(veMatch[1])) return veMatch[1].trim();
+
+  // "about X" pattern
+  const aboutMatch = lowerMsg.match(/about\s+([^.,!?\n]+)/i);
+  if (aboutMatch && hasRealWords(aboutMatch[1])) return aboutMatch[1].trim();
+
+  // "topic: X" pattern
+  const colonMatch = message.match(/(?:topic|chủ đề|subject)\s*[:：]\s*([^.,!?\n]{3,})/i);
+  if (colonMatch && hasRealWords(colonMatch[1])) return colonMatch[1].trim();
+
+  // General colon
+  const generalColon = message.match(/:\s*([^.,!?\n]{3,})/);
+  if (generalColon && hasRealWords(generalColon[1])) return generalColon[1].trim();
+
+  // "content about X"
+  const contentMatch = lowerMsg.match(/(?:bài|content|nội dung|post|script|carousel)\s+(?:về\s+)?([^.,!?\n]+)/i);
+  if (contentMatch && hasRealWords(contentMatch[1])) return contentMatch[1].trim();
+
+  // Hashtag
+  const hashtagMatch = message.match(/#(\w{3,})/);
+  if (hashtagMatch) return hashtagMatch[1];
+
+  // Fallback: remaining real words
+  const words = lowerMsg.replace(/[^\w\u00C0-\u1EF9\s]/g, ' ').split(/\s+/).filter(Boolean);
+  const realWords = words.filter(w => w.length >= 3 && !NON_TOPIC_TERMS.has(w));
+  if (realWords.length >= 2) return realWords.join(' ');
+
+  return null;
+}
+
+// ---- Semantic Topic Validation ----
+
+// deno-lint-ignore no-explicit-any
+declare const Supabase: any;
+
+let _topicEmbeddingModel: any = null;
+
+function getTopicEmbeddingModel() {
+  if (!_topicEmbeddingModel) {
+    try {
+      _topicEmbeddingModel = new Supabase.ai.Session('gte-small');
+    } catch (err) {
+      console.warn('[SemanticTopic] Failed to init gte-small:', err);
+    }
+  }
+  return _topicEmbeddingModel;
+}
+
+interface SemanticTopicResult {
+  isValidTopic: boolean;
+  topSimilarity: number;
+  matchedContent?: string;
+}
+
+/**
+ * Validate a topic candidate against brand's known topics/products using embeddings.
+ * Only called when heuristic hasExplicitTopic() returns true.
+ * Fail-open: returns isValidTopic=true on any error.
+ */
+async function validateTopicSemantically(
+  candidateText: string,
+  brandTemplateId: string,
+  supabaseClient: any
+): Promise<SemanticTopicResult> {
+  try {
+    const model = getTopicEmbeddingModel();
+    if (!model) return { isValidTopic: true, topSimilarity: 1 };
+
+    // Generate embedding for candidate
+    const output = await model.run(candidateText, { mean_pool: true, normalize: true });
+    const embedding = Array.from(output as Float32Array);
+    const embeddingStr = `[${embedding.join(',')}]`;
+
+    // Search content_embeddings for similar topics/content under this brand
+    const { data: matches, error } = await supabaseClient.rpc('search_embeddings', {
+      query_embedding: embeddingStr,
+      match_organization_id: await getOrgIdFromBrand(supabaseClient, brandTemplateId),
+      match_brand_template_id: brandTemplateId,
+      match_content_types: ['topic', 'script', 'carousel', 'multichannel'],
+      match_threshold: 0.35,
+      match_count: 3,
+    });
+
+    if (error) {
+      console.warn('[SemanticTopic] search_embeddings error:', error.message);
+      return { isValidTopic: true, topSimilarity: 1 };
+    }
+
+    if (matches && matches.length > 0) {
+      const top = matches[0];
+      return {
+        isValidTopic: true,
+        topSimilarity: top.similarity,
+        matchedContent: top.content_text?.substring(0, 100),
+      };
+    }
+
+    // No embedding matches — try simple text match against brand_products
+    const { data: products } = await supabaseClient
+      .from('brand_products')
+      .select('name, category')
+      .eq('brand_template_id', brandTemplateId)
+      .eq('is_active', true)
+      .limit(20);
+
+    if (products?.length) {
+      const candidateLower = candidateText.toLowerCase();
+      const textMatch = products.find((p: any) =>
+        candidateLower.includes(p.name?.toLowerCase()) ||
+        p.name?.toLowerCase().includes(candidateLower) ||
+        (p.category && candidateLower.includes(p.category.toLowerCase()))
+      );
+      if (textMatch) {
+        return { isValidTopic: true, topSimilarity: 0.5, matchedContent: textMatch.name };
+      }
+    }
+
+    // No matches at all — likely not a real topic for this brand
+    console.log(`[SemanticTopic] No match for "${candidateText}" — marking as false positive`);
+    return { isValidTopic: false, topSimilarity: 0 };
+  } catch (err) {
+    console.warn('[SemanticTopic] Validation error (fail-open):', err);
+    return { isValidTopic: true, topSimilarity: 1 };
+  }
+}
+
+/** Helper: get organization_id from brand_template_id */
+async function getOrgIdFromBrand(supabaseClient: any, brandTemplateId: string): Promise<string | null> {
+  try {
+    const { data } = await supabaseClient
+      .from('brand_templates')
+      .select('organization_id')
+      .eq('id', brandTemplateId)
+      .single();
+    return data?.organization_id || null;
+  } catch {
+    return null;
+  }
 }
 
 /** Extract requested topic count from message (e.g., "5 chủ đề" → 5) */
@@ -682,9 +844,14 @@ export async function orchestrateWorkflow(
   // 2. Fast-path heuristic
   const fastResult = tryFastPath(state.userMessage);
   if (fastResult) {
+    let plan = fastResult.plan;
     const templateKey = intentToTemplate(fastResult.matchResult.intent, state.userMessage);
     logFastPathDecision(state, fastResult.matchResult, templateKey, supabaseClient);
-    return fastResult.plan;
+
+    // 2b. Semantic topic validation — override hasTopic if brand data says it's noise
+    plan = await applySemanticTopicOverride(state.userMessage, plan, options, supabaseClient);
+
+    return plan;
   }
 
   // Log fast-path miss (for analysis of what LLM handles)
@@ -696,7 +863,9 @@ export async function orchestrateWorkflow(
   const cachedPlan = memoryCache.get<GraphPlan>(cacheKey);
   if (cachedPlan) {
     console.log(`[Orchestrator] Plan cache HIT: ${cacheKey}`);
-    return { ...cachedPlan, fastPath: false, fromPlanCache: true };
+    let plan = { ...cachedPlan, fastPath: false, fromPlanCache: true };
+    plan = await applySemanticTopicOverride(state.userMessage, plan, options, supabaseClient);
+    return plan;
   }
 
   // 4. LLM planning
@@ -705,6 +874,58 @@ export async function orchestrateWorkflow(
 
   // Store in cache (TTL 10 minutes)
   memoryCache.set(cacheKey, plan, 600);
+
+  return plan;
+}
+
+/**
+ * If heuristic says "has topic" but semantic validation against brand data says otherwise,
+ * inject research node to discover a proper topic.
+ * Only runs when brandTemplateId is available and supabaseClient exists.
+ */
+async function applySemanticTopicOverride(
+  message: string,
+  plan: GraphPlan,
+  options: OrchestratorOptions,
+  supabaseClient?: any
+): Promise<GraphPlan> {
+  if (!options.brandTemplateId || !supabaseClient) return plan;
+  if (!hasExplicitTopic(message)) return plan; // heuristic already says no topic
+
+  const candidate = extractTopicCandidate(message);
+  if (!candidate || candidate.length < 3) return plan;
+
+  try {
+    const validation = await validateTopicSemantically(candidate, options.brandTemplateId, supabaseClient);
+
+    if (!validation.isValidTopic) {
+      console.log(`[Orchestrator] Semantic override: "${candidate}" rejected (similarity: ${validation.topSimilarity}) — injecting research`);
+
+      // Inject research if not already present
+      const hasResearch = plan.steps.some(s => s.node === 'research');
+      if (!hasResearch) {
+        const newSteps = [
+          { node: 'research' },
+          ...plan.steps.map(s => {
+            if (s.node === 'content' && !s.dependsOn?.includes('research')) {
+              return { ...s, dependsOn: [...(s.dependsOn || []), 'research'] };
+            }
+            return s;
+          }),
+        ];
+        return {
+          ...plan,
+          steps: newSteps,
+          skipNodes: plan.skipNodes.filter(n => n !== 'research'),
+          reasoning: plan.reasoning + ` [semantic topic override: "${candidate}" not recognized by brand data]`,
+        };
+      }
+    } else if (validation.matchedContent) {
+      console.log(`[Orchestrator] Semantic topic confirmed: "${candidate}" matches "${validation.matchedContent}" (sim: ${validation.topSimilarity.toFixed(3)})`);
+    }
+  } catch (err) {
+    console.warn('[Orchestrator] Semantic topic override failed (non-critical):', err);
+  }
 
   return plan;
 }
