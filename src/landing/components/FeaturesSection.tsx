@@ -30,7 +30,7 @@ const features = [
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="py-16 lg:py-24 bg-[#09090b]">
+    <section id="features" className="py-16 lg:py-24 bg-background">
       <div className="container mx-auto px-4 max-w-5xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -39,10 +39,10 @@ export function FeaturesSection() {
           transition={{ duration: 0.4 }}
           className="text-center mb-12"
         >
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 mb-4">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 mb-4">
             TÍNH NĂNG
           </span>
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
             Tính năng chi tiết
           </h2>
         </motion.div>
@@ -57,7 +57,7 @@ export function FeaturesSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.3, delay: i * 0.06 }}
-                className="rounded-xl border border-white/10 bg-white/[0.03] p-6 lg:p-8"
+                className="rounded-xl border border-border bg-muted/30 p-6 lg:p-8"
               >
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0">
@@ -65,8 +65,8 @@ export function FeaturesSection() {
                   </div>
                   <div>
                     <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">{f.tag}</span>
-                    <h3 className="text-lg font-semibold text-white mt-1 mb-2">{f.heading}</h3>
-                    <p className="text-sm text-gray-400 leading-relaxed">{f.body}</p>
+                    <h3 className="text-lg font-semibold text-foreground mt-1 mb-2">{f.heading}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{f.body}</p>
                   </div>
                 </div>
               </motion.div>

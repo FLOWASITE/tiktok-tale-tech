@@ -22,7 +22,7 @@ import { SEOHead, LandingSEOSchemas } from "@/components/SEOHead";
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-[#09090b]">
+    <div className="min-h-screen bg-background">
       <SEOHead
         title="Flowa — AI Marketing Agent tự vận hành Content Pipeline"
         description="AI Agent tự nghiên cứu, tạo nội dung 12 kênh, tự chấm điểm chất lượng, tự đăng bài. Campaign Autopilot cho chiến dịch tháng, lễ hội, ra mắt sản phẩm. Hỗ trợ VI/TH/EN."

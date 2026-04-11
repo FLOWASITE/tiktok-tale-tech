@@ -24,7 +24,7 @@ const problems = [
 
 export function ProblemSection() {
   return (
-    <section className="py-16 lg:py-24 bg-[#09090b]">
+    <section className="py-16 lg:py-24 bg-background">
       <div className="container mx-auto px-4 max-w-6xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -36,11 +36,11 @@ export function ProblemSection() {
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border border-red-500/30 bg-red-500/10 text-red-400 mb-4">
             VẤN ĐỀ
           </span>
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
             Bạn đang chạy content marketing{" "}
             <span className="text-red-400">kiểu 2020</span>
           </h2>
-          <p className="text-gray-400 max-w-2xl mx-auto">
+          <p className="text-muted-foreground max-w-2xl mx-auto">
             Quy trình thủ công, không scale được, và AI tool chỉ giải quyết 1/10 vấn đề.
           </p>
         </motion.div>
@@ -53,14 +53,14 @@ export function ProblemSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.3, delay: i * 0.08 }}
-              className="rounded-xl border border-white/10 bg-white/[0.03] p-6"
+              className="rounded-xl border border-border bg-muted/30 p-6"
             >
               <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center mb-4">
                 <p.icon className="w-5 h-5 text-red-400" />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">{p.title}</h3>
-              <p className="text-sm text-gray-400 leading-relaxed mb-4">{p.body}</p>
-              <div className="pt-3 border-t border-white/10">
+              <h3 className="text-lg font-semibold text-foreground mb-2">{p.title}</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4">{p.body}</p>
+              <div className="pt-3 border-t border-border">
                 <span className="text-sm font-bold text-red-400">{p.stat}</span>
               </div>
             </motion.div>

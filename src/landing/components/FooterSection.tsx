@@ -50,25 +50,25 @@ export function FooterSection() {
   };
 
   return (
-    <footer className="bg-[#09090b] border-t border-white/10">
+    <footer className="bg-background border-t border-border">
       <div className="container mx-auto px-4 py-12 lg:py-16 max-w-6xl">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="inline-flex items-center gap-1 mb-3">
-              <span className="text-xl font-bold text-white">Flowa</span>
+              <span className="text-xl font-bold text-foreground">Flowa</span>
               <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500" />
             </Link>
-            <p className="text-sm text-gray-500 mb-4">AI Marketing Agent cho thời đại mới</p>
+            <p className="text-sm text-muted-foreground mb-4">AI Marketing Agent cho thời đại mới</p>
             <div className="flex gap-2">
               {socialLinks.map((s) => (
                 <a
                   key={s.label}
                   href={s.href}
                   aria-label={s.label}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                 >
-                  <s.icon className="w-4 h-4 text-gray-500" />
+                  <s.icon className="w-4 h-4 text-muted-foreground" />
                 </a>
               ))}
             </div>
@@ -77,23 +77,23 @@ export function FooterSection() {
           {/* Link Columns */}
           {Object.entries(footerLinks).map(([key, section]) => (
             <div key={key}>
-              <h4 className="font-semibold text-white text-sm mb-3">{section.title}</h4>
+              <h4 className="font-semibold text-foreground text-sm mb-3">{section.title}</h4>
               <ul className="space-y-2">
                 {section.links.map((link) => (
                   <li key={link.name}>
                     {link.isInternal ? (
-                      <Link to={link.href} className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
+                      <Link to={link.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                         {link.name}
                       </Link>
                     ) : link.href.startsWith("#") ? (
                       <button
                         onClick={() => scrollToSection(link.href)}
-                        className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
+                        className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                       >
                         {link.name}
                       </button>
                     ) : (
-                      <a href={link.href} className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
+                      <a href={link.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                         {link.name}
                       </a>
                     )}
@@ -104,11 +104,11 @@ export function FooterSection() {
           ))}
         </div>
 
-        <div className="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-xs text-gray-600">
+        <div className="pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground/70">
             © {new Date().getFullYear()} Flowa. All rights reserved.
           </p>
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-muted-foreground/70">
             Designed for Marketing Teams in 🇻🇳 🇹🇭 🌏
           </p>
         </div>

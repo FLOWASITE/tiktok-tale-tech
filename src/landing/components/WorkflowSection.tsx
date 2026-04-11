@@ -6,7 +6,7 @@ const steps = [
     num: 1,
     title: "Bạn đặt mục tiêu",
     actor: "BẠN LÀM",
-    actorColor: "bg-indigo-500/20 text-indigo-300",
+    actorColor: "bg-indigo-500/20 text-indigo-400",
     body: "Gõ tự nhiên như đang nhắn tin cho đồng nghiệp.",
     icon: MessageSquare,
     examples: [
@@ -20,7 +20,7 @@ const steps = [
     num: 2,
     title: "Agent nghiên cứu & lên chiến lược",
     actor: "AGENT LÀM",
-    actorColor: "bg-emerald-500/20 text-emerald-300",
+    actorColor: "bg-emerald-500/20 text-emerald-400",
     body: "Agent tự động thực hiện song song:",
     icon: Search,
     bullets: [
@@ -34,7 +34,7 @@ const steps = [
     num: 3,
     title: "Tạo nội dung — đã tối ưu cho từng kênh",
     actor: "AGENT LÀM",
-    actorColor: "bg-emerald-500/20 text-emerald-300",
+    actorColor: "bg-emerald-500/20 text-emerald-400",
     body: "Tạo bài gốc chất lượng cao → tự động biến thể cho từng kênh. Facebook nhận bài dài storytelling. TikTok nhận hook 3 giây + script ngắn. LinkedIn nhận thought leadership.",
     icon: PenTool,
     note: "Không phải copy-paste rồi cắt ngắn. Mỗi kênh được tái cấu trúc hoàn toàn.",
@@ -43,7 +43,7 @@ const steps = [
     num: 4,
     title: "Tự đánh giá — tự sửa",
     actor: "AGENT LÀM",
-    actorColor: "bg-emerald-500/20 text-emerald-300",
+    actorColor: "bg-emerald-500/20 text-emerald-400",
     body: "Trước khi bạn thấy output, Agent đã tự chấm điểm 8 tiêu chí:",
     icon: ShieldCheck,
     criteria: ["Hook Strength", "Brand Voice", "Compliance", "Channel Fit", "Content Structure", "Engagement", "CTA Quality", "Readability"],
@@ -53,7 +53,7 @@ const steps = [
     num: 5,
     title: "Duyệt & đăng bài",
     actor: "TỰ ĐỘNG HOẶC BẠN DUYỆT",
-    actorColor: "bg-violet-500/20 text-violet-300",
+    actorColor: "bg-violet-500/20 text-violet-400",
     body: "Đạt chuẩn chất lượng + không vi phạm compliance → tự động xếp vào lịch đăng. Bạn có thể bật Smart Auto-Approve hoặc duyệt thủ công.",
     icon: Send,
     channels: ["Facebook", "Instagram", "TikTok", "LinkedIn", "X/Twitter", "Zalo OA", "Email", "YouTube", "Telegram", "Google Maps", "Website", "Blog"],
@@ -62,7 +62,7 @@ const steps = [
 
 export function WorkflowSection() {
   return (
-    <section id="workflow" className="py-16 lg:py-24 bg-[#09090b]">
+    <section id="workflow" className="py-16 lg:py-24 bg-background">
       <div className="container mx-auto px-4 max-w-3xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -71,14 +71,14 @@ export function WorkflowSection() {
           transition={{ duration: 0.4 }}
           className="text-center mb-14"
         >
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 mb-4">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 mb-4">
             CÁCH HOẠT ĐỘNG
           </span>
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
             5 bước — bạn chỉ làm{" "}
             <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">bước 1</span>
           </h2>
-          <p className="text-gray-400">Phần còn lại, Agent tự xử lý trong pipeline tự động.</p>
+          <p className="text-muted-foreground">Phần còn lại, Agent tự xử lý trong pipeline tự động.</p>
         </motion.div>
 
         <div className="space-y-0">
@@ -95,7 +95,7 @@ export function WorkflowSection() {
               >
                 {/* Timeline line */}
                 {idx < steps.length - 1 && (
-                  <div className="absolute left-[18px] top-10 bottom-0 w-px bg-white/10" />
+                  <div className="absolute left-[18px] top-10 bottom-0 w-px bg-border" />
                 )}
 
                 {/* Number circle */}
@@ -104,21 +104,21 @@ export function WorkflowSection() {
                 </div>
 
                 {/* Content */}
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="rounded-xl border border-border bg-muted/30 p-5">
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <Icon className="w-4 h-4 text-indigo-400" />
-                    <h3 className="text-lg font-semibold text-white">{step.title}</h3>
+                    <h3 className="text-lg font-semibold text-foreground">{step.title}</h3>
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${step.actorColor}`}>
                       {step.actor}
                     </span>
                   </div>
 
-                  <p className="text-sm text-gray-400 leading-relaxed">{step.body}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{step.body}</p>
 
                   {step.examples && (
                     <ul className="mt-3 space-y-1.5">
                       {step.examples.map((ex, i) => (
-                        <li key={i} className="text-sm text-gray-500 bg-white/[0.03] rounded-lg px-3 py-2 border border-white/5">
+                        <li key={i} className="text-sm text-muted-foreground bg-muted/30 rounded-lg px-3 py-2 border border-border/50">
                           "{ex}"
                         </li>
                       ))}
@@ -128,7 +128,7 @@ export function WorkflowSection() {
                   {step.bullets && (
                     <ul className="mt-3 space-y-1">
                       {step.bullets.map((b, i) => (
-                        <li key={i} className="text-sm text-gray-400 flex items-center gap-2">
+                        <li key={i} className="text-sm text-muted-foreground flex items-center gap-2">
                           <span className="w-1 h-1 rounded-full bg-indigo-400 shrink-0" />
                           {b}
                         </li>
@@ -139,7 +139,7 @@ export function WorkflowSection() {
                   {step.criteria && (
                     <div className="flex flex-wrap gap-1.5 mt-3">
                       {step.criteria.map((c) => (
-                        <span key={c} className="text-[11px] px-2 py-0.5 rounded-full border border-white/10 text-gray-400">
+                        <span key={c} className="text-[11px] px-2 py-0.5 rounded-full border border-border text-muted-foreground">
                           {c}
                         </span>
                       ))}
@@ -149,7 +149,7 @@ export function WorkflowSection() {
                   {step.channels && (
                     <div className="flex flex-wrap gap-1.5 mt-3">
                       {step.channels.map((c) => (
-                        <span key={c} className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                        <span key={c} className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                           {c}
                         </span>
                       ))}
@@ -157,7 +157,7 @@ export function WorkflowSection() {
                   )}
 
                   {step.note && (
-                    <p className="text-xs text-gray-600 mt-3 italic">{step.note}</p>
+                    <p className="text-xs text-muted-foreground/70 mt-3 italic">{step.note}</p>
                   )}
                 </div>
               </motion.div>
