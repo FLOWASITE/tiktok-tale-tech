@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { AIFunctionType, MODELS_BY_TYPE, getModelInfo, ModelInfo, isKieModel, isPoyoModel } from '@/hooks/useAIConfig';
+import { AIFunctionType, MODELS_BY_TYPE, getModelInfo, ModelInfo, isKieModel, isPoyoModel, isLovableAIModel } from '@/hooks/useAIConfig';
 import { Check, ChevronDown, Search, Sparkles, Zap, Star, Coins, Scale, Turtle, Clock } from 'lucide-react';
 
 interface InlineModelPickerProps {
@@ -26,6 +26,10 @@ interface PresetItem {
 
 const isGeminigenModel = (id: string) => id.startsWith('geminigen/');
 const isDashScopeModel = (id: string) => ['qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-vl-max', 'qwen-long'].includes(id);
+const isOpenRouterModel = (id: string) => {
+  const info = getModelInfo(id);
+  return info.provider === 'openrouter';
+};
 
 const TEXT_PRESETS: PresetItem[] = [
   { id: 'default', label: 'Mặc định', model: null, icon: <Sparkles className="h-3.5 w-3.5" />, description: 'Cấu hình hệ thống' },
@@ -79,13 +83,15 @@ interface ProviderGroup {
 
 function getProviderGroups(allModels: string[]): ProviderGroup[] {
   const groups: ProviderGroup[] = [];
-  const lovable = allModels.filter(id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id));
+  const openrouter = allModels.filter(isOpenRouterModel);
+  const lovable = allModels.filter(id => !isKieModel(id) && !isPoyoModel(id) && !isGeminigenModel(id) && !isDashScopeModel(id) && !isOpenRouterModel(id));
   const poyo = allModels.filter(isPoyoModel);
   const kie = allModels.filter(isKieModel);
   const geminigen = allModels.filter(isGeminigenModel);
   const dashscope = allModels.filter(isDashScopeModel);
 
   if (lovable.length) groups.push({ key: 'lovable', label: 'Lovable AI', emoji: '✨', dotColor: 'bg-blue-500', models: lovable });
+  if (openrouter.length) groups.push({ key: 'openrouter', label: 'OpenRouter', emoji: '🔀', dotColor: 'bg-purple-500', models: openrouter });
   if (poyo.length) groups.push({ key: 'poyo', label: 'PoYo.ai', emoji: '🐱', dotColor: 'bg-teal-500', models: poyo });
   if (kie.length) groups.push({ key: 'kie', label: 'KIE.ai', emoji: '🔮', dotColor: 'bg-violet-500', models: kie });
   if (geminigen.length) groups.push({ key: 'geminigen', label: 'GeminiGen.ai', emoji: '💎', dotColor: 'bg-emerald-500', models: geminigen });
