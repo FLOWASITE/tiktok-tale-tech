@@ -516,13 +516,6 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
                 </TabsContent>
               </div>
             </Tabs>
-                  {/* Current model display */}
-                  <div className="p-3 rounded-lg bg-muted/30 border space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <ProviderIndicator provider={currentModelInfo.provider} showLabel />
-                        <span className="font-medium text-sm truncate">{currentModelInfo.shortName}</span>
-                      </div>
                       {editingFunction.modelOverride && (
                         <Button
                           variant="ghost"
