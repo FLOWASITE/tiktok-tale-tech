@@ -1,4 +1,4 @@
-export type AIProviderType = 'gemini' | 'openai' | 'replicate' | 'custom' | 'openrouter' | 'kie' | 'poyo' | 'dashscope';
+export type AIProviderType = 'gemini' | 'openai' | 'replicate' | 'custom' | 'openrouter' | 'kie' | 'poyo' | 'dashscope' | 'geminigen';
 
 export interface AIProviderConfig {
   apiKey: string;
@@ -107,6 +107,14 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
     getKeyUrl: 'https://dashscope.console.aliyun.com/',
     models: ['qwen-plus', 'qwen-max', 'qwen-turbo', 'qwen-vl-max', 'qwen-long'],
     icon: '☁️',
+  },
+  {
+    id: 'geminigen',
+    name: 'GeminiGen.ai',
+    description: 'Nano Banana Pro (Gemini 3 Pro), Nano Banana 2 (Gemini 3.1 Flash), Imagen 4',
+    getKeyUrl: 'https://geminigen.ai/profile/integration/api-keys',
+    models: ['geminigen/nano-banana-pro', 'geminigen/nano-banana-2', 'geminigen/imagen-4'],
+    icon: '🌟',
   },
   {
     id: 'custom',

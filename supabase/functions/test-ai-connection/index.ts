@@ -45,6 +45,9 @@ Deno.serve(withPerf({ functionName: 'test-ai-connection' }, async (req) => {
       case 'poyo':
         testResult = await testPoyo(apiKey);
         break;
+      case 'geminigen':
+        testResult = await testGeminiGen(apiKey);
+        break;
       default:
         return new Response(
           JSON.stringify({ success: false, error: `Unknown provider: ${provider}` }),
@@ -257,5 +260,24 @@ async function testPoyo(apiKey: string) {
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     return { success: false, error: `Lỗi kết nối: ${errorMessage}` };
+}
+
+async function testGeminiGen(apiKey: string) {
+  try {
+    const response = await fetch('https://api.geminigen.ai/uapi/v1/histories?page=1&page_size=1', {
+      headers: {
+        'x-api-key': apiKey,
+      },
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      return { success: false, error: 'API key không hợp lệ' };
+    }
+
+    return { success: true, message: 'Kết nối thành công với GeminiGen.ai!' };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    return { success: false, error: `Lỗi kết nối: ${errorMessage}` };
   }
+}
 }
