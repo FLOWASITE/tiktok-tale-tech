@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Channel, ChannelImage } from '@/types/multichannel';
 import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
+import { IMAGE_GENERATION_TIMEOUT_MS } from '@/lib/imageGenerationConfig';
 import { toast } from 'sonner';
 
 export type ImageGenerationStatus = 'pending' | 'generating' | 'overlaying' | 'done' | 'error';
@@ -224,7 +225,7 @@ export function useAutoImageGeneration() {
               sizePercent: logoSizePercent || 15,
             } : undefined,
           },
-          timeoutMs: 120_000,
+          timeoutMs: IMAGE_GENERATION_TIMEOUT_MS,
         });
 
         clearTimeout(slowWarningTimer);

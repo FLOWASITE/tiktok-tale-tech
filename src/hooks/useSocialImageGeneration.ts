@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Channel } from '@/types/multichannel';
 import { invokeWithTimeout } from '@/lib/invokeEdgeFunctionWithTimeout';
+import { IMAGE_GENERATION_TIMEOUT_MS } from '@/lib/imageGenerationConfig';
 import { toast } from 'sonner';
 import { CHANNEL_IMAGE_CONFIG } from '@/config/channelImageConfig';
 
@@ -188,7 +189,7 @@ export function useSocialImageGeneration() {
           typographyStyle: effectiveImageContentType === 'with_text' ? typographyStyle : undefined,
           promptMode,
         },
-        timeoutMs: 120_000,
+        timeoutMs: IMAGE_GENERATION_TIMEOUT_MS,
       });
 
       if (error) {

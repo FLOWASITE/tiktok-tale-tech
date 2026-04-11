@@ -666,22 +666,16 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
         const errMsg = geminiGenErr instanceof Error ? geminiGenErr.message : String(geminiGenErr);
         console.error(`[generate-brand-image] GeminiGen.ai failed: ${errMsg}`);
 
-        if (errMsg.includes('GEMINIGEN_AUTH_ERROR') || errMsg.includes('GEMINIGEN_CREDITS_EXHAUSTED') || errMsg.includes('GEMINIGEN_RATE_LIMIT')) {
-          return new Response(
-            JSON.stringify({ success: false, error: errMsg, errorCode: 'CREDITS_EXHAUSTED' }),
-            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
+        const errorCode = errMsg.includes('GEMINIGEN_CREDITS_EXHAUSTED')
+          ? 'CREDITS_EXHAUSTED'
+          : errMsg.includes('GEMINIGEN_RATE_LIMIT')
+            ? 'RATE_LIMIT'
+            : 'UNKNOWN';
 
-        console.log('[generate-brand-image] GeminiGen failed, falling back to Lovable AI...');
-        const fallbackModel = 'google/gemini-2.5-flash-image';
-        const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, {
-          primary: fallbackModel,
-          fallback: 'google/gemini-3-pro-image-preview',
-        });
-        imageData = result.imageData;
-        modelUsed = `${result.model} (fallback from ${primaryModel})`;
-        totalAttempts = result.attempts;
+        return new Response(
+          JSON.stringify({ success: false, error: errMsg, errorCode, provider: 'geminigen', fallback: false }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
     } else if (isKieModel(primaryModel)) {
       const KIE_API_KEY = Deno.env.get('KIE_API_KEY');
