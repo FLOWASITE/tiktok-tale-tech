@@ -143,13 +143,22 @@ async function pollTask(uuid: string, apiKey: string): Promise<string> {
       console.log(`[geminigen] Attempt ${attempt + 1}/${maxAttempts}: status=${status}`);
 
       if (status === 2 || status === 'completed' || status === 'success') {
-        // Extract image URL
+        // Extract image URL - check all known response shapes
         const imageUrl = data?.generate_result || data?.data?.generate_result ||
                          data?.result_url || data?.data?.result_url ||
-                         data?.files?.[0]?.url;
+                         data?.output_url || data?.data?.output_url ||
+                         data?.image_url || data?.data?.image_url ||
+                         data?.output?.image_url || data?.output?.url ||
+                         data?.result?.url || data?.result?.image_url ||
+                         data?.files?.[0]?.url || data?.images?.[0]?.url ||
+                         data?.images?.[0];
 
         if (!imageUrl) {
-          console.error('[geminigen] Completed but no image URL:', JSON.stringify(data).slice(0, 300));
+          // Log ALL keys to discover correct field name
+          const allKeys = JSON.stringify(Object.keys(data));
+          const dataKeys = data?.data ? JSON.stringify(Object.keys(data.data)) : 'N/A';
+          console.error(`[geminigen] Completed but no image URL. Top keys: ${allKeys}, data keys: ${dataKeys}`);
+          console.error('[geminigen] Full response (500 chars):', JSON.stringify(data).slice(0, 500));
           throw new Error('GeminiGen generation succeeded but returned no image URL');
         }
 
