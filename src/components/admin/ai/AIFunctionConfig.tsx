@@ -214,18 +214,6 @@ export function AIFunctionConfigComponent({ organizationId }: AIFunctionConfigPr
     setIsDialogOpen(true);
   };
 
-  const getCurrentQuickPreset = (): 'default' | 'or_deepseek' | 'or_minimax' | 'fast' | 'quality' | 'image_poyo_nano' | 'image_gemini_flash' | 'image_flux' | 'image_gemini_pro' | 'custom' => {
-    if (!editingFunction?.modelOverride) return 'default';
-    if (editingFunction.modelOverride === QUICK_PRESETS.or_deepseek.model) return 'or_deepseek';
-    if (editingFunction.modelOverride === QUICK_PRESETS.or_minimax.model) return 'or_minimax';
-    if (editingFunction.modelOverride === QUICK_PRESETS.fast.model) return 'fast';
-    if (editingFunction.modelOverride === QUICK_PRESETS.quality.model) return 'quality';
-    if (editingFunction.modelOverride === IMAGE_QUICK_PRESETS.poyo_nano.model) return 'image_poyo_nano';
-    if (editingFunction.modelOverride === IMAGE_QUICK_PRESETS.gemini_flash.model) return 'image_gemini_flash';
-    if (editingFunction.modelOverride === IMAGE_QUICK_PRESETS.flux_kontext.model) return 'image_flux';
-    if (editingFunction.modelOverride === IMAGE_QUICK_PRESETS.gemini_pro.model) return 'image_gemini_pro';
-    return 'custom';
-  };
 
   const currentFunctionMeta = editingFunction?.functionName 
     ? AI_FUNCTIONS.find(f => f.name === editingFunction.functionName) 
