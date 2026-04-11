@@ -9,6 +9,7 @@ import { estimateTokenCount, estimateConversationTokens } from "../_shared/token
 import { sanitizeInput, logSecurityEvent } from "../_shared/prompt-guard.ts";
 import { createLogger, saveMetrics, AIMetrics } from "../_shared/logger.ts";
 import { estimateCost } from "../_shared/cost-estimator.ts";
+import { validateCheckpoint, completeCheckpoint } from "../_shared/graph/checkpoint.ts";
 
 // Pipeline modules (Sprint 7A)
 import { validateRequest } from "../_shared/pipeline/request-validator.ts";
@@ -34,9 +35,9 @@ Deno.serve(withPerf({ functionName: 'chat-topics', slowThresholdMs: 30000 }, asy
   const requestStartTime = performance.now();
 
   try {
-    const { messages, brandTemplateId, contentGoal, organizationId, userId, forceWebSearch }: ChatRequest = await req.json();
+    const { messages, brandTemplateId, contentGoal, organizationId, userId, forceWebSearch, continuationToken }: ChatRequest & { continuationToken?: string } = await req.json();
 
-    if (userId) logger.info('Request received', { userId, organizationId, brandTemplateId });
+    if (userId) logger.info('Request received', { userId, organizationId, brandTemplateId, continuationToken: !!continuationToken });
 
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
@@ -59,6 +60,103 @@ Deno.serve(withPerf({ functionName: 'chat-topics', slowThresholdMs: 30000 }, asy
           userAccessToken = rawToken;
         }
       } catch { /* fallback to body userId */ }
+    }
+
+    // ============ CONTINUATION RESUME PATH ============
+    if (continuationToken) {
+      logger.info('Continuation token received, validating...', { continuationToken });
+      const validation = await validateCheckpoint(supabase, continuationToken);
+
+      if (validation.valid && validation.checkpoint) {
+        logger.info('Checkpoint valid, resuming from node', { 
+          nodeName: validation.checkpoint.nodeName,
+          sessionId: validation.checkpoint.sessionId,
+        });
+
+        const checkpointState = validation.checkpoint.graphState;
+        const completedNodes = new Set(
+          checkpointState.nodeResults
+            ?.filter((nr: any) => nr.success)
+            .map((nr: any) => nr.nodeName) || []
+        );
+
+        const nodeContext: NodeExecutionContext = {
+          supabase,
+          userId: resolvedUserId || undefined,
+          organizationId: organizationId || undefined,
+          brandTemplateId: brandTemplateId || undefined,
+          userAccessToken: userAccessToken || undefined,
+        };
+
+        const nodeRegistry = createNodeRegistry(nodeContext);
+
+        const { readable, writable } = new TransformStream();
+        const writer = writable.getWriter();
+        const encoder = new TextEncoder();
+        const sseWriter = createSSEWriter(writer);
+
+        (async () => {
+          try {
+            const graphResult = await runOrchestrator(
+              checkpointState.userMessage,
+              nodeRegistry,
+              {
+                organizationId: organizationId || undefined,
+                maxExecutionMs: 55000,
+                conversationHistory: checkpointState.messages?.map((m: any) => ({ role: m.role, content: m.content })),
+                onEvent: (event) => {
+                  sseWriter.write(event).catch(() => {});
+                },
+                supabaseClient: supabase,
+                completedNodes,
+                resumedState: checkpointState,
+              }
+            );
+
+            // Stream final content
+            const finalContent = graphResult.state.generatedContent
+              || graphResult.state.nodeResults
+                  .filter(r => r.success && r.content)
+                  .map(r => r.content)
+                  .join('\n\n')
+              || 'Xin lỗi, không thể xử lý yêu cầu này.';
+
+            const contentStr = typeof finalContent === 'string' ? finalContent : 'Đã hoàn tất.';
+            const chunks = contentStr.match(/.{1,100}/g) || [];
+            for (const chunk of chunks) {
+              await sseWriter.write({ type: 'content_chunk', data: { chunk } });
+            }
+            await writer.write(encoder.encode('data: [DONE]\n\n'));
+
+            // Mark checkpoint completed
+            completeCheckpoint(supabase, continuationToken).catch(() => {});
+
+            logger.info('Continuation resume complete', {
+              executedNodes: graphResult.executedNodes,
+              skippedNodes: graphResult.skippedNodes,
+            });
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            logger.error('Continuation resume error', err instanceof Error ? err : undefined);
+            const errorEvent = `data: ${JSON.stringify({ type: 'error', data: { message: errorMessage } })}\n\n`;
+            await writer.write(encoder.encode(errorEvent));
+          } finally {
+            await writer.close();
+          }
+        })();
+
+        return new Response(readable, {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'text/event-stream; charset=utf-8',
+            'Cache-Control': 'no-cache, no-transform',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no',
+          },
+        });
+      } else {
+        logger.warn('Checkpoint invalid, falling through to fresh run', { reason: validation.reason });
+      }
     }
 
     // ============ STEP 1: VALIDATE REQUEST ============

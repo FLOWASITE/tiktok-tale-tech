@@ -67,6 +67,8 @@ export interface GraphExecutionOptions {
   abortSignal?: AbortSignal;
   /** Continuation threshold - when elapsed > this, save checkpoint and return partial result */
   continuationThresholdMs?: number;
+  /** Nodes already completed from a previous checkpoint (skip during execution) */
+  preCompletedNodes?: Set<string>;
 }
 
 export interface GraphExecutionResult {
@@ -221,9 +223,15 @@ export async function executeGraph(
   // Build adjacency & in-degree for topological execution
   const { adjacency, inDegree, allNodes } = buildDAG(graph);
 
-  // Track completed nodes
-  const completed = new Set<string>();
+  // Track completed nodes — pre-populate from checkpoint if resuming
+  const completed = new Set<string>(options.preCompletedNodes || []);
   const failed = new Set<string>();
+
+  // If resuming, mark pre-completed nodes in executedNodes
+  if (completed.size > 0) {
+    for (const n of completed) executedNodes.push(n);
+    console.log(`[GraphEngine] Resuming with ${completed.size} pre-completed nodes: ${[...completed].join(', ')}`);
+  }
 
   // BFS-style execution: process nodes whose dependencies are all met
   while (completed.size + failed.size + skippedNodes.length < allNodes.size) {
@@ -565,6 +573,10 @@ export interface RunOrchestratorOptions {
   conversationHistory?: Array<{ role: string; content: string }>;
   /** Supabase client for logging orchestrator decisions */
   supabaseClient?: any;
+  /** Nodes already completed (for continuation resume) */
+  completedNodes?: Set<string>;
+  /** Restored state from checkpoint (for continuation resume) */
+  resumedState?: GraphState;
 }
 
 // ---- Post-plan validation: inject research when no explicit topic ----
