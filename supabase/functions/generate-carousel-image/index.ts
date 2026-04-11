@@ -4,6 +4,7 @@ import { estimateCost, estimateImageCost, isImageModel } from "../_shared/cost-e
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared/kie-image-generator.ts";
 import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_shared/poyo-image-generator.ts";
+import { generateImageViaGeminiGen, isGeminiGenModel, mapAspectRatioToGeminiGen } from "../_shared/geminigen-image-generator.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
 
 const corsHeaders = {
@@ -476,11 +477,24 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Resolve organizationId from carousel for proper config resolution
+    let organizationId: string | undefined;
+    try {
+      const { data: carouselData } = await supabase
+        .from('carousels')
+        .select('organization_id')
+        .eq('id', carouselId)
+        .maybeSingle();
+      organizationId = carouselData?.organization_id || undefined;
+    } catch (e) {
+      console.warn('[generate-carousel-image] Could not resolve organizationId from carousel:', e);
+    }
+
     const resolvedPresetKey = visualPreset || carouselStyle || 'minimalist';
-    console.log(`[generate-carousel-image] Resolved preset key: '${resolvedPresetKey}' (visualPreset='${visualPreset}', carouselStyle='${carouselStyle}')`);
+    console.log(`[generate-carousel-image] Resolved preset key: '${resolvedPresetKey}' (visualPreset='${visualPreset}', carouselStyle='${carouselStyle}', orgId=${organizationId || 'none'})`);
 
     const [aiConfig, dbPreset] = await Promise.all([
-      getAIConfig('generate-carousel-image'),
+      getAIConfig('generate-carousel-image', organizationId),
       fetchStylePreset(supabase, resolvedPresetKey),
     ]);
 
@@ -599,6 +613,43 @@ Deno.serve(withPerf({ functionName: 'generate-carousel-image', slowThresholdMs: 
 
         // Fallback to Lovable AI
         console.log('[generate-carousel-image] KIE failed, falling back to Lovable AI...');
+        imageModel = 'google/gemini-3-pro-image-preview';
+        modelUsed = `${imageModel} (fallback from ${requestedModel})`;
+        usedFallback = true;
+        fallbackFromModel = requestedModel;
+      }
+    }
+    // --- GeminiGen routing ---
+    else if (isGeminiGenModel(requestedModel)) {
+      const GEMINIGEN_API_KEY = Deno.env.get('GEMINIGEN_API_KEY');
+      if (!GEMINIGEN_API_KEY) {
+        return new Response(
+          JSON.stringify({ error: 'GEMINIGEN_API_KEY chưa được cấu hình. Vui lòng thêm trong project secrets.', errorCode: 'MISSING_API_KEY' }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`[generate-carousel-image] Routing to GeminiGen.ai: ${requestedModel}`);
+      try {
+        externalImageUrl = await generateImageViaGeminiGen({
+          prompt: backgroundPrompt,
+          model: requestedModel,
+          aspectRatio: mapAspectRatioToGeminiGen(platform === 'tiktok' ? '9:16' : '1:1'),
+        }, GEMINIGEN_API_KEY);
+        modelUsed = requestedModel;
+      } catch (geminiGenErr) {
+        const errMsg = geminiGenErr instanceof Error ? geminiGenErr.message : String(geminiGenErr);
+        console.error(`[generate-carousel-image] GeminiGen.ai failed: ${errMsg}`);
+
+        if (errMsg.includes('GEMINIGEN_AUTH_ERROR') || errMsg.includes('GEMINIGEN_CREDITS_EXHAUSTED') || errMsg.includes('GEMINIGEN_RATE_LIMIT')) {
+          return new Response(
+            JSON.stringify({ error: errMsg, errorCode: 'PROVIDER_ERROR' }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Fallback to Lovable AI
+        console.log('[generate-carousel-image] GeminiGen failed, falling back to Lovable AI...');
         imageModel = 'google/gemini-3-pro-image-preview';
         modelUsed = `${imageModel} (fallback from ${requestedModel})`;
         usedFallback = true;

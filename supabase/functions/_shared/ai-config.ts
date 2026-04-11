@@ -218,6 +218,29 @@ const DEFAULT_CONFIGS: Record<string, Omit<AIFunctionConfig, 'function_name'>> =
   },
 };
 
+/**
+ * Map function name to its group type for group-level overrides
+ */
+function getFunctionTypeGroup(functionName: string): string | null {
+  const textFunctions = [
+    'generate-multichannel', 'generate-script', 'generate-carousel', 'chat-topics',
+    'critique-content', 'refine-content', 'analyze-script', 'generate-hooks',
+    'topic-ai', 'generate-brand-voice', 'generate-brand-guideline',
+    'expand-multichannel-channels', 'generate-ad-copy',
+    'intent-classifier', 'research-agent', 'strategy-agent', 'content-agent',
+    'reviewer-agent', 'learning-agent',
+  ];
+  const imageFunctions = [
+    'generate-brand-image', 'generate-carousel-image', 'edit-image-background', 'generate-kie-image',
+  ];
+  const searchFunctions = ['topic-ai']; // topic-ai can also be search, but primarily text
+
+  if (imageFunctions.includes(functionName)) return 'image';
+  if (textFunctions.includes(functionName)) return 'text';
+  // search group currently empty in practice; extend as needed
+  return null;
+}
+
 // In-memory cache with TTL to reduce DB calls
 const configCache: Map<string, { config: AIFunctionConfig; fetchedAt: number }> = new Map();
 const CACHE_TTL_MS = 60000; // 1 minute cache for faster config updates from Admin Panel
@@ -259,7 +282,7 @@ export async function getAIConfig(
   }
 
   try {
-    // Optimized query with minimal select
+    // === Priority 1: Individual function override ===
     let query = supabase
       .from('ai_function_configs')
       .select('model_override, temperature, max_tokens, cache_ttl_hours, custom_system_prompt, is_enabled, priority_level, force_provider')
@@ -283,17 +306,60 @@ export async function getAIConfig(
     const dbConfig = data?.[0] as any;
     const defaultConfig = DEFAULT_CONFIGS[functionName] || DEFAULT_CONFIGS['chat-topics'];
 
+    // === Priority 2: Group type override (if no individual model override) ===
+    let groupModelOverride: string | null = null;
+    let groupForceProvider: string | null = null;
+    let groupTemperature: number | null = null;
+    if (!dbConfig?.model_override) {
+      const functionType = getFunctionTypeGroup(functionName);
+      if (functionType) {
+        try {
+          let groupQuery = supabase
+            .from('ai_function_group_configs')
+            .select('model_override, force_provider, temperature')
+            .eq('function_type', functionType);
+
+          if (organizationId) {
+            groupQuery = groupQuery.or(`organization_id.eq.${organizationId},organization_id.is.null`);
+          } else {
+            groupQuery = groupQuery.is('organization_id', null);
+          }
+
+          const { data: groupData } = await groupQuery
+            .order('organization_id', { nullsFirst: false })
+            .limit(1);
+
+          if (groupData?.[0]) {
+            const gd = groupData[0] as any;
+            groupModelOverride = gd.model_override || null;
+            groupForceProvider = gd.force_provider || null;
+            groupTemperature = gd.temperature;
+            if (groupModelOverride) {
+              console.log(`[ai-config] ${functionName}: using group override model=${groupModelOverride} (type=${functionType})`);
+            }
+          }
+        } catch (groupErr) {
+          console.warn(`[ai-config] Group config query failed for ${functionType}:`, groupErr);
+        }
+      }
+    }
+
+    const resolvedModel = dbConfig?.model_override || groupModelOverride || defaultConfig.model;
+    const resolvedSource = dbConfig?.model_override ? 'individual' : (groupModelOverride ? 'group' : 'default');
+
     const config: AIFunctionConfig = {
       function_name: functionName,
-      model: dbConfig?.model_override || defaultConfig.model,
-      temperature: dbConfig?.temperature ?? defaultConfig.temperature,
+      model: resolvedModel,
+      temperature: dbConfig?.temperature ?? groupTemperature ?? defaultConfig.temperature,
       max_tokens: dbConfig?.max_tokens ?? defaultConfig.max_tokens,
       cache_ttl_seconds: (dbConfig?.cache_ttl_hours ?? Math.floor(defaultConfig.cache_ttl_seconds / 3600)) * 3600,
       custom_system_prompt: dbConfig?.custom_system_prompt || undefined,
       is_enabled: dbConfig?.is_enabled ?? defaultConfig.is_enabled,
       priority_level: dbConfig?.priority_level || defaultConfig.priority_level,
-      force_provider: dbConfig?.force_provider || null,
+      force_provider: dbConfig?.force_provider || groupForceProvider || null,
     };
+
+    console.log(`[ai-config] ${functionName}: resolved model=${resolvedModel} source=${resolvedSource}`);
 
     // Update cache
     configCache.set(cacheKey, { config, fetchedAt: now });
