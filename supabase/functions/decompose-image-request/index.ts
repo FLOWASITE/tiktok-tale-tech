@@ -133,10 +133,8 @@ Deno.serve(withPerf({ functionName: 'decompose-image-request', slowThresholdMs: 
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
-        status: 500,
+    // Resolve organizationId from context if available
+    const organizationId = context?.organizationId || undefined;
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
