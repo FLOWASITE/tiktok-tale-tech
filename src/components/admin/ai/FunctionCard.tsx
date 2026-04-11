@@ -1,12 +1,11 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { AIFunctionType, AIFunctionTag, AIFunctionConfig, ModelInfo } from '@/hooks/useAIConfig';
 import { ProviderIndicator } from './ModelCard';
 import { FunctionTagBadges } from './FunctionTagBadges';
 import { InlineModelPicker } from './InlineModelPicker';
-import { Settings, Check, X, Clock } from 'lucide-react';
+import { Settings, Check, X, Clock, RotateCcw } from 'lucide-react';
 
 export interface AIFunction {
   name: string;
@@ -45,14 +44,20 @@ const CATEGORY_BORDER: Record<string, string> = {
   utility: 'border-l-gray-500',
 };
 
+const COST_LABEL: Record<string, { text: string; className: string }> = {
+  low: { text: '$', className: 'text-green-600' },
+  medium: { text: '$$', className: 'text-yellow-600' },
+  high: { text: '$$$', className: 'text-red-500' },
+};
+
 export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', onEdit, onQuickModelChange, compact }: FunctionCardProps) {
   const typeBadge = TYPE_BADGES[fn.type];
   const borderClass = CATEGORY_BORDER[fn.category] || 'border-l-muted';
-  const displayModel = config?.modelOverride || fn.currentModel;
   const hasOverride = !!config?.modelOverride;
   const isDisabled = config && !config.isEnabled;
   const temperature = config?.temperature ?? 0.7;
   const cacheHours = config?.cacheTtlHours ?? 24;
+  const costInfo = COST_LABEL[modelInfo.cost] || COST_LABEL.medium;
 
   if (compact) {
     return (
@@ -97,43 +102,37 @@ export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', o
           </Button>
         </div>
 
-        {/* Model Info Row */}
-        <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-1.5 cursor-help">
-                  <ProviderIndicator provider={modelInfo.provider} showLabel />
-                  <span className="text-xs font-medium truncate max-w-[120px]">{modelInfo.shortName}</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-xs">
-                <p className="font-medium">{modelInfo.shortName}</p>
-                <p className="text-xs text-muted-foreground">{modelInfo.description}</p>
-                <p className="text-[10px] font-mono mt-1">{displayModel}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+        {/* Model Info + Picker Row */}
+        <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50 gap-2">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <ProviderIndicator provider={modelInfo.provider} showLabel />
+            <span className="text-xs font-medium truncate max-w-[100px]">{modelInfo.shortName}</span>
+            <span className={cn("text-[10px] font-bold flex-shrink-0", costInfo.className)}>{costInfo.text}</span>
+          </div>
 
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-            <span>T: {temperature}</span>
-            <span>•</span>
-            <span><Clock className="h-2.5 w-2.5 inline mr-0.5" />{cacheHours}h</span>
+          <div className="flex items-center gap-1">
+            {hasOverride && onQuickModelChange && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => onQuickModelChange(null)}
+                title="Reset to default"
+              >
+                <RotateCcw className="h-3 w-3 text-muted-foreground" />
+              </Button>
+            )}
+            {onQuickModelChange && (
+              <InlineModelPicker
+                functionType={fn.type}
+                selectedModel={config?.modelOverride || null}
+                defaultModel={fn.currentModel}
+                onSelect={onQuickModelChange}
+                compact
+              />
+            )}
           </div>
         </div>
-
-        {/* Inline Model Picker */}
-        {onQuickModelChange && (
-          <div className="mt-2">
-            <InlineModelPicker
-              functionType={fn.type}
-              selectedModel={config?.modelOverride || null}
-              defaultModel={fn.currentModel}
-              onSelect={onQuickModelChange}
-              compact
-            />
-          </div>
-        )}
       </div>
     );
   }
@@ -150,7 +149,7 @@ export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', o
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             <h4 className="font-semibold text-sm">{fn.name}</h4>
             <Badge variant="outline" className={cn("text-[10px] py-0 px-1.5", typeBadge.className)}>
               {typeBadge.label}
@@ -186,17 +185,29 @@ export function FunctionCard({ fn, config, modelInfo, modelSource = 'default', o
         </div>
       </div>
 
-      {/* Model Section */}
-      <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-border/50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ProviderIndicator provider={modelInfo.provider} showLabel />
-            <div>
-              <p className="text-sm font-medium">{modelInfo.shortName}</p>
-              <p className="text-xs text-muted-foreground">{modelInfo.description}</p>
-            </div>
+      {/* Model Section - compact inline */}
+      <div className="mt-3 flex items-center justify-between gap-3 p-2.5 rounded-lg bg-muted/30 border border-border/50">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <ProviderIndicator provider={modelInfo.provider} showLabel />
+          <div className="min-w-0">
+            <p className="text-sm font-medium truncate">{modelInfo.shortName}</p>
+            <p className="text-[10px] text-muted-foreground truncate">{modelInfo.description}</p>
           </div>
-          
+          <span className={cn("text-xs font-bold flex-shrink-0 ml-1", costInfo.className)}>{costInfo.text}</span>
+        </div>
+        
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {hasOverride && onQuickModelChange && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-[10px] px-2"
+              onClick={() => onQuickModelChange(null)}
+            >
+              <RotateCcw className="h-3 w-3 mr-1" />
+              Reset
+            </Button>
+          )}
           {onQuickModelChange && (
             <InlineModelPicker
               functionType={fn.type}
