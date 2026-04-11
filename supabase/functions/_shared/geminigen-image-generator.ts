@@ -52,7 +52,7 @@ async function submitTask(params: GeminiGenGenerateParams, apiKey: string): Prom
   const ratio = mapAspectRatio(params.aspectRatio);
 
   const formData = new FormData();
-  formData.append('model_id', modelName);
+  formData.append('model', modelName);
   formData.append('prompt', params.prompt);
   formData.append('aspect_ratio', ratio);
   formData.append('resolution', params.resolution || '2K');

@@ -94,24 +94,32 @@ Examples:
         };
 
         let response = await callAI(PRIMARY_MODEL);
+        let bodyConsumed = false;
 
         // Fallback chain on 402 (credits exhausted)
         if (response.status === 402) {
           console.warn(`[optimize-social-text] Primary model credits exhausted, trying fallbacks...`);
           await response.text(); // consume body
+          bodyConsumed = true;
 
           for (const fallbackModel of FALLBACK_MODELS) {
             console.log(`[optimize-social-text] Trying fallback: ${fallbackModel}`);
             response = await callAI(fallbackModel);
+            bodyConsumed = false;
             if (response.status !== 402) break;
             console.warn(`[optimize-social-text] Fallback ${fallbackModel} also returned 402`);
             await response.text(); // consume body
+            bodyConsumed = true;
           }
         }
 
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('[optimize-social-text] AI API error:', response.status, errorText);
+          if (!bodyConsumed) {
+            const errorText = await response.text();
+            console.error('[optimize-social-text] AI API error:', response.status, errorText);
+          } else {
+            console.error('[optimize-social-text] AI API error:', response.status, '(body already consumed)');
+          }
           if (response.status === 402) {
             throw new Error('AI credits exhausted');
           }

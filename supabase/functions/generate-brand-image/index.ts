@@ -179,7 +179,9 @@ async function generateImageWithRetry(
           
           // Rate limit or payment errors - throw immediately, no retry
           if (response.status === 429 || response.status === 402) {
-            throw new Error(`API_ERROR:${response.status}`);
+            const err = new Error(`API_ERROR:${response.status}`);
+            (err as any).statusCode = response.status;
+            throw err;
           }
           
           lastError = new Error(`Model ${model} failed: ${response.status}`);
