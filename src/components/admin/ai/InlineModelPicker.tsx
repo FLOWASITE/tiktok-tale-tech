@@ -54,9 +54,9 @@ const PROVIDER_DOTS: Record<string, { color: string; label: string; emoji: strin
 
 // Speed/Cost indicators
 function SpeedIcon({ speed }: { speed: string }) {
-  if (speed === 'fast') return <Zap className="h-3.5 w-3.5 text-green-500" title="Nhanh" />;
-  if (speed === 'slow') return <Turtle className="h-3.5 w-3.5 text-orange-500" title="Chậm" />;
-  return <Clock className="h-3.5 w-3.5 text-yellow-500" title="Trung bình" />;
+  if (speed === 'fast') return <span title="Nhanh"><Zap className="h-3.5 w-3.5 text-green-500" /></span>;
+  if (speed === 'slow') return <span title="Chậm"><Turtle className="h-3.5 w-3.5 text-orange-500" /></span>;
+  return <span title="Trung bình"><Clock className="h-3.5 w-3.5 text-yellow-500" /></span>;
 }
 
 function CostBadge({ cost }: { cost: string }) {
