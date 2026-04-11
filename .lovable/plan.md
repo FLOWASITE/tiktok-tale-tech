@@ -1,67 +1,88 @@
 
 
-# Plan Caching cho LLM Planning trong Orchestrator
+# Fast-Path Decision Logging & Analysis
 
 ## Vấn đề
-Khi fast-path không match (confidence < 0.7), `planWithLLM()` gọi Gemini-3-Pro-Preview mỗi lần. Với `temperature: 0.1`, các message tương tự (cùng intent, cùng cấu trúc) sẽ ra cùng plan. 10 user gửi "viết bài về skincare mùa hè" = 10 LLM calls ra cùng kết quả.
+Fast-path regex dùng confidence cứng (0.7-0.95) nhưng tiếng Việt context-dependent. "Viết bài về Facebook" có thể là `generate` hoặc `research`. Hiện chỉ có `console.log` — không thể phân tích sau để tune pattern.
 
 ## Giải pháp
-Thêm **in-memory plan cache** (LRU) vào `orchestrator.ts`, cache theo hash của các signal quyết định plan — không cache theo nội dung message cụ thể.
+Log mọi fast-path decision vào DB (dùng bảng `agent_pipeline_logs` có sẵn), kèm đủ metadata để sau này so sánh với user behavior (sửa lại, hỏi lại, abandon).
 
-## Cache Key Design
+## Thay đổi
 
-```text
-planCache:{intentBucket}:{hasTopic}:{hasChannel}:{hasImage}:{msgLengthBucket}
+### 1) `supabase/functions/_shared/graph/orchestrator.ts`
+
+Mở rộng `matchIntent` trả thêm metadata:
+```typescript
+interface FastPathResult {
+  intent: string;
+  confidence: number;
+  matchedPatterns: string[];   // regex patterns đã match
+  allScores: Record<string, number>; // score của mọi intent
+  ambiguityFlag: boolean;      // true nếu 2+ intent cùng score
+}
 ```
 
-- `intentBucket`: kết quả `matchIntent()` dù confidence < 0.7 (vẫn có intent gợi ý)
-- `hasTopic`: `hasExplicitTopic()` → true/false  
-- `hasChannel`: regex detect platform mentions (FB, IG, TT...)
-- `hasImage`: detect image intent keywords
-- `msgLengthBucket`: short(<30) / medium(30-100) / long(>100)
+Thêm hàm `buildFastPathLogEntry(message, result)` tạo structured JSON cho `output_summary`.
 
-Ví dụ: `planCache:generate:true:true:false:medium` → cached plan
+Trong `orchestrateWorkflow`, sau khi fast-path thành công, gọi fire-and-forget log:
+```typescript
+if (fastPlan) {
+  logFastPathDecision(state, matchResult, supabaseClient); // non-blocking
+  return fastPlan;
+}
+```
 
-## Thay đổi kỹ thuật
+Cũng log khi fast-path MISS (confidence < 0.7) để biết LLM planning đã handle đúng chưa.
 
-### File: `supabase/functions/_shared/graph/orchestrator.ts`
+### 2) `supabase/functions/_shared/graph/orchestrator.ts` — `logFastPathDecision`
 
-1. Import `memoryCache` từ `../cache/memory-cache.ts` (đã có sẵn)
+Hàm mới, fire-and-forget insert vào `agent_pipeline_logs`:
+```typescript
+async function logFastPathDecision(state, matchResult, supabase) {
+  try {
+    await supabase.from('agent_pipeline_logs').insert({
+      pipeline_id: state.metadata?.pipelineId, // nullable nếu chat-only
+      agent_name: 'orchestrator_fastpath',
+      action: matchResult ? 'fast_path_hit' : 'fast_path_miss',
+      input_summary: state.userMessage.slice(0, 300),
+      output_summary: JSON.stringify({
+        intent: matchResult?.intent,
+        confidence: matchResult?.confidence,
+        allScores: matchResult?.allScores,
+        ambiguityFlag: matchResult?.ambiguityFlag,
+        matchedPatterns: matchResult?.matchedPatterns,
+        templateChosen: templateKey,
+        messageLength: state.userMessage.length,
+      }),
+      tokens_used: 0,
+      cost_usd: 0,
+      duration_ms: 0,
+    });
+  } catch (_) { /* fire and forget */ }
+}
+```
 
-2. Thêm hàm `buildPlanCacheKey(message)`:
-   - Chạy `matchIntent()` lấy intent (dù confidence thấp)
-   - Check `hasExplicitTopic()`, detect channel/image/length bucket
-   - Return cache key string
+### 3) Xử lý pipeline_id nullable
 
-3. Wrap `planWithLLM()` trong `orchestrateWorkflow()`:
-   ```
-   // Before calling planWithLLM:
-   const cacheKey = buildPlanCacheKey(state.userMessage);
-   const cached = memoryCache.get<GraphPlan>(cacheKey);
-   if (cached) {
-     log("[Orchestrator] Plan cache HIT: " + cacheKey);
-     return { ...cached, fastPath: false, fromPlanCache: true };
-   }
-   
-   // After planWithLLM returns:
-   memoryCache.set(cacheKey, plan, 600); // TTL 10 minutes
-   ```
+`agent_pipeline_logs.pipeline_id` hiện `NOT NULL` với FK constraint. Chat flow (graph engine) không luôn có pipeline_id. Hai lựa chọn:
 
-4. Thêm field `fromPlanCache?: boolean` vào `GraphPlan` interface trong `graph-state.ts`
+- **Option A**: Tạo migration `ALTER TABLE agent_pipeline_logs ALTER COLUMN pipeline_id DROP NOT NULL` — đơn giản, cho phép log orchestrator decisions không gắn pipeline
+- **Option B**: Tạo bảng riêng `orchestrator_decision_logs` — tách biệt hơn nhưng thêm bảng
 
-5. Log cache hit/miss để monitor hiệu quả
+→ Chọn **Option A** vì bảng hiện có đã đủ cột, chỉ cần relax constraint.
 
-### File: `supabase/functions/_shared/graph/graph-state.ts`
-- Thêm `fromPlanCache?: boolean` vào `GraphPlan` interface
+### 4) Thêm ambiguity detection vào `matchIntent`
 
-## Tại sao không dùng Redis/Semantic cache?
-- Plan cache cần **ultra-low latency** (< 1ms) — memory cache phù hợp nhất
-- Plan output rất nhỏ (< 1KB) — không tốn memory
-- TTL ngắn (10 phút) đủ để cover burst traffic cùng intent
-- Edge function instance thường serve nhiều request trong 10 phút → cache có hiệu quả ngay trong 1 instance
+Khi 2+ intent có score bằng nhau hoặc chênh ≤ 1, set `ambiguityFlag: true`. Đây là signal quan trọng nhất để phát hiện false positive sau này.
 
-## Kết quả kỳ vọng
-- Giảm 60-80% LLM planning calls trong burst traffic
-- Latency giảm ~1-2s cho mỗi plan cache hit (bỏ qua LLM roundtrip)
-- Zero risk: cache miss = fallback về LLM như hiện tại
+## Files thay đổi
+- `supabase/functions/_shared/graph/orchestrator.ts` — mở rộng matchIntent, thêm logFastPathDecision
+- Migration mới — `ALTER COLUMN pipeline_id DROP NOT NULL`
+
+## Kết quả
+- Mọi fast-path decision được log kèm confidence, all scores, ambiguity flag
+- Query đơn giản để tìm false positive: `WHERE ambiguityFlag = true AND confidence < 0.85`
+- So sánh với user behavior: join với conversation messages để xem user có hỏi lại/sửa không
+- Dữ liệu để tune regex patterns theo thời gian
 
