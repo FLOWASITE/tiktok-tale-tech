@@ -29,12 +29,10 @@ const fadeUp = {
 export function HeroSection() {
   return (
     <section className="relative min-h-screen bg-[#09090b] overflow-hidden pt-24 pb-16 lg:pt-32 lg:pb-24">
-      {/* Subtle grid bg */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
 
       <div className="container mx-auto px-4 relative z-10">
         <div className="grid lg:grid-cols-[55%_45%] gap-12 lg:gap-16 items-center">
-
           {/* Left — Text */}
           <div className="space-y-6">
             <motion.div custom={0} variants={fadeUp} initial="hidden" animate="visible">
@@ -65,7 +63,7 @@ export function HeroSection() {
               animate="visible"
               className="text-lg sm:text-xl text-gray-400 max-w-lg leading-relaxed"
             >
-              Flowa tự nghiên cứu, lên chiến dịch, tạo content đa kênh, tự đánh giá chất lượng và đăng bài — hoàn toàn tự động.
+              Flowa tự nghiên cứu thị trường, lên chiến dịch cả tháng, tạo nội dung cho 12 kênh, tự chấm điểm chất lượng, và đăng bài — không cần bạn ngồi viết từng bài.
             </motion.p>
 
             <motion.div
@@ -79,7 +77,7 @@ export function HeroSection() {
                 href={getAuthUrl("register")}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 text-white text-sm font-semibold hover:shadow-lg hover:shadow-indigo-500/25 transition-all"
               >
-                Bắt đầu miễn phí
+                Dùng thử miễn phí →
                 <ArrowRight className="w-4 h-4" />
               </a>
               <a
@@ -118,7 +116,7 @@ export function HeroSection() {
                   M
                 </div>
                 <div className="bg-white/[0.06] rounded-lg rounded-tl-none px-4 py-2.5 text-sm text-gray-300 leading-relaxed">
-                  "Tạo campaign 2 tuần cho dòng sản phẩm mới, ưu tiên Facebook + Instagram + TikTok, tone trẻ trung năng động"
+                  "Lên content plan tháng 8, tập trung skincare mùa hè, 20 bài cho FB + IG + TikTok"
                 </div>
               </div>
             </div>
@@ -159,11 +157,7 @@ export function HeroSection() {
                   );
                 })}
               </div>
-
-              {/* Spacer for tooltip */}
               <div className="h-5" />
-
-              {/* Pulse animation bar */}
               <div className="relative h-1 bg-white/5 rounded-full overflow-hidden">
                 <motion.div
                   className="absolute left-0 top-0 h-full w-1/3 bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full"
@@ -197,6 +191,11 @@ export function HeroSection() {
                 </motion.div>
               ))}
             </div>
+
+            {/* Pipeline timing note */}
+            <p className="text-center text-xs text-gray-600">
+              Toàn bộ pipeline chạy trong ~10 phút, không cần can thiệp
+            </p>
           </motion.div>
         </div>
       </div>
