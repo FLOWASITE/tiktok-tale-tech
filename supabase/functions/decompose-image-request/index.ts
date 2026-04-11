@@ -358,7 +358,7 @@ Secondary color: ${secondaryColor}`;
         { role: "user", content: userPrompt },
       ],
       tools: [toolSpec],
-      tool_choice: { type: "function", function: { name: "decompose_image_request" } },
+      toolChoice: { type: "function", function: { name: "decompose_image_request" } },
     });
 
     const usedModel = aiResult.model || 'unknown';
