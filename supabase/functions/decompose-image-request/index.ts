@@ -135,9 +135,6 @@ Deno.serve(withPerf({ functionName: 'decompose-image-request', slowThresholdMs: 
 
     // Resolve organizationId from context if available
     const organizationId = context?.organizationId || undefined;
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     // Build strategic context section if provided
     const contentRole = context?.contentRole || '';
