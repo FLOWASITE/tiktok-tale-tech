@@ -577,6 +577,8 @@ export interface RunOrchestratorOptions {
   completedNodes?: Set<string>;
   /** Restored state from checkpoint (for continuation resume) */
   resumedState?: GraphState;
+  /** Brand template ID for semantic topic validation */
+  brandTemplateId?: string;
 }
 
 // ---- Post-plan validation: inject research when no explicit topic ----
