@@ -45,6 +45,9 @@ Deno.serve(withPerf({ functionName: 'test-ai-connection' }, async (req) => {
       case 'poyo':
         testResult = await testPoyo(apiKey);
         break;
+      case 'geminigen':
+        testResult = await testGeminiGen(apiKey);
+        break;
       default:
         return new Response(
           JSON.stringify({ success: false, error: `Unknown provider: ${provider}` }),

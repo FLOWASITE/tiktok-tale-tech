@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getAIConfig } from "../_shared/ai-config.ts";
 import { generateImageViaKie, isKieModel, mapAspectRatioToKie } from "../_shared/kie-image-generator.ts";
 import { generateImageViaPoyo, isPoyoModel, mapAspectRatioToPoyo } from "../_shared/poyo-image-generator.ts";
+import { generateImageViaGeminiGen, isGeminiGenModel, mapAspectRatioToGeminiGen } from "../_shared/geminigen-image-generator.ts";
 import { generateTraceId, saveMetrics, estimateTokens, resolveUserId } from "../_shared/logger.ts";
 import { estimateImageCost } from "../_shared/cost-estimator.ts";
 import { withPerf, getServiceClient } from "../_shared/middleware/perf.ts";
@@ -642,6 +643,44 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
         modelUsed = `${result.model} (fallback from ${primaryModel})`;
         totalAttempts = result.attempts;
       }
+    } else if (isGeminiGenModel(primaryModel)) {
+      const GEMINIGEN_API_KEY = Deno.env.get('GEMINIGEN_API_KEY');
+      if (!GEMINIGEN_API_KEY) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'GEMINIGEN_API_KEY not configured. Please add it in project secrets.' }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`[generate-brand-image] Routing to GeminiGen.ai: ${primaryModel}`);
+      try {
+        imageUrlFromPoyo = await generateImageViaGeminiGen({
+          prompt: enhancedPrompt,
+          model: primaryModel,
+          aspectRatio: mapAspectRatioToGeminiGen(finalAspectRatio),
+        }, GEMINIGEN_API_KEY);
+        modelUsed = primaryModel;
+      } catch (geminiGenErr) {
+        const errMsg = geminiGenErr instanceof Error ? geminiGenErr.message : String(geminiGenErr);
+        console.error(`[generate-brand-image] GeminiGen.ai failed: ${errMsg}`);
+
+        if (errMsg.includes('GEMINIGEN_AUTH_ERROR') || errMsg.includes('GEMINIGEN_CREDITS_EXHAUSTED') || errMsg.includes('GEMINIGEN_RATE_LIMIT')) {
+          return new Response(
+            JSON.stringify({ success: false, error: errMsg }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log('[generate-brand-image] GeminiGen failed, falling back to Lovable AI...');
+        const fallbackModel = 'google/gemini-2.5-flash-image';
+        const result = await generateImageWithRetry(enhancedPrompt, LOVABLE_API_KEY, {
+          primary: fallbackModel,
+          fallback: 'google/gemini-3-pro-image-preview',
+        });
+        imageData = result.imageData;
+        modelUsed = `${result.model} (fallback from ${primaryModel})`;
+        totalAttempts = result.attempts;
+      }
     } else if (isKieModel(primaryModel)) {
       const KIE_API_KEY = Deno.env.get('KIE_API_KEY');
       if (!KIE_API_KEY) {
@@ -719,8 +758,9 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
     let imageUrl: string;
 
     if (imageUrlFromPoyo) {
+      // Also covers GeminiGen (reuses imageUrlFromPoyo variable)
       imageUrl = imageUrlFromPoyo;
-      console.log(`[generate-brand-image] Using PoYo image URL: ${imageUrl.slice(0, 80)}...`);
+      console.log(`[generate-brand-image] Using external image URL: ${imageUrl.slice(0, 80)}...`);
     } else if (imageUrlFromKie) {
       imageUrl = imageUrlFromKie;
       console.log(`[generate-brand-image] Using KIE image URL: ${imageUrl.slice(0, 80)}...`);
