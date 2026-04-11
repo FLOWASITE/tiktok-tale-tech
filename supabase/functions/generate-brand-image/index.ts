@@ -630,8 +630,8 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
 
         if (poyoErrMsg.includes('POYO_AUTH_ERROR') || poyoErrMsg.includes('POYO_CREDITS_EXHAUSTED') || poyoErrMsg.includes('POYO_RATE_LIMIT')) {
           return new Response(
-            JSON.stringify({ success: false, error: poyoErrMsg }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({ success: false, error: poyoErrMsg, errorCode: 'CREDITS_EXHAUSTED' }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
@@ -668,8 +668,8 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
 
         if (errMsg.includes('GEMINIGEN_AUTH_ERROR') || errMsg.includes('GEMINIGEN_CREDITS_EXHAUSTED') || errMsg.includes('GEMINIGEN_RATE_LIMIT')) {
           return new Response(
-            JSON.stringify({ success: false, error: errMsg }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({ success: false, error: errMsg, errorCode: 'CREDITS_EXHAUSTED' }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
@@ -707,8 +707,8 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
 
         if (kieErrMsg.includes('KIE_AUTH_ERROR') || kieErrMsg.includes('KIE_CREDITS_EXHAUSTED') || kieErrMsg.includes('KIE_RATE_LIMIT')) {
           return new Response(
-            JSON.stringify({ success: false, error: kieErrMsg }),
-            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({ success: false, error: kieErrMsg, errorCode: 'CREDITS_EXHAUSTED' }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
@@ -739,14 +739,14 @@ Deno.serve(withPerf({ functionName: 'generate-brand-image', slowThresholdMs: 300
           const statusCode = parseInt(err.message.split(':')[1]);
           if (statusCode === 429) {
             return new Response(
-              JSON.stringify({ success: false, error: "Rate limit exceeded. Please try again later." }),
-              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              JSON.stringify({ success: false, error: "Rate limit exceeded. Please try again later.", errorCode: "RATE_LIMIT" }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
           if (statusCode === 402) {
             return new Response(
-              JSON.stringify({ success: false, error: "Payment required. Please add credits to your Lovable AI workspace." }),
-              { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              JSON.stringify({ success: false, error: "Đã hết credits AI. Vui lòng nạp thêm để tiếp tục.", errorCode: "CREDITS_EXHAUSTED" }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
         }
