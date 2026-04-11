@@ -69,6 +69,12 @@ const PROVIDER_STYLES: Record<string, {
     icon: <Sparkles className="h-3 w-3" />,
     label: 'DashScope',
   },
+  geminigen: {
+    border: 'border-l-emerald-500',
+    badge: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
+    icon: <Sparkles className="h-3 w-3" />,
+    label: 'GeminiGen.ai',
+  },
 };
 
 export function ModelCard({ modelId, info, isSelected, isDefault, onClick, compact, pricing, contextLength }: ModelCardProps) {
