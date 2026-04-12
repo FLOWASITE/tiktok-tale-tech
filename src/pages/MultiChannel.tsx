@@ -23,6 +23,7 @@ import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/type
 import { toast } from 'sonner';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { useGEOContentScores } from '@/hooks/useGEOContentScore';
+import { useSocialConnections } from '@/hooks/useSocialConnections';
 
 const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
 
@@ -61,6 +62,7 @@ export default function MultiChannel() {
   } = useMultiChannelContents();
   
   const { templates: brandTemplates } = useBrandTemplates();
+
   
   // Build brand logo lookup map
   const brandLogoMap = useMemo(() => {
@@ -133,7 +135,23 @@ export default function MultiChannel() {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [campaignFilter, setCampaignFilter] = useState<string | undefined>();
 
-  // Pagination state
+  // Social connections for channel view
+  const activeBrandTemplateId = useMemo(() => {
+    if (brandFilter !== 'all') return brandFilter;
+    const brandCounts: Record<string, number> = {};
+    for (const c of contents) {
+      if (c.brand_template_id) {
+        brandCounts[c.brand_template_id] = (brandCounts[c.brand_template_id] || 0) + 1;
+      }
+    }
+    const sorted = Object.entries(brandCounts).sort((a, b) => b[1] - a[1]);
+    return sorted[0]?.[0];
+  }, [brandFilter, contents]);
+
+  const { connections: socialConnections } = useSocialConnections({
+    brandTemplateId: activeBrandTemplateId,
+  });
+
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
 
@@ -454,6 +472,7 @@ export default function MultiChannel() {
             brandLogoMap={brandLogoMap}
             geoScoresMap={geoScoresMap}
             onScheduleComplete={() => toast.success('Đã lên lịch thành công')}
+            socialConnections={socialConnections}
           />
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
