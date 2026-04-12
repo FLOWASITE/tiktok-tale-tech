@@ -1,43 +1,93 @@
 
 
-# Hoàn thiện AI Agent Flow — Nâng cấp UI & Nội dung
+# Tích hợp Blog với hệ thống Flowa — Dynamic Blog Publishing
 
-## Phân tích hiện tại
-Agent flow đã có nội dung đầy đủ 5 bước nhưng UI còn đơn giản so với Quick Create flow (có hình ảnh, content types grid). Cần nâng cấp visual để tương xứng.
+## Tổng quan
+
+Hiện tại blog đang dùng các component React tĩnh (BlogPostFlowa.tsx, BlogPostMultiChannel.tsx...). Để Flowa có thể tự động đăng bài blog, cần chuyển sang mô hình **dynamic blog** lưu trữ trong database, kết nối với pipeline content của Flowa.
+
+## Kiến trúc
+
+```text
+Flowa AI Agent Pipeline
+  → generate-multichannel (website_content + website_seo_data)
+  → publish-website / publish-blog (mới)
+  → blog_posts table (mới)
+  → Landing Blog UI (đọc từ DB)
+```
 
 ## Thay đổi
 
-### 1. Step 4 — Tách 8 tiêu chí thành grid visual
-Hiện tại 8 criteria bị gộp 2 dòng. Sẽ tách thành **grid 2x4** với icon + label cho mỗi tiêu chí, kèm **thanh progress bar** hiển thị score 85/100.
+### 1. Tạo bảng `blog_posts` (Migration)
 
-### 2. Step 5 — Dùng Channel Icons thực tế
-Thay text badges bằng **ChannelIcon component** (đã có sẵn) để hiển thị logo thật của Facebook, TikTok, Instagram... với màu sắc đặc trưng.
+Lưu trữ bài viết blog với đầy đủ metadata:
 
-### 3. Step 1 — Nâng cấp examples thành chat bubbles
-Thay khung quote đơn giản bằng **chat bubble style** (bo tròn góc, có avatar bot nhỏ) giống giao diện chat thật, nhấn mạnh "gõ tự nhiên".
+| Column | Type | Mô tả |
+|--------|------|-------|
+| id | uuid | PK |
+| slug | text | URL slug, unique |
+| title | text | Tiêu đề bài viết |
+| excerpt | text | Mô tả ngắn |
+| content | text | Nội dung HTML/Markdown |
+| cover_image | text | URL ảnh bìa |
+| category | text | Danh mục (Product, Strategy, AI...) |
+| tags | text[] | Tags |
+| author_name | text | Tên tác giả |
+| author_avatar | text | Avatar tác giả |
+| read_time | text | Thời gian đọc |
+| status | text | draft / published / archived |
+| seo_title | text | SEO meta title |
+| seo_description | text | SEO meta description |
+| organization_id | uuid | FK → organizations |
+| content_id | uuid | FK → multi_channel_contents (liên kết với content Flowa) |
+| published_at | timestamptz | Ngày xuất bản |
+| created_at / updated_at | timestamptz | Timestamps |
 
-### 4. Step 2 & 3 — Thêm icon cho mỗi bullet
-Mỗi bullet point sẽ có **Lucide icon** phù hợp thay vì chấm tròn đơn giản (TrendingUp cho xu hướng, Users cho đối thủ, Brain cho recall...).
+RLS: Bài `published` → public read. Insert/Update → org member.
 
-### 5. i18n — Tách 8 tiêu chí Step 4 thành mảng riêng
-Thêm key `criteria` array cho step 4 với 8 items riêng biệt (thay vì gộp trong bullets).
+### 2. Seed dữ liệu từ blog tĩnh hiện tại
 
-## Technical details
+Chuyển 4 bài blog hiện tại thành records trong `blog_posts` table để giữ nguyên nội dung.
 
-**WorkflowSection.tsx**:
-- Thêm `hasCriteria` flag cho step 4 config
-- Render `CriteriaGrid` component: grid 2x4 với icon + label + optional score bar
-- Import `ChannelIcon` component cho step 5, render icon thật thay text badge
-- Update example cards với chat bubble styling (rounded-2xl, bg-primary/5, small avatar)
-- Map bullet icons cho step 2 & 3 (TrendingUp, Eye, Brain, Route, BookOpen, Timer, Award)
+### 3. Cập nhật Blog List (`Blog.tsx`)
 
-**i18n (vi/en/th)**:
-- Thêm `criteria` array cho step4 (8 items riêng)
-- Giữ nguyên `bullets` step 4 cho `note` về logic scoring
+- Fetch danh sách bài từ `blog_posts` table thay vì hardcode
+- Query: `select * from blog_posts where status = 'published' order by published_at desc`
+- Giữ nguyên UI hiện tại (featured post, grid, pagination)
+
+### 4. Tạo Dynamic Blog Post Renderer
+
+- Thay thế switch/case routing bằng fetch content từ DB theo slug
+- Render HTML/Markdown content dynamically
+- Giữ nguyên các component hỗ trợ: ReadingProgress, SocialShare, BlogReactions, BlogComments, RelatedPosts, TOC
+- Parse headings từ content để tự động tạo Table of Contents
+- Fallback: Nếu slug khớp với 4 bài tĩnh cũ → vẫn render component tĩnh (backward compatibility)
+
+### 5. Edge Function `publish-blog`
+
+Tạo function mới hoặc mở rộng `publish-website` để hỗ trợ đăng bài trực tiếp vào `blog_posts` table:
+
+- Input: title, content, excerpt, slug, cover_image, category, tags, seo_data, content_id
+- Logic: Insert/upsert vào `blog_posts` với status `draft` hoặc `published`
+- Tích hợp vào `channel-publisher` gateway (thêm action `blog`)
+
+### 6. Cập nhật Channel Publisher
+
+Thêm `blog: 'publish-blog'` vào `PLATFORM_FUNCTION_MAP` trong `channel-publisher/index.ts`.
 
 ## Files thay đổi
-- `src/landing/components/WorkflowSection.tsx`
-- `src/i18n/locales/vi.json`
-- `src/i18n/locales/en.json`
-- `src/i18n/locales/th.json`
+
+- **Migration**: Tạo bảng `blog_posts` + RLS policies
+- **New**: `supabase/functions/publish-blog/index.ts`
+- **Edit**: `supabase/functions/channel-publisher/index.ts` — thêm route blog
+- **Edit**: `src/landing/pages/Blog.tsx` — fetch từ DB
+- **Edit**: `src/landing/pages/BlogPost.tsx` — dynamic renderer + fallback static
+- **New**: `src/landing/components/DynamicBlogPost.tsx` — component render bài viết dynamic
+- **Edit**: `src/components/blog/index.ts` — cập nhật blogPostsData source
+
+## Lưu ý
+
+- 4 bài blog tĩnh hiện tại vẫn hoạt động qua fallback
+- Bài mới từ Flowa sẽ tự động hiển thị trên blog sau khi publish
+- SEO metadata được quản lý trong DB, SEOHead component render dynamic
 
