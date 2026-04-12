@@ -1155,7 +1155,8 @@ export default function ContentCalendar() {
         onUpdateTitleTopic={updateTitleTopic}
         onUpdateChannelStatus={updateChannelStatus}
         onExpandChannels={handleExpandChannels}
-        onContentUpdated={(updated) => setSelectedContent(updated)}
+        onContentUpdated={(updated) => setSelectedContentId(updated.id)}
+        onPublishSuccess={refetchContents}
         expandingChannels={expandingChannels}
       />
 
