@@ -176,7 +176,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
   const [websiteDialogOpen, setWebsiteDialogOpen] = useState(false);
   const [websiteForm, setWebsiteForm] = useState({
     websiteUrl: '',
-    integrationType: 'wordpress' as 'wordpress' | 'custom_api' | 'webhook' | 'manual',
+    integrationType: 'wordpress' as 'wordpress' | 'blogger' | 'wix' | 'shopify_blog' | 'custom_api' | 'webhook' | 'manual',
     username: '',
     appPassword: '',
     apiKey: '',
@@ -263,7 +263,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
       };
       if (websiteForm.integrationType === 'wordpress' && websiteForm.username && websiteForm.appPassword) {
         body.wordpressConfig = { username: websiteForm.username, applicationPassword: websiteForm.appPassword };
-      } else if (websiteForm.apiKey) {
+      } else if (['blogger', 'wix', 'shopify_blog', 'custom_api'].includes(websiteForm.integrationType) && websiteForm.apiKey) {
         body.apiKey = websiteForm.apiKey;
       }
       const { data, error } = await supabase.functions.invoke('connect-website', { body });
@@ -680,9 +680,12 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                 id="integrationType"
                 className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 value={websiteForm.integrationType}
-                onChange={(e) => setWebsiteForm(prev => ({ ...prev, integrationType: e.target.value as 'wordpress' | 'custom_api' | 'webhook' | 'manual' }))}
+                onChange={(e) => setWebsiteForm(prev => ({ ...prev, integrationType: e.target.value as typeof websiteForm.integrationType }))}
               >
                 <option value="wordpress">WordPress (REST API)</option>
+                <option value="blogger">Blogger (Google)</option>
+                <option value="wix">Wix Blog</option>
+                <option value="shopify_blog">Shopify Blog</option>
                 <option value="custom_api">Custom API</option>
                 <option value="webhook">Webhook</option>
                 <option value="manual">Thủ công</option>
@@ -728,6 +731,72 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
               </>
             )}
 
+            {websiteForm.integrationType === 'blogger' && (
+              <div className="space-y-2">
+                <Label htmlFor="bloggerApiKey">Google API Key</Label>
+                <div className="relative">
+                  <Input
+                    id="bloggerApiKey"
+                    type={showSecrets.apiKey ? 'text' : 'password'}
+                    placeholder="AIzaSy..."
+                    value={websiteForm.apiKey}
+                    onChange={(e) => setWebsiteForm(prev => ({ ...prev, apiKey: e.target.value }))}
+                    className="pr-10"
+                  />
+                  <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0" onClick={() => toggleSecret('apiKey')}>
+                    {showSecrets.apiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Tạo tại Google Cloud Console → APIs & Services → Credentials. Bật Blogger API v3.
+                </p>
+              </div>
+            )}
+
+            {websiteForm.integrationType === 'wix' && (
+              <div className="space-y-2">
+                <Label htmlFor="wixApiKey">Wix API Key</Label>
+                <div className="relative">
+                  <Input
+                    id="wixApiKey"
+                    type={showSecrets.apiKey ? 'text' : 'password'}
+                    placeholder="Nhập Wix API Key..."
+                    value={websiteForm.apiKey}
+                    onChange={(e) => setWebsiteForm(prev => ({ ...prev, apiKey: e.target.value }))}
+                    className="pr-10"
+                  />
+                  <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0" onClick={() => toggleSecret('apiKey')}>
+                    {showSecrets.apiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Tạo tại Wix Dashboard → Settings → API Keys
+                </p>
+              </div>
+            )}
+
+            {websiteForm.integrationType === 'shopify_blog' && (
+              <div className="space-y-2">
+                <Label htmlFor="shopifyToken">Admin API Access Token</Label>
+                <div className="relative">
+                  <Input
+                    id="shopifyToken"
+                    type={showSecrets.apiKey ? 'text' : 'password'}
+                    placeholder="shpat_..."
+                    value={websiteForm.apiKey}
+                    onChange={(e) => setWebsiteForm(prev => ({ ...prev, apiKey: e.target.value }))}
+                    className="pr-10"
+                  />
+                  <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0" onClick={() => toggleSecret('apiKey')}>
+                    {showSecrets.apiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Tạo tại Shopify Admin → Settings → Apps → Develop apps → Admin API access token. URL dạng: mystore.myshopify.com
+                </p>
+              </div>
+            )}
+
             {websiteForm.integrationType === 'custom_api' && (
               <div className="space-y-2">
                 <Label htmlFor="apiKey">API Key</Label>
@@ -740,13 +809,7 @@ export function BrandViewConnectionsTab({ template }: BrandViewConnectionsTabPro
                     onChange={(e) => setWebsiteForm(prev => ({ ...prev, apiKey: e.target.value }))}
                     className="pr-10"
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                    onClick={() => toggleSecret('apiKey')}
-                  >
+                  <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0" onClick={() => toggleSecret('apiKey')}>
                     {showSecrets.apiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </Button>
                 </div>

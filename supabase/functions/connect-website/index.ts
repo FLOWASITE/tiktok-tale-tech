@@ -15,7 +15,7 @@ interface ConnectWebsiteRequest {
   apiEndpoint?: string;
   apiKey?: string;
   webhookUrl?: string;
-  integrationType: 'wordpress' | 'custom_api' | 'webhook' | 'manual';
+  integrationType: 'wordpress' | 'blogger' | 'wix' | 'shopify_blog' | 'custom_api' | 'webhook' | 'manual';
   wordpressConfig?: {
     username: string;
     applicationPassword: string;
@@ -78,27 +78,57 @@ Deno.serve(withPerf({ functionName: 'connect-website' }, async (req) => {
 
     console.log(`Connecting website: ${websiteUrl}, type: ${integrationType}`);
 
-    // Validate WordPress config if provided
+    // Validate platform connection
     if (integrationType === 'wordpress' && wordpressConfig) {
-      // Test WordPress REST API connection
       const wpApiUrl = `${websiteUrl.replace(/\/$/, '')}/wp-json/wp/v2/posts?per_page=1`;
       const authString = btoa(`${wordpressConfig.username}:${wordpressConfig.applicationPassword}`);
-      
       try {
-        const testResponse = await fetch(wpApiUrl, {
-          headers: {
-            'Authorization': `Basic ${authString}`,
-          },
-        });
-
+        const testResponse = await fetch(wpApiUrl, { headers: { 'Authorization': `Basic ${authString}` } });
         if (!testResponse.ok) {
           const errorText = await testResponse.text();
           throw new Error(`WordPress API test failed: ${testResponse.status} - ${errorText}`);
         }
-
         console.log('WordPress API test successful');
       } catch (fetchError: any) {
         throw new Error(`Could not connect to WordPress: ${fetchError.message}`);
+      }
+    } else if (integrationType === 'blogger' && apiKey) {
+      try {
+        const bloggerUrl = `https://www.googleapis.com/blogger/v3/blogs/byurl?url=${encodeURIComponent(websiteUrl)}&key=${apiKey}`;
+        const testResponse = await fetch(bloggerUrl);
+        if (!testResponse.ok) {
+          const errorText = await testResponse.text();
+          throw new Error(`Blogger API test failed: ${testResponse.status} - ${errorText}`);
+        }
+        const blogData = await testResponse.json();
+        console.log('Blogger API test successful, blog ID:', blogData.id);
+      } catch (fetchError: any) {
+        throw new Error(`Could not connect to Blogger: ${fetchError.message}`);
+      }
+    } else if (integrationType === 'wix' && apiKey) {
+      try {
+        const wixUrl = `https://www.wixapis.com/blog/v3/posts?paging.limit=1`;
+        const testResponse = await fetch(wixUrl, { headers: { 'Authorization': apiKey, 'wix-site-id': new URL(websiteUrl).hostname } });
+        if (!testResponse.ok && testResponse.status !== 403) {
+          const errorText = await testResponse.text();
+          throw new Error(`Wix API test failed: ${testResponse.status} - ${errorText}`);
+        }
+        console.log('Wix API test successful');
+      } catch (fetchError: any) {
+        throw new Error(`Could not connect to Wix: ${fetchError.message}`);
+      }
+    } else if (integrationType === 'shopify_blog' && apiKey) {
+      try {
+        const storeUrl = websiteUrl.replace(/\/$/, '').replace(/^https?:\/\//, '');
+        const shopifyUrl = `https://${storeUrl}/admin/api/2024-01/blogs.json`;
+        const testResponse = await fetch(shopifyUrl, { headers: { 'X-Shopify-Access-Token': apiKey } });
+        if (!testResponse.ok) {
+          const errorText = await testResponse.text();
+          throw new Error(`Shopify API test failed: ${testResponse.status} - ${errorText}`);
+        }
+        console.log('Shopify Blog API test successful');
+      } catch (fetchError: any) {
+        throw new Error(`Could not connect to Shopify: ${fetchError.message}`);
       }
     }
 
