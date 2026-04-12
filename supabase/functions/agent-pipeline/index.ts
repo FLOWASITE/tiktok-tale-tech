@@ -1440,12 +1440,28 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
 
         const campaignSlug = slugify(pipeline.content_title || meta.goal_name || 'campaign');
 
-        for (const channel of targetChannels) {
+        // ─── Backlink Strategy: publish website/blog FIRST, then inject URL into social posts ───
+        const websiteChannels = targetChannels.filter((ch: string) => ch === 'website');
+        const socialChannels = targetChannels.filter((ch: string) => ch !== 'website');
+        const orderedChannels = [...websiteChannels, ...socialChannels];
+
+        let blogBacklinkUrl: string | null = null;
+
+        for (const channel of orderedChannels) {
           const scheduleId = scheduleIds[channel] || null;
           try {
             // Apply UTM to channel content text
-            const rawText = channelTexts[channel] || '';
+            let rawText = channelTexts[channel] || '';
             const utmSource = UTM_SOURCE_MAP[channel] || channel;
+
+            // ─── Inject blog backlink into social channel content ───
+            if (blogBacklinkUrl && channel !== 'website') {
+              // Append backlink before UTM processing so UTM params get added to it too
+              if (rawText && !rawText.includes(blogBacklinkUrl)) {
+                rawText = `${rawText}\n\n📖 Đọc thêm: ${blogBacklinkUrl}`;
+              }
+            }
+
             const enrichedText = rawText ? appendUtmToUrls(rawText, { source: utmSource, campaign: campaignSlug }) : '';
 
             const pubPayload: Record<string, any> = {
@@ -1461,10 +1477,27 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
             if (scheduleId) {
               pubPayload.scheduleId = scheduleId;
             }
+            // Facebook: pass blog URL as linkUrl for rich link preview
+            if (channel === 'facebook' && blogBacklinkUrl) {
+              pubPayload.linkUrl = blogBacklinkUrl;
+            }
 
             const pubResult = await callFunction(supabaseUrl, supabaseKey, "channel-publisher", pubPayload);
             publishResults[channel] = { success: true, ...pubResult };
             successCount++;
+
+            // ─── Capture blog URL after successful website publish ───
+            if (channel === 'website' && pubResult) {
+              const postUrl = pubResult.postUrl || pubResult.data?.postUrl;
+              if (postUrl) {
+                // Check if blog post is public to determine full URL
+                const isPublic = pubResult.is_public || pubResult.data?.is_public;
+                blogBacklinkUrl = isPublic
+                  ? `https://flowa.vn${postUrl}`
+                  : `https://app.flowa.one${postUrl}`;
+                console.log(`[publish] Captured blog backlink URL: ${blogBacklinkUrl}`);
+              }
+            }
 
             // Update schedule status to published
             if (scheduleId) {
@@ -1493,7 +1526,7 @@ Trả về JSON: { "pain_points": <number>, "desires": <number>, "communication_
             }
           }
           // Stagger requests
-          if (targetChannels.length > 1) await new Promise(r => setTimeout(r, 2000));
+          if (orderedChannels.length > 1) await new Promise(r => setTimeout(r, 2000));
         }
       }
 
