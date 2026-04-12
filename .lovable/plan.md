@@ -1,38 +1,21 @@
 
 
-# Nâng cấp Bullet List chuyên nghiệp cho Blog
+# Fix lỗi BOOT_ERROR của facebook-oauth-callback
 
-## Hiện tại
-- Unordered list: chấm tròn đơn giản (circle dot) màu primary
-- Ordered list: số + dấu chấm, không có visual nổi bật
-- Không hỗ trợ nested list (danh sách lồng nhau)
-- Thiếu icon-style bullets, thiếu hover/transition
+## Nguyên nhân
 
-## Thay đổi
+Edge function `facebook-oauth-callback` bị lỗi khởi động do **2 vấn đề**:
 
-### 1. Unordered list — Gradient bullet + nested support
-- Bullet chính: gradient circle (primary → accent) với subtle shadow
-- Nested level 2: dash line (—) nhỏ hơn, indent thêm
-- Nested level 3: dot nhỏ outline-only
-- Thêm hover effect nhẹ (text sáng hơn khi hover)
-- Tăng padding-left cho bullet rõ ràng hơn
+1. **Dòng 2 và 3 trùng lặp**: import `decryptGCM` / `encryptGCM` từ `crypto.ts` bị khai báo 2 lần, gây lỗi `Identifier 'decryptGCM' has already been declared`.
+2. **Biến `supabaseUrl` chưa khai báo**: Dòng 128 sử dụng `supabaseUrl` nhưng không có dòng nào định nghĩa nó.
 
-### 2. Ordered list — Numbered badge style
-- Số thứ tự trong circle badge nhỏ (background primary/10, text primary)
-- Font-weight bold cho số
-- Nested ordered list: dùng lowercase letter (a, b, c)
+## Sửa
 
-### 3. Checklist / task list support (GFM)
-- `- [x]` hiển thị checkbox checked với icon ✓ màu primary
-- `- [ ]` hiển thị checkbox unchecked với border muted
-- Style tương tự Notion/Linear task list
-
-### 4. Spacing & animation
-- Thêm `transition-colors` cho hover trên từng `li`
-- Tăng `space-y` nhẹ giữa các items
+- Xóa dòng 3 (import trùng lặp)
+- Thêm khai báo `const supabaseUrl = Deno.env.get('SUPABASE_URL')!;` trước khi sử dụng
+- Redeploy edge function
 
 ## File thay đổi
 
-- **Edit**: `src/index.css` — Nâng cấp toàn bộ `.blog-prose ul`, `.blog-prose ol`, thêm nested list styles, checklist styles
-- **Edit**: `src/landing/components/DynamicBlogPost.tsx` — Thêm custom `li` renderer trong ReactMarkdown components để hỗ trợ GFM task list checkbox
+- **Edit**: `supabase/functions/facebook-oauth-callback/index.ts` — Xóa dòng import trùng, thêm khai báo `supabaseUrl`
 
