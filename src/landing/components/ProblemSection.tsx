@@ -39,18 +39,30 @@ const PuzzleIcon = () => (
   </svg>
 );
 
-/* ─── Count-up hook ─── */
+/* ─── Count-up hook with overshoot ─── */
 function useCountUp(target: number, inView: boolean, duration = 1200, delay = 200) {
   const [value, setValue] = useState(0);
   useEffect(() => {
     if (!inView) return;
     const timeout = setTimeout(() => {
       const start = performance.now();
+      const overshoot = Math.ceil(target * 0.06);
+      const totalDuration = duration + 300;
       const step = (now: number) => {
-        const progress = Math.min((now - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-        setValue(Math.round(eased * target));
-        if (progress < 1) requestAnimationFrame(step);
+        const elapsed = now - start;
+        if (elapsed < duration) {
+          const progress = elapsed / duration;
+          const eased = 1 - Math.pow(1 - progress, 3);
+          setValue(Math.round(eased * (target + overshoot)));
+        } else if (elapsed < totalDuration) {
+          const settleProgress = (elapsed - duration) / 300;
+          const settleEased = settleProgress * settleProgress;
+          setValue(Math.round((target + overshoot) - overshoot * settleEased));
+        } else {
+          setValue(target);
+          return;
+        }
+        requestAnimationFrame(step);
       };
       requestAnimationFrame(step);
     }, delay);
@@ -113,61 +125,149 @@ const fadeUp = (delay: number) => ({
   transition: { duration: 0.6, delay, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] },
 });
 
+/* ─── Floating particles ─── */
+function FloatingDots() {
+  const dots = [
+    { x: "12%", y: "18%", size: 4, dur: 12, delay: 0 },
+    { x: "88%", y: "25%", size: 3, dur: 15, delay: 2 },
+    { x: "75%", y: "72%", size: 5, dur: 10, delay: 1 },
+    { x: "20%", y: "80%", size: 3, dur: 14, delay: 3 },
+    { x: "50%", y: "45%", size: 4, dur: 11, delay: 4 },
+  ];
+  return (
+    <>
+      {dots.map((d, i) => (
+        <motion.div
+          key={i}
+          className="absolute rounded-full pointer-events-none"
+          style={{
+            width: d.size,
+            height: d.size,
+            left: d.x,
+            top: d.y,
+            background: "rgba(248,113,113,0.15)",
+          }}
+          animate={{
+            y: [0, -20, 0, 15, 0],
+            opacity: [0.2, 0.5, 0.3, 0.5, 0.2],
+          }}
+          transition={{
+            duration: d.dur,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: d.delay,
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
 /* ─── Card component ─── */
 function ProblemCard({ card, index }: { card: typeof cards[0]; index: number }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
   const count = useCountUp(card.statValue, inView);
+  const cardNumber = String(index + 1).padStart(2, "0");
 
   return (
     <motion.div
       ref={ref}
       initial={{ opacity: 0, y: 24 }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.6, delay: index * 0.1, ease: [0.4, 0, 0.2, 1] }}
-      className="relative overflow-hidden rounded-[20px] border border-red-100/60 bg-red-50/30 p-8 sm:p-9 transition-all duration-350 hover:-translate-y-1 hover:shadow-lg hover:shadow-red-100/30 hover:border-red-200/60 group"
+      transition={{ duration: 0.6, delay: index * 0.15, ease: [0.4, 0, 0.2, 1] }}
+      className="relative overflow-hidden rounded-[20px] border border-red-100/60 bg-red-50/20 backdrop-blur-sm p-8 sm:p-9 transition-all duration-350 hover:-translate-y-1 group"
+      style={{
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6), 0 1px 3px rgba(0,0,0,0.04)",
+      }}
+      whileHover={{
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6), 0 12px 40px rgba(248,113,113,0.08), 0 4px 12px rgba(0,0,0,0.06)",
+        borderColor: "rgba(248,113,113,0.25)",
+      }}
     >
       {/* Ambient glow */}
-      <div
-        className="absolute -top-10 -right-10 w-40 h-40 rounded-full pointer-events-none"
+      <motion.div
+        className="absolute -top-10 -right-10 w-44 h-44 rounded-full pointer-events-none"
         style={{
-          background: "radial-gradient(circle, rgba(248,113,113,0.06) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(248,113,113,0.07) 0%, transparent 70%)",
         }}
+        animate={{ opacity: [0.5, 1, 0.5] }}
+        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: index * 0.5 }}
       />
 
+      {/* Card number */}
+      <span
+        className="absolute top-5 right-6 text-[11px] font-bold tracking-wider pointer-events-none select-none"
+        style={{ color: "rgba(248,113,113,0.12)" }}
+      >
+        {cardNumber}
+      </span>
+
       {/* Icon */}
-      <div className="w-[52px] h-[52px] rounded-[14px] bg-red-100/50 border border-red-200/40 flex items-center justify-center mb-6 text-red-400/70">
+      <div className="w-[52px] h-[52px] rounded-[14px] bg-red-100/50 border border-red-200/40 flex items-center justify-center mb-6 text-red-400/70 transition-all duration-300 group-hover:bg-red-100/70 group-hover:border-red-200/60 group-hover:scale-105">
         <card.icon />
       </div>
 
       {/* Stat */}
       <div
-        className="text-4xl sm:text-[36px] font-extrabold leading-none mb-1.5 tracking-tight"
+        className="text-4xl sm:text-[36px] font-extrabold leading-none mb-1.5"
         style={{
           background: "linear-gradient(135deg, #f87171, #fb923c)",
           WebkitBackgroundClip: "text",
           WebkitTextFillColor: "transparent",
+          letterSpacing: "-0.03em",
+          textShadow: "0 2px 12px rgba(248,113,113,0.15)",
         }}
       >
         {count}{card.statSuffix}
       </div>
 
       {/* Title */}
-      <h3 className="text-[17px] font-bold text-foreground/88 leading-snug mb-3">
+      <h3 className="text-[17px] font-bold text-foreground/88 leading-snug mb-3" style={{ letterSpacing: "-0.02em" }}>
         {t(card.titleKey, card.titleFallback)}
       </h3>
 
       {/* Desc */}
-      <p className="text-sm font-normal text-muted-foreground/70 leading-relaxed">
+      <p className="text-sm font-normal text-muted-foreground/60 " style={{ lineHeight: 1.75 }}>
         {t(card.descKey, card.descFallback)}
       </p>
 
       {/* Bottom insight */}
-      <div className="mt-5 pt-4 border-t border-border/30 text-[12.5px] font-medium italic text-indigo-400/50 tracking-wide">
-        {t(card.insightKey, card.insightFallback)}
+      <div className="mt-5 pt-4 border-t border-dashed border-border/30 text-[12.5px] font-medium italic tracking-wide flex items-center gap-1.5 transition-colors duration-300 group-hover:text-indigo-400/60" style={{ color: "rgba(129,140,248,0.4)" }}>
+        <span className="inline-block transition-transform duration-300 group-hover:translate-x-1">→</span>
+        <span>{t(card.insightKey, card.insightFallback).replace(/^→\s*/, "")}</span>
       </div>
     </motion.div>
+  );
+}
+
+/* ─── Transition particles ─── */
+function TransitionParticles() {
+  const particles = [
+    { x: "30%", y: "20%", delay: 0 },
+    { x: "70%", y: "30%", delay: 0.5 },
+    { x: "45%", y: "60%", delay: 1 },
+    { x: "55%", y: "15%", delay: 1.5 },
+    { x: "35%", y: "75%", delay: 0.8 },
+  ];
+  return (
+    <>
+      {particles.map((p, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-1 h-1 rounded-full pointer-events-none"
+          style={{ left: p.x, top: p.y, background: "rgba(129,140,248,0.25)" }}
+          animate={{
+            x: [`0%`, `${50 - parseInt(p.x)}%`],
+            y: [`0%`, `${50 - parseInt(p.y)}%`],
+            opacity: [0.3, 0.6, 0],
+            scale: [1, 1.5, 0],
+          }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: p.delay }}
+        />
+      ))}
+    </>
   );
 }
 
@@ -180,17 +280,38 @@ export function ProblemSection() {
   const transInView = useInView(transRef, { once: true, margin: "-60px" });
 
   return (
-    <section id="problem" className="relative py-20 lg:py-28 overflow-hidden">
-      {/* Ambient BG */}
+    <section id="problem" className="relative py-20 lg:py-28 overflow-hidden border-t border-b border-red-100/20">
+      {/* Ambient BG layers */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background: [
-            "radial-gradient(ellipse 60% 40% at 30% 30%, rgba(248,113,113,0.035) 0%, transparent 60%)",
-            "radial-gradient(ellipse 50% 50% at 70% 70%, rgba(251,146,60,0.025) 0%, transparent 60%)",
+            "radial-gradient(ellipse 60% 40% at 30% 30%, rgba(248,113,113,0.05) 0%, transparent 60%)",
+            "radial-gradient(ellipse 50% 50% at 70% 70%, rgba(251,146,60,0.035) 0%, transparent 60%)",
           ].join(", "),
         }}
       />
+
+      {/* Noise texture overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.02]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+        }}
+      />
+
+      {/* Grid pattern */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.015]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(248,113,113,0.3) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(248,113,113,0.3) 1px, transparent 1px)`,
+          backgroundSize: "60px 60px",
+        }}
+      />
+
+      {/* Floating particles */}
+      <FloatingDots />
 
       <div className="container mx-auto relative z-10" style={{ maxWidth: 1200, padding: "0 clamp(20px, 5vw, 64px)" }}>
         {/* ── Heading ── */}
@@ -204,11 +325,16 @@ export function ProblemSection() {
               background: "rgba(248,113,113,0.04)",
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="1.5" strokeLinecap="round" opacity="0.5">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 8v4" />
-              <circle cx="12" cy="16" r="0.5" fill="#f87171" />
-            </svg>
+            <motion.div
+              animate={{ opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="1.5" strokeLinecap="round" opacity="0.5">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v4" />
+                <circle cx="12" cy="16" r="0.5" fill="#f87171" />
+              </svg>
+            </motion.div>
             <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "#e57373" }}>
               {t("problem.tag", "VẤN ĐỀ")}
             </span>
@@ -229,17 +355,45 @@ export function ProblemSection() {
           >
             {t("problem.subheading", "Viết nhanh hơn không phải giải pháp — khi cả quy trình vẫn phụ thuộc vào con người.")}
           </motion.p>
+
+          {/* Decorative dashed line from heading to cards */}
+          <motion.div
+            {...fadeUp(0.24)}
+            animate={headInView ? fadeUp(0.24).animate : {}}
+            className="flex justify-center mt-8"
+          >
+            <div className="w-px h-10 border-l border-dashed border-red-200/30" />
+          </motion.div>
         </div>
 
         {/* ── Cards grid ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 relative">
+          {/* Subtle crack line between rows */}
+          <div
+            className="hidden sm:block absolute left-[10%] right-[10%] top-1/2 -translate-y-1/2 h-px pointer-events-none"
+            style={{
+              background: "linear-gradient(90deg, transparent, rgba(248,113,113,0.08) 20%, rgba(248,113,113,0.12) 50%, rgba(248,113,113,0.08) 80%, transparent)",
+            }}
+          />
           {cards.map((card, i) => (
             <ProblemCard key={i} card={card} index={i} />
           ))}
         </div>
 
         {/* ── Transition statement ── */}
-        <div ref={transRef} className="text-center pt-20 max-w-[720px] mx-auto">
+        <div ref={transRef} className="text-center pt-20 max-w-[720px] mx-auto relative">
+          {/* Chevron down */}
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={transInView ? { opacity: 0.2, y: 0 } : {}}
+            transition={{ duration: 0.6 }}
+            className="flex justify-center mb-6"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-foreground/20">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </motion.div>
+
           <motion.p
             initial={{ opacity: 0 }}
             animate={transInView ? { opacity: 1 } : {}}
@@ -253,7 +407,11 @@ export function ProblemSection() {
             initial={{ opacity: 0 }}
             animate={transInView ? { opacity: 1 } : {}}
             transition={{ duration: 0.8, delay: 0.2 }}
+            className="relative"
           >
+            {/* Converging particles */}
+            <TransitionParticles />
+
             <p className="text-2xl sm:text-3xl font-bold text-foreground/18 leading-snug tracking-tight">
               {t("problem.transition.line1", "Bạn không cần thêm một tool viết.")}
             </p>
@@ -274,14 +432,22 @@ export function ProblemSection() {
             </p>
           </motion.div>
 
-          {/* Decorative gradient line */}
+          {/* Decorative gradient line with glow */}
           <motion.div
             initial={{ scaleX: 0 }}
             animate={transInView ? { scaleX: 1 } : {}}
             transition={{ duration: 0.6, delay: 0.5 }}
-            className="w-12 h-0.5 rounded-full mx-auto mt-8 opacity-40"
-            style={{ background: "linear-gradient(90deg, #818cf8, #c084fc)" }}
-          />
+            className="relative w-16 h-[3px] rounded-full mx-auto mt-8"
+          >
+            <div
+              className="absolute inset-0 rounded-full"
+              style={{ background: "linear-gradient(90deg, #818cf8, #c084fc)" }}
+            />
+            <div
+              className="absolute inset-0 rounded-full blur-sm opacity-60"
+              style={{ background: "linear-gradient(90deg, #818cf8, #c084fc)" }}
+            />
+          </motion.div>
         </div>
       </div>
     </section>
