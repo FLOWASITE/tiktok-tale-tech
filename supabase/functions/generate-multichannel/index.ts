@@ -2959,8 +2959,8 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             }
             
             if (clientDisconnected) {
-              controller.close();
-              return;
+              console.log('[streaming-mode] Client disconnected, continuing to save results to DB...');
+              // Skip SSE events & critique but STILL save to DB below
             }
             
             // ============================================
