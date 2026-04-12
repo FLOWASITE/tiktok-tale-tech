@@ -97,7 +97,7 @@ export type CharacterType =
 
 export type Duration = 60 | 90 | 120 | 180;
 
-export type ContentStatus = 'draft' | 'review' | 'approved' | 'published';
+export type ContentStatus = 'draft' | 'review' | 'approved' | 'partially_published' | 'published';
 
 export interface ScriptAnalysisCache {
   hookScore: number;
@@ -146,6 +146,7 @@ export const STATUS_CONFIG: Record<ContentStatus, { label: string; variant: 'def
   draft: { label: 'Nháp', variant: 'secondary' },
   review: { label: 'Chờ duyệt', variant: 'outline' },
   approved: { label: 'Đã duyệt', variant: 'default' },
+  partially_published: { label: 'Đăng 1 phần', variant: 'outline' },
   published: { label: 'Đã đăng', variant: 'default' },
 };
 
