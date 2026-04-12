@@ -23,6 +23,7 @@ import { MultiChannelContent, ContentGoal, Channel, ContentStatus } from '@/type
 import { toast } from 'sonner';
 import { CampaignSelector } from '@/components/campaign/CampaignSelector';
 import { useGEOContentScores } from '@/hooks/useGEOContentScore';
+import { useSocialConnections } from '@/hooks/useSocialConnections';
 
 const ITEMS_PER_PAGE_OPTIONS = [12, 24, 48];
 
