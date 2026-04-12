@@ -175,7 +175,6 @@ export function useDirectPublish() {
 
   const publishToBlog = async (options: PublishOptions & { isPublic?: boolean }) => {
     const action = options.isPublic ? 'flowa_blog' : 'blog';
-    // For blog, we go directly through channel-publisher with the right action
     const response = await supabase.functions.invoke('channel-publisher', {
       body: {
         action,
@@ -188,6 +187,8 @@ export function useDirectPublish() {
         category: options.blogData?.category,
         tags: options.blogData?.tags,
         mediaUrls: options.mediaUrls,
+        status: 'published',
+        is_public: !!options.isPublic,
       },
     });
 
