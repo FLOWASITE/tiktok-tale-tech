@@ -296,10 +296,6 @@ export default function ContentCalendar() {
   const [draggedSchedule, setDraggedSchedule] = useState<ScheduleWithContent | null>(null);
   const [selectedContentId, setSelectedContentId] = useState<string | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
-  const selectedContent = useMemo(() => 
-    selectedContentId ? contents.find(c => c.id === selectedContentId) || null : null,
-    [selectedContentId, contents]
-  );
   const [formOpen, setFormOpen] = useState(false);
   const [showMiniCalendar, setShowMiniCalendar] = useState(true);
   const [showCampaignTimeline, setShowCampaignTimeline] = useState(true);
