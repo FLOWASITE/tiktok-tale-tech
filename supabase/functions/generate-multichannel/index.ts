@@ -3346,6 +3346,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               console.warn('[streaming-mode][metrics] Failed to save metrics:', metricsError);
             }
             
+            if (!clientDisconnected) {
             emit({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
             await streamDelay(100);
             
@@ -3407,10 +3408,11 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             });
             
             // Send done signal
-            if (!clientDisconnected) {
               try {
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'));
               } catch {}
+            } else {
+              console.log(`[streaming-mode] Client disconnected but DB save succeeded for content ${savedContent.id}`);
             }
             
             controller.close();
