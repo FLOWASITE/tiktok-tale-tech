@@ -369,27 +369,36 @@ export function WorkflowSection() {
           transition={{ duration: 0.4, delay: 0.3 }}
           className="flex justify-center mb-10"
         >
-          <div className="inline-flex bg-muted rounded-full p-1 gap-1">
-            <button
-              onClick={() => setMode("quick")}
-              className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${
-                mode === "quick"
-                  ? "bg-primary text-primary-foreground shadow-md"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t("workflow.toggleQuick")}
-            </button>
-            <button
-              onClick={() => setMode("agent")}
-              className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${
-                mode === "agent"
-                  ? "bg-primary text-primary-foreground shadow-md"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t("workflow.toggleAgent")}
-            </button>
+          <div className="inline-flex rounded-2xl border border-border/50 bg-card p-1.5 gap-1.5 shadow-sm">
+            {([
+              { key: "quick" as FlowMode, Icon: Zap, label: t("workflow.toggleQuick"), sub: t("workflow.toggleQuickSub") },
+              { key: "agent" as FlowMode, Icon: Bot, label: t("workflow.toggleAgent"), sub: t("workflow.toggleAgentSub") },
+            ]).map(({ key, Icon, label, sub }) => {
+              const isActive = mode === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setMode(key)}
+                  className={`relative flex items-center gap-3 px-5 py-3 rounded-xl text-left transition-all duration-300 ${
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  <div className={`flex items-center justify-center w-9 h-9 rounded-full shrink-0 transition-all duration-300 ${
+                    isActive
+                      ? "bg-primary-foreground/20 shadow-inner"
+                      : "bg-muted"
+                  }`}>
+                    <Icon className={`w-4.5 h-4.5 transition-all duration-300 ${isActive ? "text-primary-foreground" : "text-muted-foreground"}`} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold leading-tight">{label}</span>
+                    <span className={`text-xs leading-tight mt-0.5 transition-colors duration-300 ${isActive ? "text-primary-foreground/70" : "text-muted-foreground/60"}`}>{sub}</span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </motion.div>
 
