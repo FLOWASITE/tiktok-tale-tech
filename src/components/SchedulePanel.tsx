@@ -362,6 +362,7 @@ export function SchedulePanel({ content, onScheduleChange, onBack }: SchedulePan
                         contentId={content.id}
                         channel={channel}
                         brandTemplateId={content.brand_template_id || undefined}
+                        channelStatus={status}
                         mediaUrls={(() => {
                           const imgUrl = (content as any).channel_images?.[channel]?.url;
                           return imgUrl ? [imgUrl] : undefined;
