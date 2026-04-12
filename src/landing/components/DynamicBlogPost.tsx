@@ -92,8 +92,15 @@ const DynamicBlogPost = ({ post }: DynamicBlogPostProps) => {
       <ReadingProgress containerRef={articleRef} />
       <LandingNav />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-4">
         <BlogBreadcrumb postTitle={post.title} />
+        <Link
+          to="/blog"
+          className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group"
+        >
+          <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+          Quay lại Blog
+        </Link>
       </div>
 
       {/* Hero image */}
