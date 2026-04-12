@@ -2,7 +2,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { FileEdit, Clock, CheckCircle, Send } from 'lucide-react';
 
-export type ContentStatus = 'draft' | 'review' | 'approved' | 'published';
+export type ContentStatus = 'draft' | 'review' | 'approved' | 'partially_published' | 'published';
 
 interface StatusSelectorProps {
   status: ContentStatus;
@@ -14,6 +14,7 @@ export const STATUS_OPTIONS: { value: ContentStatus; label: string; icon: React.
   { value: 'draft', label: 'Nháp', icon: <FileEdit className="w-3.5 h-3.5" />, variant: 'secondary' },
   { value: 'review', label: 'Chờ duyệt', icon: <Clock className="w-3.5 h-3.5" />, variant: 'outline' },
   { value: 'approved', label: 'Đã duyệt', icon: <CheckCircle className="w-3.5 h-3.5" />, variant: 'default' },
+  { value: 'partially_published', label: 'Đăng 1 phần', icon: <Send className="w-3.5 h-3.5" />, variant: 'outline' },
   { value: 'published', label: 'Đã đăng', icon: <Send className="w-3.5 h-3.5" />, variant: 'default' },
 ];
 

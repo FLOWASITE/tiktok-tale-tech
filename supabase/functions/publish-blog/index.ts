@@ -111,17 +111,36 @@ Deno.serve(withPerf({ functionName: 'publish-blog' }, async (req) => {
 
     console.log(`[publish-blog] ${status} post: ${finalSlug}`);
 
-    // Update multi_channel_contents status to 'published' if content_id provided and blog is published
+    // Update multi_channel_contents status based on channel publish progress
     if (content_id && status === 'published') {
-      const { error: updateError } = await supabase
+      // Get the content to check how many channels are selected vs published
+      const { data: contentData } = await supabase
         .from('multi_channel_contents')
-        .update({ status: 'published' })
-        .eq('id', content_id);
+        .select('selected_channels, channel_statuses')
+        .eq('id', content_id)
+        .single();
       
-      if (updateError) {
-        console.error('[publish-blog] Failed to update content status:', updateError.message);
-      } else {
-        console.log(`[publish-blog] Updated multi_channel_contents ${content_id} to published`);
+      let newStatus = 'partially_published';
+      if (contentData) {
+        const selectedChannels: string[] = contentData.selected_channels || [];
+        const channelStatuses: Record<string, string> = (contentData.channel_statuses as Record<string, string>) || {};
+        // Mark blog/website channel as published
+        channelStatuses['website'] = 'published';
+        
+        // Check if ALL selected channels are published
+        const allPublished = selectedChannels.every(ch => channelStatuses[ch] === 'published');
+        newStatus = allPublished ? 'published' : 'partially_published';
+        
+        const { error: updateError } = await supabase
+          .from('multi_channel_contents')
+          .update({ status: newStatus, channel_statuses: channelStatuses })
+          .eq('id', content_id);
+        
+        if (updateError) {
+          console.error('[publish-blog] Failed to update content status:', updateError.message);
+        } else {
+          console.log(`[publish-blog] Updated multi_channel_contents ${content_id} to ${newStatus}`);
+        }
       }
     }
 

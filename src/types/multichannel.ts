@@ -80,7 +80,7 @@ export type Channel =
   | 'tiktok'
   | 'threads';
 
-export type ContentStatus = 'draft' | 'review' | 'approved' | 'published';
+export type ContentStatus = 'draft' | 'review' | 'approved' | 'partially_published' | 'published';
 
 export interface ChannelImage {
   url: string;
@@ -99,6 +99,8 @@ export const calculateMasterStatus = (channelStatuses: ChannelStatuses, selected
   const statuses = selectedChannels.map(ch => channelStatuses[ch]).filter(Boolean) as ContentStatus[];
   if (statuses.length === 0) return 'draft';
   if (statuses.every(s => s === 'published')) return 'published';
+  // Some published, some not → partially_published
+  if (statuses.some(s => s === 'published') && !statuses.every(s => s === 'published')) return 'partially_published';
   if (statuses.every(s => s === 'approved' || s === 'published')) return 'approved';
   if (statuses.some(s => s === 'review')) return 'review';
   return 'draft';
@@ -390,6 +392,7 @@ export const CONTENT_STATUSES: { value: ContentStatus; label: string; color: str
   { value: 'draft', label: 'Bản nháp', color: 'gray', bgClass: 'bg-slate-500/15', textClass: 'text-slate-600 dark:text-slate-400', borderClass: 'border-slate-500/30' },
   { value: 'review', label: 'Chờ duyệt', color: 'yellow', bgClass: 'bg-amber-500/15', textClass: 'text-amber-600 dark:text-amber-400', borderClass: 'border-amber-500/30' },
   { value: 'approved', label: 'Đã duyệt', color: 'blue', bgClass: 'bg-blue-500/15', textClass: 'text-blue-600 dark:text-blue-400', borderClass: 'border-blue-500/30' },
+  { value: 'partially_published', label: 'Đăng 1 phần', color: 'teal', bgClass: 'bg-teal-500/15', textClass: 'text-teal-600 dark:text-teal-400', borderClass: 'border-teal-500/30' },
   { value: 'published', label: 'Đã đăng', color: 'green', bgClass: 'bg-emerald-500/15', textClass: 'text-emerald-600 dark:text-emerald-400', borderClass: 'border-emerald-500/30' },
 ];
 

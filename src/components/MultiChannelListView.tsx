@@ -80,6 +80,7 @@ const statusColors: Record<ContentStatus, string> = {
   draft: 'bg-muted text-muted-foreground',
   review: 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400',
   approved: 'bg-blue-500/20 text-blue-700 dark:text-blue-400',
+  partially_published: 'bg-teal-500/20 text-teal-700 dark:text-teal-400',
   published: 'bg-green-500/20 text-green-700 dark:text-green-400',
 };
 
@@ -87,6 +88,7 @@ const statusDots: Record<ContentStatus, string> = {
   draft: 'bg-muted-foreground',
   review: 'bg-yellow-500',
   approved: 'bg-blue-500',
+  partially_published: 'bg-teal-500',
   published: 'bg-green-500',
 };
 
@@ -154,6 +156,7 @@ const getStatusSummary = (content: MultiChannelContent) => {
     draft: 0,
     review: 0,
     approved: 0,
+    partially_published: 0,
     published: 0,
   };
 

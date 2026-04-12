@@ -64,6 +64,12 @@ const KANBAN_COLUMNS: { id: ContentStatus; label: string; color: string; icon: R
     icon: <CheckCircle className="w-4 h-4 text-blue-500" />
   },
   { 
+    id: 'partially_published', 
+    label: 'Đăng 1 phần', 
+    color: 'bg-gradient-to-r from-teal-500/20 to-teal-500/10',
+    icon: <Send className="w-4 h-4 text-teal-500" />
+  },
+  { 
     id: 'published', 
     label: 'Đã đăng', 
     color: 'bg-gradient-to-r from-emerald-500/20 to-emerald-500/10',
@@ -102,6 +108,7 @@ export function TasksKanbanBoard({
       draft: [],
       review: [],
       approved: [],
+      partially_published: [],
       published: [],
     };
 
