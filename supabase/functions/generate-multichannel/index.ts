@@ -2959,14 +2959,24 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             }
             
             if (clientDisconnected) {
-              controller.close();
-              return;
+              console.log('[streaming-mode] Client disconnected, continuing to save results to DB...');
+              // Skip SSE events & critique but STILL save to DB below
             }
             
             // ============================================
             // SEMANTIC DEDUPLICATION CHECK (Streaming mode)
             // ============================================
             let dedupResult: DuplicateCheckResult | null = null;
+            let critiqueResult: CritiqueResult | null = null;
+            let wasRefined = false;
+            let refinementCount = 0;
+            let needsManualReview = false;
+            let crossChannelDedupResult: CrossChannelDedupResult | null = null;
+            let personaFitResult: MultiChannelPersonaFitResult | null = null;
+            let lengthValidation: MultiChannelLengthValidation | null = null;
+            let expansionCount = 0;
+            
+            if (!clientDisconnected) {
             if (organizationId && formData.action !== 'expand') {
               try {
                 const textToCheck = extractMultichannelText(channelResults);
@@ -3004,11 +3014,6 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             const qualityMode = normalizeQualityMode(formData.qualityMode);
             const qualityConfig = QUALITY_MODE_CONFIG[qualityMode];
             console.log(`[streaming-mode][quality-mode] Using '${qualityMode}': skipCritique=${qualityConfig.skipCritique}`);
-            
-            let critiqueResult: CritiqueResult | null = null;
-            let wasRefined = false;
-            let refinementCount = 0;
-            let needsManualReview = false;
             
             if (!qualityConfig.skipCritique) {
               emit({ type: 'progress', step: 'critique', progress: 78, message: 'Đang đánh giá chất lượng...' });
@@ -3081,8 +3086,6 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             // CROSS-CHANNEL DEDUPLICATION - P3
             // Ensures content diversity across channels
             // ============================================
-            let crossChannelDedupResult: CrossChannelDedupResult | null = null;
-            
             if (channels.length >= 2 && formData.action !== 'expand') {
               try {
                 emit({ type: 'progress', step: 'cross-dedup', progress: 83, message: 'Kiểm tra đa dạng nội dung...' });
@@ -3107,8 +3110,6 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             // ============================================
             // PERSONA FIT SCORING - P1 Alignment Evaluation
             // ============================================
-            let personaFitResult: MultiChannelPersonaFitResult | null = null;
-            
             if (targetPersonaData) {
               try {
                 emit({ type: 'progress', step: 'persona-fit', progress: 85, message: 'Đánh giá Persona Fit...' });
@@ -3123,9 +3124,6 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             // LENGTH VALIDATION - P1 (Streaming Mode)
             // Ensures content meets channel-specific word count requirements
             // ============================================
-            let lengthValidation: MultiChannelLengthValidation | null = null;
-            let expansionCount = 0;
-            
             try {
               const channelContentsForValidation: Record<string, string> = {};
               for (const [ch, content] of Object.entries(channelResults)) {
@@ -3143,6 +3141,9 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             }
             
             emit({ type: 'progress', step: 'finalize', progress: 88, message: 'Đang lưu kết quả...' });
+            } else {
+              console.log('[streaming-mode] Client disconnected, skipping critique/dedup/validation, proceeding to DB save...');
+            }
             
             // Check organization's approval settings
             let initialStatus = 'draft';
@@ -3280,7 +3281,9 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               if (taskId) {
                 await failTask(supabase, taskId, 'Không thể lưu nội dung: ' + dbError.message);
               }
-              emit({ type: 'error', message: 'Không thể lưu nội dung: ' + dbError.message });
+              if (!clientDisconnected) {
+                emit({ type: 'error', message: 'Không thể lưu nội dung: ' + dbError.message });
+              }
               controller.close();
               return;
             }
@@ -3343,6 +3346,7 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               console.warn('[streaming-mode][metrics] Failed to save metrics:', metricsError);
             }
             
+            if (!clientDisconnected) {
             emit({ type: 'progress', step: 'complete', progress: 100, message: 'Hoàn thành!' });
             await streamDelay(100);
             
@@ -3404,10 +3408,11 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
             });
             
             // Send done signal
-            if (!clientDisconnected) {
               try {
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'));
               } catch {}
+            } else {
+              console.log(`[streaming-mode] Client disconnected but DB save succeeded for content ${savedContent.id}`);
             }
             
             controller.close();
