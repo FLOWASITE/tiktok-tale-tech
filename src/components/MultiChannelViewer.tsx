@@ -1086,7 +1086,7 @@ export function MultiChannelViewer({
           </div>
         ) : showSchedule ? (
           <div className="p-6">
-            <SchedulePanel content={content} onBack={() => setShowSchedule(false)} />
+            <SchedulePanel content={content} onBack={() => setShowSchedule(false)} onScheduleChange={onPublishSuccess} />
           </div>
         ) : showGeoScore ? (
           <div className="p-6">
