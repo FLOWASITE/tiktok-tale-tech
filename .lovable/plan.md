@@ -1,54 +1,30 @@
 
 
-# Nâng cao thẩm mỹ cho Problem Section
+# Redesign Problem Cards: White + Premium
 
-## Vấn đề hiện tại
-Section đã có cấu trúc tốt nhưng thiếu chiều sâu thị giác. Trên nền Light theme, các card trông phẳng và ambient background quá nhẹ, không tạo được cảm giác "nặng nề, mệt mỏi" như mục tiêu emotional design.
+## Mục tiêu
+Chuyển cards từ tông đỏ-cam (bg-red-50, border-red-100) sang nền trắng sạch, hài hòa với tổng thể website, nhưng vẫn đặc biệt và premium.
 
-## Thay đổi
+## Thay đổi trong `ProblemSection.tsx`
 
-### 1. Background layer phong phú hơn
-- Thêm noise texture overlay (SVG filter, opacity 2%) tạo chiều sâu
-- Thêm grid pattern rất nhẹ (giống GradientMesh đang dùng ở Hero)
-- Tăng nhẹ opacity radial gradient ambient (0.035 → 0.05) để tách biệt section rõ hơn
-- Thêm top/bottom subtle divider line (border-t/border-b `border-red-100/20`)
+### Card background & border
+- **Nền**: `bg-white` (hoặc `bg-card`) thay vì `bg-red-50/20`
+- **Border**: `border-border/40` mặc định, hover chuyển sang `rgba(248,113,113,0.2)` — chỉ hint đỏ khi tương tác
+- **Box-shadow**: Thêm subtle multi-layer shadow kiểu Apple: `0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.03)` — tạo depth mà không cần màu
 
-### 2. Card redesign - Glassmorphism + depth
-- Thêm `backdrop-blur-sm` cho cards
-- Thêm inner glow effect (box-shadow inset nhẹ)
-- Icon container: thêm subtle animation (pulse nhẹ khi hover)
-- Hover: thêm glow shadow đỏ trầm muted (`0 8px 32px rgba(248,113,113,0.08)`)
-- Bottom insight: thêm arrow icon animated (slide-right nhẹ khi hover)
-- Thêm card number/index nhỏ góc trên-phải (01, 02, 03, 04) với opacity thấp
+### Điểm đặc biệt để card nổi bật
+- **Top accent line**: Mỗi card có một thanh gradient mỏng 2px ở cạnh trên (`linear-gradient(90deg, #f87171, #fb923c)`), opacity 40% → 70% on hover — tạo "chấm phá" tinh tế
+- **Icon container**: Chuyển từ `bg-red-100/50` → `bg-gradient-to-br from-red-50 to-orange-50` với border nhẹ hơn — vẫn giữ hint đỏ nhưng trên nền trắng sẽ đẹp hơn
+- **Ambient glow**: Giảm opacity đáng kể (từ 0.07 → 0.03) để không tạo vệt cam trên nền trắng
+- **Hover state**: Card lift cao hơn (`translateY(-6px)`) + shadow lớn hơn + top accent line sáng lên — tạo cảm giác interactive premium
 
-### 3. Decorative elements
-- Thêm floating dots/particles rất nhẹ (3-5 dots, red muted, animation chậm)
-- Thêm decorative dashed connecting lines giữa heading và cards grid
-- Thêm subtle "crack" pattern giữa 2 hàng cards (tạo cảm giác "vỡ/rạn")
+### Background section
+- Giảm opacity ambient radial gradients (0.05 → 0.025) vì cards trắng sẽ tự tạo contrast
+- Grid pattern giữ nguyên nhưng giảm opacity thêm
 
-### 4. Typography refinement
-- Stat number: thêm text-shadow nhẹ cho depth
-- Title: letter-spacing tighter (-0.02em)
-- Description: tăng line-height lên 1.75 cho dễ đọc hơn
-- Tag "VẤN ĐỀ": thêm subtle pulse animation
-
-### 5. Transition statement nâng cấp
-- Thêm animated particles converging vào "Agent vận hành"
-- Gradient line: từ thin → thicker với glow effect
-- Thêm subtle arrow/chevron pointing down trước transition
-
-### 6. Animation polish
-- Cards: stagger delay tăng lên (0, 150ms, 300ms, 450ms) cho dramatic hơn
-- Stat counter: thêm slight overshoot effect (count lên qua target rồi settle)
-- Ambient glow trên mỗi card: animate opacity pulse chậm
+## Kết quả mong đợi
+Cards trắng sạch, hòa hợp với website, nhưng có top accent line gradient đỏ-cam + shadow depth + hover effects làm chúng trông premium và đặc biệt hơn các card thông thường.
 
 ## File thay đổi
-- **Edit**: `src/landing/components/ProblemSection.tsx` (toàn bộ changes)
-
-## Giữ nguyên
-- Content text, translation keys
-- Color palette (red muted #f87171, amber #fb923c, indigo bridge)
-- Grid layout 2x2
-- Responsive breakpoints
-- Existing design system (font, theme, Tailwind classes)
+- `src/landing/components/ProblemSection.tsx` — chỉnh card styles + section background
 
