@@ -39,7 +39,7 @@ export default function MultiChannel() {
   const navigate = useNavigate();
   const location = useLocation();
   const prefillData = location.state as LocationState | null;
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'channel'>('grid');
   const { 
     contents, 
     loading, 

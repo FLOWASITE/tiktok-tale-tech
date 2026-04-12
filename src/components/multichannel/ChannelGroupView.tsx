@@ -5,7 +5,7 @@ import { MultiChannelCard } from '@/components/MultiChannelCard';
 import { ChannelIcon, getChannelLabel } from '@/components/multichannel/streaming/ChannelIcon';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { CreatorProfile } from '@/types/creator';
+import { CreatorProfile } from '@/hooks/useCreatorProfiles';
 
 interface ChannelGroupViewProps {
   contents: MultiChannelContent[];
