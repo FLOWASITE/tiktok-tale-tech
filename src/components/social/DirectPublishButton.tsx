@@ -628,6 +628,12 @@ export function DirectPublishButton({
                       type="url"
                       className="text-sm"
                     />
+                    {blogBacklink && linkUrl === blogBacklink && (
+                      <p className="text-xs text-primary flex items-center gap-1">
+                        <LinkIcon className="h-3 w-3" />
+                        🔗 Backlink blog đã được thêm tự động
+                      </p>
+                    )}
                   </div>
                 )}
 
