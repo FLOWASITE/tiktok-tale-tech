@@ -398,6 +398,23 @@ export default function MultiChannel() {
                 <CardLoadingSkeleton key={i} />
               ))}
             </div>
+          ) : viewMode === 'channel' ? (
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <Skeleton className="h-8 w-8 rounded-lg" />
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-5 w-8 rounded-full" />
+                  </div>
+                  <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                    {[...Array(3)].map((_, j) => (
+                      <CardLoadingSkeleton key={j} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="space-y-2">
               {[...Array(6)].map((_, i) => (
@@ -427,7 +444,7 @@ export default function MultiChannel() {
           </div>
         ) : viewMode === 'channel' ? (
           <ChannelGroupView
-            contents={paginatedContents}
+            contents={filteredContents}
             onView={handleView}
             onDelete={handleDelete}
             selectedIds={selectedIds}
@@ -436,6 +453,7 @@ export default function MultiChannel() {
             isLoadingProfiles={isLoadingProfiles}
             brandLogoMap={brandLogoMap}
             geoScoresMap={geoScoresMap}
+            onScheduleComplete={() => toast.success('Đã lên lịch thành công')}
           />
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
@@ -475,8 +493,8 @@ export default function MultiChannel() {
           />
         )}
 
-        {/* Pagination */}
-        {!loading && filteredContents.length > 0 && (
+        {/* Pagination - hidden in channel mode */}
+        {!loading && filteredContents.length > 0 && viewMode !== 'channel' && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-border/50">
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Hiển thị</span>
