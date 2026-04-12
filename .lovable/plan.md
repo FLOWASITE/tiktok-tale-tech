@@ -1,54 +1,59 @@
 
 
-# Thêm hỗ trợ Blogger, Wix, Shopify Blog
+# Xác định Brand nào được tích hợp với /blog của Flowa
 
-## Tổng quan
-Mở rộng hệ thống kết nối website hiện tại (đang chỉ hỗ trợ WordPress, Custom API, Webhook, Manual) để thêm 3 nền tảng blog phổ biến: **Blogger (Google)**, **Wix**, và **Shopify Blog**.
+## Vấn đề hiện tại
 
-## Kiến trúc hiện tại
-- UI: `BrandViewConnectionsTab.tsx` có dropdown `integrationType` với 4 options
-- Backend: `connect-website` edge function lưu connection, `publish-website` edge function xử lý publish theo `integrationType`
-- Tất cả dùng chung platform `website` trong `social_connections` table
+- Trang `/blog` fetch **tất cả** bài từ `blog_posts` có `status = 'published'`, không lọc theo brand hay organization
+- `publish-blog` edge function chấp nhận mọi request có auth, lưu `organization_id` nhưng không kiểm tra quyền đăng lên blog Flowa
+- Không có cơ chế phân biệt: bài nào là blog **chính thức** của Flowa vs bài nội bộ của user
 
-## Thay đổi
+## Giải pháp: Thêm cột `is_public` + lọc theo organization
 
-### 1. UI — Thêm 3 options vào dropdown integrationType
-Thêm `blogger`, `wix`, `shopify_blog` vào select dropdown. Mỗi nền tảng có form fields riêng:
+### 1. Migration — Thêm cột `is_public` vào `blog_posts`
 
-- **Blogger**: Blog URL + API Key (Google API Key với Blogger API v3 enabled)
-- **Wix**: Site URL + API Key (Wix REST API key)
-- **Shopify Blog**: Store URL (mystore.myshopify.com) + Admin API Access Token
+```sql
+ALTER TABLE blog_posts ADD COLUMN is_public boolean NOT NULL DEFAULT false;
+```
 
-### 2. Edge Function `connect-website` — Thêm validation cho 3 nền tảng
-- **Blogger**: Test `GET https://www.googleapis.com/blogger/v3/blogs/byurl?url={blogUrl}&key={apiKey}`
-- **Wix**: Test `GET https://www.wixapis.com/blog/v3/posts?paging.limit=1` với Authorization header
-- **Shopify Blog**: Test `GET https://{store}/admin/api/2024-01/blogs.json` với X-Shopify-Access-Token header
+- `is_public = true` → Hiển thị trên `/blog` landing page (blog chính thức Flowa)
+- `is_public = false` → Blog nội bộ, chỉ hiển thị trong dashboard của org đó
 
-### 3. Edge Function `publish-website` — Thêm 3 publish handlers
+### 2. Cập nhật Blog.tsx — Chỉ fetch bài `is_public = true`
 
-- **Blogger**: `POST https://www.googleapis.com/blogger/v3/blogs/{blogId}/posts` — cần OAuth hoặc API key. Sẽ dùng OAuth2 service account hoặc API key approach.
-- **Wix**: `POST https://www.wixapis.com/blog/v3/draft-posts` → sau đó publish draft
-- **Shopify Blog**: `POST https://{store}/admin/api/2024-01/blogs/{blogId}/articles.json` với access token
+Thêm filter `.eq('is_public', true)` vào query fetch blog list, đảm bảo chỉ bài được duyệt mới lên trang landing.
 
-### 4. UI form fields cho từng nền tảng
+### 3. Cập nhật publish-blog — Cho phép set `is_public`
+
+Thêm field `is_public` vào body input. Mặc định `false`. Chỉ admin Flowa (kiểm tra qua `has_role(user.id, 'admin')`) mới được set `is_public = true`.
+
+### 4. UI trong BrandViewConnectionsTab — Thêm option "Đăng lên Blog Flowa"
+
+Trong phần kết nối Website/Blog, thêm option mới `flowa_blog` vào dropdown `integrationType`:
+- Label: "Blog Flowa (flowa.vn/blog)"
+- Không cần nhập URL/API key — kết nối trực tiếp qua database
+- Khi chọn option này, hệ thống tự động route publish qua `publish-blog` với `is_public = true` (nếu user là admin)
+
+### 5. Luồng hoạt động
 
 ```text
-Blogger:
-  - Blog URL (bắt buộc)
-  - Google API Key (bắt buộc)
+Brand A (admin) chọn kênh "Blog Flowa"
+  → Agent tạo content → channel-publisher → publish-blog
+  → is_public = true (vì admin)
+  → Hiển thị trên /blog landing
 
-Wix:
-  - Site URL (bắt buộc)
-  - API Key (bắt buộc)
-
-Shopify Blog:
-  - Store URL (bắt buộc, vd: mystore.myshopify.com)
-  - Admin API Access Token (bắt buộc)
+Brand B (user thường) chọn kênh "Blog"  
+  → Agent tạo content → channel-publisher → publish-blog
+  → is_public = false (mặc định)
+  → Chỉ hiển thị trong dashboard
 ```
 
 ## Files thay đổi
-- **Edit**: `src/components/brand/BrandViewConnectionsTab.tsx` — thêm 3 options + conditional form fields
-- **Edit**: `supabase/functions/connect-website/index.ts` — thêm validation logic cho 3 nền tảng
-- **Edit**: `supabase/functions/publish-website/index.ts` — thêm 3 publish handlers
-- **Edit**: `supabase/functions/test-website-credentials/index.ts` — thêm test logic cho 3 nền tảng
+
+- **Migration**: Thêm cột `is_public` vào `blog_posts`
+- **Edit**: `src/landing/pages/Blog.tsx` — thêm filter `is_public = true`
+- **Edit**: `src/landing/pages/BlogPost.tsx` — thêm filter `is_public = true` khi fetch single post
+- **Edit**: `supabase/functions/publish-blog/index.ts` — xử lý `is_public`, kiểm tra admin role
+- **Edit**: `src/components/brand/BrandViewConnectionsTab.tsx` — thêm option `flowa_blog`
+- **Edit**: `supabase/functions/channel-publisher/index.ts` — phân biệt `blog` vs `flowa_blog`
 
