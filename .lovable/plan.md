@@ -1,49 +1,34 @@
 
-Mình đã rà code và nguyên nhân chính nhiều khả năng là frontend đang giữ dữ liệu cũ, không phải X đăng thất bại.
 
-1. Điều mình thấy
-- `publish-twitter` trả về `success: true`.
-- `channel-publisher` đã có logic cập nhật `multi_channel_contents.status` và `channel_statuses.twitter = 'published'`.
-- `DirectPublishButton` chỉ đổi khỏi `Đăng ngay` khi `channelStatus === 'published'`.
-- `MultiChannelViewer` đang truyền `channelStatus`, nhưng sau khi đăng chỉ gọi `queryClient.invalidateQueries(...)`.
-- `useMultiChannelContents` không dùng React Query cho danh sách nội dung; nó dùng `useState + fetchContents()`. Vì vậy `invalidateQueries(['multi-channel-contents'])` gần như không refresh gì cả.
-- `MultiChannel.tsx` và `ContentCalendar.tsx` đang lưu cả `selectedContent` object vào state, nên viewer dễ bị giữ “snapshot cũ”.
-- `SchedulePanel.tsx` đang render `DirectPublishButton` mà không truyền `channelStatus`, nên riêng chỗ này có thể luôn hiện `Đăng ngay` dù bài đã đăng.
+# Bổ sung chế độ xem "Theo kênh" trong trang Nội dung đa kênh
 
-2. Kế hoạch fix
-- Chuyển state đang mở viewer từ `selectedContent` sang `selectedContentId`.
-- Derive `selectedContent` từ mảng `contents` mới nhất để UI luôn bám dữ liệu mới.
-- Thay callback sau khi publish từ `invalidateQueries(...)` sang gọi `refetch()` thật sự từ `useMultiChannelContents`.
-- Truyền `channelStatus` vào mọi `DirectPublishButton` của nội dung đa kênh, đặc biệt trong `SchedulePanel`.
-- Giữ published state nhất quán: đã đăng thì không còn hiện text `Đăng ngay`; hiển thị đúng state đã đăng theo UI hiện tại.
+## Mô tả
+Thêm nút thứ 3 vào toggle group (Grid | List | **Theo kênh**) — khi chọn, hiển thị nội dung được nhóm theo từng kênh social (Facebook, X, Instagram, LinkedIn...), mỗi kênh là một section riêng với icon + label + danh sách bài viết thuộc kênh đó.
 
-3. Files cần sửa
-- `src/pages/MultiChannel.tsx`
-- `src/pages/ContentCalendar.tsx`
-- `src/components/MultiChannelViewer.tsx`
-- `src/components/SchedulePanel.tsx`
-- `src/components/social/DirectPublishButton.tsx` (nếu cần chỉnh published CTA cho thống nhất)
+## Thay đổi
 
-4. Technical details
-```text
-Hiện tại:
-Direct publish success
-  -> invalidateQueries(['multi-channel-contents'])
-  -> useMultiChannelContents không nghe query này
-  -> selectedContent snapshot cũ không đổi
-  -> channelStatus vẫn là approved
-  -> button vẫn hiện "Đăng ngay"
+### 1. `src/components/multichannel/MultiChannelHeroSection.tsx`
+- Mở rộng `viewMode` type từ `'grid' | 'list'` → `'grid' | 'list' | 'channel'`
+- Thêm ToggleGroupItem thứ 3 với icon `Users` (hoặc `Share2`) và value `'channel'`
 
-Sau khi sửa:
-Direct publish success
-  -> refetch() contents thật sự
-  -> selectedContent lấy theo selectedContentId từ contents mới
-  -> channelStatus.twitter = published
-  -> button chuyển sang state đã đăng
-```
+### 2. `src/components/multichannel/ChannelGroupView.tsx` (file mới)
+- Component nhận `contents: MultiChannelContent[]` + callbacks (onView, onDelete...)
+- Group contents theo `selected_channels`: mỗi content xuất hiện ở các kênh mà nó target
+- Render mỗi kênh như một section:
+  - Header: `ChannelIcon` + label + badge số lượng bài
+  - Grid cards (reuse `MultiChannelCard`) bên dưới
+- Kênh nào không có bài thì ẩn
+- Sắp xếp kênh theo số lượng bài giảm dần
 
-5. QA sau khi implement
-- Đăng X từ viewer và kiểm tra ngay trong popup: không còn hiện `Đăng ngay`.
-- Kiểm tra cả action bar và `SchedulePanel`.
-- Kiểm tra card/list master status đổi sang `Đăng 1 phần` hoặc `Đã đăng` mà không cần đóng mở lại.
-- Test lại Facebook/Zalo để tránh lặp bug stale-state ở các kênh khác.
+### 3. `src/pages/MultiChannel.tsx`
+- Đổi type `viewMode` state → `'grid' | 'list' | 'channel'`
+- Thêm block render `ChannelGroupView` khi `viewMode === 'channel'`
+- Truyền cùng props (onView, onDelete, selectedIds, toggleSelection...)
+
+### Files
+| File | Thay đổi |
+|------|----------|
+| `src/components/multichannel/MultiChannelHeroSection.tsx` | Thêm toggle item "channel" |
+| `src/components/multichannel/ChannelGroupView.tsx` | **Mới** — view nhóm theo kênh |
+| `src/pages/MultiChannel.tsx` | Wire viewMode 'channel' vào render |
+
