@@ -1,60 +1,39 @@
 
 
-# Tự động gắn Backlink Blog vào bài đăng Social
+# Chuyển Fallback từ Lovable AI sang PoYo
 
-## Vấn đề hiện tại
+## Vấn đề
 
-Khi một nội dung đa kênh bao gồm cả **Website/Blog** và các kênh social (Facebook, Twitter, LinkedIn...), hệ thống đăng từng kênh độc lập — không tự động thêm link bài blog vào nội dung social. Người dùng phải copy-paste link thủ công.
+Hiện tại khi KIE hoặc GeminiGen thất bại, hệ thống fallback sang Lovable AI Gateway (`google/gemini-3-pro-image-preview`). Bạn muốn fallback sang **PoYo** thay vì Lovable.
 
-## Giải pháp
+## Phạm vi thay đổi
 
-### 1. Agent Pipeline — Tự động gắn backlink khi publish đa kênh
+**2 file** cần sửa:
 
-Trong `supabase/functions/agent-pipeline/index.ts`, khi publish nhiều kênh:
+### 1. `supabase/functions/generate-carousel-image/index.ts`
 
-- **Ưu tiên publish `website` trước** các kênh social
-- Sau khi blog publish thành công, lấy `postUrl` từ kết quả (ví dụ: `/blog/my-post`)
-- Tạo URL đầy đủ: `https://flowa.vn/blog/{slug}` (nếu is_public) hoặc domain của app
-- **Tự động append backlink** vào cuối nội dung social hoặc truyền qua `linkUrl` (cho Facebook)
+3 điểm fallback cần đổi:
+
+- **Dòng 576-581** (PoYo fail → Lovable): Đổi thành fallback sang model PoYo khác (ví dụ `poyo/nano-banana-pro` nếu model gốc là `poyo/nano-banana-2-new`, hoặc ngược lại). Nếu chính PoYo đã fail → giữ nguyên return error (không fallback vòng lặp).
+- **Dòng 614-619** (KIE fail → Lovable): Đổi thành gọi `generateImageViaPoyo()` với `poyo/nano-banana-pro` làm fallback.
+- **Dòng 651-656** (GeminiGen fail → Lovable): Đổi thành gọi `generateImageViaPoyo()` với `poyo/nano-banana-pro` làm fallback.
+
+Khi fallback sang PoYo, set `externalImageUrl` trực tiếp thay vì để rơi xuống block Lovable AI Gateway (dòng 660+).
+
+### 2. `supabase/functions/generate-brand-image/index.ts`
+
+2 điểm fallback (dòng ~638 và ~709): Đổi từ `generateImageWithRetry` (Lovable) sang `generateImageViaPoyo()`.
+
+## Logic fallback mới
 
 ```text
-Luồng publish hiện tại:
-  facebook → twitter → website  (song song, không liên kết)
-
-Luồng publish mới:
-  website (trước) → lấy blogUrl
-  facebook (linkUrl = blogUrl) → twitter (append link cuối bài)
+KIE fail      → PoYo (nano-banana-pro) → Nếu PoYo cũng fail → return error
+GeminiGen fail → PoYo (nano-banana-pro) → Nếu PoYo cũng fail → return error  
+PoYo fail     → return error (không fallback vòng lặp)
 ```
 
-### 2. Facebook — Truyền `linkUrl` tự động
+## Lưu ý
 
-Facebook hỗ trợ `linkUrl` gốc (hiện đã có trong `publish-facebook`). Chỉ cần truyền blog URL vào `pubPayload.linkUrl`.
-
-### 3. Twitter/LinkedIn/Threads — Append link cuối nội dung
-
-Các kênh không có trường `linkUrl` riêng → append dòng `\n\n📖 Đọc thêm: {blogUrl}` vào cuối content text (trước khi áp dụng UTM).
-
-### 4. DirectPublishButton — Auto-fill link khi có blog post
-
-Khi người dùng publish thủ công qua DirectPublishButton, nếu `contentId` đã có blog post published, tự động query `blog_posts` theo `content_id` để lấy slug và pre-fill `linkUrl`.
-
-## File thay đổi
-
-- **Edit**: `supabase/functions/agent-pipeline/index.ts` — Sắp xếp publish website trước, capture blogUrl, inject vào payload các kênh social
-- **Edit**: `src/components/social/DirectPublishButton.tsx` — Query blog_posts theo contentId, auto-fill linkUrl cho Facebook và hiển thị backlink suggestion cho các kênh khác
-
-## Chi tiết kỹ thuật
-
-**Agent pipeline logic** (trong vòng lặp publish):
-1. Tách `targetChannels` thành 2 nhóm: `['website']` và `socialChannels`
-2. Publish website trước, lưu `blogUrl` từ `publishResults['website'].postUrl`
-3. Xây dựng full URL: kiểm tra `is_public` → `https://flowa.vn/blog/{slug}` hoặc app domain
-4. Khi publish social channels:
-   - Facebook: thêm `linkUrl` vào payload
-   - Các kênh khác: append `\n\n📖 Đọc thêm: {fullBlogUrl}` vào `enrichedText`
-
-**DirectPublishButton logic**:
-1. Khi dialog mở, nếu có `contentId`, query `blog_posts` where `content_id = contentId AND status = 'published'`
-2. Nếu tìm thấy → auto-set `linkUrl` = `https://flowa.vn/blog/{slug}` (nếu is_public) hoặc app blog URL
-3. Hiển thị badge nhỏ "🔗 Backlink blog đã được thêm tự động"
+- Block Lovable AI Gateway (dòng 660+) vẫn giữ lại cho trường hợp model mặc định không phải external provider.
+- Cần kiểm tra `POYO_API_KEY` tồn tại trước khi fallback, nếu không có thì return error luôn.
 
