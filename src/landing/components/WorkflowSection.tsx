@@ -297,6 +297,9 @@ function BranchTimeline({ flowPrefix, steps, icons, stepImages, activeIndex }: {
               altPrefix={imgData?.alt}
               hasContentTypes={step.hasContentTypes}
               hasFeature={step.hasFeature}
+              hasExamples={step.hasExamples}
+              hasBullets={step.hasBullets}
+              hasChannels={step.hasChannels}
               icon={icons[index]}
             />
           );
@@ -332,11 +335,11 @@ export function WorkflowSection() {
   ];
 
   const agentSteps = [
-    { key: "step1" },
-    { key: "step2" },
-    { key: "step3" },
-    { key: "step4" },
-    { key: "step5", hasFeature: true },
+    { key: "step1", hasExamples: true },
+    { key: "step2", hasBullets: true },
+    { key: "step3", hasBullets: true },
+    { key: "step4", hasBullets: true },
+    { key: "step5", hasFeature: true, hasChannels: true },
   ];
 
   const quickStepImages: Record<number, { images: string[]; alt: string } | undefined> = {
