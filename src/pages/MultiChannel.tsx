@@ -62,6 +62,24 @@ export default function MultiChannel() {
   } = useMultiChannelContents();
   
   const { templates: brandTemplates } = useBrandTemplates();
+
+  // Derive brandTemplateId for social connections
+  const activeBrandTemplateId = useMemo(() => {
+    if (brandFilter !== 'all') return brandFilter;
+    // Use the most common brand from filtered contents
+    const brandCounts: Record<string, number> = {};
+    for (const c of contents) {
+      if (c.brand_template_id) {
+        brandCounts[c.brand_template_id] = (brandCounts[c.brand_template_id] || 0) + 1;
+      }
+    }
+    const sorted = Object.entries(brandCounts).sort((a, b) => b[1] - a[1]);
+    return sorted[0]?.[0];
+  }, [brandFilter, contents]);
+
+  const { connections: socialConnections } = useSocialConnections({
+    brandTemplateId: activeBrandTemplateId,
+  });
   
   // Build brand logo lookup map
   const brandLogoMap = useMemo(() => {
