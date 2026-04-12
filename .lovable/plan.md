@@ -1,47 +1,43 @@
 
 
-# Hoàn thiện nội dung AI Agent Flow — "5 bước, bạn chỉ làm bước 1"
+# Hoàn thiện AI Agent Flow — Nâng cấp UI & Nội dung
+
+## Phân tích hiện tại
+Agent flow đã có nội dung đầy đủ 5 bước nhưng UI còn đơn giản so với Quick Create flow (có hình ảnh, content types grid). Cần nâng cấp visual để tương xứng.
 
 ## Thay đổi
 
-### 1. Cập nhật Agent Flow header & subtitle
-Thay label hiện tại "AI Agent Campaign" bằng: **"5 bước — bạn chỉ làm bước 1"** và thêm subtitle mô tả.
+### 1. Step 4 — Tách 8 tiêu chí thành grid visual
+Hiện tại 8 criteria bị gộp 2 dòng. Sẽ tách thành **grid 2x4** với icon + label cho mỗi tiêu chí, kèm **thanh progress bar** hiển thị score 85/100.
 
-### 2. Overhaul nội dung 5 bước Agent (vi/en/th)
+### 2. Step 5 — Dùng Channel Icons thực tế
+Thay text badges bằng **ChannelIcon component** (đã có sẵn) để hiển thị logo thật của Facebook, TikTok, Instagram... với màu sắc đặc trưng.
 
-Hiện tại các bước agent rất ngắn, thiếu chi tiết. Sẽ thay toàn bộ bằng nội dung marketing đầy đủ theo yêu cầu:
+### 3. Step 1 — Nâng cấp examples thành chat bubbles
+Thay khung quote đơn giản bằng **chat bubble style** (bo tròn góc, có avatar bot nhỏ) giống giao diện chat thật, nhấn mạnh "gõ tự nhiên".
 
-| Step | Title (VI) | Tag | Nội dung chính |
-|------|-----------|-----|----------------|
-| 1 | Bạn đặt mục tiêu | BẠN LÀM | 3 ví dụ câu lệnh tự nhiên + note "Không cần brief template" |
-| 2 | Agent nghiên cứu & lên chiến lược | AGENT LÀM | 4 bullet: xu hướng, đối thủ, recall bài cũ, phân bổ journey |
-| 3 | Tạo nội dung — đã tối ưu cho từng kênh | AGENT LÀM | FB storytelling, TikTok hook 3s, LinkedIn thought leadership + note "tái cấu trúc hoàn toàn" |
-| 4 | Tự đánh giá — tự sửa | AGENT LÀM | 8 tiêu chí, tổng 100 điểm, logic < 75 tự sửa |
-| 5 | Duyệt & đăng bài | TỰ ĐỘNG/BẠN DUYỆT | Smart Auto-Approve, 12 kênh hỗ trợ |
+### 4. Step 2 & 3 — Thêm icon cho mỗi bullet
+Mỗi bullet point sẽ có **Lucide icon** phù hợp thay vì chấm tròn đơn giản (TrendingUp cho xu hướng, Users cho đối thủ, Brain cho recall...).
 
-### 3. Thay đổi code WorkflowSection.tsx
+### 5. i18n — Tách 8 tiêu chí Step 4 thành mảng riêng
+Thêm key `criteria` array cho step 4 với 8 items riêng biệt (thay vì gộp trong bullets).
 
-- Thêm **tag badge** (BẠN LÀM / AGENT LÀM / TỰ ĐỘNG) cho mỗi step card agent flow
-- Thêm **examples list** cho step 1 (3 ví dụ câu lệnh)
-- Thêm **bullet list** cho step 2, 3, 4 (hiển thị các items chi tiết)
-- Thêm **channel badges** cho step 5 (12 kênh)
-- Thêm **note text** nhỏ italic cho step 1 và step 3
-- Cập nhật `agentSteps` config để enable các feature mới (`hasExamples`, `hasBullets`, `hasTag`, `hasChannels`)
-- Mở rộng `FlowStepCard` để render các element mới khi `flowPrefix === "agentFlow"`
+## Technical details
 
-### 4. i18n keys mới (agentFlow)
+**WorkflowSection.tsx**:
+- Thêm `hasCriteria` flag cho step 4 config
+- Render `CriteriaGrid` component: grid 2x4 với icon + label + optional score bar
+- Import `ChannelIcon` component cho step 5, render icon thật thay text badge
+- Update example cards với chat bubble styling (rounded-2xl, bg-primary/5, small avatar)
+- Map bullet icons cho step 2 & 3 (TrendingUp, Eye, Brain, Route, BookOpen, Timer, Award)
 
-Mỗi step sẽ có thêm:
-- `tag`: "BẠN LÀM" / "AGENT LÀM" / "TỰ ĐỘNG HOẶC BẠN DUYỆT"
-- `subtitle`: mô tả phụ ngắn
-- `examples[]`: mảng ví dụ (step 1)
-- `bullets[]`: mảng bullet points (step 2, 3, 4)
-- `note`: ghi chú nhỏ (step 1, 3, 4)
-- `channels[]`: danh sách kênh (step 5)
+**i18n (vi/en/th)**:
+- Thêm `criteria` array cho step4 (8 items riêng)
+- Giữ nguyên `bullets` step 4 cho `note` về logic scoring
 
 ## Files thay đổi
-- **Edit**: `src/landing/components/WorkflowSection.tsx` — mở rộng FlowStepCard, thêm agent-specific rendering
-- **Edit**: `src/i18n/locales/vi.json` — overhaul agentFlow content
-- **Edit**: `src/i18n/locales/en.json` — tương tự EN
-- **Edit**: `src/i18n/locales/th.json` — tương tự TH
+- `src/landing/components/WorkflowSection.tsx`
+- `src/i18n/locales/vi.json`
+- `src/i18n/locales/en.json`
+- `src/i18n/locales/th.json`
 
