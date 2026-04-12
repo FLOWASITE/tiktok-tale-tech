@@ -111,6 +111,20 @@ Deno.serve(withPerf({ functionName: 'publish-blog' }, async (req) => {
 
     console.log(`[publish-blog] ${status} post: ${finalSlug}`);
 
+    // Update multi_channel_contents status to 'published' if content_id provided and blog is published
+    if (content_id && status === 'published') {
+      const { error: updateError } = await supabase
+        .from('multi_channel_contents')
+        .update({ status: 'published' })
+        .eq('id', content_id);
+      
+      if (updateError) {
+        console.error('[publish-blog] Failed to update content status:', updateError.message);
+      } else {
+        console.log(`[publish-blog] Updated multi_channel_contents ${content_id} to published`);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
