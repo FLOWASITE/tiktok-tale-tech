@@ -900,7 +900,7 @@ export default function ContentCalendar() {
               onViewContent={(contentId) => {
                 const content = contents.find(c => c.id === contentId);
                 if (content) {
-                  setSelectedContent(content);
+                  setSelectedContentId(content.id);
                   setViewerOpen(true);
                 }
               }}
