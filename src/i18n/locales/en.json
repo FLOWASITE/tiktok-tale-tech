@@ -54,59 +54,90 @@
   },
   "workflow": {
     "badge": "How Flowa Works",
-    "title": "From Brand to Content",
-    "titleHighlight": "in 6 Steps",
-    "subtitle": "Save 80% of time, AI handles everything",
-    "steps": {
-      "step1": {
-        "title": "Set Up Brand",
-        "description": "Configure Brand Template: logo, colors, tone of voice, formality level, preferred/forbidden words, and industry compliance rules.",
-        "feature": "AI learns and maintains consistent voice across all content"
-      },
-      "step2": {
-        "title": "AI Suggests Topics",
-        "description": "AI analyzes real-time trends from TikTok, Facebook, combined with industry events calendar and Customer Personas to suggest relevant topics.",
-        "feature": "Trending topics + Customer Journey targeting"
-      },
-      "step3": {
-        "title": "Choose Content Type",
-        "description": "From a single topic, create content for multiple formats and platforms.",
-        "types": {
-          "multiChannel": {
-            "name": "Multi-channel",
-            "highlight": "5+ platforms",
-            "subtitle": "Website, Facebook, Instagram, X, LinkedIn, Zalo"
-          },
-          "videoScript": {
-            "name": "Video Script",
-            "highlight": "15 formats",
-            "subtitle": "Voice-over + acting directions"
-          },
-          "carousel": {
-            "name": "Carousel",
-            "highlight": "5-10 slides",
-            "subtitle": "AI-ready image prompts"
-          },
-          "adCopy": {
-            "name": "Ad Copy",
-            "highlight": "A/B testing",
-            "subtitle": "Facebook, Google, TikTok Ads"
+    "title": "Two ways to create content",
+    "titleHighlight": "from Brand to Publish",
+    "subtitle": "Quickly create multi-channel content or let AI Agent automate your entire campaign — all starting from your Brand.",
+    "brandSetup": {
+      "title": "Set Up Brand",
+      "description": "Configure Brand Template: logo, colors, tone of voice, formality level, preferred/forbidden words, and industry compliance rules.",
+      "feature": "AI learns and maintains consistent voice across all content"
+    },
+    "toggleQuick": "⚡ Quick Create",
+    "toggleAgent": "🤖 AI Agent",
+    "quickFlow": {
+      "label": "Multi-channel Content",
+      "steps": {
+        "step1": {
+          "title": "Choose Topic",
+          "description": "AI analyzes real-time trends from TikTok, Facebook, combined with industry events calendar and Customer Personas to suggest relevant topics.",
+          "feature": "Trending topics + Customer Journey targeting"
+        },
+        "step2": {
+          "title": "Choose Content Type",
+          "description": "From a single topic, create content for multiple formats and platforms.",
+          "types": {
+            "multiChannel": {
+              "name": "Multi-channel",
+              "highlight": "5+ platforms",
+              "subtitle": "Website, Facebook, Instagram, X, LinkedIn, Zalo"
+            },
+            "videoScript": {
+              "name": "Video Script",
+              "highlight": "15 formats",
+              "subtitle": "Voice-over + acting directions"
+            },
+            "carousel": {
+              "name": "Carousel",
+              "highlight": "5-10 slides",
+              "subtitle": "AI-ready image prompts"
+            },
+            "adCopy": {
+              "name": "Ad Copy",
+              "highlight": "A/B testing",
+              "subtitle": "Facebook, Google, TikTok Ads"
+            }
           }
+        },
+        "step3": {
+          "title": "AI Creates Content",
+          "description": "AI self-evaluates and improves output via Self-Critique, following brand voice and compliance rules."
+        },
+        "step4": {
+          "title": "AI Image Generation",
+          "description": "AI automatically generates optimized images for each channel — TikTok 9:16, Instagram 4:5, Facebook 16:9.",
+          "feature": "Auto logo overlay + 5 smart layout styles"
+        },
+        "step5": {
+          "title": "Review & Publish",
+          "description": "Review, inline editing, assign team members, auto-schedule publishing.",
+          "feature": "Content Calendar + Team Collaboration"
         }
-      },
-      "step4": {
-        "title": "AI Creates Content",
-        "description": "AI self-evaluates and improves output via Self-Critique, following brand voice and compliance rules. Learns from feedback for better accuracy."
-      },
-      "step5": {
-        "title": "AI Multi-Channel Image Generation",
-        "description": "AI automatically generates optimized images for each channel — TikTok 9:16, Instagram 4:5, Facebook 16:9. 3 modes: Let AI Handle, Keep Brand, or Full Control.",
-        "feature": "Auto logo overlay + 5 smart layout styles"
-      },
-      "step6": {
-        "title": "Approve & Schedule",
-        "description": "Review, inline editing, assign team members, auto-schedule publishing. Manage by Campaign with timeline and KPI tracking.",
-        "feature": "Content Calendar + Team Collaboration"
+      }
+    },
+    "agentFlow": {
+      "label": "AI Agent Campaign",
+      "steps": {
+        "step1": {
+          "title": "Research",
+          "description": "AI analyzes market, competitors, and industry trends to identify content opportunities."
+        },
+        "step2": {
+          "title": "Strategy",
+          "description": "Build detailed content plan, allocate channels, and schedule posts aligned with campaign goals."
+        },
+        "step3": {
+          "title": "Create Content",
+          "description": "Automatically create multi-channel content following the plan, brand voice and compliance rules."
+        },
+        "step4": {
+          "title": "Review & Score",
+          "description": "Self-critique, compliance check, quality scoring and automatic content optimization."
+        },
+        "step5": {
+          "title": "Approve & Publish",
+          "description": "Approve content, schedule and auto-publish to selected channels.",
+          "feature": "Auto-publish + Performance tracking"
+        }
       }
     },
     "cta": "Start Free"

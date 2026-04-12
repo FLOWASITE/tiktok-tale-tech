@@ -47,54 +47,90 @@
   },
   "workflow": {
     "badge": "วิธีการทำงานของ Flowa",
-    "title": "จากแบรนด์สู่คอนเทนต์",
-    "titleHighlight": "ใน 5 ขั้นตอน",
-    "subtitle": "ประหยัดเวลา 80% AI จัดการทุกอย่าง",
-    "steps": {
-      "step1": {
-        "title": "ตั้งค่าแบรนด์",
-        "description": "ตั้งค่า Brand Template: โลโก้ สี tone of voice ระดับความเป็นทางการ คำที่ใช้/ห้ามใช้ และ compliance rules ตามอุตสาหกรรม",
-        "feature": "AI เรียนรู้และรักษาเสียงแบรนด์ที่สม่ำเสมอ"
-      },
-      "step2": {
-        "title": "AI แนะนำหัวข้อ",
-        "description": "AI วิเคราะห์เทรนด์แบบเรียลไทม์จาก TikTok, Facebook รวมกับปฏิทินกิจกรรมและ Customer Persona เพื่อแนะนำหัวข้อที่เหมาะสม",
-        "feature": "Trending topics + Customer Journey targeting"
-      },
-      "step3": {
-        "title": "เลือกประเภทคอนเทนต์",
-        "description": "จากหัวข้อเดียว สร้างคอนเทนต์สำหรับหลายรูปแบบและแพลตฟอร์ม",
-        "types": {
-          "multiChannel": {
-            "name": "หลายช่องทาง",
-            "highlight": "5+ platforms",
-            "subtitle": "Website, Facebook, Instagram, X, LinkedIn, Zalo"
-          },
-          "videoScript": {
-            "name": "สคริปต์วิดีโอ",
-            "highlight": "15 รูปแบบ",
-            "subtitle": "Voice-over + คำแนะนำการแสดง"
-          },
-          "carousel": {
-            "name": "Carousel",
-            "highlight": "5-10 slides",
-            "subtitle": "Image prompts พร้อมใช้"
-          },
-          "adCopy": {
-            "name": "Ad Copy",
-            "highlight": "A/B testing",
-            "subtitle": "Facebook, Google, TikTok Ads"
+    "title": "สองวิธีสร้างคอนเทนต์",
+    "titleHighlight": "จากแบรนด์ถึง Publish",
+    "subtitle": "สร้างคอนเทนต์หลายช่องทางอย่างรวดเร็ว หรือให้ AI Agent จัดการแคมเปญทั้งหมดอัตโนมัติ — ทั้งหมดเริ่มจากแบรนด์ของคุณ",
+    "brandSetup": {
+      "title": "ตั้งค่าแบรนด์",
+      "description": "ตั้งค่า Brand Template: โลโก้ สี tone of voice ระดับความเป็นทางการ คำที่ใช้/ห้ามใช้ และ compliance rules ตามอุตสาหกรรม",
+      "feature": "AI เรียนรู้และรักษาเสียงแบรนด์ที่สม่ำเสมอ"
+    },
+    "toggleQuick": "⚡ สร้างด่วน",
+    "toggleAgent": "🤖 AI Agent",
+    "quickFlow": {
+      "label": "คอนเทนต์หลายช่องทาง",
+      "steps": {
+        "step1": {
+          "title": "เลือกหัวข้อ",
+          "description": "AI วิเคราะห์เทรนด์แบบเรียลไทม์จาก TikTok, Facebook รวมกับปฏิทินกิจกรรมและ Customer Persona",
+          "feature": "Trending topics + Customer Journey targeting"
+        },
+        "step2": {
+          "title": "เลือกประเภทคอนเทนต์",
+          "description": "จากหัวข้อเดียว สร้างคอนเทนต์สำหรับหลายรูปแบบและแพลตฟอร์ม",
+          "types": {
+            "multiChannel": {
+              "name": "หลายช่องทาง",
+              "highlight": "5+ platforms",
+              "subtitle": "Website, Facebook, Instagram, X, LinkedIn, Zalo"
+            },
+            "videoScript": {
+              "name": "สคริปต์วิดีโอ",
+              "highlight": "15 รูปแบบ",
+              "subtitle": "Voice-over + คำแนะนำการแสดง"
+            },
+            "carousel": {
+              "name": "Carousel",
+              "highlight": "5-10 slides",
+              "subtitle": "Image prompts พร้อมใช้"
+            },
+            "adCopy": {
+              "name": "Ad Copy",
+              "highlight": "A/B testing",
+              "subtitle": "Facebook, Google, TikTok Ads"
+            }
           }
+        },
+        "step3": {
+          "title": "AI สร้างคอนเทนต์",
+          "description": "AI ประเมินและปรับปรุง output ผ่าน Self-Critique ปฏิบัติตาม brand voice และ compliance rules"
+        },
+        "step4": {
+          "title": "AI สร้างภาพหลายช่องทาง",
+          "description": "AI สร้างภาพที่เหมาะสมกับแต่ละช่องทางอัตโนมัติ — TikTok 9:16, Instagram 4:5, Facebook 16:9",
+          "feature": "Auto logo overlay + 5 smart layout styles"
+        },
+        "step5": {
+          "title": "ตรวจสอบ & เผยแพร่",
+          "description": "ตรวจสอบ แก้ไข inline มอบหมายทีม ตั้งเวลาเผยแพร่อัตโนมัติ",
+          "feature": "Content Calendar + Team Collaboration"
         }
-      },
-      "step4": {
-        "title": "AI สร้างคอนเทนต์",
-        "description": "AI ประเมินและปรับปรุง output ผ่าน Self-Critique ปฏิบัติตาม brand voice และ compliance rules เรียนรู้จาก feedback เพื่อความแม่นยำ"
-      },
-      "step5": {
-        "title": "อนุมัติ & ตั้งเวลา",
-        "description": "ตรวจสอบ แก้ไข inline มอบหมายทีม ตั้งเวลาเผยแพร่อัตโนมัติ จัดการตาม Campaign พร้อม timeline และ KPI tracking",
-        "feature": "Content Calendar + Team Collaboration"
+      }
+    },
+    "agentFlow": {
+      "label": "AI Agent Campaign",
+      "steps": {
+        "step1": {
+          "title": "วิจัย",
+          "description": "AI วิเคราะห์ตลาด คู่แข่ง และเทรนด์อุตสาหกรรมเพื่อระบุโอกาสคอนเทนต์"
+        },
+        "step2": {
+          "title": "วางกลยุทธ์",
+          "description": "สร้างแผนคอนเทนต์โดยละเอียด จัดสรรช่องทาง และกำหนดการโพสต์ตามเป้าหมายแคมเปญ"
+        },
+        "step3": {
+          "title": "สร้างคอนเทนต์",
+          "description": "สร้างคอนเทนต์หลายช่องทางอัตโนมัติตามแผน ปฏิบัติตาม brand voice และ compliance rules"
+        },
+        "step4": {
+          "title": "ตรวจสอบ & ให้คะแนน",
+          "description": "Self-critique, compliance check, ให้คะแนนคุณภาพและปรับปรุงคอนเทนต์อัตโนมัติ"
+        },
+        "step5": {
+          "title": "อนุมัติ & เผยแพร่",
+          "description": "อนุมัติคอนเทนต์ ตั้งเวลาและเผยแพร่อัตโนมัติไปยังช่องทางที่เลือก",
+          "feature": "Auto-publish + Performance tracking"
+        }
       }
     },
     "cta": "เริ่มต้นฟรี"
