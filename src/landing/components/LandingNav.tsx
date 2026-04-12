@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { getAuthUrl } from "@/hooks/useDomainRouting";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function LandingNav() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -54,7 +53,7 @@ export function LandingNav() {
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           isScrolled
-            ? "bg-background/80 backdrop-blur-xl border-b border-border shadow-sm"
+            ? "bg-[#09090b]/80 backdrop-blur-xl border-b border-white/10 shadow-sm"
             : "bg-transparent"
         }`}
       >
@@ -62,7 +61,7 @@ export function LandingNav() {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <a href="/" className="flex items-center gap-0">
-              <span className="text-xl font-bold text-foreground">
+              <span className="text-xl font-bold text-white">
                 Flowa
               </span>
               <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 ml-0.5 mb-0.5 self-end" />
@@ -77,7 +76,7 @@ export function LandingNav() {
                     key={link.name}
                     onClick={() => scrollToSection(link.href, link.isRoute)}
                     className={`text-sm font-medium transition-colors ${
-                      isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                      isActive ? "text-white" : "text-gray-400 hover:text-white"
                     }`}
                   >
                     {link.name}
@@ -87,10 +86,9 @@ export function LandingNav() {
             </nav>
 
             {/* Desktop CTA */}
-            <div className="hidden lg:flex items-center gap-3">
-              <ThemeToggle />
+            <div className="hidden lg:flex items-center gap-4">
               <button
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="text-sm text-gray-400 hover:text-white transition-colors"
                 onClick={() => window.location.href = getAuthUrl('login')}
               >
                 Đăng nhập
@@ -104,19 +102,16 @@ export function LandingNav() {
             </div>
 
             {/* Mobile Menu Button */}
-            <div className="lg:hidden flex items-center gap-2">
-              <ThemeToggle />
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              >
-                {isMobileMenuOpen ? (
-                  <X className="w-6 h-6" />
-                ) : (
-                  <Menu className="w-6 h-6" />
-                )}
-              </button>
-            </div>
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              {isMobileMenuOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
+            </button>
           </div>
         </div>
       </header>
@@ -129,21 +124,21 @@ export function LandingNav() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-x-0 top-16 z-40 lg:hidden bg-background border-b border-border shadow-lg"
+            className="fixed inset-x-0 top-16 z-40 lg:hidden bg-[#09090b] border-b border-white/10 shadow-lg"
           >
             <div className="container mx-auto px-4 py-4 space-y-2">
               {navLinks.map((link) => (
                 <button
                   key={link.name}
                   onClick={() => scrollToSection(link.href, link.isRoute)}
-                  className="block w-full text-left px-4 py-3 text-base font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors"
+                  className="block w-full text-left px-4 py-3 text-base font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
                 >
                   {link.name}
                 </button>
               ))}
-              <div className="pt-4 border-t border-border space-y-3">
+              <div className="pt-4 border-t border-white/10 space-y-3">
                 <button
-                  className="w-full text-center py-2.5 text-sm text-muted-foreground hover:text-foreground border border-border rounded-full transition-colors"
+                  className="w-full text-center py-2.5 text-sm text-gray-400 hover:text-white border border-white/10 rounded-full transition-colors"
                   onClick={() => window.location.href = getAuthUrl('login')}
                 >
                   Đăng nhập

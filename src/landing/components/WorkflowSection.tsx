@@ -1,169 +1,273 @@
 import { motion } from "framer-motion";
-import { MessageSquare, Search, PenTool, ShieldCheck, Send } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import { Layers, Clapperboard, GalleryHorizontalEnd, Megaphone } from "lucide-react";
+import useEmblaCarousel from "embla-carousel-react";
+import { useCallback, useEffect, useState } from "react";
+import workflowBrandImg from "@/assets/workflow/workflow-brand.png";
+import workflowTopicImg from "@/assets/workflow-topic.png";
+import workflowTopic2Img from "@/assets/workflow-topic-2.png";
+import workflowAiContentImg from "@/assets/workflow/workflow-ai-content.png";
+import workflowPublishImg from "@/assets/workflow/workflow-publish.png";
 
-const steps = [
-  {
-    num: 1,
-    title: "Bạn đặt mục tiêu",
-    actor: "BẠN LÀM",
-    actorColor: "bg-indigo-500/20 text-indigo-400",
-    body: "Gõ tự nhiên như đang nhắn tin cho đồng nghiệp.",
-    icon: MessageSquare,
-    examples: [
-      "Lên content plan tháng 8, tập trung skincare mùa hè, 20 bài cho FB + IG + TikTok",
-      "Viết bài case study về khách hàng tiết kiệm thuế 42 triệu",
-      "Chiến dịch ra mắt sản phẩm mới — từ teaser đến conversion, 2 tuần, 5 kênh",
-    ],
-    note: "Không cần brief template. Không cần format đặc biệt. Agent tự hiểu.",
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 },
   },
-  {
-    num: 2,
-    title: "Agent nghiên cứu & lên chiến lược",
-    actor: "AGENT LÀM",
-    actorColor: "bg-emerald-500/20 text-emerald-400",
-    body: "Agent tự động thực hiện song song:",
-    icon: Search,
-    bullets: [
-      "Phân tích xu hướng ngành real-time",
-      "Scan nội dung đối thủ",
-      "Recall bài cũ đã hoạt động tốt",
-      "Chọn chủ đề & phân bổ theo customer journey",
-    ],
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: "easeOut" as const },
   },
-  {
-    num: 3,
-    title: "Tạo nội dung — đã tối ưu cho từng kênh",
-    actor: "AGENT LÀM",
-    actorColor: "bg-emerald-500/20 text-emerald-400",
-    body: "Tạo bài gốc chất lượng cao → tự động biến thể cho từng kênh. Facebook nhận bài dài storytelling. TikTok nhận hook 3 giây + script ngắn. LinkedIn nhận thought leadership.",
-    icon: PenTool,
-    note: "Không phải copy-paste rồi cắt ngắn. Mỗi kênh được tái cấu trúc hoàn toàn.",
-  },
-  {
-    num: 4,
-    title: "Tự đánh giá — tự sửa",
-    actor: "AGENT LÀM",
-    actorColor: "bg-emerald-500/20 text-emerald-400",
-    body: "Trước khi bạn thấy output, Agent đã tự chấm điểm 8 tiêu chí:",
-    icon: ShieldCheck,
-    criteria: ["Hook Strength", "Brand Voice", "Compliance", "Channel Fit", "Content Structure", "Engagement", "CTA Quality", "Readability"],
-    note: "Tổng 100 điểm. Score < 75 → Agent tự sửa rồi chấm lại. Vẫn chưa đạt → gửi cho bạn review kèm ghi chú cụ thể.",
-  },
-  {
-    num: 5,
-    title: "Duyệt & đăng bài",
-    actor: "TỰ ĐỘNG HOẶC BẠN DUYỆT",
-    actorColor: "bg-violet-500/20 text-violet-400",
-    body: "Đạt chuẩn chất lượng + không vi phạm compliance → tự động xếp vào lịch đăng. Bạn có thể bật Smart Auto-Approve hoặc duyệt thủ công.",
-    icon: Send,
-    channels: ["Facebook", "Instagram", "TikTok", "LinkedIn", "X/Twitter", "Zalo OA", "Email", "YouTube", "Telegram", "Google Maps", "Website", "Blog"],
-  },
+};
+
+const contentTypes = [
+  { key: "multiChannel", icon: Layers },
+  { key: "videoScript", icon: Clapperboard },
+  { key: "carousel", icon: GalleryHorizontalEnd },
+  { key: "adCopy", icon: Megaphone },
 ];
 
-export function WorkflowSection() {
+const step1Images = [workflowBrandImg];
+const step2Images = [workflowTopicImg, workflowTopic2Img];
+const step4Images = [workflowAiContentImg];
+const step5Images = [workflowPublishImg];
+
+// Step number component with timeline
+function StepNumber({ num, isLast }: { num: number; isLast: boolean }) {
   return (
-    <section id="workflow" className="py-16 lg:py-24 bg-background">
-      <div className="container mx-auto px-4 max-w-3xl">
+    <div className="relative flex flex-col items-center shrink-0">
+      {/* Prominent number in gradient circle */}
+      <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/25 ring-4 ring-primary/10 z-10 transition-transform hover:scale-110">
+        <span className="text-xl md:text-2xl font-bold text-white">{num}</span>
+      </div>
+      
+      {/* Timeline line connecting to next step */}
+      {!isLast && (
+        <div className="absolute top-full left-1/2 -translate-x-1/2 w-0.5 h-[calc(100%+2rem)] bg-gradient-to-b from-primary/50 via-primary/30 to-primary/10" />
+      )}
+    </div>
+  );
+}
+
+interface StepWithCarouselProps {
+  step: { num: number; key: string; hasFeature?: boolean };
+  images: string[];
+  altPrefix: string;
+  isLast: boolean;
+}
+
+function StepWithCarousel({ step, images, altPrefix, isLast }: StepWithCarouselProps) {
+  const { t } = useTranslation();
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return;
+    setSelectedIndex(emblaApi.selectedScrollSnap());
+  }, [emblaApi]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    onSelect();
+    emblaApi.on("select", onSelect);
+    
+    // Auto-play every 5 seconds
+    const autoplay = setInterval(() => {
+      emblaApi.scrollNext();
+    }, 5000);
+    
+    return () => {
+      emblaApi.off("select", onSelect);
+      clearInterval(autoplay);
+    };
+  }, [emblaApi, onSelect]);
+
+  const scrollTo = useCallback((index: number) => {
+    emblaApi?.scrollTo(index);
+  }, [emblaApi]);
+
+  return (
+    <div className="space-y-6">
+      {/* Step text content with timeline */}
+      <div className="flex gap-5 md:gap-6 items-start">
+        <StepNumber num={step.num} isLast={isLast} />
+        <div className="flex-1 pt-2">
+          <h3 className="text-xl font-semibold text-foreground mb-2">
+            {t(`workflow.steps.${step.key}.title`)}
+          </h3>
+          <p className="text-muted-foreground mb-2">
+            {t(`workflow.steps.${step.key}.description`)}
+          </p>
+          {step.hasFeature && (
+            <span className="inline-block text-sm text-primary font-medium">
+              → {t(`workflow.steps.${step.key}.feature`)}
+            </span>
+          )}
+        </div>
+      </div>
+      
+      {/* Carousel below step */}
+      <div className="ml-[4.5rem] md:ml-[5rem]">
+        <div className="overflow-hidden rounded-xl" ref={emblaRef}>
+          <div className="flex">
+            {images.map((img, idx) => (
+              <div key={idx} className="flex-[0_0_100%] min-w-0">
+                <div className="relative aspect-video overflow-hidden rounded-xl shadow-lg border border-border/20 hover:shadow-xl transition-shadow duration-300">
+                  <img
+                    src={img}
+                    alt={`${altPrefix} ${idx + 1}`}
+                    className="absolute inset-0 w-full h-full object-cover object-top"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Dots indicator */}
+        <div className="flex justify-center gap-2 mt-3">
+          {images.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => scrollTo(idx)}
+              className={`w-2 h-2 rounded-full transition-colors ${
+                idx === selectedIndex ? "bg-primary" : "bg-border"
+              }`}
+              aria-label={`Go to slide ${idx + 1}`}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+export function WorkflowSection() {
+  const { t } = useTranslation();
+
+  const steps = [
+    { num: 1, key: "step1", hasFeature: true },
+    { num: 2, key: "step2", hasFeature: true },
+    { num: 3, key: "step3", hasContentTypes: true },
+    { num: 4, key: "step4" },
+    { num: 5, key: "step5", hasFeature: true },
+    { num: 6, key: "step6", hasFeature: true },
+  ];
+
+  return (
+    <section id="workflow" className="py-24 bg-background">
+      <div className="container mx-auto px-4 max-w-4xl">
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.4 }}
-          className="text-center mb-14"
+          transition={{ duration: 0.5 }}
+          className="text-center mb-16"
         >
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 mb-4">
-            CÁCH HOẠT ĐỘNG
+          <span className="inline-block px-4 py-1.5 text-sm font-medium text-primary border border-primary/20 rounded-full mb-6">
+            {t("workflow.badge")}
           </span>
-          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
-            5 bước — bạn chỉ làm{" "}
-            <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">bước 1</span>
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+            {t("workflow.title")}{" "}
+            <span className="text-primary">{t("workflow.titleHighlight")}</span>
           </h2>
-          <p className="text-muted-foreground">Phần còn lại, Agent tự xử lý trong pipeline tự động.</p>
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            {t("workflow.subtitle")}
+          </p>
         </motion.div>
 
-        <div className="space-y-0">
-          {steps.map((step, idx) => {
-            const Icon = step.icon;
-            return (
-              <motion.div
-                key={step.num}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.3, delay: idx * 0.06 }}
-                className="relative pl-12 pb-10 last:pb-0"
-              >
-                {/* Timeline line */}
-                {idx < steps.length - 1 && (
-                  <div className="absolute left-[18px] top-10 bottom-0 w-px bg-border" />
-                )}
+        {/* Steps */}
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          className="space-y-0"
+        >
+          {steps.map((step, index) => (
+            <motion.div
+              key={step.key}
+              variants={itemVariants}
+              className={`py-8 ${
+                index !== steps.length - 1 ? "border-b border-border/30" : ""
+              }`}
+            >
+              {/* Step 1 & 2: with image carousel */}
+              {step.num === 1 ? (
+                <StepWithCarousel step={step} images={step1Images} altPrefix="Brand Setup Screenshot" isLast={index === steps.length - 1} />
+              ) : step.num === 2 ? (
+                <StepWithCarousel step={step} images={step2Images} altPrefix="Topic Suggestion Screenshot" isLast={index === steps.length - 1} />
+              ) : step.num === 4 ? (
+                <StepWithCarousel step={step} images={step4Images} altPrefix="AI Content Generation Screenshot" isLast={index === steps.length - 1} />
+              ) : step.num === 6 ? (
+                <StepWithCarousel step={step} images={step5Images} altPrefix="Publishing Screenshot" isLast={index === steps.length - 1} />
+              ) : (
+                /* Other steps: original layout with timeline */
+                <div className="flex gap-5 md:gap-6 items-start">
+                  <StepNumber num={step.num} isLast={index === steps.length - 1} />
+                  <div className="flex-1 pt-2">
+                    <h3 className="text-xl font-semibold text-foreground mb-2">
+                      {t(`workflow.steps.${step.key}.title`)}
+                    </h3>
+                    <p className="text-muted-foreground mb-2">
+                      {t(`workflow.steps.${step.key}.description`)}
+                    </p>
 
-                {/* Number circle */}
-                <div className="absolute left-0 top-0 w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-sm font-bold">
-                  {step.num}
-                </div>
+                    {/* Feature highlight for steps 2, 5 */}
+                    {step.hasFeature && (
+                      <span className="inline-block text-sm text-primary font-medium">
+                        → {t(`workflow.steps.${step.key}.feature`)}
+                      </span>
+                    )}
 
-                {/* Content */}
-                <div className="rounded-xl border border-border bg-muted/30 p-5">
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <Icon className="w-4 h-4 text-indigo-400" />
-                    <h3 className="text-lg font-semibold text-foreground">{step.title}</h3>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${step.actorColor}`}>
-                      {step.actor}
-                    </span>
+                    {/* Content Types for Step 3 */}
+                    {step.hasContentTypes && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                        {contentTypes.map((type) => (
+                          <div
+                            key={type.key}
+                            className="flex flex-col items-center gap-1 px-3 py-4 rounded-lg border border-border/50 bg-muted/30 text-center"
+                          >
+                            <type.icon className="w-5 h-5 text-primary mb-1" />
+                            <span className="text-sm font-medium text-foreground">
+                              {t(`workflow.steps.step3.types.${type.key}.name`)}
+                            </span>
+                            <span className="text-xs font-medium text-primary">
+                              {t(`workflow.steps.step3.types.${type.key}.highlight`)}
+                            </span>
+                            <span className="text-xs text-muted-foreground leading-tight">
+                              {t(`workflow.steps.step3.types.${type.key}.subtitle`)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-
-                  <p className="text-sm text-muted-foreground leading-relaxed">{step.body}</p>
-
-                  {step.examples && (
-                    <ul className="mt-3 space-y-1.5">
-                      {step.examples.map((ex, i) => (
-                        <li key={i} className="text-sm text-muted-foreground bg-muted/30 rounded-lg px-3 py-2 border border-border/50">
-                          "{ex}"
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  {step.bullets && (
-                    <ul className="mt-3 space-y-1">
-                      {step.bullets.map((b, i) => (
-                        <li key={i} className="text-sm text-muted-foreground flex items-center gap-2">
-                          <span className="w-1 h-1 rounded-full bg-indigo-400 shrink-0" />
-                          {b}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  {step.criteria && (
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      {step.criteria.map((c) => (
-                        <span key={c} className="text-[11px] px-2 py-0.5 rounded-full border border-border text-muted-foreground">
-                          {c}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {step.channels && (
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      {step.channels.map((c) => (
-                        <span key={c} className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                          {c}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {step.note && (
-                    <p className="text-xs text-muted-foreground/70 mt-3 italic">{step.note}</p>
-                  )}
                 </div>
-              </motion.div>
-            );
-          })}
-        </div>
+              )}
+            </motion.div>
+          ))}
+        </motion.div>
+
+        {/* CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="text-center mt-12"
+        >
+          <Button asChild size="lg" className="px-8">
+            <Link to="/register">{t("workflow.cta")}</Link>
+          </Button>
+        </motion.div>
       </div>
     </section>
   );

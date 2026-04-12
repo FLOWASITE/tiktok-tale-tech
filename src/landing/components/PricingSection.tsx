@@ -1,129 +1,152 @@
 import { motion } from "framer-motion";
-import { Check, ArrowRight } from "lucide-react";
+import { Check } from "lucide-react";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { getAuthUrl } from "@/hooks/useDomainRouting";
 
-const plans = [
-  {
-    name: "Starter",
-    price: "0đ",
-    priceSub: "miễn phí mãi mãi",
-    popular: false,
-    features: [
-      "30 bài / tháng",
-      "3 kênh",
-      "Brand Voice cơ bản",
-      "Quality Scoring",
-      "1 thương hiệu",
-    ],
-    cta: "Bắt đầu ngay",
-    ctaLink: getAuthUrl("register"),
-  },
-  {
-    name: "Pro",
-    price: "Liên hệ",
-    priceSub: "dùng thử 14 ngày",
-    popular: true,
-    features: [
-      "Không giới hạn bài",
-      "12 kênh",
-      "Campaign Autopilot",
-      "Industry Memory + Compliance",
-      "Auto-publish lên social media",
-      "Smart Auto-Approve",
-      "Cross-session Learning",
-      "5 thương hiệu",
-    ],
-    cta: "Dùng thử 14 ngày →",
-    ctaLink: getAuthUrl("register"),
-  },
-  {
-    name: "Enterprise",
-    price: "Tuỳ chỉnh",
-    priceSub: "cho team lớn & agency",
-    popular: false,
-    features: [
-      "Mọi thứ trong Pro",
-      "Không giới hạn thương hiệu",
-      "Team governance & phân quyền",
-      "Custom compliance rules",
-      "API access",
-      "Dedicated support & onboarding",
-      "SLA cam kết",
-    ],
-    cta: "Liên hệ tư vấn →",
-    ctaLink: "mailto:info@flowa.one",
-  },
-];
-
 export function PricingSection() {
+  const { t } = useTranslation();
+  const [isYearly, setIsYearly] = useState(false);
+
+  const plans = [
+    {
+      key: "free",
+      monthlyPrice: 0,
+      yearlyPrice: 0,
+      popular: false,
+    },
+    {
+      key: "starter",
+      monthlyPrice: 299000,
+      yearlyPrice: 2990000,
+      popular: false,
+    },
+    {
+      key: "professional",
+      monthlyPrice: 549000,
+      yearlyPrice: 5490000,
+      popular: true,
+    },
+    {
+      key: "enterprise",
+      monthlyPrice: 1499000,
+      yearlyPrice: 14990000,
+      popular: false,
+    },
+  ];
+
+  const formatPrice = (value: number) => new Intl.NumberFormat("vi-VN").format(value);
+
   return (
     <section id="pricing" className="py-16 lg:py-24 bg-background">
-      <div className="container mx-auto px-4 max-w-5xl">
+      <div className="container mx-auto px-4 max-w-6xl">
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.4 }}
-          className="text-center mb-12"
+          className="text-center mb-10"
         >
           <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
-            Đơn giản,{" "}
-            <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">không ẩn phí</span>
+            {t("pricing.title")}{" "}
+            <span className="text-primary">{t("pricing.titleHighlight")}</span>
           </h2>
-          <p className="text-muted-foreground">Bắt đầu miễn phí. Upgrade khi bạn sẵn sàng scale.</p>
+          <p className="text-muted-foreground mb-6">{t("pricing.subtitle")}</p>
+
+          {/* Billing Toggle */}
+          <div className="flex items-center justify-center gap-3">
+            <span className={`text-sm ${!isYearly ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+              {t("pricing.monthly")}
+            </span>
+            <Switch checked={isYearly} onCheckedChange={setIsYearly} />
+            <span className={`text-sm ${isYearly ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+              {t("pricing.yearly")}
+              <span className="ml-1.5 text-xs text-primary font-semibold">{t("pricing.discount")}</span>
+            </span>
+          </div>
         </motion.div>
 
-        <div className="grid md:grid-cols-3 gap-4">
-          {plans.map((plan, i) => (
+        {/* Pricing Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {plans.map((plan, index) => (
             <motion.div
-              key={plan.name}
+              key={plan.key}
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.3, delay: i * 0.08 }}
+              transition={{ duration: 0.3, delay: index * 0.05 }}
               className={`relative rounded-xl p-6 ${
                 plan.popular
-                  ? "border-2 border-indigo-500/60 bg-indigo-500/[0.05] scale-[1.02] shadow-lg shadow-indigo-500/10"
-                  : "border border-border bg-muted/30"
+                  ? "bg-card border-2 border-primary"
+                  : "bg-card border border-border/50"
               }`}
             >
+              {/* Popular Badge */}
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-indigo-500 to-violet-500 text-white">
-                    Phổ biến nhất
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary text-primary-foreground">
+                    {t("pricing.popularBadge")}
                   </span>
                 </div>
               )}
 
+              {/* Plan Name */}
               <div className="mb-4">
-                <h3 className="text-lg font-bold text-foreground">{plan.name}</h3>
-                <p className="text-sm text-muted-foreground">{plan.priceSub}</p>
+                <h3 className="text-lg font-bold text-foreground">{t(`pricing.plans.${plan.key}.name`)}</h3>
+                <p className="text-sm text-muted-foreground">{t(`pricing.plans.${plan.key}.description`)}</p>
               </div>
 
-              <div className="text-3xl font-extrabold text-foreground mb-5">{plan.price}</div>
+              {/* Price */}
+              <div className="mb-5">
+                {plan.monthlyPrice > 0 ? (
+                  <>
+                    <span className="text-3xl font-extrabold text-foreground">
+                      {formatPrice(isYearly ? Math.round(plan.yearlyPrice / 12) : plan.monthlyPrice)}
+                    </span>
+                    <span className="text-sm text-muted-foreground ml-1">₫/{t("pricing.perMonth")}</span>
+                  </>
+                ) : (
+                  <span className="text-3xl font-extrabold text-foreground">0₫</span>
+                )}
+              </div>
 
+              {/* Features */}
               <ul className="space-y-2 mb-6">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm">
-                    <Check className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />
-                    <span className="text-muted-foreground">{f}</span>
+                {(t(`pricing.plans.${plan.key}.features`, { returnObjects: true }) as string[]).map((feature) => (
+                  <li key={feature} className="flex items-start gap-2 text-sm">
+                    <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                    <span className="text-foreground">{feature}</span>
                   </li>
                 ))}
               </ul>
 
-              <a
-                href={plan.ctaLink}
-                className={`block w-full text-center py-2.5 rounded-full text-sm font-semibold transition-all ${
-                  plan.popular
-                    ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:shadow-lg hover:shadow-indigo-500/25"
-                    : "border border-border text-muted-foreground hover:bg-muted/50"
-                }`}
+              {/* CTA */}
+              <Button
+                className="w-full"
+                variant={plan.popular ? "default" : "outline"}
+                asChild
               >
-                {plan.cta}
-              </a>
+                <a href={getAuthUrl('register')}>
+                  {t(`pricing.plans.${plan.key}.cta`)}
+                </a>
+              </Button>
             </motion.div>
           ))}
         </div>
+
+        {/* FAQ Link */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          className="text-center text-sm text-muted-foreground mt-8"
+        >
+          {t("pricing.faqLink")}{" "}
+          <a href="#faq" className="text-primary hover:underline">{t("pricing.seeFaq")}</a>
+        </motion.p>
       </div>
     </section>
   );
