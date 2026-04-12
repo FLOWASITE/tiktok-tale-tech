@@ -237,6 +237,15 @@ export function DirectPublishButton({
   };
 
   const handleClick = () => {
+    // Website/Blog: no social connection needed
+    if (platform === 'website') {
+      setEditableContent(content);
+      setPublishedResult(null);
+      setDialogState('blog');
+      setConfirmDialog({ open: true, platform });
+      return;
+    }
+
     if (!connection) {
       navigate('/settings?tab=social');
       return;
