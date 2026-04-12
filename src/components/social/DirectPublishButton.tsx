@@ -333,8 +333,9 @@ export function DirectPublishButton({
     }
   };
 
-  const isAlreadyPublished = channelStatus === 'published';
+  if (!platform) return null;
 
+  const isAlreadyPublished = channelStatus === 'published';
   const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'zalo_oa', 'website'].includes(platform);
 
   if (!isSupported) {
