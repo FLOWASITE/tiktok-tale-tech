@@ -294,8 +294,12 @@ export default function ContentCalendar() {
   const [statusFilter, setStatusFilter] = useState<PublishStatus | 'all'>('all');
   const [channelFilter, setChannelFilter] = useState<Channel | 'all'>('all');
   const [draggedSchedule, setDraggedSchedule] = useState<ScheduleWithContent | null>(null);
-  const [selectedContent, setSelectedContent] = useState<MultiChannelContent | null>(null);
+  const [selectedContentId, setSelectedContentId] = useState<string | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
+  const selectedContent = useMemo(() => 
+    selectedContentId ? contents.find(c => c.id === selectedContentId) || null : null,
+    [selectedContentId, contents]
+  );
   const [formOpen, setFormOpen] = useState(false);
   const [showMiniCalendar, setShowMiniCalendar] = useState(true);
   const [showCampaignTimeline, setShowCampaignTimeline] = useState(true);
@@ -331,6 +335,7 @@ export default function ContentCalendar() {
     updateTitleTopic,
     updateChannelStatus,
     expandChannels,
+    refetch: refetchContents,
   } = useMultiChannelContents();
   
   // Campaign milestones integration

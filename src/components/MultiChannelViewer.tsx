@@ -98,6 +98,8 @@ interface MultiChannelViewerProps {
   onExpandChannels?: (contentId: string, newChannels: Channel[]) => Promise<MultiChannelContent | null>;
   /** Notify parent to update the viewer content object (e.g., after expanding channels). */
   onContentUpdated?: (content: MultiChannelContent) => void;
+  /** Called after a successful direct publish to refresh data */
+  onPublishSuccess?: () => void;
   regeneratingChannel?: string | null;
   aiEditingChannel?: string | null;
   expandingChannels?: boolean;
@@ -258,6 +260,7 @@ export function MultiChannelViewer({
   onUpdateChannelStatus,
   onExpandChannels,
   onContentUpdated,
+  onPublishSuccess,
   regeneratingChannel,
   aiEditingChannel,
   expandingChannels,
@@ -1417,8 +1420,7 @@ export function MultiChannelViewer({
                           variant="default"
                           size="sm"
                           onPublishSuccess={() => {
-                            queryClient.invalidateQueries({ queryKey: ['multi-channel-contents'] });
-                            queryClient.invalidateQueries({ queryKey: ['multi-channel-content', content.id] });
+                            onPublishSuccess?.();
                           }}
                         />
                       </div>
