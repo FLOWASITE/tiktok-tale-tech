@@ -3281,7 +3281,9 @@ Viết TRỰC TIẾP nội dung, KHÔNG giải thích hay bình luận.`;
               if (taskId) {
                 await failTask(supabase, taskId, 'Không thể lưu nội dung: ' + dbError.message);
               }
-              emit({ type: 'error', message: 'Không thể lưu nội dung: ' + dbError.message });
+              if (!clientDisconnected) {
+                emit({ type: 'error', message: 'Không thể lưu nội dung: ' + dbError.message });
+              }
               controller.close();
               return;
             }
