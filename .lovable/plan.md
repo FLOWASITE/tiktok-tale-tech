@@ -1,39 +1,36 @@
 
 
-# Chuyển Fallback từ Lovable AI sang PoYo
+# Fix: Nội dung expand bị mất khi client ngắt kết nối
 
-## Vấn đề
+## Nguyên nhân gốc
 
-Hiện tại khi KIE hoặc GeminiGen thất bại, hệ thống fallback sang Lovable AI Gateway (`google/gemini-3-pro-image-preview`). Bạn muốn fallback sang **PoYo** thay vì Lovable.
+Trong `supabase/functions/generate-multichannel/index.ts` dòng 2961-2964, khi `clientDisconnected = true`, code thực hiện `controller.close(); return;` — **bỏ qua toàn bộ bước lưu vào database**. 
 
-## Phạm vi thay đổi
+Khi bạn expand thêm kênh Twitter, AI mất ~71 giây để tạo nội dung. Client (trình duyệt) ngắt kết nối trước khi server hoàn thành (~1.2 giây trước), dẫn đến nội dung tạo xong nhưng không được lưu vào database.
 
-**2 file** cần sửa:
+## Giải pháp
 
-### 1. `supabase/functions/generate-carousel-image/index.ts`
+### Sửa `supabase/functions/generate-multichannel/index.ts`
 
-3 điểm fallback cần đổi:
-
-- **Dòng 576-581** (PoYo fail → Lovable): Đổi thành fallback sang model PoYo khác (ví dụ `poyo/nano-banana-pro` nếu model gốc là `poyo/nano-banana-2-new`, hoặc ngược lại). Nếu chính PoYo đã fail → giữ nguyên return error (không fallback vòng lặp).
-- **Dòng 614-619** (KIE fail → Lovable): Đổi thành gọi `generateImageViaPoyo()` với `poyo/nano-banana-pro` làm fallback.
-- **Dòng 651-656** (GeminiGen fail → Lovable): Đổi thành gọi `generateImageViaPoyo()` với `poyo/nano-banana-pro` làm fallback.
-
-Khi fallback sang PoYo, set `externalImageUrl` trực tiếp thay vì để rơi xuống block Lovable AI Gateway (dòng 660+).
-
-### 2. `supabase/functions/generate-brand-image/index.ts`
-
-2 điểm fallback (dòng ~638 và ~709): Đổi từ `generateImageWithRetry` (Lovable) sang `generateImageViaPoyo()`.
-
-## Logic fallback mới
+Thay đổi logic tại dòng 2961-2964: khi `clientDisconnected = true`, **vẫn tiếp tục lưu database** thay vì return ngay. Chỉ skip các bước gửi SSE events và critique/dedup (không cần thiết khi client đã ngắt).
 
 ```text
-KIE fail      → PoYo (nano-banana-pro) → Nếu PoYo cũng fail → return error
-GeminiGen fail → PoYo (nano-banana-pro) → Nếu PoYo cũng fail → return error  
-PoYo fail     → return error (không fallback vòng lặp)
+Hiện tại (dòng 2961-2964):
+  if (clientDisconnected) {
+    controller.close();
+    return;                    ← BỎ QUA SAVE DB
+  }
+
+Sau fix:
+  if (clientDisconnected) {
+    console.log('[streaming-mode] Client disconnected, continuing to save...');
+    // Skip SSE events nhưng VẪN lưu DB bên dưới
+  }
 ```
 
-## Lưu ý
+Cụ thể sẽ wrap các bước SSE emit (gửi progress, critique, dedup events) trong `if (!clientDisconnected)` block, nhưng giữ nguyên bước save DB (dòng 3168+) chạy bình thường. Cuối cùng, sau khi save xong, nếu `clientDisconnected` thì `controller.close(); return;`.
 
-- Block Lovable AI Gateway (dòng 660+) vẫn giữ lại cho trường hợp model mặc định không phải external provider.
-- Cần kiểm tra `POYO_API_KEY` tồn tại trước khi fallback, nếu không có thì return error luôn.
+### File thay đổi
+- **Edit**: `supabase/functions/generate-multichannel/index.ts` — Cho phép save DB ngay cả khi client disconnect
+- **Deploy**: Redeploy function
 
