@@ -333,7 +333,7 @@ export function DirectPublishButton({
     }
   };
 
-  if (!platform) return null;
+  const isAlreadyPublished = channelStatus === 'published';
 
   const isSupported = ['twitter', 'facebook', 'instagram', 'linkedin', 'zalo_oa', 'website'].includes(platform);
 
@@ -349,13 +349,20 @@ export function DirectPublishButton({
   return (
     <>
       <div className="flex items-center gap-1">
+        {isAlreadyPublished && (
+          <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 gap-1 text-xs">
+            <CheckCircle2 className="h-3 w-3" />
+            Đã đăng
+          </Badge>
+        )}
         <Button
-          variant={variant}
+          variant={isAlreadyPublished ? 'ghost' : variant}
           size={size}
           disabled={disabled || isPublishing || !content || isZaloMissingCover}
           onClick={handleClick}
           title={isZaloMissingCover ? 'Cần thêm ảnh bìa để đăng lên Zalo OA' : undefined}
           className={cn(
+            isAlreadyPublished ? 'text-muted-foreground text-xs' : '',
             variant === 'outline' && connection ? 'text-primary border-primary/30 hover:bg-primary/10' : '',
             className
           )}
@@ -370,7 +377,11 @@ export function DirectPublishButton({
           ) : (
             <Icon className="h-4 w-4 mr-1" />
           )}
-          {!isPublishing && (platform === 'website' ? 'Đăng Blog' : connection ? 'Đăng ngay' : 'Kết nối để đăng')}
+          {!isPublishing && (
+            isAlreadyPublished ? 'Đăng lại' :
+            platform === 'website' ? 'Đăng Blog' : 
+            connection ? 'Đăng ngay' : 'Kết nối để đăng'
+          )}
         </Button>
 
         {connection && contentId && (
