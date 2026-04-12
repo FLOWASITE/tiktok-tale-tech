@@ -58,9 +58,9 @@
     "titleHighlight": "from Brand to Publish",
     "subtitle": "Quickly create multi-channel content or let AI Agent automate your entire campaign — all starting from your Brand.",
     "brandSetup": {
-      "title": "Set Up Brand",
-      "description": "Configure Brand Template: logo, colors, tone of voice, formality level, preferred/forbidden words, and industry compliance rules.",
-      "feature": "AI learns and maintains consistent voice across all content"
+      "title": "Teach AI your brand identity",
+      "description": "Just 5 minutes — AI captures your voice, personality, and brand standards. From here, every piece of content carries your unique essence.",
+      "feature": "AI memorizes and protects your brand across every channel"
     },
     "toggleQuick": "Quick Create",
     "toggleQuickSub": "Multi-channel Content",
