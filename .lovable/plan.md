@@ -1,82 +1,69 @@
 
 
-# Cấu hình lại độ dài mặc định cho X (Twitter) theo chuẩn nền tảng
+# Fix đăng bài X (Twitter): Hỗ trợ ảnh + Thread + Sửa lỗi 403
 
-## Vấn đề hiện tại
+## Vấn đề hiện tại (3 lỗi)
 
-Cấu hình Twitter đang mâu thuẫn: `max_length: 280 chars` nhưng `format_description` lại ghi "Thread 5-7 tweets, mỗi tweet ≤280 ký tự". Hệ thống đang giới hạn toàn bộ output chỉ 280 ký tự — quá ngắn cho thread format.
+1. **Hard limit 280 ký tự** (dòng 289): Reject mọi content > 280 chars → thread content (150-350 từ) luôn bị chặn
+2. **Không upload media**: `mediaUrls` được nhận nhưng bị bỏ qua hoàn toàn — chỉ gửi `{ text }` 
+3. **Không hỗ trợ thread**: Content dạng thread (1/, 2/...) được gửi nguyên khối thay vì tách thành từng tweet
 
-## Chuẩn X hiện tại (2025)
+## Kiến trúc X API hiện tại (2025-2026)
 
-- **Free**: 280 ký tự/post
-- **X Premium**: 4,000 ký tự/post (Basic), 25,000 ký tự/post (Premium+)
-- **Thread**: nhiều post, mỗi post ≤280 ký tự
+- **Media upload**: v1.1 `https://upload.twitter.com/1.1/media/upload.json` (simple upload, OAuth 1.0a) — vẫn hoạt động, dùng `media_data` (base64) hoặc `media` (binary). v2 endpoint cũng có nhưng v1.1 simple upload ổn định hơn cho ảnh < 5MB
+- **Post tweet**: v2 `https://api.x.com/2/tweets` với `{ text, media: { media_ids: [...] } }`
+- **Thread**: Post tweet đầu → lấy tweet ID → post reply với `reply: { in_reply_to_tweet_id }`
+- **Giới hạn**: Max 4 ảnh/tweet, mỗi ảnh ≤ 5MB
 
-Hệ thống nên tạo **thread 5-7 tweets** → tổng khoảng **1,400-1,960 ký tự**, tương đương **~200-350 từ**.
+## Giải pháp
 
-## Thay đổi cấu hình mới
+### Sửa `supabase/functions/publish-twitter/index.ts`
 
-Chuyển từ `chars` sang `words` và set giới hạn hợp lý cho thread format:
+**A. Thêm hàm `uploadMediaToTwitter`:**
+- Fetch ảnh từ URL → lấy binary
+- Upload qua v1.1 simple upload endpoint (`upload.twitter.com/1.1/media/upload.json`) dùng multipart/form-data với `media_data` (base64)
+- OAuth 1.0a header (dùng `buildOAuth1Header` có sẵn) — **QUAN TRỌNG**: Không include body params vào OAuth signature (multipart form không tham gia signature)
+- Return `media_id_string`
 
-| Field | Hiện tại | Mới |
-|-------|----------|-----|
-| `min_length` | 0 | 150 |
-| `max_length` | 280 | 350 |
-| `length_unit` | chars | words |
-| `word_budget` | 250 | 250 |
-| `format_description` | Thread 280 ký tự | Thread 5-7 tweets, mỗi tweet ≤280 ký tự |
+**B. Thêm hàm `splitThreadContent`:**
+- Tách content theo pattern `1/`, `2/`, `3/`... thành mảng tweets
+- Nếu không có pattern thread → coi là single tweet
 
-## Files cần sửa (4 files + 2 frontend)
-
-### Backend (Edge Functions)
-
-1. **`supabase/functions/generate-multichannel/index.ts`** (dòng 796-803)
-2. **`supabase/functions/generate-sample-text/index.ts`** (dòng 70-79)
-3. **`supabase/functions/ai-edit-channel/index.ts`** (dòng 70-78)
-4. **`supabase/functions/_shared/length-validator.ts`** (dòng 47)
-5. **`supabase/functions/_shared/channel-prompt-builder.ts`** (dòng 79-85)
-6. **`supabase/functions/_shared/dynamic-tokens.ts`** (dòng 75-78) — tăng token range
-
-### Frontend
-
-7. **`src/types/channel-transform.ts`** — cập nhật extractionRange và wordCountMultiplier cho twitter
-
-### Giá trị cụ thể cho từng file
-
-**DEFAULT_CHANNEL_SETTINGS (3 files)**:
+**C. Sửa `postTweetV2` để hỗ trợ `media_ids` và `reply`:**
+```typescript
+async function postTweetV2(
+  tweetText: string,
+  consumerKey, consumerSecret, accessToken, accessTokenSecret,
+  mediaIds?: string[],
+  replyToTweetId?: string
+): Promise<{ id: string; text: string }>
 ```
-twitter: {
-  min_length: 150, max_length: 350, length_unit: 'words',
-  hook_required: true, hook_style: 'Quan điểm sắc nét',
-  bullet_allowed: false, cta_policy: 'none',
-  emoji_allowed: false, emoji_limit: 0,
-  hashtag_limit: 2, hashtag_position: 'end',
-  line_break_style: 'minimal', link_position: 'allowed',
-  format_description: 'Thread 5-7 tweets đánh số (1/, 2/...), mỗi tweet ≤280 ký tự, KHÔNG emoji, hashtag cuối thread'
-}
+Body: `{ text, media?: { media_ids }, reply?: { in_reply_to_tweet_id } }`
+
+**D. Xóa hard limit 280 chars (dòng 289-291):**
+- Xóa hoàn toàn block `if (content.length > 280) throw...`
+- Validation đã được xử lý ở tầng content generation
+
+**E. Sửa flow chính (dòng 288-356):**
+```text
+1. Nhận content + mediaUrls
+2. Nếu có mediaUrls → upload từng ảnh (max 4) → lấy media_ids
+3. Tách content thành tweets (splitThreadContent)
+4. Nếu single tweet → postTweetV2(text, mediaIds)
+5. Nếu thread → post tweet đầu (kèm ảnh nếu có) → loop post replies
+6. Return tweet ID + URL của tweet đầu
 ```
 
-**length-validator.ts**:
-```
-twitter: { min_length: 150, max_length: 350, length_unit: 'words', word_budget: 250, tolerance_percent: 10 }
-```
+**F. Base64 encoding an toàn cho ảnh lớn:**
+- Dùng chunk-based base64 encoding thay vì `btoa(String.fromCharCode(...))` để tránh stack overflow với ảnh lớn
 
-**channel-prompt-builder.ts**:
-```
-twitter: { maxChars: 280, hashtagRange: [1, 2], emojiLevel: 'none', format: 'Thread 5-7 tweets, mỗi tweet ≤280 ký tự', platform: 'X' }
-```
+### File thay đổi
+- **Edit**: `supabase/functions/publish-twitter/index.ts`
+- **Deploy**: `publish-twitter`
 
-**dynamic-tokens.ts** — tăng token budget cho thread:
-```
-twitter: { minTokens: 400, maxTokens: 1200, bufferMultiplier: 1.3 }
-```
-
-**channel-transform.ts** (frontend):
-```
-twitter: { extractionLabel: 'Cô đọng', extractionRange: '15-25%', focusLabel: 'Hook + Thread', colorClass: 'bg-amber-500/10 text-amber-600' }
-```
-và multiplier: `twitter: [0.10, 0.25]`
-
-### Deploy
-- Redeploy: `generate-multichannel`, `generate-sample-text`, `ai-edit-channel`
+### Lưu ý kỹ thuật
+- OAuth 1.0a cho media upload: signature chỉ gồm OAuth params, KHÔNG include multipart body params
+- v1.1 simple upload giới hạn 5MB/ảnh — phù hợp cho hầu hết use case social media
+- Thread: ảnh chỉ attach vào tweet đầu tiên (best practice của X)
+- Lỗi 403 hiện tại có thể do content > 280 chars bị chặn trước → sau khi fix thread logic, cần test lại
 
