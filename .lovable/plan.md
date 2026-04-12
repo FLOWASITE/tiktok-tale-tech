@@ -1,69 +1,40 @@
 
 
-# Fix đăng bài X (Twitter): Hỗ trợ ảnh + Thread + Sửa lỗi 403
+# Fix: Status không cập nhật sau khi đăng bài lên social
 
-## Vấn đề hiện tại (3 lỗi)
+## Nguyên nhân gốc
 
-1. **Hard limit 280 ký tự** (dòng 289): Reject mọi content > 280 chars → thread content (150-350 từ) luôn bị chặn
-2. **Không upload media**: `mediaUrls` được nhận nhưng bị bỏ qua hoàn toàn — chỉ gửi `{ text }` 
-3. **Không hỗ trợ thread**: Content dạng thread (1/, 2/...) được gửi nguyên khối thay vì tách thành từng tweet
+Có **2 vấn đề**:
 
-## Kiến trúc X API hiện tại (2025-2026)
+1. **Backend**: Các function `publish-twitter`, `publish-facebook`, `publish-zalo` **không cập nhật** `multi_channel_contents.status` và `channel_statuses` sau khi đăng thành công. Chỉ có `publish-blog` thực hiện logic này (dòng 114-143). Vì vậy master status vẫn giữ nguyên "approved" (Đã duyệt).
 
-- **Media upload**: v1.1 `https://upload.twitter.com/1.1/media/upload.json` (simple upload, OAuth 1.0a) — vẫn hoạt động, dùng `media_data` (base64) hoặc `media` (binary). v2 endpoint cũng có nhưng v1.1 simple upload ổn định hơn cho ảnh < 5MB
-- **Post tweet**: v2 `https://api.x.com/2/tweets` với `{ text, media: { media_ids: [...] } }`
-- **Thread**: Post tweet đầu → lấy tweet ID → post reply với `reply: { in_reply_to_tweet_id }`
-- **Giới hạn**: Max 4 ảnh/tweet, mỗi ảnh ≤ 5MB
+2. **Frontend**: `DirectPublishButton` trong `MultiChannelViewer` **không truyền `onPublishSuccess`** callback → sau khi đăng thành công, UI không refetch data để hiển thị status mới. Và button "Đăng ngay" luôn hiển thị bất kể kênh đã đăng hay chưa.
 
 ## Giải pháp
 
-### Sửa `supabase/functions/publish-twitter/index.ts`
+### A. Backend: Thêm logic cập nhật master status vào `channel-publisher/index.ts`
 
-**A. Thêm hàm `uploadMediaToTwitter`:**
-- Fetch ảnh từ URL → lấy binary
-- Upload qua v1.1 simple upload endpoint (`upload.twitter.com/1.1/media/upload.json`) dùng multipart/form-data với `media_data` (base64)
-- OAuth 1.0a header (dùng `buildOAuth1Header` có sẵn) — **QUAN TRỌNG**: Không include body params vào OAuth signature (multipart form không tham gia signature)
-- Return `media_id_string`
+Thay vì sửa từng function riêng lẻ (twitter, facebook, zalo...), thêm logic cập nhật status **tập trung** tại `channel-publisher` sau khi nhận response thành công từ platform function. Logic giống hệt `publish-blog` (dòng 114-143):
 
-**B. Thêm hàm `splitThreadContent`:**
-- Tách content theo pattern `1/`, `2/`, `3/`... thành mảng tweets
-- Nếu không có pattern thread → coi là single tweet
+1. Nếu response thành công + có `contentId` → query `multi_channel_contents` lấy `selected_channels` và `channel_statuses`
+2. Đánh dấu channel hiện tại = `'published'` trong `channel_statuses`
+3. Kiểm tra tất cả selected channels đã published chưa → set `'published'` hoặc `'partially_published'`
+4. Update `multi_channel_contents`
 
-**C. Sửa `postTweetV2` để hỗ trợ `media_ids` và `reply`:**
-```typescript
-async function postTweetV2(
-  tweetText: string,
-  consumerKey, consumerSecret, accessToken, accessTokenSecret,
-  mediaIds?: string[],
-  replyToTweetId?: string
-): Promise<{ id: string; text: string }>
-```
-Body: `{ text, media?: { media_ids }, reply?: { in_reply_to_tweet_id } }`
+### B. Frontend: Truyền `onPublishSuccess` + ẩn button khi đã đăng
 
-**D. Xóa hard limit 280 chars (dòng 289-291):**
-- Xóa hoàn toàn block `if (content.length > 280) throw...`
-- Validation đã được xử lý ở tầng content generation
+1. **`MultiChannelViewer.tsx`**: Truyền `onPublishSuccess` callback vào `DirectPublishButton` để refetch content data sau khi đăng
+2. **`DirectPublishButton.tsx`**: Kiểm tra `channel_statuses[channel] === 'published'` → hiển thị badge "Đã đăng" thay vì button "Đăng ngay". Hoặc đổi button thành "Đăng lại" nếu đã đăng.
 
-**E. Sửa flow chính (dòng 288-356):**
-```text
-1. Nhận content + mediaUrls
-2. Nếu có mediaUrls → upload từng ảnh (max 4) → lấy media_ids
-3. Tách content thành tweets (splitThreadContent)
-4. Nếu single tweet → postTweetV2(text, mediaIds)
-5. Nếu thread → post tweet đầu (kèm ảnh nếu có) → loop post replies
-6. Return tweet ID + URL của tweet đầu
-```
+### Files cần sửa
 
-**F. Base64 encoding an toàn cho ảnh lớn:**
-- Dùng chunk-based base64 encoding thay vì `btoa(String.fromCharCode(...))` để tránh stack overflow với ảnh lớn
+| File | Thay đổi |
+|------|----------|
+| `supabase/functions/channel-publisher/index.ts` | Thêm logic update master status sau khi publish thành công |
+| `supabase/functions/publish-blog/index.ts` | Xóa logic update status (đã chuyển lên channel-publisher) |
+| `src/components/MultiChannelViewer.tsx` | Truyền `onPublishSuccess` vào DirectPublishButton |
+| `src/components/social/DirectPublishButton.tsx` | Nhận thêm prop `channelStatus`, hiển thị "Đã đăng" / "Đăng lại" thay vì luôn "Đăng ngay" |
 
-### File thay đổi
-- **Edit**: `supabase/functions/publish-twitter/index.ts`
-- **Deploy**: `publish-twitter`
-
-### Lưu ý kỹ thuật
-- OAuth 1.0a cho media upload: signature chỉ gồm OAuth params, KHÔNG include multipart body params
-- v1.1 simple upload giới hạn 5MB/ảnh — phù hợp cho hầu hết use case social media
-- Thread: ảnh chỉ attach vào tweet đầu tiên (best practice của X)
-- Lỗi 403 hiện tại có thể do content > 280 chars bị chặn trước → sau khi fix thread logic, cần test lại
+### Deploy
+- Redeploy: `channel-publisher`, `publish-blog`
 
