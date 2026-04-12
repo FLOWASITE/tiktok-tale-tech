@@ -23,6 +23,14 @@ export interface PublishOptions {
     description: string;
     coverUrl?: string;
   };
+  blogData?: {
+    title: string;
+    excerpt?: string;
+    slug?: string;
+    category?: string;
+    tags?: string[];
+    isPublic?: boolean;
+  };
 }
 
 export function useDirectPublish() {
